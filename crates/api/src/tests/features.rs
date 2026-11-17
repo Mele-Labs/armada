@@ -71,6 +71,15 @@ async fn sections_are_written_and_features_upserted_over_post_and_a_bad_section_
 }
 
 #[tokio::test]
+async fn a_project_is_seeded_by_its_id_and_a_body_without_one_is_undecodable() {
+    let (status, said) = call(&app(), "POST", "/features/seed", r#"{"project":"p1"}"#).await;
+    assert_eq!(status, StatusCode::OK, "{said}");
+    assert_eq!(said, r#"{"created":[],"areas":0}"#);
+    let (status, _) = call(&app(), "POST", "/features/seed", r#"{}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+}
+
+#[tokio::test]
 async fn the_weekly_figure_is_read_with_or_without_the_number_of_weeks() {
     let (status, said) = call(&app(), "GET", "/usage/first_edit_searches", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");

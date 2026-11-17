@@ -3,7 +3,7 @@
 
 use ipc::{
     FeatureAreaRow, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
-    FeaturesOfPath, FeaturesUpserted, FirstEditSearches, UpsertFeatures, WriteFeatureSections,
+    FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
 use super::FakeDaemon;
@@ -63,6 +63,10 @@ impl Features for FakeDaemon {
 
     async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
+        Ok(FeaturesSeeded { created: Vec::new(), areas: 0, dropped: Vec::new() })
     }
 
     async fn get_first_edit_searches(&self, _weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

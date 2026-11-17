@@ -34,6 +34,8 @@ pub(crate) struct Sources {
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
     /// The open notes sent to no Job yet, by repository and id, read again each tick.
     watching: Mutex<BTreeMap<(String, String), Watched>>,
+    /// The projects no seed describes, so a tick does not look at their repositories again.
+    pub(super) unseedable: Mutex<BTreeSet<String>>,
 }
 
 /// An open note the person may still send to a Job.
@@ -128,6 +130,7 @@ where
         for arrival in self.notes_arrived().await {
             self.hand_once(arrival).await;
         }
+        self.catalog_handed().await;
     }
 
     /// What Jobs asked the Operator that nothing has raised yet. **While the session is not running they stand on

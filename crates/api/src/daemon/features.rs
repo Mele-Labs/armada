@@ -59,6 +59,12 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.feature_blank`), with nothing kept.
     fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
+    /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
+    /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
+    /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that
+    /// holds features (`fleet.feature_seeded`).
+    fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
+
     /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
     fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;
 }

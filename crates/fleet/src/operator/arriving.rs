@@ -37,6 +37,8 @@ pub enum Arrived {
     Conflict,
     /// A Job asked whether a pull request or a branch should land.
     Held,
+    /// A project holds Armada's own repository and no feature library.
+    Seed,
 }
 
 impl Arrived {
@@ -59,6 +61,7 @@ impl Arrived {
             Arrived::Error => "error",
             Arrived::Conflict => "conflict",
             Arrived::Held => "held",
+            Arrived::Seed => "seed",
         }
     }
 
@@ -82,6 +85,7 @@ impl Arrived {
             Arrived::Error => "Bridge showed the person an error",
             Arrived::Conflict => "A Job raised a conflict with another Job",
             Arrived::Held => "A Job asked whether work should land",
+            Arrived::Seed => "A project holds Armada's repository and no feature library",
         }
     }
 }

@@ -73,6 +73,17 @@ A Job that started before a feature entered the catalog is never held for it, be
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
 
+## Seeding
+
+Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
+Fleet tells the Operator once when a project holds Armada's repository and no feature, and the Operator calls `seed_features`.
+
+> **Rule.** A seed is kept once per project, and only where a repository of the project holds the seed's marker paths.
+> Why: a second seed would rewrite what Jobs and the Operator have since confirmed, merged and renamed.
+
+Fleet leaves out a prefix or entry point none of the project's repositories holds, and the call names each.
+A feature's `added_at` is the moment it was kept and is never rewritten, so the earliest across a project is when its library was seeded.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -90,6 +101,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_features_of_path` | The features a file belongs to |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
+| `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
 | `get_first_edit_searches` | The weekly figure above |
 
 ## Where it lives
@@ -106,4 +118,3 @@ What the library would hold in the clear there is in [Central store](../contract
 - A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Your own asks sorted onto features.
-- Seeding the 18 areas and their features.

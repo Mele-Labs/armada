@@ -1,0 +1,722 @@
+# Armada's own feature catalog, as the owner approved it on 16 Nov 2026.
+marker = ["crates/fleet", "crates/ipc", "xtask"]
+
+[[areas]]
+slug = "running-a-job"
+title = "Running a Job"
+
+[[areas]]
+slug = "job-thread-and-terminal"
+title = "Job thread and terminal"
+
+[[areas]]
+slug = "jobs-together"
+title = "Jobs together"
+
+[[areas]]
+slug = "workflows"
+title = "Workflows"
+
+[[areas]]
+slug = "plans-and-the-rail"
+title = "Plans and the rail"
+
+[[areas]]
+slug = "checks-and-judging"
+title = "Checks and judging"
+
+[[areas]]
+slug = "slots-and-worktrees"
+title = "Slots and worktrees"
+
+[[areas]]
+slug = "pull-requests-and-review"
+title = "Pull requests and review"
+
+[[areas]]
+slug = "landing-and-main"
+title = "Landing and main"
+
+[[areas]]
+slug = "operator"
+title = "Operator"
+
+[[areas]]
+slug = "needs-you"
+title = "Needs you"
+
+[[areas]]
+slug = "documents-sketches-and-walks"
+title = "Documents, sketches and walks"
+
+[[areas]]
+slug = "projects-and-repositories"
+title = "Projects and repositories"
+
+[[areas]]
+slug = "kit-and-logbook"
+title = "Kit and Logbook"
+
+[[areas]]
+slug = "mods-and-keys"
+title = "Mods and keys"
+
+[[areas]]
+slug = "accounts-macs-and-sharing"
+title = "Accounts, Macs and sharing"
+
+[[areas]]
+slug = "pocket"
+title = "Pocket"
+
+[[areas]]
+slug = "native-shell"
+title = "Native shell"
+
+[[features]]
+slug = "start-a-job"
+area = "running-a-job"
+title = "Start a Job"
+summary = "Start card proposes title, workflow, model"
+paths = ["crates/fleet/src/session_host/start_card.rs", "crates/fleet/src/session_host/proposing.rs", "crates/bridge-native/src/job_view/start_card.rs", "docs/concepts/session/the-start-card.md"]
+entry_points = ["crates/fleet/src/session_host/start_card.rs", "crates/fleet/src/session_host/proposing.rs", "crates/fleet/src/session_proposer.rs:67", "crates/bridge-native/src/job_view/start_card.rs", "docs/concepts/job-proposer.md"]
+
+[[features]]
+slug = "job-list-and-live-status"
+area = "running-a-job"
+title = "Job list and live status"
+summary = "What runs, what is wrong, what it waits on"
+paths = ["crates/fleet/src/session_host/standing.rs", "crates/bridge-native/src/jobs.rs", "apps/desktop/src/renderer/src/cockpit/deck", "docs/concepts/session/what-a-job-is-doing.md"]
+entry_points = ["crates/fleet/src/session_host/standing.rs:130", "crates/fleet/src/session_host/standing_tick.rs", "crates/bridge-native/src/jobs.rs", "crates/bridge-native/src/job_view/now.rs", "docs/concepts/cockpit.md"]
+
+[[features]]
+slug = "pause-resume-stop-snooze"
+area = "running-a-job"
+title = "Pause, resume, stop, snooze"
+summary = "Control a running Job"
+paths = ["crates/fleet/src/session_host/pausing.rs", "crates/fleet/src/session_snooze.rs", "crates/bridge-native/src/snooze.rs", "docs/concepts/session/pausing-a-job.md"]
+entry_points = ["crates/fleet/src/session_host/pausing.rs:58", "crates/fleet/src/session_snooze.rs:40", "crates/fleet/src/session_host/serving.rs:511", "docs/concepts/session/snoozing-a-job.md", "docs/concepts/session/stopping-a-turn.md"]
+
+[[features]]
+slug = "model-and-context"
+area = "running-a-job"
+title = "Model and context"
+summary = "Context ring, plan limit, downshift"
+paths = ["crates/fleet/src/model_downshift.rs", "crates/fleet/src/model_downshifting.rs", "crates/bridge-native/src/context_ring.rs", "docs/concepts/session/what-fills-the-context-window.md"]
+entry_points = ["crates/fleet/src/model_downshift.rs:23", "crates/fleet/src/model_downshifting.rs:81", "crates/bridge-native/src/context_ring.rs:72", "docs/concepts/session/which-model-and-a-fresh-start.md", "crates/bridge-native/src/job_view/tune.rs"]
+
+[[features]]
+slug = "thread-and-composer"
+area = "job-thread-and-terminal"
+title = "Thread and composer"
+summary = "Messages, quick replies, edits"
+paths = ["crates/fleet/src/thread_view.rs", "crates/fleet/src/thread_view", "crates/bridge-native/src/job_view/composer.rs", "docs/concepts/session/editing-a-sent-message.md"]
+entry_points = ["crates/fleet/src/thread_view.rs:35", "crates/fleet/src/session_host/rows.rs", "crates/fleet/src/session_host/editing.rs:49", "crates/fleet/src/session_quick.rs", "crates/bridge-native/src/job_view/composer.rs"]
+
+[[features]]
+slug = "terminal-jobs"
+area = "job-thread-and-terminal"
+title = "Terminal Jobs"
+summary = "A Job in a shared terminal"
+paths = ["crates/fleet/src/session_host/terminal.rs", "crates/fleet/src/terminal_keeping", "crates/bridge-native/src/terminal", "docs/concepts/session/shared-terminal.md"]
+entry_points = ["crates/fleet/src/session_host/terminal.rs", "crates/fleet/src/terminal_keeping.rs:37", "crates/fleet/src/session_running/job_terminals.rs:63", "crates/bridge-native/src/terminal/mod.rs", "docs/concepts/session/a-terminal-jobs-thread.md"]
+
+[[features]]
+slug = "sessions-without-a-job"
+area = "job-thread-and-terminal"
+title = "Sessions without a Job"
+summary = "Raw agent sessions, take over"
+paths = ["crates/fleet/src/sessioning.rs", "crates/fleet/src/sessioning", "crates/fleet/src/session_import.rs", "docs/concepts/session/how-a-job-gets-in.md"]
+entry_points = ["crates/fleet/src/sessioning.rs", "crates/fleet/src/session_import.rs:78", "crates/ipc/src/session_import.rs:42", "docs/concepts/session/how-a-job-gets-in.md", "docs/concepts/session.md"]
+
+[[features]]
+slug = "hand-off-fork-move"
+area = "jobs-together"
+title = "Hand off, fork, move"
+summary = "Carry a Job on elsewhere"
+paths = ["crates/fleet/src/session_host/forking.rs", "crates/fleet/src/session_host/replacing.rs", "crates/bridge-native/src/job_view/fork.rs", "docs/concepts/session/a-forked-job.md"]
+entry_points = ["crates/fleet/src/session_host/forking.rs:168", "crates/fleet/src/session_host/replacing.rs:159", "crates/fleet/src/session_host/fork_point.rs", "crates/bridge-native/src/job_view/handoff.rs", "docs/concepts/session/a-handed-off-job.md"]
+
+[[features]]
+slug = "jobs-that-run-other-jobs"
+area = "jobs-together"
+title = "Jobs that run other Jobs"
+summary = "Start, read, command, wait on one"
+paths = ["crates/fleet/src/started_jobs.rs", "crates/fleet/src/session_host/commanding.rs", "crates/fleet/src/session_host/agent_starting.rs", "docs/concepts/session/a-job-that-started-jobs.md"]
+entry_points = ["crates/fleet/src/started_jobs.rs:67", "crates/fleet/src/session_host/commanding.rs:125", "crates/fleet/src/session_host/after.rs", "crates/fleet/src/linked_following.rs", "docs/concepts/session/linked-jobs.md"]
+
+[[features]]
+slug = "workflow-templates"
+area = "workflows"
+title = "Workflow templates"
+summary = "Steps and checks a Job follows"
+paths = ["docs/concepts/workflow.md", "crates/core-model/src/workflow", "crates/bridge-native/src/settings/workflows.rs", "crates/fleet/src/workflow_page.rs"]
+entry_points = ["docs/concepts/workflow.md", "crates/core-model/src/workflow/mod.rs", "crates/fleet/src/workflow_page.rs:59", "crates/bridge-native/src/settings/workflow_detail.rs", "apps/desktop/src/renderer/src/workflow-manager.tsx"]
+
+[[features]]
+slug = "edit-and-publish-a-workflow"
+area = "workflows"
+title = "Edit and publish a workflow"
+summary = "Drafts and versions"
+paths = ["crates/fleet/src/workflow_drafts.rs", "crates/fleet/src/workflow_changes.rs", "crates/fleet/src/authoring.rs", "crates/bridge-native/src/settings/definition.rs"]
+entry_points = ["crates/fleet/src/workflow_drafts.rs:99", "crates/fleet/src/workflow_changes.rs", "crates/fleet/src/authoring.rs:51", "crates/bridge-native/src/settings/definition.rs", "docs/practices/protocol/protocol-23-95-a-workflow-edited-as-a-draft-and-published.md"]
+
+[[features]]
+slug = "move-jobs-to-a-new-version"
+area = "workflows"
+title = "Move Jobs to a new version"
+summary = "Running Jobs follow a change"
+paths = ["crates/fleet/src/workflow_migrating.rs", "crates/fleet/src/workflow_versions.rs", "docs/practices/protocol/protocol-23-97-moving-running-jobs-to-a-new-workflow-version.md", "docs/practices/protocol/protocol-23-96-a-workflow-with-versions-and-a-base.md"]
+entry_points = ["crates/fleet/src/workflow_migrating.rs", "crates/fleet/src/workflow_versions.rs:91", "crates/ipc/operations/migrate_jobs.toml", "crates/ipc/operations/get_workflow_versions.toml", "crates/ipc/operations/get_affected_jobs.toml"]
+
+[[features]]
+slug = "triggers"
+area = "workflows"
+title = "Triggers"
+summary = "Saved triggers that start a Drone"
+paths = ["docs/practices/protocol/triggers-leave-the-wire.md", "docs/practices/protocol/protocol-23-58-triggers-on-the-wire.md", "docs/practices/protocol/a-saved-trigger-runs-a-drone.md"]
+entry_points = ["docs/practices/protocol/triggers-leave-the-wire.md", "docs/practices/protocol/protocol-23-58-triggers-on-the-wire.md"]
+
+[[features]]
+slug = "plans"
+area = "plans-and-the-rail"
+title = "Plans"
+summary = "Groups, tasks, file touches, approval"
+paths = ["crates/fleet/src/plan_record.rs", "crates/fleet/src/session_host/planning.rs", "crates/bridge-native/src/job_view/plan.rs", "docs/concepts/session/the-plan.md"]
+entry_points = ["crates/fleet/src/plan_record.rs:39", "crates/fleet/src/session_host/planning.rs:86", "crates/fleet/src/plan_keeping.rs", "crates/fleet/src/file_touching.rs", "crates/bridge-native/src/job_view/plan_edit.rs"]
+
+[[features]]
+slug = "the-rail"
+area = "plans-and-the-rail"
+title = "The rail"
+summary = "The step a Job is on, as Fleet saw it"
+paths = ["crates/fleet/src/rail.rs", "crates/fleet/src/rail_following.rs", "crates/fleet/src/rail_ends.rs", "docs/concepts/session/the-rail.md"]
+entry_points = ["crates/fleet/src/rail.rs:63", "crates/fleet/src/rail_following.rs:32", "crates/fleet/src/rail_keeping.rs", "crates/fleet/src/rail_lifecycle.rs", "crates/fleet/src/session_host/step_skipping.rs"]
+
+[[features]]
+slug = "lanes"
+area = "plans-and-the-rail"
+title = "Lanes"
+summary = "Canvas and editor"
+paths = ["crates/fleet/src/job_lanes.rs", "crates/fleet/src/job_lanes", "crates/bridge-native/src/lanes_canvas", "crates/bridge-native/src/lanes_editor"]
+entry_points = ["crates/fleet/src/job_lanes.rs:64", "crates/fleet/src/lane_keeping.rs", "crates/bridge-native/src/lanes_canvas/mod.rs", "crates/bridge-native/src/lanes_editor/mod.rs", "crates/bridge-native/src/job_view/lanes.rs"]
+
+[[features]]
+slug = "judge"
+area = "checks-and-judging"
+title = "Judge"
+summary = "A verdict on a Job's work, on demand"
+paths = ["crates/fleet/src/judge.rs", "docs/concepts/judge.md", "crates/bridge-native/src/job_view/judge_tab.rs", "apps/desktop/src/renderer/src/judge"]
+entry_points = ["crates/fleet/src/judge.rs:94", "crates/fleet/src/judge_serving.rs:62", "crates/fleet/src/judge_content.rs", "crates/verification/src/judge.rs", "docs/concepts/judge.md"]
+
+[[features]]
+slug = "checks-and-gates"
+area = "checks-and-judging"
+title = "Checks and gates"
+summary = "What must pass before a Job advances"
+paths = ["crates/checks-runner", "crates/fleet/src/gate_checks.rs", "crates/fleet/src/session_checking.rs", "docs/concepts/session/a-jobs-checks.md"]
+entry_points = ["crates/fleet/src/gate_checks.rs:50", "crates/fleet/src/gate_holding.rs:25", "crates/fleet/src/gate_keeping.rs", "crates/checks-runner/src/run.rs", "crates/core-model/src/workflow/gate.rs"]
+
+[[features]]
+slug = "build-record"
+area = "checks-and-judging"
+title = "Build record"
+summary = "Walk, push, PR, checks, merge"
+paths = ["crates/fleet/src/build_record.rs", "crates/fleet/src/build_facts.rs", "crates/fleet/src/build_keeping.rs", "docs/concepts/session/the-build-record.md"]
+entry_points = ["crates/fleet/src/build_record.rs:37", "crates/fleet/src/build_facts.rs", "crates/fleet/src/build_keeping.rs", "crates/ipc/src/session_build.rs", "docs/concepts/session/the-build-record.md"]
+
+[[features]]
+slug = "test-map"
+area = "checks-and-judging"
+title = "Test map"
+summary = "Which tests reach each file"
+paths = ["docs/concepts/test-map.md", "crates/fleet/src/test_map.rs", "crates/fleet/src/test_map_feed.rs", "crates/core-model/src/test_map.rs"]
+entry_points = ["crates/fleet/src/test_map.rs:24", "crates/fleet/src/test_map_feed.rs", "crates/fleet/src/test_map_ci.rs", "crates/ipc/operations/get_tests_reaching.toml", "docs/concepts/test-map.md"]
+
+[[features]]
+slug = "flaky-tests"
+area = "checks-and-judging"
+title = "Flaky tests"
+summary = "Found, claimed, fixed"
+paths = ["crates/fleet/src/flaky_tests.rs", "crates/ipc/operations/call_test_flaky.toml"]
+entry_points = ["crates/fleet/src/flaky_tests.rs:64", "crates/ipc/operations/call_test_flaky.toml"]
+
+[[features]]
+slug = "watches"
+area = "checks-and-judging"
+title = "Watches"
+summary = "Follow CI, a deploy, a terminal"
+paths = ["crates/fleet/src/watches.rs", "crates/fleet/src/watches", "docs/concepts/watch.md", "crates/adapters/watch-recipes"]
+entry_points = ["crates/fleet/src/watches.rs:96", "crates/core-model/src/watch.rs", "crates/adapters/src/watching.rs", "crates/bridge-native/src/job_view/watching.rs", "docs/concepts/watch.md"]
+
+[[features]]
+slug = "repair"
+area = "checks-and-judging"
+title = "Repair"
+summary = "A Drone that heals a stopped Job"
+paths = ["crates/fleet/src/repair", "crates/adapters/src/repairing.rs", "crates/store/src/job_repairs.rs", "docs/practices/protocol/a-jobs-repairing-line.md"]
+entry_points = ["crates/fleet/src/repair/mod.rs", "crates/fleet/src/repair/running.rs:82", "crates/adapters/src/repairing.rs", "crates/store/src/job_repairs.rs", "docs/practices/protocol/a-jobs-repairing-line.md"]
+
+[[features]]
+slug = "doctor"
+area = "checks-and-judging"
+title = "Doctor"
+summary = "Health grid"
+paths = ["docs/concepts/doctor.md", "docs/journeys/check-system-health.md", "crates/fleet/src/probing.rs", "apps/desktop/src/renderer/src/doctor"]
+entry_points = ["crates/fleet/src/probing.rs:79", "apps/desktop/src/renderer/src/doctor/Doctor.tsx", "crates/ipc/src/health.rs", "crates/ipc/operations/get_health.toml", "docs/concepts/doctor.md"]
+
+[[features]]
+slug = "slot-leases-and-the-pool"
+area = "slots-and-worktrees"
+title = "Slot leases and the pool"
+summary = "A Job's worktree, and how many there are"
+paths = ["crates/fleet/src/leasing.rs", "crates/fleet/src/slot_holders.rs", "crates/fleet/src/slot_reclaiming.rs", "packages/surfaces/cleanup/src/SlotPools.tsx"]
+entry_points = ["crates/fleet/src/leasing.rs:71", "crates/fleet/src/slots.rs:18", "crates/fleet/src/slot_holders.rs", "crates/fleet/src/bay_history.rs", "crates/adapters/src/leasing.rs"]
+
+[[features]]
+slug = "full-pool"
+area = "slots-and-worktrees"
+title = "Full pool"
+summary = "Waiting for a free slot"
+paths = ["crates/fleet/src/session_host/queueing.rs", "crates/fleet/src/session_host/slot_asking.rs", "crates/fleet/src/session_host/slot_holders.rs", "crates/bridge-native/src/slot_wait.rs"]
+entry_points = ["crates/fleet/src/session_host/queueing.rs:95", "crates/fleet/src/session_host/slot_asking.rs:31", "crates/fleet/src/session_host/line_keeping.rs", "crates/bridge-native/src/job_view/slot_wait.rs", "docs/practices/protocol/a-full-pool-shows-a-wait-slot-wait.md"]
+
+[[features]]
+slug = "stranded-slots"
+area = "slots-and-worktrees"
+title = "Stranded slots"
+summary = "Found and rescued"
+paths = ["crates/fleet/src/stranding.rs", "crates/fleet/src/rescuing.rs", "packages/surfaces/cleanup/src/slot-rescue.ts", "docs/practices/protocol/a-stranded-slots-last-holder-and-whether-fleet-told-it.md"]
+entry_points = ["crates/fleet/src/stranding.rs:85", "crates/fleet/src/rescuing.rs:65", "crates/fleet/src/scout/mod.rs", "crates/ipc/operations/rescue_slot.toml", "docs/practices/protocol/protocol-23-29-a-scout-reads-a-stranded-slot.md"]
+
+[[features]]
+slug = "disk-reclaim"
+area = "slots-and-worktrees"
+title = "Disk reclaim"
+summary = "Space given back"
+paths = ["crates/fleet/src/sweeping.rs", "crates/adapters/src/reclaim.rs", "crates/bridge-native/src/titlebar/disk.rs", "packages/surfaces/cleanup/src/Worktrees.tsx"]
+entry_points = ["crates/fleet/src/sweeping.rs:58", "crates/adapters/src/reclaim.rs", "crates/bridge-native/src/titlebar/disk.rs", "crates/armada/src/disk.rs", "docs/practices/protocol/the-disk-in-get-health.md"]
+
+[[features]]
+slug = "behind-main"
+area = "slots-and-worktrees"
+title = "Behind main"
+summary = "Notices when a slot falls behind"
+paths = ["crates/fleet/src/behind_bay.rs", "crates/fleet/src/catching_up.rs", "crates/adapters/src/keeping_current.rs", "crates/fleet/src/fetching_the_base.rs"]
+entry_points = ["crates/fleet/src/behind_bay.rs:99", "crates/fleet/src/catching_up.rs:118", "crates/adapters/src/keeping_current.rs", "crates/adapters/src/merging_the_base_in.rs", "crates/ipc/operations/catch_up_checkout.toml"]
+
+[[features]]
+slug = "preview"
+area = "slots-and-worktrees"
+title = "Preview"
+summary = "Offers, Refresh, your build"
+paths = ["crates/fleet/src/previewing.rs", "crates/fleet/src/session_host/preview_acts.rs", "crates/bridge-native/src/titlebar/offers.rs", "crates/fleet/src/kept_builds.rs"]
+entry_points = ["crates/fleet/src/previewing.rs:41", "crates/fleet/src/session_host/preview_acts.rs:82", "crates/fleet/src/building.rs", "crates/fleet/src/build_noting.rs", "crates/bridge-native/src/titlebar/offers.rs"]
+
+[[features]]
+slug = "servers-and-app-runs"
+area = "slots-and-worktrees"
+title = "Servers and app runs"
+summary = "Dev servers and running the app"
+paths = ["crates/fleet/src/servers.rs", "crates/fleet/src/app_runs.rs", "crates/fleet/src/app_runs", "docs/practices/protocol/the-run-sockets-one-run-one-server.md"]
+entry_points = ["crates/fleet/src/servers.rs:70", "crates/fleet/src/app_runs.rs:56", "crates/fleet/src/ports.rs", "crates/fleet/src/servers/running.rs", "docs/practices/protocol/a-repositorys-app-run-from-bridge.md"]
+
+[[features]]
+slug = "pull-request-panel"
+area = "pull-requests-and-review"
+title = "Pull request panel"
+summary = "A Job's PR and its description"
+paths = ["crates/fleet/src/pull_request_panel.rs", "crates/bridge-native/src/job_view/pr_panel.rs", "packages/components/src/compositions/PullRequestPanel", "docs/concepts/session/acts-on-a-pull-request.md"]
+entry_points = ["crates/fleet/src/pull_request_panel.rs", "crates/fleet/src/pull_request_acts.rs:58", "crates/fleet/src/pull_requesting.rs", "crates/bridge-native/src/job_view/pr_draft.rs", "apps/desktop/src/renderer/src/shared-panel/pull-request.tsx"]
+
+[[features]]
+slug = "reviews"
+area = "pull-requests-and-review"
+title = "Reviews"
+summary = "PRs waiting on you, notes on lines"
+paths = ["docs/concepts/pull-review.md", "crates/bridge-native/src/reviews", "apps/desktop/src/renderer/src/pr-review", "crates/fleet/src/pull_review_lists.rs"]
+entry_points = ["crates/fleet/src/pull_review_lists.rs", "crates/fleet/src/review.rs", "crates/fleet/src/your_review.rs", "crates/fleet/src/pull_review_memory.rs", "crates/bridge-native/src/reviews/mod.rs"]
+
+[[features]]
+slug = "agent-reviews"
+area = "pull-requests-and-review"
+title = "Agent reviews"
+summary = "A review run by an agent"
+paths = ["crates/fleet/src/review_runs.rs", "crates/fleet/src/review_change_sets.rs", "crates/fleet/src/review_tools.rs", "crates/config/review-tools"]
+entry_points = ["crates/fleet/src/review_runs.rs:87", "crates/fleet/src/review_walks.rs:117", "crates/fleet/src/review_walk_runs.rs", "crates/fleet/src/review_change_sets.rs", "crates/fleet/src/review_tools.rs"]
+
+[[features]]
+slug = "merge-line"
+area = "landing-and-main"
+title = "Merge line"
+summary = "The queue to main"
+paths = ["crates/fleet/src/merge_lines.rs", "crates/fleet/src/merge_line_view.rs", "crates/bridge-native/src/merge_strip", "crates/adapters/src/merge_queue.rs"]
+entry_points = ["crates/fleet/src/merge_lines.rs:93", "crates/fleet/src/merge_line_view.rs", "crates/bridge-native/src/merge_strip.rs", "packages/components/src/compositions/MergeLine", "docs/practices/protocol/the-merge-line-fleet-reads.md"]
+
+[[features]]
+slug = "red-main"
+area = "landing-and-main"
+title = "Red main"
+summary = "Claimed, fixed, merges held"
+paths = ["crates/fleet/src/main_ci.rs", "crates/fleet/src/main_fix.rs", "crates/fleet/src/red_claim.rs", "crates/fleet/src/taking_red.rs"]
+entry_points = ["crates/fleet/src/main_fix.rs:77", "crates/fleet/src/red_claim.rs", "crates/fleet/src/taking_red.rs:32", "crates/fleet/src/main_hub.rs", "docs/practices/protocol/protocol-23-42-acting-on-mains-red-and-what-merged.md"]
+
+[[features]]
+slug = "write-clashes"
+area = "landing-and-main"
+title = "Write clashes"
+summary = "Two Jobs writing one file"
+paths = ["crates/fleet/src/clashing.rs", "crates/fleet/src/clashing", "crates/bridge-native/src/clash_mark", "apps/desktop/src/renderer/src/clashes.tsx"]
+entry_points = ["crates/fleet/src/clashing.rs", "crates/fleet/src/clashing/index.rs:32", "crates/ipc/src/clashes.rs", "crates/bridge-native/src/clash_mark.rs", "docs/practices/protocol/protocol-23-81-write-clashes-between-agents.md"]
+
+[[features]]
+slug = "landing"
+area = "landing-and-main"
+title = "Landing"
+summary = "Committing and attaching a PR"
+paths = ["crates/fleet/src/pull_attaching.rs", "crates/fleet/src/session_host/delivering.rs", "crates/fleet/src/session_host/auto_landing.rs", "docs/concepts/session/the-delivery-question.md"]
+entry_points = ["crates/fleet/src/pull_attaching.rs:34", "crates/fleet/src/session_host/delivering.rs:59", "crates/fleet/src/session_host/finishing.rs:31", "crates/fleet/src/session_host/auto_landing.rs", "crates/adapters/src/landing.rs"]
+
+[[features]]
+slug = "operator-chat-and-cards"
+area = "operator"
+title = "Operator chat and cards"
+summary = "The agent that watches every project"
+paths = ["crates/fleet/src/operator.rs", "crates/fleet/src/operator", "docs/concepts/operator.md", "crates/bridge-native/src/operator"]
+entry_points = ["crates/fleet/src/operator.rs", "crates/fleet/src/operator/session.rs:61", "crates/fleet/src/operator/cards.rs:92", "crates/bridge-native/src/operator/card.rs", "docs/concepts/operator.md"]
+
+[[features]]
+slug = "operator-page"
+area = "operator"
+title = "Operator page"
+summary = "Its feed and queue"
+paths = ["crates/fleet/src/operator/paging.rs", "crates/fleet/src/operator/feed.rs", "crates/bridge-native/src/operator/page.rs", "crates/bridge-native/src/operator/feed.rs"]
+entry_points = ["crates/fleet/src/operator/paging.rs:49", "crates/fleet/src/operator/feed.rs:61", "crates/ipc/src/operator_page.rs", "crates/bridge-native/src/operator/screen.rs", "docs/practices/protocol/the-operators-page-fleet-keeps.md"]
+
+[[features]]
+slug = "routing-your-words"
+area = "operator"
+title = "Routing your words"
+summary = "A thought sent to the right place"
+paths = ["crates/fleet/src/operator/telling.rs", "crates/fleet/src/on_your_words.rs", "docs/practices/protocol/routing-a-thought-helm-reads-words-for-where-they-belong.md", "crates/ipc/src/thought.rs"]
+entry_points = ["crates/fleet/src/operator/telling.rs:41", "crates/fleet/src/on_your_words.rs:55", "crates/fleet/src/session_host/message_reach.rs", "crates/bridge-native/src/operator/talk.rs", "crates/ipc/operations/tell_session.toml"]
+
+[[features]]
+slug = "dispatch"
+area = "operator"
+title = "Dispatch"
+summary = "Start a Job, session or Autopilot"
+paths = ["crates/fleet/src/operator/dispatching.rs", "crates/bridge-native/src/dispatch", "apps/desktop/src/renderer/src/dispatch-panel", "crates/ipc/src/job_dispatch.rs"]
+entry_points = ["crates/fleet/src/operator/dispatching.rs:52", "crates/bridge-native/src/dispatch/mod.rs", "apps/desktop/src/renderer/src/dispatch-panel/DispatchPanel.tsx", "crates/ipc/operations/dispatch_job.toml", "docs/practices/protocol/a-dispatch-the-operator-holds.md"]
+
+[[features]]
+slug = "retros-and-teaching"
+area = "operator"
+title = "Retros and teaching"
+summary = "What a Job learnt"
+paths = ["crates/fleet/src/retro", "crates/fleet/src/teaching", "docs/concepts/retro.md", "docs/concepts/teaching.md"]
+entry_points = ["crates/fleet/src/retro/mod.rs", "crates/fleet/src/teaching/mod.rs", "crates/bridge-native/src/job_view/teach.rs", "packages/screens/src/lessons/Lessons.tsx", "docs/concepts/session/a-jobs-retro-in-its-thread.md"]
+
+[[features]]
+slug = "waiting-items"
+area = "needs-you"
+title = "Waiting items"
+summary = "What waits on you, approve or dismiss"
+paths = ["crates/fleet/src/session_host/waiting.rs", "crates/fleet/src/session_host/needs_you.rs", "crates/fleet/src/session_host/answering_items.rs", "docs/concepts/session/waiting-on-the-person.md"]
+entry_points = ["crates/fleet/src/session_host/waiting.rs:121", "crates/fleet/src/session_host/needs_you.rs:287", "crates/fleet/src/standing_calls.rs:249", "crates/bridge-native/src/job_view/for_you_tab.rs", "packages/components/src/compositions/NeedsYouPanel"]
+
+[[features]]
+slug = "notices-and-sounds"
+area = "needs-you"
+title = "Notices and sounds"
+summary = "Banners and alerts"
+paths = ["crates/fleet/src/notice_loop.rs", "crates/fleet/src/notice_mutes.rs", "crates/bridge-native/src/banner.rs", "crates/bridge-native/src/notify.rs"]
+entry_points = ["crates/fleet/src/notice_loop.rs:16", "crates/fleet/src/notice_mutes.rs:26", "crates/bridge-native/src/banner.rs:34", "apps/desktop/src/main/banners.ts", "apps/desktop/src/renderer/src/ui-sounds.ts"]
+
+[[features]]
+slug = "documents"
+area = "documents-sketches-and-walks"
+title = "Documents"
+summary = "Pages a Job writes, noted in place"
+paths = ["crates/fleet/src/session_host/documents.rs", "docs/concepts/document.md", "crates/bridge-native/src/job_view/reader.rs", "apps/desktop/src/renderer/src/session-view/DocumentPage.tsx"]
+entry_points = ["crates/fleet/src/session_host/documents.rs:56", "crates/fleet/src/session_host/document_page.rs:31", "crates/fleet/src/session_host/page_sealed.rs:71", "crates/fleet/src/session_host/page_words.rs", "docs/concepts/artifact.md"]
+
+[[features]]
+slug = "votes-and-actions"
+area = "documents-sketches-and-walks"
+title = "Votes and actions"
+summary = "Picks and buttons on a page"
+paths = ["crates/fleet/src/session_host/page_votes.rs", "crates/fleet/src/session_host/page_actions.rs", "crates/store/src/page_votes.rs", "crates/store/src/page_presses.rs"]
+entry_points = ["crates/fleet/src/session_host/page_votes.rs:180", "crates/fleet/src/session_host/page_actions.rs:105", "crates/fleet/src/session_host/page_kit.js", "crates/bridge-native/src/web/kit.rs", "docs/practices/protocol/a-pages-votes.md"]
+
+[[features]]
+slug = "sketches"
+area = "documents-sketches-and-walks"
+title = "Sketches"
+summary = "Diagrams and mocks a Job shows"
+paths = ["crates/fleet/src/session_host/sketching.rs", "docs/concepts/sketch-pane.md", "crates/bridge-native/src/sketch.rs", "crates/bridge-native/src/scene"]
+entry_points = ["crates/fleet/src/session_host/sketching.rs:57", "crates/ipc/src/sketch.rs:98", "crates/bridge-native/src/job_view/sketch_card.rs", "packages/components/src/compositions/SketchScene", "docs/concepts/session/drawing-a-sketch.md"]
+
+[[features]]
+slug = "questions-as-pictures"
+area = "documents-sketches-and-walks"
+title = "Questions as pictures"
+summary = "Options drawn as mocks"
+paths = ["crates/fleet/src/session_host/picture_keeping.rs", "crates/fleet/src/session_host/picture_shown.rs", "crates/bridge-native/src/option_pictures.rs", "crates/bridge-native/src/job_view/look_question.rs"]
+entry_points = ["crates/fleet/src/session_host/picture_keeping.rs:159", "crates/fleet/src/session_host/picture_shown.rs:37", "crates/bridge-native/src/option_pictures.rs:71", "crates/bridge-native/src/job_view/look_question.rs", "docs/practices/protocol/how-he-works-with-jobs-and-a-question-offered-as-pictures.md"]
+
+[[features]]
+slug = "walks"
+area = "documents-sketches-and-walks"
+title = "Walks"
+summary = "A page you walk, notes sent as one turn"
+paths = ["crates/fleet/src/native_walks.rs", "crates/fleet/src/session_host/walking.rs", "crates/bridge-native/src/walk", "apps/desktop/src/renderer/src/job-walk"]
+entry_points = ["crates/fleet/src/native_walks.rs:39", "crates/fleet/src/session_host/walking.rs:35", "crates/fleet/src/session_host/walk_asks.rs:11", "crates/fleet/src/walk_places.rs", "docs/concepts/session/showing-a-window.md"]
+
+[[features]]
+slug = "annotate-and-capture"
+area = "documents-sketches-and-walks"
+title = "Annotate and capture"
+summary = "Notes on any screen"
+paths = ["crates/bridge-native/src/annotate", "crates/bridge-native/src/capture.rs", "apps/desktop/src/renderer/src/annotate", "docs/practices/capture-window.md"]
+entry_points = ["crates/bridge-native/src/annotate.rs", "crates/bridge-native/src/annotate/panel.rs", "crates/fleet/src/session_host/annotating.rs:112", "crates/fleet/src/session_host/noting.rs", "crates/fleet/src/note_locating.rs"]
+
+[[features]]
+slug = "studios"
+area = "documents-sketches-and-walks"
+title = "Studios"
+summary = "Studios and findings"
+paths = ["crates/fleet/src/studios.rs", "crates/core-model/src/studio", "docs/concepts/studio.md", "packages/surfaces/studios"]
+entry_points = ["crates/fleet/src/studios.rs:72", "crates/fleet/src/studio_runs.rs:99", "crates/fleet/src/promoting.rs", "crates/fleet/src/scouting.rs", "docs/concepts/scout.md"]
+
+[[features]]
+slug = "projects"
+area = "projects-and-repositories"
+title = "Projects"
+summary = "Repositories and folders grouped"
+paths = ["crates/fleet/src/projects.rs", "crates/core-model/src/project.rs", "docs/concepts/project.md", "apps/desktop/src/renderer/src/projects-tab"]
+entry_points = ["crates/fleet/src/projects.rs:65", "crates/fleet/src/project_files.rs:80", "crates/bridge-native/src/titlebar/projects.rs", "crates/bridge-native/src/settings/project.rs", "docs/practices/protocol/projects.md"]
+
+[[features]]
+slug = "repository-setup"
+area = "projects-and-repositories"
+title = "Repository setup"
+summary = "Profiles and armada.yml"
+paths = ["docs/concepts/manifest.md", "crates/fleet/src/amending.rs", "crates/fleet/src/scanning.rs", "packages/surfaces/manifest"]
+entry_points = ["crates/fleet/src/amending.rs:64", "crates/fleet/src/manifest_proposal.rs:45", "crates/fleet/src/scanning.rs:96", "crates/fleet/src/editing.rs", "docs/journeys/set-up-a-project-manifest.md"]
+
+[[features]]
+slug = "issues-and-queries"
+area = "projects-and-repositories"
+title = "Issues and queries"
+summary = "The tracker, read and claimed"
+paths = ["docs/concepts/tracker.md", "crates/fleet/src/issue_queries.rs", "crates/fleet/src/tracking.rs", "apps/desktop/src/renderer/src/issues-tab"]
+entry_points = ["crates/fleet/src/tracking.rs:57", "crates/fleet/src/issue_queries.rs:128", "crates/fleet/src/job_tracking.rs:40", "crates/fleet/src/project_issues.rs", "crates/adapters/src/issue_tracker.rs"]
+
+[[features]]
+slug = "autopilot"
+area = "projects-and-repositories"
+title = "Autopilot"
+summary = "A repository works its backlog"
+paths = ["crates/fleet/src/autopilot.rs", "crates/fleet/src/autopilot", "docs/concepts/autopilot.md", "apps/desktop/src/renderer/src/autopilot-decisions.tsx"]
+entry_points = ["crates/fleet/src/autopilot.rs", "crates/fleet/src/autopilot/pass.rs:76", "crates/store/src/autopilot.rs", "crates/ipc/src/autopilot.rs", "apps/desktop/src/renderer/src/cockpit/AutopilotSidings.tsx"]
+
+[[features]]
+slug = "job-time"
+area = "projects-and-repositories"
+title = "Job time"
+summary = "Where a Job's time went"
+paths = ["crates/fleet/src/job_time.rs", "crates/fleet/src/job_timing.rs", "docs/concepts/session/where-a-jobs-time-went.md", "crates/store/src/job_times.rs"]
+entry_points = ["crates/fleet/src/job_time.rs:31", "crates/fleet/src/job_timing.rs:82", "crates/fleet/src/time_reading.rs:37", "crates/fleet/src/time_summarising.rs", "crates/bridge-native/src/settings/time.rs"]
+
+[[features]]
+slug = "usage-and-plan-meters"
+area = "projects-and-repositories"
+title = "Usage and plan meters"
+summary = "Limits and spend"
+paths = ["crates/fleet/src/usage_summarising.rs", "crates/fleet/src/usage_rules.rs", "crates/bridge-native/src/titlebar/usage.rs", "docs/concepts/session/where-the-tokens-went.md"]
+entry_points = ["crates/fleet/src/usage_summarising.rs:53", "crates/fleet/src/usage_following.rs:38", "crates/fleet/src/turn_ingest.rs:89", "crates/fleet/src/session_limit.rs", "apps/desktop/src/renderer/src/usage-surface.tsx"]
+
+[[features]]
+slug = "new-project"
+area = "projects-and-repositories"
+title = "New project"
+summary = "Starting one"
+paths = ["crates/bridge-native/src/new_project", "crates/fleet/src/repositories/creating.rs", "crates/fleet/src/repositories/cloning.rs", "crates/fleet/src/repositories/adding.rs"]
+entry_points = ["crates/bridge-native/src/new_project/mod.rs:36", "crates/fleet/src/repositories/creating.rs:31", "crates/fleet/src/repositories/cloning.rs:86", "crates/ipc/operations/create_project.toml", "crates/ipc/operations/add_repository.toml"]
+
+[[features]]
+slug = "kit"
+area = "kit-and-logbook"
+title = "Kit"
+summary = "Skills, MCP servers, plugins"
+paths = ["crates/fleet/src/kit.rs", "docs/concepts/kit.md", "crates/core-model/src/kit.rs", "packages/components/src/compositions/KitBrowser"]
+entry_points = ["crates/fleet/src/kit.rs:141", "crates/fleet/src/kit_pieces.rs:167", "crates/fleet/src/kit_files.rs:168", "crates/fleet/src/kit_allowlist.rs", "crates/ipc/src/kit.rs"]
+
+[[features]]
+slug = "logbook"
+area = "kit-and-logbook"
+title = "Logbook"
+summary = "What Jobs learnt, kept for the next"
+paths = ["crates/fleet/src/logbook.rs", "crates/fleet/src/logbook", "docs/concepts/logbook.md", "packages/screens/src/logbook"]
+entry_points = ["crates/fleet/src/logbook.rs:99", "crates/fleet/src/logbook/kept.rs:149", "crates/store/src/logbook.rs", "crates/ipc/src/logbook.rs", "apps/desktop/src/renderer/src/logbook.tsx"]
+
+[[features]]
+slug = "the-claude-code-plugin"
+area = "kit-and-logbook"
+title = "The Claude Code plugin"
+summary = "Agents, hooks and skills"
+paths = ["plugins/armada", "crates/adapters/src/agent_mod.rs", "crates/fleet/src/session_host/mod_moved.rs", "docs/concepts/session/installing-the-claude-code-mod.md"]
+entry_points = ["plugins/armada/hooks/hooks.json", "plugins/armada/hooks/fleet.ts", "crates/adapters/src/agent_mod.rs:42", "crates/armada/src/mcp.rs", "docs/concepts/session/a-mod-that-is-out-of-date.md"]
+
+[[features]]
+slug = "http-requests"
+area = "kit-and-logbook"
+title = "HTTP requests"
+summary = "Collections and environments"
+paths = ["crates/fleet/src/requesting.rs", "crates/fleet/src/requesting", "docs/concepts/requests.md", "crates/adapters/src/requests.rs"]
+entry_points = ["crates/fleet/src/requesting.rs:61", "crates/ipc/src/requests.rs", "crates/adapters/src/request_secrets.rs", "apps/desktop/src/renderer/src/shared-panel/requests.tsx", "crates/ipc/operations/send_request.toml"]
+
+[[features]]
+slug = "mods"
+area = "mods-and-keys"
+title = "Mods"
+summary = "Themes, layouts, words, commands"
+paths = ["crates/fleet/src/mods.rs", "crates/fleet/src/mods", "docs/concepts/mods.md", "packages/mods"]
+entry_points = ["crates/fleet/src/mods.rs:96", "crates/fleet/src/session_host/modding.rs:60", "docs/concepts/layout-mods.md", "docs/concepts/themes.md", "crates/bridge-native/src/settings/mods.rs"]
+
+[[features]]
+slug = "key-bindings"
+area = "mods-and-keys"
+title = "Key bindings"
+summary = "Every key, rebindable"
+paths = ["docs/concepts/key-bindings.md", "crates/bridge-native/src/keymap.rs", "crates/bridge-native/src/settings/keyboard.rs", "packages/components/src/keymap.ts"]
+entry_points = ["docs/concepts/key-bindings.md", "crates/ipc/src/key_bindings.rs:20", "crates/bridge-native/src/keymap.rs:30", "packages/surfaces/settings/src/KeyboardSettings.tsx", "apps/desktop/src/renderer/src/fleet-keymap.ts"]
+
+[[features]]
+slug = "sign-in-and-profiles"
+area = "accounts-macs-and-sharing"
+title = "Sign-in and profiles"
+summary = "Who you are on this Mac"
+paths = ["crates/fleet/src/signing_in.rs", "crates/fleet/src/signing_in", "crates/fleet/src/profiles.rs", "docs/concepts/account.md"]
+entry_points = ["crates/fleet/src/signing_in.rs:141", "crates/fleet/src/profiles.rs:71", "crates/fleet/src/repository_profiles.rs", "crates/adapters/src/sign_in.rs", "crates/bridge-native/src/settings/sign_in_app.rs"]
+
+[[features]]
+slug = "claims-store"
+area = "accounts-macs-and-sharing"
+title = "Claims store"
+summary = "What each Mac and teammate holds"
+paths = ["docs/contracts/central-store.md", "crates/fleet/src/job_claims.rs", "crates/fleet/src/claims_list.rs", "apps/store"]
+entry_points = ["crates/fleet/src/job_claims.rs:46", "crates/fleet/src/claims_list.rs:150", "crates/fleet/src/project_store.rs:127", "crates/fleet/src/pull_registry.rs", "apps/store/src/index.ts"]
+
+[[features]]
+slug = "shared-home"
+area = "accounts-macs-and-sharing"
+title = "Shared home"
+summary = "One home across Macs"
+paths = ["crates/fleet/src/home.rs", "crates/fleet/src/home", "crates/adapters/src/shared_home.rs", "docs/practices/protocol/the-shared-home.md"]
+entry_points = ["crates/fleet/src/home.rs:43", "crates/fleet/src/home/serving.rs:42", "crates/adapters/src/shared_home.rs", "crates/ipc/src/shared_home.rs", "apps/desktop/src/renderer/src/fleet-shared-home.ts"]
+
+[[features]]
+slug = "pairing-and-other-macs"
+area = "accounts-macs-and-sharing"
+title = "Pairing and other Macs"
+summary = "See and move Jobs between Macs"
+paths = ["crates/fleet/src/other_macs.rs", "crates/fleet/src/mac_acts.rs", "crates/bridge-native/src/pairing.rs", "crates/bridge-native/src/move_to_mac.rs"]
+entry_points = ["crates/fleet/src/other_macs.rs:108", "crates/fleet/src/mac_acts.rs:94", "crates/fleet/src/mac_pages.rs:86", "crates/fleet/src/session_host/to_other_mac.rs", "docs/practices/protocol/his-other-macs-fleets-half.md"]
+
+[[features]]
+slug = "settings"
+area = "accounts-macs-and-sharing"
+title = "Settings"
+summary = "Machine and preferences"
+paths = ["crates/fleet/src/settings.rs", "crates/fleet/src/settings", "packages/surfaces/settings", "crates/ipc/src/settings.rs"]
+entry_points = ["crates/fleet/src/settings.rs:26", "crates/fleet/src/settings/serving.rs:49", "crates/bridge-native/src/settings/catalogue.rs:82", "packages/surfaces/settings/src/SchemaSettings.tsx", "docs/practices/protocol/settings-json-every-machine-setting-described-and-saved.md"]
+
+[[features]]
+slug = "store-deploy"
+area = "accounts-macs-and-sharing"
+title = "Store deploy"
+summary = "Putting the store on Cloudflare"
+paths = ["crates/fleet/src/store_deploy.rs", "crates/adapters/src/cloudflare_api.rs", "crates/adapters/src/cloudflare_tokens.rs", "crates/adapters/src/store_worker.rs"]
+entry_points = ["crates/fleet/src/store_deploy.rs:26", "crates/adapters/src/cloudflare_api.rs:214", "crates/adapters/src/store_worker.rs", "crates/ipc/operations/deploy_project_store.toml", "crates/adapter-traits/src/cloudflare.rs"]
+
+[[features]]
+slug = "phone-gateway-and-pairing"
+area = "pocket"
+title = "Phone gateway and pairing"
+summary = "Reaching Fleet from the phone"
+paths = ["crates/pocket", "crates/fleet/src/phone.rs", "docs/concepts/pocket.md", "docs/journeys/set-up-the-phone-app.md"]
+entry_points = ["crates/pocket/src/lib.rs", "crates/pocket/src/pairing.rs:61", "crates/pocket/src/pair_routes.rs:41", "crates/fleet/src/phone.rs", "crates/ipc/src/phone.rs"]
+
+[[features]]
+slug = "phone-app"
+area = "pocket"
+title = "Phone app"
+summary = "The page on the phone"
+paths = ["apps/pocket", "crates/pocket/src/push.rs", "crates/pocket/src/webpush.rs", "crates/pocket/src/phone_sessions.rs"]
+entry_points = ["apps/pocket/src/App.tsx", "apps/pocket/src/Job.tsx", "apps/pocket/src/JobList.tsx", "apps/pocket/src/Operator.tsx", "crates/pocket/src/phone_sessions.rs"]
+
+[[features]]
+slug = "tunnel"
+area = "pocket"
+title = "Tunnel"
+summary = "The way in from outside"
+paths = ["crates/pocket/src/tunnel.rs", "crates/pocket/src/cloudflared.rs", "crates/pocket/src/tunnel_tests.rs"]
+entry_points = ["crates/pocket/src/tunnel.rs:67", "crates/pocket/src/cloudflared.rs:88"]
+
+[[features]]
+slug = "title-bar-and-switcher"
+area = "native-shell"
+title = "Title bar and switcher"
+summary = "Places, projects, usage"
+paths = ["crates/bridge-native/src/titlebar", "crates/bridge-native/src/menu.rs", "packages/components/src/compositions/TitleBar", "docs/concepts/native-bridge.md"]
+entry_points = ["crates/bridge-native/src/titlebar/mod.rs:194", "crates/bridge-native/src/titlebar/switcher.rs:143", "crates/bridge-native/src/titlebar/projects.rs", "crates/bridge-native/src/menu.rs", "docs/concepts/native-bridge.md"]
+
+[[features]]
+slug = "command-palette"
+area = "native-shell"
+title = "Command palette"
+summary = "Search and act"
+paths = ["crates/bridge-native/src/palette.rs", "packages/shell/src/Palette.tsx", "packages/components/src/compositions/PaletteRows", "apps/desktop/src/renderer/src/PaletteMount.tsx"]
+entry_points = ["crates/bridge-native/src/palette.rs:34", "packages/shell/src/Palette.tsx", "apps/desktop/src/renderer/src/palette.ts", "apps/desktop/src/renderer/src/palette-rows.ts", "packages/components/src/compositions/PaletteRows"]
+
+[[features]]
+slug = "settings-overlay"
+area = "native-shell"
+title = "Settings overlay"
+summary = "Settings over the window"
+paths = ["crates/bridge-native/src/settings/overlay.rs", "crates/bridge-native/src/settings/screen.rs", "crates/bridge-native/src/settings/view.rs", "crates/bridge-native/src/settings/walk.rs"]
+entry_points = ["crates/bridge-native/src/settings/mod.rs", "crates/bridge-native/src/settings/overlay.rs:22", "crates/bridge-native/src/settings/view.rs", "crates/bridge-native/src/settings/screen.rs"]
+
+[[features]]
+slug = "toasts-and-fleet-down"
+area = "native-shell"
+title = "Toasts and Fleet down"
+summary = "Banners and the centred panel"
+paths = ["crates/bridge-native/src/toasts", "crates/bridge-native/src/toasts.rs", "crates/bridge-native/src/titlebar/fleet_down.rs", "crates/bridge-native/src/titlebar/centred.rs"]
+entry_points = ["crates/bridge-native/src/toasts.rs:66", "crates/bridge-native/src/titlebar/fleet_down.rs:87", "crates/bridge-native/src/titlebar/link_layer.rs:44", "crates/bridge-native/src/crash.rs", "packages/shell/src/FailureSurface.tsx"]
+
+[[features]]
+slug = "first-run"
+area = "native-shell"
+title = "First run"
+summary = "Getting started"
+paths = ["crates/bridge-native/src/first_run.rs", "apps/desktop/src/renderer/src/FirstRun.tsx", "apps/desktop/src/renderer/src/first-run.css", "docs/journeys/first-run-onboarding.md"]
+entry_points = ["crates/bridge-native/src/first_run.rs:16", "apps/desktop/src/renderer/src/FirstRun.tsx", "docs/journeys/first-run-onboarding.md"]
+
+[[features]]
+slug = "voice"
+area = "native-shell"
+title = "Voice"
+summary = "Dictation and listening"
+paths = ["crates/bridge-native/src/voice.rs", "crates/bridge-native/src/dictation.rs", "crates/bridge-native/src/whisper.rs", "crates/bridge-native/src/listen"]
+entry_points = ["crates/bridge-native/src/voice.rs:20", "crates/bridge-native/src/dictation.rs:12", "crates/bridge-native/src/listen/mod.rs:24", "crates/bridge-native/src/job_view/talk.rs", "crates/bridge-native/src/job_view/listening.rs"]
+
+[[features]]
+slug = "fleet-link"
+area = "native-shell"
+title = "Fleet link"
+summary = "Connecting to Fleet"
+paths = ["crates/bridge-native/src/link.rs", "crates/bridge-native/src/fleet.rs", "crates/bridge-native/src/transport.rs", "crates/fleet/src/runtime.rs"]
+entry_points = ["crates/bridge-native/src/link.rs:126", "crates/bridge-native/src/fleet.rs:85", "crates/bridge-native/src/titlebar/link_panel.rs:47", "crates/bridge-native/src/restart_fleet.rs", "docs/practices/protocol/the-protocol-id.md"]

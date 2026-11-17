@@ -95,6 +95,18 @@ pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>
     }
 }
 
+/// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
+pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {
+        Ok(seed) => seed,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().seed_features(crate::acting::asking(), seed).await {
+        Ok(seeded) => answer(StatusCode::OK, &seeded, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_first_edit_searches<D: Features>(State(served): State<Served<D>>, Query(asked): Query<Weeks>) -> Response {
     match served.daemon().get_first_edit_searches(asked.weeks).await {
         Ok(figure) => answer(StatusCode::OK, &figure, served.run_id()),

@@ -13,8 +13,10 @@ mod holding;
 pub(crate) mod mapping;
 mod measuring;
 mod reading;
+mod seeding;
 mod serving;
 pub(crate) mod staleness;
 mod writing;
 
 pub(crate) use holding::{sections_owed_text, OWED};
+pub(crate) use seeding::Seed;

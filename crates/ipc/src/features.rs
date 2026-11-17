@@ -298,6 +298,25 @@ pub struct FeaturesUpserted {
     pub areas: u32,
 }
 
+/// `seed_features`: Fleet keeps a project's first areas and features from the seed it carries, on the Operator's word.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SeedFeatures {
+    /// A project's id.
+    pub project: String,
+}
+
+/// What `seed_features` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesSeeded {
+    /// The slugs of the features kept.
+    pub created: Vec<String>,
+    /// How many areas were kept.
+    pub areas: u32,
+    /// A prefix or entry point the project's repositories do not hold, left out, as `<slug>: <path>`.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub dropped: Vec<String>,
+}
+
 /// How a path came to belong to a feature.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
