@@ -1,0 +1,16 @@
+[operations.hand_over_features]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The mod's hook asks which feature pages a Job is owed for the file it is about to read or search, or for the features its brief names, and Fleet answers each feature once per Job and per subagent"
+notes = """
+`POST /features/hand_over`, body `HandOverFeatures`: the Job's `session_id`, an optional `agent_id`, `paths` and an optional `brief`. Answered with `FeaturesHandedOver`: `features`, the slugs handed over now, and `text`, their condensed pages (`get_feature_brief`) one after another, empty where nothing was owed. `docs/concepts/feature-catalog.md`, *Handing a Job its pages*.
+
+**Fleet decides "already handed"**, from a row kept per Job, holder and feature (`feature_handoffs`), so it holds across turns and a restart. The holder is the subagent's `agent_id`, or empty for the Job's own thread: a subagent has a context of its own and is handed what the Job was. The row is written as the page is answered, so two calls at once hand it over once, and a page never read by the agent is still counted.
+
+**`paths` are what the call is about**: a Read's file, a Grep's or Glob's folder or the folder in front of its pattern's first wildcard. Each is mapped as `get_features_of_path` maps it, and the features that own it by a prefix or a filing are handed over, at most three a call, the rest on the next call that reaches them. A folder is owned by a feature whose prefix is the folder or holds it; a search of a wider folder hands over none. **`brief`** names features by a `Feature: <slug>` line or a slug between backticks. A slug the project does not hold names nothing.
+
+**The Job's project is the one it was started for**, else those that hold its repository. A Job Fleet does not know, a project with no feature library and a call that names nothing answer an empty `text` and keep nothing. The mod's hook asks and never blocks on the answer: a Fleet that does not answer hands the agent nothing and an error to no one.
+
+`agent_access` is `No`: the harness asks on the agent's behalf, and the agent reaches a feature's page itself through `get_feature_brief`.
+"""

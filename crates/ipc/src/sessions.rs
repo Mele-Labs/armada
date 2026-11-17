@@ -462,6 +462,10 @@ pub struct ShowWindow {
     /// blank: the walk belongs to no group.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// The feature, or features, it is made for: a slug or a list of slugs. Fleet files it under them as a link. **A slug the
+    /// project does not hold is kept for the Operator to confirm, and never refused.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
 }
 
 /// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a
@@ -692,6 +696,10 @@ pub struct ProposeDraft {
     /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<crate::ForLink>,
+    /// The feature, or features, it is made for: a slug or a list of slugs. Fleet files it under them as a link. **A slug the
+    /// project does not hold is kept for the Operator to confirm, and never refused.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the

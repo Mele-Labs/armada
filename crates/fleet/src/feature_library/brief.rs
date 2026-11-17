@@ -2,7 +2,7 @@
 //! four to a token. **Text for the agent that reads it, first lines first**: the name, area, what the page is current
 //! as of and which sections are stale; who is on it; the five code entry points; the test command; the newest three
 //! open bugs; how it runs in a line; designs as titles; debt in a line; and how to fetch a full section. Over the cap,
-//! the last of these go first.
+//! the last of these go first, except that line.
 
 /// The cap in characters, a thousand tokens at four to a token.
 pub(crate) const CAP_CHARS: usize = 4000;
@@ -89,14 +89,15 @@ pub(crate) fn condensed(facts: &BriefFacts) -> String {
     if let Some(debt) = &facts.debt {
         blocks.push(format!("Debt: {}", cut(debt)));
     }
-    blocks.push(format!("Full sections: get_feature_page feature={}.", facts.slug));
+    blocks.push(format!("One full section: get_feature_page feature={} section=<test|runs|observe|debt>.", facts.slug));
     fit(blocks)
 }
 
-/// The blocks joined, the last dropped while the text is over the cap. The first block always stays.
+/// The blocks joined, the one before the last dropped while the text is over the cap. The first block always stays, and
+/// so does the last, which says how to fetch a full section.
 fn fit(mut blocks: Vec<String>) -> String {
-    while blocks.len() > 1 && blocks.join("\n").chars().count() > CAP_CHARS {
-        blocks.pop();
+    while blocks.len() > 2 && blocks.join("\n").chars().count() > CAP_CHARS {
+        blocks.remove(blocks.len() - 2);
     }
     blocks.join("\n")
 }

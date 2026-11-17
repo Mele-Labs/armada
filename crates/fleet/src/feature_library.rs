@@ -8,7 +8,9 @@
 //! this Mac; nothing here is shared with teammates.
 
 pub(crate) mod brief;
+pub(crate) mod committing;
 mod filing;
+mod handoff;
 mod holding;
 pub(crate) mod mapping;
 mod measuring;

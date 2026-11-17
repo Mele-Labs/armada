@@ -19,13 +19,15 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
-    /// `get_feature_page` — one feature whole. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project
-    /// does not hold.
+    /// `get_feature_page` — one feature whole, or with `section` that one section alone. [`Refusal::NotFound`]
+    /// (`fleet.feature_unknown`) for a slug the project does not hold, and [`Refusal::Unacceptable`]
+    /// (`fleet.feature_section_unknown`) for a section that is none of the four.
     fn get_feature_page(
         &self,
         caller: Option<crate::Caller>,
         project: Option<String>,
         feature: String,
+        section: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
     /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.
@@ -58,6 +60,15 @@ pub trait Features: Send + Sync + 'static {
     /// feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a blank part
     /// (`fleet.feature_blank`), with nothing kept.
     fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
+
+    /// `hand_over_features` — which feature pages the Job, or its subagent, is owed for what it is about to read or be told,
+    /// each once. The Job is `hand.session_id`: the mod's hook is the caller, not the Job's own connection.
+    fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> impl Future<Output = Result<ipc::FeaturesHandedOver, Refusal>> + Send;
+
+    /// `check_commit_feature` — whether the Job's `git commit` names the feature it serves. **Only a Job started after its
+    /// project's catalog was seeded is refused.** Allowed where the Job is unknown, the project has no feature, the commit
+    /// gives no message in its line or names a feature, or there is nothing to commit.
+    fn check_commit_feature(&self, check: ipc::CheckCommitFeature) -> impl Future<Output = Result<ipc::CommitFeatureChecked, Refusal>> + Send;
 
     /// `get_first_edit_searches` — the weekly figure the library is judged by, `weeks` back, 8 where absent.
     fn get_first_edit_searches(&self, weeks: Option<u32>) -> impl Future<Output = Result<ipc::FirstEditSearches, Refusal>> + Send;

@@ -106,6 +106,7 @@ where
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
+        detail.extend(super::document_page::features_of(html).map(|slugs| (ipc::ARTIFACT_FEATURE.to_string(), slugs)));
         // **One open artifact per Job**: a page that asks, written while one still asks him, is a part of it. A page
         // that joined one keeps it across its revisions.
         let kept_in = {

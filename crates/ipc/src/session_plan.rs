@@ -370,7 +370,7 @@ impl RecordPlan {
         let sketch = match &self.sketch {
             None => None,
             Some(drawn) => {
-                let shown = ShowSketch {
+                let shown = ShowSketch { feature: None,
                     title: drawn.title.clone(),
                     scene: drawn.scene.clone(),
                     session_id: None,

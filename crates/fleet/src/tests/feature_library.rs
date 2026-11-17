@@ -135,7 +135,7 @@ fn facts() -> BriefFacts {
 fn a_condensed_page_reads_in_its_order_with_five_entry_points_and_three_bugs() {
     let text = condensed(&facts());
     let at = |needle: &str| text.find(needle).unwrap_or_else(|| panic!("{needle} in {text}"));
-    let order = ["Voting on takes (Takes)", "Current as of #812, 2026-11-14.", "Stale: test since #815.", "On it now:", "Code:", "Test:", "Open bugs:", "Runs:", "Designs:", "Debt:", "Full sections: get_feature_page feature=voting-on-takes."];
+    let order = ["Voting on takes (Takes)", "Current as of #812, 2026-11-14.", "Stale: test since #815.", "On it now:", "Code:", "Test:", "Open bugs:", "Runs:", "Designs:", "Debt:", "One full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>."];
     let places: Vec<usize> = order.iter().map(|needle| at(needle)).collect();
     assert!(places.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
     assert!(text.contains("file5.rs:5") && !text.contains("file6.rs"), "the top five: {text}");
@@ -158,7 +158,8 @@ fn a_page_over_the_cap_loses_its_tail_first_and_never_its_head() {
     assert!(text.chars().count() <= CAP_CHARS, "{}", text.chars().count());
     assert!(text.starts_with("Voting on takes (Takes)\nCurrent as of #812, 2026-11-14.\nStale: test since #815."), "{text}");
     assert!(text.contains("Open bugs:") && text.contains("Runs:"), "what ranks high stays: {text}");
-    assert!(!text.contains("Debt:") && !text.contains("Full sections:"), "the tail goes first: {text}");
+    assert!(!text.contains("Debt:"), "the tail goes first: {text}");
+    assert!(text.ends_with("One full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>."), "the last line stays: {text}");
 }
 
 // What follows runs a Job through the library against a real store.
@@ -363,7 +364,7 @@ async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_
             files: vec!["crates/pages/voting/other.rs".into()],
         })
         .expect("kept");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string()).await.expect("the page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
     assert_eq!(page.sections.len(), 1);
     assert_eq!(page.sections[0].stale_since, Some(900));
     assert_eq!(page.feature.stale_since, Some(900));
@@ -396,4 +397,246 @@ async fn a_feature_in_an_area_nobody_kept_is_refused_with_nothing_kept_and_a_re_
     let again = rig.fleet.upsert_features(seeded(&project)).await.expect("kept");
     assert_eq!((again.created.len(), again.updated.len()), (0, 2));
     assert_eq!(id_of(&rig.fleet.list_features(None, Some(project)).await.expect("listed")), before);
+}
+
+// What follows hands a Job the pages of the features it works in.
+
+fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
+    ipc::HandOverFeatures {
+        session_id: id.clone(),
+        agent_id: agent.map(str::to_string),
+        paths: paths.iter().map(|one| one.to_string()).collect(),
+        brief: brief.map(str::to_string),
+    }
+}
+
+#[tokio::test]
+async fn a_feature_page_is_handed_once_per_job_and_once_per_subagent_and_the_record_outlives_the_call() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let voting = "crates/pages/voting/ranks.rs";
+
+    let first = rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked");
+    assert_eq!(first.features, [VOTING]);
+    assert!(first.text.starts_with("Feature pages from Armada's library"), "{}", first.text);
+    assert!(first.text.contains("voting-on-takes (Takes)") && first.text.contains("One full section:"), "the condensed page: {}", first.text);
+
+    let again = rig.fleet.hand_over_features(hand(&id, None, &[voting, "crates/pages/voting"], None)).await.expect("asked");
+    assert!(again.features.is_empty() && again.text.is_empty(), "the second read of the feature hands nothing: {}", again.text);
+
+    let other = rig.fleet.hand_over_features(hand(&id, Some("agent-1"), &[voting], None)).await.expect("asked");
+    assert_eq!(other.features, [VOTING], "a subagent has a context of its own");
+    assert!(rig.fleet.hand_over_features(hand(&id, Some("agent-1"), &[voting], None)).await.expect("asked").features.is_empty());
+
+    let store = rig.fleet.store().lock().await;
+    assert_eq!(store.feature_handoffs(id.as_str(), "").expect("read").len(), 1);
+    assert_eq!(store.feature_handoffs(id.as_str(), "agent-1").expect("read").len(), 1);
+}
+
+#[tokio::test]
+async fn a_brief_hands_over_the_features_it_names_and_a_later_read_of_their_files_hands_nothing() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let brief = "Add rank votes.\n\nFeature: no-such-feature, voting-on-takes\nSee also `page-actions` and `cargo test`.";
+
+    let named = rig.fleet.hand_over_features(hand(&id, None, &[], Some(brief))).await.expect("asked");
+    assert_eq!(named.features, [VOTING, "page-actions"], "a slug the project does not hold names nothing");
+    let read = rig.fleet.hand_over_features(hand(&id, None, &["crates/pages/actions/a.rs"], None)).await.expect("asked");
+    assert!(read.features.is_empty(), "the brief already handed it over");
+    let told_again = rig.fleet.hand_over_features(hand(&id, None, &[], Some(brief))).await.expect("asked");
+    assert!(told_again.text.is_empty());
+}
+
+#[tokio::test]
+async fn a_file_several_features_own_hands_over_three_pages_and_the_rest_at_the_next_read() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        for (n, slug) in ["one", "two", "three", "four"].into_iter().enumerate() {
+            store.put_feature(&store::KeptFeature { project: project.clone(), ..feature(&format!("f-{n}"), slug, &["crates/wide"]) }).expect("kept");
+        }
+    }
+    let path = ["crates/wide/a.rs"];
+    let first = rig.fleet.hand_over_features(hand(&id, None, &path, None)).await.expect("asked");
+    assert_eq!(first.features.len(), 3);
+    let second = rig.fleet.hand_over_features(hand(&id, None, &path, None)).await.expect("asked");
+    assert_eq!(second.features.len(), 1);
+    assert!(!first.features.contains(&second.features[0]));
+}
+
+#[tokio::test]
+async fn nothing_is_handed_to_a_job_fleet_does_not_know_a_project_with_no_library_or_a_file_no_feature_owns() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    let voting = "crates/pages/voting/ranks.rs";
+    assert!(rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked").text.is_empty(), "no library yet");
+
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let stranger = SessionId::carried("s-unknown");
+    assert!(rig.fleet.hand_over_features(hand(&stranger, None, &[voting], None)).await.expect("asked").text.is_empty());
+    assert!(rig.fleet.hand_over_features(hand(&id, None, &["docs/elsewhere.md"], None)).await.expect("asked").text.is_empty());
+    assert!(rig.fleet.store().lock().await.feature_handoffs(id.as_str(), "").expect("read").is_empty(), "nothing was handed, so nothing is kept");
+}
+
+// What follows holds a commit to naming its feature, for the Jobs started after the catalog was seeded.
+
+fn commit_of(id: &SessionId, command: &str, files: &[&str]) -> ipc::CheckCommitFeature {
+    ipc::CheckCommitFeature { session_id: id.clone(), command: command.to_string(), files: files.iter().map(|one| one.to_string()).collect() }
+}
+
+#[test]
+fn only_a_commit_that_gives_its_message_in_the_line_is_read() {
+    use crate::feature_library::committing::gives_message;
+    for line in [
+        r#"git commit -m "Add votes""#,
+        r#"git add -A && git commit -am "Add votes""#,
+        "git commit --message=\"Add votes\"",
+        "git -C sub commit -sm\"Add votes\"",
+        "git commit -m \"$(cat <<'EOF'\nAdd votes\nEOF\n)\"",
+    ] {
+        assert!(gives_message(line), "{line}");
+    }
+    for line in ["git commit --amend --no-edit", "git commit -F message.txt", "git commit -C HEAD", "git log -m", "echo commit -m x", "git status"] {
+        assert!(!gives_message(line), "{line}");
+    }
+}
+
+#[tokio::test]
+async fn a_job_started_after_the_catalog_was_seeded_is_refused_a_commit_with_no_feature_line_and_told_which_to_copy() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let files = ["crates/pages/voting/a.rs", "crates/pages/voting/b.rs", "crates/pages/actions/c.rs", "docs/elsewhere.md"];
+
+    let refused = rig.fleet.check_commit_feature(commit_of(&id, r#"git commit -m "Add rank votes""#, &files)).await.expect("asked");
+    assert!(!refused.allowed);
+    assert_eq!(refused.features, [VOTING, "page-actions"], "the most files first");
+    assert!(refused.says.contains("Feature: voting-on-takes\nFeature: page-actions\n"), "a line to copy for each: {}", refused.says);
+
+    let named = rig.fleet.check_commit_feature(commit_of(&id, "git commit -m \"Add rank votes\" -m \"Feature: voting-on-takes\"", &files)).await.expect("asked");
+    assert!(named.allowed && named.says.is_empty());
+}
+
+#[tokio::test]
+async fn files_no_feature_owns_are_refused_without_a_feature_to_copy() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+
+    let refused = rig.fleet.check_commit_feature(commit_of(&id, r#"git commit -m "Fix a typo""#, &["docs/elsewhere.md"])).await.expect("asked");
+    assert!(!refused.allowed && refused.features.is_empty());
+    assert!(refused.says.contains("No feature owns the files you are committing"), "{}", refused.says);
+}
+
+#[tokio::test]
+async fn a_job_older_than_the_catalog_a_project_with_no_feature_and_a_commit_nothing_reads_are_never_refused() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let files = ["crates/pages/voting/a.rs"];
+    let line = r#"git commit -m "Add rank votes""#;
+    let id = an_agent_for(&rig, &project).await;
+    assert!(rig.fleet.check_commit_feature(commit_of(&id, line, &files)).await.expect("asked").allowed, "the project has no feature");
+
+    // The catalog is seeded after the Job started, so the Job was never asked for a feature.
+    rig.fleet
+        .store()
+        .lock()
+        .await
+        .put_feature(&store::KeptFeature { project: project.clone(), added_at: "2999-01-01T00:00:00.000Z".to_string(), ..feature("f-late", VOTING, &[SOMEWHERE]) })
+        .expect("kept");
+    assert!(rig.fleet.check_commit_feature(commit_of(&id, line, &files)).await.expect("asked").allowed, "the Job started before the catalog did");
+
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let later = an_agent_for(&rig, &project).await;
+    let ask = |command: &str, files: &[&str]| commit_of(&later, command, files);
+    assert!(!rig.fleet.check_commit_feature(ask(line, &files)).await.expect("asked").allowed, "a Job started after is held to it");
+    assert!(rig.fleet.check_commit_feature(ask("git commit --amend --no-edit", &files)).await.expect("asked").allowed, "no message is given");
+    assert!(rig.fleet.check_commit_feature(ask(line, &[])).await.expect("asked").allowed, "nothing to commit");
+    assert!(rig.fleet.check_commit_feature(commit_of(&SessionId::carried("s-unknown"), line, &files)).await.expect("asked").allowed, "a Job Fleet does not know");
+}
+
+// What follows files the sketches, pages, walks and drafts that name features.
+
+fn made(form: &str, slugs: &str) -> std::collections::BTreeMap<String, String> {
+    [("form", form), ("feature", slugs), ("title", "Vote results")].into_iter().map(|(key, word)| (key.to_string(), word.to_string())).collect()
+}
+
+#[tokio::test]
+async fn an_artifact_is_linked_to_each_feature_it_names_that_the_project_holds_and_the_rest_are_kept_for_the_operator() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes,page-actions,brand-new"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "http://localhost:5173/", &made("window", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "draft:Vote results", &made("draft", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "/docs/votes.html", &made("document", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Unnamed", &[("form".to_string(), "sketch".to_string())].into(), &now);
+
+    let kinds_of = |store: &store::Store, slug: &str| {
+        let feature = store.feature_named(&project, slug).expect("read").expect("the feature");
+        store.feature_links(&feature.id).expect("read").into_iter().map(|link| (link.kind, link.target, link.title)).collect::<Vec<_>>()
+    };
+    let voting = kinds_of(&store, VOTING);
+    for (kind, target) in [("sketch", "sketch:Vote results"), ("walk", "http://localhost:5173/"), ("draft", "draft:Vote results"), ("page", "/docs/votes.html")] {
+        assert!(voting.contains(&(kind.to_string(), target.to_string(), "Vote results".to_string())), "{kind}: {voting:?}");
+    }
+    assert_eq!(kinds_of(&store, "page-actions"), [("sketch".to_string(), "sketch:Vote results".to_string(), "Vote results".to_string())]);
+
+    let proposed = store.feature_proposals(&project).expect("read");
+    assert_eq!(proposed.iter().map(|one| (one.slug.as_str(), one.kind.as_str(), one.target.as_str(), one.job.as_str())).collect::<Vec<_>>(), [("brand-new", "sketch", "sketch:Vote results", id.as_str())]);
+}
+
+#[tokio::test]
+async fn a_name_in_a_project_with_no_library_is_not_kept_for_the_operator() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes"), &now);
+    assert!(store.feature_proposals(&project).expect("read").is_empty());
+}
+
+#[tokio::test]
+async fn a_page_asked_for_one_section_holds_that_section_alone() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &FeatureSectionKind::ALL)).await.expect("written");
+
+    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    assert_eq!(whole.sections.len(), 4);
+    assert!(!whole.files.is_empty(), "the whole page keeps its files");
+
+    for asked in ["debt", " Debt "] {
+        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string())).await.expect("the page");
+        assert_eq!(page.sections.iter().map(|one| (one.section, one.text.as_str())).collect::<Vec<_>>(), [(FeatureSectionKind::Debt, "The debt text.")]);
+        assert!(page.links.is_empty() && page.files.is_empty(), "a section is asked for alone");
+        assert_eq!(page.feature.slug, VOTING);
+    }
+    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into())).await.expect("the page");
+    assert_eq!(blank.sections.len(), 4, "a blank section is none");
+
+    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into())).await.expect_err("refused");
+    let api::Refusal::Unacceptable(why) = refused else { panic!("{refused:?}") };
+    assert_eq!(why.code, "fleet.feature_section_unknown");
+    assert!(why.message.contains("`tests`") && why.message.contains("test, runs, observe or debt"), "{}", why.message);
+
+    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into())).await.expect("the page");
+    assert_eq!(observe.sections.len(), 1);
 }

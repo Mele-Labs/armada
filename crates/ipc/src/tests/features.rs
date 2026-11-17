@@ -1,6 +1,6 @@
 //! The feature library's bodies, as they are written on the wire.
 
-use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, UpsertFeatures, WriteFeatureSections};
+use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, HandOverFeatures, UpsertFeatures, WriteFeatureSections};
 
 #[test]
 fn the_two_bodies_say_their_shape() {
@@ -32,4 +32,27 @@ fn a_path_answers_each_feature_with_how_it_belongs() {
     .expect("decoded");
     assert_eq!(found.features.len(), 2);
     assert!(found.features[1].prefix.is_none());
+}
+
+#[test]
+fn the_hand_over_body_says_its_shape() {
+    assert_eq!(shape::of::<HandOverFeatures>(), "{session_id: string, agent_id?: string, paths?: [string], brief?: string}");
+}
+
+#[test]
+fn the_commit_check_body_says_its_shape() {
+    assert_eq!(shape::of::<crate::CheckCommitFeature>(), "{session_id: string, command: string, files?: [string]}");
+}
+
+#[test]
+fn an_act_names_its_feature_as_one_slug_or_a_list() {
+    use crate::FeatureNames;
+    let one: FeatureNames = decode("a feature", br#""voting-on-takes""#).expect("decoded");
+    assert_eq!(one.slugs(), ["voting-on-takes"]);
+    let many: FeatureNames = decode("features", br#"[" Voting-On-Takes","page-actions, voting-on-takes",""]"#).expect("decoded");
+    assert_eq!(many.slugs(), ["voting-on-takes", "page-actions"], "trimmed, lower case, split at a comma and each once");
+    assert_eq!(many.as_detail().as_deref(), Some("voting-on-takes,page-actions"));
+    assert_eq!(FeatureNames::One(" ".into()).as_detail(), None);
+    let shown: crate::ShowWindow = decode("a window", br#"{"url":"http://localhost:5173/","feature":["a"]}"#).expect("decoded");
+    assert_eq!(shown.feature.map(|names| names.slugs()), Some(vec!["a".to_string()]));
 }

@@ -57,6 +57,18 @@ links what it serves. Fleet keeps the first 5 whose `href` starts `http://` or
 progress, its plan step and the open pull requests you hold, so leave those
 out.
 
+## Which features it serves
+
+A page that serves a feature of the library names it in the `<head>`, one slug or
+several separated by commas:
+
+```html
+<meta name="armada-feature" content="voting-on-takes">
+```
+
+Fleet files the page under each feature the project holds. A slug it does not
+hold is not refused: it is kept for the Operator to confirm.
+
 ## Buttons and takes are parts
 
 Buttons and takes do not need a page. Add them to the artifact you are

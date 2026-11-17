@@ -4,12 +4,12 @@
 // **A session is reported as it happens and never read back**, with one
 // exception: a message a person sent it from Bridge, which Fleet holds until
 // this mod asks (`submitHeld`). Two things are told to the model: its own session id, so
-// `show_window` can name it, and the lines a stop is sent back with. Four hooks change what a session does: an `open` of a page, a whole read of a large file
+// `show_window` can name it, and the lines a stop is sent back with. Five hooks change what a session does: a `git commit` that names no feature (`commitRefusal`), an `open` of a page, a whole read of a large file
 // (turned away once with its outline, `reading.ts`), an `AskUserQuestion` Bridge answers first, and a stop on a reply that names what the owner owes outside
 // `waiting_for`, sent back once (`sendBack`); every other answers with what `next` returned and lets its report go unawaited, so
 // Fleet being down costs the session nothing (`fleet.ts`). **No message text and no prompt leaves, apart from the first
 // line of the first prompt as a title, the first line of what a turn ended on as the reply Fleet shows, the first line of a shell command, the text of each item on the task list the agent wrote, a question put to Bridge, the lines a stop is sent back with, and each line a reply named as owed that the session left out of
-// `waiting_for` after it was sent back.** A message is reported as who it went to
+// `waiting_for` after it was sent back. The one other thing asked of Fleet is which feature pages a read or a brief is owed (`handedOver`): the path of a Read, Grep or Glob under the session's directory, and a prompt that has a `Feature:` line or a backticked slug in it, go to Fleet on this machine and the pages come back. So does the line of a `git commit`, with the files it takes, for Fleet to say whether it names its feature (`commitRefusal`).** A message is reported as who it went to
 // or came from, and how many. A file a session wrote or read is reported as its path from the session's directory,
 // and never its content. What fills the context window is reported as names, paths and counts, never contents.
 // The Loadout is reported the same way: each skill, subagent, MCP server and tool, memory file, output style,
@@ -77,6 +77,8 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
+import { commitStaging, placeOfCall } from './handoff'
+import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
 import { turnedAway, wholeRead, WHOLE_READ_MOST } from './reading'
 
@@ -88,6 +90,8 @@ const WAIT_MS = 1500
 const PRE_PR_WAIT_MS = 5 * 60_000
 // What a subagent's start waits for the Logbook: past it, the subagent starts with its prompt as it was.
 const LOGBOOK_WAIT_MS = 800
+// How long Fleet is given to say which feature pages a Job is owed: past it the agent is handed nothing, and Fleet is not asked again for SILENT_MS.
+const HANDOFF_WAIT_MS = 1500
 // The tick that starts an ask when none is open, so also how soon one is retried after it failed.
 const ASK_EVERY_MS = 2000
 // How long Fleet may hold an ask, and how long the mod waits on one before it asks again.
@@ -1233,6 +1237,108 @@ async function logbookFor($: Dollar, prompt: string): Promise<string> {
   }
 }
 
+// How long Fleet is given to say whether a commit names its feature: past it the commit runs.
+const COMMIT_WAIT_MS = 3000
+
+/** The files a `git commit` is about to take, from git in the session's directory, repository relative. Empty where git will not say. */
+async function filesToCommit($: Dollar, all: boolean): Promise<string[]> {
+  const cwd = await $.session.cwd()
+  const listings = [['diff', '--cached', '--name-only', '--no-renames', '-z']]
+  // What a `git add` or `-a` in the same line stages too: the changed and the new.
+  if (all) listings.push(['diff', '--name-only', '--no-renames', '-z'], ['ls-files', '--others', '--exclude-standard', '--full-name', '-z'])
+  const files = new Set<string>()
+  for (const args of listings) {
+    const ran = await $.process.run(['git', ...args], { cwd, timeoutMs: 3000 })
+    if (ran.exitCode !== 0) continue
+    for (const name of ran.stdout.split('\0')) if (name !== '') files.add(name)
+  }
+  return [...files]
+}
+
+/**
+ * What Fleet says stands in the way of a `git commit`: no `Feature:` line, with the features the files belong to. **Only
+ * a Job started after its project's catalog was seeded is refused**, which Fleet decides. A Fleet that is out, slow, older
+ * or refuses lets the commit run, since a gate that fails shut stops every Job the day Fleet restarts.
+ */
+async function commitRefusal($: Dollar, command: string): Promise<string | undefined> {
+  const staging = commitStaging(command)
+  if (staging === undefined) return undefined
+  try {
+    const port = await portOf($)
+    if (port === undefined) return undefined
+    const session_id = await $.session.id()
+    const files = await filesToCommit($, staging.all).catch(() => [])
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/features/commit_check`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id, command, files }),
+      }),
+      $.clock.sleep(COMMIT_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined || !asked.ok) return undefined
+    const read = JSON.parse(asked.text) as { allowed?: unknown; says?: unknown }
+    return read.allowed === false && typeof read.says === 'string' && read.says !== '' ? read.says : undefined
+  } catch {
+    return undefined
+  }
+}
+
+let handoffQuietUntil = 0
+
+/**
+ * Subagents that were handed pages in their prompt, by agent id, to the id the spawn call had when Fleet recorded
+ * them: the agent's own id is not known until it has started. Its later reads ask under that id, so a feature its
+ * brief named is not handed to it again.
+ */
+const spawnedAs = new Map<string, string>()
+
+/**
+ * The pages of the features a read or a brief reaches, which Fleet hands over once per feature and per subagent: the
+ * condensed text, or an empty string. **Quiet**: a Fleet that is out, slow, older or refuses hands over nothing, and a
+ * slow one is not asked again for a while, so no read waits on it twice.
+ */
+async function handedOver($: Dollar, body: { paths?: string[]; brief?: string; agent_id?: string }): Promise<string> {
+  try {
+    if (await $.env.get('ARMADA_DRONE')) return ''
+    const now = await $.clock.now()
+    if (now < handoffQuietUntil) return ''
+    const port = await portOf($)
+    if (port === undefined) return ''
+    const session_id = await $.session.id()
+    const asked = await Promise.race([
+      $.http.fetch(`http://127.0.0.1:${port}/features/hand_over`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session_id, ...body }),
+      }),
+      $.clock.sleep(HANDOFF_WAIT_MS).then(() => undefined),
+    ])
+    if (asked === undefined) {
+      handoffQuietUntil = now + SILENT_MS
+      return ''
+    }
+    if (!asked.ok) return ''
+    const text = (JSON.parse(asked.text) as { text?: unknown }).text
+    return typeof text === 'string' ? text.trim() : ''
+  } catch {
+    return ''
+  }
+}
+
+/** The page of the feature a Read, Grep or Glob reaches, for the agent that made the call. */
+async function featurePagesFor($: Dollar, tool: string, e: SearchAsked, agentId: string | undefined): Promise<string> {
+  const root = await $.session.root().catch(() => undefined)
+  const place = root === undefined ? undefined : placeOfCall(tool, e, root)
+  if (place === undefined) return ''
+  return handedOver($, { paths: [place], ...(agentId === undefined ? {} : { agent_id: spawnedAs.get(agentId) ?? agentId }) })
+}
+
+/** Whether a prompt could name a feature, by a `Feature:` line or a backticked slug. Any other prompt stays here. */
+function mayNameFeatures(text: string): boolean {
+  return /feature\s*:/i.test(text) || /`[a-z0-9._/-]+`/.test(text)
+}
+
 async function ended($: Dollar, id: string, reason: string): Promise<void> {
   if (!known.has(id)) await begin($, id)
   say($, id, { kind: 'ended', reason })
@@ -1282,7 +1388,9 @@ export const register: Register = on => {
   })
 
   on('prompt.submit', async ($, e, next) => {
-    const out = await next(e)
+    // The features a brief names reach the agent with it, the first time and no other.
+    const named = mayNameFeatures(e.text) ? await handedOver($, { brief: e.text }) : ''
+    const out = await next(named === '' ? e : { ...e, context: [...(e.context ?? []), named] })
     const one = known.get(await $.session.id())
     if (one !== undefined) one.turn = freshTurn()
     void titled($, e.text).catch(() => undefined)
@@ -1310,6 +1418,10 @@ export const register: Register = on => {
       const refused = await prePrRefusal($)
       if (refused !== undefined) return { deny: refused }
     }
+    if (commitStaging(e.command) !== undefined && !(await $.env.get('ARMADA_DRONE'))) {
+      const unnamed = await commitRefusal($, e.command)
+      if (unnamed !== undefined) return { deny: unnamed }
+    }
     const ran = await next(e)
     if (ran.deny === undefined) void used($, 'ran', e as Record<string, unknown>).catch(() => undefined)
     if (ran.deny === undefined && ran.isError !== true) {
@@ -1318,6 +1430,17 @@ export const register: Register = on => {
     }
     return remindOutside($, ran, cmuxBrowserIn(e.command))
   })
+
+  // The page of the feature a file belongs to reaches the agent the first time it reads or searches that file. Told with the
+  // call's own result, and only once the call ran: a read that was turned away has not shown the agent anything yet.
+  for (const tool of ['Read', 'Grep', 'Glob']) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny !== undefined || ran.isError === true) return ran
+      const pages = await featurePagesFor($, tool, e as SearchAsked, e.agentId)
+      return pages === '' ? ran : { ...ran, context: [...(ran.context ?? []), pages] }
+    })
+  }
 
   // A whole read of a large file is turned away once, with its outline, so the agent reads a range.
   on('tool.call', { tool: 'Read' }, async ($, e, next) => {
@@ -1536,13 +1659,18 @@ export const register: Register = on => {
     })
   }
 
-  // The Logbook goes in the prompt: Claude Code's own SubagentStart hook carries no prompt, so it could not
-  // tell which paths the subagent works under.
+  // The Logbook and the pages of the features the brief names go in the prompt: Claude Code's own SubagentStart hook carries
+  // no prompt, so it could not tell which paths the subagent works under.
   on('agent.spawn', async ($, e, next) => {
     // The parent's permission mode is on the spawn: the one place left to read it where the settings hooks are not run.
     if (!classicHeard && e.parentAgentId === undefined) void seen($, e.permissionMode, undefined)
     const told = (await $.env.get('ARMADA_DRONE')) ? '' : await logbookFor($, e.prompt)
-    const out = await next(told === '' ? e : { ...e, prompt: `${e.prompt}\n\n${told}` })
+    // The features its brief names, as the Job's own brief does: counted under the spawn call, since the agent has no id yet.
+    const call = e.tool_use_id ?? 'spawn'
+    const pages = mayNameFeatures(e.prompt) ? await handedOver($, { brief: e.prompt, agent_id: call }) : ''
+    const added = [told, pages].filter(one => one !== '')
+    const out = await next(added.length === 0 ? e : { ...e, prompt: `${e.prompt}\n\n${added.join('\n\n')}` })
+    if (out.deny === undefined && pages !== '' && out.agentId !== undefined) spawnedAs.set(out.agentId, call)
     if (out.deny === undefined) {
       const target = out.agentId ?? e.tool_use_id
       void spawned($, target, e.subagentType, e.description, e.tool_use_id, planGroupIn(e.prompt)).catch(() => undefined)
