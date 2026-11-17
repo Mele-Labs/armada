@@ -1,0 +1,14 @@
+[operations.get_features_of_path]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "List the features a file belongs to, the longest owning prefix first, then the features a Job filed it under. Give the path relative to the repository"
+notes = """
+`GET /features/of_path?path=&project=&manifest_id=`, answered with `FeaturesOfPath`: `path` and `features`, each `FeatureOfPath` holding `project`, `slug`, `title`, `area`, `how` and, for `prefix`, the `prefix` that matched.
+
+**`how` is `prefix` or `filed`.** `prefix` is a path prefix the feature owns, matched on whole path segments. `filed` is a file a Job wrote while its commits named the feature, or one a commit naming it changed. Several features may own one file, and each is listed.
+
+`project` is optional as in `list_features`. `manifest_id` names the repository the path is in and is optional where the project has one.
+
+`agent_access` is `Yes`.
+"""

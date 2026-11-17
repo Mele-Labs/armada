@@ -37,6 +37,10 @@ gpui-kit-assets = "=0.9.0"
 # A mock's markup is parsed and cleaned as the browser parses it; gpui-component already links these exact versions.
 html5ever = "=0.27.0"
 markup5ever_rcdom = "=0.3.0"
+# A diff's code is coloured by syntect's grammars, the version gpui-component's own `syntect` backend
+# names, without its theme: only scopes are read, and each scope takes a token. `regex-fancy` is pure
+# Rust, so no C library builds.
+syntect = { version = "=5.3.0", default-features = false, features = ["parsing", "default-syntaxes", "regex-fancy"] }
 # The wire, linked and never copied: the protocol ID covers this crate.
 ipc = { path = "../ipc" }
 # The log envelope's own type, so a line from here joins to a line from Fleet.

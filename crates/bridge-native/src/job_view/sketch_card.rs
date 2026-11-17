@@ -864,6 +864,14 @@ mod tests {
     }
 
     #[test]
+    fn a_sketch_shown_with_asks_false_draws_no_answer_bar() {
+        // Fleet leaves `asked` off the card of a sketch that asks nothing, so it only reads, with or without a plan waiting.
+        for with_plan in [false, true] {
+            assert!(Standing::of(&card(""), None, with_plan, false) == Standing::Reading, "with_plan {with_plan}");
+        }
+    }
+
+    #[test]
     fn a_card_a_later_one_replaced_keeps_its_drawing_as_history() {
         assert!(!lines(&card(r#","asked":true,"replaced":true"#), Some(Said::SentBack), false, false));
     }

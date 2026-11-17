@@ -1,0 +1,14 @@
+[operations.get_feature_brief]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Read one feature's page condensed for an agent, about a thousand tokens of plain text: stale marks, who is on it, entry points, the test command, open bugs and how to fetch the rest"
+notes = """
+`GET /features/brief?feature=<slug>&project=`, answered with `FeatureBrief`: `feature`, `text` and `tokens`, which is the text's characters over four.
+
+**The text is cut to fit, in this order.** First kept: name, area, `current as of #<pr>, <date>` and the stale marks. Then Jobs on it now, the top five code entry points, the test command, the newest three open bugs, how it runs in one line, designs as titles, debt in one line, and the line that says how to fetch a full section. When over the cap the last of these go first, and the head stays.
+
+404 `fleet.feature_unknown` where the project has no feature by that slug.
+
+`agent_access` is `Yes`.
+"""

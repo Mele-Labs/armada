@@ -38,6 +38,12 @@ impl Mine {
         self.0.as_deref().unwrap_or(&[])
     }
 
+    /// Mine by a login known to be the person's. **Not [`Self::owns`]'s every pull request** where
+    /// none is: what is read one by one must stay a handful.
+    pub(crate) fn knows(&self, author: Option<&str>) -> bool {
+        self.0.is_some() && author.is_some_and(|it| !it.trim().is_empty()) && self.owns(author)
+    }
+
     pub(crate) fn owns(&self, author: Option<&str>) -> bool {
         match (&self.0, author.map(str::trim).filter(|it| !it.is_empty())) {
             (Some(known), Some(author)) => known.iter().any(|login| login.eq_ignore_ascii_case(author)),

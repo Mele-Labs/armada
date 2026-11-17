@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 
 use super::{author_of, joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
+use crate::pull_request_facts::merge_state_word;
 use crate::pull_review_lists::latest_of;
 use crate::pull_request_detail::{
     check_standing, file_change, mergeability, review_said, review_standing, with_profiles, with_teams, Head,
@@ -23,7 +24,7 @@ use crate::pull_request_detail::{
 /// list. Comments and reviews are read from the end, since the page keeps the latest.
 pub(crate) const QUERY: &str = "query($owner:String!,$name:String!,$number:Int!){\
     repository(owner:$owner,name:$name){pullRequest(number:$number){\
-    baseRefName author{login} createdAt additions deletions mergeable reviewDecision headRefOid body \
+    baseRefName author{login} createdAt additions deletions mergeable mergeStateStatus reviewDecision headRefOid body \
     latestReviews(first:100){nodes{author{login} state submittedAt commit{oid}}} \
     reviewRequests(first:100){nodes{requestedReviewer{__typename ... on User{login} ... on Bot{login} \
     ... on Mannequin{login} ... on Team{slug name}}}} \
@@ -103,6 +104,7 @@ pub(crate) struct Pull {
     additions: Option<u64>,
     deletions: Option<u64>,
     mergeable: Option<String>,
+    merge_state_status: Option<String>,
     review_decision: Option<String>,
     head_ref_oid: Option<String>,
     body: Option<String>,
@@ -405,6 +407,7 @@ pub(crate) fn parts_of(pull: Pull) -> PageParts {
             review: review_standing(pull.review_decision.as_deref().unwrap_or_default()),
             commit: pull.head_ref_oid.unwrap_or_default(),
             body: pull.body.unwrap_or_default(),
+            merge_state: merge_state_word(pull.merge_state_status.as_deref().unwrap_or_default()),
         }),
         ..PageParts::default()
     };

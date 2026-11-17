@@ -93,6 +93,16 @@ pub struct KeptReading {
     pub background: Vec<KeptBackground>,
     /// What the read hands to the next one, as the reader wrote it.
     pub carried: Option<String>,
+    /// One for each turn the read gave: the code searches it ran before its first edit.
+    pub searched: Vec<KeptTurnSearches>,
+}
+
+/// The code searches one turn ran before its first Edit or Write, or all of them where it made none. **Kept apart from
+/// [`KeptTurnUsage`]**, as the times are, so a turn heard from a notice changes none of it.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptTurnSearches {
+    pub message_id: String,
+    pub searches: u32,
 }
 
 /// `{"read": {part: share}, "write": {part: share}}`.
@@ -273,6 +283,14 @@ impl Store {
             )
             .map_err(keeping)?;
         }
+        for one in &learnt.searched {
+            // The larger count wins, so a message heard in two reads keeps what either saw.
+            kept.execute(
+                "UPDATE session_turn_usage SET searches = max(COALESCE(searches, 0), ?3) WHERE session_id = ?1 AND message_id = ?2",
+                params![session_id, one.message_id, one.searches],
+            )
+            .map_err(keeping)?;
+        }
         for one in &learnt.background {
             kept.execute(
                 "INSERT INTO session_background_usage (session_id, id, at, model, cache_read_tokens, output_tokens)
@@ -291,9 +309,9 @@ impl Store {
             .map_err(keeping)?;
         }
         kept.execute(
-            "INSERT INTO transcript_offsets (path, read_to, input_at, carried) VALUES (?1, ?2, ?3, ?4)
+            "INSERT INTO transcript_offsets (path, read_to, input_at, carried, searched) VALUES (?1, ?2, ?3, ?4, 1)
              ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to, input_at = excluded.input_at,
-                 carried = excluded.carried",
+                 carried = excluded.carried, searched = 1",
             params![path, read_to as i64, learnt.input_at, learnt.carried],
         )
         .map_err(keeping)?;
@@ -317,6 +335,15 @@ impl Store {
             .query_row("SELECT input_at FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get(0))
             .optional()
             .map(Option::flatten)
+            .map_err(reading)
+    }
+
+    /// Whether the transcript at `path` was last read by a build that counts searches.
+    pub fn transcript_searched(&self, path: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT searched FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get::<_, i64>(0))
+            .optional()
+            .map(|found| found.is_some_and(|searched| searched != 0))
             .map_err(reading)
     }
 

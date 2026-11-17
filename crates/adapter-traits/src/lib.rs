@@ -104,7 +104,7 @@ pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase,
 pub use pull_comments::{OnFile, PullComment};
 pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use backlog::{Backlog, BeadState, CopyMark};
-pub use pull_request::{PullRequestFacts, PullRequestStanding};
+pub use pull_request::{MergeState, PullRequestFacts, PullRequestStanding};
 pub use pull_request_detail::{
     CheckRow, CheckStanding, CommitLine, ComparedPatches, FileChange, FilePatch, Mergeability, Omitted, PageFile,
     PatchedFile, PullRequestPageFacts, PullRequestWrite, ReviewSaid, ReviewStanding, Reviewer,
@@ -133,7 +133,7 @@ pub use tracker::{
 pub use tracker_writes::{not_able, IssueWrite, ReadOnly, TrackerWrites};
 pub use setup::{
     HarnessSetup, Inventory, ItemAsked, ItemKind, ItemRead, ItemWhose, KindRead, SetupFiles, SetupItem,
-    SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
+    ServerFacts, ServerFrom, SetupKind, StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 pub use slots::{
     BranchKept, CommitHome, RescueRefused, ReviewBay, SlotAfterMerge, SlotChange, SlotCommit,

@@ -1,0 +1,16 @@
+[operations.get_pull_request_commit_patches]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Every file one commit of a pull request changed, as a patch, for the Files tab to draw that commit alone"
+notes = """
+`GET /pull_request_commit_patches/:repository/:number/:commit`, `repository` a manifest id and `commit` a commit name, seven to 64 hex characters. Answers `PullRequestFilePatches`, the shape `get_pull_request_patches` answers, so the same drawing takes either: `files`, each a `PullRequestFilePatch` carrying `number`, in the forge's order.
+
+**The commit against its first parent**, as GitHub's `commits/{sha}` lists it. Fleet does not check that the commit is one of the pull request's: `number` only labels the answer, so a caller can ask for any commit the repository holds.
+
+A file the forge holds no patch for (binary, or a change it will not show) carries `patch` absent and `said` the sentence `get_pull_request_file` gives.
+
+Refused with a 422 `fleet.pull_request_commit_invalid` for a `commit` that is not a commit name, a 500 `fleet.pull_request_unreadable` where the forge would not answer or does not have the commit, and a 422 for a repository Fleet does not serve.
+
+`agent_access` is `Bridge only`, for `get_pull_request_patches`'s reason.
+"""

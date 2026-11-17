@@ -68,3 +68,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 15 Nov 2026 for the walk `native-for-you`. The tab's glyph and its + entry, named For you. The glyph already means a person is required, which is what the tab lists."
+
+  [[icons.user-check.usage]]
+    means = "A pull request the forge will not merge until a person approves it"
+    group = "PR tab"
+    size = "20px"
+    status = "Proposed"
+    notes = "Proposed 16 Nov 2026 for the native PR tab's status plate, `Review required`, in the neutral hue, and its Review required fact. The person whose review is waited on."

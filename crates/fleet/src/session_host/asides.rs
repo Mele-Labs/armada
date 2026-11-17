@@ -326,7 +326,7 @@ where
         };
         let terminal = self.terminal_session(&id).await?;
         self.visit_kept(&id).await;
-        Arc::clone(&self).mod_message_sent(terminal, sent, None).await?;
+        Arc::clone(&self).send_known_told(terminal, sent, kept.aside_id.clone()).await?;
         let at = self.now().as_str().to_string();
         let held = {
             let mut store = self.store().lock().await;

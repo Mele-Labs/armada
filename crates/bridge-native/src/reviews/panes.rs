@@ -148,7 +148,7 @@ impl ReviewsScreen {
         let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
         for set in &page.overview.sets {
             let id = set.id.clone();
-            let lead = tabs::set_mark(format!("rail-mark-{}", set.id), set.mark, look.length(token::SPACE_3), look);
+            let lead = tabs::set_mark(format!("rail-mark-{}", set.id), &self.set_mark_of(page, &set.id), look.length(token::SPACE_3), look);
             let one = row(format!("rail-{}", set.id), &set.title, lead, on.as_deref() == Some(&set.id)).on_click(cx.listener(move |this, _, _, cx| this.choose_set(&id, cx)));
             rail = rail.child(labelled(one, Role::ListBoxOption, set.title.clone()));
         }

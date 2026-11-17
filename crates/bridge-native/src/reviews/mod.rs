@@ -61,6 +61,9 @@ pub fn default_arrangement() -> Arrangement {
 const PAGE_READ: Duration = Duration::from_millis(1500);
 /// How long the mock forge takes to read the inbox again.
 const REFRESH_READ: Duration = Duration::from_millis(4000);
+/// The menu on a practice he corrected.
+const CHANGE_REASON: &str = "Change the reason";
+const UNDO: &str = "Undo";
 /// How long the mock review run takes over a range.
 const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
 /// How long the mock summary of the new commits takes to write.
@@ -73,8 +76,6 @@ pub(super) const HUNKS_AT: usize = 6;
 /// A question the screen holds up before it acts.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Ask {
-    /// A critique starts a review run, which asks first as every run does.
-    Critique,
     SaveAs,
     Rename,
 }
@@ -83,6 +84,25 @@ pub enum Ask {
 pub(crate) struct Boxed {
     pub state: Entity<TextareaState>,
     _changed: Subscription,
+}
+
+/// The one-line reason field under a practice he called wrong, open until Save or Cancel.
+pub(crate) struct Correcting {
+    pub at: model::PracticeAt,
+    pub wrong: model::Wrong,
+    pub field: Entity<InputState>,
+    _enter: Subscription,
+}
+
+/// The sheet under Review these changes: what to look for, how hard and anything to focus on,
+/// open until Start or Cancel.
+pub(crate) struct AskingReview {
+    /// The button it opened from, which names it.
+    pub title: &'static str,
+    pub at: Point<Pixels>,
+    pub ask: model::ReviewAsk,
+    pub focus: Entity<InputState>,
+    _enter: Subscription,
 }
 
 /// A menu that is open, and what listens to it.
@@ -138,6 +158,12 @@ pub struct ReviewsScreen {
     /// Each suggestion's words, which he can edit before it becomes a draft, by pull request and finding.
     suggestions: HashMap<(u64, String), Boxed>,
     dismissed: HashSet<(u64, String)>,
+    /// His corrections of practices' results, until Fleet stores them.
+    corrections: HashMap<model::PracticeAt, model::Correction>,
+    /// The practice whose reason he is writing.
+    correcting: Option<Correcting>,
+    /// Change sets whose set-aside practices are unfolded, by pull request and set.
+    aside_open: HashSet<(u64, String)>,
     /// Summaries being written, by pull request.
     writing: HashMap<u64, Task<()>>,
     /// Each change set's How it works and How to test: absent until run, None while it runs.
@@ -148,14 +174,39 @@ pub struct ReviewsScreen {
     /// The Change set tab's own scroll, which Show in change set moves to a hunk.
     set_scroll: ScrollHandle,
     asking: Option<Ask>,
+    /// The review sheet, while it is open.
+    asking_review: Option<AskingReview>,
+    /// The review tools a review can be asked to look for.
+    review_tools: Vec<model::ReviewTool>,
+    /// His last ask, by repository, until Fleet keeps it.
+    review_asks: HashMap<String, model::ReviewAsk>,
     name_box: Entity<InputState>,
     dialog: FocusHandle,
     pop: Option<Pop>,
     refresh: Option<Task<()>>,
     reading: Option<Task<()>>,
     critique: Option<Task<()>>,
+    /// Each file's coloured lines, by path and then by line text, read off the main thread.
+    hues: HashMap<String, crate::syntax::Read>,
+    /// Pages whose diffs are being coloured.
+    colouring: HashMap<u64, Task<()>>,
+    /// The patches read for colour, by a hash of path and patch.
+    coloured: HashSet<u64>,
+    /// In a walk the mock's work waits for the walk's `Lands` step instead of its own clock, so no
+    /// step races a person's Next.
+    walked: bool,
     next_draft: u64,
     _subs: Vec<Subscription>,
+}
+
+/// The reviews screen a walk is playing, so its `Lands` step reaches it.
+struct Walked(gpui::WeakEntity<ReviewsScreen>);
+
+impl gpui::Global for Walked {}
+
+/// The reviews screen a walk is playing, if one is drawn.
+pub fn walked(cx: &App) -> Option<Entity<ReviewsScreen>> {
+    cx.try_global::<Walked>().and_then(|walked| walked.0.upgrade())
 }
 
 impl ReviewsScreen {
@@ -208,18 +259,28 @@ impl ReviewsScreen {
             sent_open: HashSet::new(),
             suggestions: HashMap::new(),
             dismissed: HashSet::new(),
+            corrections: HashMap::new(),
+            correcting: None,
+            aside_open: HashSet::new(),
             writing: HashMap::new(),
             explains: HashMap::new(),
             explain_runs: HashMap::new(),
             chosen: HashMap::new(),
             set_scroll: ScrollHandle::new(),
             asking: None,
+            asking_review: None,
+            review_tools: mock::review_tools(),
+            review_asks: HashMap::new(),
             name_box,
             dialog: cx.focus_handle(),
             pop: None,
             refresh: None,
             reading: None,
             critique: None,
+            hues: HashMap::new(),
+            colouring: HashMap::new(),
+            coloured: HashSet::new(),
+            walked: false,
             next_draft: 1,
             _subs: subs,
         }
@@ -249,8 +310,9 @@ impl ReviewsScreen {
 
     fn start_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.inbox.refreshing = true;
+        let wait = self.wait(REFRESH_READ, cx);
         self.refresh = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(REFRESH_READ).await;
+            wait.await;
             let _ = this.update_in(cx, |this, window, cx| this.end_refresh(window, cx));
         }));
         cx.notify();
@@ -292,6 +354,56 @@ impl ReviewsScreen {
         }
         self.suggestion_boxes(number, window, cx);
         self.write_summary(number, window, cx);
+        self.colour(number, cx);
+    }
+
+    /// Colours a page's diffs off the main thread, every file and change-set hunk at once, and redraws
+    /// once when they are all read.
+    fn colour(&mut self, number: u64, cx: &mut Context<Self>) {
+        let Some(page) = self.pages.get(&number) else { return };
+        let mut patches: Vec<(String, String)> = Vec::new();
+        for file in &page.files {
+            patches.push((file.path.clone(), file.patch.clone()));
+            patches.extend(file.patch_since.clone().map(|patch| (file.path.clone(), patch)));
+        }
+        for set in &page.overview.sets {
+            patches.extend(set.hunks.iter().map(|hunk| (hunk.path.clone(), hunk.patch.clone())));
+        }
+        // A patch read before is not read again.
+        patches.retain(|one| {
+            use std::hash::{BuildHasher, BuildHasherDefault};
+            self.coloured.insert(BuildHasherDefault::<std::collections::hash_map::DefaultHasher>::default().hash_one(one))
+        });
+        if patches.is_empty() {
+            return;
+        }
+        let reading = cx.background_executor().spawn(async move {
+            let mut read: HashMap<String, crate::syntax::Read> = HashMap::new();
+            for (path, patch) in patches {
+                let drawn = crate::diff::file_diff_of(&path, Some(&patch), None);
+                let lines = drawn.files.into_iter().next().map(|file| file.lines).unwrap_or_default();
+                let found = crate::syntax::read(&path, &lines);
+                read.entry(path).or_default().extend(found);
+            }
+            read
+        });
+        let task = cx.spawn(async move |this, cx| {
+            let read = reading.await;
+            let _ = this.update(cx, |this, cx| {
+                for (path, found) in read {
+                    this.hues.entry(path).or_default().extend(found);
+                }
+                this.colouring.remove(&number);
+                cx.notify();
+            });
+        });
+        self.colouring.insert(number, task);
+    }
+
+    /// Each line's coloured code, for the lines of one file's diff.
+    pub(super) fn hues_of(&self, path: &str, lines: &[crate::diff::DiffLine]) -> Vec<Option<crate::syntax::Pieces>> {
+        let Some(read) = self.hues.get(path) else { return Vec::new() };
+        lines.iter().map(|line| read.get(line.text.as_str()).cloned()).collect()
     }
 
     /// A row pressed. While the inbox refreshes, its page is read first and opens once read.
@@ -304,8 +416,9 @@ impl ReviewsScreen {
             return;
         }
         self.waiting = Some(number);
+        let wait = self.wait(PAGE_READ, cx);
         self.reading = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(PAGE_READ).await;
+            wait.await;
             let _ = this.update_in(cx, |this, window, cx| this.end_refresh(window, cx));
         }));
         cx.notify();
@@ -334,6 +447,7 @@ impl ReviewsScreen {
         }
         self.suggestion_boxes(number, window, cx);
         self.write_summary(number, window, cx);
+        self.colour(number, cx);
         cx.notify();
     }
 
@@ -344,17 +458,20 @@ impl ReviewsScreen {
             return;
         }
         page.summary = Summary::Writing;
+        let wait = self.wait(SUMMARY_WRITE, cx);
         let task = cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(SUMMARY_WRITE).await;
-            let _ = this.update(cx, |this, cx| {
-                if let Some(page) = this.pages.get_mut(&number) {
-                    page.summary = Summary::Written(mock::summary(number));
-                }
-                this.writing.remove(&number);
-                cx.notify();
-            });
+            wait.await;
+            let _ = this.update(cx, |this, cx| this.end_summary(number, cx));
         });
         self.writing.insert(number, task);
+    }
+
+    fn end_summary(&mut self, number: u64, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            page.summary = Summary::Written(mock::summary(number));
+        }
+        self.writing.remove(&number);
+        cx.notify();
     }
 
     /// A text box for each suggestion of the page's critique and each finding on its Overview, holding
@@ -414,22 +531,26 @@ impl ReviewsScreen {
             return;
         }
         self.explains.insert(key.clone(), None);
+        let wait = self.wait(EXPLAIN_RUN, cx);
         let task = cx.spawn_in(window, {
             let key = key.clone();
             async move |this, cx| {
-                cx.background_executor().timer(EXPLAIN_RUN).await;
-                let _ = this.update(cx, |this, cx| {
-                    this.explains.insert(key.clone(), Some(mock::explanation(number, &set, explain)));
-                    this.explain_runs.remove(&key);
-                    // The answer reads under the foot, so the set still in view scrolls down to it.
-                    if this.open == Some(number) && this.rail_on().as_deref() == Some(set.as_str()) {
-                        this.set_scroll.scroll_to_bottom();
-                    }
-                    cx.notify();
-                });
+                wait.await;
+                let _ = this.update(cx, |this, cx| this.end_explain(key, cx));
             }
         });
         self.explain_runs.insert(key, task);
+        cx.notify();
+    }
+
+    fn end_explain(&mut self, key: (u64, String, Explain), cx: &mut Context<Self>) {
+        let (number, set, explain) = key.clone();
+        self.explains.insert(key.clone(), Some(mock::explanation(number, &set, explain)));
+        self.explain_runs.remove(&key);
+        // The answer reads under the foot, so the set still in view scrolls down to it.
+        if self.open == Some(number) && self.rail_on().as_deref() == Some(set.as_str()) {
+            self.set_scroll.scroll_to_bottom();
+        }
         cx.notify();
     }
 
@@ -552,16 +673,11 @@ impl ReviewsScreen {
 
     fn ask(&mut self, ask: Ask, window: &mut Window, cx: &mut Context<Self>) {
         self.asking = Some(ask);
-        match ask {
-            Ask::Critique => window.focus(&self.dialog, cx),
-            Ask::SaveAs | Ask::Rename => {
-                let first = if ask == Ask::Rename { self.layouts.name().to_string() } else { String::new() };
-                self.name_box.update(cx, |field, cx| {
-                    field.set_value(first, window, cx);
-                    field.focus(window, cx);
-                });
-            }
-        }
+        let first = if ask == Ask::Rename { self.layouts.name().to_string() } else { String::new() };
+        self.name_box.update(cx, |field, cx| {
+            field.set_value(first, window, cx);
+            field.focus(window, cx);
+        });
         cx.notify();
     }
 
@@ -571,27 +687,123 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// Start critique: the review run reads the range and its findings come to Findings.
-    fn start_critique(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.asking = None;
+    /// Review these changes: the sheet opens under its button with his last ask on this repository.
+    pub(super) fn open_review(&mut self, title: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.page() else { return };
+        let ask = self.review_asks.get(&page.repository).cloned().unwrap_or_else(|| model::ReviewAsk::first(&self.review_tools));
+        let at = under_label(Role::Button, title, Point::default(), window, cx);
+        let focus = cx.new(|cx| InputState::new(window, cx).placeholder("Optional"));
+        let was = ask.focus.clone();
+        focus.update(cx, |field, cx| field.set_value(was, window, cx));
+        let enter = cx.subscribe_in(&focus, window, |this, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::PressEnter { .. }) {
+                this.start_review(window, cx);
+            }
+        });
+        self.asking_review = Some(AskingReview { title, at, ask, focus, _enter: enter });
+        window.focus(&self.dialog, cx);
+        cx.notify();
+    }
+
+    pub(super) fn toggle_review_tool(&mut self, tool: &str, cx: &mut Context<Self>) {
+        if let Some(open) = self.asking_review.as_mut() {
+            open.ask.toggle(tool, &self.review_tools);
+            cx.notify();
+        }
+    }
+
+    pub(super) fn pick_effort(&mut self, effort: model::Effort, cx: &mut Context<Self>) {
+        if let Some(open) = self.asking_review.as_mut() {
+            open.ask.effort = effort;
+            cx.notify();
+        }
+    }
+
+    pub(super) fn cancel_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.asking_review.take().is_some() {
+            window.focus(&self.rows, cx);
+            cx.notify();
+        }
+    }
+
+    /// Start: the ask is remembered for the repository and the review runs on it. Nothing ticked,
+    /// nothing starts.
+    pub(super) fn start_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.asking_review.as_ref() else { return };
+        if open.ask.tools.is_empty() {
+            return;
+        }
+        let Some(mut open) = self.asking_review.take() else { return };
+        open.ask.focus = open.focus.read(cx).value().trim().to_string();
+        if let Some(repository) = self.page().map(|page| page.repository.clone()) {
+            self.review_asks.insert(repository, open.ask.clone());
+        }
+        self.start_critique(open.ask, window, cx);
+    }
+
+    /// The review run reads the range for what he asked, and its findings come to Review comments.
+    fn start_critique(&mut self, asked: model::ReviewAsk, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         let Some(page) = self.pages.get_mut(&number) else { return };
         let range = page.range();
-        page.critique = Critique::Running { range: range.clone() };
+        page.critique = Critique::Running { range: range.clone(), asked };
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
+        let wait = self.wait(CRITIQUE_RUN, cx);
         self.critique = Some(cx.spawn_in(window, async move |this, cx| {
-            cx.background_executor().timer(CRITIQUE_RUN).await;
-            let _ = this.update_in(cx, |this, window, cx| {
-                if let Some(page) = this.pages.get_mut(&number) {
-                    let findings = if number == 2198 { mock::retry_findings() } else { Vec::new() };
-                    page.critique = Critique::Finished { range, findings };
-                }
-                this.suggestion_boxes(number, window, cx);
-                this.critique = None;
-                cx.notify();
-            });
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.end_critique(number, window, cx));
         }));
+        cx.notify();
+    }
+
+    fn end_critique(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            if let Critique::Running { range, asked } = &page.critique {
+                let findings = if number == 2198 { mock::retry_findings() } else { Vec::new() };
+                page.critique = Critique::Finished { range: range.clone(), findings, asked: asked.clone() };
+            }
+        }
+        self.suggestion_boxes(number, window, cx);
+        self.critique = None;
+        cx.notify();
+    }
+
+    /// How long a piece of the mock's work takes: its own clock, or in a walk until the walk lands it.
+    fn wait(&self, time: Duration, cx: &App) -> impl std::future::Future<Output = ()> + 'static {
+        let timer = (!self.walked).then(|| cx.background_executor().timer(time));
+        async move {
+            match timer {
+                Some(timer) => timer.await,
+                None => std::future::pending().await,
+            }
+        }
+    }
+
+    /// Played by a walk: the mock's work waits for the walk's `Lands` step, not its clock.
+    pub fn walk(&mut self, cx: &mut Context<Self>) {
+        self.walked = true;
+        cx.set_global(Walked(cx.entity().downgrade()));
+    }
+
+    /// The walk's `Lands`: every piece of the mock's work in flight ends now, as its clock would have
+    /// ended it. The refresh first, since the page it lands starts a summary of its own.
+    pub fn land(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.refresh.is_some() || self.reading.is_some() {
+            self.end_refresh(window, cx);
+        }
+        let writing: Vec<u64> = self.writing.keys().copied().collect();
+        for number in writing {
+            self.end_summary(number, cx);
+        }
+        let running: Vec<u64> = self.pages.values().filter(|page| matches!(page.critique, Critique::Running { .. })).map(|page| page.number).collect();
+        for number in running {
+            self.end_critique(number, window, cx);
+        }
+        let explaining: Vec<(u64, String, Explain)> = self.explain_runs.keys().cloned().collect();
+        for key in explaining {
+            self.end_explain(key, cx);
+        }
         cx.notify();
     }
 
@@ -618,7 +830,8 @@ impl ReviewsScreen {
         // His edit of the suggestion is what goes, not what the critique wrote.
         let body = self.suggestions.get(&(number, found.id.clone())).map(|boxed| boxed.state.read(cx).value().to_string()).filter(|said| !said.trim().is_empty()).unwrap_or(found.comment);
         self.let_go(number, &found.id, window, cx);
-        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body, finding: Some(found.id) };
+        let excerpt = self.page().and_then(|page| model::excerpt(&page.files, &found.path, found.line));
+        let draft = DraftOf { id: id.clone(), number, path: found.path, line: found.line, body, finding: Some(found.id), excerpt };
         let boxed = self.boxed(&format!("reviews:draft:{id}"), Some(&draft.body), 2, 6, window, cx);
         self.boxes.insert(id, boxed);
         self.drafts.push(draft);
@@ -748,6 +961,88 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// Wrong beside a practice: Doesn't apply here or Check is wrong, each then asking why.
+    fn open_wrong(&mut self, at: model::PracticeAt, point: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        // A result he corrected offers its reason again and the way back.
+        if let Some(fixed) = self.corrections.get(&at).cloned() {
+            let entries = vec![
+                Entry::Act { id: CHANGE_REASON, label: CHANGE_REASON.into(), icon: None, danger: false },
+                Entry::Act { id: UNDO, label: UNDO.into(), icon: None, danger: false },
+            ];
+            self.open_menu("Wrong", entries, point, move |this, id, window, cx| {
+                if id == UNDO {
+                    this.undo_correction(&at, window, cx);
+                } else {
+                    this.start_correcting(at.clone(), fixed.wrong, Some(&fixed.reason), window, cx);
+                }
+            }, window, cx);
+            return;
+        }
+        let entries = [model::Wrong::DoesNotApply, model::Wrong::CheckIsWrong]
+            .into_iter()
+            .map(|wrong| Entry::Act { id: wrong.said(), label: wrong.said().into(), icon: None, danger: false })
+            .collect();
+        self.open_menu("Wrong", entries, point, move |this, id, window, cx| {
+            let wrong = if id == model::Wrong::DoesNotApply.said() { model::Wrong::DoesNotApply } else { model::Wrong::CheckIsWrong };
+            this.start_correcting(at.clone(), wrong, None, window, cx);
+        }, window, cx);
+    }
+
+    /// Undo: the result goes back to what the check found, and what he said goes with it.
+    fn undo_correction(&mut self, at: &model::PracticeAt, window: &mut Window, cx: &mut Context<Self>) {
+        self.corrections.remove(at);
+        if self.correcting.as_ref().is_some_and(|open| &open.at == at) {
+            self.correcting = None;
+        }
+        window.focus(&self.within, cx);
+        cx.notify();
+    }
+
+    fn start_correcting(&mut self, at: model::PracticeAt, wrong: model::Wrong, was: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
+        let field = cx.new(|cx| InputState::new(window, cx).placeholder(wrong.asks()));
+        if let Some(was) = was {
+            let was = was.to_string();
+            field.update(cx, |field, cx| field.set_value(was, window, cx));
+        }
+        let enter = cx.subscribe_in(&field, window, |this, _, event: &InputEvent, window, cx| {
+            if matches!(event, InputEvent::PressEnter { .. }) {
+                this.save_correction(window, cx);
+            }
+        });
+        field.update(cx, |field, cx| field.focus(window, cx));
+        self.correcting = Some(Correcting { at, wrong, field, _enter: enter });
+        cx.notify();
+    }
+
+    /// Save keeps the correction once it has a reason; an empty one saves nothing.
+    fn save_correction(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(open) = self.correcting.as_ref() else { return };
+        let reason = open.field.read(cx).value().trim().to_string();
+        if reason.is_empty() {
+            return;
+        }
+        if let Some(open) = self.correcting.take() {
+            self.corrections.insert(open.at, model::Correction { wrong: open.wrong, reason });
+        }
+        window.focus(&self.within, cx);
+        cx.notify();
+    }
+
+    fn cancel_correcting(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.correcting.take().is_some() {
+            window.focus(&self.within, cx);
+            cx.notify();
+        }
+    }
+
+    fn fold_aside(&mut self, number: u64, set: String, cx: &mut Context<Self>) {
+        let key = (number, set);
+        if !self.aside_open.remove(&key) {
+            self.aside_open.insert(key);
+        }
+        cx.notify();
+    }
+
     /// Lists: the forge lists a pull request is on, as a filter on the inbox.
     fn open_lists(&mut self, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
         let on = self.lists;
@@ -797,6 +1092,16 @@ impl ReviewsScreen {
             cx.stop_propagation();
             return;
         }
+        if keys.key == "escape" && self.asking_review.is_some() {
+            self.cancel_review(window, cx);
+            cx.stop_propagation();
+            return;
+        }
+        if keys.key == "escape" && self.correcting.is_some() {
+            self.cancel_correcting(window, cx);
+            cx.stop_propagation();
+            return;
+        }
         if keys.key == "escape" && self.sheet {
             self.open_sheet(false, window, cx);
             cx.stop_propagation();
@@ -821,7 +1126,6 @@ impl ReviewsScreen {
 
     fn render_dialog(&self, ask: Ask, look: &Look, cx: &mut Context<Self>) -> gpui::AnyElement {
         let (name, title): (&str, String) = match ask {
-            Ask::Critique => ("Critique these changes", "Critique these changes?".into()),
             Ask::SaveAs => ("Save this layout", "Save this layout".into()),
             Ask::Rename => ("Rename this layout", format!("Rename {}", self.layouts.name())),
         };
@@ -843,13 +1147,6 @@ impl ReviewsScreen {
             )
         };
         let body: gpui::AnyElement = match ask {
-            Ask::Critique => {
-                let page = self.page();
-                let range = page.map_or_else(|| "the whole pull request".to_string(), |page| page.range().said);
-                let repository = page.map(|page| page.repository.clone()).unwrap_or_default();
-                said_line("reviews-dialog-said", format!("A review run reads {range} on {repository}. Its suggestions come to Review comments."))
-                    .into_any_element()
-            }
             Ask::SaveAs | Ask::Rename => div()
                 .flex()
                 .flex_col()
@@ -859,13 +1156,11 @@ impl ReviewsScreen {
                 .into_any_element(),
         };
         let (go, icon) = match ask {
-            Ask::Critique => ("Start critique", "bot"),
             Ask::SaveAs => ("Save layout", "check"),
             Ask::Rename => ("Rename layout", "pencil"),
         };
         let confirm = labelled(
             Btn::new("reviews-dialog-go", go, Weight::Primary).icon(icon).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| match ask {
-                Ask::Critique => this.start_critique(window, cx),
                 Ask::SaveAs | Ask::Rename => this.name_layout(window, cx),
             })),
             Role::Button,
@@ -915,6 +1210,7 @@ impl Render for ReviewsScreen {
         let inbox = self.render_inbox(&look, window, cx);
         let page = self.render_page(&look, window, cx);
         let dialog = self.asking.map(|ask| self.render_dialog(ask, &look, cx));
+        let review_ask = self.asking_review.as_ref().map(|open| self.render_review_ask(open, &look, cx));
         let menu = self.pop.as_ref().map(|pop| pop.menu.clone());
         div()
             .id("reviews")
@@ -931,6 +1227,7 @@ impl Render for ReviewsScreen {
             .child(inbox)
             .child(page)
             .children(dialog)
+            .children(review_ask)
             .children(menu)
     }
 }
