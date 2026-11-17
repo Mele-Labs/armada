@@ -2,7 +2,7 @@
 //! was shown and decided, what was built and what was handed on, and under which feature it is filed.
 //!
 //! What is read is Fleet's own: `get_job_story`, off the main thread, drawn as bones until it answers. `story/model.rs`
-//! works out every line. The tab is a view tab (`view_tabs.rs`) the Job's + offers, so no file of the Job view knows it.
+//! works out every line. The tab is a fixed kind of a Job's panes (`Zone::Story`), drawn from `place_draw.rs` by [`JobView::pane_story`].
 //!
 //! **A story is read again when Fleet says it moved** (`session.story`, as `StoryMoved`, for this Job), when the Job's record
 //! changes and when the keys arrive. The last two are kept: they catch a story whose word was missed.
@@ -11,9 +11,8 @@
 //! opened from inside it on one stack and draws the top: one layer, one Esc back.
 
 use std::collections::HashMap;
-use std::rc::Rc;
 
-use gpui::{prelude::*, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment, ListState, Subscription, Task, WeakEntity, Window};
+use gpui::{div, prelude::*, AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, ListAlignment, ListState, SharedString, Subscription, Task, Window};
 use ipc::JobStory;
 
 use super::JobView;
@@ -453,70 +452,88 @@ impl StoryTab {
     }
 }
 
-// ---- the Job's + and the tab in a pane ---------------------------------------------------------
+// ---- the tab in a pane ------------------------------------------------------------------------
 
-/// The tab of each Job that has one, so a Story link puts its ask in front of the tab that is open.
+/// The shown Job's tab, so a Story link puts its ask in front of the tab that is open. Only that Job's is held: the tab
+/// reads again on every word Fleet sends, which no Job off screen needs.
 #[derive(Default)]
-struct Tabs(HashMap<String, WeakEntity<StoryTab>>);
+struct Stories(HashMap<String, Entity<StoryTab>>);
 
-impl gpui::Global for Tabs {}
+impl gpui::Global for Stories {}
 
-fn tab_id(job: &str) -> String {
-    format!("story:{job}")
-}
-
-/// Put Story in every Job's +, and hear which Job comes on screen: a Story link left an ask for it, and its tab opens at it.
+/// Hear which Job comes on screen: the tabs of the others go, and a Story link left an ask for it, whose tab comes forward.
 pub fn init(cx: &mut App) {
     super::kind_chip::init(cx);
     super::thread_rail::init(cx);
-    super::offer_tab(super::TabOffer { id: "story", label: "Story".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open(&job, Some(pane), window, cx)) }, cx);
     super::on_job_shown(
-        |job, window, cx| {
+        |job, _, cx| {
+            cx.default_global::<Stories>().0.retain(|held, _| job.as_deref() == Some(held.as_str()));
             let Some(job) = job else { return };
             lead::shown(&job, cx);
-            if story_link::peek(cx).is_some_and(|request| request.session_id.as_str() == job) {
-                open(&job, None, window, cx);
+            if let Some(view) = JobView::live(cx) {
+                view.update(cx, |view, cx| view.open_for_link(&job, cx));
             }
         },
         cx,
     );
 }
 
-const GLYPH: &str = "book-open";
-
-fn open(job: &str, pane: Option<super::ViewPane>, window: &mut Window, cx: &mut App) {
-    let Some(view) = JobView::live(cx) else { return };
-    let job = job.to_string();
-    view.update(cx, |view, cx| view.open_story_tab(&job, pane, window, cx));
-}
-
 impl JobView {
-    /// Story in front on Job `job`, in the pane asked for or the top one. A tab already open comes forward and takes the ask a
-    /// Story link left.
-    pub(super) fn open_story_tab(&mut self, job: &str, pane: Option<super::ViewPane>, window: &mut Window, cx: &mut Context<Self>) {
-        let id = tab_id(job);
-        let held = cx.default_global::<Tabs>().0.get(job).and_then(WeakEntity::upgrade);
-        if let Some(tab) = held {
-            if self.front_view_tab(job, &id, cx) {
-                if let Some(request) = story_link::peek(cx).filter(|request| request.session_id.as_str() == job) {
-                    story_link::take(cx);
-                    tab.update(cx, |tab, cx| tab.put_ask(request.ask_id, cx));
-                }
-                let focus = tab.read(cx).focus.clone();
-                window.focus(&focus, cx);
-                return;
-            }
+    /// A Story link left an ask for Job `job`, which is on screen with its panes read: its Story tab comes to the front,
+    /// where it stands or where a new one opens. The ask is put in front when the tab draws.
+    pub(super) fn open_for_link(&mut self, job: &str, cx: &mut Context<Self>) {
+        let asked = story_link::peek(cx).is_some_and(|request| request.session_id.as_str() == job);
+        if asked && self.shown.as_ref().is_some_and(|shown| shown.as_ref() == job) && self.panes_answered(job) {
+            self.open_kind("story", cx);
         }
-        let fleet = self.fleet.clone();
-        let named = job.to_string();
+    }
+
+    /// The body of a Story tab: the Job's tab, made the first time it draws (after this draw, so none is made while drawing).
+    /// A Story link for the Job puts its ask in front of a tab that stands, and the keys go to the tab.
+    pub(super) fn pane_story(&mut self, job: &SharedString, window: &mut Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let Some(tab) = cx.default_global::<Stories>().0.get(job.as_ref()).cloned() else {
+            let job = job.to_string();
+            window.defer(cx, move |window, cx| {
+                if let Some(view) = JobView::live(cx) {
+                    view.update(cx, |view, cx| {
+                        // A new tab takes the Story link's request as it is made, so the keys go to it too.
+                        let asked = story_link::peek(cx).is_some_and(|request| request.session_id.as_str() == job);
+                        view.story_of(&job, window, cx);
+                        if asked {
+                            view.focus_story(window, cx);
+                        }
+                        cx.notify();
+                    });
+                }
+            });
+            return None;
+        };
+        if let Some(request) = story_link::peek(cx).filter(|request| request.session_id.as_str() == job.as_ref()) {
+            story_link::take(cx);
+            tab.update(cx, |tab, cx| tab.put_ask(request.ask_id, cx));
+            self.focus_story(window, cx);
+        }
+        Some(div().size_full().child(tab).into_any_element())
+    }
+
+    /// The keys go to the shown Job's Story tab, which is made if it is not yet.
+    pub(super) fn focus_story(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let focus = self.story_of(&job, window, cx).read(cx).focus.clone();
+        window.defer(cx, move |window, cx| window.focus(&focus, cx));
+    }
+
+    /// Job `job`'s Story tab, made where there is none.
+    fn story_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> Entity<StoryTab> {
+        if let Some(tab) = cx.default_global::<Stories>().0.get(job) {
+            return tab.clone();
+        }
+        let (fleet, named) = (self.fleet.clone(), job.to_string());
         let tab = cx.new(|cx| match &fleet {
             Some(fleet) => StoryTab::live(fleet, named.clone(), false, window, cx),
             None => StoryTab::mock(named.clone(), false, window, cx),
         });
-        cx.default_global::<Tabs>().0.insert(job.to_string(), tab.downgrade());
-        let focus = tab.read(cx).focus.clone();
-        let tab = super::ViewTab { id, title: "Story".into(), glyph: GLYPH, view: tab.into(), menu: Vec::new(), closing: None, closed: None, renamed: None };
-        self.open_view_tab_in(job, pane.unwrap_or(super::ViewPane::Top), tab, true, cx);
-        window.defer(cx, move |window, cx| window.focus(&focus, cx));
+        cx.default_global::<Stories>().0.insert(job.to_string(), tab.clone());
+        tab
     }
 }

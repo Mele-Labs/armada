@@ -24,6 +24,7 @@ pub(super) enum Zone {
     Done,
     Deferred,
     Plan,
+    Story,
     Changes,
     Pulls,
     Issues,
@@ -42,11 +43,12 @@ pub(super) enum Zone {
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 19] = [
+    pub(super) const ALL: [Zone; 20] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
         Zone::Plan,
+        Zone::Story,
         Zone::Changes,
         Zone::Pulls,
         Zone::Issues,
@@ -70,6 +72,7 @@ impl Zone {
             Zone::Done => "done",
             Zone::Deferred => "deferred",
             Zone::Plan => "plan",
+            Zone::Story => "story",
             Zone::Changes => "changes",
             Zone::Pulls => "pulls",
             Zone::Issues => "issues",
@@ -94,6 +97,7 @@ impl Zone {
             Zone::Done => ("circle-check", "Done"),
             Zone::Deferred => ("circle-dashed", "Deferred"),
             Zone::Plan => ("list-checks", "Plan"),
+            Zone::Story => ("book-open", "Story"),
             Zone::Changes => ("diff", "Changes"),
             Zone::Pulls => ("git-pull-request", "Pull Requests"),
             Zone::Issues => ("ticket", "Issues"),

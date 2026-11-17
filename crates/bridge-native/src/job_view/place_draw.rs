@@ -417,6 +417,7 @@ impl JobView {
                     Zone::Done => Some(self.zone_alone(Area::Done, self.flow_alone(&id, Area::Done, look, cx).unwrap_or_else(|| self.side_done(&id, look, cx)), cx)),
                     Zone::Deferred => Some(self.zone_alone(Area::Deferred, self.side_deferred(&id, look, cx), cx)),
                     Zone::Plan => self.pane_plan(&id, look, cx),
+                    Zone::Story => self.pane_story(&id, window, cx),
                     Zone::Changes => self.pane_changes(&id, look, cx),
                     Zone::Pulls => self.pane_pulls(&id, look, cx),
                     Zone::Issues => self.pane_issues(&id, look, cx),
@@ -434,7 +435,7 @@ impl JobView {
                     Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                 };
                 // Changes, Files and the rest draw their own strip over a body that scrolls, as `.job-pane__pick` does.
-                let own_frame = matches!(zone, Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);
+                let own_frame = matches!(zone, Zone::Story | Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);
                 let name = format!("pane-body:{}", tab.id);
                 Some(if own_frame { plain(name, body) } else { scrolled(name, body) })
             }
@@ -614,6 +615,8 @@ impl JobView {
             window.focus(&self.row_focus, cx);
         } else if held.kind == "for_you" {
             self.focus_for_you(window, cx);
+        } else if held.kind == "story" {
+            self.focus_story(window, cx);
         }
     }
 

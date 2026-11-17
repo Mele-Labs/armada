@@ -24,8 +24,8 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 }
 
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
-pub(crate) const JOB_TAB_KINDS: [&str; 30] = [
-    "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
+pub(crate) const JOB_TAB_KINDS: [&str; 31] = [
+    "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "story", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
     "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "custom", "draft", "walk", "document", "subagent", "artifact",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).

@@ -436,3 +436,78 @@ fn a_story_that_moved_is_read_again_for_the_done_card_of_a_job_it_asked_for_and_
     cx.update(|cx| fleet.update(cx, |_, cx| cx.emit(story_moved(JOB))));
     assert_eq!(cx.update(|cx| super::lead::reads_in_tests(cx)), [JOB, JOB], "the Job named is read again");
 }
+
+// ---- a fixed tab of the Job's panes -----------------------------------------------------------
+
+/// The Job's panes as a Job that opened Plan and Files kept them before Story was a kind, kept under its key, and the Job
+/// on screen on the mock Fleet.
+fn job_with_kept_panes(kept: super::super::pane_tree::Arrangement, cx: &mut TestAppContext) -> (gpui::Entity<super::JobView>, &mut VisualTestContext) {
+    use super::super::pane_store;
+    ready(cx);
+    cx.update(|cx| {
+        pane_store::install(pane_store::MemoryStore::default(), cx);
+        pane_store::write(&pane_store::job_key(JOB), &kept, cx);
+    });
+    let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+    let threads = crate::mock::threads("job-for-you").expect("the threads decode");
+    let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+    let (view, cx) = cx.add_window_view({
+        let list = list.clone();
+        move |window, cx| super::JobView::new(list, Some(threads), window, cx)
+    });
+    list.update(cx, |list, cx| list.open(JOB.into(), cx));
+    cx.run_until_parked();
+    (view, cx)
+}
+
+fn kept_with(story: bool) -> (super::super::pane_tree::Arrangement, String) {
+    use super::super::pane_tree::{add_tab, default_arrangement, panes_of, Extras};
+    let base = default_arrangement();
+    let top = panes_of(&base.root)[1].id.clone();
+    let mut kept = add_tab(&add_tab(&base, &top, "plan", Extras::default()), &top, "files", Extras::default()).into_owned();
+    if story {
+        kept = add_tab(&kept, &top, "story", Extras::default()).into_owned();
+    }
+    (kept, top)
+}
+
+fn top_kinds(view: &gpui::Entity<super::JobView>, top: &str, cx: &mut VisualTestContext) -> Vec<String> {
+    view.read_with(cx, |view, _| {
+        let arrangement = view.arrangement_of(JOB).expect("the Job is placed");
+        super::super::pane_tree::pane_by_id(arrangement, top).map(|pane| pane.tabs.iter().map(|tab| tab.kind.clone()).collect()).unwrap_or_default()
+    })
+}
+
+#[gpui::test]
+fn an_arrangement_kept_without_story_opens_with_story_between_plan_and_files(cx: &mut TestAppContext) {
+    let (kept, top) = kept_with(false);
+    let (view, cx) = job_with_kept_panes(kept, cx);
+    assert_eq!(top_kinds(&view, &top, cx), ["for_you", "open", "done", "deferred", "plan", "story", "files"]);
+}
+
+#[gpui::test]
+fn an_arrangement_kept_with_story_keeps_its_own_place_for_it(cx: &mut TestAppContext) {
+    let (kept, top) = kept_with(true);
+    let (view, cx) = job_with_kept_panes(kept, cx);
+    assert_eq!(top_kinds(&view, &top, cx), ["for_you", "open", "done", "deferred", "plan", "files", "story"]);
+}
+
+#[gpui::test]
+fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_front(cx: &mut TestAppContext) {
+    let (kept, top) = kept_with(false);
+    cx.update(|cx| story_link::put(StoryRequest { session_id: SessionId::carried(JOB), ask_id: "ask-3".into() }, cx));
+    let (view, cx) = job_with_kept_panes(kept, cx);
+    // `ready` took the request an earlier test left, so it is put again once the Job is open and its panes are read.
+    cx.update(|_, cx| story_link::put(StoryRequest { session_id: SessionId::carried(JOB), ask_id: "ask-3".into() }, cx));
+    view.update_in(cx, |view, _, cx| view.open_for_link(JOB, cx));
+    cx.run_until_parked();
+    cx.update(|window, _| window.refresh());
+    cx.run_until_parked();
+    let front = view.read_with(cx, |view, _| {
+        let arrangement = view.arrangement_of(JOB).expect("placed");
+        super::super::pane_tree::pane_by_id(arrangement, &top).and_then(|pane| pane.active.clone().and_then(|id| pane.tabs.iter().find(|tab| tab.id == id).map(|tab| tab.kind.clone())))
+    });
+    assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front");
+    assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "the tab took the request");
+    assert!(drawn(cx, Role::Button, "3. Votes show as never cast"), "the tab is drawn in the pane");
+}
