@@ -497,6 +497,21 @@ mod tests {
         });
     }
 
+    #[gpui::test]
+    fn a_press_on_an_artifact_a_waiting_row_names_picks_that_row(cx: &mut gpui::TestAppContext) {
+        let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {
+            let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+            jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the job").waiting_for.extend(held);
+        });
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let chosen = view.review_chosen().expect("the press picks an item");
+            assert_eq!(chosen.id, "sketch:takes:bar", "the row listed in the artifact's place is the one picked");
+        });
+    }
+
     /// The Job with a sketch card in its thread and a waiting row for it, the sketch being its artifact of parts too.
     fn with_sketch_card(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
         let row = format!(r#"[{{"id":"{ID}","text":"{TITLE}","since":"2026-11-14T10:01:00Z","source":"sketch"}}]"#);
