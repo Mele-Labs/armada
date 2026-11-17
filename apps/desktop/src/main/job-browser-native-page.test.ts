@@ -4,12 +4,21 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 
-import { built, OUT } from "../../scripts/job-browser-page.mjs";
+import { built, builtReader, READER_OUT, OUT } from "../../scripts/job-browser-page.mjs";
 
 describe("the native Job browser's page finder", () => {
   it("is the build of Classic's finder as it stands", async () => {
     expect(
       readFileSync(OUT, "utf8") === (await built()),
+      "Run `pnpm --filter @armada/desktop job-browser-page` and commit what it writes.",
+    ).toBe(true);
+  }, 60_000);
+});
+
+describe("the native Job browser's page reader", () => {
+  it("is the build of Classic's capture layer as it stands", async () => {
+    expect(
+      readFileSync(READER_OUT, "utf8") === (await builtReader()),
       "Run `pnpm --filter @armada/desktop job-browser-page` and commit what it writes.",
     ).toBe(true);
   }, 60_000);
