@@ -2,9 +2,9 @@
 //! item, so Notes, Mail, Docs or Slack keep the bold, lists, headings, links and code. gpui's `ClipboardItem`
 //! carries one string, so on the Mac this writes `NSPasteboard` itself.
 
-/// The words as HTML, read as GitHub reads markdown.
+/// The words as HTML, with the usual markdown extensions: tables, task lists, strikethrough and autolinks.
 pub fn html_of(markdown: &str) -> String {
-    // Only MDX can refuse; GitHub's flavour never does.
+    // Only MDX can refuse, and these options never turn it on.
     markdown::to_html_with_options(markdown, &markdown::Options::gfm()).unwrap_or_else(|_| markdown::to_html(markdown))
 }
 

@@ -38,7 +38,7 @@ pub(super) const DOCUMENT_TOOLS: &[DocumentTool] = &[
 /// The page is laid out this wide for its PDF, in points: A4's width at the 96 a web page counts to the inch.
 const PDF_WIDTH: f32 = 794.;
 
-/// The document tool a server is, by the words of its name: `notion`, `claude_ai_Notion` and `Notion MCP` are Notion,
+/// The document tool a server is, by the words of its name: `notion`, `team_ai_Notion` and `Notion MCP` are Notion,
 /// and `sandbox` is not Box.
 pub(super) fn tool_of(server: &str) -> Option<&'static DocumentTool> {
     let lower = server.to_lowercase();
@@ -267,7 +267,7 @@ mod tests {
     fn a_server_name_is_read_as_the_document_tool_it_names() {
         let named = |server: &str| tool_of(server).map(|tool| tool.tool);
         assert_eq!(named("notion"), Some("Notion"));
-        assert_eq!(named("claude_ai_Notion"), Some("Notion"), "case and the words round it do not matter");
+        assert_eq!(named("team_ai_Notion"), Some("Notion"), "case and the words round it do not matter");
         assert_eq!(named("plugin:productivity:notion"), Some("Notion"));
         for drive in ["drive", "gdrive", "google-drive", "Google Drive", "googledrive"] {
             assert_eq!(named(drive), Some("Google Drive"), "{drive}");
