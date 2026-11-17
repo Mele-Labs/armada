@@ -1097,6 +1097,7 @@ impl SettingsOverlay {
         let page = self.render_page(shown, look, window, cx);
         let popup = self.popup.as_ref().map(|(menu, _)| menu.clone());
         let deleting = self.render_delete(look, window, cx);
+        let merging = self.render_merge(look, window, cx);
         let boxed = labelled(
             div()
                 .id("settings-box")
@@ -1144,7 +1145,8 @@ impl SettingsOverlay {
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)))
                     .child(boxed)
                     .children(popup)
-                    .children(deleting),
+                    .children(deleting)
+                    .children(merging),
             )),
         )
         .with_priority(2)

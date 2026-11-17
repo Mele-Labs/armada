@@ -47,6 +47,7 @@ pub(super) fn message_kind_of(word: &str) -> Option<MessageKind> {
         message_kind::NEW_ASK => MessageKind::NewAsk,
         message_kind::REVISION => MessageKind::Revision,
         message_kind::ANSWER => MessageKind::Answer,
+        message_kind::QUESTION => MessageKind::Question,
         message_kind::TALK => MessageKind::Talk,
         _ => return None,
     })
@@ -169,6 +170,12 @@ where
             if let Some(ask) = &opened {
                 store.keep_ask(ask).map_err(|why| self.ledger_fault(why))?;
             }
+            // A question is due a read at once, for a reply that came before it was sorted.
+            match sorted.kind == MessageKind::Question {
+                true => store.keep_question(&message.session_id, &message.row_id),
+                false => store.remove_question(&message.session_id, &message.row_id),
+            }
+            .map_err(|why| self.ledger_fault(why))?;
         }
         self.story_changed(&[&message.session_id]);
         Ok(())
@@ -210,6 +217,7 @@ where
             (held, asks)
         };
         let (kept, asks) = held;
+        let was_question = kept.as_ref().is_some_and(|one| one.kind == message_kind::QUESTION);
         let words = kept.as_ref().map(|one| one.words.clone()).unwrap_or_else(|| text.trim().to_string());
         let message = KeptMessage {
             session_id: id.clone(),
@@ -262,6 +270,10 @@ where
             self.sorting_kept(&message, sorted, store::sorted_by::OWNER).await?;
         }
         self.story_changed(&[&id]);
+        // An unread answer may have gone with the question, and the row's dot with it.
+        if was_question {
+            let _ = self.published_hosted(&id).await;
+        }
         let store = self.store().lock().await;
         let kept = store.message_sorted(&id, &set.row_id).map_err(|why| self.ledger_fault(why))?;
         let ask = match kept.as_ref().and_then(|one| one.ask_id.as_deref()) {

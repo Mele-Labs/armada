@@ -124,6 +124,7 @@ mod workflow_scope;
 mod operator_scopes;
 mod operator_errors;
 mod operator_talk;
+mod values_merging;
 mod workflows_off;
 mod autopilot_boxes;
 mod review_calls;

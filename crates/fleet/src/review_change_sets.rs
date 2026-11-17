@@ -268,9 +268,10 @@ fn overview_told(sets: &[ChangeSet], tools: &str) -> Told {
         contract: format!(
             "{{\"findings\": [{{\"severity\": \"blocker\" | \"risk\" | \"bug\", \"set\": \"<a set's id above>\", \
              \"title\": \"a few plain words\", \"reason\": \"...\", \"at\": <place>}}]}}. An empty list is an answer. \
-             {PLACE}. The reason is what the person posts to the author as it stands: one plain sentence, at most \
-             {COMMENT_AT_MOST} characters, saying what goes wrong and what to do about it, with no jargon, no \
-             review labels, nothing about yourself, and no code, list or line numbers."
+             {PLACE}. The reason is what the person may keep as a draft comment to the author as it stands: one plain \
+             sentence, at most {COMMENT_AT_MOST} characters (count them: anything longer is cut off at the limit), \
+             saying what goes wrong and what to do about it, with no jargon, no review labels, nothing about \
+             yourself, and no code, list or line numbers."
         ),
         against: Against::Sets(sets.iter().map(|set| set.id.clone()).collect()),
     }

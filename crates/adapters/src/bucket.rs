@@ -260,4 +260,12 @@ impl Bucket for ObjectBucket {
             (status, answer) => Err(answered(status, &answer)),
         }
     }
+
+    fn delete(&self, name: &str) -> Result<(), BucketError> {
+        match self.send("DELETE", name, b"")? {
+            (200..=299 | 404, _) => Ok(()),
+            (403, answer) => Err(BucketError::Refused(format!("{} (the key needs the right to delete)", said(403, &answer)))),
+            (status, answer) => Err(answered(status, &answer)),
+        }
+    }
 }

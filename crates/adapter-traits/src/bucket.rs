@@ -1,8 +1,10 @@
 //! A bucket: named blobs a person owns in a cloud provider's storage, where a repository's runs
 //! can be kept when the central store is not the place they want them.
 //!
-//! **Two calls and no more.** Fleet reads one object and writes one object; it lists nothing and
-//! deletes nothing, so a bucket it is handed can be written with credentials that may do no more.
+//! **Three calls and no more.** Fleet reads one object, writes one object and deletes one object; it
+//! lists nothing. A project file moved away from a bucket, merged away or deleted is taken out of it,
+//! so the credentials a bucket is handed need delete rights. A delete they refuse is a [`BucketError`]
+//! the caller shows and goes on from, never one that stops the act.
 //!
 //! # Unreachable and refused are different errors
 //!
@@ -55,4 +57,8 @@ pub trait Bucket {
 
     /// Write `body` as the object called `name` under the prefix, replacing one that is there.
     fn put(&self, name: &str, body: &[u8]) -> Result<(), BucketError>;
+
+    /// Remove the object called `name` under the prefix. **One that is not there is deleted already**,
+    /// so it answers `Ok`.
+    fn delete(&self, name: &str) -> Result<(), BucketError>;
 }

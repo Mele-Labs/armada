@@ -67,6 +67,7 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         // Fleets' halves of the move he pressed.
         JobAct::Move { .. } => said("Bring here", None),
         JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
+        JobAct::AnswerRead(_) => said("Answer read", None),
     }
 }
 

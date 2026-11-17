@@ -114,6 +114,8 @@ where
             fleet.standing_checked().await;
             // His new words, sorted by a small model off this loop, and the asks whose pull request merged.
             fleet.messages_sorting().await;
+            // His questions whose Job's turn ended, read for whether its reply answers them.
+            fleet.questions_reading().await;
             fleet.asks_built_checked().await;
             // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
             if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {

@@ -316,6 +316,12 @@ pub struct Span {
     pub commits: String,
 }
 
+/// Whether a finished review may say it found nothing: no findings, and no tool that failed, since
+/// a run that failed read nothing.
+pub fn found_nothing(findings: &[Finding], failed: &[String]) -> bool {
+    findings.is_empty() && failed.is_empty()
+}
+
 /// A critique of a range: Fleet's range critique, a review run, with what he asked it to look for.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Critique {
@@ -909,6 +915,16 @@ mod tests {
 
     fn flagged(set: &str, kind: FlagKind) -> Flag {
         Flag { id: "f".into(), kind, set: set.into(), title: String::new(), said: String::new(), path: String::new(), line: 0, fix: String::new(), comment: String::new() }
+    }
+
+    #[test]
+    fn a_review_that_failed_never_reads_as_one_that_found_nothing() {
+        let finding = Finding { id: "f".into(), title: "t".into(), path: "a.rs".into(), line: 1, comment: "c".into() };
+        let failed = vec!["risks failed: the answer was refused".to_string()];
+        assert!(found_nothing(&[], &[]), "a clean run with no findings found nothing");
+        assert!(!found_nothing(&[], &failed), "a failed run found nothing to report, which is not nothing");
+        assert!(!found_nothing(&[finding.clone()], &[]));
+        assert!(!found_nothing(&[finding], &failed));
     }
 
     #[test]

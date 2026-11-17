@@ -290,6 +290,8 @@ A command whose every run failed is never kept, and the facts merge with those i
 **The bucket form** keeps the Kit layout as one object, `<prefix>/runs/<owner--name>.toml`, signed with the provider's own credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` or a profile in `~/.aws/credentials` for `s3://`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` for `r2://`, and `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login` for `gs://`.
 Kit holds none of them.
 A key that may not list the bucket reads a missing object as refused.
+A bucket that keeps a project file needs a key that may delete too, since Delete, Merge and a move to another place take the old file out of it.
+A key with no delete right leaves the file, and the act says so.
 **A cloud place that cannot be reached or signed in is refused when it is chosen, `422 fleet.run_cloud_unsigned`, `fleet.run_cloud_unreachable` or `fleet.run_cloud_refused`, and the old place stays.** A write that fails later keeps the facts waiting with the reason and tries again when the next turn ends; a fact is never dropped for it.
 What another machine wrote is merged in before each write, and `get_run_memory` does not call the cloud.
 

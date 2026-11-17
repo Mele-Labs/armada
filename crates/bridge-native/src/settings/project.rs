@@ -140,7 +140,7 @@ impl Key {
 
     /// The words it takes and how each reads, where they are fixed. The review model, the theme and the layout
     /// are read from what this Mac has (`SettingsOverlay::options`).
-    fn fixed(self) -> Vec<(String, String)> {
+    pub(super) fn fixed(self) -> Vec<(String, String)> {
         let pairs: &[(&str, &str)] = match self {
             Key::Delivery => &[(ASK, "Ask each Job")],
             Key::PrMode => &[("draft", "Draft"), ("ready", "Ready for review")],
@@ -536,32 +536,84 @@ pub fn picker(this: &SettingsOverlay, look: &Look, window: &Window, cx: &Context
     labelled(ringed(look, button, focus, window), Role::ComboBox, format!("Editing {name}")).into_any_element()
 }
 
-/// The menu the picker opens: Every project, each project, New project, then a Delete for the project being edited, so
-/// another is deleted by picking it first. Every project has none, and nor does a copy of another Mac's: that Mac keeps it.
-pub fn picker_rows(picked: &Editing, projects: Option<&Projects>) -> Vec<crate::dropdown::Entry> {
+/// The menu the picker opens: Every project, then each project with a chip at its right for the Mac that holds it, then
+/// New project. **Every project has its acts beside it** where it has any, open at the one being edited and following
+/// the keys and the pointer from there: Merge with the same-named project the other Mac holds, and Delete, which a
+/// copy of another Mac's has none of, as that Mac keeps it. A row's acts carry its place, so a pick names its project.
+pub fn picker_rows(picked: &Editing, projects: Option<&Projects>, macs: &[ipc::Mac]) -> Vec<crate::dropdown::Entry> {
     use crate::dropdown::{Entry, Row};
     let every = picked.is_none();
     let mut rows = vec![Entry::Row(Row::new("every", "Every project").icon(if every { "check" } else { "globe" }).detail("defaults")), Entry::Rule];
-    let shown = projects.map(|all| all.projects.as_slice()).unwrap_or_default().iter().take(super::overlay::AT.len()).enumerate().collect::<Vec<_>>();
-    for (n, one) in &shown {
+    let all = projects.map(|all| all.projects.as_slice()).unwrap_or_default();
+    for (n, one) in all.iter().take(super::overlay::AT.len()).enumerate() {
         let on = picked.as_ref().is_some_and(|(id, _)| *id == one.id);
-        let mut row = Row::new(super::overlay::AT[*n], one.name.clone()).icon(if on { "check" } else { "layers" });
-        if on {
-            row = row.detail(format!("{} set here", set_count(one.values.as_ref())));
-        }
+        let mut row = Row::new(super::overlay::AT[n], one.name.clone()).icon(if on { "check" } else { "layers" });
+        let acts = acts_of(one, all, macs, n);
+        row = if on { row.detail(format!("{} set here", set_count(one.values.as_ref()))).submenu(acts) } else { row.acts_on_arrival(acts) };
         if let Some(why) = &one.unread {
             row = row.off(why.clone());
         }
+        row = match one.mac.as_deref() {
+            None => row.chip(THIS_MAC, None),
+            Some(id) => {
+                let (name, colour) = mac_of(macs, id);
+                row.chip(name, Some(colour))
+            }
+        };
         rows.push(Entry::Row(row));
     }
     rows.push(Entry::Rule);
     rows.push(Entry::Row(Row::new("new-project", "New project").icon("plus").key("⌘⇧N")));
-    let edited = shown.iter().find(|(_, one)| picked.as_ref().is_some_and(|(id, _)| *id == one.id) && one.mac.is_none());
-    if let Some((_, one)) = edited {
-        rows.push(Entry::Rule);
-        rows.push(Entry::Act { id: "delete", label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
-    }
     rows
+}
+
+/// What a project that holds another Mac's calls this Mac.
+pub const THIS_MAC: &str = "This Mac";
+
+/// A Mac by its id: its name and colour as the window lists it, else the id and the first colour, for one not listed.
+pub fn mac_of(macs: &[ipc::Mac], id: &str) -> (String, ipc::MacColour) {
+    macs.iter().find(|one| one.id == id).map_or_else(|| (id.to_string(), ipc::MacColour::Orange), |one| (one.name.clone(), one.colour))
+}
+
+/// Whose a project is, as a sentence names it: the Mac's name, or This Mac.
+pub fn owner_of(macs: &[ipc::Mac], one: &ipc::Project) -> String {
+    one.mac.as_deref().map_or_else(|| THIS_MAC.to_string(), |id| mac_of(macs, id).0)
+}
+
+/// The project of the same name the other Mac holds: this Mac's own for a copy, and the copy for an own.
+pub fn twin_of<'a>(one: &ipc::Project, all: &'a [ipc::Project]) -> Option<&'a ipc::Project> {
+    all.iter().find(|other| other.id != one.id && other.name == one.name && other.mac.is_some() != one.mac.is_some() && other.unread.is_none())
+}
+
+/// The ids a project row's acts carry in the dropdown: the act and the row's place among the projects.
+pub const MERGE_AT: [&str; 24] = ["merge-0","merge-1","merge-2","merge-3","merge-4","merge-5","merge-6","merge-7","merge-8","merge-9","merge-10","merge-11","merge-12","merge-13","merge-14","merge-15","merge-16","merge-17","merge-18","merge-19","merge-20","merge-21","merge-22","merge-23"];
+pub const DELETE_AT: [&str; 24] = ["delete-0","delete-1","delete-2","delete-3","delete-4","delete-5","delete-6","delete-7","delete-8","delete-9","delete-10","delete-11","delete-12","delete-13","delete-14","delete-15","delete-16","delete-17","delete-18","delete-19","delete-20","delete-21","delete-22","delete-23"];
+
+/// What a pick in a project row's acts asks, and of the project at which place.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum RowAct {
+    Merge,
+    Delete,
+}
+
+pub fn row_act(id: &str) -> Option<(RowAct, usize)> {
+    MERGE_AT.iter().position(|one| *one == id).map(|n| (RowAct::Merge, n)).or_else(|| DELETE_AT.iter().position(|one| *one == id).map(|n| (RowAct::Delete, n)))
+}
+
+/// The acts beside the project at place `at`: Merge where a twin stands, then Delete for an own project.
+fn acts_of(one: &ipc::Project, all: &[ipc::Project], macs: &[ipc::Mac], at: usize) -> Vec<crate::dropdown::Entry> {
+    use crate::dropdown::{Entry, Row};
+    let mut acts = Vec::new();
+    if let Some(twin) = twin_of(one, all) {
+        acts.push(Entry::Row(Row::new(MERGE_AT[at], format!("Merge with {} on {}", one.name, owner_of(macs, twin))).icon("git-merge").accent()));
+    }
+    if one.mac.is_none() {
+        if !acts.is_empty() {
+            acts.push(Entry::Rule);
+        }
+        acts.push(Entry::Act { id: DELETE_AT[at], label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
+    }
+    acts
 }
 
 /// What the confirm says: the project, and the tasks that go with it. None says no more than the project.
@@ -1004,11 +1056,11 @@ mod tests {
     }
 
     #[test]
-    fn the_picker_lists_every_project_each_project_new_project_and_a_delete_for_the_one_edited() {
+    fn the_picker_lists_every_project_each_with_its_mac_and_new_project_with_the_acts_beside_the_one_edited() {
         use crate::dropdown::Entry;
         let one = |id: &str, name: &str, values: Option<ValuesSet>, unread: Option<&str>| Project { id: id.into(), name: name.into(), values, unread: unread.map(String::from), ..Project::default() };
-        let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
-        let rows = picker_rows(&Some(("armada".into(), "Armada".into())), Some(&projects));
+        let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
+        let rows = picker_rows(&Some(("armada".into(), "Armada".into())), Some(&projects), &[]);
         let said: Vec<(String, Option<String>, bool)> = rows
             .iter()
             .filter_map(|entry| match entry {
@@ -1020,17 +1072,72 @@ mod tests {
             said,
             [("Every project".into(), Some("defaults".into()), false), ("Armada".into(), Some("4 set here".into()), false), ("Ledger".into(), None, true), ("New project".into(), None, false)]
         );
-        assert_eq!(rows.iter().filter(|entry| matches!(entry, Entry::Rule)).count(), 3);
-        let deletes: Vec<&str> = rows.iter().filter_map(|entry| if let Entry::Act { label, danger: true, .. } = entry { Some(label.as_ref()) } else { None }).collect();
-        assert_eq!(deletes, ["Delete Armada"], "only the project being edited");
-        let ledger = picker_rows(&Some(("ledger".into(), "Ledger".into())), Some(&projects));
-        assert!(ledger.iter().any(|entry| matches!(entry, Entry::Act { label, .. } if label.as_ref() == "Delete Ledger")), "an unread project can still be deleted");
+        assert_eq!(rows.iter().filter(|entry| matches!(entry, Entry::Rule)).count(), 2);
+        assert!(rows.iter().all(|entry| !matches!(entry, Entry::Act { .. })), "no act at the bottom of the menu");
+        let acts = |rows: &[Entry], name: &str| -> Vec<String> {
+            rows.iter()
+                .find_map(|entry| match entry {
+                    Entry::Row(row) if row.label.as_ref() == name => Some(row.acts().iter().filter_map(|act| if let Entry::Act { label, .. } | Entry::Row(crate::dropdown::Row { label, .. }) = act { Some(label.to_string()) } else { None }).collect()),
+                    _ => None,
+                })
+                .unwrap_or_default()
+        };
+        assert_eq!(acts(&rows, "Armada"), ["Delete Armada"]);
+        assert_eq!(acts(&rows, "Ledger"), ["Delete Ledger"], "a project not being edited has its acts too, for the keys and the pointer to open");
+        assert!(acts(&rows, "Every project").is_empty() && acts(&rows, "New project").is_empty());
+        let ledger = picker_rows(&Some(("ledger".into(), "Ledger".into())), Some(&projects), &[]);
+        assert_eq!(acts(&ledger, "Ledger"), ["Delete Ledger"], "an unread project can still be deleted");
+    }
+
+    fn twins() -> Projects {
+        let own = Project { id: "pricing".into(), name: "Pricing".into(), ..Project::default() };
+        let copy = Project { id: "pricing-air".into(), name: "Pricing".into(), mac: Some("mac-air".into()), ..Project::default() };
+        let other = Project { id: "onboarding".into(), name: "Onboarding".into(), ..Project::default() };
+        Projects { projects: vec![own, copy, other], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
+    }
+
+    fn chip_and_acts(rows: &[crate::dropdown::Entry], id: &str) -> (Option<String>, Vec<String>) {
+        use crate::dropdown::Entry;
+        rows.iter()
+            .find_map(|entry| match entry {
+                Entry::Row(row) if row.id == id => Some((
+                    row.chip_of().map(|(name, _)| name.to_string()),
+                    row.acts().iter().filter_map(|act| if let Entry::Act { label, .. } | Entry::Row(crate::dropdown::Row { label, .. }) = act { Some(label.to_string()) } else { None }).collect(),
+                )),
+                _ => None,
+            })
+            .expect("the row")
+    }
+
+    #[test]
+    fn every_project_row_wears_its_macs_chip_and_merge_is_offered_where_a_twin_stands() {
+        let projects = twins();
+        let at = super::super::overlay::AT;
+        let own = picker_rows(&Some(("pricing".into(), "Pricing".into())), Some(&projects), &[]);
+        assert_eq!(chip_and_acts(&own, at[0]), (Some("This Mac".into()), vec!["Merge with Pricing on mac-air".into(), "Delete Pricing".into()]));
+        assert_eq!(chip_and_acts(&own, at[1]).0.as_deref(), Some("mac-air"), "a copy wears the Mac's name");
+        assert_eq!(chip_and_acts(&own, at[2]), (Some("This Mac".into()), vec!["Delete Onboarding".into()]), "the row not edited has its own acts");
+        assert_eq!(chip_and_acts(&own, at[1]).1, ["Merge with Pricing on This Mac"], "a copy with a twin has Merge and no Delete");
+        let copy = picker_rows(&Some(("pricing-air".into(), "Pricing".into())), Some(&projects), &[]);
+        assert_eq!(chip_and_acts(&copy, at[1]).1, ["Merge with Pricing on This Mac"], "a copy has no Delete");
+        let lone_copy = Projects { projects: vec![Project { id: "solo".into(), name: "Solo".into(), mac: Some("mac-air".into()), ..Project::default() }], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
+        assert!(chip_and_acts(&picker_rows(&None, Some(&lone_copy), &[]), at[0]).1.is_empty(), "a copy with no twin has no acts"); 
+        let alone = picker_rows(&Some(("onboarding".into(), "Onboarding".into())), Some(&projects), &[]);
+        assert_eq!(chip_and_acts(&alone, at[2]).1, ["Delete Onboarding"], "no twin, no Merge");
+    }
+
+    #[test]
+    fn a_listed_macs_name_is_the_chip_and_the_merge_words() {
+        let macs = [ipc::Mac { id: "mac-air".into(), name: "Air".into(), colour: ipc::MacColour::Blue, ..Default::default() }];
+        let rows = picker_rows(&Some(("pricing".into(), "Pricing".into())), Some(&twins()), &macs);
+        assert_eq!(chip_and_acts(&rows, super::super::overlay::AT[1]).0.as_deref(), Some("Air"));
+        assert_eq!(chip_and_acts(&rows, super::super::overlay::AT[0]).1[0], "Merge with Pricing on Air");
     }
 
     #[test]
     fn a_project_shows_the_share_switch_as_listed_and_an_unread_one_has_none() {
         let one = |id: &str, shared: bool, unread: Option<&str>| Project { id: id.into(), shared_with_macs: shared, unread: unread.map(String::from), ..Project::default() };
-        let projects = Projects { projects: vec![one("web", true, None), one("api", false, None), one("lost", true, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
+        let projects = Projects { projects: vec![one("web", true, None), one("api", false, None), one("lost", true, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
         assert_eq!(shared_of(&projects, "web"), Some(true));
         assert_eq!(shared_of(&projects, "api"), Some(false));
         assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");

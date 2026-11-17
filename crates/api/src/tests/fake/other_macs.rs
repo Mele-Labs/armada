@@ -24,7 +24,7 @@ impl OtherMacs for FakeDaemon {
     }
 
     async fn share_projects(&self) -> Result<Projects, Refusal> {
-        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
+        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() })
     }
 
     async fn job_for_phone(&self, _job: &str) -> bool {
@@ -52,7 +52,7 @@ impl OtherMacs for FakeDaemon {
     }
 
     async fn project_act_from_mac(&self, _sent: ProjectActFromMac) -> Result<Projects, Refusal> {
-        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() })
+        Ok(Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() })
     }
 
     async fn begin_act_from_mac(&self, _mac: String, sent: &MacAct) -> Result<ActBegun, Refusal> {
