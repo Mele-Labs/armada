@@ -746,7 +746,9 @@ fn drop_rules(controller: &WKUserContentController, old: (Retained<WKContentRule
     unsafe {
         controller.removeContentRuleList(&old.0);
         if let Some(store) = WKContentRuleListStore::defaultStore(mtm) {
-            store.removeContentRuleListForIdentifier_completionHandler(Some(&NSString::from_str(&old.1)), None);
+            // WebKit calls the handler without asking whether there is one: a nil one crashed the app as a Browser tab closed.
+            let done = RcBlock::new(|_: *mut NSError| {});
+            store.removeContentRuleListForIdentifier_completionHandler(Some(&NSString::from_str(&old.1)), Some(&done));
         }
     }
 }
