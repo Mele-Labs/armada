@@ -153,7 +153,7 @@ pub struct Held {
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
     /// The Jobs whose For you moved, folded since the last take, oldest first.
     for_you_moved: Vec<ipc::ForYouChanged>,
-    /// The Jobs whose sorting, asks or story moved (`session.story`), folded since the last take, oldest first.
+    /// The Jobs whose sorting, asks or questions moved (`session.story`), folded since the last take, oldest first.
     story_moved: Vec<ipc::StoryChanged>,
     /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
     asides_moved: Vec<ipc::Aside>,
@@ -380,7 +380,7 @@ impl Held {
         std::mem::take(&mut self.for_you_moved)
     }
 
-    /// The Jobs whose sorting, asks or story moved, folded since the last take, oldest first.
+    /// The Jobs whose story moved, folded since the last take, oldest first.
     pub fn take_story_moved(&mut self) -> Vec<ipc::StoryChanged> {
         std::mem::take(&mut self.story_moved)
     }
@@ -700,7 +700,7 @@ pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
 
 impl EventEmitter<ForYouMoved> for FleetConnection {}
 
-/// The Jobs whose sorting, asks or story moved in one folded batch (`session.story`), for a view holding one to read it again.
+/// The Jobs whose story moved in one folded batch (`session.story`): his questions among it, for a view holding them to read again.
 pub struct StoryMoved(pub Vec<ipc::StoryChanged>);
 
 impl EventEmitter<StoryMoved> for FleetConnection {}
@@ -1615,15 +1615,15 @@ mod tests {
     }
 
     #[test]
-    fn a_job_whose_story_moved_is_handed_over_once_in_the_order_it_came() {
+    fn a_job_whose_story_moved_is_handed_over_once_as_fleet_sends_it() {
         let moved = |job: &str| {
             let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.story","session_id":"{job}"}}}}"#);
             Signal::Stream(crate::frames::decode(&wire).expect("an event"))
         };
         let mut held = Held::new();
-        held.fold(vec![moved("s0"), moved("s1")]);
+        held.fold(vec![moved("df1ea0bd-adbe-4e29-aa04-50716fbeeeae"), moved("s1")]);
         let told: Vec<String> = held.take_story_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
-        assert_eq!(told, ["s0", "s1"]);
+        assert_eq!(told, ["df1ea0bd-adbe-4e29-aa04-50716fbeeeae", "s1"]);
         assert!(held.take_story_moved().is_empty(), "news is told once");
     }
 
