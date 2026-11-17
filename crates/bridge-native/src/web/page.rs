@@ -81,6 +81,8 @@ pub struct WebPage {
     hitbox: Option<Hitbox>,
     /// A gpui layer lies over the page, so its picture draws and its view is hidden.
     held: bool,
+    /// How many things hold the page still as its picture whether or not a layer covers it (`pin`).
+    pins: usize,
     /// The window has no AppKit view of its own (the headless check): the page is laid out in a shell nobody sees, and a scroll
     /// bar the snapshot cannot draw would leave a blank strip at its edge and take its width from the layout.
     shell: bool,
@@ -99,6 +101,10 @@ pub struct WebPage {
     store: Option<[u8; 16]>,
     /// Where the page's address, title and history changes go once it is made (`watch_changes`).
     changes: Option<async_channel::Sender<()>>,
+    /// Where a Job browser's page sends what it asks for once it is made (`hear_requests`).
+    asks: Option<async_channel::Sender<wk::Request>>,
+    /// What the page may do by the owner's choices for its host, which its tab keeps current (`set_policy`).
+    policy: wk::SharedPolicy,
 }
 
 impl EventEmitter<WebPageEvent> for WebPage {}
@@ -151,6 +157,7 @@ impl WebPage {
             visible: None,
             hitbox: None,
             held: false,
+            pins: 0,
             shell: false,
             drawn: false,
             mode: Mode::Parked,
@@ -162,6 +169,8 @@ impl WebPage {
             _hearing: hearing,
             store: None,
             changes: None,
+            asks: None,
+            policy: Default::default(),
         }
     }
 
@@ -238,6 +247,39 @@ impl WebPage {
         hear
     }
 
+    /// Hears what the page asks for: a permission, each to be answered once. Ask once, before the page is made.
+    pub fn hear_requests(&mut self) -> async_channel::Receiver<wk::Request> {
+        let (tx, hear) = async_channel::unbounded();
+        self.asks = Some(tx);
+        hear
+    }
+
+    /// The page's content rule list, JSON for what its page may not reach (`None`: no list), which opens the gate on the page's first load.
+    pub fn set_rules(&self, json: Option<&str>) {
+        if let Some(native) = &self.native {
+            native.set_rules(json);
+        }
+    }
+
+    /// What the page may do, by the owner's choices for the host it shows now.
+    pub fn set_policy(&self, policy: wk::Policy) {
+        *self.policy.borrow_mut() = policy;
+    }
+
+    /// A popup or a download the owner was asked about and allowed.
+    pub fn carry_out(&self, act: wk::Act, address: &str) {
+        if let Some(native) = &self.native {
+            native.carry_out(act, address);
+        }
+    }
+
+    /// The keys, if the page holds them, go back to the window's own view.
+    pub fn release_keys(&self) {
+        if let Some(native) = &self.native {
+            native.release_keys();
+        }
+    }
+
     /// Runs `body` as an async function's body in the content world named `world`, awaiting what it returns. The answer is its
     /// string, `None` where it returned none, or the page's words for a throw. A page not made answers an error at once.
     pub fn call_async(&self, world: &str, body: &str) -> async_channel::Receiver<Result<Option<String>, String>> {
@@ -284,6 +326,33 @@ impl WebPage {
         rx
     }
 
+    /// Holds the page still as its picture until `unpin`, as Classic's `freeze` does while Capture is on, whether or not a layer
+    /// covers it this frame. Held by what counts, so a layer made anew before the old one is let go keeps the page still.
+    pub fn pin(&mut self, cx: &mut Context<Self>) {
+        self.pins += 1;
+        // A picture of what the page showed before is not the page now: the live view stays until a fresh one is in.
+        if self.pins == 1 && !self.held {
+            self.picture = None;
+        }
+        cx.notify();
+    }
+
+    pub fn unpin(&mut self, cx: &mut Context<Self>) {
+        self.pins = self.pins.saturating_sub(1);
+        cx.notify();
+    }
+
+    /// Whether something holds the page still as its picture.
+    #[cfg(test)]
+    pub fn pinned(&self) -> bool {
+        self.pins > 0
+    }
+
+    /// Where a pane drew the page last, and the part of it that shows, in the window, while a pane draws it.
+    pub fn place(&self) -> Option<(Bounds<Pixels>, Bounds<Pixels>)> {
+        self.bounds.zip(self.visible).filter(|_| self.is_painted())
+    }
+
     /// Whether a pane draws the page now, live or as a picture.
     pub fn is_painted(&self) -> bool {
         self.mode != Mode::Parked
@@ -296,7 +365,7 @@ impl WebPage {
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
-        self.native = Native::new(&options, size, events);
+        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests, policy: self.policy.clone(), scripts: vec![include_str!("../job_browser/location.js"), include_str!("../job_browser/local_network.js"), include_str!("../job_browser/fullscreen.js")] }));
         if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
             native.watch(told);
         }
@@ -478,7 +547,7 @@ impl WebPage {
             return;
         }
         self.drawn = false;
-        let covered = self.covered(window);
+        let covered = self.pins > 0 || self.covered(window);
         if covered != self.held {
             self.held = covered;
             if covered {

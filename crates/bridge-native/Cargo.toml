@@ -117,3 +117,9 @@ opt-level = 3
 opt-level = 3
 [profile.dev.package.base64]
 opt-level = 3
+
+# The Job browser's site asks, popups, downloads and dialogs (`src/job_browser/`, `src/web/wk.rs`). Cargo joins these
+# features to the ones `[dependencies]` names, so the long lines there stay as other work edits them.
+[target.'cfg(target_os = "macos")'.dependencies]
+objc2-app-kit = { version = "0.3", default-features = false, features = ["NSAlert", "NSButton", "NSGraphics"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["WKUIDelegate", "WKSecurityOrigin", "WKUserScript", "WKScriptMessageHandlerWithReply", "WKContentRuleList", "WKContentRuleListStore", "WKDownload", "WKDownloadDelegate", "WKNavigationResponse", "WKWindowFeatures", "WKPreferences"] }
