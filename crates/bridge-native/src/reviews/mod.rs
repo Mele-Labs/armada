@@ -7,7 +7,7 @@ mod inbox;
 pub mod layout;
 mod live;
 mod mock;
-mod model;
+pub(crate) mod model;
 mod panes;
 mod tabs;
 pub mod walk;
