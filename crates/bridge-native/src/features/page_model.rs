@@ -271,7 +271,7 @@ pub fn day(at: DateTime<Utc>) -> String {
     at.with_timezone(&Local).format("%-d %b").to_string()
 }
 
-fn instant(at: &Instant) -> DateTime<Utc> {
+pub(crate) fn instant(at: &Instant) -> DateTime<Utc> {
     when(at).unwrap_or(DateTime::<Utc>::MIN_UTC)
 }
 
@@ -425,7 +425,7 @@ fn glyph_of(kind: FeatureLinkKind) -> (&'static str, &'static str) {
 }
 
 /// A word with its first letter in capitals.
-fn sentence(word: &str) -> String {
+pub(crate) fn sentence(word: &str) -> String {
     let mut chars = word.trim().chars();
     chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
@@ -446,11 +446,11 @@ fn ask_words(ask: &Ask) -> String {
     }
 }
 
-fn job_title(titles: &Titles, id: &SessionId) -> Option<String> {
+pub(crate) fn job_title(titles: &Titles, id: &SessionId) -> Option<String> {
     titles.get(id.as_str()).filter(|title| !title.is_empty()).cloned()
 }
 
-fn has_job(id: &SessionId) -> bool {
+pub(crate) fn has_job(id: &SessionId) -> bool {
     !id.as_str().is_empty()
 }
 

@@ -62,3 +62,51 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The Story tab of the mock Job at 1400 wide: the fixed ask unfolded and two folded, then a feature's page in the
+/// overlay over it, then the overlay's Story layer.
+pub fn shoot_story(dir: &Path) -> Result<(), String> {
+    use crate::job_view::story::{mock::JOB, StoryTab};
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    for (name, step) in [("story-tab-1400", 0), ("story-overlay-page-1400", 1), ("story-overlay-story-1400", 2)] {
+        let held: Rc<RefCell<Option<gpui::Entity<StoryTab>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(820.)), move |window, cx| {
+                let tab = cx.new(|cx| StoryTab::mock(JOB.into(), false, window, cx));
+                *keep.borrow_mut() = Some(tab.clone());
+                tab
+            })
+            .map_err(|why| why.to_string())?;
+        let tab = held.borrow().clone().ok_or("the tab was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            let focus = tab.read(cx).focus.clone();
+            window.focus(&focus, cx);
+            tab.update(cx, |tab, cx| {
+                tab.put_ask("ask-3".into(), cx);
+                if step >= 1 {
+                    tab.open_feature("start-a-job".into(), window, cx);
+                }
+            });
+            if step >= 2 {
+                if let Some(overlay) = tab.read(cx).overlay().cloned() {
+                    overlay.update(cx, |overlay, cx| overlay.push_story(ipc::SessionId::carried(JOB), "ask-3".into(), window, cx));
+                }
+            }
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

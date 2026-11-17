@@ -118,6 +118,7 @@ mod report_brief;
 mod side;
 mod side_chat;
 mod spine;
+pub(crate) mod story;
 mod spoken;
 mod start_card;
 mod workflow;
@@ -175,6 +176,7 @@ pub fn bind(cx: &mut App) {
     head::bind(cx);
     lanes_copy::bind(cx);
     web_walk::bind(cx);
+    story::init(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's

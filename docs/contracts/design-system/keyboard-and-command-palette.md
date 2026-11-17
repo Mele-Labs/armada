@@ -282,6 +282,11 @@ A feature's page has three parts, the list of sections, the filter chips and the
 On an ask, `Enter` or `s` opens the Job it came from on its Story tab at that ask, as a press on the row's Story link does.
 The asks show five rows and a line below them, Earlier, folded, which `Enter` opens; `Esc` folds them again before it leaves the page.
 
+**A Job's Story tab takes the `features` keys.**
+`j`, `k` and the arrows move between the ask heads, `Enter` folds or unfolds the ask the keys are on, and one ask is unfolded at a time.
+`Tab` and `⇧Tab` go between the heads and the Filed under rows of the unfolded ask, where `j` and `k` move and `Enter` opens the feature's page; `Esc` goes back to the heads.
+**One overlay holds what opens from a Story or a feature's page.** A page opened from a Filed under row, and a Story opened from a page's Story link, replace each other on one stack, so there is never a second layer. `Esc` and Back go back one, and the last closes the overlay.
+
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
 hand (`c` copy debug info) are not on the deck, so

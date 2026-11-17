@@ -8,17 +8,18 @@
 // Nothing mounts the screen until the project page does.
 #![allow(dead_code)]
 
-mod asks;
+pub(crate) mod asks;
 mod looked;
 pub(crate) mod mock;
 mod model;
+pub mod overlay;
 pub mod page;
-mod page_model;
+pub(crate) mod page_model;
 mod page_view;
 pub mod shots;
 pub mod story_link;
 mod view;
-mod wire;
+pub(crate) mod wire;
 
 use gpui::{prelude::*, App, Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState};
