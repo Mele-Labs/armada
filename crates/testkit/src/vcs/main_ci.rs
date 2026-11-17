@@ -32,6 +32,7 @@ struct Script {
     asked_logs: usize,
     asked_merged: usize,
     asked_pulls: usize,
+    asked_queue: usize,
     gates: Vec<String>,
     login: Option<String>,
     comments: BTreeMap<u64, Vec<PullComment>>,
@@ -157,6 +158,10 @@ impl MainCiScript {
         self.with(|it| it.asked_pulls)
     }
 
+    pub fn times_asked_for_the_queue(&self) -> usize {
+        self.with(|it| it.asked_queue)
+    }
+
     pub fn times_asked_for_the_head(&self) -> usize {
         self.with(|it| it.asked_head)
     }
@@ -217,7 +222,10 @@ impl MainCiScript {
     }
 
     pub(super) fn merge_queue(&self) -> Option<MergeQueue> {
-        self.with(|it| it.queue.clone())
+        self.with(|it| {
+            it.asked_queue += 1;
+            it.queue.clone()
+        })
     }
 
     pub(super) fn login(&self) -> Option<String> {

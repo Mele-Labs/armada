@@ -115,6 +115,7 @@ mod bays;
 mod pr_files;
 mod pr_notes;
 mod pr_panel;
+mod pr_review;
 mod report_brief;
 mod side;
 mod side_chat;
@@ -527,6 +528,11 @@ pub struct JobView {
     heard: crate::listen::Seen,
     /// A walk's Jobs as its scenes have changed them, standing in for the records Fleet would send.
     mock_records: Option<Vec<SessionRecord>>,
+    /// Prose as linked, by Manifest then by its words: every frame of a pulse draws the thread again, and
+    /// scanning each row against every Job and pull request held a core. Read again when the list or Fleet moves.
+    linked: RefCell<HashMap<String, rows::Linked>>,
+    /// One more each time this view is drawn whole, so a frame drawn from its cache is told apart (`labels::kept`).
+    drawn: Rc<std::cell::Cell<u64>>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -565,7 +571,11 @@ impl JobView {
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
             composer.catalog.scripts = catalogue.talk;
         }
-        subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| this.followed(window, cx)));
+        // Each draws this view again: it is drawn from a cache (`JobsScreen::render`).
+        subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| {
+            this.followed(window, cx);
+            cx.notify();
+        }));
         let speaker = if mock.is_some() && fleet.is_none() { crate::listen::Speaker::Mock(crate::listen::scenes::begin()) } else { crate::listen::Speaker::Helper };
         let listen = cx.new(|_| crate::listen::engine::Listener::new(speaker));
         subscriptions.push(cx.observe(&listen, |_, _, cx| cx.notify()));
@@ -583,6 +593,7 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
@@ -723,6 +734,8 @@ impl JobView {
             heard: crate::listen::Seen::default(),
             mock_records: None,
             find: None,
+            linked: Default::default(),
+            drawn: Rc::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -820,8 +833,14 @@ impl JobView {
         })
     }
 
+    /// The count `render` adds one to, for the screen that draws this view from a cache.
+    pub(crate) fn drawn(&self) -> Rc<std::cell::Cell<u64>> {
+        self.drawn.clone()
+    }
+
     /// The list opened another Job, or the same Job's record moved.
     fn followed(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let (opened, picks) = {
             let list = self.list.read(cx);
@@ -927,6 +946,7 @@ impl JobView {
 
     /// Fleet or the list moved: draw the pages again where they changed.
     fn synced(&mut self, cx: &mut Context<Self>) {
+        self.linked.get_mut().values_mut().for_each(rows::Linked::stale);
         self.listen_sync(cx);
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
         for id in ids {
@@ -1247,6 +1267,7 @@ impl JobView {
 
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.drawn.set(self.drawn.get() + 1);
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };

@@ -6,8 +6,9 @@ mod bar;
 mod inbox;
 pub mod layout;
 mod live;
+mod markdown;
 mod mock;
-mod model;
+pub(crate) mod model;
 mod panes;
 mod tabs;
 pub mod walk;
@@ -71,6 +72,12 @@ const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
 const SUMMARY_WRITE: Duration = Duration::from_millis(2500);
 /// How long a change set's mock How it works or How to test takes.
 const EXPLAIN_RUN: Duration = Duration::from_millis(2000);
+/// How long the mock Find problems takes to write the change sets and their findings.
+const FIND_RUN: Duration = Duration::from_millis(3000);
+/// How long the mock Summarize, Explain or Simplify takes to write its answer.
+const REWRITE_RUN: Duration = Duration::from_millis(2000);
+/// How long the head says Link copied after Copy link.
+const COPIED_FOR: Duration = Duration::from_millis(2000);
 /// The change set tab's lines above its first hunk, so Show in change set can scroll to one.
 pub(super) const HUNKS_AT: usize = 6;
 
@@ -201,6 +208,19 @@ pub struct ReviewsScreen {
     live: Option<live::Live>,
     /// A walk's stand-in for Fleet's calls: the reviews asked of him, opened as he opens each, for the strip's figure.
     asked: Option<ipc::StandingCalls>,
+    /// His login on the forge, so the head can say whether a review is asked of him.
+    me: String,
+    /// Copy link was pressed on this pull request: the head says so until the task clears it.
+    copied: Option<(u64, Task<()>)>,
+    /// The mock's Find problems runs, by pull request.
+    finding: HashMap<u64, Task<()>>,
+    /// The card above each page's description: which of Summarize, Explain or Simplify it shows.
+    rewrites: HashMap<u64, model::Rewrite>,
+    /// Each answer as it stands, by pull request and question.
+    rewritten: HashMap<(u64, model::Rewrite), model::Answer>,
+    rewrite_runs: HashMap<(u64, model::Rewrite), Task<()>>,
+    /// Files' own scroll, which a file pressed in the rail moves to that file.
+    files_scroll: ScrollHandle,
     _subs: Vec<Subscription>,
 }
 
@@ -237,7 +257,7 @@ impl ReviewsScreen {
             within: cx.focus_handle(),
             rows: cx.focus_handle().tab_stop(true),
             inbox: mock::inbox(),
-            folded: HashSet::from([Group::Done]),
+            folded: Group::ALL.into_iter().filter(|group| group.starts_folded()).collect(),
             lists: None,
             search,
             focused: None,
@@ -289,6 +309,13 @@ impl ReviewsScreen {
             next_draft: 1,
             live: None,
             asked: None,
+            me: mock::ME.into(),
+            copied: None,
+            finding: HashMap::new(),
+            rewrites: HashMap::new(),
+            rewritten: HashMap::new(),
+            rewrite_runs: HashMap::new(),
+            files_scroll: ScrollHandle::new(),
             _subs: subs,
         }
     }
@@ -479,6 +506,9 @@ impl ReviewsScreen {
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
+        if self.is_live() {
+            self.live_tools(number);
+        }
         self.sheet = false;
         self.whole = !changed || gone;
         self.bring_kind("pr-overview", cx);
@@ -603,6 +633,118 @@ impl ReviewsScreen {
         if self.open == Some(number) && self.rail_on().as_deref() == Some(set.as_str()) {
             self.set_scroll.scroll_to_bottom();
         }
+        cx.notify();
+    }
+
+    /// Find problems on the mock: the change sets and what was found in them land after a moment.
+    pub(super) fn mock_find_problems(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        if self.finding.contains_key(&number) {
+            return;
+        }
+        let wait = self.wait(FIND_RUN, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.end_find(number, window, cx));
+        });
+        self.finding.insert(number, task);
+        cx.notify();
+    }
+
+    fn end_find(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            let why = std::mem::take(&mut page.overview.why);
+            page.overview = model::Overview { why, ..mock::found(number) };
+        }
+        self.finding.remove(&number);
+        self.suggestion_boxes(number, window, cx);
+        self.colour(number, cx);
+        cx.notify();
+    }
+
+    /// Summarize, Explain or Simplify: its card opens above the description, written once and kept.
+    pub(super) fn ask_rewrite(&mut self, rewrite: model::Rewrite, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        self.rewrites.insert(number, rewrite);
+        if self.is_live() {
+            self.live_rewrite(number, rewrite, window, cx);
+            cx.notify();
+            return;
+        }
+        let key = (number, rewrite);
+        if self.rewritten.contains_key(&key) {
+            cx.notify();
+            return;
+        }
+        self.rewritten.insert(key, model::Answer::Writing);
+        let wait = self.wait(REWRITE_RUN, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update(cx, |this, cx| this.end_rewrite(key, cx));
+        });
+        self.rewrite_runs.insert(key, task);
+        cx.notify();
+    }
+
+    fn end_rewrite(&mut self, key: (u64, model::Rewrite), cx: &mut Context<Self>) {
+        self.rewritten.insert(key, model::Answer::Written(mock::rewrite(key.0, key.1)));
+        self.rewrite_runs.remove(&key);
+        cx.notify();
+    }
+
+    /// The card's x: the description stands alone again. The answer is kept for the next press.
+    pub(super) fn close_rewrite(&mut self, cx: &mut Context<Self>) {
+        if let Some(number) = self.open {
+            self.rewrites.remove(&number);
+        }
+        cx.notify();
+    }
+
+    /// Copy link: the pull request's address on the clipboard, and the head says so for a moment.
+    pub(super) fn copy_link(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.page().filter(|page| !page.address.is_empty()) else { return };
+        let number = page.number;
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(page.address.clone()));
+        let timer = cx.background_executor().timer(COPIED_FOR);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            timer.await;
+            let _ = this.update(cx, |this, cx| {
+                this.copied = None;
+                cx.notify();
+            });
+        });
+        self.copied = Some((number, task));
+        cx.notify();
+    }
+
+    pub(super) fn open_in_browser(&self, cx: &mut Context<Self>) {
+        if let Some(page) = self.page().filter(|page| !page.address.is_empty()) {
+            cx.open_url(&page.address);
+        }
+    }
+
+    /// A file pressed in the rail: Files in front, on the whole pull request where the file is not in
+    /// the change since he looked, the file open, and its card at the top once it is drawn.
+    pub(super) fn show_file(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.page() else { return };
+        let number = page.number;
+        if !page.files.iter().any(|file| file.path == path && file.since) {
+            self.whole = true;
+        }
+        self.opened.insert((number, path.to_string()), true);
+        self.bring_kind("pr-files", cx);
+        // Next-frame work runs before that frame draws, so the card is looked for one frame later.
+        let name = format!("File: {path}");
+        cx.on_next_frame(window, move |_, window, cx| cx.on_next_frame(window, move |this, window, cx| this.scroll_to_file(&name, window, cx)));
+        cx.notify();
+    }
+
+    fn scroll_to_file(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(card) = cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Article, name).map(|drawn| drawn.bounds)) else { return };
+        let body = self.files_scroll.bounds();
+        let (offset, most) = (self.files_scroll.offset(), self.files_scroll.max_offset());
+        let y = (offset.y - (card.origin.y - body.origin.y)).min(px(0.)).max(-most.y);
+        self.files_scroll.set_offset(gpui::point(offset.x, y));
         cx.notify();
     }
 
@@ -873,6 +1015,14 @@ impl ReviewsScreen {
         let explaining: Vec<(u64, String, Explain)> = self.explain_runs.keys().cloned().collect();
         for key in explaining {
             self.end_explain(key, cx);
+        }
+        let finding: Vec<u64> = self.finding.keys().copied().collect();
+        for number in finding {
+            self.end_find(number, window, cx);
+        }
+        let rewriting: Vec<(u64, model::Rewrite)> = self.rewrite_runs.keys().copied().collect();
+        for key in rewriting {
+            self.end_rewrite(key, cx);
         }
         cx.notify();
     }

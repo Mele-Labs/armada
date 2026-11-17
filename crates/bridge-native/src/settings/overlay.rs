@@ -1286,6 +1286,33 @@ mod tests {
         cx.update(|window, cx| overlay.read(cx).typed.get(KEY).is_some_and(|typed| typed.focus(cx).is_focused(window)))
     }
 
+    /// A page of two cards is two columns where its room holds two of at least `view::COLUMN_MIN`, and one under that.
+    #[gpui::test]
+    fn two_cards_stand_side_by_side_where_the_page_is_wide_and_stacked_where_it_is_not(cx: &mut TestAppContext) {
+        for (width, wide) in [(1400., true), (820., false)] {
+            let (overlay, cx) = opened(cx);
+            cx.update(|_, cx| overlay.update(cx, |this, cx| this.pick("bridge:ways", cx)));
+            cx.simulate_resize(gpui::size(px(width), px(900.)));
+            for _ in 0..3 {
+                cx.update(|_, cx| overlay.update(cx, |_, cx| cx.notify()));
+                draw(cx);
+            }
+            cx.update(|window, cx| {
+                let card = |name: &str| super::super::view::bounds_of(window, cx, Role::Region, name).unwrap_or_else(|| panic!("{name} is drawn at {width}"));
+                let (take, answer) = (card("Take Jobs in"), card("Answer Jobs"));
+                if wide {
+                    assert_eq!(take.top(), answer.top(), "at {width} the cards share a top");
+                    assert!(take.right() <= answer.left(), "at {width} Answer Jobs is right of Take Jobs in");
+                    assert!((take.size.width - answer.size.width).abs() < px(1.), "at {width} the columns are equal");
+                    assert!(take.size.width >= px(420.), "at {width} a column is at least 420 wide, got {:?}", take.size.width);
+                } else {
+                    assert!(answer.top() >= take.bottom(), "at {width} Answer Jobs is under Take Jobs in");
+                    assert_eq!(take.left(), answer.left(), "at {width} one column");
+                }
+            });
+        }
+    }
+
     #[gpui::test]
     fn a_drag_across_the_meter_sets_the_value_by_its_share(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);

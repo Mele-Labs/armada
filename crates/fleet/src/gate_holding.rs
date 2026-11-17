@@ -30,16 +30,44 @@ fn open_in(plan: &KeptPlan) -> bool {
     plan.groups.iter().any(|group| group.gate.is_some() && group.closed.is_none())
 }
 
+/// The code `all_done` is refused with while a group waiting on a merge has a task of its own open.
+pub(crate) const TASKS_OPEN: &str = "fleet.gate_tasks_open";
+
+/// The tasks that keep a `merged` gate shut, one line each, for a group the Job works itself. **A merge
+/// closes a group only once its tasks are done** (`gate_merges`), so these are the Job's to finish, and
+/// holding its `all_done` would leave the gate to the person, who cannot see why it is open.
+pub(crate) fn tasks_open_text(store: &Store, id: &str) -> Option<String> {
+    let plan = store.session_plan(id).ok().flatten()?;
+    let lines: Vec<String> = plan
+        .groups
+        .iter()
+        .filter(|group| group.gate.as_deref() == Some("merged") && group.closed.is_none() && !group.own_job)
+        .flat_map(|group| {
+            group
+                .tasks
+                .iter()
+                .filter(|task| matches!(crate::plan_record::status(task), Some("pending" | "in_progress")))
+                .map(move |task| format!("- \"{}\": {}", group.title, task.text))
+        })
+        .collect();
+    (!lines.is_empty()).then(|| {
+        format!(
+            "A merge closes a group's gate only once the group's tasks are done, and these are still open:\n{}\nMark each one done with TaskUpdate where its work is done, or finish it, then call all_done again.",
+            lines.join("\n")
+        )
+    })
+}
+
 /// What a gate waits on, as the item says it, for a gate the person can close.
 fn phrase(gate: &str) -> Option<&'static str> {
     Some(match gate {
-        "plan_approved" => "your approval of the plan",
-        "walk_approved" => "your approval of every walk shown",
-        "sketch_approved" => "your approval of a sketch",
-        "document_approved" => "your approval of a page",
-        "you_approved" => "your approval",
-        CHECKS_GREEN => "Checks at a pushed commit",
-        "merged" => "the pull request's merge",
+        "plan_approved" => "waits on your approval of the plan",
+        "walk_approved" => "waits on your approval of every walk shown",
+        "sketch_approved" => "waits on your approval of a sketch",
+        "document_approved" => "waits on your approval of a page",
+        "you_approved" => "waits on your approval",
+        CHECKS_GREEN => "waits on Checks at a pushed commit",
+        "merged" => "has no open pull request to merge",
         _ => return None,
     })
 }
@@ -59,15 +87,18 @@ pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, n
         _ => true,
     };
     let waits_on = phrase(gate).filter(|_| yours)?;
-    let option = |label: &str| WaitingOption { label: label.to_string(), description: None, picture: None };
+    let option = |label: &str, does: &str| WaitingOption { label: label.to_string(), description: Some(does.to_string()), picture: None };
     Some(WaitingItem {
         approves: false,
         id: format!("{ITEM}{}", group.id),
-        text: format!("\"{}\" waits on {waits_on}", group.title),
+        text: format!("\"{}\" {waits_on}", group.title),
         since: Instant::carried(&hold.since),
         source: WaitingSource::Gate,
         act: Some(WaitingAct { kind: WaitingActKind::Answer, target: session.to_string() }),
-        options: vec![option("Approve"), option("Skip this group")],
+        options: vec![
+            option("Approve", "Count this group as done. The Job ends if nothing else is open."),
+            option("Skip this group", "Close this group as skipped. The Job ends if nothing else is open."),
+        ],
         steps: Vec::new(),
         place: None,
         confirmed: false,

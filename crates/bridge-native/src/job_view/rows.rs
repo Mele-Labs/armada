@@ -56,6 +56,21 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
     })
 }
 
+/// One Manifest's link table, and each prose text it has linked (`JobView::linked`).
+pub(super) struct Linked {
+    refs: super::refs::Refs,
+    said: std::collections::HashMap<String, String>,
+    /// The list or Fleet moved since the table was read: it is read again before the next use, and
+    /// what was linked is kept where the table came out the same (a restart's catch-up moves both often).
+    stale: bool,
+}
+
+impl Linked {
+    pub(super) fn stale(&mut self) {
+        self.stale = true;
+    }
+}
+
 /// A lone line break kept as a break, as Electron's Prose draws it (`remark-breaks`): each line that
 /// another line follows in the same paragraph ends in a hard break, outside fenced code.
 pub(super) fn with_breaks(text: &str) -> String {
@@ -560,8 +575,23 @@ impl JobView {
     /// shown Job's Manifest where None.
     fn prose_source_in(&self, text: &str, manifest: Option<&str>, cx: &App) -> String {
         let shown = || self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|record| record.manifest_id.as_ref()).map(|id| id.as_str());
-        let pulls = manifest.or_else(shown).map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default();
-        with_breaks(&super::refs::Refs::of(self.list.read(cx).records()).with_pulls(pulls).linked(text))
+        let manifest = manifest.or_else(shown);
+        let refs = || super::refs::Refs::of(self.list.read(cx).records()).with_pulls(manifest.map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default());
+        let mut linked = self.linked.borrow_mut();
+        let held = linked.entry(manifest.unwrap_or_default().to_string()).or_insert_with(|| Linked { refs: refs(), said: std::collections::HashMap::new(), stale: false });
+        if held.stale {
+            let now = refs();
+            if now != held.refs {
+                *held = Linked { refs: now, said: std::collections::HashMap::new(), stale: false };
+            }
+            held.stale = false;
+        }
+        if let Some(said) = held.said.get(text) {
+            return said.clone();
+        }
+        let said = with_breaks(&held.refs.linked(text));
+        held.said.insert(text.to_string(), said.clone());
+        said
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The
@@ -724,7 +754,7 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -878,6 +908,7 @@ impl JobView {
         queued: bool,
         editable: bool,
         edited: Option<&ipc::Instant>,
+        aside: Option<&str>,
         look: &Look,
         now: DateTime<Local>,
         cx: &Context<Self>,
@@ -1026,8 +1057,32 @@ impl JobView {
         } else {
             region
         };
+        // A told side question says where his words came from; a press opens it in the side chat.
+        let from_side = aside.map(|aside_id| {
+            let aside_id = aside_id.to_string();
+            labelled(
+                div()
+                    .id(SharedString::from(format!("told-aside:{id}")))
+                    .track_focus(&self.spot(page, &format!("told-aside:{id}"), cx).focus)
+                    .pb(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.open_aside(&aside_id, window, cx)
+                    }))
+                    .child("You, from side chat"),
+                Role::Button,
+                "You, from side chat",
+            )
+        });
         labelled(
             region
+                .children(from_side)
                 .child(
                     div()
                         .flex()
@@ -1192,12 +1247,12 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, aside, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {
@@ -1593,6 +1648,30 @@ fn working_words(doing: Option<&str>) -> SharedString {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The words are linked once and kept, so a Job the list gains after they were drawn must still
+    /// link them the next time: the list moving empties what was kept.
+    #[gpui::test]
+    fn a_job_the_list_gains_after_the_words_were_drawn_links_them(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view(|window, cx| JobView::new(list.clone(), None, window, cx));
+        let said = "Ask Tune the fan curve about it.";
+        assert_eq!(view.read_with(cx, |view, cx| view.prose_source(said, cx)), said);
+        let mut gained = jobs[0].clone();
+        gained.id = ipc::SessionId::carried("fa11c0de-0000-4000-8000-000000000001");
+        gained.title = Some("Tune the fan curve".into());
+        list.update(cx, |list, cx| list.replace_records(jobs.iter().cloned().chain([gained]).collect(), cx));
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.prose_source(said, cx)),
+            "Ask [Tune the fan curve](armada-ref:session/fa11c0de-0000-4000-8000-000000000001) about it."
+        );
+    }
 
     #[test]
     fn the_working_line_says_what_the_job_is_doing_and_thinking_only_when_fleet_names_nothing() {
