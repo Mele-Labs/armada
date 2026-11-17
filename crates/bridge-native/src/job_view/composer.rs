@@ -722,6 +722,9 @@ impl JobView {
             return self.begin_start(window, cx);
         }
         let kept = self.kept(cx);
+        if self.opens_mcp(&id, &kept.text, cx) {
+            return self.mcp_typed(&id, window, cx);
+        }
         // The box answers a question from the sheet's Answer in words: the words go as the panel's box sends them.
         if let Some(item) = self.answering_row(&id, cx).map(|row| row.id.clone()) {
             if kept.text.trim().is_empty() {
