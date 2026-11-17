@@ -81,6 +81,8 @@ pub struct WebPage {
     hitbox: Option<Hitbox>,
     /// A gpui layer lies over the page, so its picture draws and its view is hidden.
     held: bool,
+    /// How many things hold the page still as its picture whether or not a layer covers it (`pin`).
+    pins: usize,
     /// The window has no AppKit view of its own (the headless check): the page is laid out in a shell nobody sees, and a scroll
     /// bar the snapshot cannot draw would leave a blank strip at its edge and take its width from the layout.
     shell: bool,
@@ -155,6 +157,7 @@ impl WebPage {
             visible: None,
             hitbox: None,
             held: false,
+            pins: 0,
             shell: false,
             drawn: false,
             mode: Mode::Parked,
@@ -321,6 +324,33 @@ impl WebPage {
             }
         }
         rx
+    }
+
+    /// Holds the page still as its picture until `unpin`, as Classic's `freeze` does while Capture is on, whether or not a layer
+    /// covers it this frame. Held by what counts, so a layer made anew before the old one is let go keeps the page still.
+    pub fn pin(&mut self, cx: &mut Context<Self>) {
+        self.pins += 1;
+        // A picture of what the page showed before is not the page now: the live view stays until a fresh one is in.
+        if self.pins == 1 && !self.held {
+            self.picture = None;
+        }
+        cx.notify();
+    }
+
+    pub fn unpin(&mut self, cx: &mut Context<Self>) {
+        self.pins = self.pins.saturating_sub(1);
+        cx.notify();
+    }
+
+    /// Whether something holds the page still as its picture.
+    #[cfg(test)]
+    pub fn pinned(&self) -> bool {
+        self.pins > 0
+    }
+
+    /// Where a pane drew the page last, and the part of it that shows, in the window, while a pane draws it.
+    pub fn place(&self) -> Option<(Bounds<Pixels>, Bounds<Pixels>)> {
+        self.bounds.zip(self.visible).filter(|_| self.is_painted())
     }
 
     /// Whether a pane draws the page now, live or as a picture.
@@ -517,7 +547,7 @@ impl WebPage {
             return;
         }
         self.drawn = false;
-        let covered = self.covered(window);
+        let covered = self.pins > 0 || self.covered(window);
         if covered != self.held {
             self.held = covered;
             if covered {
