@@ -5,7 +5,7 @@
 //! cap is [`WhatTheForgeRan::Unreadable`]: the caller is deciding whether work may go out, and
 //! a pass over part of the checks is not one it can be given.
 
-use adapter_traits::{FromOutside, Remark, ReviewedBy, UnderReview, WhatPeopleSaid, WhatTheForgeRan};
+use adapter_traits::{FromOutside, PullRequestFacts, Remark, ReviewedBy, UnderReview, WhatPeopleSaid, WhatTheForgeRan};
 use serde::de::DeserializeOwned;
 use serde::Deserialize;
 
@@ -38,7 +38,7 @@ fn rollup(window: &str) -> String {
 }
 
 /// A query for a pull request's fields with no `$after` to ask for.
-fn unasked(selection: &str) -> String {
+pub(super) fn unasked(selection: &str) -> String {
     format!(
         "query($owner:String!,$name:String!,$number:Int!){{repository(owner:$owner,name:$name){{\
          pullRequest(number:$number){{{selection}}}}}}}"
@@ -160,12 +160,7 @@ pub(super) fn under_review(
     })?;
 
     let people = what_people_said(&pull.review_decision.unwrap_or_default());
-    let mut checks = Checks::gated_by(gate);
-    for context in &contexts.rows {
-        let name = context.name.as_deref().or(context.context.as_deref()).unwrap_or_default();
-        let conclusion = context.conclusion.as_deref().or(context.state.as_deref()).unwrap_or_default();
-        checks.saw(name, context.status.as_deref().unwrap_or_default(), conclusion);
-    }
+    let checks = checks_seen(&contexts.rows, gate);
     let mut remarks: Vec<Remark> = comments
         .rows
         .into_iter()
@@ -201,6 +196,55 @@ pub(super) fn under_review(
         read.checks = WhatTheForgeRan::Unreadable;
     }
     Ok(Some(read))
+}
+
+/// The checks on the last commit, for a repository whose gate is `gate`.
+fn checks_seen(contexts: &[Context], gate: &str) -> Checks {
+    let mut checks = Checks::gated_by(gate);
+    for context in contexts {
+        let name = context.name.as_deref().or(context.context.as_deref()).unwrap_or_default();
+        let conclusion = context.conclusion.as_deref().or(context.state.as_deref()).unwrap_or_default();
+        checks.saw(name, context.status.as_deref().unwrap_or_default(), conclusion);
+    }
+    checks
+}
+
+/// A pull request's facts and its last commit's checks.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub(crate) struct Standing {
+    #[serde(flatten)]
+    facts: super::standing::Facts,
+    review_decision: Option<String>,
+    commits: Option<Nodes<RollupCommit>>,
+}
+
+/// `Ok(None)` is no such pull request. The facts and the checks in one query, the checks totalled
+/// as [`under_review`] totals them: **unreadable where the review decision is, or where the cap cut
+/// the rollup**.
+pub(super) fn standing(
+    api: &GitHubApi,
+    repository: &GitHubRepository,
+    number: u64,
+    gate: &str,
+) -> Result<Option<(PullRequestFacts, WhatTheForgeRan)>, ApiFailure> {
+    let named = Named::of(repository);
+    let query = unasked(&format!("{} reviewDecision {}", super::standing::FACT_FIELDS, rollup("first:100")));
+    let found: InRepository<Standing> = api.graphql(&query, &named.asked(number))?;
+    let Some(pull) = found.pull() else { return Ok(None) };
+    let ask = Later { api, named: &named, number };
+    let first = Nodes::all(pull.commits).next().and_then(RollupCommit::contexts);
+    let contexts = read_to_the_end(first, MOST_PAGES, |after| {
+        let found: InRepository<Pull> = ask.page(&more_contexts(), after)?;
+        Ok(found.pull().and_then(|it| Nodes::all(it.commits).next()).and_then(RollupCommit::contexts))
+    })?;
+    let people = what_people_said(&pull.review_decision.unwrap_or_default());
+    let ran = if contexts.cut || matches!(people, WhatPeopleSaid::Unreadable) {
+        WhatTheForgeRan::Unreadable
+    } else {
+        checks_seen(&contexts.rows, gate).totalled()
+    };
+    Ok(super::standing::facts_from(pull.facts).map(|facts| (facts, ran)))
 }
 
 /// The most pages of line comments read: 3,000 comments.

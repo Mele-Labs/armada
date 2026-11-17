@@ -30,6 +30,10 @@ pub(super) const NOT_LIVE: &str = "Fleet is not connected, so nothing can be cha
 /// a 1000 wide overlay less its nav), so a wide window leaves room at the right instead of spreading each row.
 const PAGE_MAX: f32 = 720.;
 
+/// The narrowest a column of cards is when a page of two or more cards goes two columns wide. The page needs two of
+/// them and the gap between; under that it is one column, capped at `PAGE_MAX`.
+const COLUMN_MIN: f32 = 420.;
+
 /// How wide a meter and a choice are drawn, so the figure typed, or the word picked, stays by its title.
 const CONTROL_W: f32 = 320.;
 
@@ -1024,16 +1028,31 @@ impl SettingsOverlay {
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
-        div()
-            .id("settings-page")
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .overflow_y_scroll()
-            .flex()
-            .flex_col()
-            .child(div().flex().flex_col().gap(look.length(token::GAP_PANEL)).w_full().max_w(px(PAGE_MAX)).children(cards))
-            .into_any_element()
+        let gap = look.length(token::GAP_PANEL);
+        // Macs lays its own cards out, wide, in `render_macs`.
+        let wide = cards.len() >= 2 && shown.is_some_and(|one| one.body != Body::Macs) && self.page_width(look, window, cx) >= px(COLUMN_MIN) * 2. + gap;
+        let stack = if wide {
+            // Two equal columns, the cards in reading order, each row's cards top-aligned and none stretched.
+            let mut rows: Vec<AnyElement> = Vec::new();
+            let mut cards = cards.into_iter();
+            while let Some(left) = cards.next() {
+                let right = cards.next();
+                rows.push(
+                    div()
+                        .flex()
+                        .items_start()
+                        .gap(gap)
+                        .w_full()
+                        .child(div().flex_1().min_w_0().child(left))
+                        .child(div().flex_1().min_w_0().children(right))
+                        .into_any_element(),
+                );
+            }
+            div().flex().flex_col().gap(gap).w_full().children(rows)
+        } else {
+            div().flex().flex_col().gap(gap).w_full().max_w(px(PAGE_MAX)).children(cards)
+        };
+        div().id("settings-page").flex_1().min_w_0().h_full().overflow_y_scroll().flex().flex_col().child(stack).into_any_element()
     }
 
     pub fn render_overlay(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {

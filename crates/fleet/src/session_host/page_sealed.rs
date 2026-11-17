@@ -304,6 +304,17 @@ mod tests {
     /// The sealed page, which the native mock reads as Fleet's answer to `get_artifact_page`.
     const SEALED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../bridge-native/fixtures/page-actions.html");
 
+    /// A page with no style of its own reads in the app's sans and its form controls take the accent, never the
+    /// browser's serif and grey radios.
+    #[test]
+    fn a_bare_page_reads_in_the_apps_sans_with_calm_form_controls() {
+        let page = sealed("<html><head></head><body><form><fieldset><legend>Pick</legend><label><input type=radio> A</label></fieldset></form></body></html>", "bm9uY2U=", "{}");
+        assert!(page.contains(":where(body) { color: var(--fg-muted); font-family: var(--font-sans);"), "{page}");
+        assert!(page.contains("--font-sans:"), "the token the body names is on the page");
+        assert!(page.contains(":where(input, button, select, textarea) { font: inherit; accent-color: var(--accent); }"), "{page}");
+        assert!(page.contains(":where(fieldset)"), "{page}");
+    }
+
     /// **The native mock's page is sealed by this code, never written by hand**, so a native walk drives the kit Fleet
     /// ships. `ARMADA_WRITE_NATIVE_PAGE=1` writes it again; without it, the kit in it must be today's.
     #[test]

@@ -1743,7 +1743,7 @@ Bridge's half is `gate_closed` and `gate_hold` in `packages/protocol/src/notices
 | --- | --- | --- |
 | Notice `gate_closed` (thread rows, `set_notice_mute`) | Fleet writes, Bridge reads | One line, `Gate closed on "<group title>": <fact>.`, once for each row written |
 | Notice `gate_hold` | Fleet writes, Bridge reads | A red run of a gate's Checks, `Checks failed at <sha>: <tests>.` with `Already red on main: <tests>.` where any were, or `all_done could not finish: <reason>.` |
-| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>`, an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1). Never kept, and not dismissed |
+| `WaitingSource::Gate` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | Id `gate:<group id>`, text `"<group title>" waits on <what>` (for a merge, `"<group title>" has no open pull request to merge`), an `answer` act on the Job, and the options `Approve` (choice 0) and `Skip this group` (choice 1), each with a description of what it does. Never kept, and not dismissed |
 | `SessionPlan.held` (`list_sessions`, `session.changed`) | Fleet writes, Bridge reads | `group`, the first group in plan order whose gate is open, and `since`, when the agent first said it was done. Absent when no call is held or no gate is open |
 | `all_done` receipt | Fleet writes, the agent reads | `held`, one line saying which group's gate the call waits on. Absent when the call was taken |
 
@@ -2114,3 +2114,22 @@ Electron reads none of it. The native strip says GitHub is rate-limiting us, unt
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
 **The event stream.** Both events carry their type whole, so they carry the field; no new event.
+
+## When he was asked to review: `PullReviewRow.asked_at`
+
+Since 17 Nov 2026. `docs/concepts/fleet.md`, *The pull requests waiting on a person*.
+**Additive only**: one optional field on an existing type; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/pull-reviews.ts`, written by hand, field for field.
+Electron reads none of it. The native inbox puts the longest wait first under Review requested from you.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `PullReviewRow` (`get_review_lists`) | Fleet writes, Bridge reads | Gains `asked_at`, absent when unknown: an instant, when he was last asked to review it |
+
+On the `requested` list it is the forge's latest review request naming him, else when Fleet first told him of the request; on the `team` list the forge's latest naming a team he is on.
+The other two lists leave it out.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's row has no field, which a newer Bridge reads as a wait it does not know and draws after those it does.
+**The event stream.** No new event.

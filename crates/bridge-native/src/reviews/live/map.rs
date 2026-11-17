@@ -4,12 +4,14 @@
 use std::collections::{HashMap, HashSet};
 
 use ipc::{
-    ChangeSetKind, MyReviewSaid, OverviewSeverity, PracticeVerdict, PullInbox, PullRequestCommit, PullRequestCompare, PullRequestFilePatch, PullRequestNote, PullRequestPage, PullReviewList,
+    ChangeSetKind, MyReviewSaid, OverviewSeverity, PracticeVerdict, PullInbox, PullRequestCompare, PullRequestFilePatch, PullRequestNote, PullRequestPage, PullReviewList,
     PullReviewLists, ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewToolKind, ReviewTools,
 };
 
 use super::Row;
-use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Seen, Summary, Verdict, Viewed};
+use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Summary, Verdict, Viewed};
+pub use crate::since_looked::when;
+use crate::since_looked::{new_commits_of, seen_of, short};
 
 /// Where one of Fleet's runs stands for the head in front.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -40,6 +42,8 @@ pub struct Mapped {
     pub flags: Vec<Flag>,
     pub critique: Critique,
     pub finds: Finds,
+    /// What Summarize, Explain and Simplify answered at the head, those asked.
+    pub answers: Vec<(model::Rewrite, model::Answer)>,
 }
 
 /// What the runs are read against: the heads, the runs and patches as Fleet answered, and the runs it refused.
@@ -68,23 +72,6 @@ fn named(kind: ReviewRunKind, kept: &str, asked: &str) -> bool {
     matches!(kind, ReviewRunKind::ChangeSets | ReviewRunKind::Overview) || kept == asked
 }
 
-fn short(sha: &str) -> String {
-    sha.chars().take(7).collect()
-}
-
-/// The day and time of an instant, as a person says them: `today`, `yesterday`, `Tuesday`, `4 Nov`.
-pub fn when(at: &str) -> Option<(String, String)> {
-    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
-    let days = (chrono::Local::now().date_naive() - at.date_naive()).num_days();
-    let day = match days {
-        ..=0 => "today".to_string(),
-        1 => "yesterday".to_string(),
-        2..=6 => at.format("%A").to_string(),
-        _ => at.format("%-d %b").to_string(),
-    };
-    Some((day, at.format("%H:%M").to_string()))
-}
-
 /// How long since an instant, in its largest unit, as an inbox row says it.
 fn age(at: &str) -> String {
     let Ok(at) = chrono::DateTime::parse_from_rfc3339(at) else { return String::new() };
@@ -94,17 +81,6 @@ fn age(at: &str) -> String {
         1..=59 => format!("{minutes}m"),
         60..=1439 => format!("{}h", minutes / 60),
         _ => format!("{}d", minutes / 1440),
-    }
-}
-
-/// A commit's time as the What changed list says it: `Fri 08:58`, or `4 Nov` past a week.
-fn stamp(at: &str) -> String {
-    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(at) else { return at.to_string() };
-    let at = parsed.with_timezone(&chrono::Local);
-    if (chrono::Local::now().date_naive() - at.date_naive()).num_days() < 7 {
-        at.format("%a %H:%M").to_string()
-    } else {
-        at.format("%-d %b").to_string()
     }
 }
 
@@ -131,19 +107,16 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                 }
                 continue;
             }
-            let group = match row.inbox {
-                PullInbox::NeedsFirstLook => Group::FirstLook,
-                PullInbox::ChangedSinceYouLooked => Group::Changed,
-                PullInbox::WaitingOnAuthor => Group::Waiting,
-                PullInbox::Done => Group::Done,
-            };
+            let changed = row.inbox == PullInbox::ChangedSinceYouLooked;
             rows.push(InboxRow {
                 number: row.number,
                 repository: row.repository.clone(),
                 title: row.title.clone(),
                 author: row.author.clone(),
                 age: age(&row.updated_at),
-                group,
+                updated_at: row.updated_at.clone(),
+                asked_at: row.asked_at.clone(),
+                changed,
                 new_commits: None,
                 lists: vec![list],
                 checks: row.checks,
@@ -158,6 +131,8 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                     branch: row.branch.clone(),
                     author: row.author.clone(),
                     holder: row.holder.clone(),
+                    address: row.address.clone(),
+                    draft: row.draft,
                 },
             ));
         }
@@ -211,18 +186,8 @@ pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[Pull
             patch_since: since.get(file.path.as_str()).copied().flatten().map(str::to_string),
         })
         .collect();
-    let seen = detail.seen.as_ref().map(|seen| {
-        let (day, time) = when(&seen.at).unwrap_or_default();
-        Seen { day, time, old: short(&seen.head), new: short(&head), gone }
-    });
-    // The commits after the one he left it at, newest first; all of them where his is no longer there.
-    let new_commits: Vec<PullRequestCommit> = match &detail.seen {
-        Some(seen) if seen.head != head => {
-            let after = detail.commits.iter().position(|commit| !commit.sha.is_empty() && seen.head.starts_with(&commit.sha)).map_or(0, |at| at + 1);
-            detail.commits[after..].iter().rev().cloned().map(|commit| PullRequestCommit { at: commit.at.as_deref().map(stamp), ..commit }).collect()
-        }
-        _ => Vec::new(),
-    };
+    let seen = seen_of(detail, gone);
+    let new_commits = new_commits_of(detail);
     let mine = match &detail.my_review {
         Some(review) => Mine {
             verdict: verdict_of(Some(review.said)),
@@ -256,11 +221,32 @@ pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[Pull
         threads: detail.threads.clone(),
         critique: Critique::None,
         summary: Summary::None,
-        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new() },
+        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new(), read: false },
         holder: row.holder.as_ref().map(|holder| holder.title.clone()),
         notes: notes.iter().filter(|note| note.sent_to.is_none() && note.status == ipc::NoteStatus::Open).map(|note| format!("{}:{} {}", note.path, note.line, note.body)).collect(),
         kept: false,
         ended: None,
+        reviewers: detail.reviewers.clone(),
+        address: row.address.clone(),
+        draft: row.draft,
+    }
+}
+
+/// What the latest Ask of these words at the page's head answered, or why Fleet refused it. None
+/// where it was never asked. Fleet keeps the words lower-cased and single-spaced.
+pub fn answer_of(facts: &Facts, question: &str) -> Option<model::Answer> {
+    let words = |said: &str| said.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let question = words(question);
+    let head = facts.head.as_deref().unwrap_or_default();
+    let run = facts.runs.iter().filter(|run| run.kind == ReviewRunKind::Ask && run.head == head && words(&run.name) == question).max_by(|a, b| a.started_at.cmp(&b.started_at));
+    match run {
+        Some(run) => Some(match (&run.state, &run.result) {
+            (ReviewRunState::Queued | ReviewRunState::Running, _) => model::Answer::Writing,
+            (ReviewRunState::Done, Some(ReviewResult::Text { body })) => model::Answer::Written(body.clone()),
+            (ReviewRunState::Failed, _) => model::Answer::Failed(run.failed.clone().unwrap_or_else(|| "The run ended without a result".into())),
+            (ReviewRunState::Done, _) => model::Answer::Failed("The run ended without a result".into()),
+        }),
+        None => facts.refused.iter().find(|(kind, asked, _)| *kind == ReviewRunKind::Ask && words(asked) == question).map(|(_, _, why)| model::Answer::Failed(why.clone())),
     }
 }
 
@@ -407,7 +393,8 @@ pub fn from_runs(page: &Page, facts: &Facts) -> Mapped {
             Critique::Finished { range, findings, asked }
         }
     };
-    Mapped { summary, sets, flags, critique, finds }
+    let answers = model::Rewrite::ALL.into_iter().filter_map(|rewrite| answer_of(facts, rewrite.question()).map(|answer| (rewrite, answer))).collect();
+    Mapped { summary, sets, flags, critique, finds, answers }
 }
 
 /// What kind of change a set is, after "Practices for".
@@ -494,7 +481,7 @@ mod tests {
     #[test]
     fn a_time_that_cannot_be_read_shows_no_age_and_its_own_words_for_a_stamp() {
         assert_eq!(age("yesterday-ish"), "");
-        assert_eq!(stamp("yesterday-ish"), "yesterday-ish");
+        assert_eq!(crate::since_looked::stamp("yesterday-ish"), "yesterday-ish");
         assert_eq!(when("yesterday-ish"), None);
     }
 
@@ -521,6 +508,7 @@ mod tests {
             head: "abc1234".into(),
             author: "mira".into(),
             updated_at: "not a time".into(),
+            asked_at: None,
             team: None,
             holder: None,
             seen: None,
@@ -534,7 +522,7 @@ mod tests {
     }
 
     #[test]
-    fn each_inbox_state_of_fleet_lands_in_its_group() {
+    fn fleets_changed_state_and_his_review_reach_the_row() {
         let (rows, _) = inbox_of(&lists(
             vec![
                 pull(1, PullInbox::NeedsFirstLook, None),
@@ -544,11 +532,10 @@ mod tests {
             ],
             Vec::new(),
         ));
-        let groups: Vec<(u64, Group, Verdict)> = rows.iter().map(|row| (row.number, row.group, row.mine)).collect();
-        assert_eq!(
-            groups,
-            [(1, Group::FirstLook, Verdict::NotReviewed), (2, Group::Changed, Verdict::Commented), (3, Group::Waiting, Verdict::ChangesRequested), (4, Group::Done, Verdict::Approved)]
-        );
+        let says: Vec<(u64, bool, Verdict)> = rows.iter().map(|row| (row.number, row.changed, row.mine)).collect();
+        assert_eq!(says, [(1, false, Verdict::NotReviewed), (2, true, Verdict::Commented), (3, false, Verdict::ChangesRequested), (4, false, Verdict::Approved)]);
+        // Each is on his requested list, so each lands in the first group.
+        assert!(rows.iter().all(|row| row.group() == model::Group::Requested));
     }
 
     #[test]
@@ -566,8 +553,62 @@ mod tests {
             viewed,
             ..PullRequestPage::default()
         };
-        let row = Row { manifest: "ledger-api".into(), repository: "harbor/ledger-api".into(), title: "t".into(), branch: "b".into(), author: "mira".into(), holder: None };
-        page_of(1, &row, &detail, &[], None, &[])
+        page_of(1, &row(), &detail, &[], None, &[])
+    }
+
+    fn row() -> Row {
+        Row {
+            manifest: "ledger-api".into(),
+            repository: "harbor/ledger-api".into(),
+            title: "t".into(),
+            branch: "b".into(),
+            author: "mira".into(),
+            holder: None,
+            address: "https://example.com/harbor/ledger-api/pull/1".into(),
+            draft: true,
+        }
+    }
+
+    #[test]
+    fn a_page_carries_its_reviewers_its_address_and_whether_it_is_a_draft() {
+        let tobias = ipc::PullRequestReviewer { login: "tobias".into(), kind: ipc::PullRequestReviewerKind::Person, verdict: None, name: None, url: None, team: None };
+        let detail = PullRequestPage { reviewers: vec![tobias.clone()], ..PullRequestPage::default() };
+        let page = page_of(1, &row(), &detail, &[], None, &[]);
+        assert_eq!((page.reviewers, page.address.as_str(), page.draft), (vec![tobias], "https://example.com/harbor/ledger-api/pull/1", true));
+    }
+
+    fn ask(name: &str, head: &str, at: &str, state: ReviewRunState, body: Option<&str>) -> ReviewRun {
+        ReviewRun {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            number: 1,
+            kind: ReviewRunKind::Ask,
+            name: name.into(),
+            head: head.into(),
+            since: None,
+            state,
+            started_at: at.into(),
+            finished_at: None,
+            failed: (state == ReviewRunState::Failed).then(|| "The bay stopped".into()),
+            result: body.map(|body| ReviewResult::Text { body: body.into() }),
+            cost_micros: None,
+        }
+    }
+
+    #[test]
+    fn an_ask_answers_its_latest_run_at_the_head_whatever_the_case_of_its_words() {
+        let question = "Summarize this pull request's description";
+        let kept = "summarize this pull request's description";
+        let facts = |runs: Vec<ReviewRun>, refused: Vec<(ReviewRunKind, String, String)>| Facts { head: Some("h2".into()), runs, refused, ..Facts::default() };
+        let older = ask(kept, "h1", "2026-11-17T09:00:00Z", ReviewRunState::Done, Some("Old head"));
+        let first = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Done, Some("First"));
+        let again = ask(kept, "h2", "2026-11-17T11:00:00Z", ReviewRunState::Running, None);
+        assert_eq!(answer_of(&facts(vec![older.clone()], Vec::new()), question), None, "a run at another head is not this commit's");
+        assert_eq!(answer_of(&facts(vec![older, first.clone()], Vec::new()), question), Some(model::Answer::Written("First".into())));
+        assert_eq!(answer_of(&facts(vec![first, again], Vec::new()), question), Some(model::Answer::Writing));
+        let failed = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Failed, None);
+        assert_eq!(answer_of(&facts(vec![failed], Vec::new()), question), Some(model::Answer::Failed("The bay stopped".into())));
+        let refused = vec![(ReviewRunKind::Ask, question.to_string(), "Fleet is busy".to_string())];
+        assert_eq!(answer_of(&facts(Vec::new(), refused), question), Some(model::Answer::Failed("Fleet is busy".into())));
     }
 
     #[test]
