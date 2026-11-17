@@ -56,6 +56,12 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
     })
 }
 
+/// One Manifest's link table, and each prose text it has linked (`JobView::linked`).
+pub(super) struct Linked {
+    refs: super::refs::Refs,
+    said: std::collections::HashMap<String, String>,
+}
+
 /// A lone line break kept as a break, as Electron's Prose draws it (`remark-breaks`): each line that
 /// another line follows in the same paragraph ends in a hard break, outside fenced code.
 pub(super) fn with_breaks(text: &str) -> String {
@@ -560,8 +566,18 @@ impl JobView {
     /// shown Job's Manifest where None.
     fn prose_source_in(&self, text: &str, manifest: Option<&str>, cx: &App) -> String {
         let shown = || self.shown.as_ref().and_then(|id| self.record(id, cx)).and_then(|record| record.manifest_id.as_ref()).map(|id| id.as_str());
-        let pulls = manifest.or_else(shown).map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default();
-        with_breaks(&super::refs::Refs::of(self.list.read(cx).records()).with_pulls(pulls).linked(text))
+        let manifest = manifest.or_else(shown);
+        let mut linked = self.linked.borrow_mut();
+        let held = linked.entry(manifest.unwrap_or_default().to_string()).or_insert_with(|| {
+            let pulls = manifest.map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default();
+            Linked { refs: super::refs::Refs::of(self.list.read(cx).records()).with_pulls(pulls), said: std::collections::HashMap::new() }
+        });
+        if let Some(said) = held.said.get(text) {
+            return said.clone();
+        }
+        let said = with_breaks(&held.refs.linked(text));
+        held.said.insert(text.to_string(), said.clone());
+        said
     }
 
     /// A disclosure: a line that opens a body under it on a press, and shuts it on the next. The
@@ -1591,6 +1607,30 @@ fn working_words(doing: Option<&str>) -> SharedString {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The words are linked once and kept, so a Job the list gains after they were drawn must still
+    /// link them the next time: the list moving empties what was kept.
+    #[gpui::test]
+    fn a_job_the_list_gains_after_the_words_were_drawn_links_them(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view(|window, cx| JobView::new(list.clone(), None, window, cx));
+        let said = "Ask Tune the fan curve about it.";
+        assert_eq!(view.read_with(cx, |view, cx| view.prose_source(said, cx)), said);
+        let mut gained = jobs[0].clone();
+        gained.id = ipc::SessionId::carried("fa11c0de-0000-4000-8000-000000000001");
+        gained.title = Some("Tune the fan curve".into());
+        list.update(cx, |list, cx| list.replace_records(jobs.iter().cloned().chain([gained]).collect(), cx));
+        cx.run_until_parked();
+        assert_eq!(
+            view.read_with(cx, |view, cx| view.prose_source(said, cx)),
+            "Ask [Tune the fan curve](armada-ref:session/fa11c0de-0000-4000-8000-000000000001) about it."
+        );
+    }
 
     #[test]
     fn the_working_line_says_what_the_job_is_doing_and_thinking_only_when_fleet_names_nothing() {
