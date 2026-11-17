@@ -157,6 +157,15 @@ pub(crate) async fn save_kit_values<D: Projects>(State(served): State<Served<D>>
     }
 }
 
+pub(crate) async fn merge_projects<D: Projects>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let merge = match decoded(&served, "two projects to merge", &body) {
+        Ok(merge) => merge,
+        Err(response) => return response,
+    };
+    let result = served.daemon().merge_projects(merge).await;
+    answered(&served, result)
+}
+
 pub(crate) async fn delete_project<D: Projects>(
     State(served): State<Served<D>>,
     Path(project): Path<String>,

@@ -90,7 +90,7 @@ async fn a_job_cannot_change_the_slot_pool() {
 fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
     let event = ipc::OtherMacEvent {
         mac: "mac-work".into(),
-        event: ipc::Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() }),
+        event: ipc::Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }),
     };
     vec![
         ("PUT", "/other_macs/sessions", r#"{"mac":"mac-work","sessions":[]}"#.to_string()),

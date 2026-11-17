@@ -86,6 +86,7 @@ mod reader_edit;
 mod reader_page;
 mod web_walk;
 pub(crate) mod rows;
+mod row_views;
 mod judge_tab;
 mod lanes;
 mod lanes_copy;
@@ -537,6 +538,8 @@ pub struct JobView {
     linked: RefCell<HashMap<String, rows::Linked>>,
     /// One more each time this view is drawn whole, so a frame drawn from its cache is told apart (`labels::kept`).
     drawn: Rc<std::cell::Cell<u64>>,
+    /// The thread's rows as views of their own, so a pulse draws its row and not the thread (`row_views`).
+    rows: row_views::Rows,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -575,6 +578,8 @@ impl JobView {
             composer.quick = quick::Quick::mock(catalogue.look, catalogue.quick);
             composer.catalog.scripts = catalogue.talk;
         }
+        // Told it changed, the view draws its rows whole next; a frame that only moves a pulse takes them from the cache.
+        subscriptions.push(cx.observe_self(|this, _| this.rows.changed()));
         // Each draws this view again: it is drawn from a cache (`JobsScreen::render`).
         subscriptions.push(cx.observe_in(&list, window, |this, _, window, cx| {
             this.followed(window, cx);
@@ -745,6 +750,7 @@ impl JobView {
             find: None,
             linked: Default::default(),
             drawn: Rc::default(),
+            rows: Default::default(),
             _subscriptions: subscriptions,
         }
     }
@@ -1278,6 +1284,7 @@ impl JobView {
 impl Render for JobView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.drawn.set(self.drawn.get() + 1);
+        self.rows.begin(&self.shown);
         let Some(id) = self.shown.clone() else {
             return div().size_full().into_any_element();
         };
@@ -1365,7 +1372,7 @@ impl Render for JobView {
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
-                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
+                    .child(list(state, cx.processor(|this, ix: usize, window, cx| this.thread_row(ix, window, cx))).size_full())
                     .child(fade(&look, true))
                     .child(fade(&look, false)),
                 Role::Region,

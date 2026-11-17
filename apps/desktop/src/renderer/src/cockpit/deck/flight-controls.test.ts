@@ -644,14 +644,14 @@ describe("keyProblem", () => {
     expect(problem("r", entries, "report")).toBeUndefined();
   });
 
-  test("⌃ and ⌘ are one key to a tile, as they are to the registry's acts, so ⌃R is taken where a tile has ⌘R", () => {
+  test("⌃ and ⌘ are one key to a tile, as they are to the registry's acts, so ⌃Y is taken where a tile has ⌘Y", () => {
     expect(
       problem(
-        "⌃R",
+        "⌃Y",
         [
           {
             id: "report",
-            key: "⌘R",
+            key: "⌘Y",
           },
         ],
         "ask",
@@ -659,11 +659,11 @@ describe("keyProblem", () => {
     ).toBe("Used by Report issue with job");
     expect(
       problem(
-        "⌘R",
+        "⌘Y",
         [
           {
             id: "report",
-            key: "⌃R",
+            key: "⌃Y",
           },
         ],
         "ask",
@@ -671,11 +671,11 @@ describe("keyProblem", () => {
     ).toBe("Used by Report issue with job");
     expect(
       problem(
-        "⌃⌘R",
+        "⌃⌘Y",
         [
           {
             id: "report",
-            key: "⌘R",
+            key: "⌘Y",
           },
         ],
         "ask",

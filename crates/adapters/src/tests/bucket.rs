@@ -196,6 +196,18 @@ fn a_missing_object_is_none_a_forbidden_one_is_refused_and_a_failing_one_is_unre
 }
 
 #[test]
+fn an_object_is_deleted_at_its_path_and_one_that_is_not_there_is_deleted_already_and_a_key_with_no_delete_right_is_refused() {
+    let (url, server) = serve(vec![(204, ""), (404, "<Error><Code>NoSuchKey</Code></Error>"), (403, "<Error><Code>AccessDenied</Code></Error>")]);
+    let bucket = s3_at(&url);
+    bucket.delete("runs/acme--shop.toml").expect("deleted");
+    bucket.delete("runs/acme--shop.toml").expect("already gone");
+    let refused = bucket.delete("runs/acme--shop.toml").expect_err("refused");
+    assert!(matches!(&refused, BucketError::Refused(why) if why.contains("AccessDenied") && why.contains("delete")), "{refused:?}");
+    let seen = server.join().unwrap();
+    assert_eq!((seen[0].method.as_str(), seen[0].target.as_str()), ("DELETE", "/shop-runs/armada/runs/acme--shop.toml"));
+}
+
+#[test]
 fn a_bucket_nothing_listens_for_is_unreachable() {
     let closed = std::net::TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", closed.local_addr().unwrap());

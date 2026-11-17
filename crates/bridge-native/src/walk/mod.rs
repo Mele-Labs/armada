@@ -3562,6 +3562,13 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::DELETE_PROJECT_STEPS,
     },
     Walk {
+        name: crate::settings::walk::MERGE_PROJECT,
+        title: "Merge two projects of one name from the picker",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::MERGE_PROJECT_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::CLAIMS_STORE,
         title: "Settings › Claims store: deploy, use none and join",
         screen: Screen::Settings,
