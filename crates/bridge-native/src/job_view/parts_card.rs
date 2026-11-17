@@ -1186,7 +1186,10 @@ impl JobView {
         let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
         let scene = crate::scene::read(key, &raw)?;
         // The canvas's shape is known once it has been drawn; the frame before that draws at a plain 16 to 10 and draws again.
-        let ratio = crate::scene::canvas_size(key).map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        let canvas = crate::scene::canvas_size(key);
+        let ratio = canvas.map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        // No wider than the drawing stands at its most (its own size, or twice it), so a chip-sized mock is not given the column.
+        let widest = canvas.map_or(f32::INFINITY, |(w, _)| w * Fit::Column.most_zoom(&scene));
         Some(
             div()
                 .w_full()
@@ -1196,7 +1199,7 @@ impl JobView {
                     div()
                         .relative()
                         .w_full()
-                        .max_w(tall * ratio)
+                        .max_w((tall * ratio).min(px(widest)))
                         .aspect_ratio(ratio)
                         .overflow_hidden()
                         .when(!flat, |picture| picture.rounded(look.length(token::RADIUS_MD)))

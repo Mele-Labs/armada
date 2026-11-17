@@ -19,9 +19,9 @@ use ipc::{KeptStyles, SceneKind, SceneNode};
 pub use crate::web::PagePart;
 
 use super::geometry::{Pt, Rect};
-use super::mock_page::{page, KeptCache};
+use super::mock_page::{page, under_app_tokens, KeptCache};
 use super::{sheet_top, Ink};
-use crate::look::{token, Tone};
+use crate::look::{token, Look, Tone};
 
 /// How many pictures are being made at once, across every scene in the app.
 const IN_FLIGHT: usize = 2;
@@ -301,7 +301,9 @@ async fn make(key: Key, mock: Rc<Mock>, painter: Option<Painter>, kept: Arc<Kept
         },
     };
     let dark = key.page.dark;
-    let html = page(&mock.html, mock.css.as_deref(), styles.as_deref(), dark);
+    let tokens = cx.update(|cx| super::export::declarations(&cx.try_global::<Look>().cloned().unwrap_or_else(Look::dark)));
+    let styles = under_app_tokens(styles.as_deref(), &tokens);
+    let html = page(&mock.html, mock.css.as_deref(), Some(&styles), dark);
     let (width, scale) = (key.page.width as f32, key.scale as f32 / 1000.);
     let appearance = if dark { Appearance::Dark } else { Appearance::Light };
     let task = cx.update(|cx| painter(html, width, scale, appearance, cx));
@@ -586,5 +588,38 @@ mod tests {
             ask(key_of(page_key(&chip, 80., false), 2.5), &chip, cx);
             assert_eq!(cx.global::<Pictures>().queue.waiting.len(), 0, "a failed page keeps its plain frame");
         });
+    }
+
+    /// The take Fleet holds for "Which status chip reads right on the card?": the chip's rules name tokens, and no sheet kept with it
+    /// declares them.
+    #[gpui::test]
+    fn a_chip_whose_sheet_names_tokens_no_kept_sheet_declares_is_drawn_with_the_apps(cx: &mut TestAppContext) {
+        let chip = Rc::new(Mock {
+            css: Some(".armada-chip{background:var(--bg-raised);color:var(--fg-muted);font-family:var(--font-mono);font-size:var(--text-2xs)}".into()),
+            ..Rc::try_unwrap(mock(r#"<div class="armada-chip" data-part="chip">Ready to try</div>"#)).ok().expect("one owner")
+        });
+        let seen = Rc::new(RefCell::new(Vec::new()));
+        let painter: Painter = {
+            let seen = seen.clone();
+            Rc::new(move |html, width, _scale, _appearance, _cx: &mut App| {
+                seen.borrow_mut().push((html, width));
+                Task::ready(Err("not drawn here".to_string()))
+            })
+        };
+        cx.update(|cx| {
+            set_painter(painter, cx);
+            ask(key_of(page_key(&chip, 260., true), 2.), &chip, cx);
+        });
+        cx.run_until_parked();
+        let seen = seen.borrow();
+        let (html, _) = seen.first().expect("the page went to the web view");
+        let rule = html.find(".armada-chip{").expect("the chip's own rule");
+        let tokens = html.find(":root{").expect("the app's tokens ride on the page");
+        assert!(tokens < rule, "the tokens come first, so a kept sheet's own still wins: {html}");
+        for name in ["--bg-raised", "--fg-muted", "--font-mono", "--text-2xs"] {
+            assert!(html[tokens..rule].contains(&format!("{name}: ")), "{name} is declared for the rule that reads it: {html}");
+        }
+        let muted = html[tokens..rule].split("--fg-muted: ").nth(1).and_then(|rest| rest.split(';').next()).expect("a value");
+        assert!(!matches!(muted, "#000000" | "#000" | "black"), "the chip's text is not the web view's default black: {muted}");
     }
 }

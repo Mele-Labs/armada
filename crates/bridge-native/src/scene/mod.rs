@@ -89,10 +89,12 @@ impl Fit {
         }
     }
 
-    /// The most the fit draws a scene at: its own size, or in the column up to twice it.
-    fn most_zoom(self) -> f32 {
+    /// The most the fit draws a scene at: its own size, or in the column up to twice it. **A scene holding a mock stays at its
+    /// own size**: a mock is a page laid out at its own width, and a chip drawn twice over is not the chip the Job meant.
+    pub(crate) fn most_zoom(self, scene: &Scene) -> f32 {
         match self {
             Fit::Preview | Fit::Reading => 1.,
+            Fit::Column if scene.nodes.iter().any(|node| node.kind == SceneKind::Mock) => 1.,
             Fit::Column => 2.,
         }
     }
@@ -727,16 +729,16 @@ struct View {
 impl View {
     /// The zoom that fits the whole scene inside `bounds`, less the fit's air and inset, never above the fit's most. There is no floor above
     /// the least a scene may be drawn at, so a wide or tall drawing is shrunk whole and never started at its corner.
-    fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit) -> f32 {
+    fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, most: f32) -> f32 {
         let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
         let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
         let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
-        across.min(down).clamp(Fit::MIN_ZOOM, fit.most_zoom())
+        across.min(down).clamp(Fit::MIN_ZOOM, most)
     }
 
-    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
-        let zoom = Self::base(bounds, scene, fit) * lens.zoom;
+    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, most: f32, lens: Lens) -> View {
+        let zoom = Self::base(bounds, scene, fit, most) * lens.zoom;
         let centre = Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. };
         View { zoom, origin: bounds.center() + point(px(lens.pan.0), px(lens.pan.1)), centre }
     }
@@ -911,7 +913,8 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let canvas = if fit == Fit::Column { laid.held } else { laid.bounds };
-    let view = View::fit(bounds, canvas, fit, lens);
+    let most = fit.most_zoom(scene);
+    let view = View::fit(bounds, canvas, fit, most, lens);
     keep_canvas(key, canvas, window);
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
@@ -945,7 +948,7 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
     // A column drawing is kept too, with nothing placed: the review panel zooms one in place and reads its fit from here.
     if fit != Fit::Preview {
-        let base = View::base(bounds, canvas, fit);
+        let base = View::base(bounds, canvas, fit, most);
         notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(canvas.w * base, canvas.h * base), base });
     }
     Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
@@ -1555,7 +1558,7 @@ mod tests {
             let look = cx.global::<Look>().clone();
             let laid = laid(&SharedString::from("far-left"), &drawn, &look, window, cx);
             let bounds = Bounds::new(point(px(0.), px(0.)), size(px(900.), px(600.)));
-            (laid.clone(), View::fit(bounds, laid.bounds, Fit::Reading, Lens::default()))
+            (laid.clone(), View::fit(bounds, laid.bounds, Fit::Reading, Fit::Reading.most_zoom(&drawn), Lens::default()))
         });
         let leftmost = laid.rects.iter().map(|rect| rect.x).fold(f32::INFINITY, f32::min);
         assert!(leftmost < 0., "the leftmost node stays left of zero: {leftmost}");
@@ -1779,5 +1782,47 @@ mod tests {
             let hops = laid.ways[at].as_ref().expect("a way").path.iter().filter(|seg| matches!(seg, Seg::Arc(..))).count();
             assert_eq!(hops, 0, "{id} crosses nothing, and meets its trunk's other arrows where they leave");
         }
+    }
+
+    /// The take "Ready" of the status chip question as Fleet holds it: one `mock` node 260 wide.
+    const CHIP_TAKE: &str = r#"{"edges":[],"nodes":[{"html":"<div class=\"armada-chip\" data-part=\"chip\">Ready to try</div>","id":"chip-ready","kept":"504e17b72d4e43e5ad85c131e2a969b8","kind":"mock","styles":["packages/components/src/compositions/FactChip/FactChip.css"],"w":260,"x":0,"y":0}]}"#;
+
+    /// Two drawings, each in a column box 1040 wide, as a take's picture is drawn in a wide reading column.
+    struct Columns(Rc<Scene>, Rc<Scene>);
+
+    impl gpui::Render for Columns {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            use gpui::ParentElement as _;
+            gpui::div()
+                .flex()
+                .flex_col()
+                .size_full()
+                .child(gpui::div().w(px(1040.)).h(px(200.)).child(view("chip-take".into(), self.0.clone(), Fit::Column, Clock::default(), Lens::default())))
+                .child(gpui::div().w(px(1040.)).h(px(200.)).child(view("box-take".into(), self.1.clone(), Fit::Column, Clock::default(), Lens::default())))
+        }
+    }
+
+    #[gpui::test]
+    fn a_chip_sized_mock_in_a_column_four_times_its_width_is_drawn_at_its_own_size_and_a_box_still_grows(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let raw: ipc::RawScene = serde_json::from_str(CHIP_TAKE).expect("a raw scene");
+        let chip = Rc::new(raw.scene().expect("it reads"));
+        let boxed: ipc::RawScene = serde_json::from_str(r#"{"nodes":[{"id":"b","kind":"box","x":0,"y":0,"w":220,"title":"Box"}],"edges":[]}"#).expect("a raw scene");
+        let boxed = Rc::new(boxed.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| Columns(chip, boxed));
+        cx.simulate_resize(size(px(1040.), px(400.)));
+        for _ in 0..2 {
+            cx.update(|window, _| window.refresh());
+            cx.run_until_parked();
+        }
+        let (fit, drawn_at) = fit_of("chip-take").expect("the drawing was fitted");
+        let (natural, _) = canvas_size("chip-take").expect("its canvas");
+        assert!(drawn_at >= 1., "a mock stands at its own size or smaller, never the column's width: {drawn_at}");
+        assert!(fit.width <= natural + 0.01, "no wider than its natural size times one: {fit:?} of {natural}");
+        let (_, box_at) = fit_of("box-take").expect("the box drawing was fitted");
+        assert!(box_at < 1., "a drawing of boxes still grows in the column, up to twice: {box_at}");
     }
 }

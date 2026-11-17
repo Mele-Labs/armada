@@ -14,7 +14,7 @@ use html5ever::serialize::{serialize, SerializeOpts, TraversalScope};
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse_document, parse_fragment, Attribute, LocalName, Namespace, ParseOpts, QualName};
-use ipc::{KeptFont, KeptStyles};
+use ipc::{KeptFont, KeptSheet, KeptStyles};
 use markup5ever_rcdom::{Handle, Node, NodeData, RcDom, SerializableHandle};
 
 use crate::assets::{icon_path, Assets};
@@ -50,6 +50,16 @@ pub fn page(html: &str, css: Option<&str>, kept: Option<&KeptStyles>, dark: bool
         None => String::new(),
     };
     format!("<!doctype html><html{theme}><head>{head}</head><body>{}</body></html>", sanitise(html))
+}
+
+/// The kept style set with the app's own tokens under it. A set Fleet kept holds the sheets the agent named, and a chip's
+/// sheet is written in `var(--bg-raised)` and `var(--fg-muted)` with no sheet that declares them: the page then has no
+/// background, the face and size of an unstyled page, and the web view's black text. The tokens come first, so a kept sheet
+/// that declares its own wins, and the page's text takes the default colour where no rule names one.
+pub fn under_app_tokens(kept: Option<&KeptStyles>, tokens: &str) -> KeptStyles {
+    let app = KeptSheet { path: "app tokens".to_string(), css: format!(":root{{{tokens}}}html{{color:var(--fg-default);}}"), edited: false };
+    let (sheets, fonts) = kept.map_or_else(Default::default, |kept| (kept.sheets.clone(), kept.fonts.clone()));
+    KeptStyles { sheets: std::iter::once(app).chain(sheets).collect(), fonts }
 }
 
 /// A sheet's text safe inside a `<style>`: a `</style` in it would end the block, as `export-svg.ts` guards.
