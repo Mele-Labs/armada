@@ -126,6 +126,26 @@ impl Standing {
     }
 }
 
+/// What a build says while the running preview does not hold it: he cannot try it yet.
+pub(super) const NOT_IN_PREVIEW: &str = "Not in your preview yet";
+
+/// The tooltip of that state.
+pub(super) const NOT_IN_PREVIEW_TIP: &str = "The running preview does not hold this build yet";
+
+/// An open build the running preview does not hold. It reads as pending, never as ready.
+pub(super) fn pending(standing: Standing, card: &ThreadReadyToTry) -> bool {
+    standing == Standing::Open && !card.in_build
+}
+
+/// The label and ink of the built picture's frame: green once the running preview holds the build, amber until then.
+pub(super) fn built_label(in_build: bool) -> (&'static str, Token) {
+    if in_build {
+        ("Built \u{b7} in the preview", token::STATUS_COMPLETED_SUCCESS)
+    } else {
+        (NOT_IN_PREVIEW, token::STATUS_AWAITING_REVIEW)
+    }
+}
+
 /// What the pictures row holds.
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub(super) enum Pictures {
@@ -283,8 +303,9 @@ impl JobView {
     /// The head band: the state's chip, the Job, and the time at the right in mono. `key` names its parts, so a thread's band and
     /// a tab's differ.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn ready_head(&self, key: &str, standing: Standing, word: SharedString, at: &Instant, offered: Option<&Instant>, refresh: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let ink = look.color(standing.ink());
+    pub(super) fn ready_head(&self, key: &str, standing: Standing, word: SharedString, at: &Instant, offered: Option<&Instant>, pending: bool, refresh: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let band = if pending { token::STATUS_AWAITING_REVIEW } else { standing.ink() };
+        let ink = look.color(band);
         let chip = labelled(
             div()
                 .id(SharedString::from(format!("state:{key}")))
@@ -299,7 +320,7 @@ impl JobView {
                 .line_height(look.length(token::LEADING_2XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(ink)
-                .tooltip(tip(standing.tip()))
+                .tooltip(tip(if pending { NOT_IN_PREVIEW_TIP } else { standing.tip() }))
                 .child(gpui::svg().path(crate::assets::icon_path("circle-dot")).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
                 .child(word.clone()),
             Role::Status,
@@ -316,7 +337,7 @@ impl JobView {
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
             .rounded_t(look.length(token::RADIUS_LG) * 1.5 - look.length(token::BORDER_WIDTH))
-            .bg(mixed(look, standing.ink(), 0.18))
+            .bg(mixed(look, band, 0.18))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(ink.opacity(0.4))
             .child(chip)
@@ -370,6 +391,16 @@ impl JobView {
     /// A build whole, at the width it is given, drawn at thread item `ix` (or `SHEET` in the overlay): head band, title, pictures, his words, where to look with the steps,
     /// and the foot of four answers while it still asks.
     pub(super) fn ready_detail(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.ready_build(card, ix, wide, page, now, look, cx, true)
+    }
+
+    /// The open build under its row in the compact card: the same body without a frame or head of its own, so the card stays one.
+    pub(super) fn ready_detail_inside(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        self.ready_build(card, ix, wide, page, now, look, cx, false)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    fn ready_build(&self, card: &ThreadReadyToTry, ix: usize, wide: f32, page: &Page, now: DateTime<Local>, look: &Look, cx: &Context<Self>, framed: bool) -> AnyElement {
         let key = card.id.clone();
         let standing = Standing::of(card, page.cards.answers.get(&key));
         let parts = Parts::of(card);
@@ -377,12 +408,14 @@ impl JobView {
         let job = self.shown.clone().unwrap_or_default();
         let run = self.ready_run(ix, card, parts.clone());
         let foot = Foot { ix, key: key.clone(), asking, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run };
-        let ink = look.color(standing.ink());
+        let waits = pending(standing, card);
+        let ink = look.color(if waits { token::STATUS_AWAITING_REVIEW } else { standing.ink() });
         let word: SharedString = match (standing, super::ready_compact::until(card, &page.cards.answers)) {
             (Standing::Later, Some(until)) => format!("Later until {}", clock(&until, now)).into(),
+            _ if waits => NOT_IN_PREVIEW.into(),
             _ => standing.word().into(),
         };
-        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), asking && !card.in_build && !matches!(parts.pictures, Pictures::Both | Pictures::Built), now, look, cx);
+        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), waits, asking && !card.in_build && !matches!(parts.pictures, Pictures::Both | Pictures::Built), now, look, cx);
         let title = div()
             .id(SharedString::from(format!("ready-title:{key}")))
             .px(look.length(token::SPACE_4))
@@ -398,8 +431,23 @@ impl JobView {
             div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(quote(look, &format!("\u{201c}{}\u{201d}", words.trim())))
         });
         let changed = parts.fold.then(|| self.ready_changed(card, &parts, look));
-        let foot_row = asking.then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
+        // He cannot judge a build he cannot run: the answers wait until the preview holds it. Refresh preview stands in the head or the built picture's frame.
+        let foot_row = (asking && card.in_build).then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
         let name = format!("Ready to try: {}", card.about);
+        if !framed {
+            let body = div()
+                .id(SharedString::from(format!("ready:{key}")))
+                .flex()
+                .flex_col()
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(ink.opacity(0.45))
+                .child(title)
+                .children(pictures)
+                .children(words)
+                .children(changed)
+                .children(foot_row);
+            return labelled(body, Role::Article, name).into_any_element();
+        }
         labelled(
             super::band_card::frame(look, false)
                 .id(SharedString::from(format!("ready:{key}")))
@@ -483,10 +531,10 @@ impl JobView {
         let body = self.picture_in(&file, room, look, cx).unwrap_or_else(|| {
             div().text_size(look.length(token::TEXT_XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.name.clone())).into_any_element()
         });
-        let label = if card.in_build { "Built \u{b7} in the preview" } else { "Built" };
+        let (label, ink) = built_label(card.in_build);
         // A build the running preview does not hold yet offers the title bar's Refresh preview beside its chip.
         let refresh = (!card.in_build).then(|| self.refresh_preview_button(&format!("built:{}", card.id), look, cx));
-        self.ready_frame(format!("ready-built:{}", card.id), label.into(), refresh, token::STATUS_COMPLETED_SUCCESS, body, look).into_any_element()
+        self.ready_frame(format!("ready-built:{}", card.id), label.into(), refresh, ink, body, look).into_any_element()
     }
 
     /// What he approved, at the revision he approved, drawn as the card of its kind draws it. A press reads it large in its own tab.
