@@ -789,7 +789,8 @@ Since 14 Nov 2026. `crates/ipc/src/job_asks.rs`.
 | --- | --- | --- |
 | `raise_conflict` (`POST /sessions/raise_conflict`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `RaiseConflict` `{ with, files, wire, mine, theirs, breaks, session_id? }`; answers `ConflictRaised` `{ id, folded }`. Refused with `fleet.conflict_refused` and a sentence naming the part |
 | `ask_held` (`POST /sessions/ask_held`, `agent_access = "Yes"`) | An agent sends, Fleet answers 200 | `AskHeld` `{ pull? or branch?, session_id? }`; answers `HeldAsked` `{ id, answer? }`. Refused with `fleet.held_refused` and a sentence naming the part |
-| `job_conflict`, `job_held` (`WaitingSource`) | Bridge reads | The sending Job's Needs you item while the Operator is off. Choices: `Tell <sender> to change`, `Tell <other>`, `Hold both`; `Land it`, `Hold it`. Answered by `answer_waiting` with a `choice`; never dismissed |
+| `withdraw_held` (`POST /sessions/withdraw_held`, `agent_access = "Yes"`), since 16 Nov 2026 | An agent sends, Fleet answers 200 | `WithdrawHeld` `{ pull? or branch?, session_id? }`; answers `HeldWithdrawn` `{ id }`. Settles the Job's own open landing question with no answer and sends it nothing. Refused with `fleet.held_refused` and a sentence naming the part, or where the Job holds no open question about it |
+| `job_conflict`, `job_held` (`WaitingSource`) | Bridge reads | The sending Job's Needs you item while the Operator is off. Choices: `Tell <sender> to change`, `Tell <other>`, `Hold both`; `Land it`, `Hold it`. Answered by `answer_waiting` with a `choice`. A `job_conflict` is never dismissed. A `job_held` is dismissed with `dismiss_waiting` (`dismiss` is `plain`), which settles it with no answer and sends the Job `held? <pull or branch>: He dismissed it with no answer.`; its text reads `Should "<title>" (#N) land? Asked by <Job>` |
 | `OperatorTurnItem::conflict`, `::held` | Bridge reads | `OperatorConflict` `{ raised_by, with, files, wire, mine, theirs, breaks }` and `OperatorHeld` `{ pull?, branch?, title?, checks?, asked_by }`, each Job an `OperatorAskJob` `{ session_id, address, title }`. `also_raised_by` carries the folded asks |
 
 **Fleet answers a landing question with no call where the forge shows the pull request merged or closed**, and the same words are sent to the Job as a Fleet message.
@@ -2095,3 +2096,21 @@ Electron reads none of it. The native Bridge names the account with it on the si
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.
+
+## Why the forge went quiet: `MergeLineHub.quiet_reason`, `MergeLineView.quiet_reason`
+
+Since 16 Nov 2026. `docs/concepts/fleet.md`, *A forge that does not answer*.
+**Additive only**: one optional field on two existing types, and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/merge-lines.ts` and `merge-line-view.ts`, written by hand, field for field.
+Electron reads none of it. The native strip says GitHub is rate-limiting us, until `until` where it is present, in place of not answering.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, beside `quiet_since` and absent with it: `QuietReason`, tagged by `kind` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, the hub's as it is |
+| `QuietReason` | Fleet writes, Bridge reads | `rate_limited` with `until?`, an instant: when GitHub said to try again, absent where it named no time. `not_answering`: no answer, or a refusal that is not the rate limit |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.

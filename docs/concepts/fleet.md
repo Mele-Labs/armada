@@ -462,6 +462,9 @@ A failed job's log is not kept: it is asked of the forge when a person presses t
 **A forge that does not answer keeps the last reading, and the hub says how old it is.** Each repository's visit makes five asks: the head, the open pull requests, the merge queue, the merged listing and the runs on the commits it decides main from.
 `forge_read_at` is the instant of the last visit in which all five were answered, which `main.read_at` is not: that moves only when the head does.
 `quiet_since` is the instant of the first visit in which any of them was not, kept until a visit is answered whole, and absent while the forge answers.
+`quiet_reason` beside it says why, as of the latest unanswered visit, from the latest call GitHub refused (`adapters::forge_tally`).
+It is `rate_limited` where that refusal was GitHub's rate limit, with `until` from its `Retry-After`, else from the reset of a window it spent, and with none where it named no time, as a secondary limit may not.
+It is `not_answering` for anything else.
 Both are in memory and a restart forgets them.
 A repository whose forge has never answered since the start is served as a hub holding `quiet_since` alone.
 A log or a culprit asked only after main changes is not one of the five.
@@ -643,7 +646,8 @@ A job that cannot be told now is asked again at the next reading and nothing is 
 ### Offering a branch for the preview
 
 **A Job says which branch is ready to be tried, and Fleet checks the offers together before the owner refreshes.** `offer_preview` keeps one offer a (Job, branch) at the tip the branch stands at, with one line on what it holds (`about`, at most 120 characters, required on the first offer and kept on a re-offer).
-`withdraw_preview` takes it back.
+`withdraw_preview` takes it back, and with it every Ready to try card of the branch the owner has not answered.
+It does so for a branch that merged and left the list too, and Fleet withdraws such a card itself once its offer is gone.
 Without a `branch`, the call names the one branch the Job holds a slot on.
 It is refused, 422, for a Job holding no branch and naming none, a branch the repository lacks or that is not ahead of main, an `about` missing or too long, a `look` or `steps` that do not read (below), and a repository with no `scripts/preview`.
 Only this repository has one.

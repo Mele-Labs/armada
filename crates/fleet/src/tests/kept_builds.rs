@@ -8,7 +8,7 @@ use std::time::{Duration, SystemTime};
 
 use crate::kept_builds::{
     answers_health, kept_at, kept_tried, picked_changed, picked_in, rehearse, revert, revert_begun, revert_ended, revert_status_in,
-    revertible, settle, swap_ended, swap_onto, swap_status_in, swappable, trying_in, undoing, RevertStatus, Reverted, Services, Settled,
+    revertible, settle, stale_registrations, swap_ended, swap_onto, swap_status_in, swappable, trying_in, undoing, RevertStatus, Reverted, Services, Settled,
     BUILDS, CURRENT, PICKED, PREVIOUS, SNAPSHOT, STATUS, APP, FLEET, PLACED, fleet_program, placed,
 };
 use crate::tests::tmp::TempDir;
@@ -21,6 +21,8 @@ struct Recorded {
     did: Mutex<Vec<String>>,
     /// Why the next Fleet asked after does not answer, once.
     down_once: Mutex<Option<String>>,
+    /// The build `current` named each time Launch Services was pointed.
+    pointed: Mutex<Vec<String>>,
 }
 
 impl Services for Recorded {
@@ -40,6 +42,9 @@ impl Services for Recorded {
         }
         self.did.lock().unwrap().push(String::from("up"));
         Ok(())
+    }
+    fn launch_services_pointed(&self, support: &Path) {
+        self.pointed.lock().unwrap().push(on(support, CURRENT));
     }
 }
 
@@ -588,4 +593,53 @@ fn the_running_builds_branches_are_tried_until_keep_is_pressed_on_it() {
     assert_eq!(kept_tried(&support).unwrap(), ["armada/a"]);
 
     assert!(trying_in(&support).is_empty());
+}
+
+#[test]
+fn launch_services_is_pointed_at_the_build_each_revert_or_swap_leaves_current() {
+    let (_home, support) = kept("b2", "b1");
+    let services = Recorded::default();
+    revert(&support, LABEL, "1", &services).expect("reverted");
+    assert_eq!(*services.pointed.lock().unwrap(), ["old"]);
+
+    let (_home, support) = with_snapshot("b2", "b3", &[]);
+    let services = Recorded::default();
+    swap_onto(&support, LABEL, "1", &services).expect("swapped");
+    assert_eq!(*services.pointed.lock().unwrap(), ["snap"]);
+
+    let (_home, support) = with_snapshot("b2", "b3", &[]);
+    let services = Recorded::default();
+    *services.down_once.lock().unwrap() = Some(String::from("Fleet did not answer"));
+    swap_onto(&support, LABEL, "1", &services).expect("swapped back");
+    assert_eq!(*services.pointed.lock().unwrap(), ["new"], "once, after the swap back");
+}
+
+#[test]
+fn every_bundle_registered_under_builds_is_stale_but_the_kept_ones_and_whats_inside_them() {
+    let builds = Path::new("/u/Armada/builds");
+    let current = builds.join("c/Armada.app");
+    let running = builds.join("b/Armada.app");
+    let dump = "\
+path:                       /u/Armada/builds/a/Armada.app (0x4344)
+path:                       /u/Armada/builds/a/Armada.app/Contents/Helpers/Armada Voice.app (0x4618)
+path:                       /u/Armada/builds/a/Armada.app (0x4345)
+path:                       /u/Armada/builds/b/Armada.app (0x4350)
+path:                       /u/Armada/builds/c/Armada Fleet.app (0x48cc)
+path:                       /u/Armada/builds/c/Armada.app (0x4958)
+path:                       /u/Armada/builds/c/Armada.app/Contents/Helpers/Armada Voice.app (0x4959)
+path:                       /u/Armada/builds/c/Armada.app2 (0x4960)
+path:                       /u/Armada/fleet/Armada Fleet.app (0x4914)
+path:                       /private/tmp/armada-red/e2e/out/Armada.app (0x4578)
+name:                       /u/Armada/builds/z/Armada.app (0x1)
+";
+    let stale = stale_registrations(dump, builds, &[current, running]);
+    assert_eq!(
+        stale,
+        [
+            builds.join("a/Armada.app"),
+            builds.join("a/Armada.app/Contents/Helpers/Armada Voice.app"),
+            builds.join("c/Armada Fleet.app"),
+            builds.join("c/Armada.app2"),
+        ]
+    );
 }

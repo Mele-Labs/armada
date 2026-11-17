@@ -163,6 +163,10 @@ pub struct Held {
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
     /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
     removed: Vec<String>,
+    /// The review runs `review_run.changed` carried since the last take, oldest first. Told once.
+    review_runs: Vec<ipc::ReviewRun>,
+    /// A gap in the stream since the last take may have lost a `review_run.changed`, which Fleet does not replay.
+    review_runs_lost: bool,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -224,6 +228,8 @@ impl Held {
             shells: Vec::new(),
             dispatched: Vec::new(),
             removed: Vec::new(),
+            review_runs: Vec::new(),
+            review_runs_lost: false,
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -274,6 +280,7 @@ impl Held {
     fn all_stale(&mut self) {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
+        self.review_runs_lost = true;
         // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
         self.watches_asked.clear();
         self.watches_spoken.clear();
@@ -339,6 +346,21 @@ impl Held {
         self.calls.as_ref().map(|calls| calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()))).count())
     }
 
+    /// The pull requests asked of him by name that he has not opened: the figure beside Reviews. Zero until Fleet answers.
+    pub fn reviews_unopened(&self) -> usize {
+        self.calls.as_ref().map_or(0, StandingCalls::reviews_unopened)
+    }
+
+    /// The pull request a `review_requested` call of this key asks him to review, while the call stands.
+    pub fn review_asked(&self, key: &str) -> Option<&ipc::ReviewAsked> {
+        self.calls.as_ref()?.calls.iter().find(|call| call.key == key)?.review.as_ref()
+    }
+
+    /// Whether he has opened what the call of this key asks, or it no longer stands. False until Fleet answers.
+    pub fn call_settled(&self, key: &str) -> bool {
+        self.calls.as_ref().is_some_and(|calls| !calls.calls.iter().any(|call| call.key == key && !call.opened))
+    }
+
     /// The news folded since the last take, oldest first, but for a snoozed Job's.
     pub fn take_arrived(&mut self) -> Vec<CallArrival> {
         let arrived = std::mem::take(&mut self.arrived);
@@ -383,6 +405,11 @@ impl Held {
 
     pub fn take_dispatched(&mut self) -> Vec<ipc::operator_board::OperatorDispatched> {
         std::mem::take(&mut self.dispatched)
+    }
+
+    /// The review runs that moved since the last take, and whether a gap may have lost one.
+    pub fn take_review_runs(&mut self) -> (Vec<ipc::ReviewRun>, bool) {
+        (std::mem::take(&mut self.review_runs), std::mem::take(&mut self.review_runs_lost))
     }
 
     fn set_settings(&mut self, list: &SettingsList) {
@@ -512,6 +539,7 @@ impl Held {
                     match delivered.event {
                         Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
                         Event::OperatorDispatched(done) => self.dispatched.push(done),
+                        Event::ReviewRunChanged { run } => self.review_runs.push(run),
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
                                 Some(held) => *held = record,
@@ -642,6 +670,15 @@ impl EventEmitter<Arrived> for FleetConnection {}
 pub struct Dispatched(pub Vec<ipc::operator_board::OperatorDispatched>);
 
 impl EventEmitter<Dispatched> for FleetConnection {}
+
+/// The review runs that moved in one folded batch (`review_run.changed`), and whether a gap in the
+/// stream may have lost one, so Reviews reads its runs again.
+pub struct ReviewRunsMoved {
+    pub runs: Vec<ipc::ReviewRun>,
+    pub lost: bool,
+}
+
+impl EventEmitter<ReviewRunsMoved> for FleetConnection {}
 
 /// The subagents whose own thread moved in one folded batch (`session.subagent`), for a view holding
 /// one open to read it again.
@@ -1211,7 +1248,11 @@ impl FleetConnection {
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
                     let removed = this.held.take_removed();
+                    let (review_runs, review_runs_lost) = this.held.take_review_runs();
                     cx.notify();
+                    if !review_runs.is_empty() || review_runs_lost {
+                        cx.emit(ReviewRunsMoved { runs: review_runs, lost: review_runs_lost });
+                    }
                     if !removed.is_empty() {
                         cx.emit(Removed(removed));
                     }
@@ -1273,6 +1314,11 @@ impl FleetConnection {
             changes_asked: BTreeSet::new(),
             _drain: Task::ready(()),
         }
+    }
+
+    /// Fleet's calls, as a read of them would hold them.
+    pub fn hold_calls(&mut self, calls: StandingCalls) {
+        self.held.calls = Some(calls);
     }
 }
 

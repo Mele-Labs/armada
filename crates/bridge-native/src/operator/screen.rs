@@ -49,6 +49,11 @@ struct Live(WeakEntity<OperatorPageView>);
 
 impl Global for Live {}
 
+/// The screen and its window, for a press from outside them: a banner's.
+struct Here(WeakEntity<OperatorScreen>, AnyWindowHandle);
+
+impl Global for Here {}
+
 pub fn live(cx: &App) -> Option<Entity<OperatorPageView>> {
     cx.try_global::<Live>().and_then(|live| live.0.upgrade())
 }
@@ -71,7 +76,8 @@ fn with_places(mut face: Face, here: Front, reviews: bool) -> Face {
 impl OperatorScreen {
     pub fn live(jobs: Entity<JobsScreen>, fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
-        Self::new(jobs, page, Front::Jobs, None, window, cx)
+        let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
+        Self::new(jobs, page, Front::Jobs, Some(reviews), window, cx)
     }
 
     /// On the walk's Fleet, with the page in front.
@@ -115,6 +121,7 @@ impl OperatorScreen {
         ];
         let handle = window.window_handle();
         let me = cx.entity().downgrade();
+        cx.set_global(Here(me.clone(), handle));
         let behind = cx.try_global::<AskedSink>().cloned();
         cx.set_global(AskedSink(Rc::new(move |asked: &Asked, cx: &mut App| {
             let to = match asked {
@@ -217,6 +224,15 @@ impl OperatorScreen {
         });
     }
 
+    /// A press on a review asked of him, on its toast or its banner: Reviews in front, that pull request open. A
+    /// request no longer standing brings Reviews alone.
+    pub fn open_review(&mut self, asked: Option<&ipc::ReviewAsked>, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(Front::Reviews), window, cx);
+        if let (Some(asked), Some(reviews)) = (asked, &self.reviews) {
+            reviews.update(cx, |reviews, cx| reviews.open_asked(asked, window, cx));
+        }
+    }
+
     /// What the page asks: a Job opens on the Jobs screen.
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
@@ -244,6 +260,16 @@ pub fn open_call(key: String, cx: &mut App) {
     if let Some(page) = live(cx) {
         page.update(cx, |page, cx| page.show_pairing(&key, cx));
     }
+}
+
+/// A banner's press on a review asked of him: [`OperatorScreen::open_review`] from outside the screen.
+pub fn open_asked(asked: Option<ipc::ReviewAsked>, cx: &mut App) {
+    let Some(Here(me, handle)) = cx.try_global::<Here>().map(|here| Here(here.0.clone(), here.1)) else { return };
+    cx.defer(move |cx| {
+        let _ = handle.update(cx, |_, window, cx| {
+            let _ = me.update(cx, |this, cx| this.open_review(asked.as_ref(), window, cx));
+        });
+    });
 }
 
 fn go(me: &WeakEntity<OperatorScreen>, handle: AnyWindowHandle, to: Option<Front>, cx: &mut App) {

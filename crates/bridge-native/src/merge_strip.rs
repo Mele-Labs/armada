@@ -655,6 +655,8 @@ fn dots_of<'a>(line: &'a Line, related: &[u64]) -> Vec<Dot<'a>> {
 struct Forge {
     read_at: Option<chrono::DateTime<chrono::Utc>>,
     quiet: Vec<(String, chrono::DateTime<chrono::Utc>)>,
+    /// GitHub's rate limit is per login, so one line refused for it holds every line; the latest `until` any line names.
+    rate_limited: Option<Option<chrono::DateTime<chrono::Utc>>>,
 }
 
 fn instant(at: &ipc::Instant) -> Option<chrono::DateTime<chrono::Utc>> {
@@ -665,12 +667,26 @@ fn forge_of(lines: &[&Line]) -> Forge {
     Forge {
         read_at: lines.iter().filter_map(|line| line.view.read_at.as_ref().and_then(instant)).min(),
         quiet: lines.iter().filter_map(|line| Some((line.view.name.clone(), line.view.quiet_since.as_ref().and_then(instant)?))).collect(),
+        rate_limited: lines
+            .iter()
+            .filter(|line| line.view.quiet_since.is_some())
+            .filter_map(|line| match &line.view.quiet_reason {
+                Some(ipc::QuietReason::RateLimited { until }) => Some(until.as_ref().and_then(instant)),
+                _ => None,
+            })
+            .reduce(|one, other| one.max(other)),
     }
 }
 
 /// `GitHub not answering since 18:40:00`, in his clock, naming each repository only where more than one is served.
+/// A rate limit is said once for every line, with the time GitHub gave to try again where it gave one.
 fn quiet_said(forge: &Forge, several: bool) -> Option<String> {
     let time = |at: &chrono::DateTime<chrono::Utc>| crate::settings::time::stamp(at.with_timezone(&chrono::Local));
+    match forge.rate_limited {
+        Some(Some(until)) => return Some(format!("GitHub is rate-limiting us until {}", time(&until))),
+        Some(None) => return Some("GitHub is rate-limiting us".into()),
+        None => {}
+    }
     match forge.quiet.as_slice() {
         [] => None,
         [(_, since)] if !several => Some(format!("GitHub not answering since {}", time(since))),
@@ -1494,6 +1510,34 @@ impl Render for MergeStrip {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn quiet_line(name: &str, reason: &str) -> Line {
+        let json = format!(r#"{{"root":"/Users/user/Development/{name}","name":"{name}","pulls":[],"quiet_since":"2026-11-16T22:40:00.000Z"{reason}}}"#);
+        Line { view: ipc::decode("MergeLineView", json.as_bytes()).expect("the line decodes") }
+    }
+
+    fn said(lines: &[Line], several: bool) -> String {
+        quiet_said(&forge_of(&lines.iter().collect::<Vec<_>>()), several).expect("a quiet line says why")
+    }
+
+    #[test]
+    fn a_rate_limit_says_until_when_github_gave_a_time_and_plainly_when_it_gave_none() {
+        let until = said(&[quiet_line("armada", r#","quiet_reason":{"kind":"rate_limited","until":"2026-11-16T23:16:00.000Z"}"#)], false);
+        assert!(until.starts_with("GitHub is rate-limiting us until "), "{until}");
+        assert_eq!(said(&[quiet_line("armada", r#","quiet_reason":{"kind":"rate_limited"}"#)], false), "GitHub is rate-limiting us");
+    }
+
+    #[test]
+    fn not_answering_and_an_older_fleet_with_no_reason_keep_the_words_they_had() {
+        assert!(said(&[quiet_line("armada", r#","quiet_reason":{"kind":"not_answering"}"#)], false).starts_with("GitHub not answering since "));
+        assert!(said(&[quiet_line("armada", "")], false).starts_with("GitHub not answering since "));
+    }
+
+    #[test]
+    fn one_rate_limited_line_speaks_for_every_repository_as_the_limit_is_per_login() {
+        let lines = [quiet_line("armada", r#","quiet_reason":{"kind":"not_answering"}"#), quiet_line("pocket", r#","quiet_reason":{"kind":"rate_limited","until":"2026-11-16T23:16:00.000Z"}"#)];
+        assert!(said(&lines, true).starts_with("GitHub is rate-limiting us until "));
+    }
 
     fn strip(cx: &mut gpui::TestAppContext) -> gpui::WindowHandle<MergeStrip> {
         cx.update(|cx| cx.set_global(crate::look::Look::dark()));

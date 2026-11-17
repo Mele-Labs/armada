@@ -44,7 +44,7 @@ mod checks;
 mod disputes;
 /// An agent's report that Armada itself got something wrong, kept on this Mac.
 mod bug_reports;
-/// `raise_conflict` and `ask_held`, the two things a Job may send the Operator.
+/// `raise_conflict`, `ask_held` and `withdraw_held`, the things a Job may send the Operator and take back.
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
@@ -380,6 +380,7 @@ pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJo
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
 pub use workflow_migrating::{AffectedJob, AffectedJobs, MigrateJobs, MigrateResult, MigratedJobs};
+pub use job_asks::{HeldWithdrawn, WithdrawHeld};
 pub use piece_drafts::{PieceDraft, PieceDraftDiscarded, PiecePublished, PublishPieceDraft, PutPieceDraft};
 pub use piece_saving::{
     AutonomyToSave, DeleteLifecyclePiece, LifecyclePiece, LifecyclePieceDeleted, LifecyclePieceKind,
@@ -576,7 +577,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,

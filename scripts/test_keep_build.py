@@ -70,6 +70,14 @@ class KeepBuild(unittest.TestCase):
             "exit 1\n"), mode=0o755)
         self.armada = os.path.join(self.tmp, "armada")
         self.write(self.armada, "#!/bin/sh\necho armada\n", mode=0o755)
+        # Launch Services is the Mac's own, so every run gets a stand-in: it prints `lsregister.dump` and logs the rest.
+        self.lsregister_calls = os.path.join(self.tmp, "lsregister.calls")
+        self.lsregister_dump = os.path.join(self.tmp, "lsregister.dump")
+        self.lsregister = os.path.join(self.tmp, "lsregister")
+        self.write(self.lsregister, (
+            "#!/bin/sh\n"
+            f'if [ "$1" = -dump ]; then cat "{self.lsregister_dump}" 2>/dev/null; exit 0; fi\n'
+            f'echo "$1 $2" >> "{self.lsregister_calls}"\n'), mode=0o755)
         self.tree()
 
     def read(self, *parts):
@@ -116,7 +124,7 @@ class KeepBuild(unittest.TestCase):
         return self.git("rev-parse", "HEAD")
 
     def run_keep(self, *args, path=None):
-        env = {**os.environ, "HOME": self.home}
+        env = {**os.environ, "HOME": self.home, "ARMADA_LSREGISTER": self.lsregister}
         if path is not None:
             env["PATH"] = f"{path}:{env['PATH']}"
         return subprocess.run([self.keep, *args], env=env, capture_output=True, text=True)
@@ -597,6 +605,77 @@ class KeepBuild(unittest.TestCase):
         self.point(os.path.join(self.builds, recent[-1]))
         self.assertEqual(self.folders(), recent)
         self.assertEqual(os.listdir(self.modules), [LOCK])
+
+    # Launch Services
+
+    def registered(self, *paths):
+        """What `lsregister -dump` lists, in its own line shape."""
+        self.write(self.lsregister_dump, "".join(f"path:                       {p} (0x{n:x})\n" for n, p in enumerate(paths, 1)))
+
+    def lsregister_ran(self):
+        try:
+            return self.read(self.lsregister_calls).splitlines()
+        except OSError:
+            return []
+
+    def test_point_unregisters_every_bundle_under_builds_but_currents_app_and_registers_current(self):
+        names = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 3)]
+        for name in names:
+            self.fake_build(name)
+            self.write(os.path.join(self.builds, name, "Armada.app", "Contents", "MacOS", "Armada"), "app\n")
+        builds = os.path.realpath(self.builds)
+        current = f"{builds}/{names[1]}/Armada.app"
+        gone = f"{builds}/2025-12-01T000000Z-0000000/Armada.app"
+        elsewhere = "/private/tmp/armada-red/e2e/out/Armada.app"
+        self.registered(
+            gone,
+            f"{builds}/2025-12-02T000000Z-0000000/Armada.app/Contents/Helpers/Armada Voice.app",
+            f"{builds}/{names[0]}/Armada.app",
+            f"{builds}/{names[1]}/Armada Fleet.app",
+            current,
+            f"{current}/Contents/Helpers/Armada Voice.app",
+            elsewhere,
+            f"{self.support}/fleet/Armada Fleet.app",
+        )
+        self.set_link("current", names[0])
+        self.point(os.path.join(self.builds, names[1]))
+        ran = self.lsregister_ran()
+        self.assertEqual(sorted(line for line in ran if line.startswith("-u ")), [
+            f"-u {gone}",
+            f"-u {builds}/2025-12-02T000000Z-0000000/Armada.app/Contents/Helpers/Armada Voice.app",
+            f"-u {builds}/{names[0]}/Armada.app",
+            f"-u {builds}/{names[1]}/Armada Fleet.app",
+        ])
+        self.assertEqual([line for line in ran if line.startswith("-f ")],
+                         [f"-f {current}", f"-f {self.support}/fleet/Armada Fleet.app"])
+        self.assertTrue(all(elsewhere not in line for line in ran), "a bundle outside builds is never touched")
+
+    def test_the_bundle_the_running_native_bridge_holds_its_lock_from_stays_registered(self):
+        names = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 3)]
+        for name in names:
+            self.fake_build(name)
+        builds = os.path.realpath(self.builds)
+        running = f"{builds}/{names[0]}/Armada.app"
+        self.write(os.path.join(running, "Contents", "MacOS", "Armada"), "app\n")
+        self.write(os.path.join(self.support, "bridge-native.lock"), f"{os.getpid()}\n{running}/Contents/MacOS/Armada\ntrue\n")
+        self.registered(running, f"{running}/Contents/Helpers/Armada Voice.app")
+        self.set_link("current", names[0])
+        self.point(os.path.join(self.builds, names[1]))
+        self.assertEqual([line for line in self.lsregister_ran() if line.startswith("-u ")], [])
+
+    def test_a_lock_record_whose_pid_is_gone_keeps_nothing_registered(self):
+        names = [f"2026-01-0{day}T000000Z-abcdef{day}" for day in range(1, 3)]
+        for name in names:
+            self.fake_build(name)
+        builds = os.path.realpath(self.builds)
+        old = f"{builds}/{names[0]}/Armada.app"
+        dead = subprocess.Popen(["true"])
+        dead.wait()
+        self.write(os.path.join(self.support, "bridge-native.lock"), f"{dead.pid}\n{old}/Contents/MacOS/Armada\ntrue\n")
+        self.registered(old)
+        self.set_link("current", names[0])
+        self.point(os.path.join(self.builds, names[1]))
+        self.assertIn(f"-u {old}", self.lsregister_ran())
 
 
 if __name__ == "__main__":

@@ -65,6 +65,7 @@ mod plan_sketches;
 mod pop;
 mod quick;
 mod ready_card;
+mod todo_strip;
 mod ready_compact;
 mod teach;
 mod records;
