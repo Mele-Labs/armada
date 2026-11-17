@@ -218,12 +218,16 @@ mod tests {
     }
 
     fn deletes(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Vec<String> {
-        let rows = overlay.read_with(cx, |this, _| super::super::project::picker_rows(&this.scope.project, this.scope.projects.as_ref()));
+        let rows = overlay.read_with(cx, |this, _| super::super::project::picker_rows(&this.scope.project, this.scope.projects.as_ref(), &[]));
         rows.iter()
             .filter_map(|entry| match entry {
-                Entry::Act { id: "delete", label, .. } => Some(label.to_string()),
+                Entry::Row(row) => Some(row.acts().iter().filter_map(|act| match act {
+                    Entry::Act { id: "delete", label, .. } => Some(label.to_string()),
+                    _ => None,
+                }).collect::<Vec<_>>()),
                 _ => None,
             })
+            .flatten()
             .collect()
     }
 

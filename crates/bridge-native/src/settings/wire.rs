@@ -683,6 +683,24 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
     }
 
+    /// `POST /projects/merge`: two projects of one name made one, `kept` staying. Fleet answers every project that is left.
+    pub fn merge_projects(&mut self, merge: ipc::MergeProjects, cx: &App) -> Task<Result<Projects, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.merge_projects(merge));
+        }
+        let said = body(&merge);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/projects/merge".into(), said), "Projects", cx))
+    }
+
+    /// How many Jobs Bridge holds that were started for `project`, by Fleet's id: a project of another Mac's counts
+    /// the Jobs that Mac runs for it.
+    pub fn project_jobs(&self, project: &str, cx: &App) -> usize {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().jobs.iter().filter(|job| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some(project)).count(),
+            Wire::Mock(mock) => mock.job_projects.iter().filter(|(_, held)| *held == project).count(),
+        }
+    }
+
     /// `POST /projects/project/:id/delete`, no body: the project and its rows. Fleet answers every project that is left.
     pub fn delete_project(&mut self, project: &str, cx: &App) -> Task<Result<Projects, Refused>> {
         if let Wire::Mock(mock) = self {

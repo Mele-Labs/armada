@@ -7,6 +7,8 @@ use gpui::{
     FocusHandle, Focusable, KeyDownEvent, Pixels, Point, Role, SharedString, Window, px,
 };
 
+mod submenu;
+
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
@@ -57,11 +59,13 @@ pub struct Row {
     pub off: Option<SharedString>,
     /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
     pub keep: bool,
+    /// A Mac's chip at the right, and the acts that open beside the row (`submenu.rs`).
+    pub beside: submenu::Beside,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, under: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
+        Row { id, label: label.into(), icon: None, detail: None, under: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false, beside: submenu::Beside::default() }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -150,6 +154,8 @@ pub struct Dropdown {
     query: String,
     /// A menu opened at a point: what was pressed there, for Mod and Report.
     pointed: Option<Option<crate::labels::Drawn>>,
+    /// Where the keys are in a row's submenu.
+    sub: submenu::Keys,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
@@ -170,7 +176,7 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None, sub: submenu::Keys::default() };
         if cursor_first {
             this.cursor = this.first();
         }
@@ -338,6 +344,9 @@ impl Dropdown {
                 self.pick(at, cx);
                 cx.notify();
             }
+            return;
+        }
+        if self.sub_key(event, cx) {
             return;
         }
         if self.searching() {
@@ -533,6 +542,7 @@ impl Dropdown {
                             }))
                         })
                         .when_some(row.off.clone(), |line, why| line.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
+                        .map(|line| self.dress(line, row, &look, glyph))
                         .when(live, |line| line.on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx)))),
                     role,
                     name,
@@ -628,7 +638,7 @@ impl Render for Dropdown {
                 .position(self.at)
                 .anchor(self.corner)
                 .snap_to_window_with_margin(look.length(token::SPACE_1))
-                .child(labelled(
+                .child(self.with_submenu(&look, cx, labelled(
                     div()
                         .id("menu")
                         .track_focus(&self.focus)
@@ -657,7 +667,7 @@ impl Render for Dropdown {
                         .children(entries),
                     Role::Menu,
                     self.name.clone(),
-                )),
+                ))),
         )
         // Above every sheet: a menu opens from whatever is in front, such as the sketch reader's rail.
         .with_priority(4)
