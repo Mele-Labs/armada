@@ -6,7 +6,7 @@ use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRe
 use gpui_component::input::{Input, Textarea};
 
 use super::live::Find;
-use super::model::{named, on_day, Answer, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Rewrite, Summary, Viewed, Wrong};
+use super::model::{found_nothing, named, on_day, Answer, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Rewrite, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
 use super::{AskingReview, ReviewsScreen, HUNKS_AT};
 use crate::diff;
@@ -711,11 +711,10 @@ impl ReviewsScreen {
             labelled(div().id("findings-asked").text_size(look.length(token::TEXT_XS)).text_color(muted).child(SharedString::from(said.clone())), Role::Label, said)
         };
         // A tool's run that failed or was refused says so above whatever the others found.
-        let failed: Vec<AnyElement> = self
-            .live_finds(page.number)
-            .map(|finds| finds.critique_failed.clone())
-            .unwrap_or_default()
-            .into_iter()
+        let failed_said: Vec<String> = self.live_finds(page.number).map(|finds| finds.critique_failed.clone()).unwrap_or_default();
+        let failed: Vec<AnyElement> = failed_said
+            .iter()
+            .cloned()
             .enumerate()
             .map(|(n, said)| status(format!("findings-failed-{n}"), said, glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
             .collect();
@@ -759,9 +758,9 @@ impl ReviewsScreen {
                             && !self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(&finding.id))
                     })
                     .collect();
-                if findings.is_empty() {
+                if found_nothing(findings, &failed_said) {
                     column = column.child(status("findings-empty", "Review found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
-                } else if open.is_empty() {
+                } else if !findings.is_empty() && open.is_empty() {
                     column = column.child(words("findings-done", "No suggestions left".into(), look));
                 }
                 for finding in open {

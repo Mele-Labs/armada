@@ -57,6 +57,7 @@ mod look;
 mod menu;
 mod merge_strip;
 mod option_pictures;
+mod page_note;
 mod mock;
 mod mock_parts;
 mod move_to_mac;

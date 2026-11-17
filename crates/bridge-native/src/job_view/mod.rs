@@ -184,6 +184,7 @@ pub fn bind(cx: &mut App) {
     lanes_copy::bind(cx);
     web_walk::bind(cx);
     story::init(cx);
+    job_browser::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -874,7 +875,7 @@ impl JobView {
         for id in self.list.update(cx, |list, _| list.take_gone()) {
             self.pages.remove(&id);
             self.row_tabs.remove(&id);
-            self.forget_browsers(&id);
+            self.forget_browsers(&id, cx);
             self.mock.remove(id.as_ref());
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);

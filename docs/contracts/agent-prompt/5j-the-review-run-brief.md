@@ -15,7 +15,7 @@ It is written in the code and is not a `prompts.*` key; the part a person change
 
 ## The comment on a finding
 
-**Every finding carries `comment`: the words the person posts on the pull request for it, as they are.**
+**Every finding carries `comment`: the words the person may keep as a draft comment on the pull request for it, as they are.**
 The findings shape asks for it with this rule, and Fleet holds the answer to it:
 
 - One or two plain sentences, written to the author.
@@ -24,9 +24,11 @@ The findings shape asks for it with this rule, and Fleet holds the answer to it:
 - Nothing about the agent itself or how it read the change.
 - No detail dump: no code, no list, and no line numbers, which the comment's place already gives.
 
-**Fleet's check is the part a machine can hold**: a comment must be there, at most `ipc::COMMENT_SENTENCES_AT_MOST` (2) sentences and at most `ipc::COMMENT_AT_MOST` (280) characters.
+**Fleet's check is the part a machine can hold**: a comment must be there and at most `ipc::COMMENT_SENTENCES_AT_MOST` (2) sentences.
 A sentence ends at a `.`, `!` or `?` followed by a space or the end, so a dot inside a name or a version ends none.
-**A finding that breaks it fails the run with its reason**, as any answer that does not hold up does, and nothing of it is kept.
+**A comment over `ipc::COMMENT_AT_MOST` (280) characters is kept, cut at the last whole word that fits with an ellipsis after it.**
+The brief names the limit and says a longer comment is cut, so the model counts.
+**A finding with no comment, or too many sentences, fails the run with its reason**, as any answer that does not hold up does, and nothing of it is kept.
 The rest of the rule is the model's to keep, and is not checked.
 
 **Never told:** a credential, the person's other pull requests, or another repository.
