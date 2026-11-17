@@ -405,3 +405,44 @@ pub struct CommitFeatureChecked {
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub features: Vec<String>,
 }
+
+/// The key an artifact's `detail` keeps the features it was made for under: slugs, comma separated. `detail` holds strings only.
+pub const ARTIFACT_FEATURE: &str = "feature";
+
+/// The feature, or features, a sketch, page, walk or draft is made for: one slug, or a list. **Both are read**, so an agent
+/// may write `"feature": "voting-on-takes"` or `"feature": ["voting-on-takes", "page-actions"]`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FeatureNames {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl FeatureNames {
+    /// The slugs, trimmed and in lower case, none blank and each once, in the order written.
+    pub fn slugs(&self) -> Vec<String> {
+        let all: Vec<&str> = match self {
+            FeatureNames::One(slug) => vec![slug.as_str()],
+            FeatureNames::Many(slugs) => slugs.iter().map(String::as_str).collect(),
+        };
+        let mut kept: Vec<String> = Vec::new();
+        for slug in all.into_iter().flat_map(|one| one.split(',')).map(|one| one.trim().to_lowercase()) {
+            if !slug.is_empty() && !kept.contains(&slug) {
+                kept.push(slug);
+            }
+        }
+        kept
+    }
+
+    /// The slugs as an artifact's `detail` keeps them, comma separated. `None` where the call named none.
+    pub fn as_detail(&self) -> Option<String> {
+        Some(self.slugs().join(",")).filter(|slugs| !slugs.is_empty())
+    }
+}
+
+/// Keep what an act named in the `detail` of the artifact it made. Nothing is kept where the act named none.
+pub fn feature_in_detail(detail: &mut std::collections::BTreeMap<String, String>, named: Option<&FeatureNames>) {
+    if let Some(slugs) = named.and_then(FeatureNames::as_detail) {
+        detail.insert(ARTIFACT_FEATURE.to_string(), slugs);
+    }
+}

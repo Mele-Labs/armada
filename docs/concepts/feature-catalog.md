@@ -20,7 +20,7 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Entry points, as `path` or `path:line` | Seeded by the Operator |
 | Jobs on it, now and before | Detected from the files each Job wrote |
 | Pull requests and merges | Detected from the pull requests Fleet attached and the forge's merges |
-| Sketches, pages, walks and drafts | The act that made them names the feature |
+| Sketches, pages, walks and drafts | The act that made them names the feature: `feature` on `show_sketch`, `show_window` and `propose_draft`, `armada-feature` in a page's head |
 | Commits | Detected from `Feature:` trailer lines in git |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
@@ -62,6 +62,16 @@ The catalog was seeded when its first feature entered it, the earliest time any 
 A project with no feature, and a Job that started before that time, are never refused.
 A commit that takes its message from a file, another commit or an editor is not read, and a commit with no files is not refused.
 A Fleet that is out or slow lets the commit run.
+
+## Which feature an act serves
+
+An act that makes a sketch, a walk or a draft takes an optional `feature`, one slug or a list, and a page names its features in its head.
+Fleet links the artifact to each feature the project holds, as a link of kind `sketch`, `walk`, `draft` or `page`.
+
+> **Rule.** A slug the project holds no feature of is kept, not refused.
+> Why: the Job may be making the first thing for a feature the Operator has not seeded yet, and the Operator confirms it.
+
+Fleet keeps such a name as a proposal of the project, once per slug, artifact and Job, and only where the project has features at all.
 
 ## Stale
 
@@ -139,7 +149,7 @@ What the library would hold in the clear there is in [Central store](../contract
 
 ## Not built
 
-- A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
+- The Operator confirming a name an act kept, and a feature named by a trailer that does not exist yet.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Your own asks sorted onto features.
 - Seeding the 18 areas and their features.

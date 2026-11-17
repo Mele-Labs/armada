@@ -93,6 +93,19 @@ pub struct KeptFeatureLink {
     pub at: String,
 }
 
+/// A feature an act named that the project does not hold.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptFeatureProposal {
+    pub project: String,
+    pub slug: String,
+    /// The link kind the artifact would have made.
+    pub kind: String,
+    pub target: String,
+    pub job: String,
+    pub title: String,
+    pub at: String,
+}
+
 /// A file a Job wrote while its work was filed under a feature.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptFeatureFile {
@@ -388,6 +401,41 @@ impl Store {
             )
             .map_err(failed(doing))?;
         let rows = statement.query_map([project], |row| Ok((row.get(0)?, row.get(1)?))).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Keep that an act named a feature the project does not hold. **A name already kept for the same artifact is left as it
+    /// was.** Whether a row was added.
+    pub fn keep_feature_proposal(&mut self, proposal: &KeptFeatureProposal) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR IGNORE INTO feature_proposals (project, slug, kind, target, job, title, at) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)",
+                params![proposal.project, proposal.slug, proposal.kind, proposal.target, proposal.job, proposal.title, proposal.at],
+            )
+            .map(|added| added > 0)
+            .map_err(failed("keeping a feature an act named"))
+    }
+
+    /// The features acts named in `project` that it does not hold, oldest first.
+    pub fn feature_proposals(&self, project: &str) -> Result<Vec<KeptFeatureProposal>, WriteError> {
+        let doing = "reading the features acts named that a project does not hold";
+        let mut statement = self
+            .conn
+            .prepare("SELECT project, slug, kind, target, job, title, at FROM feature_proposals WHERE project = ?1 ORDER BY at, slug, target")
+            .map_err(failed(doing))?;
+        let rows = statement
+            .query_map([project], |row| {
+                Ok(KeptFeatureProposal {
+                    project: row.get(0)?,
+                    slug: row.get(1)?,
+                    kind: row.get(2)?,
+                    target: row.get(3)?,
+                    job: row.get(4)?,
+                    title: row.get(5)?,
+                    at: row.get(6)?,
+                })
+            })
+            .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 

@@ -562,3 +562,49 @@ async fn a_job_older_than_the_catalog_a_project_with_no_feature_and_a_commit_not
     assert!(rig.fleet.check_commit_feature(ask(line, &[])).await.expect("asked").allowed, "nothing to commit");
     assert!(rig.fleet.check_commit_feature(commit_of(&SessionId::carried("s-unknown"), line, &files)).await.expect("asked").allowed, "a Job Fleet does not know");
 }
+
+// What follows files the sketches, pages, walks and drafts that name features.
+
+fn made(form: &str, slugs: &str) -> std::collections::BTreeMap<String, String> {
+    [("form", form), ("feature", slugs), ("title", "Vote results")].into_iter().map(|(key, word)| (key.to_string(), word.to_string())).collect()
+}
+
+#[tokio::test]
+async fn an_artifact_is_linked_to_each_feature_it_names_that_the_project_holds_and_the_rest_are_kept_for_the_operator() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    let id = an_agent_for(&rig, &project).await;
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes,page-actions,brand-new"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "http://localhost:5173/", &made("window", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "draft:Vote results", &made("draft", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "/docs/votes.html", &made("document", "voting-on-takes"), &now);
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Unnamed", &[("form".to_string(), "sketch".to_string())].into(), &now);
+
+    let kinds_of = |store: &store::Store, slug: &str| {
+        let feature = store.feature_named(&project, slug).expect("read").expect("the feature");
+        store.feature_links(&feature.id).expect("read").into_iter().map(|link| (link.kind, link.target, link.title)).collect::<Vec<_>>()
+    };
+    let voting = kinds_of(&store, VOTING);
+    for (kind, target) in [("sketch", "sketch:Vote results"), ("walk", "http://localhost:5173/"), ("draft", "draft:Vote results"), ("page", "/docs/votes.html")] {
+        assert!(voting.contains(&(kind.to_string(), target.to_string(), "Vote results".to_string())), "{kind}: {voting:?}");
+    }
+    assert_eq!(kinds_of(&store, "page-actions"), [("sketch".to_string(), "sketch:Vote results".to_string(), "Vote results".to_string())]);
+
+    let proposed = store.feature_proposals(&project).expect("read");
+    assert_eq!(proposed.iter().map(|one| (one.slug.as_str(), one.kind.as_str(), one.target.as_str(), one.job.as_str())).collect::<Vec<_>>(), [("brand-new", "sketch", "sketch:Vote results", id.as_str())]);
+}
+
+#[tokio::test]
+async fn a_name_in_a_project_with_no_library_is_not_kept_for_the_operator() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    let now = rig.fleet.now().as_str().to_string();
+    let mut store = rig.fleet.store().lock().await;
+    rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes"), &now);
+    assert!(store.feature_proposals(&project).expect("read").is_empty());
+}

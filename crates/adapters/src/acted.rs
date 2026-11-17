@@ -172,7 +172,7 @@ pub(crate) fn sketch_call(operation: &str, call: &Arguments) -> Option<String> {
     }
     let fields = call.body.map(|body| &body.0)?;
     let said = |field: &Option<Said>| field.as_ref().and_then(|said| said.0.clone());
-    let show = ipc::ShowSketch {
+    let show = ipc::ShowSketch { feature: None,
         title: said(&fields.title)?,
         scene: fields.scene.clone()?,
         session_id: None,
