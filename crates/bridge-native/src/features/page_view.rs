@@ -412,6 +412,7 @@ impl Render for FeaturePageView {
             .id("feature-page-view")
             .key_context(crate::generated::actions::ActionScope::Features.key_context().unwrap_or_default())
             .track_focus(&self.within)
+            .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, _, _| this.engage()))
             .on_key_down(cx.listener(Self::on_key))
             .on_action(cx.listener(Self::on_act))
             .size_full()

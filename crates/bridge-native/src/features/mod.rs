@@ -354,6 +354,14 @@ impl FeaturesScreen {
     fn open_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(slug) = self.cursor.clone() {
             self.open_at(slug, window, cx);
+            self.engage_page(cx);
+        }
+    }
+
+    /// Enter or a press on the feature: he is on its page, so leaving it counts as looked at.
+    pub(super) fn engage_page(&mut self, cx: &mut Context<Self>) {
+        if let Some(page) = &self.page {
+            page.update(cx, |page, _| page.engage());
         }
     }
 

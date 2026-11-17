@@ -101,6 +101,8 @@ impl FeatureOverlay {
             Source::Live(fleet) => cx.new(|cx| FeaturePageView::live(fleet, project, slug, window, cx)),
             Source::Mock => cx.new(|cx| FeaturePageView::mock(slug, window, cx)),
         };
+        // Opened on purpose, from a Filed under row or a note, so it counts as looked at once it is left.
+        page.update(cx, |page, _| page.engage());
         let sub = cx.subscribe_in(&page, window, |this, _, event: &FeaturePageEvent, window, cx| match event {
             FeaturePageEvent::Escape => this.back(window, cx),
             FeaturePageEvent::Story { session_id, ask_id } => this.push_story(session_id.clone(), ask_id.clone(), window, cx),

@@ -76,6 +76,9 @@ pub struct FeaturePageView {
     pub(super) list: ListState,
     /// When he looked at the feature before this look, which the chip Since my last look compares with.
     pub(super) looked: Option<DateTime<Utc>>,
+    /// Whether he engaged with the page: Enter on it, a click in it, or Tab into its sections. A page drawn only because the
+    /// selection passed over it stamps nothing when it is left.
+    engaged: bool,
     /// The port the last read asked, so a connection that came back reads again.
     read_port: Option<u16>,
     work: Option<Task<()>>,
@@ -127,6 +130,7 @@ impl FeaturePageView {
             source,
             project,
             slug,
+            engaged: false,
             area: None,
             page: Load::Reading,
             asks: Load::Reading,
@@ -295,9 +299,17 @@ impl FeaturePageView {
         self.read(cx);
     }
 
-    /// He leaves the page, by closing it or opening another feature: this is when it counts as looked at.
+    /// He leaves the page, by closing it or opening another feature: where he engaged with it, this is when it counts as looked at.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
-        looked::stamp(&self.project, &self.slug, Utc::now(), cx);
+        if self.engaged {
+            looked::stamp(&self.project, &self.slug, Utc::now(), cx);
+            self.engaged = false;
+        }
+    }
+
+    /// He is on this page, by Enter, a click or Tab: leaving it counts as looking at it.
+    pub fn engage(&mut self) {
+        self.engaged = true;
     }
 
     // ---- what the keys are on ----------------------------------------------------------------
@@ -404,6 +416,7 @@ impl FeaturePageView {
     }
 
     pub(super) fn focus_region(&mut self, region: Region, window: &mut Window, cx: &mut Context<Self>) {
+        self.engaged = true;
         if region == Region::Rows && self.row_at.is_none() && self.row_count() > 0 {
             self.row_at = Some(0);
         }

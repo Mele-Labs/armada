@@ -148,6 +148,7 @@ impl FeaturesScreen {
             .aria_selected(opened)
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.open_at(press.clone(), window, cx);
+                this.engage_page(cx);
                 this.focus_list(window, cx);
             }))
             .children(edge.map(|colour| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(colour)))

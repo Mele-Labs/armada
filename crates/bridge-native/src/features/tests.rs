@@ -245,3 +245,36 @@ fn from_a_thousand_up_the_list_is_its_share_as_it_was(cx: &mut TestAppContext) {
     let (list, page) = widths_at(cx, 1400.);
     assert!((f32::from(list) - (1400. * 0.36 - 1.)).abs() < 0.01 && (f32::from(page) - 1400. * 0.64).abs() < 0.01, "{list:?} and {page:?}");
 }
+
+#[gpui::test]
+fn j_past_three_features_stamps_none_of_them(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.update(|_, cx| super::looked::forget_all(cx));
+    cx.run_until_parked();
+    let mut passed = vec![cursor(&screen, cx).expect("a row")];
+    for _ in 0..3 {
+        cx.simulate_keystrokes("j");
+        cx.run_until_parked();
+        passed.push(cursor(&screen, cx).expect("a row"));
+    }
+    assert_eq!(passed.len(), 4);
+    for slug in &passed[..3] {
+        assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, slug, cx)), None, "{slug} was only passed over");
+    }
+}
+
+#[gpui::test]
+fn tab_into_a_page_and_leaving_it_stamps_it_and_a_page_only_passed_over_does_not(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.update(|_, cx| super::looked::forget_all(cx));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("tab");
+    assert!(cx.update(|window, cx| screen.read(cx).page.clone().expect("a page").read(cx).rail.is_focused(window)), "Tab is in the page's sections");
+    cx.simulate_keystrokes("escape");
+    cx.simulate_keystrokes("down");
+    cx.run_until_parked();
+    assert!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "start-a-job", cx)).is_some(), "he was in it, so leaving counts");
+    cx.simulate_keystrokes("down");
+    cx.run_until_parked();
+    assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "job-list-and-live-status", cx)), None, "the one he only passed over is not looked at");
+}

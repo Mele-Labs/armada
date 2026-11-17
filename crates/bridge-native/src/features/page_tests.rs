@@ -190,7 +190,7 @@ fn he_last_looked_at_a_feature_when_he_leaves_its_page_and_never_when_he_opens_i
     page.update(cx, |page, cx| page.apply(Chip::Since, cx));
     assert_eq!(page.read_with(cx, |page, _| page.row_count()), 6, "a feature never looked at shows every ask under the chip: five rows and the fold line");
     page.update(cx, |page, cx| page.leave(cx));
-    assert!(cx.update(|_, cx| looked::before(mock::PROJECT, SLUG, cx)).is_some(), "leaving stamps it");
+    assert!(cx.update(|_, cx| looked::before(mock::PROJECT, SLUG, cx)).is_some(), "leaving stamps it, the page having had Tab into its sections");
     assert_eq!(page.read_with(cx, |page, _| page.looked), None, "and the page he left still compares with the look before it");
 }
 
