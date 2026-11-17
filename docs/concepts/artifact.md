@@ -112,6 +112,10 @@ Words and a drawing that only inform get nothing, and buttons act when pressed.
 **Rule.** Takes are a vote, never an Approve.
 A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
 A `rank` or `score` takes part is cast with `cast_page_vote`.
+In an artifact that holds a takes part, his pick is its one answer, so every drawing in it informs and asks nothing, whether it came before the takes or after.
+A drawing still open when takes join stops asking then, and a pick settles any left open.
+Words and a page that ask keep asking.
+The owner, 17 Nov 2026, of a drawing that asked again after his pick: "I already voted. Why did you show me this?"
 A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
 `show_sketch` and `record_plan` refuse takes drawn side by side in one sketch with 422 `fleet.sketch_takes`, saying to put them in a takes part ([Drawing a sketch](session/drawing-a-sketch.md)).
 A take's mocks are kept with their style set, as a sketch's are, so they draw in the app's styles.
