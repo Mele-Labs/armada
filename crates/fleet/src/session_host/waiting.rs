@@ -1540,6 +1540,10 @@ where
         if item.source == WaitingSource::BrowserAsk {
             return self.browser_ask_settled(&id, &item.id, None).await;
         }
+        // Settled with no answer, and the Job that asked is told so.
+        if item.source == WaitingSource::JobHeld {
+            return self.job_held_dismissed(&id, &item.id).await;
+        }
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {

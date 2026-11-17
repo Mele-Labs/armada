@@ -5,7 +5,7 @@ use std::sync::Arc;
 
 use adapter_traits::PullRequestStanding;
 use api::{HostedSessions, Sessions};
-use ipc::{AnswerWaiting, AskHeld, CloseSession, RaiseConflict, SessionId, WaitingSource};
+use ipc::{AnswerWaiting, AskHeld, CloseSession, DismissWaiting, NeedsYouDismiss, RaiseConflict, SessionId, WaitingSource, WithdrawHeld};
 
 use super::operator_sources::on;
 use super::pull_requesting::facts;
@@ -304,7 +304,8 @@ async fn while_the_operator_is_off_a_landing_question_stands_in_the_askers_needs
     assert_eq!(asked.answer, None);
     let held = items(&rig, &one, WaitingSource::JobHeld).await;
     assert_eq!(held.len(), 1, "{held:?}");
-    assert_eq!((held[0].id.as_str(), held[0].text.as_str()), (asked.id.as_str(), "Should #14 land?"));
+    let text = format!("Should \"Take a draft out\" (#14) land? Asked by {}", address(&one));
+    assert_eq!((held[0].id.as_str(), held[0].text.as_str()), (asked.id.as_str(), text.as_str()));
     assert_eq!(held[0].options.iter().map(|option| option.label.as_str()).collect::<Vec<_>>(), ["Land it", "Hold it"]);
 
     chose(&rig, &one, &asked.id, 1).await;
@@ -339,4 +340,79 @@ async fn with_the_operator_on_and_its_session_not_running_a_conflict_goes_to_the
     rig.fleet.sources_handed().await;
 
     eventually(|| async { items(&rig, &one, WaitingSource::JobConflict).await.iter().any(|item| item.id == raised.id) }).await;
+}
+
+async fn open_asks_of(rig: &Rig, id: &str) -> bool {
+    rig.fleet.store().lock().await.open_job_ask(id).expect("read").is_some()
+}
+
+#[tokio::test]
+async fn a_landing_question_offers_dismiss_and_his_dismissal_settles_it_with_no_answer_and_tells_the_asker() {
+    let rig = rig_placing(None);
+    let one = rig.start_titled(Some("Add the field")).await;
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    let asked = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(14), None)).await.expect("asked");
+
+    let view = Arc::clone(&rig.fleet).get_needs_you(None, Some(one.clone())).await.expect("needs you");
+    let row = view.sections.iter().flat_map(|section| section.rows.iter()).find(|row| row.id == asked.id).expect("the row");
+    assert_eq!(row.dismiss, NeedsYouDismiss::Plain);
+
+    let dismiss = DismissWaiting { session_id: one.clone(), item_id: asked.id.clone(), reason: None, misread: false };
+    Arc::clone(&rig.fleet).dismiss_waiting(dismiss).await.expect("dismissed");
+
+    assert!(items(&rig, &one, WaitingSource::JobHeld).await.is_empty(), "the row goes");
+    assert!(!open_asks_of(&rig, &asked.id).await, "no open ask is left");
+    let kept = rig.fleet.store().lock().await.latest_job_ask(&asked.id).expect("read").expect("kept");
+    assert_eq!((kept.state.as_str(), kept.answer), ("dismissed", None), "settled with no answer");
+    assert_eq!(notes_to(&rig, &one).await, ["held? #14: He dismissed it with no answer."]);
+
+    let again = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(14), None)).await.expect("asked");
+    assert_eq!(items(&rig, &one, WaitingSource::JobHeld).await.len(), 1, "a dismissal does not hide the question asked anew: {again:?}");
+}
+
+#[tokio::test]
+async fn the_job_that_asked_takes_a_landing_question_back_and_a_second_withdrawal_is_refused() {
+    let rig = rig_placing(None);
+    let one = rig.start().await;
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Open)));
+    let asked = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(14), None)).await.expect("asked");
+    let take_back = |pull: Option<u64>, branch: Option<&str>| WithdrawHeld { pull, branch: branch.map(str::to_string), session_id: Some(one.clone()) };
+
+    let other = Arc::clone(&rig.fleet).withdraw_held(None, take_back(Some(15), None)).await.unwrap_err();
+    assert_eq!(other.error().code, "fleet.held_refused");
+    assert!(other.error().message.contains("#15"), "{}", other.error().message);
+    for (named, part) in [(take_back(None, None), "neither"), (take_back(Some(14), Some("a-branch")), "both")] {
+        let refused = Arc::clone(&rig.fleet).withdraw_held(None, named).await.unwrap_err();
+        assert!(refused.error().message.contains(part), "{part}: {}", refused.error().message);
+    }
+    assert_eq!(items(&rig, &one, WaitingSource::JobHeld).await.len(), 1, "refused, it stands");
+
+    let taken = Arc::clone(&rig.fleet).withdraw_held(None, take_back(Some(14), None)).await.expect("withdrawn");
+
+    assert_eq!(taken.id, asked.id);
+    assert!(items(&rig, &one, WaitingSource::JobHeld).await.is_empty(), "the row goes");
+    assert!(!open_asks_of(&rig, &asked.id).await, "no open ask is left");
+    assert!(notes_to(&rig, &one).await.is_empty(), "the Job is sent nothing: it did this");
+    let again = Arc::clone(&rig.fleet).withdraw_held(None, take_back(Some(14), None)).await.unwrap_err();
+    assert_eq!(again.error().code, "fleet.held_refused");
+    assert!(again.error().message.contains("no open question"), "{}", again.error().message);
+}
+
+#[tokio::test]
+async fn a_landing_question_reads_the_pull_requests_title_and_the_job_that_asked_and_a_branch_by_its_name() {
+    let rig = rig_placing(None);
+    let one = rig.start_titled(Some("Add the field")).await;
+    rig.fleet.vcs().now_pull_request(Some(facts(PullRequestStanding::Draft)));
+    let pull = Arc::clone(&rig.fleet).ask_held(None, holding(&one, Some(3745), None)).await.expect("asked");
+    let branch = "fleet/add-the-field".to_string();
+    rig.fleet.vcs().move_ref_to(branch.clone(), "c1");
+    let by_branch = Arc::clone(&rig.fleet).ask_held(None, holding(&one, None, Some(branch.as_str()))).await.expect("asked");
+
+    let held = items(&rig, &one, WaitingSource::JobHeld).await;
+
+    let text = |id: &str| held.iter().find(|one| one.id == id).expect("the row").text.clone();
+    let said = text(&pull.id);
+    assert!(said.contains("Take a draft out") && said.contains("Add the field") && said.contains("#3745"), "{said}");
+    assert_ne!(said, "Should #3745 land?");
+    assert_eq!(text(&by_branch.id), "Should fleet/add-the-field land? Asked by Add the field");
 }
