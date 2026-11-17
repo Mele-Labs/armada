@@ -879,7 +879,7 @@ mod tests {
         assert_eq!(kinds(pane), ["now", "artifacts", "terminal"]);
         assert_eq!(pane.active, now, "Now stays in front");
         assert_eq!(offered.focus, arrangement.focus);
-        assert_eq!(offered.offered, ["artifacts"]);
+        assert_eq!(offered.offered, ["story", "artifacts"], "the default carries Story, and Artifacts is marked after it");
     }
 
     /// Read again, the Job is not given a second Artifacts tab.
@@ -893,7 +893,7 @@ mod tests {
         let opened = tree::add_tab(&fresh, &top.id, "artifacts", Extras::default()).into_owned();
         let marked = offer_beside_now(&opened, "artifacts").into_owned();
         assert_eq!(marked.root, opened.root);
-        assert_eq!(marked.offered, ["artifacts"]);
+        assert_eq!(marked.offered, ["story", "artifacts"]);
     }
 
     /// Closed, the tab stays closed, through a restart too.
@@ -919,7 +919,9 @@ mod tests {
         let closed = tree::close_tab(&arrangement, &story_tab(&arrangement)).into_owned();
         let top = column(&closed).1.id.clone();
         let planned = tree::add_tab(&closed, &top, "plan", Extras::default()).into_owned();
-        let old = tree::add_tab(&planned, &top, "files", Extras::default()).into_owned();
+        let mut old = tree::add_tab(&planned, &top, "files", Extras::default()).into_owned();
+        // Kept before Story was a kind, so it was never offered.
+        old.offered.clear();
         (tree::revive(&serde_json::to_value(&old).expect("json")).expect("an arrangement"), top)
     }
 
@@ -1000,6 +1002,19 @@ mod tests {
             assert!(!tree::has_kind(&again, "story"));
             assert_eq!(again.offered, ["story"]);
         }
+    }
+
+    /// A new Job's default is already marked offered, so a Story he closes before the store answers is not put back.
+    #[test]
+    fn a_story_closed_on_a_new_job_before_the_store_answers_stays_closed() {
+        let fresh = tree::default_arrangement();
+        assert_eq!(fresh.offered, ["story"], "the default carries it");
+        let closed = tree::close_tab(&fresh, &story_tab(&fresh)).into_owned();
+        assert!(!tree::has_kind(&closed, "story"));
+        let again = offer_story(&closed);
+        assert!(matches!(again, Cow::Borrowed(_)), "nothing is put in");
+        assert!(!tree::has_kind(&again, "story"));
+        assert_eq!(again.offered, ["story"]);
     }
 
     /// A Job that has Story already keeps its own place for it, in whichever pane, and it is only marked offered.

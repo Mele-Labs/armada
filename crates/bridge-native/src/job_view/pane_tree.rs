@@ -467,7 +467,7 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
 /// Deferred as tabs of one pane over Now (Classic's `defaultArrangement`, with For you first and in front in the column, and
 /// the thread in front in its own).
 pub(crate) fn default_arrangement() -> Arrangement {
-    build(
+    let mut arrangement = build(
         &Shape::split(
             Dir::Row,
             0.62,
@@ -476,7 +476,10 @@ pub(crate) fn default_arrangement() -> Arrangement {
         ),
         None,
         &[],
-    )
+    );
+    // Story is placed already, so one he closes before the store answers is not put back.
+    arrangement.offered.push("story".to_string());
+    arrangement
 }
 
 // ---- Changing ---------------------------------------------------------------------------------------

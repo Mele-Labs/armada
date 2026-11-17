@@ -472,6 +472,8 @@ fn kept_with(story: bool) -> (super::super::pane_tree::Arrangement, String, Stri
     if story {
         kept = add_tab(&kept, &top, "story", Extras::default()).into_owned();
     }
+    // Kept before Story was a kind, so it was never offered.
+    kept.offered.clear();
     (kept, thread, top)
 }
 
