@@ -491,8 +491,11 @@ impl JobView {
                 // The shown Job's artifacts of parts that still ask stand with what else waits on him, and the one he opened.
                 if job == first {
                     items.extend(self.artifact_items(job, opened));
-                    items.sort_by_key(|item| instant(&item.since));
                 }
+                // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
+                let mut seen = std::collections::HashSet::new();
+                items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
+                items.sort_by_key(|item| instant(&item.since));
                 Group { job: job.to_string(), title: record.title.clone().unwrap_or_else(|| "New Job".into()), state: record.mark.map(|mark| mark.state), items }
             })
             .collect();
@@ -1735,7 +1738,7 @@ impl JobView {
     fn review_foot(&self, review: &ReviewState, chosen: Option<(&Item, &Row)>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let acts = chosen.and_then(|(item, row)| self.review_item_acts(item, row, look, cx));
         let acts_shown = acts.is_some();
-        let enlarge = chosen.is_some_and(|(item, _)| self.staged(item, cx).is_some());
+        let enlarge = chosen.is_some_and(|(item, _)| self.review_enlarge(item, cx).is_some());
         let asking = review.items().any(|item| item.kind != Kind::Artifact && review.row(&item.key()).verdict.is_none());
         let focus = &self.review_focus;
         let hint = div()

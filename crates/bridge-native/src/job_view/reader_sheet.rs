@@ -203,8 +203,24 @@ impl JobView {
         });
         let readout = stage.map(|stage| zoom.readout(stage));
         let lens = Lens { zoom: zoom.scale, pan: (zoom.pan.x, zoom.pan.y) };
-        let enlarge = staged.enlarge;
-        let larger = labelled(
+        let larger = self.larger(look, staged.enlarge, cx);
+        Some(
+            labelled(
+                zoomer::bind(div().id("review-stage").relative().flex_1().min_h_0().w_full().overflow_hidden().bg(look.color(token::BG_BASE)), cx, |_, _, _, _| {})
+                    .child(zoom.probe())
+                    .child(div().absolute().inset_0().child(crate::scene::view(SharedString::from(staged.held), staged.scene, Fit::Reading, Clock::default(), lens)))
+                    .child(larger)
+                    .children(readout.map(|readout| zoomer::corner(look, readout, |this: &mut JobView, _, cx| zoomer::refit(this, cx), cx))),
+                gpui::Role::Group,
+                "Drawing",
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// The button at the drawing's top right that reads it over the whole app, as F does.
+    fn larger(&self, look: &Look, enlarge: Enlarge, cx: &Context<Self>) -> AnyElement {
+        labelled(
             div()
                 .id("stage-larger")
                 .absolute()
@@ -226,19 +242,60 @@ impl JobView {
                 .on_click(cx.listener(move |this, _, window, cx| this.enlarge_stage(&enlarge, window, cx))),
             gpui::Role::Button,
             "See larger",
-        );
+        )
+        .into_any_element()
+    }
+
+    /// The drawing part the panel zooms in place within an artifact of several parts: its first. The detail has one zoomer, so
+    /// any later drawing part keeps the press that reads it over the app.
+    pub(super) fn in_place_drawing(&self, job: &str, artifact: &str) -> Option<String> {
+        let artifact = self.artifact_of(job, artifact)?;
+        if artifact.parts.len() < 2 {
+            return None;
+        }
+        let part = artifact.parts.iter().find(|part| matches!(part.content, ipc::PartContent::Drawing { .. }))?;
+        Some(part_key(&artifact.id, &part.id))
+    }
+
+    /// A drawing part zoomed where it stands in the panel's parts: the column's width, as tall as its shape asks up to `tall`.
+    /// A pinch or ⌘ and the wheel zoom it, a drag moves it, a double press toggles fit and 100%; a plain wheel at fit scrolls
+    /// the parts on past it. The button or F reads it over the whole app.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn drawing_in_place(&self, key: &str, held: &str, text: &str, room: Pixels, tall: Pixels, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let detail = self.detail_zoom.as_ref()?;
+        let raw: ipc::RawScene = ipc::decode("a drawing part's scene", text.as_bytes()).ok()?;
+        let scene = crate::scene::read(held, &raw)?;
+        *detail.held.borrow_mut() = held.to_string();
+        let zoom = &detail.zoom;
+        // The canvas's shape is known once it has been drawn; the frame before that stands at a plain 16 to 10.
+        let ratio = crate::scene::canvas_size(held).map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        let high = if room / ratio < tall { room / ratio } else { tall };
+        let stage = zoom.view().and_then(|view| {
+            let (fit, actual) = crate::scene::fit_of(held)?;
+            Some(zoomer::Stage { view, fit, actual })
+        });
+        let readout = stage.filter(|_| !zoom.is_fit()).map(|stage| zoom.readout(stage));
+        let lens = Lens { zoom: zoom.scale, pan: (zoom.pan.x, zoom.pan.y) };
         Some(
             labelled(
-                zoomer::bind(div().id("review-stage").relative().flex_1().min_h_0().w_full().overflow_hidden().bg(look.color(token::BG_BASE)), cx, |_, _, _, _| {})
+                zoomer::bind(div().id(SharedString::from(format!("drawing:{key}"))).relative().w_full().h(high).overflow_hidden(), cx, |_, _, _, _| {})
                     .child(zoom.probe())
-                    .child(div().absolute().inset_0().child(crate::scene::view(SharedString::from(staged.held), staged.scene, Fit::Reading, Clock::default(), lens)))
-                    .child(larger)
+                    .child(div().absolute().inset_0().child(crate::scene::view(SharedString::from(held.to_string()), scene, Fit::Column, Clock::default(), lens)))
+                    .child(self.larger(look, Enlarge::Drawing(key.to_string()), cx))
                     .children(readout.map(|readout| zoomer::corner(look, readout, |this: &mut JobView, _, cx| zoomer::refit(this, cx), cx))),
                 gpui::Role::Group,
                 "Drawing",
             )
             .into_any_element(),
         )
+    }
+
+    /// What F reads over the whole app for the chosen item: the staged drawing or sketch, or the drawing part zoomed in place.
+    pub(super) fn review_enlarge(&self, item: &Item, cx: &gpui::App) -> Option<Enlarge> {
+        if let Some(staged) = self.staged(item, cx) {
+            return Some(staged.enlarge);
+        }
+        self.in_place_drawing(&item.job, artifact_in(item)?).map(Enlarge::Drawing)
     }
 
     fn enlarge_stage(&mut self, enlarge: &Enlarge, window: &mut Window, cx: &mut Context<Self>) {
@@ -248,16 +305,20 @@ impl JobView {
         }
     }
 
-    /// F enlarges the drawing in the detail, and ⌘+ ⌘- ⌘0 zoom it. False where the key is not one of these or nothing is staged.
+    /// F enlarges the drawing in the detail, and ⌘+ ⌘- ⌘0 zoom it. False where the key is not one of these, nothing is staged
+    /// or zoomed in place, or he is typing in a box of the artifact's parts.
     pub(super) fn review_zoom_key(&mut self, event: &gpui::KeyDownEvent, noting: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.pictures.viewing.is_some() || self.sketch_reading.is_some() || noting {
             return false;
         }
         let Some(item) = self.review_chosen() else { return false };
-        let Some(staged) = self.staged(&item, cx) else { return false };
+        if artifact_in(&item).is_some_and(|artifact| self.parts_typing(artifact, window, cx)) {
+            return false;
+        }
+        let Some(enlarge) = self.review_enlarge(&item, cx) else { return false };
         let mods = event.keystroke.modifiers;
         if event.keystroke.key == "f" && !mods.modified() {
-            self.enlarge_stage(&staged.enlarge, window, cx);
+            self.enlarge_stage(&enlarge, window, cx);
             return true;
         }
         zoomer::keyed(self, &event.keystroke, window, cx)
@@ -320,6 +381,22 @@ mod tests {
             assert_eq!((chosen.kind, chosen.artifact.as_deref()), (Kind::Artifact, Some(ID)), "the row stands for the artifact it names");
             let review = view.review().expect("review");
             assert!(review.groups.iter().all(|group| group.job == JOB), "this Job's items alone");
+        });
+    }
+
+    #[gpui::test]
+    fn an_artifact_a_waiting_row_names_is_listed_once_in_the_panel(cx: &mut gpui::TestAppContext) {
+        let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {
+            let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+            jobs.iter_mut().find(|one| one.id.as_str() == JOB).expect("the job").waiting_for.extend(held);
+        });
+        view.update_in(cx, |view, window, cx| view.open_review_on("sketch:takes:bar", window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let review = view.review().expect("review");
+            let listed: Vec<_> = review.groups.iter().flat_map(|group| group.items.iter()).filter(|item| artifact_in(item) == Some(ID)).map(|item| item.id.clone()).collect();
+            assert_eq!(listed.len(), 1, "the waiting row and the asking artifact are one item: {listed:?}");
         });
     }
 
@@ -436,6 +513,109 @@ mod tests {
         assert!(f32::from(pill.right() - words.left()) < 800., "the words' caption stands at the measure: {pill:?} {words:?}");
         assert!(f32::from(takes.size.width) > 1200., "while the takes run the detail's width: {takes:?}");
         assert_eq!(words.left(), takes.left(), "prose and pictures share a left edge");
+    }
+
+    /// The artifact read in the panel with its drawing part in view, and that drawing's bounds.
+    fn drawing_in_view(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Bounds<gpui::Pixels> {
+        let drawing = bounds_of(cx, Role::Group, "Drawing");
+        let (body, offset) = view.read_with(cx, |view, _| (view.body_scroll.bounds(), view.body_scroll.offset()));
+        view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(px(0.), offset.y + body.top() - drawing.top())));
+        redraw(cx);
+        bounds_of(cx, Role::Group, "Drawing")
+    }
+
+    fn detail_scale(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> f32 {
+        view.read_with(cx, |view, _| view.detail_zoom.as_ref().map_or(0., |detail| detail.zoom.scale))
+    }
+
+    #[gpui::test]
+    fn a_press_on_a_drawing_among_parts_leaves_it_in_place_with_the_panel_open(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let drawing = drawing_in_view(&view, cx);
+        let (column, panel) = (bounds_of(cx, Role::Group, "Takes"), view.read_with(cx, |view, _| view.sheet.get().height));
+        assert_eq!(drawing.size.width, column.size.width, "the drawing takes the column's width: {drawing:?} beside {column:?}");
+        assert!(drawing.size.height <= panel * TALL_SHARE + px(1.), "and no more than its share of the panel's height: {drawing:?}");
+        cx.simulate_click(drawing.center(), Modifiers::none());
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            assert!(view.pictures.viewing.is_none(), "a press opens nothing over the app");
+            assert!(view.review_open(), "and the panel stays");
+        });
+        assert_eq!(detail_scale(&view, cx), 1., "one press zooms nothing");
+    }
+
+    #[gpui::test]
+    fn command_and_the_wheel_or_a_pinch_zoom_the_drawing_in_place_and_a_plain_wheel_scrolls_past_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let at = drawing_in_view(&view, cx).center();
+        let wheel = |modifiers| gpui::ScrollEvent { position: at, delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(120.))), modifiers, ..Default::default() };
+        let page = view.read_with(cx, |view, _| view.body_scroll.offset());
+        cx.simulate_event(wheel(Modifiers::none()));
+        redraw(cx);
+        assert_eq!(detail_scale(&view, cx), 1., "a plain wheel at fit leaves the drawing as it was");
+        assert_ne!(view.read_with(cx, |view, _| view.body_scroll.offset()), page, "and scrolls the parts");
+        let at = bounds_of(cx, Role::Group, "Drawing").center();
+        let page = view.read_with(cx, |view, _| view.body_scroll.offset());
+        cx.simulate_event(gpui::ScrollEvent { position: at, ..wheel(Modifiers::command()) });
+        redraw(cx);
+        let zoomed = detail_scale(&view, cx);
+        assert!(zoomed > 1.2, "a wheel with command held zooms it: {zoomed}");
+        assert_eq!(view.read_with(cx, |view, _| view.body_scroll.offset()), page, "and the parts stand still");
+        assert!(drawn(cx, Role::Button, "Fit"), "the corner shows while it is zoomed");
+        cx.simulate_event(gpui::PinchEvent { position: at, delta: 0.5, ..Default::default() });
+        redraw(cx);
+        assert!(detail_scale(&view, cx) > zoomed, "a pinch zooms it further");
+        cx.simulate_keystrokes("cmd-0");
+        redraw(cx);
+        assert_eq!(detail_scale(&view, cx), 1., "Cmd-0 fits it");
+        cx.simulate_keystrokes("cmd-=");
+        assert!(detail_scale(&view, cx) > 1., "Cmd-= zooms it");
+        assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none() && view.review_open()));
+    }
+
+    #[gpui::test]
+    fn the_see_larger_button_and_f_read_the_drawing_over_the_app(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let flow = super::super::parts_card::part_key(ID, "flow");
+        drawing_in_view(&view, cx);
+        let larger = bounds_of(cx, Role::Button, "See larger").center();
+        cx.simulate_click(larger, Modifiers::none());
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(flow.clone()), "the button reads it over the app");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none() && view.review_open()), "Esc puts it away and the panel stays");
+        cx.simulate_keystrokes("f");
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(flow), "and so does F");
+    }
+
+    #[gpui::test]
+    fn a_second_drawing_part_still_opens_over_the_app_on_a_press(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                ID,
+                |artifact| {
+                    let at = artifact.parts.iter().position(|part| part.id == "flow").expect("the drawing part");
+                    let again = ipc::ArtifactPart { id: "flow-again".into(), drawn: "flow-again-1".into(), ..artifact.parts[at].clone() };
+                    artifact.parts.insert(at + 1, again);
+                },
+                cx,
+            )
+        });
+        redraw(cx);
+        assert!(drawing_in_view(&view, cx).size.width > px(0.), "the first drawing still zooms in place");
+        let second = bounds_of(cx, Role::Button, "Drawing");
+        let body = view.read_with(cx, |view, _| view.body_scroll.bounds());
+        let offset = view.read_with(cx, |view, _| view.body_scroll.offset());
+        view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(px(0.), offset.y + body.top() - second.top())));
+        redraw(cx);
+        let second = bounds_of(cx, Role::Button, "Drawing").center();
+        cx.simulate_click(second, Modifiers::none());
+        redraw(cx);
+        let again = super::super::parts_card::part_key(ID, "flow-again");
+        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(again), "a press on the second opens it over the app");
     }
 
     #[gpui::test]

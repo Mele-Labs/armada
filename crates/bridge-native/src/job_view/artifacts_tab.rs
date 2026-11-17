@@ -293,6 +293,15 @@ impl JobView {
         self.mock_parts_kept(job, kept, cx);
     }
 
+    /// The mock Fleet lists artifact `artifact` of the shown Job again, changed by `tune`.
+    #[cfg(test)]
+    pub(super) fn mock_parts_tuned(&mut self, artifact: &str, tune: impl FnOnce(&mut JobArtifact), cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some(mut kept) = self.artifact_of(&job, artifact).cloned() else { return };
+        tune(&mut kept);
+        self.mock_parts_kept(&job, kept, cx);
+    }
+
     fn mock_parts_kept(&mut self, job: &SharedString, kept: JobArtifact, cx: &mut Context<Self>) {
         if let Some(rows) = self.artifacts.read.get_mut(job.as_ref()).and_then(|read| read.rows.as_mut()) {
             match rows.iter_mut().find(|one| one.id == kept.id) {

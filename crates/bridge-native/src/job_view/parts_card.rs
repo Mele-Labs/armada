@@ -1392,6 +1392,12 @@ impl JobView {
 
     /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
+        // In the review panel the artifact's first drawing zooms where it stands; a later one opens over the app on a press.
+        if c.sheet && self.in_place_drawing(&c.job, c.id).as_deref() == Some(key) {
+            if let Some(drawn) = self.drawing_in_place(key, &format!("{held}:column"), scene, self.part_room(c), self.tall_most(c), c.look, cx) {
+                return drawn;
+            }
+        }
         let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), c.look, c.sheet) else { return div().into_any_element() };
         let press = key.to_string();
         labelled(
