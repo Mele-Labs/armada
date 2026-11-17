@@ -1165,6 +1165,27 @@ pub fn pull_page(key: &str) -> Option<ipc::PullRequestPage> {
     pages.pulls.into_iter().find(|one| one.key == key).map(|one| one.page)
 }
 
+/// The range since a person last looked, as `GET /pull_request_compares/:repository/:number` answers it, by
+/// `manifest#number`.
+pub fn pull_compare(key: &str) -> Option<ipc::PullRequestCompare> {
+    #[derive(Deserialize)]
+    struct One {
+        key: String,
+        #[serde(flatten)]
+        compare: ipc::PullRequestCompare,
+    }
+    #[derive(Deserialize)]
+    struct Compares {
+        #[serde(default)]
+        compares: Vec<One>,
+    }
+    if !panes_named() {
+        return None;
+    }
+    let compares = ipc::decode::<Compares>("pull request compares", include_bytes!("../fixtures/pulls-pages.json")).unwrap_or_else(|why| panic!("the pull request pages fixture does not decode: {why}"));
+    compares.compares.into_iter().find(|one| one.key == key).map(|one| one.compare)
+}
+
 /// The merge lines a pull request's panel finds its place in, as Fleet's merge line view holds them.
 pub fn merge_lines() -> Option<Vec<ipc::MergeLineView>> {
     #[derive(Deserialize)]

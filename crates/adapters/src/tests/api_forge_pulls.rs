@@ -188,3 +188,33 @@ fn a_diff_over_the_api_is_the_diff_gh_reads_asked_for_as_one() {
     assert_eq!(diff.files.len(), 3);
     assert_eq!(forge.pull_request_diff(&root, "2191"), None, "a diff too large to show is the forge's silence");
 }
+
+/// What GitHub answers one query for both: the facts' fields beside the review's.
+fn standing_answer() -> String {
+    let inner = |json: &str| {
+        let json = json.trim_end();
+        json.strip_prefix(r#"{"data":{"repository":{"pullRequest":{"#).and_then(|it| it.strip_suffix("}}}}")).unwrap().to_string()
+    };
+    format!(r#"{{"data":{{"repository":{{"pullRequest":{{{},{}}}}}}}}}"#, inner(FACTS), inner(REVIEW))
+}
+
+#[test]
+fn a_pull_requests_standing_is_its_facts_and_checks_read_in_one_query_and_the_checks_pages() {
+    let answer = standing_answer();
+    let server = serve(move |seen| match seen.body.as_str() {
+        body if body.contains("\"after\":\"X1\"") => ok(REVIEW_MORE_CONTEXTS),
+        body if body.contains("closingIssuesReferences") && body.contains("statusCheckRollup") => ok(&answer),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let root = repo.root_str();
+
+    let (facts, checks) = forge.pull_request_standing(&root, "2190", "ci").unwrap();
+    assert_eq!(facts, parsed(FACTS_GH.trim_end()).unwrap());
+    assert_eq!(checks, folded(&lines(REVIEW_GH), "ci").checks);
+    assert!(matches!(checks, WhatTheForgeRan::SomeFailed { checks: 4, .. }), "{checks:?}");
+    let seen = server.seen();
+    assert_eq!(seen.len(), 2, "one query, then the checks after the first page");
+    assert!(!seen[0].body.contains("comments(") && !seen[0].body.contains("reviews("), "{}", seen[0].body);
+}

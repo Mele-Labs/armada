@@ -1,4 +1,20 @@
 {
+ "compares": [
+  {
+   "key": "armada#2209",
+   "outcome": "patches",
+   "since": "ed96c0f4d5b6a7f8091a2b3c4d5e6f708192a3b4",
+   "head": "9a01c2e4d5b6a7f8091a2b3c4d5e6f708192a3b4",
+   "files": [
+    {
+     "manifest_id": "armada",
+     "number": 2209,
+     "path": "crates/config/settings.toml",
+     "patch": "@@ -12,3 +12,9 @@\n [links]\n # Where a link to an issue opens.\n openIssuesIn = \"browser\"\n+# Where a link to a pull request opens: armada or browser.\n+openPullRequestsIn = \"armada\"\n+\n+[links.panel]\n+width = \"wide\"\n+remember = true"
+    }
+   ]
+  }
+ ],
  "pulls": [
   {
    "key": "armada#2209",
@@ -7,6 +23,11 @@
    "base": "main",
    "author": "nick",
    "created_at": "2026-11-08T09:55:00Z",
+   "head": "9a01c2e4d5b6a7f8091a2b3c4d5e6f708192a3b4",
+   "seen": {
+    "head": "ed96c0f4d5b6a7f8091a2b3c4d5e6f708192a3b4",
+    "at": "2026-11-08T10:30:00Z"
+   },
    "additions": 412,
    "deletions": 88,
    "mergeable": "mergeable",

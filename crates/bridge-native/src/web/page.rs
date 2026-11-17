@@ -291,8 +291,10 @@ impl WebPage {
         self.drawn = true;
         self.bounds = Some(bounds);
         self.visible = Some(visible);
-        self.hitbox = Some(hitbox);
+        self.hitbox = Some(hitbox.clone());
         register(window, cx.entity().downgrade(), cx);
+        let page = cx.entity().downgrade();
+        cx.default_global::<Frames>().log.push(Painted { page, bounds, visible, hitbox });
         let frame = frame_of(bounds);
         self.make(frame);
         let Some(native) = &self.native else { return };
@@ -359,6 +361,10 @@ impl WebPage {
     /// part are asked of gpui's hit test, as of the frame just drawn.
     fn covered(&self, window: &Window) -> bool {
         let (Some(hitbox), Some(visible)) = (&self.hitbox, self.visible) else { return false };
+        // A view cannot be clipped as gpui clips what it draws: a page a scrolling parent cuts stands as its picture.
+        if self.bounds.is_some_and(|bounds| clipped(bounds, visible)) {
+            return true;
+        }
         if visible.size.width <= px(2.) || visible.size.height <= px(2.) {
             return false;
         }
@@ -374,6 +380,11 @@ impl WebPage {
     }
 }
 
+/// Whether a clip takes more than a point off the element's bounds.
+fn clipped(bounds: Bounds<Pixels>, visible: Bounds<Pixels>) -> bool {
+    bounds.size.width - visible.size.width > px(1.) || bounds.size.height - visible.size.height > px(1.)
+}
+
 fn frame_of(bounds: Bounds<Pixels>) -> Frame {
     Frame::new(f64::from(bounds.origin.x), f64::from(bounds.origin.y), f64::from(bounds.size.width), f64::from(bounds.size.height))
 }
@@ -382,9 +393,39 @@ fn frame_of(bounds: Bounds<Pixels>) -> Frame {
 #[derive(Default)]
 struct Frames {
     by_window: HashMap<WindowId, Vec<WeakEntity<WebPage>>>,
+    /// Each page painted since the last frame ended, where: what a view drawn from its cache paints again.
+    log: Vec<Painted>,
 }
 
 impl Global for Frames {}
+
+/// One page's paint: the page and where it was placed (`labels::kept`).
+#[derive(Clone)]
+pub struct Painted {
+    page: WeakEntity<WebPage>,
+    bounds: Bounds<Pixels>,
+    visible: Bounds<Pixels>,
+    hitbox: Hitbox,
+}
+
+/// Where the paints a view is about to make start.
+pub fn painted_mark(cx: &App) -> usize {
+    cx.try_global::<Frames>().map_or(0, |frames| frames.log.len())
+}
+
+/// The paints made since `mark`.
+pub fn painted_since(mark: usize, cx: &App) -> Vec<Painted> {
+    cx.try_global::<Frames>().map_or_else(Vec::new, |frames| frames.log.get(mark..).map_or_else(Vec::new, <[Painted]>::to_vec))
+}
+
+/// Paint each page again where it was: its view was drawn from gpui's cache, which runs no paint of ours.
+pub fn paint_again(pages: &[Painted], window: &mut Window, cx: &mut App) {
+    for one in pages {
+        if let Some(page) = one.page.upgrade() {
+            page.update(cx, |page, cx| page.painted(one.bounds, one.visible, one.hitbox.clone(), window, cx));
+        }
+    }
+}
 
 fn register(window: &Window, page: WeakEntity<WebPage>, cx: &mut App) {
     let id = window.window_handle().window_id();
@@ -397,6 +438,9 @@ fn register(window: &Window, page: WeakEntity<WebPage>, cx: &mut App) {
 /// Called by the window's root as it finishes painting. **Once the frame is drawn**, every page of the window
 /// the frame did not paint is parked, and every one it painted is checked for a layer over it.
 pub fn after_frame(window: &mut Window, cx: &mut App) {
+    if cx.has_global::<Frames>() {
+        cx.global_mut::<Frames>().log.clear();
+    }
     let Some(frames) = cx.try_global::<Frames>() else { return };
     let id = window.window_handle().window_id();
     if frames.by_window.get(&id).is_none_or(Vec::is_empty) {
@@ -433,4 +477,20 @@ pub fn web_pane(page: &Entity<WebPage>) -> impl IntoElement + Styled {
             }
         },
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use gpui::{bounds, point, px, size};
+
+    use super::clipped;
+
+    #[test]
+    fn a_page_a_scrolling_parent_cuts_is_clipped_and_one_it_shows_whole_is_not() {
+        let whole = bounds(point(px(24.), px(300.)), size(px(900.), px(500.)));
+        assert!(!clipped(whole, whole), "shown whole");
+        assert!(!clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(499.5)))), "half a point off is rounding");
+        assert!(clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(320.)))), "its foot is under the panel's");
+        assert!(clipped(whole, bounds(point(px(24.), px(300.)), size(px(900.), px(0.)))), "scrolled out entirely");
+    }
 }

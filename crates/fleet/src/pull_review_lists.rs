@@ -65,6 +65,7 @@ pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow
         head: pull.head,
         author: pull.author,
         updated_at: pull.updated_at,
+        asked_at: pull.asked_at,
         team: pull.team,
         holder: None,
         seen: None,
@@ -188,6 +189,8 @@ where
             self.written_onto(list).await;
             self.inbox_onto(list).await;
         }
+        let [requested, ..] = &mut lists;
+        self.asked_told_onto(requested).await;
         let mut read = self.lists_of(me, lists);
         read.silent = silent;
         Ok(read)
