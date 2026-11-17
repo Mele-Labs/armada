@@ -1,4 +1,4 @@
-use gpui::{TestAppContext, VisualTestContext};
+use gpui::{px, TestAppContext, VisualTestContext};
 
 use super::model::{self, Line};
 use super::{mock, FeaturesScreen, Load};
@@ -187,4 +187,61 @@ fn enter_opens_the_feature_page_beside_the_list_and_another_one_replaces_it_and_
     assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"));
     cx.simulate_keystrokes("escape");
     assert!(cx.update(|window, cx| screen.read(cx).list_focus.is_focused(window)), "Esc gives the keys back to the list");
+}
+
+#[test]
+fn the_list_keeps_its_share_and_floor_from_a_thousand_up_and_gives_the_floor_up_below_it() {
+    // The rail 240 and 480 of asks beside it, and 401 for the list: 264 of fixed columns, 16 of gaps, 24 of edges, 1 of border, 96 of title.
+    let (floor, need, page) = (px(440.), px(401.), px(720.));
+    let at = |screen: f32| model::narrow_list_width(px(screen), floor, need, page);
+    assert_eq!(at(1400.), None, "a wide screen is as it was");
+    assert_eq!(at(1000.), None, "a thousand is as it was");
+    assert_eq!(at(999.), Some(px(401.)), "just under it the list takes what it needs");
+    assert_eq!(at(900.), Some(px(401.)), "the page has 499");
+    assert_eq!(at(820.), Some(px(401.)), "the page has 419");
+    assert_eq!(at(600.), Some(px(401.)), "never less than the list needs");
+    assert_eq!(model::narrow_list_width(px(990.), px(440.), px(100.), px(720.)), Some(px(270.)), "a list that needs less takes what the page leaves: the screen less the page");
+}
+
+/// The list's and the page's widths with a feature open, the window being `wide` from the start.
+fn widths_at(cx: &mut TestAppContext, wide: f32) -> (gpui::Pixels, gpui::Pixels) {
+    ready(cx);
+    let (screen, cx) = cx.add_window_view(|window, cx| FeaturesScreen::mock(window, cx));
+    cx.simulate_resize(gpui::size(px(wide), px(800.)));
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.enter(window, cx)));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("enter");
+    assert!(screen.read_with(cx, |screen, _| screen.page.is_some()));
+    for _ in 0..2 {
+        screen.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    let size = cx.update(|window, _| window.viewport_size());
+    assert_eq!(size.width, px(wide), "the window is as wide as it was made");
+    let width = |cx: &mut VisualTestContext, name: &str, role: gpui::Role| {
+        // The book of a window with no label root keeps every frame's entries, so the last is the frame just drawn.
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds.size.width)).expect("drawn")
+    };
+    (width(cx, "Features", gpui::Role::ListBox), width(cx, "Feature page", gpui::Role::Region))
+}
+
+#[gpui::test]
+fn the_list_needs_401_and_at_900_it_takes_that_and_the_page_the_rest(cx: &mut TestAppContext) {
+    ready(cx);
+    let need = cx.update(|cx| super::view::list_need(crate::look::ActiveLook::look(cx)));
+    assert_eq!(need, px(401.), "fixed columns 264, gaps 16, edges 24, border 1, a title's 96");
+    // The list's box is inside its 1px border.
+    assert_eq!(widths_at(cx, 900.), (px(400.), px(499.)));
+}
+
+#[gpui::test]
+fn at_820_the_list_keeps_its_need_and_the_page_gets_what_is_left(cx: &mut TestAppContext) {
+    assert_eq!(widths_at(cx, 820.), (px(400.), px(419.)));
+}
+
+#[gpui::test]
+fn from_a_thousand_up_the_list_is_its_share_as_it_was(cx: &mut TestAppContext) {
+    let (list, page) = widths_at(cx, 1400.);
+    assert!((f32::from(list) - (1400. * 0.36 - 1.)).abs() < 0.01 && (f32::from(page) - 1400. * 0.64).abs() < 0.01, "{list:?} and {page:?}");
 }

@@ -1,10 +1,10 @@
 //! The Features tab drawn from what `model.rs` made of Fleet's read: area heads with their features under
 //! them in the left column, and the slot the feature's page fills on the right. Every value is a token.
 
-use gpui::{div, list, prelude::*, px, relative, Div, FontWeight, IntoElement, Render, Role, SharedString, Window};
+use gpui::{div, list, prelude::*, px, relative, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
 use gpui_component::input::Input;
 
-use super::model::{Line, Shown};
+use super::model::{narrow_list_width, Line, Shown};
 use super::{FeaturesScreen, Load};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
@@ -25,6 +25,13 @@ fn chip(look: &Look, hue: Token, words: impl Into<SharedString>) -> Div {
         .text_size(look.length(token::TEXT_2XS))
         .whitespace_nowrap()
         .child(div().min_w_0().truncate().child(words.into()))
+}
+
+/// What the list column needs at least: the two fixed columns, the gaps and edges of a row, and two token-steps of room
+/// for a title, where a title is cut with an ellipsis.
+pub(super) fn list_need(look: &Look) -> Pixels {
+    let step = look.length(token::SPACE_12);
+    step * 3. + step * 2.5 + look.length(token::SPACE_2) * 2. + look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) + step * 2.
 }
 
 /// The column who is on a feature now has: a chip naming the first Job, a mark that there are more, and every
@@ -190,9 +197,15 @@ impl FeaturesScreen {
             .id("features-column")
             .track_focus(&self.list_focus)
             .flex_none()
-            .w(relative(0.36))
-            // Below this the fixed columns would leave the titles no room.
-            .min_w(look.length(token::W_DIALOG))
+            .map(|column| {
+                // The page wants its rail, 240, and 480 beside it for the asks: fifteen token-steps. Where the screen is
+                // narrower than a thousand the list gives up its floor for it, and keeps what its columns need.
+                match narrow_list_width(window.viewport_size().width, look.length(token::W_DIALOG), list_need(look), look.length(token::SPACE_12) * 15.) {
+                    Some(narrow) => column.w(narrow),
+                    // Below this the fixed columns would leave the titles no room.
+                    None => column.w(relative(0.36)).min_w(look.length(token::W_DIALOG)),
+                }
+            })
             .h_full()
             .flex()
             .flex_col()

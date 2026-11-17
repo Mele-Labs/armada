@@ -2,7 +2,23 @@
 //! with its features, who is on each now and the merge a written section is stale since. Nothing here
 //! touches the screen or the wire.
 
+use gpui::{px, Pixels};
 use ipc::{FeatureLibrary, FeatureRow};
+
+/// Under this width of the screen the list column gives up its floor, so the page beside it keeps room to read.
+pub const NARROW_BELOW: f32 = 1000.;
+
+/// The list column's width on a narrow screen, or None where the column keeps its share and floor, which is from
+/// `NARROW_BELOW` up. It takes what the page leaves it, `page_min` less than the screen, but never more than the
+/// share and floor would give it and never less than `need`, what its fixed columns and a few letters of a title ask for.
+/// Where `need` and `page_min` together are more than the screen, the list's need wins and the page is what gives.
+pub fn narrow_list_width(screen: Pixels, floor: Pixels, need: Pixels, page_min: Pixels) -> Option<Pixels> {
+    if screen >= px(NARROW_BELOW) {
+        return None;
+    }
+    let old = (screen * 0.36).max(floor);
+    Some((screen - page_min).min(old).max(need))
+}
 
 /// One feature as a row: Fleet's row, and the chips it wears.
 #[derive(Clone, Debug, PartialEq)]

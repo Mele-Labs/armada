@@ -19,7 +19,7 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
     cx.update(crate::init_app);
     cx.update(|cx| cx.set_reduce_motion(true));
-    for (name, wide, section) in [("features-bugs-1400", 1400., Section::Bugs), ("features-bugs-900", 900., Section::Bugs), ("features-changes-1400", 1400., Section::Changes), ("features-changes-900", 900., Section::Changes), ("features-ideas-1400", 1400., Section::Ideas)] {
+    for (name, wide, section) in [("features-bugs-1400", 1400., Section::Bugs), ("features-bugs-900", 900., Section::Bugs), ("features-bugs-820", 820., Section::Bugs), ("features-changes-1400", 1400., Section::Changes), ("features-changes-900", 900., Section::Changes), ("features-ideas-1400", 1400., Section::Ideas)] {
         let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
         let keep = held.clone();
         let handle = cx
