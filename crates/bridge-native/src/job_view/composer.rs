@@ -846,7 +846,7 @@ impl JobView {
                         .map(|one| SentFile { id: format!("file-{}", one.key), name: one.name.clone(), media_type: one.media_type.clone() })
                         .chain(drawn.iter().map(|one| SentFile { id: one.id.clone(), name: format!("{}.png", one.title), media_type: "image/png".into() }))
                         .collect();
-                    self.mock_sent(&id, key, text, sent, mentions, sketches);
+                    self.mock_sent(&id, key, text, sent, mentions, sketches, None);
                 }
             }
         }
@@ -856,11 +856,11 @@ impl JobView {
     }
 
     /// Mock data: Fleet's row for these words arrives at once.
-    pub(super) fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>) {
+    pub(super) fn mock_sent(&mut self, id: &SharedString, key: u64, text: String, files: Vec<SentFile>, tags: Vec<SessionTag>, sketches: Vec<ipc::SentSketch>, aside: Option<String>) {
         let at = ipc::Instant::carried(chrono::Utc::now().to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
         if let Some(held) = self.mock.get_mut(id.as_str()) {
             held.items.push(ThreadItem::Row {
-                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, aside: None, sketches },
+                row: SessionRow::Message { id: format!("sent-{key}"), at, from: SessionVoice::You, text, files, tags, notice: None, queued: false, edited_at: None, aside, sketches },
             });
             held.version += 1;
             let at = held.items.len() - 1;
@@ -913,7 +913,7 @@ impl JobView {
         page.refused = None;
         if self.fleet.is_none() {
             let one = page.pending.remove(at);
-            self.mock_sent(id, key, one.text, Vec::new(), one.tags, Vec::new());
+            self.mock_sent(id, key, one.text, Vec::new(), one.tags, Vec::new(), None);
         } else {
             let one = &mut page.pending[at];
             let Some(body) = one.body.clone() else { return };

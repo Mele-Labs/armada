@@ -185,6 +185,16 @@ impl SideChat {
         cx.notify();
     }
 
+    /// Scroll the log so the aside `aside_id` stands at its top, and stop following the tail. Not held: nothing moves.
+    pub(super) fn reveal(&mut self, aside_id: &str, cx: &mut Context<Self>) {
+        let Some(ix) = self.asides.iter().position(|one| one.aside_id == aside_id) else { return };
+        // The refusal, where there is one, is the log's first child.
+        let first = usize::from(matches!(self.read, Read::Refused(_)));
+        self.follow = false;
+        self.scroll.scroll_to_top_of_item(first + ix);
+        cx.notify();
+    }
+
     fn at_tail(&self) -> bool {
         let room = self.scroll.max_offset().y;
         room <= px(1.) || self.scroll.offset().y <= -room + px(8.)
@@ -321,7 +331,7 @@ impl SideChat {
             replaced(&mut self.asides, told);
             let job = self.job.clone();
             if let Some(view) = self.view.upgrade() {
-                view.update(cx, |view, cx| view.mock_told(&job, words, cx));
+                view.update(cx, |view, cx| view.mock_told(&job, words, &aside.aside_id, cx));
             }
             cx.notify();
             return;
@@ -804,6 +814,13 @@ impl JobView {
         cx.notify();
     }
 
+    /// The side chat, opened with the aside `aside_id` brought to the top of its log: a press on "You, from side chat".
+    pub(super) fn open_aside(&mut self, aside_id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_side_chat(None, window, cx);
+        let Some(chat) = self.shown.as_ref().and_then(|job| self.side_chats.get(job.as_ref()).cloned()) else { return };
+        chat.update(cx, |chat, cx| chat.reveal(aside_id, cx));
+    }
+
     /// A press on the Side chat tab among the thread's own opens the split again.
     pub(super) fn side_tab_pressed(&mut self, tab: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
@@ -886,11 +903,11 @@ impl JobView {
     }
 
     /// Mock data: the Job's thread holds the message Fleet writes for a told aside, as his own.
-    pub(super) fn mock_told(&mut self, job: &str, words: String, cx: &mut Context<Self>) {
+    pub(super) fn mock_told(&mut self, job: &str, words: String, aside_id: &str, cx: &mut Context<Self>) {
         let id = SharedString::from(job.to_string());
         self.composer.next_key += 1;
         let key = self.composer.next_key;
-        self.mock_sent(&id, key, words, Vec::new(), Vec::new(), Vec::new());
+        self.mock_sent(&id, key, words, Vec::new(), Vec::new(), Vec::new(), Some(aside_id.to_string()));
         self.sync(&id, cx);
         cx.notify();
     }
@@ -1043,6 +1060,51 @@ mod tests {
         let said = view.read_with(cx, |view, cx| view.thread("mock-02", cx).map(|held| format!("{:?}", held.items.last())));
         assert!(said.is_some_and(|said| said.contains("Aside, answered on a read-only copy of this Job:")), "the told words are his message in the thread");
         assert!(drawn(cx, Role::Status, "Told"));
+    }
+
+    const FROM_SIDE: &str = "You, from side chat";
+
+    #[gpui::test]
+    fn a_told_aside_is_marked_you_from_side_chat_in_the_thread_and_a_plain_message_of_his_is_not(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = job(cx, "mock-02");
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        let plain = view.read_with(cx, |view, cx| view.thread("mock-02", cx).is_some_and(|held| format!("{:?}", held.items).contains("from: You")));
+        assert!(plain, "the Job's thread holds a message of his that is no told aside");
+        assert!(!drawn(cx, Role::Button, FROM_SIDE), "his plain messages carry no label");
+        chat.update_in(cx, |chat, window, cx| chat.tell("mock-aside-2", window, cx));
+        cx.run_until_parked();
+        assert!(drawn(cx, Role::Button, FROM_SIDE), "the told words carry the label");
+    }
+
+    #[gpui::test]
+    fn a_press_on_you_from_side_chat_opens_the_side_chat_with_that_aside_at_its_top(cx: &mut gpui::TestAppContext) {
+        // Tall enough that the told message, at the thread's tail, is in view to be pressed.
+        let (view, cx) = super::super::parts_fold::rooted_job(cx, "side-chat", "mock-02", gpui::size(gpui::px(1400.), gpui::px(1600.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_side_chat(None, window, cx));
+        cx.run_until_parked();
+        let chat = view.read_with(cx, |view, _| view.side_chats.get("mock-02").cloned()).expect("the Job's side chat");
+        chat.update_in(cx, |chat, window, cx| chat.tell("mock-aside-2", window, cx));
+        cx.run_until_parked();
+        let w = gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse("cmd-w").expect("a key"), is_held: false, prefer_character_input: false };
+        assert!(view.update_in(cx, |view, window, cx| view.side_chat_key(&w, window, cx)));
+        cx.run_until_parked();
+        assert!(!view.read_with(cx, |view, _| view.side_split_open()), "the split is shut");
+        assert!(drawn(cx, Role::Button, FROM_SIDE));
+        let at = cx.update(|window, cx| super::super::head::drawn(window, cx, Role::Button, FROM_SIDE)).expect("the label").center();
+        cx.simulate_click(at, gpui::Modifiers::none());
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |view, _| view.side_split_open() || view.side_chat_in_front()), "the press opens the side chat");
+        assert!(!chat.read_with(cx, |chat, _| chat.follow), "the log no longer follows its tail");
+        // In a window too short for the log, the told aside is scrolled to the top, not left at the tail.
+        view.update_in(cx, |view, window, cx| view.shut_side_split(window, cx));
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(500.)));
+        view.update_in(cx, |view, window, cx| view.open_aside("mock-aside-2", window, cx));
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        assert_eq!(chat.read_with(cx, |chat, _| chat.scroll.top_item()), 1, "the second aside, the one told, is at the top");
     }
 
     #[gpui::test]
