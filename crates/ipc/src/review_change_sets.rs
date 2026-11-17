@@ -72,7 +72,7 @@ pub struct OverviewFinding {
     pub set: String,
     pub title: String,
     /// One plain sentence on what is wrong and what to do, at most
-    /// [`COMMENT_AT_MOST`](crate::COMMENT_AT_MOST) characters, so it can be posted as it is.
+    /// [`COMMENT_AT_MOST`](crate::COMMENT_AT_MOST) characters, so it can be kept as a draft comment as it is.
     pub reason: String,
     pub at: ReviewPlace,
 }
