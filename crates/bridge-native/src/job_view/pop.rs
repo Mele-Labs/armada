@@ -64,8 +64,26 @@ impl JobView {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
+        self.open_button_menu_from(Anchor::TopLeft, name, entries, at, false, back, pick, window, cx);
+    }
+
+    /// As [`Self::open_button_menu`], with the menu's `corner` at `at` (a button at the foot opens it upward), and the keys on
+    /// its first entry where `from_keys`.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn open_button_menu_from(
+        &mut self,
+        corner: Anchor,
+        name: impl Into<SharedString>,
+        entries: Vec<Entry>,
+        at: Point<Pixels>,
+        from_keys: bool,
+        back: Option<FocusHandle>,
+        pick: impl Fn(&mut JobView, &'static str, &mut Window, &mut Context<JobView>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         let name = name.into();
-        let menu = cx.new(|cx| Dropdown::new(name, entries, at, Anchor::TopLeft, false, cx));
+        let menu = cx.new(|cx| Dropdown::new(name, entries, at, corner, from_keys, cx));
         self.hold_pop(menu, back, pick, window, cx);
     }
 

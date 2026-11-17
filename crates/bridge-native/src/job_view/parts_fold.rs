@@ -296,13 +296,27 @@ pub(super) fn rooted_job<'a>(
     size: gpui::Size<gpui::Pixels>,
     tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
 ) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+    rooted_job_with(cx, scenario, job, size, tune, |_| {})
+}
+
+/// The same, with the scenario's threads changed by `threads` before the Job opens.
+#[cfg(test)]
+pub(super) fn rooted_job_with<'a>(
+    cx: &'a mut gpui::TestAppContext,
+    scenario: &str,
+    job: &str,
+    size: gpui::Size<gpui::Pixels>,
+    tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
+    tune_threads: impl FnOnce(&mut std::collections::HashMap<String, ipc::JobThread>),
+) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
     });
     let mut jobs = crate::mock::jobs(scenario).expect("the fixture decodes");
     tune(&mut jobs);
-    let threads = crate::mock::threads(scenario).expect("the threads decode");
+    let mut threads = crate::mock::threads(scenario).expect("the threads decode");
+    tune_threads(&mut threads);
     let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
     let (root, cx) = cx.add_window_view({
         let list = list.clone();
