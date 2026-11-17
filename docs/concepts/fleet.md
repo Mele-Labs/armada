@@ -587,7 +587,9 @@ A pull request on several lists is a row on each, and a team row names the first
 Where the forge kept none, a request by name is dated from when Fleet first told the person of it, which is as late as the next look after the ask.
 
 **A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list.
-All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`. **GitHub's rate limit** is its own answer: with the lists last read, those are shown with `rate_limited` set (`until`, RFC 3339 with milliseconds, absent where GitHub named no time) and `fetched_at` their time, and Fleet asks nothing until `until`, or for three minutes where none was named; with none read it is a 500 `fleet.review_lists_rate_limited`, `fields.until` the same time. No token and an unanswering GitHub are `fleet.review_lists_unreadable` with a sentence that says which.
+All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+**GitHub's rate limit** is its own answer: with the lists last read, those are shown with `rate_limited` set (`until`, RFC 3339 with milliseconds, absent where GitHub named no time) and `fetched_at` their time, and Fleet asks nothing until `until`, or for three minutes where none was named; with none read it is a 500 `fleet.review_lists_rate_limited`, `fields.until` the same time.
+No token and an unanswering GitHub are `fleet.review_lists_unreadable` with a sentence that says which.
 
 **`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review.
 A 409 `fleet.review_thread_refused` carries the forge's sentence, and a repository Fleet does not serve is a 422.
