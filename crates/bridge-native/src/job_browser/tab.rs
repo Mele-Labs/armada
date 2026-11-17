@@ -11,16 +11,37 @@ use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::{
-    div, prelude::*, svg, Animation, AnimationExt, AnyElement, Context, Entity, FocusHandle, Role, SharedString, Subscription, Task,
-    Window,
+    actions, div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, AsyncWindowContext, Context, Entity, EventEmitter, FocusHandle,
+    KeyBinding, Role, SharedString, Subscription, Task, WeakEntity, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 
 use super::acts::is_web;
+use super::asks::{self, decide, AskSlot, Rules};
+use super::choices::{host_of, Answer, Choice, Permission, Settings, Store, NO_REPOSITORY};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::web::{web_pane, Status, WebPage, WebPageEvent};
+use crate::web::{web_pane, Request, Status, WebPage, WebPageEvent};
+
+actions!(job_browser, [DismissAsk]);
+
+/// The strip's own key. Classic hears Esc on the window while its strip is up (`AskStrip`); here it is the strip's, where focus is.
+pub fn bind(cx: &mut App) {
+    cx.bind_keys([KeyBinding::new("escape", DismissAsk, Some(ASK_CONTEXT))]);
+}
+
+const ASK_CONTEXT: &str = "job-browser-ask";
+
+/// What a Browser tab tells the Job view that holds it, to tell Fleet.
+pub enum BrowserTabEvent {
+    /// The page asks the owner, and Fleet is to carry the ask in Needs you.
+    Raised { tab: String, text: String, options: Vec<ipc::WaitingOption> },
+    /// The ask is over, though not by Fleet's own answer.
+    Ended { tab: String },
+}
+
+impl EventEmitter<BrowserTabEvent> for BrowserTab {}
 
 /// The size a page is laid out at before a pane has drawn it, so an act on a tab nobody is looking at reaches a page of a
 /// usual size.
@@ -55,8 +76,19 @@ pub struct BrowserTab {
     last: LastShown,
     /// What Back, Forward and Reload are reached by Tab with, in that order.
     keys: [FocusHandle; 3],
+    /// The repository whose choices answer this page: the Job's manifest, else `none`.
+    repository: String,
+    /// Where the owner's choices are kept: Classic's own file. None where the Mac has no home folder.
+    store: Option<Store>,
+    /// The one ask the page may have waiting, and what answers the page that made it.
+    asks: AskSlot<async_channel::Sender<Answer>>,
+    /// The strip's focus: its frame, where Esc is heard, and its two presses in Tab order.
+    strip: [FocusHandle; 3],
+    /// Where the focus was before the strip took it, which it goes back to.
+    before: Option<FocusHandle>,
     _subscriptions: Vec<Subscription>,
     _changes: Task<()>,
+    _asked: Task<()>,
 }
 
 impl BrowserTab {
@@ -68,6 +100,14 @@ impl BrowserTab {
         let entered = cx.subscribe_in(&address, window, |this, _, event: &InputEvent, window, cx| {
             if matches!(event, InputEvent::PressEnter { .. }) {
                 this.navigate(window, cx);
+            }
+        });
+        let requests = page.update(cx, |page, _| page.hear_requests());
+        let asked = cx.spawn_in(window, async move |this, cx| {
+            while let Ok(request) = requests.recv().await {
+                if this.update_in(cx, |this, window, cx| this.requested(request, window, cx)).is_err() {
+                    break;
+                }
             }
         });
         let changes = cx.spawn_in(window, async move |this, cx| {
@@ -92,8 +132,14 @@ impl BrowserTab {
             waiting: Vec::new(),
             last,
             keys: [cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)],
+            repository: NO_REPOSITORY.to_string(),
+            store: Store::classic(),
+            asks: AskSlot::default(),
+            strip: [cx.focus_handle(), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)],
+            before: None,
             _subscriptions: vec![loaded, entered],
             _changes: changes,
+            _asked: asked,
         }
     }
 
@@ -101,9 +147,108 @@ impl BrowserTab {
         &self.page
     }
 
-    /// The tab that holds this page now: a page an agent opened takes the first tab there is.
-    pub fn attach(&mut self, tab: String) {
+    /// The tab that holds this page now: a page an agent opened takes the first tab there is, and an ask it had before there was a
+    /// tab to key it by is raised now.
+    pub fn attach(&mut self, tab: String, cx: &mut Context<Self>) {
         self.tab = tab;
+        self.raise_to_fleet(cx);
+    }
+
+    /// The repository whose choices answer this page.
+    pub fn set_repository(&mut self, key: String) {
+        self.repository = key;
+    }
+
+    /// Whether Fleet knows this tab by an id of its own, as a page opened before any tab was there to hold it is not.
+    fn held(&self) -> bool {
+        self.tab != super::UNATTACHED
+    }
+
+    /// The page asks for a permission, to be answered once.
+    fn requested(&mut self, request: Request, window: &mut Window, cx: &mut Context<Self>) {
+        match request {
+            Request::Media { origin, camera, microphone, reply } => {
+                let mut wants = Vec::new();
+                if camera {
+                    wants.push(Permission::Camera);
+                }
+                if microphone {
+                    wants.push(Permission::Microphone);
+                }
+                // A request that names neither asks for both (`permissionsOf`).
+                if wants.is_empty() {
+                    wants = vec![Permission::Camera, Permission::Microphone];
+                }
+                self.permit(wants, host_of(&origin), move |given| reply.send(given), window, cx);
+            }
+        }
+    }
+
+    /// Decides what a page asked for from the owner's choices, asking him where a choice is Ask, and says the decision to `done`. A page
+    /// whose host is no web address is refused.
+    fn permit(&mut self, wants: Vec<Permission>, host: Option<String>, done: impl FnOnce(bool) + 'static, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(host) = host else { return done(false) };
+        let rules = TabRules { tab: cx.entity().downgrade(), cx: window.to_async(cx), store: self.store.clone(), repository: self.repository.clone(), host };
+        cx.spawn_in(window, async move |_, _| {
+            let given = decide(&wants, &rules).await;
+            done(given);
+        })
+        .detach();
+    }
+
+    /// The page asks the owner: its strip draws, and Fleet is told. A second ask while one waits is refused as dismissed.
+    fn ask(&mut self, permission: Permission, host: String, window: &mut Window, cx: &mut Context<Self>) -> async_channel::Receiver<Answer> {
+        let (settle, answer) = async_channel::bounded(1);
+        match self.asks.raise(permission, host, settle) {
+            Err(settle) => {
+                let _ = settle.try_send(Answer::Dismiss);
+            }
+            Ok(()) => {
+                self.raise_to_fleet(cx);
+                // The keys are Bridge's while the strip waits, and where the owner was is kept to go back to. A tab nobody is looking at
+                // takes no focus: the ask is in Needs you for him.
+                if self.shown(cx) {
+                    self.page.update(cx, |page, _| page.release_keys());
+                    self.before = window.focused(cx);
+                    window.focus(&self.strip[1], cx);
+                }
+                cx.notify();
+            }
+        }
+        answer
+    }
+
+    /// Fleet carries the ask the tab holds, in Needs you.
+    fn raise_to_fleet(&mut self, cx: &mut Context<Self>) {
+        if !self.held() {
+            return;
+        }
+        if let Some(asking) = self.asks.asking() {
+            cx.emit(BrowserTabEvent::Raised { tab: self.tab.clone(), text: asks::text(asking.permission, &asking.host), options: asks::options(asking.permission) });
+        }
+    }
+
+    /// The ask is over, answered here or in Needs you. `fleet_knows`: Fleet said so itself, so it is not told again.
+    pub fn answered(&mut self, answer: Answer, fleet_knows: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(ended) = self.asks.end(fleet_knows, self.held()) else { return };
+        if ended.tell_fleet {
+            cx.emit(BrowserTabEvent::Ended { tab: self.tab.clone() });
+        }
+        let _ = ended.asking.settle.try_send(answer);
+        if let Some(back) = self.before.take() {
+            if self.strip.iter().any(|one| one.contains_focused(window, cx)) {
+                window.focus(&back, cx);
+            }
+        }
+        cx.notify();
+    }
+
+    /// The tab is closing, or its Job is going: its ask is dismissed. Whether Fleet is still to be told it is over.
+    pub fn close(&mut self, cx: &mut Context<Self>) -> bool {
+        let Some(ended) = self.asks.end(false, self.held()) else { return false };
+        let _ = ended.asking.settle.try_send(Answer::Dismiss);
+        cx.notify();
+        ended.tell_fleet
     }
 
     /// Whether a pane draws the page now.
@@ -283,9 +428,127 @@ impl BrowserTab {
     }
 }
 
+/// The owner's choices and the tab's ask, as deciding a page's request reads them.
+struct TabRules {
+    tab: WeakEntity<BrowserTab>,
+    cx: AsyncWindowContext,
+    store: Option<Store>,
+    repository: String,
+    host: String,
+}
+
+impl Rules for TabRules {
+    async fn choice(&self, permission: Permission) -> Choice {
+        // The file is read afresh each time, off the main thread, since Classic may have written it.
+        let settings = match self.store.clone() {
+            Some(store) => self.cx.background_executor().spawn(async move { store.read() }).await,
+            None => Settings::default(),
+        };
+        settings.effective(&self.repository, &self.host, permission)
+    }
+
+    async fn ask(&self, permission: Permission) -> Answer {
+        let mut cx = self.cx.clone();
+        let host = self.host.clone();
+        let Ok(answer) = self.tab.update_in(&mut cx, |tab, window, cx| tab.ask(permission, host, window, cx)) else { return Answer::Dismiss };
+        answer.recv().await.unwrap_or(Answer::Dismiss)
+    }
+
+    async fn remember(&self, permission: Permission, choice: Choice) {
+        let Some(store) = self.store.clone() else { return };
+        let (repository, host) = (self.repository.clone(), self.host.clone());
+        let _ = self.cx.background_executor().spawn(async move { store.choose(&repository, &host, permission, choice) }).await;
+    }
+}
+
+impl BrowserTab {
+    /// The page's ask, over the page under the head and never over it: the page's own view moves down and stays live while it waits.
+    /// Block and Allow, and Esc leaves the site undecided (`AskStrip`).
+    fn strip(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let asking = self.asks.asking()?;
+        let [frame, block, allow] = self.strip.clone();
+        let words = asks::strip_words(asking.permission, &asking.host);
+        let risk = asks::strip_risk(asking.permission);
+        let ring = look.color(token::ACCENT);
+        let choice = |id: &'static str, handle: &FocusHandle, said: &'static str, primary: bool, answer: Answer, cx: &Context<Self>| {
+            let body = div()
+                .id(id)
+                .track_focus(handle)
+                .tab_stop(true)
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .h(look.length(token::H_CONTROL_SM))
+                .px(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if primary { look.color(token::ACCENT) } else { gpui::transparent_black() })
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .cursor_pointer()
+                .focus_visible(move |style| style.border_color(ring))
+                .on_click(cx.listener(move |this, _, window, cx| this.answered(answer, false, window, cx)))
+                .child(said);
+            let body = if primary {
+                let hover = look.color(token::ACCENT_HOVER);
+                body.bg(look.color(token::ACCENT)).text_color(look.color(token::TEXT_ON_ACCENT)).hover(move |style| style.bg(hover))
+            } else {
+                let hover = look.color(token::BG_HOVER);
+                body.text_color(look.color(token::FG_MUTED)).hover(move |style| style.bg(hover).text_color(look.color(token::FG_DEFAULT)))
+            };
+            labelled(body, Role::Button, said)
+        };
+        let words = div()
+            .flex()
+            .flex_col()
+            .flex_1()
+            .min_w_0()
+            .child(div().child(SharedString::from(words)))
+            .children(risk.map(|risk| div().text_color(look.color(token::FG_MUTED)).child(risk)));
+        let acts = div()
+            .flex()
+            .flex_none()
+            .ml_auto()
+            .gap(look.length(token::SPACE_1))
+            .child(choice("job-browser-ask-block", &block, "Block", false, Answer::Block, cx))
+            .child(choice("job-browser-ask-allow", &allow, "Allow", true, Answer::Allow, cx));
+        Some(
+            labelled(
+                div()
+                    .id("job-browser-ask")
+                    .key_context(ASK_CONTEXT)
+                    .track_focus(&frame)
+                    .on_action(cx.listener(|this, _: &DismissAsk, window, cx| this.answered(Answer::Dismiss, false, window, cx)))
+                    .flex()
+                    .flex_none()
+                    .flex_wrap()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .min_w_0()
+                    .py(look.length(token::SPACE_1))
+                    .pr(look.length(token::SPACE_1))
+                    .pl(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .bg(look.color(token::BG_OVERLAY))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .child(words)
+                    .child(acts),
+                Role::AlertDialog,
+                "Site request",
+            )
+            .into_any_element(),
+        )
+    }
+}
+
 impl Render for BrowserTab {
     fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
+        let strip = self.strip(&look, cx);
         let [back_key, forward_key, reload_key] = self.keys.clone();
         let acts = div()
             .flex_none()
@@ -333,7 +596,7 @@ impl Render for BrowserTab {
             "Page",
         );
         labelled(
-            div().id("job-browser").key_context("job-browser").size_full().flex().flex_col().min_w_0().bg(look.color(token::BG_SUNKEN)).child(head).child(page),
+            div().id("job-browser").key_context("job-browser").size_full().flex().flex_col().min_w_0().bg(look.color(token::BG_SUNKEN)).child(head).children(strip).child(page),
             Role::Group,
             "Job browser",
         )
@@ -342,6 +605,8 @@ impl Render for BrowserTab {
 
 #[cfg(test)]
 mod tests {
+    use std::cell::RefCell;
+
     use super::*;
     use crate::labels::LabelBook;
 
@@ -392,6 +657,116 @@ mod tests {
         tab.update(cx, |tab, cx| tab.set_acting(None, cx));
         cx.run_until_parked();
         assert_eq!(names(cx, Role::Image), [NO_ACT]);
+    }
+
+    /// Each event the tab told, as words.
+    fn told(tab: &Entity<BrowserTab>, cx: &mut gpui::VisualTestContext) -> Rc<RefCell<Vec<String>>> {
+        let seen: Rc<RefCell<Vec<String>>> = Rc::default();
+        let into = seen.clone();
+        cx.update(|_, app| {
+            app.subscribe(tab, move |_, event: &BrowserTabEvent, _| {
+                into.borrow_mut().push(match event {
+                    BrowserTabEvent::Raised { tab, text, options } => format!("raised {tab}: {text} [{}]", options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>().join(", ")),
+                    BrowserTabEvent::Ended { tab } => format!("ended {tab}"),
+                })
+            })
+            .detach();
+        });
+        seen
+    }
+
+    fn ask(tab: &Entity<BrowserTab>, permission: Permission, cx: &mut gpui::VisualTestContext) -> async_channel::Receiver<Answer> {
+        tab.update_in(cx, |tab, window, cx| tab.ask(permission, "meet.example.com".into(), window, cx))
+    }
+
+    #[gpui::test]
+    fn a_page_ask_draws_a_strip_with_block_and_allow_and_goes_to_needs_you(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let seen = told(&tab, cx);
+        assert!(names(cx, Role::AlertDialog).is_empty(), "no strip while nothing is asked");
+        let _answer = ask(&tab, Permission::Camera, cx);
+        cx.run_until_parked();
+        assert_eq!(names(cx, Role::AlertDialog), ["Site request"]);
+        assert_eq!(names(cx, Role::Button), ["Back", "Forward", "Reload", "Block", "Allow"], "Block, then Allow");
+        assert_eq!(*seen.borrow(), ["raised t1: Allow Camera for meet.example.com? [Allow, Block]"]);
+    }
+
+    #[gpui::test]
+    fn answering_in_the_tab_settles_the_page_and_tells_fleet_the_ask_is_over(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let seen = told(&tab, cx);
+        let answer = ask(&tab, Permission::Microphone, cx);
+        tab.update_in(cx, |tab, window, cx| tab.answered(Answer::Allow, false, window, cx));
+        cx.run_until_parked();
+        assert_eq!(answer.try_recv().ok(), Some(Answer::Allow));
+        assert!(names(cx, Role::AlertDialog).is_empty(), "the strip goes");
+        assert_eq!(seen.borrow().last().map(String::as_str), Some("ended t1"));
+    }
+
+    #[gpui::test]
+    fn an_answer_from_fleet_settles_the_strip_and_does_not_end_the_ask_it_answered(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let seen = told(&tab, cx);
+        let answer = ask(&tab, Permission::Camera, cx);
+        tab.update_in(cx, |tab, window, cx| tab.answered(Answer::Block, true, window, cx));
+        cx.run_until_parked();
+        assert_eq!(answer.try_recv().ok(), Some(Answer::Block));
+        assert!(names(cx, Role::AlertDialog).is_empty());
+        assert_eq!(seen.borrow().len(), 1, "only the raise: Fleet took its own item off");
+    }
+
+    #[gpui::test]
+    fn a_second_ask_while_one_waits_is_dismissed_and_the_first_stays(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let seen = told(&tab, cx);
+        let first = ask(&tab, Permission::Camera, cx);
+        let second = ask(&tab, Permission::Microphone, cx);
+        assert_eq!(second.try_recv().ok(), Some(Answer::Dismiss));
+        assert!(first.try_recv().is_err(), "the first still waits");
+        cx.run_until_parked();
+        assert_eq!(seen.borrow().len(), 1, "Fleet holds one item a tab");
+    }
+
+    #[gpui::test]
+    fn closing_the_tab_dismisses_its_ask_and_says_fleet_is_to_be_told(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let answer = ask(&tab, Permission::Camera, cx);
+        assert!(tab.update(cx, |tab, cx| tab.close(cx)));
+        assert_eq!(answer.try_recv().ok(), Some(Answer::Dismiss));
+        assert!(!tab.update(cx, |tab, cx| tab.close(cx)), "nothing left to end");
+    }
+
+    #[gpui::test]
+    fn esc_dismisses_the_ask_and_a_dismissal_is_a_dismissal_not_a_block(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        cx.update(|_, app| bind(app));
+        let seen = told(&tab, cx);
+        let answer = ask(&tab, Permission::Camera, cx);
+        cx.run_until_parked();
+        // A tab nobody is looking at takes no focus, so the owner's keys are put on the strip as a press of Tab would.
+        tab.update_in(cx, |tab, window, cx| {
+            let allow = tab.strip[2].clone();
+            window.focus(&allow, cx);
+        });
+        cx.simulate_keystrokes("escape");
+        assert_eq!(answer.try_recv().ok(), Some(Answer::Dismiss));
+        assert_eq!(seen.borrow().last().map(String::as_str), Some("ended t1"));
+    }
+
+    #[gpui::test]
+    fn a_page_opened_before_any_tab_raises_nothing_until_a_tab_holds_it(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let last: LastShown = Rc::default();
+        let (root, cx) = cx.add_window_view(|window, cx| Rooted(cx.new(|cx| BrowserTab::new("mock-01".into(), super::super::UNATTACHED.into(), last, window, cx))));
+        let tab = root.read_with(cx, |root, _| root.0.clone());
+        let seen = told(&tab, cx);
+        let _answer = ask(&tab, Permission::Camera, cx);
+        assert!(seen.borrow().is_empty(), "Fleet knows no tab by that id");
+        tab.update(cx, |tab, cx| tab.attach("t9".into(), cx));
+        assert_eq!(*seen.borrow(), ["raised t9: Allow Camera for meet.example.com? [Allow, Block]"]);
     }
 
     #[gpui::test]

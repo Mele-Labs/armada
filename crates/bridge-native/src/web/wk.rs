@@ -25,8 +25,8 @@ use objc2_foundation::{
     NSSize, NSString, NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
-    WKContentWorld, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
-    WKNavigationDelegate, WKNavigationType, WKScriptMessage, WKScriptMessageHandler, WKSnapshotConfiguration, WKUserContentController, WKWebView, WKWebViewConfiguration,
+    WKContentWorld, WKFrameInfo, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
+    WKNavigationDelegate, WKNavigationType, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler, WKSecurityOrigin, WKSnapshotConfiguration, WKUIDelegate, WKUserContentController, WKWebView, WKWebViewConfiguration,
     WKWebpagePreferences, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -82,6 +82,45 @@ pub struct Options {
     /// Where the kit's posts go, as JSON text: a sealed page's `window.webkit.messageHandlers.armada`. `None`: the page
     /// has no such handler.
     pub kit: Option<async_channel::Sender<String>>,
+}
+
+/// A reply WebKit is owed once. **Let go unanswered, it answers `fallback`**: WebKit raises where a handler it handed out is dropped
+/// uncalled, and a tab that closes with a page's ask waiting is such a drop.
+pub struct Reply<T: 'static> {
+    call: Option<Box<dyn FnOnce(T)>>,
+    fallback: Option<T>,
+}
+
+impl<T: 'static> Reply<T> {
+    fn new(fallback: T, call: impl FnOnce(T) + 'static) -> Reply<T> {
+        Reply { call: Some(Box::new(call)), fallback: Some(fallback) }
+    }
+
+    pub fn send(mut self, answer: T) {
+        self.fallback = None;
+        if let Some(call) = self.call.take() {
+            call(answer);
+        }
+    }
+}
+
+impl<T: 'static> Drop for Reply<T> {
+    fn drop(&mut self) {
+        if let (Some(call), Some(fallback)) = (self.call.take(), self.fallback.take()) {
+            call(fallback);
+        }
+    }
+}
+
+/// What a Job browser's page asks of the one that holds it, each to be answered once.
+pub enum Request {
+    /// The camera, the microphone or both, for `origin`, a web address (`webView:requestMediaCapturePermissionForOrigin:`).
+    Media { origin: String, camera: bool, microphone: bool, reply: Reply<bool> },
+}
+
+/// Where a Job browser's page sends what it asks.
+pub struct Site {
+    pub requests: async_channel::Sender<Request>,
 }
 
 fn pending_up() {
@@ -174,6 +213,47 @@ impl Navigation {
         let this = mtm.alloc::<Self>().set_ivars(NavState { events, sealed });
         // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
         unsafe { msg_send![super(this), init] }
+    }
+}
+
+define_class!(
+    // SAFETY: NSObject has no subclassing requirements, and `PageUi` implements no `Drop`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = async_channel::Sender<Request>]
+    struct PageUi;
+
+    unsafe impl NSObjectProtocol for PageUi {}
+
+    unsafe impl WKUIDelegate for PageUi {
+        #[unsafe(method(webView:requestMediaCapturePermissionForOrigin:initiatedByFrame:type:decisionHandler:))]
+        fn request_media(&self, _: &WKWebView, origin: &WKSecurityOrigin, _: &WKFrameInfo, kind: WKMediaCaptureType, handler: &DynBlock<dyn Fn(WKPermissionDecision)>) {
+            let handler = handler.copy();
+            let reply = Reply::new(false, move |grant| handler.call((if grant { WKPermissionDecision::Grant } else { WKPermissionDecision::Deny },)));
+            let camera = kind == WKMediaCaptureType::Camera || kind == WKMediaCaptureType::CameraAndMicrophone;
+            let microphone = kind == WKMediaCaptureType::Microphone || kind == WKMediaCaptureType::CameraAndMicrophone;
+            // Sent nowhere (no one hears it), the reply is let go, and denies.
+            let _ = self.ivars().try_send(Request::Media { origin: origin_url(origin), camera, microphone, reply });
+        }
+    }
+);
+
+impl PageUi {
+    fn new(requests: async_channel::Sender<Request>, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(requests);
+        // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+/// A security origin as a web address: `https://example.com:8443/`.
+fn origin_url(origin: &WKSecurityOrigin) -> String {
+    // SAFETY: reads of the live origin WebKit passed this call, on the main thread.
+    let (scheme, host, port) = unsafe { (origin.protocol().to_string(), origin.host().to_string(), origin.port()) };
+    if port > 0 {
+        format!("{scheme}://{host}:{port}/")
+    } else {
+        format!("{scheme}://{host}/")
     }
 }
 
@@ -279,6 +359,8 @@ pub struct Native {
     _navigation: Retained<Navigation>,
     /// The kit's handler, which the page's content controller holds until `Drop` takes it off.
     kit: Option<Retained<KitPosts>>,
+    /// A Job browser's page's own say on what it asks for, which its view holds only weakly.
+    _ui: Option<Retained<PageUi>>,
     /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
     watching: RefCell<Option<Retained<Watching>>>,
     mtm: MainThreadMarker,
@@ -311,10 +393,15 @@ fn rect(frame: Frame) -> NSRect {
 impl Native {
     /// A page, or `None` off the main thread, where WebKit cannot be used.
     pub fn new(options: &Options, size: Frame, events: async_channel::Sender<Nav>) -> Option<Native> {
+        Native::with_site(options, size, events, None)
+    }
+
+    /// A Job browser's page: `new`, with the page's asks sent to `site`.
+    pub fn with_site(options: &Options, size: Frame, events: async_channel::Sender<Nav>, site: Option<Site>) -> Option<Native> {
         let mtm = MainThreadMarker::new()?;
         // SAFETY: every call below is on the main thread, on objects made here, with arguments of the types
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
-        let (view, navigation, kit) = unsafe {
+        let (view, navigation, kit, ui) = unsafe {
             let config = WKWebViewConfiguration::new(mtm);
             // The kit's handler is in the page's own world, where the kit's script runs.
             let kit = options.kit.clone().map(|posts| {
@@ -341,7 +428,11 @@ impl Native {
             let view = WKWebView::initWithFrame_configuration(mtm.alloc(), rect(size), &config);
             let navigation = Navigation::new(events, options.sealed, mtm);
             view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
-            (view, navigation, kit)
+            let ui = site.map(|site| PageUi::new(site.requests, mtm));
+            if let Some(ui) = &ui {
+                view.setUIDelegate(Some(ProtocolObject::from_ref(&**ui)));
+            }
+            (view, navigation, kit, ui)
         };
         if options.clear {
             // SAFETY: key-value coding on the live view, on the main thread; `drawsBackground` is a boolean key
@@ -358,7 +449,7 @@ impl Native {
         let ring: Retained<RingView> = unsafe { msg_send![super(ring), initWithFrame: rect(Frame::new(0., 0., 0., 0.))] };
         ring.setHidden(true);
         LIVE.with(|live| live.set(live.get() + 1));
-        Some(Native { view, ring, _navigation: navigation, kit, watching: RefCell::new(None), mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, watching: RefCell::new(None), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -420,6 +511,11 @@ impl Native {
         self.view.setFrame(rect(frame));
         self.view.setHidden(false);
         let _ = self.mtm;
+    }
+
+    /// The keys, if the page holds them, go back to the gpui view it sits in (`give_keys_back`).
+    pub fn release_keys(&self) {
+        give_keys_back(&self.view);
     }
 
     /// The page hidden, keeping its place, scroll and state, as Classic parks a walk's view.

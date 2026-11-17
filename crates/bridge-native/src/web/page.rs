@@ -99,6 +99,8 @@ pub struct WebPage {
     store: Option<[u8; 16]>,
     /// Where the page's address, title and history changes go once it is made (`watch_changes`).
     changes: Option<async_channel::Sender<()>>,
+    /// Where a Job browser's page sends what it asks for once it is made (`hear_requests`).
+    asks: Option<async_channel::Sender<wk::Request>>,
 }
 
 impl EventEmitter<WebPageEvent> for WebPage {}
@@ -162,6 +164,7 @@ impl WebPage {
             _hearing: hearing,
             store: None,
             changes: None,
+            asks: None,
         }
     }
 
@@ -238,6 +241,20 @@ impl WebPage {
         hear
     }
 
+    /// Hears what the page asks for: a permission, each to be answered once. Ask once, before the page is made.
+    pub fn hear_requests(&mut self) -> async_channel::Receiver<wk::Request> {
+        let (tx, hear) = async_channel::unbounded();
+        self.asks = Some(tx);
+        hear
+    }
+
+    /// The keys, if the page holds them, go back to the window's own view.
+    pub fn release_keys(&self) {
+        if let Some(native) = &self.native {
+            native.release_keys();
+        }
+    }
+
     /// Runs `body` as an async function's body in the content world named `world`, awaiting what it returns. The answer is its
     /// string, `None` where it returned none, or the page's words for a throw. A page not made answers an error at once.
     pub fn call_async(&self, world: &str, body: &str) -> async_channel::Receiver<Result<Option<String>, String>> {
@@ -296,7 +313,7 @@ impl WebPage {
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
-        self.native = Native::new(&options, size, events);
+        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests }));
         if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
             native.watch(told);
         }

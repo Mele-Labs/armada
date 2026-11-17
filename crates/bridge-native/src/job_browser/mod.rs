@@ -24,9 +24,10 @@ mod tab;
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use gpui::{AnyElement, App, AppContext, Context, Entity, SharedString, Subscription, Window};
+use gpui::{AnyElement, App, AppContext, Context, Entity, SharedString, Subscription, Task, Window};
 
-use self::tab::{BrowserTab, LastShown};
+use self::tab::{BrowserTab, BrowserTabEvent, LastShown};
+pub use self::tab::bind;
 use super::pane_tree::{self as tree, Extras, Tab};
 use super::JobView;
 
@@ -43,12 +44,23 @@ pub struct Browsers {
     next: u64,
     /// Reminder rows whose press has gone to the Job, until the thread says so itself.
     told: std::collections::HashSet<String>,
+    /// What Fleet is told of the pages' asks, one at a time and in order, so an end never reaches it before its raise.
+    to_fleet: Option<(async_channel::Sender<FleetCall>, Task<()>)>,
 }
 
 #[derive(Default)]
 struct Pages {
     tabs: HashMap<String, Entity<BrowserTab>>,
     unattached: Option<Entity<BrowserTab>>,
+    /// Hearing each page's asks, which go on to Fleet.
+    heard: Vec<Subscription>,
+}
+
+/// One thing Fleet is told of a page's ask: the route, and its body.
+struct FleetCall {
+    port: u16,
+    path: &'static str,
+    body: String,
 }
 
 /// An act running on a Job's page: its sentence, and the page it is on, by entity (`None` until the page opens, for an `open` on a
@@ -80,6 +92,60 @@ impl JobView {
             })
             .detach();
         }
+        // An ask answered in Needs you settles the tab's strip, with Fleet told nothing since it said so.
+        for answered in &news.answered {
+            let Some(tab) = self.browsers.by_job.get(answered.session_id.as_str()).and_then(|held| held.tabs.get(&answered.ask_id)).cloned() else { continue };
+            let answer = asks::answer_of(answered.choice);
+            tab.update(cx, |tab, cx| tab.answered(answer, true, window, cx));
+        }
+    }
+
+    /// Fleet is told of a page's ask, after what it was told before.
+    fn tell_fleet(&mut self, path: &'static str, body: Result<String, ipc::Unencodable>, cx: &mut Context<Self>) {
+        let (Some(port), Ok(body)) = (self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()), body) else { return };
+        let (queue, _) = self.browsers.to_fleet.get_or_insert_with(|| {
+            let (queue, calls) = async_channel::unbounded::<FleetCall>();
+            let worker = cx.background_executor().clone();
+            let task = cx.spawn(async move |_, _| {
+                while let Ok(call) = calls.recv().await {
+                    let done = worker
+                        .spawn(async move {
+                            let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                            runtime.block_on(crate::transport::post(call.port, call.path, call.body))
+                        })
+                        .await;
+                    // A Fleet that refuses or is gone has nothing more to be told: the tab's strip works without it.
+                    if let Err(why) = done {
+                        crate::log::Note::warn("a page's ask did not reach Fleet").field("why", why).emit();
+                    }
+                }
+            });
+            (queue, task)
+        });
+        let _ = queue.try_send(FleetCall { port, path, body });
+    }
+
+    /// What a tab tells Fleet of its page's ask.
+    fn browser_tab_told(&mut self, job: &str, event: &BrowserTabEvent, cx: &mut Context<Self>) {
+        match event {
+            BrowserTabEvent::Raised { tab, text, options } => {
+                let body = ipc::RaiseBrowserAsk { session_id: ipc::SessionId::carried(job.to_string()), ask_id: tab.clone(), text: text.clone(), options: options.clone() };
+                self.tell_fleet("/sessions/browser/ask", ipc::encode(&body), cx);
+            }
+            BrowserTabEvent::Ended { tab } => self.browser_ask_ended(job, tab, cx),
+        }
+    }
+
+    fn browser_ask_ended(&mut self, job: &str, tab: &str, cx: &mut Context<Self>) {
+        let body = ipc::EndBrowserAsk { session_id: ipc::SessionId::carried(job.to_string()), ask_id: tab.to_string() };
+        self.tell_fleet("/sessions/browser/ask/end", ipc::encode(&body), cx);
+    }
+
+    /// A tab closed or a Job gone: its page's ask is dismissed, and Fleet told it is over.
+    fn browser_closed(&mut self, job: &str, tab: &str, page: &Entity<BrowserTab>, cx: &mut Context<Self>) {
+        if page.update(cx, |page, cx| page.close(cx)) {
+            self.browser_ask_ended(job, tab, cx);
+        }
     }
 
     /// Job `job`'s Browser tabs in pane order.
@@ -96,18 +162,49 @@ impl JobView {
         }
         let ids = self.browser_ids(job);
         let last = self.browsers.last.clone();
+        let repository = self.record(job, cx).and_then(|record| record.manifest_id.as_ref().map(|manifest| manifest.as_str().to_string())).unwrap_or_else(|| choices::NO_REPOSITORY.to_string());
+        // A tab that closed dismisses the ask its page had, and Fleet is told it is over.
+        let gone: Vec<(String, Entity<BrowserTab>)> =
+            self.browsers.by_job.get(job.as_ref()).map(|held| held.tabs.iter().filter(|(id, _)| !ids.contains(id)).map(|(id, page)| (id.clone(), page.clone())).collect()).unwrap_or_default();
+        for (id, page) in gone {
+            if let Some(held) = self.browsers.by_job.get_mut(job.as_ref()) {
+                held.tabs.remove(&id);
+            }
+            self.browser_closed(job, &id, &page, cx);
+        }
         let held = self.browsers.by_job.entry(job.to_string()).or_default();
-        held.tabs.retain(|id, _| ids.contains(id));
-        if let (Some(first), Some(open)) = (ids.iter().find(|id| !held.tabs.contains_key(*id)), held.unattached.take()) {
-            open.update(cx, |page, _| page.attach(first.clone()));
-            held.tabs.insert(first.clone(), open);
+        let taking = match (ids.iter().find(|id| !held.tabs.contains_key(*id)), held.unattached.take()) {
+            (Some(first), Some(open)) => {
+                held.tabs.insert(first.clone(), open.clone());
+                Some((first.clone(), open))
+            }
+            _ => None,
+        };
+        if let Some((first, open)) = taking {
+            open.update(cx, |page, cx| page.attach(first, cx));
         }
         for id in ids {
+            let held = self.browsers.by_job.entry(job.to_string()).or_default();
             if !held.tabs.contains_key(&id) {
                 let tab = id.clone();
-                held.tabs.insert(id, cx.new(|cx| BrowserTab::new(job.clone(), tab, last.clone(), window, cx)));
+                let page = cx.new(|cx| BrowserTab::new(job.clone(), tab, last.clone(), window, cx));
+                let heard = self.hear_tab(job, &page, window, cx);
+                let held = self.browsers.by_job.entry(job.to_string()).or_default();
+                held.tabs.insert(id, page);
+                held.heard.push(heard);
             }
         }
+        if let Some(held) = self.browsers.by_job.get(job.as_ref()) {
+            for page in held.tabs.values().chain(held.unattached.iter()) {
+                page.update(cx, |page, _| page.set_repository(repository.clone()));
+            }
+        }
+    }
+
+    /// Hears what a tab tells Fleet of its page's ask.
+    fn hear_tab(&mut self, job: &SharedString, page: &Entity<BrowserTab>, window: &mut Window, cx: &mut Context<Self>) -> Subscription {
+        let job = job.to_string();
+        cx.subscribe_in(page, window, move |this, _, event: &BrowserTabEvent, _, cx| this.browser_tab_told(&job, event, cx))
     }
 
     /// The page Job `job`'s agent's acts reach, as it stands: the first Browser tab shown, else the one shown last, else the first.
@@ -171,7 +268,10 @@ impl JobView {
         for mark in self.browsers.running.entry(job.to_string()).or_default() {
             mark.on.get_or_insert(open.entity_id().as_u64());
         }
-        self.browsers.by_job.entry(job.to_string()).or_default().unattached = Some(open.clone());
+        let heard = self.hear_tab(&name, &open, window, cx);
+        let held = self.browsers.by_job.entry(job.to_string()).or_default();
+        held.unattached = Some(open.clone());
+        held.heard.push(heard);
         self.rearrange_in(&name, None, true, |arrangement| Cow::Owned(tree::arrive(arrangement, "browser", Extras::default())), cx);
         self.sync_browsers(&name, window, cx);
         self.browser_marked(job, cx);
@@ -186,7 +286,17 @@ impl JobView {
     }
 
     /// The Job is gone, and so are its pages.
-    pub(super) fn forget_browsers(&mut self, job: &str) {
+    pub(super) fn forget_browsers(&mut self, job: &str, cx: &mut Context<Self>) {
+        // Each page's ask is dismissed and Fleet told it is over, before the pages go.
+        let pages: Vec<(String, Entity<BrowserTab>)> = self
+            .browsers
+            .by_job
+            .get(job)
+            .map(|held| held.tabs.iter().map(|(id, page)| (id.clone(), page.clone())).collect())
+            .unwrap_or_default();
+        for (id, page) in pages {
+            self.browser_closed(job, &id, &page, cx);
+        }
         self.browsers.by_job.remove(job);
         self.browsers.running.remove(job);
         self.browsers.last.borrow_mut().remove(job);
