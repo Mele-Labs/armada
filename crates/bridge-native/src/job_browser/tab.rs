@@ -16,7 +16,7 @@ use gpui::{
 };
 use gpui_component::input::{Input, InputEvent, InputState};
 
-use super::acts::is_web;
+use super::acts::typed_address;
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -205,10 +205,11 @@ impl BrowserTab {
         self.page.update(cx, |page, cx| page.reload(cx));
     }
 
-    /// Enter in the address: goes to what was typed, and only the web (`navigate`).
+    /// Enter in the address: goes to what was typed, and only the web (`navigate`). A name typed without `https://` opens as
+    /// one, as a browser's address bar does.
     fn navigate(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
-        let typed = self.address.read(cx).value().trim().to_string();
-        if typed.is_empty() || typed == self.url || !is_web(&typed) {
+        let Some(typed) = typed_address(&self.address.read(cx).value()) else { return };
+        if typed == self.url {
             return;
         }
         self.page.update(cx, |page, cx| {
