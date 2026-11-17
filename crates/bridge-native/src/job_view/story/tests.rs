@@ -439,7 +439,7 @@ fn a_story_that_moved_is_read_again_for_the_done_card_of_a_job_it_asked_for_and_
 
 // ---- a fixed tab of the Job's panes -----------------------------------------------------------
 
-/// The Job's panes as a Job that opened Plan and Files kept them before Story was a kind, kept under its key, and the Job
+/// The Job's panes as a Job kept them before Story was a kind, kept under its key, and the Job
 /// on screen on the mock Fleet.
 fn job_with_kept_panes(kept: super::super::pane_tree::Arrangement, cx: &mut TestAppContext) -> (gpui::Entity<super::JobView>, &mut VisualTestContext) {
     use super::super::pane_store;
@@ -460,15 +460,19 @@ fn job_with_kept_panes(kept: super::super::pane_tree::Arrangement, cx: &mut Test
     (view, cx)
 }
 
-fn kept_with(story: bool) -> (super::super::pane_tree::Arrangement, String) {
-    use super::super::pane_tree::{add_tab, default_arrangement, panes_of, Extras};
+/// The default panes as a Job that opened Plan and Files kept them before Story was a kind, with Story at the end of the
+/// column's top where `story`, and the thread's pane and the top's id.
+fn kept_with(story: bool) -> (super::super::pane_tree::Arrangement, String, String) {
+    use super::super::pane_tree::{add_tab, close_tab, default_arrangement, holder_of, panes_of, Extras};
     let base = default_arrangement();
-    let top = panes_of(&base.root)[1].id.clone();
-    let mut kept = add_tab(&add_tab(&base, &top, "plan", Extras::default()), &top, "files", Extras::default()).into_owned();
+    let (thread, top) = (panes_of(&base.root)[0].id.clone(), panes_of(&base.root)[1].id.clone());
+    let own = holder_of(&base, "story").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "story")).map(|tab| tab.id.clone()).expect("the default has Story");
+    let closed = close_tab(&base, &own).into_owned();
+    let mut kept = add_tab(&add_tab(&closed, &top, "plan", Extras::default()), &top, "files", Extras::default()).into_owned();
     if story {
         kept = add_tab(&kept, &top, "story", Extras::default()).into_owned();
     }
-    (kept, top)
+    (kept, thread, top)
 }
 
 fn top_kinds(view: &gpui::Entity<super::JobView>, top: &str, cx: &mut VisualTestContext) -> Vec<String> {
@@ -479,22 +483,24 @@ fn top_kinds(view: &gpui::Entity<super::JobView>, top: &str, cx: &mut VisualTest
 }
 
 #[gpui::test]
-fn an_arrangement_kept_without_story_opens_with_story_between_plan_and_files(cx: &mut TestAppContext) {
-    let (kept, top) = kept_with(false);
+fn an_arrangement_kept_without_story_opens_with_story_after_thread(cx: &mut TestAppContext) {
+    let (kept, thread, top) = kept_with(false);
     let (view, cx) = job_with_kept_panes(kept, cx);
-    assert_eq!(top_kinds(&view, &top, cx), ["for_you", "open", "done", "deferred", "plan", "story", "files"]);
+    assert_eq!(top_kinds(&view, &thread, cx), ["thread", "story"]);
+    assert_eq!(top_kinds(&view, &top, cx), ["for_you", "open", "done", "deferred", "plan", "files"]);
 }
 
 #[gpui::test]
 fn an_arrangement_kept_with_story_keeps_its_own_place_for_it(cx: &mut TestAppContext) {
-    let (kept, top) = kept_with(true);
+    let (kept, thread, top) = kept_with(true);
     let (view, cx) = job_with_kept_panes(kept, cx);
     assert_eq!(top_kinds(&view, &top, cx), ["for_you", "open", "done", "deferred", "plan", "files", "story"]);
+    assert_eq!(top_kinds(&view, &thread, cx), ["thread"]);
 }
 
 #[gpui::test]
 fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_front(cx: &mut TestAppContext) {
-    let (kept, top) = kept_with(false);
+    let (kept, thread, _) = kept_with(false);
     cx.update(|cx| story_link::put(StoryRequest { session_id: SessionId::carried(JOB), ask_id: "ask-3".into() }, cx));
     let (view, cx) = job_with_kept_panes(kept, cx);
     // `ready` took the request an earlier test left, so it is put again once the Job is open and its panes are read.
@@ -505,7 +511,7 @@ fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_fro
     cx.run_until_parked();
     let front = view.read_with(cx, |view, _| {
         let arrangement = view.arrangement_of(JOB).expect("placed");
-        super::super::pane_tree::pane_by_id(arrangement, &top).and_then(|pane| pane.active.clone().and_then(|id| pane.tabs.iter().find(|tab| tab.id == id).map(|tab| tab.kind.clone())))
+        super::super::pane_tree::pane_by_id(arrangement, &thread).and_then(|pane| pane.active.clone().and_then(|id| pane.tabs.iter().find(|tab| tab.id == id).map(|tab| tab.kind.clone())))
     });
     assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front");
     assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "the tab took the request");

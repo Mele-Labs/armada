@@ -23,7 +23,7 @@ pub(super) struct AddMenu {
 }
 
 /// The kinds + offers: id, word and glyph, in Electron's order of kinds (`JOB_TAB_KINDS`).
-pub(super) const KINDS: [(&str, &str, &str); 22] = [
+pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("thread", "Thread", "message-square"),
     ("for_you", "For you", "user-check"),
     ("done", "Done", "circle-check"),
