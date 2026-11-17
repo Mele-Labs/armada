@@ -133,20 +133,20 @@ fn since_my_last_look_keeps_what_moved_after_it_and_every_ask_where_there_was_no
 fn the_asks_of_a_kind_come_newest_first_with_the_bugs_a_job_filed_and_each_chip_keeps_its_own() {
     let page = mock::page(SLUG);
     let asks = mock::asks(SLUG).asks;
-    let body = |chip, looked| titles(page_model::body(Section::Bugs, &page, Some(&asks), chip, looked));
-    assert_eq!(body(Chip::All, None), ["Native draws no sketch in a page", "The card loses focus after a retry", "They show as i never voted", "The model name is cut off in the card", "Retry started a second Job"]);
+    let body = |chip, looked| titles(page_model::body(Section::Bugs, &page, Some(&asks), chip, looked, &page_model::Titles::new()));
+    assert_eq!(body(Chip::All, None), ["Native draws no sketch in a page", "The card loses focus after a retry", "They show as i never voted", "The model name is cut off in the card", "Retry started a second Job", "The title is proposed twice on a slow start", "The workflow picker forgets the last repository"]);
     assert_eq!(body(Chip::Open, None), ["Native draws no sketch in a page", "The card loses focus after a retry"]);
     assert_eq!(body(Chip::Backlog, None), ["The model name is cut off in the card"]);
-    assert_eq!(body(Chip::Fixed, None), ["They show as i never voted"]);
+    assert_eq!(body(Chip::Fixed, None), ["They show as i never voted", "The title is proposed twice on a slow start", "The workflow picker forgets the last repository"]);
     assert_eq!(body(Chip::Since, Some(at(13))), ["Native draws no sketch in a page", "The card loses focus after a retry", "They show as i never voted"]);
-    assert_eq!(titles(page_model::body(Section::Changes, &page, Some(&asks), Chip::All, None)), ["True voting with sketches", "Keep the request when the card closes"], "a fix is a change request");
-    assert_eq!(titles(page_model::body(Section::Ideas, &page, Some(&asks), Chip::All, None)), ["Start from the phone", "Suggest a repository from the request"]);
+    assert_eq!(titles(page_model::body(Section::Changes, &page, Some(&asks), Chip::All, None, &page_model::Titles::new())), ["True voting with sketches", "Keep the request when the card closes"], "a fix is a change request");
+    assert_eq!(titles(page_model::body(Section::Ideas, &page, Some(&asks), Chip::All, None, &page_model::Titles::new())), ["Start from the phone", "Suggest a repository from the request"]);
 }
 
 #[test]
 fn a_job_on_the_feature_stands_first_with_its_chip_and_the_rest_come_newest_first() {
     let page = mock::page(SLUG);
-    let Body::Rows(rows) = page_model::body(Section::Who, &page, None, Chip::All, None) else { panic!("rows") };
+    let Body::Rows(rows) = page_model::body(Section::Who, &page, None, Chip::All, None, &page_model::Titles::new()) else { panic!("rows") };
     let seen: Vec<(&str, bool)> = rows.iter().map(|row| (row.title.as_str(), row.on)).collect();
     assert_eq!(seen, [("Add the model picker to the start card", true), ("Propose the title from the first line", false), ("Pick the workflow from the repository", false)]);
     assert!(rows[0].meta.starts_with("Running"), "the link's state and day: {}", rows[0].meta);
@@ -155,7 +155,7 @@ fn a_job_on_the_feature_stands_first_with_its_chip_and_the_rest_come_newest_firs
 #[test]
 fn designs_are_the_sketches_documents_walks_and_drafts_newest_first_and_the_top_strip_names_the_newest_merge() {
     let mut page = mock::page(SLUG);
-    assert_eq!(titles(page_model::body(Section::Designs, &page, None, Chip::All, None)), ["Walk of the start card", "Start card with the model picker", "How a Job starts"]);
+    assert_eq!(titles(page_model::body(Section::Designs, &page, None, Chip::All, None, &page_model::Titles::new())), ["Walk of the start card", "Start card with the model picker", "How a Job starts"]);
     assert_eq!(page_model::current_as_of(&page), Some(format!("Current as of #3720, {}", page_model::day(at(15)))));
     page.links.retain(|link| link.kind != FeatureLinkKind::Merge);
     assert_eq!(page_model::current_as_of(&page), None, "no merge, nothing said");
@@ -164,19 +164,19 @@ fn designs_are_the_sketches_documents_walks_and_drafts_newest_first_and_the_top_
 #[test]
 fn a_written_section_is_commands_in_monospace_and_paragraphs_otherwise() {
     let page = mock::page(SLUG);
-    let Body::Written(Some(written)) = page_model::body(Section::Test, &page, None, Chip::All, None) else { panic!("written") };
+    let Body::Written(Some(written)) = page_model::body(Section::Test, &page, None, Chip::All, None, &page_model::Titles::new()) else { panic!("written") };
     assert_eq!(written.blocks.len(), 2);
     assert!(written.blocks[0].command && written.blocks[0].text.contains('\n'), "the two commands are one block");
     assert!(!written.blocks[1].command);
     assert!(written.by.starts_with("Written by Add the model picker to the start card, "));
     assert_eq!(written.stale, None);
-    let Body::Written(Some(observe)) = page_model::body(Section::Observe, &page, None, Chip::All, None) else { panic!("written") };
+    let Body::Written(Some(observe)) = page_model::body(Section::Observe, &page, None, Chip::All, None, &page_model::Titles::new()) else { panic!("written") };
     assert_eq!(observe.stale.as_deref(), Some("Stale since #3692"));
-    let Body::Written(Some(debt)) = page_model::body(Section::Debt, &page, None, Chip::All, None) else { panic!("written") };
+    let Body::Written(Some(debt)) = page_model::body(Section::Debt, &page, None, Chip::All, None, &page_model::Titles::new()) else { panic!("written") };
     assert!(debt.blocks.iter().all(|block| !block.command), "tech debt is read as text");
     let mut bare = page;
     bare.sections.clear();
-    assert_eq!(page_model::body(Section::Test, &bare, None, Chip::All, None), Body::Written(None), "where none was written the pane is empty");
+    assert_eq!(page_model::body(Section::Test, &bare, None, Chip::All, None, &page_model::Titles::new()), Body::Written(None), "where none was written the pane is empty");
 }
 
 // ---- the page --------------------------------------------------------------------------------
@@ -188,7 +188,7 @@ fn he_last_looked_at_a_feature_when_he_leaves_its_page_and_never_when_he_opens_i
     assert_eq!(page.read_with(cx, |page, _| page.looked), None);
     page.update(cx, |page, cx| page.select(Section::Bugs, cx));
     page.update(cx, |page, cx| page.apply(Chip::Since, cx));
-    assert_eq!(page.read_with(cx, |page, _| page.row_count()), 5, "a feature never looked at shows every ask under the chip");
+    assert_eq!(page.read_with(cx, |page, _| page.row_count()), 6, "a feature never looked at shows every ask under the chip: five rows and the fold line");
     page.update(cx, |page, cx| page.leave(cx));
     assert!(cx.update(|_, cx| looked::before(mock::PROJECT, SLUG, cx)).is_some(), "leaving stamps it");
     assert_eq!(page.read_with(cx, |page, _| page.looked), None, "and the page he left still compares with the look before it");
@@ -211,7 +211,7 @@ fn a_page_opened_after_a_look_compares_with_that_look_and_another_feature_is_not
         page.select(Section::Bugs, cx);
         page.apply(Chip::Since, cx);
     });
-    assert_eq!(other.read_with(cx, |page, _| page.row_count()), 5, "no look at that one, so every ask");
+    assert_eq!(other.read_with(cx, |page, _| page.row_count()), 6, "no look at that one, so every ask: five rows and the fold line");
 }
 
 #[gpui::test]

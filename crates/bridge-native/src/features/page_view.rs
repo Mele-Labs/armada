@@ -5,7 +5,7 @@ use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Render, Role
 
 use super::asks;
 use super::page::{FeaturePageView, Load, Region};
-use super::page_model::{Block, Body, Chip, Code, Entry, Section, Written};
+use super::page_model::{Block, Body, Chip, Code, Entry, Item, Section, Written};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::settings::view::{bone, ring_colour, tip};
@@ -207,9 +207,28 @@ impl FeaturePageView {
 
     fn render_row(&self, ix: usize, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let Body::Rows(rows) = &self.body else { return div().into_any_element() };
-        let Some(row) = rows.get(ix) else { return div().into_any_element() };
+        let Some(item) = self.items.get(ix) else { return div().into_any_element() };
         let picked = self.row_at == Some(ix);
-        let line = asks::row(look, SharedString::from(format!("feature-row-{ix}")), row, picked).on_click(cx.listener(move |this, _, window, cx| {
+        let id = SharedString::from(format!("feature-row-{ix}"));
+        let row = match *item {
+            Item::Fold => {
+                return asks::fold(look, id, self.is_unfolded(), picked, cx.listener(move |this, _, window, cx| {
+                    this.pick_row(ix, cx);
+                    this.focus_region(Region::Rows, window, cx);
+                    this.toggle_fold(cx);
+                }))
+                .into_any_element();
+            }
+            Item::Row(row) => match rows.get(row) {
+                Some(row) => row,
+                None => return div().into_any_element(),
+            },
+        };
+        let line = match &row.ask {
+            Some(ask) => asks::ask(look, id, row, ask, picked, cx.listener(move |this, _, _, cx| this.open_story(ix, cx))),
+            None => asks::row(look, id, row, picked),
+        }
+        .on_click(cx.listener(move |this, _, window, cx| {
             this.pick_row(ix, cx);
             this.focus_region(Region::Rows, window, cx);
         }));

@@ -7,20 +7,24 @@
 //! **When he last looked at the feature is stamped when he leaves the page**, and never when he opens it, so the
 //! chip Since my last look compares with the look before this one while he is on it.
 
+use std::collections::HashSet;
+
 use chrono::{DateTime, Utc};
 use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
-use ipc::{FeatureAsks, FeaturePage};
+use ipc::{FeatureAsks, FeaturePage, SessionId};
 
-use super::page_model::{self, Body, Chip, Entry, Section};
+use super::page_model::{self, Body, Chip, Entry, Item, Section, Titles};
 use super::{looked, mock, wire};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
 use crate::settings::wire::Refused;
 
 /// What the page tells whoever holds it.
-pub enum PageEvent {
+pub enum FeaturePageEvent {
     /// Esc: the keys go back to where the page was opened from.
     Escape,
+    /// The Story of an ask: the Job to open, and the ask to put in front on its Story tab.
+    Story { session_id: SessionId, ask_id: String },
 }
 
 enum Source {
@@ -58,6 +62,12 @@ pub struct FeaturePageView {
     pub(super) entries: Vec<Entry>,
     pub(super) body: Body,
     pub(super) section: Section,
+    /// What the list holds, in its order: the rows, and the line that folds the older asks.
+    pub(super) items: Vec<Item>,
+    /// The ask sections whose older rows are open. Not saved.
+    pub(super) unfolded: HashSet<Section>,
+    /// The titles of the Jobs an ask names, by id, from the Jobs Fleet holds.
+    pub(super) titles: Titles,
     /// The chip applied, and the one the keys are on.
     pub(super) chip: Chip,
     pub(super) chip_at: Chip,
@@ -72,7 +82,7 @@ pub struct FeaturePageView {
     _subs: Vec<Subscription>,
 }
 
-impl EventEmitter<PageEvent> for FeaturePageView {}
+impl EventEmitter<FeaturePageEvent> for FeaturePageView {}
 
 impl Focusable for FeaturePageView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -89,8 +99,10 @@ impl FeaturePageView {
             if this.port(cx) != this.read_port {
                 this.read(cx);
             }
+            this.name_jobs(cx);
         });
         this._subs.push(watch);
+        this.titles = this.held_titles(cx);
         this.read(cx);
         this
     }
@@ -100,6 +112,7 @@ impl FeaturePageView {
         let mut this = Self::new(Source::Mock, mock::PROJECT.to_string(), slug.clone(), cx);
         this.page = Load::Read(mock::page(&slug));
         this.asks = Load::Read(mock::asks(&slug));
+        this.titles = mock::titles();
         this.rebuild(cx);
         this
     }
@@ -120,6 +133,9 @@ impl FeaturePageView {
             entries: Vec::new(),
             body: Body::Rows(Vec::new()),
             section: Section::Who,
+            items: Vec::new(),
+            unfolded: HashSet::new(),
+            titles: Titles::new(),
             chip: Chip::All,
             chip_at: Chip::All,
             row_at: None,
@@ -156,6 +172,23 @@ impl FeaturePageView {
     }
 
     // ---- reading -----------------------------------------------------------------------------
+
+    /// The titles of the Jobs the connection holds, by id.
+    fn held_titles(&self, cx: &App) -> Titles {
+        match &self.source {
+            Source::Live(fleet) => fleet.read(cx).held().jobs.iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect(),
+            Source::Mock => Titles::new(),
+        }
+    }
+
+    /// The Jobs Fleet holds changed: the rows that name one are drawn again where a title changed.
+    fn name_jobs(&mut self, cx: &mut Context<Self>) {
+        let titles = self.held_titles(cx);
+        if titles != self.titles {
+            self.titles = titles;
+            self.rebuild(cx);
+        }
+    }
 
     fn port(&self, cx: &App) -> Option<u16> {
         match &self.source {
@@ -212,21 +245,45 @@ impl FeaturePageView {
     pub(super) fn rebuild(&mut self, cx: &mut Context<Self>) {
         if let Load::Read(page) = &self.page {
             self.entries = page_model::entries(page, self.asks_read());
-            self.body = page_model::body(self.section, page, self.asks_read(), self.chip, self.looked);
+            self.body = page_model::body(self.section, page, self.asks_read(), self.chip, self.looked, &self.titles);
         } else {
             self.entries.clear();
             self.body = Body::Rows(Vec::new());
         }
-        let count = self.row_count();
+        self.refold(cx);
+    }
+
+    /// The places of the list from the rows and the fold, and the list drawn again.
+    fn refold(&mut self, cx: &mut Context<Self>) {
+        self.items = match &self.body {
+            Body::Rows(rows) => page_model::items(self.section, rows.len(), self.unfolded.contains(&self.section)),
+            _ => Vec::new(),
+        };
+        let count = self.items.len();
         self.list.reset(count);
         self.row_at = self.row_at.filter(|at| *at < count);
         cx.notify();
     }
 
+    /// The places the keys can be on: each row, and the fold line.
     pub(super) fn row_count(&self) -> usize {
-        match &self.body {
-            Body::Rows(rows) => rows.len(),
-            _ => 0,
+        self.items.len()
+    }
+
+    /// Whether the open section's older asks are showing.
+    pub fn is_unfolded(&self) -> bool {
+        self.unfolded.contains(&self.section)
+    }
+
+    /// Open the older asks of the open section, or fold them again. The keys land on the fold line.
+    pub(super) fn toggle_fold(&mut self, cx: &mut Context<Self>) {
+        if !self.unfolded.remove(&self.section) {
+            self.unfolded.insert(self.section);
+        }
+        self.refold(cx);
+        if let Some(at) = self.items.iter().position(|item| *item == Item::Fold) {
+            self.row_at = Some(at);
+            self.list.scroll_to_reveal_item(at);
         }
     }
 
@@ -294,6 +351,33 @@ impl FeaturePageView {
         cx.notify();
     }
 
+    /// The ask on the place `at`, where it is one.
+    fn ask_at(&self, at: usize) -> Option<&page_model::AskLine> {
+        let Item::Row(row) = *self.items.get(at)? else { return None };
+        match &self.body {
+            Body::Rows(rows) => rows.get(row)?.ask.as_ref(),
+            _ => None,
+        }
+    }
+
+    /// Open the Job the ask on the place `at` came from, on its Story. The page says so and its holder opens it. An ask with
+    /// no Job at all has no Story.
+    pub(super) fn open_story(&mut self, at: usize, cx: &mut Context<Self>) {
+        let Some(line) = self.ask_at(at) else { return };
+        let Some(session_id) = line.story.clone() else { return };
+        let ask_id = line.ask_id.clone();
+        cx.emit(FeaturePageEvent::Story { session_id, ask_id });
+    }
+
+    /// Enter on the place the keys are on: a row opens its Story, and the fold line folds or opens.
+    fn press_row(&mut self, cx: &mut Context<Self>) {
+        match self.row_at.and_then(|at| self.items.get(at).map(|item| (at, *item))) {
+            Some((_, Item::Fold)) => self.toggle_fold(cx),
+            Some((at, Item::Row(_))) => self.open_story(at, cx),
+            None => {}
+        }
+    }
+
     /// The parts of the page that hold something, in the order Tab goes through them.
     pub(super) fn regions(&self) -> Vec<Region> {
         let mut regions = vec![Region::Rail];
@@ -342,9 +426,14 @@ impl FeaturePageView {
 
     // ---- keys --------------------------------------------------------------------------------
 
-    pub(super) fn on_key(&mut self, event: &KeyDownEvent, _: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         if event.keystroke.key == "escape" {
-            cx.emit(PageEvent::Escape);
+            // The older asks fold before the keys leave the page.
+            if self.region_in(window) == Region::Rows && self.is_unfolded() {
+                self.toggle_fold(cx);
+            } else {
+                cx.emit(FeaturePageEvent::Escape);
+            }
             cx.stop_propagation();
         }
     }
@@ -370,8 +459,13 @@ impl FeaturePageView {
             "features_open" => match region {
                 Region::Chips => self.apply(self.chip_at, cx),
                 Region::Rail => self.next_region(1, window, cx),
-                Region::Rows => {}
+                Region::Rows => self.press_row(cx),
             },
+            "features_story" if region == Region::Rows => {
+                if let Some(at) = self.row_at {
+                    self.open_story(at, cx);
+                }
+            }
             "features_pane" => self.next_region(if act.slot == 0 { 1 } else { -1 }, window, cx),
             _ => {}
         }

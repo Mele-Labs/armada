@@ -16,6 +16,7 @@ pub mod page;
 mod page_model;
 mod page_view;
 pub mod shots;
+pub mod story_link;
 mod view;
 mod wire;
 
@@ -28,7 +29,7 @@ use crate::keymap::Act;
 use crate::settings::wire::Refused;
 use crate::titlebar;
 use model::{Line, Listed};
-use page::{FeaturePageView, PageEvent};
+use page::{FeaturePageEvent, FeaturePageView};
 
 /// Where the list reads from.
 enum Source {
@@ -294,14 +295,24 @@ impl FeaturesScreen {
             };
             if let Some(page) = page {
                 page.update(cx, |page, cx| page.set_area(area, cx));
-                self.page_sub = Some(cx.subscribe_in(&page, window, |this, _, event: &PageEvent, window, cx| match event {
-                    PageEvent::Escape => this.focus_list(window, cx),
+                self.page_sub = Some(cx.subscribe_in(&page, window, |this, _, event: &FeaturePageEvent, window, cx| match event {
+                    FeaturePageEvent::Escape => this.focus_list(window, cx),
+                    FeaturePageEvent::Story { session_id, ask_id } => this.open_story(session_id.clone(), ask_id.clone(), cx),
                 }));
                 self.page = Some(page);
                 self.opened = Some(slug);
             }
         }
         cx.notify();
+    }
+
+    /// The Story of an ask: the request is left for the Story tab to read, and the Job opens as any screen opens one.
+    fn open_story(&mut self, session_id: ipc::SessionId, ask_id: String, cx: &mut Context<Self>) {
+        let job = session_id.as_str().to_string();
+        story_link::put(story_link::StoryRequest { session_id, ask_id }, cx);
+        if let Some(sink) = cx.try_global::<titlebar::AskedSink>().cloned() {
+            (sink.0)(&titlebar::Asked::OpenJob(job), cx);
+        }
     }
 
     fn open_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -398,6 +409,8 @@ impl FeaturesScreen {
     }
 }
 
+#[cfg(test)]
+mod ask_tests;
 #[cfg(test)]
 mod page_tests;
 #[cfg(test)]

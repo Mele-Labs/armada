@@ -1816,3 +1816,15 @@ scope = "features"
 destructive = false
 confirms = false
 notes = "Moves along the filter chips above a page's asks while the keys are on them, and Enter applies the chip it is on. Its own row because Left and Right move nothing else in the Features tab. Native only, 17 Nov 2026."
+
+[actions.features_story]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the story of the ask"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Opens the Job an ask on a feature's page came from, on its Story tab, at that ask. The same as Enter on the row and a press on its Story link. An ask filed outside a Job has none. Native only, 17 Nov 2026."

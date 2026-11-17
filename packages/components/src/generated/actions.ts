@@ -2024,6 +2024,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "features_story",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Open the story of the ask",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "s",
+    scope: "features",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

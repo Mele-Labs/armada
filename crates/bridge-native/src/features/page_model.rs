@@ -1,11 +1,16 @@
 //! What a feature's page draws, worked out from the page and the asks Fleet read: the sections down the
 //! side with the line under each, and what the open one holds. Nothing here touches the screen or the wire.
 
+use std::collections::HashMap;
+
 use chrono::{DateTime, Local, Utc};
-use ipc::{Ask, AskKind, AskState, FeatureLink, FeatureLinkKind, FeaturePage, FeatureSectionKind, Instant};
+use ipc::{Ask, AskKind, AskState, FeatureLink, FeatureLinkKind, FeaturePage, FeatureSectionKind, Instant, SessionId};
+
+/// The titles of the Jobs Fleet holds, by id: what an ask's row names its Jobs by.
+pub type Titles = HashMap<String, String>;
 
 /// The sections, in the order the catalog gives them.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Section {
     Who,
     Code,
@@ -153,7 +158,23 @@ pub enum Hue {
     Handed,
     Bad,
     Warn,
+    /// An ask in the backlog.
+    NotStarted,
     Muted,
+}
+
+/// What an ask's row says beyond a basic row: his words, where he said them, where it stands, and the Job its Story opens.
+#[derive(Clone, Debug, PartialEq)]
+pub struct AskLine {
+    pub ask_id: String,
+    /// The first line: his words in quotes, or the ask's title where they run long.
+    pub words: String,
+    /// The second line is `before`, the Job's title as a link where Fleet holds one, and `after`.
+    pub before: String,
+    pub job: Option<String>,
+    pub after: String,
+    /// The Job a press on Story opens. Absent for an ask with no Job at all.
+    pub story: Option<SessionId>,
 }
 
 /// One row of the open section: a Job, a design, an ask.
@@ -169,6 +190,8 @@ pub struct Row {
     pub meta: String,
     /// A Job on the feature now, which draws the chip.
     pub on: bool,
+    /// Set for an ask, which draws its own line and a Story link.
+    pub ask: Option<AskLine>,
 }
 
 /// The line under a section's title in the rail.
@@ -210,6 +233,31 @@ pub enum Body {
     Code(Code),
     /// None where nobody wrote the section.
     Written(Option<Written>),
+}
+
+// ---- the fold --------------------------------------------------------------------------------
+
+/// How many of an ask section's rows show before the rest fold under one line.
+pub const SHOWN: usize = 5;
+
+/// What a place of the list holds: a row, or the line that folds the older ones.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Item {
+    Row(usize),
+    Fold,
+}
+
+/// The places of a list of `count` rows. An ask section past [`SHOWN`] rows has the fold line after the fifth, and the
+/// rest after it only while `unfolded`.
+pub fn items(section: Section, count: usize, unfolded: bool) -> Vec<Item> {
+    if !section.is_asks() || count <= SHOWN {
+        return (0..count).map(Item::Row).collect();
+    }
+    let shown = if unfolded { count } else { SHOWN };
+    let mut items: Vec<Item> = (0..SHOWN).map(Item::Row).collect();
+    items.push(Item::Fold);
+    items.extend((SHOWN..shown).map(Item::Row));
+    items
 }
 
 // ---- time ------------------------------------------------------------------------------------
@@ -386,15 +434,70 @@ fn dated(words: &str, at: DateTime<Utc>) -> String {
     if words.is_empty() { day(at) } else { format!("{words}, {}", day(at)) }
 }
 
-fn ask_row(ask: &Ask) -> Row {
+/// His words as the first line: in quotes while they fit on a line, the ask's title where they run long.
+const LONG_WORDS: usize = 80;
+
+fn ask_words(ask: &Ask) -> String {
+    let words = ask.first_words.trim();
+    if words.is_empty() || words.chars().count() > LONG_WORDS || words.contains('\n') {
+        ask.title.clone()
+    } else {
+        format!("\"{words}\"")
+    }
+}
+
+fn job_title(titles: &Titles, id: &SessionId) -> Option<String> {
+    titles.get(id.as_str()).filter(|title| !title.is_empty()).cloned()
+}
+
+fn has_job(id: &SessionId) -> bool {
+    !id.as_str().is_empty()
+}
+
+/// Where the ask stands, in a sentence. A Job Fleet holds no title for is not named, and never by its id.
+fn state_sentence(ask: &Ask, titles: &Titles) -> String {
+    let building = ask.building.as_ref().and_then(|id| job_title(titles, id));
+    let named = |word: &str, alone: &str| building.as_ref().map_or_else(|| alone.to_string(), |title| format!("{word} {title}"));
+    match ask.state {
+        AskState::Handed => named("Handed to", "Handed"),
+        AskState::Built => named("Fixed by", "Fixed"),
+        AskState::Building if ask.building.as_ref().is_some_and(|id| *id != ask.said_in) => named("Building in", "Building"),
+        AskState::Building => "Building".into(),
+        AskState::Backlog => "Backlog".into(),
+        AskState::Dropped => "Dropped".into(),
+    }
+}
+
+/// The Job a press on the ask's Story opens: the one it was said in, and the one building it only where it was said in none.
+pub fn story_of(ask: &Ask) -> Option<SessionId> {
+    if has_job(&ask.said_in) {
+        Some(ask.said_in.clone())
+    } else {
+        ask.building.clone().filter(has_job)
+    }
+}
+
+fn ask_row(ask: &Ask, titles: &Titles) -> Row {
     let (glyph, hue, said) = match ask.state {
         AskState::Building => ("circle-dot", Hue::Running, "Open"),
         AskState::Handed => ("circle", Hue::Handed, "Handed"),
-        AskState::Backlog => ("circle-dashed", Hue::Muted, "Backlog"),
+        AskState::Backlog => ("circle-dashed", Hue::NotStarted, "Backlog"),
         AskState::Built => ("circle-check", Hue::Done, "Fixed"),
         AskState::Dropped => ("circle-x", Hue::Muted, "Dropped"),
     };
-    Row { key: ask.ask_id.clone(), glyph, hue, said: said.into(), title: ask.title.clone(), meta: dated(said, instant(&ask.state_at)), on: false }
+    let said_in = has_job(&ask.said_in).then(|| job_title(titles, &ask.said_in)).flatten();
+    let date = day(instant(&ask.opened_at));
+    let before = if !has_job(&ask.said_in) {
+        format!("You, {date}, to the Operator")
+    } else if said_in.is_some() {
+        format!("You, {date}, in ")
+    } else {
+        format!("You, {date}")
+    };
+    let after = format!(". {}", state_sentence(ask, titles));
+    let meta = format!("{before}{}{after}", said_in.as_deref().unwrap_or_default());
+    let line = AskLine { ask_id: ask.ask_id.clone(), words: ask_words(ask), before, job: said_in, after, story: story_of(ask) };
+    Row { key: ask.ask_id.clone(), glyph, hue, said: said.into(), title: ask.title.clone(), meta, on: false, ask: Some(line) }
 }
 
 fn bug_row(link: &FeatureLink) -> Row {
@@ -406,7 +509,7 @@ fn bug_row(link: &FeatureLink) -> Row {
         Standing::Dropped => ("circle-x", Hue::Muted),
     };
     let said = sentence(&link.state);
-    Row { key: link.target.clone(), glyph, hue, said: if said.is_empty() { "Open".into() } else { said.clone() }, title: titled(link), meta: dated(&said, instant(&link.at)), on: false }
+    Row { key: link.target.clone(), glyph, hue, said: if said.is_empty() { "Open".into() } else { said.clone() }, title: titled(link), meta: dated(&said, instant(&link.at)), on: false, ask: None }
 }
 
 fn job_row(link: &FeatureLink, on: bool) -> Row {
@@ -421,13 +524,13 @@ fn job_row(link: &FeatureLink, on: bool) -> Row {
         Hue::Muted
     };
     let said = sentence(&link.state);
-    Row { key: link.target.clone(), glyph: "circle", hue, said: if said.is_empty() { "Job".into() } else { said.clone() }, title: titled(link), meta: dated(&said, instant(&link.at)), on }
+    Row { key: link.target.clone(), glyph: "circle", hue, said: if said.is_empty() { "Job".into() } else { said.clone() }, title: titled(link), meta: dated(&said, instant(&link.at)), on, ask: None }
 }
 
 /// One Job a row: the ones on the feature now first, then the newest.
 fn who(page: &FeaturePage) -> Vec<Row> {
     let now: Vec<&str> = page.feature.jobs_now.iter().map(|job| job.session_id.as_str()).collect();
-    let mut rows: Vec<Row> = page.feature.jobs_now.iter().map(|job| Row { key: job.session_id.as_str().to_string(), glyph: "circle", hue: Hue::Running, said: "On it now".into(), title: job.title.clone(), meta: String::new(), on: true }).collect();
+    let mut rows: Vec<Row> = page.feature.jobs_now.iter().map(|job| Row { key: job.session_id.as_str().to_string(), glyph: "circle", hue: Hue::Running, said: "On it now".into(), title: job.title.clone(), meta: String::new(), on: true, ask: None }).collect();
     for link in links_of(page, &[FeatureLinkKind::Job]) {
         let on = now.contains(&link.target.as_str());
         let row = job_row(link, on);
@@ -450,18 +553,18 @@ fn designs(page: &FeaturePage) -> Vec<Row> {
         .into_iter()
         .map(|link| {
             let (glyph, said) = glyph_of(link.kind);
-            Row { key: link.target.clone(), glyph, hue: Hue::Muted, said: said.into(), title: titled(link), meta: when(&link.at).map(day).unwrap_or_default(), on: false }
+            Row { key: link.target.clone(), glyph, hue: Hue::Muted, said: said.into(), title: titled(link), meta: when(&link.at).map(day).unwrap_or_default(), on: false, ask: None }
         })
         .collect()
 }
 
 /// The asks of the section's kinds, and for bugs the ones a Job filed as links, newest first, as the chip keeps them.
-fn asked(section: Section, page: &FeaturePage, asks: &[Ask], chip: Chip, looked: Option<DateTime<Utc>>) -> Vec<Row> {
+fn asked(section: Section, page: &FeaturePage, asks: &[Ask], chip: Chip, looked: Option<DateTime<Utc>>, titles: &Titles) -> Vec<Row> {
     let mut found: Vec<(DateTime<Utc>, Row)> = Vec::new();
     for ask in asks.iter().filter(|ask| section.kinds().contains(&ask.kind)) {
         let touched = instant(&ask.state_at).max(instant(&ask.opened_at));
         if chip.keeps(Standing::of(ask.state), touched, looked) {
-            found.push((instant(&ask.opened_at), ask_row(ask)));
+            found.push((instant(&ask.opened_at), ask_row(ask, titles)));
         }
     }
     if section == Section::Bugs {
@@ -477,11 +580,11 @@ fn asked(section: Section, page: &FeaturePage, asks: &[Ask], chip: Chip, looked:
 }
 
 /// What the open section holds. `asks` is none while they are not read, which leaves an ask section with no row.
-pub fn body(section: Section, page: &FeaturePage, asks: Option<&[Ask]>, chip: Chip, looked: Option<DateTime<Utc>>) -> Body {
+pub fn body(section: Section, page: &FeaturePage, asks: Option<&[Ask]>, chip: Chip, looked: Option<DateTime<Utc>>, titles: &Titles) -> Body {
     match section {
         Section::Who => Body::Rows(who(page)),
         Section::Designs => Body::Rows(designs(page)),
-        Section::Bugs | Section::Changes | Section::Ideas => Body::Rows(asked(section, page, asks.unwrap_or_default(), chip, looked)),
+        Section::Bugs | Section::Changes | Section::Ideas => Body::Rows(asked(section, page, asks.unwrap_or_default(), chip, looked, titles)),
         Section::Code => Body::Code(Code { paths: page.paths.clone(), entry_points: page.entry_points.clone(), files: page.files.iter().map(|file| (file.path.clone(), file.jobs)).collect() }),
         Section::Test | Section::Runs | Section::Observe | Section::Debt => Body::Written(section.written().and_then(|kind| written(page, kind)).map(|text| {
             let when = when(&text.written_at).map(day);

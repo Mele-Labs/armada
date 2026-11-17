@@ -151,20 +151,50 @@ fn ask(id: &str, kind: AskKind, title: &str, state: AskState, opened: u32, moved
     }
 }
 
+/// The ask said in `said_in` (none is outside a Job) and built by `building`.
+fn by(mut ask: Ask, said_in: &str, building: Option<&str>) -> Ask {
+    ask.said_in = SessionId::carried(said_in);
+    ask.building = building.map(SessionId::carried);
+    ask
+}
+
+/// The ask with his words as he wrote them, which are not its title.
+fn worded(mut ask: Ask, words: &str) -> Ask {
+    ask.first_words = words.into();
+    ask
+}
+
+/// The titles of the Jobs the mock's asks name, by id. `job-gone` has none, as a Job Fleet no longer holds.
+pub fn titles() -> std::collections::HashMap<String, String> {
+    [
+        ("job-start-card", "Add the model picker to the start card"),
+        ("job-card-title", "Propose the title from the first line"),
+        ("job-card-workflow", "Pick the workflow from the repository"),
+    ]
+    .into_iter()
+    .map(|(id, title)| (id.to_string(), title.to_string()))
+    .collect()
+}
+
 /// The asks filed under a feature: bugs, change requests and ideas in each state.
 pub fn asks(slug: &str) -> FeatureAsks {
     FeatureAsks {
         project: PROJECT.into(),
         feature: Some(slug.into()),
         asks: vec![
-            ask("ask-1", AskKind::Bug, "Native draws no sketch in a page", AskState::Handed, 14, 14),
-            ask("ask-2", AskKind::Bug, "They show as i never voted", AskState::Built, 12, 15),
+            by(ask("ask-1", AskKind::Bug, "Native draws no sketch in a page", AskState::Handed, 14, 14), "job-card-title", Some("job-start-card")),
+            worded(by(ask("ask-2", AskKind::Bug, "They show as i never voted", AskState::Built, 12, 15), "job-start-card", Some("job-card-workflow")), "they show as i never voted"),
             ask("ask-3", AskKind::Bug, "The model name is cut off in the card", AskState::Backlog, 10, 10),
             ask("ask-4", AskKind::Bug, "Retry started a second Job", AskState::Dropped, 6, 8),
-            ask("ask-5", AskKind::ChangeRequest, "True voting with sketches", AskState::Building, 13, 14),
-            ask("ask-6", AskKind::Fix, "Keep the request when the card closes", AskState::Backlog, 9, 9),
+            by(ask("ask-5", AskKind::ChangeRequest, "True voting with sketches", AskState::Building, 13, 14), "job-card-title", Some("job-start-card")),
+            by(ask("ask-6", AskKind::Fix, "Keep the request when the card closes", AskState::Backlog, 9, 9), "", None),
             ask("ask-7", AskKind::Idea, "Start from the phone", AskState::Backlog, 11, 11),
-            ask("ask-8", AskKind::Idea, "Suggest a repository from the request", AskState::Backlog, 5, 5),
+            by(ask("ask-8", AskKind::Idea, "Suggest a repository from the request", AskState::Backlog, 5, 5), "job-gone", None),
+            worded(
+                by(ask("ask-9", AskKind::Bug, "The title is proposed twice on a slow start", AskState::Built, 4, 7), "job-card-title", Some("job-card-workflow")),
+                "when the start is slow the card asks the small model for a title two times and the second one replaces what i typed in the first line",
+            ),
+            by(ask("ask-10", AskKind::Bug, "The workflow picker forgets the last repository", AskState::Built, 3, 6), "job-card-workflow", Some("job-card-title")),
         ],
     }
 }
