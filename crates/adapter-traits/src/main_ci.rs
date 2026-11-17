@@ -82,8 +82,8 @@ pub struct OpenPull {
 }
 
 /// What the forge's listing of open pull requests says of each beyond its
-/// checks, **read on the same call**: no field here costs a second ask. Every
-/// one is absent where the forge did not name it.
+/// checks, **read on the same call**: no field here but `review` costs a second
+/// ask. Every one is absent where the forge did not name it.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct PullFacts {
     /// When it was opened, as the forge wrote it (RFC 3339).
@@ -93,6 +93,8 @@ pub struct PullFacts {
     /// Opened as a draft, and not yet marked ready.
     pub draft: bool,
     pub mergeable: Option<PullMergeable>,
+    /// **Absent from the listing of every open one**, which the forge times out on with it: the
+    /// person's own and one read by number carry it.
     pub review: Option<PullReview>,
     pub additions: Option<u32>,
     pub deletions: Option<u32>,

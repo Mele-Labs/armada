@@ -93,7 +93,8 @@ pub(super) fn read(sha: &str, context: &str, cwd: &Path) -> Result<Reading, Stri
         NotGitHub::Elsewhere(address) => format!("{} is not on GitHub.", address.slug()),
         NotGitHub::NoRemote => format!("{} has no origin to read a repository from.", cwd.display()),
     })?;
-    let api = GitHubApi::new();
+    // The process's one client, so a rate-limit hold another caller met holds this read too.
+    let api = GitHubApi::shared();
     let said = |why: crate::github_api::ApiFailure| why.to_string();
     let paged = api
         .get_paged(&format!("{}/commits/{sha}/check-runs?per_page=100", repository.path()), MOST_PAGES)

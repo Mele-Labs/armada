@@ -34,7 +34,7 @@ use std::time::SystemTime;
 use ipc::{BashUse, Instant, TurnUsage};
 use serde::Deserialize;
 
-pub use bash_use::classify_bash;
+pub use bash_use::{classify_bash, is_code_search};
 pub use spent::{BackgroundTurn, Carry, Part, Shares, IMAGE_TOKENS};
 
 use spent::{said, tokens, Measured};
@@ -135,8 +135,28 @@ const FILES: &[&str] = &["file", "edited_text_file", "compact_file_reference"];
 /// Calls whose results are reads.
 const READING: &[&str] = &["Read", "Grep", "Glob"];
 
+/// Calls that write a file, after which a message's searches are no longer before its first edit.
+const EDITING: &[&str] = &["Edit", "Write", "MultiEdit", "NotebookEdit"];
+/// Calls that search the code.
+const SEARCHING: &[&str] = &["Grep", "Glob"];
+
+/// The code searches one message has made, up to its first edit.
+#[derive(Default)]
+struct Searched {
+    before_edit: u32,
+    edited: bool,
+}
+
+/// The code searches a turn ran before its first Edit or Write, or all of them where it made none.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct TurnSearches {
+    pub message_id: String,
+    pub searches: u32,
+}
+
 /// One message so far: the lines of an id, joined.
 struct Joined {
+    searched: Searched,
     turn: TurnUsage,
     /// The first call of the message has been seen, whatever it was.
     first_call_seen: bool,
@@ -202,6 +222,8 @@ pub struct TurnRead {
     pub background: Vec<BackgroundTurn>,
     /// What the next read starts from.
     pub carry: Carry,
+    /// One for each turn, in the same order.
+    pub searches: Vec<TurnSearches>,
 }
 
 /// Read the whole lines of `file` from `offset` on, up to about `budget` bytes, into turns.
@@ -307,6 +329,7 @@ pub fn read_turns(
         });
         let slot = *at.entry(id.clone()).or_insert_with(|| {
             joined.push(Joined {
+                searched: Searched::default(),
                 spent: TurnSpent { message_id: id.clone(), cache_creation_1h_tokens: 0, shares: shares.flatten() },
                 times: TurnTimes { message_id: id.clone(), model_began: input_at.clone(), ..Default::default() },
                 turn: TurnUsage {
@@ -353,6 +376,14 @@ pub fn read_turns(
                     one.first_call_seen = true;
                     one.turn.bash_use = label;
                 }
+                if EDITING.contains(&name.as_str()) {
+                    one.searched.edited = true;
+                } else if !one.searched.edited {
+                    let command = block.input.as_ref().and_then(|input| input.command.as_deref());
+                    if SEARCHING.contains(&name.as_str()) || (name == "Bash" && command.is_some_and(is_code_search)) {
+                        one.searched.before_edit += 1;
+                    }
+                }
                 if let Some(call) = &block.id {
                     let reads = READING.contains(&name.as_str()) || label == Some(BashUse::ReadSearch);
                     carry.called(call.clone(), if reads { Part::Reads } else { Part::OtherResults });
@@ -393,7 +424,12 @@ pub fn read_turns(
     }
     let times = joined.iter().map(|one| one.times.clone()).collect();
     let spent = joined.iter().map(|one| one.spent.clone()).collect();
+    let searches = joined
+        .iter()
+        .map(|one| TurnSearches { message_id: one.turn.message_id.clone(), searches: one.searched.before_edit })
+        .collect();
     Ok(TurnRead {
+        searches,
         turns: joined.into_iter().map(|one| one.turn).collect(),
         times,
         late,

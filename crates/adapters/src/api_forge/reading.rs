@@ -10,7 +10,7 @@ use super::open_pulls::Repo;
 use super::page::InRepository;
 use super::{login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi, GitHubRepository};
-use crate::pull_reading::{list_query, one_query, followed_built, FollowedPullRead, FollowedRead};
+use crate::pull_reading::{bare_list_query, list_query, one_query, followed_built, FollowedPullRead, FollowedRead};
 
 #[derive(Serialize)]
 struct Asked<'a> {
@@ -81,6 +81,14 @@ struct Context {
 pub(super) fn read(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<FollowedPulls>, ApiFailure> {
     let named = Named::of(repository);
     let found: Repo<Listed> = api.graphql(&list_query(), &Asked { owner: named.owner(), name: named.name() })?;
+    let pulls = found.repository.and_then(|it| it.pull_requests);
+    Ok(Some(Nodes::all(pulls).filter_map(|pull| followed_pull_of(pull, gate)).collect()))
+}
+
+/// Every open pull request without its checks, the hundred last updated.
+pub(super) fn listed(api: &GitHubApi, repository: &GitHubRepository, gate: &str) -> Result<Option<FollowedPulls>, ApiFailure> {
+    let named = Named::of(repository);
+    let found: Repo<Listed> = api.graphql(&bare_list_query(), &Asked { owner: named.owner(), name: named.name() })?;
     let pulls = found.repository.and_then(|it| it.pull_requests);
     Ok(Some(Nodes::all(pulls).filter_map(|pull| followed_pull_of(pull, gate)).collect()))
 }

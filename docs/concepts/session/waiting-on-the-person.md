@@ -76,7 +76,8 @@ It waits again, with its `since` at that instant, only when the job shows it aga
 It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item leaves the list and the window holds no pending plan, and it ends the walk.
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
-**Every sketch a job shows waits until the person answers it.** One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
+**Every sketch a job shows waits until the person answers it, except one shown with `asks: false`, which waits on no one** ([Drawing a sketch](drawing-a-sketch.md)).
+One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
 Its text is the title for a lone sketch, else the title and the parts still open, never a count ([Artifact](../artifact.md), *Parts*).
 His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
 `answer_waiting` on it is refused: the card answers it.

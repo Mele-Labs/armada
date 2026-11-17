@@ -263,6 +263,9 @@ where
     /// The sweep's part: drop what is over, and ask for a check where main moved or one never finished.
     pub(crate) async fn previews_watched(self: &Arc<Self>) {
         let went = self.preview_offers_swept().await;
+        // A card whose offer is no longer on the list has nothing to try, so Fleet withdraws it and no Job need.
+        let at = self.now().as_str().to_string();
+        let _ = self.store().lock().await.keep_build_notes_withdrawn_without_offer(&at);
         // Before the early returns: a build holds notes whether or not an offer is left, and a Job ending is seen here.
         self.build_notes_moved().await;
         let Some((checkout, _)) = self.preview_place() else {

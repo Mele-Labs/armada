@@ -10,3 +10,10 @@
   size = "12px"
   status = "Specified"
   notes = "Proposed 5 Oct 2026 with Cleanup's one grid. Tooltip `Nothing could name the base`."
+
+[[icons.git-branch.usage]]
+  means = "A pull request that conflicts with its base"
+  group = "PR tab"
+  size = "20px"
+  status = "Proposed"
+  notes = "Proposed 16 Nov 2026 for the native PR tab's status plate, `Conflicts`, in the failed hue, and its Conflicts and No conflicts facts at 12px. The branch against its base."

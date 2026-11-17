@@ -377,6 +377,18 @@ Why: nothing says which store the person meant, and a claim sent to the wrong on
 **Rule.** A profile keeps a key and a device id for each store it enrolled with, in `stores/<the first 16 hex of the address's sha256>` under the profile's folder.
 Why: one account enrolled with his own store and his team's is two devices, one in each.
 
+## A feature library stays on this Mac
+
+**Rule.** A project's feature library is kept in this Mac's own store and the Worker holds none of it.
+Why: sharing it with teammates through a project's store has not been designed, and a table built before its owner has designed it is a table to unbuild.
+
+**Rule.** A shared library would hold its words in the clear: every feature's area, slug, title and one line, its path prefixes and entry points, the four sections a Job wrote with the Job's id, the time and the commit, and the links to Jobs, pull requests, merges and artifacts by their ids and titles.
+Why: the owner chose words in a shared store in the clear (`.armada/documents/feature-catalog.html`, *Settled so far*), so no field here is sealed and none is withheld.
+
+Every row carries a project's id and an id minted whole, never a position, so the rows can be copied to a store unchanged.
+Fleet's side is `crates/store/src/features.rs`.
+Nothing in `apps/store` reads or writes it.
+
 ## Deploying a store
 
 A store is deployed from a project's store setting in Bridge, onto his own Cloudflare account.

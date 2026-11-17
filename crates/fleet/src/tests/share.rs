@@ -69,6 +69,8 @@ async fn a_project_starts_unshared_and_the_switch_is_served_as_set() {
 async fn a_jobs_row_thread_and_live_changes_cross_only_while_its_project_is_shared() {
     let rig = rig_placing(None);
     let shop = project(&rig, "Shop").await;
+    // A second project holds the repository too, so a start naming none is in none.
+    project(&rig, "Yard").await;
     let in_shop = job_in(&rig, Some(&shop)).await;
     let in_none = job_in(&rig, None).await;
 

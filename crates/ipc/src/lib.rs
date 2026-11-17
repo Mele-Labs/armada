@@ -46,6 +46,8 @@ mod disputes;
 mod bug_reports;
 /// `raise_conflict` and `ask_held`, the two things a Job may send the Operator.
 mod job_asks;
+/// A project's feature library: areas, features, their sections and links.
+mod features;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -369,6 +371,11 @@ pub use annotations::{
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+pub use features::{
+    AreaSeed, FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed,
+    FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
+    FeaturesOfPath, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, UpsertFeatures, WriteFeatureSections,
+};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
 pub use workflow_versions::{BasedOn, RevertWorkflow, VersionOrigin, WorkflowVersion, WorkflowVersions};
@@ -549,7 +556,7 @@ pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,
     KitAllowedSource, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved,
     KitServerRow, KitServers, KitSourceChoice, KitSourceFound, LookAtKitSource, OutputStyleFacts,
-    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
+    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, ServerFacts, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };
 pub use kit_files::{
@@ -569,7 +576,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,
@@ -598,7 +605,7 @@ pub use pull_requests::{
     FailureWeight, ForgeChecks, PullRequestCheckRow, PullRequestCheckState, PullRequestCommit,
     PullRequestDraft, PullRequestEntry, PullRequestFile, PullRequestFileOf, PullRequestFilePatch,
     PullRequestFilePatches,
-    PullRequestFileStatus, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
+    PullRequestFileStatus, PullRequestMergeState, PullRequestMergeable, PullRequestPage, PullRequestReviewState, PullRequestReviewer,
     PullRequestReviewerKind,
     PullRequestStanding, PullRequestState, PullRequestVerdict, PullRequestWriteKind,
     WritePullRequest,

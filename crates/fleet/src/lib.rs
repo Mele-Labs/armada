@@ -250,6 +250,7 @@ mod pull_waits;
 /// A pull request nobody reported, attached to the Session that worked its branch.
 mod claiming;
 mod pull_attaching;
+mod feature_library;
 /// Whose pull requests Fleet watches: the signed-in account's and the forge command line's.
 mod my_pulls;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.

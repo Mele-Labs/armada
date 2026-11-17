@@ -57,6 +57,42 @@ pub(super) struct Pull {
     pub root_base: Option<String>,
     /// The number of the pull request it is stacked on, where that is not the row above (`chip`).
     pub stacked_on: Option<u64>,
+    /// Whether the forge would merge it now. Unknown from a Fleet before it carried one.
+    pub merge: ipc::PullRequestMergeState,
+}
+
+/// What the forge's merge verdict lets a pull request do, as the head, the panel's act and the row's act read it.
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub(super) enum Gate {
+    /// No verdict: its Checks decide, as they did before Fleet carried one.
+    Checks,
+    /// Clean, unstable or with hooks: the forge merges it now.
+    Merges,
+    /// A rule of the base branch stops it, such as a review it asks for.
+    Blocked,
+    Behind,
+    Conflicts,
+}
+
+/// The gate a merge verdict stands for. A draft's verdict is its state's, which is drawn already.
+pub(super) fn gate_of(merge: ipc::PullRequestMergeState) -> Gate {
+    use ipc::PullRequestMergeState as Merge;
+    match merge {
+        Merge::Clean | Merge::Unstable | Merge::HasHooks => Gate::Merges,
+        Merge::Blocked => Gate::Blocked,
+        Merge::Behind => Gate::Behind,
+        Merge::Dirty => Gate::Conflicts,
+        Merge::Draft | Merge::Unknown => Gate::Checks,
+    }
+}
+
+/// The verdict a ledger row's `merge_state` detail spells, Unknown where it carries none.
+fn merge_named(word: Option<&str>) -> ipc::PullRequestMergeState {
+    use ipc::PullRequestMergeState as Merge;
+    [Merge::Clean, Merge::Blocked, Merge::Behind, Merge::Dirty, Merge::Unstable, Merge::HasHooks, Merge::Draft]
+        .into_iter()
+        .find(|merge| Some(merge.word()) == word)
+        .unwrap_or(Merge::Unknown)
 }
 
 /// An act that moves a pull request on, and the route Fleet takes it at (`PRESS_ROUTE`).
@@ -112,6 +148,60 @@ pub(super) fn unheld(manifest: Option<String>, one: &ipc::LinkedPullRequest) -> 
         base: None,
         root_base: None,
         stacked_on: None,
+        merge: ipc::PullRequestMergeState::Unknown,
+    }
+}
+
+/// The repository path and number of a forge pull request's address, as Classic's `PULL` reads one
+/// (`shared-panel/store.ts`): `https://<host>/<owner>/<name>/pull/<number>`, nothing after the number
+/// but one slash. Any other address, `/files` after the number or an issue's, is not one.
+pub(super) fn pull_address(address: &str) -> Option<(&str, u64)> {
+    let rest = address.strip_prefix("https://").or_else(|| address.strip_prefix("http://"))?;
+    let (host, path) = rest.split_once('/')?;
+    let path = path.strip_suffix('/').unwrap_or(path);
+    let (repository, number) = path.rsplit_once("/pull/")?;
+    if host.is_empty() || repository.split('/').any(str::is_empty) || number.is_empty() || !number.bytes().all(|byte| byte.is_ascii_digit()) {
+        return None;
+    }
+    Some((repository, number.parse().ok()?))
+}
+
+/// The Manifest a pull request's repository path names, by the name its `armada.yml`'s directory has,
+/// as Classic's `repositoryOf` matches it. A repository no Manifest is read from has none. Classic's
+/// fall back to the only Manifest there is is left out: it would open another repository's number.
+pub(super) fn manifest_named(repositories: &[ipc::RepositorySummary], repository: &str) -> Option<String> {
+    let whole = repository.to_lowercase();
+    let name = repository.rsplit('/').next().unwrap_or(repository).to_lowercase();
+    repositories
+        .iter()
+        .filter_map(|one| one.manifest.as_ref())
+        .find(|manifest| {
+            let held = manifest.repository.to_lowercase();
+            held == whole || held == name
+        })
+        .map(|manifest| manifest.id.as_str().to_string())
+}
+
+/// A pull request no Job holds, opened from its address: its title is the merge line's where one holds it,
+/// and its Checks the forge's read of its page, filled in as the panel reads it.
+pub(super) fn addressed(manifest: String, address: &str, number: u64, title: String) -> Pull {
+    Pull {
+        number,
+        title,
+        branch: String::new(),
+        address: address.to_string(),
+        state: PullState::Open,
+        checks: PullChecks::Running,
+        failing: String::new(),
+        auto: false,
+        queued: false,
+        job: String::new(),
+        manifest: Some(manifest),
+        from: None,
+        base: None,
+        root_base: None,
+        stacked_on: None,
+        merge: ipc::PullRequestMergeState::Unknown,
     }
 }
 
@@ -127,6 +217,19 @@ pub(super) fn checks_of_page(page: &ipc::PullRequestPage) -> (PullChecks, String
         PullChecks::Passed
     };
     (checks, failing.join(", "))
+}
+
+/// The pull request with its Checks and merge verdict as its page says them once the page is read, so the
+/// head, the failing checks and the act agree with the tabs. Before, the ledger's row stands, though it can
+/// be stale; so does its verdict where the page could not say one.
+pub(super) fn with_page_read(mut pull: Pull, page: Option<&ipc::PullRequestPage>) -> Pull {
+    if let Some(page) = page {
+        (pull.checks, pull.failing) = checks_of_page(page);
+        if page.merge_state != ipc::PullRequestMergeState::Unknown {
+            pull.merge = page.merge_state;
+        }
+    }
+    pull
 }
 
 /// A pull request attachment as its row reads it. A closed one is let go; a merged one is `spent`.
@@ -164,7 +267,14 @@ pub(super) fn pull_of(record: &ipc::SessionRecord, one: &ipc::Attachment, from: 
         base: detail("base").filter(|base| !base.is_empty()).map(str::to_string),
         root_base: None,
         stacked_on: None,
+        merge: merge_named(detail("merge_state")),
     })
+}
+
+/// Whether the held row says something about the pull request it did not when its page was read: its
+/// state, Checks, queue, auto-merge, base or the forge's merge verdict. The page is read again then.
+pub(super) fn row_moved(was: &Pull, now: &Pull) -> bool {
+    (was.state, was.checks, was.queued, was.auto, was.merge, &was.failing, &was.base) != (now.state, now.checks, now.queued, now.auto, now.merge, &now.failing, &now.base)
 }
 
 /// Where a stacked row's lane starts and ends (`StackRow.lane`).
@@ -272,6 +382,9 @@ fn standing_of(pull: &Pull) -> Option<(&'static str, &'static str, &'static str,
     if pull.checks == PullChecks::Running && pull.auto {
         return Some(("git-merge", "Auto-merge on, merges when every Check has passed", "Auto-merge", token::ACCENT));
     }
+    if pull.auto && gate_of(pull.merge) == Gate::Blocked {
+        return Some(("git-merge", "Auto-merge on, merges once nothing blocks it", "Auto-merge", token::ACCENT));
+    }
     None
 }
 
@@ -283,10 +396,16 @@ fn act_of(pull: &Pull) -> Option<(PullAct, &'static str, &'static str, &'static 
     if pull.state == PullState::Draft {
         return Some((PullAct::Ready, "git-pull-request-arrow", "Ready for review", "Marks the pull request ready for review"));
     }
-    match pull.checks {
-        PullChecks::Passed => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now, every Check has passed")),
-        PullChecks::Running if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed")),
-        _ => None,
+    // The forge's verdict decides where Fleet carried one; a Fleet before it leaves the Checks to.
+    match gate_of(pull.merge) {
+        Gate::Merges => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now")),
+        Gate::Blocked if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it once nothing blocks it")),
+        Gate::Blocked | Gate::Behind | Gate::Conflicts => None,
+        Gate::Checks => match pull.checks {
+            PullChecks::Passed => Some((PullAct::Merge, "git-merge", "Merge", "Merges it now, every Check has passed")),
+            PullChecks::Running if !pull.auto => Some((PullAct::AutoMerge, "git-merge", "Enable auto-merge", "Enable auto-merge, merges it when every Check has passed")),
+            _ => None,
+        },
     }
 }
 
@@ -374,6 +493,63 @@ impl JobView {
             }
         }
         out
+    }
+
+    /// The pull requests known in `manifest`, by number and address: a `pr` row any Job holds, then those on
+    /// the merge line of its repository. A `#N` in words is a link only to one of these.
+    pub(super) fn known_pulls(&self, manifest: &str, cx: &gpui::App) -> Vec<(u64, String)> {
+        let mut known: Vec<(u64, String)> = self
+            .list
+            .read(cx)
+            .records()
+            .iter()
+            .flat_map(|record| record.attachments.iter().filter_map(|one| pull_of(record, one, None)))
+            .filter(|pull| pull.manifest.as_deref() == Some(manifest) && !pull.address.is_empty())
+            .map(|pull| (pull.number, pull.address))
+            .collect();
+        let mut line = |served: &[ipc::RepositorySummary], lines: &[ipc::MergeLineView]| {
+            let roots: Vec<&str> = served.iter().filter(|one| one.manifest.as_ref().is_some_and(|held| held.id.as_str() == manifest)).map(|one| one.root.as_str()).collect();
+            for view in lines.iter().filter(|line| roots.contains(&line.root.as_str())).flat_map(|line| &line.pulls) {
+                if !known.iter().any(|(number, _)| *number == view.pull.number) {
+                    known.push((view.pull.number, view.pull.url.clone()));
+                }
+            }
+        };
+        match &self.fleet {
+            Some(fleet) => {
+                let held = fleet.read(cx).held();
+                line(held.repositories.as_deref().unwrap_or_default(), held.merge_lines.as_deref().unwrap_or_default());
+            }
+            None => line(&crate::mock::repositories(), &crate::mock::merge_lines().unwrap_or_default()),
+        }
+        known
+    }
+
+    /// A forge pull request's address pressed in words opens in the PR tab: the pull request a Job holds at
+    /// that address, else one no Job holds in the Manifest its repository names. False where it is no pull
+    /// request's address or no Manifest is read from its repository, and the browser takes it.
+    pub(super) fn open_pull_address(&mut self, address: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some((repository, number)) = pull_address(address) else { return false };
+        let same = |one: &str| one.trim_end_matches('/').eq_ignore_ascii_case(address.trim_end_matches('/'));
+        let held = self.list.read(cx).records().iter().find_map(|record| record.attachments.iter().filter_map(|one| pull_of(record, one, None)).find(|pull| same(&pull.address)));
+        let pull = match held {
+            Some(pull) => pull,
+            None => {
+                let (served, lines) = match &self.fleet {
+                    Some(fleet) => {
+                        let held = fleet.read(cx).held();
+                        (held.repositories.clone().unwrap_or_default(), held.merge_lines.clone().unwrap_or_default())
+                    }
+                    None => (crate::mock::repositories(), crate::mock::merge_lines().unwrap_or_default()),
+                };
+                let Some(manifest) = manifest_named(&served, repository) else { return false };
+                // The forge's page carries no title: the merge line has one for a pull request in it.
+                let title = lines.iter().flat_map(|line| &line.pulls).find(|view| same(&view.pull.url)).map(|view| view.pull.title.clone()).unwrap_or_default();
+                addressed(manifest, address, number, title)
+            }
+        };
+        self.open_pull(pull, window, cx);
+        true
     }
 
     /// Pull Requests: every row as the Ledger draws it. None, and nothing is drawn.
@@ -657,7 +833,7 @@ mod tests {
     use super::*;
 
     fn pull(state: PullState, checks: PullChecks, auto: bool, queued: bool) -> Pull {
-        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None, base: None, root_base: None, stacked_on: None }
+        Pull { number: 7, title: String::new(), branch: String::new(), address: String::new(), state, checks, failing: String::new(), auto, queued, job: "j".into(), manifest: None, from: None, base: None, root_base: None, stacked_on: None, merge: ipc::PullRequestMergeState::Unknown }
     }
 
     #[test]
@@ -681,5 +857,109 @@ mod tests {
         assert_eq!(checks_said(&one), "Checks passed; not required, failing: lint");
         one.checks = PullChecks::Failed;
         assert_eq!(checks_said(&one), "Checks failed: lint");
+    }
+
+    #[test]
+    fn once_the_page_is_read_its_checks_stand_over_a_stale_ledger_row() {
+        let page: ipc::PullRequestPage = ipc::decode(
+            "PullRequestPage",
+            serde_json::json!({
+                "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "review": "none", "approvals": 0,
+                "conversation": [], "files": [], "commits": [],
+                "checks": [{ "name": "lint", "state": "passed" }, { "name": "test", "state": "passed" }, { "name": "docs", "state": "skipped" }],
+            })
+            .to_string()
+            .as_bytes(),
+        )
+        .expect("a page");
+        let mut ledger = pull(PullState::Open, PullChecks::Failed, false, false);
+        ledger.failing = "lint".into();
+        let read = with_page_read(ledger.clone(), Some(&page));
+        assert_eq!((read.checks, read.failing.as_str()), (PullChecks::Passed, ""));
+        assert_eq!(act_of(&read).map(|one| one.0), Some(PullAct::Merge), "the act follows the page too");
+        let unread = with_page_read(ledger, None);
+        assert_eq!((unread.checks, unread.failing.as_str()), (PullChecks::Failed, "lint"), "before the page is read the ledger stands");
+    }
+
+    #[test]
+    fn the_forges_merge_verdict_picks_the_act_and_without_one_the_checks_do() {
+        use ipc::PullRequestMergeState as Merge;
+        let act = |merge, checks, auto| {
+            let mut one = pull(PullState::Open, checks, auto, false);
+            one.merge = merge;
+            act_of(&one).map(|one| one.0)
+        };
+        assert_eq!(act(Merge::Blocked, PullChecks::Passed, false), Some(PullAct::AutoMerge), "every check passed, and a review is still asked for");
+        assert_eq!(act(Merge::Blocked, PullChecks::Passed, true), None, "auto-merge is on already");
+        assert_eq!(act(Merge::Behind, PullChecks::Passed, false), None);
+        assert_eq!(act(Merge::Dirty, PullChecks::Passed, false), None);
+        assert_eq!(act(Merge::Clean, PullChecks::Passed, false), Some(PullAct::Merge));
+        assert_eq!(act(Merge::HasHooks, PullChecks::Passed, false), Some(PullAct::Merge));
+        assert_eq!(act(Merge::Unstable, PullChecks::Failed, false), Some(PullAct::Merge), "the failing checks are not required");
+        assert_eq!(act(Merge::Unknown, PullChecks::Passed, false), Some(PullAct::Merge), "an older Fleet: the checks decide");
+        assert_eq!(act(Merge::Unknown, PullChecks::Running, false), Some(PullAct::AutoMerge));
+        assert_eq!(act(Merge::Unknown, PullChecks::Failed, false), None);
+        assert_eq!((merge_named(Some("has_hooks")), merge_named(Some("blocked")), merge_named(None)), (Merge::HasHooks, Merge::Blocked, Merge::Unknown));
+    }
+
+    #[test]
+    fn once_the_page_is_read_its_merge_verdict_stands_over_the_ledgers() {
+        let page = |merge: &str| -> ipc::PullRequestPage {
+            ipc::decode(
+                "PullRequestPage",
+                serde_json::json!({
+                    "manifest_id": "m", "number": 7, "base": "main", "additions": 0, "deletions": 0, "mergeable": "mergeable", "merge_state": merge, "review": "required", "approvals": 0,
+                    "conversation": [], "files": [], "commits": [], "checks": [],
+                })
+                .to_string()
+                .as_bytes(),
+            )
+            .expect("a page")
+        };
+        let mut ledger = pull(PullState::Open, PullChecks::Passed, false, false);
+        ledger.merge = ipc::PullRequestMergeState::Clean;
+        assert_eq!(with_page_read(ledger.clone(), Some(&page("blocked"))).merge, ipc::PullRequestMergeState::Blocked);
+        assert_eq!(with_page_read(ledger.clone(), Some(&page("unknown"))).merge, ipc::PullRequestMergeState::Clean, "a page that cannot say leaves the ledger's");
+        assert_eq!(with_page_read(ledger, None).merge, ipc::PullRequestMergeState::Clean);
+    }
+
+    #[test]
+    fn a_pull_request_address_names_its_repository_and_number() {
+        assert_eq!(pull_address("https://forge.example/acme-labs/storefront/pull/418"), Some(("acme-labs/storefront", 418)));
+        assert_eq!(pull_address("https://forge.example/acme-labs/storefront/pull/418/"), Some(("acme-labs/storefront", 418)));
+        assert_eq!(pull_address("http://git.example/group/sub/storefront/pull/7"), Some(("group/sub/storefront", 7)));
+    }
+
+    #[test]
+    fn an_address_past_the_number_or_of_an_issue_is_not_a_pull_request() {
+        for address in [
+            "https://forge.example/acme-labs/storefront/pull/418/files",
+            "https://forge.example/acme-labs/storefront/pull/418#discussion_r1",
+            "https://forge.example/acme-labs/storefront/pull/418?w=1",
+            "https://forge.example/acme-labs/storefront/issues/418",
+            "https://forge.example/pull/418",
+            "https://forge.example/acme-labs/storefront/pull/",
+            "https://forge.example/acme-labs/storefront/pull/41a",
+            "ftp://forge.example/acme-labs/storefront/pull/418",
+            "armada://pull/acme-labs/storefront/418",
+        ] {
+            assert_eq!(pull_address(address), None, "{address}");
+        }
+    }
+
+    #[test]
+    fn a_repository_path_finds_the_manifest_named_for_it() {
+        let repo = |root: &str, manifest: Option<(&str, &str)>| -> ipc::RepositorySummary {
+            let mut one = serde_json::json!({ "root": root, "records_root": "/records" });
+            if let Some((id, name)) = manifest {
+                one["manifest"] = serde_json::json!({ "id": id, "repository": name, "path": format!("{root}/armada.yml"), "records_root": "/records", "version": 1, "checks": [] });
+            }
+            ipc::decode("RepositorySummary", one.to_string().as_bytes()).expect("a repository summary")
+        };
+        let served = [repo("/work/storefront", Some(("m-store", "Storefront"))), repo("/work/ledger", Some(("m-ledger", "ledger"))), repo("/work/loose", None)];
+        assert_eq!(manifest_named(&served, "acme-labs/storefront").as_deref(), Some("m-store"));
+        assert_eq!(manifest_named(&served, "acme-labs/ledger").as_deref(), Some("m-ledger"));
+        assert_eq!(manifest_named(&served, "acme-labs/loose"), None, "no Manifest is read there");
+        assert_eq!(manifest_named(&served, "acme-labs/elsewhere"), None, "not the only one there is, as Classic falls back to");
     }
 }

@@ -16,6 +16,7 @@ use serde::{Deserialize, Serialize};
 use crate::ids::Instant;
 use crate::merge_hub::{
     FixingElsewhere, HeldCheckout, HubMerged, HubPullRequest, HubSession, MainChecking, MainMerge,
+    QuietReason,
 };
 
 /// `get_merge_line_view`, and what `merge_line_view.changed` carries whole.
@@ -53,6 +54,9 @@ pub struct MergeLineView {
     /// When the forge first failed to answer, since the last whole visit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_since: Option<Instant>,
+    /// Why, beside `quiet_since`: the hub's own.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiet_reason: Option<QuietReason>,
 }
 
 /// One pull request on the line: the hub's row whole, and two facts Fleet works out beside it so a

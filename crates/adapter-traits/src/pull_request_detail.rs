@@ -203,6 +203,7 @@ pub struct PullRequestPageFacts {
     pub additions: u64,
     pub deletions: u64,
     pub mergeable: Mergeability,
+    pub merge_state: crate::MergeState,
     pub review: ReviewStanding,
     /// Reviewers whose latest review approved.
     pub approvals: u64,

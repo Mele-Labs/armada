@@ -234,6 +234,7 @@ WebSocket event stream, read this first.
 | [An artifact's parts: `add_part`, `answer_part`, `get_artifact_page_source`, and `parts` on `JobArtifact`](protocol/an-artifacts-parts.md) |
 | [Notes on words and the revision he last saw: `ItemNote` and `mark_artifact_seen`](protocol/a-notes-and-seen.md) |
 | [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
+| [The forge's merge verdict, and one commit's files: `merge_state`, `get_pull_request_commit_patches`](protocol/the-forges-merge-verdict-and-one-commits-files.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`
@@ -1162,7 +1163,7 @@ Bridge's half is `AnswerSketch` and `SketchHow` in `packages/protocol/src/sessio
 | Where | Side | Carries |
 | --- | --- | --- |
 | `answer_sketch` (`POST /sessions/sketch/answer`, `agent_access = "No"`) | Bridge writes | `AnswerSketch` `{ session_id, sketch, drawn, how, words? }`, `how` `approved` or `sent_back`; answers the `SessionRecord`. 409 `fleet.sketch_redrawn` for a `drawn` that is not the sketch's now; 422 `fleet.sketch_not_open`, `fleet.sketch_answer_empty` and `fleet.sketch_answer_unnamed`, with nothing written or sent |
-| `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws, and `drawn` an id new on every draw. A plan's sketch has neither |
+| `detail.asked`, `detail.drawn` on an artifact of form `sketch` | Fleet writes, Bridge reads | `asked` `"true"` on every sketch `show_sketch` draws unless the call passed `asks: false`, and `drawn` an id new on every draw. A plan's sketch has neither |
 | `detail.settled`, `detail.settled_at`, `detail.words` | Fleet writes, Bridge reads | How he answered, `approved` or `sent_back`, when, and his note. Gone when the title is drawn again |
 
 **Not the agent's `waiting_for` item**: the owner answers a sketch on its card, and since 29 Oct Fleet raises it in his Needs you as `sketch` (below).
@@ -2094,3 +2095,21 @@ Electron reads none of it. The native Bridge names the account with it on the si
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `agent_sign_in.changed` carries the state whole, so it carries the field; no new event.
+
+## Why the forge went quiet: `MergeLineHub.quiet_reason`, `MergeLineView.quiet_reason`
+
+Since 16 Nov 2026. `docs/concepts/fleet.md`, *A forge that does not answer*.
+**Additive only**: one optional field on two existing types, and the type it carries; no operation, route, event kind or error.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/merge-lines.ts` and `merge-line-view.ts`, written by hand, field for field.
+Electron reads none of it. The native strip says GitHub is rate-limiting us, until `until` where it is present, in place of not answering.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `MergeLineHub` (`get_merge_lines`, `merge_lines.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, beside `quiet_since` and absent with it: `QuietReason`, tagged by `kind` |
+| `MergeLineView` (`get_merge_line_view`, `merge_line_view.changed`) | Fleet writes, Bridge reads | Gains `quiet_reason`, the hub's as it is |
+| `QuietReason` | Fleet writes, Bridge reads | `rate_limited` with `until?`, an instant: when GitHub said to try again, absent where it named no time. `not_answering`: no answer, or a refusal that is not the rate limit |
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet's hub has no field, which a newer Bridge reads as no reason given.
+**The event stream.** Both events carry their type whole, so they carry the field; no new event.
