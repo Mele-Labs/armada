@@ -212,6 +212,7 @@ impl ReviewsScreen {
             this.refreshed = true;
             match answer {
                 Ok(lists) => {
+                    this.me = lists.me.clone();
                     let (rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
@@ -377,6 +378,9 @@ impl ReviewsScreen {
         if let Some(pull) = self.live.as_mut().and_then(|live| live.pulls.get_mut(&number)) {
             pull.finds = mapped.finds;
         }
+        for (rewrite, answer) in mapped.answers {
+            self.rewritten.insert((number, rewrite), answer);
+        }
         let chained = self.live.as_ref().is_some_and(|live| live.chained.contains(&number));
         if chained && (sets_done || sets_failed) {
             if let Some(live) = self.live.as_mut() {
@@ -491,6 +495,10 @@ impl ReviewsScreen {
 
     /// Find problems: the change sets, then the findings over them.
     pub(super) fn find_problems(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.is_live() {
+            self.mock_find_problems(window, cx);
+            return;
+        }
         let Some(number) = self.open else { return };
         let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
         let (finds, facts) = (pull.finds.clone(), &pull.facts);
@@ -509,6 +517,20 @@ impl ReviewsScreen {
             self.start_run(number, ReviewRunKind::ChangeSets, "change_sets".into(), None, sets_again, window, cx);
         }
         cx.notify();
+    }
+
+    /// Summarize, Explain or Simplify on Fleet: an Ask run named by its question, at the head. One
+    /// written or being written stands; one that failed or was refused is asked again.
+    pub(super) fn live_rewrite(&mut self, number: u64, rewrite: model::Rewrite, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let question = rewrite.question();
+        let answer = map::answer_of(&pull.facts, question);
+        if matches!(answer, Some(model::Answer::Writing | model::Answer::Written(_))) {
+            return;
+        }
+        let again = matches!(answer, Some(model::Answer::Failed(_))) || pull.facts.kept_elsewhere(ReviewRunKind::Ask, question);
+        self.rewritten.insert((number, rewrite), model::Answer::Writing);
+        self.start_run(number, ReviewRunKind::Ask, question.into(), None, again, window, cx);
     }
 
     /// Check practices on one change set.

@@ -40,6 +40,8 @@ pub struct Mapped {
     pub flags: Vec<Flag>,
     pub critique: Critique,
     pub finds: Finds,
+    /// What Summarize, Explain and Simplify answered at the head, those asked.
+    pub answers: Vec<(model::Rewrite, model::Answer)>,
 }
 
 /// What the runs are read against: the heads, the runs and patches as Fleet answered, and the runs it refused.
@@ -430,7 +432,8 @@ pub fn from_runs(page: &Page, facts: &Facts) -> Mapped {
             Critique::Finished { range, findings, asked }
         }
     };
-    Mapped { summary, sets, flags, critique, finds }
+    let answers = model::Rewrite::ALL.into_iter().filter_map(|rewrite| answer_of(facts, rewrite.question()).map(|answer| (rewrite, answer))).collect();
+    Mapped { summary, sets, flags, critique, finds, answers }
 }
 
 /// What kind of change a set is, after "Practices for".
