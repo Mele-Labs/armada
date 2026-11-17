@@ -1,7 +1,7 @@
 //! The review sheet: every item with an Approve he reads, across Jobs, on one sheet (the look "Several at
 //! once: Grouped", 14 Nov). A plan, a sketch, a document and a draft stand in a list grouped under each Job's
-//! name and state, the chosen one is drawn beside it with its notes, and the foot holds Approve all and
-//! Dismiss all, away from the item's own buttons.
+//! name and state, the chosen one is drawn beside it with its notes and its own answers in its band, and the list's foot holds Approve all
+//! and, under its caret, Dismiss all, away from the item's own buttons.
 //!
 //! **Every answer is `answer_items` or `dismiss_items`**, one item or all still asking, and each outcome
 //! lands on its own row: a refusal stands there as Fleet's sentence and the rest settle
@@ -202,7 +202,7 @@ pub(super) struct Focuses {
     pub dismiss: FocusHandle,
     pub close: FocusHandle,
     pub approve_all: FocusHandle,
-    pub dismiss_all: FocusHandle,
+    pub more_all: FocusHandle,
 }
 
 impl Focuses {
@@ -214,10 +214,13 @@ impl Focuses {
             dismiss: cx.focus_handle(),
             close: cx.focus_handle(),
             approve_all: cx.focus_handle(),
-            dismiss_all: cx.focus_handle(),
+            more_all: cx.focus_handle(),
         }
     }
 }
+
+/// Where the list foot's caret was drawn, among the rows' bounds, for the menu that opens above it.
+const MORE_ALL: &str = "more-all";
 
 /// Where each item's row was drawn, for a menu opened from the keys.
 pub(super) type Rows = Rc<RefCell<HashMap<String, Bounds<Pixels>>>>;
@@ -501,6 +504,18 @@ impl JobView {
                 // One item per artifact: a waiting row naming it already stands for it, so a second is dropped.
                 let mut seen = std::collections::HashSet::new();
                 items.retain(|item| super::reader_sheet::artifact_in(item).is_none_or(|artifact| seen.insert(artifact.to_string())));
+                // A sketch, page or draft card and the artifact of parts it is are one entry too, and the artifact stands:
+                // the card holds only its drawing, the artifact every part, a pick among them.
+                let twins: Vec<String> = items
+                    .iter()
+                    .filter_map(|item| {
+                        let artifact = super::reader_sheet::artifact_in(item)?;
+                        let answered_by = self.artifact_of(job, artifact).and_then(|one| one.item.as_deref());
+                        let card = items.iter().find(|other| other.kind != Kind::Artifact && (other.id == artifact || Some(other.id.as_str()) == answered_by))?;
+                        Some(card.id.clone())
+                    })
+                    .collect();
+                items.retain(|item| !twins.contains(&item.id));
                 items.sort_by_key(|item| instant(&item.since));
                 Group { job: job.to_string(), title: record.title.clone().unwrap_or_else(|| "New Job".into()), state: record.mark.map(|mark| mark.state), items }
             })
@@ -1078,8 +1093,8 @@ impl JobView {
         }
         stops.push(focus.close.clone());
         if !self.review_asking().is_empty() {
-            stops.push(focus.dismiss_all.clone());
             stops.push(focus.approve_all.clone());
+            stops.push(focus.more_all.clone());
         }
         let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
         let to = match (here, back) {
@@ -1173,26 +1188,34 @@ impl JobView {
                 .track_focus(&self.review_focus.list)
                 .on_action(cx.listener(Self::review_menu_key))
                 .on_key_down(cx.listener(Self::review_list_key))
-                .border_r(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .flex_none()
-                .w(list_w)
+                .flex_1()
+                .min_h_0()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_1))
                 .p(look.length(token::SPACE_3))
                 .overflow_y_scroll()
-                .bg(look.color(token::BG_SUNKEN))
                 .children(rows),
             Role::Group,
             "Waiting on you",
         );
+        // The rows scroll above the all-items foot, which stays put under them.
+        let column = div()
+            .id("review-column")
+            .border_r(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .flex_none()
+            .w(list_w)
+            .flex()
+            .flex_col()
+            .bg(look.color(token::BG_SUNKEN))
+            .child(list)
+            .child(self.review_list_foot(review, look, cx));
 
         // What a picture and a row of takes are sized to: the detail's own room.
         self.sheet.set(gpui::size((wide - list_w - look.length(token::BORDER_WIDTH) * 2.).max(px(1.)), tall));
         let detail = current.as_ref().map(|item| self.review_detail(item, &self.item_row(item, review), review, wide - list_w, look, cx));
-        let chosen = current.as_ref().map(|item| (item, self.item_row(item, review)));
-        let foot = self.review_foot(review, chosen.as_ref().map(|(item, row)| (*item, row)), look, cx);
+        let foot = self.review_foot(current.as_ref(), look, cx);
         let sheet = labelled(
             div()
                 .id("review-sheet")
@@ -1211,7 +1234,7 @@ impl JobView {
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_RAISED))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
-                .child(div().flex_1().min_h_0().flex().child(list).children(detail))
+                .child(div().flex_1().min_h_0().flex().child(column).children(detail))
                 .child(foot),
             Role::Dialog,
             "Review",
@@ -1438,6 +1461,7 @@ impl JobView {
         let focus = &self.review_focus;
         let parts = item.kind == Kind::Artifact;
         let close = self.review_button(look, "review-close", "Close", Tone::Ghost, None, false, "Esc", &focus.close, true, Self::close_review, cx);
+        let acts = self.review_item_acts(item, row, look, cx);
         let for_line = item.for_line.clone().map(|line| {
             div()
                 .flex_1()
@@ -1496,6 +1520,7 @@ impl JobView {
                                 .child(SharedString::from(revision))
                         }))
                         .child(self.review_chip(&format!("band:{key}"), row, look))
+                        .children(acts)
                         .child(close),
                 )
                 .children(for_line)
@@ -1545,14 +1570,14 @@ impl JobView {
         self.thread(&item.job, cx).and_then(|held| sketch_card(&held.head, &held.items, &item.id).map(|card| card.asked)).unwrap_or(true)
     }
 
-    /// The chosen item's own answers, for the foot: none where it is answered, an artifact (its parts answer where they stand)
+    /// The chosen item's own answers, for its band: none where it is answered, an artifact (its parts answer where they stand)
     /// or an item he is only to read, which has Open.
     fn review_item_acts(&self, item: &Item, row: &Row, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if row.verdict.is_some() || item.kind == Kind::Artifact || item.read || !self.item_asks(item, cx) {
             return None;
         }
         let focus = &self.review_focus;
-        let acts = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
+        let acts = div().flex_none().flex().items_center().gap(look.length(token::SPACE_2));
         // A Job's builds to try are answered on their own card: Dismiss, and Open to go there.
         Some(if item.kind == Kind::Ready {
             acts.child(self.review_button(look, "review-dismiss", "Dismiss", Tone::Ghost, None, false, "D", &focus.dismiss, true, Self::review_dismiss, cx))
@@ -1733,13 +1758,9 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The foot: the move keys on the left; on the right the chosen item's answers, then a rule, then Dismiss all and Approve all.
-    fn review_foot(&self, review: &ReviewState, chosen: Option<(&Item, &Row)>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let acts = chosen.and_then(|(item, row)| self.review_item_acts(item, row, look, cx));
-        let acts_shown = acts.is_some();
-        let enlarge = chosen.is_some_and(|(item, _)| self.review_enlarge(item, cx).is_some());
-        let asking = review.items().any(|item| item.kind != Kind::Artifact && !item.read && review.row(&item.key()).verdict.is_none());
-        let focus = &self.review_focus;
+    /// The foot of the sheet: the move keys, and nothing else.
+    fn review_foot(&self, chosen: Option<&Item>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let enlarge = chosen.is_some_and(|item| self.review_enlarge(item, cx).is_some());
         let hint = div()
             .flex()
             .items_center()
@@ -1759,42 +1780,127 @@ impl JobView {
                 .id("review-foot")
                 .flex_none()
                 .flex()
-                .flex_wrap()
                 .items_center()
-                .gap(look.length(token::SPACE_2))
                 .px(look.length(token::SPACE_4))
-                .py(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
                 .border_t(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_OVERLAY))
-                .child(hint)
-                .child(div().flex_1())
-                .children(acts)
-                .when(acts_shown, |foot| foot.child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h(look.length(token::H_CONTROL_SM)).bg(look.color(token::BORDER_DEFAULT))))
-                .child(self.review_button(look, "review-dismiss-all", "Dismiss all", Tone::Ghost, None, true, "\u{21e7}D", &focus.dismiss_all, asking, Self::review_dismiss_all, cx))
-                .child(self.review_button(
-                    look,
-                    "review-approve-all",
-                    "Approve all",
-                    Tone::Primary,
-                    Some(token::STATUS_COMPLETED_SUCCESS),
-                    false,
-                    "\u{21e7}A",
-                    &focus.approve_all,
-                    asking,
-                    Self::review_approve_all,
-                    cx,
-                )),
+                .child(hint),
+            Role::Group,
+            "Keys",
+        )
+        .into_any_element()
+    }
+
+    /// The foot of the list: Approve all, and the caret that holds Dismiss all, in one split button under the rows.
+    fn review_list_foot(&self, review: &ReviewState, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let asking = review.items().any(|item| item.kind != Kind::Artifact && !item.read && review.row(&item.key()).verdict.is_none());
+        let focus = &self.review_focus;
+        let ink = look.color(token::FG_INVERSE);
+        let green = look.color(token::STATUS_COMPLETED_SUCCESS);
+        let rows = Rc::clone(&self.review_rows);
+        // Two parts of one green control, a hairline apart; a part is off with nothing left asking.
+        let part = |id: &'static str, focus: &FocusHandle| {
+            div()
+                .id(id)
+                .track_focus(focus)
+                .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .h(look.length(token::H_CONTROL))
+                .border(look.length(token::BORDER_WIDTH))
+                .bg(green)
+                .border_color(green)
+                .text_color(ink)
+                .when(asking, |part| part.cursor_pointer().hover(|style| style.opacity(0.9)))
+                .when(!asking, |part| part.opacity(0.4))
+        };
+        let main = part("review-approve-all", &focus.approve_all)
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .rounded_l(look.length(token::RADIUS_MD))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+            .child("Approve all")
+            .child(kbd(look, "\u{21e7}A"))
+            .when(asking, |part| {
+                part.on_click(cx.listener(|this, _, window, cx| this.review_approve_all(window, cx))).on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.platform {
+                        this.review_approve_all(window, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+            });
+        let caret = part("review-more-all", &focus.more_all)
+            .relative()
+            .w(look.length(token::H_CONTROL))
+            .rounded_r(look.length(token::RADIUS_MD))
+            .child(glyph(look, "chevron-down", Size::Small, ink))
+            .child(canvas(move |bounds, _, _| { rows.borrow_mut().insert(MORE_ALL.to_string(), bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            .when(asking, |part| {
+                part.on_click(cx.listener(|this, _, window, cx| this.review_more_all(false, window, cx))).on_key_down(cx.listener(|this, event: &KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.platform {
+                        this.review_more_all(true, window, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+            });
+        labelled(
+            div()
+                .id("review-list-foot")
+                .flex_none()
+                .flex()
+                .justify_end()
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_3))
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(
+                    div()
+                        .flex_none()
+                        .flex()
+                        .gap(look.length(token::BORDER_WIDTH))
+                        .child(labelled(main, Role::Button, "Approve all"))
+                        .child(labelled(caret, Role::Button, "More for every item")),
+                ),
             Role::Toolbar,
             "Every item",
         )
         .into_any_element()
+    }
+
+    /// The caret's menu, over the foot and opening upward: Dismiss all, as `⇧D` does.
+    fn review_more_all(&mut self, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(bounds) = self.review_rows.borrow().get(MORE_ALL).copied() else { return };
+        let at = gpui::point(bounds.origin.x, bounds.origin.y - px(4.));
+        let entries = vec![Entry::Item { id: "dismiss-all", label: "Dismiss all".into(), icon: Some("x"), danger: false, key: Some("\u{21e7}D".into()), off: None }];
+        let back = Some(self.review_focus.more_all.clone());
+        self.open_button_menu_from(
+            Anchor::BottomLeft,
+            "More for every item",
+            entries,
+            at,
+            from_keys,
+            back,
+            |this, id, window, cx| {
+                if id == "dismiss-all" {
+                    this.review_dismiss_all(window, cx);
+                }
+            },
+            window,
+            cx,
+        );
     }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use gpui::Modifiers;
 
     fn waiting(wire: &str) -> Vec<WaitingItem> {
         ipc::decode::<Vec<WaitingItem>>("waiting", wire.as_bytes()).expect("waiting items")
@@ -2060,5 +2166,64 @@ mod tests {
         crate::mock::sketch_answered(&mut head, &mut items, "sketch:Only", ipc::SketchHow::Approved, "2026-11-09T14:10:00Z", None).expect("changed");
         assert!(head.sketch.is_none());
         assert_eq!(items.len(), 1);
+    }
+
+    /// What the last frame drew with this role and name, the last drawn.
+    fn drawn_at(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Bounds<Pixels> {
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds))
+            .unwrap_or_else(|| panic!("{name} was not drawn"))
+    }
+
+    fn sheet_open<'a>(cx: &'a mut gpui::TestAppContext) -> (Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = super::super::parts_fold::rooted_job(cx, "review-grouped", "mock-01", gpui::size(px(1400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_review(window, cx));
+        super::super::parts_fold::redraw(cx);
+        (view, cx)
+    }
+
+    fn verdicts(view: &Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Vec<Option<Verdict>> {
+        view.read_with(cx, |view, _| view.review().map(|review| review.items().map(|item| review.row(&item.key()).verdict).collect()).unwrap_or_default())
+    }
+
+    #[gpui::test]
+    fn the_item_acts_stand_in_its_band_and_the_all_acts_under_the_list_where_the_caret_holds_dismiss_all(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{drawn, redraw};
+        let (view, cx) = sheet_open(cx);
+        let column = drawn_at(cx, Role::Group, "Waiting on you");
+        let foot = drawn_at(cx, Role::Toolbar, "Every item");
+        let all = drawn_at(cx, Role::Button, "Approve all");
+        let band = drawn_at(cx, Role::Group, "Answers");
+        let approve = drawn_at(cx, Role::Button, "Approve");
+        assert!(foot.left() == column.left() && foot.right() <= band.left() + px(1.), "the foot stands under the list, not under the detail: {foot:?} {column:?}");
+        assert!(all.left() >= foot.left() && all.right() <= foot.right() && all.top() >= foot.top() && all.bottom() <= foot.bottom(), "Approve all is in the foot: {all:?} {foot:?}");
+        assert!(all.top() >= column.bottom(), "and under the rows, which scroll above it: {all:?} {column:?}");
+        assert!(all.right() <= band.left() + px(1.), "and not under the detail: {all:?} {band:?}");
+        assert!(approve.left() >= band.left() && approve.right() <= band.right() && approve.top() >= band.top() && approve.bottom() <= band.bottom(), "the item's Approve is in its band: {approve:?} {band:?}");
+        assert!(!drawn(cx, Role::Button, "Dismiss all"), "Dismiss all waits under the caret");
+
+        // The caret's menu holds Dismiss all, and Esc shuts the menu alone.
+        let caret = drawn_at(cx, Role::Button, "More for every item").center();
+        cx.simulate_click(caret, Modifiers::none());
+        redraw(cx);
+        assert!(drawn(cx, Role::MenuItem, "Dismiss all"), "the caret opens a menu with Dismiss all");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!drawn(cx, Role::MenuItem, "Dismiss all"), "Esc shuts the menu");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and leaves the panel");
+
+        // Pressing it dismisses what ⇧D does.
+        let caret = drawn_at(cx, Role::Button, "More for every item").center();
+        cx.simulate_click(caret, Modifiers::none());
+        redraw(cx);
+        let dismiss = drawn_at(cx, Role::MenuItem, "Dismiss all").center();
+        cx.simulate_click(dismiss, Modifiers::none());
+        redraw(cx);
+        let by_menu = verdicts(&view, cx);
+        assert!(by_menu.iter().any(|verdict| *verdict == Some(Verdict::Dismissed)), "the menu's Dismiss all dismissed: {by_menu:?}");
+        let (view, cx) = sheet_open(cx);
+        // The key's act, `items_dismiss_all`, is this call (`review_sheet_act`); keys are not bound in this window.
+        view.update_in(cx, |view, window, cx| view.review_dismiss_all(window, cx));
+        redraw(cx);
+        assert_eq!(verdicts(&view, cx), by_menu, "the same as the key");
     }
 }
