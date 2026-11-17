@@ -46,6 +46,8 @@ const ROW_Y: f32 = 6.;
 /// The dot's drop, which sets it level with the first line of the title.
 const DOT_DROP: f32 = 6.;
 const MARK_EDGE: f32 = 2.;
+/// What the rail takes of the thread's width: its edge, a side, the longest bar, a side.
+const RAIL_WIDTH: f32 = RAIL_EDGE + RAIL_SIDE + BAR_NOW_W + RAIL_SIDE;
 
 /// What the rail remembers: whether the pointer is on it, where the keys are in the list, and the list's own focus.
 struct Rail {
@@ -111,6 +113,12 @@ impl JobView {
         let entries: Vec<usize> = marks.iter().map(|mark| page.entry(mark.item)).collect();
         let now = model::in_view(&entries, page.list.logical_scroll_top().item_ix);
         (marks, now)
+    }
+
+    /// The room the rail takes off the thread's right, while one is drawn: the bars' column at its widest and the gap to the edge.
+    /// None where the thread holds no ask, the same test that leaves the rail out. The thread pads by it so no card sits under the bars.
+    pub(super) fn rail_width(&self, id: &SharedString, cx: &App) -> Option<Pixels> {
+        (!self.rail_marks(id, cx).0.is_empty()).then(|| px(RAIL_WIDTH))
     }
 
     /// The rail over the thread, with its list while the pointer is on it or the keys hold it. None where the thread holds no ask.

@@ -100,6 +100,10 @@ impl gpui::Render for Root {
 }
 
 fn job(cx: &mut TestAppContext, height: f32) -> (Entity<JobView>, &mut VisualTestContext) {
+    job_at(cx, 1400., height)
+}
+
+fn job_at(cx: &mut TestAppContext, width: f32, height: f32) -> (Entity<JobView>, &mut VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
@@ -116,7 +120,7 @@ fn job(cx: &mut TestAppContext, height: f32) -> (Entity<JobView>, &mut VisualTes
     });
     let view = root.read_with(cx, |root, _| root.0.clone());
     cx.update(|window, _| window.activate_window());
-    cx.simulate_resize(gpui::size(px(1400.), px(height)));
+    cx.simulate_resize(gpui::size(px(width), px(height)));
     list.update(cx, |list, cx| list.open(JOB.to_string().into(), cx));
     cx.run_until_parked();
     cx.update(|_, cx| store::shown(JOB, cx));
@@ -287,4 +291,40 @@ fn every_part_has_a_role_and_a_name(cx: &mut TestAppContext) {
     let rows = crate::job_view::parts_fold::drawn_like(cx, Role::ListBoxOption, "");
     assert_eq!(rows.len(), 4, "a row for each ask, each an option");
     assert!(rows.iter().all(|name| name.contains(", ")), "each says its title and its kind and state: {rows:?}");
+}
+
+#[gpui::test]
+fn the_thread_pads_by_the_rails_width_while_a_rail_is_drawn_and_not_otherwise(cx: &mut TestAppContext) {
+    let (view, cx) = job(cx, 2400.);
+    let room = |view: &Entity<JobView>, cx: &mut VisualTestContext| view.read_with(cx, |view, cx| view.rail_width(&JOB.into(), cx));
+    assert_eq!(room(&view, cx), Some(px(super::RAIL_WIDTH)), "the Job has asks said in its thread");
+    cx.update(|_, cx| {
+        let mut held = mock::held(JOB);
+        held.asks.clear();
+        store::hold(JOB, held, cx);
+    });
+    assert_eq!(room(&view, cx), None, "no ask, no padding");
+    cx.update(|_, cx| {
+        let mut held = mock::held(JOB);
+        held.asks.iter_mut().for_each(|ask| ask.first_row = format!("note:{}", ask.ask_id));
+        store::hold(JOB, held, cx);
+    });
+    assert_eq!(room(&view, cx), None, "asks with no first row in this thread draw no rail, so they pad nothing");
+}
+
+#[gpui::test]
+fn a_thread_with_the_rail_is_narrower_by_exactly_its_width_and_no_card_sits_under_the_bars(cx: &mut TestAppContext) {
+    // Narrow enough that the cards are as wide as the column lets them be.
+    let (view, cx) = job_at(cx, 1000., 2400.);
+    let card = bounds(cx, Role::Group, "Agent message").expect("a card is drawn");
+    let bars = bounds(cx, Role::Region, NAME).expect("the rail is drawn");
+    assert!(card.right() <= bars.left(), "the card ends at {:?} and the bars start at {:?}", card.right(), bars.left());
+    cx.update(|_, cx| {
+        let mut held = mock::held(JOB);
+        held.asks.clear();
+        store::hold(JOB, held, cx);
+    });
+    view.update(cx, |_, cx| cx.notify());
+    let bare = bounds(cx, Role::Group, "Agent message").expect("a card is drawn");
+    assert_eq!(bare.size.width - card.size.width, px(super::RAIL_WIDTH), "the column gives up the rail's width and no more");
 }

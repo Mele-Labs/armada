@@ -32,13 +32,13 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
     cx.update(crate::init_app);
     cx.update(|cx| cx.set_reduce_motion(true));
-    for (name, open) in [("rail-rest-1400", false), ("rail-list-1400", true)] {
+    for (name, wide, open) in [("rail-rest-1400", 1400., false), ("rail-list-1400", 1400., true), ("rail-rest-820", 820., false), ("rail-list-820", 820., true)] {
         let held: Rc<RefCell<Option<(Entity<JobView>, Entity<crate::jobs::JobsList>)>>> = Rc::default();
         let keep = held.clone();
         let jobs = crate::mock::jobs("job-view")?;
         let threads = crate::mock::threads("job-view")?;
         let handle = cx
-            .open_window(size(px(1400.), px(900.)), move |window, cx| {
+            .open_window(size(px(wide), px(900.)), move |window, cx| {
                 let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
                 let view = cx.new(|cx| JobView::new(list.clone(), Some(threads), window, cx));
                 *keep.borrow_mut() = Some((view.clone(), list));
@@ -74,9 +74,9 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
         })
         .map_err(|why| why.to_string())?;
         draw(&mut cx)?;
-        if open {
+        {
             cx.update_window(handle.into(), |_, _, cx| {
-                cx.global_mut::<Rail>().hover = true;
+                cx.global_mut::<Rail>().hover = open;
                 view.update(cx, |_, cx| cx.notify());
             })
             .map_err(|why| why.to_string())?;

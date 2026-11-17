@@ -1352,6 +1352,7 @@ impl Render for JobView {
                     .size_full()
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
+                    .when_some(self.rail_width(&id, cx), |thread, rail| thread.pr(rail))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.render_entry(ix, window, cx))).size_full())
                     .child(fade(&look, true))
