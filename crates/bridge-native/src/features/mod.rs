@@ -12,6 +12,7 @@ pub(crate) mod asks;
 mod looked;
 pub(crate) mod mock;
 mod model;
+pub mod of_path;
 pub mod overlay;
 pub mod page;
 pub(crate) mod page_model;
@@ -412,6 +413,8 @@ impl FeaturesScreen {
 
 #[cfg(test)]
 mod ask_tests;
+#[cfg(test)]
+mod of_path_tests;
 #[cfg(test)]
 mod page_tests;
 #[cfg(test)]

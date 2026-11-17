@@ -216,6 +216,7 @@ Enter          open the feature   (features only)
 Tab / ⇧Tab     move between the parts of the page   (features only)
 ← / →          move between chips   (features only)
 s              open the story of the ask   (features only)
+f              open the feature of this note   (features only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -283,6 +284,10 @@ The bare keys stand down in the filter, which takes them as typing, and `Esc` gi
 A feature's page has three parts, the list of sections, the filter chips and the rows, which `Tab` and `⇧Tab` move between; `j`, `k` and the arrows move the section or the row, `←` and `→` move along the chips and `Enter` applies the chip.
 On an ask, `Enter` or `s` opens the Job it came from on its Story tab at that ask, as a press on the row's Story link does.
 The asks show five rows and a line below them, Earlier, folded, which `Enter` opens; `Esc` folds them again before it leaves the page.
+
+**A note's card in the annotation layer takes the `features` key `f`.**
+It opens the page of the feature the note's element belongs to beside the card, and the next feature on a press where the note maps to several.
+`Tab` reaches each feature's chip and `Enter` opens it; `Esc` closes the page before it closes the card.
 
 **A Job's Story tab takes the `features` keys.**
 `j`, `k` and the arrows move between the ask heads, `Enter` folds or unfolds the ask the keys are on, and one ask is unfolded at a time.

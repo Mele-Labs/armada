@@ -110,3 +110,92 @@ pub fn shoot_story(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// What the annotation layer draws over a screen: the Features tab stands in for a screen with a note on one of its rows.
+struct Under {
+    screen: gpui::Entity<FeaturesScreen>,
+    layer: gpui::Entity<crate::annotate::Layer>,
+}
+
+impl gpui::Render for Under {
+    fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl gpui::IntoElement {
+        use gpui::{div, prelude::*};
+        div().size_full().relative().child(self.screen.clone()).child(self.layer.clone())
+    }
+}
+
+/// A note's card with its feature chips over a screen at 1400 wide, then the feature's page beside it, then the page's
+/// Story in the same panel.
+pub fn shoot_beside(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    for (name, step) in [("note-chips-1400", 0), ("note-beside-1400", 1), ("note-beside-story-1400", 2)] {
+        let held: Rc<RefCell<Option<(gpui::Entity<FeaturesScreen>, gpui::Entity<crate::annotate::Layer>)>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(820.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                let layer = cx.new(|cx| {
+                    let mut layer = crate::annotate::Layer::new(Rc::default(), Vec::new(), cx);
+                    layer.screen = Some("Jobs".into());
+                    layer
+                });
+                *keep.borrow_mut() = Some((screen.clone(), layer.clone()));
+                cx.new(|_| Under { screen, layer })
+            })
+            .map_err(|why| why.to_string())?;
+        let (screen, layer) = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| screen.enter(window, cx));
+            layer.update(cx, |layer, cx| {
+                layer.feature_source(super::overlay::Source::Mock, cx);
+                layer.toggle(window, cx);
+                let note = serde_json::json!({
+                    "id": "20261117-101500-feat", "status": "open", "text": "The row clips its title where a Job has two on it", "component": "JobRow", "owners": ["JobList"],
+                    "ownersFrom": "parent", "selector": "div.row", "element": { "tag": "div", "text": "", "label": "Row \"Job list and live status\"" },
+                    "screen": "Jobs", "layer": null, "location": "/", "scenario": null,
+                    "source": { "file": "apps/desktop/src/renderer/src/jobs/JobRow.tsx", "line": 41 },
+                    "box": { "x": 330, "y": 150, "width": 360, "height": 56 }, "window": { "width": 1400, "height": 820 },
+                    "createdAt": "2026-11-17T10:15:00.000Z", "updatedAt": "2026-11-17T10:15:00.000Z",
+                });
+                layer.read_back(vec![note], cx);
+                layer.open_note(1, window, cx);
+            });
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        if step >= 1 {
+            cx.update_window(handle.into(), |_, window, cx| {
+                layer.update(cx, |layer, cx| layer.open_next_feature(window, cx));
+            })
+            .map_err(|why| why.to_string())?;
+            for _ in 0..4 {
+                cx.run_until_parked();
+                cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+            }
+        }
+        if step >= 2 {
+            cx.update_window(handle.into(), |_, window, cx| {
+                if let Some(overlay) = layer.read(cx).features_overlay().cloned() {
+                    overlay.update(cx, |overlay, cx| overlay.push_story(ipc::SessionId::carried(crate::job_view::story::mock::JOB), "ask-3".into(), window, cx));
+                }
+            })
+            .map_err(|why| why.to_string())?;
+            for _ in 0..4 {
+                cx.run_until_parked();
+                cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+            }
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

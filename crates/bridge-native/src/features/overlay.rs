@@ -17,6 +17,7 @@ use crate::settings::view::{ghost_with, small};
 use crate::titlebar::parts::sans;
 
 /// Where the overlay reads from.
+#[derive(Clone)]
 pub enum Source {
     Live(Entity<FleetConnection>),
     Mock,
@@ -142,6 +143,26 @@ impl FeatureOverlay {
         if let Content::Page(page) = &gone.content {
             page.update(cx, |page, cx| page.leave(cx));
         }
+        if self.stack.is_empty() {
+            cx.emit(OverlayEvent::Closed);
+        } else {
+            self.focus_top(window, cx);
+        }
+        cx.notify();
+    }
+
+    /// Every layer put away at once, each page stamped as looked at, with no event: for whoever holds the overlay and is
+    /// about to drop it.
+    pub fn put_away(&mut self, cx: &mut Context<Self>) {
+        for gone in self.stack.drain(..) {
+            if let Content::Page(page) = &gone.content {
+                page.update(cx, |page, cx| page.leave(cx));
+            }
+        }
+    }
+
+    /// The keys go to the top layer, as they do after a layer goes back.
+    pub fn focus_top(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.stack.last() {
             Some(Layer { content: Content::Page(page), .. }) => {
                 let rail = page.read(cx).focus_handle(cx);
@@ -151,9 +172,8 @@ impl FeatureOverlay {
                 let focus = story.read(cx).focus_handle(cx);
                 window.focus(&focus, cx);
             }
-            None => cx.emit(OverlayEvent::Closed),
+            None => {}
         }
-        cx.notify();
     }
 
     fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {

@@ -1829,6 +1829,18 @@ destructive = false
 confirms = false
 notes = "Opens the Job an ask on a feature's page came from, on its Story tab, at that ask. The same as Enter on the row and a press on its Story link. An ask filed outside a Job has none. Native only, 17 Nov 2026."
 
+[actions.note_feature]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the feature of this note"
+icon = ""
+icon_absent = "undecided"
+shortcut = "f"
+scope = "features"
+destructive = false
+confirms = false
+notes = "On the card of a note in the annotation layer: opens the page of the feature the note's element belongs to beside the card, and the next feature on a press while one is open, where the note maps to several. Fleet maps it from the file the element was drawn from, else from its component's name. The scope is `features` because the layer has none of its own and the key belongs to the feature page it opens; the card takes the scope's context while it has the keys. Esc closes the page before it closes the card. Native only, 17 Nov 2026."
+
 [actions.message_kind]
 kind = "Action"
 tier = "Global"
