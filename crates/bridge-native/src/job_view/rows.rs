@@ -59,9 +59,11 @@ pub(super) fn elapsed_words(from: &str, to: &str) -> Option<String> {
 /// One Manifest's link table, and each prose text it has linked (`JobView::linked`).
 pub(super) struct Linked {
     refs: super::refs::Refs,
+    /// What the table was read from (`link_key`).
+    key: u64,
     said: std::collections::HashMap<String, String>,
-    /// The list or Fleet moved since the table was read: it is read again before the next use, and
-    /// what was linked is kept where the table came out the same (a restart's catch-up moves both often).
+    /// The list or Fleet moved since the table was read: it is read again before the next use where
+    /// what it is read from changed (a restart's catch-up, and a working Job's thread, move both often).
     stale: bool,
 }
 
@@ -578,11 +580,13 @@ impl JobView {
         let manifest = manifest.or_else(shown);
         let refs = || super::refs::Refs::of(self.list.read(cx).records()).with_pulls(manifest.map(|manifest| self.known_pulls(manifest, cx)).unwrap_or_default());
         let mut linked = self.linked.borrow_mut();
-        let held = linked.entry(manifest.unwrap_or_default().to_string()).or_insert_with(|| Linked { refs: refs(), said: std::collections::HashMap::new(), stale: false });
+        let held = linked
+            .entry(manifest.unwrap_or_default().to_string())
+            .or_insert_with(|| Linked { refs: refs(), key: self.link_key(manifest, cx), said: std::collections::HashMap::new(), stale: false });
         if held.stale {
-            let now = refs();
-            if now != held.refs {
-                *held = Linked { refs: now, said: std::collections::HashMap::new(), stale: false };
+            let key = self.link_key(manifest, cx);
+            if key != held.key {
+                *held = Linked { refs: refs(), key, said: std::collections::HashMap::new(), stale: false };
             }
             held.stale = false;
         }

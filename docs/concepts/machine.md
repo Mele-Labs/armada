@@ -69,7 +69,7 @@ The binding rules are `../contracts/configuration.md`, *The Machine tier is one 
 - Read replies for needs: `features.readRepliesForNeeds`, whether Fleet raises a Needs you item from the close of an agent's reply; on ships
 - Interface sounds: `features.uiSounds`
 - Reduce motion: `features.reduceMotion`, whether Bridge's windows hold still with the Mac's own setting left alone; off ships
-- Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge
+- Pull request links: `features.deepLinks`, whether `armada://pull/<owner>/<name>/<n>` opens that review in Bridge; `scripts/services-menu` adds Open in Armada to the macOS Services menu, which sends a GitHub pull request link there
 - Voice/tone
 - On your words can act: `features.onYourWordsCanAct`
 

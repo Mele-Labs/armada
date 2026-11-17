@@ -178,6 +178,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::DELETE_PROJECT {
                     over.update(cx, |over, cx| over.with_deletable_projects(cx));
                 }
+                if walk.name == crate::settings::walk::MERGE_PROJECT {
+                    over.update(cx, |over, cx| over.with_mergeable_projects(cx));
+                }
                 if walk.name == crate::settings::walk::TAKE {
                     over.update(cx, |over, cx| over.copied_from_base(cx));
                 }

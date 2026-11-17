@@ -177,6 +177,8 @@ pub struct Hosts {
     stops_owed: stopping::Owed,
     /// The Jobs stopped with their agent alive, which a repair is due for.
     stops_silent: stopping::Silent,
+    /// The reads of his questions that came back unclear or failed, each tried again on the next passes. Memory only.
+    question_tries: crate::story::questions::Tries,
     asks: Asks,
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
@@ -238,6 +240,7 @@ impl Hosts {
             stuck: Mutex::new(std::collections::HashSet::new()),
             stops_owed: stopping::Owed::default(),
             stops_silent: stopping::Silent::default(),
+            question_tries: Default::default(),
             asks: Asks::holding_for(hold),
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
@@ -342,6 +345,10 @@ impl Hosts {
 
     pub(crate) fn stops_silent(&self) -> &stopping::Silent {
         &self.stops_silent
+    }
+
+    pub(crate) fn question_tries(&self) -> &crate::story::questions::Tries {
+        &self.question_tries
     }
 
     pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {

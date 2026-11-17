@@ -7,6 +7,8 @@ use gpui::{
     FocusHandle, Focusable, KeyDownEvent, Pixels, Point, Role, SharedString, Window, px,
 };
 
+mod submenu;
+
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
@@ -57,11 +59,13 @@ pub struct Row {
     pub off: Option<SharedString>,
     /// Picking it flips its tick and leaves the menu open, as Electron's View group does.
     pub keep: bool,
+    /// A Mac's chip at the right, and the acts that open beside the row (`submenu.rs`).
+    pub beside: submenu::Beside,
 }
 
 impl Row {
     pub fn new(id: &'static str, label: impl Into<SharedString>) -> Row {
-        Row { id, label: label.into(), icon: None, detail: None, under: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false }
+        Row { id, label: label.into(), icon: None, detail: None, under: None, key: None, ticked: None, member: false, attention: false, off: None, keep: false, beside: submenu::Beside::default() }
     }
 
     pub fn icon(mut self, icon: &'static str) -> Row {
@@ -268,6 +272,7 @@ impl Dropdown {
             Some(at) => (at as isize + by).clamp(0, ids.len() as isize - 1) as usize,
         };
         self.cursor = Some(ids[next]);
+        self.follow(ids[next]);
     }
 
     fn pick(&mut self, at: usize, cx: &mut Context<Self>) {
@@ -338,6 +343,9 @@ impl Dropdown {
                 self.pick(at, cx);
                 cx.notify();
             }
+            return;
+        }
+        if self.sub_key(event, cx) {
             return;
         }
         if self.searching() {
@@ -503,7 +511,7 @@ impl Dropdown {
                         .text_size(look.length(token::TEXT_SM))
                         .text_color(ink)
                         .when(live && self.cursor == Some(at), |line| line.bg(look.color(token::BG_HOVER)))
-                        .when(live, |line| line.hover(|style| style.bg(look.color(token::BG_HOVER))).cursor_pointer())
+                        .when(live && !self.opens_beside(at), |line| line.hover(|style| style.bg(look.color(token::BG_HOVER))).cursor_pointer())
                         .when(has_icons, |line| {
                             line.child(div().flex_none().size(glyph).children(row.icon.map(|icon| svg().path(icon_path(icon)).size(glyph).text_color(ink))))
                         })
@@ -533,6 +541,7 @@ impl Dropdown {
                             }))
                         })
                         .when_some(row.off.clone(), |line, why| line.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx)))
+                        .map(|line| self.dress(line, row, &look, glyph, at, cx))
                         .when(live, |line| line.on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx)))),
                     role,
                     name,
@@ -622,27 +631,26 @@ impl Render for Dropdown {
             }
         }
         let look = cx.look();
-        let detailed = self.entries.iter().any(|entry| matches!(entry, Entry::Row(Row { detail: Some(_), .. })));
         deferred(
             anchored()
                 .position(self.at)
                 .anchor(self.corner)
                 .snap_to_window_with_margin(look.length(token::SPACE_1))
-                .child(labelled(
+                .child(self.with_submenu(&look, cx, labelled(
                     div()
                         .id("menu")
                         .track_focus(&self.focus)
                         .capture_key_down(cx.listener(Self::on_key))
                         // A press on a walk's bar, outside the app's room, leaves the menu open for the step that picks from it.
-                        .on_mouse_down_out(cx.listener(|_, event: &gpui::MouseDownEvent, window, cx| {
-                            if crate::room::of(window, cx).contains(&event.position) {
+                        .on_mouse_down_out(cx.listener(|this, event: &gpui::MouseDownEvent, window, cx| {
+                            if crate::room::of(window, cx).contains(&event.position) && !this.in_submenu(event.position, window, cx) {
                                 cx.emit(DismissEvent);
                             }
                         }))
                         .occlude()
                         // Room for a detail after a name. A menu with a filter field is a long one, so it
                         // scrolls under the field; any other runs its length, kept inside the window.
-                        .w(look.length(token::W_MENU) + if detailed { look.length(token::SPACE_12) } else { px(0.) })
+                        .w(self.width(&look))
                         .max_h(if self.searching() { look.length(token::PALETTE_MAX_HEIGHT) + look.length(token::SPACE_12) } else { window.viewport_size().height - look.length(token::SPACE_1) * 2. })
                         .overflow_y_scroll()
                         .flex()
@@ -657,7 +665,7 @@ impl Render for Dropdown {
                         .children(entries),
                     Role::Menu,
                     self.name.clone(),
-                )),
+                ))),
         )
         // Above every sheet: a menu opens from whatever is in front, such as the sketch reader's rail.
         .with_priority(4)

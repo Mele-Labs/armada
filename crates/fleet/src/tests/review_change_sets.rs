@@ -146,6 +146,22 @@ fn an_overview_finding_is_in_a_set_it_was_told_with_one_sentence_of_reason() {
     assert!(overview_read(&finding("set-1", "Wraps, so check it."), &sets, &changed).is_ok());
 }
 
+#[test]
+fn an_overview_reason_over_the_limit_is_kept_cut_at_a_word_boundary() {
+    let changed = ["a.rs".to_string()];
+    let long = format!("{}end", "word ".repeat(58));
+    let long = format!("{long}!!!!");
+    let answer = format!(
+        r#"{{"findings":[{{"severity":"risk","set":"set-1","title":"T","reason":"{long}","at":{{"path":"a.rs","side":"right","start":1,"end":1}}}}]}}"#
+    );
+    let Ok(ReviewResult::Overview { findings }) = overview_read(&answer, &["set-1".to_string()], &changed) else {
+        panic!("a long reason is still a finding")
+    };
+    let kept = &findings[0].reason;
+    assert!(kept.chars().count() <= ipc::COMMENT_AT_MOST, "{} characters", kept.chars().count());
+    assert!(kept.ends_with('…') && !kept.contains("end"), "cut at a word boundary: {kept}");
+}
+
 #[tokio::test]
 async fn practices_are_read_once_an_area_and_kind_and_read_again_when_a_doc_moves() {
     let home = TempDir::new();

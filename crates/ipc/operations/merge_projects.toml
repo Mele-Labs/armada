@@ -1,0 +1,10 @@
+[operations.merge_projects]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Make a project of this Mac's and a copy of another Mac's, of one name, one project"
+notes = """
+`POST /projects/merge`, body `MergeProjects { kept, gone, from_gone? }`. `docs/concepts/project.md`, *Sharing with his other Macs*. **One of the two is this Mac's own and the other is a copy** of a project another Mac holds, and either may be kept. `from_gone` is the value keys (`ValuesSet`'s field names) where the gone project's value wins; a key both set to different values and not named keeps the kept project's, a key only the gone one sets is copied over, and a key only the kept one sets stays. The kept project takes the gone one's tasks under their own ids (a `held` task comes over `open`, the rest keep their state), and the members are joined. The Mac that holds the kept project does that (`absorb`, a `ProjectAct`), and the Mac that holds the gone one moves its Jobs into the kept project, sends it any task the kept holder was not given, and deletes the gone project, its file wherever it is kept, and its tasks (`give_up`, a `ProjectAct`). A file in a bucket is left, since Fleet only reads and writes a bucket. **Each Mac changes only what it holds**, and the other Mac's part is sent as an act on the project it holds; where that Mac cannot be reached the act is queued and sent when it next speaks, oldest first, and the merge stands here at once. **From the press, this Mac lists one project**, the kept one with both sets of tasks. Answers `Projects` as `list_projects` does, and publishes it as `projects.changed`.
+
+A 404 `fleet.no_such_project` for an id he has none of. A 422 `fleet.merge_names_differ` where the two have different names. A 422 `fleet.merge_not_a_pair` where both are this Mac's own, both are copies, or the two are one. A 422 `fleet.merge_kept_not_shared` where the kept project is not shared with his other Macs. A 422 `fleet.project_unwritable` where the kept project's file did not read or could not be written.
+"""
