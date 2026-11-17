@@ -118,6 +118,7 @@ A plan already put to him stays his to answer, and a plan held behind a walk sta
 `document_approved` counts only his approval of a page's newest revision, read off the page Fleet kept.
 A step gated `you_approved` ends on it too, and reads "you approve"; the rail holds the Job on the step until the gate has closed.
 `you_approved` counts only his Approve on a `waiting_for` item the agent raised with `approves: true`; Fleet gives that item exactly two options, Approve and Ask for changes, and Ask for changes leaves the gate open.
+His Looks good on a Ready to try card counts the same way.
 
 **A lifecycle state** is written `pr: approved`, `ticket: closed` or `job: landed`, and `any ticket: closed` for the first of several (29 Oct 2026).
 Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.
