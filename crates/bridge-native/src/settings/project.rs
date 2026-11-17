@@ -1044,7 +1044,7 @@ mod tests {
     fn the_picker_lists_every_project_each_with_its_mac_and_new_project_with_the_acts_beside_the_one_edited() {
         use crate::dropdown::Entry;
         let one = |id: &str, name: &str, values: Option<ValuesSet>, unread: Option<&str>| Project { id: id.into(), name: name.into(), values, unread: unread.map(String::from), ..Project::default() };
-        let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
+        let projects = Projects { projects: vec![one("armada", "Armada", Some(armada()), None), one("ledger", "Ledger", None, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
         let rows = picker_rows(&Some(("armada".into(), "Armada".into())), Some(&projects), &[]);
         let said: Vec<(String, Option<String>, bool)> = rows
             .iter()
@@ -1077,7 +1077,7 @@ mod tests {
         let own = Project { id: "pricing".into(), name: "Pricing".into(), ..Project::default() };
         let copy = Project { id: "pricing-air".into(), name: "Pricing".into(), mac: Some("mac-air".into()), ..Project::default() };
         let other = Project { id: "onboarding".into(), name: "Onboarding".into(), ..Project::default() };
-        Projects { projects: vec![own, copy, other], loose: Vec::new(), left_out: Vec::new() }
+        Projects { projects: vec![own, copy, other], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
     }
 
     fn chip_and_acts(rows: &[crate::dropdown::Entry], id: &str) -> (Option<String>, Vec<String>) {
@@ -1118,7 +1118,7 @@ mod tests {
     #[test]
     fn a_project_shows_the_share_switch_as_listed_and_an_unread_one_has_none() {
         let one = |id: &str, shared: bool, unread: Option<&str>| Project { id: id.into(), shared_with_macs: shared, unread: unread.map(String::from), ..Project::default() };
-        let projects = Projects { projects: vec![one("web", true, None), one("api", false, None), one("lost", true, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new() };
+        let projects = Projects { projects: vec![one("web", true, None), one("api", false, None), one("lost", true, Some("the file is gone"))], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
         assert_eq!(shared_of(&projects, "web"), Some(true));
         assert_eq!(shared_of(&projects, "api"), Some(false));
         assert_eq!(shared_of(&projects, "lost"), None, "a project shown as unread has no switch");

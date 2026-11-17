@@ -21,6 +21,11 @@ pub struct Projects {
     /// The project files Fleet could not read, each with where it is and why. **A file a project of his
     /// names is here too**, and that project says so as `unread`.
     pub left_out: Vec<ProjectLeftOut>,
+    /// The project files an act took out of their place but could not take away, each with where it is and
+    /// the words the place gave. **Only the answer to that act carries it**: Delete, a place move or a merge
+    /// whose old file stayed because a bucket refused the delete. Absent where nothing was left.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_behind: Vec<ProjectLeftOut>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,7 +105,7 @@ pub struct ProjectPlace {
     pub cloud: Option<RunCloud>,
 }
 
-/// A project file Fleet could not read.
+/// A project file Fleet could not read, or could not take away.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectLeftOut {
     pub place: RunPlace,

@@ -227,29 +227,44 @@ where
         }
     }
 
-    /// Take the file of project `id` away where Fleet keeps it itself: Kit's. A synced folder's and a
-    /// bucket's are the person's, and are left.
-    pub(crate) async fn project_file_removed(&self, id: &str) -> Result<(), Refusal> {
+    /// Take the file of project `id` away where Fleet keeps it itself, Kit's, and from a bucket. A synced folder's is
+    /// the person's, and is left. `Some` names a bucket's file that stayed because the bucket refused the delete.
+    pub(crate) async fn project_file_removed(&self, id: &str) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
         self.project_file_taken_away(id, false).await
     }
 
-    /// Take the file of project `id` away wherever it is kept as a folder: Kit's, and a synced folder. **A
-    /// bucket's is left**, since a bucket Fleet is handed is read and written and nothing more.
-    pub(crate) async fn project_file_removed_everywhere(&self, id: &str) -> Result<(), Refusal> {
+    /// Take the file of project `id` away wherever it is kept: Kit's, a synced folder and a bucket. `Some` names a
+    /// bucket's file that stayed because the bucket refused the delete, which does not stop the act.
+    pub(crate) async fn project_file_removed_everywhere(&self, id: &str) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
         self.project_file_taken_away(id, true).await
     }
 
-    async fn project_file_taken_away(&self, id: &str, synced_too: bool) -> Result<(), Refusal> {
+    async fn project_file_taken_away(&self, id: &str, synced_too: bool) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
         let (place, at) = self.project_kept(id).await?;
-        let places::Where::Folder(base) = at else { return Ok(()) };
+        let base = match at {
+            places::Where::Folder(base) => base,
+            places::Where::Bucket(address, _) => return Ok(self.bucket_file_removed(&address, id).await),
+            places::Where::Nowhere(_) => return Ok(None),
+        };
         if (!synced_too && place != ProjectPlace::ThisMac) || !file_safe(id) {
-            return Ok(());
+            return Ok(None);
         }
         let path = places::project_file(&base, id);
         match std::fs::remove_file(&path) {
-            Ok(()) => Ok(()),
-            Err(why) if why.kind() == std::io::ErrorKind::NotFound => Ok(()),
+            Ok(()) => Ok(None),
+            Err(why) if why.kind() == std::io::ErrorKind::NotFound => Ok(None),
             Err(why) => Err(self.project_unwritable(&path.display().to_string(), why)),
+        }
+    }
+
+    /// Delete project `id`'s object from the bucket at `address`. **A bucket that refuses does not stop the act**: the
+    /// object stays, and what is returned says so with the bucket's words.
+    async fn bucket_file_removed(&self, address: &adapters::BucketAddress, id: &str) -> Option<ipc::ProjectLeftOut> {
+        let (reaching, address, object) = (Arc::clone(self.reaching()), address.clone(), places::project_object(id));
+        let at = object.clone();
+        match cloud::blocking(move || reaching.bucket(&address)?.delete(&at)).await {
+            Ok(()) => None,
+            Err(fault) => Some(ipc::ProjectLeftOut { place: RunPlace::Cloud, path: object, why: fault.said().to_string() }),
         }
     }
 
@@ -382,11 +397,12 @@ where
         Ok(chosen)
     }
 
-    /// Write `project` at the place `chosen` and record the choice. The old place's file is taken away
-    /// where it was Kit's; a synced folder's and a bucket's stay, and are never read again.
-    pub(crate) async fn project_relocated(&self, project: &Project, chosen: &KeptPlace) -> Result<(), Refusal> {
+    /// Write `project` at the place `chosen` and record the choice. **The old place's file is taken away**, Kit's, a
+    /// synced folder's and a bucket's, unless the new place keeps it at the same path. `Some` names a file that stayed:
+    /// the bucket refused the delete, or the folder would not let it go. Neither stops the move.
+    pub(crate) async fn project_relocated(&self, project: &Project, chosen: &KeptPlace) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
         let id = project.id().as_str();
-        let was = self.project_kept(id).await?;
+        let (was_place, was) = self.project_kept(id).await?;
         // The old place stays unless the new one takes the file.
         self.project_stored_at(project, Some(chosen)).await?;
         self.store()
@@ -394,31 +410,46 @@ where
             .await
             .set_project_place(id, &chosen.place, chosen.synced_folder.as_deref(), chosen.cloud.as_deref())
             .map_err(|why| self.ledger_fault(why))?;
-        if let (ProjectPlace::ThisMac, places::Where::Folder(base)) = was {
-            let old = places::project_file(&base, id);
-            let moved_off = !matches!(self.project_kept(id).await?.1, places::Where::Folder(now) if places::project_file(&now, id) == old);
-            if moved_off {
-                let _ = std::fs::remove_file(old);
+        let (_, now) = self.project_kept(id).await?;
+        Ok(match (was, now) {
+            (places::Where::Folder(old), now) => {
+                let old = places::project_file(&old, id);
+                if matches!(now, places::Where::Folder(now) if places::project_file(&now, id) == old) {
+                    return Ok(None);
+                }
+                match std::fs::remove_file(&old) {
+                    Err(why) if why.kind() != std::io::ErrorKind::NotFound => {
+                        let place = if was_place == ProjectPlace::ThisMac { RunPlace::ThisMac } else { RunPlace::Synced };
+                        Some(ipc::ProjectLeftOut { place, path: old.display().to_string(), why: why.to_string() })
+                    }
+                    _ => None,
+                }
             }
-        }
-        Ok(())
+            (places::Where::Bucket(address, _), now) => {
+                if matches!(&now, places::Where::Bucket(now, _) if *now == address) {
+                    return Ok(None);
+                }
+                self.bucket_file_removed(&address, id).await
+            }
+            (places::Where::Nowhere(_), _) => None,
+        })
     }
 
     /// Choose where project `id`'s file is kept, write it there, and read every project again.
-    /// **`repository` is refused**: a project is not kept in one.
+    /// **`repository` is refused**: a project is not kept in one. `Some` names the old file that stayed.
     pub async fn project_place_set(
         &self,
         id: &str,
         place: RunPlace,
         synced_folder: Option<String>,
         cloud: Option<RunCloud>,
-    ) -> Result<(), Refusal> {
+    ) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
         let chosen = self.project_place_chosen(id, place, synced_folder, cloud).await?;
         let project = ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned()).ok_or_else(|| {
             Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id} that reads, so it is not moved")))
         })?;
-        self.project_relocated(&project, &chosen).await?;
+        let left = self.project_relocated(&project, &chosen).await?;
         self.projects_reload().await;
-        Ok(())
+        Ok(left)
     }
 }

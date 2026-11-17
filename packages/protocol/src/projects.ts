@@ -139,7 +139,7 @@ export type ProjectPlace = {
   cloud?: RunCloud;
 };
 
-/** A project file Fleet could not read. */
+/** A project file Fleet could not read, or could not take away. */
 export type ProjectLeftOut = {
   /** `this_mac`, `synced` or `cloud`. */
   place: RunPlace;
@@ -160,6 +160,8 @@ export type Projects = {
   loose: ProjectRow[];
   /** The project files Fleet could not read. A file a project of his names is here too, and that project says so as `unread`. */
   left_out: ProjectLeftOut[];
+  /** The project files an act could not take away, each with the words the place gave. Only the answer to that act carries it; absent where nothing was left. */
+  left_behind?: ProjectLeftOut[];
 };
 
 /** `POST /projects`: the name, trimmed, and what the project starts with. Absent `members` is none, and absent `place` is this Mac. */

@@ -8,14 +8,17 @@ use std::time::Duration;
 use api::{OtherMacs, Projects};
 use ipc::{
     EditProject, ManifestId, MergeProjects, NewProject, NewProjectTask, Project, ProjectAct, ProjectHolder, ProjectMember, ProjectPlace, ProjectRow,
-    ProjectTaskState, RunPlace, ValuesSet,
+    ProjectTaskState, RunCloud, RunPlace, ValuesSet,
 };
 
 use super::other_mac_projects::{act, hold, listed, state_in, task_row, theirs, titles_of, Link, WORK};
-use super::session_host::{rig_placing, Rig};
+use super::red_claim::Planted;
+use super::session_host::{rig_fitted, rig_placing, Rig};
 use super::share::{job_in, project, shared};
 use crate::phone::PhoneSwitch;
+use crate::run_memory::places;
 use crate::tests::tmp::TempDir;
+use testkit::FakeBucket;
 
 const THEIRS: &str = "p-shop-work";
 
@@ -44,7 +47,7 @@ fn values(auto_merge: &str, delivery: Option<&str>) -> ValuesSet {
 
 /// What the holder says once its project has gone: no project of its own that matters here.
 fn nothing_left() -> ipc::Projects {
-    ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() }
+    ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
 }
 
 /// A copy of Work's "Shop", with a task of each state.
@@ -179,7 +182,7 @@ async fn keeping_the_copy_sends_this_macs_tasks_and_values_and_then_moves_its_jo
     hold(&rig, vec![copy.clone()]).await;
     let mut said = copy.clone();
     said.rows.push(task_row("t-mine", "Mine", &rig.manifest));
-    link.answers(200, &ipc::Projects { projects: vec![said], loose: Vec::new(), left_out: Vec::new() });
+    link.answers(200, &ipc::Projects { projects: vec![said], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() });
 
     let merged = rig.fleet.merge_projects(merge(THEIRS, &shop, &["delivery"])).await.expect("merged");
 
@@ -215,7 +218,7 @@ async fn keeping_the_copy_while_its_mac_sleeps_lists_one_project_and_finishes_he
 
     let mut said = theirs(THEIRS, "Shop", vec![task_row("t-1", "Theirs", &rig.manifest), task_row("t-mine", "Mine", &rig.manifest)]);
     said.shared_with_macs = true;
-    link.answers(200, &ipc::Projects { projects: vec![said.clone()], loose: Vec::new(), left_out: Vec::new() });
+    link.answers(200, &ipc::Projects { projects: vec![said.clone()], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() });
     hold(&rig, vec![said]).await;
     assert!(queue_empty(&rig).await);
     for _ in 0..100 {
@@ -283,7 +286,7 @@ async fn a_task_added_to_the_gone_project_after_the_snapshot_is_sent_to_the_kept
 }
 
 fn theirs_after() -> ipc::Projects {
-    ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() }
+    ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
 }
 
 #[tokio::test]
@@ -321,4 +324,45 @@ async fn a_merge_is_refused_for_a_kept_project_not_shared_names_that_differ_and_
     shared(&rig, &shop, false).await;
     assert_eq!((listed(&rig).await.projects.len(), rig.fleet.store().lock().await.projects().expect("reads").projects.len()), (before.0.projects.len(), before.1.projects.len()));
     assert_eq!(titles_of(&listed(&rig).await, THEIRS), ["Theirs"], "nothing refused changed anything");
+}
+
+/// This Mac's "Shop", kept in a bucket, given up for Work's copy; the bucket's file after, with the merge's answer.
+async fn given_up_from_a_bucket(bucket: &Arc<FakeBucket>) -> (Option<Vec<u8>>, ipc::Projects, usize) {
+    let held = Arc::clone(bucket);
+    let rig = rig_fitted(move |fittings| fittings.reaching = Arc::new(Planted::with_bucket(held)));
+    let place = ProjectPlace { place: RunPlace::Cloud, synced_folder: None, cloud: Some(RunCloud::Bucket("s3://shop-runs/armada".into())) };
+    let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
+    let made = rig.fleet.add_project(NewProject { name: "Shop".into(), members, place: Some(place), values: None }).await.expect("added");
+    let shop = made.projects.into_iter().find(|one| one.name == "Shop").expect("shop").id;
+    shared(&rig, &shop, true).await;
+    let object = places::project_object(&shop);
+    assert!(bucket.object(&object).is_some(), "its file is in the bucket");
+    let link = linked(&rig);
+    let copy = work_shop(&rig);
+    hold(&rig, vec![copy.clone()]).await;
+    link.answers(200, &ipc::Projects { projects: vec![copy], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() });
+
+    let merged = rig.fleet.merge_projects(merge(THEIRS, &shop, &[])).await.expect("merged");
+
+    let kept = rig.fleet.store().lock().await.projects().expect("reads").projects.len();
+    (bucket.object(&object), merged, kept)
+}
+
+#[tokio::test]
+async fn giving_up_a_project_kept_in_a_bucket_removes_its_file_from_the_bucket() {
+    let bucket = Arc::new(FakeBucket::new());
+    let (object, merged, kept) = given_up_from_a_bucket(&bucket).await;
+    assert_eq!(kept, 0, "this Mac's own project is deleted");
+    assert_eq!(object, None, "and its file is taken out of the bucket");
+    assert_eq!(merged.projects.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [THEIRS]);
+}
+
+#[tokio::test]
+async fn a_bucket_that_refuses_the_delete_does_not_stop_the_give_up() {
+    let bucket = Arc::new(FakeBucket::new());
+    bucket.set_no_delete(true);
+    let (object, merged, kept) = given_up_from_a_bucket(&bucket).await;
+    assert_eq!(kept, 0, "this Mac's own project is deleted all the same");
+    assert!(object.is_some(), "the file stayed");
+    assert_eq!(merged.projects.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [THEIRS]);
 }

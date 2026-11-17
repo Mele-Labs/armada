@@ -257,7 +257,11 @@ where
             }
         }
         self.jobs_repointed(gone, into).await?;
-        self.project_file_removed_everywhere(gone).await?;
+        // This runs on the Mac that holds `gone`, often long after the press, so a file a bucket would not let go is
+        // logged, and the merge goes on.
+        if let Some(left) = self.project_file_removed_everywhere(gone).await? {
+            eprintln!("warn: the file of project {gone} was left in the bucket, as {}: {}", left.path, left.why);
+        }
         self.projects_written_reading(|store, _| store.delete_project(gone).map(drop).map_err(|why| self.ledger_fault(why)), true).await
     }
 }

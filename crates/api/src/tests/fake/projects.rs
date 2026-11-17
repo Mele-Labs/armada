@@ -59,6 +59,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
         }],
         loose: vec![task("r9", "Not in a project")],
         left_out: Vec::new(),
+        left_behind: Vec::new(),
     }
 }
 

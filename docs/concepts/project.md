@@ -27,6 +27,13 @@ The word Workspace keeps only the monorepo meaning, a folder with its own Manife
 | Task | A card with a title and notes, written by him. It names its repository and, optionally, its project |
 | Subtask | A task under a task, one level deep |
 | Issue row | A tracker reference Fleet already lists as a row of a project. Bridge adds no new ones: an issue rides on a task |
+
+> **Rule (17 Nov).** Delete, Merge and moving a project to another place take a bucket's file away, and a move takes away the old file wherever it was kept.
+> Why: a file left behind is a stale project nobody asked to keep.
+
+A bucket that refuses the delete, for a key with no delete right, does not stop the act.
+The project is still deleted, merged or moved, and the answer to Delete or the move names the file left and gives the bucket's words.
+A Merge's give-up runs later on the other Mac, so there the refusal goes to the log.
 | Linked issue | A tracker reference on a task, in the order linked |
 | Linked pull request | A pull request number on a task |
 | Held Job | The one running Job that holds a task |
@@ -151,7 +158,7 @@ The request names the project to keep and the project that goes, and either may 
   Members are joined.
   A key only the gone project sets is copied, a key only the kept project sets stays, and for a key both set to different values he picks one project's, key by key.
 - The Mac that holds the gone project moves its Jobs into the kept project, keeping their frozen values.
-  It sends any task added to the gone project after the kept Mac took its copy, and then deletes the project, its tasks and its file, wherever the file is kept except a bucket.
+  It sends any task added to the gone project after the kept Mac took its copy, and then deletes the project, its tasks and its file, wherever the file is kept, a bucket included.
 - Each Mac moves only its own Jobs, so a Job started on the other Mac in the copy moves there.
 - The Mac he pressed it on lists one project from the press, the kept one with both sets of tasks.
   Where the other Mac is asleep it is told when it wakes, in the order of the other acts waiting for it, and nothing waits on it here.

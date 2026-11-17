@@ -508,7 +508,7 @@ where
                 }
             })
             .collect();
-        ipc::Projects { projects, loose: wire(None, kept.loose), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() }
+        ipc::Projects { projects, loose: wire(None, kept.loose), left_out: held.left_out().iter().map(left_out_on_the_wire).collect(), left_behind: Vec::new() }
     }
 
     /// `write` against the store, given his projects as they were; then the projects
@@ -783,7 +783,7 @@ where
                 mac: None,
             })
             .collect();
-        Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect() })
+        Ok(ipc::Projects { projects, loose: Vec::new(), left_out: held.left_out().iter().map(left_out_on_the_wire).collect(), left_behind: Vec::new() })
     }
 
     async fn add_project(&self, new: NewProject) -> Result<ipc::Projects, Refusal> {
@@ -846,14 +846,16 @@ where
             Some(place) => Some(self.project_place_chosen(&project, place.place, place.synced_folder, place.cloud).await?),
             None => None,
         };
-        match &chosen {
+        let left = match &chosen {
             Some(chosen) => self.project_relocated(&edited, chosen).await?,
-            None if edited != held => self.project_stored(&edited).await?,
-            None => {}
-        }
+            None if edited != held => self.project_stored(&edited).await.map(|()| None)?,
+            None => None,
+        };
         self.project_learned_standing(&project, edited.values()).await;
         let named = edited.name().as_str().to_string();
-        self.projects_written_reading(|store, _| store.rename_project(&project, &named).map(drop).map_err(|why| self.ledger_fault(why)), true).await
+        let answered =
+            self.projects_written_reading(|store, _| store.rename_project(&project, &named).map(drop).map_err(|why| self.ledger_fault(why)), true).await?;
+        Ok(ipc::Projects { left_behind: left.into_iter().collect(), ..answered })
     }
 
     async fn get_values(&self, project: Option<String>, manifest_id: Option<ManifestId>) -> Result<ipc::ResolvedValues, Refusal> {
@@ -898,8 +900,10 @@ where
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
         }
-        self.project_file_removed(&project).await?;
-        self.projects_written_reading(|store, _| store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why)), true).await
+        let left = self.project_file_removed(&project).await?;
+        let answered =
+            self.projects_written_reading(|store, _| store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why)), true).await?;
+        Ok(ipc::Projects { left_behind: left.into_iter().collect(), ..answered })
     }
 
     async fn add_project_task(&self, task: NewProjectTask) -> Result<ipc::Projects, Refusal> {

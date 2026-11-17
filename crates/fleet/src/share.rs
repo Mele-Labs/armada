@@ -235,7 +235,7 @@ where
             .into_iter()
             .filter(|one| one.mac.is_some() || (one.unread.is_none() && self.project_shared(&one.id)))
             .collect();
-        Projects { projects: seen, loose: Vec::new(), left_out: Vec::new() }
+        Projects { projects: seen, loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
     }
 
     /// The repositories the phone is named: those in a project it sees.
@@ -281,7 +281,7 @@ where
             .into_iter()
             .filter(|one| one.mac.is_none() && one.unread.is_none() && self.project_shared(&one.id))
             .collect();
-        Crosses(Projects { projects: shared, loose: Vec::new(), left_out: Vec::new() })
+        Crosses(Projects { projects: shared, loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() })
     }
 
     /// A task act from another Mac goes on only where its row, or its project, is in a shared project of this

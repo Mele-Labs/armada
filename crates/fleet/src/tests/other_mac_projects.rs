@@ -222,7 +222,7 @@ impl PhoneSwitch for Link {
 }
 
 fn holder_says(rows: Vec<ProjectRow>) -> ipc::Projects {
-    ipc::Projects { projects: vec![theirs("p-notes", "Notes", rows)], loose: Vec::new(), left_out: Vec::new() }
+    ipc::Projects { projects: vec![theirs("p-notes", "Notes", rows)], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }
 }
 
 fn edit_of(title: &str) -> ProjectTask {
