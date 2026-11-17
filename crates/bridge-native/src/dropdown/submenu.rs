@@ -307,19 +307,19 @@ mod tests {
             assert!(!menu.sub_key(&pressed("right"), cx), "→ on a row with no submenu is not taken");
             menu.cursor = Some(1);
             assert!(menu.sub_key(&pressed("right"), cx));
-            assert!(menu.sub.inside);
-            assert_eq!(menu.sub.cursor, Some(0), "the first act");
+            assert!(menu.sub().inside);
+            assert_eq!(menu.sub().cursor, Some(0), "the first act");
             assert!(menu.sub_key(&pressed("down"), cx));
-            assert_eq!(menu.sub.cursor, Some(2), "the rule is stepped over");
+            assert_eq!(menu.sub().cursor, Some(2), "the rule is stepped over");
             assert!(menu.sub_key(&pressed("down"), cx));
-            assert_eq!(menu.sub.cursor, Some(2), "the last act stays");
+            assert_eq!(menu.sub().cursor, Some(2), "the last act stays");
             assert!(menu.sub_key(&pressed("up"), cx));
-            assert_eq!(menu.sub.cursor, Some(0));
+            assert_eq!(menu.sub().cursor, Some(0));
             assert!(menu.sub_key(&pressed("left"), cx));
-            assert!(!menu.sub.inside);
+            assert!(!menu.sub().inside);
             assert!(menu.sub_key(&pressed("right"), cx));
             assert!(menu.sub_key(&pressed("escape"), cx), "Esc inside goes back and does not shut the menu");
-            assert!(!menu.sub.inside);
+            assert!(!menu.sub().inside);
             assert!(!menu.sub_key(&pressed("escape"), cx), "Esc outside is the menu's, which shuts it");
         });
     }
