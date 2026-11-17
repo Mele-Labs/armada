@@ -686,8 +686,9 @@ pub static WALKS: &[Walk] = &[
         scenario: "job-questions",
         steps: &[
             step("A Job with an answer to your question you have not read: its row wears a dot in your hue", Verb::Look, "img", "An answer to your question is waiting"),
-            press_on("Its thread: a line at the foot names the question the answer is to, with Jump", "row", "Fix the merge line freshness chip", "group", "Unread answer"),
-            step("The answer stands folded under your question: when it came, its first words, and Jump", Verb::Wheel("region", "Thread", -6000), "group", "Answer"),
+            press_on("Open the Job", "row", "Fix the merge line freshness chip", "group", "Unread answer"),
+            step("With Needs you folded, a line at the thread's foot names the question the answer is to, with Jump", Verb::Key("alt-cmd-y"), "group", "Unread answer"),
+            step("The answer stands folded under your question: when it came, its first words, and Jump", Verb::WheelTo("region", "Thread", -1500), "group", "Answer"),
             press_on("The top pane's +", "button", "Add tab: Done", "menuitem", "Q&A"),
             press_on("Q&A opens in the top pane", "menuitem", "Q&A", "tab", "Job column: Q&A"),
             press_on("Your questions, the one not answered first, the answered one with a dot until you read it", "tab", "Job column: Q&A", "row", "Does a branch with no remote need a state of its own?"),
