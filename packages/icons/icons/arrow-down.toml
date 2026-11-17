@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Behind main, in the Fleet panel. Never a download, which is `download`, and never a sort."
   notes = "Proposed 8 Oct 2026 for the walk `fleetBuildBehind`, approved by the owner the same day. Draws in `--status-awaiting-review` beside a figure; tooltip `3 commits behind main`. Pair of `arrow-up`, and the two are part of `fleet_build_position`. Also drawn as `Move down` in the layout mods list, where a person arranges a row, at 16px."
+
+[[icons.arrow-down.usage]]
+  means = "A pull request whose branch is behind its base, which the base's rules ask to bring up to date"
+  group = "PR tab"
+  size = "20px"
+  status = "Proposed"
+  notes = "Proposed 16 Nov 2026 for the native PR tab's status plate, `Branch is behind`, in the neutral hue. The same meaning as the Fleet panel's: commits the base holds that this lacks."

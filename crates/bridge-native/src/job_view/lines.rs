@@ -30,16 +30,17 @@ fn then_stamp(words: impl IntoElement, stamp: AnyElement, look: &Look) -> gpui::
         .child(div().flex_none().ml_auto().child(stamp))
 }
 
-pub(super) fn reasoning_reading(items: &[ThreadItem], ix: usize) -> (u64, bool) {
+/// How long a thought took, in whole seconds and at least one: from the row before it to its own time.
+pub(super) fn seconds_from(before: Option<&Instant>, at: &Instant) -> u64 {
     let parsed = |at: &Instant| DateTime::parse_from_rfc3339(at.as_str()).ok();
-    let spent = ix
-        .checked_sub(1)
-        .and_then(|before| items.get(before))
-        .and_then(last_at)
-        .and_then(parsed)
-        .zip(items.get(ix).and_then(last_at).and_then(parsed))
-        .map(|(before, at)| (at - before).num_milliseconds());
-    let seconds = spent.map(|ms| ((ms as f64) / 1000.).round().max(1.) as u64).unwrap_or(1);
+    before.and_then(parsed).zip(parsed(at)).map(|(before, at)| (((at - before).num_milliseconds() as f64) / 1000.).round().max(1.) as u64).unwrap_or(1)
+}
+
+pub(super) fn reasoning_reading(items: &[ThreadItem], ix: usize) -> (u64, bool) {
+    let seconds = match items.get(ix).and_then(last_at) {
+        Some(at) => seconds_from(ix.checked_sub(1).and_then(|before| items.get(before)).and_then(last_at), at),
+        None => 1,
+    };
     let mut owed = false;
     for item in &items[..ix] {
         let said: Vec<&SessionRow> = match item {

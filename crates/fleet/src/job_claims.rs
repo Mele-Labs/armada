@@ -14,6 +14,8 @@
 //!
 //! **Memory only.** After a restart the next pass claims everything again, and the store answers a
 //! claim this holder already has as its own.
+//! What each Job was told of other holders is kept in Fleet's store, so that pass tells it nothing
+//! again.
 
 mod exchange;
 mod pass;

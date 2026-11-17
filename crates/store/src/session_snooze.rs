@@ -22,13 +22,34 @@ impl Store {
             return Ok(false);
         }
         let done = match until {
+            // Moving the time keeps the pause marker the first snooze kept.
             Some(until) => self.conn.execute(
-                "INSERT OR REPLACE INTO session_snooze (session_id, until) VALUES (?1, ?2)",
+                "INSERT INTO session_snooze (session_id, until) VALUES (?1, ?2) \
+                 ON CONFLICT (session_id) DO UPDATE SET until = excluded.until",
                 params![session_id, until],
             ),
             None => self.conn.execute("DELETE FROM session_snooze WHERE session_id = ?1", [session_id]),
         };
         done.map(|_| true).map_err(fault("keeping a job's snooze")).map_err(WriteError::Database)
+    }
+
+    /// The pause marker the snooze set when it paused the Job, if it did.
+    pub fn snooze_paused_at(&self, session_id: &str) -> Result<Option<String>, WriteError> {
+        self.conn
+            .query_row("SELECT paused_at FROM session_snooze WHERE session_id = ?1", [session_id], |row| row.get(0))
+            .optional()
+            .map(Option::flatten)
+            .map_err(fault("reading whether a job's snooze paused it"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Keep the pause marker the snooze set, on a Job that is snoozed.
+    pub fn keep_snooze_paused_at(&mut self, session_id: &str, paused_at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE session_snooze SET paused_at = ?2 WHERE session_id = ?1", params![session_id, paused_at])
+            .map(|_| ())
+            .map_err(fault("keeping that a job's snooze paused it"))
+            .map_err(WriteError::Database)
     }
 
     /// Every snoozed Job, with the instant its snooze ends. RFC3339.

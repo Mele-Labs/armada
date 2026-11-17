@@ -25,6 +25,10 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         number: u64,
     ) -> impl Future<Output = Result<PullRequestPage, Refusal>> + Send;
 
+    /// He opened a pull request's page: `get_pull_request_detail` answered to a caller no Job holds,
+    /// which is Bridge. A review asked of him on it counts as opened from now.
+    fn pull_request_opened(&self, manifest_id: ManifestId, number: u64) -> impl Future<Output = ()> + Send;
+
     /// `get_pull_request_file` — one file's patch, read when a person opens it.
     /// [`Refusal::Fault`] where the forge would not answer,
     /// [`Refusal::Unacceptable`] for a path the pull request does not list.
@@ -41,6 +45,17 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         &self,
         manifest_id: ManifestId,
         number: u64,
+    ) -> impl Future<Output = Result<PullRequestFilePatches, Refusal>> + Send;
+
+    /// `get_pull_request_commit_patches` — every file one commit changed, against its first
+    /// parent, in the shape [`get_pull_request_patches`](Self::get_pull_request_patches) answers.
+    /// [`Refusal::Unacceptable`] for a name that is not a commit; [`Refusal::Fault`] where the
+    /// forge would not answer.
+    fn get_pull_request_commit_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        commit: String,
     ) -> impl Future<Output = Result<PullRequestFilePatches, Refusal>> + Send;
 
     /// `write_pull_request` — a comment, an approval or a request for changes.

@@ -3,7 +3,7 @@
 //! `fleet::pull_requesting`'s, against a scripted one.
 
 use ipc::{
-    ForgeChecks, ManifestId, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
+    ForgeChecks, ManifestId, PullRequestMergeState, PullRequestMergeable, PullRequestPage, PullRequestReviewState,
     PullRequestStanding, PullRequestState, WritePullRequest,
 };
 
@@ -24,6 +24,7 @@ fn open(manifest_id: ManifestId, number: u64) -> PullRequestState {
         address: format!("https://forge.invalid/a/b/pull/{number}"),
         body: None,
         closes: Vec::new(),
+        merge_state: PullRequestMergeState::Clean,
     }
 }
 
@@ -85,6 +86,7 @@ fn page(manifest_id: ManifestId, number: u64) -> PullRequestPage {
         additions: 0,
         deletions: 0,
         mergeable: PullRequestMergeable::Unknown,
+        merge_state: PullRequestMergeState::Unknown,
         review: PullRequestReviewState::None,
         approvals: 0,
         conversation: Vec::new(),
@@ -113,6 +115,10 @@ impl PullRequestPanel for FakeDaemon {
         Ok(page(manifest_id, number))
     }
 
+    async fn pull_request_opened(&self, manifest_id: ManifestId, number: u64) {
+        self.opened.lock().expect("not poisoned").push((manifest_id.as_str().to_string(), number));
+    }
+
     async fn get_pull_request_file(
         &self,
         manifest_id: ManifestId,
@@ -139,6 +145,25 @@ impl PullRequestPanel for FakeDaemon {
                 manifest_id,
                 number,
                 path: "a.rs".into(),
+                patch: Some("@@ -1 +1 @@\n-a\n+b".into()),
+                said: None,
+                blob: None,
+            }],
+        })
+    }
+
+    /// One file, named after the commit asked, so a test sees which commit reached the daemon.
+    async fn get_pull_request_commit_patches(
+        &self,
+        manifest_id: ManifestId,
+        number: u64,
+        commit: String,
+    ) -> Result<ipc::PullRequestFilePatches, Refusal> {
+        Ok(ipc::PullRequestFilePatches {
+            files: vec![ipc::PullRequestFilePatch {
+                manifest_id,
+                number,
+                path: format!("{commit}.rs"),
                 patch: Some("@@ -1 +1 @@\n-a\n+b".into()),
                 said: None,
                 blob: None,

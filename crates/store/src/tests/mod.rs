@@ -4,10 +4,13 @@
 //! table's reads and writes across a reopen.
 
 mod corrupt;
+mod claims_told;
 mod rows_from_newer;
 mod devices;
 mod job_shells;
+mod features;
 mod job_asides;
+mod story_asks;
 mod job_times;
 mod delivery_picks;
 mod job_values;

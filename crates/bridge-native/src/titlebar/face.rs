@@ -769,6 +769,24 @@ pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project
         .collect()
 }
 
+/// A project of this Mac's whose file Fleet could not read: listed dimmed with Fleet's reason, and never a pick.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Unread {
+    pub id: SharedString,
+    pub name: SharedString,
+    /// Fleet's own sentence for why the file did not read.
+    pub said: SharedString,
+}
+
+/// This Mac's own projects [`projects_of`] leaves out because their file did not read, in Fleet's order.
+pub fn unread_of(read: &Projects) -> Vec<Unread> {
+    read.projects
+        .iter()
+        .filter(|one| one.mac.is_none())
+        .filter_map(|one| Some(Unread { id: one.id.clone().into(), name: one.name.clone().into(), said: one.unread.clone()?.into() }))
+        .collect()
+}
+
 /// One place in the bar's centre (`DK/TabBar.tsx`, `DECK_TABS`): a screen the window can be in.
 ///
 /// **Only the places this app has a screen for are listed**, so the strip holds Jobs today. A place
@@ -811,6 +829,8 @@ pub struct Face {
     /// The projects, and the one the window is scoped to, if any.
     pub projects: Vec<Project>,
     pub scoped: Option<usize>,
+    /// This Mac's projects whose file Fleet could not read, drawn dimmed under the projects.
+    pub unread: Vec<Unread>,
     /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
     pub signed_in: bool,
     /// Where the step down stands, with the window's reset said as a stamp. The weekly limit's card
@@ -837,6 +857,7 @@ impl Face {
             chosen: None,
             projects: Vec::new(),
             scoped: None,
+            unread: Vec::new(),
             signed_in: false,
             downshift: None,
             places: Vec::new(),

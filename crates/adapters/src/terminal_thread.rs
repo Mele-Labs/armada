@@ -612,6 +612,7 @@ fn drawn(line: &str, inside_agent: bool) -> Vec<SessionRow> {
                     notice: None,
                     queued: false,
                     edited_at: None,
+                    aside: None,
                     sketches: Vec::new(),
                 });
             }
@@ -687,6 +688,7 @@ fn received(line: &str, uuid: &str, at: &Instant) -> Vec<SessionRow> {
                 notice: None,
                 queued: false,
                 edited_at: None,
+                aside: None,
             });
         }
         rest = &rest[close + "</cross-session-message>".len()..];

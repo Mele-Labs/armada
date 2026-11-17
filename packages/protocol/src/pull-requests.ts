@@ -57,7 +57,20 @@ export type PullRequestState = {
   body?: string;
   /** The issues the forge says it closes when it merges, by number, ascending. Absent where none. */
   closes?: number[];
+  /** Whether the forge would merge it now: passed `checks` do not say so where a review is still asked for. Fleet always sends it; absent only in a mock made before it. */
+  merge_state?: PullRequestMergeState;
 };
+
+/** The forge's merge state, in its own words. Only `clean`, `unstable` and `has_hooks` merge; `unknown` is the forge still working it out. A Session's `pr` row carries the same word as its `merge_state` detail. */
+export type PullRequestMergeState =
+  | "clean"
+  | "blocked"
+  | "behind"
+  | "dirty"
+  | "unstable"
+  | "has_hooks"
+  | "draft"
+  | "unknown";
 
 /** What `review_pull_request` is asked. `POST /pull_request_reviews/:repository`. */
 export type ReviewPullRequest = {
@@ -150,6 +163,8 @@ export type PullRequestPage = {
   additions: number;
   deletions: number;
   mergeable: PullRequestMergeable;
+  /** Whether the forge would merge it now, as `PullRequestState.merge_state` says. */
+  merge_state?: PullRequestMergeState;
   review: PullRequestReviewState;
   /** Reviews that approved, counted once per reviewer's latest. */
   approvals: number;
@@ -211,6 +226,8 @@ export type PullRequestFilePatch = {
 /**
  * `get_pull_request_patches`: every file of a pull request, in the forge's order, each as
  * `get_pull_request_file` answers it, from one forge read. `GET /pull_request_patches/:repository/:number`.
+ * `get_pull_request_commit_patches` answers the same shape for one commit against its first parent:
+ * `GET /pull_request_commit_patches/:repository/:number/:commit`.
  */
 export type PullRequestFilePatches = {
   files: readonly ({

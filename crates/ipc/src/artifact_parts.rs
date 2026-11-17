@@ -387,7 +387,7 @@ fn takes_checked(question: Option<&str>, form: Option<VoteForm>, takes: &[NewTak
         seen.push(id);
         let scene = take.scene.as_ref().and_then(|raw| {
             let title = take.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or(id);
-            let shown = ShowSketch { title: title.to_string(), scene: raw.clone(), session_id: None, against: None, for_line: None, links: Vec::new() };
+            let shown = ShowSketch { title: title.to_string(), scene: raw.clone(), session_id: None, against: None, for_line: None, links: Vec::new(), asks: true };
             match shown.checked_for("add_part") {
                 Ok(sketch) => Some(sketch.scene),
                 Err(why) => {

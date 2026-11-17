@@ -277,6 +277,10 @@ Other trackers' assignees are not read.
 A claim held by this Mac's own Job that ended is taken over, never waited on.
 
 **Memory only.** After a restart the first pass claims again, and the store answers a claim its holder already has as its own.
+What each Job was told is kept in Fleet's store (`claims_told`), by the item or file and the Job that holds it, so a restart tells it nothing again.
+A wait that ends forgets its item, so a later wait on it is told.
+Everything a pass has for one Job goes as one notice.
+Confirmed 16 Nov 2026: each restart told every Job again of every file another Job writes, one notice for each.
 A wait read from a Job on another Mac is told only to the Job that waits.
 `crates/fleet/src/job_claims.rs`.
 
@@ -723,7 +727,7 @@ Bridge already owns bootstrapping the launchd job, so it owns restarting it, and
 It is the Restart Fleet button on the notice that says Fleet and Bridge do not match: `kickstart -k` restarts the job onto whatever `armada` is installed, hosted Jobs are reattached at boot, and a Fleet whose pid launchd does not hold is refused rather than doubled.
 
 **A Job's item that asks him to restart settles itself once Fleet runs a build made after the item was raised.**
-Fleet reads the kept build's `built_at` and takes off a live Job's `run` item whose command is `scripts/preview --restart`, `scripts/restart` or `scripts/preview` and whose `since` is earlier, and tells the Job as a dismissal does.
+Fleet reads `built_at` of the kept build its own process came from, which the runtime file names, and not of whatever `builds/current` points at, and takes off a live Job's `run` item whose command is `scripts/preview --restart`, `scripts/restart` or `scripts/preview` and whose `since` is earlier, and tells the Job as a dismissal does.
 An item raised on or after that build stays.
 
 **`armada fleet start` starts the Fleet launchd holds, from whatever state it is in.** It loads the job from `<support>/<label>.plist` when launchd does not hold it, starts it when it is loaded and stopped, and leaves a running Fleet alone.

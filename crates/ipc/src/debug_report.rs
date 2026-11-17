@@ -72,6 +72,8 @@ pub struct FleetFacts {
     pub mod_facts: ModFacts,
     pub repository: Option<RepositoryFacts>,
     pub jobs: Vec<JobFacts>,
+    /// Calls to GitHub, Fleet's and the Jobs', as label and value rows; empty prints no block.
+    pub forge_calls: Vec<(String, String)>,
 }
 
 /// One warning or refusal from Fleet's log, names only.
@@ -241,6 +243,9 @@ pub fn render(facts: &Facts) -> String {
                 ));
             }
             blocks.extend(fleet.jobs.iter().map(job));
+            if !fleet.forge_calls.is_empty() {
+                blocks.push(block("GitHub calls", &fleet.forge_calls));
+            }
         }
         None => blocks.push("Fleet   did not answer".to_string()),
     }

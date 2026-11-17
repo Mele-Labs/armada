@@ -218,6 +218,7 @@ pub struct BuildNotesSheet {
     send_focus: FocusHandle,
     good_focus: FocusHandle,
     needs_work_focus: FocusHandle,
+    open_job_focus: FocusHandle,
     sending: bool,
     refused: Option<SharedString>,
     keys_were: Option<FocusHandle>,
@@ -254,6 +255,7 @@ impl BuildNotesSheet {
             send_focus: cx.focus_handle().tab_stop(true),
             good_focus: cx.focus_handle().tab_stop(true),
             needs_work_focus: cx.focus_handle().tab_stop(true),
+            open_job_focus: cx.focus_handle().tab_stop(true),
             sending: false,
             refused: None,
             keys_were: None,
@@ -386,7 +388,7 @@ impl BuildNotesSheet {
         match key.key.as_str() {
             "escape" => self.close(window, cx),
             "tab" if plain => {
-                let stops = [self.list.clone(), self.feedback.focus_handle(cx), self.send_focus.clone(), self.good_focus.clone(), self.needs_work_focus.clone()];
+                let stops = [self.list.clone(), self.feedback.focus_handle(cx), self.send_focus.clone(), self.good_focus.clone(), self.needs_work_focus.clone(), self.open_job_focus.clone()];
                 let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
                 let len = stops.len();
                 let next = match (here, key.modifiers.shift) {
@@ -419,6 +421,7 @@ impl BuildNotesSheet {
             }
             "build_note_looked" => self.judge(NoteVerdict::Good, window, cx),
             "build_note_needs_work" => self.judge(NoteVerdict::NeedsWork, window, cx),
+            "build_note_open_job" => self.open_job(window, cx),
             "send_message" => self.send(window, cx),
             // The sheet is a dialog: the keys that start or open something else do nothing while it is up.
             "new_job" | "new_terminal_job" | "dispatch_after" => {}
@@ -435,16 +438,32 @@ impl BuildNotesSheet {
         window.dispatch_action(Box::new(Act { id: go.act, slot: 0, digit: go.digit }), cx);
     }
 
+    /// Open Job: the sheet goes and the chosen note's Job opens on the Jobs screen, as the palette opens a Job,
+    /// an ended one too.
+    pub(super) fn open_job(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.note().map(|note| note.session_id.as_str().to_string()) else { return };
+        self.close(window, cx);
+        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+            (sink.0)(&crate::titlebar::Asked::OpenJob(job), cx);
+        }
+        crate::palette::show_jobs(cx);
+    }
+
     fn port(&self, cx: &App) -> Option<u16> {
         self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port())
     }
 
     /// Good or Needs work: the note reads so in this frame, and Fleet keeps it for this branch at this tip and tells
-    /// the Job. Needs work puts the keys in the box, since his words on it are what the Job waits for.
+    /// the Job. Needs work sends the words already in the box with it, since they are what the Job waits for, and
+    /// with an empty box puts the keys there.
     pub(super) fn judge(&mut self, given: NoteVerdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(note) = self.note().cloned() else { return };
         if given == NoteVerdict::NeedsWork {
-            self.feedback.update(cx, |state, cx| state.focus(window, cx));
+            if self.feedback.read(cx).value().trim().is_empty() {
+                self.feedback.update(cx, |state, cx| state.focus(window, cx));
+            } else {
+                self.send(window, cx);
+            }
         }
         if verdict(&note, &self.marked) == Some(given) {
             return;
@@ -758,6 +777,62 @@ mod tests {
             sheet.on_act(&pressed("build_note_step", 0, Some(1)), window, cx);
             assert!(!sheet.open, "Go closes the sheet so the act lands on the app");
         });
+    }
+
+    /// What the sheet asks of the app, in order, from the sink a screen would set.
+    fn listening(sheet: &Entity<BuildNotesSheet>, cx: &mut gpui::VisualTestContext) -> std::rc::Rc<std::cell::RefCell<Vec<crate::titlebar::Asked>>> {
+        let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let sink = heard.clone();
+        sheet.update_in(cx, |_, _, cx| {
+            cx.set_global(crate::titlebar::AskedSink(std::rc::Rc::new(move |one: &crate::titlebar::Asked, _: &mut App| sink.borrow_mut().push(one.clone()))));
+        });
+        heard
+    }
+
+    #[gpui::test]
+    fn open_job_closes_the_sheet_and_opens_the_thread_of_the_chosen_notes_live_job(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let heard = listening(&sheet, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.offer(notes("abc1234def"), window, cx);
+            sheet.on_act(&pressed("move_focus", 0, None), window, cx);
+            assert_eq!(sheet.at(), Some(2));
+            sheet.open_job(window, cx);
+            assert!(!sheet.open, "the sheet goes");
+        });
+        assert_eq!(*heard.borrow(), [crate::titlebar::Asked::OpenJob("s-c".into()), crate::titlebar::Asked::Place("jobs")], "the chosen note's Job, then the Jobs screen");
+    }
+
+    #[gpui::test]
+    fn open_job_on_an_ended_job_opens_it_as_the_palette_opens_one(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let heard = listening(&sheet, cx);
+        let mut held = notes("abc1234def");
+        held.notes[1].job_ended = true;
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.offer(held, window, cx);
+            assert!(sheet.note().is_some_and(|note| note.job_ended), "the chosen note's Job has ended");
+            sheet.open_job(window, cx);
+            assert!(!sheet.open);
+        });
+        let asked = heard.borrow().clone();
+        let again = listening(&sheet, cx);
+        sheet.update_in(cx, |_, _, cx| crate::palette::show_jobs(cx));
+        let palette_ends = again.borrow().clone();
+        assert_eq!(asked, [crate::titlebar::Asked::OpenJob("s-b".into()), crate::titlebar::Asked::Place("jobs")], "an ended Job opens as a live one does");
+        assert_eq!(asked[1..], palette_ends[..], "the screen comes to the front by the step the palette ends on");
+    }
+
+    #[gpui::test]
+    fn the_open_job_key_does_what_the_button_does_and_is_shown_in_the_keys_foot(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let heard = listening(&sheet, cx);
+        sheet.update_in(cx, |sheet, window, cx| sheet.offer(notes("abc1234def"), window, cx));
+        cx.run_until_parked();
+        assert_eq!(keymap::shown("build_note_open_job"), "⌥⌘O");
+        cx.simulate_keystrokes("alt-cmd-o");
+        sheet.update_in(cx, |sheet, _, _| assert!(!sheet.open, "the key closes the sheet"));
+        assert_eq!(*heard.borrow(), [crate::titlebar::Asked::OpenJob("s-b".into()), crate::titlebar::Asked::Place("jobs")]);
     }
 
     #[gpui::test]

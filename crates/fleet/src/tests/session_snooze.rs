@@ -71,7 +71,7 @@ async fn a_snoozed_job_says_until_when_and_is_let_back_once_the_time_comes() {
     let home = TempDir::new();
     let (fleet, clock) = a_job(&home).await;
 
-    let record = fleet.snooze_session(snooze(Some(UNTIL))).await.unwrap();
+    let record = Arc::clone(&fleet).snooze_session(snooze(Some(UNTIL))).await.unwrap();
     assert_eq!(record.snoozed_until.as_ref().map(|at| at.as_str()), Some(UNTIL));
 
     // Before the time, the tick leaves it snoozed.
@@ -106,8 +106,8 @@ async fn a_snoozed_job_says_until_when_and_is_let_back_once_the_time_comes() {
 async fn a_wake_lets_the_job_back_now() {
     let home = TempDir::new();
     let (fleet, _clock) = a_job(&home).await;
-    fleet.snooze_session(snooze(Some(UNTIL))).await.unwrap();
-    let woken = fleet.snooze_session(snooze(None)).await.unwrap();
+    Arc::clone(&fleet).snooze_session(snooze(Some(UNTIL))).await.unwrap();
+    let woken = Arc::clone(&fleet).snooze_session(snooze(None)).await.unwrap();
     assert_eq!(woken.snoozed_until, None);
     assert_eq!(the_job(&fleet).await.snoozed_until, None);
 }
@@ -116,7 +116,7 @@ async fn a_wake_lets_the_job_back_now() {
 async fn a_snooze_outlasts_a_fleet_restart_and_the_job_ending() {
     let home = TempDir::new();
     let (fleet, clock) = a_job(&home).await;
-    fleet.snooze_session(snooze(Some(UNTIL))).await.unwrap();
+    Arc::clone(&fleet).snooze_session(snooze(Some(UNTIL))).await.unwrap();
     fleet.report_session(report(SessionFact::Ended { reason: "closed".into() })).await.unwrap();
     assert_eq!(the_job(&fleet).await.snoozed_until.as_ref().map(|at| at.as_str()), Some(UNTIL), "ending keeps it");
     drop(fleet);
@@ -130,7 +130,7 @@ async fn an_ended_job_is_refused_a_snooze_in_a_plain_sentence() {
     let home = TempDir::new();
     let (fleet, _clock) = a_job(&home).await;
     fleet.report_session(report(SessionFact::Ended { reason: "closed".into() })).await.unwrap();
-    let refused = fleet.snooze_session(snooze(Some(UNTIL))).await.unwrap_err();
+    let refused = Arc::clone(&fleet).snooze_session(snooze(Some(UNTIL))).await.unwrap_err();
     assert_eq!(refused.status(), 409);
     assert_eq!(refused.error().code, "fleet.session_not_snoozable");
     assert_eq!(refused.error().message, "This Job has ended, so it cannot be snoozed.");
@@ -141,6 +141,6 @@ async fn an_ended_job_is_refused_a_snooze_in_a_plain_sentence() {
 async fn a_time_that_is_not_one_is_refused() {
     let home = TempDir::new();
     let (fleet, _clock) = a_job(&home).await;
-    let refused = fleet.snooze_session(snooze(Some("tomorrow"))).await.unwrap_err();
+    let refused = Arc::clone(&fleet).snooze_session(snooze(Some("tomorrow"))).await.unwrap_err();
     assert_eq!(refused.error().code, "fleet.snooze_unreadable");
 }

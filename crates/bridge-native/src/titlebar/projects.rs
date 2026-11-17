@@ -10,7 +10,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 
-use super::face::Face;
+use super::face::{Face, Unread};
 use super::parts::{glyph, Btn, Weight};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
@@ -54,6 +54,12 @@ pub(super) fn picks(face: &Face, query: &str) -> Vec<Pick> {
     picks.extend(face.lone().into_iter().filter(|&at| has(&face.repositories[at].name)).map(Pick::Lone));
     picks.push(Pick::New);
     picks
+}
+
+/// The projects Fleet could not read that Find leaves, drawn dimmed after the projects. **Never a pick.**
+pub(super) fn unread_shown<'a>(face: &'a Face, query: &str) -> Vec<&'a Unread> {
+    let wanted = query.trim().to_lowercase();
+    face.unread.iter().filter(|one| wanted.is_empty() || one.name.to_lowercase().contains(&wanted)).collect()
 }
 
 /// The row the window is on now, which the keys start at.
@@ -172,7 +178,18 @@ impl TitleBar {
         let mut left: Vec<AnyElement> = self.find_box(look).into_iter().collect();
         let mut said_projects = false;
         let mut said_lone = false;
+        let mut dimmed = Some(unread_shown(face, &self.switcher.query)).filter(|unread| !unread.is_empty());
         for (at, pick) in rows.iter().enumerate() {
+            // New project ends every list, so the dimmed rows always land after the projects.
+            if matches!(pick, Pick::Lone(_) | Pick::New) {
+                if let Some(unread) = dimmed.take() {
+                    if !said_projects {
+                        said_projects = true;
+                        left.push(caption("Projects", look));
+                    }
+                    left.extend(unread.into_iter().map(|one| unread_row(one, look)));
+                }
+            }
             match pick {
                 Pick::Project(_) if !said_projects => {
                     said_projects = true;
@@ -410,6 +427,33 @@ impl TitleBar {
     }
 }
 
+/// A project whose file did not read: its name and Fleet's reason under it, dimmed, with nothing to press.
+fn unread_row(one: &Unread, look: &Look) -> AnyElement {
+    labelled(
+        div()
+            .id(SharedString::from(format!("unread:{}", one.id)))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3))
+            .text_color(look.color(token::FG_MUTED))
+            .child(glyph("layers", look.length(token::SPACE_4), look.color(token::FG_SUBTLE)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .child(div().truncate().child(one.name.clone()))
+                    .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(one.said.clone())),
+            ),
+        Role::ListBoxOption,
+        format!("{}: {}", one.name, one.said),
+    )
+    .into_any_element()
+}
+
 /// A heading of the left pane, as `PROJECTS`.
 fn caption(said: &'static str, look: &Look) -> AnyElement {
     div()
@@ -471,6 +515,17 @@ mod tests {
             ]
         );
         assert_eq!(storefront.kept.as_ref().map(|place| place.phrase()), Some("on this Mac".to_string()));
+    }
+
+    #[test]
+    fn a_project_fleet_could_not_read_is_listed_dimmed_with_its_reason_and_is_not_a_pick() {
+        let face = scenes::rest();
+        let unread: Vec<(&str, &str)> = face.unread.iter().map(|one| (one.name.as_ref(), one.said.as_ref())).collect();
+        assert_eq!(unread, vec![("Ledger", "members: a repository is listed twice")], "Fleet's own reason, as it said it");
+        assert_eq!(picks(&face, "ledger"), vec![Pick::New], "it cannot be picked");
+        let shown: Vec<&str> = unread_shown(&face, "ledger").iter().map(|one| one.name.as_ref()).collect();
+        assert_eq!(shown, vec!["Ledger"], "but Find still lists it");
+        assert!(unread_shown(&face, "store").is_empty());
     }
 
     #[test]

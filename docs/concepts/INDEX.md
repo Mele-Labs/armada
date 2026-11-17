@@ -21,9 +21,11 @@ assuming it is restated here.
 | [document.md](document.md) | The HTML page a Job designs to hand a person what it found: where it is written, how it is sealed and read, noted in place and revised by the Job's reply |
 | [doctor.md](doctor.md) | The health-check surface — a passive per-module grid that gates nothing |
 | [autopilot.md](autopilot.md) | A repository working its own backlog: one instruction, caps, every issue it picked, started or set aside, and the decisions it answered |
+| [feature-catalog.md](feature-catalog.md) | A project's library of features: the code each owns, what Jobs wrote about it and every Job, pull request and design made for it, handed to the next Job condensed |
 | [file-panel.md](file-panel.md) | Any file Bridge opens, in the one side panel in a code editor: where it may come from, how it saves, what stops a save |
 | [fleet.md](fleet.md) | The Rust daemon that hosts Jobs, leases worktree slots, keeps the merge line and reads the forge |
 | [job-proposer.md](job-proposer.md) | The Proposer: the model call that reads a Job's request and proposes its title, workflow or none, model and effort |
+| [job-story.md](job-story.md) | The owner's messages in a Job sorted into asks, and the story of each Job read from its asks, what he was shown and decided, what was built and what was handed on |
 | [judge.md](judge.md) | The one Judge: a read-only reading of any artifact of a Job on the owner's press, whose notes sit in the artifact, and Fleet's own step judges |
 | [key-bindings.md](key-bindings.md) | The keys each act answers as this person has them: the registry's, with Settings → Keyboard shortcuts laid over them and kept by Fleet |
 | [kit.md](kit.md) | The tool set you bring — Skills, MCP, sub agents, Commands, the allowlist |
