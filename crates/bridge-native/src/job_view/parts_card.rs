@@ -242,6 +242,8 @@ struct Ctx<'a> {
     /// The part the keys A and C answer, and the takes part 1 to 6 and Cmd-Enter answer: the first of each still asking.
     words: Option<String>,
     takes: Option<String>,
+    /// Two or more votes still ask: each keeps its note box, and one Send picks in the foot sends them all.
+    several: bool,
 }
 
 impl PartsState {
@@ -274,6 +276,11 @@ fn is_words_like(part: &ArtifactPart) -> bool {
 /// A part a pick answers: a takes part of the `pick` form that asks.
 fn is_pick(part: &ArtifactPart) -> bool {
     part.is_open_ask() && matches!(part.content, PartContent::Takes { form: VoteForm::Pick, .. })
+}
+
+/// Whether two or more votes of an artifact still ask, so their picks are sent together.
+fn several_picks(parts: &[ArtifactPart]) -> bool {
+    parts.iter().filter(|part| is_pick(part)).count() > 1
 }
 
 /// A key that stops where a button takes Enter and Space as a press, so the card's own Enter does not open its page too.
@@ -333,6 +340,7 @@ impl JobView {
             sheet: false,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: false,
         };
         if is_pick(&part) {
             let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
@@ -401,7 +409,10 @@ impl JobView {
             let sent = key.clone();
             let typing = cx.subscribe_in(&input, window, move |this, _, event: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = event {
-                    this.send_pick(&sent, window, cx);
+                    match split_key(&sent).map(|(artifact, _)| artifact.to_string()) {
+                        Some(artifact) if this.several_ask(&artifact) => this.send_picks(&artifact, window, cx),
+                        _ => this.send_pick(&sent, window, cx),
+                    }
                 }
             });
             if let Some(page) = self.pages.get_mut(job) {
@@ -525,6 +536,33 @@ impl JobView {
         self.answer_part(&artifact, &held, PartHow::Picked, Some(take), words, window, cx);
     }
 
+    /// Send every pick he has made on an artifact's votes, one answer to each with its own note. A vote with no pick keeps asking.
+    pub(super) fn send_picks(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        for key in self.picks_made(artifact) {
+            self.send_pick(&key, window, cx);
+        }
+    }
+
+    /// Whether two or more votes of an artifact still ask.
+    fn several_ask(&self, artifact: &str) -> bool {
+        let Some(job) = self.shown.as_ref() else { return false };
+        let (Some(held), Some(page)) = (self.artifact_of(job, artifact), self.pages.get(job)) else { return false };
+        let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).collect();
+        several_picks(&parts)
+    }
+
+    /// The keys of the votes of an artifact that ask and have a take chosen.
+    fn picks_made(&self, artifact: &str) -> Vec<String> {
+        let Some(job) = self.shown.as_ref() else { return Vec::new() };
+        let (Some(held), Some(page)) = (self.artifact_of(job, artifact), self.pages.get(job)) else { return Vec::new() };
+        held.parts
+            .iter()
+            .filter(|part| is_pick(&effective(part, &part_key(artifact, &part.id), &page.cards.parts)))
+            .map(|part| part_key(artifact, &part.id))
+            .filter(|key| self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some()))
+            .collect()
+    }
+
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
     pub(super) fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
         if let Some(state) = self.parts_state_mut() {
@@ -611,7 +649,9 @@ impl JobView {
         });
         let plain = !modifiers.modified();
         let handled = if pressed == "enter" && modifiers.platform {
-            if let Some(key) = take_key.as_deref() {
+            if several_picks(&parts) {
+                self.send_picks(artifact, window, cx);
+            } else if let Some(key) = take_key.as_deref() {
                 self.send_pick(key, window, cx);
             }
             true
@@ -703,6 +743,7 @@ impl JobView {
             sheet,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: several_picks(&parts),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
@@ -740,7 +781,7 @@ impl JobView {
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
         let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
-        let pick = parts.iter().find(|part| is_pick(part)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        let pick = parts.iter().find(|part| is_pick(part)).filter(|_| !several_picks(&parts)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
         Some(match pick {
             Some(pick) => div()
                 .flex()
@@ -765,6 +806,7 @@ impl JobView {
         };
         let foot = Foot { ix, key: id.to_string(), asking, archivable: !asking, openable: false, editable: false, commit: false, route: "/sessions/waiting/dismiss", run };
         let line = settles_line(parts).filter(|_| asking);
+        let picks = (asking && several_picks(parts)).then(|| self.send_picks_button(id, look, cx));
         let away = if asking {
             ghost(look, &foot, "dismiss", "Dismiss", "D", "Put it away with no answer", Act::Dismiss, cx)
         } else {
@@ -786,9 +828,27 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .when_some(line, |one, line| one.tooltip(tip(line.clone())).child(SharedString::from(line))),
                 )
+                .children(picks)
                 .child(div().flex_none().child(away)),
         );
         footer.into_any_element()
+    }
+
+    /// Send picks: one button for every vote of the artifact that has a pick. It waits until one does.
+    fn send_picks_button(&self, id: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let ready = !self.picks_made(id).is_empty();
+        let artifact = id.to_string();
+        super::acts::gated(
+            div().id(SharedString::from(format!("send-picks:{id}"))).flex_none().child(labelled(
+                act(look, format!("send-picks-button:{id}"), "Send picks", Kind::Primary, "\u{2318}\u{21b5}", ready).when(ready, |button| {
+                    button.tooltip(tip("Send your picks to the Job")).on_click(cx.listener(move |this, _, window, cx| this.send_picks(&artifact, window, cx)))
+                }),
+                Role::Button,
+                "Send picks",
+            )),
+            self.off_shown_to(ANSWER_PART, cx),
+        )
+        .into_any_element()
     }
 
     /// One part: its caption and tag, what it holds and, where it asks, how he answers it.
@@ -1020,7 +1080,7 @@ impl JobView {
             }
         };
         // In the review panel the words box and Send pick stand in its foot beside the answers, so the pick is never off screen.
-        let send = (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
+        let send = if c.several { open.then(|| self.note_row(c, key)) } else { (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx)) };
         let answered = (!part.is_open_ask() && part.asks).then(|| self.answered_line(c, key, part));
         div()
             .flex()
@@ -1296,10 +1356,14 @@ impl JobView {
         div().flex().flex_col().gap(look.length(token::SPACE_3)).child(bar).children(picture).children(choose).into_any_element()
     }
 
-    /// The note beside the pick and Send pick, which sends it: the vote's one act.
-    fn pick_row(&self, c: &Ctx, key: &str, ready: bool, target: bool, cx: &Context<Self>) -> AnyElement {
+    /// The note that goes with a pick, in a box of its own: under each vote where several ask.
+    fn note_row(&self, c: &Ctx, key: &str) -> AnyElement {
+        div().id(SharedString::from(format!("pick-note:{key}"))).flex().items_center().children(self.note_field(c, key)).into_any_element()
+    }
+
+    fn note_field(&self, c: &Ctx, key: &str) -> Option<AnyElement> {
         let look = c.look;
-        let field = c.state().notes.get(key).map(|input| {
+        c.state().notes.get(key).map(|input| {
             labelled(
                 div()
                     .id(SharedString::from(format!("note:{key}")))
@@ -1319,7 +1383,14 @@ impl JobView {
                 Role::TextInput,
                 "Note on your pick",
             )
-        });
+            .into_any_element()
+        })
+    }
+
+    /// The note beside the pick and Send pick, which sends it: the vote's one act.
+    fn pick_row(&self, c: &Ctx, key: &str, ready: bool, target: bool, cx: &Context<Self>) -> AnyElement {
+        let look = c.look;
+        let field = self.note_field(c, key);
         let send_key = key.to_string();
         super::acts::gated(
             div().id(SharedString::from(format!("pick:{key}"))).flex().items_center().gap(look.length(token::SPACE_2)).children(field).child(labelled(
