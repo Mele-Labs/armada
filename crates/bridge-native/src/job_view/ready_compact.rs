@@ -122,6 +122,12 @@ impl Page {
 }
 
 impl JobView {
+    /// Whether the thread pins the Ready to try card now: the one test `extras_of` pushes `Extra::Ready` on. Where it does, the
+    /// Needs you band leaves Fleet's Ready to try row out, since the card is already on the thread (17 Nov).
+    pub(super) fn ready_pinned_for(&self, id: &str, cx: &gpui::App) -> bool {
+        self.thread(id, cx).is_some_and(|held| asks(&held.items))
+    }
+
     /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened is drawn whole under
     /// the rows, in place.
     pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
@@ -283,6 +289,7 @@ impl JobView {
 
 #[cfg(test)]
 mod tests {
+    use super::super::dock::Thing;
     use super::super::parts_fold::{drawn, drawn_like, redraw};
     use super::*;
     use gpui::Role;
@@ -373,16 +380,25 @@ mod tests {
     }
 
     fn on_screen_with<'a>(cx: &'a mut gpui::TestAppContext, job: &str, wide: f32, high: f32, all_in_preview: bool) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        on_screen_waiting(cx, job, wide, high, all_in_preview, Vec::new(), false)
+    }
+
+    /// The same, with these items also waiting on him beside the scenario's Ready to try row, and, where `settled`, every build answered so the thread pins no card.
+    fn on_screen_waiting<'a>(cx: &'a mut gpui::TestAppContext, job: &str, wide: f32, high: f32, all_in_preview: bool, more: Vec<ipc::WaitingItem>, settled: bool) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
-        let jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
+        let mut jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
+        for one in jobs.iter_mut().filter(|one| one.id.as_str() == job) {
+            one.waiting_for.extend(more.clone());
+        }
         let mut threads = crate::mock::threads("ready-to-try").expect("the threads decode");
-        if all_in_preview {
-            for item in threads.values_mut().flat_map(|thread| thread.items.iter_mut()) {
-                if let ThreadItem::ReadyToTry(card) = item {
-                    card.in_build = true;
+        for item in threads.values_mut().flat_map(|thread| thread.items.iter_mut()) {
+            if let ThreadItem::ReadyToTry(card) = item {
+                card.in_build |= all_in_preview;
+                if settled {
+                    card.state = ipc::ReadyState::Answered;
                 }
             }
         }
@@ -442,6 +458,39 @@ mod tests {
             assert!(!drawn(cx, Role::Button, gone), "the compact card has no {gone}");
         }
         assert!(drawn(cx, Role::ListItem, "Ready to try: Chip takes the stale colour, Looks good"), "the answered build stays one line");
+    }
+
+    #[gpui::test]
+    fn a_ready_row_alone_draws_no_band_while_the_card_stands_on_the_thread(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        view.read_with(cx, |view, cx| {
+            assert!(view.ready_pinned_for("tool-edit", cx), "the thread pins the card");
+            let held = view.needs_of("tool-edit", cx).is_some_and(|needs| needs.sections.iter().flat_map(|section| &section.rows).any(|row| row.source == ipc::WaitingSource::ReadyToTry));
+            assert!(held, "Fleet still gives the row, so the Jobs list still reads the Job as needing him");
+            assert!(view.groups("tool-edit", cx).is_empty(), "the row is left out of the band's sections");
+        });
+        assert!(drawn(cx, Role::Group, "Ready to try"), "the card is on the thread");
+        assert!(!drawn(cx, Role::Button, "Needs you"), "nothing else waits, so no band");
+        assert!(drawn_like(cx, Role::Region, "To review").is_empty());
+    }
+
+    #[gpui::test]
+    fn a_question_keeps_the_band_which_leaves_the_ready_row_out(cx: &mut gpui::TestAppContext) {
+        let wire = r#"{"id":"pick","text":"Which colour","since":"2026-11-16T10:00:00Z","source":"agent","act":{"kind":"answer","target":"pick"},"options":[{"label":"Blue"},{"label":"Green"}]}"#;
+        let question = ipc::decode::<ipc::WaitingItem>("item", wire.as_bytes()).expect("an item decodes");
+        let (view, cx) = on_screen_waiting(cx, "tool-edit", 1400., 6000., false, vec![question], false);
+        view.update_in(cx, |view, window, cx| view.set_needs(true, None, window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, cx| {
+            let (things, review) = view.things("tool-edit", cx);
+            assert!(review.is_empty(), "no page waits for review");
+            assert!(matches!(things.as_slice(), [Thing::Row(row)] if row.id == "pick"), "only the question is listed");
+            assert!(!view.band_reviews("tool-edit", cx), "the card alone is no reason for the review sheet");
+        });
+        assert!(drawn(cx, Role::Button, "Needs you"), "the question keeps the band");
+        assert!(drawn(cx, Role::Region, "Questions"));
+        assert!(drawn_like(cx, Role::Region, "To review").is_empty(), "no To review section with the card on the thread");
+        assert!(drawn(cx, Role::Group, "Ready to try"), "the card is still on the thread");
     }
 
     /// Whether the thread shows its end: the last element's foot is in view.
@@ -671,15 +720,15 @@ mod tests {
     }
 
     #[gpui::test]
-    fn needs_you_holds_one_item_for_the_job_with_a_plain_dismiss_and_no_answer_and_a_press_opens_the_card(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+    fn with_no_card_pinned_needs_you_holds_one_item_for_the_job_with_a_plain_dismiss_and_no_answer(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen_waiting(cx, "tool-edit", 1400., 6000., false, Vec::new(), true);
+        view.read_with(cx, |view, cx| assert!(!view.ready_pinned_for("tool-edit", cx), "every build is answered, so the thread pins no card"));
         view.update_in(cx, |view, window, cx| view.set_needs(true, None, window, cx));
         redraw(cx);
+        assert!(drawn(cx, Role::Button, "Needs you"), "the row is the Job's only way to the builds");
         assert!(!drawn_like(cx, Role::Button, "Open Ready to try").is_empty(), "one item stands for the Job, however many builds");
         assert!(!drawn_like(cx, Role::Button, "Remove Ready to try").is_empty(), "a plain dismiss puts it away");
         assert!(drawn_like(cx, Role::Button, "Answer Ready to try").is_empty(), "no disabled Answer stands on it");
-        press(cx, Role::Button, "Open Ready to try");
-        assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)), "the newest open build is opened in place");
     }
 
     /// Whether a Refresh preview button is drawn inside the labelled element whose name starts with `inside`.
@@ -748,30 +797,5 @@ mod tests {
         view.update(cx, |view, cx| view.ready_open("tool-edit", &inside, cx));
         redraw(cx);
         assert!(!refresh_in(cx, &format!("Ready to try: {FULL}")), "nothing to refresh");
-    }
-
-    /// Fleet's one row for the Job, as live Fleet sends it: `try:<session>`, source ready_to_try, act message, in To review with
-    /// the band offering the review. Its focus view is the newest open build with its own answers, never a question's deck.
-    fn the_focus_view_of_the_ready_row(cx: &mut gpui::TestAppContext, wide: f32) {
-        let (view, cx) = on_screen(cx, "tool-edit", wide);
-        view.update_in(cx, |view, window, cx| view.set_needs(true, Some("item:try:tool-edit".to_string()), window, cx));
-        redraw(cx);
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {BARE}")), "the newest open build stands whole at {wide}");
-        for name in ["Looks good", "Needs rework", "Remind me"] {
-            assert!(drawn(cx, Role::Button, name), "{name} is on it at {wide}");
-        }
-        assert!(drawn(cx, Role::Button, "Back"), "and the way back to the list");
-        assert!(drawn_like(cx, Role::Button, "Answer").is_empty(), "no Answer button for a ready row at {wide}");
-        assert!(drawn_like(cx, Role::Group, "Answers").is_empty(), "and no deck of options at {wide}");
-    }
-
-    #[gpui::test]
-    fn the_ready_rows_focus_view_is_the_newest_open_build_at_1400(cx: &mut gpui::TestAppContext) {
-        the_focus_view_of_the_ready_row(cx, 1400.);
-    }
-
-    #[gpui::test]
-    fn the_ready_rows_focus_view_is_the_newest_open_build_at_820(cx: &mut gpui::TestAppContext) {
-        the_focus_view_of_the_ready_row(cx, 820.);
     }
 }
