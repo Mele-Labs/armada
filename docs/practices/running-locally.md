@@ -246,7 +246,10 @@ The app writes `Armada/bridge-native-quit` when it quits after its window opened
 It holds a lock on `Armada/bridge-native.lock` and writes its pid, its executable and whether launchd started it there.
 A second start brings the holder forward and exits; a start from launchd that finds a holder launchd did not start asks it to quit and takes its place.
 A notification press otherwise makes Launch Services open the bundle it registered, which has been an old build beside the running one (14 Nov 2026).
-So the live app also runs `lsregister -f` on its own bundle and `-u` on every other `builds/*/Armada.app` (`launch_services.rs`), and `scripts/keep-build` unregisters a bundle before it deletes it.
+So the live app also runs `lsregister -f` on its own bundle and `-u` on every other `builds/*/Armada.app` (`launch_services.rs`).
+Launch Services keeps a path after its folder is deleted, so whenever `current` moves, by `scripts/keep-build point` or by Fleet's Revert and swap (`kept_builds.rs`), every path `lsregister -dump` lists under `builds/` is unregistered, Voice helpers and Fleet bundles included.
+Only `current`'s `Armada.app` and the running app's, named by its lock record, stay; then `current`'s app and `fleet/Armada Fleet.app` are registered.
+Bundles outside `builds/`, such as a test's under `/tmp`, are never touched.
 A panic writes `Armada/crashes/crash-<UTC time>.txt` before the process goes, and writes the drafts the app had not yet kept, so the reopened app finds what he was typing.
 The first launch after a crash shows a centred panel with the panic, what was kept and a Start a Job to fix it button; Later and that button both mark the report seen with a `.seen` file beside it (`crates/bridge-native/src/crash.rs`).
 A run that quits as he meant marks its own reports seen, because a panic off the main thread ends only its thread.
