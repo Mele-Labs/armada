@@ -583,7 +583,7 @@ mod tests {
             "items",
             br#"[
                 {"kind":"row","row":{"kind":"message","id":"m-1","at":"2026-11-17T14:00:00Z","from":{"kind":"you"},"text":"Why?"}},
-                {"kind":"fleet_turn","id":"n-2","notice":{"kind":"message","id":"n-2","at":"2026-11-17T14:01:00Z","from":{"kind":"fleet"},"text":"Go on."},"rows":[{"kind":"message","id":"m-3","at":"2026-11-17T14:02:00Z","from":{"kind":"agent"},"text":"Because."}],"handled":true},
+                {"kind":"fleet_turn","id":"n-2","notice":{"kind":"message","id":"n-2","at":"2026-11-17T14:01:00Z","from":{"kind":"session","id":"fleet","title":"Fleet"},"text":"Go on.","notice":"behind_base"},"rows":[{"kind":"message","id":"m-3","at":"2026-11-17T14:02:00Z","from":{"kind":"agent"},"text":"Because."}],"handled":true},
                 {"kind":"row","row":{"kind":"message","id":"m-4","at":"2026-11-17T14:03:00Z","from":{"kind":"agent"},"text":"Done."}}
             ]"#,
         )
