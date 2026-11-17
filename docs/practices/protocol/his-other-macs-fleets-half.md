@@ -75,7 +75,7 @@ An act on a Job held from another Mac goes to that Mac: `send_session_message`, 
 **`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
 `/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
 The row that comes back is kept as that Mac's, and answered with its `mac`.
-`act` is `{ kind, body }`, `kind` one of `message`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name, or `job_message`, which no route of the person's takes (*Messages and alerts*).
+`act` is `{ kind, body }`, `kind` one of `message`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `answer_read`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name, or `job_message`, which no route of the person's takes (*Messages and alerts*).
 The tool-gate hook is not carried, since no person makes it.
 
 **The holding Mac** runs the act through the handler its own route has, so each status and refusal is the one it gives at home, under the door `mac` (`x-armada-caller: mac`, with the sender in `x-armada-mac`; `Via::Mac`, a person's own press on another of his Macs).

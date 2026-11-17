@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 use crate::acting::MAC_HEADER;
 use crate::answers::{answer, problem, refused, undecodable};
 use crate::daemon::{ActBegun, HostedSessions, OtherMacs, PullRequests, Refusal, Sessions};
+use crate::daemon::Story;
 use crate::served::Served;
 
 /// The most an act's answer is read to, which is the most a message may weigh and a record beside it.
@@ -58,7 +59,7 @@ where
 }
 
 /// The act run by the handler its own route has.
-async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Served<D>, mac: String, act: JobAct) -> Response {
+async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs + Story>(served: Served<D>, mac: String, act: JobAct) -> Response {
     use crate::{hosted_sessions as hosted, pull_requests, sessions};
     let run_id = served.run_id().clone();
     macro_rules! through {
@@ -78,6 +79,7 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs>(served: Se
         JobAct::PlanChanges(body) => through!(sessions::send_plan_changes, &body),
         JobAct::SketchAnswer(body) => through!(sessions::answer_sketch, &body),
         JobAct::DocumentAnswer(body) => through!(sessions::answer_document, &body),
+        JobAct::AnswerRead(body) => through!(crate::story::mark_answer_read, &body),
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
         JobAct::Merge { repository, number, .. } => {
             boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
@@ -173,7 +175,7 @@ pub(crate) async fn share_job_conversation<D: OtherMacs>(
 }
 
 /// `POST /other_mac/act`: what the Gateway hands in from the Mac it names in `x-armada-mac`.
-pub(crate) async fn act_from_mac<D: HostedSessions + Sessions + PullRequests + OtherMacs>(
+pub(crate) async fn act_from_mac<D: HostedSessions + Sessions + PullRequests + OtherMacs + Story>(
     State(served): State<Served<D>>,
     headers: HeaderMap,
     body: Bytes,

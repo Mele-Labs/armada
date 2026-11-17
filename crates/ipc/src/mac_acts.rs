@@ -37,6 +37,8 @@ pub enum JobAct {
     Arrive(ArrivingJob),
     /// The Mac a Job moved to took it, or refused it with why, so the Mac it left ends it or resumes it.
     MoveSettled(MoveSettled),
+    /// He read the answer to a question of his in the Job. Since 17 Nov 2026.
+    AnswerRead(crate::MarkAnswerRead),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -107,6 +109,7 @@ impl JobAct {
             JobAct::JobMessage(one) => Some(&one.to),
             JobAct::Move { session_id } => Some(session_id),
             JobAct::MoveSettled(one) => Some(&one.session_id),
+            JobAct::AnswerRead(one) => Some(&one.session_id),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
     }
@@ -140,6 +143,7 @@ impl JobAct {
             JobAct::Move { .. } => "move",
             JobAct::Arrive(_) => "arrive",
             JobAct::MoveSettled(_) => "move_settled",
+            JobAct::AnswerRead(_) => "answer_read",
         }
     }
 }

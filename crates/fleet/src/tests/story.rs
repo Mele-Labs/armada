@@ -367,3 +367,209 @@ mod telling {
         assert_eq!(story.shown_otherwise.len(), 1);
     }
 }
+
+#[test]
+fn a_question_is_read_from_its_kind_line_and_joins_no_ask() {
+    let read = sorting::read_of("kind: question\nask_kind: none\nask: 1\ntitle: none", "why is the badge red?", &[open("a1", "Badge is wrong")]).expect("read");
+    assert_eq!((read.kind, read.ask, read.ask_kind, read.title), (MessageKind::Question, None, None, None));
+    assert!(sorting::question("why?", &[], &[], &[]).contains("new_ask, revision, answer, question or talk"));
+}
+
+mod answered {
+    use std::sync::Arc;
+
+    use api::{HostedSessions, Story};
+    use ipc::{MarkAnswerRead, MessageKind, SessionId, SessionRow, SessionVoice, SetMessageKind};
+    use testkit::FakeJudge;
+
+    use super::super::session_dispute::serving_fitted;
+    use super::super::session_host::{eventually, Rig};
+    use super::{rig_saying, sorted, told_once};
+    use crate::story::questions;
+
+    const WHY: &str = "why is the badge red?";
+    const REPLY: &str = "It is red because the vote failed.\n\n```rust\nlet red = true;\n```\n\nI left it as is.";
+
+    #[test]
+    fn the_read_says_yes_or_no_and_anything_else_is_no_read() {
+        assert_eq!(questions::read_of("answers: yes"), Some(true));
+        assert_eq!(questions::read_of("- Answers: No."), Some(false));
+        assert_eq!(questions::read_of("It does, I think."), None);
+        assert_eq!(questions::read_of("answers: maybe"), None);
+    }
+
+    #[test]
+    fn the_excerpt_is_prose_and_a_long_reply_keeps_its_close() {
+        assert_eq!(questions::excerpt_of(REPLY), "It is red because the vote failed. I left it as is.");
+        let long = format!("{}THE CLOSE", "a".repeat(9000));
+        let cut = questions::reply_cut(&long);
+        assert!(cut.chars().count() <= questions::REPLY_CHARS + 5 && cut.ends_with("THE CLOSE"), "{}", cut.len());
+        assert!(questions::asked(WHY, &long).contains("THE CLOSE"));
+    }
+
+    async fn read(rig: &Rig) {
+        for task in rig.fleet.questions_taken_to_read().await {
+            task.await.expect("the read ends");
+        }
+    }
+
+    async fn asked(rig: &Rig, id: &SessionId) -> String {
+        told_once(rig, id, WHY).await;
+        rig.rows(id)
+            .await
+            .iter()
+            .find_map(|row| match row {
+                SessionRow::Message { from: SessionVoice::You, id, text, .. } if text == WHY => Some(id.clone()),
+                _ => None,
+            })
+            .expect("his question")
+    }
+
+    /// The Job's reply, put as its thread keeps one, and its turn's end.
+    async fn replied(rig: &Rig, id: &SessionId, text: &str) -> String {
+        let row = said_back(rig, id, text).await;
+        rig.fleet.questions_due_at(id.as_str()).await;
+        row
+    }
+
+    /// The Job's reply, put as its thread keeps one, with no turn's end after it.
+    async fn said_back(rig: &Rig, id: &SessionId, text: &str) -> String {
+        let row = rig.fleet.row_id(id.as_str());
+        let reply = SessionRow::Message {
+            id: row.clone(),
+            at: rig.fleet.instant(),
+            from: SessionVoice::Agent,
+            text: text.into(),
+            files: Vec::new(),
+            tags: Vec::new(),
+            notice: None,
+            queued: false,
+            edited_at: None,
+            aside: None,
+            sketches: Vec::new(),
+        };
+        rig.fleet.row_put(id.as_str(), reply).await;
+        row
+    }
+
+    fn links(judge: &FakeJudge) -> usize {
+        judge.asked().iter().filter(|one| one.contains(questions::ANSWERS)).count()
+    }
+
+    async fn unread(rig: &Rig, id: &SessionId) -> bool {
+        Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.answer_unread
+    }
+
+    #[tokio::test]
+    async fn a_question_is_linked_to_the_reply_that_answers_it_and_marked_read() {
+        let (rig, _) = rig_saying("kind: question\nanswers: yes").await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        let question = asked(&rig, &id).await;
+        sorted(&rig).await;
+        assert_eq!(rig.fleet.list_message_kinds(id.clone()).await.expect("listed").messages[0].kind, MessageKind::Question);
+        // Sorted before any reply: due, and nothing to read yet.
+        read(&rig).await;
+        assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
+
+        let reply = replied(&rig, &id, REPLY).await;
+        read(&rig).await;
+        let listed = rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions;
+        assert_eq!((listed.len(), listed[0].row_id.as_str(), listed[0].words.as_str()), (1, question.as_str(), WHY));
+        let answer = listed[0].answer.clone().expect("answered");
+        assert_eq!((answer.reply_row.as_str(), answer.read), (reply.as_str(), false));
+        assert_eq!(answer.excerpt, "It is red because the vote failed. I left it as is.");
+        assert!(unread(&rig, &id).await, "the row carries the unread answer");
+
+        let marked = rig.fleet.mark_answer_read(MarkAnswerRead { session_id: id.clone(), row_id: question.clone() }).await.expect("marked");
+        assert!(marked.answer.expect("answered").read);
+        assert!(!unread(&rig, &id).await);
+        let unknown = rig.fleet.mark_answer_read(MarkAnswerRead { session_id: id.clone(), row_id: "nope".into() }).await;
+        assert!(matches!(unknown, Err(api::Refusal::NotFound(_))));
+    }
+
+    #[tokio::test]
+    async fn the_turn_end_marks_a_question_due() {
+        let (rig, _) = rig_saying("kind: question\nanswers: yes").await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        rig.send(&id, WHY).await;
+        sorted(&rig).await;
+        read(&rig).await;
+        rig.stand_in.finishes(0, REPLY);
+        eventually(|| async {
+            read(&rig).await;
+            rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions.iter().any(|one| one.answer.is_some())
+        })
+        .await;
+    }
+
+    #[tokio::test]
+    async fn a_reply_read_as_not_answering_leaves_the_question_open_and_is_not_read_again() {
+        let (rig, judge) = rig_saying("kind: question\nanswers: no").await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        let question = asked(&rig, &id).await;
+        sorted(&rig).await;
+        replied(&rig, &id, "Looking now.").await;
+        read(&rig).await;
+        assert_eq!(links(&judge), 1);
+        assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
+        let open = rig.fleet.mark_answer_read(MarkAnswerRead { session_id: id.clone(), row_id: question }).await;
+        assert!(matches!(open, Err(api::Refusal::IllegalMove(_))));
+
+        rig.fleet.questions_due_at(id.as_str()).await;
+        read(&rig).await;
+        assert_eq!(links(&judge), 1, "the same reply is not read twice");
+        assert!(!unread(&rig, &id).await);
+    }
+
+    #[test]
+    fn the_bare_yes_the_cheapest_model_answers_is_read_and_so_is_markdown() {
+        // What haiku printed, byte for byte, four runs of four, for the question left open on 17 Nov.
+        assert_eq!(questions::read_of("yes\n"), Some(true));
+        assert_eq!(questions::read_of("No."), Some(false));
+        assert_eq!(questions::read_of("**Answers:** Yes"), Some(true));
+        assert_eq!(questions::read_of("answers: **no**"), Some(false));
+        assert_eq!(questions::read_of("Looking at the reply,\nanswers: yes"), Some(true), "the labelled line wins");
+    }
+
+    /// The live case: his question sorted after the turn that answered it ended, so the only read is the one sorting makes
+    /// due, and the model answers a bare `yes`.
+    #[tokio::test]
+    async fn a_question_sorted_after_its_answer_is_linked_on_a_bare_yes() {
+        let judge = Arc::new(FakeJudge::answering(&[("Sort it.", "kind: question"), ("whether it answers the question", "yes")]));
+        let planted = Arc::clone(&judge);
+        let rig = serving_fitted("armada", move |fittings| fittings.judge = planted).await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        asked(&rig, &id).await;
+        let reply = said_back(&rig, &id, REPLY).await;
+        sorted(&rig).await;
+        read(&rig).await;
+        let answer = rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.clone();
+        assert_eq!(answer.map(|one| one.reply_row), Some(reply));
+    }
+
+    #[tokio::test]
+    async fn a_failed_read_is_tried_again_on_the_next_passes_three_in_all_then_waits_for_a_turn_end() {
+        let judge = Arc::new(FakeJudge::that_fails("the linking model"));
+        let planted = Arc::clone(&judge);
+        let rig = serving_fitted("armada", move |fittings| fittings.judge = planted).await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        let question = asked(&rig, &id).await;
+        sorted(&rig).await;
+        let set = SetMessageKind { session_id: id.clone(), row_id: question, kind: MessageKind::Question, ask_kind: None, ask_id: None };
+        Arc::clone(&rig.fleet).set_message_kind(set).await.expect("his correction");
+        replied(&rig, &id, REPLY).await;
+        read(&rig).await;
+        assert_eq!(links(&judge), 1);
+        assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
+
+        read(&rig).await;
+        read(&rig).await;
+        assert_eq!(links(&judge), questions::TRIES as usize, "tried again on the next passes");
+        read(&rig).await;
+        assert_eq!(links(&judge), questions::TRIES as usize, "and then nothing reads it before a turn ends");
+        rig.fleet.questions_due_at(id.as_str()).await;
+        read(&rig).await;
+        assert_eq!(links(&judge), questions::TRIES as usize + 1, "a turn's end starts the count over");
+        assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
+    }
+}

@@ -378,6 +378,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/asks/change", post(crate::story::change_ask::<D>))
         .route("/asks/file", post(crate::story::file_ask::<D>))
         .route("/projects/asks", get(crate::story::list_feature_asks::<D>))
+        .route("/sessions/questions", get(crate::story::list_job_questions::<D>))
+        .route("/sessions/question/read", post(crate::story::mark_answer_read::<D>))
         .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
