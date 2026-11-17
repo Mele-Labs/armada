@@ -31,7 +31,17 @@ pub fn frame_in(bounds: Frame, parent_height: f64, flipped: bool) -> Frame {
 /// `unnamed` where Fleet gave none), so two repositories share nothing. A `WKWebsiteDataStore` is named
 /// by a UUID, so the same name always gives the same one: a hash of it, set as a version 8 UUID.
 pub fn store_id(manifest: Option<&str>) -> [u8; 16] {
-    let name = format!("persist:armada-capture-{}", manifest.unwrap_or("unnamed"));
+    named_store_id(&format!("persist:armada-capture-{}", manifest.unwrap_or("unnamed")))
+}
+
+/// The identifier of the one persistent store every Job browser keeps its sign-ins in, as Classic's `persist:armada-job-browser`
+/// partition does (`job-browsers.ts`). **Never a manifest's capture store and never the default one**, so a sign-in made in a Job's
+/// browser is seen by no walk and by nothing of the owner's own browsing.
+pub fn job_browser_store_id() -> [u8; 16] {
+    named_store_id("persist:armada-job-browser")
+}
+
+fn named_store_id(name: &str) -> [u8; 16] {
     let hash = |seed: u64| {
         name.bytes().fold(seed, |hash, byte| (hash ^ u64::from(byte)).wrapping_mul(0x0000_0100_0000_01b3))
     };
@@ -73,6 +83,16 @@ mod tests {
         assert_ne!(store_id(Some("armada")), store_id(Some("sample-web")));
         assert_ne!(store_id(Some("armada")), store_id(None));
         assert_eq!(store_id(None), store_id(None));
+    }
+
+    #[test]
+    fn the_job_browsers_store_is_one_of_its_own_and_always_the_same() {
+        assert_eq!(job_browser_store_id(), job_browser_store_id());
+        assert_ne!(job_browser_store_id(), store_id(None), "not the walks' store for a repository with no manifest");
+        assert_ne!(job_browser_store_id(), store_id(Some("job-browser")));
+        assert_ne!(job_browser_store_id(), [0; 16], "never the default store, whose identifier is nil");
+        assert_eq!(job_browser_store_id()[6] >> 4, 8);
+        assert_eq!(job_browser_store_id()[8] >> 6, 0b10);
     }
 
     #[test]

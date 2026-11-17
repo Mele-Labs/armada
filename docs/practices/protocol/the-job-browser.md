@@ -7,6 +7,8 @@ Ten operations, ten routes, two event kinds, one report kind and one row kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/sessions.ts`, written by hand, field for field; the row is in `hosted-sessions.ts` and the event in `events.ts`.
 Bridge's main process acts on `browser.request` in `apps/desktop/src/main/job-browsers.ts` and `job-browser-acts.ts`.
+The native app acts on it in `crates/bridge-native/src/job_browser/`, with Classic's own page finder built into `page.js` (`apps/desktop/scripts/job-browser-page.mjs`), so an agent reads one snapshot in either app.
+**One Bridge answers an act**: while the native app runs, Classic leaves `browser.request` to it, as it leaves the banners (`native-takeover.ts`).
 
 ## How one act travels
 

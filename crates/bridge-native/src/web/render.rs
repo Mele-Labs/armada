@@ -84,6 +84,7 @@ pub fn render_html(html: String, width: f32, scale: f32, appearance: Appearance,
         match arrivals.recv().await {
             Ok(Nav::Finished) => {}
             Ok(Nav::Failed(why)) => return Err(why),
+            Ok(Nav::Cancelled) => return Err("cancelled".into()),
             Err(_) => return Err("the page was dropped".into()),
         }
         let height = content_height(&native).await.min(TALLEST).max(1.);
