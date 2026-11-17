@@ -21,7 +21,7 @@ use objc2_app_kit::{
     NSEventType, NSImage, NSResponder, NSView, NSWindow,
 };
 use objc2_foundation::{
-    NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
+    NSData, NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop, NSSize, NSString,
     NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
@@ -434,6 +434,30 @@ impl Native {
             }
             config.setSnapshotWidth(Some(&NSNumber::new_f64(width)));
             self.view.takeSnapshotWithConfiguration_completionHandler(Some(&config), &block);
+        }
+    }
+
+    /// The whole page as one PDF, laid out at the view's width, or WebKit's reason it made none.
+    pub fn pdf(&self, done: impl FnOnce(Result<Vec<u8>, String>) + 'static) {
+        pending_up();
+        let done = RefCell::new(Some(done));
+        let block = RcBlock::new(move |data: *mut NSData, error: *mut NSError| {
+            pending_down();
+            let made = if data.is_null() {
+                // SAFETY: WebKit passes a live error, or null, for the length of this call.
+                let why = unsafe { error.as_ref() }.map(|error| error.localizedDescription().to_string());
+                Err(why.unwrap_or_else(|| "WebKit made no PDF".into()))
+            } else {
+                // SAFETY: WebKit passes live data for the length of this call.
+                Ok(unsafe { &*data }.to_vec())
+            };
+            if let Some(done) = done.borrow_mut().take() {
+                done(made);
+            }
+        });
+        // SAFETY: no configuration, so WebKit takes the page's whole bounds; on the main thread, and the block is copied.
+        unsafe {
+            self.view.createPDFWithConfiguration_completionHandler(None, &block);
         }
     }
 

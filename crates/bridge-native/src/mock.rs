@@ -960,6 +960,19 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
     Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
 }
 
+/// `get_session_mcp` on the mock: every Job's process has Notion connected, Confluence turned off, and Fleet's own door,
+/// so Share offers Export to Notion and nothing for the others.
+pub fn session_mcp() -> ipc::SessionMcp {
+    let server = |name: &str, state: ipc::McpServerState, tools: u32| ipc::SessionMcpServer { name: name.into(), state, error: None, scope: Some("user".into()), tools };
+    ipc::SessionMcp {
+        servers: vec![
+            server("armada-fleet", ipc::McpServerState::Connected, 64),
+            server("notion", ipc::McpServerState::Connected, 14),
+            server("confluence", ipc::McpServerState::Off, 0),
+        ],
+    }
+}
+
 /// The mock Fleet's answer to a press or a vote on the design page, as `press_page_action` and `cast_page_vote` answer:
 /// Discuss is sent, Rebase it starts Retry webhooks on a 503, Keep it answers its ask, and Drop it is refused, its ask
 /// no longer open. Its votes are kept as cast.

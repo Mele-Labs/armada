@@ -45,6 +45,8 @@ pub struct PageTab {
     heads: Vec<reader::Head>,
     /// The document's title, which its head says: a leading `h1` of the page that says it again is hidden.
     title: String,
+    /// The page as it reached the web view, its sketches drawn in: what Share saves.
+    html: Option<String>,
     _reading: Option<Task<()>>,
     /// The page's posts and loads, heard while it is held.
     _hearing: Option<Subscription>,
@@ -58,7 +60,7 @@ impl EventEmitter<PageTabEvent> for PageTab {}
 
 impl PageTab {
     pub fn new(job: SharedString, page: String, revision: u32, title: String) -> Self {
-        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
+        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, html: None, _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
     }
 
     /// The revision the page draws.
@@ -70,9 +72,15 @@ impl PageTab {
     pub fn show_revision(&mut self, revision: u32, cx: &mut Context<Self>) {
         self.shown = revision;
         self.held = Held::Loading;
+        self.html = None;
         self.heads.clear();
         self._hearing = None;
         cx.notify();
+    }
+
+    /// The page as it reached the web view, once Fleet has served it.
+    pub fn html(&self) -> Option<&str> {
+        self.html.as_deref()
     }
 
     /// The headings the page holds, once it has loaded.
@@ -122,6 +130,7 @@ impl PageTab {
     pub fn arrived(&mut self, answer: Result<String, String>, cx: &mut Context<Self>) {
         self.held = match answer {
             Ok(html) => {
+                self.html = Some(html.clone());
                 let page = cx.new(|cx| WebPage::new(None, Source::Sealed(html), cx));
                 let hearing = cx.subscribe(&page, |this, page, event: &WebPageEvent, cx| match event {
                     WebPageEvent::Posted(text) => {

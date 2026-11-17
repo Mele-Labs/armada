@@ -8,6 +8,7 @@
 //! |---|---|
 //! | The page and its element | [`WebPage`], [`web_pane`] |
 //! | One picture of an HTML string, in a hidden view | [`render_html`] |
+//! | A document printed to PDF, in a hidden view | [`pdf_of`] |
 //! | Which keys go back to Bridge | [`keys`] |
 //! | A sealed page's kit: its posts, the Fleet calls they make, and the answers handed back | [`kit`] |
 //! | Walk steps found in a page, and ringed | [`finder`] |
@@ -25,5 +26,5 @@ mod render;
 mod wk;
 
 pub use page::{after_frame, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
-pub use render::{render_html, Appearance, PagePart};
+pub use render::{pdf_of, render_html, Appearance, PagePart};
 pub use wk::{in_use, pending, pump};
