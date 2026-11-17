@@ -18,6 +18,7 @@ mod asks;
 mod choices;
 mod live;
 mod reminder;
+mod rules;
 mod scripts;
 mod tab;
 

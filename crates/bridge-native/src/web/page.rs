@@ -248,6 +248,13 @@ impl WebPage {
         hear
     }
 
+    /// The page's content rule list, JSON for what its page may not reach (`None`: no list), which opens the gate on the page's first load.
+    pub fn set_rules(&self, json: Option<&str>) {
+        if let Some(native) = &self.native {
+            native.set_rules(json);
+        }
+    }
+
     /// The keys, if the page holds them, go back to the window's own view.
     pub fn release_keys(&self) {
         if let Some(native) = &self.native {
@@ -313,7 +320,7 @@ impl WebPage {
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
-        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests, scripts: vec![include_str!("../job_browser/location.js")] }));
+        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests, scripts: vec![include_str!("../job_browser/location.js"), include_str!("../job_browser/local_network.js")] }));
         if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
             native.watch(told);
         }

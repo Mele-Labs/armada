@@ -19,6 +19,7 @@ use gpui_component::input::{Input, InputEvent, InputState};
 use super::acts::is_web;
 use super::asks::{self, decide, AskSlot, Rules};
 use super::choices::{host_of, Answer, Choice, Permission, Settings, Store, NO_REPOSITORY};
+use super::rules::{self, rules_json};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -86,6 +87,8 @@ pub struct BrowserTab {
     strip: [FocusHandle; 3],
     /// Where the focus was before the strip took it, which it goes back to.
     before: Option<FocusHandle>,
+    /// The content rule list the page was last given, which is none (`Some(None)`) where nothing is refused; `None` before the first.
+    rules_seen: Option<Option<String>>,
     _subscriptions: Vec<Subscription>,
     _changes: Task<()>,
     _asked: Task<()>,
@@ -137,6 +140,7 @@ impl BrowserTab {
             asks: AskSlot::default(),
             strip: [cx.focus_handle(), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)],
             before: None,
+            rules_seen: None,
             _subscriptions: vec![loaded, entered],
             _changes: changes,
             _asked: asked,
@@ -188,8 +192,41 @@ impl BrowserTab {
                     // POSITION_UNAVAILABLE.
                     self.permit(vec![Permission::Location], host_of(&origin), move |given| reply.send(given), window, cx);
                 }
+                Said::LocalNetwork { target } => {
+                    // Only a request to a more private space than the page's own is asked about. The reach has gone out already, or been
+                    // refused by the rule list; an Allow here lifts the refusal for what the page does next.
+                    let host = host_of(&origin);
+                    let from = host.as_deref().map(|host| rules::space_of(rules::hostname(host)));
+                    if let (Some(host), Some(from)) = (host, from) {
+                        if rules::needs_check(from, rules::space_of(&target)) {
+                            self.permit(vec![Permission::LocalNetwork], Some(host), move |given| reply.send(given), window, cx);
+                        }
+                    }
+                }
             },
+            Request::Made => self.refresh_rules(window, cx),
         }
+    }
+
+    /// The page's content rule list, built from the choices as the file holds them now, and given to the page where it differs from the one
+    /// it has. The first call opens the page's first load.
+    fn refresh_rules(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let (store, repository) = (self.store.clone(), self.repository.clone());
+        cx.spawn_in(window, async move |this, cx| {
+            let settings = match store {
+                Some(store) => cx.background_executor().spawn(async move { store.read() }).await,
+                None => Settings::default(),
+            };
+            let json = rules_json(&settings, &repository);
+            let _ = this.update(cx, |this, cx| {
+                if this.rules_seen.as_ref() == Some(&json) {
+                    return;
+                }
+                this.rules_seen = Some(json.clone());
+                this.page.update(cx, |page, _| page.set_rules(json.as_deref()));
+            });
+        })
+        .detach();
     }
 
     /// Decides what a page asked for from the owner's choices, asking him where a choice is Ask, and says the decision to `done`. A page
@@ -292,6 +329,7 @@ impl BrowserTab {
     fn page_told(&mut self, event: &WebPageEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event {
             WebPageEvent::Loaded => {
+                self.refresh_rules(window, cx);
                 self.refresh(window, cx);
                 self.loads_ended(cx);
             }
@@ -466,6 +504,9 @@ impl Rules for TabRules {
         let Some(store) = self.store.clone() else { return };
         let (repository, host) = (self.repository.clone(), self.host.clone());
         let _ = self.cx.background_executor().spawn(async move { store.choose(&repository, &host, permission, choice) }).await;
+        // What was allowed lifts the refusal for what the page does next.
+        let mut cx = self.cx.clone();
+        let _ = self.tab.update_in(&mut cx, |tab, window, cx| tab.refresh_rules(window, cx));
     }
 }
 

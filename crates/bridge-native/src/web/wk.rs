@@ -25,7 +25,7 @@ use objc2_foundation::{
     NSSize, NSString, NSURL, NSURLRequest, NSUUID,
 };
 use objc2_web_kit::{
-    WKContentWorld, WKFrameInfo, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
+    WKContentRuleList, WKContentRuleListStore, WKContentWorld, WKFrameInfo, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
     WKNavigationDelegate, WKNavigationType, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, WKSecurityOrigin, WKSnapshotConfiguration, WKUIDelegate, WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration,
     WKWebpagePreferences, WKWebsiteDataStore,
 };
@@ -116,6 +116,8 @@ impl<T: 'static> Drop for Reply<T> {
 #[derive(serde::Deserialize)]
 struct Posted {
     kind: String,
+    #[serde(default)]
+    target: String,
 }
 
 /// What a page's script asks, by the kind it posted.
@@ -123,12 +125,15 @@ struct Posted {
 pub enum Said {
     /// `navigator.geolocation`, which the page's own script asks about before it reaches the real one.
     Location,
+    /// `fetch`, `XMLHttpRequest`, `WebSocket` or `EventSource` reached `target`, a host name or address that is plainly local.
+    LocalNetwork { target: String },
 }
 
 fn said_of(text: &str) -> Option<Said> {
     let posted: Posted = ipc::decode("a page script's post", text.as_bytes()).ok()?;
     match posted.kind.as_str() {
         "location" => Some(Said::Location),
+        "local_network" => Some(Said::LocalNetwork { target: posted.target }),
         _ => None,
     }
 }
@@ -139,6 +144,8 @@ pub enum Request {
     Media { origin: String, camera: bool, microphone: bool, reply: Reply<bool> },
     /// What a script of Bridge's own in the page asks, for the page whose address is `origin`. The reply is `true` where it is given.
     Site { origin: String, said: Said, reply: Reply<bool> },
+    /// The page is made, and holds its first load until it is given its content rule list (`Native::set_rules`).
+    Made,
 }
 
 /// Where a Job browser's page sends what it asks.
@@ -421,6 +428,33 @@ define_class!(
     }
 );
 
+/// What a Job browser's page waits on before its first load: its content rule list, so the first request is already checked.
+struct Gate {
+    open: Cell<bool>,
+    /// The address asked for while the gate was shut.
+    queued: RefCell<Option<String>>,
+    /// The list in force, and the name WebKit's store keeps it by.
+    current: RefCell<Option<(Retained<WKContentRuleList>, String)>>,
+    /// Which compile is the latest: an older one that finishes late is let go.
+    generation: Cell<u64>,
+}
+
+thread_local! {
+    /// Numbers the pages, so each one's rule lists are named apart in WebKit's store.
+    static SERIAL: Cell<u64> = const { Cell::new(0) };
+}
+
+/// A rule list, taken off the page's controller and out of WebKit's store.
+fn drop_rules(controller: &WKUserContentController, old: (Retained<WKContentRuleList>, String), mtm: MainThreadMarker) {
+    // SAFETY: the list this page's controller holds, removed on the main thread, and the name it was stored by.
+    unsafe {
+        controller.removeContentRuleList(&old.0);
+        if let Some(store) = WKContentRuleListStore::defaultStore(mtm) {
+            store.removeContentRuleListForIdentifier_completionHandler(Some(&NSString::from_str(&old.1)), None);
+        }
+    }
+}
+
 /// One page: a WKWebView, the ring over it that marks a walk step's target, and its way of telling
 /// when it has loaded.
 pub struct Native {
@@ -433,6 +467,9 @@ pub struct Native {
     _ui: Option<Retained<PageUi>>,
     /// Bridge's own scripts' handler, which the page's content controller holds until `Drop` takes it off.
     site: Option<Retained<SiteMessages>>,
+    /// Where a Job browser's page waits for its rule list.
+    gate: Option<std::rc::Rc<Gate>>,
+    serial: u64,
     /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
     watching: RefCell<Option<Retained<Watching>>>,
     mtm: MainThreadMarker,
@@ -471,6 +508,12 @@ impl Native {
     /// A Job browser's page: `new`, with the page's asks sent to `site`.
     pub fn with_site(options: &Options, size: Frame, events: async_channel::Sender<Nav>, site: Option<Site>) -> Option<Native> {
         let mtm = MainThreadMarker::new()?;
+        let gate = site.is_some().then(|| std::rc::Rc::new(Gate { open: Cell::new(false), queued: RefCell::new(None), current: RefCell::new(None), generation: Cell::new(0) }));
+        let serial = SERIAL.with(|serial| {
+            serial.set(serial.get() + 1);
+            serial.get()
+        });
+        let made = site.as_ref().map(|site| site.requests.clone());
         // SAFETY: every call below is on the main thread, on objects made here, with arguments of the types
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
         let (view, navigation, kit, ui, site) = unsafe {
@@ -531,10 +574,19 @@ impl Native {
         let ring: Retained<RingView> = unsafe { msg_send![super(ring), initWithFrame: rect(Frame::new(0., 0., 0., 0.))] };
         ring.setHidden(true);
         LIVE.with(|live| live.set(live.get() + 1));
-        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, site, watching: RefCell::new(None), mtm })
+        // The page's holder is told, to give it a rule list: its first load waits.
+        if let Some(made) = made {
+            let _ = made.try_send(Request::Made);
+        }
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, site, gate, serial, watching: RefCell::new(None), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
+        if let Some(gate) = self.gate.as_ref().filter(|gate| !gate.open.get()) {
+            // A Job browser's first load waits for its rule list, so no request goes out unchecked.
+            *gate.queued.borrow_mut() = Some(url.to_string());
+            return;
+        }
         let Some(url) = NSURL::URLWithString(&NSString::from_str(url)) else { return };
         pending_up();
         // SAFETY: a request for a URL made on the main thread.
@@ -598,6 +650,49 @@ impl Native {
     /// The keys, if the page holds them, go back to the gpui view it sits in (`give_keys_back`).
     pub fn release_keys(&self) {
         give_keys_back(&self.view);
+    }
+
+    /// The page's content rule list, from JSON: compiled by WebKit, and put in place of the one before it (`None`: no list). **The first
+    /// answer opens the page's gate**, and the load it held goes out then. A compile that failed leaves the page without a list, and
+    /// goes on: a page that cannot load is worse than one that is not guarded from the local network.
+    pub fn set_rules(&self, json: Option<&str>) {
+        let Some(gate) = self.gate.clone() else { return };
+        let generation = gate.generation.get() + 1;
+        gate.generation.set(generation);
+        let (view, mtm, weak) = (self.view.clone(), self.mtm, std::rc::Rc::downgrade(&gate));
+        let Some(json) = json else {
+            apply_rules(&gate, &view, None, mtm);
+            return;
+        };
+        let name = format!("armada-job-browser-{}-{generation}", self.serial);
+        let named = name.clone();
+        let block = RcBlock::new(move |list: *mut WKContentRuleList, error: *mut NSError| {
+            let Some(gate) = weak.upgrade() else { return };
+            // SAFETY: WebKit passes a live list, or none, for the length of this call; it is retained to keep it.
+            let list = if list.is_null() { None } else { unsafe { Retained::retain(list) } };
+            if gate.generation.get() != generation {
+                // A newer list is on its way: this one is let go.
+                if let Some(list) = list {
+                    // SAFETY: the page's own content controller, on the main thread.
+                    drop_rules(&*unsafe { view.configuration().userContentController() }, (list, named.clone()), mtm);
+                }
+                return;
+            }
+            if !error.is_null() {
+                // SAFETY: WebKit passes a live error for the length of this call.
+                let why = unsafe { &*error }.localizedDescription().to_string();
+                crate::log::Note::warn("a Job browser's content rule list did not compile").field("why", why).emit();
+            }
+            apply_rules(&gate, &view, list.map(|list| (list, named.clone())), mtm);
+        });
+        // SAFETY: a name and a JSON text, compiled on the main thread; the block is copied by WebKit.
+        unsafe {
+            match WKContentRuleListStore::defaultStore(mtm) {
+                Some(store) => store.compileContentRuleListForIdentifier_encodedContentRuleList_completionHandler(Some(&NSString::from_str(&name)), Some(&NSString::from_str(json)), Some(&block)),
+                // No store to compile in: the page goes on without a list.
+                None => apply_rules(&gate, &self.view, None, mtm),
+            }
+        }
     }
 
     /// The page hidden, keeping its place, scroll and state, as Classic parks a walk's view.
@@ -828,6 +923,26 @@ impl Native {
     }
 }
 
+/// A compiled list is put in place of the one before it, and the gate opens, with the load it held going out.
+fn apply_rules(gate: &Gate, view: &Retained<WKWebView>, list: Option<(Retained<WKContentRuleList>, String)>, mtm: MainThreadMarker) {
+    // SAFETY: the page's own content controller and view, on the main thread.
+    unsafe {
+        let controller = view.configuration().userContentController();
+        if let Some(old) = gate.current.borrow_mut().take() {
+            drop_rules(&controller, old, mtm);
+        }
+        if let Some((list, name)) = list {
+            controller.addContentRuleList(&list);
+            *gate.current.borrow_mut() = Some((list, name));
+        }
+        gate.open.set(true);
+        if let Some(url) = gate.queued.borrow_mut().take().and_then(|url| NSURL::URLWithString(&NSString::from_str(&url))) {
+            pending_up();
+            view.loadRequest(&NSURLRequest::requestWithURL(&url));
+        }
+    }
+}
+
 /// A script's throw in words: the page's own message where WebKit kept one, else WebKit's.
 fn thrown(error: &NSError) -> String {
     let own = error.userInfo().objectForKey(&NSString::from_str("WKJavaScriptExceptionMessage")).and_then(|said| said.downcast_ref::<NSString>().map(|text| text.to_string()));
@@ -842,6 +957,12 @@ impl Drop for Native {
             // SAFETY: the page's own content controller, on the main thread; the handler it holds is let go.
             unsafe {
                 self.view.configuration().userContentController().removeScriptMessageHandlerForName(&NSString::from_str(KIT_HANDLER));
+            }
+        }
+        if let Some(gate) = &self.gate {
+            if let Some(old) = gate.current.borrow_mut().take() {
+                // SAFETY: the page's own content controller, on the main thread.
+                drop_rules(&*unsafe { self.view.configuration().userContentController() }, old, self.mtm);
             }
         }
         if self.site.take().is_some() {
