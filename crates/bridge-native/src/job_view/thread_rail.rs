@@ -70,8 +70,8 @@ impl Rail {
     }
 }
 
-/// Make the state, and hear the key that opens the list. Once.
-fn ensure(cx: &mut App) {
+/// Make the state, and hear the key that opens the list. Once, however often it is called.
+pub(crate) fn init(cx: &mut App) {
     if cx.has_global::<Rail>() {
         return;
     }
@@ -115,7 +115,8 @@ impl JobView {
 
     /// The rail over the thread, with its list while the pointer is on it or the keys hold it. None where the thread holds no ask.
     pub(super) fn render_thread_rail(&mut self, id: &SharedString, cx: &mut Context<Self>) -> Option<AnyElement> {
-        ensure(cx);
+        // Set up at start-up by `story::init`; a view drawn without it (a test window) makes the state here, once.
+        init(cx);
         let (marks, now) = self.rail_marks(id, cx);
         let rail = cx.global_mut::<Rail>();
         if rail.job.as_ref() != Some(id) {

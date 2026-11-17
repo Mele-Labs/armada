@@ -105,6 +105,7 @@ fn job(cx: &mut TestAppContext, height: f32) -> (Entity<JobView>, &mut VisualTes
         crate::look::init(cx);
         crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
         crate::job_view::kind_chip::init(cx);
+        crate::job_view::thread_rail::init(cx);
     });
     let jobs = crate::mock::jobs("job-view").expect("the fixture decodes");
     let threads = crate::mock::threads("job-view").expect("the threads decode");

@@ -453,6 +453,7 @@ fn tab_id(job: &str) -> String {
 /// Put Story in every Job's +, and hear which Job comes on screen: a Story link left an ask for it, and its tab opens at it.
 pub fn init(cx: &mut App) {
     super::kind_chip::init(cx);
+    super::thread_rail::init(cx);
     super::offer_tab(super::TabOffer { id: "story", label: "Story".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open(&job, Some(pane), window, cx)) }, cx);
     super::on_job_shown(
         |job, window, cx| {
