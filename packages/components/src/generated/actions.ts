@@ -2037,6 +2037,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "message_kind",
+    kind: "Action",
+    tier: "Global",
+    verb: "Change the kind of the message",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌥K",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

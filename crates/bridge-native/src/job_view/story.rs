@@ -61,9 +61,9 @@ pub(crate) enum Region {
 }
 
 /// What of a Job's record puts its story in doubt: a Job that ended, merged or took a turn may have moved an ask.
-type Stamp = (String, Option<String>, Option<String>, usize);
+pub(crate) type Stamp = (String, Option<String>, Option<String>, usize);
 
-fn stamp_of(record: &ipc::SessionRecord) -> Stamp {
+pub(crate) fn stamp_of(record: &ipc::SessionRecord) -> Stamp {
     (format!("{:?}", record.state), record.done_since.as_ref().map(|at| at.as_str().to_string()), record.last_turn_at.as_ref().map(|at| at.as_str().to_string()), record.attachments.len())
 }
 
@@ -452,6 +452,7 @@ fn tab_id(job: &str) -> String {
 
 /// Put Story in every Job's +, and hear which Job comes on screen: a Story link left an ask for it, and its tab opens at it.
 pub fn init(cx: &mut App) {
+    super::kind_chip::init(cx);
     super::offer_tab(super::TabOffer { id: "story", label: "Story".into(), glyph: GLYPH, open: Rc::new(|job, pane, window, cx| open(&job, Some(pane), window, cx)) }, cx);
     super::on_job_shown(
         |job, window, cx| {

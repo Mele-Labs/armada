@@ -1828,3 +1828,15 @@ scope = "features"
 destructive = false
 confirms = false
 notes = "Opens the Job an ask on a feature's page came from, on its Story tab, at that ask. The same as Enter on the row and a press on its Story link. An ask filed outside a Job has none. Native only, 17 Nov 2026."
+
+[actions.message_kind]
+kind = "Action"
+tier = "Global"
+verb = "Change the kind of the message"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥K"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the menu under the kind chip of one of his messages in a Job's thread, which lists Bug, Change request, Idea, Fix, Revision, Answer and Talk, the current one marked. The target is the chip that holds focus, else the chip of his newest sorted message. Revision and Answer then list the Job's open asks. Read by the key's place on the keyboard, since Option changes the character K types; K is free in the thread beside ⌥E, ⌥R and ⌥X. Native only, 17 Nov 2026."

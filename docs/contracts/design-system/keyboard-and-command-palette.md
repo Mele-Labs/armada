@@ -63,6 +63,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
+⌥K       change the kind of a message of his in the open Job's thread: Bug, Change request, Idea, Fix, Revision, Answer or Talk, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
@@ -285,7 +286,8 @@ The asks show five rows and a line below them, Earlier, folded, which `Enter` op
 **A Job's Story tab takes the `features` keys.**
 `j`, `k` and the arrows move between the ask heads, `Enter` folds or unfolds the ask the keys are on, and one ask is unfolded at a time.
 `Tab` and `⇧Tab` go between the heads and the Filed under rows of the unfolded ask, where `j` and `k` move and `Enter` opens the feature's page; `Esc` goes back to the heads.
-**One overlay holds what opens from a Story or a feature's page.** A page opened from a Filed under row, and a Story opened from a page's Story link, replace each other on one stack, so there is never a second layer. `Esc` and Back go back one, and the last closes the overlay.
+**One overlay holds what opens from a Story or a feature's page.** A page opened from a Filed under row, and a Story opened from a page's Story link, replace each other on one stack, so there is never a second layer.
+`Esc` and Back go back one, and the last closes the overlay.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in

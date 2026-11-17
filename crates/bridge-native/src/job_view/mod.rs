@@ -119,6 +119,7 @@ mod side;
 mod side_chat;
 mod spine;
 pub(crate) mod story;
+pub(crate) mod kind_chip;
 mod spoken;
 mod start_card;
 mod workflow;
