@@ -674,7 +674,7 @@ pub use session_import::{
 };
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
-    Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, JobAsks, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
+    Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
     StoryBuilt, StoryChanged, StoryHanded, StoryShown,
 };
 pub use judge::{

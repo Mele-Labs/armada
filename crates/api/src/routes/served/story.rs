@@ -29,6 +29,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/asks/change",
     },
     Route {
+        operation: "file_ask",
+        method: "POST",
+        path: "/asks/file",
+    },
+    Route {
         operation: "list_feature_asks",
         method: "GET",
         path: "/projects/asks",

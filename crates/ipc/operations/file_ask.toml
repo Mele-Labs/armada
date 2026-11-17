@@ -1,0 +1,16 @@
+[operations.file_ask]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "File an ask he said outside a Job: his words to you, a note on a screen, or a line he dictated. Give project (an id), kind (bug, change_request, idea or fix), his words as he said them, and the slugs of the features it belongs to. Optional: title, and note (a note's id, so the same note is never filed twice). Answers the ask"
+notes = """
+`POST /asks/file`, body `FileAsk` `{ project, kind, words, title?, features?, note? }`. Answers the `Ask` as `list_job_asks` does. Since 16 Nov 2026.
+
+**The same ask rows as an ask said in a Job**, with no Job: `said_in` is empty, `first_row` is `note:<id>` for a note and the ask's id otherwise, and the ask opens in the `backlog` since nothing builds it yet. It shows on each feature it is filed under in `list_feature_asks`. `title` absent takes his first line. **A note filed again returns the ask it made**, changing nothing.
+
+**Words he says to the Operator, a note and dictation all reach it as words**: Bridge turns speech into text in the composer, so voice has no channel of its own. The Operator reads the words and files the ones that ask for something; talk and answers to a card are not asks.
+
+**Only the Operator's own session may call it**, placed by its connection: any other caller is refused 422 `fleet.not_the_operator`. 422 `fleet.feature_project` for a project Fleet does not hold, 422 `fleet.ask_words_blank` for blank words and 404 `fleet.feature_unknown` for a slug the project's library does not hold, with nothing kept.
+
+`agent_access` is `Operator`.
+"""

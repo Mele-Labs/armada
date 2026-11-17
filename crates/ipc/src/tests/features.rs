@@ -1,6 +1,6 @@
 //! The feature library's bodies, as they are written on the wire.
 
-use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, FeaturesSeeded, SeedFeatures, UpsertFeatures, WriteFeatureSections};
+use crate::{decode, shape, FeatureSectionKind, FeaturesOfPath, FeaturesSeeded, FileAsk, SeedFeatures, UpsertFeatures, WriteFeatureSections};
 
 #[test]
 fn the_two_bodies_say_their_shape() {
@@ -19,6 +19,14 @@ fn the_two_bodies_say_their_shape() {
 fn the_seed_names_a_project_and_answers_what_it_kept_and_left_out() {
     assert_eq!(shape::of::<SeedFeatures>(), "{project: string}");
     assert_eq!(shape::of::<FeaturesSeeded>(), "{created: [string], areas: number, dropped?: [string]}");
+}
+
+#[test]
+fn an_ask_filed_outside_a_job_says_its_shape() {
+    assert_eq!(
+        shape::of::<FileAsk>(),
+        "{project: string, kind: bug|change_request|idea|fix, words: string, title?: string, features?: [string], note?: string}"
+    );
 }
 
 #[test]

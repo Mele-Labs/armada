@@ -207,7 +207,11 @@ where
                     }
                 }
             }
-            arrivals.extend(left.into_iter().map(|read| Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component }.arrival()));
+            for read in left {
+                let files: Vec<String> = [read.source.as_ref(), read.definition.as_ref()].into_iter().flatten().map(|one| one.file.clone()).collect();
+                let features = self.note_features(&manifest, &files, read.component.as_deref()).await;
+                arrivals.push(Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, features }.arrival());
+            }
         }
         arrivals
     }

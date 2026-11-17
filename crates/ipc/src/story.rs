@@ -120,9 +120,9 @@ pub struct Ask {
     pub title: String,
     /// His first words, as he last wrote them.
     pub first_words: String,
-    /// The message row they are in, in `said_in`'s thread.
+    /// The message row they are in, in `said_in`'s thread. For an ask filed outside a Job: `note:<id>` for a note, else the ask's id.
     pub first_row: String,
-    /// The Job it was said in.
+    /// The Job it was said in. **Empty for an ask filed outside a Job**, which opens in the backlog.
     pub said_in: SessionId,
     /// The Job building it. Absent in the backlog and once dropped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -160,6 +160,25 @@ pub struct ChangeAsk {
     /// The whole list of slugs, replacing the one the ask has. An empty list files it under none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub features: Option<Vec<String>>,
+}
+
+/// `file_ask`: the Operator files an ask said outside a Job: his words to it, a note on a screen, or dictation.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FileAsk {
+    /// The project's id the ask is filed in.
+    pub project: String,
+    pub kind: AskKind,
+    /// His words, as he said them.
+    pub words: String,
+    /// A short line. Absent takes his first line.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub title: Option<String>,
+    /// The slugs of the features it is filed under, each held by the project's library.
+    #[serde(default)]
+    pub features: Vec<String>,
+    /// The id of the note the words are, where they are one. A note filed twice is one ask.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
 }
 
 /// What `list_feature_asks` answers: a project's asks, narrowed to one feature slug where one is given, oldest first.

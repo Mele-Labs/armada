@@ -23,7 +23,7 @@ The owner approved the design on 16 Nov 2026.
 | An ask handed when its Job starts or messages another Job with it | Built |
 | A Job's story, `get_job_story`, and the done card's lead lines | Built in Fleet; native draws the Story tab later |
 | A project's asks by feature slug, `list_feature_asks` | Built in Fleet; the feature library files asks under slugs later |
-| Asks from outside a Job: words to the Operator, notes, voice | Not here. The Operator files them |
+| Asks from outside a Job: words to the Operator, notes, voice | Built: the Operator files each with `file_ask`, under the features it belongs to |
 
 ## Sorting a message
 
@@ -79,6 +79,20 @@ What came before any ask of the Job is listed apart.
 
 **Rule.** `lead` is one line an ask, open ones first, for the done card to draw beside the Job's own summary.
 The summary stays on the record, and the record gains no field.
+
+## An ask from outside a Job
+
+**Rule.** Words he says to the Operator, a note he leaves on a screen and a line he dictates reach the Operator as words, and it files each that asks for something with `file_ask`.
+Bridge turns speech into text in the composer, so voice has no channel of its own.
+Talk, and an answer to a card, are not asks.
+
+**Rule.** It is the same ask row with no Job: `said_in` is empty, the ask opens in the backlog since nothing builds it yet, and it shows on each feature it is filed under.
+The Operator names the features, each held by the project's library, and a slug the library lacks is refused.
+A note is filed under its id, so the same note filed twice is one ask.
+
+**Rule.** A note arrives with the features Fleet reads from where he left it.
+The files its element was drawn from, `source` and `definition` in the note, are mapped by the library's path prefixes, and where a note names no file its component's name is read against the files of each feature's entry points and prefixes.
+A note that names neither arrives with no feature, and the Operator chooses from the library.
 
 ## Open questions
 

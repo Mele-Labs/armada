@@ -9,7 +9,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
 use super::{held, Arrival, Arrived, Source};
 use crate::daemon::Fleet;
-use crate::feature_library::Seed;
+use crate::feature_library::{features_of_note, Seed};
 
 impl<H, V, W> Fleet<H, V, W>
 where
@@ -30,6 +30,21 @@ where
         for arrival in self.seeds_offered().await {
             self.hand_once(arrival).await;
         }
+    }
+
+    /// The features a note points to, one project to a line, for the words the Operator is told. **Read off the files its element
+    /// was drawn from and the component's name, against the paths each feature keeps**: a note that names neither says so.
+    pub(crate) async fn note_features(&self, manifest: &str, files: &[String], component: Option<&str>) -> String {
+        let projects: Vec<String> =
+            self.projects_held().holding(&ipc::ManifestId::carried(manifest).to_domain()).into_iter().map(|one| one.id().as_str().to_string()).collect();
+        let store = self.store().lock().await;
+        let mut lines = String::new();
+        for project in projects.iter().filter(|project| store.project_has_features(project).unwrap_or(false)) {
+            let slugs = features_of_note(&store, project, manifest, files, component).unwrap_or_default();
+            let on = if slugs.is_empty() { "no feature's code is where it was left".to_string() } else { slugs.join(", ") };
+            lines.push_str(&format!("\nFeatures it points to in project {project}: {on}"));
+        }
+        lines
     }
 
     /// The projects that hold Armada's repository and no feature, as arrivals.

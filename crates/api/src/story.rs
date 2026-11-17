@@ -80,3 +80,16 @@ pub(crate) async fn list_feature_asks<D: Story>(State(served): State<Served<D>>,
         Err(refusal) => refused(refusal),
     }
 }
+
+/// The Operator files an ask said outside a Job. **Placed by its connection**, as `raise_card` is. 200 with the ask; 404 for
+/// a slug the library lacks; 422 for a caller that is not the Operator, an unknown project or blank words.
+pub(crate) async fn file_ask<D: Story>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let file: ipc::FileAsk = match ipc::decode_body("an ask to file", &body) {
+        Ok(file) => file,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().file_ask(crate::acting::asking(), file).await {
+        Ok(ask) => answer(StatusCode::OK, &ask, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

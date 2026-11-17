@@ -8,12 +8,13 @@ use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Story};
-use ipc::{Ask, ChangeAsk, FeatureAsks, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
+use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
 
 use crate::daemon::Fleet;
 use crate::session_host::serving::NO_SUCH_SESSION;
 
 mod asks;
+mod outside;
 mod progress;
 mod reading;
 pub(crate) mod sorting;
@@ -52,5 +53,9 @@ where
 
     async fn list_feature_asks(&self, project: String, feature: Option<String>) -> Result<FeatureAsks, Refusal> {
         self.feature_asks_listed(&project, feature.as_deref()).await
+    }
+
+    async fn file_ask(&self, caller: Option<api::Caller>, file: FileAsk) -> Result<Ask, Refusal> {
+        self.ask_filed(caller, file).await
     }
 }

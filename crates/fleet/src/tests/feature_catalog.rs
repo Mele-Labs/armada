@@ -4,8 +4,8 @@
 
 use std::collections::BTreeSet;
 
-use api::{Features, Projects, Refusal};
-use ipc::{NewProject, ProjectMember, SeedFeatures};
+use api::{Features, Projects, Refusal, Story};
+use ipc::{AreaSeed, AskKind, AskState, FeatureSeed, FileAsk, NewProject, ProjectMember, SeedFeatures, UpsertFeatures};
 
 use super::operator_session::switched;
 use super::peer::Placing;
@@ -161,4 +161,116 @@ async fn a_project_that_is_not_armadas_is_never_told_of_a_seed() {
     rig.fleet.sources_handed().await;
     tokio::time::sleep(std::time::Duration::from_millis(200)).await;
     assert_eq!(heard(&rig, "seed_features"), 0);
+}
+
+// Asks from outside a Job.
+
+const VOTING: &str = "voting-on-takes";
+const ACTIONS: &str = "page-actions";
+
+/// A small library: two features in one area, `VOTING` owning `crates/pages/voting`.
+async fn libraried(rig: &Rig, project: &str) {
+    let feature = |slug: &str, paths: &[&str], entry: &[&str]| FeatureSeed {
+        slug: slug.to_string(),
+        area: "takes".to_string(),
+        title: slug.to_string(),
+        summary: "One line.".to_string(),
+        state: None,
+        paths: paths.iter().map(|one| one.to_string()).collect(),
+        entry_points: entry.iter().map(|one| one.to_string()).collect(),
+        manifest_id: None,
+    };
+    let upsert = UpsertFeatures {
+        project: project.to_string(),
+        areas: vec![AreaSeed { slug: "takes".into(), title: "Takes".into() }],
+        features: vec![
+            feature(VOTING, &["crates/pages/voting"], &["crates/pages/voting/vote_button.rs"]),
+            feature(ACTIONS, &["crates/pages/actions"], &[]),
+        ],
+    };
+    rig.fleet.upsert_features(upsert).await.expect("kept");
+}
+
+fn filing(project: &str, words: &str, features: &[&str]) -> FileAsk {
+    FileAsk { project: project.to_string(), kind: AskKind::Idea, words: words.to_string(), title: None, features: features.iter().map(|one| one.to_string()).collect(), note: None }
+}
+
+#[tokio::test]
+async fn an_ask_said_outside_a_job_is_filed_under_its_features_with_no_job_and_shows_on_each() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+
+    let refused = rig.fleet.file_ask(a_job(), filing(&project, "Vote from the phone", &[VOTING])).await.expect_err("a Job is not the Operator");
+    assert_eq!(code(refused).1, "fleet.not_the_operator");
+    for (file, expected) in [
+        (filing(&project, "  ", &[VOTING]), (422, "fleet.ask_words_blank")),
+        (filing("no-such", "Vote from the phone", &[]), (422, "fleet.feature_project")),
+        (filing(&project, "Vote from the phone", &["no-such-feature"]), (404, "fleet.feature_unknown")),
+    ] {
+        let refused = rig.fleet.file_ask(the_operator(), file).await.expect_err("refused");
+        assert_eq!(code(refused), (expected.0, expected.1.to_string()));
+    }
+    let none = rig.fleet.list_feature_asks(project.clone(), None).await.expect("listed");
+    assert!(none.asks.is_empty(), "nothing was kept: {:?}", none.asks);
+
+    let ask = rig.fleet.file_ask(the_operator(), filing(&project, "Vote from the phone\nOn the page I am reading", &[VOTING, ACTIONS])).await.expect("filed");
+    assert_eq!((ask.kind, ask.state), (AskKind::Idea, AskState::Backlog), "nothing builds it yet");
+    assert!(ask.said_in.as_str().is_empty() && ask.building.is_none(), "no Job: {ask:?}");
+    assert_eq!(ask.first_words, "Vote from the phone\nOn the page I am reading");
+    assert_eq!(ask.title, "Vote from the phone");
+    assert_eq!(ask.features, [ACTIONS.to_string(), VOTING.to_string()]);
+
+    for slug in [VOTING, ACTIONS] {
+        let listed = rig.fleet.list_feature_asks(project.clone(), Some(slug.to_string())).await.expect("listed");
+        assert_eq!(listed.asks.iter().map(|one| one.ask_id.as_str()).collect::<Vec<_>>(), [ask.ask_id.as_str()], "on {slug}");
+    }
+}
+
+#[tokio::test]
+async fn a_note_filed_twice_is_one_ask_and_the_second_call_changes_nothing() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let mut file = filing(&project, "The rank bar is too tight", &[VOTING]);
+    file.note = Some("mfz1-abc".to_string());
+    file.kind = AskKind::Bug;
+
+    let first = rig.fleet.file_ask(the_operator(), file.clone()).await.expect("filed");
+    assert_eq!(first.first_row, "note:mfz1-abc");
+    file.features = vec![ACTIONS.to_string()];
+    file.words = "Different words".to_string();
+    let second = rig.fleet.file_ask(the_operator(), file).await.expect("filed again");
+    assert_eq!(second, first, "the note's own ask, as it was");
+    assert_eq!(rig.fleet.list_feature_asks(project, None).await.expect("listed").asks.len(), 1);
+}
+
+#[tokio::test]
+async fn a_note_points_to_the_features_of_the_files_it_was_drawn_from_and_failing_those_its_component() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    let manifest = rig.manifest.as_str().to_string();
+    let read = |files: &[&str], component: Option<&str>| {
+        let files: Vec<String> = files.iter().map(|one| one.to_string()).collect();
+        let (project, manifest) = (project.clone(), manifest.clone());
+        let component = component.map(str::to_string);
+        let fleet = rig.fleet.clone();
+        async move {
+            let store = fleet.store().lock().await;
+            crate::feature_library::features_of_note(&store, &project, &manifest, &files, component.as_deref()).expect("read")
+        }
+    };
+    assert_eq!(read(&["crates/pages/voting/ranks.rs"], Some("PageActions")).await, [VOTING.to_string()], "the file wins over the name");
+    assert_eq!(read(&[], Some("VoteButton")).await, [VOTING.to_string()], "a component named for an entry point's file");
+    assert!(read(&[], Some("Rail")).await.is_empty(), "a name no file carries points nowhere");
+    assert!(read(&["docs/elsewhere.md"], None).await.is_empty());
+
+    let told = rig.fleet.note_features(&manifest, &["crates/pages/voting/ranks.rs".to_string()], None).await;
+    assert!(told.contains(&format!("project {project}: {VOTING}")), "{told}");
+    let arrival = crate::operator::Note { id: "n-1".into(), manifest_id: manifest, text: "Too tight".into(), screen: Some("takes".into()), component: None, features: told }.arrival();
+    assert!(arrival.words.contains("Left on the takes screen") && arrival.words.contains(VOTING), "{}", arrival.words);
 }

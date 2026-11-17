@@ -3,7 +3,7 @@
 
 use std::future::Future;
 
-use ipc::{Ask, ChangeAsk, FeatureAsks, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
+use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
 
 use crate::daemon::Refusal;
 
@@ -29,4 +29,9 @@ pub trait Story: Send + Sync + 'static {
 
     /// `list_feature_asks` — a project's asks, narrowed to one feature slug where one is given.
     fn list_feature_asks(&self, project: String, feature: Option<String>) -> impl Future<Output = Result<FeatureAsks, Refusal>> + Send;
+
+    /// `file_ask` — the Operator files an ask said outside a Job, under features its project's library holds.
+    /// [`Refusal::Unacceptable`] (`fleet.not_the_operator`, `fleet.feature_project`, `fleet.ask_words_blank`), [`Refusal::NotFound`]
+    /// (`fleet.feature_unknown`).
+    fn file_ask(&self, caller: Option<crate::Caller>, file: FileAsk) -> impl Future<Output = Result<Ask, Refusal>> + Send;
 }

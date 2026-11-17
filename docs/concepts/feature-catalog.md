@@ -102,6 +102,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
+| `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
 ## Where it lives
@@ -117,4 +118,4 @@ What the library would hold in the clear there is in [Central store](../contract
 - A commit hook that refuses a commit without a `Feature:` trailer.
 - A feature that does not exist yet, named by a trailer or an act, filed for the Operator to confirm.
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
-- Your own asks sorted onto features.
+- Asks said in a Job sorted onto features.

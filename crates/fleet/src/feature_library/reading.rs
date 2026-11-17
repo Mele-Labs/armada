@@ -37,6 +37,48 @@ impl Loaded {
     }
 }
 
+/// The slug `slug` names in `project`, as the library keeps it: `None` for one the project does not hold.
+pub(crate) fn slug_held(store: &Store, project: &str, slug: &str) -> Result<Option<String>, WriteError> {
+    Ok(Loaded::read(store, project)?.feature(slug.trim()).map(|feature| feature.slug.clone()))
+}
+
+/// A name with its case and separators taken off, so `JobCard` and `job_card` read alike.
+fn plain(name: &str) -> String {
+    name.chars().filter(|c| c.is_alphanumeric()).flat_map(char::to_lowercase).collect()
+}
+
+/// The stem of the last segment of a path or entry point, plain.
+fn stem(path: &str) -> String {
+    let path = path.split(':').next().unwrap_or(path).trim_end_matches('/');
+    let last = path.rsplit('/').next().unwrap_or(path);
+    plain(last.split('.').next().unwrap_or(last))
+}
+
+/// The slugs of the features a note on a screen points to in `project`: those that own a file the note's element was drawn from,
+/// and where it names none, those with an entry point or a prefix whose file is named for the component. **Read off the paths the
+/// library keeps, never guessed.** Empty where the note names neither.
+pub(crate) fn features_of_note(store: &Store, project: &str, manifest: &str, files: &[String], component: Option<&str>) -> Result<Vec<String>, WriteError> {
+    let loaded = Loaded::read(store, project)?;
+    let mut found: Vec<String> = Vec::new();
+    for file in files {
+        for owner in loaded.map.owners(Some(manifest), file) {
+            if !found.contains(&owner.feature.slug) {
+                found.push(owner.feature.slug.clone());
+            }
+        }
+    }
+    let named = component.map(plain).filter(|name| !name.is_empty());
+    if let (true, Some(name)) = (found.is_empty(), named) {
+        for feature in loaded.map.features() {
+            let reads = feature.entry_points.iter().chain(feature.paths.iter()).any(|path| stem(path) == name);
+            if reads && !found.contains(&feature.slug) {
+                found.push(feature.slug.clone());
+            }
+        }
+    }
+    Ok(found)
+}
+
 fn state_of(kept: &str) -> FeatureState {
     match kept {
         store::feature_state::CONFIRMED => FeatureState::Confirmed,
@@ -116,7 +158,7 @@ where
         self.ledger_fault(why)
     }
 
-    pub(super) fn feature_unknown(&self, slug: &str) -> Refusal {
+    pub(crate) fn feature_unknown(&self, slug: &str) -> Refusal {
         Refusal::NotFound(ipc::WireError::raised(UNKNOWN, format!("no feature `{slug}` in this project"), self.run_id()))
     }
 
