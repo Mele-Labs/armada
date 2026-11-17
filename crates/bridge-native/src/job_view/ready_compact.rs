@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, pulsating_between, Animation, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, pulsating_between, Animation, AnimationExt, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use ipc::{Instant, ReadyState, ThreadItem, ThreadReadyToTry};
 
 use super::acts::Answer;
