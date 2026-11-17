@@ -1,16 +1,11 @@
 //! `armada://pull/<owner>/<name>/<number>`: what macOS hands the app to open, read the way
 //! Electron's `DeepLinks` reads it (`apps/desktop/src/main/deep-link.ts`, `shared/pull-link.ts`).
 //!
-//! **Built and not claimed.** The owner decided links stay with Electron (Armada Classic) until
-//! switch day, so the app's `Info.plist` carries no `CFBundleURLTypes` and the app is not set as
-//! the scheme's default handler: macOS keeps sending links to Classic. The handler `main`
-//! registers with `on_open_urls` runs only where something hands this app a link directly.
-//! Switch day adds the claim, in `scripts/keep-build`'s `Info.plist`, and the screen a link lands on.
-//!
-//! For now a link that arrives is read and logged. There is no review page to land on.
-//! Electron also holds a link that arrives before Fleet has said whether `features.deepLinks` is
-//! on, and ignores one while it is off; the native app reads no settings yet, so the switch is
-//! switch day's too.
+//! **Claimed.** `scripts/native-app` writes `CFBundleURLTypes` into the app's `Info.plist`, so macOS
+//! sends the scheme here. A link is read, then held until Fleet has said whether `features.deepLinks`
+//! is on and which repositories it serves, and then it opens that pull request in Reviews
+//! ([`decide`]). A link is ignored while the switch is off. One naming a repository Fleet has no
+//! Manifest for is [`Fate::Unserved`].
 
 use gpui::App;
 
@@ -61,13 +56,81 @@ pub fn arrive(address: &str) -> Option<PullLink> {
     parse_pull_link(address)
 }
 
-/// Take a link to the window. **There is none to take it to yet**, so it is logged as asked.
-pub fn deliver(link: &PullLink, _cx: &mut App) {
+/// What a link comes to, given what Fleet has said so far.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Fate {
+    /// Fleet has not yet said whether links are on, or which repositories it serves.
+    Hold,
+    /// `features.deepLinks` is off.
+    Ignore,
+    /// Reviews opens this pull request.
+    Open(ipc::ReviewAsked),
+    /// No Manifest serves the repository.
+    Unserved,
+}
+
+/// What a link comes to. `deep_links` and `repositories` are `None` until Fleet has answered. The
+/// repository is matched by its forge name and never guessed (`manifestOfLink`).
+pub fn decide(link: &PullLink, deep_links: Option<bool>, repositories: Option<&[ipc::RepositorySummary]>) -> Fate {
+    match (deep_links, repositories) {
+        (Some(false), _) => Fate::Ignore,
+        (None, _) | (_, None) => Fate::Hold,
+        (Some(true), Some(served)) => {
+            let repository = format!("{}/{}", link.owner, link.name);
+            match crate::job_view::pulls::manifest_named(served, &repository) {
+                Some(manifest) => Fate::Open(ipc::ReviewAsked {
+                    manifest_id: ipc::ManifestId::carried(&manifest),
+                    address: format!("https://github.com/{repository}/pull/{}", link.number),
+                    repository,
+                    number: link.number,
+                    title: String::new(),
+                    author: String::new(),
+                }),
+                None => Fate::Unserved,
+            }
+        }
+    }
+}
+
+/// The link waiting for Fleet to answer, or for the window to be up.
+#[derive(Default)]
+struct Waiting(Option<PullLink>);
+
+impl gpui::Global for Waiting {}
+
+/// Take a link to the window: held until there is something to decide it with.
+pub fn deliver(link: &PullLink, cx: &mut App) {
     Note::info("a pull request link was opened")
         .field("owner", link.owner.as_str())
         .field("name", link.name.as_str())
         .field("number", link.number)
         .emit();
+    cx.set_global(Waiting(Some(link.clone())));
+    settle(cx);
+}
+
+/// Decide the held link if Fleet has said enough. Called when a link arrives and whenever Fleet's answers move.
+pub fn settle(cx: &mut App) {
+    let Some(link) = cx.try_global::<Waiting>().and_then(|waiting| waiting.0.clone()) else { return };
+    let Some((deep_links, repositories)) = crate::operator::screen::link_state(cx) else { return };
+    match decide(&link, deep_links, repositories.as_deref()) {
+        Fate::Hold => {}
+        Fate::Ignore => {
+            cx.set_global(Waiting(None));
+            Note::info("a pull request link was ignored: features.deepLinks is off").emit();
+        }
+        Fate::Open(asked) => {
+            cx.set_global(Waiting(None));
+            crate::operator::screen::open_asked(Some(asked), cx);
+        }
+        Fate::Unserved => {
+            cx.set_global(Waiting(None));
+            Note::warn("a pull request link names a repository no Manifest serves")
+                .field("owner", link.owner.as_str())
+                .field("name", link.name.as_str())
+                .emit();
+        }
+    }
 }
 
 #[cfg(test)]
@@ -118,6 +181,42 @@ mod tests {
         ] {
             assert_eq!(arrive(address), None, "{address}");
         }
+    }
+
+    fn served() -> Vec<ipc::RepositorySummary> {
+        crate::mock::repositories()
+    }
+
+    fn sample() -> PullLink {
+        PullLink { owner: "acme-labs".into(), name: "sample-api".into(), number: 41 }
+    }
+
+    #[test]
+    fn a_link_is_held_until_fleet_has_answered_both_the_switch_and_the_repositories() {
+        let served = served();
+        assert_eq!(decide(&sample(), None, Some(&served)), Fate::Hold);
+        assert_eq!(decide(&sample(), Some(true), None), Fate::Hold);
+    }
+
+    #[test]
+    fn a_link_is_ignored_while_the_switch_is_off() {
+        let served = served();
+        assert_eq!(decide(&sample(), Some(false), Some(&served)), Fate::Ignore);
+        assert_eq!(decide(&sample(), Some(false), None), Fate::Ignore);
+    }
+
+    #[test]
+    fn a_link_to_a_served_repository_opens_its_pull_request() {
+        let served = served();
+        let Fate::Open(asked) = decide(&sample(), Some(true), Some(&served)) else { panic!("it opens") };
+        assert_eq!((asked.number, asked.repository.as_str()), (41, "acme-labs/sample-api"));
+    }
+
+    #[test]
+    fn a_link_to_a_repository_no_manifest_serves_is_unserved() {
+        let served = served();
+        let link = PullLink { owner: "acme-labs".into(), name: "not-served".into(), number: 9 };
+        assert_eq!(decide(&link, Some(true), Some(&served)), Fate::Unserved);
     }
 
     #[test]

@@ -76,6 +76,13 @@ plistlib.dump(
         "CFBundleInfoDictionaryVersion": "6.0",
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
+        # Claims armada://pull/<owner>/<name>/<n>; `deep_link.rs` reads what macOS then hands over.
+        "CFBundleURLTypes": [
+            {
+                "CFBundleURLName": "dev.armada.bridge.native",
+                "CFBundleURLSchemes": ["armada"],
+            }
+        ],
     },
     open(sys.argv[1], "wb"),
 )

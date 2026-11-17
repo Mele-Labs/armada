@@ -276,8 +276,8 @@ fn main() -> ExitCode {
 
     let app = application().with_assets(assets::Assets);
     // macOS hands links over before the app is ready and on its own thread of control, so they cross a
-    // channel to a task that reads them where the app can be reached. Nothing registers the scheme with
-    // the OS, so none arrives unless something hands this app one (`deep_link.rs`).
+    // channel to a task that reads them where the app can be reached. The bundle's `Info.plist` claims
+    // the scheme (`scripts/native-app`); `deep_link.rs` holds a link until Fleet has answered.
     let (links, arrived) = async_channel::unbounded::<String>();
     app.on_open_urls(move |addresses| {
         for address in addresses {
