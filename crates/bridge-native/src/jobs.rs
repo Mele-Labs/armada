@@ -944,6 +944,7 @@ impl JobsList {
                 let notes = fleet.read(cx).held().build_notes.clone();
                 let disk = fleet.read(cx).held().disk.clone();
                 let link = fleet.read(cx).held().link();
+                let asked = fleet.read(cx).held().reviews_unopened();
                 let moved = bar.update(cx, |bar, cx| bar.set_build_notes(notes.as_ref(), cx));
                 if let (true, Some(notes)) = (moved, notes) {
                     crate::dispatch::screen::hold_build_notes(notes, cx);
@@ -954,6 +955,7 @@ impl JobsList {
                     bar.set_build(build.as_ref(), cx);
                     bar.set_offers(offers.as_ref(), cx);
                     bar.set_disk(disk.as_ref(), cx);
+                    bar.set_figure("reviews", asked, cx);
                 });
             }
             // Every row's write-clash mark reads what Fleet last said; nothing while it cannot say.
@@ -3076,8 +3078,6 @@ pub struct JobsScreen {
     /// The list's width as dragged; absent, it rests at Electron's width.
     left: Option<f32>,
     handle: FocusHandle,
-    /// The list's rail, while a reader is open and the list is folded to it.
-    rail: FocusHandle,
     /// The whole screen's, which holds the list and the handle beside it.
     within: FocusHandle,
     remember: bool,
@@ -3212,7 +3212,6 @@ impl JobsScreen {
             view,
             left,
             handle: cx.focus_handle(),
-            rail: cx.focus_handle(),
             within: cx.focus_handle(), remember, palette }
     }
 
@@ -3275,15 +3274,8 @@ impl JobsScreen {
     /// `b`, `q`, `f`, `t` and `e` reach nothing.
     fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("deck_panel") && act.slot == 0 {
-            // Folded to its rail, the list opens over the reader first, and the keys follow it there.
-            if self.view.read(cx).reader_open(cx) {
-                if self.view.read(cx).over(cx) != Some(crate::job_view::Side::Left) {
-                    self.view.update(cx, |view, cx| view.press_rail(crate::job_view::Side::Left, cx));
-                }
-                let focus = self.list.read(cx).focus_handle().clone();
-                window.on_next_frame(move |window, cx| window.focus(&focus, cx));
-                return;
-            }
+            // The review panel is over the list: it shuts first, so the keys land where they are drawn.
+            self.view.update(cx, |view, cx| view.close_review(window, cx));
             let focus = self.list.read(cx).focus_handle().clone();
             window.focus(&focus, cx);
         } else if act.is("deck_panel") && act.slot == 2 {
@@ -3501,8 +3493,6 @@ fn panel(look: &Look) -> gpui::Div {
 impl Render for JobsScreen {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let width = self.width(window, cx);
-        let folded = self.view.read(cx).reader_open(cx);
-        let over = self.view.read(cx).over(cx).filter(|side| folded && *side == crate::job_view::Side::Left);
         let handle = self.render_handle(width, window, cx);
         let title = crate::chrome::title_row(window, cx);
         let look = cx.look();
@@ -3514,13 +3504,6 @@ impl Render for JobsScreen {
             .on_action(cx.listener(Self::on_act))
             // A chord the person gave a palette row runs that row from anywhere on the screen; Tab reaches every tab stop.
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                // Esc shuts the list opened over the reader, and the keys go back to its rail.
-                if crate::job_view::shuts(event) && this.view.read(cx).over(cx) == Some(crate::job_view::Side::Left) {
-                    this.view.update(cx, |view, cx| view.shut_over(cx));
-                    window.focus(&this.rail, cx);
-                    cx.stop_propagation();
-                    return;
-                }
                 if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx))
                     || this.list.update(cx, |list, cx| list.pause_key(event, window, cx))
                     || this.list.update(cx, |list, cx| list.snooze_key(event, window, cx))
@@ -3538,69 +3521,40 @@ impl Render for JobsScreen {
             .child(title)
             .child(
                 div()
-                    .id("deck-grid")
+                    .relative()
                     .flex_1()
                     .min_h_0()
                     .flex()
-                    .gap(look.length(token::GAP_PANEL))
-                    .p(pad)
-                    // The list's edge follows the pointer while its handle is dragged.
-                    .on_drag_move(cx.listener(move |this, event: &gpui::DragMoveEvent<DeckHandle>, window, cx| {
-                        let to = f32::from(event.event.position.x - event.bounds.origin.x - pad);
-                        this.resize(Some(to), window, cx);
-                    }))
-                    // A reader open folds the list to a rail, by state: its width and the arrangement are as they were.
-                    .child(if folded {
-                        let said = crate::job_view::rail_said(crate::job_view::Side::Left, over.is_some());
-                        let rail = crate::job_view::rail(look, "rail-left", crate::job_view::Side::Left, over.is_some(), &self.rail, window)
-                            .on_click(cx.listener(|this, _, window, cx| {
-                                this.view.update(cx, |view, cx| view.press_rail(crate::job_view::Side::Left, cx));
-                                window.focus(&this.rail, cx);
-                            }))
-                            .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                                if crate::job_view::presses(event) {
-                                    cx.stop_propagation();
-                                    this.view.update(cx, |view, cx| view.press_rail(crate::job_view::Side::Left, cx));
-                                    window.focus(&this.rail, cx);
-                                }
-                            }));
-                        labelled(rail, Role::Button, said).into_any_element()
-                    } else {
-                        div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle).into_any_element()
-                    })
-                    // The Job's own area: its panes, as the Job's arrangement lays them out (`job_view/place_draw.rs`).
-                    .child(
-                        div()
-                            .id("job-split")
-                            .relative()
-                            .h_full()
-                            .flex_1()
-                            .min_w_0()
-                            .child(self.view.clone())
-                            .children(over.map(|_| {
-                                // The list again, over the reader at its own width: a press on the reader shuts it.
-                                div()
-                                    .id("over-scrim-left")
-                                    .absolute()
-                                    .inset_0()
-                                    .occlude()
-                                    .on_click(cx.listener(|this, _, _, cx| this.view.update(cx, |view, cx| view.shut_over(cx))))
-                                    .child(
-                                        div()
-                                            .id("over-left")
-                                            .absolute()
-                                            .top_0()
-                                            .bottom_0()
-                                            .left_0()
-                                            .occlude()
-                                            .shadow(look.shadows(token::SHADOW_OVERLAY))
-                                            .child(panel(look).w(gpui::px(width)).child(self.list.clone())),
-                                    )
-                            })),
-                    ),
+                    .flex_col()
+                .child(
+                    div()
+                        .id("deck-grid")
+                        .flex_1()
+                        .min_h_0()
+                        .flex()
+                        .gap(look.length(token::GAP_PANEL))
+                        .p(pad)
+                        // The list's edge follows the pointer while its handle is dragged.
+                        .on_drag_move(cx.listener(move |this, event: &gpui::DragMoveEvent<DeckHandle>, window, cx| {
+                            let to = f32::from(event.event.position.x - event.bounds.origin.x - pad);
+                            this.resize(Some(to), window, cx);
+                        }))
+                        .child(div().relative().h_full().flex_none().child(panel(look).w(gpui::px(width)).child(self.list.clone())).child(handle))
+                        // The Job's own area: its panes, as the Job's arrangement lays them out (`job_view/place_draw.rs`).
+                        .child(
+                            div()
+                                .id("job-split")
+                                .relative()
+                                .h_full()
+                                .flex_1()
+                                .min_w_0()
+                                .child(self.view.clone()),
+                        ),
+                )
+                // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
+                .when(!crate::settings::layout::hidden("dashboard.panels", "merge-line"), |page| page.child(crate::merge_strip::strip(&self.list, window, cx)))
+                    ,
             )
-            // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
-            .when(!crate::settings::layout::hidden("dashboard.panels", "merge-line"), |page| page.child(crate::merge_strip::strip(&self.list, window, cx)))
             .child(self.palette.clone())
     }
 }

@@ -65,6 +65,21 @@ pub(crate) fn for_of(html: &str) -> (Option<String>, Vec<ipc::ForLink>) {
     (text, links)
 }
 
+/// The features a page's head names: `<meta name="armada-feature" content="slug, another">`. Each `meta` of that name adds its
+/// own, and a slug is kept once. Empty where the page names none.
+pub(crate) fn features_of(html: &str) -> Option<String> {
+    let lower = html.to_ascii_lowercase();
+    let mut named = Vec::new();
+    let mut from = 0;
+    while let Some((tag, end)) = open_tag(&lower, "meta", from) {
+        if attribute(&html[tag..end], "name").is_some_and(|name| name.trim().eq_ignore_ascii_case("armada-feature")) {
+            named.extend(attribute(&html[tag..end], "content"));
+        }
+        from = end;
+    }
+    ipc::FeatureNames::Many(named).as_detail()
+}
+
 fn stem_of(path: &str) -> String {
     let name = path.rsplit('/').next().unwrap_or(path);
     name.rsplit_once('.').map_or(name, |(stem, _)| stem).to_string()

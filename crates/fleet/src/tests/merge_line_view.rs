@@ -489,9 +489,11 @@ fn what_landed_and_when_the_forge_was_read_pass_through() {
         merged: vec![merged.clone()],
         forge_read_at: Some(at(6)),
         quiet_since: Some(at(7)),
+        quiet_reason: Some(ipc::QuietReason::RateLimited { until: Some(at(9)) }),
         ..Default::default()
     });
     assert_eq!((view.landed, view.read_at, view.quiet_since), (vec![merged], Some(at(6)), Some(at(7))));
+    assert_eq!(view.quiet_reason, Some(ipc::QuietReason::RateLimited { until: Some(at(9)) }), "why it is quiet is the hub's own");
 }
 
 // -- the ledger's holders, read for the line

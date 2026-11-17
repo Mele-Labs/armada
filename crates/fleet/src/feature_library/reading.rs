@@ -17,6 +17,7 @@ use super::staleness::stale_since;
 use crate::daemon::Fleet;
 
 pub(super) const UNKNOWN: &str = "fleet.feature_unknown";
+const SECTION_UNKNOWN: &str = "fleet.feature_section_unknown";
 
 /// A project's features, areas and the map that says which own a file.
 pub(super) struct Loaded {
@@ -233,8 +234,14 @@ where
         Err(self.feature_unknown(slug))
     }
 
-    /// `get_feature_page`.
-    pub(super) async fn feature_paged(&self, caller: Option<api::Caller>, project: Option<String>, slug: String) -> Result<FeaturePage, Refusal> {
+    /// `get_feature_page`. With `section` the page holds that section alone, and no links or files.
+    pub(super) async fn feature_paged(&self, caller: Option<api::Caller>, project: Option<String>, slug: String, section: Option<String>) -> Result<FeaturePage, Refusal> {
+        let only = match section.as_deref().map(str::trim).filter(|name| !name.is_empty()) {
+            None => None,
+            Some(name) => Some(FeatureSectionKind::from_name(&name.to_ascii_lowercase()).ok_or_else(|| {
+                Refusal::Unacceptable(ipc::WireError::raised(SECTION_UNKNOWN, format!("no section `{name}`: it is one of test, runs, observe or debt"), self.run_id()))
+            })?),
+        };
         self.feature_writes_filed().await;
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
@@ -242,15 +249,25 @@ where
         let on = self.jobs_on_features(&store, &loaded.project)?;
         let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
         let stale = marked.iter().filter_map(|(_, since)| *since).min();
-        let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
-        let files = store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?;
+        let (links, files) = if only.is_some() {
+            (Vec::new(), Vec::new())
+        } else {
+            (
+                store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?,
+                store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?,
+            )
+        };
         Ok(FeaturePage {
             project: loaded.project.clone(),
             feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
             paths: feature.paths.clone(),
             entry_points: feature.entry_points.clone(),
-            sections: marked.into_iter().filter_map(|(section, since)| section_on_the_wire(section, since)).collect(),
+            sections: marked
+                .into_iter()
+                .filter_map(|(section, since)| section_on_the_wire(section, since))
+                .filter(|section| only.is_none_or(|kind| section.section == kind))
+                .collect(),
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
         })
@@ -262,8 +279,13 @@ where
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
         let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
-        let on = self.jobs_on_features(&store, &loaded.project)?;
-        let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
+        self.feature_brief_of(&store, &loaded, &feature)
+    }
+
+    /// One feature's page condensed, read from `store` with the library `loaded` holds it in.
+    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature) -> Result<FeatureBrief, Refusal> {
+        let on = self.jobs_on_features(store, &loaded.project)?;
+        let marked = sections_marked(store, loaded, feature).map_err(|why| self.feature_fault(why))?;
         let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
         let files = store.feature_top_files(&feature.id, 5).map_err(|why| self.feature_fault(why))?;
         let newest = store.feature_merge_newest(&feature.manifest_id).map_err(|why| self.feature_fault(why))?;
@@ -293,7 +315,7 @@ where
             debt: text_of(store::feature_section::DEBT),
         };
         let text = condensed(&facts);
-        Ok(FeatureBrief { feature: feature.slug, tokens: tokens_of(&text), text })
+        Ok(FeatureBrief { feature: feature.slug.clone(), tokens: tokens_of(&text), text })
     }
 }
 

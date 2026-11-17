@@ -1,0 +1,16 @@
+[operations.check_commit_feature]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The mod's hook asks, before an agent's git commit runs, whether the commit names the feature it serves, and Fleet refuses it with the features its files belong to where it does not"
+notes = """
+`POST /features/commit_check`, body `CheckCommitFeature`: the Job's `session_id`, the shell line as `command` and the `files` the commit is about to take. Answered with `CommitFeatureChecked`: `allowed`, `says` (the refusal, empty where allowed) and `features`, the slugs the files belong to, the most files first. `docs/concepts/feature-catalog.md`, *Which feature a commit serves*.
+
+**A commit names its feature in a `Feature: <slug>` line** in the message the line gives with `-m` or `--message`, as a trailer does. A line that names one is allowed whether or not the project holds the slug, since a slug it does not hold is kept for the Operator to confirm. `says` is the refusal an agent reads: the features the files belong to, each as the `Feature:` line to copy, or that no feature owns them.
+
+**Only a Job started after its project's catalog was seeded is refused.** The seeded time is the earliest `added_at` of the project's features. A project with no feature, or a Job whose `started_at` is earlier than that time, is never refused, because approving a plan is not consent to change a Job already running. A Job Fleet does not know, an ended one, a line that gives no message (`--amend --no-edit`, `-C`, `-F`) and a commit with no file are allowed.
+
+**`files` come from the hook**, which reads them from git in the Job's directory. Each is mapped as `get_features_of_path` maps it. The mod's hook asks and never blocks on the answer: a Fleet that does not answer lets the commit run.
+
+`agent_access` is `No`: the plugin's hook is the caller, in front of `git commit`.
+"""

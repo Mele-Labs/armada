@@ -10,6 +10,7 @@
 mod arrows;
 pub(crate) mod export;
 mod geometry;
+mod glyph;
 mod labels;
 mod notes;
 pub(crate) mod mock_page;
@@ -38,7 +39,7 @@ use arrows::Pattern;
 use geometry::{Pt, Rect};
 use route::Seg;
 
-/// `--space-8`: what settles boxes apart and routes arrows round them.
+/// `--space-8`: what routes arrows round the boxes. The room kept between the boxes themselves is `tile::GAP_X` and `tile::GAP_Y`.
 const GAP: f32 = 32.;
 /// The node frame's border, `2px solid`.
 const BORDER: f32 = 2.;
@@ -309,12 +310,14 @@ struct Laid {
     ways: Vec<Option<Way>>,
     /// The canvas the drawing stands on: everything it holds, with air round it.
     bounds: Rect,
+    /// The same canvas with `tile::EDGE` of air in place of the canvas's own: what a drawing that fills its tile stands on.
+    held: Rect,
     /// The "Start" pill of each node the sketch starts at, by node index.
     marks: Vec<Option<Rect>>,
     /// The step's badge and its number, by node index, where the node has a step.
     badges: Vec<Option<(Rect, String)>>,
-    /// What each node is, in the word its head band carries, by node index.
-    kinds: Vec<&'static str>,
+    /// The outline at each node's left that says what it is, by node index.
+    glyphs: Vec<Option<glyph::Mark>>,
     /// The step numbers, sorted and unique: the same number plays together.
     steps: Vec<f64>,
     /// The content height each mock was laid out with, by node index: the layout is worked out again when one is known that was not.
@@ -363,44 +366,101 @@ impl Measure<'_> {
             .map(|lines| lines.iter().map(|line| line.wrap_boundaries().len() + 1).sum())
             .unwrap_or(1)
     }
+
+    /// The lines the text breaks into at `wrap`, as the reader shows it.
+    fn broken(&self, text: &str, at: f32, weight: f32, mono: bool, wrap: Option<f32>) -> Vec<String> {
+        let run = TextRun { len: text.len(), font: self.font(weight, mono), ..Default::default() };
+        let Ok(shaped) = self.window.text_system().shape_text(SharedString::from(text.to_string()), px(at), &[run], wrap.map(px), None) else {
+            return text.split('\n').map(str::to_string).collect();
+        };
+        let mut lines = Vec::new();
+        for line in &shaped {
+            let whole: &str = line.text.as_ref();
+            let mut start = 0;
+            for boundary in line.wrap_boundaries() {
+                let Some(glyph) = line.runs().get(boundary.run_ix).and_then(|run| run.glyphs.get(boundary.glyph_ix)) else { continue };
+                if let Some(piece) = whole.get(start..glyph.index) {
+                    lines.push(piece.trim_end().to_string());
+                    start = glyph.index;
+                }
+            }
+            lines.push(whole.get(start..).unwrap_or("").to_string());
+        }
+        if lines.is_empty() {
+            lines.push(String::new());
+        }
+        lines
+    }
+
+    /// `broken`, cut to `most` lines: where text is left over, the last line ends in an ellipsis that fits `wrap`.
+    fn clamped(&self, text: &str, at: f32, weight: f32, mono: bool, wrap: f32, most: usize) -> Vec<String> {
+        let mut lines = self.broken(text, at, weight, mono, Some(wrap));
+        if lines.len() <= most {
+            return lines;
+        }
+        lines.truncate(most);
+        if let Some(last) = lines.last_mut() {
+            let mut kept: String = last.trim_end().to_string();
+            while !kept.is_empty() && self.width(&format!("{kept}\u{2026}"), at, weight, mono) > wrap {
+                kept.pop();
+            }
+            *last = format!("{}\u{2026}", kept.trim_end());
+        }
+        lines
+    }
 }
 
 fn ground(node: &SceneNode) -> bool {
     matches!(node.kind, SceneKind::Group | SceneKind::Lane)
 }
 
-/// What a tile's size depends on beyond the node: the word in its head band, and whether it carries the Start pill.
+/// What a tile's size depends on beyond the node: the outline at its left.
 #[derive(Clone, Copy)]
 struct Facts {
-    kind: &'static str,
-    started: bool,
+    mark: Option<glyph::Mark>,
 }
 
-/// A tile's size: wide enough for its head band and its words between the box's floor and ceiling, as tall as the band and the
-/// words under it.
+/// The room at a tile's left for what comes before its words: the outline of what it is, and a registry glyph the node names.
+fn lead_width(node: &SceneNode, facts: Facts) -> f32 {
+    let one = glyph::SIZE + tile::GLYPH_GAP;
+    (if facts.mark.is_some() { one } else { 0. }) + if node.icon.is_some() { one } else { 0. }
+}
+
+/// The room a block of code's language takes at the top right, and what it keeps from the title.
+fn lang_width(node: &SceneNode, measure: &Measure) -> f32 {
+    node.lang.as_deref().map_or(0., |lang| tile::GLYPH_GAP + measure.width(lang, tile::LANG_AT, tile::KIND_WEIGHT, true))
+}
+
+/// What a tile's body is set in: a card's as a muted line of sans, a block of code's as mono.
+fn body_face(node: &SceneNode) -> (f32, f32, bool) {
+    if node.kind == SceneKind::Code {
+        (tile::CODE_AT, tile::CODE_LEAD, true)
+    } else {
+        (tile::BODY_AT, tile::BODY_LEAD, false)
+    }
+}
+
+/// The lines a tile's body breaks into at `wrap`: a card's cut to two, a block of code's whole.
+fn body_lines(node: &SceneNode, measure: &Measure, wrap: f32) -> Vec<String> {
+    let Some(body) = node.body.as_deref() else { return Vec::new() };
+    let (at, _, mono) = body_face(node);
+    measure.clamped(body, at, 400., mono, wrap, if node.kind == SceneKind::Code { usize::MAX } else { tile::BODY_LINES })
+}
+
+/// A tile's size: wide enough for its outline and its words between the box's floor and ceiling, as tall as the words.
 fn tile_size(node: &SceneNode, facts: Facts, measure: &Measure, (floor, ceiling): (f32, f32)) -> (f32, f32) {
     let title = node.title.as_deref().unwrap_or("");
     let title_w = measure.width(title, tile::TITLE_AT, tile::TITLE_WEIGHT, false);
-    let body_w = node.body.as_deref().map_or(0., |body| measure.width(body, tile::BODY_AT, 400., true));
-    let icon_w = if node.icon.is_some() { tile::BAND_ICON + tile::BAND_GAP } else { 0. };
-    let lang_w = node.lang.as_deref().map_or(0., |lang| 2. * tile::BAND_GAP + measure.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true));
-    let mark_w = if facts.started {
-        2. * tile::BAND_GAP
-            + measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT)
-            + 2. * tile::PILL_PAD
-            + if node.step.is_some() { tile::PILL_CLEAR } else { 0. }
-    } else {
-        0.
-    };
-    let band = 2. * tile::BAND_PAD + icon_w + measure.tracked(facts.kind, tile::KIND_AT, tile::KIND_WEIGHT) + lang_w + mark_w;
-    let content = band.max(title_w.max(body_w) + 2. * tile::BODY_PAD_X).clamp(floor, ceiling);
+    let (body_at, body_lead, body_mono) = body_face(node);
+    let body_w = node.body.as_deref().map_or(0., |body| measure.width(body, body_at, 400., body_mono));
+    let (lead_w, lang_w) = (lead_width(node, facts), lang_width(node, measure));
+    let content = (2. * tile::PAD_X + lead_w + lang_w + title_w.max(body_w)).clamp(floor, ceiling);
     let w = node.w.map_or(content, |at| content.max(at as f32));
-    let wrap = (w - 2. * tile::BODY_PAD_X).max(1.);
+    let wrap = (w - 2. * tile::PAD_X - lead_w - lang_w).max(1.);
     let title_lines = if title.is_empty() { 0 } else { measure.lines(title, tile::TITLE_AT, tile::TITLE_WEIGHT, false, wrap) };
-    let body_lines = node.body.as_deref().map_or(0, |body| measure.lines(body, tile::BODY_AT, 400., true, wrap));
-    let words = title_lines as f32 * tile::TITLE_LEAD + if title_lines > 0 && body_lines > 0 { tile::BODY_GAP } else { 0. } + body_lines as f32 * tile::BODY_LEAD;
-    let below = if words > 0. { tile::BODY_PAD_TOP + words + tile::BODY_PAD_BOTTOM } else { tile::BODY_PAD_BOTTOM };
-    let h = tile::BAND_H + below;
+    let lines = body_lines(node, measure, wrap).len();
+    let words = title_lines as f32 * tile::TITLE_LEAD + if title_lines > 0 && lines > 0 { tile::BODY_GAP } else { 0. } + lines as f32 * body_lead;
+    let h = 2. * tile::PAD_Y + words.max(tile::TITLE_LEAD);
     (w, node.h.map_or(h, |at| h.max(at as f32)))
 }
 
@@ -490,14 +550,14 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     };
     let limits = (f32::from(look.length(token::W_SKETCH_BOX)), f32::from(look.length(token::W_SKETCH_BOX_MAX)));
     let starts = start::nodes(scene);
-    let facts: Vec<Facts> = scene.nodes.iter().map(|node| Facts { kind: tile::kind_word(node, tile::leaves(scene, node), starts.contains(node.id.as_str())), started: starts.contains(node.id.as_str()) }).collect();
+    let facts: Vec<Facts> = scene.nodes.iter().map(|node| Facts { mark: glyph::mark_of(node, starts.contains(node.id.as_str())) }).collect();
     let sizes: Vec<(f32, f32)> =
         scene.nodes.iter().zip(sheets).zip(&facts).map(|((node, sheet), facts)| sheet.unwrap_or_else(|| size_of(node, *facts, &measure, limits))).collect();
     let order = arrange(scene, &sizes);
     let mut rects: Vec<Rect> = scene.nodes.iter().map(|node| order.iter().find(|(id, _)| *id == node.id).map_or_else(Rect::default, |(_, rect)| *rect)).collect();
     let ways = ways(scene, &order, &rects, HOP);
     let pill_w = measure.tracked(&start::TAB_WORD.to_uppercase(), tile::PILL_AT, tile::KIND_WEIGHT);
-    let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(node, *rect, pill_w))).collect();
+    let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(*rect, pill_w))).collect();
     let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
     let bounds = canvas_of(&rects, &marks, &badges, &ways, scene);
     // A lane is a row of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
@@ -525,8 +585,9 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
         .collect();
     steps.sort_by(f64::total_cmp);
     steps.dedup();
-    let kinds = facts.iter().map(|facts| facts.kind).collect();
-    Laid { rects, ways, bounds, marks, badges, kinds, steps, mocks }
+    let glyphs = facts.iter().map(|facts| facts.mark).collect();
+    let held = Rect { x: bounds.x + tile::CANVAS_PAD - tile::EDGE, y: bounds.y + tile::CANVAS_PAD - tile::EDGE, w: bounds.w - 2. * (tile::CANVAS_PAD - tile::EDGE), h: bounds.h - 2. * (tile::CANVAS_PAD - tile::EDGE) };
+    Laid { rects, ways, bounds, held, marks, badges, glyphs, steps, mocks }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -548,7 +609,7 @@ fn arrange(scene: &Scene, sizes: &[(f32, f32)]) -> Vec<(String, Rect)> {
             Some(settle::Join { from: edge.from.clone(), to: edge.to.clone(), w: size.w, h: size.h })
         })
         .collect();
-    let mut settled = settle::settle(&boxes, GAP, &joins);
+    let mut settled = settle::settle(&boxes, (tile::GAP_X, tile::GAP_Y), &joins);
     for one in &boxes {
         if !settled.iter().any(|(id, _)| *id == one.id) {
             settled.push((one.id.clone(), one.rect));
@@ -566,7 +627,7 @@ fn ways(scene: &Scene, order: &[(String, Rect)], rects: &[Rect], hop_radius: f32
     // Every node is a tile with flat sides now, so an arrow may meet any of them anywhere along a side.
     let pointed: HashSet<String> = HashSet::new();
     let edges: Vec<route::RouteEdge> =
-        scene.edges.iter().map(|edge| route::RouteEdge { id: &edge.id, from: &edge.from, to: &edge.to, path: arrows::path(edge), heads: arrows::heads(edge) }).collect();
+        scene.edges.iter().map(|edge| route::RouteEdge { id: &edge.id, from: &edge.from, to: &edge.to, path: arrows::path(edge), heads: arrows::heads(edge), pattern: arrows::pattern(edge) }).collect();
     let found = route::route_all(order, &edges, GAP, &grounds, &pointed, RUN, GAP / 4.);
     let paths: Vec<Option<Vec<Seg>>> = scene.edges.iter().map(|edge| found.iter().find(|(one, _)| *one == edge.id).map(|(_, way)| way.clone())).collect();
     // Where each head stands, so no arrow's words sit on one.
@@ -754,11 +815,6 @@ impl<'a> Ink<'a> {
         Ink { frame: tile::is_tile(node).then(|| self.look.color(token::ACCENT)), ..self.clone() }
     }
 
-    /// The part's hue: its change's where it has one, else its own colour.
-    fn hue(&self, color: Option<SceneColor>, default: SceneColor) -> Hsla {
-        self.over.unwrap_or_else(|| hue(self.look, color, default))
-    }
-
     /// Words at scene size `at`, wrapped at `wrap` scene units, from `origin`. The height they took, in scene units.
     #[allow(clippy::too_many_arguments)]
     fn words(&self, text: &str, origin: Pt, wrap: Option<f32>, at: f32, weight: f32, mono: bool, color: Hsla, align: TextAlign, window: &mut Window, cx: &mut App) -> f32 {
@@ -854,8 +910,9 @@ fn lit<'a>(scene: &'a Scene, now: Option<&Playing>) -> HashSet<&'a str> {
 fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit: Fit, clock: Clock, lens: Lens, marks: Rc<Marks>, bounds: Bounds<Pixels>, window: &mut Window, cx: &mut App) -> Prepared {
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
-    let view = View::fit(bounds, laid.bounds, fit, lens);
-    keep_canvas(key, laid.bounds, window);
+    let canvas = if fit == Fit::Column { laid.held } else { laid.bounds };
+    let view = View::fit(bounds, canvas, fit, lens);
+    keep_canvas(key, canvas, window);
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
     let trees = trees(key, scene);
@@ -886,9 +943,10 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
         }
     });
     let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
-    if fit == Fit::Reading {
-        let base = View::base(bounds, laid.bounds, fit);
-        notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(laid.bounds.w * base, laid.bounds.h * base), base });
+    // A column drawing is kept too, with nothing placed: the review panel zooms one in place and reads its fit from here.
+    if fit != Fit::Preview {
+        let base = View::base(bounds, canvas, fit);
+        notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(canvas.w * base, canvas.h * base), base });
     }
     Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
 }
@@ -916,7 +974,10 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
     };
     let lit = lit(scene, now.as_ref());
     window.with_content_mask(Some(ContentMask { bounds }), |window| {
-        paint_canvas(&ink, laid.bounds, window);
+        // A drawing that fills its tile has no ground of its own: the tile's surface is its background.
+        if fit != Fit::Column {
+            paint_canvas(&ink, laid.bounds, window);
+        }
         for (node, rect) in scene.nodes.iter().zip(&laid.rects).filter(|(node, _)| ground(node)) {
             // A ground does not stand back for a step, but an unchanged one does against an earlier scene.
             let change = node_change(node);
@@ -976,8 +1037,8 @@ fn paint(scene: &Scene, prepared: &mut Prepared, fit: Fit, clock: Clock, bounds:
                 continue;
             }
             let node_ink = ink.changed(change);
-            let kind = laid.kinds.get(index).copied().unwrap_or("STEP");
-            paint_node(&if mark.is_some() { node_ink.started(node) } else { node_ink }, node, *rect, kind, mark, laid.badges.get(index).and_then(Option::as_ref), alpha, window, cx);
+            let outline = laid.glyphs.get(index).copied().flatten();
+            paint_node(&if mark.is_some() { node_ink.started(node) } else { node_ink }, node, *rect, outline, laid.badges.get(index).and_then(Option::as_ref), alpha, window, cx);
             if let Some(mark) = mark {
                 paint_mark(&ink, mark, window, cx);
             }
@@ -1080,10 +1141,10 @@ fn paint_ground(ink: &Ink, node: &SceneNode, rect: Rect, canvas: Rect, alpha: f3
     }
     let Some(title) = node.title.as_deref() else { return };
     let name = faded(ink.over.unwrap_or_else(|| look.color(token::FG_MUTED)));
-    ink.caps(&title.to_uppercase(), Pt { x: rect.x + tile::BAND_PAD, y: rect.y + tile::BAND_PAD - 2. }, tile::KIND_AT, tile::KIND_AT + 4., tile::KIND_WEIGHT, name, window, cx);
+    ink.caps(&title.to_uppercase(), Pt { x: rect.x + tile::GROUND_PAD, y: rect.y + tile::GROUND_PAD - 2. }, tile::KIND_AT, tile::KIND_AT + 4., tile::KIND_WEIGHT, name, window, cx);
 }
 
-/// The Start pill: the accent with its word on it, in a tile's head band or over the top left of a node with none. It is
+/// The Start pill: the accent with its word on it, above the top left of the node the sketch starts at. It is
 /// drawn at full strength whatever step plays.
 fn paint_mark(ink: &Ink, pill: Rect, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
@@ -1100,7 +1161,7 @@ fn paint_badge(ink: &Ink, rect: Rect, number: &str, alpha: f32, window: &mut Win
 }
 
 #[allow(clippy::too_many_arguments)]
-fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<Rect>, badge: Option<&(Rect, String)>, alpha: f32, window: &mut Window, cx: &mut App) {
+fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, outline: Option<glyph::Mark>, badge: Option<&(Rect, String)>, alpha: f32, window: &mut Window, cx: &mut App) {
     let look = ink.look;
     let faded = |color: Hsla| color.opacity(color.a * alpha);
     match node.kind {
@@ -1112,7 +1173,7 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<
         }
         SceneKind::Wire => paint_wire(ink, node, rect, alpha, window, cx),
         SceneKind::Box | SceneKind::Code => {
-            paint_tile(ink, node, rect, kind, mark, alpha, window, cx);
+            paint_tile(ink, node, rect, outline, alpha, window, cx);
             if let Some((at, number)) = badge {
                 paint_badge(ink, *at, number, alpha, window, cx);
             }
@@ -1120,47 +1181,85 @@ fn paint_node(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<
     }
 }
 
-/// A tile: a raised surface in a hairline, its head band in the node's hue with the node's glyph and the word for what it is,
-/// then its title and, under it, its body as a line of mono. The start's frame is the accent, a change's its hue.
+/// A card: a raised surface in a hairline, the outline of what it is at its left, its title and, under it, its body as a muted
+/// line of sans. A block of code has no outline and keeps its body as mono; its language stands at the top right. The start's
+/// frame is the accent, a change's its hue.
 #[allow(clippy::too_many_arguments)]
-fn paint_tile(ink: &Ink, node: &SceneNode, rect: Rect, kind: &str, mark: Option<Rect>, alpha: f32, window: &mut Window, cx: &mut App) {
+fn paint_tile(ink: &Ink, node: &SceneNode, rect: Rect, outline: Option<glyph::Mark>, alpha: f32, window: &mut Window, cx: &mut App) {
     let (look, view) = (ink.look, ink.view);
     let faded = |color: Hsla| color.opacity(color.a * alpha);
-    let hue = ink.hue(node.color, SceneColor::Grey);
     let surface = look.color(token::BG_RAISED);
     let (edge, width) = match ink.over.or(ink.frame) {
         Some(color) => (color, tile::FRAME),
         None => (look.color(token::BORDER_SUBTLE), tile::HAIRLINE),
     };
     window.paint_quad(quad(view.rect(rect), view.len(tile::RADIUS), faded(surface), hair(view, width), faded(edge), BorderStyle::Solid));
-    // The band stands inside the frame, with the corners it leaves.
-    let inset = tile::HAIRLINE;
-    let band = Rect { x: rect.x + inset, y: rect.y + inset, w: rect.w - 2. * inset, h: tile::BAND_H - inset };
-    let round = view.len(tile::RADIUS - inset);
-    let corners = Corners { top_left: round, top_right: round, bottom_right: px(0.), bottom_left: px(0.) };
-    window.paint_quad(quad(view.rect(band), corners, faded(surface.blend(hue.opacity(tile::BAND_TINT))), px(0.), gpui::transparent_black(), BorderStyle::Solid));
-    let said = faded(hue);
-    let mut x = rect.x + tile::BAND_PAD;
+    let (lead_w, lang_w, lang_text_w, lines) = {
+        let measure = Measure { window: &*window, sans: ink.sans.clone(), mono: ink.mono.clone() };
+        let (lead_w, lang_w) = (lead_width(node, Facts { mark: outline }), lang_width(node, &measure));
+        let lang_text_w = node.lang.as_deref().map_or(0., |lang| measure.width(lang, tile::LANG_AT, tile::KIND_WEIGHT, true));
+        let wrap = (rect.w - 2. * tile::PAD_X - lead_w - lang_w).max(1.);
+        (lead_w, lang_w, lang_text_w, body_lines(node, &measure, wrap))
+    };
+    let top = rect.y + tile::PAD_Y;
+    let mut x = rect.x + tile::PAD_X;
+    let said = faded(ink.over.unwrap_or_else(|| glyph_hue(look, node, outline, ink.frame.is_some())));
+    if let Some(mark) = outline {
+        paint_glyph(ink, mark, Pt { x, y: top + (tile::TITLE_LEAD - glyph::SIZE) / 2. }, said, window);
+        x += glyph::SIZE + tile::GLYPH_GAP;
+    }
     if let Some(icon) = node.icon.as_deref() {
-        ink.icon(icon, Pt { x, y: rect.y + (tile::BAND_H - tile::BAND_ICON) / 2. }, tile::BAND_ICON, said, window, cx);
-        x += tile::BAND_ICON + tile::BAND_GAP;
+        ink.icon(icon, Pt { x, y: top + (tile::TITLE_LEAD - glyph::SIZE) / 2. }, glyph::SIZE, faded(look.color(token::FG_MUTED)), window, cx);
+        x += glyph::SIZE + tile::GLYPH_GAP;
     }
-    ink.caps(kind, Pt { x, y: rect.y }, tile::KIND_AT, tile::BAND_H, tile::KIND_WEIGHT, said, window, cx);
     if let Some(lang) = node.lang.as_deref() {
-        let measure = Measure { window, sans: ink.sans.clone(), mono: ink.mono.clone() };
-        let lang_w = measure.width(lang, tile::KIND_AT, tile::KIND_WEIGHT, true);
-        let stop = mark.map_or(rect.x + rect.w - tile::BAND_PAD - if node.step.is_some() { tile::PILL_CLEAR } else { 0. }, |mark| mark.x - tile::BAND_GAP);
-        ink.led(lang, Pt { x: stop - lang_w, y: rect.y }, None, tile::KIND_AT, tile::BAND_H, tile::KIND_WEIGHT, true, faded(hue.opacity(hue.a * 0.8)), TextAlign::Left, window, cx);
+        ink.led(lang, Pt { x: rect.x + rect.w - tile::PAD_X - lang_text_w, y: top }, None, tile::LANG_AT, tile::TITLE_LEAD, tile::KIND_WEIGHT, true, faded(look.color(token::FG_MUTED)), TextAlign::Left, window, cx);
     }
-    let wrap = rect.w - 2. * tile::BODY_PAD_X;
-    let mut y = rect.y + tile::BAND_H + tile::BODY_PAD_TOP;
+    let wrap = (rect.w - 2. * tile::PAD_X - lead_w - lang_w).max(1.);
+    let mut y = top;
     if let Some(title) = node.title.as_deref().filter(|title| !title.is_empty()) {
-        y += ink.led(title, Pt { x: rect.x + tile::BODY_PAD_X, y }, Some(wrap), tile::TITLE_AT, tile::TITLE_LEAD, tile::TITLE_WEIGHT, false, faded(look.color(token::FG_DEFAULT)), TextAlign::Left, window, cx);
+        y += ink.led(title, Pt { x, y }, Some(wrap), tile::TITLE_AT, tile::TITLE_LEAD, tile::TITLE_WEIGHT, false, faded(look.color(token::FG_DEFAULT)), TextAlign::Left, window, cx);
         y += tile::BODY_GAP;
     }
-    if let Some(body) = node.body.as_deref() {
-        let color = look.color(if node.kind == SceneKind::Code { token::FG_DEFAULT } else { token::FG_MUTED });
-        ink.led(body, Pt { x: rect.x + tile::BODY_PAD_X, y }, Some(wrap), tile::BODY_AT, tile::BODY_LEAD, 400., true, faded(color), TextAlign::Left, window, cx);
+    let (body_at, body_lead, body_mono) = body_face(node);
+    let color = faded(look.color(if node.kind == SceneKind::Code { token::FG_DEFAULT } else { token::FG_MUTED }));
+    for line in lines {
+        ink.led(&line, Pt { x, y }, None, body_at, body_lead, 400., body_mono, color, TextAlign::Left, window, cx);
+        y += body_lead;
+    }
+}
+
+/// The hue of a node's outline: the accent on the node the sketch starts at, amber on a decision, else the node's own colour
+/// where it names one, else muted.
+fn glyph_hue(look: &Look, node: &SceneNode, outline: Option<glyph::Mark>, started: bool) -> Hsla {
+    if started {
+        look.color(token::ACCENT)
+    } else if outline == Some(glyph::Mark::Decision) {
+        hue(look, Some(SceneColor::Amber), SceneColor::Amber)
+    } else if let Some(color) = node.color {
+        hue(look, Some(color), SceneColor::Grey)
+    } else {
+        look.color(token::FG_MUTED)
+    }
+}
+
+/// A node's outline, stroked in `color` with its square's top left at `at`.
+fn paint_glyph(ink: &Ink, mark: glyph::Mark, at: Pt, color: Hsla, window: &mut Window) {
+    let view = ink.view;
+    let width = view.len(glyph::STROKE);
+    let round = StrokeOptions::default().with_line_width(f32::from(width)).with_line_cap(LineCap::Round).with_line_join(LineJoin::Round);
+    let mut line = PathBuilder::stroke(width).with_style(PathStyle::Stroke(round));
+    let to = |x: f32, y: f32| view.at(Pt { x: at.x + x, y: at.y + y });
+    for cmd in glyph::outline(mark) {
+        match cmd {
+            glyph::Cmd::Move(x, y) => line.move_to(to(x, y)),
+            glyph::Cmd::Line(x, y) => line.line_to(to(x, y)),
+            glyph::Cmd::Cubic(a, b, c, d, e, f) => line.cubic_bezier_to(to(e, f), to(a, b), to(c, d)),
+            glyph::Cmd::Close => line.close(),
+        }
+    }
+    if let Ok(path) = line.build() {
+        window.paint_path(path, color);
     }
 }
 
@@ -1471,5 +1570,214 @@ mod tests {
         assert!(drawn_at.left() >= px(0.) && drawn_at.top() >= px(0.) && drawn_at.right() <= px(900.) && drawn_at.bottom() <= px(600.), "fitted: {drawn_at:?}");
         let corner = view.rect(*laid.rects.iter().min_by(|a, b| a.x.total_cmp(&b.x)).expect("a node"));
         assert!(corner.left() >= px(0.), "the leftmost node is inside the view: {corner:?}");
+    }
+
+    /// The version-check sketch of the mock fleet: a start over a row of three over a row of two, with arrows fanning between rows.
+    fn version_checks() -> Rc<Scene> {
+        let all: serde_json::Value = ipc::decode("the fixture", include_bytes!("../../fixtures/sketch-shapes-threads.json")).expect("the fixture reads");
+        let drawing = all["threads"].as_array().expect("threads").iter().flat_map(|thread| thread["items"].as_array().expect("items").iter()).find(|item| item["id"] == "sk-shapes").expect("the sketch")["drawing"].to_string();
+        let raw: ipc::RawScene = ipc::decode("a raw scene", drawing.as_bytes()).expect("a raw scene");
+        Rc::new(raw.scene().expect("it reads"))
+    }
+
+    fn lay_version_checks(cx: &mut gpui::TestAppContext) -> (Rc<Scene>, Rc<Laid>) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let drawn = version_checks();
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("version-checks"), &drawn, &look, window, cx)
+        });
+        (drawn, laid)
+    }
+
+    /// How far apart two rects stand across x and across y; negative where they overlap that way.
+    fn gaps(a: Rect, b: Rect) -> (f32, f32) {
+        ((b.x - (a.x + a.w)).max(a.x - (b.x + b.w)), (b.y - (a.y + a.h)).max(a.y - (b.y + b.h)))
+    }
+
+    fn corners(way: &Way) -> usize {
+        way.path.iter().filter(|seg| matches!(seg, Seg::Quad(..))).count()
+    }
+
+    fn rect_of_node(drawn: &Scene, laid: &Laid, id: &str) -> Rect {
+        laid.rects[drawn.nodes.iter().position(|node| node.id == id).expect("a node")]
+    }
+
+    #[gpui::test]
+    fn cards_keep_sixty_four_side_by_side_and_eighty_between_rows_and_the_canvas_keeps_thirty_two(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        for (at, a) in laid.rects.iter().enumerate() {
+            for b in &laid.rects[at + 1..] {
+                let (across, down) = gaps(*a, *b);
+                if down < 0. {
+                    assert!(across >= tile::GAP_X - 0.01, "side by side: {a:?} and {b:?} are {across} apart");
+                } else if across < 0. {
+                    assert!(down >= tile::GAP_Y - 0.01, "in rows: {a:?} and {b:?} are {down} apart");
+                } else {
+                    assert!(across >= tile::GAP_X - 0.01 || down >= tile::GAP_Y - 0.01, "diagonally: {a:?} and {b:?}");
+                }
+            }
+            assert!(a.x - laid.bounds.x >= 32. - 0.01 && a.y - laid.bounds.y >= 32. - 0.01, "the canvas keeps its padding: {a:?} in {:?}", laid.bounds);
+            assert!(laid.bounds.x + laid.bounds.w - (a.x + a.w) >= 32. - 0.01 && laid.bounds.y + laid.bounds.h - (a.y + a.h) >= 32. - 0.01);
+        }
+        // The three checks stand in one row, and so do the two blocking cards: pushing apart never squeezes a row out of line.
+        let row = |ids: &[&str]| ids.iter().map(|id| rect_of_node(&drawn, &laid, id).y).collect::<Vec<_>>();
+        assert!(row(&["n1", "n2", "n3"]).windows(2).all(|pair| pair[0] == pair[1]), "the row of three is aligned");
+        assert!(row(&["off", "on"]).windows(2).all(|pair| pair[0] == pair[1]), "the row of two is aligned");
+    }
+
+    #[gpui::test]
+    fn every_arrow_leaves_the_side_facing_its_target_with_at_most_two_bends(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        for (edge, way) in drawn.edges.iter().zip(&laid.ways) {
+            let way = way.as_ref().expect("a way");
+            assert!(corners(way) <= 2, "{} has {} bends", edge.id, corners(way));
+            // A flow that runs down leaves a card's foot and reaches the next card's top.
+            let (from, to) = (rect_of_node(&drawn, &laid, &edge.from), rect_of_node(&drawn, &laid, &edge.to));
+            let tips = route::tips(&way.path).expect("tips");
+            assert!((tips.start.y - (from.y + from.h)).abs() < 0.2, "{} leaves the foot of its card: {:?} from {from:?}", edge.id, tips.start);
+            assert!((tips.end.y - to.y).abs() < 0.2, "{} reaches the top of its card: {:?} to {to:?}", edge.id, tips.end);
+        }
+    }
+
+    /// The nearest a point stands to a rect: nothing where it is inside.
+    fn distance(p: Pt, r: Rect) -> f32 {
+        let (dx, dy) = ((r.x - p.x).max(p.x - (r.x + r.w)).max(0.), (r.y - p.y).max(p.y - (r.y + r.h)).max(0.));
+        dx.hypot(dy)
+    }
+
+    #[gpui::test]
+    fn no_run_passes_within_eight_of_a_card_it_does_not_join(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        for (edge, way) in drawn.edges.iter().zip(&laid.ways) {
+            let points = route::polyline(&way.as_ref().expect("a way").path);
+            for (node, rect) in drawn.nodes.iter().zip(&laid.rects) {
+                if node.id == edge.from || node.id == edge.to {
+                    continue;
+                }
+                for pair in points.windows(2) {
+                    let long = (pair[1].x - pair[0].x).hypot(pair[1].y - pair[0].y);
+                    for step in 0..=(long.ceil() as usize) {
+                        let k = if long > 0. { step as f32 / long.ceil() } else { 0. };
+                        let p = Pt { x: pair[0].x + (pair[1].x - pair[0].x) * k, y: pair[0].y + (pair[1].y - pair[0].y) * k };
+                        assert!(distance(p, *rect) >= 8. - 0.01, "{} passes {} at {p:?}", edge.id, node.id);
+                    }
+                }
+            }
+        }
+    }
+
+    #[gpui::test]
+    fn arrows_out_of_one_card_share_a_trunk_and_arrows_into_one_arrive_sixteen_apart(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        let tips = |id: &str| {
+            let at = drawn.edges.iter().position(|edge| edge.id == id).expect("an edge");
+            route::tips(&laid.ways[at].as_ref().expect("a way").path).expect("tips")
+        };
+        // The three out of the start, and the two out of each of the first two checks, leave from one point.
+        for group in [["s1", "s2", "s3"].as_slice(), ["a1", "a2"].as_slice(), ["b1", "b2"].as_slice()] {
+            let first = tips(group[0]).start;
+            for id in group {
+                assert!((tips(id).start.x - first.x).abs() < 0.2 && (tips(id).start.y - first.y).abs() < 0.2, "{id} shares its trunk's start");
+            }
+        }
+        // The two out of the last check differ in line, so they take places of their own.
+        assert!((tips("c1").start.x - tips("c2").start.x).abs() >= 16., "a dashed and a dotted arrow out of one card do not share a place");
+        // Into one card: at least sixteen apart along its side.
+        for target in ["off", "on"] {
+            let mut ends: Vec<f32> = drawn.edges.iter().filter(|edge| edge.to == target).map(|edge| tips(&edge.id).end.x).collect();
+            ends.sort_by(f32::total_cmp);
+            assert!(ends.windows(2).all(|pair| pair[1] - pair[0] >= 16. - 0.01), "arrows into {target} arrive {ends:?}");
+        }
+    }
+
+    #[gpui::test]
+    fn runs_of_different_trunks_keep_twelve_apart(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        let trunk = |at: usize| (drawn.edges[at].from.clone(), arrows::pattern(&drawn.edges[at]));
+        let runs: Vec<Vec<(Pt, Pt)>> = laid
+            .ways
+            .iter()
+            .map(|way| route::polyline(&way.as_ref().expect("a way").path).windows(2).map(|pair| (pair[0], pair[1])).filter(|(a, b)| a.x == b.x || a.y == b.y).collect())
+            .collect();
+        for one in 0..runs.len() {
+            for other in one + 1..runs.len() {
+                if trunk(one) == trunk(other) {
+                    continue;
+                }
+                for (a, b) in &runs[one] {
+                    for (c, d) in &runs[other] {
+                        let (along, apart) = if a.y == b.y && c.y == d.y {
+                            (a.x.max(b.x).min(c.x.max(d.x)) - a.x.min(b.x).max(c.x.min(d.x)), (a.y - c.y).abs())
+                        } else if a.x == b.x && c.x == d.x {
+                            (a.y.max(b.y).min(c.y.max(d.y)) - a.y.min(b.y).max(c.y.min(d.y)), (a.x - c.x).abs())
+                        } else {
+                            continue;
+                        };
+                        // The tenths the path is written in, and a rounded corner's chord, may move a run a hair.
+                        assert!(along <= 2. || apart >= 12. - 0.2, "{} and {} run {apart} apart along {along}", drawn.edges[one].id, drawn.edges[other].id);
+                    }
+                }
+            }
+        }
+    }
+
+    #[gpui::test]
+    fn an_arrows_words_stand_on_a_straight_run_never_on_a_bend(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        let at = drawn.edges.iter().position(|edge| edge.label.is_some()).expect("a labelled arrow");
+        let way = laid.ways[at].as_ref().expect("a way");
+        let (rect, _) = way.words.as_ref().expect("its words");
+        let centre = Pt { x: rect.x + rect.w / 2., y: rect.y + rect.h / 2. };
+        let stands = labels::straights(&way.path).iter().any(|run| {
+            let (lo, hi) = if run.across { (run.from.x.min(run.to.x), run.from.x.max(run.to.x)) } else { (run.from.y.min(run.to.y), run.from.y.max(run.to.y)) };
+            let (on, along, room) = if run.across { ((centre.y - run.from.y).abs(), centre.x, rect.w) } else { ((centre.x - run.from.x).abs(), centre.y, rect.h) };
+            on < 0.6 && along - room / 2. >= lo - 0.01 && along + room / 2. <= hi + 0.01
+        });
+        assert!(stands, "the words at {centre:?} lie on one straight run of {:?}", way.path);
+    }
+
+    #[gpui::test]
+    fn an_arrow_does_not_run_down_the_gap_between_two_cards_when_a_way_round_exists(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        // A card above and one below, both over the gap between two neighbours: a straight drop would squeeze through it.
+        let text = r#"{"nodes":[
+            {"id":"p","kind":"box","x":0,"y":160,"w":220,"title":"Left"},
+            {"id":"q","kind":"box","x":284,"y":160,"w":220,"title":"Right"},
+            {"id":"top","kind":"box","x":142,"y":0,"w":220,"title":"Above"},
+            {"id":"foot","kind":"box","x":142,"y":340,"w":220,"title":"Below"}],
+            "edges":[{"id":"e","from":"top","to":"foot"}]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", text.as_bytes()).expect("a raw scene");
+        let drawn = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("gap"), &drawn, &look, window, cx)
+        });
+        let (p, q) = (rect_of_node(&drawn, &laid, "p"), rect_of_node(&drawn, &laid, "q"));
+        let points = route::polyline(&laid.ways[0].as_ref().expect("a way").path);
+        for pair in points.windows(2) {
+            let down = (pair[0].x - pair[1].x).abs() < 0.01;
+            let (x, lo, hi) = (pair[0].x, pair[0].y.min(pair[1].y), pair[0].y.max(pair[1].y));
+            let between = x > p.x + p.w && x < q.x;
+            assert!(!(down && between && hi - lo > 4. && hi > p.y && lo < p.y + p.h), "the arrow runs down the gap between the cards: {points:?}");
+        }
+    }
+
+    #[gpui::test]
+    fn the_arrows_out_of_the_start_go_out_as_one_trunk_and_hop_nothing(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_version_checks(cx);
+        for id in ["s1", "s2", "s3"] {
+            let at = drawn.edges.iter().position(|edge| edge.id == id).expect("an edge");
+            let hops = laid.ways[at].as_ref().expect("a way").path.iter().filter(|seg| matches!(seg, Seg::Arc(..))).count();
+            assert_eq!(hops, 0, "{id} crosses nothing, and meets its trunk's other arrows where they leave");
+        }
     }
 }

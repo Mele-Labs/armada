@@ -43,6 +43,8 @@ pub struct PageTab {
     held: Held,
     /// The page's headings, once it has loaded.
     heads: Vec<reader::Head>,
+    /// The document's title, which its head says: a leading `h1` of the page that says it again is hidden.
+    title: String,
     _reading: Option<Task<()>>,
     /// The page's posts and loads, heard while it is held.
     _hearing: Option<Subscription>,
@@ -55,8 +57,8 @@ pub struct PageTab {
 impl EventEmitter<PageTabEvent> for PageTab {}
 
 impl PageTab {
-    pub fn new(job: SharedString, page: String, revision: u32) -> Self {
-        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
+    pub fn new(job: SharedString, page: String, revision: u32, title: String) -> Self {
+        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
     }
 
     /// The revision the page draws.
@@ -92,7 +94,7 @@ impl PageTab {
 
     /// The headings are read from the page once it has loaded.
     fn read_heads(&mut self, cx: &mut Context<Self>) {
-        let ask = self.ask(&reader::words(), cx);
+        let ask = self.ask(&reader::words(&self.title), cx);
         self._reading = Some(cx.spawn(async move |this, cx| {
             let answer = ask.recv().await.ok().flatten();
             this.update(cx, |this, cx| {
@@ -327,17 +329,17 @@ impl JobView {
     /// page go, so opening it again reads what he did on it since.
     pub(super) fn sync_page_tabs(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let held = self.thread(id, cx).map(|held| held.items.clone()).unwrap_or_default();
-        let wanted: Vec<(String, u32)> = self
+        let wanted: Vec<(String, u32, String)> = self
             .row_tab_list(id)
             .into_iter()
             .filter(|tab| tab.kind == super::row_tabs::RowKind::Document)
-            .filter_map(|tab| super::review::document_card(&held, &tab.key).map(|card| (tab.key.clone(), card.revision)))
+            .filter_map(|tab| super::review::document_card(&held, &tab.key).map(|card| (tab.key.clone(), card.revision, card.title.clone())))
             .collect();
         let tabs = self.row_tabs.entry(id.clone()).or_default();
-        tabs.pages.retain(|page, (tab, _)| wanted.iter().any(|(want, revision)| want == page && *revision == tab.read(cx).revision()));
-        let new: Vec<(String, u32)> = wanted.into_iter().filter(|(page, _)| !tabs.pages.contains_key(page)).collect();
-        for (page, revision) in new {
-            let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision));
+        tabs.pages.retain(|page, (tab, _)| wanted.iter().any(|(want, revision, _)| want == page && *revision == tab.read(cx).revision()));
+        let new: Vec<(String, u32, String)> = wanted.into_iter().filter(|(page, _, _)| !tabs.pages.contains_key(page)).collect();
+        for (page, revision, title) in new {
+            let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision, title));
             let carrying = cx.subscribe_in(&tab, window, |this, tab, event: &PageTabEvent, window, cx| {
                 match event {
                     PageTabEvent::Posted(posted) => this.carry(tab.clone(), posted.clone(), window, cx),

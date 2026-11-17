@@ -1,7 +1,7 @@
 //! One zoom and pan for every picture view: the picture viewer, a sketch read over the window and any scene drawn large.
 //! A wheel with ⌘ held, or a pinch, zooms about the pointer; a drag and a two-finger scroll move the picture, which a clamp
-//! keeps over the view; a double press toggles fit and 100%; ⌘0 fits, ⌘= and ⌘- zoom. A picture in the reading column does
-//! not bind it: there the wheel scrolls the page.
+//! keeps over the view; a double press toggles fit and 100%; ⌘0 fits, ⌘= and ⌘- zoom. A plain wheel over a picture at fit is
+//! left to the page, so a drawing in a scrolling column is scrolled past.
 //!
 //! The numbers are `ZoomablePicture`'s (`SessionThread.tsx`): fit is 1, a key steps by 1.5 and pans 64, a press that travels
 //! further than 8 is a drag. A scale is always read against the fit, and `Stage::actual` is the scale where the picture is
@@ -293,10 +293,15 @@ pub(crate) fn bind<T: Zooms, E: InteractiveElement>(surface: E, cx: &Context<T>,
             }),
         )
         .on_scroll(cx.listener(|this: &mut T, event: &ScrollEvent, window, cx| {
+            let zoom = event.modifiers.platform || event.modifiers.control;
+            if !zoom && this.zoomer().is_none_or(|zoomer| zoomer.scale <= 1.) {
+                return;
+            }
             let Some(stage) = at_event(this, window, cx) else { return };
             let Some(zoomer) = this.zoomer() else { return };
             let Some(at) = zoomer.from_middle(event.position) else { return };
-            zoomer.wheel(stage, at, event.delta, event.modifiers.platform || event.modifiers.control, event.modifiers.control);
+            zoomer.wheel(stage, at, event.delta, zoom, event.modifiers.control);
+            cx.stop_propagation();
             cx.notify();
         }))
         .on_pinch(cx.listener(|this: &mut T, event: &PinchEvent, window, cx| {
@@ -360,6 +365,7 @@ pub(crate) fn corner<T: Zooms>(look: &Look, readout: String, fit: fn(&mut T, &mu
             Role::Status,
             said,
         ))
+        .child(zoom_button::<T>(look, "zoom-out", "minus", "Zoom out", "cmd--", 1. / KEY_STEP, cx))
         .child(labelled(
             div()
                 .id("zoom-fit")
@@ -376,7 +382,30 @@ pub(crate) fn corner<T: Zooms>(look: &Look, readout: String, fit: fn(&mut T, &mu
             Role::Button,
             "Fit",
         ))
+        .child(zoom_button::<T>(look, "zoom-in", "plus", "Zoom in", "cmd-=", KEY_STEP, cx))
         .into_any_element()
+}
+
+/// One of the corner's steps: a zoom by `by` about the view's middle.
+fn zoom_button<T: Zooms>(look: &Look, id: &'static str, icon: &'static str, said: &'static str, key: &'static str, by: f32, cx: &Context<T>) -> AnyElement {
+    let key = Keystroke::parse(key).ok();
+    labelled(
+        div()
+            .id(id)
+            .size(look.length(token::H_CONTROL_SM))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(look.length(token::RADIUS_MD))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .child(glyph(look, icon, GlyphSize::Small, look.color(token::FG_DEFAULT)))
+            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+            .on_click(cx.listener(move |this, _, window, cx| step(this, by, window, cx))),
+        Role::Button,
+        said,
+    )
+    .into_any_element()
 }
 
 #[cfg(test)]

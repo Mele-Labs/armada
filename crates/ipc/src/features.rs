@@ -400,3 +400,100 @@ pub struct FirstEditSearches {
     /// Jobs in those weeks whose turns were read before searches were counted, so they are in no week.
     pub unmeasured: u32,
 }
+
+/// `hand_over_features`: the mod's hook asks which feature pages a Job is owed for what it is about to read, search or
+/// be told. **Fleet answers once per feature per holder**, and keeps the record.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HandOverFeatures {
+    /// The Job.
+    pub session_id: SessionId,
+    /// The subagent the read is the turn of, or the spawn call's id where the subagent is being told its brief. Absent for
+    /// the Job's own thread.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agent_id: Option<String>,
+    /// The file or folder a Read, Grep or Glob is about to open, as the call spelled it. Absolute paths under the Job's
+    /// checkout are read as relative to it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub paths: Vec<String>,
+    /// A brief or a prompt: the features it names are handed over. A feature is named by a `Feature: <slug>` line, as a
+    /// commit names one, or by its slug between backticks.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub brief: Option<String>,
+}
+
+/// What `hand_over_features` hands over.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeaturesHandedOver {
+    /// The slugs handed over now, in the order of their pages. Empty where every feature asked about was handed over before.
+    pub features: Vec<String>,
+    /// Their condensed pages as plain text for the agent, empty where none.
+    pub text: String,
+}
+
+/// `check_commit_feature`: the mod's hook asks, before an agent's `git commit` runs, whether the commit names the
+/// feature it serves.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CheckCommitFeature {
+    /// The Job.
+    pub session_id: SessionId,
+    /// The shell line, whole, with the message in it.
+    pub command: String,
+    /// The files the commit is about to take, relative to the repository: what is staged, and what a `git add` or `-a` in
+    /// the same line would stage. Empty where the hook could not say.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub files: Vec<String>,
+}
+
+/// What `check_commit_feature` says.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct CommitFeatureChecked {
+    /// Whether the commit may run.
+    pub allowed: bool,
+    /// What the agent is told where it may not: the features its files belong to, each as the line to copy. Empty where allowed.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub says: String,
+    /// The slugs of the features the files belong to, the most files first.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<String>,
+}
+
+/// The key an artifact's `detail` keeps the features it was made for under: slugs, comma separated. `detail` holds strings only.
+pub const ARTIFACT_FEATURE: &str = "feature";
+
+/// The feature, or features, a sketch, page, walk or draft is made for: one slug, or a list. **Both are read**, so an agent
+/// may write `"feature": "voting-on-takes"` or `"feature": ["voting-on-takes", "page-actions"]`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FeatureNames {
+    One(String),
+    Many(Vec<String>),
+}
+
+impl FeatureNames {
+    /// The slugs, trimmed and in lower case, none blank and each once, in the order written.
+    pub fn slugs(&self) -> Vec<String> {
+        let all: Vec<&str> = match self {
+            FeatureNames::One(slug) => vec![slug.as_str()],
+            FeatureNames::Many(slugs) => slugs.iter().map(String::as_str).collect(),
+        };
+        let mut kept: Vec<String> = Vec::new();
+        for slug in all.into_iter().flat_map(|one| one.split(',')).map(|one| one.trim().to_lowercase()) {
+            if !slug.is_empty() && !kept.contains(&slug) {
+                kept.push(slug);
+            }
+        }
+        kept
+    }
+
+    /// The slugs as an artifact's `detail` keeps them, comma separated. `None` where the call named none.
+    pub fn as_detail(&self) -> Option<String> {
+        Some(self.slugs().join(",")).filter(|slugs| !slugs.is_empty())
+    }
+}
+
+/// Keep what an act named in the `detail` of the artifact it made. Nothing is kept where the act named none.
+pub fn feature_in_detail(detail: &mut std::collections::BTreeMap<String, String>, named: Option<&FeatureNames>) {
+    if let Some(slugs) = named.and_then(FeatureNames::as_detail) {
+        detail.insert(ARTIFACT_FEATURE.to_string(), slugs);
+    }
+}

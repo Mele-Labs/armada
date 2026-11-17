@@ -19,6 +19,20 @@ pub struct NamingCommit {
     pub files: Vec<String>,
 }
 
+/// Whether `slug` is what a `Feature:` line can carry: lowercase letters, digits, dashes, underscores, dots and slashes.
+fn clean(slug: &str) -> bool {
+    !slug.is_empty() && slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '/' | '.'))
+}
+
+/// The slugs of a comma separated `value`, each once, added to `slugs`.
+fn push_slugs(value: &str, slugs: &mut Vec<String>) {
+    for slug in value.split(',').map(str::trim) {
+        if clean(slug) && !slugs.iter().any(|held| held == slug) {
+            slugs.push(slug.to_string());
+        }
+    }
+}
+
 /// The slugs named by `Feature:` lines in the last paragraph of `message`. A line elsewhere in the body is prose.
 pub fn trailer_slugs(message: &str) -> Vec<String> {
     let trimmed = message.trim_end();
@@ -31,12 +45,42 @@ pub fn trailer_slugs(message: &str) -> Vec<String> {
         if !key.trim().eq_ignore_ascii_case("feature") {
             continue;
         }
-        for slug in value.split(',').map(str::trim) {
-            let clean = !slug.is_empty()
-                && slug.chars().all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || matches!(c, '-' | '_' | '/' | '.'));
-            if clean && !slugs.iter().any(|held| held == slug) {
-                slugs.push(slug.to_string());
+        push_slugs(value, &mut slugs);
+    }
+    slugs
+}
+
+/// The slugs named by `Feature:` anywhere in `text`, where it starts a line or follows a quote. **Read from the words of
+/// a shell command or a brief, not from a commit**: `git commit -m "Feature: a, b"` and a heredoc's own line both name
+/// a feature, and a `Feature:` in the middle of a sentence is prose.
+pub fn feature_lines_in(text: &str) -> Vec<String> {
+    let mut slugs: Vec<String> = Vec::new();
+    for line in text.lines() {
+        let lower = line.to_ascii_lowercase();
+        let mut from = 0;
+        while let Some(found) = lower[from..].find("feature:") {
+            let at = from + found;
+            let before = line[..at].chars().next_back();
+            let starts = line[..at].trim().is_empty() || matches!(before, Some('"' | '\''));
+            let value = &line[at + "feature:".len()..];
+            let value = value.split(['"', '\'']).next().unwrap_or(value);
+            if starts {
+                push_slugs(value, &mut slugs);
             }
+            from = at + "feature:".len();
+        }
+    }
+    slugs
+}
+
+/// The slugs between backticks in `text`, each once. Only a word that is a feature's slug in the project counts, so a
+/// backticked command or path names nothing.
+pub fn backticked_slugs_in(text: &str) -> Vec<String> {
+    let mut slugs: Vec<String> = Vec::new();
+    for (at, part) in text.split('`').enumerate() {
+        let word = part.trim();
+        if at % 2 == 1 && clean(word) && !slugs.iter().any(|held| held == word) {
+            slugs.push(word.to_string());
         }
     }
     slugs

@@ -62,7 +62,8 @@ const fn rule(place: Place, dismiss: Dismiss) -> Rule {
 /// | `preview_offer` | by act | skip; Fleet no longer raises it |
 /// | `rule_act`, `operator_suggestion` | questions | skip |
 /// | `operator_undone` | by act: a question | plain; nothing is told the agent |
-/// | `job_conflict`, `job_held` | questions | none: Fleet refuses it |
+/// | `job_conflict` | questions | none: Fleet refuses it |
+/// | `job_held` | questions | plain: the Job is told it was dismissed with no answer |
 fn rule_of(source: WaitingSource) -> Rule {
     use Place::{ByAct, Done, Questions, Review, Walks};
     match source {
@@ -93,7 +94,7 @@ fn rule_of(source: WaitingSource) -> Rule {
         WaitingSource::OperatorUndone => rule(ByAct, Dismiss::Plain),
         WaitingSource::Gate => rule(Questions, Dismiss::None),
         WaitingSource::JobConflict => rule(Questions, Dismiss::None),
-        WaitingSource::JobHeld => rule(Questions, Dismiss::None),
+        WaitingSource::JobHeld => rule(Questions, Dismiss::Plain),
         WaitingSource::ReadyToTry => rule(Review, Dismiss::Plain),
     }
 }
@@ -108,7 +109,6 @@ pub(crate) fn refused_dismissal(source: WaitingSource) -> Option<&'static str> {
         WaitingSource::HeldChild => Some(HELD_CHILD_SETTLED_BY),
         WaitingSource::Gate => Some("a gate is approved or its group skipped, not dismissed"),
         WaitingSource::JobConflict => Some("a conflict is answered by telling a Job to change or holding both, not dismissed"),
-        WaitingSource::JobHeld => Some("whether work lands is answered, not dismissed"),
         _ => None,
     }
 }

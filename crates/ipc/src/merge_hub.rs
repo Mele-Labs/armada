@@ -47,6 +47,23 @@ pub struct MergeLineHub {
     /// answered whole. Absent while it answers, so what is above is no staler than a visit.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quiet_since: Option<Instant>,
+    /// Why, as of the latest call that failed. Absent while it answers, and from an older Fleet.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub quiet_reason: Option<QuietReason>,
+}
+
+/// Why the forge stopped answering.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
+pub enum QuietReason {
+    /// GitHub refused for its rate limit. `until` is when it said to try again: its `Retry-After`,
+    /// else the reset of a window spent. **Absent where it named no time**, as a secondary limit may not.
+    RateLimited {
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        until: Option<Instant>,
+    },
+    /// No answer, or a refusal that is not the rate limit.
+    NotAnswering,
 }
 
 /// What stops the served checkout catching up to main. Fleet never forces,

@@ -47,6 +47,17 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/features/change",
     },
+    // The mod's hook asks as a Job is about to read, so it spells itself beside the two acts.
+    Route {
+        operation: "hand_over_features",
+        method: "POST",
+        path: "/features/hand_over",
+    },
+    Route {
+        operation: "check_commit_feature",
+        method: "POST",
+        path: "/features/commit_check",
+    },
     // Beside the other usage reads, which are not under `/jobs` either: the question is asked of every Job at once.
     Route {
         operation: "get_first_edit_searches",

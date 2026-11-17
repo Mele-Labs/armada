@@ -335,10 +335,17 @@ impl JobView {
         let open = settled.is_none() && !card.replaced;
         let (scene_key, scene) = shown_scene(card, None);
         let drawn = self.drawn_of(&card.sketch, cx);
-        let (read, shown) = (card.id.clone(), key.clone());
+        let (read, shown, waiting, job) = (card.id.clone(), key.clone(), row.id.clone(), id.clone());
         let large = labelled(
             button(look, SharedString::from(format!("look-open-large:{key}")), "Open large", Tone::Ghost, false, None, true)
-                .on_click(cx.listener(move |this, _, window, cx| this.read_sketch(&read, &shown, window, cx))),
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    // Large is the Review panel with the sketch in its detail, so one layer holds it: the panel's own F enlarges it further.
+                    if this.review_items(&job, cx).iter().any(|item| item.id == waiting) {
+                        this.open_review_on(&waiting, window, cx);
+                    } else {
+                        this.read_sketch(&read, &shown, window, cx);
+                    }
+                })),
             Role::Button,
             "Open large",
         );

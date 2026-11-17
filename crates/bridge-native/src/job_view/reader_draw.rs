@@ -137,7 +137,8 @@ impl JobView {
                     if this.reader_of(&job_c, &name_c).is_some_and(|held| held.edit.is_some()) {
                         if key == "escape" && !mods.modified() {
                             cx.stop_propagation();
-                            this.reader_act(&job_c, &name_c, RAct::Discard, window, cx);
+                            this.reader_edit_leave(&job_c, &name_c, cx);
+                            window.focus(&this.row_focus, cx);
                         } else if key == "s" && mods.platform && !mods.shift && !mods.alt {
                             cx.stop_propagation();
                             this.reader_act(&job_c, &name_c, RAct::Save, window, cx);
@@ -173,7 +174,7 @@ impl JobView {
     /// In the focus view the acts leave the header for a bar pinned at the foot: the revision picker, the notes toggle and what
     /// he answers with. The header keeps the kind, the title, where it stands and the For line.
     fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, Option<AnyElement>) {
-        let pinned = self.arranged.focus_now;
+        let pinned = false;
         let editing = held.edit.is_some();
         let ink: Token = if editing { token::YOU } else { subject.stand.ink() };
         let (fill, edge) = if editing { (mixed(look, ink, 0.16), look.color(ink).opacity(0.45)) } else { (mixed(look, ink, 0.18), look.color(ink).opacity(0.4)) };

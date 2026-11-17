@@ -236,6 +236,7 @@ impl JobView {
     /// Open, a Needs you item and a folded line. Returns whether the Job holds it: one it no longer holds opens nothing.
     pub(super) fn open_named(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
+        self.review_from = window.focused(cx);
         // A Ready to try card is no artifact of the Job: its id names the card in the thread (`try:<branch>@<tip>`).
         if super::ready_card::is_card(artifact) {
             let held = self.go_to_ready(&job, artifact, window, cx);
@@ -290,6 +291,15 @@ impl JobView {
         };
         kept.presses.push(ipc::PagePress { revision: pressed.revision, action: action.id, item: action.item, act: action.act, at: Instant::carried(Local::now().to_rfc3339()), did: ipc::PressDid::Sent });
         self.mock_parts_kept(job, kept, cx);
+    }
+
+    /// The mock Fleet lists artifact `artifact` of the shown Job again, changed by `tune`.
+    #[cfg(test)]
+    pub(super) fn mock_parts_tuned(&mut self, artifact: &str, tune: impl FnOnce(&mut JobArtifact), cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some(mut kept) = self.artifact_of(&job, artifact).cloned() else { return };
+        tune(&mut kept);
+        self.mock_parts_kept(&job, kept, cx);
     }
 
     fn mock_parts_kept(&mut self, job: &SharedString, kept: JobArtifact, cx: &mut Context<Self>) {
@@ -927,8 +937,8 @@ mod tests {
         let (room, offset) = view.read_with(cx, |view, _| (view.body_scroll.max_offset().y, view.body_scroll.offset().y));
         assert!(room > gpui::px(0.), "the tab's body is taller than its pane, so it has room to scroll: {room:?}");
         assert_eq!(offset, gpui::px(0.));
-        // Wherever the pointer is: over the words, the takes' pictures, the drawing or the gaps between.
-        for y in (100..500).step_by(40) {
+        // Wherever the pointer is in the panel's detail between its band and its foot: over the words, the takes' pictures, the drawing or the gaps between.
+        for y in (260..340).step_by(40) {
             view.update(cx, |view, _| view.body_scroll.set_offset(gpui::point(gpui::px(0.), gpui::px(0.))));
             cx.simulate_event(gpui::ScrollWheelEvent { position: gpui::point(gpui::px(500.), gpui::px(y as f32)), delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-300.))), ..Default::default() });
             cx.run_until_parked();

@@ -691,6 +691,15 @@ pub trait Sessions: Send + Sync + 'static {
         asked: ipc::AskHeld,
     ) -> impl Future<Output = Result<ipc::HeldAsked, Refusal>> + Send;
 
+    /// `withdraw_held` — the agent takes back a landing question it asked. `caller` places a hosted session as
+    /// `all_done`'s does. [`Refusal::Unacceptable`] for a call that places none, an ended session, neither or
+    /// both of `pull` and `branch`, or a question this Job holds none open of.
+    fn withdraw_held(
+        self: std::sync::Arc<Self>,
+        caller: Option<crate::Caller>,
+        withdrawn: ipc::WithdrawHeld,
+    ) -> impl Future<Output = Result<ipc::HeldWithdrawn, Refusal>> + Send;
+
     /// `report_bug` — the agent says Armada itself got something wrong. `caller` places a session as
     /// `all_done`'s does, a terminal one included. [`Refusal::Unacceptable`] for a call that places none, or an
     /// empty `title` or `what`.

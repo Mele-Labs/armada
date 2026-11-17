@@ -10,7 +10,7 @@ use std::sync::{Mutex, OnceLock};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::ManifestId;
-use store::{feature_link_kind, KeptFeatureLink, KeptFeatureMerge, Store, WriteError};
+use store::{feature_link_kind, KeptFeatureLink, KeptFeature, KeptFeatureMerge, Store, WriteError};
 
 use super::mapping::FeatureMap;
 use super::reading::Loaded;
@@ -215,37 +215,66 @@ where
         }
     }
 
-    /// An artifact a Job made, linked to the feature its act named. **Only an act that names a feature links**: the
-    /// attachment's `feature` detail is a slug, `form` says whether it is a sketch, a page, a draft or a walk.
+    /// An artifact a Job made, linked to the features its act named. **Only an act that names a feature links**: the
+    /// attachment's `feature` detail is slugs, comma separated, and `form` says whether it is a sketch, a page, a draft or a
+    /// walk. **A slug the project does not hold is kept for the Operator to confirm**, never refused and never linked.
     pub(crate) fn artifact_filed(&self, store: &mut Store, job: &str, target: &str, detail: &BTreeMap<String, String>, now: &str) {
-        let Some(slug) = detail.get("feature").map(|slug| slug.trim()).filter(|slug| !slug.is_empty()) else {
+        let Some(named) = detail.get(ipc::ARTIFACT_FEATURE) else {
             return;
         };
+        let slugs = ipc::FeatureNames::One(named.clone()).slugs();
         let kind = match detail.get("form").map(String::as_str) {
             Some("sketch") => feature_link_kind::SKETCH,
             Some("document") => feature_link_kind::PAGE,
             Some("draft") => feature_link_kind::DRAFT,
-            Some("walk") => feature_link_kind::WALK,
+            // A walk is kept as a `window` and a page of a walk's takes is still one walk.
+            Some("walk" | "window") => feature_link_kind::WALK,
             _ => return,
         };
-        for project in self.projects_of_job_in(store, job) {
-            let Ok(loaded) = Loaded::read(store, &project) else {
+        let title = detail.get("title").cloned().unwrap_or_default();
+        let projects = self.projects_of_job_in(store, job);
+        for slug in slugs {
+            let mut held = false;
+            for project in &projects {
+                let Ok(loaded) = Loaded::read(store, project) else {
+                    continue;
+                };
+                let Some(feature) = loaded.feature_named(&slug).cloned() else {
+                    continue;
+                };
+                held = true;
+                self.artifact_linked(store, &feature, kind, job, target, &title, now);
+            }
+            if held {
                 continue;
-            };
-            let Some(feature) = self.feature_or_pending(store, &loaded, slug, now) else {
-                continue;
-            };
-            let _ = store.put_feature_link(&KeptFeatureLink {
-                feature_id: feature.id.clone(),
-                kind: kind.to_string(),
-                target: target.to_string(),
-                job: job.to_string(),
-                title: detail.get("title").cloned().unwrap_or_default(),
-                state: String::new(),
-                via: "artifact".to_string(),
-                at: now.to_string(),
-            });
+            }
+            // Named where no project holds it: a pending feature in the first project that keeps a library, for the
+            // Operator to bring the owner on a card, as a trailer's unknown slug is.
+            for project in &projects {
+                let Ok(loaded) = Loaded::read(store, project) else {
+                    continue;
+                };
+                if let Some(feature) = self.feature_or_pending(store, &loaded, &slug, now) {
+                    self.artifact_linked(store, &feature, kind, job, target, &title, now);
+                    break;
+                }
+            }
         }
+    }
+
+    /// One artifact linked to one feature it named.
+    #[allow(clippy::too_many_arguments)]
+    fn artifact_linked(&self, store: &mut Store, feature: &KeptFeature, kind: &str, job: &str, target: &str, title: &str, now: &str) {
+        let _ = store.put_feature_link(&KeptFeatureLink {
+            feature_id: feature.id.clone(),
+            kind: kind.to_string(),
+            target: target.to_string(),
+            job: job.to_string(),
+            title: title.to_string(),
+            state: String::new(),
+            via: "artifact".to_string(),
+            at: now.to_string(),
+        });
     }
 }
 

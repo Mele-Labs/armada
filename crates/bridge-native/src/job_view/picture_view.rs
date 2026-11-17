@@ -110,6 +110,12 @@ impl JobView {
 
     /// The scene the view draws and the key it is kept by, where it holds a drawing rather than a file.
     fn scene_of(&self, what: &What) -> Option<(String, Rc<Scene>)> {
+        self.scene_of_as(what, "view")
+    }
+
+    /// The same, held under `prefix`: the review panel's detail draws a drawing beside the view that enlarges it, and the two
+    /// must not share one canvas.
+    pub(super) fn scene_of_as(&self, what: &What, prefix: &str) -> Option<(String, Rc<Scene>)> {
         let job = self.shown.as_ref()?;
         let (key, text, tag) = match what {
             What::Raster { .. } => return None,
@@ -126,10 +132,19 @@ impl JobView {
                 (key.clone(), scene, tag)
             }
         };
-        let held = format!("view:{job}:{key}:{tag}");
+        let held = format!("{prefix}:{job}:{key}:{tag}");
         let raw: ipc::RawScene = serde_json::from_str(&text).ok()?;
         let scene = crate::scene::read(&held, &raw)?;
         Some((held, scene))
+    }
+
+    /// The key of the drawing part the viewer holds, where it holds one.
+    #[cfg(test)]
+    pub(super) fn viewing_drawing(&self) -> Option<&str> {
+        match self.pictures.viewing.as_ref().map(|viewing| &viewing.what) {
+            Some(What::Drawing { key }) => Some(key),
+            _ => None,
+        }
     }
 
     /// The viewer's keys: Esc closes, ← and → step a take, and the zoom's own. A text box keeps its keys.
@@ -355,15 +370,22 @@ impl Zooms for JobView {
         if let Some(viewing) = self.pictures.viewing.as_mut() {
             return Some(&mut viewing.zoom);
         }
-        self.sketch_reading.as_mut().map(|reading| &mut reading.zoom)
+        if let Some(reading) = self.sketch_reading.as_mut() {
+            return Some(&mut reading.zoom);
+        }
+        self.detail_zoom.as_mut().map(|detail| &mut detail.zoom)
     }
 
     fn stage(&self, view: Size<f32>, _: &Window, cx: &App) -> Option<Stage> {
         if let Some(viewing) = self.pictures.viewing.as_ref() {
             return self.stage_of(viewing, view, cx);
         }
-        let reading = self.sketch_reading.as_ref()?;
-        let (fit, actual) = crate::scene::fit_of(&Self::drawn_key(reading))?;
+        if let Some(reading) = self.sketch_reading.as_ref() {
+            let (fit, actual) = crate::scene::fit_of(&Self::drawn_key(reading))?;
+            return Some(Stage { view, fit, actual });
+        }
+        let detail = self.detail_zoom.as_ref()?;
+        let (fit, actual) = crate::scene::fit_of(&detail.held.borrow())?;
         Some(Stage { view, fit, actual })
     }
 }
@@ -385,8 +407,10 @@ mod tests {
         (view, cx)
     }
 
+    /// The last drawn with this role and name: with the review panel up, the thread behind draws its own beneath the panel's.
     fn bounds_of(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Bounds<Pixels> {
-        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds)).unwrap_or_else(|| panic!("{name} was not drawn"))
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds))
+            .unwrap_or_else(|| panic!("{name} was not drawn"))
     }
 
     #[test]
@@ -481,16 +505,18 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_tall_take_is_held_to_three_fifths_of_the_pane_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
+    fn a_tall_take_is_held_to_its_share_of_the_review_panel_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1100.), px(700.)), |_| {});
         view.update_in(cx, |view, window, cx| view.open_artifact_tab(ID, window, cx));
         redraw(cx);
-        let pane = view.read_with(cx, |view, _| view.body_scroll.bounds().size.height);
-        assert!(pane > px(0.), "the reader's pane has a height");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the take is read in the review panel");
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(panel > px(0.), "the panel has a height");
+        let cap = panel * super::super::reader_sheet::TALL_SHARE;
         let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {B} (Job's pick)"));
         let picture = bounds_of(cx, Role::Button, &format!("Picture: {B}"));
-        assert!(picture.size.height <= pane * 0.6 + px(1.), "no taller than three fifths of the pane: {picture:?} in a pane {pane:?} high");
-        assert!((picture.size.height - pane * 0.6).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
+        assert!(picture.size.height <= cap + px(1.), "no taller than its share of the panel: {picture:?} in a panel {panel:?} high");
+        assert!((picture.size.height - cap).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
         assert!((picture.center().x - tile.center().x).abs() < px(2.), "and stands in the middle of its tile: {picture:?} in {tile:?}");
     }
 

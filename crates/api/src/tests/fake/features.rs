@@ -2,8 +2,9 @@
 //! what arrived. What Fleet keeps and works out is `fleet::feature_library`'s, against a real store.
 
 use ipc::{
-    ChangeFeature, FeatureAreaRow, FeatureChanged, FeatureBrief, FeatureLibrary, FeaturePage, FeatureRow, FeatureSectionKind, FeatureSectionsWritten, FeatureState,
-    FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, SeedFeatures, UpsertFeatures, WriteFeatureSections,
+    ChangeFeature, CheckCommitFeature, CommitFeatureChecked, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureLibrary, FeaturePage, FeatureRow,
+    FeatureSectionKind, FeatureSectionsWritten, FeatureState, FeaturesHandedOver, FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches,
+    HandOverFeatures, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 
 use super::FakeDaemon;
@@ -30,7 +31,7 @@ impl Features for FakeDaemon {
         })
     }
 
-    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String) -> Result<FeaturePage, Refusal> {
+    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String, _section: Option<String>) -> Result<FeaturePage, Refusal> {
         Ok(FeaturePage {
             project: project.unwrap_or_else(|| String::from("p1")),
             feature: row(&feature),
@@ -71,6 +72,15 @@ impl Features for FakeDaemon {
 
     async fn change_feature(&self, _caller: Option<crate::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         Ok(FeatureChanged { feature: change.slug.unwrap_or_else(|| change.feature.clone()), merged_into: change.into })
+    }
+
+    async fn hand_over_features(&self, hand: HandOverFeatures) -> Result<FeaturesHandedOver, Refusal> {
+        Ok(FeaturesHandedOver { features: hand.paths, text: String::new() })
+    }
+
+    async fn check_commit_feature(&self, check: CheckCommitFeature) -> Result<CommitFeatureChecked, Refusal> {
+        let allowed = check.command.contains("Feature:");
+        Ok(CommitFeatureChecked { allowed, says: if allowed { String::new() } else { String::from("Add a Feature: line.") }, features: Vec::new() })
     }
 
     async fn get_first_edit_searches(&self, _weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

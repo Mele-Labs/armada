@@ -1,4 +1,4 @@
-//! The `reviews` walk: back to a pull request he reviewed, what changed since he looked, a review
+//! The `reviews` walk: the figure beside Reviews of what was asked of him, back to a pull request he reviewed, what changed since he looked, a review
 //! of just that, a new pull request read by change set, and the page's panes arranged and kept as a layout.
 
 use crate::walk::{Step, Target, Verb};
@@ -18,7 +18,8 @@ const RISK: &str = "Risk: Strict clients may reject the new field";
 const KEPT: &str = "Kept by Armada for every PR that touches migrations/ in ledger-api. Read from docs/migrations.md on Tuesday, and read again when that doc changes.";
 const HOW_IT_WORKS: &str = "How it works: The migration adds a stage column that may be empty, then copies each invoice's last failed stage from the job log in one update. The down migration drops the column.";
 
-pub static STEPS: [Step; 70] = [
+pub static STEPS: [Step; 72] = [
+    step("Beside Reviews in the strip: the reviews asked of you by name that you have not opened", Verb::Hover, "status", "2 reviews asked of you, not opened"),
     step("Reviews in the strip. The pull request open last time opens at once, as you left it", Verb::PressOn("tab", "Reviews"), "heading", INVOICE),
     step("The inbox reads the forge again, and keeps the last one drawn meanwhile", Verb::Look, "status", "Refreshing"),
     step("It opens on its Overview. What Find problems writes on the commits since you looked waits in grey for the refresh", Verb::Look, "status", "Finding problems in the commits since you looked"),
@@ -47,6 +48,7 @@ pub static STEPS: [Step; 70] = [
     step("Add as draft comment: your words become a draft on that line", Verb::OpenIn(SUGGESTION, "Add as draft comment"), "textbox", "Draft comment on src/webhooks/retry.rs:9"),
     step("Your review counts it among the drafts that go with it", Verb::Look, "label", "1 draft comment"),
     step("A pull request you have not opened yet opens on its Overview: why Mira made it", Verb::PressOn("row", STAGE), "heading", "Why, from Mira"),
+    step("It was asked of you, so the figure beside Reviews drops to one", Verb::Hover, "status", "1 review asked of you, not opened"),
     step("Its change sets run down the rail, each with the glyph of its worst finding", Verb::Look, "listbox", "Change sets"),
     step("A blocker: its change set, what is wrong, and the line", Verb::Look, "article", BLOCKER),
     step("Add as draft comment: it joins your drafts, and the card says so", Verb::OpenIn(BLOCKER, "Add as draft comment"), "status", "Added as draft comment"),

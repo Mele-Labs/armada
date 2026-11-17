@@ -61,6 +61,27 @@ pub struct HeldAsked {
     pub answer: Option<String>,
 }
 
+/// `withdraw_held`: the Job takes back a landing question it asked and nothing has answered.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WithdrawHeld {
+    /// The pull request's number. Exactly one of `pull` and `branch`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pull: Option<u64>,
+    /// The branch's name.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub branch: Option<String>,
+    /// Which session. **Read only where the connection places no hosted session**, as `AllDone`'s.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub session_id: Option<SessionId>,
+}
+
+/// What `withdraw_held` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct HeldWithdrawn {
+    /// `held:<repository>:<pull or branch>`.
+    pub id: String,
+}
+
 /// A Job on a card of Your turn, as a chip: its title and its address.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct OperatorAskJob {

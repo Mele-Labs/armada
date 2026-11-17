@@ -153,6 +153,7 @@ where
             attachment.detail.insert("revisions".into(), revisions);
         }
         with_for(&mut attachment.detail, self.for_line(&id, said).await.as_ref());
+        ipc::feature_in_detail(&mut attachment.detail, show.feature.as_ref());
         // A sketch he dismissed waits again once the job draws it again, as a walk shown again does.
         let target = attachment.target.clone();
         self.store().lock().await.restore_waiting(&id, &target).map_err(|why| self.ledger_fault(why))?;

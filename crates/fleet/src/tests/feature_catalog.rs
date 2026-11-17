@@ -6,7 +6,7 @@ use std::collections::BTreeSet;
 
 use api::{Features, Projects, Refusal, Story};
 use adapters::feature_commits::NamingCommit;
-use api::{HostedSessions, Sessions};
+use api::HostedSessions;
 use ipc::{AreaSeed, AskKind, AskState, ChangeFeature, FeatureSeed, FeatureState, FileAsk, NewProject, ProjectMember, SeedFeatures, SessionId, StartSession, UpsertFeatures};
 
 use super::operator_session::switched;
@@ -133,7 +133,7 @@ async fn a_path_the_repository_does_not_hold_is_left_out_and_named() {
 
     let kept = rig.fleet.seed_features(the_operator(), SeedFeatures { project: project.clone() }).await.expect("seeded");
     assert!(kept.dropped.iter().any(|one| one.starts_with(&format!("{}: ", first.slug))), "the rig holds none of its code: {:?}", kept.dropped);
-    let page = rig.fleet.get_feature_page(None, Some(project), first.slug.clone()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project), first.slug.clone(), None).await.expect("page");
     assert!(page.paths.iter().all(|path| std::path::Path::new(&rig.root).join(path).exists()), "only what the repository holds is owned: {:?}", page.paths);
 }
 
@@ -330,7 +330,7 @@ async fn a_slug_a_job_names_that_the_library_lacks_is_filed_under_a_pending_feat
 
     assert_eq!(state_of(&rig, &project, "rank-votes").await, Some((FeatureState::Pending, "pending".to_string())));
     assert_eq!(state_of(&rig, &project, VOTING).await.map(|one| one.0), Some(FeatureState::Seeded), "a feature that was there is as it was");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string(), None).await.expect("page");
     assert_eq!(page.files.iter().map(|one| one.path.as_str()).collect::<Vec<_>>(), ["crates/pages/voting/ranks.rs"]);
     assert!(page.links.iter().any(|one| one.target == "abc1" && one.via == "trailer"), "{:?}", page.links);
     let after = rig.fleet.store().lock().await.features_in(&project).expect("read");
@@ -351,7 +351,7 @@ async fn an_act_that_names_a_feature_the_library_lacks_files_its_artifact_under_
     rig.fleet.artifact_filed(&mut *rig.fleet.store().lock().await, job.as_str(), "sketches/phone.html", &detail, &now);
 
     assert_eq!(state_of(&rig, &project, "phone-voting").await.map(|one| one.0), Some(FeatureState::Pending));
-    let page = rig.fleet.get_feature_page(None, Some(project), "phone-voting".to_string()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project), "phone-voting".to_string(), None).await.expect("page");
     assert!(page.links.iter().any(|one| one.target == "sketches/phone.html" && one.via == "artifact"));
 }
 
@@ -411,18 +411,18 @@ async fn a_pending_feature_merged_into_another_moves_what_it_holds_and_its_old_s
     let done = rig.fleet.change_feature(the_operator(), change(Some(VOTING), None, None)).await.expect("merged");
     assert_eq!((done.feature.as_str(), done.merged_into.as_deref()), (VOTING, Some(VOTING)));
     assert!(state_of(&rig, &project, "rank-votes").await.is_none(), "it is gone");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("page");
     assert!(page.links.iter().any(|one| one.target == "abc1"), "its commit is the target's now");
     assert!(page.files.iter().any(|one| one.path == "crates/pages/voting/ranks.rs"), "and its file");
     let asks = rig.fleet.list_feature_asks(project.clone(), Some(VOTING.to_string())).await.expect("listed");
     assert_eq!(asks.asks[0].features, [VOTING.to_string()], "an ask on both is on the target once");
-    let by_alias = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string()).await.expect("the old slug reads");
+    let by_alias = rig.fleet.get_feature_page(None, Some(project.clone()), "rank-votes".to_string(), None).await.expect("the old slug reads");
     assert_eq!(by_alias.feature.slug, VOTING);
 
     let before = rig.fleet.store().lock().await.features_in(&project).expect("read").len();
     commits_filed(&rig, &job, &[trailer("rank-votes", "abc3", &["crates/pages/voting/more.rs"])]).await;
     assert_eq!(rig.fleet.store().lock().await.features_in(&project).expect("read").len(), before, "the old slug makes no new pending feature");
-    let page = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), None).await.expect("page");
     assert!(page.links.iter().any(|one| one.target == "abc3"), "it filed under the target");
 }
 
@@ -453,7 +453,7 @@ async fn a_pending_feature_is_confirmed_by_an_upsert_and_keeps_what_was_filed_un
     assert_eq!(state_of(&rig, &project, "rank-votes").await, Some((FeatureState::Confirmed, "takes".to_string())));
     let kept = rig.fleet.store().lock().await.feature_named(&project, "rank-votes").expect("read").expect("held");
     assert_eq!(kept.id, id, "the same feature");
-    let page = rig.fleet.get_feature_page(None, Some(project), "rank-votes".to_string()).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project), "rank-votes".to_string(), None).await.expect("page");
     assert!(page.links.iter().any(|one| one.target == "abc1"), "what was filed stays");
 }
 
@@ -469,7 +469,7 @@ async fn a_feature_renamed_keeps_its_old_slug_as_an_alias_and_its_asks_follow_it
     let done = rig.fleet.change_feature(the_operator(), rename).await.expect("renamed");
     assert_eq!((done.feature.as_str(), done.merged_into), ("page-buttons", None));
     assert!(state_of(&rig, &project, ACTIONS).await.is_none() && state_of(&rig, &project, "page-buttons").await.is_some());
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), ACTIONS.to_string()).await.expect("the old slug reads");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), ACTIONS.to_string(), None).await.expect("the old slug reads");
     assert_eq!((page.feature.slug.as_str(), page.feature.title.as_str()), ("page-buttons", "Page buttons"));
     let asks = rig.fleet.list_feature_asks(project.clone(), Some("page-buttons".to_string())).await.expect("listed");
     assert_eq!(asks.asks.iter().map(|one| one.ask_id.clone()).collect::<Vec<_>>(), [ask.ask_id]);

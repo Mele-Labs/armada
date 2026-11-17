@@ -68,8 +68,8 @@ where
         self.features_listed(caller, project).await
     }
 
-    async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String) -> Result<FeaturePage, Refusal> {
-        self.feature_paged(caller, project, feature).await
+    async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String, section: Option<String>) -> Result<FeaturePage, Refusal> {
+        self.feature_paged(caller, project, feature, section).await
     }
 
     async fn get_feature_brief(&self, caller: Option<api::Caller>, project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
@@ -100,6 +100,14 @@ where
 
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         self.feature_changed(caller, change).await
+    }
+
+    async fn hand_over_features(&self, hand: ipc::HandOverFeatures) -> Result<ipc::FeaturesHandedOver, Refusal> {
+        self.features_handed_over(hand).await
+    }
+
+    async fn check_commit_feature(&self, check: ipc::CheckCommitFeature) -> Result<ipc::CommitFeatureChecked, Refusal> {
+        self.commit_feature_checked(check).await
     }
 
     async fn get_first_edit_searches(&self, weeks: Option<u32>) -> Result<FirstEditSearches, Refusal> {

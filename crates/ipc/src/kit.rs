@@ -137,13 +137,26 @@ pub struct SetupItem {
     /// What only an output style has, left out of every other kind's rows.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub style: Option<OutputStyleFacts>,
-    /// The plugin that brought it, by name without its marketplace. Left out of
+    /// The plugin that brought it, by name without its marketplace, except a connected server's,
+    /// which is the full `name@marketplace` the plugin list holds. Left out of
     /// the person's own rows and of every kind a plugin does not bring.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub plugin: Option<String>,
     /// The command Remove runs, as Fleet spells it for the harness. On an installed plugin alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub uninstall: Option<String>,
+    /// Where a connected server is configured, where that is neither the person's own user file
+    /// nor a plugin's (`plugin` says that one). Left out of every other row.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub server: Option<ServerFacts>,
+}
+
+/// Where a connected server was configured. `from` is `repository` (the checkout's own `.mcp.json`,
+/// `folder` its root) or `project` (the person's local scope for the project at `folder`).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ServerFacts {
+    pub from: String,
+    pub folder: String,
 }
 
 /// An output style's own facts: where it came from and whether it is in force.

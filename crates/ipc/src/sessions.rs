@@ -462,6 +462,10 @@ pub struct ShowWindow {
     /// blank: the walk belongs to no group.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// The feature, or features, it is made for: a slug or a list of slugs. Fleet files it under them as a link. **A slug the
+    /// project does not hold is kept for the Operator to confirm, and never refused.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
 }
 
 /// The addresses a session signs in with. **Its `Debug` says how many and nothing else**, so a
@@ -692,6 +696,10 @@ pub struct ProposeDraft {
     /// At most 5, each `http(s)`. Fleet adds the task, plan step and pull requests it knows.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<crate::ForLink>,
+    /// The feature, or features, it is made for: a slug or a list of slugs. Fleet files it under them as a link. **A slug the
+    /// project does not hold is kept for the Operator to confirm, and never refused.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
 }
 
 /// `withdraw_draft`: a session takes back a draft it proposed with `propose_draft`, so it leaves the
@@ -898,10 +906,12 @@ pub enum WaitingSource {
     /// item waits until the Operator raises it. Since 14 Nov 2026.
     JobConflict,
     /// Fleet: a Job sent an `ask_held` that Fleet could not answer from what it keeps. Derived on every read from
-    /// the kept ask: id `held:<repository>:<pull or branch>`, text `Should #N land?` or `Should <branch> land?`, an
+    /// the kept ask: id `held:<repository>:<pull or branch>`, text `Should "<title>" (#N) land? Asked by <Job>`
+    /// (`Should #N land? ...` where no title was kept, `Should <branch> land? ...` for a branch), an
     /// `answer` act whose `target` is the id, and exactly two options, `Land it` (choice 0) and `Hold it`
-    /// (choice 1). The Job that asked is told his answer. Dismissing it is refused. While the Operator is on, the
-    /// item waits until the Operator raises it. Since 14 Nov 2026.
+    /// (choice 1). The Job that asked is told his answer. Dismissing it settles it with no answer and the Job is sent
+    /// `held? #N: He dismissed it with no answer.`; the Job may take it back with `withdraw_held`. While the Operator
+    /// is on, the item waits until the Operator raises it. Since 14 Nov 2026; dismissable and in words since 16 Nov 2026.
     JobHeld,
     /// Fleet: one or more Ready to try cards in the Job's thread are open. One item for the Job, derived on every
     /// read off its build notes, never kept: id and `artifact` `try:<session_id>`, text `Ready to try`, since the
