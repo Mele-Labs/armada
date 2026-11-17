@@ -86,6 +86,45 @@ fn j_and_k_move_the_piece_picked_and_tab_moves_between_the_panes(cx: &mut TestAp
 }
 
 #[gpui::test]
+fn the_keys_are_the_registrys_kit_acts_and_a_key_the_person_rebound_moves_with_it(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    let picked = |screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext| screen.read_with(cx, |screen, _| screen.picked().map(|one| one.row.name.clone()));
+    // Every key the screen answers is a row of the registry, under the `kit` context.
+    let bound = crate::keymap::bound(&crate::keymap::Rebinding::default());
+    for id in ["kit_move", "kit_pane", "kit_toggle", "kit_remove", "kit_edit", "kit_open", "kit_filter", "kit_add", "kit_scroll"] {
+        assert!(bound.iter().any(|key| key.act.id == id && key.context == Some("kit")), "{id} is bound under kit");
+    }
+    cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::read(r#"{"version":1,"bindings":{"kit_move":["n"]}}"#), cx));
+    assert_eq!(picked(&screen, cx).as_deref(), Some("release-notes"));
+    cx.simulate_keystrokes("n");
+    assert_eq!(picked(&screen, cx).as_deref(), Some("review-pr"), "the person's key moves the piece");
+    cx.simulate_keystrokes("j");
+    assert_eq!(picked(&screen, cx).as_deref(), Some("review-pr"), "the key he gave up does nothing");
+    cx.simulate_keystrokes("down");
+    assert_eq!(picked(&screen, cx).as_deref(), Some("pdf-tools"), "a slot he left alone still moves it");
+}
+
+#[gpui::test]
+fn a_bare_key_is_typing_in_the_filter_and_a_plugins_question_takes_enter_before_open(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("/");
+    cx.simulate_keystrokes("a");
+    assert!(screen.read_with(cx, |screen, _| screen.adding.is_none()), "A typed in the filter does not open the add box");
+    cx.simulate_keystrokes("escape");
+    cx.simulate_keystrokes("shift-tab shift-tab");
+    cx.simulate_keystrokes("j");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.kind), Kind::Plugins);
+    cx.simulate_keystrokes("tab");
+    cx.simulate_keystrokes("backspace");
+    cx.run_until_parked();
+    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_some()), "a plugin asks first");
+    cx.simulate_keystrokes("j");
+    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_some()), "the question holds the keys");
+    cx.simulate_keystrokes("escape");
+    assert!(screen.read_with(cx, |screen, _| screen.confirming.is_none()), "Esc closes the question");
+}
+
+#[gpui::test]
 fn a_removed_skill_stays_amber_with_restore_until_kit_is_left(cx: &mut TestAppContext) {
     let (screen, cx) = open(cx);
     let names = |screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext| screen.read_with(cx, |screen, _| screen.names());

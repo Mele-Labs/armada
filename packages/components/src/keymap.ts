@@ -234,6 +234,24 @@ export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>>
     "Up",
     "Down",
   ],
+  kit_move: [
+    "Down",
+    "Up",
+    "Down",
+    "Up",
+  ],
+  kit_pane: [
+    "Next",
+    "Previous",
+  ],
+  kit_scroll: [
+    "Page down",
+    "Page up",
+    "Page down",
+    "Page up",
+    "Top",
+    "Bottom",
+  ],
   finding_move: [
     "Down",
     "Up",
@@ -563,6 +581,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "terminal",
     "dispatch",
     "review-sheet",
+    "kit",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -636,6 +655,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // The review sheet holds the keys while it is up, so its letters meet only the global ones.
   "review sheet": [
     "review-sheet",
+  ],
+  // Kit holds the keys while it is the place in front, so its letters meet only the global ones.
+  kit: [
+    "kit",
   ],
 };
 
@@ -779,6 +802,12 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
     title: "Review sheet",
     scopes: [
       "review sheet",
+    ],
+  },
+  {
+    title: "Kit",
+    scopes: [
+      "kit",
     ],
   },
   {

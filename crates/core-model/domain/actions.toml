@@ -33,7 +33,7 @@
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
 #                 logbook | issues | report | plan | thread | dispatch |
-#                 review sheet
+#                 review sheet | kit
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1650,3 +1650,110 @@ scope = "review sheet"
 destructive = false
 confirms = false
 notes = "Closes the In this build sheet and opens the thread of the chosen note's Job on the Jobs screen, as a Job from the command palette opens, ended or not. ⌥⌘O, since ⌘O is Open a file's and a bare O is typing in the note's box. Native only, 16 Nov 2026."
+
+# --------------------------------------------------------------------- kit
+
+[actions.kit_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between pieces"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Picks the next or the previous piece in Kit's list, the next or previous kind in its rail, and scrolls the file by a line in its read pane. Its own row because Kit is not a list of Jobs, and `move_focus`'s scope is. Native only, 16 Nov 2026."
+
+[actions.kit_pane]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between panes"
+icon = ""
+shortcut = "Tab / ⇧Tab"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Gives the keys to the next or the previous of Kit's three panes: the rail, the list and the read pane. It wraps round at either end. Native only, 16 Nov 2026."
+
+[actions.kit_toggle]
+kind = "Action"
+tier = "Contextual"
+verb = "Turn on or off"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Space"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Turns the piece picked on or off for this project: a skill for each of the project's repositories, a server's reach in the Manifest. A piece with no switch ignores it. Native only, 16 Nov 2026."
+
+[actions.kit_remove]
+kind = "Action"
+tier = "Contextual"
+verb = "Remove"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Backspace / Delete"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Removes the piece picked. A skill goes to the Trash and stays in the list with Restore, and ⌘Z brings it back. A plugin asks first, and an allowed command or a server Kit holds is taken out at once. A piece a plugin brought has no Remove and says which plugin does. Not destructive for the reason `projects_delete` is not. Native only, 16 Nov 2026."
+
+[actions.kit_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit"
+icon = ""
+icon_absent = "undecided"
+shortcut = "e"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Turns the read pane into a text box over the file. Esc leaves it and ⌘S saves it, and those two stay the pane's own while it is up. A file a plugin brought is not his to edit, and the key does nothing there. Native only, 16 Nov 2026."
+
+[actions.kit_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Open in editor"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Hands the file of the piece picked to his editor, outside Bridge. Enter on the question that asks before a plugin is removed answers that question instead. Native only, 16 Nov 2026."
+
+[actions.kit_filter]
+kind = "Action"
+tier = "Contextual"
+verb = "Filter"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Puts the caret in the box above Kit's list, which narrows the pieces of the kind shown as he types. Esc gives the keys back to the list. Native only, 16 Nov 2026."
+
+[actions.kit_add]
+kind = "Action"
+tier = "Contextual"
+verb = "Add from a link"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Opens the box that takes a link to a piece and adds it to Kit. Enter in the box looks at the link and then adds what it found, and Esc closes the box. Native only, 16 Nov 2026."
+
+[actions.kit_scroll]
+kind = "Motion"
+tier = "Contextual"
+verb = "Scroll the file"
+icon = ""
+shortcut = "PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End"
+scope = "kit"
+destructive = false
+confirms = false
+notes = "Scrolls Kit's read pane by a page or to either end, while the keys are on that pane and nowhere else. The first four go down and up by a page and the last two to the top and the bottom. Native only, 16 Nov 2026."

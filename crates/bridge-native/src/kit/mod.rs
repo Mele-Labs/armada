@@ -659,55 +659,51 @@ impl KitScreen {
             }
             return;
         }
-        let plain = !keys.modifiers.platform && !keys.modifiers.control && !keys.modifiers.alt && !keys.modifiers.shift;
         if keys.modifiers.platform && !keys.modifiers.shift && keys.key == "z" {
             self.restore(cx);
             cx.stop_propagation();
-            return;
         }
-        if keys.key == "tab" && !keys.modifiers.platform && !keys.modifiers.control && !keys.modifiers.alt {
-            self.next_pane(if keys.modifiers.shift { -1 } else { 1 }, window, cx);
-            cx.stop_propagation();
-            return;
+    }
+
+    /// The registry's `kit` acts, pressed: the keys the person has bound, which `keymap` binds under the `kit` context.
+    /// Not answered while a modal state or a text box has the keys, where `on_key` reads Esc, Enter and ⌘S as before.
+    fn on_kit_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let typing = self.filter.read(cx).focus_handle(cx).is_focused(window);
+        if self.confirming.is_some() || self.adding.is_some() || self.editing.is_some() || typing {
+            return false;
         }
-        if self.pane == Pane::Detail {
-            let scroll = match (keys.key.as_str(), keys.modifiers.alt && !keys.modifiers.platform && !keys.modifiers.control) {
-                ("pagedown", _) | ("down", true) => Some(file::Scroll::Pages(1)),
-                ("pageup", _) | ("up", true) => Some(file::Scroll::Pages(-1)),
-                ("home", _) => Some(file::Scroll::Top),
-                ("end", _) => Some(file::Scroll::Bottom),
-                _ => None,
-            };
-            if let Some(scroll) = scroll {
-                self.scroll_file(scroll, cx);
-                cx.stop_propagation();
-                return;
-            }
-        }
-        if !plain {
-            return;
-        }
-        match keys.key.as_str() {
-            "j" | "down" => self.step(1, cx),
-            "k" | "up" => self.step(-1, cx),
-            "space" => self.toggle(cx),
-            "backspace" | "delete" => self.remove(cx),
-            "e" => self.start_edit(window, cx),
-            "enter" => self.open_piece(ipc::KitPlace::Editor, cx),
-            "/" => {
+        let down = act.slot % 2 == 0;
+        match act.id {
+            "kit_move" => self.step(if down { 1 } else { -1 }, cx),
+            "kit_pane" => self.next_pane(if act.slot == 0 { 1 } else { -1 }, window, cx),
+            "kit_toggle" => self.toggle(cx),
+            "kit_remove" => self.remove(cx),
+            "kit_edit" => self.start_edit(window, cx),
+            "kit_open" => self.open_piece(ipc::KitPlace::Editor, cx),
+            "kit_filter" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
                 window.focus(&filter, cx);
             }
-            "a" => self.start_add(window, cx),
-            _ => return,
+            "kit_add" => self.start_add(window, cx),
+            // The read pane's own: page, page, top, bottom (slots 0 to 5), and only while it has the keys.
+            "kit_scroll" if self.pane == Pane::Detail => self.scroll_file(
+                match act.slot {
+                    0 | 2 => file::Scroll::Pages(1),
+                    1 | 3 => file::Scroll::Pages(-1),
+                    4 => file::Scroll::Top,
+                    _ => file::Scroll::Bottom,
+                },
+                cx,
+            ),
+            _ => return false,
         }
-        cx.stop_propagation();
+        true
     }
 
-    fn on_act(&mut self, act: &Act, _: &mut Window, cx: &mut Context<Self>) {
+    fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         if act.is("pane_undo") && self.editing.is_none() && self.removed.iter().any(|one| one.trashed.is_some()) {
             self.restore(cx);
-        } else {
+        } else if !act.id.starts_with("kit_") || !self.on_kit_act(act, window, cx) {
             cx.propagate();
         }
     }
