@@ -12,3 +12,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 9 Nov 2026 for the walk `pr-review-by-file`. The tab's glyph in its tab strip and in +. The tab is a conversation with an agent about one pull request, which is what two bubbles about one thing claim."
+
+[[icons.messages-square.usage]]
+  means = "Q&A, a Job's tab holding his questions to the Job and the answers it gave"
+  group = "Session"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 17 Nov 2026: the Job's Q&A tab, his questions to the Job and the answers it gave."
