@@ -55,7 +55,7 @@ pub(super) struct Live {
     tools: HashMap<String, Vec<model::ReviewTool>>,
     /// Why the inbox could not be read, until a read lands.
     pub inbox_said: Option<String>,
-    /// Over rows kept from an earlier read, while GitHub is rate-limiting us.
+    /// Over rows kept from an earlier read, while the forge is rate-limiting us.
     pub inbox_banner: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
@@ -246,7 +246,7 @@ impl ReviewsScreen {
         cx.notify();
     }
 
-    /// While GitHub is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
+    /// While the forge is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
     fn read_again_when_limit_lifts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(live) = self.live.as_ref() else { return };
         let limited = live.inbox_banner.is_some() || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));

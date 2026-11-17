@@ -1,4 +1,4 @@
-//! The lists last read, and the wait GitHub's rate limit puts on reading them again.
+//! The lists last read, and the wait the forge's rate limit puts on reading them again.
 //! In memory: a Fleet that starts has read none, and the Reviews tab asks.
 
 use std::collections::BTreeMap;
@@ -10,13 +10,10 @@ use ipc::{PullReviewLists, PullReviewRateLimited, WireValue};
 
 use crate::clock::rfc3339_utc;
 
-/// Not unreadable: the forge named the limit, and Fleet waits it out.
-pub(crate) const LISTS_RATE_LIMITED: &str = "fleet.review_lists_rate_limited";
-
-/// Where GitHub named no time, Fleet asks again after this long.
+/// Where the forge named no time, Fleet asks again after this long.
 const UNNAMED_WAIT_MILLIS: i64 = 180_000;
 
-/// One wait. `until` is what GitHub said, in milliseconds since the epoch; absent where it said none.
+/// One wait. `until` is what the forge said, in milliseconds since the epoch; absent where it said none.
 #[derive(Clone, Copy)]
 pub(crate) struct Hold {
     pub(crate) until: Option<i64>,
@@ -37,7 +34,7 @@ impl Kept {
         *self.hold.lock().unwrap_or_else(PoisonError::into_inner) = None;
     }
 
-    /// GitHub refused for its rate limit: nothing is asked until `until`, or for a few minutes.
+    /// The forge refused for its rate limit: nothing is asked until `until`, or for a few minutes.
     pub(crate) fn hold(&self, now: i64, until_epoch_secs: Option<u64>) -> Hold {
         let until = until_epoch_secs.map(|secs| secs as i64 * 1_000);
         let hold = Hold { until, asks_again_at: until.unwrap_or(now + UNNAMED_WAIT_MILLIS) };
@@ -95,7 +92,7 @@ pub(crate) fn worst(failures: Vec<ListFailure>) -> Option<ListFailure> {
 
 /// The refusal for a rate limit with nothing kept to show: its own code, the time to try again in `until`.
 pub(crate) fn rate_limited_refusal(error: impl FnOnce(&'static str, String) -> ipc::WireError, until: Option<String>, said: String) -> Refusal {
-    let mut wire = error(LISTS_RATE_LIMITED, said);
+    let mut wire = error(ipc::REVIEW_LISTS_RATE_LIMITED, said);
     if let Some(until) = until {
         wire.fields.insert("until".to_string(), WireValue::Str(until));
     }

@@ -144,7 +144,7 @@ where
         if repositories.is_empty() {
             return Err(unreadable("no repository served has a remote the forge could be asked about"));
         }
-        // GitHub's wait is on: no call goes out, and the lists last read are shown, marked.
+        // The forge's wait is on: no call goes out, and the lists last read are shown, marked.
         let now = self.clock().now().epoch_millis().unwrap_or(0);
         if let Some(hold) = self.review_lists_kept().held(now) {
             return self.lists_limited(project, hold);

@@ -1,4 +1,4 @@
-//! GitHub's rate limit on the Reviews lists: said as the limit with its time, and the lists
+//! The forge's rate limit on the Reviews lists: said as the limit with its time, and the lists
 //! last read kept while Fleet waits it out.
 
 use adapter_traits::{ListFailure, ReviewList};
@@ -20,7 +20,7 @@ async fn every_list_rate_limited_with_nothing_kept_says_the_limit_and_when() {
     signed_in_as(&fleet, "nick");
     fleet.vcs().now_review_lists_fail(ListFailure::RateLimited { until: Some(FAR) });
     let refused = fleet.get_review_lists(None).await.unwrap_err();
-    assert_eq!(code(&refused), "fleet.review_lists_rate_limited");
+    assert_eq!(code(&refused), ipc::REVIEW_LISTS_RATE_LIMITED);
     assert_eq!(refused.error().message, "GitHub is rate-limiting us");
     assert_eq!(refused.error().fields.get("until"), Some(&WireValue::Str("2100-01-01T00:00:00.000Z".into())));
 }
@@ -32,7 +32,7 @@ async fn a_rate_limit_that_names_no_time_carries_no_until() {
     signed_in_as(&fleet, "nick");
     fleet.vcs().now_review_lists_fail(ListFailure::RateLimited { until: None });
     let refused = fleet.get_review_lists(None).await.unwrap_err();
-    assert_eq!(code(&refused), "fleet.review_lists_rate_limited");
+    assert_eq!(code(&refused), ipc::REVIEW_LISTS_RATE_LIMITED);
     assert!(!refused.error().fields.contains_key("until"));
 }
 

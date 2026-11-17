@@ -618,7 +618,7 @@ pub use pull_requests::{
 pub use pull_reviews::{
     DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRateLimited,
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
-    ResolvePullThread, MOST_PER_LIST,
+    ResolvePullThread, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
     MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,

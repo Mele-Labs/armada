@@ -440,12 +440,9 @@ fn cut(patch: &str, old_start: u64, new_start: u64) -> Option<String> {
     out.map(|lines| lines.join("\n"))
 }
 
-/// The rate limit's code, as Fleet answers a read that every list was held back from.
-pub const RATE_LIMITED: &str = "fleet.review_lists_rate_limited";
-
 /// What the inbox says for a refused read: Fleet's sentence, a rate limit with its time and, on a second line, when it reads again.
 pub fn refused_words(error: &ipc::WireError) -> String {
-    if error.code != RATE_LIMITED {
+    if error.code != ipc::REVIEW_LISTS_RATE_LIMITED {
         return error.message.clone();
     }
     let until = match error.fields.get("until") {
@@ -459,7 +456,7 @@ pub fn refused_words(error: &ipc::WireError) -> String {
 /// Said under a rate limit's title: nothing for him to do.
 pub const RATE_LIMIT_LIFTS: &str = "Reviews will read again by itself when the limit lifts.";
 
-/// The banner over rows kept from an earlier read while GitHub is rate-limiting us.
+/// The banner over rows kept from an earlier read while the forge is rate-limiting us.
 pub fn kept_banner(lists: &PullReviewLists) -> Option<String> {
     let limit = lists.rate_limited.as_ref()?;
     let until = limit.until.as_ref().and_then(|until| crate::settings::time::stamp_at(until.as_str()));
@@ -475,7 +472,7 @@ mod tests {
     use super::*;
 
     fn limited(until: Option<&str>) -> ipc::WireError {
-        let mut error = ipc::WireError::raised(RATE_LIMITED, "GitHub is rate-limiting us", ipc::RunId::carried("run-1"));
+        let mut error = ipc::WireError::raised(ipc::REVIEW_LISTS_RATE_LIMITED, "GitHub is rate-limiting us", ipc::RunId::carried("run-1"));
         if let Some(until) = until {
             error.fields.insert("until".into(), ipc::WireValue::Str(until.into()));
         }
