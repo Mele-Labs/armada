@@ -481,7 +481,15 @@ impl Store {
             .map_err(failed("marking a Job's questions due"))
     }
 
-    /// Take the oldest `limit` questions due a read, so no second read takes them. One whose read fails waits for the next turn's end.
+    /// The question `row_id` of `session` is due a read again, while it is unanswered.
+    pub fn keep_question_due(&mut self, session: &str, row_id: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("UPDATE story_questions SET due = 1 WHERE session_id = ?1 AND row_id = ?2 AND reply_row IS NULL", params![session, row_id])
+            .map(|_| ())
+            .map_err(failed("marking a question due again"))
+    }
+
+    /// Take the oldest `limit` questions due a read, so no second read takes them. One whose read fails is marked due again by Fleet, a few times.
     pub fn take_due_questions(&mut self, limit: u32) -> Result<Vec<KeptQuestion>, WriteError> {
         let doing = "taking the questions due a read";
         let taken: Vec<KeptQuestion> = {

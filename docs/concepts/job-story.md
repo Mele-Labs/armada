@@ -62,10 +62,12 @@ A reply over 4000 characters is cut to its first 1000 and its last 3000, since a
 **Rule.** A yes keeps the link: his question, the agent's message row that answers it, the reply's first prose up to about 300 characters, and when.
 The row id is the one `get_job_thread` takes as `before` and `upto`, so a client scrolls the thread to the answer.
 A no keeps the reply as read, so the same reply is not asked about again, and the question stays open for the next turn.
-A failed read, or an answer that says neither, leaves the question open, and the next turn's end makes it due again.
+The model may answer a bare yes or no, without the label, and markdown around it is read through.
+A failed read, or an answer that says neither, is logged with what the model said and tried again on the next passes of the loop, three reads in all, and then waits for the next turn's end.
+The count of tries is kept in memory, and a turn's end starts it over.
 
 **Rule.** An answer starts unread, and `mark_answer_read` marks it read when he jumps to it or a client draws it.
-The store keeps it, so it holds across a restart.
+The store keeps it, so it holds across a restart, and a read on another Mac is passed on to the Mac that holds the Job.
 `answer_unread` on the Job's record says whether any answer of the Job's waits unread, for the dot on its row.
 A question he sorts as another kind loses its link.
 `list_job_questions` lists a Job's questions, the unanswered first and each group newest first.

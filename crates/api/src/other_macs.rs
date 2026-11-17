@@ -17,7 +17,7 @@ use crate::served::Served;
 use crate::sockets::{resync, send};
 use crate::stream::Next;
 
-pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests>() -> Router<Served<D>> {
+pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))

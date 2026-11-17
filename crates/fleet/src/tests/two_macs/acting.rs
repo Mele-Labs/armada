@@ -363,3 +363,36 @@ async fn a_queued_act_the_mac_refuses_stays_with_its_why_and_the_acts_after_it_s
     assert_eq!(status, axum::http::StatusCode::OK, "{body}");
     assert!(queued(&home).await.queued.is_empty(), "taking it back is how it goes");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn an_answer_read_on_one_mac_is_marked_read_on_the_mac_that_holds_the_job() {
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+    {
+        let mut store = work.rig.fleet.store().lock().await;
+        let at = "2026-11-17T10:00:00.000Z".to_string();
+        let message = store::KeptMessage {
+            session_id: job.as_str().into(),
+            row_id: "q1".into(),
+            kind: store::message_kind::QUESTION.into(),
+            ask_id: None,
+            words: "why is the badge red?".into(),
+            at: at.clone(),
+            sorted_by: store::sorted_by::FLEET.into(),
+            sorted_at: at.clone(),
+        };
+        store.keep_message(&message).expect("kept");
+        store.keep_question(job.as_str(), "q1").expect("kept");
+        store.keep_question_answered(job.as_str(), "q1", "r1", "Because the vote failed.", &at).expect("linked");
+    }
+
+    let mark = ipc::MarkAnswerRead { session_id: job.clone(), row_id: "q1".into() };
+    let (status, body) = post(&home, "/sessions/question/read", encoded(&mark)).await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    let question: ipc::JobQuestion = ipc::decode("a question", body.as_bytes()).expect("a question");
+    assert!(question.answer.expect("answered").read);
+    assert!(!work.rig.fleet.store().lock().await.answer_unread(job.as_str()).expect("reads"), "Work's store holds it read");
+
+    let ran = acts_run(&work).await;
+    assert_eq!(ran.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["answer_read"]);
+    assert!(acts_run(&home).await.is_empty());
+}

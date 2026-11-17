@@ -7,7 +7,7 @@ use axum::response::Response;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::Story;
+use crate::daemon::{OtherMacs, Story};
 use crate::served::Served;
 
 /// `?session_id=` on the reads of one Job.
@@ -103,11 +103,15 @@ pub(crate) async fn list_job_questions<D: Story>(State(served): State<Served<D>>
 }
 
 /// He read an answer. 200 with the question as kept; 404 for a Job or a question not held; 409 for a question no reply answers yet.
-pub(crate) async fn mark_answer_read<D: Story>(State(served): State<Served<D>>, body: Bytes) -> Response {
+/// **Passed on to the Mac that holds the Job**, whose store keeps what he read.
+pub(crate) async fn mark_answer_read<D: Story + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let mark: ipc::MarkAnswerRead = match ipc::decode_body("an answer read", &body) {
         Ok(mark) => mark,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(mark.session_id.as_str()).await {
+        return crate::mac_acts::across(&served, mac, ipc::JobAct::AnswerRead(mark)).await;
+    }
     match served.daemon().mark_answer_read(mark).await {
         Ok(question) => answer(StatusCode::OK, &question, served.run_id()),
         Err(refusal) => refused(refusal),

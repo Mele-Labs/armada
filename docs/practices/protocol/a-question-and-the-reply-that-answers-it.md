@@ -16,7 +16,10 @@ The rules are `docs/concepts/job-story.md`, *A question and its answer*.
 | `JobQuestion` | Fleet writes | `row_id`, his message's; `words`; `asked_at`; `answer`, absent while open |
 | `JobAnswer` | Fleet writes | `reply_row`, the agent's `message` row id; `excerpt`, about 300 characters of prose; `answered_at`; `read` |
 | `mark_answer_read` | Bridge writes | `POST /sessions/question/read`, `MarkAnswerRead { session_id, row_id }`, answered with the `JobQuestion` |
+| `JobAct::AnswerRead` | Fleet sends to the Mac holding the Job | `answer_read`, body `MarkAnswerRead` |
 | `SessionRecord.answer_unread` | Fleet answers | `true` where an answer of the Job's waits unread. Absent where none does |
+
+**A Job held from another Mac is marked read on that Mac.** `mark_answer_read` is passed on as the act `answer_read` (`JobAct::AnswerRead`), queued while that Mac sleeps, and its store keeps what he read.
 
 **`reply_row` is a `SessionRow` id**, the one `get_job_thread` takes as `before` and `upto`, so a client scrolls its thread to the answer without a new lookup.
 
