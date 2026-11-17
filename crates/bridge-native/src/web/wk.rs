@@ -11,26 +11,28 @@
 
 use std::cell::{Cell, RefCell};
 use std::ptr::NonNull;
+use std::rc::Rc;
 
 use block2::{DynBlock, RcBlock};
 use objc2::rc::Retained;
-use objc2::runtime::{AnyObject, ProtocolObject};
+use objc2::runtime::{AnyObject, Bool, ProtocolObject};
 use objc2::{define_class, msg_send, DefinedClass, MainThreadMarker, MainThreadOnly};
 use objc2_app_kit::{
-    NSAppearance, NSAppearanceCustomization, NSAppearanceNameDarkAqua, NSBezierPath, NSBitmapImageFileType, NSBitmapImageRep, NSColor, NSEvent, NSEventMask,
+    NSAlert, NSAppearance, NSAppearanceCustomization, NSBackingStoreType, NSWindowStyleMask, NSAppearanceNameDarkAqua, NSBezierPath, NSBitmapImageFileType, NSBitmapImageRep, NSColor, NSEvent, NSEventMask,
     NSEventType, NSImage, NSResponder, NSView, NSWindow,
 };
 use objc2_foundation::{
     NSDate, NSDictionary, NSError, NSJSONSerialization, NSJSONWritingOptions, NSKeyValueObservingOptions, NSObjectNSKeyValueObserverRegistration, NSNumber, NSObject, NSObjectProtocol, NSPoint, NSRect, NSRunLoop,
-    NSSize, NSString, NSURL, NSURLRequest, NSUUID,
+    NSSize, NSString, NSHTTPURLResponse, NSURL, NSURLRequest, NSURLResponse, NSUUID,
 };
 use objc2_web_kit::{
-    WKContentRuleList, WKContentRuleListStore, WKContentWorld, WKFrameInfo, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
+    WKContentRuleList, WKContentRuleListStore, WKContentWorld, WKDownload, WKDownloadDelegate, WKFrameInfo, WKNavigationResponse, WKNavigationResponsePolicy, WKWindowFeatures, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
     WKNavigationDelegate, WKNavigationType, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, WKSecurityOrigin, WKSnapshotConfiguration, WKUIDelegate, WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration,
     WKWebpagePreferences, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
 
+use super::acts::{self, DownloadWay, PopupWay, Way};
 use super::frame::{frame_in, Frame};
 use super::keys::{self, Press};
 
@@ -92,7 +94,7 @@ pub struct Reply<T: 'static> {
 }
 
 impl<T: 'static> Reply<T> {
-    fn new(fallback: T, call: impl FnOnce(T) + 'static) -> Reply<T> {
+    pub fn new(fallback: T, call: impl FnOnce(T) + 'static) -> Reply<T> {
         Reply { call: Some(Box::new(call)), fallback: Some(fallback) }
     }
 
@@ -127,6 +129,8 @@ pub enum Said {
     Location,
     /// `fetch`, `XMLHttpRequest`, `WebSocket` or `EventSource` reached `target`, a host name or address that is plainly local.
     LocalNetwork { target: String },
+    /// The page starts, or takes the focus again, and asks whether fullscreen is blocked for it. Answered `false` where it is.
+    Fullscreen,
 }
 
 fn said_of(text: &str) -> Option<Said> {
@@ -134,6 +138,7 @@ fn said_of(text: &str) -> Option<Said> {
     match posted.kind.as_str() {
         "location" => Some(Said::Location),
         "local_network" => Some(Said::LocalNetwork { target: posted.target }),
+        "fullscreen" => Some(Said::Fullscreen),
         _ => None,
     }
 }
@@ -146,11 +151,47 @@ pub enum Request {
     Site { origin: String, said: Said, reply: Reply<bool> },
     /// The page is made, and holds its first load until it is given its content rule list (`Native::set_rules`).
     Made,
+    /// A popup or a download the owner's choice is Ask for, which WebKit was told no to meanwhile: carried out by `Native::carry_out`
+    /// once he allows it.
+    Act { act: Act, address: String },
+}
+
+/// What a page asks to do that is held back for the owner's say.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Act {
+    Popup,
+    Download,
+}
+
+/// What a Job browser's page may do, by the owner's choices for the host it shows. The tab that holds the page keeps it current
+/// (`Native::policy`), since WebKit asks for a popup and a download in the same turn and cannot wait on a read of the file.
+#[derive(Clone, Debug, Default)]
+pub struct Policy {
+    pub host: Option<String>,
+    pub popups: Way,
+    pub downloads: Way,
+}
+
+/// The policy as the page and its popups share it.
+pub type SharedPolicy = Rc<RefCell<Policy>>;
+
+/// Where a Job browser's page sends what it asks, and the choices it is held to.
+#[derive(Clone)]
+struct Reach {
+    policy: SharedPolicy,
+    requests: async_channel::Sender<Request>,
+}
+
+impl Reach {
+    fn ask(&self, act: Act, address: String) {
+        let _ = self.requests.try_send(Request::Act { act, address });
+    }
 }
 
 /// Where a Job browser's page sends what it asks.
 pub struct Site {
     pub requests: async_channel::Sender<Request>,
+    pub policy: SharedPolicy,
     /// Scripts run in the page's own world in every frame, at document start. Each posts to the handler named `SITE_HANDLER`.
     pub scripts: Vec<&'static str>,
 }
@@ -188,6 +229,10 @@ pub fn pump(seconds: f64) {
 struct NavState {
     events: async_channel::Sender<Nav>,
     sealed: bool,
+    /// A Job browser's page, held to the owner's choices: it goes only to the web, and downloads as he chose.
+    reach: Option<Reach>,
+    /// A popup's: it counts for no load the page's holder waits on.
+    quiet: bool,
 }
 
 define_class!(
@@ -202,19 +247,25 @@ define_class!(
     unsafe impl WKNavigationDelegate for Navigation {
         #[unsafe(method(webView:didFinishNavigation:))]
         fn did_finish(&self, _: &WKWebView, _: Option<&WKNavigation>) {
-            pending_down();
+            if !self.ivars().quiet {
+                pending_down();
+            }
             let _ = self.ivars().events.try_send(Nav::Finished);
         }
 
         #[unsafe(method(webView:didFailNavigation:withError:))]
         fn did_fail(&self, _: &WKWebView, _: Option<&WKNavigation>, error: &NSError) {
-            pending_down();
+            if !self.ivars().quiet {
+                pending_down();
+            }
             let _ = self.ivars().events.try_send(failure(error));
         }
 
         #[unsafe(method(webView:didFailProvisionalNavigation:withError:))]
         fn did_fail_first(&self, _: &WKWebView, _: Option<&WKNavigation>, error: &NSError) {
-            pending_down();
+            if !self.ivars().quiet {
+                pending_down();
+            }
             let _ = self.ivars().events.try_send(failure(error));
         }
 
@@ -226,11 +277,122 @@ define_class!(
                 let url = action.request().URL().map(|url| url.absoluteString().map(|text| text.to_string()).unwrap_or_default());
                 (action.navigationType(), url.as_deref().is_none_or(|url| url.is_empty() || url.starts_with("about:")))
             };
+            if let Some(reach) = &self.ivars().reach {
+                // SAFETY: the live action WebKit passed this call, read on the main thread.
+                let (download, main) = unsafe { (action.shouldPerformDownload(), action.targetFrame().is_none_or(|frame| frame.isMainFrame())) };
+                let url = unsafe { action.request().URL().and_then(|url| url.absoluteString()).map(|text| text.to_string()).unwrap_or_default() };
+                let policy = reach.policy.borrow().clone();
+                let answer = if download {
+                    match acts::download_way(policy.host.as_deref(), policy.downloads) {
+                        DownloadWay::Take => WKNavigationActionPolicy::Download,
+                        DownloadWay::Ask => {
+                            reach.ask(Act::Download, url);
+                            WKNavigationActionPolicy::Cancel
+                        }
+                        DownloadWay::Refuse => WKNavigationActionPolicy::Cancel,
+                    }
+                } else if main && !(acts::only_web(&url) || acts::is_blank(&url)) {
+                    // Only the web is loaded: a file, a script address or another app's scheme is refused (`will-navigate`).
+                    WKNavigationActionPolicy::Cancel
+                } else {
+                    WKNavigationActionPolicy::Allow
+                };
+                handler.call((answer,));
+                return;
+            }
             let allowed = !self.ivars().sealed || (kind == WKNavigationType::Other && is_blank);
             handler.call((if allowed { WKNavigationActionPolicy::Allow } else { WKNavigationActionPolicy::Cancel },));
         }
+
+        #[unsafe(method(webView:decidePolicyForNavigationResponse:decisionHandler:))]
+        fn decide_response(&self, _: &WKWebView, response: &WKNavigationResponse, handler: &DynBlock<dyn Fn(WKNavigationResponsePolicy)>) {
+            // SAFETY: the live response WebKit passed this call, read on the main thread.
+            let (main, can_show, disposition, url) = unsafe {
+                let raw = response.response();
+                let disposition = raw.downcast_ref::<NSHTTPURLResponse>().and_then(|http| http.valueForHTTPHeaderField(&NSString::from_str("Content-Disposition"))).map(|text| text.to_string());
+                let url = raw.URL().and_then(|url| url.absoluteString()).map(|text| text.to_string()).unwrap_or_default();
+                (response.isForMainFrame(), response.canShowMIMEType(), disposition, url)
+            };
+            let shown = if can_show { WKNavigationResponsePolicy::Allow } else { WKNavigationResponsePolicy::Cancel };
+            let answer = match &self.ivars().reach {
+                // A file the page cannot show, or the server said to save, is a download, as the owner's choice says.
+                Some(reach) if main && acts::is_download(can_show, disposition.as_deref()) => {
+                    let policy = reach.policy.borrow().clone();
+                    match acts::download_way(policy.host.as_deref(), policy.downloads) {
+                        DownloadWay::Take => WKNavigationResponsePolicy::Download,
+                        DownloadWay::Ask => {
+                            reach.ask(Act::Download, url);
+                            WKNavigationResponsePolicy::Cancel
+                        }
+                        DownloadWay::Refuse => WKNavigationResponsePolicy::Cancel,
+                    }
+                }
+                _ => shown,
+            };
+            handler.call((answer,));
+        }
+
+        #[unsafe(method(webView:navigationAction:didBecomeDownload:))]
+        fn action_became_download(&self, _: &WKWebView, _: &WKNavigationAction, download: &WKDownload) {
+            into_downloads(download, self.mtm());
+        }
+
+        #[unsafe(method(webView:navigationResponse:didBecomeDownload:))]
+        fn response_became_download(&self, _: &WKWebView, _: &WKNavigationResponse, download: &WKDownload) {
+            into_downloads(download, self.mtm());
+        }
     }
 );
+
+thread_local! {
+    /// The one delegate every download is given: kept for the process, since a download outlives the page and the tab that began it.
+    static DOWNLOADS: RefCell<Option<Retained<Downloads>>> = const { RefCell::new(None) };
+}
+
+/// A download given to the delegate that writes it into the Downloads folder.
+fn into_downloads(download: &WKDownload, mtm: MainThreadMarker) {
+    let sink = DOWNLOADS.with(|sink| sink.borrow_mut().get_or_insert_with(|| Downloads::new(mtm)).clone());
+    // SAFETY: the live download WebKit made, on the main thread; its delegate is held weakly, and `DOWNLOADS` holds it.
+    unsafe { download.setDelegate(Some(ProtocolObject::from_ref(&*sink))) };
+}
+
+/// Where a download is written: `~/Downloads`, under the name the server suggested, or under it with a number where one has that name.
+fn downloads_path(suggested: &str) -> Option<std::path::PathBuf> {
+    let folder = std::path::Path::new(&std::env::var_os("HOME")?).join("Downloads");
+    std::fs::create_dir_all(&folder).ok()?;
+    Some(acts::unique_path(&folder, suggested, |path| path.exists()))
+}
+
+define_class!(
+    // SAFETY: NSObject has no subclassing requirements, and `Downloads` implements no `Drop`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = ()]
+    struct Downloads;
+
+    unsafe impl NSObjectProtocol for Downloads {}
+
+    unsafe impl WKDownloadDelegate for Downloads {
+        #[unsafe(method(download:decideDestinationUsingResponse:suggestedFilename:completionHandler:))]
+        fn decide_destination(&self, _: &WKDownload, _: &NSURLResponse, suggested: &NSString, handler: &DynBlock<dyn Fn(*mut NSURL)>) {
+            let Some(path) = downloads_path(&suggested.to_string()) else {
+                // No place to write it: the download is cancelled.
+                handler.call((std::ptr::null_mut(),));
+                return;
+            };
+            let url = NSURL::fileURLWithPath(&NSString::from_str(&path.to_string_lossy()));
+            handler.call((Retained::as_ptr(&url).cast_mut(),));
+        }
+    }
+);
+
+impl Downloads {
+    fn new(mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(());
+        // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
+        unsafe { msg_send![super(this), init] }
+    }
+}
 
 /// NSURLErrorCancelled, in NSURLErrorDomain.
 const URL_CANCELLED: isize = -999;
@@ -244,18 +406,99 @@ fn failure(error: &NSError) -> Nav {
 }
 
 impl Navigation {
-    fn new(events: async_channel::Sender<Nav>, sealed: bool, mtm: MainThreadMarker) -> Retained<Self> {
-        let this = mtm.alloc::<Self>().set_ivars(NavState { events, sealed });
+    fn new(events: async_channel::Sender<Nav>, sealed: bool, reach: Option<Reach>, quiet: bool, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(NavState { events, sealed, reach, quiet });
         // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
         unsafe { msg_send![super(this), init] }
     }
+}
+
+/// A popup the page opened: its window, the page in it and the delegates that page is held to.
+struct Popup {
+    window: Retained<NSWindow>,
+    view: Retained<WKWebView>,
+    _ui: Retained<PageUi>,
+    _navigation: Retained<Navigation>,
+}
+
+type Popups = Rc<RefCell<Vec<Popup>>>;
+
+/// What a Job browser's page and the popups it opens say to Bridge, and the popups it has open.
+struct Ui {
+    reach: Reach,
+    popups: Popups,
+}
+
+/// A window of its own, in a plain NSWindow, for a page the opener made with `configuration`, so `window.opener` works. It goes with the
+/// opener's tab (`Native`'s `Drop`). A window the owner closed is let go the next time one opens.
+fn open_popup(ui: &Ui, configuration: &WKWebViewConfiguration, title: &str, mtm: MainThreadMarker) -> Retained<WKWebView> {
+    let size = Frame::new(0., 0., POPUP_WIDTH, POPUP_HEIGHT);
+    // SAFETY: every call is on the main thread, on objects made here, with arguments of the types AppKit and WebKit document; the view
+    // is made with the configuration WebKit gave, as it requires.
+    let (view, window) = unsafe {
+        let view = WKWebView::initWithFrame_configuration(mtm.alloc(), rect(size), configuration);
+        let window = NSWindow::initWithContentRect_styleMask_backing_defer(
+            mtm.alloc(),
+            rect(size),
+            NSWindowStyleMask::Titled | NSWindowStyleMask::Closable | NSWindowStyleMask::Miniaturizable | NSWindowStyleMask::Resizable,
+            NSBackingStoreType::Buffered,
+            false,
+        );
+        // The window is held by `Popup`, not by AppKit, so closing it does not free it under the page.
+        window.setReleasedWhenClosed(false);
+        (view, window)
+    };
+    window.setTitle(&NSString::from_str(title));
+    window.setContentView(Some(&view));
+    let (events, _) = async_channel::unbounded();
+    let navigation = Navigation::new(events, false, Some(ui.reach.clone()), true, mtm);
+    let page_ui = PageUi::new(Ui { reach: ui.reach.clone(), popups: ui.popups.clone() }, mtm);
+    // SAFETY: the delegates are held by `Popup` for as long as the view is, on the main thread.
+    unsafe {
+        view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
+        view.setUIDelegate(Some(ProtocolObject::from_ref(&*page_ui)));
+    }
+    window.center();
+    window.makeKeyAndOrderFront(None);
+    let mut popups = ui.popups.borrow_mut();
+    popups.retain(|popup| popup.window.isVisible() || popup.window.isMiniaturized());
+    popups.push(Popup { window, view: view.clone(), _ui: page_ui, _navigation: navigation });
+    view
+}
+
+const POPUP_WIDTH: f64 = 800.;
+const POPUP_HEIGHT: f64 = 600.;
+
+/// A page's JavaScript dialog, as a sheet on the window the page is in, and `done` with whether its first button was pressed. A page in no
+/// window has no place for one: it is answered as `acts::unplaced_answer` says.
+fn show_dialog(view: &WKWebView, frame: &WKFrameInfo, message: &NSString, kind: acts::Dialog, done: impl Fn(bool) + 'static, mtm: MainThreadMarker) {
+    let Some(window) = view.window() else {
+        done(acts::unplaced_answer(kind).unwrap_or(false));
+        return;
+    };
+    // SAFETY: the live frame WebKit passed this call, read on the main thread.
+    let origin = unsafe { frame.securityOrigin() };
+    let alert = NSAlert::new(mtm);
+    alert.setMessageText(&NSString::from_str(&format!("{} says", origin_host(&origin))));
+    alert.setInformativeText(message);
+    alert.addButtonWithTitle(&NSString::from_str("OK"));
+    if kind == acts::Dialog::Confirm {
+        alert.addButtonWithTitle(&NSString::from_str("Cancel"));
+    }
+    let keep = alert.clone();
+    let finished = RcBlock::new(move |response: isize| {
+        let _alert = &keep;
+        // NSAlertFirstButtonReturn.
+        done(response == 1000);
+    });
+    alert.beginSheetModalForWindow_completionHandler(&window, Some(&finished));
 }
 
 define_class!(
     // SAFETY: NSObject has no subclassing requirements, and `PageUi` implements no `Drop`.
     #[unsafe(super(NSObject))]
     #[thread_kind = MainThreadOnly]
-    #[ivars = async_channel::Sender<Request>]
+    #[ivars = Ui]
     struct PageUi;
 
     unsafe impl NSObjectProtocol for PageUi {}
@@ -268,17 +511,70 @@ define_class!(
             let camera = kind == WKMediaCaptureType::Camera || kind == WKMediaCaptureType::CameraAndMicrophone;
             let microphone = kind == WKMediaCaptureType::Microphone || kind == WKMediaCaptureType::CameraAndMicrophone;
             // Sent nowhere (no one hears it), the reply is let go, and denies.
-            let _ = self.ivars().try_send(Request::Media { origin: origin_url(origin), camera, microphone, reply });
+            let _ = self.ivars().reach.requests.try_send(Request::Media { origin: origin_url(origin), camera, microphone, reply });
+        }
+
+        #[unsafe(method_id(webView:createWebViewWithConfiguration:forNavigationAction:windowFeatures:))]
+        fn create_web_view(&self, _: &WKWebView, configuration: &WKWebViewConfiguration, action: &WKNavigationAction, _: &WKWindowFeatures) -> Option<Retained<WKWebView>> {
+            // SAFETY: the live action WebKit passed this call, read on the main thread.
+            let wants = unsafe { action.request().URL().and_then(|url| url.absoluteString()).map(|text| text.to_string()).unwrap_or_default() };
+            let policy = self.ivars().reach.policy.borrow().clone();
+            match acts::popup_way(policy.host.as_deref(), &wants, policy.popups) {
+                PopupWay::Refuse => None,
+                PopupWay::Ask => {
+                    // No window now: the owner is asked, and a window with the address opens after his Allow, without `window.opener`.
+                    self.ivars().reach.ask(Act::Popup, wants);
+                    None
+                }
+                PopupWay::Open => Some(open_popup(self.ivars(), configuration, policy.host.as_deref().unwrap_or_default(), self.mtm())),
+            }
+        }
+
+        #[unsafe(method(webViewDidClose:))]
+        fn did_close(&self, view: &WKWebView) {
+            let gone: Vec<Popup> = {
+                let mut popups = self.ivars().popups.borrow_mut();
+                let (gone, kept) = popups.drain(..).partition(|popup| std::ptr::eq(&*popup.view, view));
+                *popups = kept;
+                gone
+            };
+            for popup in gone {
+                popup.window.close();
+            }
+        }
+
+        #[unsafe(method(webView:runJavaScriptAlertPanelWithMessage:initiatedByFrame:completionHandler:))]
+        fn alert(&self, view: &WKWebView, message: &NSString, frame: &WKFrameInfo, handler: &DynBlock<dyn Fn()>) {
+            let handler = handler.copy();
+            show_dialog(view, frame, message, acts::Dialog::Alert, move |_| handler.call(()), self.mtm());
+        }
+
+        #[unsafe(method(webView:runJavaScriptConfirmPanelWithMessage:initiatedByFrame:completionHandler:))]
+        fn confirm(&self, view: &WKWebView, message: &NSString, frame: &WKFrameInfo, handler: &DynBlock<dyn Fn(Bool)>) {
+            let handler = handler.copy();
+            show_dialog(view, frame, message, acts::Dialog::Confirm, move |yes| handler.call((Bool::new(yes),)), self.mtm());
+        }
+
+        #[unsafe(method(webView:runJavaScriptTextInputPanelWithPrompt:defaultText:initiatedByFrame:completionHandler:))]
+        fn prompt(&self, _: &WKWebView, _: &NSString, _: Option<&NSString>, _: &WKFrameInfo, handler: &DynBlock<dyn Fn(*mut NSString)>) {
+            // `prompt` is not supported, as in Classic: it is answered with nothing, as Cancel does.
+            handler.call((std::ptr::null_mut(),));
         }
     }
 );
 
 impl PageUi {
-    fn new(requests: async_channel::Sender<Request>, mtm: MainThreadMarker) -> Retained<Self> {
-        let this = mtm.alloc::<Self>().set_ivars(requests);
+    fn new(ui: Ui, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(ui);
         // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
         unsafe { msg_send![super(this), init] }
     }
+}
+
+/// A security origin's host: `example.com`.
+fn origin_host(origin: &WKSecurityOrigin) -> String {
+    // SAFETY: a read of the live origin WebKit passed this call, on the main thread.
+    unsafe { origin.host().to_string() }
 }
 
 /// A security origin as a web address: `https://example.com:8443/`.
@@ -470,6 +766,8 @@ pub struct Native {
     /// Where a Job browser's page waits for its rule list.
     gate: Option<std::rc::Rc<Gate>>,
     serial: u64,
+    /// What the page asks, the choices it is held to, and the popups it has open, which close with it.
+    ui: Option<Ui>,
     /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
     watching: RefCell<Option<Retained<Watching>>>,
     mtm: MainThreadMarker,
@@ -514,9 +812,10 @@ impl Native {
             serial.get()
         });
         let made = site.as_ref().map(|site| site.requests.clone());
+        let ui = site.as_ref().map(|site| Ui { reach: Reach { policy: site.policy.clone(), requests: site.requests.clone() }, popups: Popups::default() });
         // SAFETY: every call below is on the main thread, on objects made here, with arguments of the types
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
-        let (view, navigation, kit, ui, site) = unsafe {
+        let (view, navigation, kit, ui_delegate, site) = unsafe {
             let config = WKWebViewConfiguration::new(mtm);
             // The kit's handler is in the page's own world, where the kit's script runs.
             let kit = options.kit.clone().map(|posts| {
@@ -540,6 +839,11 @@ impl Native {
                 preferences.setAllowsContentJavaScript(false);
                 config.setDefaultWebpagePreferences(Some(&preferences));
             }
+            if site.is_some() {
+                // Element fullscreen is off in WKWebView until it is asked for. A site the owner blocked it for is refused in the
+                // page (`fullscreen.js`), since the preference is copied into the view and cannot be changed after.
+                config.preferences().setElementFullscreenEnabled(true);
+            }
             let messages = site.as_ref().map(|site| {
                 let controller = config.userContentController();
                 let messages = SiteMessages::new(site.requests.clone(), mtm);
@@ -551,13 +855,13 @@ impl Native {
                 messages
             });
             let view = WKWebView::initWithFrame_configuration(mtm.alloc(), rect(size), &config);
-            let navigation = Navigation::new(events, options.sealed, mtm);
+            let navigation = Navigation::new(events, options.sealed, ui.as_ref().map(|ui| ui.reach.clone()), false, mtm);
             view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
-            let ui = site.map(|site| PageUi::new(site.requests, mtm));
-            if let Some(ui) = &ui {
-                view.setUIDelegate(Some(ProtocolObject::from_ref(&**ui)));
+            let ui_delegate = ui.as_ref().map(|ui| PageUi::new(Ui { reach: ui.reach.clone(), popups: ui.popups.clone() }, mtm));
+            if let Some(delegate) = &ui_delegate {
+                view.setUIDelegate(Some(ProtocolObject::from_ref(&**delegate)));
             }
-            (view, navigation, kit, ui, messages)
+            (view, navigation, kit, ui_delegate, messages)
         };
         if options.clear {
             // SAFETY: key-value coding on the live view, on the main thread; `drawsBackground` is a boolean key
@@ -578,7 +882,7 @@ impl Native {
         if let Some(made) = made {
             let _ = made.try_send(Request::Made);
         }
-        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, site, gate, serial, watching: RefCell::new(None), mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui_delegate, site, gate, serial, ui, watching: RefCell::new(None), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -593,6 +897,28 @@ impl Native {
         unsafe {
             let request = NSURLRequest::requestWithURL(&url);
             self.view.loadRequest(&request);
+        }
+    }
+
+    /// A popup or a download the owner was asked about and allowed.
+    pub fn carry_out(&self, act: Act, address: &str) {
+        let (Some(ui), true) = (&self.ui, acts::only_web(address)) else { return };
+        let Some(url) = NSURL::URLWithString(&NSString::from_str(address)) else { return };
+        // SAFETY: calls on the main thread, on the live view and objects made here.
+        unsafe {
+            let request = NSURLRequest::requestWithURL(&url);
+            match act {
+                Act::Popup => {
+                    let host = ui.reach.policy.borrow().host.clone().unwrap_or_default();
+                    // The page's own configuration, so its scripts and rules apply; it cannot be the opener's `window.opener`.
+                    open_popup(ui, &self.view.configuration(), &host, self.mtm).loadRequest(&request);
+                }
+                Act::Download => {
+                    let mtm = self.mtm;
+                    let began = RcBlock::new(move |download: NonNull<WKDownload>| into_downloads(download.as_ref(), mtm));
+                    self.view.startDownloadUsingRequest_completionHandler(&request, &began);
+                }
+            }
         }
     }
 
@@ -971,6 +1297,13 @@ impl Drop for Native {
                 let controller = self.view.configuration().userContentController();
                 controller.removeScriptMessageHandlerForName_contentWorld(&NSString::from_str(SITE_HANDLER), &WKContentWorld::pageWorld(self.mtm));
                 controller.removeAllUserScripts();
+            }
+        }
+        if let Some(ui) = &self.ui {
+            // The popups a page opened go with its tab.
+            let popups: Vec<Popup> = ui.popups.borrow_mut().drain(..).collect();
+            for popup in popups {
+                popup.window.close();
             }
         }
         give_keys_back(&self.view);

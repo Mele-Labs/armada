@@ -24,7 +24,7 @@ use super::site_panel::{self, press_of, stepped, Press, Scope, SiteState};
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::web::{web_pane, Request, Said, Status, WebPage, WebPageEvent};
+use crate::web::{web_pane, Act, Policy, Request, Said, Status, WebPage, WebPageEvent, Way};
 
 actions!(job_browser, [DismissAsk]);
 
@@ -335,6 +335,19 @@ impl BrowserTab {
                     // POSITION_UNAVAILABLE.
                     self.permit(vec![Permission::Location], host_of(&origin), move |given| reply.send(given), window, cx);
                 }
+                Said::Fullscreen => {
+                    // Asked of no one: a site is given fullscreen unless its choice is Block (Ask counts as Allow, since Classic asks
+                    // nothing for it). The page keeps the answer, so a press that asks for it is answered in the same turn.
+                    let (store, repository, host) = (self.store.clone(), self.repository.clone(), host_of(&origin));
+                    cx.spawn_in(window, async move |_, cx| {
+                        let settings = match store {
+                            Some(store) => cx.background_executor().spawn(async move { store.read() }).await,
+                            None => Settings::default(),
+                        };
+                        reply.send(host.is_none_or(|host| settings.effective(&repository, &host, Permission::Fullscreen) != Choice::Block));
+                    })
+                    .detach();
+                }
                 Said::LocalNetwork { target } => {
                     // Only a request to a more private space than the page's own is asked about. The reach has gone out already, or been
                     // refused by the rule list; an Allow here lifts the refusal for what the page does next.
@@ -348,6 +361,23 @@ impl BrowserTab {
                 }
             },
             Request::Made => self.refresh_rules(window, cx),
+            Request::Act { act, address } => {
+                // The page was told no meanwhile; an Allow carries the popup or the download out, and a Block or a dismissal ends it.
+                let permission = match act {
+                    Act::Popup => Permission::Popups,
+                    Act::Download => Permission::Downloads,
+                };
+                let (given, allowed) = async_channel::bounded(1);
+                self.permit(vec![permission], host_of(&self.url), move |yes| {
+                    let _ = given.try_send(yes);
+                }, window, cx);
+                cx.spawn_in(window, async move |this, cx| {
+                    if allowed.recv().await == Ok(true) {
+                        let _ = this.update(cx, |this, cx| this.page.read(cx).carry_out(act, &address));
+                    }
+                })
+                .detach();
+            }
         }
     }
 
@@ -362,6 +392,9 @@ impl BrowserTab {
             };
             let json = rules_json(&settings, &repository);
             let _ = this.update(cx, |this, cx| {
+                // What the page may do by the host it shows now, for the turns WebKit cannot wait on a read of the file.
+                let policy = policy_of(&settings, &repository, host_of(&this.url));
+                this.page.update(cx, |page, _| page.set_policy(policy));
                 if this.rules_seen.as_ref() == Some(&json) {
                     return;
                 }
@@ -615,6 +648,20 @@ impl BrowserTab {
         };
         labelled(body, Role::Button, name).into_any_element()
     }
+}
+
+fn way_of(choice: Choice) -> Way {
+    match choice {
+        Choice::Allow => Way::Allow,
+        Choice::Ask => Way::Ask,
+        Choice::Block => Way::Block,
+    }
+}
+
+/// What a page may do, for the host it shows: a popup and a download are decided in the turn WebKit asks, so the choices are kept at hand.
+fn policy_of(settings: &Settings, repository: &str, host: Option<String>) -> Policy {
+    let choice = |permission| host.as_deref().map_or(Choice::Block, |host| settings.effective(repository, host, permission));
+    Policy { popups: way_of(choice(Permission::Popups)), downloads: way_of(choice(Permission::Downloads)), host }
 }
 
 /// The owner's choices and the tab's ask, as deciding a page's request reads them.
@@ -1079,6 +1126,47 @@ mod tests {
         assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Allow);
         tab.update_in(cx, |tab, window, cx| tab.press_choice(Permission::LocalNetwork, Choice::Block, window, cx));
         assert_eq!(value(&tab, Permission::LocalNetwork, cx), Choice::Block, "Block and Ask take no confirm");
+    }
+
+    #[test]
+    fn a_page_is_held_to_the_choices_for_the_host_it_shows() {
+        let settings = Settings::default().with_choice("armada", "a.com", Permission::Popups, Choice::Block).with_choice("armada", "a.com", Permission::Downloads, Choice::Allow);
+        let at = policy_of(&settings, "armada", Some("a.com".into()));
+        assert_eq!((at.popups, at.downloads, at.host.as_deref()), (Way::Block, Way::Allow, Some("a.com")));
+        let other = policy_of(&settings, "armada", Some("b.com".into()));
+        assert_eq!((other.popups, other.downloads), (Way::Allow, Way::Ask), "the shipped defaults: popups allowed, downloads asked");
+        let none = policy_of(&settings, "armada", None);
+        assert_eq!((none.popups, none.downloads, none.host), (Way::Block, Way::Block, None), "a page with no host is given nothing");
+    }
+
+    #[gpui::test]
+    fn fullscreen_is_refused_to_a_site_that_chose_block_and_given_to_the_rest(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let store = scratch_store();
+        store.choose(NO_REPOSITORY, "blocked.example.com", Permission::Fullscreen, Choice::Block).unwrap();
+        tab.update(cx, |tab, _| tab.store = Some(store));
+        let answers: Rc<RefCell<Vec<(String, bool)>>> = Rc::default();
+        for origin in ["https://blocked.example.com/", "https://other.example.com/"] {
+            let into = answers.clone();
+            let reply = crate::web::Reply::new(false, move |given| into.borrow_mut().push((origin.to_string(), given)));
+            tab.update_in(cx, |tab, window, cx| tab.requested(Request::Site { origin: origin.into(), said: Said::Fullscreen, reply }, window, cx));
+        }
+        cx.executor().advance_clock(std::time::Duration::from_millis(50));
+        cx.run_until_parked();
+        let mut seen = answers.borrow().clone();
+        seen.sort();
+        assert_eq!(seen, [("https://blocked.example.com/".to_string(), false), ("https://other.example.com/".to_string(), true)]);
+    }
+
+    #[gpui::test]
+    fn a_download_the_owner_is_asked_about_goes_to_needs_you_and_waits_for_his_answer(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let seen = told(&tab, cx);
+        tab.update(cx, |tab, _| tab.url = "https://example.com/a".into());
+        tab.update_in(cx, |tab, window, cx| tab.requested(Request::Act { act: Act::Download, address: "https://example.com/f.zip".into() }, window, cx));
+        cx.executor().advance_clock(std::time::Duration::from_millis(50));
+        cx.run_until_parked();
+        assert_eq!(*seen.borrow(), ["raised t1: Allow Downloads for example.com? [Allow, Block]"], "Downloads is asked by default, and goes to Needs you");
     }
 
     #[gpui::test]

@@ -15,6 +15,7 @@
 //!
 //! Sign-ins live in one persistent store per manifest (`frame::store_id`), never the default store Safari uses.
 
+mod acts;
 pub mod finder;
 pub mod frame;
 pub mod keys;
@@ -26,4 +27,5 @@ mod wk;
 
 pub use page::{after_frame, paint_again, painted_mark, painted_since, web_pane, Mode, Painted, Source, Status, WebPage, WebPageEvent};
 pub use render::{render_html, Appearance, PagePart};
-pub use wk::{in_use, pending, pump, Request, Said};
+pub use acts::Way;
+pub use wk::{in_use, pending, pump, Act, Policy, Reply, Request, Said};
