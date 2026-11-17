@@ -227,26 +227,20 @@ where
         }
     }
 
-    /// Take the file of project `id` away where Fleet keeps it itself, Kit's, and from a bucket. A synced folder's is
-    /// the person's, and is left. `Some` names a bucket's file that stayed because the bucket refused the delete.
-    pub(crate) async fn project_file_removed(&self, id: &str) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
-        self.project_file_taken_away(id, false).await
-    }
-
     /// Take the file of project `id` away wherever it is kept: Kit's, a synced folder and a bucket. `Some` names a
     /// bucket's file that stayed because the bucket refused the delete, which does not stop the act.
     pub(crate) async fn project_file_removed_everywhere(&self, id: &str) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
-        self.project_file_taken_away(id, true).await
+        self.project_file_taken_away(id).await
     }
 
-    async fn project_file_taken_away(&self, id: &str, synced_too: bool) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
-        let (place, at) = self.project_kept(id).await?;
+    async fn project_file_taken_away(&self, id: &str) -> Result<Option<ipc::ProjectLeftOut>, Refusal> {
+        let (_, at) = self.project_kept(id).await?;
         let base = match at {
             places::Where::Folder(base) => base,
             places::Where::Bucket(address, _) => return Ok(self.bucket_file_removed(&address, id).await),
             places::Where::Nowhere(_) => return Ok(None),
         };
-        if (!synced_too && place != ProjectPlace::ThisMac) || !file_safe(id) {
+        if !file_safe(id) {
             return Ok(None);
         }
         let path = places::project_file(&base, id);

@@ -28,7 +28,7 @@ The word Workspace keeps only the monorepo meaning, a folder with its own Manife
 | Subtask | A task under a task, one level deep |
 | Issue row | A tracker reference Fleet already lists as a row of a project. Bridge adds no new ones: an issue rides on a task |
 
-> **Rule (17 Nov).** Delete, Merge and moving a project to another place take a bucket's file away, and a move takes away the old file wherever it was kept.
+> **Rule (17 Nov).** Delete, Merge and moving a project to another place take its file away wherever it was kept: Kit's folder, a synced folder or a bucket.
 > Why: a file left behind is a stale project nobody asked to keep.
 
 A bucket that refuses the delete, for a key with no delete right, does not stop the act.

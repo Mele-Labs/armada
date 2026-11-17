@@ -900,7 +900,7 @@ where
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
         }
-        let left = self.project_file_removed(&project).await?;
+        let left = self.project_file_removed_everywhere(&project).await?;
         let answered =
             self.projects_written_reading(|store, _| store.delete_project(&project).map(drop).map_err(|why| self.ledger_fault(why)), true).await?;
         Ok(ipc::Projects { left_behind: left.into_iter().collect(), ..answered })
