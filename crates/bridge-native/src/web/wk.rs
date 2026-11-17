@@ -26,7 +26,7 @@ use objc2_foundation::{
 };
 use objc2_web_kit::{
     WKContentWorld, WKFrameInfo, WKMediaCaptureType, WKNavigation, WKNavigationAction, WKNavigationActionPolicy,
-    WKNavigationDelegate, WKNavigationType, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler, WKSecurityOrigin, WKSnapshotConfiguration, WKUIDelegate, WKUserContentController, WKWebView, WKWebViewConfiguration,
+    WKNavigationDelegate, WKNavigationType, WKPermissionDecision, WKScriptMessage, WKScriptMessageHandler, WKScriptMessageHandlerWithReply, WKSecurityOrigin, WKSnapshotConfiguration, WKUIDelegate, WKUserContentController, WKUserScript, WKUserScriptInjectionTime, WKWebView, WKWebViewConfiguration,
     WKWebpagePreferences, WKWebsiteDataStore,
 };
 use raw_window_handle::{HasWindowHandle, RawWindowHandle};
@@ -112,16 +112,44 @@ impl<T: 'static> Drop for Reply<T> {
     }
 }
 
+/// What a Job browser's own script says to Bridge (`armadaSite`), as it posts it.
+#[derive(serde::Deserialize)]
+struct Posted {
+    kind: String,
+}
+
+/// What a page's script asks, by the kind it posted.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Said {
+    /// `navigator.geolocation`, which the page's own script asks about before it reaches the real one.
+    Location,
+}
+
+fn said_of(text: &str) -> Option<Said> {
+    let posted: Posted = ipc::decode("a page script's post", text.as_bytes()).ok()?;
+    match posted.kind.as_str() {
+        "location" => Some(Said::Location),
+        _ => None,
+    }
+}
+
 /// What a Job browser's page asks of the one that holds it, each to be answered once.
 pub enum Request {
     /// The camera, the microphone or both, for `origin`, a web address (`webView:requestMediaCapturePermissionForOrigin:`).
     Media { origin: String, camera: bool, microphone: bool, reply: Reply<bool> },
+    /// What a script of Bridge's own in the page asks, for the page whose address is `origin`. The reply is `true` where it is given.
+    Site { origin: String, said: Said, reply: Reply<bool> },
 }
 
 /// Where a Job browser's page sends what it asks.
 pub struct Site {
     pub requests: async_channel::Sender<Request>,
+    /// Scripts run in the page's own world in every frame, at document start. Each posts to the handler named `SITE_HANDLER`.
+    pub scripts: Vec<&'static str>,
 }
+
+/// The name Bridge's scripts in a Job browser's page post to: `window.webkit.messageHandlers.armadaSite`, which answers.
+const SITE_HANDLER: &str = "armadaSite";
 
 fn pending_up() {
     PENDING.with(|pending| pending.set(pending.get() + 1));
@@ -258,6 +286,48 @@ fn origin_url(origin: &WKSecurityOrigin) -> String {
 }
 
 define_class!(
+    // SAFETY: NSObject has no subclassing requirements, and `SiteMessages` implements no `Drop`.
+    #[unsafe(super(NSObject))]
+    #[thread_kind = MainThreadOnly]
+    #[ivars = async_channel::Sender<Request>]
+    struct SiteMessages;
+
+    unsafe impl NSObjectProtocol for SiteMessages {}
+
+    unsafe impl WKScriptMessageHandlerWithReply for SiteMessages {
+        #[unsafe(method(userContentController:didReceiveScriptMessage:replyHandler:))]
+        fn did_receive(&self, _: &WKUserContentController, message: &WKScriptMessage, handler: &DynBlock<dyn Fn(*mut AnyObject, *mut NSString)>) {
+            let handler = handler.copy();
+            // A refusal is the answer a page gets from a reply let go: the promise is fulfilled with `false`.
+            let reply = Reply::new(false, move |given| {
+                let answer = NSNumber::new_bool(given);
+                handler.call((Retained::as_ptr(&answer).cast::<AnyObject>().cast_mut(), std::ptr::null_mut()));
+            });
+            // SAFETY: `message` is the live message WebKit passed this call, read on the main thread; its body is a property-list object.
+            let (text, origin) = unsafe {
+                let body = message.body();
+                let text = NSJSONSerialization::isValidJSONObject(&body)
+                    .then(|| NSJSONSerialization::dataWithJSONObject_options_error(&body, NSJSONWritingOptions::empty()).ok())
+                    .flatten()
+                    .and_then(|data| String::from_utf8(data.to_vec()).ok());
+                (text, origin_url(&message.frameInfo().securityOrigin()))
+            };
+            // The page's host is the frame's own, never what the script says.
+            let Some(said) = text.as_deref().and_then(said_of) else { return };
+            let _ = self.ivars().try_send(Request::Site { origin, said, reply });
+        }
+    }
+);
+
+impl SiteMessages {
+    fn new(requests: async_channel::Sender<Request>, mtm: MainThreadMarker) -> Retained<Self> {
+        let this = mtm.alloc::<Self>().set_ivars(requests);
+        // SAFETY: `NSObject`'s `init` takes no arguments and the ivars are set.
+        unsafe { msg_send![super(this), init] }
+    }
+}
+
+define_class!(
     // SAFETY: NSObject has no subclassing requirements, and `KitPosts` implements no `Drop`.
     #[unsafe(super(NSObject))]
     #[thread_kind = MainThreadOnly]
@@ -361,6 +431,8 @@ pub struct Native {
     kit: Option<Retained<KitPosts>>,
     /// A Job browser's page's own say on what it asks for, which its view holds only weakly.
     _ui: Option<Retained<PageUi>>,
+    /// Bridge's own scripts' handler, which the page's content controller holds until `Drop` takes it off.
+    site: Option<Retained<SiteMessages>>,
     /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
     watching: RefCell<Option<Retained<Watching>>>,
     mtm: MainThreadMarker,
@@ -401,7 +473,7 @@ impl Native {
         let mtm = MainThreadMarker::new()?;
         // SAFETY: every call below is on the main thread, on objects made here, with arguments of the types
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
-        let (view, navigation, kit, ui) = unsafe {
+        let (view, navigation, kit, ui, site) = unsafe {
             let config = WKWebViewConfiguration::new(mtm);
             // The kit's handler is in the page's own world, where the kit's script runs.
             let kit = options.kit.clone().map(|posts| {
@@ -425,6 +497,16 @@ impl Native {
                 preferences.setAllowsContentJavaScript(false);
                 config.setDefaultWebpagePreferences(Some(&preferences));
             }
+            let messages = site.as_ref().map(|site| {
+                let controller = config.userContentController();
+                let messages = SiteMessages::new(site.requests.clone(), mtm);
+                controller.addScriptMessageHandlerWithReply_contentWorld_name(ProtocolObject::from_ref(&*messages), &WKContentWorld::pageWorld(mtm), &NSString::from_str(SITE_HANDLER));
+                for source in &site.scripts {
+                    let script = WKUserScript::initWithSource_injectionTime_forMainFrameOnly(mtm.alloc(), &NSString::from_str(source), WKUserScriptInjectionTime::AtDocumentStart, false);
+                    controller.addUserScript(&script);
+                }
+                messages
+            });
             let view = WKWebView::initWithFrame_configuration(mtm.alloc(), rect(size), &config);
             let navigation = Navigation::new(events, options.sealed, mtm);
             view.setNavigationDelegate(Some(ProtocolObject::from_ref(&*navigation)));
@@ -432,7 +514,7 @@ impl Native {
             if let Some(ui) = &ui {
                 view.setUIDelegate(Some(ProtocolObject::from_ref(&**ui)));
             }
-            (view, navigation, kit, ui)
+            (view, navigation, kit, ui, messages)
         };
         if options.clear {
             // SAFETY: key-value coding on the live view, on the main thread; `drawsBackground` is a boolean key
@@ -449,7 +531,7 @@ impl Native {
         let ring: Retained<RingView> = unsafe { msg_send![super(ring), initWithFrame: rect(Frame::new(0., 0., 0., 0.))] };
         ring.setHidden(true);
         LIVE.with(|live| live.set(live.get() + 1));
-        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, watching: RefCell::new(None), mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui, site, watching: RefCell::new(None), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -760,6 +842,14 @@ impl Drop for Native {
             // SAFETY: the page's own content controller, on the main thread; the handler it holds is let go.
             unsafe {
                 self.view.configuration().userContentController().removeScriptMessageHandlerForName(&NSString::from_str(KIT_HANDLER));
+            }
+        }
+        if self.site.take().is_some() {
+            // SAFETY: the page's own content controller, on the main thread; the handler and scripts it holds are let go.
+            unsafe {
+                let controller = self.view.configuration().userContentController();
+                controller.removeScriptMessageHandlerForName_contentWorld(&NSString::from_str(SITE_HANDLER), &WKContentWorld::pageWorld(self.mtm));
+                controller.removeAllUserScripts();
             }
         }
         give_keys_back(&self.view);

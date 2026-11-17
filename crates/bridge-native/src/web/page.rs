@@ -313,7 +313,7 @@ impl WebPage {
         let sealed = matches!(source, Source::Sealed(_));
         let store = (!sealed).then(|| self.store.unwrap_or_else(|| super::frame::store_id(manifest.as_deref())));
         let options = Options { store, scripts: true, sealed, dark: None, clear: false, kit };
-        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests }));
+        self.native = Native::with_site(&options, size, events, self.asks.take().map(|requests| wk::Site { requests, scripts: vec![include_str!("../job_browser/location.js")] }));
         if let (Some(native), Some(told)) = (&self.native, self.changes.take()) {
             native.watch(told);
         }

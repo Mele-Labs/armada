@@ -94,11 +94,11 @@ class NativeApp(unittest.TestCase):
         self.assertEqual(info["CFBundleIdentifier"], "dev.armada.bridge.native")
         self.assertNotIn(info["CFBundleIdentifier"], ("com.github.Electron", "dev.armada.bridge"))
 
-    def test_the_plist_names_a_use_for_the_camera_and_the_microphone_so_a_page_can_ask(self):
+    def test_the_plist_names_a_use_for_the_camera_the_microphone_and_the_location_so_a_page_can_ask(self):
         app = self.make()
         with open(os.path.join(app, "Contents", "Info.plist"), "rb") as f:
             info = plistlib.load(f)
-        for key in ("NSCameraUsageDescription", "NSMicrophoneUsageDescription"):
+        for key in ("NSCameraUsageDescription", "NSMicrophoneUsageDescription", "NSLocationUsageDescription", "NSLocationWhenInUseUsageDescription"):
             self.assertTrue(info.get(key), key)
 
     def test_it_is_signed_and_the_signature_holds(self):

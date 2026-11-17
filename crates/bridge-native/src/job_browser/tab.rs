@@ -22,7 +22,7 @@ use super::choices::{host_of, Answer, Choice, Permission, Settings, Store, NO_RE
 use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
-use crate::web::{web_pane, Request, Status, WebPage, WebPageEvent};
+use crate::web::{web_pane, Request, Said, Status, WebPage, WebPageEvent};
 
 actions!(job_browser, [DismissAsk]);
 
@@ -181,6 +181,14 @@ impl BrowserTab {
                 }
                 self.permit(wants, host_of(&origin), move |given| reply.send(given), window, cx);
             }
+            Request::Site { origin, said, reply } => match said {
+                Said::Location => {
+                    // The position itself still needs macOS location access for the app: a Block here, and the Mac's own answer after
+                    // an Allow, are two different gates, and the page gets the Mac's refusal as its own PERMISSION_DENIED or
+                    // POSITION_UNAVAILABLE.
+                    self.permit(vec![Permission::Location], host_of(&origin), move |given| reply.send(given), window, cx);
+                }
+            },
         }
     }
 
