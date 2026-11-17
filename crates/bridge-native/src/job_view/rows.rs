@@ -724,7 +724,7 @@ impl JobView {
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
-                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, look, now, cx)
+                self.you(page.items + at, page, &format!("pending:{}", one.key), &one.text, &[], &[], &one.tags, None, Some(delivery), false, false, None, None, look, now, cx)
             }
             Extra::Working => {
                 let ink = look.color(token::STATUS_RUNNING);
@@ -878,6 +878,7 @@ impl JobView {
         queued: bool,
         editable: bool,
         edited: Option<&ipc::Instant>,
+        aside: Option<&str>,
         look: &Look,
         now: DateTime<Local>,
         cx: &Context<Self>,
@@ -1025,8 +1026,32 @@ impl JobView {
         } else {
             region
         };
+        // A told side question says where his words came from; a press opens it in the side chat.
+        let from_side = aside.map(|aside_id| {
+            let aside_id = aside_id.to_string();
+            labelled(
+                div()
+                    .id(SharedString::from(format!("told-aside:{id}")))
+                    .track_focus(&self.spot(page, &format!("told-aside:{id}"), cx).focus)
+                    .pb(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .cursor_pointer()
+                    .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.open_aside(&aside_id, window, cx)
+                    }))
+                    .child("You, from side chat"),
+                Role::Button,
+                "You, from side chat",
+            )
+        });
         labelled(
             region
+                .children(from_side)
                 .child(
                     div()
                         .flex()
@@ -1190,12 +1215,12 @@ impl JobView {
     /// The messages, from the person, the agent and another Job (A2).
     pub(super) fn message(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         Some(match row {
-            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, .. } => {
+            SessionRow::Message { id, at, from: SessionVoice::You, text, files, sketches, tags, queued, edited_at, aside, .. } => {
                 if let Some(act) = act_of(text) {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), look, now, cx)
+                self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),
             SessionRow::Message { id, at, from: SessionVoice::Session { id: sender, title, .. }, text, notice, .. } => {
