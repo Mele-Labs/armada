@@ -67,6 +67,7 @@ mod pop;
 mod quick;
 mod ready_card;
 mod todo_strip;
+mod ready_compact;
 mod teach;
 mod records;
 mod refs;
@@ -270,6 +271,8 @@ struct Page {
     side: side::SideState,
     /// The whole Job's Judge pane, while it is open.
     judge: Option<judge_tab::JudgePane>,
+    /// What Fleet last said of each build to try, so the thread measures again where one changed.
+    ready: (Vec<(String, ipc::ReadyState)>, Option<usize>),
     /// His bubble open for new words.
     editing: Option<edit::Editing>,
     /// New words saved on his messages, by row id, drawn until Fleet's row reads them.
@@ -285,7 +288,7 @@ impl Page {
         let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
         // The thread opens at its newest row and stays there until the person scrolls up.
         list.set_follow_mode(FollowMode::Tail);
-        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
+        Page { list, items: 0, lead: 0, before: 0, earlier_version: None, count: 0, extras: Vec::new(), anchors: Vec::new(), version: None, opened: HashSet::new(), pending: Vec::new(), refused: None, cards: acts::CardState::default(), dock: dock::DockState::default(), bands: bands::BandState::default(), keys: Rc::default(), arrived: 0..0, review: review::ReviewState::default(), plan_edit: plan_edit::EditState::default(), side: side::SideState::default(), judge: None, ready: (Vec::new(), None), editing: None, edits: HashMap::new(), made: None, made_pages: HashSet::new() }
     }
 
     /// The list element of this Job's item `at`. An item of the earlier Job above is drawn with an
@@ -1006,14 +1009,17 @@ impl JobView {
         }
         // What was said is the newest thing in the thread, so it stands last and the thread follows it.
         extras.extend(self.listen.read(cx).cards_of(id).map(|card| Extra::Spoken(card.id, card.failed())));
+        // The builds to try are one compact card at the newest open one's place: where a build changed, it and the place measure again.
+        let ready = (ready_compact::signature(&held.items), ready_compact::place_in(&held.items));
         let page = self.pages.get_mut(id).expect("the page was just read");
         let above = (lead, before, earlier_version);
         let above_was = (page.lead, page.before, page.earlier_version);
-        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was {
+        if page.version == Some(version) && page.extras == extras && page.anchors == anchors && dirty.is_none() && above == above_was && page.ready == ready {
             return;
         }
         let total = lead + before + items + extras.len();
         let from = if page.version.is_none() { 0 } else { dirty.unwrap_or(page.items).min(page.items).min(items) };
+        let from = if page.ready == ready { from } else { [page.ready.1, ready.1].into_iter().flatten().fold(from, usize::min) };
         // A card kept under an item that is not new changes that item's element, so the list measures from there.
         let from = parts_fold::first_difference(&page.anchors, &anchors).map_or(from, |at| from.min(at));
         let from_list = if above != above_was || from == 0 { 0 } else { lead + before + from };
@@ -1038,6 +1044,7 @@ impl JobView {
         page.extras = extras;
         page.anchors = anchors;
         page.version = Some(version);
+        page.ready = ready;
         if first {
             // Within a screen of the top, the older items are read: the row says so when it draws.
             let (weak, job) = (cx.weak_entity(), id.clone());

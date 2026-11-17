@@ -260,9 +260,16 @@ impl JobView {
                         .collect();
                     (!read.is_empty()).then_some((read, Some(true)))
                 }
-                // And the shots on a Ready to try card, read from the Job's own tree as a `Read` call's are.
-                Some(ThreadItem::ReadyToTry(card)) => {
-                    let shots: Vec<ipc::SentFile> = card.pictures.first().and_then(|path| super::pictures::read_picture(path)).into_iter().collect();
+                // And the shots of the builds under the compact card, read from the Job's own tree as a `Read` call's are.
+                Some(ThreadItem::ReadyToTry(_)) if super::ready_compact::place_in(&held.items) == ix.checked_sub(page.lead + page.before) => {
+                    let shots: Vec<ipc::SentFile> = held
+                        .items
+                        .iter()
+                        .filter_map(|item| match item {
+                            ThreadItem::ReadyToTry(card) if matches!(card.state, ipc::ReadyState::Open | ipc::ReadyState::Later) => card.pictures.first().and_then(|path| super::pictures::read_picture(path)),
+                            _ => None,
+                        })
+                        .collect();
                     (!shots.is_empty()).then_some((shots, Some(true)))
                 }
                 // And a picture the Job showed, as Fleet keeps it.
@@ -709,7 +716,7 @@ impl JobView {
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
-            ThreadItem::ReadyToTry(card) => self.ready_card(ix, card, page, look, now, cx),
+            ThreadItem::ReadyToTry(card) => return self.ready_card(card, ix, page, look, now, cx),
         })
     }
 

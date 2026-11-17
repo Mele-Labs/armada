@@ -556,7 +556,7 @@ pub use kit::{
     AddKitServer, ForgetKitServer, InstallKitPiece, KitAllowedCommand, KitAllowedCommands,
     KitAllowedSource, KitInventory, KitPieceInstalled, KitPieceKind, KitPieceRemoved,
     KitServerRow, KitServers, KitSourceChoice, KitSourceFound, LookAtKitSource, OutputStyleFacts,
-    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, SetKitServerReach,
+    RemoveKitAllowedCommand, RemoveKitPiece, RestoreKitPiece, ServerAddress, ServerFacts, SetKitServerReach,
     SetManifestServerReach, SetupItem, SetupKindRow, SetupUnreadable, WhatWasRead,
 };
 pub use kit_files::{
@@ -576,7 +576,7 @@ pub use merge_hub::{
     CheckoutSentAsPullRequest, CheckoutToPullRequest, ClaimHolder, FixingElsewhere,
     HeldCheckout, HubMergeable, HubMerged, HubPullCi, HubPullRequest, HubQueue, HubSession,
     HubQueueState, HubReview, MainChecking, MainCiState, MainFailedJob, MainMerge, MainRun,
-    MainRunState, MainStanding, MergeLineHub, PullRequestOwner,
+    MainRunState, MainStanding, MergeLineHub, PullRequestOwner, QuietReason,
 };
 pub use merge_line::{
     Settled, LandCheckState, LandOutputMessage, LandOutputOpened, LandState, MergeLine,

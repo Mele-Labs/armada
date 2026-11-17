@@ -24,7 +24,8 @@ use std::collections::BTreeMap;
 use std::fmt;
 
 use adapter_traits::{
-    FileRead, HarnessSetup, Inventory, ItemAsked, ItemRead, KindRead, SetupFiles, SetupItem, SetupKind,
+    FileRead, HarnessSetup, Inventory, ItemAsked, ItemRead, KindRead, ServerFacts, ServerFrom, SetupFiles, SetupItem,
+    SetupKind,
     StyleApplied, StyleFacts, StyleFrom, Unreadable, WhatWasRead,
 };
 use serde::de::IgnoredAny;
@@ -48,6 +49,8 @@ const HOME: &str = ".claude";
 /// The servers a person connected. **Beside the folder, not inside it**, which
 /// is why [`SetupFiles`] is rooted at the home rather than at `HOME`.
 const CONNECTED: &str = ".claude.json";
+/// The servers a repository, or an installed plugin, brings: a file at its root.
+const SERVERS_FILE: &str = ".mcp.json";
 pub(crate) const SKILLS: &str = ".claude/skills";
 const SKILL_FILE: &str = "SKILL.md";
 
@@ -147,6 +150,15 @@ impl<F: SetupFiles> ExistingSetup<F> {
     /// Each installed plugin that sits under the home, as its name without the
     /// marketplace and the folder it is installed in, relative to the home.
     fn plugin_folders(&self) -> Vec<(String, String)> {
+        self.plugin_installs()
+            .into_iter()
+            .map(|(name, folder)| (name.split('@').next().unwrap_or(&name).to_string(), folder))
+            .collect()
+    }
+
+    /// The same, by the full `name@marketplace` the plugin list holds, **at the installed version's
+    /// path** and never at every version the cache keeps.
+    fn plugin_installs(&self) -> Vec<(String, String)> {
         let FileRead::Bytes(bytes) = self.files.read(PLUGINS) else {
             return Vec::new();
         };
@@ -161,8 +173,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                 let path = versions.first().and_then(|held| held.install_path.as_ref())?;
                 // Only a plugin installed under the home is reachable here.
                 let relative = path.strip_prefix(&under)?.to_string();
-                let plugin = name.split('@').next().unwrap_or(&name).to_string();
-                Some((plugin, relative))
+                Some((name, relative))
             })
             .collect()
     }
@@ -204,6 +215,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         style: None,
                         plugin: plugin.map(str::to_string),
                         uninstall: None,
+                        server: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&file),
@@ -271,6 +283,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                         style: None,
                         plugin: plugin.map(str::to_string),
                         uninstall: None,
+                        server: None,
                     }),
                     Err(why) => unreadable.push(Unreadable {
                         source: self.at(&here),
@@ -306,6 +319,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     style: None,
                     plugin: None,
                     uninstall: None,
+                    server: None,
                 });
             }
             FileRead::Unreadable(why) => unreadable.push(Unreadable {
@@ -336,6 +350,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                             style: None,
                             plugin: None,
                             uninstall: Some(crate::kit_pieces::uninstall_line(&name).shown()),
+                            server: None,
                             name,
                         });
                     }
@@ -426,6 +441,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     }),
                     plugin: None,
                     uninstall: None,
+                    server: None,
                 }
             })
             .collect();
@@ -443,6 +459,7 @@ impl<F: SetupFiles> ExistingSetup<F> {
                     }),
                     plugin: None,
                     uninstall: None,
+                    server: None,
                 });
             }
         }
@@ -450,42 +467,109 @@ impl<F: SetupFiles> ExistingSetup<F> {
     }
 
     /// The servers a person connected outside Armada, by name and by the
-    /// program or host they are at. See this module's header for what does not
-    /// survive the read, and [`Connected`] for how.
-    fn connected(&self) -> WhatWasRead {
+    /// program or host they are at: one row for each place a server is
+    /// configured. See this module's header for what does not survive the read,
+    /// and [`Connected`] for how.
+    ///
+    /// | place | marked |
+    /// |---|---|
+    /// | the person's own user file | nothing |
+    /// | that file's local scope for a project | `server`, `project`, and the folder |
+    /// | a served repository's `.mcp.json` | `server`, `repository`, and its root |
+    /// | an installed plugin's `.mcp.json` | `plugin`, as the plugin list names it |
+    fn connected(&self, repositories: &[String]) -> WhatWasRead {
         let (mut items, mut unreadable) = (Vec::new(), Vec::new());
+        let user = self.at(CONNECTED);
         match self.files.read(CONNECTED) {
-            FileRead::Bytes(bytes) => {
-                match ipc::decode::<UserConfig>("connected servers", &bytes) {
-                    Ok(config) => {
-                        for (name, server) in config.mcp_servers {
-                            // A server named for the program it runs says it
-                            // once: `gitnexus gitnexus` is a row that reads as
-                            // a rendering fault, measured on the owner's own.
-                            let shown = server.shown();
-                            items.push(SetupItem {
-                                says: (shown != name).then_some(shown),
-                                name,
-                                source: self.at(CONNECTED),
-                                style: None,
-                                plugin: None,
-                                uninstall: None,
-                            });
-                        }
+            FileRead::Bytes(bytes) => match ipc::decode::<UserConfig>("connected servers", &bytes) {
+                Ok(config) => {
+                    servers_as_rows(config.mcp_servers.unwrap_or_default(), &user, None, None, &mut items);
+                    for (folder, project) in config.projects {
+                        let server = ServerFacts { from: ServerFrom::Project, folder };
+                        servers_as_rows(project.mcp_servers, &user, None, Some(server), &mut items);
                     }
-                    Err(why) => unreadable.push(Unreadable {
-                        source: self.at(CONNECTED),
-                        why: why.to_string(),
-                    }),
                 }
-            }
-            FileRead::Unreadable(why) => unreadable.push(Unreadable {
-                source: self.at(CONNECTED),
-                why,
-            }),
+                Err(why) => unreadable.push(Unreadable { source: user, why: why.to_string() }),
+            },
+            FileRead::Unreadable(why) => unreadable.push(Unreadable { source: user, why }),
             FileRead::Absent => {}
         }
+
+        if let Some(open) = &self.repositories {
+            for root in repositories {
+                let files = open(root);
+                let root = root.trim_end_matches('/');
+                let shown = format!("{root}/{SERVERS_FILE}");
+                if let Some(servers) = servers_file(&*files, SERVERS_FILE, &shown, &mut unreadable) {
+                    let server = ServerFacts { from: ServerFrom::Repository, folder: root.to_string() };
+                    servers_as_rows(servers, &shown, None, Some(server), &mut items);
+                }
+            }
+        }
+
+        for (plugin, folder) in self.plugin_installs() {
+            let file = format!("{folder}/{SERVERS_FILE}");
+            let shown = self.at(&file);
+            if let Some(servers) = servers_file(&self.files, &file, &shown, &mut unreadable) {
+                servers_as_rows(servers, &shown, Some(&plugin), None, &mut items);
+            }
+        }
         WhatWasRead::Read { items, unreadable }
+    }
+}
+
+/// A `.mcp.json`'s servers: under `mcpServers`, or, as a plugin often writes it, at the top.
+/// **Neither form holds more than [`Connected`] keeps**, so a plugin's file has no way to put an
+/// argument or a key into the answer either.
+fn servers_file(
+    files: &dyn SetupFiles,
+    path: &str,
+    shown: &str,
+    unreadable: &mut Vec<Unreadable>,
+) -> Option<BTreeMap<String, Connected>> {
+    let bytes = match files.read(path) {
+        FileRead::Bytes(bytes) => bytes,
+        FileRead::Unreadable(why) => {
+            unreadable.push(Unreadable { source: shown.to_string(), why });
+            return None;
+        }
+        FileRead::Absent => return None,
+    };
+    let read = match ipc::decode::<UserConfig>("connected servers", &bytes) {
+        Ok(UserConfig { mcp_servers: Some(servers), .. }) => Ok(servers),
+        Ok(_) => ipc::decode::<BTreeMap<String, Connected>>("connected servers", &bytes),
+        Err(why) => Err(why),
+    };
+    match read {
+        Ok(servers) => Some(servers),
+        Err(why) => {
+            unreadable.push(Unreadable { source: shown.to_string(), why: why.to_string() });
+            None
+        }
+    }
+}
+
+/// One row for each server of one place, marked for where it was.
+fn servers_as_rows(
+    servers: BTreeMap<String, Connected>,
+    source: &str,
+    plugin: Option<&str>,
+    server: Option<ServerFacts>,
+    items: &mut Vec<SetupItem>,
+) {
+    for (name, connected) in servers {
+        // A server named for the program it runs says it once: `gitnexus gitnexus` is a row that
+        // reads as a rendering fault, measured on the owner's own.
+        let shown = connected.shown();
+        items.push(SetupItem {
+            says: (shown != name).then_some(shown),
+            name,
+            source: source.to_string(),
+            style: None,
+            plugin: plugin.map(str::to_string),
+            uninstall: None,
+            server: server.clone(),
+        });
     }
 }
 
@@ -507,7 +591,7 @@ impl<F: SetupFiles> HarnessSetup for ExistingSetup<F> {
                     SetupKind::OutputStyles => self.output_styles(repositories),
                     SetupKind::SubAgents => self.markdown_in(SUB_AGENTS, PLUGIN_AGENTS, 1),
                     SetupKind::Commands => self.markdown_in(COMMANDS, PLUGIN_COMMANDS, COMMAND_DEPTH),
-                    SetupKind::McpServers => self.connected(),
+                    SetupKind::McpServers => self.connected(repositories),
                     SetupKind::Allowlist => WhatWasRead::NotRead {
                         why: NO_ALLOWLIST.to_string(),
                     },
@@ -698,6 +782,17 @@ struct Held {
 /// account a person is signed in as, and an inventory has no use for it.
 #[derive(Deserialize)]
 struct UserConfig {
+    /// `None` where the file has no such key, which a plugin's file written flat does not.
+    #[serde(default, rename = "mcpServers")]
+    mcp_servers: Option<BTreeMap<String, Connected>>,
+    /// The local scope of each project folder the person has worked in. **Every key of a project
+    /// but its servers is dropped**: it also holds that project's history and trust.
+    #[serde(default)]
+    projects: BTreeMap<String, Project>,
+}
+
+#[derive(Deserialize)]
+struct Project {
     #[serde(default, rename = "mcpServers")]
     mcp_servers: BTreeMap<String, Connected>,
 }

@@ -462,6 +462,9 @@ A failed job's log is not kept: it is asked of the forge when a person presses t
 **A forge that does not answer keeps the last reading, and the hub says how old it is.** Each repository's visit makes five asks: the head, the open pull requests, the merge queue, the merged listing and the runs on the commits it decides main from.
 `forge_read_at` is the instant of the last visit in which all five were answered, which `main.read_at` is not: that moves only when the head does.
 `quiet_since` is the instant of the first visit in which any of them was not, kept until a visit is answered whole, and absent while the forge answers.
+`quiet_reason` beside it says why, as of the latest unanswered visit, from the latest call GitHub refused (`adapters::forge_tally`).
+It is `rate_limited` where that refusal was GitHub's rate limit, with `until` from its `Retry-After`, else from the reset of a window it spent, and with none where it named no time, as a secondary limit may not.
+It is `not_answering` for anything else.
 Both are in memory and a restart forgets them.
 A repository whose forge has never answered since the start is served as a hub holding `quiet_since` alone.
 A log or a culprit asked only after main changes is not one of the five.
@@ -574,6 +577,9 @@ Every one is searched for the person's login, the first of *Whose pull requests 
 **The four are read at once**, so a person waits on the slowest and not on the sum.
 For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
 Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
+**A refusal for GitHub's rate limit holds every call of that client** until GitHub's `Retry-After`, else the reset of a window it spent, else three minutes that double for each refusal that follows a hold, up to fifteen.
+A held call is not made: it fails at once, as a forge that did not answer, and a person reads that GitHub is rate-limiting us.
+Each hold has up to a quarter more added at random, at most a minute, so the callers it releases do not all ask in the same second.
 A row of a repository Fleet does not serve is dropped.
 `?project=<id>` asks only the repositories that project holds, a folder member counting as its repository; an unknown project is a 404 `fleet.no_such_project`.
 A pull request on several lists is a row on each, and a team row names the first team asked that the person is on.
