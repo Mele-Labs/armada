@@ -401,3 +401,38 @@ fn the_done_card_leads_with_a_line_an_ask_and_nothing_where_the_story_was_not_as
         assert!(drawn(cx, Role::ListItem, line), "{line}");
     }
 }
+
+fn story_moved(job: &str) -> crate::fleet::StoryMoved {
+    crate::fleet::StoryMoved(vec![ipc::StoryChanged { session_id: SessionId::carried(job) }])
+}
+
+#[gpui::test]
+fn a_story_that_moved_is_read_again_for_the_tab_of_that_job_and_for_no_other(cx: &mut TestAppContext) {
+    ready(cx);
+    let fleet = cx.new(crate::fleet::FleetConnection::idle);
+    let (tab, cx) = cx.add_window_view({
+        let fleet = fleet.clone();
+        move |window, cx| StoryTab::live(&fleet, JOB.into(), false, window, cx)
+    });
+    cx.run_until_parked();
+    let before = tab.read_with(cx, |tab, _| tab.reads);
+    fleet.update(cx, |_, cx| cx.emit(story_moved("another-job")));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.reads), before, "another Job's story is not this tab's");
+    fleet.update(cx, |_, cx| cx.emit(story_moved(JOB)));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.reads), before + 1, "this Job's story is read again");
+    fleet.update(cx, |_, cx| cx.emit(crate::fleet::StoryMoved(vec![ipc::StoryChanged { session_id: SessionId::carried("another-job") }, ipc::StoryChanged { session_id: SessionId::carried(JOB) }])));
+    assert_eq!(tab.read_with(cx, |tab, _| tab.reads), before + 2, "one batch naming both reads it once");
+}
+
+#[gpui::test]
+fn a_story_that_moved_is_read_again_for_the_done_card_of_a_job_it_asked_for_and_for_no_other(cx: &mut TestAppContext) {
+    ready(cx);
+    let fleet = cx.new(crate::fleet::FleetConnection::idle);
+    cx.update(|cx| super::lead::shown_on(JOB, Some(fleet.clone()), cx));
+    let before = cx.update(|cx| super::lead::reads_in_tests(cx));
+    assert_eq!(before, [JOB], "it was read once on coming on screen");
+    cx.update(|cx| fleet.update(cx, |_, cx| cx.emit(story_moved("another-job"))));
+    assert_eq!(cx.update(|cx| super::lead::reads_in_tests(cx)), [JOB], "a Job no card asked for is not read");
+    cx.update(|cx| fleet.update(cx, |_, cx| cx.emit(story_moved(JOB))));
+    assert_eq!(cx.update(|cx| super::lead::reads_in_tests(cx)), [JOB, JOB], "the Job named is read again");
+}

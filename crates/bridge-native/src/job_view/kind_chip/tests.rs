@@ -349,3 +349,15 @@ fn the_registered_act_opens_the_menu_of_the_chip_that_holds_focus(cx: &mut TestA
     cx.simulate_keystrokes("escape");
     assert!(crate::generated::actions::act("message_kind").is_some_and(|act| act.shortcut == "⌥K"));
 }
+
+#[gpui::test]
+fn a_story_that_moved_reads_the_sortings_and_asks_again_for_the_job_named_and_for_no_other(cx: &mut TestAppContext) {
+    let fleet = cx.new(crate::fleet::FleetConnection::idle);
+    let moved = |job: &str| crate::fleet::StoryMoved(vec![ipc::StoryChanged { session_id: SessionId::carried(job) }]);
+    cx.update(|cx| store::shown_on(JOB, Some(fleet.clone()), cx));
+    assert_eq!(cx.update(|cx| store::reads_in_tests(cx)), [JOB], "it was read once on coming on screen");
+    cx.update(|cx| fleet.update(cx, |_, cx| cx.emit(moved("another-job"))));
+    assert_eq!(cx.update(|cx| store::reads_in_tests(cx)), [JOB], "a Job no thread asked for is not read");
+    cx.update(|cx| fleet.update(cx, |_, cx| cx.emit(moved(JOB))));
+    assert_eq!(cx.update(|cx| store::reads_in_tests(cx)), [JOB, JOB], "the Job named is read again");
+}

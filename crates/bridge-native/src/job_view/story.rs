@@ -4,8 +4,8 @@
 //! What is read is Fleet's own: `get_job_story`, off the main thread, drawn as bones until it answers. `story/model.rs`
 //! works out every line. The tab is a view tab (`view_tabs.rs`) the Job's + offers, so no file of the Job view knows it.
 //!
-//! **A story is read again when the Job's record changes and when the keys arrive**, since `session.story` is not routed to
-//! views yet: `FleetConnection` takes no such event. Where it is, a handler of it calls [`StoryTab::refresh`] for its Job.
+//! **A story is read again when Fleet says it moved** (`session.story`, as `StoryMoved`, for this Job), when the Job's record
+//! changes and when the keys arrive. The last two are kept: they catch a story whose word was missed.
 //!
 //! **The overlay.** A Filed under row opens the feature's page over the tab in a [`FeatureOverlay`], which holds what was
 //! opened from inside it on one stack and draws the top: one layer, one Esc back.
@@ -20,7 +20,7 @@ use super::JobView;
 use crate::features::overlay::{FeatureOverlay, OverlayEvent, Source as OverlaySource};
 use crate::features::page_model::Titles;
 use crate::features::story_link;
-use crate::fleet::FleetConnection;
+use crate::fleet::{FleetConnection, StoryMoved};
 use crate::keymap::Act;
 use crate::settings::wire::{request, Ask, Refused};
 use model::{Built, Features};
@@ -98,6 +98,9 @@ pub struct StoryTab {
     stamp: Option<Stamp>,
     read_port: Option<u16>,
     work: Option<Task<()>>,
+    /// How many times the story was asked for, for a test of what makes it read again.
+    #[cfg(test)]
+    pub(crate) reads: usize,
     _subs: Vec<Subscription>,
 }
 
@@ -115,6 +118,12 @@ impl StoryTab {
         let mut this = Self::new(Reads::Live(fleet.clone()), job, nested, window, cx);
         let watch = cx.observe(fleet, |this, _, cx| this.moved(cx));
         this._subs.push(watch);
+        let told = cx.subscribe(fleet, |this, _, moved: &StoryMoved, cx| {
+            if moved.0.iter().any(|one| one.session_id.as_str() == this.job) {
+                this.refresh(cx);
+            }
+        });
+        this._subs.push(told);
         this.titles = this.held_titles(cx);
         this.refresh(cx);
         this
@@ -132,7 +141,7 @@ impl StoryTab {
 
     fn new(source: Reads, job: String, nested: bool, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let focus = cx.focus_handle();
-        // The keys arrive: the story is read again, since Fleet's word that it moved is not routed here yet.
+        // The keys arrive: the story is read again, in case a word that it moved was missed while the tab was away.
         let arrive = cx.on_focus_in(&focus, window, |this, _, cx| this.refresh(cx));
         let mut this = StoryTab {
             job,
@@ -155,6 +164,8 @@ impl StoryTab {
             stamp: None,
             read_port: None,
             work: None,
+            #[cfg(test)]
+            reads: 0,
             _subs: vec![arrive],
         };
         // A Story link left an ask for this Job: it is the one put in front.
@@ -217,6 +228,10 @@ impl StoryTab {
 
     /// Read the story again, keeping what is drawn until the answer comes.
     pub fn refresh(&mut self, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        {
+            self.reads += 1;
+        }
         let Some(fleet) = self.fleet().cloned() else { return };
         self.stamp = fleet.read(cx).held().jobs.iter().find(|one| one.id.as_str() == self.job).map(stamp_of);
         let port = self.port(cx);

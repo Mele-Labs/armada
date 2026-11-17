@@ -1,15 +1,15 @@
 //! How his messages were sorted and the asks they may join, held for every Job the view has shown. The thread draws from
-//! `&self`, so each Job's two answers are read once when the Job comes on screen, off the main thread, and again where its
-//! record changes, since `session.story` is not routed to views: `FleetConnection` takes no such event. A change he makes is
-//! sent, and both are read again so the chip is what Fleet kept. With no Fleet behind the view, `mock` answers.
+//! `&self`, so each Job's two answers are read once when the Job comes on screen, off the main thread, and again where Fleet
+//! says they moved (`session.story`) or the Job's record changes. A change he makes is sent, and both are read again so the
+//! chip is what Fleet kept. With no Fleet behind the view, `mock` answers.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use gpui::{App, AppContext as _, Context, Entity, Subscription, Task};
 use ipc::{Ask, JobAsks, MessageSorting, MessageSortings, SetMessageKind};
 
 use super::mock;
-use crate::fleet::FleetConnection;
+use crate::fleet::{FleetConnection, StoryMoved};
 use crate::job_view::story::{stamp_of, Stamp};
 use crate::job_view::JobView;
 use crate::settings::wire::{body, request, Ask as Route, Refused};
@@ -23,11 +23,14 @@ pub(crate) struct Held {
 
 struct Store {
     jobs: HashMap<String, Held>,
+    /// The Jobs a thread asked for, so a word that they moved is read for those alone.
+    asked: HashSet<String>,
     stamps: HashMap<String, Stamp>,
     work: HashMap<String, Task<()>>,
     sends: Vec<Task<()>>,
     fleet: Option<Entity<FleetConnection>>,
     watch: Option<Subscription>,
+    told: Option<Subscription>,
 }
 
 struct Kinds(Entity<Store>);
@@ -53,7 +56,7 @@ fn store(cx: &mut App) -> Entity<Store> {
     match cx.try_global::<Kinds>() {
         Some(Kinds(store)) => store.clone(),
         None => {
-            let store = cx.new(|_| Store { jobs: HashMap::new(), stamps: HashMap::new(), work: HashMap::new(), sends: Vec::new(), fleet: None, watch: None });
+            let store = cx.new(|_| Store { jobs: HashMap::new(), asked: HashSet::new(), stamps: HashMap::new(), work: HashMap::new(), sends: Vec::new(), fleet: None, watch: None, told: None });
             cx.set_global(Kinds(store.clone()));
             store
         }
@@ -77,6 +80,11 @@ fn redraw(cx: &mut App) {
 /// A Job came on screen: its sortings and asks are read, once.
 pub(crate) fn shown(job: &str, cx: &mut App) {
     let fleet = fleet_now(cx);
+    shown_on(job, fleet, cx);
+}
+
+/// A Job came on screen over `fleet`: its sortings and asks are read, once.
+pub(crate) fn shown_on(job: &str, fleet: Option<Entity<FleetConnection>>, cx: &mut App) {
     let store = store(cx);
     let job = job.to_string();
     store.update(cx, |store, cx| store.ensure(job, fleet, cx));
@@ -120,8 +128,10 @@ impl Store {
         if self.watch.is_none() {
             if let Some(fleet) = &fleet {
                 self.watch = Some(cx.observe(fleet, |this, _, cx| this.moved(cx)));
+                self.told = Some(cx.subscribe(fleet, |this, _, moved: &StoryMoved, cx| this.story_moved(moved, cx)));
             }
         }
+        self.asked.insert(job.clone());
         self.fleet = fleet;
         if !self.jobs.contains_key(&job) {
             self.read(job, cx);
@@ -137,7 +147,18 @@ impl Store {
         }
     }
 
+    /// Fleet said a story moved: each Job named that a thread asked for is read again.
+    fn story_moved(&mut self, moved: &StoryMoved, cx: &mut Context<Self>) {
+        for one in &moved.0 {
+            if self.asked.contains(one.session_id.as_str()) {
+                self.read(one.session_id.as_str().to_string(), cx);
+            }
+        }
+    }
+
     fn read(&mut self, job: String, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        cx.default_global::<Reads>().0.push(job.clone());
         let Some(fleet) = self.fleet.clone() else {
             self.jobs.insert(job.clone(), mock::held(&job));
             redraw(cx);
@@ -207,6 +228,19 @@ fn told(said: String, cx: &mut App) {
     #[cfg(test)]
     cx.default_global::<Told>().0.push(said.clone());
     cx.defer(move |cx| crate::toasts::tell(said, cx));
+}
+
+/// The Jobs whose two answers were asked for, in order, for a test of what makes them read again.
+#[cfg(test)]
+#[derive(Default)]
+struct Reads(Vec<String>);
+
+#[cfg(test)]
+impl gpui::Global for Reads {}
+
+#[cfg(test)]
+pub(crate) fn reads_in_tests(cx: &App) -> Vec<String> {
+    cx.try_global::<Reads>().map(|reads| reads.0.clone()).unwrap_or_default()
 }
 
 /// What was told, since the toasts hold their sentences to themselves.
