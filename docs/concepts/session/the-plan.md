@@ -61,11 +61,14 @@ A red run of the Checks sends one line too, `Checks failed at <sha>: <tests>.`, 
 `all_done` is held, not refused, while a group of the plan has a gate open.
 Fleet keeps the call and its summary in `session_gate_holds`, stamps no `done_since`, and answers that the call was held and on which group.
 Open follow-ups still refuse it, and the in-flight reason is skipped, since the gate covers it.
+A task still open in a group whose gate is `merged` refuses it too, by name, with `fleet.gate_tasks_open` (owner, 17 Nov 2026).
+A merge closes a group only once its tasks are done, so the task is the Job's to finish, and holding the call would leave the gate to the person, who cannot see why it is open.
 When the last gate closes Fleet runs the call itself, and tells the agent if it is refused.
 A call held stops standing as `done_since` does: when he writes, or a turn of the agent's own begins.
 A held call reaches the person in Needs you only for a gate nothing in the Job can close, and only while nothing in the Job runs.
 That is an approval of any kind, a merge no open pull request is on the way to, or Checks no run has begun.
-The item offers `Approve` and `Skip this group`, and goes when the gate closes.
+Its text says what is true, such as `"<group title>" has no open pull request to merge` for a merge.
+The item offers `Approve` and `Skip this group`, each with a line saying it closes the group and ends the Job if nothing else is open, and goes when the gate closes.
 `Approve` on a `plan_approved` gate approves the plan, and on any other closes the gate on his word.
 `Skip this group` closes it as skipped.
 
