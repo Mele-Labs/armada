@@ -20,6 +20,16 @@ pub(crate) struct OfFeature {
     feature: String,
 }
 
+/// `?project=&feature=&section=` on `get_feature_page`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfFeaturePage {
+    #[serde(default)]
+    project: Option<String>,
+    feature: String,
+    #[serde(default)]
+    section: Option<String>,
+}
+
 /// `?project=` on `list_features`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfProject {
@@ -51,8 +61,8 @@ pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
-pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeature>) -> Response {
-    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature).await {
+pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeaturePage>) -> Response {
+    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature, asked.section).await {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }

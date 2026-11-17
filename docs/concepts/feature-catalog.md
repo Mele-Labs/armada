@@ -84,8 +84,8 @@ A merge is kept with the files it changed, so the mapping is read again when a p
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
-It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section.
-When it is over the cap the last of these go first, and the head always stays.
+It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
+When it is over the cap the last of these go first, and the head and that line always stay.
 
 ## Handing a Job its pages
 
@@ -130,7 +130,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | Operation | Does |
 |---|---|
 | `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
-| `get_feature_page` | One feature whole |
+| `get_feature_page` | One feature whole, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |

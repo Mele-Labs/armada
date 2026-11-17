@@ -2362,7 +2362,7 @@ test('a message is sent when Fleet is out of reach', async ($, on) => {
 })
 
 // The pages of the features a read or a brief reaches, which Fleet hands over once; the mod only asks and carries the answer.
-const PAGE = 'Feature pages from Armada\'s library, handed once per feature:\n\nVoting on takes (Takes)\nFull sections: get_feature_page feature=voting-on-takes.'
+const PAGE = 'Feature pages from Armada\'s library, handed once per feature:\n\nVoting on takes (Takes)\nOne full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>.'
 
 test('the first read of a file asks Fleet which pages it is owed and the page rides on the call\'s result', async ($, on) => {
   const { handoffAsks } = world(on, { handoff: PAGE })

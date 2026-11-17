@@ -19,13 +19,15 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
-    /// `get_feature_page` — one feature whole. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project
-    /// does not hold.
+    /// `get_feature_page` — one feature whole, or with `section` that one section alone. [`Refusal::NotFound`]
+    /// (`fleet.feature_unknown`) for a slug the project does not hold, and [`Refusal::Unacceptable`]
+    /// (`fleet.feature_section_unknown`) for a section that is none of the four.
     fn get_feature_page(
         &self,
         caller: Option<crate::Caller>,
         project: Option<String>,
         feature: String,
+        section: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
     /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.

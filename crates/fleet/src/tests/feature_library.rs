@@ -135,7 +135,7 @@ fn facts() -> BriefFacts {
 fn a_condensed_page_reads_in_its_order_with_five_entry_points_and_three_bugs() {
     let text = condensed(&facts());
     let at = |needle: &str| text.find(needle).unwrap_or_else(|| panic!("{needle} in {text}"));
-    let order = ["Voting on takes (Takes)", "Current as of #812, 2026-11-14.", "Stale: test since #815.", "On it now:", "Code:", "Test:", "Open bugs:", "Runs:", "Designs:", "Debt:", "Full sections: get_feature_page feature=voting-on-takes."];
+    let order = ["Voting on takes (Takes)", "Current as of #812, 2026-11-14.", "Stale: test since #815.", "On it now:", "Code:", "Test:", "Open bugs:", "Runs:", "Designs:", "Debt:", "One full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>."];
     let places: Vec<usize> = order.iter().map(|needle| at(needle)).collect();
     assert!(places.windows(2).all(|pair| pair[0] < pair[1]), "{text}");
     assert!(text.contains("file5.rs:5") && !text.contains("file6.rs"), "the top five: {text}");
@@ -158,7 +158,8 @@ fn a_page_over_the_cap_loses_its_tail_first_and_never_its_head() {
     assert!(text.chars().count() <= CAP_CHARS, "{}", text.chars().count());
     assert!(text.starts_with("Voting on takes (Takes)\nCurrent as of #812, 2026-11-14.\nStale: test since #815."), "{text}");
     assert!(text.contains("Open bugs:") && text.contains("Runs:"), "what ranks high stays: {text}");
-    assert!(!text.contains("Debt:") && !text.contains("Full sections:"), "the tail goes first: {text}");
+    assert!(!text.contains("Debt:"), "the tail goes first: {text}");
+    assert!(text.ends_with("One full section: get_feature_page feature=voting-on-takes section=<test|runs|observe|debt>."), "the last line stays: {text}");
 }
 
 // What follows runs a Job through the library against a real store.
@@ -363,7 +364,7 @@ async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_
             files: vec!["crates/pages/voting/other.rs".into()],
         })
         .expect("kept");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string()).await.expect("the page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
     assert_eq!(page.sections.len(), 1);
     assert_eq!(page.sections[0].stale_since, Some(900));
     assert_eq!(page.feature.stale_since, Some(900));
@@ -420,7 +421,7 @@ async fn a_feature_page_is_handed_once_per_job_and_once_per_subagent_and_the_rec
     let first = rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked");
     assert_eq!(first.features, [VOTING]);
     assert!(first.text.starts_with("Feature pages from Armada's library"), "{}", first.text);
-    assert!(first.text.contains("voting-on-takes (Takes)") && first.text.contains("Full sections:"), "the condensed page: {}", first.text);
+    assert!(first.text.contains("voting-on-takes (Takes)") && first.text.contains("One full section:"), "the condensed page: {}", first.text);
 
     let again = rig.fleet.hand_over_features(hand(&id, None, &[voting, "crates/pages/voting"], None)).await.expect("asked");
     assert!(again.features.is_empty() && again.text.is_empty(), "the second read of the feature hands nothing: {}", again.text);
@@ -607,4 +608,35 @@ async fn a_name_in_a_project_with_no_library_is_not_kept_for_the_operator() {
     let mut store = rig.fleet.store().lock().await;
     rig.fleet.artifact_filed(&mut store, id.as_str(), "sketch:Vote results", &made("sketch", "voting-on-takes"), &now);
     assert!(store.feature_proposals(&project).expect("read").is_empty());
+}
+
+#[tokio::test]
+async fn a_page_asked_for_one_section_holds_that_section_alone() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let id = an_agent_for(&rig, &project).await;
+    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &FeatureSectionKind::ALL)).await.expect("written");
+
+    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    assert_eq!(whole.sections.len(), 4);
+    assert!(!whole.files.is_empty(), "the whole page keeps its files");
+
+    for asked in ["debt", " Debt "] {
+        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string())).await.expect("the page");
+        assert_eq!(page.sections.iter().map(|one| (one.section, one.text.as_str())).collect::<Vec<_>>(), [(FeatureSectionKind::Debt, "The debt text.")]);
+        assert!(page.links.is_empty() && page.files.is_empty(), "a section is asked for alone");
+        assert_eq!(page.feature.slug, VOTING);
+    }
+    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into())).await.expect("the page");
+    assert_eq!(blank.sections.len(), 4, "a blank section is none");
+
+    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into())).await.expect_err("refused");
+    let api::Refusal::Unacceptable(why) = refused else { panic!("{refused:?}") };
+    assert_eq!(why.code, "fleet.feature_section_unknown");
+    assert!(why.message.contains("`tests`") && why.message.contains("test, runs, observe or debt"), "{}", why.message);
+
+    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into())).await.expect("the page");
+    assert_eq!(observe.sections.len(), 1);
 }

@@ -41,6 +41,8 @@ async fn a_page_and_its_brief_are_read_by_the_feature_slug() {
     let (status, said) = call(&app(), "GET", "/features/page?feature=voting-on-takes", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");
     assert!(said.contains(r#""slug":"voting-on-takes""#), "{said}");
+    let (status, said) = call(&app(), "GET", "/features/page?feature=voting-on-takes&section=debt", "").await;
+    assert_eq!(status, StatusCode::OK, "a page may ask for one section: {said}");
     let (status, said) = call(&app(), "GET", "/features/brief?feature=voting-on-takes", "").await;
     assert_eq!(status, StatusCode::OK, "{said}");
     assert!(said.starts_with(r#"{"feature":"voting-on-takes","text""#), "{said}");
