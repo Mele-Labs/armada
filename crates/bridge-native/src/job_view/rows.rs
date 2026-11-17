@@ -241,6 +241,8 @@ impl JobView {
     pub(super) fn render_entry(&mut self, ix: usize, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
         let nothing = || div().h(gpui::px(0.)).into_any_element();
         let Some(id) = self.shown.clone() else { return nothing() };
+        // The compact card of builds to try stands after the items: its element is where the shots are read.
+        let ready_here = self.pages.get(&id).and_then(|page| page.ready_at().map(|at| page.entry(at))) == Some(ix);
         // A picture his message carried is read the first time its row is drawn.
         let wanted = match (self.pages.get(&id), self.thread(&id, cx)) {
             (Some(page), Some(held)) => match ix.checked_sub(page.lead + page.before).and_then(|at| held.items.get(at)) {
@@ -260,16 +262,9 @@ impl JobView {
                         .collect();
                     (!read.is_empty()).then_some((read, Some(true)))
                 }
-                // And the shots of the builds under the compact card, read from the Job's own tree as a `Read` call's are.
-                Some(ThreadItem::ReadyToTry(_)) if super::ready_compact::place_in(&held.items) == ix.checked_sub(page.lead + page.before) => {
-                    let shots: Vec<ipc::SentFile> = held
-                        .items
-                        .iter()
-                        .filter_map(|item| match item {
-                            ThreadItem::ReadyToTry(card) if matches!(card.state, ipc::ReadyState::Open | ipc::ReadyState::Later) => card.pictures.first().and_then(|path| super::pictures::read_picture(path)),
-                            _ => None,
-                        })
-                        .collect();
+                // And the shots of the builds on the compact card at the thread's end, read from the Job's own tree as a `Read` call's are.
+                None if ready_here => {
+                    let shots = super::ready_compact::shots(&held.items);
                     (!shots.is_empty()).then_some((shots, Some(true)))
                 }
                 // And a picture the Job showed, as Fleet keeps it.
@@ -716,7 +711,7 @@ impl JobView {
             ThreadItem::Judged { id, at, artifact, .. } => self.judged_row(id, artifact, at, page, look, now, cx),
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
-            ThreadItem::ReadyToTry(card) => return self.ready_card(card, ix, page, look, now, cx),
+            ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
         })
     }
 
@@ -756,6 +751,7 @@ impl JobView {
             Extra::Subagents => return self.subagents_card(page.items + at, items, page, look, cx),
             Extra::Waiting => return self.waiting_card(&self.shown.clone()?, look, cx),
             Extra::End => return self.end_card(&self.shown.clone()?, look, cx),
+            Extra::Ready => return self.ready_pinned(page.items + at, page, look, now, cx),
             Extra::WaitsFor => return self.waits_for_card(&self.shown.clone()?, look, cx),
             Extra::ClaimWaits => return self.claim_waits_card(&self.shown.clone()?, look, cx),
             Extra::Moving => return self.moving_card(&self.shown.clone()?, look, cx),
