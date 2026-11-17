@@ -3083,6 +3083,10 @@ pub struct JobsScreen {
     remember: bool,
     /// The command palette, over the whole screen.
     palette: Entity<crate::palette::Palette>,
+    /// The open Job is drawn from gpui's cache (`job_area`): what it wrote when last drawn whole, and its count of draws.
+    kept: Rc<RefCell<crate::labels::KeptView>>,
+    drawn: Rc<std::cell::Cell<u64>>,
+    _drawn_with: Subscription,
 }
 
 impl JobsScreen {
@@ -3207,16 +3211,29 @@ impl JobsScreen {
                 }
             });
         })));
+        let drawn = view.read(cx).drawn();
+        // What moves this screen moves the open Job, which is otherwise drawn from its cache.
+        let drawn_with = cx.observe_self(|this, cx| this.view.update(cx, |_, cx| cx.notify()));
         JobsScreen {
             list,
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
         &self.within
+    }
+
+    /// The open Job, drawn from gpui's cache so a pulse on a list row does not draw it again each frame.
+    /// While an overlay stands it is drawn whole, since the cache cannot put an overlay's labels back.
+    fn job_area(&self, window: &Window, cx: &App) -> gpui::AnyElement {
+        let overlaid = cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.overlaid(window.window_handle().window_id()));
+        if overlaid {
+            return self.view.clone().into_any_element();
+        }
+        crate::labels::kept(self.view.clone().cached(gpui::StyleRefinement::default().size_full()), self.kept.clone(), self.drawn.clone()).into_any_element()
     }
 
     /// The palette, for the screen this one sits in to draw while another place is in front.
@@ -3548,7 +3565,7 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(self.view.clone()),
+                                .child(self.job_area(window, cx)),
                         ),
                 )
                 // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).

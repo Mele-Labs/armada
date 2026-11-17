@@ -88,6 +88,8 @@ pub static PAGES_STEPS: &[Step] = &[
     press_on("Editor: where code opens", "button", "Editor", "button", "Editor"),
     press_on("Terminal: which terminal opens", "button", "Terminal", "button", "Terminal"),
     press_on("Links: where pull requests open", "button", "Links", "button", "Links"),
+    press_on("Ways of working: Take Jobs in and Answer Jobs side by side where the page is wide", "button", "Ways of working", "region", "Answer Jobs"),
+    press_on("Theme: the theme and the theme mods in two columns", "button", "Theme", "region", "Theme"),
     step("\u{2318}P opens the picker", Verb::Key("cmd-p"), "menu", "Editing"),
     step("\u{2193} twice and Enter pick Storefront", Verb::Keys(&["down", "down", "enter"]), "combobox", "Editing Storefront"),
     press_on("Pull requests under a project: its own value beside every project's", "button", "Pull requests", "radiogroup", "Merging for Storefront"),

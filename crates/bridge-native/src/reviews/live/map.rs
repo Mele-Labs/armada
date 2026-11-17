@@ -4,12 +4,14 @@
 use std::collections::{HashMap, HashSet};
 
 use ipc::{
-    ChangeSetKind, MyReviewSaid, OverviewSeverity, PracticeVerdict, PullInbox, PullRequestCommit, PullRequestCompare, PullRequestFilePatch, PullRequestNote, PullRequestPage, PullReviewList,
+    ChangeSetKind, MyReviewSaid, OverviewSeverity, PracticeVerdict, PullInbox, PullRequestCompare, PullRequestFilePatch, PullRequestNote, PullRequestPage, PullReviewList,
     PullReviewLists, ReviewResult, ReviewRun, ReviewRunKind, ReviewRunState, ReviewToolKind, ReviewTools,
 };
 
 use super::Row;
-use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Seen, Summary, Verdict, Viewed};
+use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Summary, Verdict, Viewed};
+pub use crate::since_looked::when;
+use crate::since_looked::{new_commits_of, seen_of, short};
 
 /// Where one of Fleet's runs stands for the head in front.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -68,23 +70,6 @@ fn named(kind: ReviewRunKind, kept: &str, asked: &str) -> bool {
     matches!(kind, ReviewRunKind::ChangeSets | ReviewRunKind::Overview) || kept == asked
 }
 
-fn short(sha: &str) -> String {
-    sha.chars().take(7).collect()
-}
-
-/// The day and time of an instant, as a person says them: `today`, `yesterday`, `Tuesday`, `4 Nov`.
-pub fn when(at: &str) -> Option<(String, String)> {
-    let at = chrono::DateTime::parse_from_rfc3339(at).ok()?.with_timezone(&chrono::Local);
-    let days = (chrono::Local::now().date_naive() - at.date_naive()).num_days();
-    let day = match days {
-        ..=0 => "today".to_string(),
-        1 => "yesterday".to_string(),
-        2..=6 => at.format("%A").to_string(),
-        _ => at.format("%-d %b").to_string(),
-    };
-    Some((day, at.format("%H:%M").to_string()))
-}
-
 /// How long since an instant, in its largest unit, as an inbox row says it.
 fn age(at: &str) -> String {
     let Ok(at) = chrono::DateTime::parse_from_rfc3339(at) else { return String::new() };
@@ -94,17 +79,6 @@ fn age(at: &str) -> String {
         1..=59 => format!("{minutes}m"),
         60..=1439 => format!("{}h", minutes / 60),
         _ => format!("{}d", minutes / 1440),
-    }
-}
-
-/// A commit's time as the What changed list says it: `Fri 08:58`, or `4 Nov` past a week.
-fn stamp(at: &str) -> String {
-    let Ok(parsed) = chrono::DateTime::parse_from_rfc3339(at) else { return at.to_string() };
-    let at = parsed.with_timezone(&chrono::Local);
-    if (chrono::Local::now().date_naive() - at.date_naive()).num_days() < 7 {
-        at.format("%a %H:%M").to_string()
-    } else {
-        at.format("%-d %b").to_string()
     }
 }
 
@@ -211,18 +185,8 @@ pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[Pull
             patch_since: since.get(file.path.as_str()).copied().flatten().map(str::to_string),
         })
         .collect();
-    let seen = detail.seen.as_ref().map(|seen| {
-        let (day, time) = when(&seen.at).unwrap_or_default();
-        Seen { day, time, old: short(&seen.head), new: short(&head), gone }
-    });
-    // The commits after the one he left it at, newest first; all of them where his is no longer there.
-    let new_commits: Vec<PullRequestCommit> = match &detail.seen {
-        Some(seen) if seen.head != head => {
-            let after = detail.commits.iter().position(|commit| !commit.sha.is_empty() && seen.head.starts_with(&commit.sha)).map_or(0, |at| at + 1);
-            detail.commits[after..].iter().rev().cloned().map(|commit| PullRequestCommit { at: commit.at.as_deref().map(stamp), ..commit }).collect()
-        }
-        _ => Vec::new(),
-    };
+    let seen = seen_of(detail, gone);
+    let new_commits = new_commits_of(detail);
     let mine = match &detail.my_review {
         Some(review) => Mine {
             verdict: verdict_of(Some(review.said)),
@@ -494,7 +458,7 @@ mod tests {
     #[test]
     fn a_time_that_cannot_be_read_shows_no_age_and_its_own_words_for_a_stamp() {
         assert_eq!(age("yesterday-ish"), "");
-        assert_eq!(stamp("yesterday-ish"), "yesterday-ish");
+        assert_eq!(crate::since_looked::stamp("yesterday-ish"), "yesterday-ish");
         assert_eq!(when("yesterday-ish"), None);
     }
 

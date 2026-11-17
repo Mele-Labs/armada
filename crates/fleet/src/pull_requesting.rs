@@ -221,8 +221,8 @@ fn read_from_forge<V: TheForge>(
             run.clone(),
         ))
     };
-    let facts = vcs.pull_request_facts(root, &named).ok_or_else(unreadable)?;
-    let checks = checks_of(&vcs.under_review(root, &named, gate).checks).ok_or_else(unreadable)?;
+    let (facts, ran) = vcs.pull_request_standing(root, &named, gate).ok_or_else(unreadable)?;
+    let checks = checks_of(&ran).ok_or_else(unreadable)?;
     // Only an open pull request waits in the queue, and a forge that will not
     // say leaves it out of the queue: the read stays the pull request's own.
     let queued = facts.standing == Forge::Open

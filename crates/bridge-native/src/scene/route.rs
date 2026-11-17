@@ -760,6 +760,9 @@ fn facing(from: Rect, to: Rect) -> (Side, Side) {
     }
 }
 
+/// How wide a curve that has to go round a box rounds its corners.
+const CURVE_RADIUS: f32 = 40.0;
+
 /// A curve from `ends.start` out of its side to `ends.end` into its side: a straight stub of `need` where a head
 /// stands, then one cubic that leaves and arrives square to the boxes. A box too near leaves less than `need`.
 fn curve(ends: &Ends, need: (f32, f32)) -> Vec<Seg> {
@@ -1000,7 +1003,18 @@ pub(crate) fn route_all(
                     rounded_path(&points, radius)
                 }
                 ScenePath::Straight => vec![Seg::Move(tenth_pt(moved[k].start)), Seg::Line(tenth_pt(moved[k].end))],
-                ScenePath::Curve => curve(&moved[k], need(edge, 0.0)),
+                ScenePath::Curve => {
+                    // One bezier where it passes no other box; where it would, the elbow's way round them, its corners rounded wide.
+                    let one = curve(&moved[k], need(edge, 0.0));
+                    let others = others_of(edge);
+                    if polyline(&one).windows(2).all(|pair| others.iter().all(|r| !cuts(pair[0], pair[1], *r))) {
+                        one
+                    } else {
+                        let points = route(*from, *to, &others, gap, Some(&moved[k]), need(edge, CURVE_RADIUS), Traffic { runs: &runs, group: trunk_of[k] });
+                        runs.extend(points.windows(2).map(|pair| Run { a: pair[0], b: pair[1], group: trunk_of[k] }));
+                        rounded_path(&points, CURVE_RADIUS)
+                    }
+                }
             };
             (edge.id.to_string(), ways)
         })
@@ -1146,6 +1160,23 @@ mod tests {
         // The head points the way the last run goes: square to the side it arrives at.
         let tips = tips(segs).expect("a way");
         assert!(tips.end.x == tips.before_end.x || tips.end.y == tips.before_end.y, "{tips:?}");
+    }
+
+    #[test]
+    fn a_curve_that_would_pass_through_a_box_goes_round_it_with_wide_corners() {
+        // Lanes side by side: Parse in the first, Review in the second, Verify in the third, all near one height.
+        let review = rect(340.0, 220.0, 240.0, 64.0);
+        let rects = vec![
+            ("parse".to_string(), rect(20.0, 250.0, 240.0, 64.0)),
+            ("review".to_string(), review),
+            ("verify".to_string(), rect(660.0, 250.0, 240.0, 64.0)),
+        ];
+        let ways = ways_of(&rects, &[edge("e", "parse", "verify", ScenePath::Curve, (false, true))]);
+        let points = polyline(&ways[0].1);
+        for pair in points.windows(2) {
+            assert!(!cuts(pair[0], pair[1], review), "{points:?}");
+        }
+        assert!(ways[0].1.iter().any(|seg| matches!(seg, Seg::Quad(..))), "{:?}", ways[0].1);
     }
 
     #[test]
