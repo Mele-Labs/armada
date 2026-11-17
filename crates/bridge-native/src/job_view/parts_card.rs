@@ -77,6 +77,8 @@ pub(super) struct PartsState {
     typing: HashMap<String, gpui::Subscription>,
     /// Fleet's reason for the last act on a part it refused, by part.
     said: HashMap<String, SharedString>,
+    /// Words parts he opened past their cut with Read more, by part.
+    whole: std::collections::HashSet<String>,
 }
 
 /// The part as he reads it: his answer on it where Fleet's list has not caught up, on the revision he answered.
@@ -797,7 +799,7 @@ impl JobView {
         let key = part_key(c.id, &part.id);
         let (mark, name) = kind_look(part.content.kind());
         let body = match &part.content {
-            PartContent::Words { text } => self.words_body(c, &key, text, part),
+            PartContent::Words { text } => self.words_body(c, &key, text, part, cx),
             PartContent::Takes { question, form, takes, .. } => self.takes_body(c, &key, part, question.as_deref(), *form, takes, cx),
             PartContent::Drawing { scene } => self.drawing_body(c, &key, part, scene, cx),
             PartContent::Buttons { actions } => self.buttons_body(c, &key, part, actions, cx),
@@ -886,16 +888,50 @@ impl JobView {
     // ---- words ---------------------------------------------------------------------------------------------------
 
     /// Words the Job wrote, as markdown. Long ones are cut as a page's first screen is.
-    fn words_body(&self, c: &Ctx, key: &str, text: &str, part: &ArtifactPart) -> AnyElement {
+    fn words_body(&self, c: &Ctx, key: &str, text: &str, part: &ArtifactPart, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let words = TextView::markdown(gpui::ElementId::Name(format!("words:{}:{key}:{}", c.job, part.drawn).into()), text.to_string())
             .w_full()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_DEFAULT));
-        if text.chars().count() > 600 || text.lines().count() > 8 {
-            return well(look, true, words.into_any_element());
+        // The review panel and the artifact's own tab are where he reads it whole; only the thread's card cuts.
+        let long = text.chars().count() > 600 || text.lines().count() > 8;
+        if !long || c.tab || c.sheet {
+            return div().w_full().child(words).into_any_element();
         }
-        div().w_full().child(words).into_any_element()
+        let open = c.state().whole.contains(key);
+        let said: &'static str = if open { "Show less" } else { "Read more" };
+        let held = key.to_string();
+        let press = labelled(
+            act(look, format!("words-whole:{key}"), said, Kind::Ghost, "", true)
+                .tooltip(tip(if open { "Cut the words back to their first screen" } else { "Show the rest of the words here" }))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // The press is the button's alone, never the card's, which would grow the whole card.
+                    cx.stop_propagation();
+                    this.flip_whole_words(&held, cx)
+                })),
+            Role::Button,
+            said,
+        );
+        let body = if open {
+            div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).child(words).into_any_element()
+        } else {
+            well(look, true, words.into_any_element())
+        };
+        div().w_full().flex().flex_col().child(body).child(div().px(look.length(token::SPACE_4)).flex().child(press)).into_any_element()
+    }
+
+    /// Words opened past their cut, or cut back.
+    pub(super) fn flip_whole_words(&mut self, key: &str, cx: &mut Context<Self>) {
+        if let Some(state) = self.parts_state_mut() {
+            if !state.whole.remove(key) {
+                state.whole.insert(key.to_string());
+            }
+        }
+        if let Some((artifact, _)) = split_key(key) {
+            let artifact = artifact.to_string();
+            self.parts_changed(&artifact, cx);
+        }
     }
 
     /// Approve and Ask for changes under words, a drawing or a page that asks, or the note box in their place.
@@ -1654,6 +1690,27 @@ mod tests {
 
     fn held_part(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, artifact: &str, part: &str) -> ArtifactPart {
         view.read_with(cx, |view, _| view.artifact_of(JOB, artifact).and_then(|one| one.parts.iter().find(|held| held.id == part)).cloned().expect("the artifact holds the part"))
+    }
+
+    #[gpui::test]
+    fn long_words_on_the_thread_card_open_whole_with_read_more_and_cut_back_with_show_less(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        assert!(!drawn(cx, gpui::Role::Button, "Read more"), "short words stand whole with no Read more");
+        view.update(cx, |view, cx| {
+            let part = view.artifact_mut(JOB, "draft:Commit words").and_then(|one| one.parts.first_mut()).expect("the card holds its words");
+            part.content = PartContent::Words { text: (1..=14).map(|line| format!("Line {line} of a long reply.")).collect::<Vec<_>>().join("\n\n") };
+            view.parts_changed("draft:Commit words", cx);
+        });
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Read more"), "long words are cut and say so");
+        let key = part_key("draft:Commit words", "commit");
+        view.update(cx, |view, cx| view.flip_whole_words(&key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Show less"), "opened, the words stand whole");
+        assert!(!drawn(cx, gpui::Role::Button, "Read more"));
+        view.update(cx, |view, cx| view.flip_whole_words(&key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Read more"), "Show less cuts them back");
     }
 
     #[gpui::test]
