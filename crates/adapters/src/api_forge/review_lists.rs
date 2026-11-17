@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use super::{joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi};
 use crate::pull_request_detail::review_standing;
-use crate::pull_review_lists::{checks_of, latest_of, search_of, team_named, Teams, MOST_A_CALL, QUERY};
+use crate::pull_review_lists::{asked_at_of, asks_read, checks_of, latest_of, search_of, team_named, Teams, MOST_A_CALL, QUERY};
 
 /// The most pages of the person's teams read: 1,000 teams.
 const MOST_TEAM_PAGES: usize = 10;
@@ -18,6 +18,8 @@ struct Asked<'a> {
     n: usize,
     /// Whose own latest review each row carries; null on the open list, whose rows are nobody's.
     me: Option<&'a str>,
+    /// Whether each row's review requests are read.
+    asked: bool,
 }
 
 /// `data` of the search.
@@ -42,6 +44,23 @@ struct Found {
     commits: Option<Nodes<Commit>>,
     review_requests: Option<Nodes<Request>>,
     my_review: Option<Nodes<MyReview>>,
+    asks: Option<Nodes<Ask>>,
+}
+
+/// A review request on a pull request's timeline.
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Ask {
+    created_at: Option<String>,
+    requested_reviewer: Option<Reviewer>,
+}
+
+/// Who a review request asked: a person by `login`, a team by `slug` and `organization`.
+#[derive(Deserialize)]
+struct Reviewer {
+    login: Option<String>,
+    slug: Option<String>,
+    organization: Option<Login>,
 }
 
 #[derive(Deserialize)]
@@ -105,10 +124,10 @@ struct HeldTeam {
 pub(super) fn read(api: &GitHubApi, ask: &ReviewListAsk<'_>) -> Result<Option<Vec<ListedPull>>, ApiFailure> {
     let Some(search) = search_of(ask) else { return Ok(None) };
     let me = (!ask.login.is_empty() && ask.list != ReviewList::Open).then_some(ask.login);
-    let asked = Asked { q: &search, n: ask.most.clamp(1, MOST_A_CALL), me };
+    let asked = Asked { q: &search, n: ask.most.clamp(1, MOST_A_CALL), me, asked: asks_read(ask.list) };
     if ask.list != ReviewList::Team {
         let found: Searched = api.graphql(QUERY, &asked)?;
-        return Ok(Some(listed(found, Teams::Unwanted)));
+        return Ok(Some(listed(found, Teams::Unwanted, ask.login)));
     }
     // The teams the person is on do not wait on the search, nor it on them.
     let (found, held) = std::thread::scope(|scope| {
@@ -118,7 +137,7 @@ pub(super) fn read(api: &GitHubApi, ask: &ReviewListAsk<'_>) -> Result<Option<Ve
     });
     let held = held.ok();
     let teams = held.as_deref().map_or(Teams::Unread, Teams::Held);
-    Ok(Some(listed(found?, teams)))
+    Ok(Some(listed(found?, teams, ask.login)))
 }
 
 /// The teams the person is on, as lowercase `org/slug`. A refusal is a token without `read:org`,
@@ -138,7 +157,7 @@ fn my_teams(api: &GitHubApi) -> Result<Vec<String>, ApiFailure> {
 
 /// The search's rows, as `crate::pull_review_lists::listed_folded` makes them from `gh`'s. A
 /// node with no number is not a pull request, and is dropped.
-pub(crate) fn listed(found: Searched, teams: Teams<'_>) -> Vec<ListedPull> {
+pub(crate) fn listed(found: Searched, teams: Teams<'_>, me: &str) -> Vec<ListedPull> {
     Nodes::all(found.search)
         .filter_map(|pull| {
             let number = pull.number?;
@@ -152,6 +171,17 @@ pub(crate) fn listed(found: Searched, teams: Teams<'_>) -> Vec<ListedPull> {
                     let slug = team.slug.filter(|slug| !slug.is_empty())?;
                     let org = login_of(team.organization);
                     Some((format!("{org}/{slug}"), team.name.unwrap_or_else(|| slug.clone())))
+                })
+                .collect();
+            let requests: Vec<(String, String)> = Nodes::all(pull.asks)
+                .filter_map(|ask| {
+                    let at = ask.created_at.filter(|at| !at.is_empty())?;
+                    let reviewer = ask.requested_reviewer?;
+                    let who = match reviewer.login {
+                        Some(login) => login,
+                        None => format!("{}/{}", login_of(reviewer.organization), reviewer.slug.unwrap_or_default()),
+                    };
+                    Some((who, at))
                 })
                 .collect();
             Some(ListedPull {
@@ -171,6 +201,7 @@ pub(crate) fn listed(found: Searched, teams: Teams<'_>) -> Vec<ListedPull> {
                     let commit = review.commit.and_then(|it| it.oid).unwrap_or_default();
                     latest_of(&review.state.unwrap_or_default(), &commit, &review.submitted_at.unwrap_or_default())
                 }),
+                asked_at: asked_at_of(&requests, me, &teams),
             })
         })
         .collect()

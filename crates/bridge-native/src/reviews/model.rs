@@ -61,6 +61,28 @@ pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool) -> Group
     }
 }
 
+/// The rows in the order the inbox draws them: group by group, each in the order it came, but
+/// **Review requested from you has the one he has waited on longest first**.
+pub fn in_order(rows: &[InboxRow]) -> Vec<&InboxRow> {
+    let instant = |at: &str| chrono::DateTime::parse_from_rfc3339(at).ok();
+    // A time that is missing or does not read goes after every one that does.
+    let waited = |row: &InboxRow| {
+        let asked = row.asked_at.as_deref().and_then(instant);
+        let updated = instant(&row.updated_at);
+        (asked.is_none(), asked, updated.is_none(), updated)
+    };
+    Group::ALL
+        .iter()
+        .flat_map(|group| {
+            let mut rows: Vec<&InboxRow> = rows.iter().filter(|row| row.group() == *group).collect();
+            if *group == Group::Requested {
+                rows.sort_by_key(|row| waited(row));
+            }
+            rows
+        })
+        .collect()
+}
+
 /// One pull request in the inbox: a `PullReviewRow` with the inbox state Fleet adds.
 #[derive(Clone, Debug, PartialEq)]
 pub struct InboxRow {
@@ -71,6 +93,10 @@ pub struct InboxRow {
     pub author: String,
     /// How long since it was updated, as the row says it. Fleet sends RFC 3339.
     pub age: String,
+    /// When it was updated, RFC 3339, as Fleet sent it.
+    pub updated_at: String,
+    /// When he was last asked to review it, RFC 3339, where Fleet knows.
+    pub asked_at: Option<String>,
     /// Fleet's inbox state is changed since he looked.
     pub changed: bool,
     /// Commits pushed since he looked: the chip on a changed row.
@@ -979,6 +1005,53 @@ mod group_tests {
         assert_eq!(group_of(&[Team], Verdict::NotReviewed, false), Group::Team);
         assert_eq!(group_of(&[Team, Assigned], Verdict::Approved, false), Group::Team);
         assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, false), Group::Done);
+    }
+
+    fn row(number: u64, lists: &[PullReviewList], updated_at: &str, asked_at: Option<&str>) -> InboxRow {
+        InboxRow {
+            number,
+            repository: "acme/billing".into(),
+            title: format!("Pull {number}"),
+            author: "tobias".into(),
+            age: String::new(),
+            updated_at: updated_at.into(),
+            asked_at: asked_at.map(str::to_string),
+            changed: false,
+            new_commits: None,
+            lists: lists.to_vec(),
+            checks: PullReviewChecks::Passed,
+            mine: Verdict::NotReviewed,
+        }
+    }
+
+    fn numbers(rows: &[InboxRow]) -> Vec<u64> {
+        in_order(rows).iter().map(|row| row.number).collect()
+    }
+
+    #[test]
+    fn review_requested_from_you_puts_the_longest_wait_first() {
+        let rows = [
+            row(1, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-16T09:00:00Z")),
+            row(2, &[Requested], "2026-11-10T12:00:00Z", None),
+            row(3, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T09:00:00+02:00")),
+            row(4, &[Requested], "2026-11-09T12:00:00Z", None),
+            row(5, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T08:00:00Z")),
+        ];
+        // #3 was asked at 07:00 UTC, before #5; an unknown time goes after, the oldest update first.
+        assert_eq!(numbers(&rows), [3, 5, 1, 4, 2]);
+    }
+
+    #[test]
+    fn a_time_that_does_not_read_is_no_time_and_other_groups_keep_their_order() {
+        let rows = [
+            row(10, &[Mine], "2026-11-01T00:00:00Z", None),
+            row(11, &[Requested], "2026-11-16T12:00:00Z", Some("yesterday")),
+            row(12, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-15T09:00:00Z")),
+            row(13, &[Mine], "2026-10-01T00:00:00Z", None),
+            row(14, &[Team], "2026-11-16T12:00:00Z", Some("2026-11-01T09:00:00Z")),
+            row(15, &[Team], "2026-11-16T12:00:00Z", Some("2026-10-01T09:00:00Z")),
+        ];
+        assert_eq!(numbers(&rows), [12, 11, 10, 13, 14, 15]);
     }
 
     #[test]

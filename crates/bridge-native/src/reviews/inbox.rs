@@ -4,7 +4,7 @@
 use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Transformation, Window};
 use ipc::PullReviewChecks;
 
-use super::model::{Group, InboxRow, Verdict};
+use super::model::{in_order, Group, InboxRow, Verdict};
 use super::{panel, ReviewsScreen};
 use crate::jobs::{group_line, list_bar, list_control, list_search, row_card, row_edge, row_wash};
 use crate::keymap::Act;
@@ -65,9 +65,8 @@ impl ReviewsScreen {
     fn shown_rows(&self, cx: &gpui::App) -> Vec<&InboxRow> {
         let query = self.search.read(cx).value().trim().to_lowercase();
         let names = scoped_names(cx);
-        Group::ALL
-            .iter()
-            .flat_map(|group| self.inbox.rows.iter().filter(move |row| row.group() == *group))
+        in_order(&self.inbox.rows)
+            .into_iter()
             .filter(|row| in_scope(&row.repository, names.as_deref()))
             .filter(|row| self.lists.is_none_or(|list| row.lists.contains(&list)))
             .filter(|row| {

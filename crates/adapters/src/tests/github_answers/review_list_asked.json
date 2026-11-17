@@ -1,0 +1,74 @@
+{
+ "data": {
+  "search": {
+   "nodes": [
+    {
+     "repository": {"nameWithOwner": "acme/billing"},
+     "number": 41,
+     "title": "Bill a trial at its end",
+     "headRefName": "trial-billing",
+     "url": "https://github.com/acme/billing/pull/41",
+     "isDraft": false,
+     "headRefOid": "4141414141414141414141414141414141414141",
+     "author": {"login": "tobias"},
+     "updatedAt": "2026-11-16T12:00:00Z",
+     "reviewDecision": "REVIEW_REQUIRED",
+     "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "SUCCESS"}}}]},
+     "reviewRequests": {
+      "nodes": [
+       {"requestedReviewer": {}},
+       {"requestedReviewer": {"name": "Billing reviewers", "slug": "billing-reviewers", "organization": {"login": "acme"}}}
+      ]
+     },
+     "myReview": {"nodes": []},
+     "asks": {
+      "nodes": [
+       {"createdAt": "2026-11-10T09:00:00Z", "requestedReviewer": {"login": "Mira"}},
+       {"createdAt": "2026-11-12T09:00:00Z", "requestedReviewer": {"slug": "billing-reviewers", "organization": {"login": "acme"}}},
+       {"createdAt": "2026-11-13T09:00:00Z", "requestedReviewer": {"login": "tobias"}},
+       {"createdAt": "2026-11-14T09:00:00Z", "requestedReviewer": {"login": "mira"}},
+       {"createdAt": "2026-11-15T09:00:00Z", "requestedReviewer": {"slug": "design", "organization": {"login": "acme"}}},
+       {}
+      ]
+     }
+    },
+    {
+     "repository": {"nameWithOwner": "acme/billing"},
+     "number": 42,
+     "title": "Round tax per line",
+     "headRefName": "tax-per-line",
+     "url": "https://github.com/acme/billing/pull/42",
+     "isDraft": false,
+     "headRefOid": "4242424242424242424242424242424242424242",
+     "author": {"login": "tobias"},
+     "updatedAt": "2026-11-16T10:00:00Z",
+     "reviewDecision": null,
+     "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
+     "reviewRequests": {"nodes": []},
+     "myReview": {"nodes": []},
+     "asks": {
+      "nodes": [
+       {"createdAt": "2026-11-11T09:00:00Z", "requestedReviewer": {"login": "tobias"}},
+       {"createdAt": "2026-11-11T10:00:00Z", "requestedReviewer": null}
+      ]
+     }
+    },
+    {
+     "repository": {"nameWithOwner": "acme/billing"},
+     "number": 43,
+     "title": "Name the failed card on a receipt",
+     "headRefName": "failed-card",
+     "url": "https://github.com/acme/billing/pull/43",
+     "isDraft": true,
+     "headRefOid": "4343434343434343434343434343434343434343",
+     "author": {"login": "tobias"},
+     "updatedAt": "2026-11-16T09:00:00Z",
+     "reviewDecision": null,
+     "commits": {"nodes": []},
+     "reviewRequests": {"nodes": []},
+     "myReview": {"nodes": []}
+    }
+   ]
+  }
+ }
+}

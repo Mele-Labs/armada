@@ -24,6 +24,8 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, chan
         title: title.into(),
         author: author.into(),
         age: age.into(),
+        updated_at: String::new(),
+        asked_at: None,
         changed,
         new_commits,
         lists: lists.to_vec(),
@@ -58,6 +60,15 @@ pub fn inbox() -> Inbox {
         row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
         row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
     ];
+    // When each was asked of him: oldest first under Review requested, not as the list came.
+    let asked = [(2231, "2026-11-16T09:30:00Z"), (2214, "2026-11-16T09:00:00Z"), (2198, "2026-11-14T15:00:00Z"), (2190, "2026-11-12T10:00:00Z")];
+    let rows = rows
+        .into_iter()
+        .map(|mut row| {
+            row.asked_at = asked.iter().find(|(number, _)| *number == row.number).map(|(_, at)| at.to_string());
+            row
+        })
+        .collect();
     Inbox { rows, refreshing: true }
 }
 
