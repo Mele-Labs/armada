@@ -42,12 +42,14 @@ pub struct TabAct {
     pub act: Rc<dyn Fn(&mut Window, &mut App)>,
 }
 
-/// The pane a view tab stands in: the thread's, the top of the right column, or its foot, where Now is.
+/// The pane a view tab stands in: the thread's, the top of the right column, or its foot, where Now is. The side chat's split is a fourth, which no tab asks for.
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum ViewPane {
     Thread,
     Top,
     Bottom,
+    /// The pane the side chat's split makes beside the thread: never asked for, only read.
+    Beside,
 }
 
 /// A kind of tab every pane's + offers after its own, and what opens one on Job `job` in the pane whose +

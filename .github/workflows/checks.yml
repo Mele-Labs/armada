@@ -254,6 +254,9 @@ jobs:
           # a local pre-PR run does not build gpui for every wire change. CI pays for it instead:
           # #3443 renamed a wire field and merged with the native tests not compiling.
           native=$(jq .native plan/plan.json)
+          # A pull request's change inside the crate ran the native tests in its local pre-PR Check,
+          # and the queue runs them on the commit that lands, so the PR does not hold a Mac for them.
+          if [ "$GITHUB_EVENT_NAME" = pull_request ]; then native=false; fi
           own=plan/changed.txt
           [ -f plan/branch.txt ] && own=plan/branch.txt
           if [ "$REPEAT" != true ] && grep -qE '^(crates/ipc|crates/core-model|packages/tokens)/' "$own"; then
@@ -874,8 +877,9 @@ jobs:
           if-no-files-found: error
 
   # The native Bridge's tests, on the runner that can build it: gpui builds on no Linux runner, so
-  # no other job runs them. It runs on a pull request, a queue run and a push to main whose change
-  # reaches `crates/bridge-native`, as `plan` reads it from `armada covers`, and is skipped
+  # no other job runs them. It runs on a queue run and a push to main whose change reaches
+  # `crates/bridge-native`, as `plan` reads it from `armada covers`, and on a pull request only
+  # for a change to what the crate reads, which no local Check builds it for. It is skipped
   # otherwise, which `ci` below reads as a pass. So only a change to the crate waits on it.
   native:
     name: native

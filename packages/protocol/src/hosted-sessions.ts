@@ -610,6 +610,8 @@ export type SessionRow =
       queued?: true;
       /** When the person edited these words after the agent had been sent them (`edit_session_message`): the row carries the new words, and the thread marks it edited. Absent on a message never edited. */
       edited_at?: string;
+      /** The side question (`Aside.aside_id`) whose answer the person told the Job with these words (`tell_aside`), so the thread says they came from the side chat. Absent on every other message. */
+      aside?: string;
     }
   /**
    * Words that went to another Job. Written only in the old threads the Helm Job kept, and nowhere

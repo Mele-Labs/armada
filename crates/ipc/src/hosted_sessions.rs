@@ -307,8 +307,8 @@ pub struct PauseSession {
     pub session_id: SessionId,
 }
 
-/// `snooze_session`: keep a Job quiet until `until`, or wake it now with none. It keeps working;
-/// what it raises meanwhile stays on it with no push or card.
+/// `snooze_session`: pause a Job and keep it quiet until `until`, or wake it now with none. What it
+/// raised stays on it with no push or card, and the wake resumes it if the snooze paused it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SnoozeSession {
     pub session_id: SessionId,
@@ -694,6 +694,11 @@ pub enum SessionRow {
         /// and on every row kept before it existed.
         #[serde(default, skip_serializing_if = "Option::is_none")]
         edited_at: Option<Instant>,
+        /// The side question (`Aside::aside_id`) whose answer the person told the Job with these words
+        /// (`tell_aside`), so the thread says they came from the side chat. Absent on every other
+        /// message, and on every row kept before it existed.
+        #[serde(default, skip_serializing_if = "Option::is_none")]
+        aside: Option<String>,
     },
     /// A tool call, one line.
     Tool {

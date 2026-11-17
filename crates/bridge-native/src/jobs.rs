@@ -453,8 +453,17 @@ fn moved(mut placed: Vec<String>, id: &str, target: &str, after: bool) -> Option
     Some(placed)
 }
 
+/// Fleet's mark, save that an idle Job with work still going past its turn reads as running it: idle would say nothing runs.
+pub(crate) fn mark_of(job: &SessionRecord) -> Option<JobMark> {
+    let mark = job.mark?;
+    let Some(first) = job.running.first().filter(|_| mark.state == JobState::Idle && mark.lamp == JobLamp::Idle) else { return Some(mark) };
+    let state = if first.kind == ipc::RunningKind::Subagent { JobState::Subagent } else { JobState::Running };
+    Some(JobMark { state, lamp: JobLamp::Running, ..mark })
+}
+
 /// A row's second line, as plain text. While the Job waits on him: the first thing it waits on him for, named
-/// by its kind where its words do not. Otherwise what it is doing now, or what it last summed up.
+/// by its kind where its words do not. Otherwise what it is doing now, a background task still going, or what it last summed up.
+
 pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
     let waits = job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let waiting = job.waiting_for.iter().find(|item| item.source != WaitingSource::Done).filter(|_| waits).map(|item| {
@@ -468,7 +477,8 @@ pub(crate) fn now_of(job: &SessionRecord) -> Option<String> {
         let named = kind.is_empty() || item.text.to_lowercase().starts_with(&kind.to_lowercase());
         if named { item.text.clone() } else { format!("{kind}: {}", item.text) }
     });
-    let line = waiting.or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
+    let running = job.running.first().filter(|_| !waits).map(|one| one.what.clone());
+    let line = waiting.or(running).or_else(|| job.activity.as_ref().and_then(|activity| activity.now.clone().or_else(|| activity.said.clone())).or_else(|| job.so_far.clone()))?;
     Some(crate::job_view::plain_of(&line)).filter(|line| !line.is_empty())
 }
 
@@ -609,7 +619,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             pr: attached(job, "pr").map(|pr| format!("#{pr}").into()),
             last: job.last_turn_at.as_ref().and_then(|at| age(at.as_str(), now)).map(Into::into),
             // A Job that went to the other Mac is ended here, as Fleet's mark for it says.
-            mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { job.mark },
+            mark: if crate::move_to_mac::moved(job) { job.mark.map(|_| JobMark { state: JobState::Ended, lamp: JobLamp::Idle, group: JobGroup::Done }) } else { mark_of(job) },
             issue: job.attachments.iter().find(|one| one.kind == "issue").map(|one| {
                 let number = if one.target.chars().all(|c| c.is_ascii_digit()) { format!("#{}", one.target) } else { one.target.clone() };
                 let title = one.detail.get("title").cloned().unwrap_or_default();
@@ -989,6 +999,13 @@ impl JobsList {
         Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
+    /// The mock Jobs over a Fleet connection, so a test reaches the paths a live Fleet takes.
+    #[cfg(test)]
+    pub fn mock_over(jobs: &[SessionRecord], fleet: Entity<FleetConnection>, cx: &mut Context<Self>) -> Self {
+        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects()));
+        Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, Some(fleet), None, cx)
+    }
+
     fn with(
         jobs: Vec<SessionRecord>,
         names: Names,
@@ -1216,6 +1233,12 @@ impl JobsList {
 
     pub fn record(&self, id: &str) -> Option<&SessionRecord> {
         self.jobs.iter().find(|job| job.id.as_str() == id)
+    }
+
+    /// A test's stand-in for a Fleet read that changes one record.
+    #[cfg(test)]
+    pub(crate) fn record_mut(&mut self, id: &str) -> Option<&mut SessionRecord> {
+        self.jobs.iter_mut().find(|job| job.id.as_str() == id)
     }
 
     /// A walk's stand-in for Fleet's yes to a queued idea's start: a Job of its words, in its repository's group,
@@ -3259,6 +3282,8 @@ impl JobsScreen {
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
         } else if self.palette.read(cx).is_open() {
             cx.propagate();
+        } else if self.view.update(cx, |view, cx| view.side_chat_act(act, window, cx)) {
+            // ⌘J with a Job open is that Job's side chat; with none it is the Operator's, as the registry has it.
         } else if self.view.update(cx, |view, cx| view.pane_act(act, window, cx)) {
             // A key that arranges the open Job's panes, from wherever on the deck the keys are.
         } else {
@@ -3990,6 +4015,25 @@ mod tests {
         job.mark = job.mark.map(|mark| JobMark { lamp: JobLamp::Running, ..mark });
         job.activity = serde_json::from_value(serde_json::json!({"now": "Running `gh pr view`"})).expect("activity decodes");
         assert_eq!(now_of(&job).as_deref(), Some("Running gh pr view"));
+    }
+
+    #[test]
+    fn an_idle_job_with_a_background_task_reads_as_running_it() {
+        let jobs = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+        let mut job = jobs.into_iter().find(|job| job.id.as_str() == "mock-01").expect("mock-01");
+        job.waiting_for.clear();
+        job.mark = Some(JobMark { state: JobState::Idle, lamp: JobLamp::Idle, group: JobGroup::Held });
+        job.activity = serde_json::from_value(serde_json::json!({"said": "Still waiting on the breakdown"})).expect("activity decodes");
+        assert_eq!(mark_of(&job).map(|mark| mark.state), Some(JobState::Idle), "nothing runs: idle");
+        job.running = vec![ipc::RunningWork { kind: ipc::RunningKind::BackgroundTask, what: "Break down develop folder by project".into(), since: ipc::Instant::carried("2026-11-16T16:40:10Z") }];
+        let mark = mark_of(&job).expect("a mark");
+        assert_eq!((mark.state, mark.lamp, mark.group), (JobState::Running, JobLamp::Running, JobGroup::Held));
+        assert_eq!(glyph_of(mark.state, None).1.as_ref(), "Running");
+        assert_eq!(now_of(&job).as_deref(), Some("Break down develop folder by project"));
+        let rows = lines_of(std::slice::from_ref(&job), &[], Scope::All, "", &[], &Names::default());
+        let row = rows.iter().find_map(|line| match line { Line::Job(row) if row.id.as_ref() == "mock-01" => Some(row), _ => None }).expect("its row");
+        assert_eq!(row.mark.map(|mark| mark.state), Some(JobState::Running));
+        assert_eq!(row.now.as_deref(), Some("Break down develop folder by project"));
     }
 
     #[test]

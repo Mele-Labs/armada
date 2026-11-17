@@ -15,11 +15,18 @@ use super::{exchanged, Answered, Asked, JobHeld, Wait, WaitedOn, Wanted, PASS_EV
 use crate::daemon::Fleet;
 use crate::red_claim::repository_key_of;
 
-/// What a pass leaves to say: each word to a Job, and each Job whose record moved.
+/// What a pass leaves to say: the words to each Job, sent as one notice, and each Job whose record
+/// moved.
 #[derive(Debug, Default)]
 struct Said {
-    told: Vec<(String, String)>,
+    told: BTreeMap<String, Vec<String>>,
     moved: BTreeSet<String>,
+}
+
+/// Whether two holders are the same Job. **`since` is left out**: a Job's claims taken in different
+/// passes carry different times, and are still one Job to tell about.
+fn same_job(one: &Holder, other: &Holder) -> bool {
+    one.kind == other.kind && one.id == other.id && one.machine == other.machine
 }
 
 /// What the pass asks for `job`, with its held state brought up to date first: files a pull request
@@ -56,12 +63,12 @@ fn answered_in(held: &mut JobHeld, answered: Option<Answered>, wanted: &BTreeSet
         held.sent.insert(one);
     }
     let mut shared: Vec<(Vec<Wanted>, Claimant)> = Vec::new();
-    let mut tell_shared = |one: Wanted, by: Claimant| match shared.iter_mut().find(|(_, who)| who.holder == by.holder) {
+    let mut tell_shared = |one: Wanted, by: Claimant| match shared.iter_mut().find(|(_, who)| same_job(&who.holder, &by.holder)) {
         Some((files, _)) => files.push(one),
         None => shared.push((vec![one], by)),
     };
     for (one, by) in answered.held {
-        let new = held.elsewhere.get(&one).is_none_or(|was| was.holder != by.holder);
+        let new = held.elsewhere.get(&one).is_none_or(|was| !same_job(&was.holder, &by.holder));
         held.elsewhere.insert(one.clone(), by.clone());
         if new && one.kind == ClaimKind::File {
             tell_shared(one, by);
@@ -105,7 +112,7 @@ fn waits_kept(job: &JobRead, held: &mut JobHeld, person_held: &BTreeMap<String, 
     }
     for (item, on) in now_waiting {
         let same = held.waits.get(&item).is_some_and(|wait| match (&wait.on, &on) {
-            (WaitedOn::Job(was), WaitedOn::Job(is)) => was.holder == is.holder,
+            (WaitedOn::Job(was), WaitedOn::Job(is)) => same_job(&was.holder, &is.holder),
             (was, is) => was == is,
         });
         if !same {
@@ -181,8 +188,11 @@ where
                 }
                 words
             });
-            said.told.extend(words.into_iter().map(|word| (job.id.clone(), word)));
-            said.told.extend(shared.iter().map(|(files, by)| (job.id.clone(), files_shared(&files.iter().collect::<Vec<_>>(), by))));
+            let shared = shared.iter().map(|(files, by)| files_shared(&files.iter().collect::<Vec<_>>(), by));
+            let words: Vec<String> = words.into_iter().chain(shared).collect();
+            if !words.is_empty() {
+                said.told.entry(job.id.clone()).or_default().extend(words);
+            }
         }
         self.claims_said(said).await;
         self.test_waits_ended(ended).await;
@@ -207,8 +217,10 @@ where
     }
 
     async fn claims_said(self: &Arc<Self>, said: Said) {
-        for (session, word) in said.told {
-            let _ = self.told_by_fleet(&session, &word, ipc::Notice::Claims).await;
+        // One notice a Job, a line for each word, so a pass that finds several Jobs on its files
+        // wakes it once.
+        for (session, words) in said.told {
+            let _ = self.told_by_fleet(&session, &words.join("\n\n"), ipc::Notice::Claims).await;
         }
         for session in said.moved {
             let record = {
@@ -270,6 +282,22 @@ mod tests {
         answered_in(&mut held, Some(answer), &BTreeSet::from([Wanted::file("src/a.rs")]), 0, &mut shared);
         assert_eq!(shared.len(), 1);
         assert!(waits_kept(&job, &mut held, &BTreeMap::new(), "t0").is_empty());
+    }
+
+    #[test]
+    fn files_one_job_took_in_different_passes_are_told_as_one_word() {
+        let later = Claimant::new(Holder::new(HolderKind::Session, "j2", "work", 60).expect("a holder"), "nick", "Stage 4 walks across");
+        let mut held = JobHeld::default();
+        let mut shared = Vec::new();
+        let answer = Answered { held: vec![(Wanted::file("src/a.rs"), other()), (Wanted::file("src/b.rs"), later.clone())], ..Answered::default() };
+        let wanted = BTreeSet::from([Wanted::file("src/a.rs"), Wanted::file("src/b.rs")]);
+        answered_in(&mut held, Some(answer), &wanted, 0, &mut shared);
+        assert_eq!(shared.len(), 1, "one Job, one word");
+        assert_eq!(shared[0].0.len(), 2);
+        let retaken = Answered { held: vec![(Wanted::file("src/a.rs"), later)], ..Answered::default() };
+        let mut again = Vec::new();
+        answered_in(&mut held, Some(retaken), &wanted, 0, &mut again);
+        assert!(again.is_empty(), "the same Job retaking a file is not news");
     }
 
     #[test]

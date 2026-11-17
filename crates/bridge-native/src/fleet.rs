@@ -153,6 +153,8 @@ pub struct Held {
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
     /// The Jobs whose For you moved, folded since the last take, oldest first.
     for_you_moved: Vec<ipc::ForYouChanged>,
+    /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
+    asides_moved: Vec<ipc::Aside>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
@@ -221,6 +223,7 @@ impl Held {
             workflows: None,
             subagents_moved: Vec::new(),
             for_you_moved: Vec::new(),
+            asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
             dispatched: Vec::new(),
@@ -357,6 +360,11 @@ impl Held {
     /// The Jobs whose For you moved, folded since the last take, oldest first.
     pub fn take_for_you_moved(&mut self) -> Vec<ipc::ForYouChanged> {
         std::mem::take(&mut self.for_you_moved)
+    }
+
+    /// The asides that moved, each as Fleet sent it whole, folded since the last take, oldest first.
+    pub fn take_asides_moved(&mut self) -> Vec<ipc::Aside> {
+        std::mem::take(&mut self.asides_moved)
     }
 
     /// The shells' news folded since the last take, oldest first.
@@ -528,6 +536,8 @@ impl Held {
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
                         Event::SessionForYou(moved) => self.for_you_moved.push(moved),
+                        // An aside arrives whole: the side chat replaces the one it holds by its id.
+                        Event::SessionAside(aside) => self.asides_moved.push(aside),
                         Event::JobThreadTail(tail) => {
                             if let Some(held) = self.threads.get_mut(tail.session_id.as_str()) {
                                 held.tailed(tail);
@@ -665,6 +675,11 @@ impl EventEmitter<SubagentsMoved> for FleetConnection {}
 pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
 
 impl EventEmitter<ForYouMoved> for FleetConnection {}
+
+/// The asides that moved in one folded batch (`session.aside`), each whole, for a side chat to replace the one it holds.
+pub struct AsidesMoved(pub Vec<ipc::Aside>);
+
+impl EventEmitter<AsidesMoved> for FleetConnection {}
 
 /// One of a Job's shells, as `terminal.opened`, `terminal.exited` and `terminal.shown` tell it.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -1213,6 +1228,7 @@ impl FleetConnection {
                     }
                     let subagents = this.held.take_subagents_moved();
                     let for_you = this.held.take_for_you_moved();
+                    let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
                     let dispatched = this.held.take_dispatched();
@@ -1239,6 +1255,9 @@ impl FleetConnection {
                     }
                     if !for_you.is_empty() {
                         cx.emit(ForYouMoved(for_you));
+                    }
+                    if !asides.is_empty() {
+                        cx.emit(AsidesMoved(asides));
                     }
                     lines
                 });
@@ -1555,6 +1574,21 @@ mod tests {
         let told: Vec<String> = held.take_for_you_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
         assert_eq!(told, ["s0", "s1"]);
         assert!(held.take_for_you_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn an_aside_that_moved_is_handed_over_whole_once_in_the_order_it_came() {
+        let moved = |id: &str, state: &str, answer: &str| {
+            let wire = format!(
+                r#"{{"message":"event","cursor":1,"event":{{"kind":"session.aside","aside_id":"{id}","session_id":"s0","question":"why","answer":"{answer}","state":"{state}","asked_at":"2026-11-16T10:00:00Z","reads":["Read a.rs"]}}}}"#
+            );
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("a1", "asking", "The"), moved("a1", "answered", "The whole answer")]);
+        let told: Vec<(String, String)> = held.take_asides_moved().into_iter().map(|one| (one.aside_id, one.answer)).collect();
+        assert_eq!(told, [("a1".to_string(), "The".to_string()), ("a1".to_string(), "The whole answer".to_string())]);
+        assert!(held.take_asides_moved().is_empty(), "news is told once");
     }
 
     #[test]
