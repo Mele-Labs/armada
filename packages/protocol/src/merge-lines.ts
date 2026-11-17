@@ -54,6 +54,17 @@ export type MergeLineHub = {
   forge_read_at?: string;
   /** When the forge first failed to answer a call of a visit, since the last visit answered whole. Absent while it answers. */
   quiet_since?: string;
+  /** Why, as of the latest call that failed. Absent while it answers, and from an older Fleet. */
+  quiet_reason?: QuietReason;
+};
+
+/**
+ * Why the forge stopped answering. `rate_limited`: GitHub refused for its rate limit, and `until` is when it
+ * said to try again, RFC 3339, absent where it named no time. `not_answering`: no answer, or another refusal.
+ */
+export type QuietReason = {
+  kind: string;
+  until?: string;
 };
 
 /** What stops the served checkout catching up to main. Fleet never forces, stashes or switches it. */

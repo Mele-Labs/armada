@@ -5,6 +5,7 @@
 mod bar;
 mod inbox;
 pub mod layout;
+mod live;
 mod mock;
 mod model;
 mod panes;
@@ -196,6 +197,8 @@ pub struct ReviewsScreen {
     /// step races a person's Next.
     walked: bool,
     next_draft: u64,
+    /// Fleet's half, on the live app; a walk plays the mock with none.
+    live: Option<live::Live>,
     _subs: Vec<Subscription>,
 }
 
@@ -282,6 +285,7 @@ impl ReviewsScreen {
             coloured: HashSet::new(),
             walked: false,
             next_draft: 1,
+            live: None,
             _subs: subs,
         }
     }
@@ -303,12 +307,19 @@ impl ReviewsScreen {
 
     /// Another place in front: the title bar's slot is empty again.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
+        if let Some(number) = self.open.filter(|_| self.is_live()) {
+            self.live_seen(number, cx);
+        }
         if let Some(bar) = crate::titlebar::live(cx) {
             bar.update(cx, |bar, cx| bar.fill_job_slot(None, cx));
         }
     }
 
     fn start_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_live() {
+            self.live_refresh(window, cx);
+            return;
+        }
         self.inbox.refreshing = true;
         let wait = self.wait(REFRESH_READ, cx);
         self.refresh = Some(cx.spawn_in(window, async move |this, cx| {
@@ -410,6 +421,10 @@ impl ReviewsScreen {
     fn press_row(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         self.focused = Some(number);
         window.focus(&self.rows, cx);
+        if self.is_live() {
+            self.live_open(number, window, cx);
+            return;
+        }
         if !self.inbox.refreshing || self.pages.get(&number).is_some_and(|page| page.kept) {
             self.waiting = None;
             self.show(number, window, cx);
@@ -427,8 +442,15 @@ impl ReviewsScreen {
     /// Open a pull request's page on its Overview.
     fn show(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
         if !self.pages.contains_key(&number) {
+            if self.is_live() {
+                return;
+            }
             let Some(page) = mock::page(number) else { return };
             self.pages.insert(number, page);
+        }
+        // He left the one before: the head he leaves it at is what its next visit's change is since.
+        if let Some(was) = self.open.filter(|was| *was != number && self.is_live()) {
+            self.live_seen(was, cx);
         }
         let changed = self.pages[&number].changed() || (self.pages[&number].kept && self.pages[&number].seen.is_some());
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
@@ -453,6 +475,10 @@ impl ReviewsScreen {
 
     /// A pull request that changed since he looked gets its summary written once for its head.
     fn write_summary(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_live() {
+            self.live_summary(number, window, cx);
+            return;
+        }
         let Some(page) = self.pages.get_mut(&number) else { return };
         if page.kept || !page.changed() || page.seen.as_ref().is_some_and(|seen| seen.gone) || page.summary != Summary::None {
             return;
@@ -526,6 +552,9 @@ impl ReviewsScreen {
     /// How it works or How to test on the change set in front: its answer reads under the set's foot.
     fn run_explain(&mut self, set: String, explain: Explain, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
+        if self.is_live() {
+            return;
+        }
         let key = (number, set.clone(), explain);
         if self.explain_runs.contains_key(&key) {
             return;
@@ -647,9 +676,14 @@ impl ReviewsScreen {
     }
 
     /// A file's Viewed box. A file the author changed after he viewed it starts clear.
-    fn toggle_viewed(&mut self, path: &str, cx: &mut Context<Self>) {
+    fn toggle_viewed(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let mut now = None;
         if let Some(file) = self.page_mut().and_then(|page| page.files.iter_mut().find(|file| file.path == path)) {
             file.viewed = if file.viewed == Viewed::Yes { Viewed::No } else { Viewed::Yes };
+            now = Some(file.viewed == Viewed::Yes);
+        }
+        if let (Some(viewed), Some(number)) = (now.filter(|_| self.is_live()), self.open) {
+            self.live_viewed(number, path.to_string(), viewed, window, cx);
         }
         // Ticking it folds it and clearing it opens it, whatever his hand did before.
         if let Some(number) = self.open {
@@ -746,9 +780,14 @@ impl ReviewsScreen {
         let Some(number) = self.open else { return };
         let Some(page) = self.pages.get_mut(&number) else { return };
         let range = page.range();
-        page.critique = Critique::Running { range: range.clone(), asked };
+        page.critique = Critique::Running { range: range.clone(), asked: asked.clone() };
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
+        if self.is_live() {
+            self.live_critique(number, &asked, window, cx);
+            cx.notify();
+            return;
+        }
         let wait = self.wait(CRITIQUE_RUN, cx);
         self.critique = Some(cx.spawn_in(window, async move |this, cx| {
             wait.await;
@@ -857,6 +896,15 @@ impl ReviewsScreen {
     /// Send: the drafts and the summary go as one review at the head, and the bar says so at once.
     fn submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
+        if self.is_live() {
+            self.live_submit(verdict, window, cx);
+            return;
+        }
+        self.sent_review(number, verdict, window, cx);
+    }
+
+    /// The review went: its drafts and summary are cleared, and his verdict stands on the page and row.
+    fn sent_review(&mut self, number: u64, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
         let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
         self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
@@ -876,7 +924,11 @@ impl ReviewsScreen {
         self.open_sheet(false, window, cx);
     }
 
-    fn send_notes(&mut self, cx: &mut Context<Self>) {
+    fn send_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.is_live() {
+            self.live_send_notes(window, cx);
+            return;
+        }
         if let Some(number) = self.open {
             self.sent_notes.insert(number);
         }
@@ -889,6 +941,9 @@ impl ReviewsScreen {
         if let Some(arrangement) = self.layouts.pick(at) {
             self.arrangement = arrangement;
             self.reshow(cx);
+            if self.is_live() {
+                self.live_pick_layout(self.layouts.name().to_string(), cx);
+            }
         }
         cx.notify();
     }
@@ -901,6 +956,9 @@ impl ReviewsScreen {
     }
 
     fn delete_layout(&mut self, cx: &mut Context<Self>) {
+        if self.is_live() && !self.layouts.shipped() {
+            self.live_delete_layout(self.layouts.name().to_string(), cx);
+        }
         self.layouts.delete();
         self.reset_layout(cx);
     }
@@ -918,10 +976,16 @@ impl ReviewsScreen {
         if name.is_empty() {
             return;
         }
+        let was = self.layouts.name().to_string();
         match self.asking {
             Some(Ask::SaveAs) => self.layouts.save_as(&name, self.arrangement.clone()),
             Some(Ask::Rename) => self.layouts.rename(&name),
             _ => return,
+        }
+        // Fleet keeps what he named: saved under the new name, the old one deleted on a rename.
+        if self.is_live() && self.layouts.name() == name {
+            let renamed = (self.asking == Some(Ask::Rename)).then_some(was);
+            self.live_save_layout(name, self.layouts.arrangement(), renamed, cx);
         }
         self.dismiss(window, cx);
     }

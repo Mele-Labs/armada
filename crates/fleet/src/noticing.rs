@@ -85,4 +85,6 @@ pub(crate) struct Sweep {
 pub(crate) struct ForgeVisit {
     pub(crate) read_at: Option<Timestamp>,
     pub(crate) quiet_since: Option<Timestamp>,
+    /// Why, as of the latest unanswered visit.
+    pub(crate) quiet_reason: Option<ipc::QuietReason>,
 }
