@@ -639,8 +639,7 @@ impl JobView {
                 self.open_document_tab(super::review::page_of_item(item).unwrap_or(item), window, cx);
             }
             WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
-                self.open_review(window, cx);
-                self.review_at(item, window, cx);
+                self.open_review_on(item, window, cx);
             }
             // A card waiting to be tried is in the thread: the press goes to it and pulses it once.
             WaitingSource::ReadyToTry => {

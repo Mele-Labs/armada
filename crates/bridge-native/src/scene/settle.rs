@@ -91,13 +91,16 @@ fn lines_of(boxes: &[SettleBox], axis: Axis) -> Vec<Vec<SettleBox>> {
     lines
 }
 
+/// Whether two boxes are within `gap` of each other across the axis, so one has to stand clear of the other along it. A hair
+/// of tolerance lets boxes a row apart already, to the last bit, stay put.
 fn meets(a: &Rect, b: &Rect, axis: Axis, gap: f32) -> bool {
-    axis.across(a) < axis.across(b) + axis.span(b) + gap
-        && axis.across(b) < axis.across(a) + axis.span(a) + gap
+    axis.across(a) < axis.across(b) + axis.span(b) + gap - 0.01
+        && axis.across(b) < axis.across(a) + axis.span(a) + gap - 0.01
 }
 
-/// Each line moved on as far as the boxes before it that it would meet need, and the whole line together.
-fn spread(boxes: &[SettleBox], axis: Axis, gap: f32, joins: &[Join]) -> Vec<SettleBox> {
+/// Each line moved on as far as the boxes before it that it would meet need, and the whole line together. `across` is how
+/// near two boxes must be across the axis to meet, and `gap` the room kept between them along it.
+fn spread(boxes: &[SettleBox], axis: Axis, (across, gap): (f32, f32), joins: &[Join]) -> Vec<SettleBox> {
     // Two joined boxes keep the arrow's words and a gap either side of them between them.
     let room = |a: &str, b: &str| {
         joins
@@ -116,7 +119,7 @@ fn spread(boxes: &[SettleBox], axis: Axis, gap: f32, joins: &[Join]) -> Vec<Sett
         let mut shift = 0.0_f32;
         for one in &line {
             for before in &done {
-                if meets(&one.rect, &before.rect, axis, gap) {
+                if meets(&one.rect, &before.rect, axis, across) {
                     shift = shift.max(
                         axis.at(&before.rect)
                             + axis.size(&before.rect)
@@ -143,26 +146,27 @@ fn most(values: impl Iterator<Item = f32>) -> f32 {
     values.fold(f32::NEG_INFINITY, f32::max)
 }
 
-fn touching(a: &Rect, b: &Rect, gap: f32) -> bool {
-    a.x < b.x + b.w + gap && b.x < a.x + a.w + gap && a.y < b.y + b.h + gap && b.y < a.y + a.h + gap
+fn touching(a: &Rect, b: &Rect, (gap_x, gap_y): (f32, f32)) -> bool {
+    a.x < b.x + b.w + gap_x - 0.01 && b.x < a.x + a.w + gap_x - 0.01 && a.y < b.y + b.h + gap_y - 0.01 && b.y < a.y + a.h + gap_y - 0.01
 }
 
 /// Every box's settled rectangle, by id, solid boxes first and then the grounds. A group or a lane is grown round
-/// the boxes it held.
+/// the boxes it held. `gap` is the room kept between boxes side by side and from one row to the next.
 #[allow(dead_code)]
-pub(crate) fn settle(boxes: &[SettleBox], gap: f32, joins: &[Join]) -> Vec<(String, Rect)> {
+pub(crate) fn settle(boxes: &[SettleBox], gap: (f32, f32), joins: &[Join]) -> Vec<(String, Rect)> {
     let solid: Vec<SettleBox> = boxes.iter().filter(|one| !one.ground).cloned().collect();
     let mut settled: Vec<(String, Rect)> = Vec::new();
 
     // Rows down first, then columns across, then anything still touching goes below what it touches.
-    let mut moved = spread(&spread(&solid, Axis::Rows, gap, joins), Axis::Columns, gap, joins);
+    let (gap_x, gap_y) = gap;
+    let mut moved = spread(&spread(&solid, Axis::Rows, (gap_x, gap_y), joins), Axis::Columns, (gap_y, gap_x), joins);
     moved.sort_by(|a, b| {
         order(a.rect.y, b.rect.y).then_with(|| order(a.rect.x, b.rect.x))
     });
     let mut down: Vec<Rect> = Vec::new();
     for mut one in moved {
         while let Some(clash) = down.iter().find(|other| touching(&one.rect, other, gap)) {
-            one.rect.y = clash.y + clash.h + gap;
+            one.rect.y = clash.y + clash.h + gap_y;
         }
         down.push(one.rect);
         settled.push((one.id, one.rect));
@@ -194,10 +198,10 @@ pub(crate) fn settle(boxes: &[SettleBox], gap: f32, joins: &[Join]) -> Vec<(Stri
             .collect();
         let left = least(held.iter().map(|one| one.rect.x - g.x));
         let top = least(held.iter().map(|one| one.rect.y - g.y));
-        let right = (gap / 2.0).max(least(
+        let right = (gap_x / 2.0).max(least(
             held.iter().map(|one| g.x + g.w - one.rect.x - one.rect.w),
         ));
-        let bottom = (gap / 2.0).max(least(
+        let bottom = (gap_y / 2.0).max(least(
             held.iter().map(|one| g.y + g.h - one.rect.y - one.rect.h),
         ));
         let x = least(now.iter().map(|one| one.x)) - left;
@@ -229,7 +233,7 @@ mod tests {
     fn overlapping_boxes_are_pushed_apart_by_the_gap() {
         let settled = settle(
             &[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 50.0, 0.0, 100.0, 50.0)],
-            20.0,
+            (20.0, 20.0),
             &[],
         );
         assert_eq!(*rect_of(&settled, "a"), Rect { x: 0.0, y: 0.0, w: 100.0, h: 50.0 });
@@ -240,7 +244,7 @@ mod tests {
     fn boxes_that_already_have_room_stay_put() {
         let settled = settle(
             &[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 200.0, 0.0, 100.0, 50.0)],
-            20.0,
+            (20.0, 20.0),
             &[],
         );
         assert_eq!(*rect_of(&settled, "a"), Rect { x: 0.0, y: 0.0, w: 100.0, h: 50.0 });
@@ -257,9 +261,38 @@ mod tests {
         };
         let settled = settle(
             &[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 50.0, 0.0, 100.0, 50.0)],
-            20.0,
+            (20.0, 20.0),
             &[join],
         );
         assert_eq!(rect_of(&settled, "b").x, 200.0);
+    }
+
+    #[test]
+    fn boxes_side_by_side_keep_the_wider_gap_and_a_row_below_keeps_the_taller_one() {
+        let settled = settle(&[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 120.0, 0.0, 100.0, 50.0), solid("c", 0.0, 80.0, 100.0, 50.0)], (64.0, 80.0), &[]);
+        assert_eq!(rect_of(&settled, "b").x, 164.0);
+        assert_eq!(rect_of(&settled, "c").y, 130.0);
+    }
+
+    #[test]
+    fn a_row_pushed_down_moves_whole_and_stays_aligned() {
+        let settled = settle(
+            &[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 200.0, 0.0, 100.0, 100.0), solid("c", 0.0, 100.0, 100.0, 50.0), solid("d", 200.0, 100.0, 100.0, 50.0)],
+            (64.0, 80.0),
+            &[],
+        );
+        assert_eq!(rect_of(&settled, "c").y, 180.0);
+        assert_eq!(rect_of(&settled, "d").y, 180.0);
+    }
+
+    #[test]
+    fn a_column_pushed_right_moves_whole_and_stays_aligned() {
+        let settled = settle(
+            &[solid("a", 0.0, 0.0, 100.0, 50.0), solid("b", 100.0, 0.0, 100.0, 50.0), solid("c", 100.0, 100.0, 100.0, 50.0)],
+            (64.0, 80.0),
+            &[],
+        );
+        assert_eq!(rect_of(&settled, "b").x, 164.0);
+        assert_eq!(rect_of(&settled, "c").x, rect_of(&settled, "b").x, "the column b and c stand in stays one column");
     }
 }

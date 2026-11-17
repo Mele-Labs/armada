@@ -1028,7 +1028,7 @@ impl JobView {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
                 let sheet = self.shown.clone().is_some_and(|id| self.band_reviews(&id, cx));
                 if sheet {
-                    self.review_press(window, cx);
+                    self.review_press_item(Some(item), window, cx);
                 } else if let NeedsYouAct::OpenDraft { row } = act {
                     // A draft opens its card as a tab of the Job (`openDraftCard`).
                     self.set_needs(false, None, window, cx);

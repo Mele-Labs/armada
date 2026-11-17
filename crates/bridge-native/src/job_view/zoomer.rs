@@ -360,6 +360,7 @@ pub(crate) fn corner<T: Zooms>(look: &Look, readout: String, fit: fn(&mut T, &mu
             Role::Status,
             said,
         ))
+        .child(zoom_button::<T>(look, "zoom-out", "minus", "Zoom out", "cmd--", 1. / KEY_STEP, cx))
         .child(labelled(
             div()
                 .id("zoom-fit")
@@ -376,7 +377,30 @@ pub(crate) fn corner<T: Zooms>(look: &Look, readout: String, fit: fn(&mut T, &mu
             Role::Button,
             "Fit",
         ))
+        .child(zoom_button::<T>(look, "zoom-in", "plus", "Zoom in", "cmd-=", KEY_STEP, cx))
         .into_any_element()
+}
+
+/// One of the corner's steps: a zoom by `by` about the view's middle.
+fn zoom_button<T: Zooms>(look: &Look, id: &'static str, icon: &'static str, said: &'static str, key: &'static str, by: f32, cx: &Context<T>) -> AnyElement {
+    let key = Keystroke::parse(key).ok();
+    labelled(
+        div()
+            .id(id)
+            .size(look.length(token::H_CONTROL_SM))
+            .flex()
+            .items_center()
+            .justify_center()
+            .rounded(look.length(token::RADIUS_MD))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .child(glyph(look, icon, GlyphSize::Small, look.color(token::FG_DEFAULT)))
+            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+            .on_click(cx.listener(move |this, _, window, cx| step(this, by, window, cx))),
+        Role::Button,
+        said,
+    )
+    .into_any_element()
 }
 
 #[cfg(test)]

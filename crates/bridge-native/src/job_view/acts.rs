@@ -284,6 +284,16 @@ impl JobView {
     }
 
     /// Shut a card's box and forget what was typed in it.
+    /// The box shut and its words kept, as `close_box` but for the words: Esc leaves them for the next time it opens.
+    pub(super) fn close_box_kept(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
+        if let Some(cards) = self.cards_mut() {
+            cards.modes.remove(key);
+            cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
+        }
+        self.card_changed(ix, cx);
+    }
+
     pub(super) fn close_box(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
         if let Some(cards) = self.cards_mut() {
             cards.modes.remove(key);
