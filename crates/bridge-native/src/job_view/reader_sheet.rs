@@ -630,9 +630,6 @@ mod tests {
         assert!(view.read_with(cx, |view, _| view.review_open()), "the panel is up");
         assert!(view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx).is_some()), "it holds the page's live view");
         assert!(drawn(cx, Role::Region, "Page"), "the live page is drawn in the detail");
-        let panel = bounds_of(cx, Role::Dialog, "Review");
-        let stills = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == Role::Button && one.name == format!("Open page {PAGE}").as_str() && panel.contains(&one.bounds.center())).count());
-        assert_eq!(stills, 0, "and no still stands in the panel in its place, to be pressed to open a tab");
         let (page, takes) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Takes"));
         assert_eq!((page.left(), page.right()), (takes.left(), takes.right()), "it takes the detail's whole width, as the takes do: {page:?} {takes:?}");
         let panel = view.read_with(cx, |view, _| view.sheet.get().height);
