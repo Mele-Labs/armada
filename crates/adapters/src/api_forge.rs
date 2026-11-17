@@ -547,7 +547,7 @@ impl Forge for ApiForge {
             Ok(Some(rows)) => Ok(rows),
             Ok(None) => Err(ListFailure::Other("The search would not mean what it says.".to_string())),
             // `gh` holds its own sign-in; when it too has nothing, there is no token to speak of.
-            Err(ApiFailure::NoToken(_)) => self.gh.pull_review_list(in_repo, ask).map_err(|_| ListFailure::NoToken),
+            Err(ApiFailure::NoToken(_)) => self.gh.pull_review_list(in_repo, ask).map_err(|_| ListFailure::NoToken(crate::github_api::NO_TOKEN_SAID.to_string())),
             Err(failure) => Err(failure.listed()),
         }
     }

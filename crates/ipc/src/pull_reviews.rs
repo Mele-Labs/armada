@@ -112,6 +112,9 @@ pub struct PullReviewRateLimited {
     /// When Fleet asks again: what the forge said, else Fleet's own wait. Absent where it named no time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub until: Option<Instant>,
+    /// The forge's own sentence for the limit, without a time, for Bridge to say as it is.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub said: String,
 }
 
 /// The most rows one list keeps. The forge is asked for exactly this many, so a list at the cap

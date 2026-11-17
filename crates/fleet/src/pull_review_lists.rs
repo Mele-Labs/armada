@@ -187,12 +187,12 @@ where
         }
         if silent.len() == LISTS.len() {
             return match crate::pull_review_kept::worst(failures) {
-                Some(ListFailure::RateLimited { until }) => {
-                    let hold = self.review_lists_kept().hold(now, until);
+                Some(ListFailure::RateLimited { until, said }) => {
+                    let hold = self.review_lists_kept().hold(now, until, said);
                     self.lists_limited(project, hold)
                 }
-                Some(other) => Err(unreadable(&crate::pull_review_kept::failure_said(&other))),
-                None => Err(unreadable("GitHub did not answer. Open Reviews again.")),
+                Some(other) => Err(unreadable(other.said())),
+                None => Err(unreadable("The forge did not answer. Open Reviews again.")),
             };
         }
         // Which Session of the owner's works each pull request, for a note that goes to it.

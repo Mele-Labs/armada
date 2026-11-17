@@ -388,12 +388,12 @@ fn a_review_list_the_api_would_not_give_says_why_and_a_limit_says_when() {
     let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
 
     match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)) {
-        Err(ListFailure::RateLimited { until: Some(until) }) => assert!((now + 115..=now + 125).contains(&until), "until {until}, now {now}"),
+        Err(ListFailure::RateLimited { until: Some(until), .. }) => assert!((now + 115..=now + 125).contains(&until), "until {until}, now {now}"),
         other => panic!("the limit and its retry-after, not {other:?}"),
     }
     // Held now: the next list is not asked, and says the same, with the hold's time.
     match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Mine)) {
-        Err(ListFailure::RateLimited { until: Some(until) }) => assert!(until > now + 60, "{until}"),
+        Err(ListFailure::RateLimited { until: Some(until), .. }) => assert!(until > now + 60, "{until}"),
         other => panic!("held, not {other:?}"),
     }
     assert_eq!(server.seen().len(), 1);
@@ -407,19 +407,19 @@ fn a_graphql_rate_limit_is_a_limit_with_a_time_and_not_a_token_problem() {
     let repositories = vec!["mele-labs/armada".to_string()];
     let ask = ReviewListAsk { list: ReviewList::Mine, login: "NickMele", repositories: &repositories, most: 50 };
     match forge.pull_review_list(&repo.root_str(), &ask) {
-        Err(ListFailure::RateLimited { until: Some(_) }) => {}
+        Err(ListFailure::RateLimited { until: Some(_), .. }) => {}
         other => panic!("{other:?}"),
     }
 }
 
 #[test]
 fn each_api_failure_is_a_list_failure_a_person_can_be_told() {
-    assert_eq!(ApiFailure::NoToken("x".into()).listed(), ListFailure::NoToken);
-    assert_eq!(ApiFailure::Unreachable("x".into()).listed(), ListFailure::Unreachable);
+    assert_eq!(ApiFailure::NoToken("x".into()).listed().said(), crate::github_api::NO_TOKEN_SAID);
+    assert_eq!(ApiFailure::Unreachable("x".into()).listed().said(), crate::github_api::UNREACHABLE_SAID);
     let refused = ApiFailure::Refused { status: 429, said: "slow down".into(), limit: None };
-    assert_eq!(refused.listed(), ListFailure::RateLimited { until: None });
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: None, said: crate::github_api::LIMITED_SAID.into() });
     let spent = crate::github_api::RateLimit { remaining: Some(0), reset_at: Some(4_102_444_800), retry_after: None };
     let refused = ApiFailure::Refused { status: 403, said: "API rate limit exceeded".into(), limit: Some(spent) };
-    assert_eq!(refused.listed(), ListFailure::RateLimited { until: Some(4_102_444_800) });
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: Some(4_102_444_800), said: crate::github_api::LIMITED_SAID.into() });
     assert!(matches!(ApiFailure::Refused { status: 502, said: "bad".into(), limit: None }.listed(), ListFailure::Other(_)));
 }

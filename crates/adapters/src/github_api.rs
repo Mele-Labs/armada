@@ -214,10 +214,10 @@ impl ApiFailure {
     pub(crate) fn listed(&self) -> ListFailure {
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |it| it.as_secs());
         match self {
-            ApiFailure::NoToken(_) => ListFailure::NoToken,
-            ApiFailure::Unreachable(_) => ListFailure::Unreachable,
+            ApiFailure::NoToken(_) => ListFailure::NoToken(NO_TOKEN_SAID.to_string()),
+            ApiFailure::Unreachable(_) => ListFailure::Unreachable(UNREACHABLE_SAID.to_string()),
             ApiFailure::HeldBack { seconds } | ApiFailure::RateLimited { seconds, .. } => {
-                ListFailure::RateLimited { until: Some(now + seconds) }
+                ListFailure::RateLimited { until: Some(now + seconds), said: LIMITED_SAID.to_string() }
             }
             ApiFailure::Refused { status, said, limit } if limits(*status, said, *limit) => ListFailure::RateLimited {
                 until: match limit {
@@ -225,11 +225,17 @@ impl ApiFailure {
                     Some(RateLimit { remaining: Some(0), reset_at: Some(at), .. }) => Some(*at),
                     _ => None,
                 },
+                said: LIMITED_SAID.to_string(),
             },
             other => ListFailure::Other(other.to_act_on()),
         }
     }
 }
+
+/// What a person reads for each way a review list was not read.
+pub(crate) const LIMITED_SAID: &str = "GitHub is rate-limiting us";
+pub(crate) const NO_TOKEN_SAID: &str = "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.";
+pub(crate) const UNREACHABLE_SAID: &str = "GitHub did not answer. Check the network, then open Reviews again.";
 
 fn names_the_limit(said: &str) -> bool {
     said.to_ascii_lowercase().contains("rate limit")

@@ -461,9 +461,11 @@ pub fn kept_banner(lists: &PullReviewLists) -> Option<String> {
     let limit = lists.rate_limited.as_ref()?;
     let until = limit.until.as_ref().and_then(|until| crate::settings::time::stamp_at(until.as_str()));
     let from = crate::settings::time::stamp_at(&lists.fetched_at)?;
+    // A Fleet that sent no sentence still gets a plain one.
+    let said = if limit.said.is_empty() { "The forge is limiting us" } else { limit.said.as_str() };
     Some(match until {
-        Some(until) => format!("GitHub is rate-limiting us until {until}. These are from {from}."),
-        None => format!("GitHub is rate-limiting us. These are from {from}."),
+        Some(until) => format!("{said} until {until}. These are from {from}."),
+        None => format!("{said}. These are from {from}."),
     })
 }
 
@@ -471,8 +473,11 @@ pub fn kept_banner(lists: &PullReviewLists) -> Option<String> {
 mod tests {
     use super::*;
 
+    const LIMIT: &str = "The forge is limiting us";
+    const NO_TOKEN: &str = "The forge has no token for this machine. Sign in, then open Reviews again.";
+
     fn limited(until: Option<&str>) -> ipc::WireError {
-        let mut error = ipc::WireError::raised(ipc::REVIEW_LISTS_RATE_LIMITED, "GitHub is rate-limiting us", ipc::RunId::carried("run-1"));
+        let mut error = ipc::WireError::raised(ipc::REVIEW_LISTS_RATE_LIMITED, LIMIT, ipc::RunId::carried("run-1"));
         if let Some(until) = until {
             error.fields.insert("until".into(), ipc::WireValue::Str(until.into()));
         }
@@ -483,18 +488,18 @@ mod tests {
     fn a_rate_limit_with_a_time_says_it_and_when_reading_resumes() {
         let at = "2026-11-17T14:02:00.000Z";
         let time = crate::settings::time::stamp_at(at).unwrap();
-        assert_eq!(refused_words(&limited(Some(at))), format!("GitHub is rate-limiting us until {time}\nReviews will read again by itself when the limit lifts."));
+        assert_eq!(refused_words(&limited(Some(at))), format!("{LIMIT} until {time}\nReviews will read again by itself when the limit lifts."));
     }
 
     #[test]
     fn a_rate_limit_with_no_time_says_only_that() {
-        assert_eq!(refused_words(&limited(None)), "GitHub is rate-limiting us\nReviews will read again by itself when the limit lifts.");
+        assert_eq!(refused_words(&limited(None)), format!("{LIMIT}\nReviews will read again by itself when the limit lifts."));
     }
 
     #[test]
     fn no_token_and_no_answer_say_fleets_own_sentence() {
-        let none = ipc::WireError::raised("fleet.review_lists_unreadable", "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.", ipc::RunId::carried("run-1"));
-        assert_eq!(refused_words(&none), "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.");
+        let none = ipc::WireError::raised("fleet.review_lists_unreadable", NO_TOKEN, ipc::RunId::carried("run-1"));
+        assert_eq!(refused_words(&none), NO_TOKEN);
     }
 
     #[test]
@@ -503,11 +508,13 @@ mod tests {
         assert_eq!(kept_banner(&lists), None);
         let until = "2026-11-17T14:02:00.000Z";
         lists.fetched_at = "2026-11-17T13:40:00.000Z".into();
-        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: Some(ipc::Instant::carried(until)) });
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: Some(ipc::Instant::carried(until)), said: LIMIT.into() });
         let (a, b) = (crate::settings::time::stamp_at(until).unwrap(), crate::settings::time::stamp_at("2026-11-17T13:40:00.000Z").unwrap());
-        assert_eq!(kept_banner(&lists), Some(format!("GitHub is rate-limiting us until {a}. These are from {b}.")));
-        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None });
-        assert_eq!(kept_banner(&lists), Some(format!("GitHub is rate-limiting us. These are from {b}.")));
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT} until {a}. These are from {b}.")));
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None, said: LIMIT.into() });
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT}. These are from {b}.")));
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None, said: String::new() });
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT}. These are from {b}.")));
     }
 
     #[test]

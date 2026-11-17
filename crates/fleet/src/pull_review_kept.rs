@@ -14,9 +14,11 @@ use crate::clock::rfc3339_utc;
 const UNNAMED_WAIT_MILLIS: i64 = 180_000;
 
 /// One wait. `until` is what the forge said, in milliseconds since the epoch; absent where it said none.
-#[derive(Clone, Copy)]
+#[derive(Clone)]
 pub(crate) struct Hold {
     pub(crate) until: Option<i64>,
+    /// The forge's sentence for the limit, without a time.
+    pub(crate) said: String,
     pub(crate) asks_again_at: i64,
 }
 
@@ -35,16 +37,16 @@ impl Kept {
     }
 
     /// The forge refused for its rate limit: nothing is asked until `until`, or for a few minutes.
-    pub(crate) fn hold(&self, now: i64, until_epoch_secs: Option<u64>) -> Hold {
+    pub(crate) fn hold(&self, now: i64, until_epoch_secs: Option<u64>, said: String) -> Hold {
         let until = until_epoch_secs.map(|secs| secs as i64 * 1_000);
-        let hold = Hold { until, asks_again_at: until.unwrap_or(now + UNNAMED_WAIT_MILLIS) };
-        *self.hold.lock().unwrap_or_else(PoisonError::into_inner) = Some(hold);
+        let hold = Hold { until, said, asks_again_at: until.unwrap_or(now + UNNAMED_WAIT_MILLIS) };
+        *self.hold.lock().unwrap_or_else(PoisonError::into_inner) = Some(hold.clone());
         hold
     }
 
     /// The wait still in force at `now`.
     pub(crate) fn held(&self, now: i64) -> Option<Hold> {
-        (*self.hold.lock().unwrap_or_else(PoisonError::into_inner)).filter(|hold| now < hold.asks_again_at)
+        self.hold.lock().unwrap_or_else(PoisonError::into_inner).clone().filter(|hold| now < hold.asks_again_at)
     }
 
     fn last(&self, project: Option<&str>) -> Option<PullReviewLists> {
@@ -56,21 +58,11 @@ impl Kept {
         let until = hold.until.map(rfc3339_utc);
         match self.last(project) {
             Some(mut lists) => {
-                lists.rate_limited = Some(PullReviewRateLimited { until: until.map(ipc::Instant::carried) });
+                lists.rate_limited = Some(PullReviewRateLimited { until: until.map(ipc::Instant::carried), said: hold.said });
                 Ok(lists)
             }
-            None => Err((until, "GitHub is rate-limiting us".to_string())),
+            None => Err((until, hold.said)),
         }
-    }
-}
-
-/// The sentence for a list that could not be read, said so a person can act on it.
-pub(crate) fn failure_said(failure: &ListFailure) -> String {
-    match failure {
-        ListFailure::RateLimited { .. } => "GitHub is rate-limiting us".to_string(),
-        ListFailure::NoToken => "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.".to_string(),
-        ListFailure::Unreachable => "GitHub did not answer. Check the network, then open Reviews again.".to_string(),
-        ListFailure::Other(said) => said.clone(),
     }
 }
 
@@ -78,13 +70,13 @@ pub(crate) fn failure_said(failure: &ListFailure) -> String {
 pub(crate) fn worst(failures: Vec<ListFailure>) -> Option<ListFailure> {
     let rank = |failure: &ListFailure| match failure {
         ListFailure::RateLimited { .. } => 0,
-        ListFailure::NoToken => 1,
-        ListFailure::Unreachable => 2,
+        ListFailure::NoToken(_) => 1,
+        ListFailure::Unreachable(_) => 2,
         ListFailure::Other(_) => 3,
     };
     // Where two are rate limits, the later time is the one that clears them both.
-    let latest = failures.iter().filter_map(|it| matches!(it, ListFailure::RateLimited { until: Some(_) }).then_some(it)).cloned().max_by_key(|it| match it {
-        ListFailure::RateLimited { until } => *until,
+    let latest = failures.iter().filter_map(|it| matches!(it, ListFailure::RateLimited { until: Some(_), .. }).then_some(it)).cloned().max_by_key(|it| match it {
+        ListFailure::RateLimited { until, .. } => *until,
         _ => None,
     });
     latest.or_else(|| failures.into_iter().min_by_key(rank))
