@@ -24,6 +24,8 @@ pub struct Beside {
     entries: Vec<Entry>,
     /// The label and glyph in the accent: an act offered beside the plain ones.
     accent: bool,
+    /// Where the keys are in the submenu, kept on the row it opens beside.
+    keys: Keys,
 }
 
 impl Row {
@@ -56,7 +58,7 @@ impl Row {
 }
 
 /// Where the keys are in the submenu.
-#[derive(Default)]
+#[derive(Clone, Copy, Default)]
 pub struct Keys {
     inside: bool,
     cursor: Option<usize>,
@@ -71,6 +73,21 @@ impl Dropdown {
         })
     }
 
+    /// Where the keys are in the open submenu.
+    fn sub(&self) -> Keys {
+        self.entries.iter().find_map(|entry| match entry {
+            Entry::Row(Row { beside, .. }) if !beside.entries.is_empty() => Some(beside.keys),
+            _ => None,
+        }).unwrap_or_default()
+    }
+
+    fn sub_mut(&mut self) -> Option<&mut Keys> {
+        self.entries.iter_mut().find_map(|entry| match entry {
+            Entry::Row(Row { beside, .. }) if !beside.entries.is_empty() => Some(&mut beside.keys),
+            _ => None,
+        })
+    }
+
     fn sub_pickable(&self) -> Vec<usize> {
         self.opened().map(|(_, entries)| entries.iter().enumerate().filter(|(_, entry)| entry.pickable()).map(|(at, _)| at).collect()).unwrap_or_default()
     }
@@ -80,8 +97,11 @@ impl Dropdown {
         if ids.is_empty() {
             return;
         }
-        let now = self.sub.cursor.and_then(|at| ids.iter().position(|&id| id == at)).unwrap_or(0);
-        self.sub.cursor = Some(ids[(now as isize + by).clamp(0, ids.len() as isize - 1) as usize]);
+        let now = self.sub().cursor.and_then(|at| ids.iter().position(|&id| id == at)).unwrap_or(0);
+        let next = ids[(now as isize + by).clamp(0, ids.len() as isize - 1) as usize];
+        if let Some(keys) = self.sub_mut() {
+            keys.cursor = Some(next);
+        }
     }
 
     /// A pick in the submenu shuts the whole menu, as a pick in the menu does.
@@ -102,15 +122,18 @@ impl Dropdown {
         if held.platform || held.control || held.alt {
             return false;
         }
-        let taken = match (event.keystroke.key.as_str(), self.sub.inside) {
+        let taken = match (event.keystroke.key.as_str(), self.sub().inside) {
             ("right", false) if self.cursor == Some(row) => {
-                self.sub.cursor = self.sub_pickable().first().copied();
-                self.sub.inside = self.sub.cursor.is_some();
-                self.sub.inside
+                let first = self.sub_pickable().first().copied();
+                if let Some(keys) = self.sub_mut() {
+                    *keys = Keys { inside: first.is_some(), cursor: first };
+                }
+                first.is_some()
             }
             ("left" | "escape", true) => {
-                self.sub.inside = false;
-                self.sub.cursor = None;
+                if let Some(keys) = self.sub_mut() {
+                    *keys = Keys::default();
+                }
                 true
             }
             ("down", true) => {
@@ -122,7 +145,7 @@ impl Dropdown {
                 true
             }
             ("enter", true) => {
-                if let Some(at) = self.sub.cursor {
+                if let Some(at) = self.sub().cursor {
                     self.pick_sub(at, cx);
                 }
                 true
@@ -199,7 +222,7 @@ impl Dropdown {
                 look.color(token::FG_DEFAULT)
             };
             let led = Some(n) == first;
-            let on = self.sub.inside && self.sub.cursor == Some(n);
+            let on = self.sub().inside && self.sub().cursor == Some(n);
             labelled(
                 div()
                     .id(id)

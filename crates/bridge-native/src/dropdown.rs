@@ -154,8 +154,6 @@ pub struct Dropdown {
     query: String,
     /// A menu opened at a point: what was pressed there, for Mod and Report.
     pointed: Option<Option<crate::labels::Drawn>>,
-    /// Where the keys are in a row's submenu.
-    sub: submenu::Keys,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
@@ -176,7 +174,7 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None, sub: submenu::Keys::default() };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None };
         if cursor_first {
             this.cursor = this.first();
         }
