@@ -187,6 +187,7 @@ impl PullRequestPanel for FakeDaemon {
             team: Vec::new(),
             assigned: Vec::new(),
             mine: Vec::new(),
+            reviewing: Vec::new(),
             silent: Vec::new(),
         })
     }

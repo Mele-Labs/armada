@@ -1,4 +1,4 @@
-//! The pull requests waiting on a person, as four lists read from the forge, and the acts a
+//! The pull requests waiting on a person, as five lists read from the forge, and the acts a
 //! review makes on one: a line comment, a reply, a resolve. `docs/concepts/pull-review.md`.
 //!
 //! **Read when the person opens the Reviews tab or presses Refresh, and never polled.** Armada
@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use crate::ids::ManifestId;
 use crate::pull_requests::PullRequestReviewState;
 
-/// The four lists. A pull request can be on several.
+/// The four lists the forge answers, and the fifth from Fleet's own runs. A pull request can be on
+/// several of the four.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PullReviewList {
@@ -86,8 +87,8 @@ pub struct PullReviewRow {
     pub reviewing: bool,
 }
 
-/// `get_review_lists`: the four lists, one forge call each, at most [`MOST_PER_LIST`] a list
-/// and newest-updated first.
+/// `get_review_lists`: the five lists, one forge call each, at most [`MOST_PER_LIST`] a list
+/// and newest-updated first, `reviewing` newest run first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullReviewLists {
     /// Who the person is on the forge: the "mine" login, the account Armada is signed in as for

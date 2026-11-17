@@ -570,11 +570,13 @@ The pull reading reads every open pull request with its author on one call, so t
 
 ### The pull requests waiting on a person
 
-**`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh.
+**`get_review_lists` (`GET /review_lists`) reads five lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh.
 Bridge keeps the last reading and draws it at once while the next one is read.
 The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them.
+The fifth, `reviewing`, is the open pull requests the person ran a review tool on in Armada that are on none of the four, read by number in one forge call from the pull requests Fleet keeps a tool, explanation, change-set, overview or practice run of.
+Every row of every list says whether he ran one, as `reviewing`.
 Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Job holds it**.
-**The four are read at once**, so a person waits on the slowest and not on the sum.
+**The five are read at once**, so a person waits on the slowest and not on the sum.
 For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
 Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
 **A refusal for GitHub's rate limit holds every call of that client** until GitHub's `Retry-After`, else the reset of a window it spent, else three minutes that double for each refusal that follows a hold, up to fifteen.
@@ -587,7 +589,8 @@ A pull request on several lists is a row on each, and a team row names the first
 Where the forge kept none, a request by name is dated from when Fleet first told the person of it, which is as late as the next look after the ask.
 
 **A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list.
-All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+All four of the forge's own lists silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+A read by number that fails names `reviewing` in `silent` and fails nothing else.
 
 **`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review.
 A 409 `fleet.review_thread_refused` carries the forge's sentence, and a repository Fleet does not serve is a 422.

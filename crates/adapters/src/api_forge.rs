@@ -546,6 +546,19 @@ impl Forge for ApiForge {
         )
     }
 
+    fn open_pulls_numbered(
+        &self,
+        in_repo: &str,
+        login: &str,
+        pulls: &[adapter_traits::NumberedPull],
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        self.read(
+            in_repo,
+            |api, _| review_lists::numbered(api, login, pulls),
+            |gh| gh.open_pulls_numbered(in_repo, login, pulls),
+        )
+    }
+
     fn resolve_review_thread(
         &self,
         in_repo: &str,

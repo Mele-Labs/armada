@@ -84,3 +84,26 @@ fn forgetting_a_run_drops_it_at_every_head_and_is_not_an_error_when_it_is_gone()
     let left: Vec<String> = store.review_runs("storefront", 7).unwrap().into_iter().map(|one| one.name).collect();
     assert_eq!(left, ["bugs"]);
 }
+
+#[test]
+fn the_pull_requests_run_on_are_named_once_each_by_their_latest_run_newest_first() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.keep_review_run(&run("aaa", "tool", "risks", "2026-10-16T10:00:00Z")).unwrap();
+    store.keep_review_run(&run("bbb", "overview", "overview", "2026-10-16T12:00:00Z")).unwrap();
+    let other = KeptReviewRun { number: 9, ..run("ccc", "change_sets", "change-sets", "2026-10-16T11:00:00Z") };
+    store.keep_review_run(&other).unwrap();
+    let asked = KeptReviewRun { number: 11, ..run("ddd", "ask", "what changed", "2026-10-16T13:00:00Z") };
+    store.keep_review_run(&asked).unwrap();
+    let search = KeptReviewRun { number: 0, ..run("", "tool", "risks", "2026-10-16T14:00:00Z") };
+    store.keep_review_run(&search).unwrap();
+    let kinds = ["tool", "change_sets", "overview"];
+    let named: Vec<(u64, String)> =
+        store.review_run_pulls(&kinds).unwrap().into_iter().map(|one| (one.number, one.latest)).collect();
+    assert_eq!(
+        named,
+        [(7, "2026-10-16T12:00:00Z".to_string()), (9, "2026-10-16T11:00:00Z".to_string())],
+        "an ask and the search scope are not runs of a tool"
+    );
+    assert!(store.review_run_pulls(&[]).unwrap().is_empty());
+}

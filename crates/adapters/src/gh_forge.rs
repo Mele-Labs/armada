@@ -244,6 +244,15 @@ impl Forge for GhForge {
         crate::pull_review_lists::read(in_repo, ask)
     }
 
+    fn open_pulls_numbered(
+        &self,
+        in_repo: &str,
+        login: &str,
+        pulls: &[adapter_traits::NumberedPull],
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        crate::pull_review_lists::numbered(in_repo, login, pulls)
+    }
+
     fn resolve_review_thread(
         &self,
         in_repo: &str,

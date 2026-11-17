@@ -39,6 +39,14 @@ pub struct ReviewListAsk<'a> {
     pub most: usize,
 }
 
+/// One pull request named outright, for a read by number rather than by a list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NumberedPull {
+    /// As `owner/name`.
+    pub repository: String,
+    pub number: u64,
+}
+
 /// What a pull request's forge checks have come to. Not Armada's Checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListedChecks {
