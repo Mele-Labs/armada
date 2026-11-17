@@ -784,6 +784,7 @@ impl Render for KitScreen {
         let confirm = self.render_confirm(&look, cx);
         div()
             .id("kit")
+            .key_context(crate::generated::actions::ActionScope::Kit.key_context().unwrap_or_default())
             .track_focus(&self.within)
             .on_key_down(cx.listener(Self::on_key))
             .on_action(cx.listener(Self::on_act))

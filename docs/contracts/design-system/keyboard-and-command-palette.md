@@ -199,6 +199,15 @@ j / k / ↓ / ↑  move between items   (review sheet only)
 ⇧⌘E            needs work   (review sheet only)
 ⌥⌘O            open Job   (review sheet only)
 Enter          New shell, in a terminal whose shell ended   (terminal only)
+j / k / ↓ / ↑  move between pieces   (kit only)
+Tab / ⇧Tab     move between panes   (kit only)
+Space          turn on or off   (kit only)
+Backspace / Delete  remove   (kit only)
+e              edit   (kit only)
+Enter          open in editor   (kit only)
+/              filter   (kit only)
+a              add from a link   (kit only)
+PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -251,6 +260,14 @@ place, `d` ticks a task, `a` goes to the field that adds a task and `A` opens on
 Backspace deletes a task or unlinks an issue, `⌥↑ ⌥↓` move it among its own list, `s` dispatches the cards selected, a request for each repository, or the focused one (a subtask on its own, with its parent as context),
 and `D` and `K` answer a done ask. Esc leaves a field, closing it, then backs out a level. They stand down in a text
 field and while a dialog is up.
+
+**Kit has a scope of its own, `kit`, in the native Bridge.**
+`j`, `k` and the arrows move between the pieces of a kind, between the kinds in the rail, and by a line in the read pane; `Tab` and `⇧Tab` move between the three panes.
+`Space` turns the piece on or off for the project, `Backspace` or `Delete` removes it, `e` edits its file, `Enter` opens it in his editor, `/` goes to the filter and `a` adds a piece from a link.
+`PageDown`, `PageUp`, `⌥↓`, `⌥↑`, `Home` and `End` scroll the file, and answer only while the read pane has the keys.
+`⌘Z` is the `pane_undo` act, which restores the skill removed last.
+The bare keys stand down in the filter, the add box and the file's text box, which take them as typing.
+What stays in Kit's own screen, since it is a state of the screen and not a key: `Esc` and `Enter` on the question before a plugin is removed, `Esc` and `Enter` in the add box, `Esc` and `⌘S` while a file is edited, and `Esc` out of the filter.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in
