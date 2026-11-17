@@ -114,6 +114,7 @@ mod bays;
 mod pr_files;
 mod pr_notes;
 mod pr_panel;
+mod pr_review;
 mod report_brief;
 mod side;
 mod side_chat;
