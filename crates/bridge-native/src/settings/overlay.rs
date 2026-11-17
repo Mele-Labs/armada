@@ -781,12 +781,13 @@ impl SettingsOverlay {
                     crate::dispatch::screen::open_new_project(cx);
                     return;
                 }
-                "delete" => {
-                    this.ask_delete(window, cx);
-                    return;
-                }
-                "merge" => {
-                    this.ask_merge(window, cx);
+                id if super::project::row_act(id).is_some() => {
+                    let Some((act, n)) = super::project::row_act(id) else { return };
+                    let Some(project) = this.scope.projects.as_ref().and_then(|all| all.projects.get(n)).map(|one| one.id.clone()) else { return };
+                    match act {
+                        super::project::RowAct::Delete => this.ask_delete(&project, window, cx),
+                        super::project::RowAct::Merge => this.ask_merge(&project, window, cx),
+                    }
                     return;
                 }
                 id => {

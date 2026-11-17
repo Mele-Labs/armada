@@ -67,8 +67,10 @@ pub struct Facts {
     pub held: Option<String>,
     /// The kept project is this Mac's own and is not shared, so Fleet refuses the merge.
     pub needs_share: bool,
-    /// Why the share row says the Job follows only once it is shared.
+    /// What the share row says: Merge needs the kept project shared, and what follows from it.
     pub share_said: String,
+    /// Where the other Mac runs an older build: why Merge is off. It cannot read the acts a merge sends.
+    pub older: Option<String>,
 }
 
 fn plural(n: usize, one: &str) -> String {
@@ -202,11 +204,13 @@ pub fn facts(kept: &Project, gone: &Project, macs: &[ipc::Mac], jobs: &dyn Fn(&s
         format!("{} {jobs} on {on} {verb} {} over open.", plural(held_tasks, "task"), if held_tasks == 1 { "comes" } else { "come" })
     });
 
+    let needs = format!("Merge is off until {} is shared with your other Macs.", kept.name);
     let share_said = match gone_tile.jobs {
-        0 => format!("Merging needs {} shared with your other Macs.", kept.name),
-        1 => format!("{} Job follows {} only once it is shared.", possessive(&gone_tile.owner, true), kept.name),
-        _ => format!("{} Jobs follow {} only once it is shared.", possessive(&gone_tile.owner, true), kept.name),
+        0 => needs,
+        1 => format!("{needs} {} Job follows {} only once it is shared.", possessive(&gone_tile.owner, true), kept.name),
+        _ => format!("{needs} {} Jobs follow {} only once it is shared.", possessive(&gone_tile.owner, true), kept.name),
     };
+    let older = [kept, gone].into_iter().find_map(|one| one.mac.as_deref()).and_then(|id| macs.iter().find(|mac| mac.id == id)).filter(|mac| mac.link == Some(ipc::MacLink::OlderBuild)).map(|mac| format!("{} runs an older build. Merge is off until it updates", mac.name));
     Facts {
         title: format!("Merge the two {} projects", kept.name),
         needs_share: kept.mac.is_none() && !kept.shared_with_macs,
@@ -216,6 +220,7 @@ pub fn facts(kept: &Project, gone: &Project, macs: &[ipc::Mac], jobs: &dyn Fn(&s
         conflicts,
         held,
         share_said,
+        older,
     }
 }
 
@@ -254,11 +259,10 @@ impl SettingsOverlay {
         stops
     }
 
-    /// The picker's Merge: the project being edited and its twin, this Mac's own kept.
-    pub fn ask_merge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some((id, _)) = self.scope.project.as_ref() else { return };
+    /// The picker's Merge on project `id`, the row it was pressed beside: that project and its twin, this Mac's own kept.
+    pub fn ask_merge(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(all) = self.scope.projects.as_ref().map(|all| all.projects.as_slice()) else { return };
-        let Some(edited) = all.iter().find(|one| one.id == *id) else { return };
+        let Some(edited) = all.iter().find(|one| one.id == id) else { return };
         let Some(twin) = super::project::twin_of(edited, all) else { return };
         let (own, copy) = if edited.mac.is_none() { (edited, twin) } else { (twin, edited) };
         self.scope.merging = Some(Merging { kept: own.id.clone(), gone: copy.id.clone(), from_gone: Vec::new(), refused: None, sending: false });
@@ -335,7 +339,7 @@ impl SettingsOverlay {
     pub fn confirm_merge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(facts) = self.merge_facts(cx) else { return };
         let Some(asking) = self.scope.merging.as_mut() else { return };
-        if asking.sending || facts.needs_share {
+        if asking.sending || facts.needs_share || facts.older.is_some() {
             return;
         }
         asking.from_gone.retain(|key| facts.conflicts.iter().any(|one| one.key == key));
@@ -441,10 +445,8 @@ impl SettingsOverlay {
 
         let tile = |tile: &Tile, kept: bool| {
             let hue = if kept { success } else { muted };
-            let chip = match tile.colour {
-                Some(colour) => crate::pairing::pill_in(look, SharedString::from(format!("merge-chip-{}", tile.id)), &tile.owner, crate::settings::macs::colour_of(look, colour)),
-                None => crate::pairing::pill_in(look, SharedString::from(format!("merge-chip-{}", tile.id)), &tile.owner, look.color(token::FG_MUTED)),
-            };
+            let hue = tile.colour.map_or_else(|| look.color(token::FG_MUTED), |colour| crate::settings::macs::colour_of(look, colour));
+            let chip = crate::pairing::pill_capped(look, SharedString::from(format!("merge-chip-{}", tile.id)), &tile.owner, hue);
             let name = format!("{} {}: {}, {}", if kept { "Kept" } else { "Goes" }, tile.name, tile.owner, tile.counts());
             labelled(
                 div()
@@ -472,7 +474,7 @@ impl SettingsOverlay {
                             .child(svg().flex_none().path(icon_path(if kept { "check" } else { "x" })).size(look.length(token::SPACE_3)).text_color(hue))
                             .child(if kept { "KEPT" } else { "GOES" }),
                     )
-                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(tile.name.clone()))).child(div().flex_none().child(chip)))
+                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().min_w(look.length(token::SPACE_12) * 1.5).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(tile.name.clone()))).child(chip))
                     .child(small(look, tile.counts(), muted)),
                 Role::Group,
                 name,
@@ -582,6 +584,7 @@ impl SettingsOverlay {
                 .child(labelled(ringed(look, switch, &self.scope.merge_share, window), Role::Switch, Key::Shared.title()))
         });
 
+        let older = facts.older.clone().map(|why| labelled(refusal(look, why.clone()).id("project-merge-older"), Role::Alert, why));
         let refused = asking.refused.clone().map(|why| labelled(refusal(look, why.clone()).id("project-merge-refused"), Role::Alert, why));
         let button = |id: &'static str, label: &'static str, primary: bool, off: bool| {
             let base = div()
@@ -605,9 +608,9 @@ impl SettingsOverlay {
             }
             .child(label)
         };
-        let blocked = facts.needs_share;
+        let blocked = facts.needs_share || facts.older.is_some();
         let merge_off = blocked || busy;
-        let why = format!("Share {} with your other Macs first", facts.kept.name);
+        let why = facts.older.clone().unwrap_or_else(|| format!("Share {} with your other Macs first", facts.kept.name));
         let merge = ringed(look, button("project-merge-confirm", "Merge", true, merge_off), &self.scope.merge_confirm, window)
             .track_focus(&self.scope.merge_confirm)
             .tooltip(tip(if blocked { why } else { "⌘↩".to_string() }))
@@ -641,6 +644,7 @@ impl SettingsOverlay {
             .children(differ)
             .children(held)
             .children(share)
+            .children(older)
             .children(refused)
             .child(div().flex().justify_end().gap(look.length(token::SPACE_2)).child(labelled(cancel, Role::Button, "Cancel")).child(labelled(merge, Role::Button, "Merge")));
         Some(
@@ -767,12 +771,92 @@ mod tests {
         cx.run_until_parked();
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(Some(("pricing".into(), "Pricing".into())), window, cx)));
         cx.run_until_parked();
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_merge(window, cx)));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_merge("pricing", window, cx)));
         (overlay, cx)
     }
 
     fn card(overlay: &Entity<SettingsOverlay>, cx: &mut VisualTestContext) -> Facts {
         overlay.read_with(cx, |this, cx| this.merge_facts(cx).expect("the card"))
+    }
+
+    #[gpui::test]
+    fn pressing_merge_in_the_picker_opens_the_card(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.cancel_merge(window, cx)));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.open_picker(false, window, cx)));
+        cx.run_until_parked();
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+        let at = cx.update(|window, cx| super::super::view::bounds_of(window, cx, Role::MenuItem, "Merge with Pricing on mac-air")).expect("the submenu is drawn");
+        cx.simulate_click(at.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        overlay.read_with(cx, |this, _| assert!(this.scope.merging.is_some(), "the card opens"));
+    }
+
+    #[gpui::test]
+    fn the_arrows_carry_the_submenu_to_another_project_and_its_merge_acts_on_that_one(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.cancel_merge(window, cx)));
+        // Editing something else: the submenu opens beside it, and the arrows move it to Pricing.
+        let (other, at) = overlay.read_with(cx, |this, _| {
+            let all = &this.scope.projects.as_ref().expect("projects").projects;
+            (all.iter().find(|one| one.id != "pricing" && one.id != "pricing-air" && one.mac.is_none()).map(|one| (one.id.clone(), one.name.clone())).expect("another project"), all.iter().position(|one| one.id == "pricing").expect("Pricing"))
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(Some(other), window, cx)));
+        cx.run_until_parked();
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.open_picker(false, window, cx)));
+        redraw(cx);
+        // Every project first, then each project down to Pricing.
+        for _ in 0..at + 2 {
+            cx.simulate_keystrokes("down");
+        }
+        redraw(cx);
+        assert!(cx.update(|window, cx| super::super::view::bounds_of(window, cx, Role::MenuItem, "Merge with Pricing on mac-air")).is_some(), "the submenu stands beside Pricing");
+        cx.simulate_keystrokes("right enter");
+        cx.run_until_parked();
+        overlay.read_with(cx, |this, _| {
+            let asking = this.scope.merging.as_ref().expect("the card opens");
+            assert_eq!((asking.kept.as_str(), asking.gone.as_str()), ("pricing", "pricing-air"), "the merge is about the row's project");
+        });
+    }
+
+    fn redraw(cx: &mut VisualTestContext) {
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    #[test]
+    fn a_mac_on_an_older_build_keeps_merge_off_and_says_why() {
+        let (own, copy) = pair();
+        let air = |link| ipc::Mac { id: "mac-air".into(), name: "Air".into(), link, ..ipc::Mac::default() };
+        assert_eq!(facts(&own, &copy, &[air(Some(ipc::MacLink::OlderBuild))], &|_| 0).older.as_deref(), Some("Air runs an older build. Merge is off until it updates"));
+        assert_eq!(facts(&own, &copy, &[air(Some(ipc::MacLink::Linked))], &|_| 0).older, None);
+        assert_eq!(facts(&own, &copy, &[], &|_| 0).older, None, "a Mac the list does not hold is not marked");
+        assert_eq!(facts(&own, &copy, &[], &|_| 0).share_said, "Merge is off until Pricing is shared with your other Macs.");
+    }
+
+    #[gpui::test]
+    fn a_long_mac_name_is_cut_short_and_the_project_name_keeps_its_room(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.cancel_merge(window, cx)));
+        let long = "Nick-Meles-MacBook-Pro---Kiavi";
+        overlay.update(cx, |this, _| {
+            for one in this.scope.projects.iter_mut().flat_map(|all| all.projects.iter_mut()).filter(|one| one.mac.is_some()) {
+                one.mac = Some(long.into());
+            }
+        });
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.open_picker(false, window, cx)));
+        redraw(cx);
+        let (menu, chip) = cx.update(|window, cx| (super::super::view::bounds_of(window, cx, Role::Menu, "Editing"), super::super::view::bounds_of(window, cx, Role::Image, long)));
+        let (menu, chip) = (menu.expect("the menu"), chip.expect("the chip"));
+        let cap = cx.update(|_, cx| crate::look::ActiveLook::look(cx).length(token::SPACE_12) * 2.25);
+        assert!(chip.size.width <= cap, "the chip stops at its width: {:?}", chip.size.width);
+        assert!(chip.right() <= menu.right(), "the chip stays in the menu");
+        assert!(chip.left() - menu.left() > gpui::px(120.), "the name has room before the chip: {:?}", chip.left() - menu.left());
     }
 
     #[gpui::test]
@@ -837,7 +921,7 @@ mod tests {
             assert!(this.scope.merging.is_none());
             assert_eq!(this.scope.projects.as_ref().map(|all| all.projects.len()), Some(5));
         });
-        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_merge(window, cx)));
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_merge("pricing", window, cx)));
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.share_kept(window, cx)));
         cx.run_until_parked();
         overlay.update(cx, |this, _| {
