@@ -1615,6 +1615,19 @@ mod tests {
     }
 
     #[test]
+    fn a_job_whose_story_moved_is_handed_over_once_as_fleet_sends_it() {
+        let moved = |job: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.story","session_id":"{job}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("df1ea0bd-adbe-4e29-aa04-50716fbeeeae"), moved("s1")]);
+        let told: Vec<String> = held.take_story_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
+        assert_eq!(told, ["df1ea0bd-adbe-4e29-aa04-50716fbeeeae", "s1"]);
+        assert!(held.take_story_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
     fn an_aside_that_moved_is_handed_over_whole_once_in_the_order_it_came() {
         let moved = |id: &str, state: &str, answer: &str| {
             let wire = format!(

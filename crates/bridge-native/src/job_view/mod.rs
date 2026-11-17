@@ -592,6 +592,7 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                this.questions_replied(window, cx);
                 cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));

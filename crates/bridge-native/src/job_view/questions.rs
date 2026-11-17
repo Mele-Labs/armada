@@ -1,7 +1,7 @@
 //! His questions to a Job and the replies that answer them, as the owner approved them in a sketch on 17 Nov 2026: the Q&A
 //! tab, the answer folded under his question in the thread, the one pinned line while an answer is unread, and ⌥↑ ⌥↓ to
 //! step between his questions. Fleet's `list_job_questions` is the whole list, read again where `session.story` says it
-//! moved. **Nothing here sorts it.**
+//! moved, and where the agent writes in the shown Job. **Nothing here sorts it.**
 //!
 //! A jump scrolls the thread to the reply's item, reading earlier items until the thread holds it, and tells Fleet he read
 //! the answer (`mark_answer_read`).
@@ -10,7 +10,7 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local};
 use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Window};
-use ipc::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead, SessionId, SessionRow, StoryChanged, ThreadItem};
+use ipc::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead, SessionId, SessionRow, SessionVoice, StoryChanged, ThreadItem};
 
 use super::artifacts_tab::step;
 use super::rows::{eyebrow, tip};
@@ -31,6 +31,8 @@ pub(super) struct Questions {
     pinned: HashMap<String, usize>,
     /// What the mock Fleet answers for its Job, taken when the view was made.
     mock: Option<JobQuestions>,
+    /// The agent's last message in each held thread, by Job, as last seen: a new one reads the questions again.
+    replied: HashMap<String, Option<String>>,
 }
 
 impl Questions {
@@ -51,6 +53,21 @@ pub(super) fn item_holding(items: &[ThreadItem], row: &str) -> Option<usize> {
         ThreadItem::Calls { rows, .. } | ThreadItem::Checks { rows, .. } => rows.iter().any(|one| one.id() == row),
         ThreadItem::FleetTurn { notice, rows, .. } => notice.id() == row || rows.iter().any(|one| one.id() == row),
         _ => false,
+    })
+}
+
+/// The agent's last message in a thread, by its row id: one drawn as it came, or folded into a Fleet turn.
+pub(super) fn last_reply(items: &[ThreadItem]) -> Option<&str> {
+    fn reply(row: &SessionRow) -> Option<&str> {
+        match row {
+            SessionRow::Message { id, from: SessionVoice::Agent, .. } => Some(id.as_str()),
+            _ => None,
+        }
+    }
+    items.iter().rev().find_map(|item| match item {
+        ThreadItem::Row { row } => reply(row),
+        ThreadItem::FleetTurn { rows, .. } => rows.iter().rev().find_map(reply),
+        _ => None,
     })
 }
 
@@ -115,6 +132,19 @@ impl JobView {
         jobs.dedup();
         for job in jobs {
             self.read_questions(&job, window, cx);
+        }
+    }
+
+    /// Beside `session.story`: a new message of the agent's in the shown Job's thread reads its questions again, as it may
+    /// answer one.
+    pub(super) fn questions_replied(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        if !self.questions.read.contains_key(id.as_ref()) {
+            return;
+        }
+        let Some(last) = self.thread(&id, cx).map(|thread| last_reply(&thread.items).map(str::to_string)) else { return };
+        if matches!(self.questions.replied.insert(id.to_string(), last.clone()), Some(was) if was != last) {
+            self.read_questions(&id, window, cx);
         }
     }
 
@@ -593,6 +623,17 @@ mod tests {
         assert_eq!(item_holding(&items, "m-4"), Some(2));
         assert_eq!(item_holding(&items, "m-3"), Some(1), "a reply folded in a Fleet turn is that turn's item");
         assert_eq!(item_holding(&items, "m-9"), None, "a reply the thread does not hold yet");
+    }
+
+    #[test]
+    fn the_last_reply_is_the_agents_newest_message_drawn_or_folded_and_never_his() {
+        let items = |json: &str| ipc::decode::<Vec<ThreadItem>>("items", json.as_bytes()).expect("the items decode");
+        let you = r#"{"kind":"row","row":{"kind":"message","id":"m-1","at":"2026-11-17T14:00:00Z","from":{"kind":"you"},"text":"Why?"}}"#;
+        let agent = r#"{"kind":"row","row":{"kind":"message","id":"m-2","at":"2026-11-17T14:01:00Z","from":{"kind":"agent"},"text":"Because."}}"#;
+        let turn = r#"{"kind":"fleet_turn","id":"n-3","notice":{"kind":"message","id":"n-3","at":"2026-11-17T14:02:00Z","from":{"kind":"session","id":"fleet","title":"Fleet"},"text":"Go on.","notice":"behind_base"},"rows":[{"kind":"message","id":"m-4","at":"2026-11-17T14:03:00Z","from":{"kind":"agent"},"text":"Done."}],"handled":true}"#;
+        assert_eq!(last_reply(&items(&format!("[{you}]"))), None, "his own message is no reply");
+        assert_eq!(last_reply(&items(&format!("[{agent},{you}]"))), Some("m-2"));
+        assert_eq!(last_reply(&items(&format!("[{you},{agent},{turn}]"))), Some("m-4"), "a reply folded in a Fleet turn counts");
     }
 
     #[test]
