@@ -1,0 +1,14 @@
+[operations.mark_answer_read]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The owner read the answer to a question of his: he jumped to the reply, or a client drew it"
+notes = """
+`POST /sessions/question/read`, body `MarkAnswerRead` `{ session_id, row_id }`, `row_id` his question's. Answers the `JobQuestion` as kept, its `answer.read` true. Since 17 Nov 2026.
+
+Kept in the store, so it holds across a restart. Marking an answer already read changes nothing and answers the question as it stands. A first read publishes `session.story`, and `session.changed` with the record's `answer_unread` moved.
+
+404 `fleet.no_such_session` for no such Job, and `fleet.no_such_question` where the Job holds no question of his with that `row_id`. 409 `fleet.question_open` where no reply answers it yet.
+
+`agent_access` is `No`.
+"""

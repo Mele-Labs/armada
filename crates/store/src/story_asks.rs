@@ -1,5 +1,6 @@
 //! What the owner asked of a Job, sorted from his messages: the asks, the kind each message was sorted as, the
-//! pull requests that built an ask and the hands from one Job to another. `docs/concepts/job-story.md`.
+//! pull requests that built an ask, the hands from one Job to another, and the reply that answers each question of his.
+//! `docs/concepts/job-story.md`.
 //!
 //! **Strings here, words in `ipc`.** The store holds kinds and states as the table spells them, and Fleet reads
 //! them into the wire's types. A row it cannot read is Fleet's to leave out.
@@ -23,6 +24,7 @@ pub mod message_kind {
     pub const NEW_ASK: &str = "new_ask";
     pub const REVISION: &str = "revision";
     pub const ANSWER: &str = "answer";
+    pub const QUESTION: &str = "question";
     pub const TALK: &str = "talk";
     /// Delivered and waiting for the model.
     pub const UNSORTED: &str = "unsorted";
@@ -94,6 +96,41 @@ pub struct KeptHandoff {
     pub from_session: String,
     pub to_session: String,
     pub at: String,
+}
+
+/// A question of his, with the reply that answers it where one does.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptQuestion {
+    pub session_id: String,
+    pub row_id: String,
+    /// His words and when he said them, as `story_messages` holds them.
+    pub words: String,
+    pub at: String,
+    /// The last reply read as not answering it.
+    pub checked_row: Option<String>,
+    /// The agent's message row that answers it, its excerpt and when it was read as answering.
+    pub reply_row: Option<String>,
+    pub excerpt: Option<String>,
+    pub answered_at: Option<String>,
+    /// When he read the answer.
+    pub read_at: Option<String>,
+}
+
+const QUESTION_COLUMNS: &str = "q.session_id, q.row_id, m.words, m.at, q.checked_row, q.reply_row, q.excerpt, q.answered_at, q.read_at";
+const QUESTION_JOIN: &str = "story_questions q JOIN story_messages m ON m.session_id = q.session_id AND m.row_id = q.row_id AND m.kind = 'question'";
+
+fn question_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptQuestion> {
+    Ok(KeptQuestion {
+        session_id: row.get(0)?,
+        row_id: row.get(1)?,
+        words: row.get(2)?,
+        at: row.get(3)?,
+        checked_row: row.get(4)?,
+        reply_row: row.get(5)?,
+        excerpt: row.get(6)?,
+        answered_at: row.get(7)?,
+        read_at: row.get(8)?,
+    })
 }
 
 const ASK_COLUMNS: &str = "ask_id, session_id, manifest_id, project, kind, title, state, building, opened_at, state_at";
@@ -324,7 +361,7 @@ impl Store {
         let doing = "reading how a Job's messages were sorted";
         let mut statement = self
             .conn
-            .prepare(&format!("SELECT {MESSAGE_COLUMNS} FROM story_messages WHERE session_id = ?1 AND kind IN ('new_ask', 'revision', 'answer', 'talk') ORDER BY at, row_id"))
+            .prepare(&format!("SELECT {MESSAGE_COLUMNS} FROM story_messages WHERE session_id = ?1 AND kind IN ('new_ask', 'revision', 'answer', 'question', 'talk') ORDER BY at, row_id"))
             .map_err(failed(doing))?;
         let rows = statement.query_map([session], message_of).map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
@@ -418,5 +455,114 @@ impl Store {
             .query_map([limit], |row| Ok(KeptCorrection { words: row.get(0)?, kind: row.get(1)?, ask_kind: row.get(2)? }))
             .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// The message `row_id` of `session` is a question, **due a read**. One already kept keeps its answer.
+    pub fn keep_question(&mut self, session: &str, row_id: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("INSERT OR IGNORE INTO story_questions (session_id, row_id, due) VALUES (?1, ?2, 1)", params![session, row_id])
+            .map(|_| ())
+            .map_err(failed("keeping a question"))
+    }
+
+    /// The message is no longer a question: it and its answer go.
+    pub fn remove_question(&mut self, session: &str, row_id: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute("DELETE FROM story_questions WHERE session_id = ?1 AND row_id = ?2", params![session, row_id])
+            .map(|_| ())
+            .map_err(failed("removing a question"))
+    }
+
+    /// The Job's turn ended: each question of `session` still unanswered is due a read. Whether any is.
+    pub fn questions_due(&mut self, session: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute("UPDATE story_questions SET due = 1 WHERE session_id = ?1 AND reply_row IS NULL", [session])
+            .map(|moved| moved > 0)
+            .map_err(failed("marking a Job's questions due"))
+    }
+
+    /// Take the oldest `limit` questions due a read, so no second read takes them. One whose read fails waits for the next turn's end.
+    pub fn take_due_questions(&mut self, limit: u32) -> Result<Vec<KeptQuestion>, WriteError> {
+        let doing = "taking the questions due a read";
+        let taken: Vec<KeptQuestion> = {
+            let mut statement = self
+                .conn
+                .prepare(&format!("SELECT {QUESTION_COLUMNS} FROM {QUESTION_JOIN} WHERE q.due = 1 AND q.reply_row IS NULL ORDER BY m.at, q.row_id LIMIT ?1"))
+                .map_err(failed(doing))?;
+            let rows = statement.query_map([limit], question_of).map_err(failed(doing))?;
+            rows.collect::<Result<_, _>>().map_err(failed(doing))?
+        };
+        for one in &taken {
+            self.conn
+                .execute("UPDATE story_questions SET due = 0 WHERE session_id = ?1 AND row_id = ?2", params![one.session_id, one.row_id])
+                .map_err(failed(doing))?;
+        }
+        Ok(taken)
+    }
+
+    /// The reply `checked_row` was read as not answering the question.
+    pub fn keep_question_checked(&mut self, session: &str, row_id: &str, checked_row: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "UPDATE story_questions SET checked_row = ?3 WHERE session_id = ?1 AND row_id = ?2 AND reply_row IS NULL",
+                params![session, row_id, checked_row],
+            )
+            .map(|_| ())
+            .map_err(failed("keeping a reply read as not answering"))
+    }
+
+    /// The reply `reply_row` answers the question, unread. **Once**: whether this call linked it.
+    pub fn keep_question_answered(&mut self, session: &str, row_id: &str, reply_row: &str, excerpt: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE story_questions SET reply_row = ?3, excerpt = ?4, answered_at = ?5, read_at = NULL, due = 0 \
+                 WHERE session_id = ?1 AND row_id = ?2 AND reply_row IS NULL",
+                params![session, row_id, reply_row, excerpt, at],
+            )
+            .map(|moved| moved > 0)
+            .map_err(failed("keeping the reply that answers a question"))
+    }
+
+    /// He read the answer to the question, at `at`. Whether it was unread until now.
+    pub fn keep_answer_read(&mut self, session: &str, row_id: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE story_questions SET read_at = ?3 WHERE session_id = ?1 AND row_id = ?2 AND reply_row IS NOT NULL AND read_at IS NULL",
+                params![session, row_id, at],
+            )
+            .map(|moved| moved > 0)
+            .map_err(failed("keeping an answer read"))
+    }
+
+    /// The question `row_id` of `session`, where the message is one.
+    pub fn question(&self, session: &str, row_id: &str) -> Result<Option<KeptQuestion>, WriteError> {
+        self.conn
+            .query_row(&format!("SELECT {QUESTION_COLUMNS} FROM {QUESTION_JOIN} WHERE q.session_id = ?1 AND q.row_id = ?2"), params![session, row_id], question_of)
+            .optional()
+            .map_err(failed("reading a question"))
+    }
+
+    /// The questions of `session`: the unanswered first, each group newest first.
+    pub fn questions_of(&self, session: &str) -> Result<Vec<KeptQuestion>, WriteError> {
+        let doing = "reading the questions of a Job";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {QUESTION_COLUMNS} FROM {QUESTION_JOIN} WHERE q.session_id = ?1 ORDER BY q.reply_row IS NOT NULL, m.at DESC, q.row_id DESC"
+            ))
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([session], question_of).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Whether a question of `session` has an answer he has not read.
+    pub fn answer_unread(&self, session: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row(
+                &format!("SELECT EXISTS (SELECT 1 FROM {QUESTION_JOIN} WHERE q.session_id = ?1 AND q.reply_row IS NOT NULL AND q.read_at IS NULL)"),
+                [session],
+                |row| row.get(0),
+            )
+            .map_err(failed("reading whether an answer waits unread"))
     }
 }

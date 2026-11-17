@@ -93,3 +93,23 @@ pub(crate) async fn file_ask<D: Story>(State(served): State<Served<D>>, body: By
         Err(refusal) => refused(refusal),
     }
 }
+
+/// The questions he asked in the Job and their answers. 200; 404 for no such Job.
+pub(crate) async fn list_job_questions<D: Story>(State(served): State<Served<D>>, Query(of): Query<OfJob>) -> Response {
+    match served.daemon().list_job_questions(ipc::SessionId::carried(of.session_id)).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He read an answer. 200 with the question as kept; 404 for a Job or a question not held; 409 for a question no reply answers yet.
+pub(crate) async fn mark_answer_read<D: Story>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let mark: ipc::MarkAnswerRead = match ipc::decode_body("an answer read", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().mark_answer_read(mark).await {
+        Ok(question) => answer(StatusCode::OK, &question, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}

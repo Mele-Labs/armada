@@ -46,6 +46,8 @@ pub(crate) struct LedgerReads {
     snoozed: Option<String>,
     /// When the person was last in the Job, as a client told it.
     viewed: Option<String>,
+    /// A reply of the Job's answers a question of his he has not read.
+    answer_unread: bool,
     /// The breakdown of the context window, as the wire spells it.
     context: Option<String>,
     /// The latest Loadout list and the latest turn's uses.
