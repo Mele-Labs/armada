@@ -79,3 +79,10 @@ fn two_selected_jobs_move_into_a_project_and_one_moves_out() {
 fn for_you_lists_three_sections_and_its_keys_move_open_and_withdraw_a_row() {
     plays("native-for-you");
 }
+
+/// The side chat: Side chat in the box's bar and ⌘J open the split, a question is answered with what the copy read, Tell the
+/// Job marks it Told, Ask on selected words quotes them, ⌘W shuts the split and ⌘J brings every question back.
+#[test]
+fn the_side_chat_opens_asks_tells_and_comes_back_after_its_split_is_shut() {
+    plays("native-side-chat");
+}

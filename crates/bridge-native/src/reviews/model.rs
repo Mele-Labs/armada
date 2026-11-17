@@ -254,12 +254,95 @@ pub struct Span {
     pub commits: String,
 }
 
-/// A critique of a range: Fleet's range critique, a review run.
+/// A critique of a range: Fleet's range critique, a review run, with what he asked it to look for.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Critique {
     None,
-    Running { range: Span },
-    Finished { range: Span, findings: Vec<Finding> },
+    Running { range: Span, asked: ReviewAsk },
+    Finished { range: Span, findings: Vec<Finding>, asked: ReviewAsk },
+}
+
+/// A review tool that makes findings, which he can ask a review to look for. The mock names them
+/// now; Fleet's review tools list them later.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReviewTool {
+    pub id: String,
+    /// As its checkbox says it: `API breaking changes`.
+    pub name: String,
+    /// As a sentence says it after another: `API breaking changes`, `risks`.
+    pub said: String,
+    /// Ticked until he picks for himself.
+    pub first: bool,
+}
+
+/// How hard a review looks.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+pub enum Effort {
+    Quick,
+    #[default]
+    Standard,
+    Thorough,
+}
+
+impl Effort {
+    pub const ALL: [Effort; 3] = [Effort::Quick, Effort::Standard, Effort::Thorough];
+
+    pub fn name(self) -> &'static str {
+        match self {
+            Effort::Quick => "Quick",
+            Effort::Standard => "Standard",
+            Effort::Thorough => "Thorough",
+        }
+    }
+
+    /// Its rough time and cost.
+    pub fn costs(self) -> &'static str {
+        match self {
+            Effort::Quick => "About a minute, reads only the changed lines",
+            Effort::Standard => "A few minutes, reads each changed file",
+            Effort::Thorough => "Several minutes, reads around each change",
+        }
+    }
+}
+
+/// What he asks a review to look for, how hard, and anything to focus on: remembered per repository,
+/// and the shape that goes to Fleet.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ReviewAsk {
+    /// The ticked tools' ids, in the list's order.
+    pub tools: Vec<String>,
+    pub effort: Effort,
+    pub focus: String,
+}
+
+impl ReviewAsk {
+    /// The ask before he has made one: the tools ticked first, at Standard.
+    pub fn first(tools: &[ReviewTool]) -> ReviewAsk {
+        ReviewAsk { tools: tools.iter().filter(|tool| tool.first).map(|tool| tool.id.clone()).collect(), effort: Effort::default(), focus: String::new() }
+    }
+
+    pub fn has(&self, tool: &str) -> bool {
+        self.tools.iter().any(|one| one == tool)
+    }
+
+    /// Ticks or unticks a tool, keeping the list's order.
+    pub fn toggle(&mut self, tool: &str, list: &[ReviewTool]) {
+        let on = !self.has(tool);
+        self.tools = list.iter().filter(|one| if one.id == tool { on } else { self.has(&one.id) }).map(|one| one.id.clone()).collect();
+    }
+
+    /// What was asked, in words: `Possible bugs and risks, thorough`.
+    pub fn said(&self, list: &[ReviewTool]) -> String {
+        let named: Vec<&str> = list.iter().filter(|tool| self.has(&tool.id)).map(|tool| tool.said.as_str()).collect();
+        let what = match named.as_slice() {
+            [] => String::new(),
+            [one] => (*one).to_string(),
+            [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+        };
+        let mut chars = what.chars();
+        let what = chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect());
+        format!("{what}, {}", self.effort.name().to_lowercase())
+    }
 }
 
 /// The written summary of the commits since he looked: written when he opens a pull request that
@@ -295,6 +378,16 @@ impl FlagKind {
             FlagKind::PossibleBug => "circle-question-mark",
         }
     }
+
+    /// `1 possible bug`, `2 risks`.
+    pub fn counted(self, count: usize) -> String {
+        let (one, many) = match self {
+            FlagKind::Blocker => ("blocker", "blockers"),
+            FlagKind::Risk => ("risk", "risks"),
+            FlagKind::PossibleBug => ("possible bug", "possible bugs"),
+        };
+        format!("{count} {}", if count == 1 { one } else { many })
+    }
 }
 
 /// A blocker, risk or possible bug Find problems wrote, in the change set it sits in.
@@ -315,12 +408,33 @@ pub struct Flag {
     pub comment: String,
 }
 
-/// A change set's worst finding, as Fleet works it out: its glyph in the rail.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum Mark {
-    Blocked,
-    Risky,
-    Clear,
+/// What the findings still open on a change set come to: its glyph in the rail and on its Overview row.
+#[derive(Clone, Debug, PartialEq, Eq, Default)]
+pub struct Mark {
+    /// The worst finding's kind; None when Find problems found nothing in the set.
+    pub worst: Option<FlagKind>,
+    /// Its findings in words, worst first: `1 blocker and 2 risks`. Empty when there are none.
+    pub said: String,
+}
+
+impl Mark {
+    /// What the findings on set `set` come to.
+    pub fn of(set: &str, flags: &[&Flag]) -> Mark {
+        let counts: Vec<String> = [FlagKind::Blocker, FlagKind::Risk, FlagKind::PossibleBug]
+            .into_iter()
+            .filter_map(|kind| {
+                let count = flags.iter().filter(|flag| flag.set == set && flag.kind == kind).count();
+                (count > 0).then(|| kind.counted(count))
+            })
+            .collect();
+        let worst = [FlagKind::Blocker, FlagKind::Risk, FlagKind::PossibleBug].into_iter().find(|kind| flags.iter().any(|flag| flag.set == set && flag.kind == *kind));
+        let said = match counts.as_slice() {
+            [] => String::new(),
+            [one] => one.clone(),
+            [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+        };
+        Mark { worst, said }
+    }
 }
 
 /// Whether a change set keeps one of the repository's practices.
@@ -331,16 +445,66 @@ pub enum Kept {
     DoesNotApply,
 }
 
+impl Kept {
+    /// The result the other way round, as "Check is wrong" turns it. Does not apply stays.
+    pub fn flipped(self) -> Kept {
+        match self {
+            Kept::Met => Kept::Missed,
+            Kept::Missed => Kept::Met,
+            Kept::DoesNotApply => Kept::DoesNotApply,
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq)]
 pub struct Practice {
     pub said: String,
     pub kept: Kept,
 }
 
+/// What he says is wrong with a practice's result.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Wrong {
+    /// It does not belong in this area's checklist: it folds into the set-aside line.
+    DoesNotApply,
+    /// The result is the reverse: met is unmet, unmet is met.
+    CheckIsWrong,
+}
+
+impl Wrong {
+    pub fn said(self) -> &'static str {
+        match self {
+            Wrong::DoesNotApply => "Doesn't apply here",
+            Wrong::CheckIsWrong => "Check is wrong",
+        }
+    }
+
+    /// What the reason field asks.
+    pub fn asks(self) -> &'static str {
+        match self {
+            Wrong::DoesNotApply => "Why it does not apply here",
+            Wrong::CheckIsWrong => "Why the check is wrong",
+        }
+    }
+}
+
+/// A practice by pull request, change set and its place in the set's checklist.
+pub type PracticeAt = (u64, String, usize);
+
+/// His correction of one practice and his reason. The mock keeps it in the screen's state; this is
+/// the shape Fleet will store.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Correction {
+    pub wrong: Wrong,
+    pub reason: String,
+}
+
 /// One hunk of a change set, in the order the change runs.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Hunk {
     pub path: String,
+    /// One sentence under its path: what this part does, and why it comes here in the order.
+    pub caption: String,
     pub patch: String,
     /// The diff line a finding points at, counted from the hunk's first drawn line.
     pub hot: Option<usize>,
@@ -355,7 +519,6 @@ pub struct ChangeSet {
     pub title: String,
     pub purpose: String,
     pub files: u32,
-    pub mark: Mark,
     /// What kind of change it is, after "Practices for": `migrations`.
     pub kind: String,
     /// Where its practices were read from and when, as Armada keeps them.
@@ -487,12 +650,20 @@ pub struct DraftOf {
     pub body: String,
     /// The finding it came from.
     pub finding: Option<String>,
+    /// The diff lines it sits on, as [`excerpt`] cuts them. None when no hunk holds its line.
+    pub excerpt: Option<Vec<crate::diff::DiffLine>>,
 }
 
 impl DraftOf {
     pub fn place(&self) -> String {
         format!("{}:{}", self.path, self.line)
     }
+}
+
+/// The lines a draft comment sits on, as a thread's excerpt draws them: up to four ending at its
+/// line, under their hunk's head. None where no hunk of the file reaches it.
+pub fn excerpt(files: &[PageFile], path: &str, line: u64) -> Option<Vec<crate::diff::DiffLine>> {
+    crate::diff::excerpt(&files.iter().find(|file| file.path == path)?.patch, line, false)
 }
 
 /// `Mira's`, from the login `mira`; `your` for his own.
@@ -517,5 +688,37 @@ pub fn on_day(day: &str) -> String {
     match day {
         "today" | "yesterday" => day.to_string(),
         day => format!("on {day}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn flagged(set: &str, kind: FlagKind) -> Flag {
+        Flag { id: "f".into(), kind, set: set.into(), title: String::new(), said: String::new(), path: String::new(), line: 0, fix: String::new(), comment: String::new() }
+    }
+
+    #[test]
+    fn a_review_ask_says_what_it_looks_for_and_how_hard() {
+        let tool = |id: &str, said: &str, first: bool| ReviewTool { id: id.into(), name: said.into(), said: said.into(), first };
+        let list = [tool("bugs", "possible bugs", true), tool("risks", "risks", true), tool("api", "API breaking changes", false)];
+        let mut ask = ReviewAsk::first(&list);
+        assert_eq!(ask.said(&list), "Possible bugs and risks, standard");
+        ask.toggle("api", &list);
+        ask.effort = Effort::Thorough;
+        assert_eq!(ask.tools, ["bugs", "risks", "api"]);
+        assert_eq!(ask.said(&list), "Possible bugs, risks and API breaking changes, thorough");
+        ask.toggle("bugs", &list);
+        assert_eq!(ask.said(&list), "Risks and API breaking changes, thorough");
+    }
+
+    #[test]
+    fn a_set_is_marked_by_its_worst_finding_and_counts_each_kind() {
+        let flags = [flagged("a", FlagKind::Risk), flagged("a", FlagKind::Blocker), flagged("a", FlagKind::Risk), flagged("b", FlagKind::PossibleBug)];
+        let flags: Vec<&Flag> = flags.iter().collect();
+        assert_eq!(Mark::of("a", &flags), Mark { worst: Some(FlagKind::Blocker), said: "1 blocker and 2 risks".into() });
+        assert_eq!(Mark::of("b", &flags), Mark { worst: Some(FlagKind::PossibleBug), said: "1 possible bug".into() });
+        assert_eq!(Mark::of("c", &flags), Mark::default());
     }
 }

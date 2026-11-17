@@ -5,7 +5,7 @@
 //! | nothing | The Jobs list on the owner's running Fleet |
 //! | `--mock <scenario>` | The same window on mock data (`mock.rs`), with no Fleet |
 //! | `--walk <name>` | A native walk in its own window with a walk bar (`walk/`). Fleet adds `--job <id> --url <url> --fleet-port <port>` when the owner presses Open, and `--take <name>=<walk>` for each of its variations |
-//! | `--walk <name> --check [--shots <dir>] [--hold <ms>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed. `--hold` lets each step's animations run before its picture |
+//! | `--walk <name> --check [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed. `--hold` lets each step's animations run before its picture. `--pace` presses Next that long after each step, as a person reading it would |
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
 //! leave a window on someone's screen.
@@ -78,6 +78,7 @@ mod sketch;
 mod slot_wait;
 mod snooze;
 mod sketch_png;
+mod syntax;
 mod terminal;
 mod titlebar;
 mod toasts;
@@ -119,7 +120,7 @@ use walk::window::WalkWindow;
 /// What `--help` prints, and what an unread command line prints before it exits.
 const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
-       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
+       bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
        bridge-native --list-walks
 
@@ -129,6 +130,7 @@ With no flags it opens on the Fleet this Mac runs.
   --check             play the walk with no window on screen; exit 0 when it plays to its end
   --shots <dir>       with --check, keep a picture of each step in <dir>
   --hold <ms>         with --shots, let each step's animations run this long before its picture
+  --pace <ms>         with --check, press Next this long after each step, as a person would; a step still playing then fails
   --width <points>    the walk's window width
   --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
@@ -138,7 +140,7 @@ With no flags it opens on the Fleet this Mac runs.
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 10] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--width", "--height", "--take", "--mock"];
+const VALUED: [&str; 11] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
 const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
@@ -148,7 +150,7 @@ enum Mode {
     Walks,
     Live,
     Mock(String),
-    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
+    Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
 
 fn mode_of(args: &[String]) -> Result<Mode, String> {
@@ -180,13 +182,14 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
         let width = value("--width").transpose()?.map(|wide| wide.parse::<f32>().map_err(|_| format!("--width {wide} is not a number of points"))).transpose()?;
         let height = value("--height").transpose()?.map(|tall| tall.parse::<f32>().map_err(|_| format!("--height {tall} is not a number of points"))).transpose()?;
         let hold = value("--hold").transpose()?.map(|ms| ms.parse::<u64>().map_err(|_| format!("--hold {ms} is not a number of milliseconds"))).transpose()?;
+        let pace = value("--pace").transpose()?.map(|ms| ms.parse::<u64>().map_err(|_| format!("--pace {ms} is not a number of milliseconds"))).transpose()?;
         // `--take <name>=<walk>`, once for each take, in the bar's order.
         let takes = args
             .windows(2)
             .filter(|pair| pair[0] == "--take")
             .map(|pair| pair[1].rsplit_once('=').map(|(name, walk)| (name.to_string(), walk.to_string())).ok_or(format!("--take {} is not <name>=<walk>", pair[1])))
             .collect::<Result<_, _>>()?;
-        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, width, height, fleet, takes });
+        return Ok(Mode::Walk { name, check: args.iter().any(|arg| arg == "--check"), shots, hold, pace, width, height, fleet, takes });
     }
     if let Some(scenario) = value("--mock").transpose()? {
         return Ok(Mode::Mock(scenario));
@@ -242,12 +245,12 @@ fn main() -> ExitCode {
         walk::WALKS.iter().for_each(|walk| println!("{}", walk.name));
         return ExitCode::SUCCESS;
     }
-    if let Mode::Walk { name, check: true, shots, hold, width, height, takes, .. } = &mode {
+    if let Mode::Walk { name, check: true, shots, hold, pace, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
             return ExitCode::FAILURE;
         };
-        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *width, *height) {
+        return match walk::check::run(walk, walk::window::takes_of(takes), shots.clone(), *hold, *pace, *width, *height) {
             Ok(()) => {
                 log::Note::info("the walk played to its end").field("walk", walk.name).emit();
                 ExitCode::SUCCESS
