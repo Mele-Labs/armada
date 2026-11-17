@@ -652,7 +652,7 @@ pub use requests::{
     VariableWrite, REQUESTS_VERSION, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
-    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, RepositoryList,
+    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, LinkRepository, RepositoryList,
     RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
