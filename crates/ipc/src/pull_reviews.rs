@@ -56,6 +56,11 @@ pub struct PullReviewRow {
     pub author: String,
     /// RFC 3339.
     pub updated_at: String,
+    /// RFC 3339, when he was last asked to review it: the forge's own time of the request, else when
+    /// Fleet first saw him asked by name. Absent off the `requested` and `team` lists, and where
+    /// neither knows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asked_at: Option<String>,
     /// The team asked, as the forge names it, on the `team` list only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<String>,

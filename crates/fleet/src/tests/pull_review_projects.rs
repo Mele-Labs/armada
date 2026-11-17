@@ -51,6 +51,7 @@ fn pull(number: u64, repository: &str) -> ListedPull {
         review: ReviewStanding::None,
         team: None,
         my_latest: None,
+        asked_at: None,
     }
 }
 

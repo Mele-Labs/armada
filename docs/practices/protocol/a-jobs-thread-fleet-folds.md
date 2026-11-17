@@ -30,7 +30,8 @@ A thought before words, a question or a card is a row of its own.
 A tool row carries the call's own `description`, its one-line phrase, where the call's input had one, which a Bridge can show as the call's phrase; `text` is unchanged.
 A settled `ask` and a `window_ask` join the run as their own rows, where Electron folds a line of its own words.
 The calls no screen draws (the agent's task list, tool loading and `show_window`) are dropped before the fold.
-A waiting `ask` is the head's `asked` and no item; a `browser_reminder`, a `plan` row, a `delivery` row and a `linked` row that `replaces` are dropped.
+A waiting `ask` is the head's `asked` and no item; a `plan` row, a `delivery` row and a `linked` row that `replaces` are dropped.
+A `browser_reminder` is a `row` item where it was written, which native Bridge draws as a line with a press; Electron draws it as an inline card from the rows it holds.
 **A Fleet notice folds with the work after it unless it is kept**: one the agent disputed, and the last Fleet turn while the Job waits on the person.
 Every sketch put to him and not answered is an item `sketch:<title>` in his Needs you, newest drawn first.
 The newest of them is the head's `sketch`, and its latest card is no item; the others keep their cards.

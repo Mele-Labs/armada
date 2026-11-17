@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use gpui::{canvas, div, prelude::*, relative, AnyElement, Context, DragMoveEvent, FontWeight, Role, SharedString, Window};
 
-use super::model::Page;
+use super::model::{self, Page};
 use super::{panel, said, tabs, ReviewsScreen};
 use crate::job_view::pane_tree::{self as tree, Dir, Node, Pane, Side, Size, Zone};
 use crate::labels::labelled;
@@ -145,7 +145,60 @@ impl ReviewsScreen {
         let overview = row("rail-overview".into(), "Overview", glyph("layers", look.length(token::SPACE_3), look.color(token::FG_MUTED)).into_any_element(), on.is_none())
             .on_click(cx.listener(|this, _, _, cx| this.show_overview(cx)));
         let overview = labelled(overview, Role::ListBoxOption, "Overview");
-        let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).overflow_y_scroll().flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        // Until there are change sets, the page's files stand in the rail under their folders.
+        if page.overview.sets.is_empty() && !page.kept {
+            let muted = look.color(token::FG_MUTED);
+            for (folder, files) in model::by_folder(&page.files) {
+                let shown = if folder.is_empty() { page.repository.rsplit('/').next().unwrap_or(&page.repository).to_string() } else { folder.clone() };
+                rail = rail.child(labelled(
+                    div()
+                        .id(SharedString::from(format!("rail-folder-{folder}")))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::H_CONTROL))
+                        .px(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(muted)
+                        .tooltip(tip(shown.clone()))
+                        .child(glyph("folder", look.length(token::SPACE_3), muted).flex_none())
+                        .child(div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis_start().child(SharedString::from(shown.clone()))),
+                    Role::Label,
+                    format!("Folder: {shown}"),
+                ));
+                for file in files {
+                    let path = file.path.clone();
+                    let name = file.path.rsplit('/').next().unwrap_or(&file.path).to_string();
+                    let count = |said: String, hue| div().flex_none().w(look.length(token::SPACE_8)).flex().justify_end().text_color(look.color(hue)).child(SharedString::from(said));
+                    let one = div()
+                        .id(SharedString::from(format!("rail-file-{}", file.path)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .h(look.length(token::H_CONTROL))
+                        .pl(look.length(token::SPACE_6))
+                        .pr(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .text_size(look.length(token::TEXT_XS))
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .tooltip(tip(file.path.clone()))
+                        .on_click(cx.listener(move |this, _, window, cx| this.show_file(&path, window, cx)))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(name)))
+                        .child(
+                            div()
+                                .flex_none()
+                                .flex()
+                                .font_family(mono(look))
+                                .child(count(format!("+{}", file.additions), token::RUN_PASSED))
+                                .child(count(format!("−{}", file.deletions), token::RUN_FAILED)),
+                        );
+                    rail = rail.child(labelled(one, Role::ListBoxOption, format!("{}, {} added, {} removed", file.path, file.additions, file.deletions)));
+                }
+            }
+        }
         for set in &page.overview.sets {
             let id = set.id.clone();
             let lead = tabs::set_mark(format!("rail-mark-{}", set.id), &self.set_mark_of(page, &set.id), look.length(token::SPACE_3), look);
@@ -155,7 +208,8 @@ impl ReviewsScreen {
         if page.kept {
             rail = rail.child(div().px(look.length(token::SPACE_2)).py(look.length(token::SPACE_2)).child(grey("rail-wait", "Writing the change sets of the commits since you looked", &[0.8, 0.6], token::BG_SUNKEN, look)));
         }
-        labelled(rail, Role::ListBox, "Change sets").into_any_element()
+        let named = if page.overview.sets.is_empty() && !page.kept { "Files" } else { "Change sets" };
+        labelled(rail, Role::ListBox, named).into_any_element()
     }
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
@@ -364,6 +418,8 @@ impl ReviewsScreen {
         let kind = pane.tabs.iter().find(|tab| Some(&tab.id) == active.as_ref()).map(|tab| tab.kind.clone());
         // The change set scrolls itself, so Show in change set can bring a hunk to its top.
         let scrolls = kind.as_deref() != Some("pr-change-set");
+        // Files scrolls on a handle, so a file pressed in the rail can be brought to its top.
+        let files = kind.as_deref() == Some("pr-files");
         let body: AnyElement = match kind {
             Some(kind) => self.tab_body(&kind, page, look, cx),
             None => div()
@@ -418,7 +474,7 @@ impl ReviewsScreen {
                 .on_drop(cx.listener(move |this, drag: &TabDrag, _, cx| this.drop_tab(&drag.tab, &drop_pane, cx)))
                 .child(strip)
                 // Each pull request's tab keeps its own place, so a page opened fresh starts at its top.
-                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).child(body))
+                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).when(files, |body| body.track_scroll(&self.files_scroll)).child(body))
                 .children(overlay),
             Role::Region,
             name,

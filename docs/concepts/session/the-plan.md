@@ -14,7 +14,7 @@ Fleet refuses a plan with every reason at once and says to call `record_plan` ag
 The agent gets back the version and each id Fleet gave.
 
 **A group names the gate that ends it: a fact Fleet sees for itself, never the agent's word** (owner, 8 Nov 2026).
-`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `you_approved` (his Approve on a `waiting_for` item the agent raised with `approves: true`), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, `jobs_ended` (every Job this Job started has merged or ended), or `none`.
+`gate` is one of `plan_approved`, `walk_approved`, `sketch_approved`, `document_approved` (a page under the Job's documents he approved), `you_approved` (his Approve on a `waiting_for` item the agent raised with `approves: true`, or his Looks good on a Ready to try card), `checks_green` (Checks Fleet runs at the pushed commit), `merged`, `jobs_ended` (every Job this Job started has merged or ended), or `none`.
 Absent is `none`, and groups with no gate between them are one stretch.
 A word not on the list is refused with the list, rather than dropped.
 Each group carries its gate on the wire and in `session_plan_groups.gate`; recording the plan again replaces it.
@@ -22,6 +22,9 @@ Each group carries its gate on the wire and in `session_plan_groups.gate`; recor
 Fleet keeps a `session_gates` row when it sees the fact, and never works it out again: the rail placed a Job afresh on every draw, so a fact that dropped out moved it backwards.
 His approval of a plan closes every `plan_approved` gate for the version that asked for it, and a version recorded again stands on that approval: it draws no card, raises no item and reopens no gate, unless the agent passes `ask_again: true` on `record_plan`, which puts that version to him as the first was (owner, 8 Nov 2026).
 Any other fact closes the first open gate of its kind in plan order, and no other: his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
+**His Looks good on a Ready to try card closes the first open `you_approved` gate, as his Approve of an `approves` item does** (`crates/fleet/src/build_noting.rs`, owner bug report, 17 Nov 2026).
+A Job that offered its preview raised no item of its own, because the card already asked him, and its gate stayed open after he said it looked good.
+A preview names no plan group, so the answer is never tied to one; Needs rework and Remind me close nothing, and a Looks good given before the plan was recorded is no gate's.
 **A merge closes only the `merged` gate of the group Fleet ties it to** (`crates/fleet/src/gate_merges.rs`, armada-ffus).
 A group handed to a Job of its own is tied to that Job's pull requests, by the `group` on its `started_to` row, followed through a handoff.
 The Job's own pull requests are tied to its one `merged` group that is not handed on.

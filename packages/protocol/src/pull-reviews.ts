@@ -32,6 +32,8 @@ export type PullReviewRow = {
   author: string;
   /** RFC 3339. */
   updated_at: string;
+  /** RFC 3339, when he was last asked to review it: the forge's time, else when Fleet first saw him asked by name. Absent off the `requested` and `team` lists, and where neither knows. */
+  asked_at?: string;
   /** The team asked, as the forge names it, on the `team` list only. */
   team?: string;
   /** The Session of the person's that holds it, where one does. Absent, and a note on it stays in Armada. */

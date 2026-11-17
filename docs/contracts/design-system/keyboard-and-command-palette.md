@@ -48,6 +48,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘T       new Side Job: started with no sheet and opened on its thread, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
+⌘R       reload the Job browser's page, in the native Bridge only, where a Job browser is in front
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch, from every surface and from a field

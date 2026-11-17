@@ -165,7 +165,7 @@ fn items_of(
     let mut entries = thread
         .rows
         .iter()
-        .filter(|row| drawn(row))
+        .filter(|row| drawn(row) || is_reminder(row))
         .map(|row| {
             let card = match row {
                 SessionRow::Tool { id, at, text, .. } => {
@@ -215,6 +215,12 @@ fn items_of(
     }
     with_approved_plan(&mut items, thread);
     items
+}
+
+/// A `browser_reminder`: Bridge's own thread draws it as a line with a press (native Bridge's, as Electron's does as an inline
+/// card), so it is an item of a row as it came, though `drawn` does not count it.
+fn is_reminder(row: &SessionRow) -> bool {
+    matches!(row, SessionRow::BrowserReminder { .. })
 }
 
 /// Whether a row reaches the thread. A waiting ask is the head's `asked`; a `plan` row is where its card
@@ -403,8 +409,8 @@ fn with_approved_plan(items: &mut Vec<ThreadItem>, thread: &SessionThread) {
     let Some(at) = rows.iter().position(|row| matches!(row, SessionRow::Plan { version, .. } if *version == plan.version)) else {
         return;
     };
-    // A `browser_reminder` counts among what Bridge reads this by, though it is drawn nowhere.
-    let after = rows[..at].iter().rev().find(|row| drawn(row) || matches!(row, SessionRow::BrowserReminder { .. }));
+    // A `browser_reminder` counts among what Bridge reads this by.
+    let after = rows[..at].iter().rev().find(|row| drawn(row) || is_reminder(row));
     let Some(after) = after.map(SessionRow::id) else { return };
     let one_row = |item: &ThreadItem| {
         !matches!(item, ThreadItem::Calls { .. } | ThreadItem::Checks { .. } | ThreadItem::FleetTurn { .. } | ThreadItem::Subagent { .. })
