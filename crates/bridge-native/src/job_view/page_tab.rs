@@ -52,13 +52,16 @@ pub struct PageTab {
     _aim: Option<Task<()>>,
     /// The answers on their way into the page.
     _told: Vec<Task<()>>,
+    /// What the kit was told, in order: a headless window has no page to hear it.
+    #[cfg(test)]
+    pub(super) answers: Vec<HostToPage>,
 }
 
 impl EventEmitter<PageTabEvent> for PageTab {}
 
 impl PageTab {
     pub fn new(job: SharedString, page: String, revision: u32, title: String) -> Self {
-        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, _reading: None, _hearing: None, _aim: None, _told: Vec::new() }
+        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, _reading: None, _hearing: None, _aim: None, _told: Vec::new(), #[cfg(test)] answers: Vec::new() }
     }
 
     /// The revision the page draws.
@@ -152,6 +155,8 @@ impl PageTab {
 
     /// Fleet's answer to a post, handed to the kit, which draws it on the row or the vote.
     pub fn answer(&mut self, reply: &HostToPage, cx: &mut Context<Self>) {
+        #[cfg(test)]
+        self.answers.push(reply.clone());
         let Held::Ready(page) = &self.held else { return };
         let told = page.read(cx).tell(&kit::script(reply));
         let page = page.clone();
@@ -354,6 +359,50 @@ impl JobView {
             self.fetch_page(tab, window, cx);
         }
         self.sync_readers(id, window, cx);
+    }
+
+    /// The page parts of the artifact chosen in the review panel each hold a live page, read from Fleet once the artifact is
+    /// picked and let go with the panel, so the panel draws the page as its tab does and never a picture of it. A page whose
+    /// revision the Job drew again is read again.
+    pub(super) fn sync_panel_pages(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let chosen = self.review_chosen().filter(|_| self.review_open());
+        let wanted: Vec<(String, u32, String)> = chosen
+            .as_ref()
+            .and_then(super::reader_sheet::artifact_in)
+            .and_then(|artifact| self.artifact_of(id, artifact))
+            .map(|one| {
+                one.parts
+                    .iter()
+                    .filter_map(|part| match &part.content {
+                        ipc::PartContent::Page { path } => Some((path.clone(), part.revision, one.title.clone())),
+                        _ => None,
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
+        let Some(review) = self.review_mut() else { return };
+        review.pages.retain(|page, (tab, _)| wanted.iter().any(|(want, revision, _)| want == page && *revision == tab.read(cx).revision()));
+        let new: Vec<(String, u32, String)> = wanted.into_iter().filter(|(page, _, _)| !review.pages.contains_key(page)).collect();
+        for (page, revision, title) in new {
+            let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision, title));
+            let carrying = cx.subscribe_in(&tab, window, |this, tab, event: &PageTabEvent, window, cx| match event {
+                PageTabEvent::Posted(posted) => this.carry(tab.clone(), posted.clone(), window, cx),
+                PageTabEvent::Read => {}
+            });
+            let mut opened = cx.try_global::<Opened>().map(|kept| kept.0.clone()).unwrap_or_default();
+            opened.retain(|one| one.upgrade().is_some());
+            opened.push(tab.downgrade());
+            cx.set_global(Opened(opened));
+            if let Some(review) = self.review_mut() {
+                review.pages.insert(page, (tab.clone(), carrying));
+            }
+            self.fetch_page(tab, window, cx);
+        }
+    }
+
+    /// The live page the review panel holds for page `page` at `revision`, where it has one.
+    pub(super) fn panel_page(&self, page: &str, revision: u32, cx: &gpui::App) -> Option<Entity<PageTab>> {
+        self.review()?.pages.get(page).map(|(tab, _)| tab).filter(|tab| tab.read(cx).revision() == revision).cloned()
     }
 
     /// The page, sealed, as Fleet serves it (`get_artifact_page`), or Fleet's refusal of it.

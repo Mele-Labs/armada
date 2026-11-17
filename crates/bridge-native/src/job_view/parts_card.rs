@@ -409,6 +409,8 @@ impl JobView {
                 page.cards.parts.typing.insert(key, typing);
             }
         }
+        // The panel's page parts are pages, which are live entities too.
+        self.sync_panel_pages(job, window, cx);
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
@@ -810,8 +812,9 @@ impl JobView {
             _ => None,
         };
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
-        // Words, buttons and a page stand at the measure in the sheet; takes and a drawing take its width.
-        let body = if matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
+        // Words, buttons and a still of a page stand at the measure in the sheet; takes, a drawing and a live page take its width.
+        let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(path, part.revision, cx).is_some());
+        let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
         labelled(
             div()
                 .id(SharedString::from(format!("part:{key}")))
@@ -1501,9 +1504,20 @@ impl JobView {
         div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element()
     }
 
-    /// A page: its first screen in a well, which a press opens in its own tab.
+    /// A page: in the review panel the live page itself, the detail's width and as tall as a picture stands there, which scrolls
+    /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
     fn page_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, path: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
+        if let Some(live) = c.sheet.then(|| self.panel_page(path, part.revision, cx)).flatten() {
+            return div()
+                .id(SharedString::from(format!("page:{key}")))
+                .w_full()
+                .h(self.tall_most(c))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(live)
+                .into_any_element();
+        }
         let width = self.first_screen_width(look);
         let want = PictureKey { job: c.job.to_string(), page: path.to_string(), revision: part.revision, width, dark: look.tone() == crate::look::Tone::Dark };
         let screen = match self.picture_of(&want) {

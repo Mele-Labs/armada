@@ -329,9 +329,12 @@ impl JobView {
 mod tests {
     use gpui::{px, size, Bounds, Modifiers, Role};
 
+    use ipc::PageToHost;
+
+    use super::super::page_tab::PageTabEvent;
     use super::super::parts_fold::{drawn, redraw, rooted_job};
     use super::*;
-    use crate::mock_parts::{ID, JOB, TITLE};
+    use crate::mock_parts::{ID, JOB, PAGE, TITLE};
 
     const TAKES: [&str; 2] = ["A \u{b7} Bar under the title", "B \u{b7} Rail (Job's pick)"];
 
@@ -616,6 +619,71 @@ mod tests {
         redraw(cx);
         let again = super::super::parts_card::part_key(ID, "flow-again");
         assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(again), "a press on the second opens it over the app");
+    }
+
+    #[gpui::test]
+    fn a_page_part_opened_from_the_artifacts_tab_is_the_live_page_in_the_panel_and_no_tab_opens(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the panel is up");
+        assert!(view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx).is_some()), "it holds the page's live view");
+        assert!(drawn(cx, Role::Region, "Page"), "the live page is drawn in the detail");
+        let panel = bounds_of(cx, Role::Dialog, "Review");
+        let stills = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == Role::Button && one.name == format!("Open page {PAGE}").as_str() && panel.contains(&one.bounds.center())).count());
+        assert_eq!(stills, 0, "and no still stands in the panel in its place, to be pressed to open a tab");
+        let (page, takes) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Takes"));
+        assert_eq!((page.left(), page.right()), (takes.left(), takes.right()), "it takes the detail's whole width, as the takes do: {page:?} {takes:?}");
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(page.size.height <= panel * TALL_SHARE + px(1.), "and no taller than a picture stands: {page:?}");
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
+        assert!(view.read_with(cx, |view, _| view.row_tabs.get(JOB).is_none_or(|tabs| tabs.pages.is_empty())), "no tab holds the page");
+        view.update_in(cx, |view, window, cx| view.close_review(window, cx));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx).is_none()), "the page goes with the panel");
+    }
+
+    #[gpui::test]
+    fn a_vote_and_a_press_the_panels_page_posts_are_carried_to_fleet_and_its_answer_goes_back(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let tab = view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx)).expect("the panel's live page");
+        let post = |posted: PageToHost, cx: &mut gpui::VisualTestContext| {
+            tab.update(cx, |_, cx| cx.emit(PageTabEvent::Posted(posted)));
+            redraw(cx);
+        };
+        let pick = |take: &str| PageToHost::Vote { artifact: PAGE.into(), revision: 2, vote: "mark".into(), result: ipc::VoteResult::Pick { take: take.into(), notes: Default::default() } };
+        post(pick("fade"), cx);
+        let kept = view.read_with(cx, |view, _| view.row_tabs.get(JOB).and_then(|tabs| tabs.mock_kept.get(PAGE)).cloned()).expect("the mock Fleet kept the cast");
+        assert_eq!(kept.votes.iter().map(|cast| cast.vote.as_str()).collect::<Vec<_>>(), ["mark"], "cast_page_vote reached Fleet");
+        assert!(matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Voted { cast }) if cast.vote == "mark"), "and its answer went back to the page");
+        post(PageToHost::Press { artifact: PAGE.into(), revision: 2, action: "discuss-dark-mode".into(), words: None }, cx);
+        assert!(matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Pressed { press }) if press.action == "discuss-dark-mode"), "a row action is answered the same way");
+        post(PageToHost::Press { artifact: PAGE.into(), revision: 2, action: "drop-checkout".into(), words: None }, cx);
+        assert!(
+            matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Refused { code, .. }) if code == "fleet.page_ask_not_open"),
+            "Fleet's refusal goes back in its own words and code"
+        );
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and the panel stays up");
+    }
+
+    #[gpui::test]
+    fn a_page_fleet_refuses_says_so_in_the_panel_and_draws_no_picture(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                ID,
+                |artifact| {
+                    for part in artifact.parts.iter_mut().filter(|part| part.id == PAGE) {
+                        part.content = ipc::PartContent::Page { path: "notes".into() };
+                    }
+                },
+                cx,
+            )
+        });
+        redraw(cx);
+        assert!(drawn(cx, Role::Alert, "revision 2 of `notes` is not kept"), "Fleet's sentence stands where the page would");
+        assert!(view.read_with(cx, |view, cx| view.panel_page(PAGE, 2, cx).is_none() && view.panel_page("notes", 2, cx).is_some()), "the page the part names now is the one held");
     }
 
     #[gpui::test]

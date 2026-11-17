@@ -176,6 +176,8 @@ pub(super) struct ReviewState {
     /// The artifact he opened the sheet on, kept in its list while it is up though it asks no more.
     pub opened: Option<String>,
     pub scope: Scope,
+    /// The live pages of the chosen artifact's page parts, by the page each names: they go with the panel (`page_tab.rs`).
+    pub pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
 }
 
 impl ReviewState {
@@ -438,7 +440,7 @@ impl JobView {
         self.shown.as_ref().and_then(|id| self.pages.get(id)).map(|page| &page.review)
     }
 
-    fn review_mut(&mut self) -> Option<&mut ReviewState> {
+    pub(super) fn review_mut(&mut self) -> Option<&mut ReviewState> {
         let id = self.shown.clone()?;
         self.pages.get_mut(&id).map(|page| &mut page.review)
     }
