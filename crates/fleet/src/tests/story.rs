@@ -427,6 +427,13 @@ mod answered {
 
     /// The Job's reply, put as its thread keeps one, and its turn's end.
     async fn replied(rig: &Rig, id: &SessionId, text: &str) -> String {
+        let row = said_back(rig, id, text).await;
+        rig.fleet.questions_due_at(id.as_str()).await;
+        row
+    }
+
+    /// The Job's reply, put as its thread keeps one, with no turn's end after it.
+    async fn said_back(rig: &Rig, id: &SessionId, text: &str) -> String {
         let row = rig.fleet.row_id(id.as_str());
         let reply = SessionRow::Message {
             id: row.clone(),
@@ -442,7 +449,6 @@ mod answered {
             sketches: Vec::new(),
         };
         rig.fleet.row_put(id.as_str(), reply).await;
-        rig.fleet.questions_due_at(id.as_str()).await;
         row
     }
 
@@ -515,8 +521,34 @@ mod answered {
         assert!(!unread(&rig, &id).await);
     }
 
+    #[test]
+    fn the_bare_yes_the_cheapest_model_answers_is_read_and_so_is_markdown() {
+        // What haiku printed, byte for byte, four runs of four, for the question left open on 17 Nov.
+        assert_eq!(questions::read_of("yes\n"), Some(true));
+        assert_eq!(questions::read_of("No."), Some(false));
+        assert_eq!(questions::read_of("**Answers:** Yes"), Some(true));
+        assert_eq!(questions::read_of("answers: **no**"), Some(false));
+        assert_eq!(questions::read_of("Looking at the reply,\nanswers: yes"), Some(true), "the labelled line wins");
+    }
+
+    /// The live case: his question sorted after the turn that answered it ended, so the only read is the one sorting makes
+    /// due, and the model answers a bare `yes`.
     #[tokio::test]
-    async fn a_failed_read_leaves_the_question_open_until_the_next_turn_end() {
+    async fn a_question_sorted_after_its_answer_is_linked_on_a_bare_yes() {
+        let judge = Arc::new(FakeJudge::answering(&[("Sort it.", "kind: question"), ("whether it answers the question", "yes")]));
+        let planted = Arc::clone(&judge);
+        let rig = serving_fitted("armada", move |fittings| fittings.judge = planted).await;
+        let id = rig.start_titled(Some("Fix votes")).await;
+        asked(&rig, &id).await;
+        let reply = said_back(&rig, &id, REPLY).await;
+        sorted(&rig).await;
+        read(&rig).await;
+        let answer = rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.clone();
+        assert_eq!(answer.map(|one| one.reply_row), Some(reply));
+    }
+
+    #[tokio::test]
+    async fn a_failed_read_is_tried_again_on_the_next_passes_three_in_all_then_waits_for_a_turn_end() {
         let judge = Arc::new(FakeJudge::that_fails("the linking model"));
         let planted = Arc::clone(&judge);
         let rig = serving_fitted("armada", move |fittings| fittings.judge = planted).await;
@@ -531,9 +563,13 @@ mod answered {
         assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
 
         read(&rig).await;
-        assert_eq!(links(&judge), 1, "nothing reads it again before a turn ends");
+        read(&rig).await;
+        assert_eq!(links(&judge), questions::TRIES as usize, "tried again on the next passes");
+        read(&rig).await;
+        assert_eq!(links(&judge), questions::TRIES as usize, "and then nothing reads it before a turn ends");
         rig.fleet.questions_due_at(id.as_str()).await;
         read(&rig).await;
-        assert_eq!(links(&judge), 2);
+        assert_eq!(links(&judge), questions::TRIES as usize + 1, "a turn's end starts the count over");
+        assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
     }
 }

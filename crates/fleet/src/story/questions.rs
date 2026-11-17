@@ -3,10 +3,11 @@
 //!
 //! **Read off the turn, like the sorting.** A turn's end marks the Job's open questions due (`questions_due_at`), and the
 //! notice loop takes the due ones a few at a time and reads each on a task of its own. The reply read is the Job's last
-//! message after the question. A failed read leaves the question open, and the next turn's end marks it due again; a
-//! reply read as not answering is kept, so it is not asked about twice.
+//! message after the question. A failed or unclear read is tried again on the next passes, [`TRIES`] in all, and then
+//! waits for the next turn's end; a reply read as not answering is kept, so it is not asked about twice.
 
-use std::sync::Arc;
+use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
@@ -28,6 +29,30 @@ const WORDS_CHARS: usize = 1500;
 pub(crate) const EXCERPT_CHARS: usize = 300;
 
 pub(crate) const ANSWERS: &str = "answers:";
+/// How many reads of one question, in a row, may come back failed or unclear before it waits for a turn's end.
+pub(crate) const TRIES: u32 = 3;
+/// The most of an unclear answer the warning carries.
+const UNCLEAR_CHARS: usize = 200;
+
+/// The failed or unclear reads of each question, by Job and row, since its last clear read or its Job's last turn end.
+#[derive(Default)]
+pub(crate) struct Tries(Mutex<HashMap<(String, String), u32>>);
+
+impl Tries {
+    /// One more failed or unclear read of the question: whether it may be tried again.
+    pub(crate) fn failed(&self, session: &str, row: &str) -> bool {
+        let mut held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let tries = held.entry((session.to_string(), row.to_string())).or_insert(0);
+        *tries += 1;
+        *tries < TRIES
+    }
+
+    /// The question was read clearly, or its Job's turn ended: it starts over.
+    pub(crate) fn cleared(&self, session: &str, row: Option<&str>) {
+        let mut held = self.0.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        held.retain(|(one, at), _| one != session || row.is_some_and(|row| row != at));
+    }
+}
 
 const NO_SUCH_QUESTION: &str = "fleet.no_such_question";
 const QUESTION_OPEN: &str = "fleet.question_open";
@@ -60,12 +85,20 @@ pub(crate) fn asked(words: &str, reply: &str) -> String {
 }
 
 /// The model's answer, read: whether the reply answers. `None` where it says neither, which leaves the question open.
+///
+/// **The label is not needed**: the cheapest model answers a bare `yes` more often than `answers: yes`, which left a
+/// question he saw answered open for good. Markdown around either is read through. The labelled line wins, else the first.
 pub(crate) fn read_of(said: &str) -> Option<bool> {
-    let word = said.lines().find_map(|line| {
-        let line = line.trim().trim_start_matches(['-', '*']).trim().to_lowercase();
-        line.strip_prefix(ANSWERS).map(|rest| rest.trim().trim_end_matches('.').to_string())
-    })?;
-    match word.as_str() {
+    let lines: Vec<String> = said
+        .lines()
+        .map(|line| line.replace(['*', '_', '`'], "").trim().trim_start_matches(['-', '>']).trim().to_lowercase())
+        .filter(|line| !line.is_empty())
+        .collect();
+    let line = lines
+        .iter()
+        .find_map(|line| line.strip_prefix(ANSWERS).map(str::trim))
+        .or_else(|| lines.first().map(String::as_str))?;
+    match line.split(|c: char| !c.is_alphabetic()).find(|word| !word.is_empty())? {
         "yes" => Some(true),
         "no" => Some(false),
         _ => None,
@@ -126,6 +159,7 @@ where
 {
     /// The Job's turn ended: its open questions are due a read. **One quick write and nothing awaited on the model.**
     pub(crate) async fn questions_due_at(&self, session: &str) {
+        self.hosts().question_tries().cleared(session, None);
         if let Err(why) = self.store().lock().await.questions_due(session) {
             self.session_warned(session, "its questions were not marked due a read", format!("{why:?}"));
         }
@@ -156,12 +190,29 @@ where
             return;
         }
         let answers = match self.story_asked(&asked(&question.words, &reply)).await {
-            Ok(said) => read_of(&said),
+            Ok(said) => {
+                let read = read_of(&said);
+                if read.is_none() {
+                    self.session_warned(session, "whether a reply answers his question was unclear", cut(&said, UNCLEAR_CHARS));
+                }
+                read
+            }
             Err(why) => {
                 self.session_warned(session, "whether a reply answers his question was not read", &why);
                 None
             }
         };
+        let tries = self.hosts().question_tries();
+        match answers {
+            Some(_) => tries.cleared(session, Some(&question.row_id)),
+            // Tried again on the next passes, so an idle Job, whose turn may not end again, is not left open.
+            None if tries.failed(session, &question.row_id) => {
+                if let Err(why) = self.store().lock().await.keep_question_due(session, &question.row_id) {
+                    self.session_warned(session, "his question was not marked due again", format!("{why:?}"));
+                }
+            }
+            None => {}
+        }
         let kept = {
             let mut store = self.store().lock().await;
             match answers {
