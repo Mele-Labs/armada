@@ -8,8 +8,13 @@
 // Nothing mounts the screen until the project page does.
 #![allow(dead_code)]
 
+mod asks;
+mod looked;
 pub(crate) mod mock;
 mod model;
+pub mod page;
+mod page_model;
+mod page_view;
 pub mod shots;
 mod view;
 mod wire;
@@ -23,6 +28,7 @@ use crate::keymap::Act;
 use crate::settings::wire::Refused;
 use crate::titlebar;
 use model::{Line, Listed};
+use page::{FeaturePageView, PageEvent};
 
 /// Where the list reads from.
 enum Source {
@@ -55,6 +61,9 @@ pub struct FeaturesScreen {
     cursor: Option<String>,
     /// The feature whose page is open beside the list, by slug.
     opened: Option<String>,
+    /// That page, and what it says to this screen.
+    page: Option<Entity<FeaturePageView>>,
+    page_sub: Option<Subscription>,
     /// The project the library on screen belongs to.
     library_project: Option<String>,
     read_for: Option<Key>,
@@ -115,6 +124,8 @@ impl FeaturesScreen {
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             cursor: None,
             opened: None,
+            page: None,
+            page_sub: None,
             library_project: None,
             read_for: None,
             entered: false,
@@ -206,7 +217,7 @@ impl FeaturesScreen {
             Ok(library) => {
                 if self.library_project.as_deref() != Some(library.project.as_str()) {
                     self.cursor = None;
-                    self.opened = None;
+                    self.close_page(cx);
                 }
                 self.library_project = Some(library.project.clone());
                 self.library = Load::Read(library);
@@ -269,16 +280,50 @@ impl FeaturesScreen {
         cx.notify();
     }
 
-    /// Enter, or a press on a row: the feature's page opens beside the list.
-    fn open_at(&mut self, slug: String, cx: &mut Context<Self>) {
+    /// Enter, or a press on a row: the feature's page opens beside the list, in place of the one that was open.
+    fn open_at(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
         self.cursor = Some(slug.clone());
-        self.opened = Some(slug);
+        if self.opened.as_deref() != Some(slug.as_str()) {
+            self.close_page(cx);
+            let project = self.library_project.clone();
+            let area = self.listed.find(&slug).and_then(|at| self.area_title(&self.listed.shown[at].row.area));
+            let page = match (&self.source, project) {
+                (Source::Live(fleet), Some(project)) => Some(cx.new(|cx| FeaturePageView::live(fleet, project, slug.clone(), window, cx))),
+                (Source::Mock, _) => Some(cx.new(|cx| FeaturePageView::mock(slug.clone(), window, cx))),
+                _ => None,
+            };
+            if let Some(page) = page {
+                page.update(cx, |page, cx| page.set_area(area, cx));
+                self.page_sub = Some(cx.subscribe_in(&page, window, |this, _, event: &PageEvent, window, cx| match event {
+                    PageEvent::Escape => this.focus_list(window, cx),
+                }));
+                self.page = Some(page);
+                self.opened = Some(slug);
+            }
+        }
         cx.notify();
     }
 
-    fn open_cursor(&mut self, cx: &mut Context<Self>) {
+    fn open_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(slug) = self.cursor.clone() {
-            self.open_at(slug, cx);
+            self.open_at(slug, window, cx);
+        }
+    }
+
+    /// The open page is put away, which is when it counts as looked at.
+    fn close_page(&mut self, cx: &mut Context<Self>) {
+        if let Some(page) = self.page.take() {
+            page.update(cx, |page, cx| page.leave(cx));
+        }
+        self.page_sub = None;
+        self.opened = None;
+    }
+
+    /// The title of an area of the library on screen, by its slug.
+    fn area_title(&self, slug: &str) -> Option<String> {
+        match &self.library {
+            Load::Read(library) => library.areas.iter().find(|area| area.slug == slug).map(|area| area.title.clone()),
+            _ => None,
         }
     }
 
@@ -297,6 +342,9 @@ impl FeaturesScreen {
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.entered = true;
         self.focus_list(window, cx);
+        if let Some(page) = &self.page {
+            page.update(cx, |page, cx| page.enter(cx));
+        }
         if self.bar.is_none() {
             if let Some(bar) = titlebar::live(cx) {
                 self.bar = Some(cx.observe(&bar, |this, _, cx| this.moved(cx)));
@@ -306,8 +354,11 @@ impl FeaturesScreen {
     }
 
     /// Another place in front: the screen stops following Fleet until it is entered again.
-    pub fn leave(&mut self) {
+    pub fn leave(&mut self, cx: &mut Context<Self>) {
         self.entered = false;
+        if let Some(page) = &self.page {
+            page.update(cx, |page, cx| page.leave(cx));
+        }
     }
 
     // ---- keys --------------------------------------------------------------------------------
@@ -326,7 +377,11 @@ impl FeaturesScreen {
         }
         match act.id {
             "features_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
-            "features_open" => self.open_cursor(cx),
+            "features_open" => self.open_cursor(window, cx),
+            "features_pane" => match self.page.clone() {
+                Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
+                None => return false,
+            },
             "features_filter" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
                 window.focus(&filter, cx);
@@ -343,5 +398,7 @@ impl FeaturesScreen {
     }
 }
 
+#[cfg(test)]
+mod page_tests;
 #[cfg(test)]
 mod tests;

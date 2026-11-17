@@ -211,6 +211,8 @@ PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
 /              filter   (features only)
+Tab / ⇧Tab     move between the parts of the page   (features only)
+← / →          move between chips   (features only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -275,6 +277,7 @@ What stays in Kit's own screen, since it is a state of the screen and not a key:
 **The Features tab has a scope of its own, `features`, in the native Bridge.**
 `j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
 The bare keys stand down in the filter, which takes them as typing, and `Esc` gives the keys back to the list.
+A feature's page has three parts, the list of sections, the filter chips and the rows, which `Tab` and `⇧Tab` move between; `j`, `k` and the arrows move the section or the row, `←` and `→` move along the chips and `Enter` applies the chip.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in

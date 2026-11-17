@@ -159,3 +159,32 @@ fn every_element_is_found_by_its_role_and_name(cx: &mut TestAppContext) {
     assert!(drawn(cx, gpui::Role::Image, "On it now: Add the model picker to the start card"));
     assert!(drawn(cx, gpui::Role::Image, "stale since #3712"));
 }
+
+#[gpui::test]
+fn enter_opens_the_feature_page_beside_the_list_and_another_one_replaces_it_and_counts_the_first_as_looked_at(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.update(|_, cx| super::looked::forget_all(cx));
+    assert!(screen.read_with(cx, |screen, _| screen.page.is_none()), "nothing is open until Enter");
+    cx.simulate_keystrokes("enter");
+    let page = screen.read_with(cx, |screen, _| screen.page.clone()).expect("Enter opens the page");
+    assert_eq!(page.read_with(cx, |page, _| page.slug().to_string()), "start-a-job");
+    assert!(drawn(cx, gpui::Role::Tab, "Who worked on it"), "the sections are down its side");
+    assert!(drawn(cx, gpui::Role::Heading, "Start a Job"));
+    assert!(drawn(cx, gpui::Role::Label, "Area: Running a Job"), "the area chip is the area's title");
+    assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "start-a-job", cx)), None, "opening is not looking");
+    // The list keeps the keys until Tab; Enter on the feature that is open changes nothing.
+    cx.simulate_keystrokes("enter");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.page.clone()).map(|one| one.entity_id()), Some(page.entity_id()));
+    cx.simulate_keystrokes("down enter");
+    let second = screen.read_with(cx, |screen, _| screen.page.clone()).expect("the next page");
+    assert_eq!(second.read_with(cx, |page, _| page.slug().to_string()), "job-list-and-live-status", "the page is replaced");
+    assert!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "start-a-job", cx)).is_some(), "the one he left is looked at now");
+    assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "job-list-and-live-status", cx)), None);
+    cx.simulate_keystrokes("tab");
+    assert!(cx.update(|window, cx| second.read(cx).rail.is_focused(window)), "Tab from the list goes to the page's sections");
+    cx.simulate_keystrokes("j");
+    assert_eq!(second.read_with(cx, |page, _| page.section()), super::page_model::Section::Code, "J moves the section, and the list stays");
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"));
+    cx.simulate_keystrokes("escape");
+    assert!(cx.update(|window, cx| screen.read(cx).list_focus.is_focused(window)), "Esc gives the keys back to the list");
+}

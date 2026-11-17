@@ -1794,3 +1794,25 @@ scope = "features"
 destructive = false
 confirms = false
 notes = "Puts the caret in the box above the Features list, which narrows the features as he types. Esc gives the keys back to the list. Native only, 17 Nov 2026."
+
+[actions.features_pane]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between the parts of the page"
+icon = ""
+shortcut = "Tab / ⇧Tab"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Gives the keys to the next or the previous part of a feature's page: the list of sections, the filter chips and the rows. A part with nothing in it is passed over, and it wraps round at either end. From the Features list, Tab goes to the open page. Native only, 17 Nov 2026."
+
+[actions.features_chip]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between chips"
+icon = ""
+shortcut = "← / →"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Moves along the filter chips above a page's asks while the keys are on them, and Enter applies the chip it is on. Its own row because Left and Right move nothing else in the Features tab. Native only, 17 Nov 2026."

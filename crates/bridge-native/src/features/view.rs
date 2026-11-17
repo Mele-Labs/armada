@@ -140,7 +140,7 @@ impl FeaturesScreen {
             })
             .aria_selected(opened)
             .on_click(cx.listener(move |this, _, window, cx| {
-                this.open_at(press.clone(), cx);
+                this.open_at(press.clone(), window, cx);
                 this.focus_list(window, cx);
             }))
             .children(edge.map(|colour| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(colour)))
@@ -205,7 +205,7 @@ impl FeaturesScreen {
 
     /// The right of the list. A feature's page is drawn here once one is open.
     fn render_page_slot(&self, look: &Look) -> impl IntoElement {
-        labelled(div().id("feature-page").flex_1().min_w_0().h_full().bg(look.color(token::BG_BASE)), Role::Region, "Feature page")
+        labelled(div().id("feature-page").flex_1().min_w_0().h_full().bg(look.color(token::BG_BASE)).children(self.page.clone()), Role::Region, "Feature page")
     }
 }
 

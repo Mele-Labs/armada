@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{FeatureAreaRow, FeatureJob, FeatureLibrary, FeatureRow, FeatureState, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -74,6 +74,97 @@ pub fn library() -> FeatureLibrary {
                 ],
             ),
             area("pending", "pending", vec![pending]),
+        ],
+    }
+}
+
+fn at(day: u32) -> Instant {
+    Instant::carried(format!("2026-11-{day:02}T12:00:00Z"))
+}
+
+fn link(kind: FeatureLinkKind, target: &str, title: &str, state: &str, day: u32) -> FeatureLink {
+    FeatureLink { kind, target: target.into(), title: title.into(), state: state.into(), job: None, via: "write".into(), at: at(day) }
+}
+
+fn section(kind: FeatureSectionKind, text: &str, job: &str, day: u32, stale_since: Option<u64>) -> FeatureSection {
+    FeatureSection { section: kind, text: text.into(), job: job.into(), written_at: at(day), commit: None, stale_since }
+}
+
+/// A feature's page for a walk, a preview and the tests: the row the library holds under `slug`, with what Jobs
+/// wrote of it. Every feature shows the same page, the one of Start a Job.
+pub fn page(slug: &str) -> FeaturePage {
+    let library = library();
+    let row = library.areas.iter().flat_map(|area| &area.features).find(|row| row.slug == slug).cloned().unwrap_or_else(|| feature("running-a-job", slug, slug, ""));
+    let who = "Add the model picker to the start card";
+    FeaturePage {
+        project: PROJECT.into(),
+        feature: row,
+        manifest_id: None,
+        paths: vec!["crates/fleet/src/start/".into(), "crates/bridge-native/src/dispatch/".into()],
+        entry_points: vec!["crates/fleet/src/start/card.rs:42".into(), "crates/bridge-native/src/dispatch/mod.rs".into()],
+        sections: vec![
+            section(
+                FeatureSectionKind::Test,
+                "armada check test start_card\narmada check crates/bridge-native:test dispatch\nThe card proposes a title, a workflow and a model from the request.",
+                who,
+                13,
+                None,
+            ),
+            section(FeatureSectionKind::Runs, "Fleet reads the request, asks the small model for a title and a workflow, and keeps the proposal on the card until it is started.", who, 13, None),
+            section(FeatureSectionKind::Observe, "Watch the proposal in the card's thread: it names the model it picked.", "Keep the Jobs list at its place on refresh", 10, Some(3692)),
+            section(FeatureSectionKind::Debt, "The picker keeps the last model per repository in a file Fleet does not read.", who, 14, None),
+        ],
+        links: vec![
+            link(FeatureLinkKind::Job, "job-start-card", who, "running", 14),
+            link(FeatureLinkKind::Job, "job-card-title", "Propose the title from the first line", "done", 12),
+            link(FeatureLinkKind::Job, "job-card-workflow", "Pick the workflow from the repository", "done", 9),
+            link(FeatureLinkKind::Merge, "3720", "", "", 15),
+            link(FeatureLinkKind::Merge, "3655", "", "", 8),
+            link(FeatureLinkKind::Sketch, "sketches/start-card", "Start card with the model picker", "", 11),
+            link(FeatureLinkKind::Page, "documents/start-flow", "How a Job starts", "", 7),
+            link(FeatureLinkKind::Walk, "walks/start-card", "Walk of the start card", "", 13),
+            link(FeatureLinkKind::Bug, "bug-card-focus", "The card loses focus after a retry", "open", 14),
+        ],
+        files: vec![
+            FeatureFile { path: "crates/fleet/src/start/card.rs".into(), jobs: 6 },
+            FeatureFile { path: "crates/bridge-native/src/dispatch/panel.rs".into(), jobs: 4 },
+            FeatureFile { path: "crates/ipc/src/start.rs".into(), jobs: 3 },
+            FeatureFile { path: "apps/desktop/src/renderer/src/dispatch/StartCard.tsx".into(), jobs: 2 },
+        ],
+    }
+}
+
+fn ask(id: &str, kind: AskKind, title: &str, state: AskState, opened: u32, moved: u32) -> Ask {
+    Ask {
+        ask_id: id.into(),
+        kind,
+        title: title.into(),
+        first_words: title.into(),
+        first_row: format!("row-{id}"),
+        said_in: SessionId::carried("job-start-card"),
+        building: matches!(state, AskState::Building | AskState::Handed).then(|| SessionId::carried("job-start-card")),
+        features: vec!["start-a-job".into()],
+        state,
+        state_at: at(moved),
+        opened_at: at(opened),
+        said: Vec::new(),
+    }
+}
+
+/// The asks filed under a feature: bugs, change requests and ideas in each state.
+pub fn asks(slug: &str) -> FeatureAsks {
+    FeatureAsks {
+        project: PROJECT.into(),
+        feature: Some(slug.into()),
+        asks: vec![
+            ask("ask-1", AskKind::Bug, "Native draws no sketch in a page", AskState::Handed, 14, 14),
+            ask("ask-2", AskKind::Bug, "They show as i never voted", AskState::Built, 12, 15),
+            ask("ask-3", AskKind::Bug, "The model name is cut off in the card", AskState::Backlog, 10, 10),
+            ask("ask-4", AskKind::Bug, "Retry started a second Job", AskState::Dropped, 6, 8),
+            ask("ask-5", AskKind::ChangeRequest, "True voting with sketches", AskState::Building, 13, 14),
+            ask("ask-6", AskKind::Fix, "Keep the request when the card closes", AskState::Backlog, 9, 9),
+            ask("ask-7", AskKind::Idea, "Start from the phone", AskState::Backlog, 11, 11),
+            ask("ask-8", AskKind::Idea, "Suggest a repository from the request", AskState::Backlog, 5, 5),
         ],
     }
 }

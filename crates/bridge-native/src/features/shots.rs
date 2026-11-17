@@ -9,6 +9,8 @@ use std::sync::Arc;
 
 use gpui::{px, size, AppContext, HeadlessAppContext};
 
+use super::page::Region;
+use super::page_model::{Chip, Section};
 use super::FeaturesScreen;
 
 pub fn shoot(dir: &Path) -> Result<(), String> {
@@ -17,7 +19,7 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
     cx.update(crate::init_app);
     cx.update(|cx| cx.set_reduce_motion(true));
-    for (name, wide) in [("features-1400", 1400.), ("features-820", 820.)] {
+    for (name, wide, section) in [("features-bugs-1400", 1400., Section::Bugs), ("features-bugs-900", 900., Section::Bugs), ("features-code-1400", 1400., Section::Code), ("features-code-900", 900., Section::Code), ("features-test-1400", 1400., Section::Test)] {
         let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
         let keep = held.clone();
         let handle = cx
@@ -33,12 +35,20 @@ pub fn shoot(dir: &Path) -> Result<(), String> {
             screen.update(cx, |screen, cx| screen.enter(window, cx));
         })
         .map_err(|why| why.to_string())?;
-        // Enter on the second feature, then one row down: the page is open on one and the keys are on the next.
-        cx.update_window(handle.into(), |_, _, cx| {
+        // Enter on the first feature, then the section: the page is open on the feature with the keys on its rows.
+        cx.update_window(handle.into(), |_, window, cx| {
             screen.update(cx, |screen, cx| {
-                screen.step(1, cx);
-                screen.open_cursor(cx);
-                screen.step(1, cx);
+                screen.open_cursor(window, cx);
+                if let Some(page) = screen.page.clone() {
+                    page.update(cx, |page, cx| {
+                        page.select(section, cx);
+                        if section.is_asks() {
+                            page.apply(Chip::All, cx);
+                            page.focus_region(Region::Rows, window, cx);
+                            page.step_row(1, cx);
+                        }
+                    });
+                }
             })
         })
         .map_err(|why| why.to_string())?;

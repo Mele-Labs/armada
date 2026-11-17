@@ -1998,6 +1998,32 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "features_pane",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move between the parts of the page",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "Tab / ⇧Tab",
+    scope: "features",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "features_chip",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move between chips",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "← / →",
+    scope: "features",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**
