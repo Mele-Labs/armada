@@ -1,7 +1,8 @@
 //! Launch Services knows this app by its bundle id, and `lsregister -dump` lists every `builds/<stamp>/Armada.app`
 //! ever opened under it. A notification press launches the bundle Launch Services picks, which can be an old one
 //! beside the running app. So the live app registers its own bundle and unregisters every other one under
-//! `<support>/builds/`, and `scripts/keep-build` unregisters a bundle before it deletes it.
+//! `<support>/builds/`. Paths whose folder is gone are unregistered when `current` moves, by `scripts/keep-build` and
+//! Fleet's `kept_builds.rs`.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};

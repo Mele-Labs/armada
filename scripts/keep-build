@@ -51,9 +51,11 @@
 # which the release makes its app with too: the cargo binary renamed to `Contents/MacOS/Armada`, an
 # `Info.plist`, the brand icon, and the signature `scripts/signing-identity` gives. `native` in `build.toml` is the first 16 hex
 # of one sha256 over the binary and the icon, so a restart can tell a changed app from an unchanged one. A build kept without one has no `native` line.
-# **Launch Services is told a bundle is gone**: `point` runs `lsregister -u` on a pruned build's `Armada.app`
-# first, because a notification press launches whatever bundle it still lists under the bundle id. The live app
-# registers its own bundle the same way (`crates/bridge-native/src/launch_services.rs`).
+# **Launch Services lists current's app alone**: after pruning, `point` runs `lsregister -u` on every path
+# `lsregister -dump` lists under `builds/`, deleted folders, Voice helpers and Fleet bundles included, but
+# current's `Armada.app` and the running native Bridge's, then `-f` on current's and the placed Fleet. A
+# notification press launches whatever bundle it still lists under the bundle id. `ARMADA_LSREGISTER` names
+# another lsregister, for a test. Fleet's Revert and swap do the same (`crates/fleet/src/kept_builds.rs`).
 # `native-app` also builds Armada Voice in the tree being kept when it is missing or stale, and the page's copy of it, `native/voice/build`, is taken after.
 #
 # **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test
@@ -371,14 +373,49 @@ try:
 except OSError:
     running = ""
 held |= {folder for folder in folders if f"{os.path.join(builds, folder)}/" in running}
-# Launch Services keeps a bundle it was told of after the folder is gone, and a notification press can launch it.
-LSREGISTER = "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister"
 for folder in folders:
     if folder not in held:
-        bundle = os.path.join(builds, folder, "Armada.app")
-        if os.path.isdir(bundle) and os.path.exists(LSREGISTER):
-            subprocess.run([LSREGISTER, "-u", bundle], capture_output=True, check=False)
         shutil.rmtree(os.path.join(builds, folder))
+
+# Launch Services keeps every bundle it was told of, after its folder is gone too, and a notification press or
+# `open -b` can launch any one with the id. So every path it lists under `builds/` is unregistered but current's
+# `Armada.app` and the bundle the running native Bridge holds its lock from, then current's `Armada.app` and the
+# placed Fleet are registered. Kept in step with `crates/fleet/src/kept_builds.rs`, `launch_services_pointed`.
+LSREGISTER = os.environ.get(
+    "ARMADA_LSREGISTER",
+    "/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister",
+)
+
+
+def holders_bundle():
+    """The `Armada.app` the running native Bridge was started from, named by its lock record, when its pid lives."""
+    try:
+        with open(os.path.join(os.path.dirname(builds), "bridge-native.lock")) as f:
+            pid, exe = f.read().splitlines()[:2]
+    except (OSError, ValueError):
+        return None
+    alive = subprocess.run(["ps", "-p", pid], capture_output=True).returncode == 0
+    return os.path.realpath(os.path.dirname(os.path.dirname(os.path.dirname(exe)))) if alive else None
+
+
+def stale(dump, within, keep):
+    """Every path in an `lsregister -dump` under `within`, but those at or inside a `keep` bundle."""
+    paths = re.findall(r"^path:\s+(.+?) \(0x[0-9a-f]+\)$", dump, re.M)
+    return sorted({
+        path for path in paths
+        if path.startswith(within + "/") and not any(path == k or path.startswith(k + "/") for k in keep)
+    })
+
+
+if os.path.exists(LSREGISTER):
+    current = os.path.join(os.path.realpath(os.path.join(builds, "current")), "Armada.app")
+    keep = [current] + [b for b in [holders_bundle()] if b]
+    dump = subprocess.run([LSREGISTER, "-dump"], capture_output=True, text=True, check=False).stdout
+    for path in stale(dump, os.path.realpath(builds), keep):
+        subprocess.run([LSREGISTER, "-u", path], capture_output=True, check=False)
+    for bundle in (current, os.path.join(fleet, APP)):
+        if os.path.isdir(bundle):
+            subprocess.run([LSREGISTER, "-f", bundle], capture_output=True, check=False)
 
 named, versions = set(), set()
 for folder in os.listdir(builds):
