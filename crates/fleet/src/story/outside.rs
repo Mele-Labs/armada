@@ -14,7 +14,7 @@ use super::sorting;
 use crate::daemon::Fleet;
 
 const WORDS_BLANK: &str = "fleet.ask_words_blank";
-const PROJECT: &str = "fleet.feature_project";
+use crate::feature_library::PROJECT_UNKNOWN as PROJECT;
 
 impl<H, V, W> Fleet<H, V, W>
 where

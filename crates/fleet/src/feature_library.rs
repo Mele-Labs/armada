@@ -25,4 +25,4 @@ mod writing;
 pub(crate) use holding::{sections_owed_text, OWED};
 pub(crate) use reading::{features_of_note, slug_held};
 pub(crate) use pending::pending_facts;
-pub(crate) use seeding::Seed;
+pub(crate) use seeding::{Seed, PROJECT as PROJECT_UNKNOWN};

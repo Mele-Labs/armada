@@ -18,7 +18,7 @@ const ARMADA: &str = include_str!("seed/armada.toml");
 
 const SEEDED: &str = "fleet.feature_seeded";
 const NOT_FOR: &str = "fleet.seed_not_for_project";
-const PROJECT: &str = "fleet.feature_project";
+pub(crate) const PROJECT: &str = "fleet.feature_project";
 
 /// A seed as its file holds it.
 #[derive(Debug, serde::Deserialize)]

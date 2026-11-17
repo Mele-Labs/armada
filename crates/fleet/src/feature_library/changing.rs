@@ -11,7 +11,7 @@ use crate::daemon::Fleet;
 
 const CHANGE: &str = "fleet.feature_change";
 const TAKEN: &str = "fleet.feature_slug_taken";
-const AREA: &str = "fleet.feature_area_unknown";
+use super::writing::AREA_UNKNOWN as AREA;
 
 impl<H, V, W> Fleet<H, V, W>
 where

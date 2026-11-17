@@ -13,7 +13,7 @@ use crate::clashing::Who;
 use crate::daemon::Fleet;
 
 const SECTION_EMPTY: &str = "fleet.feature_section_empty";
-const AREA_UNKNOWN: &str = "fleet.feature_area_unknown";
+pub(super) const AREA_UNKNOWN: &str = "fleet.feature_area_unknown";
 const BLANK: &str = "fleet.feature_blank";
 pub(super) const SLUG: &str = "fleet.feature_slug";
 
