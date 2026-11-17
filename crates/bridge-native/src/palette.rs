@@ -133,7 +133,7 @@ impl Entry {
 
 /// The registered acts this build answers. The rest belong to screens the native app does not have yet, and the
 /// palette leaves them out rather than draw a row that does nothing. `command_palette` is the act that opened it.
-const ANSWERED: [&str; 9] = ["message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search", "new_terminal_job"];
+const ANSWERED: [&str; 10] = ["open_kit", "message_job", "needs_you", "needs_you_fold", "thread_yes", "thread_change", "thread_send_back", "thread_no", "deck_search", "new_terminal_job"];
 
 fn act_entry(row: &Registered, section: Section) -> Entry {
     Entry {
@@ -159,6 +159,23 @@ pub fn registered(job_open: bool) -> Vec<Entry> {
             ActionScope::Thread if job_open => Some(act_entry(row, Section::Context)),
             ActionScope::Deck | ActionScope::List | ActionScope::ListAndDetail => Some(act_entry(row, Section::Context)),
             _ => None,
+        })
+        .collect()
+}
+
+/// Kit on one of its kinds: Kit: Skills and the rest, under Navigation beside Kit's own act.
+fn kit_entries() -> Vec<Entry> {
+    crate::kit::kinds()
+        .map(|(id, label, icon)| Entry {
+            id: format!("nav:kit:{id}"),
+            section: Section::Navigation,
+            label: format!("Kit: {label}"),
+            icon: Some(icon),
+            shortcut: None,
+            aliases: Vec::new(),
+            meta: None,
+            typed_only: false,
+            ended: false,
         })
         .collect()
 }
@@ -698,6 +715,7 @@ impl Palette {
         let mut entries = registered(on.is_some());
         // New Side Job only where a Side Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
+        entries.extend(kit_entries());
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
         entries.extend(move_project_command(list, cx));
@@ -1013,6 +1031,15 @@ impl Palette {
                         list.open_project_picker(vec![id], at, true, back, window, cx);
                     }
                 });
+            }
+            ("run", None) if entry.id.starts_with("nav:kit:") => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                let kind = crate::kit::kinds().map(|(id, _, _)| id).find(|id| entry.id == format!("nav:kit:{id}"));
+                if let (Some(kind), Some(sink)) = (kind, cx.try_global::<crate::titlebar::AskedSink>().cloned()) {
+                    (sink.0)(&crate::titlebar::Asked::KitAt(kind), cx);
+                }
             }
             ("run", None) if entry.id.starts_with("cmd:") => {
                 self.memory.used(&entry.id);

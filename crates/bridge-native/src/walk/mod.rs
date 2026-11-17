@@ -228,7 +228,7 @@ pub enum Screen {
     App,
     /// The app with Settings over it, on the mock Fleet in `settings/mock.rs`.
     Settings,
-    /// The Jobs screen in front inside the Operator's screen, with Reviews in the strip on `reviews/mock.rs`.
+    /// The Jobs screen in front inside the Operator's screen, with Reviews and Kit in the strip, on `reviews/mock.rs` and `kit/mock.rs`.
     Reviews,
 }
 
@@ -399,6 +399,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
+    Walk {
+        name: "kit",
+        title: "Kit: the setup you work with, kind by kind",
+        screen: Screen::Reviews,
+        scenario: "jobs-many",
+        steps: &crate::kit::walk::STEPS,
+    },
     Walk {
         name: "reviews",
         title: "Reviews: what changed since you looked, on free panes",

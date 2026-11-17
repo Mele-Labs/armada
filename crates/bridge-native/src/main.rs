@@ -42,6 +42,7 @@ mod inspect;
 mod instance;
 mod jobs;
 mod keymap;
+mod kit;
 mod labels;
 mod launch_services;
 mod lanes_canvas;

@@ -96,6 +96,10 @@ pub enum Asked {
     CopyDebugInfo,
     /// Go to a place of the strip (⌘1 to ⌘9, or a press on it), by its id.
     Place(&'static str),
+    /// Kit in front on one of its kinds, by the kind's word: the palette's Kit: Skills and the rest.
+    KitAt(&'static str),
+    /// Settings on one of its pages, by the page's id: Kit's links to Models, Prompts and Workflows.
+    SettingsPage(&'static str),
     /// The layout shows or hides a place (`TabBar.tsx`'s `show`): the wiring writes the person's own layout.
     PlaceShown { id: &'static str, shown: bool },
     /// ⇧⌘R: refresh what the window shows.
@@ -289,6 +293,7 @@ pub fn bind(cx: &mut App) {
         let asked = match key.id {
             "command_palette" => Asked::Palette,
             "operator" => Asked::Operator,
+            "open_kit" => Asked::Place("kit"),
             "open_settings" => Asked::Settings,
             "refresh" => Asked::Refresh,
             "deck_tabs" => {
