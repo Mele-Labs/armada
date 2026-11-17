@@ -285,6 +285,20 @@ pub static DELETE_PROJECT_STEPS: &[Step] = &[
     step("Esc shuts the picker", Verb::Key("escape"), "combobox", "Editing Pricing"),
 ];
 
+/// `native-merge-project`: the picker's Merge on this Mac's Pricing beside mac-air's copy, the share switch it waits on, and the merge.
+pub const MERGE_PROJECT: &str = "native-merge-project";
+
+pub static MERGE_PROJECT_STEPS: &[Step] = &[
+    step("\u{2318}, opens Settings editing every project", Verb::Key("cmd-,"), "combobox", "Editing Every project"),
+    step("\u{2318}P opens the picker, each project with its Mac", Verb::Key("cmd-p"), "menu", "Editing"),
+    press_on("Pricing is this Mac's own", "menuitem", "Pricing", "combobox", "Editing Pricing"),
+    step("\u{2318}P again: its acts open beside it, Merge first", Verb::Key("cmd-p"), "menuitem", "Merge with Pricing on mac-air"),
+    press_on("Merge asks which stays, and what comes over", "menuitem", "Merge with Pricing on mac-air", "dialog", "Merge the two Pricing projects"),
+    step("Merge waits until Pricing is shared", Verb::Key("tab"), "switch", "Share with your other Macs"),
+    press_on("Sharing it turns Merge on", "switch", "Share with your other Macs", "button", "Merge"),
+    press_on("Merge makes the two one, and Pricing stays edited", "button", "Merge", "combobox", "Editing Pricing"),
+];
+
 /// `native-take`: a copy Armada has changed since it began, and choosing what to take from Armada's lanes beside its own.
 pub const TAKE: &str = "native-take";
 

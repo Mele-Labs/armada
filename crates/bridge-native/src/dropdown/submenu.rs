@@ -43,11 +43,13 @@ impl Row {
     }
 
     /// The acts beside the row, empty for none.
+    #[cfg(test)]
     pub fn acts(&self) -> &[Entry] {
         &self.beside.entries
     }
 
     /// The chip's words, and its Mac's colour where the row is another Mac's.
+    #[cfg(test)]
     pub fn chip_of(&self) -> Option<(&str, Option<MacColour>)> {
         self.beside.chip.as_ref().map(|(name, colour)| (name.as_ref(), *colour))
     }

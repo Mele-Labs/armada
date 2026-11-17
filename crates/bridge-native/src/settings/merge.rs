@@ -738,7 +738,7 @@ mod tests {
         copy.values = Some(ValuesSet { delivery: Some("open_pr".into()), auto_merge: Some("always".into()), agent_starts: Some("ask_me".into()), ..ValuesSet::default() });
         let said = facts(&own, &copy, &[], &|_| 0);
         assert_eq!(said.conflicts.iter().map(|one| (one.key, one.name)).collect::<Vec<_>>(), [("delivery", "How work lands")], "a key one leaves out, or both set alike, is no row");
-        assert_eq!(said.conflicts[0].kept, "Auto-land");
+        assert_eq!(said.conflicts[0].kept, "Auto land");
         own.values = None;
         assert!(facts(&own, &copy, &[], &|_| 0).conflicts.is_empty(), "no differing value, no section");
     }
