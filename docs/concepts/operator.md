@@ -49,13 +49,25 @@ A card never holds a count or a status report.
 |---|---|
 | Press an option, or its key | The card leaves the front for the top of the feed at once and the next one comes up, before Fleet has answered. If Fleet refuses, the card comes back in front with Fleet's reason. The Operator is told which card and which option, and does it now |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
-| Send in the composer | The card folds to one line and the talk runs below it, until the item settles or the Operator puts up a new card |
+| Send in the composer | His words join the talk under the card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
+| Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |
+| Show (`⌘Enter`) on the new-card strip | The newest card that came comes in front, open, and the strip goes |
 | Snooze (`S`) | The card goes back until its time, hidden until then |
 | Open Next up, at the top of the right side | The cards queued behind the one in front, then the ideas the Operator kept, newest first. Pressing a card brings it to the front. The keys go into it: ↓ and ↑ move, Enter brings, Esc folds it |
 | Press a card working at the top of the feed | The card comes to the front to be read: its read, every option with your pick marked and none to press, and its steps. It has no Snooze and no Discuss. Esc puts the card that was in front back |
 | Press a kept idea in Next up | The idea comes to the front as a card with two options: Start it, which sends it as a dispatch, and Remove, which drops it. It has no Discuss and no Snooze. Esc puts the Operator's own card back |
 | Press See what it is doing on the status card | The Operator's own session opens as a Job's view does, with its thread. Esc, or the Operator place in the strip, comes back to the page |
 | Press Restart on a stopped status card | The Operator is switched off and on again. The card reads Starting until Fleet has started a new session |
+
+**The talk is the Operator's own session, under the card.**
+The card, the talk and the composer share one width, with Next up and the feed in a panel of their own beside them.
+The talk is the session's thread, drawn as a Job's thread is, and follows its end unless you scrolled up.
+While it overflows its room, the card in front folds to one line: its title, the Operator's last act and a chevron.
+
+**A card that comes while the card is folded, or the talk is in use, waits in a strip.**
+The strip stands over the talk: a bell, how many cards came, the newest one's title and Show.
+It glows once as a card arrives, then holds.
+Without the strip, a card that comes where nothing was in front would take the front from under you.
 
 **With nothing in front, a status card stands in the card's place.**
 It reads Nothing needs you, with a chip for where the Operator's session stands, and a line for what it is doing.
@@ -67,6 +79,11 @@ The state comes from the Operator's own session record, never from the page, so 
 | Watching, in the accent | Between turns | `Between turns. Last heard from 5m ago`, from when Fleet last heard from it, else its last turn, else when it last saw the session |
 | Stopped, in red, with a red frame | Its standing is stopped, its session ended, or Fleet recorded a stop | Why, in plain words. The title reads `The Operator stopped 25m ago` and the button reads Restart |
 | Starting, neutral | The switch is on and no session exists yet | `Fleet starts its session on the next tick`, with no button |
+| Off, muted | The switch is off | `Every Job asks you directly`. The title reads `The Operator is off` and the button reads Switch on |
+
+**A stopped Operator comes in front of any queued card.**
+Its card is red on its frame and edge, with the reason and Restart.
+The talk and the composer dim, and the keys that answer a card wait, until it is back.
 
 Under the line, `Last act 5m ago` names the newest entry of the feed.
 It is left out when the feed is empty.
