@@ -77,6 +77,7 @@ import {
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
 import type { Asked, Door, Fact, QuietJobs, Reach, Report, Task } from './fleet'
+import { consultedFact } from './consulted'
 import { commitStaging, placeOfCall } from './handoff'
 import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
@@ -973,6 +974,13 @@ async function used(
   if (fact !== undefined) say($, id, fact)
 }
 
+/** A page, ticket or doc the session read, for Fleet to file under the features its later writes reach. */
+async function consulted($: Dollar, tool: string, input: Record<string, unknown>, text: string): Promise<void> {
+  const [id, one] = await current($)
+  const fact = consultedFact(one.cwd, tool, input, text)
+  if (fact !== undefined) say($, id, fact)
+}
+
 async function messaged($: Dollar, direction: 'sent' | 'received', who: string): Promise<void> {
   const [id, one] = await current($)
   const target = `${direction === 'sent' ? 'to' : 'from'}:${who}`
@@ -1663,6 +1671,18 @@ export const register: Register = on => {
         const created = tool === 'Write' && (ran.result as { type?: string } | undefined)?.type === 'create'
         void made($, tool, e as Record<string, unknown>, ran.text ?? '', created).catch(() => undefined)
         if (tool === 'Read') void used($, 'read', e as Record<string, unknown>).catch(() => undefined)
+      }
+      return ran
+    })
+  }
+
+  // What the session reads from outside the code, for the feature library. Fleet files a read only where the session
+  // then writes a feature's files; a call that names nothing a read could be is not told.
+  for (const tool of ['WebFetch', 'Read', 'Bash', /^mcp__/]) {
+    on('tool.call', { tool }, async ($, e, next) => {
+      const ran = await next(e)
+      if (ran.deny === undefined && ran.isError !== true) {
+        void consulted($, e.tool, e as Record<string, unknown>, ran.text ?? '').catch(() => undefined)
       }
       return ran
     })

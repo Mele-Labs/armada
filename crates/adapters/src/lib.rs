@@ -114,6 +114,7 @@ pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
 mod history;
 mod outside;
+mod consulting;
 mod pull_reading;
 mod pull_request_comments;
 mod pull_request_detail;
@@ -211,6 +212,7 @@ pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
+pub use consulting::{consulted, Consulted, ConsultedKind};
 pub use issue_tracker::IssueTracker;
 pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;

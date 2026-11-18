@@ -212,6 +212,19 @@ pub enum SessionFact {
     Read {
         path: String,
     },
+    /// A page, document or ticket the session read from outside the code: a web page, an MCP server's answer, an
+    /// issue, a doc in the repository. `tool` is the call that read it and `target` what it named (an address, a path
+    /// or an id). **`title` and `gist` are the mod's own reading of the result**, a title and a first sentence cut to
+    /// about 300 characters together, empty where the result held none. Fleet files it only where a later write of the
+    /// Job's reaches a feature (`docs/concepts/feature-catalog.md`, *Docs and tickets a Job read*). Since mod 0.3.78.
+    Consulted {
+        tool: String,
+        target: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        title: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        gist: String,
+    },
     /// A shell command the session ran, as it was typed. Fleet hides what looks like a secret in it,
     /// cuts it, and counts it for the timeline; it is kept nowhere else.
     Ran {
