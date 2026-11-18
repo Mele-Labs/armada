@@ -32,6 +32,7 @@ use crate::operator::face;
 use crate::operator::page::{Arrived, OperatorPageView};
 use crate::operator::screen::{Front, OperatorScreen};
 use crate::operator::view::{kind_chip, press, Weight};
+use crate::refusal::{Refusal, Report};
 use crate::titlebar::parts::{glyph, icon_button, sans, tip};
 
 /// A toast's width: its three presses on one line, keys and all.
@@ -183,6 +184,18 @@ struct TellOne {
     key: u64,
     sentence: SharedString,
     retry: Option<Retry>,
+    /// A call Fleet refused: the facts under the headline, Copy debug info and Dispatch job.
+    failure: Option<Failure>,
+}
+
+/// What a failure toast holds of a refusal, read when it was raised.
+#[derive(Clone)]
+struct Failure {
+    refusal: Refusal,
+    build: Option<ipc::FleetBuildReport>,
+    report: Report,
+    /// Dispatch job was pressed and Fleet has not answered.
+    starting: bool,
 }
 
 /// Sentences the app was told to raise, oldest first: presses Fleet did not take.
@@ -333,18 +346,98 @@ fn unrule(key: u64, cx: &mut App) {
 /// A failure toast that says one sentence, as Electron's `askToTell`: a press Fleet did not take, such as
 /// a message to a Job. It stays until he closes it.
 pub fn tell(sentence: impl Into<SharedString>, cx: &mut App) {
-    told(sentence.into(), None, cx);
+    told(sentence.into(), None, None, cx);
 }
 
 /// A failure toast with Retry, which sends the press again: a reply from Fleet that never arrived.
 pub fn tell_retry(sentence: impl Into<SharedString>, retry: Retry, cx: &mut App) {
-    told(sentence.into(), Some(retry), cx);
+    told(sentence.into(), Some(retry), None, cx);
 }
 
-fn told(sentence: SharedString, retry: Option<Retry>, cx: &mut App) {
+/// A call Fleet refused, as Classic's failure toast says it: `what` failed and why, Fleet's own sentence, the facts of
+/// the call and of the build, then Copy debug info, Dismiss and Dispatch job. Fleet's debug report is read now, for
+/// the Armada and harness rows and for what Copy and Dispatch job carry.
+pub fn tell_refused(what: impl Into<String>, refusal: Refusal, cx: &mut App) {
+    let fleet = live_fleet(cx);
+    let held = fleet.as_ref().map(|fleet| fleet.read(cx).held());
+    let build = held.and_then(|held| held.build.clone());
+    let port = held.and_then(|held| held.port());
+    let headline = format!("{}: {}", what.into(), refusal.short());
+    let report = if port.is_some() { Report::Reading } else { Report::Unread("Fleet is not connected".into()) };
+    let key = told(headline.into(), None, Some(Failure { refusal, build, report, starting: false }), cx);
+    let Some(port) = port else { return };
+    let read = cx.background_spawn(async move { crate::refusal::read_report(port) });
+    cx.spawn(async move |cx| {
+        let report = read.await;
+        let _ = cx.update(|cx| change_failure(key, |failure| failure.report = report, cx));
+    })
+    .detach();
+}
+
+/// The walk's refused send: a dispatch with three pictures Fleet refused as too large, on a build four behind main,
+/// with its debug report read, so every row and button draws as on the live app.
+pub fn refused_too_large(cx: &mut App) {
+    const SAID: &[u8] = br#"{"code":"request.too_large","message":"POST /sessions/dispatch carried 14.2 MB; Fleet takes at most 10 MB.","run_id":"walk","fields":{},"chain":[]}"#;
+    let refusal = Refusal::read("POST", "/sessions/dispatch", 413, SAID).sent(14_900_000).pictures(3);
+    let build = ipc::decode::<ipc::FleetBuildReport>("FleetBuildReport", br#"{"on":"main","commit":"9f3c2a1b7d0e4c5a","position":{"ahead":0,"behind":4}}"#).ok();
+    let report = Report::Read("Armada debug report\n\nInstall\n  armada            0.4.2\n  runs from         ~/bin/armada\n  armada resolves   yes\n  claude            2.1.3\n".into());
+    let headline = format!("The Job was not dispatched: {}", refusal.short());
+    told(headline.into(), None, Some(Failure { refusal, build, report, starting: false }), cx);
+}
+
+/// Copy debug info: the headline, Fleet's sentence, the rows and the debug report, on the clipboard.
+fn copy_failure(key: u64, cx: &mut App) {
+    let Some(one) = cx.try_global::<Told>().and_then(|kept| kept.0.iter().find(|one| one.key == key).cloned()) else { return };
+    let Some(failure) = one.failure else { return };
+    let text = crate::refusal::debug_text(&one.sentence, &failure.refusal, failure.build.as_ref(), &failure.report);
+    cx.write_to_clipboard(gpui::ClipboardItem::new_string(text));
+}
+
+/// The dispatch Dispatch job sends: a bug in Armada's own repository, its words the debug text, as its brief and its
+/// first message.
+fn failure_dispatch(headline: &str, failure: &Failure, repository: ipc::ManifestId) -> ipc::DispatchJob {
+    let facts = crate::refusal::debug_text(headline, &failure.refusal, failure.build.as_ref(), &failure.report);
+    let text = format!("Fleet refused a call the native Bridge made. Find why and fix it.\n\n{facts}");
+    let start = ipc::StartSession {
+        manifest_id: repository,
+        title: None,
+        model: None,
+        effort: None,
+        mode: None,
+        fork: None,
+        root: None,
+        request: Some(text.clone()),
+        held: false,
+        after: None,
+        project_rows: Vec::new(),
+        on_your_words: None,
+        project: None,
+    };
+    let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
+    ipc::DispatchJob { start, kind: Some(ipc::DispatchKind::Bug), then }
+}
+
+/// The Fleet the toasts read, where the window has one.
+fn live_fleet(cx: &App) -> Option<Entity<crate::fleet::FleetConnection>> {
+    let toasts = cx.try_global::<Live>()?.0.upgrade()?;
+    toasts.read(cx).page.read(cx).fleet().cloned()
+}
+
+/// Change a failure toast that still stands, and draw it again.
+fn change_failure(key: u64, change: impl FnOnce(&mut Failure), cx: &mut App) {
+    let mut told = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let Some(failure) = told.iter_mut().find(|one| one.key == key).and_then(|one| one.failure.as_mut()) else { return };
+    change(failure);
+    cx.set_global(Told(told));
+    if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
+        toasts.update(cx, |_, cx| cx.notify());
+    }
+}
+
+fn told(sentence: SharedString, retry: Option<Retry>, failure: Option<Failure>, cx: &mut App) -> u64 {
     let mut told = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
     let key = told.last().map_or(1, |one| one.key + 1);
-    told.push(TellOne { key, sentence, retry });
+    told.push(TellOne { key, sentence, retry, failure });
     cx.set_global(Told(told));
     if let Some(toasts) = cx.try_global::<Live>().and_then(|live| live.0.upgrade()) {
         toasts.update(cx, |toasts, cx| {
@@ -352,6 +445,7 @@ fn told(sentence: SharedString, retry: Option<Retry>, cx: &mut App) {
             cx.notify();
         });
     }
+    key
 }
 
 /// No Fleet state and nothing told: a walk's part starts on a screen built again, with no toast of the
@@ -833,7 +927,10 @@ impl Toasts {
     }
 
     /// A sentence the app was told: the failed edge, the sentence, Retry where it has one, and its close.
-    fn told_toast(&self, one: &TellOne, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+    fn told_toast(&self, one: &TellOne, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if let Some(failure) = &one.failure {
+            return self.failure_toast(one.key, &one.sentence, failure, look, cx).into_any_element();
+        }
         let (key, sentence) = (one.key, &one.sentence);
         let edge = look.color(token::STATUS_COMPLETED_FAILED);
         let retry = one.retry.clone().map(|retry| {
@@ -893,6 +990,138 @@ impl Toasts {
             Role::Alert,
             format!("Toast: {sentence}"),
         )
+        .into_any_element()
+    }
+
+    /// A call Fleet refused (`tell_refused`): the failed glyph and the headline, Fleet's sentence, a row for each fact
+    /// with its label dimmer than its value, then Copy debug info, Dismiss and Dispatch job at the trailing edge.
+    fn failure_toast(&self, key: u64, headline: &SharedString, failure: &Failure, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let edge = look.color(token::STATUS_COMPLETED_FAILED);
+        let rows = failure.refusal.rows(failure.build.as_ref(), &failure.report).into_iter().map(|(label, value)| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("toast-failure-row:{key}:{label}")))
+                    .flex()
+                    .items_baseline()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .child(div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_8)).text_color(look.color(token::FG_MUTED)).child(label))
+                    .child(div().flex_1().min_w_0().text_color(look.color(token::FG_DEFAULT)).child(value.clone())),
+                Role::Label,
+                format!("{label}: {value}"),
+            )
+        });
+        let copy = labelled(
+            press(SharedString::from(format!("toast-failure-copy:{key}")), "Copy debug info".into(), None, None, Weight::Plain, look)
+                .tooltip(tip("Copies the facts and Fleet's debug report"))
+                .on_click(cx.listener(move |_, _, _, cx| copy_failure(key, cx))),
+            Role::Button,
+            "Copy debug info",
+        );
+        let dismiss = labelled(
+            press(SharedString::from(format!("toast-failure-dismiss:{key}")), "Dismiss".into(), None, None, Weight::Bare, look).on_click(cx.listener(move |_, _, _, cx| {
+                untell(key, cx);
+                cx.notify();
+            })),
+            Role::Button,
+            "Dismiss",
+        );
+        let dispatch_word: SharedString = if failure.starting { "Dispatching".into() } else { "Dispatch job".into() };
+        let dispatch = labelled(
+            press(SharedString::from(format!("toast-failure-dispatch:{key}")), dispatch_word.clone(), None, None, Weight::JobPick, look)
+                .tooltip(tip("Starts a Job in Armada's own repository, told all of this"))
+                .when(!failure.starting, |button| button.on_click(cx.listener(move |this, _, window, cx| this.dispatch_failure(key, window, cx)))),
+            Role::Button,
+            dispatch_word,
+        );
+        let body = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .child(
+                div()
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().flex_none().pt(look.length(token::SPACE_1) / 2.).child(glyph("circle-x", look.length(token::SPACE_4), edge)))
+                    .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(headline.clone())),
+            )
+            .children(failure.refusal.said.clone().map(|said| labelled(div().id(SharedString::from(format!("toast-failure-said:{key}"))).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(said.clone()), Role::Label, said)))
+            .child(div().flex().flex_col().gap(look.length(token::SPACE_1) / 2.).children(rows))
+            .child(div().flex().justify_end().items_center().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).child(copy).child(dismiss).child(dispatch));
+        labelled(
+            div()
+                .id(SharedString::from(format!("toast-failure:{key}")))
+                .w(gpui::px(WIDTH))
+                .flex()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_LG) * 1.5)
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(edge.opacity(0.6))
+                .bg(look.color(token::BG_OVERLAY))
+                .shadow(look.shadows(token::SHADOW_OVERLAY))
+                // A press on a toast never reaches what is under it.
+                .occlude()
+                .font_family(sans(look))
+                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
+                .child(body),
+            Role::Alert,
+            format!("Toast: {headline}"),
+        )
+    }
+
+    /// Dispatch job: a Job in Armada's own repository, told the refusal and Fleet's debug report, as the crash panel
+    /// starts one (`crash::fix_dispatch`). The Job opens and the toast goes; a start Fleet refuses is a toast of its own,
+    /// and this one stays, as Classic's does.
+    fn dispatch_failure(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(one) = cx.try_global::<Told>().and_then(|kept| kept.0.iter().find(|one| one.key == key).cloned()) else { return };
+        let Some(failure) = one.failure.clone() else { return };
+        let not_started = |why: String, cx: &mut Context<Self>| cx.defer(move |cx| tell(format!("Job not started: {why}"), cx));
+        let Some(fleet) = self.page.read(cx).fleet().cloned() else { return not_started("Fleet is not connected".into(), cx) };
+        let held = fleet.read(cx).held();
+        let (port, repositories) = (held.port(), held.repositories.clone().unwrap_or_default());
+        let Some(port) = port else { return not_started("Fleet is not connected".into(), cx) };
+        let Some(repository) = crate::crash::armada_repository(&crate::dispatch::live::served(&repositories)) else {
+            return not_started("Fleet serves no repository named armada".into(), cx);
+        };
+        let job = failure_dispatch(&one.sentence, &failure, repository);
+        let words = job.start.request.clone().unwrap_or_default();
+        cx.defer(move |cx| change_failure(key, |failure| failure.starting = true, cx));
+        let sent = cx.background_spawn(async move {
+            let body = ipc::encode(&job).map_err(|why| format!("{why:?}"))?;
+            let bytes = crate::refusal::post(port, "/sessions/dispatch", body)?;
+            ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())
+        });
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = sent.await;
+            let _ = this.update_in(cx, |this, window, cx| match answer {
+                Ok(done) => {
+                    untell(key, cx);
+                    match (done.session, done.operator.or(done.parked)) {
+                        (Some(record), _) => {
+                            if let Some(screen) = this.screen.upgrade() {
+                                screen.update(cx, |screen, cx| screen.open_job(record.id.as_str(), window, cx));
+                            }
+                        }
+                        (None, Some(held)) => dispatch_held(&held, &words, cx),
+                        (None, None) => {}
+                    }
+                    cx.notify();
+                }
+                Err(why) => {
+                    let why: String = why;
+                    cx.defer(move |cx| {
+                        change_failure(key, |failure| failure.starting = false, cx);
+                        tell(format!("Job not started: {why}"), cx);
+                    });
+                }
+            });
+        })
+        .detach();
     }
 
     /// What the Operator did with a dispatch: its state glyph with a tooltip, the sentence as the press that opens
@@ -1367,6 +1596,63 @@ mod reading_tests {
         redraw(cx);
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Operator started Fix the build"), "and it shows when he is done");
+    }
+}
+
+#[cfg(test)]
+mod failure_tests {
+    use super::*;
+    use crate::refusal::{tests::TOO_LARGE, Failed};
+
+    struct Root(Entity<Toasts>);
+
+    impl Render for Root {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            crate::labels::label_root(div().size_full().child(self.0.clone()))
+        }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some()))
+    }
+
+    fn redraw(cx: &mut gpui::VisualTestContext) {
+        for _ in 0..2 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    /// What the dispatch sheet does with Fleet's answer to its Start (`DispatchScreen::dispatched`): a refusal
+    /// raises the failure toast under "The Job was not dispatched", and a call that never reached Fleet does not.
+    #[gpui::test]
+    fn a_refused_dispatch_raises_the_failure_toast_with_its_route_status_and_sentence(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            at_rest(cx);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx))
+        });
+        let refused = crate::refusal::answered("POST", "/sessions/dispatch", Some(14_900_000), 413, TOO_LARGE.to_vec()).expect_err("Fleet refused it");
+        cx.update(|_, cx| {
+            Failed::Unanswered("Fleet is not connected".into()).tell_refusal("The Job was not dispatched", cx);
+            Failed::Refused(refused).tell_refusal("The Job was not dispatched", cx);
+        });
+        redraw(cx);
+        let told: Vec<String> = cx.update(|_, cx| cx.try_global::<Told>().map(|kept| kept.0.iter().map(|one| one.sentence.to_string()).collect()).unwrap_or_default());
+        assert_eq!(told, ["The Job was not dispatched: Fleet refused it as too large"], "one toast, for the refusal alone");
+        assert!(drawn(cx, Role::Alert, "Toast: The Job was not dispatched: Fleet refused it as too large"), "the failure toast is drawn");
+        assert!(drawn(cx, Role::Label, "POST /sessions/dispatch carried 14.2 MB; Fleet takes at most 10 MB."), "Fleet's own sentence");
+        assert!(drawn(cx, Role::Label, "Route: POST /sessions/dispatch"), "the route row");
+        assert!(drawn(cx, Role::Label, "Status: 413 request.too_large"), "the status row, with Fleet's code");
+        assert!(drawn(cx, Role::Label, "Fleet log: Not shown; sent with the Job"), "the log row");
+        for button in ["Copy debug info", "Dismiss", "Dispatch job"] {
+            assert!(drawn(cx, Role::Button, button), "{button}");
+        }
     }
 }
 

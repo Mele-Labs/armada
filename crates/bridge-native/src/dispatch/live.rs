@@ -6,6 +6,7 @@ use gpui::SharedString;
 use ipc::{ManifestId, RepositorySummary, StartAfter, StartBase, StartCondition, WaitReading};
 
 use super::face::{Chip, Cycle, Face, InProject, Mark, Mentions, Offered, Part, Reading, Tuning, Wait};
+use crate::refusal::Failed;
 
 /// A repository Fleet serves: the name its chip carries and the id a Job there starts with.
 #[derive(Clone, Debug, PartialEq)]
@@ -139,17 +140,26 @@ pub(super) fn tuning(models: Option<&ipc::ModelChoices>) -> Tuning {
 /// Ask Fleet: a POST where there is a body, else a GET. Blocks, so it runs on the background executor. A refusal
 /// is Fleet's own sentence.
 pub(crate) fn call(port: u16, path: String, body: Option<String>) -> Result<Vec<u8>, String> {
+    Ok(answered(port, path, body, false)?)
+}
+
+/// The same, keeping a refusal whole for the failure toast.
+pub(crate) fn ask(port: u16, path: String, body: Option<String>) -> Result<Vec<u8>, Failed> {
     answered(port, path, body, false)
 }
 
 /// A POST to a route that asks a model inside the request: the proposal and the wait read wait as long
 /// as Electron's do.
 pub(super) fn call_model(port: u16, path: String, body: String) -> Result<Vec<u8>, String> {
-    answered(port, path, Some(body), true)
+    Ok(answered(port, path, Some(body), true)?)
 }
 
-fn answered(port: u16, path: String, body: Option<String>, model: bool) -> Result<Vec<u8>, String> {
+fn answered(port: u16, path: String, body: Option<String>, model: bool) -> Result<Vec<u8>, Failed> {
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+    let (method, sent) = match &body {
+        Some(body) => ("POST", Some(body.len())),
+        None => ("GET", None),
+    };
     let (status, bytes) = runtime.block_on(async {
         match body {
             Some(body) if model => crate::transport::post_to_model(port, &path, body).await,
@@ -157,11 +167,7 @@ fn answered(port: u16, path: String, body: Option<String>, model: bool) -> Resul
             None => crate::transport::get(port, &path).await,
         }
     })?;
-    if (200..300).contains(&status) {
-        Ok(bytes)
-    } else {
-        Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
-    }
+    Ok(crate::refusal::answered(method, &path, sent, status, bytes)?)
 }
 
 // -- waits ---------------------------------------------------------------------------------------

@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 50] = [
+pub static STEPS: [Step; 53] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("The Job's glyph stands at the start of the line", Verb::Look, "img", "Job"),
     step("The project is one picker at the start of the band; Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Project"),
@@ -56,6 +56,9 @@ pub static STEPS: [Step; 50] = [
     step("Tab goes on to the card under the sheet", Verb::Key("tab"), "button", "New Side Job in sample-api"),
     step("Tab from the card wraps to the request", Verb::Key("tab"), "textbox", "Request"),
     step("Shift-Tab from the request goes back to the card, the way Tab came", Verb::Key("shift-tab"), "button", "New Side Job in sample-api"),
+    answer("A send Fleet refused as too large: the failure toast says what failed and why, each fact on a row of its own", "refuse-too-large", "alert", "Toast: The Job was not dispatched: Fleet refused it as too large"),
+    step("Copy debug info, Dismiss and Dispatch job stand at its trailing edge", Verb::Hover, "button", "Copy debug info"),
+    step("Dismiss puts it away", Verb::Gone, "button", "Dismiss"),
 ];
 
 /// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.

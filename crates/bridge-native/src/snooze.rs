@@ -161,7 +161,7 @@ pub fn body(job: &str, until: Option<DateTime<Utc>>) -> Result<String, ipc::Unen
 /// The sentence a refused snooze or wake is toasted with: Fleet's own words, or its status where the body is
 /// not a refusal.
 pub fn refusal_said(status: u16, bytes: &[u8]) -> String {
-    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+    crate::refusal::Refusal::read("POST", "/sessions/snooze", status, bytes).to_string()
 }
 
 /// A snooze or a wake sent to Fleet. A refusal is said in a toast with Fleet's reason.
@@ -177,20 +177,15 @@ pub fn post(port: Option<u16>, body: Result<String, ipc::Unencodable>, cx: &mut 
             return;
         }
     };
+    let waking = ipc::decode::<ipc::SnoozeSession>("SnoozeSession", body.as_bytes()).is_ok_and(|snooze| snooze.until.is_none());
+    let headline = if waking { "The Job was not woken" } else { "The Job was not snoozed" };
     cx.spawn(async move |cx| {
-        let answer = cx
-            .background_executor()
-            .spawn(async move {
-                let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                runtime.block_on(crate::transport::post(port, "/sessions/snooze", body))
-            })
-            .await;
-        let said = match answer {
-            Ok((status, _)) if (200..300).contains(&status) => return,
-            Ok((status, bytes)) => refusal_said(status, &bytes),
-            Err(why) => why,
-        };
-        cx.update(|cx| crate::toasts::tell(said, cx));
+        let answer = cx.background_executor().spawn(async move { crate::refusal::post(port, "/sessions/snooze", body) }).await;
+        match answer {
+            Ok(_) => {}
+            Err(crate::refusal::Failed::Refused(refusal)) => cx.update(|cx| crate::toasts::tell_refused(headline, refusal, cx)),
+            Err(crate::refusal::Failed::Unanswered(why)) => cx.update(|cx| crate::toasts::tell(why, cx)),
+        }
     })
     .detach();
 }

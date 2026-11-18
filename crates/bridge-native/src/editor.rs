@@ -178,7 +178,7 @@ pub async fn configured_from(port: u16) -> Result<String, String> {
         (200, body) => {
             ipc::decode::<SettingsList>("settings", &body).map(|list| configured(&list)).map_err(|why| why.to_string())
         }
-        (status, _) => Err(format!("Fleet answered {status}")),
+        (status, body) => Err(crate::refusal::Refusal::read("GET", "/settings", status, &body).to_string()),
     }
 }
 
