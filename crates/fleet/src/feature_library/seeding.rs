@@ -1,9 +1,9 @@
-//! Armada's own catalog, kept on the Operator's word. **The seed is a data file Fleet carries**, `seed/armada.toml`: the
+//! Armada's own catalog, kept by Fleet itself. **The seed is a data file Fleet carries**, `seed/armada.toml`: the
 //! areas and features the owner approved on 16 Nov 2026 with their path prefixes and entry points. Fleet applies it through
 //! `features_upserted`, so each feature's `added_at` is the moment it was kept and is never rewritten; the earliest across a
 //! project is when its library was seeded. `docs/concepts/feature-catalog.md`, *How the catalog grows*.
 //!
-//! **Once per project, and only for Armada's repository.** A project that holds any feature is refused, and so is one none of
+//! **Once per project, and only for Armada's repository.** Fleet keeps it on its own tick, with the Operator on or off; the Operator's `seed_features` is the same act on his word. A project that holds any feature is refused, and so is one none of
 //! whose repositories holds the seed's marker paths. A path the repositories do not hold is left out and named.
 
 use std::path::PathBuf;
@@ -71,7 +71,47 @@ where
     /// `seed_features`. **Nothing is kept on a refusal.**
     pub(super) async fn features_seeded(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.operator_called(caller)?;
-        let project = seed.project.trim().to_string();
+        self.seed_project(seed.project.trim()).await
+    }
+
+    /// The projects the seed does not fit, as this Fleet run found them.
+    fn unseedable(&self) -> std::sync::MutexGuard<'_, std::collections::BTreeSet<String>> {
+        self.operator_seat().sources.unseedable.lock().unwrap_or_else(std::sync::PoisonError::into_inner)
+    }
+
+    /// Each running project that holds no feature and that the seed fits, seeded by Fleet itself, whether or not the Operator is
+    /// on. **A project the seed does not fit is remembered, so a tick does not look at its repositories again**; one that is
+    /// seeded holds features and is passed over. What was left out is logged.
+    pub(crate) async fn projects_seeded(&self) {
+        let Ok(carried) = Seed::armada() else { return };
+        let projects: Vec<String> = self.projects_held().running().map(|one| one.id().as_str().to_string()).collect();
+        for id in projects {
+            if self.unseedable().contains(&id) {
+                continue;
+            }
+            if self.store().lock().await.project_has_features(&id).unwrap_or(true) {
+                continue;
+            }
+            if !self.seed_fits(&id, &carried).await {
+                self.unseedable().insert(id);
+                continue;
+            }
+            match self.seed_project(&id).await {
+                Ok(kept) => eprintln!(
+                    "fleet: seeded project {id} with {} areas and {} features; left out {} paths the repository does not hold{}",
+                    kept.areas,
+                    kept.created.len(),
+                    kept.dropped.len(),
+                    if kept.dropped.is_empty() { String::new() } else { format!(": {}", kept.dropped.join(", ")) },
+                ),
+                Err(refused) => eprintln!("fleet: project {id} was not seeded: {}", refused.error().message),
+            }
+        }
+    }
+
+    /// Armada's seed kept for `project`, with no caller to check. **Nothing is kept on a refusal.**
+    async fn seed_project(&self, project: &str) -> Result<FeaturesSeeded, Refusal> {
+        let project = project.to_string();
         let carried = Seed::armada().map_err(|why| self.hosted_fault("fleet.feature_seed_unread", &format!("the seed Fleet carries does not read: {why}")))?;
         let Some(roots) = self.seed_roots(&project) else {
             return Err(self.hosted_refusal(PROJECT, &format!("no project is named `{project}`")));

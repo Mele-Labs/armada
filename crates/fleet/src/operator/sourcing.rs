@@ -34,8 +34,8 @@ pub(crate) struct Sources {
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
     /// The open notes sent to no Job yet, by repository and id, read again each tick.
     watching: Mutex<BTreeMap<(String, String), Watched>>,
-    /// The projects no seed describes, so a tick does not look at their repositories again.
-    pub(super) unseedable: Mutex<BTreeSet<String>>,
+    /// The projects no seed describes, so a tick does not look at their repositories again. Fleet's own seeding keeps it.
+    pub(crate) unseedable: Mutex<BTreeSet<String>>,
 }
 
 /// An open note the person may still send to a Job.
