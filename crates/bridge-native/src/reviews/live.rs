@@ -36,6 +36,8 @@ pub(super) struct Row {
     /// Where it is on the forge.
     pub address: String,
     pub draft: bool,
+    /// The head the lists read, whole: what Mark as seen in the inbox keeps.
+    pub head: String,
 }
 
 /// One pull request as Fleet last answered for it.
@@ -57,6 +59,8 @@ pub(super) struct Live {
     pub inbox_said: Option<String>,
     /// Over rows kept from an earlier read, while the forge is rate-limiting us.
     pub inbox_banner: Option<String>,
+    /// Why Fleet refused the last act on a row of the inbox, until the next act or read.
+    act_said: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
     pub writing: bool,
@@ -128,6 +132,7 @@ impl ReviewsScreen {
             tools: HashMap::new(),
             inbox_said: None,
             inbox_banner: None,
+            act_said: None,
             write_said: HashMap::new(),
             writing: false,
             chained: HashSet::new(),
@@ -219,6 +224,7 @@ impl ReviewsScreen {
                     let (mut rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
+                        live.act_said = None;
                         live.inbox_banner = map::kept_banner(&lists);
                         for (number, row) in found {
                             match live.pulls.get_mut(&number) {
@@ -292,6 +298,7 @@ impl ReviewsScreen {
                 holder: None,
                 address: asked.address.clone(),
                 draft: false,
+                head: String::new(),
             },
             facts: map::Facts::default(),
             notes: Vec::new(),
@@ -615,6 +622,61 @@ impl ReviewsScreen {
                 pull.facts.seen = Some(seen.head);
             }
         });
+    }
+
+    /// Mark as seen in the inbox: at the row's own head, so a row never opened is marked too.
+    pub(super) fn live_mark_seen(&mut self, number: u64, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::MarkPullSeen { number, head: pull.row.head.clone() }).ok();
+        let route = format!("/pull_request_seen/{}", encoded(&pull.row.manifest));
+        self.set_act_said(None);
+        self.call_quiet(format!("row-seen:{number}"), Verb::Post, route, body, "PullSeen", cx, move |this, answer: Result<ipc::PullSeen, String>, cx| {
+            if let Err(why) = answer {
+                this.row_refused(number, format!("Mark as seen on #{number} was refused. {why}"), |row| row.seen = false, cx);
+            }
+        });
+    }
+
+    /// Ignore, or Stop ignoring, in the inbox.
+    pub(super) fn live_ignore(&mut self, number: u64, ignored: bool, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::IgnorePull { number }).ok();
+        let manifest = encoded(&pull.row.manifest);
+        self.set_act_said(None);
+        let key = format!("ignore:{number}");
+        if ignored {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}"), body, "PullIgnored", cx, move |this, answer: Result<ipc::PullIgnored, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Ignore on #{number} was refused. {why}"), |row| row.ignored = false, cx);
+                }
+            });
+        } else {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}/unignore"), body, "IgnorePull", cx, move |this, answer: Result<ipc::IgnorePull, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Stop ignoring on #{number} was refused. {why}"), |row| row.ignored = true, cx);
+                }
+            });
+        }
+    }
+
+    /// An act on a row Fleet refused: the row goes back as it was, and the inbox says why.
+    fn row_refused(&mut self, number: u64, said: String, put_back: impl FnOnce(&mut model::InboxRow), cx: &mut Context<Self>) {
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            put_back(row);
+        }
+        self.set_act_said(Some(said));
+        cx.notify();
+    }
+
+    fn set_act_said(&mut self, said: Option<String>) {
+        if let Some(live) = self.live.as_mut() {
+            live.act_said = said;
+        }
+    }
+
+    /// Why Fleet refused the last act on a row of the inbox.
+    pub(super) fn live_act_said(&self) -> Option<String> {
+        self.live.as_ref()?.act_said.clone()
     }
 
     /// Send: the verdict, the summary and every draft as one review at the commit he read; `bare`

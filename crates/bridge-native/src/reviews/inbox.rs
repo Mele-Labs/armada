@@ -1,11 +1,12 @@
 //! The inbox column: Search or ask, the Lists filter, and the pull requests in their groups.
 //! A refresh keeps the last inbox drawn under a Refreshing mark.
 
-use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, Role, SharedString, Transformation, Window};
+use gpui::{div, prelude::*, Animation, AnimationExt, AnyElement, Context, FontWeight, MouseButton, Pixels, Point, Role, SharedString, Transformation, Window};
 use ipc::PullReviewChecks;
 
 use super::model::{in_order, Group, InboxRow, Verdict};
 use super::{panel, ReviewsScreen};
+use crate::dropdown::Entry;
 use crate::jobs::{group_line, list_bar, list_control, list_search, row_card, row_edge, row_wash};
 use crate::keymap::Act;
 use crate::labels::labelled;
@@ -22,7 +23,20 @@ pub(super) fn hue(group: Group) -> crate::look::Token {
         Group::Yours => token::STATUS_RUNNING,
         Group::Team => token::STATUS_NOT_STARTED,
         Group::Done => token::STATUS_COMPLETED_SUCCESS,
+        // Set aside by him: no state of the pull request's to say.
+        Group::Ignored => token::FG_MUTED,
     }
+}
+
+/// A row's menu, as its entries say it.
+const MARK_SEEN: &str = "Mark as seen";
+const IGNORE: &str = "Ignore";
+const STOP_IGNORING: &str = "Stop ignoring";
+
+/// The ContextMenu key, or ⇧F10: a row's menu from the keyboard.
+fn opens_menu(event: &gpui::KeyDownEvent) -> bool {
+    let key = &event.keystroke;
+    matches!(key.key.as_str(), "menu" | "contextmenu") || (key.key == "f10" && key.modifiers.shift)
 }
 
 /// The checks' state as a registry glyph, its hue and what its tooltip says. Passing checks
@@ -104,6 +118,54 @@ impl ReviewsScreen {
         } else {
             cx.propagate();
         }
+    }
+
+    /// A row's menu: Mark as seen while it is not seen at its head, then Ignore, or Stop ignoring on an ignored row.
+    fn open_row_menu(&mut self, number: u64, at: Point<Pixels>, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.inbox.rows.iter().find(|row| row.number == number) else { return };
+        let act = |label: &'static str| Entry::Act { id: label, label: label.into(), icon: None, danger: false };
+        let mut entries = Vec::new();
+        if !row.seen {
+            entries.push(act(MARK_SEEN));
+        }
+        entries.push(act(if row.ignored { STOP_IGNORING } else { IGNORE }));
+        let name = row.name();
+        self.focused = Some(number);
+        self.open_menu(&name, entries, at, move |this, id, _, cx| this.row_act(number, id, cx), window, cx);
+    }
+
+    /// The row moves at once; on the live app Fleet keeps it, and a refusal puts it back.
+    fn row_act(&mut self, number: u64, id: &str, cx: &mut Context<Self>) {
+        let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) else { return };
+        match id {
+            MARK_SEEN => {
+                row.seen = true;
+                if self.is_live() {
+                    self.live_mark_seen(number, cx);
+                }
+            }
+            IGNORE | STOP_IGNORING => {
+                let ignored = id == IGNORE;
+                row.ignored = ignored;
+                if self.is_live() {
+                    self.live_ignore(number, ignored, cx);
+                }
+            }
+            _ => {}
+        }
+        cx.notify();
+    }
+
+    /// The menu key opens the focused row's menu under it.
+    fn on_rows_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if !opens_menu(event) {
+            return;
+        }
+        let Some(number) = self.focused.filter(|number| self.reachable(cx).contains(number)) else { return };
+        let Some(name) = self.inbox.rows.iter().find(|row| row.number == number).map(InboxRow::name) else { return };
+        cx.stop_propagation();
+        let at = super::under_label(Role::Row, &name, window.mouse_position(), window, cx);
+        self.open_row_menu(number, at, window, cx);
     }
 
     pub(super) fn render_inbox(&mut self, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -239,6 +301,16 @@ impl ReviewsScreen {
                 )
                 .into_any_element(),
             );
+        } else if let Some(said) = self.live_act_said() {
+            body.insert(
+                0,
+                labelled(
+                    div().id("inbox-act-refused").p(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::RUN_FAILED)).child(SharedString::from(said.clone())),
+                    Role::Status,
+                    said,
+                )
+                .into_any_element(),
+            );
         } else if let Some(banner) = self.live_inbox_banner() {
             body.insert(
                 0,
@@ -280,6 +352,7 @@ impl ReviewsScreen {
                             .key_context("list")
                             .track_focus(&self.rows)
                             .on_action(cx.listener(Self::on_act))
+                            .on_key_down(cx.listener(Self::on_rows_key))
                             .flex_1()
                             .min_h_0()
                             .overflow_y_scroll()
@@ -356,12 +429,21 @@ impl ReviewsScreen {
             let said = "You ran a review in Armada";
             labelled(div().id(SharedString::from(format!("reviewing-{number}"))).tooltip(tip(said)).child(glyph("bot", look.length(token::SPACE_4), look.color(token::ACCENT))), Role::Image, said)
         });
+        let seen = row.seen.then(|| {
+            let said = "Seen at the latest commit";
+            labelled(div().id(SharedString::from(format!("seen-{number}"))).tooltip(tip(said)).child(glyph("check", look.length(token::SPACE_4), look.color(token::FG_MUTED))), Role::Image, said)
+        });
         let weight = if open { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let card = row_card(look, SharedString::from(format!("pr-row-{number}")), open, focused, true, look.length(token::SPACE_2))
             .cursor_pointer()
             .aria_selected(open)
             .on_click(cx.listener(move |this, _, window, cx| this.press_row(number, window, cx)))
-            .when(!open, |card| card.child(row_wash(look, lamp)))
+            .on_mouse_down(MouseButton::Right, cx.listener(move |this, event: &gpui::MouseDownEvent, window, cx| {
+                cx.stop_propagation();
+                this.open_row_menu(number, event.position, window, cx);
+            }))
+            // A seen row is dimmed: no wash, its title in the muted ink.
+            .when(!open && !row.seen, |card| card.child(row_wash(look, lamp)))
             .child(row_edge(look, lamp))
             .child(
                 div()
@@ -375,9 +457,11 @@ impl ReviewsScreen {
                             .text_size(look.length(token::TEXT_XS))
                             .line_height(look.length(token::LEADING_XS))
                             .font_weight(FontWeight(look.number(weight)))
+                            .when(row.seen, |title| title.text_color(look.color(token::FG_MUTED)))
                             .child(SharedString::from(row.title.clone())),
                     )
-                    // The review and checks columns keep their width on every row, so the titles and marks line up whether a row is marked or not.
+                    // The seen, review and checks columns keep their width on every row, so the titles and marks line up whether a row is marked or not.
+                    .child(div().flex_none().w(look.length(token::SPACE_4)).children(seen))
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(reviewing))
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(checks)),
             )
