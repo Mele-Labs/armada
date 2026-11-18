@@ -4,7 +4,11 @@
 //!
 //! **Bytes enter through `ipc::decode`**, for `crate::transcript`'s reason.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
+
+use crate::mcp_configured::McpConfig;
 
 /// What one control line asks of a process about its servers.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -14,6 +18,10 @@ pub enum McpRequest<'a> {
     TurnOn(&'a str),
     TurnOff(&'a str),
     SignIn(&'a str),
+    /// **The whole set of servers given this way, every time.** The CLI disconnects a server an
+    /// earlier set named and this one leaves out, and one it loaded itself becomes the set's once
+    /// named: spike 40.
+    Set(&'a BTreeMap<String, McpConfig>),
 }
 
 /// Where one server stands, in the CLI's five words.
@@ -57,6 +65,15 @@ pub enum Answered {
     SignIn(Option<McpSignIn>),
     /// Nothing: a reconnect or a toggle that settled.
     Done,
+    Set(SetAnswer),
+}
+
+/// What a set changed, and each server it would not take with the CLI's words for why.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct SetAnswer {
+    pub added: Vec<String>,
+    pub removed: Vec<String>,
+    pub refused: BTreeMap<String, String>,
 }
 
 /// One `control_response` line, under the id its request was sent with. The
@@ -92,6 +109,9 @@ enum Asked<'a> {
         #[serde(rename = "serverName")]
         server: &'a str,
     },
+    McpSetServers {
+        servers: &'a BTreeMap<String, McpConfig>,
+    },
 }
 
 /// The line that asks `asked` of a process, with no newline.
@@ -102,6 +122,7 @@ pub fn mcp_request(request_id: &str, asked: McpRequest<'_>) -> String {
         McpRequest::TurnOn(server) => Asked::McpToggle { server, enabled: true },
         McpRequest::TurnOff(server) => Asked::McpToggle { server, enabled: false },
         McpRequest::SignIn(server) => Asked::McpAuthenticate { server },
+        McpRequest::Set(servers) => Asked::McpSetServers { servers },
     };
     ipc::encode(&Asking { kind: "control_request", request_id, request })
         .expect("strings and a flag always encode")
@@ -137,6 +158,31 @@ struct Body {
     user_acts: Option<bool>,
     #[serde(default, rename = "callbackExpected")]
     callback_expected: bool,
+    #[serde(default)]
+    added: Option<Vec<String>>,
+    #[serde(default)]
+    removed: Option<Vec<String>>,
+    #[serde(default)]
+    errors: Option<BTreeMap<String, Why>>,
+}
+
+/// Why a set would not take one server. Spike 40 saw no refusal, so a reason in any other shape
+/// is kept as a refusal with no words rather than losing the whole answer.
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum Why {
+    Text(String),
+    Said { message: String },
+    Unread(serde::de::IgnoredAny),
+}
+
+impl Why {
+    fn words(self) -> String {
+        match self {
+            Why::Text(why) | Why::Said { message: why } if !why.trim().is_empty() => why,
+            _ => String::from("it gave no reason"),
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -175,6 +221,13 @@ fn answered(body: Option<Body>) -> Result<Answered, String> {
     };
     if let Some(listed) = body.servers {
         return Ok(Answered::Servers(listed.into_iter().map(server).collect()));
+    }
+    if body.added.is_some() || body.removed.is_some() || body.errors.is_some() {
+        return Ok(Answered::Set(SetAnswer {
+            added: body.added.unwrap_or_default(),
+            removed: body.removed.unwrap_or_default(),
+            refused: body.errors.unwrap_or_default().into_iter().map(|(name, why)| (name, why.words())).collect(),
+        }));
     }
     match (body.user_acts, body.url) {
         (None, _) => Ok(Answered::Done),
