@@ -18,7 +18,6 @@
 mod act_failing;
 mod feature_catalog;
 mod feature_library;
-mod feature_reads;
 mod floor_plan;
 mod pre_pr;
 mod job_command;
@@ -355,3 +354,4 @@ mod operator_talk;
 mod pull_review_projects;
 mod pull_notice_spread;
 mod pull_review_rate_limit;
+mod feature_reads;

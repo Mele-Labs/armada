@@ -60,7 +60,6 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
-mod feature_reads;
 mod features;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
@@ -269,7 +268,6 @@ pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
 };
-pub use feature_reads::KeptJobRead;
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
@@ -358,3 +356,7 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+
+/// What a Job read before it changed a feature's files.
+mod feature_reads;
+pub use feature_reads::KeptJobRead;
