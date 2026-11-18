@@ -195,7 +195,7 @@ The work a thought belongs to is often in another repository, and one Operator s
 
 **It reads a repository's issues and writes none.**
 `list_issues`, `get_issue` and `search_issues` are offered to its session alone, each naming its repository.
-Nothing that writes an issue is.
+Nothing that writes an issue is: only your press of a page's `close` button closes one.
 
 **It writes one page you review and revise with it.**
 The page is `.armada/documents/<slug>.html` in its own folder, kept and waiting on you as a Job's page is.
@@ -204,8 +204,10 @@ Your notes revise the same page.
 
 **Its buttons start the work.**
 A `start` button names its repository, since the Operator stands in none.
+For the issues it found already done in native, it puts one `close` button on the report, listing them.
+Your press closes them in that repository's tracker, and the Operator is told what was closed and what was not.
+The Operator never closes an issue itself.
 Anything else is a `message` button, whose press tells the Operator.
-Closing an issue it found done is one of those: it asks you, and the Operator closes nothing.
 
 **It is an extra path.**
 The backlog stays readable on the Issues screen without the Operator.

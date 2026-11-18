@@ -293,16 +293,18 @@ Fleet's half is `press_page_action` (`crates/ipc/operations/press_page_action.to
 `item` names the row or part it sits on.
 `start` also takes `brief`, and `repository` where the Job is not in the page's Job's repository.
 `answer` takes `ask`, the ask's waiting id, and `option`, one of its labels.
+`close` takes `issues`, the issues it closes separated by spaces, and `repository` as `start` does.
 
 **Rule.** Fleet reads an action off the kept revision he pressed, never off a call or the file as it is now.
 The first action with an id is the one pressed.
 Each carries the text of the `<tr>`, else the `<li>`, it sits in, cut to 300 characters.
 
-**Rule.** Fleet keeps the list of acts a page may run, and refuses anything off it: `message`, `start` and `answer`.
+**Rule.** Fleet keeps the list of acts a page may run, and refuses anything off it: `message`, `start`, `answer` and `close`.
 Anything that lands, merges, deletes or stops goes to the Job as a `message`, whose label says what the Job will do.
+A buttons part of an artifact takes no `close`.
 
 **Rule.** The page is never refused.
-When it is kept, each action with no id, an id an earlier action holds, or an act off the list is named to the Job in the notice that names a sketch that will not draw:
+When it is kept, each action with no id, an id an earlier action holds, an act off the list, or a `close` that lists no issues or whose tracker cannot close one is named to the Job in the notice that names a sketch that will not draw:
 `In the page <path>, action "<label>" will not run: <why>.`
 
 **Rule.** A `message` press sends the Job, as his message, `He pressed "<label>" on <item> in "<title>".`, the row's text on the next line, and his words after.
@@ -315,6 +317,11 @@ The page's Job is then sent `He started Job <short id> from "<label>" on <item>.
 
 **Rule.** An `answer` press answers the Job's ask with the option, his words as the answer's words, exactly as his own pick would.
 An ask the Job no longer waits on, or an option not one of its options, is refused, `fleet.page_ask_not_open`.
+
+**Rule.** A `close` press closes each issue the action lists in its repository's tracker, with the word for closed a saved rule's close writes.
+The owner decided on 18 Nov 2026 that his press closes them straight away; it is the only way a page writes to a tracker, and the agent has no call that does.
+The page's Job is then sent `He pressed "<label>" in "<title>". Closed <issues>.`, with each issue the tracker refused and its reason.
+A close that can close none, its repository not served or its tracker unable, is refused, `fleet.page_close_refused`.
 
 **Rule.** Every press is kept in Fleet's store, apart from the page's attachment, and served on the page as `presses`, so native turns a pressed row green with the act under its title.
 A press that is refused keeps nothing, and an archived page takes no press.
