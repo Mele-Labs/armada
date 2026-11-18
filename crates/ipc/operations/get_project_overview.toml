@@ -1,0 +1,18 @@
+[operations.get_project_overview]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read a project's overview for the Features screen: what it is in a README sentence, its code map with each room's area, its busiest features and its glossary. Give project where the caller is placed by no Job"
+notes = """
+`GET /features/overview?project=`, answered with `ProjectOverview`: `project`, `what_it_is`, `rooms`, `busiest` and `glossary`. Read on every call from the repository's files and the library's rows, with no model.
+
+**`what_it_is` is the first sentence of the first repository's README**, `sentence` and the `file` it came from, and it is absent where the repository has none. The first repository is the first the project lists that Fleet serves.
+
+**`rooms` is every module of the project's code map**, as a feature's floor plan draws them: `module`, `path`, `kind` and `manifest_id` where the project holds more than one repository. `area` is the slug of the area whose features own the most of the room's files, and is absent where no feature owns one.
+
+**`busiest` is at most five features, most merges first, over the last 14 days.** Each is `slug`, `title` and `pulls`, its pull requests' numbers newest first. A feature with no merge in the window is not listed.
+
+**`glossary` is `[{term, meaning}]`**, the project's glossary as `get_glossary` reads it, without who wrote each term.
+
+`agent_access` is `Bridge only`: it is the screen's own read, and a Job reads a feature through `get_feature_brief`.
+"""

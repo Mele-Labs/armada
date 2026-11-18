@@ -9,7 +9,7 @@ use std::collections::BTreeSet;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{CheckCommitFeature, Glossary, GlossaryTerm, GlossaryTermWrite};
+use ipc::{CheckCommitFeature, Glossary, GlossaryEntry, GlossaryTermWrite};
 use store::{feature_link_kind, KeptFeatureLink, KeptTerm, SessionState, Store, WriteError};
 
 use super::committing::gives_message;
@@ -100,7 +100,7 @@ where
         }
         let terms = terms
             .into_iter()
-            .map(|term| GlossaryTerm { term: term.term, meaning: term.meaning, not: term.not, job: term.job, at: ipc::Instant::carried(term.at) })
+            .map(|term| GlossaryEntry { term: term.term, meaning: term.meaning, not: term.not, job: term.job, at: ipc::Instant::carried(term.at) })
             .collect();
         Ok(Glossary { project: chosen, terms })
     }

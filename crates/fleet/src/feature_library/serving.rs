@@ -76,6 +76,14 @@ where
         self.glossary_read(caller, project).await
     }
 
+    async fn get_project_overview(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
+        self.project_overview_read(caller, project).await
+    }
+
+    async fn get_since_you_looked(&self, caller: Option<api::Caller>, project: Option<String>, since: String) -> Result<ipc::SinceYouLooked, Refusal> {
+        self.since_looked_read(caller, project, since).await
+    }
+
     async fn get_feature_brief(&self, caller: Option<api::Caller>, project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
         self.feature_briefed(caller, project, feature).await
     }

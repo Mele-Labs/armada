@@ -20,6 +20,7 @@ mod feature_catalog;
 mod feature_library;
 mod librarian;
 mod floor_plan;
+mod project_pages;
 mod pre_pr;
 mod job_command;
 mod judge;

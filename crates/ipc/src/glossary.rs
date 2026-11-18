@@ -20,7 +20,7 @@ pub struct GlossaryTermWrite {
 
 /// One term of a project's glossary.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct GlossaryTerm {
+pub struct GlossaryEntry {
     pub term: String,
     pub meaning: String,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -34,5 +34,5 @@ pub struct GlossaryTerm {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Glossary {
     pub project: String,
-    pub terms: Vec<GlossaryTerm>,
+    pub terms: Vec<GlossaryEntry>,
 }
