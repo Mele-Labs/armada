@@ -24,6 +24,9 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Commits | Detected from `Feature:` trailer lines in git |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
+A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
+A live Job that holds none has stopped without ending, and drops off.
+A Job waiting on the person while it still holds its slot stays on it.
 An area holds features, and two levels are all there are.
 A feature belongs to one area.
 

@@ -25,7 +25,7 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
 pub(crate) const JOB_TAB_KINDS: &[&str] = &[
-    "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
+    "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "story", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
     "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "custom", "draft", "walk", "document", "subagent", "artifact",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
@@ -463,19 +463,23 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
     at
 }
 
-/// Today's Job arrangement: the thread, and to its right For you, Open, Done and Deferred as tabs of one pane over Now (Classic's
-/// `defaultArrangement`, with For you first and in front in the column).
+/// Today's Job arrangement: the thread with Story behind it as tabs of one pane, and to its right For you, Open, Done and
+/// Deferred as tabs of one pane over Now (Classic's `defaultArrangement`, with For you first and in front in the column, and
+/// the thread in front in its own).
 pub(crate) fn default_arrangement() -> Arrangement {
-    build(
+    let mut arrangement = build(
         &Shape::split(
             Dir::Row,
             0.62,
-            Shape::pane(&["thread"]),
+            Shape::pane(&["thread", "story"]),
             Shape::split(Dir::Column, 0.4, Shape::pane(&["for_you", "open", "done", "deferred"]), Shape::pane(&["now"])),
         ),
         None,
         &[],
-    )
+    );
+    // Story is placed already, so one he closes before the store answers is not put back.
+    arrangement.offered.push("story".to_string());
+    arrangement
 }
 
 // ---- Changing ---------------------------------------------------------------------------------------
@@ -1532,11 +1536,11 @@ mod tests {
             owner.rearrange(|x| add_tab(x, &x.focus, "files", Extras::default()), None, false);
             owner.rearrange(|x| add_tab(x, &x.focus, "plan", Extras::default()), None, false);
             owner.undo();
-            assert_eq!(kinds_of(&owner.now)[0], vec!["thread", "files"]);
+            assert_eq!(kinds_of(&owner.now)[0], vec!["thread", "story", "files"]);
             owner.undo();
             assert_eq!(owner.now, before);
             owner.redo();
-            assert_eq!(kinds_of(&owner.now)[0], vec!["thread", "files"]);
+            assert_eq!(kinds_of(&owner.now)[0], vec!["thread", "story", "files"]);
 
             let split = rects_of(&owner.now.root).splits[0].id.to_string();
             owner.rearrange(|x| Cow::Owned(resize_split(x, &split, 0.3)), Some("resize"), false);

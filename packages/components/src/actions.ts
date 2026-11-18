@@ -127,6 +127,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   "review sheet": [],
   // Kit's keys, in the native Bridge only: found from Settings → Keyboard and the caps along Kit's foot.
   kit: [],
+  // The Features tab's keys, in the native Bridge only: found from Settings → Keyboard.
+  features: [],
 };
 
 /**

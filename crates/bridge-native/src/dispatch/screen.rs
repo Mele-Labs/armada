@@ -767,6 +767,9 @@ impl DispatchScreen {
     pub fn live_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(layer) = self.layer.clone() else { return };
         layer.update(cx, |layer, cx| layer.forget_seeded(cx));
+        if let Some(fleet) = self.jobs.read(cx).list.read(cx).fleet() {
+            layer.update(cx, |layer, cx| layer.feature_source(crate::features::overlay::Source::Live(fleet), cx));
+        }
         match crate::annotate::store::dir() {
             Some(dir) => self.keep_notes(dir, window, cx),
             None => crate::toasts::tell("Notes are not saved: no repository found for this build", cx),
@@ -1108,5 +1111,26 @@ mod tests {
         assert_eq!(terminal_place(Some("sample-api".into()), scope_of(&all)), Some((Place::Repository("sample-api".into()), None)));
         all.chosen = Some(1);
         assert_eq!(terminal_place(None, scope_of(&all)), Some((Place::Repository("sample-web".into()), None)));
+    }
+
+    #[gpui::test]
+    fn a_live_layer_reads_its_features_from_fleet_once_live_notes_is_called(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            crate::init_app(cx);
+            crate::terminal::shells::hold_walk(cx);
+            crate::scene::mock_view::hold_walk(cx);
+            crate::titlebar::scenes::begin(cx);
+        });
+        let records = crate::mock::jobs("job-view").expect("the fixture decodes");
+        let fleet = cx.new(crate::fleet::FleetConnection::idle);
+        let list = cx.new(|cx| crate::jobs::JobsList::mock_over(&records, fleet, cx));
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+            DispatchScreen::new(jobs, &records, window, cx)
+        });
+        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("a development build mounts the layer");
+        assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
+        screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
+        assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");
     }
 }

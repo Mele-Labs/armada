@@ -231,6 +231,22 @@ async fn pushed(rig: &Rig, id: &SessionId, pull: &str) {
     rig.fleet.store().lock().await.attach(&row, false).expect("attached");
 }
 
+/// The Job stands in pool slot `slot`, as the ledger holds it.
+async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
+    let now = rig.fleet.now().as_str().to_string();
+    let row = KeptAttachment {
+        holder: Holder::session(id.as_str()),
+        kind: "slot".into(),
+        manifest_id: rig.manifest.as_str().to_string(),
+        target: slot.to_string(),
+        state: AttachmentState::Standing,
+        detail: Default::default(),
+        since: now.clone(),
+        changed_at: now,
+    };
+    rig.fleet.store().lock().await.attach(&row, false).expect("attached");
+}
+
 fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> WriteFeatureSections {
     WriteFeatureSections {
         feature: feature.to_string(),
@@ -336,12 +352,29 @@ async fn a_second_seed_keeps_the_date_a_feature_entered_the_catalog() {
 }
 
 #[tokio::test]
+async fn a_live_job_is_on_a_feature_only_while_it_holds_a_slot() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let at_work = an_agent_for(&rig, &project).await;
+    let stopped = an_agent_for(&rig, &project).await;
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+    wrote(&rig, &at_work, "crates/pages/voting/ranks.rs").await;
+    wrote(&rig, &stopped, "crates/pages/voting/ranks.rs").await;
+    held_slot(&rig, &at_work, "4").await;
+
+    let listed = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed");
+    let row = listed.areas[0].features.iter().find(|one| one.slug == VOTING).expect("the feature");
+    assert_eq!(row.jobs_now.iter().map(|one| one.session_id.clone()).collect::<Vec<_>>(), [at_work], "the live Job holding no slot is not on it");
+}
+
+#[tokio::test]
 async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_after_another_jobs_merge() {
     let rig = rig(None);
     let project = a_project(&rig).await;
     let id = an_agent_for(&rig, &project).await;
     rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    held_slot(&rig, &id, "4").await;
     rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &[FeatureSectionKind::Test])).await.expect("written");
 
     let listed = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed");

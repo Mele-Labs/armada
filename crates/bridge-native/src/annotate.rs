@@ -176,7 +176,11 @@ struct Menu {
     _dismissed: Subscription,
 }
 
+mod beside;
+
 pub struct Layer {
+    /// The features of the opened note: chips under its card and their page beside it.
+    beside: Entity<beside::Beside>,
     on: bool,
     /// The screen the layer sits over, where aim and a box may hold.
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -225,6 +229,7 @@ pub struct Layer {
 impl Layer {
     pub fn new(area: Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<Offered>, cx: &mut Context<Self>) -> Layer {
         Layer {
+            beside: beside::Beside::new(cx),
             on: false,
             area,
             screen: None,
@@ -1129,6 +1134,7 @@ impl Render for Layer {
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
             .children(pins)
             .children(opened)
+            .map(|root| beside::attach(root, self, window, cx))
             .children(panel)
             .child(self.bar(cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))

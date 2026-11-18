@@ -1049,6 +1049,7 @@ impl JobView {
                 None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
             },
         };
+        let kind = self.kind_chip(page, id, look, cx);
         let region = div()
             .id(SharedString::from(format!("you:{id}")))
             .flex()
@@ -1121,6 +1122,7 @@ impl JobView {
                             Role::Group,
                             "Message words",
                         ))
+                        .children(kind)
                         .child(band),
                 ),
             Role::Region,

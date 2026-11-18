@@ -64,8 +64,10 @@ is the back-fill by hand that this section existed to prevent.
 ⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
+⌥K       change the kind of a message of his in the open Job's thread: Bug, Change request, Idea, Fix, Revision, Answer, Question or Talk, in the native Bridge only
+⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
 ⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
-⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
+⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 ⌘D       split the focused pane of the open Job, the new pane to its right
@@ -210,6 +212,13 @@ Enter          open in editor   (kit only)
 /              filter   (kit only)
 a              add from a link   (kit only)
 PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
+j / k / ↓ / ↑  move between features   (features only)
+Enter          open the feature   (features only)
+/              filter   (features only)
+Tab / ⇧Tab     move between the parts of the page   (features only)
+← / →          move between chips   (features only)
+s              open the story of the ask   (features only)
+f              open the feature of this note   (features only)
 ```
 
 **The Cockpit's keys and a call in front have scopes of their own**, `dashboard`
@@ -270,6 +279,23 @@ field and while a dialog is up.
 `⌘Z` is the `pane_undo` act, which restores the skill removed last.
 The bare keys stand down in the filter, the add box and the file's text box, which take them as typing.
 What stays in Kit's own screen, since it is a state of the screen and not a key: `Esc` and `Enter` on the question before a plugin is removed, `Esc` and `Enter` in the add box, `Esc` and `⌘S` while a file is edited, and `Esc` out of the filter.
+
+**The Features tab has a scope of its own, `features`, in the native Bridge.**
+`j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
+The bare keys stand down in the filter, which takes them as typing, and `Esc` gives the keys back to the list.
+A feature's page has three parts, the list of sections, the filter chips and the rows, which `Tab` and `⇧Tab` move between; `j`, `k` and the arrows move the section or the row, `←` and `→` move along the chips and `Enter` applies the chip.
+On an ask, `Enter` or `s` opens the Job it came from on its Story tab at that ask, as a press on the row's Story link does.
+The asks show five rows and a line below them, Earlier, folded, which `Enter` opens; `Esc` folds them again before it leaves the page.
+
+**A note's card in the annotation layer takes the `features` key `f`.**
+It opens the page of the feature the note's element belongs to beside the card, and the next feature on a press where the note maps to several.
+`Tab` reaches each feature's chip and `Enter` opens it; `Esc` closes the page before it closes the card.
+
+**A Job's Story tab takes the `features` keys.**
+`j`, `k` and the arrows move between the ask heads, `Enter` folds or unfolds the ask the keys are on, and one ask is unfolded at a time.
+`Tab` and `⇧Tab` go between the heads and the Filed under rows of the unfolded ask, where `j` and `k` move and `Enter` opens the feature's page; `Esc` goes back to the heads.
+**One overlay holds what opens from a Story or a feature's page.** A page opened from a Filed under row, and a Story opened from a page's Story link, replace each other on one stack, so there is never a second layer.
+`Esc` and Back go back one, and the last closes the overlay.
 
 **The flight deck is the Cockpit, and its keys are in the `deck` scope (#2301).**
 The deck takes `w` and `?` and a list's `j`, `k` and `Enter`; the acts that need a row in

@@ -202,14 +202,16 @@ where
         Ok(FeatureLibrary { project: chosen, areas })
     }
 
-    /// The live Jobs that filed a file under each feature of the project.
+    /// The Jobs on each feature of the project: those that filed a file under it and are live and
+    /// hold a worktree slot now, the fact `list_jobs` shows as `slot`. A live Job holding none has
+    /// stopped without ending, and is not at work on anything.
     fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
         let pairs = store.feature_job_pairs(project).map_err(|why| self.feature_fault(why))?;
         let jobs: BTreeSet<&str> = pairs.iter().map(|(_, job)| job.as_str()).collect();
         let mut live: BTreeMap<String, String> = BTreeMap::new();
         for job in jobs {
             if let Ok(Some(session)) = store.session(job) {
-                if session.state == store::SessionState::Live {
+                if session.state == store::SessionState::Live && holds_a_slot(store, job) {
                     live.insert(job.to_string(), session.title.unwrap_or_else(|| job.to_string()));
                 }
             }
@@ -317,6 +319,15 @@ where
         let text = condensed(&facts);
         Ok(FeatureBrief { feature: feature.slug.clone(), tokens: tokens_of(&text), text })
     }
+}
+
+/// Whether `job` has a standing `slot` row in the ledger, which is what `list_jobs` reads as its `slot`.
+fn holds_a_slot(store: &Store, job: &str) -> bool {
+    store
+        .attachments_of(&store::Holder::session(job))
+        .unwrap_or_default()
+        .iter()
+        .any(|one| one.kind == "slot" && one.state == store::AttachmentState::Standing)
 }
 
 fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
