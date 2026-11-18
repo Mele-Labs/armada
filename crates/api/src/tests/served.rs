@@ -494,6 +494,31 @@ async fn the_413_for_a_shown_file_names_only_text_and_pictures() {
     assert!(!refused.message.to_lowercase().contains("video"), "{}", refused.message);
 }
 
+/// A body past axum's default cap is turned away by the extractor with bare text; Fleet answers it
+/// as a `WireError` that names the route and the sizes.
+#[tokio::test]
+async fn an_oversized_body_is_refused_as_a_wire_error_naming_the_route() {
+    let events = Broadcaster::new();
+    let app = wired(FakeDaemon::new(events.clone()), events);
+    let body = "a".repeat(3 * 1024 * 1024);
+    let request = Request::builder()
+        .method("POST")
+        .uri("/sessions/start")
+        .header("content-type", "application/json")
+        .header("content-length", body.len().to_string())
+        .body(Body::from(body))
+        .expect("a well-formed request");
+    let response = app.oneshot(request).await.expect("an answer");
+    assert_eq!(response.status(), StatusCode::PAYLOAD_TOO_LARGE);
+    let said = response.into_body().collect().await.expect("a body").to_bytes();
+    let refused: WireError = ipc::decode("a refusal", &said).expect("a wire error");
+    assert_eq!(refused.code, "request.too_large");
+    assert_eq!(
+        refused.message,
+        "Fleet takes at most 2 MB on /sessions/start, and this request was 3 MB."
+    );
+}
+
 #[tokio::test]
 async fn the_phone_switch_is_read_and_set_over_the_router() {
     let events = Broadcaster::new();
