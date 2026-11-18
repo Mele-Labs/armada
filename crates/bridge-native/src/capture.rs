@@ -857,7 +857,7 @@ mod tests {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
-        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: false };
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: false, pages: false };
         let (capture, cx) = cx.add_window_view(|_, cx| Capture::new(Rc::new(Cell::new(None)), words, None, cx));
         let heard = Rc::new(std::cell::RefCell::new(Vec::new()));
         cx.update(|window, cx| {
