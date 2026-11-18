@@ -584,7 +584,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route(
             "/sessions/dispatch",
-            post(crate::hosted_sessions::dispatch_job::<D>),
+            post(crate::hosted_sessions::dispatch_job::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
         )
         .route(
             "/sessions/parked",
@@ -931,6 +935,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/write_sections", post(crate::features::write_feature_sections::<D>))
         .route("/features/upsert", post(crate::features::upsert_features::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
+        .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))

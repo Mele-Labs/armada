@@ -384,6 +384,17 @@ pub trait Forge {
         ask: &crate::ReviewListAsk<'_>,
     ) -> Result<Vec<crate::ListedPull>, crate::ListFailure>;
 
+    /// The open ones of `pulls`, read by number as rows of a list are, each carrying `login`'s
+    /// latest review: pull requests Fleet knows of that no list names. **One forge call** for all of
+    /// them. A closed or merged one is left out, in no order. `None` is the forge's silence, for
+    /// [`landed`](crate::Delivery::landed)'s reason.
+    fn open_pulls_numbered(
+        &self,
+        in_repo: &str,
+        login: &str,
+        pulls: &[crate::NumberedPull],
+    ) -> Option<Vec<crate::ListedPull>>;
+
     /// Resolve a conversation on a pull request's diff, or open it again. **A write to the forge,
     /// taken at once and seen by everyone watching**, so only from a person's press. Answers
     /// whether the thread is now resolved, as the forge holds it. `Err` is the forge's own

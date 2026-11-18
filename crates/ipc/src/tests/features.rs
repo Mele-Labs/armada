@@ -76,3 +76,21 @@ fn an_act_names_its_feature_as_one_slug_or_a_list() {
     let shown: crate::ShowWindow = decode("a window", br#"{"url":"http://localhost:5173/","feature":["a"]}"#).expect("decoded");
     assert_eq!(shown.feature.map(|names| names.slugs()), Some(vec!["a".to_string()]));
 }
+
+#[test]
+fn the_librarian_names_nine_parts_and_says_where_it_stands() {
+    use crate::{FeatureLibrary, LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+    assert_eq!(shape::of::<RunLibrarian>(), "{project: string}");
+    assert_eq!(
+        shape::of::<LibrarianRan>(),
+        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number}"
+    );
+    assert_eq!(shape::of::<LibrarianState>(), "{last_run?: string, read_through?: number, merged_since?: [number]}");
+    assert!(shape::of::<FeatureLibrary>().contains("librarian?: {last_run?: string, read_through?: number, merged_since?: [number]}"));
+    assert_eq!(LibrarianPart::ALL.len(), 9);
+    for part in LibrarianPart::ALL {
+        assert_eq!(LibrarianPart::from_name(part.name()), Some(part), "{} reads back by its name", part.name());
+    }
+    let share: Vec<&str> = LibrarianPart::ALL.into_iter().filter(|one| one.spends_model_share()).map(LibrarianPart::name).collect();
+    assert_eq!(share, ["drift", "since_you_looked", "gists"], "the model-written parts are the ones a night's share bounds");
+}

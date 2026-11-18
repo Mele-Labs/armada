@@ -31,6 +31,14 @@ pub struct KeptReviewRun {
     pub holder: Option<String>,
 }
 
+/// A pull request something was run on, and when the latest run started.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct RunPull {
+    pub manifest_id: String,
+    pub number: u64,
+    pub latest: String,
+}
+
 const COLUMNS: &str = "manifest_id, number, head, kind, name, label, state, started_at, finished_at, \
                        failed, result, cost_micros, slot, holder";
 
@@ -120,6 +128,35 @@ impl Store {
             .map_err(unreadable)?;
         let rows = statement
             .query_map(rusqlite::params![manifest_id, i64::try_from(number).unwrap_or(i64::MAX)], kept)
+            .map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Each pull request with a run of one of `kinds`, at any head and in any state, as its
+    /// repository, number and latest start, newest first. A search is kept under number 0, so is
+    /// never one.
+    pub fn review_run_pulls(&self, kinds: &[&str]) -> Result<Vec<RunPull>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading the pull requests run on")(why));
+        if kinds.is_empty() {
+            return Ok(Vec::new());
+        }
+        let marks = vec!["?"; kinds.len()].join(", ");
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT manifest_id, number, MAX(started_at) AS latest FROM review_runs \
+                 WHERE number > 0 AND kind IN ({marks}) GROUP BY manifest_id, number \
+                 ORDER BY latest DESC, manifest_id, number"
+            ))
+            .map_err(unreadable)?;
+        let rows = statement
+            .query_map(rusqlite::params_from_iter(kinds), |row| {
+                Ok(RunPull {
+                    manifest_id: row.get(0)?,
+                    number: row.get::<_, i64>(1)?.try_into().unwrap_or_default(),
+                    latest: row.get(2)?,
+                })
+            })
             .map_err(unreadable)?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
     }

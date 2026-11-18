@@ -8,7 +8,7 @@ import type { PullInbox, PullMyReview, PullSeen } from "./pull-review-memory";
 import type { PullReviewHolder } from "./review-runs";
 
 /** The four lists. A pull request can be on several. */
-export type PullReviewList = "requested" | "team" | "assigned" | "mine";
+export type PullReviewList = "requested" | "team" | "assigned" | "mine" | "reviewing";
 
 /** What a row's forge checks have come to. Not Armada's Checks. */
 export type PullReviewChecks = "passed" | "failed" | "running";
@@ -44,6 +44,8 @@ export type PullReviewRow = {
   my_review?: PullMyReview;
   /** Where it stands in his inbox, worked out by Fleet. Absent from a Fleet before it, read as `needs_first_look`. */
   inbox?: PullInbox;
+  /** He ran a review tool on it in Armada, at any head. On a row of any list. Absent is false. */
+  reviewing?: boolean;
 };
 
 /** `get_review_lists`: read when the Reviews tab opens and on Refresh, never polled. At most `MOST_PER_LIST` a list. */
@@ -56,6 +58,8 @@ export type PullReviewLists = {
   team: PullReviewRow[];
   assigned: PullReviewRow[];
   mine: PullReviewRow[];
+  /** Open pull requests he ran a review tool on that are on none of the four lists, newest run first. Absent is empty. */
+  reviewing?: PullReviewRow[];
   /** The lists the forge would not answer. Their rows are empty and say nothing: keep what was last held. */
   silent?: PullReviewList[];
 };

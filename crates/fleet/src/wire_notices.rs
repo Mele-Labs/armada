@@ -158,22 +158,29 @@ where
     }
 }
 
-/// For each changed type the worktrees name, where: when one of them changes a file the wire is
-/// read from, since a branch that does not has nothing to adjust, and none already has `merged`.
+/// For each changed type the worktrees name, where: only in the files a worktree's branch changed
+/// under the wire's readers, since a file it did not change is not its to adjust, and in no
+/// worktree that already has `merged`.
 fn readers_of(worktrees: &[PathBuf], base: &str, types: &[TypeChange], merged: Option<&str>) -> Vec<(String, Vec<String>)> {
-    let reading: Vec<&PathBuf> = worktrees
+    let reading: Vec<(&PathBuf, Vec<String>)> = worktrees
         .iter()
         .filter(|worktree| !merged.is_some_and(|commit| adapters::clash::has_in_history(worktree, commit)))
-        .filter(|worktree| {
-            changed_since_base(worktree, base)
-                .is_ok_and(|changed| changed.iter().any(|path| READERS.iter().any(|dir| path.starts_with(&format!("{dir}/")))))
+        .filter_map(|worktree| {
+            let changed = changed_since_base(worktree, base).ok()?;
+            let theirs: Vec<String> = changed
+                .into_iter()
+                .filter(|path| READERS.iter().any(|dir| path.starts_with(&format!("{dir}/"))))
+                .map(|path| format!(":(literal){path}"))
+                .collect();
+            (!theirs.is_empty()).then_some((worktree, theirs))
         })
         .collect();
     let mut reads = Vec::new();
     for change in types {
         let mut at: Vec<String> = Vec::new();
-        for worktree in &reading {
-            for place in adapters::clash::named_in(worktree, &change.name, &READERS, PLACES).unwrap_or_default() {
+        for (worktree, changed) in &reading {
+            let under: Vec<&str> = changed.iter().map(String::as_str).collect();
+            for place in adapters::clash::named_in(worktree, &change.name, &under, PLACES).unwrap_or_default() {
                 if !at.contains(&place) {
                     at.push(place);
                 }
