@@ -51,7 +51,9 @@ A card never holds a count or a status report.
 | Press Review on a card for a Job's plan, sketch, document or draft, or its key 1 | The Review panel opens over the page with that item chosen, and the Operator's read and pick above it. The card stays in front until he answers in the panel. Esc shuts the panel and gives the keys back to the card |
 | Answer a Job's build to try | The Job's own Ready to try card stands in the card's place, as the Job's thread draws it, with no Operator frame: Looks good, Needs rework, Show me how, Remind me and Refresh preview, answered as in the thread. Keys 1 to 3 are Looks good, Needs rework and Show me how. The card keeps its whole height, and the talk gives up room for it. Its chip in Next up reads Ready to try |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
-| Send in the composer | His words join the talk under the card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
+| Send in the composer with the tag | His words join the talk under the card as a talk about that card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
+| Send in the composer with no tag and no kind chip | His words are a talk to the Operator about no card (`talk_to_operator` with no `about`). They join the same talk with no `About:` row, and the Operator answers there. No card settles for them. A talk carries words only |
+| Send in the composer with Idea, Feature or Bug picked | His words are work for the Operator: a dispatch with that kind, which the Operator may start, fold into a live Job, ask about or keep as an idea. A toast says which |
 | Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |
 | Show (`⌘Enter`) on the new-card strip | The newest card that came comes in front, open, and the strip goes |
 | Snooze (`S`) | The card goes back until its time, hidden until then |
@@ -276,7 +278,7 @@ The code that served them is removed, and Fleet rules nothing now.
 | The Policy and its one-shot call | A fresh call for each arrival, with no tools | One long-running session with Fleet's tools |
 | Your turn rulings | Each arrival ruled into a way: start, send, raise, file, close, group, leave | The Operator acts by the project's `operator_acts` and raises a card for what is yours |
 | Rulings from precedent | A question answered by following one of his earlier answers, with Undo | None. A question stays in its Job's Needs you |
-| Kind chips | Idea, feature or bug marked on a dispatch as a hint to route it | Nothing routes by it |
+| Kind chips | Idea, feature or bug marked on a dispatch as a hint to route it | A chip picked makes a send a dispatch, and nothing routes by its kind |
 | Auto-starts from reports | A bug report ruled into a Job at once | The report reaches the Operator as a message |
 | The per-item review | A reading call on each plan, pull request and walk before it reached Your turn | None. A plan, a pull request and a walk wait in their Job's own Needs you |
 | Yes, Always here, Always and No | Four answers to each go-ahead, and the rules kept from them | Options on a card, and `operator_acts` for each project |

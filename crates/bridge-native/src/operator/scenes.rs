@@ -221,7 +221,7 @@ impl MockFleet {
     }
 
     /// The Operator answers the words it was sent last, in its thread, and where they were about a card raises one that
-    /// carries on from it: the walk's second card, with its own options.
+    /// carries on from it: the walk's second card, with its own options. Words about no card get an answer and no card.
     pub fn said(&mut self) -> Option<()> {
         let (words, about) = self.heard.pop()?;
         let n = self.thread.items.len();
@@ -230,7 +230,11 @@ impl MockFleet {
             None => words,
         };
         self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &said));
-        self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files."));
+        let answer = match &about {
+            Some(_) => "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files.",
+            None => "Pocket, Jobs screens and the desktop_unit fix are running. None of them waits on you.",
+        };
+        self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", answer));
         if let Some(about) = about {
             let wire = format!(
                 r#"{{"id":"turn:36","kind":"decision","manifest_id":"armada","repository":"armada","item":{{"id":"card:0024","text":"Hold Pocket for 20 minutes or move its change","since":"2026-11-11T13:09:30-05:00","source":"agent","act":{{"kind":"answer","target":"card:0024"}},"options":[{{"label":"Hold Pocket for 20 minutes","description":"Pocket waits"}},{{"label":"Move its change into Jobs screens","description":"Pocket ends"}}]}},"read":{{"read":"You asked about the two Jobs on paging.rs. Both ways avoid the conflict.","pick":"Hold Pocket for 20 minutes"}},"raised_at":"2026-11-11T13:09:30-05:00","card":{{"kind":"raise","talk_of":"{about}","sessions":["mock-05"]}}}}"#

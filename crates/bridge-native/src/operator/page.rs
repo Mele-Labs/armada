@@ -75,7 +75,9 @@ pub struct OperatorPageView {
     /// The Jobs' titles, by id, which a card's chips read.
     pub(super) titles: HashMap<String, String>,
     pub(super) talk: Option<Talk>,
-    /// The box under the card, whose send is a dispatch, or a talk where it holds a tag.
+    /// What he sent to the Operator about no card that the thread has not echoed yet, drawn as his own message.
+    pub(super) loose: Option<SharedString>,
+    /// The box under the card, whose send is a talk, about the card its tag names, or a dispatch with a kind chip picked.
     pub(super) composer: Entity<OperatorComposer>,
     /// The ideas the Operator kept for later: Next up lists them after the cards.
     pub(super) parked: Entity<ParkedIdeas>,
@@ -197,6 +199,7 @@ impl OperatorPageView {
             refused: None,
             titles: HashMap::new(),
             talk: None,
+            loose: None,
             composer,
             parked,
             idea_front: None,
@@ -1014,6 +1017,8 @@ impl OperatorPageView {
         if let Some(talk) = self.talk.as_mut() {
             talk.sent = Some(words.clone().into());
         }
+        // Only his last send waits to be echoed.
+        self.loose = None;
         // A send folds the card he had opened, and the talk shows its end.
         self.unfolded = false;
         self.read_thread(cx);
@@ -1035,6 +1040,40 @@ impl OperatorPageView {
                     if let Some(talk) = this.talk.as_mut() {
                         talk.sent = None;
                     }
+                    composer.update(cx, |composer, cx| composer.refuse(why, cx));
+                    cx.notify();
+                }
+            });
+        })
+        .detach();
+    }
+
+    /// A talk to the Operator about no card, as he sent words with no tag and no kind chip: they go in the talk under the
+    /// card with no About row, and no card folds or settles for them.
+    fn talk_loose(&mut self, words: String, window: &mut Window, cx: &mut Context<Self>) {
+        self.loose = Some(words.clone().into());
+        if let Some(talk) = self.talk.as_mut() {
+            talk.sent = None;
+        }
+        let unfolded = self.unfolded;
+        self.read_thread(cx);
+        self.sync_talk(cx);
+        self.unfolded = unfolded;
+        self.talk_list.set_follow_mode(FollowMode::Tail);
+        cx.notify();
+        let task = self.wire.say(words, None, cx);
+        let Some(task) = task else {
+            self.composer.update(cx, |composer, cx| composer.sent(window, cx));
+            return;
+        };
+        let composer = self.composer.clone();
+        cx.spawn_in(window, async move |this, cx| {
+            let said = task.await;
+            let _ = this.update_in(cx, |this, window, cx| match said {
+                Ok(_) => composer.update(cx, |composer, cx| composer.sent(window, cx)),
+                Err(why) => {
+                    this.loose = None;
+                    this.sync_talk(cx);
                     composer.update(cx, |composer, cx| composer.refuse(why, cx));
                     cx.notify();
                 }
@@ -1327,7 +1366,8 @@ impl OperatorPageView {
         match event {
             Composed::Leave => window.focus(&self.focus, cx),
             Composed::Send(out) => self.dispatch(out.clone(), window, cx),
-            Composed::Talk { words, about } => self.talk_about(words.clone(), about.clone(), window, cx),
+            Composed::Talk { words, about: Some(about) } => self.talk_about(words.clone(), about.clone(), window, cx),
+            Composed::Talk { words, about: None } => self.talk_loose(words.clone(), window, cx),
         }
     }
 
@@ -1484,6 +1524,7 @@ impl OperatorPageView {
                 if let Some(talk) = self.talk.as_mut() {
                     talk.sent = None;
                 }
+                self.loose = None;
                 // The card it raised arrives with the page, once, and raises no toast.
                 if let Some(seen) = self.seen.as_mut() {
                     seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
@@ -1683,6 +1724,26 @@ mod tests {
         page.update(cx, |page, _| {
             assert_eq!(page.talk.as_ref().map(|talk| talk.about.as_str()), Some("turn:31"));
             assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Why hold Pocket?".to_string(), Some("turn:31".to_string()))]);
+        });
+    }
+
+    #[gpui::test]
+    fn a_talk_about_no_card_goes_with_no_id_settles_nothing_and_its_answer_follows_in_the_talk(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update_in(cx, |page, window, cx| page.talk_loose("Which Jobs are running now?".into(), window, cx));
+        page.update(cx, |page, _| {
+            assert!(page.talk.is_none(), "no card is talked about");
+            assert_eq!(page.mock_fleet().expect("the walk's Fleet").heard, vec![("Which Jobs are running now?".to_string(), None)]);
+            use super::super::talk::Said;
+            assert!(matches!(&page.talk_said[..], [Said::You { at: None, .. }]), "his words with no About row: {:?}", page.talk_said);
+        });
+        page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
+        page.update(cx, |page, _| {
+            use super::super::talk::Said;
+            assert!(matches!(&page.talk_said[..], [Said::You { at: Some(_), .. }, Said::Operator { .. }]), "his words once, then the answer: {:?}", page.talk_said);
+            assert!(page.talk_cards().is_empty(), "no card is raised");
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"), "the card in front stands");
+            assert!(page.mock_fleet().expect("the walk's Fleet").pressed.is_empty());
         });
     }
 

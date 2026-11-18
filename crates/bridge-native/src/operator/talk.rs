@@ -41,8 +41,8 @@ pub(super) enum Said {
 }
 
 /// What the talk draws: the thread's messages, his send not echoed yet, and the cards raised in the talk. An About row stands
-/// before his words whenever the card they are about is not the one his last words were about.
-pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, &str, &str)>, raised: Vec<String>) -> Vec<Said> {
+/// before his words whenever the card they are about is not the one his last words were about; words about no card have none.
+pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, Option<(&str, &str)>)>, raised: Vec<String>) -> Vec<Said> {
     let mut said = Vec::new();
     let mut about: Option<String> = None;
     let mut turned = |said: &mut Vec<Said>, card: Option<(&str, &str)>| match card {
@@ -70,8 +70,8 @@ pub(super) fn said_of(items: &[ThreadItem], sent: Option<(&str, &str, &str)>, ra
             _ => {}
         }
     }
-    if let Some((words, card, title)) = sent.filter(|(words, ..)| last_words.map(str::trim) != Some(words.trim())) {
-        turned(&mut said, Some((card, title)));
+    if let Some((words, card)) = sent.filter(|(words, _)| last_words.map(str::trim) != Some(words.trim())) {
+        turned(&mut said, card);
         said.push(Said::You { id: "sent".into(), at: None, words: words.to_string().into() });
     }
     said.extend(raised.into_iter().map(Said::Raised));
@@ -83,7 +83,11 @@ impl OperatorPageView {
     /// grew folds the card he had opened beside it.
     pub(super) fn sync_talk(&mut self, cx: &App) {
         let session = self.page.as_ref().and_then(|page| page.session_id.clone());
-        let sent = self.talk.as_ref().and_then(|talk| talk.sent.as_ref().map(|sent| (sent.to_string(), talk.about.clone(), talk.title.to_string())));
+        // His last send not echoed yet: words about no card, else words about the card the talk is about.
+        let sent = match &self.loose {
+            Some(words) => Some((words.to_string(), None)),
+            None => self.talk.as_ref().and_then(|talk| talk.sent.as_ref().map(|sent| (sent.to_string(), Some((talk.about.clone(), talk.title.to_string()))))),
+        };
         let raised = self.talk_cards().into_iter().map(|turn| turn.id.clone()).collect();
         let said = {
             let items: &[ThreadItem] = match (&self.wire, &session) {
@@ -91,7 +95,7 @@ impl OperatorPageView {
                 (Wire::Live(_), None) => &[],
                 (Wire::Mock(mock), _) => mock.thread.items.as_slice(),
             };
-            said_of(items, sent.as_ref().map(|(words, about, title)| (words.as_str(), about.as_str(), title.as_str())), raised)
+            said_of(items, sent.as_ref().map(|(words, card)| (words.as_str(), card.as_ref().map(|(about, title)| (about.as_str(), title.as_str())))), raised)
         };
         if said == self.talk_said {
             return;
@@ -330,10 +334,17 @@ mod tests {
     #[test]
     fn a_send_not_echoed_yet_is_his_and_once_echoed_is_drawn_once() {
         let items = vec![row("1", "you", "[About card turn:7 \"Main is red\"]\nWhy?")];
-        let said = said_of(&items, Some(("Why?", "turn:7", "Main is red")), Vec::new());
+        let said = said_of(&items, Some(("Why?", Some(("turn:7", "Main is red")))), Vec::new());
         assert_eq!(said.iter().filter(|one| matches!(one, Said::You { .. })).count(), 1);
-        let said = said_of(&[], Some(("Why?", "turn:7", "Main is red")), vec!["turn:9".into()]);
+        let said = said_of(&[], Some(("Why?", Some(("turn:7", "Main is red")))), vec!["turn:9".into()]);
         assert!(matches!(&said[..], [Said::About { .. }, Said::You { at: None, .. }, Said::Raised(_)]), "{said:?}");
+    }
+
+    #[test]
+    fn words_about_no_card_follow_a_card_talk_with_no_about_row() {
+        let items = vec![row("1", "you", "[About card turn:7 \"Main is red\"]\nWhy?"), row("2", "agent", "A flaky test.")];
+        let said = said_of(&items, Some(("Which Jobs are running?", None)), Vec::new());
+        assert!(matches!(&said[..], [Said::About { .. }, Said::You { .. }, Said::Operator { .. }, Said::You { at: None, .. }]), "{said:?}");
     }
 
     #[test]

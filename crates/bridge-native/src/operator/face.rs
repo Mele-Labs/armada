@@ -37,12 +37,12 @@ pub fn dispatch_kind(kind: ipc::DispatchKind) -> Kind {
     }
 }
 
-/// What the chip's tooltip says: the word is a hint and nothing is decided by it.
+/// What the chip's tooltip says: picked, it turns the send into work for the Operator.
 pub fn dispatch_kind_tip(kind: ipc::DispatchKind) -> &'static str {
     match kind {
-        ipc::DispatchKind::Idea => "A hint that this is an idea. The Operator decides what happens to it",
-        ipc::DispatchKind::Feature => "A hint that this is a feature. The Operator decides what happens to it",
-        ipc::DispatchKind::Bug => "A hint that this is a bug. The Operator decides what happens to it",
+        ipc::DispatchKind::Idea => "Send it as an idea, work for the Operator to act on",
+        ipc::DispatchKind::Feature => "Send it as a feature, work for the Operator to act on",
+        ipc::DispatchKind::Bug => "Send it as a bug, work for the Operator to act on",
     }
 }
 
