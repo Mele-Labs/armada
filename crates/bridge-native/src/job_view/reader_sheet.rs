@@ -696,6 +696,8 @@ mod tests {
     #[gpui::test]
     fn cmd_enter_in_an_ask_for_changes_box_sends_the_note(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
+        // The app's own keys: the registry binds ⌘↵ as Send everywhere, as main.rs installs it.
+        cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
         view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
         redraw(cx);
         cx.simulate_input("Shorter, please.");
