@@ -368,7 +368,9 @@ impl FeaturesScreen {
         let Some(page) = self.page.clone() else { return };
         let hue = self.opened.as_deref().and_then(|slug| self.listed.find(slug)).map(|at| self.hue_of(&self.listed.shown[at].row.area));
         let inset = self.inset(cx);
+        let flush = !self.stacked;
         page.update(cx, |page, cx| {
+            page.set_flush(flush, cx);
             if let Some(hue) = hue {
                 page.set_hue(Some(hue), cx);
             }

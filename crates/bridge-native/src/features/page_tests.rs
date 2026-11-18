@@ -5,6 +5,7 @@ use ipc::{AskState, FeatureLinkKind};
 use super::page::{FeaturePageView, Load, Region};
 use super::page_model::{self, Body, Chip, Section, Standing};
 use super::{looked, mock};
+use crate::look::ActiveLook as _;
 
 const SLUG: &str = "start-a-job";
 
@@ -389,4 +390,37 @@ fn the_page_draws_bones_while_it_is_read_and_its_sections_once_it_answers(cx: &m
     cx.run_until_parked();
     assert!(drawn(cx, Role::Region, "Code"));
     assert_eq!(page.read_with(cx, |page, _| page.entries.len()), 10);
+}
+
+/// The corner radius of this element as last drawn (the page has no window root to clear the book each frame, so the last one stands).
+fn radius(cx: &mut VisualTestContext, role: Role, name: &str) -> Option<gpui::Pixels> {
+    cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|drawn| drawn.role == role && drawn.name == name).and_then(|drawn| drawn.radius))
+}
+
+#[gpui::test]
+fn what_is_painted_flush_against_a_rounded_parent_rounds_its_own_corners_to_the_inner_radius(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    page.update(cx, |page, cx| {
+        page.select(Section::Bugs, cx);
+        page.set_flush(true, cx);
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    let (panel, card) = cx.update(|_, cx| {
+        let look = cx.look().clone();
+        (crate::reviews::panel_inner_radius(&look), crate::reviews::card_inner_radius(&look))
+    });
+    assert!(panel > gpui::px(0.) && card > gpui::px(0.));
+    assert_eq!(radius(cx, Role::Region, "Feature band"), Some(panel), "the band sits on the page panel's top edge");
+    for head in ["On it now", "Who worked on it", "Asks", "Designs", "Code", "How to test it", "How it runs"] {
+        assert_eq!(radius(cx, Role::Heading, head), Some(card), "{head} sits on its card's top edge");
+    }
+    assert_eq!(radius(cx, Role::Image, "Stale since #3692"), Some(card), "a stale mark is the card's first child");
+    assert_eq!(radius(cx, Role::Heading, "How to observe it"), None, "a head under the stale mark is not on the edge");
+}
+
+#[gpui::test]
+fn a_band_under_a_back_row_is_not_on_the_panels_edge_and_keeps_square_corners(cx: &mut TestAppContext) {
+    let (_page, cx) = open(cx);
+    assert_eq!(radius(cx, Role::Region, "Feature band"), Some(gpui::px(0.)));
 }

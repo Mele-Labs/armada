@@ -9,6 +9,7 @@ use super::page::{FeaturePageView, Load, Region};
 use super::page_model::{Body, Chip, Code, Item, Row, Section, Written};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
+use crate::reviews::{card_inner_radius, panel_inner_radius};
 use crate::settings::view::{bone, ring_colour, tip};
 use crate::titlebar::parts::{mono, sans};
 
@@ -53,7 +54,7 @@ fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> St
 }
 
 /// A card's title (`h3`): on a ground a little under the card's own, or in the running hue for the card that says what runs.
-fn head(look: &Look, key: &str, title: &str, running: bool) -> impl IntoElement {
+fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl IntoElement {
     let (ground, ink, edge) = if running {
         (tint(look, look.color(token::BG_BASE), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
     } else {
@@ -69,6 +70,7 @@ fn head(look: &Look, key: &str, title: &str, running: bool) -> impl IntoElement 
             .py(look.length(token::SPACE_2) + px(2.))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(edge)
+            .when(first, |head| head.rounded_t(card_inner_radius(look)))
             .bg(ground)
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
@@ -115,7 +117,7 @@ fn empty_card(look: &Look, key: &str, title: &str) -> AnyElement {
         Role::Label,
         said,
     );
-    labelled(shell(look, SharedString::from(format!("feature-card-{key}")), false, false).child(head(look, key, title, false)).child(line), Role::Region, title.to_string()).into_any_element()
+    labelled(shell(look, SharedString::from(format!("feature-card-{key}")), false, false).child(head(look, key, title, false, true)).child(line), Role::Region, title.to_string()).into_any_element()
 }
 
 impl FeaturePageView {
@@ -156,9 +158,10 @@ impl FeaturePageView {
             Role::Button,
             "Start a Job on it",
         );
-        div()
+        let outer = if self.flush { panel_inner_radius(look) } else { px(0.) };
+        let inner = (outer - look.length(token::EDGE_ACTIVE)).max(px(0.));
+        let band = div()
             .id("feature-top")
-            .relative()
             .flex_none()
             .flex()
             .items_start()
@@ -168,8 +171,8 @@ impl FeaturePageView {
             .pb(look.length(token::SPACE_4) + px(2.))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
+            .rounded_t(inner)
             .bg(tint(look, look.color(token::BG_RAISED), hue, 0.08))
-            .child(div().absolute().top_0().left_0().right_0().h(look.length(token::EDGE_ACTIVE)).bg(look.color(hue)))
             .child(
                 div()
                     .flex_1()
@@ -210,7 +213,9 @@ impl FeaturePageView {
                             .children(current.map(|current| div().id("feature-current").text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(current)))),
                     ),
             )
-            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).child(start))
+            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).child(start));
+        // The hue rule follows the panel's curve: the band's own ground sits a rule's width inside a coloured one.
+        labelled(div().id("feature-band").flex_none().rounded_t(outer).bg(look.color(hue)).pt(look.length(token::EDGE_ACTIVE)).child(band), Role::Region, "Feature band")
     }
 
     // ---- rows --------------------------------------------------------------------------------
@@ -309,7 +314,7 @@ impl FeaturePageView {
             for (at, row) in rows.iter().take(on).enumerate() {
                 list = list.child(self.render_row(Section::Who, at, row, at == 0, Some(running_edge), look, cx));
             }
-            who = who.child(labelled(shell(look, "feature-card-on", ring, true).child(head(look, "on", "On it now", true)).child(list), Role::Region, "On it now"));
+            who = who.child(labelled(shell(look, "feature-card-on", ring, true).child(head(look, "on", "On it now", true, true)).child(list), Role::Region, "On it now"));
         } else {
             who = who.child(empty_card(look, "on", "On it now"));
         }
@@ -318,7 +323,7 @@ impl FeaturePageView {
             for (at, row) in rows.iter().enumerate().skip(on) {
                 list = list.child(self.render_row(Section::Who, at, row, at == on, None, look, cx));
             }
-            who = who.child(labelled(shell(look, "feature-card-who", ring, false).child(head(look, "who", Section::Who.title(), false)).child(list), Role::Region, Section::Who.title()));
+            who = who.child(labelled(shell(look, "feature-card-who", ring, false).child(head(look, "who", Section::Who.title(), false, true)).child(list), Role::Region, Section::Who.title()));
         } else {
             who = who.child(empty_card(look, "who", Section::Who.title()));
         }
@@ -378,7 +383,7 @@ impl FeaturePageView {
     /// The asks of the three kinds in one card, each kind under its own chip (`.lane-h`).
     fn render_asks(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let ring = self.under_keys(&[Section::Bugs, Section::Changes, Section::Ideas], window);
-        let card = shell(look, "feature-card-asks", ring, false).child(head(look, "asks", "Asks", false));
+        let card = shell(look, "feature-card-asks", ring, false).child(head(look, "asks", "Asks", false, true));
         let body = match &self.asks {
             Load::Reading => {
                 let mut bones = div().flex().flex_col();
@@ -451,7 +456,7 @@ impl FeaturePageView {
             return empty_card(look, "designs", Section::Designs.title());
         }
         let ring = self.under_keys(&[Section::Designs], window);
-        let card = shell(look, "feature-card-designs", ring, false).child(head(look, "designs", Section::Designs.title(), false)).child(self.render_rows(Section::Designs, rows, None, look, cx));
+        let card = shell(look, "feature-card-designs", ring, false).child(head(look, "designs", Section::Designs.title(), false, true)).child(self.render_rows(Section::Designs, rows, None, look, cx));
         labelled(card, Role::Region, Section::Designs.title()).into_any_element()
     }
 
@@ -492,7 +497,7 @@ impl FeaturePageView {
             rows = rows.child(path(at, prefix, word("path")));
             at += 1;
         }
-        let card = shell(look, "feature-card-code", ring, false).child(head(look, "code", Section::Code.title(), false)).child(div().px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_1)).child(rows));
+        let card = shell(look, "feature-card-code", ring, false).child(head(look, "code", Section::Code.title(), false, true)).child(div().px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_1)).child(rows));
         labelled(card, Role::Region, Section::Code.title()).into_any_element()
     }
 
@@ -551,6 +556,7 @@ impl FeaturePageView {
                     .py(look.length(token::SPACE_2))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.30))
+                    .rounded_t(card_inner_radius(look))
                     .bg(tint(look, look.color(token::BG_BASE), token::STATUS_AWAITING_REVIEW, 0.14))
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
@@ -561,7 +567,8 @@ impl FeaturePageView {
                 stale,
             )
         });
-        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).children(band).child(head(look, section.id(), section.title(), false)).child(body);
+        let first = band.is_none();
+        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).children(band).child(head(look, section.id(), section.title(), false, first)).child(body);
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 

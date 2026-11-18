@@ -81,6 +81,8 @@ pub struct FeaturePageView {
     pub(super) hue: Option<Token>,
     /// How much of the window's width is not the page's: the list beside it.
     pub(super) inset: Pixels,
+    /// Whether the band is on the top edge of a rounded panel, and so rounds its top corners to follow it. Under a Back row it is not.
+    pub(super) flush: bool,
     /// What the list holds, in its order: the rows, and the line that folds the older asks.
     pub(super) items: Vec<Item>,
     /// The ask sections whose older rows are open. Not saved.
@@ -163,6 +165,7 @@ impl FeaturePageView {
             section: Section::Who,
             hue: None,
             inset: gpui::px(0.),
+            flush: false,
             items: Vec::new(),
             unfolded: HashSet::new(),
             titles: Titles::new(),
@@ -204,6 +207,14 @@ impl FeaturePageView {
     pub fn set_hue(&mut self, hue: Option<Token>, cx: &mut Context<Self>) {
         if self.hue != hue {
             self.hue = hue;
+            cx.notify();
+        }
+    }
+
+    /// Whether the page's band is on its panel's top edge, with nothing over it.
+    pub fn set_flush(&mut self, flush: bool, cx: &mut Context<Self>) {
+        if self.flush != flush {
+            self.flush = flush;
             cx.notify();
         }
     }

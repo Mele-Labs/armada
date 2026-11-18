@@ -1491,6 +1491,17 @@ pub(crate) fn panel(look: &Look) -> gpui::Div {
         .overflow_hidden()
 }
 
+/// The radius for a child that paints its own background flush against `panel`'s top edge. gpui clips children to the
+/// rectangle, not the curve, so the child rounds its own top corners: the panel's radius less its doubled top border.
+pub(crate) fn panel_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH) * 2.
+}
+
+/// The same for a card with a border all round (a card on a panel): its radius less one border.
+pub(crate) fn card_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH)
+}
+
 /// Where a menu opens under the labelled element of this role and name, or at `fallback`.
 pub(crate) fn under_label(role: Role, name: &str, fallback: Point<Pixels>, window: &Window, cx: &App) -> Point<Pixels> {
     cx.try_global::<crate::labels::LabelBook>()
