@@ -1,15 +1,15 @@
 //! What Fleet tells the Operator about a project's feature library, once each. `docs/concepts/feature-catalog.md`.
 //!
-//! **Fleet detects, the Operator decides.** A project that holds Armada's repository and no feature is told as a seed to
-//! apply with `seed_features`; a pending feature and an area past eight features are told as well. Nothing here keeps a feature or a card.
+//! **Fleet detects, the Operator decides.** A pending feature and an area past eight features are told. Nothing here keeps a
+//! feature or a card. Armada's own seed is not told: Fleet keeps it itself, `feature_library::seeding`.
 
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
-use super::{held, Arrival, Arrived, Source};
+use super::{Arrival, Arrived, Source};
 use crate::daemon::Fleet;
-use crate::feature_library::{features_of_note, pending_facts, Seed};
+use crate::feature_library::{features_of_note, pending_facts};
 use store::feature_state;
 
 /// An area holds this many features and no more before the Operator proposes a split.
@@ -31,7 +31,7 @@ where
         if !self.operator_on() {
             return;
         }
-        for arrival in self.seeds_offered().await.into_iter().chain(self.pending_offered().await).chain(self.areas_offered().await) {
+        for arrival in self.pending_offered().await.into_iter().chain(self.areas_offered().await) {
             self.hand_once(arrival).await;
         }
     }
@@ -124,38 +124,6 @@ where
                      that proposes a split: the new areas, each with the features that go there. Nothing changes until he answers. After he \
                      does, keep each new area with `upsert_features`, then move each feature with `change_feature` and `area`.",
                     held.join(", "),
-                ),
-            });
-        }
-        offered
-    }
-
-    /// The projects that hold Armada's repository and no feature, as arrivals.
-    async fn seeds_offered(&self) -> Vec<Arrival> {
-        let Ok(seed) = Seed::armada() else { return Vec::new() };
-        let projects: Vec<(String, String)> = self.projects_held().running().map(|one| (one.id().as_str().to_string(), one.name().as_str().to_string())).collect();
-        let mut offered = Vec::new();
-        for (id, name) in projects {
-            if held(&self.operator_seat().sources.unseedable).contains(&id) {
-                continue;
-            }
-            if self.store().lock().await.project_has_features(&id).unwrap_or(true) {
-                continue;
-            }
-            if !self.seed_fits(&id, &seed).await {
-                held(&self.operator_seat().sources.unseedable).insert(id);
-                continue;
-            }
-            offered.push(Arrival {
-                id: format!("seed:{id}"),
-                arrived: Arrived::Seed,
-                source: Source::Fleet,
-                session_id: String::new(),
-                manifest_id: String::new(),
-                subject: format!("{name} has no feature library"),
-                words: format!(
-                    "Project {name} (id {id}) holds Armada's own repository and no feature. Fleet carries the catalog the owner approved. \
-                     Keep it with `seed_features` for project `{id}`, then say in the feed what was kept and what was left out."
                 ),
             });
         }
