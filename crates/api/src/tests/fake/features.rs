@@ -20,6 +20,7 @@ fn row(slug: &str) -> FeatureRow {
         state: FeatureState::Seeded,
         jobs_now: Vec::new(),
         stale_since: None,
+        health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
     }
 }
 

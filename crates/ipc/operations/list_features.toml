@@ -4,11 +4,13 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "List a project's feature areas and the features in each, with the Jobs working on each now and the oldest merge a written section is stale since. Give project, or leave it out for the project this job works in"
 notes = """
-`GET /features?project=`, answered with `FeatureLibrary`: `project` and `areas`, each `FeatureAreaRow` holding its `features` in order. A `FeatureRow` is `id`, `slug`, `area`, `title`, a one-line `summary`, `state` (`seeded`, `confirmed` or `pending`, a feature a Job named that waits on his word, listed in the area `pending`), `jobs_now` and `stale_since`.
+`GET /features?project=`, answered with `FeatureLibrary`: `project` and `areas`, each `FeatureAreaRow` holding its `features` in order. A `FeatureRow` is `id`, `slug`, `area`, `title`, a one-line `summary`, `state` (`seeded`, `confirmed` or `pending`, a feature a Job named that waits on his word, listed in the area `pending`), `jobs_now`, `stale_since` and `health`.
 
 **`project` is optional.** Left out, Fleet reads the project the calling Job was started for, or the projects that hold its repository. A call that places none and names none is refused with 422.
 
 **`jobs_now` is the live Jobs that wrote a file of the feature since they started**, seen from the write gate and the pull requests Fleet attached, never from what a Job said.
+
+**`health` is `mark` (`good`, `watch` or `poor`) and `reasons`**, each a `kind`, a short `fact` and a `target` where there is something to open. It is read from what Fleet keeps: flaky tests that reach the feature, stale sections, open bugs, no test reaching its files, and the last run of each Check in the Jobs working in it. A source Fleet holds nothing for adds no reason. `good` has no reasons.
 
 **`stale_since` is a pull request's number**: the oldest merge after a written section's commit that changed a file of the feature, over its sections. Absent where nothing is stale.
 

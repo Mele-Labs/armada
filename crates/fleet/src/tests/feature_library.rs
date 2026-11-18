@@ -16,8 +16,8 @@ use crate::feature_library::brief::{condensed, BriefFacts, CAP_CHARS};
 use crate::feature_library::mapping::{owns, FeatureMap, How};
 use crate::feature_library::staleness::stale_since;
 
-const VOTING: &str = "voting-on-takes";
-const SOMEWHERE: &str = "crates/pages/voting";
+pub(super) const VOTING: &str = "voting-on-takes";
+pub(super) const SOMEWHERE: &str = "crates/pages/voting";
 
 fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
     store::KeptFeature {
@@ -164,13 +164,13 @@ fn a_page_over_the_cap_loses_its_tail_first_and_never_its_head() {
 
 // What follows runs a Job through the library against a real store.
 
-async fn a_project(rig: &Rig) -> String {
+pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
     let new = NewProject { name: "Shop".to_string(), members, place: None, values: None };
     rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone()
 }
 
-async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
+pub(super) async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     let start = StartSession {
         project: Some(project.to_string()),
         manifest_id: rig.manifest.clone(),
@@ -192,7 +192,7 @@ async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     id
 }
 
-fn seeded(project: &str) -> UpsertFeatures {
+pub(super) fn seeded(project: &str) -> UpsertFeatures {
     let feature = |slug: &str, area: &str, paths: &[&str]| FeatureSeed {
         slug: slug.to_string(),
         area: area.to_string(),
@@ -211,7 +211,7 @@ fn seeded(project: &str) -> UpsertFeatures {
 }
 
 /// The Job wrote `path` in the rig's repository, and Fleet filed it.
-async fn wrote(rig: &Rig, id: &SessionId, path: &str) {
+pub(super) async fn wrote(rig: &Rig, id: &SessionId, path: &str) {
     rig.fleet.writes().wrote(&Who::Session(id.as_str().to_string()), rig.manifest.as_str(), [path.to_string()], &rig.fleet.now());
     rig.fleet.feature_writes_filed().await;
 }
@@ -232,7 +232,7 @@ async fn pushed(rig: &Rig, id: &SessionId, pull: &str) {
 }
 
 /// The Job stands in pool slot `slot`, as the ledger holds it.
-async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
+pub(super) async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
     let now = rig.fleet.now().as_str().to_string();
     let row = KeptAttachment {
         holder: Holder::session(id.as_str()),
@@ -247,7 +247,7 @@ async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
     rig.fleet.store().lock().await.attach(&row, false).expect("attached");
 }
 
-fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> WriteFeatureSections {
+pub(super) fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> WriteFeatureSections {
     WriteFeatureSections {
         feature: feature.to_string(),
         sections: sections.iter().map(|section| FeatureSectionText { section: *section, text: format!("The {} text.", section.name()) }).collect(),

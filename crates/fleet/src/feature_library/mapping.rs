@@ -3,6 +3,7 @@
 //! commits did). **Longest prefix wins; several features may own one file**, by a tie on the prefix or by a Job's filing.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::ops::Bound;
 
 use store::KeptFeature;
 
@@ -69,6 +70,41 @@ impl FeatureMap {
             }
         }
         found
+    }
+
+    /// The ids of the features that own at least one of `files` in `manifest`: what [`FeatureMap::owners`] answers file by file,
+    /// read for all of them at once. **A prefix finds its files in the sorted set instead of every file asking every prefix**, which is
+    /// what keeps a repository's thousand mapped files cheap. The files are as the map keeps them, with no `./` before them.
+    pub(crate) fn owning_any(&self, manifest: Option<&str>, files: &BTreeSet<String>) -> BTreeSet<String> {
+        let here = |feature: &&KeptFeature| feature.manifest_id.is_empty() || manifest.is_none_or(|one| one.is_empty() || one == feature.manifest_id);
+        // Per file, the longest prefix that owns it and the features that have one of that length.
+        let mut best: BTreeMap<&str, (usize, BTreeSet<&str>)> = BTreeMap::new();
+        for feature in self.features.iter().filter(here) {
+            for prefix in &feature.paths {
+                let prefix = prefix.trim_matches('/');
+                if prefix.is_empty() {
+                    continue;
+                }
+                let under = format!("{prefix}/");
+                let inside = files.range::<str, _>((Bound::Included(under.as_str()), Bound::Unbounded)).take_while(|file| file.starts_with(&under));
+                for file in files.get(prefix).into_iter().chain(inside) {
+                    let held = best.entry(file.as_str()).or_insert((0, BTreeSet::new()));
+                    if prefix.len() > held.0 {
+                        *held = (prefix.len(), BTreeSet::new());
+                    }
+                    if prefix.len() == held.0 {
+                        held.1.insert(feature.id.as_str());
+                    }
+                }
+            }
+        }
+        let mut owning: BTreeSet<String> = best.into_values().flat_map(|(_, ids)| ids).map(str::to_string).collect();
+        for feature in self.features.iter().filter(here) {
+            if self.filed.get(&feature.id).is_some_and(|filed| filed.iter().any(|path| files.contains(path))) {
+                owning.insert(feature.id.clone());
+            }
+        }
+        owning
     }
 
     /// Whether the feature owns `path` by either way.

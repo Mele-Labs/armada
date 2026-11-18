@@ -17,6 +17,7 @@ fn feature(area: &str, slug: &str, title: &str, summary: &str) -> FeatureRow {
         state: FeatureState::Confirmed,
         jobs_now: Vec::new(),
         stale_since: None,
+        health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
     }
 }
 
