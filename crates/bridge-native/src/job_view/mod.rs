@@ -46,6 +46,7 @@ pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
 mod look_dock;
+mod run_mac;
 mod look_done;
 mod look_mix;
 mod look_question;

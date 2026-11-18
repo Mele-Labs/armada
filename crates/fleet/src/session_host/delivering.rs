@@ -29,7 +29,7 @@ pub(crate) fn delivery_item(since: Instant) -> WaitingItem {
         text: String::from("How should this work be delivered?"),
         since,
         source: WaitingSource::Delivery,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: DELIVERY_ITEM.to_string() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: DELIVERY_ITEM.to_string(), on: None }),
         options: DeliveryChoice::OFFERED
             .iter()
             .map(|one| WaitingOption { label: one.label().to_string(), description: Some(one.detail().to_string()), picture: None })

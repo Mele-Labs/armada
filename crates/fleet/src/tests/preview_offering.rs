@@ -635,7 +635,7 @@ fn waiting(id: &str, text: &str, approves: bool, act: Option<(ipc::WaitingActKin
         approves,
         id: id.into(),
         text: text.into(),
-        act: act.map(|(kind, target)| ipc::WaitingAct { kind, target: target.into() }),
+        act: act.map(|(kind, target)| ipc::WaitingAct { kind, target: target.into(), on: None }),
         options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
         steps: Vec::new(),
         artifact: None,

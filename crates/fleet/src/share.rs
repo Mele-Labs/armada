@@ -146,6 +146,7 @@ where
             | Event::ModelDownshiftChanged(_)
             | Event::AgentSignInChanged(_)
             | Event::ReviewRunChanged { .. }
+            | Event::ReviewListsChanged(_)
             | Event::ReviewWalkChanged { .. }
             | Event::WatchesChanged(_)
             | Event::JobLifecyclesChanged(_)

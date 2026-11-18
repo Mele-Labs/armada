@@ -931,6 +931,25 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         self.run_preview("--at", commit, "--ref", "preview/mac-a", offered=True)
         self.assertEqual(run(self.wt, "rev-parse", "HEAD"), commit)
 
+    def test_at_holds_the_branches_the_other_mac_merged_into_that_commit(self):
+        origin = self.with_origin()
+        other = os.path.join(self.dir, "other")
+        subprocess.run(["git", "clone", "-q", "--branch", "main", origin, other], check=True)
+        main = run(other, "rev-parse", "HEAD")
+        run(other, "checkout", "-q", "-b", "feat/a")
+        with open(os.path.join(other, "a.txt"), "w") as f:
+            f.write("a\n")
+        run(other, "add", "a.txt")
+        run(other, "commit", "-q", "-m", "feat a")
+        tip = run(other, "rev-parse", "HEAD")
+        commit = run(other, "commit-tree", run(other, "rev-parse", "HEAD^{tree}"), "-p", main, "-p", tip,
+                     "-m", "Merge branch 'feat/a' into preview")
+        run(other, "push", "-q", "origin", f"{commit}:refs/heads/preview/mac-a")
+        self.undetached_restart("true")
+        self.run_preview("--restart", "--at", commit, "--ref", "preview/mac-a", offered=True)
+        with open(os.path.join(self.support, "preview-held")) as f:
+            self.assertEqual(f.read().splitlines(), [commit, main, f"feat/a\t{tip}"])
+
     def test_at_a_commit_nothing_has_is_refused_in_one_line(self):
         self.with_origin()
         done = self.run_preview_refused("--at", "1234567890abcdef1234567890abcdef12345678", "--ref", "preview/mac-a")
