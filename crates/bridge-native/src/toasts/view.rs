@@ -380,7 +380,7 @@ pub fn refused_too_large(cx: &mut App) {
     const SAID: &[u8] = br#"{"code":"request.too_large","message":"POST /sessions/dispatch carried 14.2 MB; Fleet takes at most 10 MB.","run_id":"walk","fields":{},"chain":[]}"#;
     let refusal = Refusal::read("POST", "/sessions/dispatch", 413, SAID).sent(14_900_000).pictures(3);
     let build = ipc::decode::<ipc::FleetBuildReport>("FleetBuildReport", br#"{"on":"main","commit":"9f3c2a1b7d0e4c5a","position":{"ahead":0,"behind":4}}"#).ok();
-    let report = Report::Read("Armada debug report\n\nInstall\n  armada            0.4.2\n  runs from         ~/bin/armada\n  armada resolves   yes\n  claude            2.1.3\n".into());
+    let report = Report::Read("Armada debug report\n\nInstall\n  armada            0.4.2\n  runs from         ~/bin/armada\n  armada resolves   yes\n  agent             2.1.3\n".into());
     let headline = format!("The Job was not dispatched: {}", refusal.short());
     told(headline.into(), None, Some(Failure { refusal, build, report, starting: false }), cx);
 }

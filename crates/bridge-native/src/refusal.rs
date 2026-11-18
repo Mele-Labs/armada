@@ -283,7 +283,7 @@ pub(crate) mod tests {
     #[test]
     fn a_refusals_rows_read_the_build_and_the_reports_install_block() {
         let build = ipc::decode::<FleetBuildReport>("FleetBuildReport", br#"{"on":"main","commit":"9f3c2a1b7d0e4c5a","position":{"ahead":0,"behind":4}}"#).expect("a report");
-        let report = Report::Read("Armada debug report\n\nInstall\n  armada            0.4.2\n  runs from         ~/bin/armada\n  armada resolves   yes\n  claude            2.1.3\n\ntaken now".into());
+        let report = Report::Read("Armada debug report\n\nInstall\n  armada            0.4.2\n  runs from         ~/bin/armada\n  armada resolves   yes\n  agent             2.1.3\n\ntaken now".into());
         let refusal = Refusal::read("POST", "/sessions/dispatch", 413, TOO_LARGE).sent(14_900_000).pictures(3);
         let rows = refusal.rows(Some(&build), &report);
         let value = |label: &str| rows.iter().find(|(one, _)| *one == label).map(|(_, value)| value.as_str()).unwrap_or_default().to_string();
@@ -292,7 +292,7 @@ pub(crate) mod tests {
         assert_eq!(value("Sent"), "14.2 MB, 3 pictures");
         assert_eq!(value("Fleet"), "main 9f3c2a1b7, 4 behind main");
         assert_eq!(value("Armada"), "0.4.2");
-        assert_eq!(value("Harness"), "claude 2.1.3");
+        assert_eq!(value("Harness"), "agent 2.1.3");
         assert_eq!(refusal.rows(None, &Report::Reading).iter().find(|(one, _)| *one == "Armada").map(|(_, value)| value.as_str()), Some("reading"));
     }
 }

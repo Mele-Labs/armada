@@ -1,7 +1,7 @@
 //! A request turned away for its size answers in Fleet's own words.
 //!
-//! The extractor's refusal is a bare text 413 that Bridge can only show as a status number, and
-//! nothing in Fleet's log says it happened.
+//! The extractor's refusal is a bare text 413 that Bridge can only show as a status number. This
+//! crate has no log of its own, so the route, the size and the limit ride in the WireError.
 
 use axum::extract::Request;
 use axum::extract::State;
@@ -47,7 +47,6 @@ pub(crate) async fn name_a_413(
     request: Request,
     next: Next,
 ) -> Response {
-    let method = request.method().clone();
     let path = request.uri().path().to_string();
     let sent: Option<usize> = request
         .headers()
@@ -68,10 +67,6 @@ pub(crate) async fn name_a_413(
         Some(bytes) => format!("this request was {}", megabytes(bytes)),
         None => "this request was larger".to_string(),
     };
-    eprintln!(
-        "fleet: refused {method} {path}: body over the limit, content-length {}, limit {limit} bytes",
-        sent.map_or("absent".to_string(), |bytes| bytes.to_string()),
-    );
     let mut error = WireError::raised(
         REQUEST_TOO_LARGE,
         format!("Fleet takes at most {} on {path}, and {was}.", megabytes(limit)),
