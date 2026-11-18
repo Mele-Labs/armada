@@ -28,6 +28,7 @@ impl Features for FakeDaemon {
         Ok(FeatureLibrary {
             project: project.unwrap_or_else(|| String::from("p1")),
             areas: vec![FeatureAreaRow { slug: String::from("takes"), title: String::from("Takes"), features: vec![row("voting-on-takes")] }],
+            librarian: Default::default(),
         })
     }
 
@@ -64,6 +65,10 @@ impl Features for FakeDaemon {
 
     async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
+        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None })
     }
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {

@@ -13,6 +13,7 @@ pub(crate) mod committing;
 mod filing;
 mod handoff;
 mod holding;
+pub(crate) mod librarian;
 pub(crate) mod mapping;
 mod measuring;
 mod pending;

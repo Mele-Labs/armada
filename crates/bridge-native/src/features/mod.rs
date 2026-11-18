@@ -228,7 +228,7 @@ impl FeaturesScreen {
                     _ => {}
                 }
             }
-            let answer = answer.unwrap_or_else(|| Ok(FeatureLibrary { project: String::new(), areas: Vec::new() }));
+            let answer = answer.unwrap_or_else(|| Ok(FeatureLibrary { project: String::new(), areas: Vec::new(), librarian: Default::default() }));
             let _ = this.update(cx, |this, cx| this.took(answer, cx));
         }));
         cx.notify();
