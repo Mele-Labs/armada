@@ -525,8 +525,8 @@ where
         Ok(page)
     }
 
-    async fn get_review_lists(&self, project: Option<String>) -> Result<PullReviewLists, Refusal> {
-        self.review_lists_read(project.as_deref()).await
+    async fn get_review_lists(self: std::sync::Arc<Self>, project: Option<String>) -> Result<PullReviewLists, Refusal> {
+        self.review_lists_answered(project).await
     }
 
     async fn list_review_tools(&self, manifest_id: ManifestId) -> Result<ipc::ReviewTools, Refusal> {

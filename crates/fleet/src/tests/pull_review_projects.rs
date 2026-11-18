@@ -57,7 +57,7 @@ fn pull(number: u64, repository: &str) -> ListedPull {
 
 /// A Fleet serving two repositories, `acme/store-web` (the fixture's) and `acme/store-api`, with a
 /// pull request in each on every list. Their manifest ids are returned in that order.
-fn two_repositories(home: &TempDir) -> (Fixture, String, String) {
+fn two_repositories(home: &TempDir) -> (Arc<Fixture>, String, String) {
     let mut fittings = fittings(home, FakeWorkProduct::changed(&[]));
     fittings.reaching = Arc::new(ByFolder);
     let fleet = Fleet::assembled(fittings);
@@ -78,7 +78,7 @@ fn two_repositories(home: &TempDir) -> (Fixture, String, String) {
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, vec![pull(1, "acme/store-web"), pull(2, "acme/store-api")]);
     }
-    (fleet, web, api)
+    (Arc::new(fleet), web, api)
 }
 
 async fn project_holding(fleet: &Fixture, home: &TempDir, members: &str) {
@@ -97,7 +97,7 @@ async fn every_list_keeps_only_the_rows_of_the_projects_members() {
     let home = TempDir::new();
     let (fleet, _, api) = two_repositories(&home);
     project_holding(&fleet, &home, &format!("  - repository: {api}\n")).await;
-    let lists = fleet.get_review_lists(Some("my-store".into())).await.expect("read");
+    let lists = fleet.clone().get_review_lists(Some("my-store".into())).await.expect("read");
     assert_eq!(numbers(&lists), [vec![2], vec![2], vec![2], vec![2]]);
     assert!(lists.mine.iter().all(|row| row.manifest_id.as_str() == api));
 }
@@ -107,7 +107,7 @@ async fn a_folder_member_keeps_its_repositorys_rows() {
     let home = TempDir::new();
     let (fleet, web, _) = two_repositories(&home);
     project_holding(&fleet, &home, &format!("  - repository: {web}\n    folder: apps/web\n")).await;
-    let lists = fleet.get_review_lists(Some("my-store".into())).await.expect("read");
+    let lists = fleet.clone().get_review_lists(Some("my-store".into())).await.expect("read");
     assert_eq!(numbers(&lists), [vec![1], vec![1], vec![1], vec![1]]);
 }
 
@@ -116,7 +116,7 @@ async fn no_project_leaves_every_repositorys_rows() {
     let home = TempDir::new();
     let (fleet, _, api) = two_repositories(&home);
     project_holding(&fleet, &home, &format!("  - repository: {api}\n")).await;
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(numbers(&lists), [vec![1, 2], vec![1, 2], vec![1, 2], vec![1, 2]]);
 }
 
@@ -124,7 +124,7 @@ async fn no_project_leaves_every_repositorys_rows() {
 async fn a_project_he_has_none_of_is_a_404_and_the_forge_is_not_asked() {
     let home = TempDir::new();
     let (fleet, ..) = two_repositories(&home);
-    let refused = fleet.get_review_lists(Some("nope".into())).await.unwrap_err();
+    let refused = fleet.clone().get_review_lists(Some("nope".into())).await.unwrap_err();
     assert_eq!(refused.status(), 404, "{refused:?}");
     assert_eq!(code(&refused), "fleet.no_such_project");
     assert!(fleet.vcs().review_lists_asked().is_empty());
@@ -135,7 +135,7 @@ async fn a_project_with_no_served_member_has_four_empty_lists_and_asks_the_forge
     let home = TempDir::new();
     let (fleet, ..) = two_repositories(&home);
     project_holding(&fleet, &home, "  - repository: 01NOTSERVEDHERE\n").await;
-    let lists = fleet.get_review_lists(Some("my-store".into())).await.expect("read");
+    let lists = fleet.clone().get_review_lists(Some("my-store".into())).await.expect("read");
     assert_eq!(numbers(&lists), [(); 4].map(|()| Vec::<u64>::new()));
     assert!(lists.silent.is_empty());
     assert!(fleet.vcs().review_lists_asked().is_empty());

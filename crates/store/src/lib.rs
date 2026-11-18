@@ -212,6 +212,7 @@ mod repositories;
 mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
+pub mod review_lists_kept;
 mod practice_catalogue;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
