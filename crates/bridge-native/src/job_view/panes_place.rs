@@ -303,9 +303,12 @@ fn put_behind(was: &Arrangement, kind: &str, target: Option<(String, Option<usiz
             next = tree::move_tab_to_pane(&next, &made, pane, Some(*at)).into_owned();
         }
     }
+    // What each pane showed stays in front. A pane kept with no front tab shows its first, and `add_tab` would have put the
+    // new one there, so a Job opened on a tab it put in itself.
     for pane in tree::panes_of(&was.root) {
-        if let Some(active) = &pane.active {
-            next = tree::activate(&next, active).into_owned();
+        let shown = pane.active.clone().or_else(|| front_of(pane).map(|tab| tab.id.clone()));
+        if let Some(shown) = shown {
+            next = tree::activate(&next, &shown).into_owned();
         }
     }
     if tree::pane_by_id(&next, &was.focus).is_some() {
@@ -939,6 +942,27 @@ mod tests {
         assert_eq!(front.kind, "thread");
         assert_eq!(arrangement.focus, pane.id);
         assert!(offer_story(&arrangement).into_owned().offered == ["story"], "it is only marked offered");
+    }
+
+    /// A pane kept with no front tab shows its first one, so a tab put in behind must leave that one in front: a Job whose
+    /// thread pane was kept that way opened on Story, which `add_tab` brought to the front.
+    #[test]
+    fn a_pane_kept_with_no_front_tab_keeps_showing_its_first_when_story_is_put_in() {
+        let (mut old, _) = kept_without_story();
+        let left = thread_pane(&old).id.clone();
+        let Node::Split(root) = &mut old.root else { panic!("the root is a split") };
+        let Node::Pane(pane) = &mut *root.a else { panic!("the thread's pane is the left") };
+        assert_eq!(pane.id, left);
+        pane.active = None;
+        assert_eq!(front_of(thread_pane(&old)).map(|tab| tab.kind.as_str()), Some("thread"));
+        let opened = offer_story(&old).into_owned();
+        let pane = tree::pane_by_id(&opened, &left).expect("the thread's pane");
+        assert_eq!(kinds(pane), ["thread", "story"]);
+        assert_eq!(front_of(pane).map(|tab| tab.kind.as_str()), Some("thread"), "Thread stays in front");
+        let beside = offer_beside_now(&old, "plan").into_owned();
+        for pane in tree::panes_of(&old.root) {
+            assert_eq!(front_of(tree::pane_by_id(&beside, &pane.id).expect("the pane")).map(|tab| tab.id.clone()), front_of(pane).map(|tab| tab.id.clone()), "the front tab of {} stays", pane.id);
+        }
     }
 
     /// An arrangement kept before Story was a kind has none: it gains Story right after Thread, behind, with the front tab
