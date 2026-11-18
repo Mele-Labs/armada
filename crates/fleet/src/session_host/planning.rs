@@ -446,6 +446,7 @@ where
                 .await
                 .approve_session_plan(&id, plan.version, &now)
                 .map_err(|why| self.ledger_fault(why))?;
+            self.plan_decided(&id, &plan, crate::feature_library::deciding::APPROVED, None).await;
             self.plan_sketches_settled(&id, plan.version, &asking).await?;
         }
         self.published_hosted(&id).await
@@ -475,6 +476,7 @@ where
             false => Vec::new(),
         };
         let text = plan_marks::with_sketches(plan_marks::message(&plan, approving, &said), &asking);
+        let marked = said.iter().map(|one| one.agent.as_str()).collect::<Vec<_>>().join("\n");
         let row = SessionRow::PlanChanges {
             id: self.row_id(&id),
             at: self.instant(),
@@ -483,6 +485,8 @@ where
             lines: said.into_iter().map(|one| one.line).collect(),
         };
         self.told_by_fleet_as(&id, &text, row).await?;
+        let choice = if approving { crate::feature_library::deciding::APPROVED } else { crate::feature_library::deciding::ASKED_FOR_CHANGES };
+        self.plan_decided(&id, &plan, choice, Some(&marked)).await;
         if approving {
             let now = self.now().as_str().to_string();
             self.store()

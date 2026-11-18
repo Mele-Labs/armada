@@ -239,6 +239,7 @@ where
                 }
                 if attachment.kind == "artifact" {
                     self.artifact_filed(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
+                    self.artifact_decided(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
                 }
                 // A branch or pull request read from a slot the lease is another's is theirs, but a
                 // pull request the session opened itself is its own wherever it stood: the mod read

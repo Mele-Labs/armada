@@ -6,10 +6,10 @@ use std::collections::{BTreeMap, BTreeSet};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
+    FeatureAreaRow, FeatureBrief, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
     FeatureSectionKind, FeatureState, Instant, SessionId,
 };
-use store::{feature_link_kind, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
+use store::{feature_link_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
 
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
 use super::mapping::FeatureMap;
@@ -251,12 +251,13 @@ where
         let on = self.jobs_on_features(&store, &loaded.project)?;
         let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
         let stale = marked.iter().filter_map(|(_, since)| *since).min();
-        let (links, files) = if only.is_some() {
-            (Vec::new(), Vec::new())
+        let (links, files, decisions) = if only.is_some() {
+            (Vec::new(), Vec::new(), Vec::new())
         } else {
             (
                 store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?,
                 store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?,
+                store.feature_decisions(&feature.id).map_err(|why| self.feature_fault(why))?,
             )
         };
         Ok(FeaturePage {
@@ -271,6 +272,7 @@ where
                 .filter(|section| only.is_none_or(|kind| section.section == kind))
                 .collect(),
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
+            decisions: decisions.into_iter().map(decision_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
         })
     }
@@ -364,6 +366,10 @@ fn link_on_the_wire(link: KeptFeatureLink) -> Option<FeatureLink> {
         via: link.via,
         at: instant(&link.at),
     })
+}
+
+fn decision_on_the_wire(kept: KeptFeatureDecision) -> FeatureDecision {
+    FeatureDecision { question: kept.question, choice: kept.choice, note: Some(kept.note).filter(|note| !note.is_empty()), job: kept.job, at: instant(&kept.at) }
 }
 
 /// The open bugs, newest first.

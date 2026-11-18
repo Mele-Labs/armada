@@ -10,6 +10,7 @@
 pub(crate) mod brief;
 mod changing;
 pub(crate) mod committing;
+pub(crate) mod deciding;
 mod filing;
 mod handoff;
 mod holding;

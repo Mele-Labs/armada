@@ -299,6 +299,7 @@ where
                 let note = self.store().lock().await.build_note_of(&asked.branch, &asked.tip).map_err(|why| self.ledger_fault(why))?;
                 let note = note.ok_or_else(|| self.card_unknown(&asked.branch, &asked.tip))?;
                 self.store().lock().await.keep_build_note_looked_at(&asked.branch, &asked.tip, &at, Some(verdict_kept(NoteVerdict::Good))).map_err(|why| self.ledger_fault(why))?;
+                self.looked_good(session, &asked.branch, &asked.tip, &note.about, &at).await;
                 // His looks-good is his Approve, as an item the Job raised asking for it is: it closes the Job's first
                 // open `you_approved` gate. A preview names no plan group, so no group is picked for it.
                 let approval = KeptApproval { item_id: card_id(&asked.branch, &asked.tip), text: format!("Ready to try: {}", note.about), at: at.clone() };
@@ -355,6 +356,9 @@ where
         // The note's Job is told the first mark and each change of verdict, where it is live, as it is told the rest
         // of its preview news. A mark that says nothing new tells it nothing.
         let news = before.clone().filter(|note| note.looked_at.is_none() || (verdict.is_some() && note.verdict.as_deref() != verdict));
+        if let (Some(note), Some(NoteVerdict::Good)) = (&before, asked.verdict) {
+            self.looked_good(&note.session_id, &asked.branch, &asked.tip, &note.about, &at).await;
+        }
         if let Some(note) = news {
             let live = self.store().lock().await.session(&note.session_id).ok().flatten().is_some_and(|row| row.state != SessionState::Ended);
             if live {

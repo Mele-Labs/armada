@@ -196,8 +196,26 @@ pub struct FeaturePage {
     pub sections: Vec<FeatureSection>,
     /// Oldest first.
     pub links: Vec<FeatureLink>,
+    /// What the owner settled in the Jobs that shaped it, newest first. With `section`, none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub decisions: Vec<FeatureDecision>,
     /// The files the most Jobs wrote, most first.
     pub files: Vec<FeatureFile>,
+}
+
+/// One thing the owner settled in a Job: his answer to a question, his pick on takes, his Approve or Ask for changes on a
+/// sketch, a draft, a page or a plan, or his Looks good on a Ready to try card. Fleet files it; no Job writes it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureDecision {
+    /// The question he was asked, or the title of what he answered.
+    pub question: String,
+    /// The option's label, or `Approved`, `Asked for changes`, `Looks good`.
+    pub choice: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub note: Option<String>,
+    /// The Job he settled it in.
+    pub job: String,
+    pub at: Instant,
 }
 
 /// `get_feature_brief`: the page condensed for an agent.
