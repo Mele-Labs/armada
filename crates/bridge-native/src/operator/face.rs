@@ -62,6 +62,34 @@ pub fn card_kind(kind: OperatorCardKind) -> Kind {
     }
 }
 
+/// A card he picked that came back to the front: the Operator reported it failed, or nothing settled it in time.
+pub fn returned(turn: &OperatorTurnItem) -> bool {
+    turn.card.as_ref().is_some_and(|card| card.returned.is_some())
+}
+
+/// The first line of a returned card's read: what he picked, and why it came back.
+pub fn returned_lead(turn: &OperatorTurnItem) -> Option<SharedString> {
+    let card = turn.card.as_ref()?;
+    let back = card.returned.as_ref()?;
+    Some(match &card.picked {
+        Some(picked) => format!("You picked {}. {}", picked.option, back.why).into(),
+        None => back.why.clone().into(),
+    })
+}
+
+/// A card as Fleet serves it once he has pressed `option` at `at`: picked, with no steps yet and nothing returned.
+/// The page shows it so at once, before Fleet's page says so.
+pub fn picked_card(turn: &OperatorTurnItem, option: &str, at: &str) -> Option<OperatorTurnItem> {
+    let card = turn.card.as_ref()?;
+    let picked = ipc::OperatorCardPicked { option: option.to_string(), at: ipc::Instant::carried(at) };
+    Some(OperatorTurnItem { card: Some(ipc::OperatorCard { picked: Some(picked), steps: Vec::new(), returned: None, ..card.clone() }), ..turn.clone() })
+}
+
+/// The option he picked on a card the Operator is working on.
+pub fn picked_option(turn: &OperatorTurnItem) -> Option<SharedString> {
+    turn.card.as_ref()?.picked.as_ref().map(|picked| picked.option.clone().into())
+}
+
 /// One entry of the feed: its glyph, its hue and the word its tooltip says.
 pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) {
     match kind {
@@ -75,6 +103,9 @@ pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) 
 }
 
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
+    if returned(turn) {
+        return kind("Did not settle", "circle-alert", FAILED);
+    }
     if let Some(card) = &turn.card {
         return card_kind(card.kind);
     }

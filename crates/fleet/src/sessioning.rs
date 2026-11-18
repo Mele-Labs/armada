@@ -1104,6 +1104,10 @@ where
         self.card_settled(caller, settle).await
     }
 
+    async fn report_card(self: Arc<Self>, caller: Option<api::Caller>, report: ipc::ReportCard) -> Result<ipc::CardRevised, Refusal> {
+        self.card_reported(caller, report).await
+    }
+
     async fn list_operator_acts(&self) -> Result<ipc::OperatorActsList, Refusal> {
         self.operator_acts_listed().await
     }

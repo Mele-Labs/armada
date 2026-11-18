@@ -24,14 +24,14 @@ fn without_tag(text: &str) -> &str {
 
 impl OperatorPageView {
     /// The main column while he talks: the folded card and the talk scroll, the box fixed at the foot.
-    pub(super) fn talk_column(&self, look: &Look, cx: &Context<Self>) -> gpui::Stateful<gpui::Div> {
+    pub(super) fn talk_column(&self, window: &gpui::Window, look: &Look, cx: &Context<Self>) -> gpui::Stateful<gpui::Div> {
         let Some(talk) = self.talk.clone() else { return div().id("operator-main") };
         let card = self.items().iter().find(|turn| turn.id == talk.about).cloned();
         let mut parts: Vec<AnyElement> = Vec::new();
         // The folded card stays at the head of the column, out of the scroll, so the line it is about is always in sight.
         let folded = card.as_ref().map(|card| self.folded(card, talk.unfolded, look, cx));
         if let Some(card) = card.as_ref().filter(|_| talk.unfolded) {
-            parts.push(self.card(card, false, look, cx));
+            parts.push(self.card(card, false, window, look, cx));
         }
         parts.extend(self.talk_rows(cx).iter().enumerate().filter_map(|(at, item)| self.talk_row(at, item, look, cx)));
         // What he sent, until the thread echoes it.
@@ -39,7 +39,7 @@ impl OperatorPageView {
             parts.push(self.his_words("talk-sent", sent.as_ref(), None, look, cx));
         }
         // The cards the Operator raised in the talk, whole, under its line.
-        let raised: Vec<AnyElement> = self.talk_cards().into_iter().map(|turn| self.card(turn, true, look, cx)).collect();
+        let raised: Vec<AnyElement> = self.talk_cards().into_iter().map(|turn| self.card(turn, true, window, look, cx)).collect();
         parts.extend(raised);
         let scroll = div()
             .id("operator-talk")

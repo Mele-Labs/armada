@@ -835,6 +835,8 @@ struct Open {
 
 pub struct JobsList {
     jobs: Vec<SessionRecord>,
+    /// The Operator's own session, which is never a row: the Operator's page opens it as a Job's view does.
+    operator: Option<SessionRecord>,
     lines: Vec<Line>,
     scope: Scope,
     query: String,
@@ -986,6 +988,7 @@ impl JobsList {
             // cloned: Fleet moves several times a second and the list holds hundreds of Jobs.
             let unmoved = names == this.names && this.holds_already(held.jobs.iter().filter(|job| !job.operator));
             let mut jobs: Vec<SessionRecord> = if unmoved { Vec::new() } else { held.jobs.iter().filter(|job| !job.operator).cloned().collect() };
+            let operator = crate::operator::session_of(&held.jobs).cloned();
             if unmoved {
                 // A rename Fleet now serves is let go, as the hold below lets it go.
                 this.asked.retain(|id, (was, _)| held.jobs.iter().any(|job| job.id.as_str() == id && job.title == *was));
@@ -997,6 +1000,13 @@ impl JobsList {
                 this.names = names;
                 this.place_new();
                 this.relist(cx);
+            }
+            if operator != this.operator {
+                this.operator = operator;
+                // Only the Operator's session opened over the Jobs screen has anything drawn from this record.
+                if this.operator.as_ref().is_some_and(|record| this.opened.as_deref() == Some(record.id.as_str())) {
+                    cx.notify();
+                }
             }
             if this.resume_open() {
                 cx.notify();
@@ -1049,6 +1059,7 @@ impl JobsList {
             opened: None,
             resume: if remember { crate::job_view::place_kept_open() } else { None },
             picks: 0,
+            operator: None,
             made: Vec::new(),
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
@@ -1183,7 +1194,7 @@ impl JobsList {
     /// Open a Job from outside the list, as a press on its row does: the keys land on it and its card
     /// closes. A Job the list does not hold is not opened. Returns whether it was.
     pub fn open_job(&mut self, id: &str, cx: &mut Context<Self>) -> bool {
-        if !self.jobs.iter().any(|one| one.id.as_str() == id) {
+        if self.record(id).is_none() {
             return false;
         }
         let id: SharedString = id.to_string().into();
@@ -1281,7 +1292,21 @@ impl JobsList {
     }
 
     pub fn record(&self, id: &str) -> Option<&SessionRecord> {
-        self.jobs.iter().find(|job| job.id.as_str() == id)
+        self.jobs.iter().find(|job| job.id.as_str() == id).or_else(|| self.operator.as_ref().filter(|job| job.id.as_str() == id))
+    }
+
+    /// The Operator's session as the Operator's page read it, held so its Job view has a record to draw. A live Fleet's own
+    /// record replaces it as it changes; the walk's has none.
+    pub fn hold_operator(&mut self, record: SessionRecord) {
+        self.operator = Some(record);
+    }
+
+    /// The Operator's session is shut again: the Job that was open before it is open once more.
+    pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
+        self.opened = was.clone();
+        self.focused = was;
+        self.card = None;
+        cx.notify();
     }
 
     /// A test's stand-in for a Fleet read that changes one record.

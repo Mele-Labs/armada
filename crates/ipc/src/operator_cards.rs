@@ -6,7 +6,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::SessionId;
+use crate::{Instant, SessionId};
 
 /// What a card is.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -28,6 +28,40 @@ pub struct OperatorCard {
     /// The Jobs it is about, each live or ended as Fleet kept them.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub sessions: Vec<SessionId>,
+    /// The option he pressed and when, on a card in the page's `working` and on one that came back. Absent
+    /// before his press. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub picked: Option<OperatorCardPicked>,
+    /// What the Operator reported doing on it since his press, oldest first. Since 14 Nov 2026.
+    #[serde(default)]
+    pub steps: Vec<OperatorCardStep>,
+    /// Why a picked card came back to the front, and when. Absent until it does, and cleared by his next
+    /// press. Since 14 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub returned: Option<OperatorCardReturned>,
+}
+
+/// His press on a card. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorCardPicked {
+    /// The option's label.
+    pub option: String,
+    pub at: Instant,
+}
+
+/// One thing the Operator did on a picked card, as it reported it. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorCardStep {
+    pub at: Instant,
+    pub said: String,
+}
+
+/// Why a picked card came back to the front: the Operator reported it failed, or nothing settled it in time.
+/// Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OperatorCardReturned {
+    pub why: String,
+    pub at: Instant,
 }
 
 /// One option of a card, and what taking it spends or risks.
@@ -84,6 +118,19 @@ pub struct CardRevised {
 pub struct SettleCard {
     pub card: String,
     pub said: String,
+}
+
+/// `report_card`: what the Operator did on a picked card, or why it cannot be done. Exactly one of `step` and
+/// `failed`. Answered with [`CardRevised`]. Since 14 Nov 2026.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReportCard {
+    pub card: String,
+    /// One real step, such as a Job started, a pull request opened or a merge.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub step: Option<String>,
+    /// Why the pick cannot be carried out. The card comes back to the front.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<String>,
 }
 
 /// What `settle_card` did.

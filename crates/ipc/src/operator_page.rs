@@ -400,9 +400,13 @@ pub struct OperatorPage {
     /// Present while the Operator is reading something to review.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_it: Option<OperatorOnIt>,
-    /// In the order he left them, what he put Later last.
+    /// In the order he left them, what he put Later last. A card that came back from `working` is first.
     #[serde(default)]
     pub turn: Vec<OperatorTurnItem>,
+    /// The cards he pressed an option on that the Operator has not settled, newest pick first. Each carries
+    /// `card.picked` and `card.steps`. Since 14 Nov 2026.
+    #[serde(default)]
+    pub working: Vec<OperatorTurnItem>,
     #[serde(default)]
     pub digest: OperatorDigest,
     /// Each repository Fleet serves, first first. Since 10 Nov 2026.

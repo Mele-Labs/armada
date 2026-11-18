@@ -1,19 +1,78 @@
 //! The card: one decision, drawn whole in front, folded to one line while he talks about it, and whole again where the
-//! Operator raises one in the talk. Its edge and chips wear the Operator's hue; a head band names its kind, title and Jobs;
-//! My read and the options are its body; Discuss later and Discuss are its foot.
+//! Operator raises one in the talk. Its frame and chips wear the Operator's hue; a head band names its kind, title and Jobs;
+//! My read and the options are its body; Snooze and Discuss are its foot.
 //!
 //! **A press on an option, or its number, settles the card at once** with that option. An item that is no card, such as a
 //! plan, a walk or a go-ahead to file a note, draws the same card: its options are the item's, its Thens, or its one pick.
 
-use gpui::{div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString};
+use gpui::{div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString, Stateful, Window};
 use ipc::operator_page::OperatorTurnItem;
 
 use super::face;
 use super::page::OperatorPageView;
 use super::view::{chip, kind_chip, measured, press, pressed, round, Weight};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
-use crate::titlebar::parts::{glyph, kbd, tip};
+use crate::look::{token, Look};
+use crate::titlebar::parts::{glyph, kbd, spinner, tip};
+
+/// An option's name for a reader: its label, then its cost.
+pub(super) fn option_name(label: &SharedString, cost: Option<&SharedString>) -> String {
+    match cost {
+        Some(cost) => format!("{label}, {cost}"),
+        None => label.to_string(),
+    }
+}
+
+/// The card's frame: the Operator's hue on its edge, a raised ground, rounded corners. `inset` indents it under a line of the talk.
+pub(super) fn card_frame(id: &str, inset: bool, look: &Look) -> Stateful<Div> {
+    div()
+        .id(SharedString::from(format!("card-{id}")))
+        .flex_none()
+        .when(inset, |card| card.ml(look.length(token::SPACE_8)))
+        .rounded(round(look))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::OPERATOR_EDGE))
+        .bg(look.color(token::BG_RAISED))
+        .overflow_hidden()
+}
+
+/// The card's head band: its kind chip and its title, with room after them for the chips that name its Jobs.
+pub(super) fn card_head(kind: face::Kind, title: SharedString, look: &Look) -> Div {
+    div()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_4))
+        .py(look.length(token::SPACE_3))
+        .bg(look.color(token::OPERATOR_FAINT))
+        .border_b(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(token::OPERATOR_EDGE))
+        .child(kind_chip(kind, look))
+        .child(div().flex_1().min_w(gpui::relative(0.5)).text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
+}
+
+/// The read under the title: a small heading with its glyph, and the words, on the Operator's muted ground.
+pub(super) fn read_block(head: &'static str, mark: &'static str, words: SharedString, look: &Look) -> Div {
+    div()
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_LG) * 1.25)
+        .bg(look.color(token::OPERATOR_MUTED))
+        .child(
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .mb(look.length(token::SPACE_1))
+                .text_size(look.length(token::TEXT_2XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .text_color(look.color(token::OPERATOR))
+                .child(glyph(mark, look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::OPERATOR)))
+                .child(head),
+        )
+        .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(words))
+}
 
 /// One thing a card offers: its label, what it costs or does, whether it is the Operator's pick, and what a press does.
 struct Offer {
@@ -93,62 +152,68 @@ impl OperatorPageView {
     }
 
     /// The card whole. `inset` draws it as the Operator raised it in the talk, under its line.
-    pub(super) fn card(&self, turn: &OperatorTurnItem, inset: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn card(&self, turn: &OperatorTurnItem, inset: bool, window: &Window, look: &Look, cx: &Context<Self>) -> AnyElement {
         let title = face::card_title(turn);
         let target = self.target().is_some_and(|target| target.id == turn.id);
-        let head = div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .bg(look.color(token::OPERATOR_FAINT))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::OPERATOR_EDGE))
-            .child(kind_chip(face::kind_of(turn), look))
-            .child(div().flex_1().min_w(gpui::relative(0.5)).text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-            .children(self.names(turn, true, look, cx));
-        let card = div()
-            .id(SharedString::from(format!("card-{}", turn.id)))
-            .relative()
-            .flex_none()
-            .when(inset, |card| card.ml(look.length(token::SPACE_8)))
-            .rounded(round(look))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::OPERATOR_EDGE))
-            .bg(look.color(token::BG_RAISED))
-            .overflow_hidden()
-            .child(head)
-            .child(self.card_body(turn, target, look, cx))
-            .child(self.card_foot(target, look, cx))
-            // The Operator's hue, as a bar down the card's edge.
-            .child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::BORDER_WIDTH) * 3.).bg(look.color(token::OPERATOR)));
+        let danger = look.color(token::STATUS_COMPLETED_FAILED);
+        let returned = face::returned(turn);
+        let head = card_head(face::kind_of(turn), title.clone(), look).when(returned, |head| head.border_color(danger)).children(self.names(turn, true, look, cx));
+        let card = card_frame(&turn.id, inset, look).when(returned, |card| card.border_color(danger)).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
         labelled(card, Role::Article, title).into_any_element()
     }
 
-    /// My read, the options and Fleet's refusal.
-    fn card_body(&self, turn: &OperatorTurnItem, keyed: bool, look: &Look, cx: &Context<Self>) -> Div {
-        let read = turn.read.as_ref().filter(|read| !read.read.is_empty()).map(|read| {
-            div()
-                .px(look.length(token::SPACE_3))
-                .py(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_LG) * 1.25)
-                .bg(look.color(token::OPERATOR_MUTED))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_2))
-                        .mb(look.length(token::SPACE_1))
-                        .text_size(look.length(token::TEXT_2XS))
-                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                        .text_color(look.color(token::OPERATOR))
-                        .child(glyph("bot", look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4., look.color(token::OPERATOR)))
-                        .child("My read"),
-                )
-                .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(read.read.clone()))
+    /// A card he picked, brought to the front from the feed to be read: its read, every option with his pick marked and none
+    /// to press, and what the Operator did on it. It has no Snooze and no Discuss.
+    pub(super) fn working_card(&self, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let title = face::card_title(turn);
+        let head = card_head(face::kind_of(turn), title.clone(), look).children(self.names(turn, true, look, cx));
+        let body = div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_4))
+            .children(self.asks(turn, look))
+            .children(self.my_read(turn, look))
+            .child(self.options_picked(turn, look))
+            .children(self.steps_list("card", turn, look, cx).map(|steps| div().mt(look.length(token::SPACE_1)).child(steps)));
+        labelled(card_frame(&turn.id, false, look).child(head).child(body), Role::Article, title).into_any_element()
+    }
+
+    /// What the card says it asks, under the title, where the title is the Job's.
+    fn asks(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
+        face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks))
+    }
+
+    /// The read section: on a card that came back, the line of what he picked and why, then My read.
+    fn my_read(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
+        let danger = look.color(token::STATUS_COMPLETED_FAILED);
+        let lead = face::returned_lead(turn).map(|said| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("returned-{}", turn.id)))
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_LG) * 1.25)
+                    .bg(look.color(token::STATUS_COMPLETED_FAILED_BG))
+                    .text_color(danger)
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph("circle-alert", look.length(token::SPACE_4), danger)))
+                    .child(div().flex_1().min_w_0().child(said.clone())),
+                Role::Status,
+                said,
+            )
         });
+        let read = turn.read.as_ref().filter(|read| !read.read.is_empty()).map(|read| read_block("My read", "bot", read.read.clone().into(), look));
+        (lead.is_some() || read.is_some()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).children(lead).children(read))
+    }
+
+    /// My read, the options and Fleet's refusal.
+    fn card_body(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Div {
         let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
@@ -168,32 +233,24 @@ impl OperatorPageView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .pl(look.length(token::SPACE_4) + look.length(token::BORDER_WIDTH) * 3.)
-            .pr(look.length(token::SPACE_4))
+            .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
-            .children(face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)))
-            .children(read)
-            .child(self.options(turn, keyed, look, cx))
+            .children(self.asks(turn, look))
+            .children(self.my_read(turn, look))
+            .child(self.options(turn, keyed, window, look, cx))
             .children(refused)
     }
 
-    /// Each option a full-width row: a radio glyph, the label, its cost under it, My pick on the first and its number at the right.
-    /// A press settles the card on it.
-    fn options(&self, turn: &OperatorTurnItem, keyed: bool, look: &Look, cx: &Context<Self>) -> impl IntoElement {
-        let pending = self.pending.contains(&turn.id);
+    /// The options of a card he has picked on, none to press: his pick lit in the accent with Picked at its right, the rest
+    /// dimmed.
+    fn options_picked(&self, turn: &OperatorTurnItem, look: &Look) -> impl IntoElement {
+        let picked = face::picked_option(turn);
+        let accent = look.color(token::ACCENT);
         let rows = self.offers(turn).into_iter().enumerate().map(|(at, offer)| {
-            let id = turn.id.clone();
-            let label = offer.label.clone();
-            let pick = offer.pick;
-            let said = match (&offer.cost, pick) {
-                (Some(cost), true) => format!("My pick. {cost}"),
-                (Some(cost), false) => cost.to_string(),
-                (None, true) => "My pick".into(),
-                (None, false) => String::new(),
-            };
-            let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+            let mine = picked.as_ref().is_some_and(|picked| *picked == offer.label);
+            let name = option_name(&offer.label, offer.cost.as_ref());
             let row = div()
-                .id(SharedString::from(format!("option-{}-{at}", turn.id)))
+                .id(SharedString::from(format!("picked-{}-{at}", turn.id)))
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_3))
@@ -202,25 +259,62 @@ impl OperatorPageView {
                 .px(look.length(token::SPACE_3))
                 .rounded(look.length(token::RADIUS_LG) * 1.25)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(if pick { token::OPERATOR_EDGE } else { token::BORDER_DEFAULT }))
-                .bg(look.color(if pick { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
+                .border_color(if mine { accent } else { look.color(token::BORDER_DEFAULT) })
+                .bg(look.color(if mine { token::ACCENT_FAINT } else { token::BG_OVERLAY }))
                 .text_size(look.length(token::TEXT_SM))
-                .cursor_pointer()
-                .hover(|style| style.border_color(cx.look().color(token::OPERATOR)))
-                .focusable()
-                .tab_stop(true)
-                .focus_visible(move |style| style.border_color(ring))
-                .when(!said.is_empty(), |row| row.tooltip(tip(said.clone())))
-                .child(glyph(if pick { "circle-dot" } else { "circle" }, look.length(token::SPACE_4), look.color(if pick { token::OPERATOR } else { token::FG_MUTED })))
+                .when(!mine, |row| row.opacity(0.5))
+                .tooltip(tip(if mine { "Your pick" } else { "Already picked" }))
                 .child(
                     div()
                         .flex_1()
                         .min_w_0()
-                        .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(label.clone()))
+                        .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(offer.label.clone()))
                         .children(offer.cost.clone().map(|cost| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(cost))),
                 )
-                .when(pick, |row| row.child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::OPERATOR)).child("My pick")))
-                .when(keyed, |row| row.child(kbd((at + 1).to_string(), look)));
+                .when(mine, |row| row.child(chip("Picked", look.color(token::TEXT_ON_ACCENT), accent, look).child(glyph("check", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))));
+            labelled(row, Role::ListItem, if mine { format!("{name}, picked") } else { name })
+        });
+        self.option_group(&turn.id, rows, look)
+    }
+
+    /// What the Operator did on a picked card, oldest first: a check on each step done, and a turning ring on the newest.
+    /// `scope` keeps a card's list apart from its feed row's.
+    pub(super) fn steps_list(&self, scope: &str, turn: &OperatorTurnItem, look: &Look, cx: &Context<Self>) -> Option<crate::labels::Labelled> {
+        let steps = &turn.card.as_ref()?.steps;
+        let last = steps.len().checked_sub(1)?;
+        let size = look.length(token::SPACE_3) + look.length(token::SPACE_1) / 4.;
+        let lines = steps.iter().enumerate().map(|(at, step)| {
+            let id = SharedString::from(format!("{scope}-step-{}-{at}", turn.id));
+            let (mark, said) = if at == last {
+                (spinner(SharedString::from(format!("{scope}-spin-{}-{at}", turn.id)), size, look.color(token::ACCENT), cx).into_any_element(), "Working on it")
+            } else {
+                (glyph("check", size, look.color(token::STATUS_COMPLETED_SUCCESS)).into_any_element(), "Done")
+            };
+            labelled(
+                div()
+                    .id(id.clone())
+                    .flex()
+                    .items_start()
+                    .gap(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_SM))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(div().id(SharedString::from(format!("{id}-mark"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().tooltip(tip(said)).child(mark))
+                    .child(div().flex_1().min_w_0().child(step.said.clone())),
+                Role::ListItem,
+                step.said.clone(),
+            )
+        });
+        Some(labelled(div().id(SharedString::from(format!("{scope}-steps-{}", turn.id))).flex().flex_col().gap(look.length(token::SPACE_1)).children(lines), Role::List, "Steps"))
+    }
+
+    /// Each option a full-width row: its key at the left, the label with its cost under it, My pick on the first. A hover or
+    /// the keys lift the row and show Choose at its right. A press settles the card on it.
+    fn options(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> impl IntoElement {
+        let pending = self.pending.contains(&turn.id);
+        let rows = self.offers(turn).into_iter().enumerate().map(|(at, offer)| {
+            let id = turn.id.clone();
+            let row = self.option_row(&turn.id, at, &offer.label, offer.cost.as_ref(), offer.pick, keyed, window, look, cx);
             let row = if pending {
                 row.opacity(0.5)
             } else {
@@ -233,16 +327,78 @@ impl OperatorPageView {
                     }),
                 }
             };
-            labelled(row, Role::Button, label)
+            labelled(row, Role::Button, option_name(&offer.label, offer.cost.as_ref()))
         });
-        div().mt(look.length(token::SPACE_1)).child(labelled(div().id(SharedString::from(format!("options-{}", turn.id))).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::Group, "Options"))
+        self.option_group(&turn.id, rows, look)
     }
 
-    /// Discuss later and Discuss, on the card's lightest step. Their keys show on the card the keys act on.
+    /// The group the option rows stand in.
+    pub(super) fn option_group(&self, id: &str, rows: impl IntoIterator<Item = impl IntoElement>, look: &Look) -> Div {
+        div().mt(look.length(token::SPACE_1)).child(labelled(div().id(SharedString::from(format!("options-{id}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::Group, "Options"))
+    }
+
+    /// One option row, without its press: the key badge where a mark would stand, the label and its cost, My pick on the
+    /// Operator's pick, and Choose at the right where the pointer or the keys are on it.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn option_row(&self, card: &str, at: usize, label: &SharedString, cost: Option<&SharedString>, pick: bool, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Stateful<Div> {
+        let handle = self.option_handle(&format!("{card}-{at}"), cx);
+        let lifted = handle.is_focused(window);
+        let said = match (cost, pick) {
+            (Some(cost), true) => format!("My pick. {cost}"),
+            (Some(cost), false) => cost.to_string(),
+            (None, true) => "My pick".into(),
+            (None, false) => String::new(),
+        };
+        let (accent, fill) = (look.color(token::ACCENT), look.color(token::BG_HOVER));
+        let group = SharedString::from(format!("option-{card}-{at}"));
+        let choose = chip("Choose", look.color(token::TEXT_ON_ACCENT), accent, look)
+            .id(SharedString::from(format!("choose-{card}-{at}")))
+            .child(glyph("chevron-right", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))
+            .opacity(if lifted { 1. } else { 0. })
+            .group_hover(group.clone(), |style| style.opacity(1.));
+        div()
+            .id(SharedString::from(format!("option-{card}-{at}")))
+            .group(group)
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_LG) * 1.25)
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if pick { token::OPERATOR_EDGE } else { token::BORDER_DEFAULT }))
+            .bg(look.color(if pick { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
+            .text_size(look.length(token::TEXT_SM))
+            .cursor_pointer()
+            .hover(move |style| style.bg(fill).border_color(accent))
+            .track_focus(&handle)
+            .tab_stop(true)
+            .focus_visible(move |style| style.bg(fill).border_color(accent))
+            .when(lifted, |row| row.bg(fill).border_color(accent))
+            .when(!said.is_empty(), |row| row.tooltip(tip(said.clone())))
+            .when(keyed, |row| row.child(kbd((at + 1).to_string(), look)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(label.clone()))
+                    .children(cost.cloned().map(|cost| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(cost))),
+            )
+            .when(pick, |row| row.child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::OPERATOR)).child("My pick")))
+            .child(choose)
+    }
+
+    /// The focus handle of an option row, made once and kept: the row reads whether it has the keys.
+    fn option_handle(&self, key: &str, cx: &Context<Self>) -> gpui::FocusHandle {
+        self.option_focus.borrow_mut().entry(key.to_string()).or_insert_with(|| cx.focus_handle()).clone()
+    }
+
+    /// Snooze and Discuss, on the card's lightest step. Their keys show on the card the keys act on.
     fn card_foot(&self, keyed: bool, look: &Look, cx: &Context<Self>) -> Div {
         let later = labelled(
             pressed(
-                press("turn-later", "Discuss later".into(), Some("clock"), keyed.then(|| "L".into()), Weight::Bare, look)
+                press("turn-later", "Snooze".into(), Some("clock"), keyed.then(|| "S".into()), Weight::Bare, look)
                     .relative()
                     .when(keyed, |later| later.track_focus(&self.later_focus))
                     .tooltip(tip("Choose when the card comes back"))
@@ -251,7 +407,7 @@ impl OperatorPageView {
                 |this, window, cx| this.open_later(false, window, cx),
             ),
             Role::Button,
-            "Discuss later",
+            "Snooze",
         );
         let discuss = labelled(
             pressed(press("turn-discuss", "Discuss".into(), Some("bot"), keyed.then(|| "/".into()), Weight::Pick, look).tooltip(tip("Talk to the Operator about this card")), cx, |this, window, cx| this.discuss(window, cx)),

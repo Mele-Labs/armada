@@ -35,6 +35,10 @@ pub struct MockFleet {
     pub parked: Vec<ipc::ParkedIdea>,
     /// Every dispatch it was asked for, for a test to read.
     pub dispatched: Vec<ipc::DispatchJob>,
+    /// The Operator's own session, as Fleet's held Jobs carry it: none is a session not started.
+    pub session: Option<ipc::SessionRecord>,
+    /// The page was emptied by a scene, so switching on again does not bring its cards back.
+    pub quiet: bool,
     /// How many dispatches it has taken, which numbers what it answers with.
     taken: u32,
 }
@@ -46,6 +50,12 @@ pub fn page() -> OperatorPage {
 /// The ideas Fleet kept before the walk began: three thoughts, one called an idea and one a bug.
 pub fn parked() -> Vec<ipc::ParkedIdea> {
     ipc::decode::<ipc::ParkedIdeas>("ParkedIdeas", include_bytes!("../../fixtures/operator-parked.json")).expect("the parked ideas fixture decodes").ideas
+}
+
+/// The Operator's session record in one of the states the status card draws: `working`, `watching` or `stopped`.
+pub fn session(state: &str) -> ipc::SessionRecord {
+    let mut all = ipc::decode::<std::collections::BTreeMap<String, ipc::SessionRecord>>("the Operator's sessions", include_bytes!("../../fixtures/operator-session.json")).expect("the Operator session fixture decodes");
+    all.remove(state).unwrap_or_else(|| panic!("no Operator session in the state {state}"))
 }
 
 /// The Operator session's thread before the walk's talk.
@@ -84,6 +94,8 @@ impl MockFleet {
             refuse_pairing: None,
             parked: parked(),
             dispatched: Vec::new(),
+            session: Some(session("working")),
+            quiet: false,
             taken: 0,
         }
     }
@@ -126,8 +138,12 @@ impl MockFleet {
                 None => answered.open = turn.item.act.clone().filter(|act: &WaitingAct| act.kind != ipc::WaitingActKind::Answer),
             }
         }
-        if answered.open.is_some() {
-            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
+        // A press on a card picks it: it leaves the front for `working` until the Operator settles it.
+        let option = press.option.clone().or_else(|| super::face::pick_of(&turn).map(|pick| pick.to_string()));
+        match (answered.open.is_some(), option.and_then(|option| super::face::picked_card(&turn, &option, now().to_rfc3339().as_str()))) {
+            (false, Some(picked)) => self.page.working.insert(0, picked),
+            (true, _) => self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn),
+            (false, None) => {}
         }
         answered.page = self.page.clone();
         Ok(answered)
@@ -156,11 +172,22 @@ impl MockFleet {
         self.page.on = on;
         if !on {
             self.page.turn.clear();
+            self.page.working.clear();
             self.page.on_it = None;
             self.page.top = None;
-        } else if self.page.turn.is_empty() {
+            // Fleet ends the session when the switch goes off, and the next tick starts one once it is on.
+            self.session = None;
+        } else if self.page.turn.is_empty() && !self.quiet {
             self.page = page();
         }
+    }
+
+    /// The page empties and the Operator is in a turn: nothing needs him, so the status card stands in front.
+    pub fn quiet(&mut self) {
+        self.quiet = true;
+        self.page.turn.clear();
+        self.page.working.clear();
+        self.session = Some(session("working"));
     }
 
     /// What `set_operator_acts` does: the project's value is kept, or unset with none; every project's value is answered.
@@ -197,6 +224,17 @@ impl MockFleet {
                 self.page.turn.push(turn);
             }
         }
+        Some(())
+    }
+
+    /// The Operator reports the oldest card it is working on failed: the card comes back first in the queue, with its
+    /// steps and why.
+    pub fn returns(&mut self) -> Option<()> {
+        let mut turn = self.page.working.pop()?;
+        if let Some(card) = turn.card.as_mut() {
+            card.returned = Some(ipc::OperatorCardReturned { why: "The retry Job stopped before it finished".into(), at: ipc::Instant::carried("2026-11-11T13:06:00-05:00") });
+        }
+        self.page.turn.insert(0, turn);
         Some(())
     }
 

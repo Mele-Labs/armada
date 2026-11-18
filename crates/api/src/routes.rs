@@ -431,6 +431,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/operator/cards", post(crate::sessions::raise_card::<D>))
         .route("/operator/cards/revise", post(crate::sessions::revise_card::<D>))
         .route("/operator/cards/settle", post(crate::sessions::settle_card::<D>))
+        .route("/operator/cards/report", post(crate::sessions::report_card::<D>))
         .route("/operator/acts", get(crate::sessions::list_operator_acts::<D>).post(crate::sessions::set_operator_acts::<D>))
         .route("/bug_reports", get(crate::sessions::list_bug_reports::<D>))
         .route("/bug_reports/:report_id/keep", post(crate::sessions::keep_bug_report::<D>))
