@@ -325,7 +325,7 @@ impl FeaturePageView {
         cx.notify();
     }
 
-    /// Whether the section has a card on the page: one with nothing in it is left out.
+    /// Whether the section has something in its card. A card with nothing in it is still drawn, but the keys pass it over.
     pub(super) fn present(&self, section: Section) -> bool {
         match self.cards.get(&section) {
             Some(Body::Rows(rows)) => !rows.is_empty(),

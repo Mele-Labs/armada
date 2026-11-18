@@ -304,21 +304,35 @@ fn enter_on_the_start_button_opens_the_dispatch_panel(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn a_section_nobody_wrote_has_no_card_and_the_keys_skip_it(cx: &mut TestAppContext) {
+fn a_feature_with_only_code_draws_all_nine_cards_and_eight_empty_lines(cx: &mut TestAppContext) {
     let (page, cx) = open(cx);
     page.update(cx, |page, cx| {
         let mut read = mock::page(SLUG);
-        read.sections.retain(|section| section.section != ipc::FeatureSectionKind::Test);
+        read.sections.clear();
+        read.links.clear();
+        read.feature.jobs_now.clear();
         page.page = Load::Read(read);
+        page.asks = Load::Read(ipc::FeatureAsks { asks: Vec::new(), ..mock::asks(SLUG) });
         page.rebuild(cx);
     });
     cx.run_until_parked();
-    assert!(!page.read_with(cx, |page, _| page.present(Section::Test)), "an empty section is left out");
-    assert!(drawn(cx, Role::Region, "How it runs"));
-    page.update(cx, |page, cx| page.select(Section::Ideas, cx));
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    for card in ["On it now", "Who worked on it", "Asks", "How to test it", "How it runs", "Designs", "Code", "How to observe it", "Tech debt"] {
+        assert!(drawn(cx, Role::Heading, card), "{card} has its title");
+        assert!(drawn(cx, Role::Region, card), "{card} is a region");
+    }
+    let empty = ["on", "who", "asks", "test", "runs", "designs", "observe", "debt"];
+    for key in empty {
+        assert!(drawn(cx, Role::Label, super::page_view::said_empty(key)), "{key} says why it is empty");
+    }
+    assert!(!drawn(cx, Role::Label, super::page_view::said_empty("code")), "Code has files and says nothing");
+    assert!(!page.read_with(cx, |page, _| page.has_asks), "an empty Asks card has no chips to draw");
+    page.update(cx, |page, cx| page.select(Section::Who, cx));
     cx.update(|window, cx| page.update(cx, |page, cx| page.focus_rail(window, cx)));
     cx.simulate_keystrokes("j");
-    assert_eq!(page.read_with(cx, |page, _| page.section()), Section::Runs, "the keys go from the asks to the next card that is there");
+    assert_eq!(page.read_with(cx, |page, _| page.section()), Section::Code, "the keys go to the one card with something in it");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(cx.update(|window, cx| page.read(cx).region_in(window)), Region::Start, "no rows and no well: Tab goes to the button");
 }
 
 #[gpui::test]

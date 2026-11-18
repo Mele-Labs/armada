@@ -1,5 +1,5 @@
 //! A feature's page drawn from what `page_model.rs` made of Fleet's read, in the owner's Dossier look: a band across the top
-//! tinted with the area's hue, and under it raised cards in columns. A section nobody wrote has no card. Every value is a token.
+//! tinted with the area's hue, and under it cards in columns. Every card is always drawn: one with nothing in it says why and how it fills in. Every value is a token.
 
 use gpui::{div, prelude::*, px, relative, AnyElement, ClipboardItem, Div, ElementId, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Stateful, Toggled, Window};
 
@@ -38,7 +38,7 @@ fn columns(count: usize) -> Vec<Vec<Card>> {
     }
 }
 
-/// A raised card (`.card`): the hairline, the card shadow, and where the keys are on it the focus colour. The one that says what
+/// A card (`.card`) on the page's panel, a step under the panel's ground so it reads as a card: the hairline, the card shadow, and where the keys are on it the focus colour. The one that says what
 /// runs now is tinted with the running hue (`.now`).
 fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
     let edge = if ring {
@@ -48,16 +48,16 @@ fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> St
     } else {
         look.color(token::BORDER_SUBTLE)
     };
-    let ground = if running { tint(look, look.color(token::BG_RAISED), token::STATUS_RUNNING, 0.09) } else { look.color(token::BG_RAISED) };
+    let ground = if running { tint(look, look.color(token::BG_BASE), token::STATUS_RUNNING, 0.09) } else { look.color(token::BG_BASE) };
     div().id(id.into()).w_full().flex().flex_col().rounded(look.length(token::RADIUS_LG)).border(look.length(token::BORDER_WIDTH)).border_color(edge).bg(ground).shadow(look.shadows(token::SHADOW_CARD)).overflow_hidden()
 }
 
 /// A card's title (`h3`): on a ground a little under the card's own, or in the running hue for the card that says what runs.
 fn head(look: &Look, key: &str, title: &str, running: bool) -> impl IntoElement {
     let (ground, ink, edge) = if running {
-        (tint(look, look.color(token::BG_RAISED), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
+        (tint(look, look.color(token::BG_BASE), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
     } else {
-        (tint(look, look.color(token::BG_BASE), token::BG_RAISED, 0.70), look.color(token::FG_DEFAULT), look.color(token::BORDER_SUBTLE))
+        (tint(look, look.color(token::BG_SUNKEN), token::BG_BASE, 0.60), look.color(token::FG_DEFAULT), look.color(token::BORDER_SUBTLE))
     };
     labelled(
         div()
@@ -83,6 +83,39 @@ fn head(look: &Look, key: &str, title: &str, running: bool) -> impl IntoElement 
 /// The inside of a card that holds text (`.in`).
 fn inner(look: &Look) -> Div {
     div().flex().flex_col().gap(look.length(token::SPACE_3) - px(2.)).px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_3))
+}
+
+/// What an empty card says: why it is empty and how it fills in.
+pub(super) fn said_empty(key: &str) -> &'static str {
+    match key {
+        "on" => "No Job is changing this feature now. A Job shows here while it edits the feature's files.",
+        "who" => "No merged Job has changed this feature yet. Each merge that changes its files adds its Job here.",
+        "asks" => "Nothing asked about this feature yet. Bugs, changes and ideas you send a Job or note on a screen file here.",
+        "test" => "Not written yet. The next Job that changes this feature's files writes how to test it before it ends.",
+        "runs" => "Not written yet. The next Job that changes this feature's files writes how it runs before it ends.",
+        "designs" => "No sketch, page or walk names this feature yet. One shows here when a Job draws it for this feature.",
+        "code" => "No files mapped to this feature yet. Files map in from the code graph and each commit's Feature line.",
+        "observe" => "Not written yet. The next Job that changes this feature's files writes how to observe it before it ends.",
+        _ => "None written. The next Job that changes this feature's files writes any debt it leaves.",
+    }
+}
+
+/// A card with nothing in it: its title and one muted line under it. It has no rows, chips or buttons, so no key stops on it.
+fn empty_card(look: &Look, key: &str, title: &str) -> AnyElement {
+    let said = said_empty(key);
+    let line = labelled(
+        div()
+            .id(SharedString::from(format!("feature-empty-{key}")))
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(said),
+        Role::Label,
+        said,
+    );
+    labelled(shell(look, SharedString::from(format!("feature-card-{key}")), false, false).child(head(look, key, title, false)).child(line), Role::Region, title.to_string()).into_any_element()
 }
 
 impl FeaturePageView {
@@ -135,7 +168,7 @@ impl FeaturePageView {
             .pb(look.length(token::SPACE_4) + px(2.))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(tint(look, look.color(token::BG_BASE), hue, 0.08))
+            .bg(tint(look, look.color(token::BG_RAISED), hue, 0.08))
             .child(div().absolute().top_0().left_0().right_0().h(look.length(token::EDGE_ACTIVE)).bg(look.color(hue)))
             .child(
                 div()
@@ -260,17 +293,15 @@ impl FeaturePageView {
         self.rail.is_focused(window) && here.contains(&self.section)
     }
 
-    /// The Jobs on the feature now in a card of their own, and those that worked on it before under it.
-    fn render_who(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+    /// The Jobs on the feature now in a card of their own, and those that worked on it before under it. Both are drawn where
+    /// there are none, each saying why.
+    fn render_who(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let rows = self.rows_of(Section::Who);
-        if rows.is_empty() {
-            return None;
-        }
         let ring = self.under_keys(&[Section::Who], window);
         let on = rows.iter().take_while(|row| row.on).count();
         let running_edge = look.color(token::STATUS_RUNNING).opacity(0.18);
         let mut who = div().id("feature-who").w_full().flex().flex_col().gap(look.length(token::SPACE_4));
-        if self.section == Section::Who {
+        if self.section == Section::Who && !rows.is_empty() {
             who = who.track_focus(&self.rows);
         }
         if on > 0 {
@@ -279,6 +310,8 @@ impl FeaturePageView {
                 list = list.child(self.render_row(Section::Who, at, row, at == 0, Some(running_edge), look, cx));
             }
             who = who.child(labelled(shell(look, "feature-card-on", ring, true).child(head(look, "on", "On it now", true)).child(list), Role::Region, "On it now"));
+        } else {
+            who = who.child(empty_card(look, "on", "On it now"));
         }
         if rows.len() > on {
             let mut list = div().w_full().flex().flex_col();
@@ -286,8 +319,10 @@ impl FeaturePageView {
                 list = list.child(self.render_row(Section::Who, at, row, at == on, None, look, cx));
             }
             who = who.child(labelled(shell(look, "feature-card-who", ring, false).child(head(look, "who", Section::Who.title(), false)).child(list), Role::Region, Section::Who.title()));
+        } else {
+            who = who.child(empty_card(look, "who", Section::Who.title()));
         }
-        Some(who.into_any_element())
+        who.into_any_element()
     }
 
     /// The filter chips of the asks, in a strip under the card's title.
@@ -341,7 +376,7 @@ impl FeaturePageView {
     }
 
     /// The asks of the three kinds in one card, each kind under its own chip (`.lane-h`).
-    fn render_asks(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+    fn render_asks(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let ring = self.under_keys(&[Section::Bugs, Section::Changes, Section::Ideas], window);
         let card = shell(look, "feature-card-asks", ring, false).child(head(look, "asks", "Asks", false));
         let body = match &self.asks {
@@ -353,7 +388,7 @@ impl FeaturePageView {
                 labelled(bones.id("feature-asks-loading"), Role::Image, "Loading").into_any_element()
             }
             Load::Failed(why) => self.not_read(look, why).into_any_element(),
-            Load::Read(_) if !self.has_asks => return None,
+            Load::Read(_) if !self.has_asks => return empty_card(look, "asks", "Asks"),
             Load::Read(_) => {
                 let mut lanes = div().flex().flex_col();
                 let mut first = true;
@@ -380,7 +415,7 @@ impl FeaturePageView {
                 div().flex().flex_col().child(self.render_chips(look, window, cx)).child(lanes).into_any_element()
             }
         };
-        Some(labelled(card.child(body), Role::Region, "Asks").into_any_element())
+        labelled(card.child(body), Role::Region, "Asks").into_any_element()
     }
 
     fn bone_row(&self, look: &Look, at: usize) -> impl IntoElement {
@@ -410,14 +445,14 @@ impl FeaturePageView {
             .child(SharedString::from(why.to_string()))
     }
 
-    fn render_designs(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+    fn render_designs(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         let rows = self.rows_of(Section::Designs);
         if rows.is_empty() {
-            return None;
+            return empty_card(look, "designs", Section::Designs.title());
         }
         let ring = self.under_keys(&[Section::Designs], window);
         let card = shell(look, "feature-card-designs", ring, false).child(head(look, "designs", Section::Designs.title(), false)).child(self.render_rows(Section::Designs, rows, None, look, cx));
-        Some(labelled(card, Role::Region, Section::Designs.title()).into_any_element())
+        labelled(card, Role::Region, Section::Designs.title()).into_any_element()
     }
 
     /// The entry points, files and prefixes of the feature as mono rows with a hairline between them (`.path`). A file's figure is
@@ -516,7 +551,7 @@ impl FeaturePageView {
                     .py(look.length(token::SPACE_2))
                     .border_b(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.30))
-                    .bg(tint(look, look.color(token::BG_RAISED), token::STATUS_AWAITING_REVIEW, 0.14))
+                    .bg(tint(look, look.color(token::BG_BASE), token::STATUS_AWAITING_REVIEW, 0.14))
                     .text_size(look.length(token::TEXT_2XS))
                     .line_height(look.length(token::LEADING_2XS))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
@@ -530,15 +565,15 @@ impl FeaturePageView {
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 
-    fn render_card(&self, card: Card, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+    fn render_card(&self, card: Card, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         match card {
             Card::Who => self.render_who(look, window, cx),
             Card::Asks => self.render_asks(look, window, cx),
             Card::Section(Section::Designs) => self.render_designs(look, window, cx),
-            Card::Section(section) => match self.cards.get(&section)? {
-                Body::Code(code) if self.present(section) => Some(self.render_code(code, look, window)),
-                Body::Written(Some(written)) => Some(self.render_written(section, written, look, window)),
-                _ => None,
+            Card::Section(section) => match self.cards.get(&section) {
+                Some(Body::Code(code)) if self.present(section) => self.render_code(code, look, window),
+                Some(Body::Written(Some(written))) => self.render_written(section, written, look, window),
+                _ => empty_card(look, section.id(), section.title()),
             },
         }
     }
@@ -553,7 +588,7 @@ impl FeaturePageView {
         for (at, cards) in columns(count).into_iter().enumerate() {
             let mut column = div().min_w_0().flex_basis(relative(0.)).flex_grow(if at == 0 && count == 3 { 1.15 } else { 1. }).flex().flex_col().gap(gap);
             for card in cards {
-                column = column.children(self.render_card(card, look, window, cx));
+                column = column.child(self.render_card(card, look, window, cx));
             }
             grid = grid.child(column);
         }
@@ -594,7 +629,6 @@ impl Render for FeaturePageView {
             .size_full()
             .flex()
             .flex_col()
-            .bg(look.color(token::BG_BASE))
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
             .child(top)

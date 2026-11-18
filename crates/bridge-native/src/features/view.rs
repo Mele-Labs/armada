@@ -1,5 +1,6 @@
-//! The Features tab drawn from what `model.rs` made of Fleet's read: in the left rail the field that finds a feature, and each
-//! area as a head with its own hue and its features indented under it, and on the right the slot the feature's page fills.
+//! The Features tab drawn from what `model.rs` made of Fleet's read: in a panel on the left the field that finds a feature, and each
+//! area as a head with its own hue and its features indented under it, and in a panel beside it the slot the feature's page fills,
+//! as Reviews and Jobs lay out a list and its content.
 //! The look is the owner's Dossier take. Every value is a token.
 
 use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
@@ -8,6 +9,7 @@ use gpui_component::input::Input;
 use super::dossier::{area_hue, hue_square, selected_shadow};
 use super::model::{Line, Shown};
 use super::{FeaturesScreen, Load};
+use crate::reviews::panel;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ghost_with, ring_colour, tip};
@@ -19,13 +21,16 @@ fn rail_width(look: &Look) -> Pixels {
     look.length(token::SPACE_12) * 6.
 }
 
-/// The page's inset (`.rail` and its edge), which is none while the page is drawn alone.
+/// What the page's panel leaves of the window's width: the screen's padding either side, the page panel's own edges, and where the
+/// list is beside it that panel and the gap between.
 impl FeaturesScreen {
     pub(super) fn inset(&self, cx: &gpui::App) -> Pixels {
+        let look = cx.look();
+        let frame = look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) * 2.;
         if self.stacked {
-            px(0.)
+            frame
         } else {
-            rail_width(cx.look()) + cx.look().length(token::BORDER_WIDTH)
+            frame + rail_width(look) + look.length(token::GAP_PANEL)
         }
     }
 }
@@ -233,7 +238,7 @@ impl FeaturesScreen {
                 .into_any_element()
             }
         };
-        div()
+        panel(look)
             .id("features-column")
             .track_focus(&self.list_focus)
             .flex_none()
@@ -241,9 +246,6 @@ impl FeaturesScreen {
             .h_full()
             .flex()
             .flex_col()
-            .when(!self.stacked, |column| column.border_r(look.length(token::BORDER_WIDTH)))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_SUNKEN))
             .child(self.render_find(look))
             .child(div().flex_1().min_h_0().child(body))
     }
@@ -261,13 +263,12 @@ impl FeaturesScreen {
             .py(look.length(token::SPACE_2))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_SUNKEN))
             .child(back)
     }
 
     /// The right of the list. A feature's page is drawn here once one is open.
-    fn render_page_slot(&self, look: &Look) -> impl IntoElement {
-        labelled(div().id("feature-page").flex_1().min_w_0().h_full().bg(look.color(token::BG_BASE)).children(self.page.clone()), Role::Region, "Feature page")
+    fn render_page_slot(&self, look: &Look, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        labelled(panel(look).id("feature-page").flex_1().min_w_0().h_full().flex().flex_col().children(self.stacked.then(|| self.render_back(look, cx))).child(div().flex_1().min_h_0().children(self.page.clone())), Role::Region, "Feature page")
     }
 }
 
@@ -283,14 +284,16 @@ impl Render for FeaturesScreen {
             .relative()
             .size_full()
             .flex()
+            .gap(look.length(token::GAP_PANEL))
+            .p(look.length(token::SPACE_3))
             .bg(look.color(token::BG_BASE))
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
             .map(|screen| match (self.stacked, self.showing) {
-                // Narrow: one at a time, each the full width. The page has a Back row over it, as the overlay's page has.
-                (true, true) => screen.flex_col().child(self.render_back(&look, cx)).child(self.render_page_slot(&look)),
+                // Narrow: one panel at a time, each the full width. The page has a Back row over it, as the overlay's page has.
+                (true, true) => screen.child(self.render_page_slot(&look, cx)),
                 (true, false) => screen.child(self.render_list(&look, window, cx)),
-                (false, _) => screen.child(self.render_list(&look, window, cx)).child(self.render_page_slot(&look)),
+                (false, _) => screen.child(self.render_list(&look, window, cx)).child(self.render_page_slot(&look, cx)),
             })
             .children(self.render_sheet(&look, window, cx))
             .children(self.curate.menu.as_ref().map(|open| open.menu.clone()))

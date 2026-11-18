@@ -214,20 +214,20 @@ fn widths_at(cx: &mut TestAppContext, wide: f32) -> (gpui::Pixels, gpui::Pixels)
 
 #[gpui::test]
 fn the_list_is_288_wide_from_900_up_and_the_page_has_the_rest(cx: &mut TestAppContext) {
-    // The rail is six steps of the largest space; the list's box is inside its 1px border.
-    assert_eq!(widths_at(cx, 900.), (px(287.), px(612.)));
+    // The list is a panel of six steps of the largest space, its box inside the panel's 1px border; the page's panel has what the padding, the gap and the list leave.
+    assert_eq!(widths_at(cx, 900.), (px(286.), px(582.)));
 }
 
 #[gpui::test]
 fn at_820_the_page_takes_the_whole_width_where_it_is_opened(cx: &mut TestAppContext) {
     let (_, page) = widths_at(cx, 820.);
-    assert_eq!(page, px(820.), "the list is not beside it");
+    assert_eq!(page, px(796.), "the list is not beside it: the panel has the window less the padding either side");
 }
 
 #[gpui::test]
 fn the_rail_does_not_grow_with_a_wide_window(cx: &mut TestAppContext) {
     let (list, page) = widths_at(cx, 1400.);
-    assert_eq!((list, page), (px(287.), px(1112.)), "the page takes what the rail leaves");
+    assert_eq!((list, page), (px(286.), px(1082.)), "the page takes what the rail leaves");
 }
 
 #[gpui::test]
@@ -295,7 +295,7 @@ fn page_of(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) ->
 fn list_alone(cx: &mut VisualTestContext) -> bool {
     let list = last_drawn(cx, gpui::Role::ListBox, "Features").expect("the list was drawn");
     let back = last_drawn(cx, gpui::Role::Button, "Back");
-    back.is_none_or(|back| list.0 > back.0) && list.1 == px(820.)
+    back.is_none_or(|back| list.0 > back.0) && list.1 == px(794.)
 }
 
 #[gpui::test]
@@ -321,10 +321,12 @@ fn at_820_enter_opens_the_page_full_width_with_a_back_row_and_escape_returns_to_
     cx.simulate_keystrokes("enter");
     redraw(cx);
     assert_eq!(page_of(&screen, cx).as_deref(), Some("pause-resume-stop-snooze"));
-    let (page, wide) = last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page is drawn");
-    assert_eq!(wide, px(820.), "the page has the whole width");
+    let (_, wide) = last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page is drawn");
+    assert_eq!(wide, px(796.), "the page panel has the whole width less the padding");
     let (back, _) = last_drawn(cx, gpui::Role::Button, "Back").expect("a Back row is over the page");
-    assert!(back < page, "Back is above the page");
+    let bounds = |cx: &mut VisualTestContext, role: gpui::Role, name: &str| cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)).expect("drawn");
+    let (panel, button, title) = (bounds(cx, gpui::Role::Region, "Feature page"), bounds(cx, gpui::Role::Button, "Back"), bounds(cx, gpui::Role::Button, "Start a Job on it"));
+    assert!(panel.contains(&button.origin) && button.origin.y < title.origin.y, "Back is inside the page's panel and above its page");
     assert!(last_drawn(cx, gpui::Role::ListBox, "Features").expect("the list was drawn before").0 < back, "the list is not drawn with it");
     assert!(cx.update(|window, cx| screen.read(cx).page.clone().expect("a page").read(cx).rail.is_focused(window)), "the keys are on the page, the list not being drawn to hold them");
     cx.simulate_keystrokes("escape");
@@ -343,7 +345,7 @@ fn at_820_a_press_on_a_row_or_on_back_opens_and_closes_the_page(cx: &mut TestApp
     cx.simulate_click(row.center(), gpui::Modifiers::default());
     redraw(cx);
     assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"));
-    assert_eq!(last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page").1, px(820.));
+    assert_eq!(last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page").1, px(796.));
     let back = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "Back").map(|one| one.bounds)).expect("Back is drawn");
     cx.simulate_click(back.center(), gpui::Modifiers::default());
     redraw(cx);
