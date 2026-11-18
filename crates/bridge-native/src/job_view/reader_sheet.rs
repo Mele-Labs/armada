@@ -471,8 +471,14 @@ mod tests {
         let panel = bounds_of(cx, Role::Dialog, "Review");
         let approve = bounds_of(cx, Role::Button, "Approve");
         let ask = bounds_of(cx, Role::Button, "Ask for changes");
+        let dismiss = bounds_of(cx, Role::Button, "Dismiss");
         let low = panel.top() + panel.size.height * 0.75;
         assert!(approve.top() > low && ask.top() > low && approve.bottom() < panel.bottom(), "both stand in the foot, at the panel's bottom");
+        for (name, one) in [("Approve", approve), ("Ask for changes", ask)] {
+            assert!(one.top() < dismiss.bottom() && one.bottom() > dismiss.top(), "{name} stands in Dismiss's row: {one:?} {dismiss:?}");
+        }
+        assert!(approve.right() <= ask.left() && ask.right() <= dismiss.left(), "right-aligned, in the order Approve, Ask for changes, Dismiss");
+        assert!(approve.left() > panel.left() + panel.size.width * 0.5, "on the right of the foot");
     }
 
     #[gpui::test]
@@ -685,6 +691,21 @@ mod tests {
         let (_, cx) = opened(cx, 1400., 900.);
         assert!(drawn(cx, Role::Button, "Send pick"), "a single vote has its own Send pick");
         assert!(!drawn(cx, Role::Button, "Send picks"), "and no Send picks");
+    }
+
+    #[gpui::test]
+    fn cmd_enter_in_an_ask_for_changes_box_sends_the_note(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
+        redraw(cx);
+        cx.simulate_input("Shorter, please.");
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.clone(), post.how, post.words.clone())).collect();
+            assert_eq!(posts, [("intro".to_string(), ipc::PartHow::SentBack, Some("Shorter, please.".to_string()))], "⌘↩ sends the note as Send does");
+        });
     }
 
     #[gpui::test]

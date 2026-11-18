@@ -776,7 +776,7 @@ impl JobView {
                 .children(blocks);
             return Some(labelled(column, Role::Region, named).into_any_element());
         }
-        let footer = Some(held_press(self.parts_footer(ix, id, &parts, asking, page, look, cx)));
+        let footer = Some(held_press(self.parts_footer(ix, id, &parts, asking, None, page, look, cx)));
         // A press anywhere on the card that is not on one of its controls, and did not travel, grows it out over the app.
         let (opened, kept, store) = (id.to_string(), id.to_string(), self.pictures.cards.clone());
         let card = frame(look, self.band_narrow(look))
@@ -808,14 +808,18 @@ impl JobView {
         let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
-        let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
-        // A takes part's pick row, or, for an artifact of one drawing (drawn whole in the focus view, so its own bar is
-        // not drawn), that drawing's Approve and Ask for changes.
+        // A takes part's pick row stands over the footer. For an artifact of one drawing (drawn whole in the focus view, so its
+        // own bar is not drawn), that drawing's Approve and Ask for changes stand in the footer's row beside Dismiss, and only
+        // the note box Ask for changes opens takes a row of its own.
         let lone_drawing = match parts.as_slice() {
             [part] if is_words_like(part) && matches!(part.content, PartContent::Drawing { .. }) => Some(part),
             _ => None,
         };
-        let pick = parts.iter().find(|part| is_pick(part)).filter(|_| !several_picks(&parts)).or(lone_drawing).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        let lone_noting = lone_drawing.is_some_and(|part| page.cards.modes.get(&part_key(id, &part.id)) == Some(&Mode::Note));
+        let inline = lone_drawing.filter(|_| !lone_noting).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        let footer = self.parts_footer(ix, id, &parts, asking, inline, page, look, cx);
+        let above = parts.iter().find(|part| is_pick(part)).filter(|_| !several_picks(&parts)).or(lone_drawing.filter(|_| lone_noting));
+        let pick = above.and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
         Some(match pick {
             Some(pick) => div()
                 .flex()
@@ -827,9 +831,10 @@ impl JobView {
         })
     }
 
-    /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
-    /// the reader instead of ending the card.
-    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The card's footer: what settles it, the refusal he last had, `acts` where the footer carries a part's own, and Dismiss or
+    /// Archive. In the focus view it is pinned below the reader instead of ending the card.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, acts: Option<AnyElement>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let run: Do = {
             let id = id.to_string();
             Rc::new(move |this, act, window, cx| match act {
@@ -863,6 +868,7 @@ impl JobView {
                         .when_some(line, |one, line| one.tooltip(tip(line.clone())).child(SharedString::from(line))),
                 )
                 .children(picks)
+                .children(acts.map(|acts| div().flex_none().child(acts)))
                 .child(div().flex_none().child(away)),
         );
         footer.into_any_element()
