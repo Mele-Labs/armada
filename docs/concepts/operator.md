@@ -174,6 +174,25 @@ It never comments on, labels or edits an issue or a pull request for you.
 **It reads across repositories.**
 The work a thought belongs to is often in another repository, and one Operator serves the Mac.
 
+## A backlog report
+
+**It reads a repository's issues and writes none.**
+`list_issues`, `get_issue` and `search_issues` are offered to its session alone, each naming its repository.
+Nothing that writes an issue is.
+
+**It writes one page you review and revise with it.**
+The page is `.armada/documents/<slug>.html` in its own folder, kept and waiting on you as a Job's page is.
+It groups the issues by screen or area, with a verdict and the evidence for each.
+Your notes revise the same page.
+
+**Its buttons start the work.**
+A `start` button names its repository, since the Operator stands in none.
+Anything else is a `message` button, whose press tells the Operator.
+Closing an issue it found done is one of those: it asks you, and the Operator closes nothing.
+
+**It is an extra path.**
+The backlog stays readable on the Issues screen without the Operator.
+
 ## With the session not running
 
 **Fleet then does what it did with the Operator off.**
