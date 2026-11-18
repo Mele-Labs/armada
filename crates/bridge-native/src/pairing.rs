@@ -92,6 +92,21 @@ pub fn paired(mac: &Mac) -> bool {
     matches!(mac.link, Some(MacLink::Linked | MacLink::Asleep { .. } | MacLink::OlderBuild | MacLink::NewerBuild))
 }
 
+/// The Mac a Refresh preview takes along: the other Mac, where one is paired, linked first.
+pub fn refresh_partner(macs: &[Mac]) -> Option<&Mac> {
+    crate::move_to_mac::other(macs)
+}
+
+/// What Refresh preview asks of Fleet, **decided here for the title bar's Refresh row, the Ready to try card and
+/// the dock's restart key alike**: both Macs onto one preview commit where another is paired, this Mac alone where
+/// none is. Two Macs that each refresh alone end on different builds and the link freezes.
+pub fn refresh_act(macs: &[Mac]) -> crate::fleet::BuildAct {
+    match refresh_partner(macs) {
+        Some(other) => crate::fleet::BuildAct::Macs(ipc::UpdateMac { mac: Some(other.id.clone()), this_mac_too: true, build: Some(ipc::BuildSource::Preview), ..Default::default() }),
+        None => crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None }),
+    }
+}
+
 /// What a Job's chip says: the Mac's name in its colour, and when it fell asleep if it did.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Chip {
@@ -271,6 +286,27 @@ mod tests {
 
     fn this() -> Mac {
         Mac { id: "studio".into(), name: "Studio".into(), colour: MacColour::Teal, this_mac: true, ..Default::default() }
+    }
+
+    #[test]
+    fn refresh_preview_moves_both_macs_where_another_is_paired_and_this_one_where_none_is() {
+        use crate::fleet::BuildAct;
+        let alone = BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None });
+        assert_eq!(refresh_act(&[this()]), alone);
+        let waiting = Mac { id: "x".into(), link: Some(MacLink::ClaimWaiting), ..Default::default() };
+        assert_eq!(refresh_act(&[this(), waiting]), alone, "a claim waiting is no Mac to take along");
+        let both = BuildAct::Macs(ipc::UpdateMac { mac: Some("air".into()), this_mac_too: true, build: Some(ipc::BuildSource::Preview), ..Default::default() });
+        assert_eq!(refresh_act(&[this(), linked("air", "Air", MacColour::Orange)]), both);
+        let asleep = Mac { id: "air".into(), link: Some(MacLink::Asleep { since: 5 }), ..Default::default() };
+        assert_eq!(refresh_act(&[this(), asleep]), both);
+        assert_eq!(refresh_act(&[]), alone);
+    }
+
+    #[test]
+    fn the_both_form_is_the_wire_body_fleet_reads() {
+        let both = refresh_act(&[this(), linked("air", "Air", MacColour::Orange)]);
+        assert_eq!(both.route(), "/macs/update");
+        assert_eq!(both.body().expect("it has a body").expect("it encodes"), r#"{"mac":"air","this_mac_too":true,"build":"preview"}"#);
     }
 
     #[test]

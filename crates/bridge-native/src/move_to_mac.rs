@@ -32,7 +32,7 @@ pub struct Offer {
 
 /// The Mac a Job goes to from here: the first other Mac whose link is up, else the first asleep. Only one other
 /// Mac is paired today, and a second would need a menu of its own.
-fn other(macs: &[Mac]) -> Option<&Mac> {
+pub fn other(macs: &[Mac]) -> Option<&Mac> {
     let others = || macs.iter().filter(|one| !one.this_mac);
     others().find(|one| one.link == Some(MacLink::Linked)).or_else(|| others().find(|one| crate::pairing::paired(one)))
 }

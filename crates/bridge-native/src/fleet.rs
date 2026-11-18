@@ -782,6 +782,8 @@ const FOLLOW_FOR: std::time::Duration = std::time::Duration::from_secs(20 * 60);
 #[derive(Clone, Debug, PartialEq)]
 pub enum BuildAct {
     Change(ipc::ChangeFleetBuild),
+    /// `POST /macs/update`: this Mac and another onto one build, from [`crate::pairing::refresh_act`].
+    Macs(ipc::UpdateMac),
     Revert,
     Swap,
     Keep,
@@ -789,9 +791,10 @@ pub enum BuildAct {
 }
 
 impl BuildAct {
-    fn route(&self) -> &'static str {
+    pub(crate) fn route(&self) -> &'static str {
         match self {
             BuildAct::Change(_) => "/fleet/build/change",
+            BuildAct::Macs(_) => "/macs/update",
             BuildAct::Revert => "/fleet/build/revert",
             BuildAct::Swap => "/fleet/build/swap",
             BuildAct::Keep => "/fleet/build/keep",
@@ -799,10 +802,11 @@ impl BuildAct {
         }
     }
 
-    fn body(&self) -> Option<Result<String, String>> {
+    pub(crate) fn body(&self) -> Option<Result<String, String>> {
         let encoded = |body: Result<String, ipc::Unencodable>| body.map_err(|why| format!("{why:?}"));
         match self {
             BuildAct::Change(change) => Some(encoded(ipc::encode(change))),
+            BuildAct::Macs(update) => Some(encoded(ipc::encode(update))),
             BuildAct::Pick(pick) => Some(encoded(ipc::encode(pick))),
             BuildAct::Revert | BuildAct::Swap | BuildAct::Keep => None,
         }
@@ -945,16 +949,19 @@ impl FleetConnection {
             let outcome = crate::revert::outcome_of(read);
             let _ = this.update(cx, |this, cx| {
                 let took = outcome == crate::revert::Outcome::Started;
-                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Revert | BuildAct::Swap);
+                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Macs(_) | BuildAct::Revert | BuildAct::Swap);
                 match (took, this.held.build.as_mut()) {
                     (true, Some(build)) if marks => {
                         build.failed = None;
                         match &act {
                             BuildAct::Change(change) => build.restarting = Some(change.build),
+                            BuildAct::Macs(update) => build.restarting = Some(update.build.unwrap_or(ipc::BuildSource::Main)),
                             BuildAct::Revert => build.reverting = true,
                             _ => build.swapping = true,
                         }
                     }
+                    // Both Macs are asked from places with no failed line, so Fleet's words go to a toast.
+                    (false, _) if matches!(act, BuildAct::Macs(_)) => crate::toasts::tell(crate::revert::why_not(&outcome).to_string(), cx),
                     (false, Some(build)) if marks => build.failed = Some(crate::revert::why_not(&outcome).to_string()),
                     (false, _) => Note::warn("Fleet refused a build act").field("route", route).field("why", crate::revert::why_not(&outcome)).emit(),
                     _ => {}
