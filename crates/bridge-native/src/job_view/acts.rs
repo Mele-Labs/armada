@@ -511,12 +511,10 @@ impl JobView {
                 .background_executor()
                 .spawn(async move {
                     let body = body?;
+                    let sent = body.len();
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
-                    if (200..300).contains(&status) {
-                        return Ok(());
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    crate::refusal::answered("POST", route, Some(sent), status, bytes).map(|_| ()).map_err(|refusal| refusal.to_string())
                 })
                 .await;
             if let Err(why) = answer {

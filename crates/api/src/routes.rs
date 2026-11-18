@@ -85,6 +85,7 @@ pub use served::{Route, SERVED};
 /// door's own calls carry no `Origin` — they are built here, not forwarded —
 /// so a tool call passes exactly as a Bridge request does.
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
+    let served_run_id = served.run_id().clone();
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
     // Over the listener and not the door's copy: what the door offers a Job is the inventory's
@@ -105,7 +106,11 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
         )),
         None => app,
     };
-    app.layer(refusing_a_job).layer(refusing_a_page)
+    // Outermost, so it sees a 413 from any layer or extractor beneath it.
+    let naming_a_413 = from_fn_with_state(served_run_id, crate::too_large::name_a_413);
+    app.layer(refusing_a_job)
+        .layer(refusing_a_page)
+        .layer(naming_a_413)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.

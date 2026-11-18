@@ -9,6 +9,7 @@ use crate::fleet::{FleetConnection, Held};
 use crate::jobs::JobsList;
 use crate::link::LinkState;
 use crate::log::Note;
+use crate::refusal::Failed;
 
 /// Where a live strip reads from.
 pub(super) struct Source {
@@ -64,7 +65,7 @@ impl MergeStrip {
             Asked::RefreshPull { root, number } => {
                 let key = format!("pull:{root}#{number}");
                 match manifest_of(held.repositories.as_deref().unwrap_or_default(), &root) {
-                    Some(manifest) => self.ask(key, port, format!("/pull_requests/{}/{number}/refresh", crate::link::percent_encoded(&manifest)), None, cx),
+                    Some(manifest) => self.ask(key, port, format!("/pull_requests/{}/{number}/refresh", crate::link::percent_encoded(&manifest)), None, "The pull request was not refreshed", cx),
                     None => self.refuse(key, "This repository has no Manifest, so Fleet cannot refresh its pull requests.".into(), cx),
                 }
             }
@@ -83,7 +84,7 @@ impl MergeStrip {
                 .map_err(|why| format!("{why:?}"));
                 let key = format!("main:{root}");
                 match body {
-                    Ok(body) => self.ask(key, port, "/sessions/message".into(), Some(body), cx),
+                    Ok(body) => self.ask(key, port, "/sessions/message".into(), Some(body), "The work was not sent back to the Job", cx),
                     Err(why) => self.refuse(key, why, cx),
                 }
             }
@@ -94,31 +95,33 @@ impl MergeStrip {
 impl MergeStrip {
     /// Ask Fleet off the main thread. A refusal is drawn on the chip or light `key` names, in Fleet's words,
     /// where Electron raises a toast; asking again clears it.
-    fn ask(&mut self, key: String, port: Option<u16>, path: String, body: Option<String>, cx: &mut Context<Self>) {
+    fn ask(&mut self, key: String, port: Option<u16>, path: String, body: Option<String>, headline: &'static str, cx: &mut Context<Self>) {
         let key = SharedString::from(key);
         self.refused.remove(&key);
         cx.notify();
         let Some(port) = port else { return self.refuse(key.to_string(), "Fleet is not connected.".into(), cx) };
         cx.spawn(async move |this, cx| {
-            let answer = cx
+            let answer: Result<(), Failed> = cx
                 .background_executor()
                 .spawn(async move {
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let sent = body.as_ref().map(String::len);
                     let (status, bytes) = runtime.block_on(async {
                         match body {
                             Some(body) => crate::transport::post(port, &path, body).await,
                             None => crate::transport::post_bare(port, &path).await,
                         }
                     })?;
-                    if (200..300).contains(&status) {
-                        Ok(())
-                    } else {
-                        Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
-                    }
+                    crate::refusal::answered("POST", &path, sent, status, bytes)?;
+                    Ok(())
                 })
                 .await;
             if let Err(why) = answer {
-                let _ = this.update(cx, |strip, cx| strip.refuse(key.to_string(), why, cx));
+                let _ = this.update(cx, |strip, cx| {
+                    let told = why.clone();
+                    cx.defer(move |cx| told.tell_refusal(headline, cx));
+                    strip.refuse(key.to_string(), why.to_string(), cx)
+                });
             }
         })
         .detach();
