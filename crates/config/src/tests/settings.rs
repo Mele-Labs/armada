@@ -128,6 +128,7 @@ fn every_row_an_entry_realises_is_in_the_design_registry() {
 fn every_handle_names_an_entry_of_its_kind() {
     let kinds = |key: &str| entry(key).map(|found| found.kind).expect(key);
     for key in [
+        s::LIBRARIAN_MODEL_SHARE,
         s::DRONES_AT_ONCE,
         s::CHECKS_AT_ONCE,
         s::MEMORY_SPARE_PERCENT,
@@ -204,6 +205,7 @@ fn every_handle_names_an_entry_of_its_kind() {
         assert_eq!(kinds(key.name()), Kind::Boolean, "{}", key.name());
     }
     for key in [
+        s::LIBRARIAN_RUNS,
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
@@ -243,7 +245,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER] {
+    for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER, s::LIBRARIAN_PARTS] {
         assert_eq!(kinds(key.name()), Kind::TextList, "{}", key.name());
     }
     for key in [
@@ -266,7 +268,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 20 + 12 + 17 + 27 + 2 + 21 + s::prompt_keys().count();
+    let handles = 21 + 12 + 17 + 28 + 3 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

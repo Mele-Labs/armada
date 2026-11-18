@@ -447,6 +447,29 @@ Live: read when a dispute is settled, when a notice is sent and at each pass of 
 **The value lives in settings.json under `features.disputeReviews`** (live), `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.librarian]
+name = "Librarian"
+scope = "Machine"
+default = "on press, every part, 20 model calls a night"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+DECIDED 18 Nov 2026 (owner): "I want the librarian to be on demand. It should never auto run until we have tested this a bit more. Make this a setting that I can toggle later with configuration around how often and what runs."
+
+The librarian is the Fleet work that keeps a project's feature catalog current, `docs/concepts/feature-catalog.md`, *Librarian*. This is the setting that says when it runs and what it does.
+
+**Three keys in settings.json, drawn on the Features page, `runs` first.** `features.librarianRuns` is `on_press`, `after_merges` or `nightly`. `features.librarianParts` lists the parts a run does, by name, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`; all nine as it ships, and a name that is no part is left out. `features.librarianModelShare` is how many model calls the model-written parts (`since_you_looked`, `gists` and model drift) may make in one night.
+
+**On press is the shipped value, and it means Fleet starts no run itself.** The run is `run_librarian`, on a person's press of Catch up. `after_merges` and `nightly` are read only when the owner has set them: a run starts after a merge Fleet has not yet read through, or once in twenty-four hours, and under no other word.
+
+**Twenty calls a night, chosen and not measured.** A call is a unit Fleet can count before it spends anything, which tokens are not: Fleet knows a call was made and cannot know what it will cost until it has. Twenty is a night's worth of gists and a Since you looked for a catalog of a few dozen features. Nothing measured a night of the librarian, because no part that calls a model is built yet; the number moves when one is.
+
+**The value lives in settings.json under `features.librarianRuns`, `features.librarianParts` and `features.librarianModelShare`** (live), `docs/concepts/machine.md`, *settings.json*.
+"""
+
 [settings.session-model]
 name = "Job model"
 scope = "Machine"
