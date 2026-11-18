@@ -240,7 +240,7 @@ pub(super) async fn ran(fleet: &Fixture, id: &ipc::ManifestId, number: u64, kind
 #[tokio::test]
 async fn a_row_he_ran_a_review_tool_on_says_so_and_one_he_only_asked_about_does_not() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "nick");
     ran(&fleet, &id, 7, "tool", "2026-11-16T09:00:00Z").await;
@@ -250,7 +250,7 @@ async fn a_row_he_ran_a_review_tool_on_says_so_and_one_he_only_asked_about_does_
     for list in [ReviewList::Team, ReviewList::Assigned] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     let flagged: Vec<(u64, bool)> = lists.requested.iter().map(|row| (row.number, row.reviewing)).collect();
     assert_eq!(flagged, [(7, true), (8, false)]);
     assert!(lists.mine[0].reviewing, "on a row of every list");
@@ -260,7 +260,7 @@ async fn a_row_he_ran_a_review_tool_on_says_so_and_one_he_only_asked_about_does_
 #[tokio::test]
 async fn an_open_pull_request_he_ran_a_tool_on_that_no_list_names_is_listed_and_a_closed_one_is_not() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "nick");
     ran(&fleet, &id, 7, "tool", "2026-11-16T12:00:00Z").await;
@@ -274,7 +274,7 @@ async fn an_open_pull_request_he_ran_a_tool_on_that_no_list_names_is_listed_and_
     }
     // #22 has closed, so the forge leaves it out of a read by number.
     fleet.vcs().now_open_by_number(vec![pull(20, SLUG), pull(7, SLUG), pull(21, SLUG), pull(23, SLUG)]);
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     let listed: Vec<(u64, bool)> = lists.reviewing.iter().map(|row| (row.number, row.reviewing)).collect();
     assert_eq!(listed, [(21, true), (20, true)], "newest run first, and a fix is not a review tool");
     assert_eq!(lists.reviewing[0].manifest_id, id);
@@ -292,7 +292,7 @@ async fn an_open_pull_request_he_ran_a_tool_on_that_no_list_names_is_listed_and_
 #[tokio::test]
 async fn a_read_by_number_the_forge_would_not_answer_leaves_the_fifth_list_empty_and_named() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "nick");
     ran(&fleet, &id, 20, "tool", "2026-11-16T09:00:00Z").await;
@@ -300,7 +300,7 @@ async fn a_read_by_number_the_forge_would_not_answer_leaves_the_fifth_list_empty
     for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.silent, [PullReviewList::Reviewing]);
     assert!(lists.reviewing.is_empty());
     assert_eq!(lists.requested.len(), 1, "the four stand");
