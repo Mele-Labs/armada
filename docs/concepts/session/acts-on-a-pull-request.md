@@ -15,7 +15,7 @@ A pull request a job holds is a `pr` row, and a person can act on it without lea
 | `get_pull_request_patches` | Every file's patch, in the forge's order, from the one read `get_pull_request_file` makes, for the Files tab to draw them stacked. Bridge only | Where the forge would not answer. A file the forge sent no patch for carries the same sentence `get_pull_request_file` gives |
 | `write_pull_request` | Comments, approves or requests changes, then reads the page again. With line, file and reply comments it is one review | A comment or a request with no body, any comment with a blank body, a Job the ledger never heard of, and the forge's own refusals |
 | `resolve_review_thread` | Resolves a conversation on the diff, or opens it again. Bridge only, see `docs/concepts/pull-review.md` | The forge's own refusals |
-| `get_review_lists` | Reads the pull requests waiting on a person, as four lists. Bridge only, see `docs/concepts/pull-review.md` | A forge that would not answer any list |
+| `get_review_lists` | Reads the pull requests waiting on a person, as five lists. Bridge only, see `docs/concepts/pull-review.md` | A forge that would not answer any list |
 
 ```
  a person presses       Fleet                                  the forge

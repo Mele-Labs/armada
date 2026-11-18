@@ -1,9 +1,9 @@
 //! What jq prints for a list of pull requests waiting on a person, read as rows, and the search
 //! each list asks the forge. The forge is never called.
 
-use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, ReviewList, ReviewListAsk, ReviewStanding};
+use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, NumberedPull, ReviewList, ReviewListAsk, ReviewStanding};
 
-use crate::pull_review_lists::{listed_folded, search_of, Teams};
+use crate::pull_review_lists::{listed_folded, numbered_query, search_of, Teams, QUERY};
 
 const SHA: &str = "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e";
 
@@ -189,4 +189,30 @@ fn on_the_team_list_the_time_is_the_latest_request_of_a_team_he_is_on() {
     let rows = listed_folded(&asked_lines(), Teams::Unread, "mira");
     assert_eq!(rows[0].asked_at.as_deref(), Some("2026-11-15T09:00:00Z"), "his teams unread: any team's");
     assert_eq!(rows[1].asked_at, None, "a request naming nobody is no team's");
+}
+
+fn numbered(repository: &str, number: u64) -> NumberedPull {
+    NumberedPull { repository: repository.to_string(), number }
+}
+
+#[test]
+fn a_read_by_number_is_one_query_with_each_repository_once_and_the_lists_own_fields() {
+    let pulls = [numbered("acme/billing", 41), numbered("acme/ledger", 9), numbered("Acme/Billing", 38), numbered("acme/billing", 41)];
+    let query = numbered_query(&pulls).expect("a query");
+    assert!(query.starts_with(concat!(
+        r#"query($me:String,$asked:Boolean!){r0:repository(owner:"acme",name:"billing"){"#,
+        r#"p41:pullRequest(number:41){...Row} p38:pullRequest(number:38){...Row} }"#,
+        r#"r1:repository(owner:"acme",name:"ledger"){p9:pullRequest(number:9){...Row} }}"#,
+    )), "{query}");
+    let fields = QUERY.split_once("... on PullRequest{").expect("the search's fields").1;
+    let fields = fields.strip_suffix("}}}}").expect("closed");
+    assert!(query.ends_with(&format!(" fragment Row on PullRequest{{state {fields}}}")), "{query}");
+}
+
+#[test]
+fn a_name_that_could_say_more_than_a_name_is_not_read_by_number() {
+    let unsafe_names = [numbered(r#"acme/billing"){x}"#, 1), numbered("acme", 2), numbered("acme/a/b", 3), numbered("/billing", 4)];
+    assert_eq!(numbered_query(&unsafe_names), None);
+    let query = numbered_query(&[unsafe_names[0].clone(), numbered("acme/ledger", 9)]).expect("the safe one");
+    assert!(!query.contains("billing") && query.contains("p9:"), "{query}");
 }

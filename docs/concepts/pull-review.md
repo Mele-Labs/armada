@@ -9,7 +9,7 @@
 Reviews reads the forge through Fleet, and what an agent says about a pull request (the explanations, Ask and the review tools) is a run in Fleet.
 Natural Search is a run across every repository, and the Walk tool is a run that needs to know where the change runs.
 
-## The four lists
+## The lists
 
 | List | Holds |
 |---|---|
@@ -17,12 +17,18 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 | Team | Pull requests that asked a team he is on |
 | Assigned | Pull requests the forge assigned to him |
 | My PRs | Pull requests he or an agent of his opened |
+| Reviewing | Open pull requests he ran a review tool on that are on none of the four above |
 
 **Identity is the logins `crates/fleet/src/my_pulls.rs` already uses.** A pull request on two lists is one row that knows both.
 
 **The lists are fetched when the tab opens and when Refresh is pressed.** Nothing polls.
 
-**`?project=<id>` filters all four to a project's members.** A folder member counts as its repository, so a project of one monorepo folder keeps the whole repository's pull requests.
+**He ran a review tool on a pull request when Fleet keeps a run of a tool, an explanation, the change sets, the overview or a practice check on it, at any head.** A question or a fix is not one.
+Every row of every list carries it as `reviewing`.
+Reviewing is read from Fleet's own record of runs, then from the forge by number in one call beside the four, so a pull request he opened through a search and ran a tool on is listed.
+It is newest run first, and a closed or merged one is left out.
+
+**`?project=<id>` filters every list to a project's members.** A folder member counts as its repository, so a project of one monorepo folder keeps the whole repository's pull requests.
 Without it every served repository's rows are listed.
 
 **Each list holds at most the wire's `MOST_PER_LIST` rows**, newest change first.
@@ -63,7 +69,7 @@ The page and each row of the lists carry it as `seen`.
 | `needs_first_look` | Anything else |
 
 His latest review is his own last submitted one, as the forge says on the list's read; a pending review is not one.
-The four lists stay as they are, and the state is a field of the row.
+The lists stay as they are, and the state is a field of the row.
 
 **What changed since he looked is the forge's compare from his seen head to the head.** The forge compares from the two commits' merge base, so after a rebase the change can hold commits that came from the target branch and not from the author.
 A seen head the forge no longer has, as after a force-push, is the outcome `base_gone` and not an error, and Bridge offers the whole pull request.
