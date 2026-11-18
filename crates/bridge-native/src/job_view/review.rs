@@ -1708,14 +1708,28 @@ impl JobView {
                 .id("review-operator")
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_1))
+                .gap(look.length(token::SPACE_2))
                 .pb(look.length(token::SPACE_2))
                 .text_size(look.length(token::TEXT_XS))
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(look.color(token::FG_MUTED))
+                // Its label and box stand as the Notes under it do.
                 .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Operator"))
-                .child(div().child(read.reading.clone()))
-                .children(read.pick.clone().map(|pick| div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(format!("Would pick: {pick}"))))),
+                .child(
+                    div()
+                        .w_full()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_1))
+                        .px(look.length(token::SPACE_2))
+                        .py(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .border_l(look.length(token::BORDER_WIDTH) * 3.)
+                        .border_color(look.color(token::OPERATOR))
+                        .bg(look.color(token::OPERATOR).opacity(0.09))
+                        .child(div().child(read.reading.clone()))
+                        .children(read.pick.clone().map(|pick| div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(format!("Would pick: {pick}"))))),
+                ),
             Role::Group,
             "Operator",
         )

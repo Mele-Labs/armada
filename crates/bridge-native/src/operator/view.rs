@@ -400,7 +400,7 @@ impl OperatorPageView {
         let look = cx.look().clone();
         let item = self.open_item()?.item.id.clone();
         let estimate = || {
-            let insets = look.length(token::SPACE_3) * 2. + look.length(token::GAP_PANEL) + look.length(token::SPACE_4) * 4. + look.length(token::BORDER_WIDTH) * 4.;
+            let insets = look.length(token::SPACE_3) * 2. + look.length(token::GAP_PANEL) + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.;
             f32::from(window.viewport_size().width - look.length(token::SPACE_12) * 7.5 - insets)
         };
         let wide = self.drawn.borrow().get("ready").map(|drawn| f32::from(drawn.size.width)).unwrap_or_else(estimate);
@@ -432,6 +432,8 @@ impl OperatorPageView {
             self.status_card(look, cx)
         };
         front.push(card);
+        // A Job's build to try keeps its whole height, so its answers are never scrolled away: the talk gives up its room.
+        let whole = !folded && !matches!(status, Status::Off) && !self.stopped_in_front() && self.ready_in_front().is_some();
         let dim = matches!(status, Status::Stopped { .. });
         // No min_h_0: the box keeps its height, and a tall card scrolls in its own place instead.
         let talk = div()
@@ -455,6 +457,7 @@ impl OperatorPageView {
                     .id("operator-main")
                     .track_scroll(&self.main_scroll)
                     .min_h_0()
+                    .when(whole, |main| main.flex_shrink_0())
                     .overflow_y_scroll()
                     .flex()
                     .flex_col()

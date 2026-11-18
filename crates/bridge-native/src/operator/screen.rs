@@ -893,6 +893,7 @@ mod tests {
         }
         assert!(drawn(cx, Role::Article, "Ready to try: The places strip keeps its order after a restart").is_some());
         assert!(drawn(cx, Role::Button, "Yes").is_none(), "the page's own pick is not drawn for it");
+        assert!(drawn(cx, Role::Article, "Native Bridge foundation").is_none(), "the Job's card stands in the Operator's card's place, with no frame of its own");
         assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the Job opened for it leaves the keys on the page");
         screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Jobs), window, cx));
         cx.run_until_parked();
@@ -900,5 +901,33 @@ mod tests {
         screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Looks good").is_some(), "back on the page, the card is drawn again");
+    }
+
+    #[gpui::test]
+    fn one_on_the_page_says_looks_good_on_a_build_to_try_as_on_the_jobs_thread(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        page.update(cx, |page, cx| page.scene("build-comes", cx).expect("a scene"));
+        redraw(cx);
+        assert!(cx.update(|_, cx| crate::job_view::ready_sent_on_page(cx)).0.is_empty());
+        cx.simulate_keystrokes("1");
+        redraw(cx);
+        let (sent, _) = cx.update(|_, cx| crate::job_view::ready_sent_on_page(cx));
+        assert_eq!(sent.iter().map(|one| (one.answer.clone(), one.branch.as_str())).collect::<Vec<_>>(), [(ipc::ReadyAnswer::LooksGood, "native/strip")]);
+        assert!(page.read_with(cx, |page, _| page.pending.is_empty()), "the Operator's card is not settled by it");
+    }
+
+    #[gpui::test]
+    fn two_on_the_page_opens_the_builds_box_for_his_words_as_on_the_jobs_thread(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        page.update(cx, |page, cx| page.scene("build-comes", cx).expect("a scene"));
+        redraw(cx);
+        cx.simulate_keystrokes("2");
+        redraw(cx);
+        let (sent, noting) = cx.update(|_, cx| crate::job_view::ready_sent_on_page(cx));
+        assert!(sent.is_empty(), "Needs rework with no words asks for them first");
+        assert_eq!(noting, ["try:native/strip@5c1e9a2"], "the build's box for his words is open");
+        assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the box is on the page");
     }
 }

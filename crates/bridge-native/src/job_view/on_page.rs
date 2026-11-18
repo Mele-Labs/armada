@@ -3,9 +3,11 @@
 //! screens open a Job without a pick; until it is, the page draws its skeleton.
 
 use chrono::Local;
-use gpui::{AnyElement, App, Entity, Global, SharedString, WeakEntity};
+use gpui::{AnyElement, App, Entity, Global, WeakEntity, Window};
 use ipc::ThreadItem;
 
+use super::band_card::Act;
+use super::ready_card::{Parts, Standing};
 use super::JobView;
 use crate::look::ActiveLook;
 
@@ -21,11 +23,6 @@ pub(super) fn offer(cx: &mut gpui::Context<JobView>) {
 
 fn view(cx: &App) -> Option<Entity<JobView>> {
     cx.try_global::<OnPage>()?.0.upgrade()
-}
-
-/// The Job the view shows, which is the one whose cards a page can draw.
-pub fn shown_on_page(cx: &App) -> Option<SharedString> {
-    view(cx)?.read(cx).shown.clone()
 }
 
 /// **Job `job`'s Ready to try card `item` whole**, at `wide` points, with Looks good, Needs rework, Show me how, Remind me and
@@ -44,4 +41,44 @@ pub fn ready_on_page(job: &str, item: &str, wide: f32, cx: &mut App) -> Option<A
         let page = view.pages.get(job)?;
         Some(view.ready_detail(card, super::acts::SHEET, wide, page, Local::now(), &look, cx))
     })
+}
+
+/// **1, 2 or 3 on the page answer Job `job`'s Ready to try card `item`** as its buttons do: Looks good, Needs rework, Show me
+/// how. As on the thread, a build that no longer asks, is not in the preview, or has a box open for his words takes none.
+/// Whether the key was the card's.
+pub fn ready_key_on_page(job: &str, item: &str, digit: &str, window: &mut Window, cx: &mut App) -> bool {
+    let act = match digit {
+        "1" => Act::Approve,
+        "2" => Act::Ask,
+        "3" => Act::Open,
+        _ => return false,
+    };
+    let Some(view) = view(cx) else { return false };
+    if view.read(cx).shown.as_deref() != Some(job) {
+        return false;
+    }
+    view.update(cx, |view, cx| {
+        let found = {
+            let (Some(held), Some(page)) = (view.thread(job, cx), view.pages.get(job)) else { return false };
+            let Some((at, _)) = super::ready_card::card_named(&held.items, item) else { return false };
+            let Some(ThreadItem::ReadyToTry(card)) = held.items.get(at) else { return false };
+            let standing = Standing::of(card, page.cards.answers.get(&card.id));
+            let noting = page.cards.modes.contains_key(&card.id);
+            let shows = act != Act::Open || Parts::of(card).first_go().is_some();
+            (standing.asks() && card.in_build && !noting && shows).then(|| card.clone())
+        };
+        let Some(card) = found else { return false };
+        let run = view.ready_run(super::acts::SHEET, &card, Parts::of(&card));
+        run(view, act, window, cx);
+        true
+    })
+}
+
+/// What the page's answers sent for Job builds on mock data, and whether a build's box for his words is open, for tests.
+#[cfg(test)]
+pub fn ready_sent_on_page(cx: &App) -> (Vec<ipc::AnswerReadyToTry>, Vec<String>) {
+    let Some(view) = view(cx) else { return Default::default() };
+    let view = view.read(cx);
+    let noting = view.shown.as_ref().and_then(|job| view.pages.get(job)).map(|page| page.cards.modes.keys().cloned().collect()).unwrap_or_default();
+    (view.mock_ready.clone(), noting)
 }

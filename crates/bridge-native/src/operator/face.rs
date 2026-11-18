@@ -123,7 +123,7 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
         (WaitingSource::Sketch, _) => kind("Sketch", "pencil-ruler", REVIEW),
         (WaitingSource::Document, _) => kind("Document", "file-text", REVIEW),
         (WaitingSource::Draft, _) => kind("Draft", "file-pen-line", REVIEW),
-        (WaitingSource::ReadyToTry, _) => kind("Try", "bell-ring", REVIEW),
+        (WaitingSource::ReadyToTry, _) => kind("Ready to try", "bell-ring", REVIEW),
         (WaitingSource::Permission, _) => kind("Permission", "shield", REVIEW),
         (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => kind("Question", "message-circle-question-mark", REVIEW),
         _ if !item.options.is_empty() => kind("Question", "message-circle-question-mark", REVIEW),
@@ -317,6 +317,7 @@ mod tests {
         let build = turn(r#"{"id":"turn:4","kind":"decision","session_id":"s-3","job":"Native Bridge foundation","item":{"id":"try:s-3","text":"Ready to try","since":"2026-11-11T12:00:00Z","source":"ready_to_try"},"raised_at":"2026-11-11T12:00:00Z"}"#);
         assert!(answers_on_card(&build) && !goes_to_review(&build));
         assert!(!answers_on_card(&plan));
+        assert_eq!(kind_of(&build).word, "Ready to try", "its chip in Next up names the kind whole");
     }
 
     #[test]

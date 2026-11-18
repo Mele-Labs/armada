@@ -49,7 +49,7 @@ A card never holds a count or a status report.
 |---|---|
 | Press an option, or its key | The card leaves the front for the top of the feed at once and the next one comes up, before Fleet has answered. If Fleet refuses, the card comes back in front with Fleet's reason. The Operator is told which card and which option, and does it now |
 | Press Review on a card for a Job's plan, sketch, document or draft, or its key 1 | The Review panel opens over the page with that item chosen, and the Operator's read and pick above it. The card stays in front until he answers in the panel. Esc shuts the panel and gives the keys back to the card |
-| Answer a card for a Job's build to try | The card holds the Job's own Ready to try card, as the Job's thread draws it: Looks good, Needs rework, Remind me and Refresh preview, answered as in the thread. Keys 1 to 4 do nothing on it |
+| Answer a Job's build to try | The Job's own Ready to try card stands in the card's place, as the Job's thread draws it, with no Operator frame: Looks good, Needs rework, Show me how, Remind me and Refresh preview, answered as in the thread. Keys 1 to 3 are Looks good, Needs rework and Show me how. The card keeps its whole height, and the talk gives up room for it. Its chip in Next up reads Ready to try |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | His words join the talk under the card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
 | Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |

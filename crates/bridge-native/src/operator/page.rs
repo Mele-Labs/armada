@@ -483,9 +483,24 @@ impl OperatorPageView {
             "call_snooze" => self.open_later(true, window, cx),
             // `/` is Discuss, which the registry knows as Ask the Operator.
             "call_ask" => self.discuss(window, cx),
-            "call_pick" => self.digit(act.digit.unwrap_or(0) as usize, cx),
+            "call_pick" => {
+                let digit = act.digit.unwrap_or(0) as usize;
+                if !self.ready_key(digit, window, cx) {
+                    self.digit(digit, cx);
+                }
+            }
             _ => cx.propagate(),
         }
+    }
+
+    /// 1, 2 and 3 on a Job's build to try in front answer it on the Job's own card, as on the Job's thread. Whether they did.
+    fn ready_key(&mut self, digit: usize, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.idea_front.is_some() || self.working_front.is_some() {
+            return false;
+        }
+        let Some(turn) = self.target().filter(|turn| face::answers_on_card(turn)) else { return false };
+        let (Some(job), item) = (turn.session_id.clone(), turn.item.id.clone()) else { return false };
+        crate::job_view::ready_key_on_page(job.as_str(), &item, &digit.to_string(), window, cx)
     }
 
     /// Enter where the page itself has the keys: the Operator's pick. A press with the keys, such as Later or a row, takes

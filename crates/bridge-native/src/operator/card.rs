@@ -153,6 +153,10 @@ impl OperatorPageView {
 
     /// The card whole. `inset` draws it as the Operator raised it in the talk, under its line.
     pub(super) fn card(&self, turn: &OperatorTurnItem, inset: bool, window: &Window, look: &Look, cx: &Context<Self>) -> AnyElement {
+        // A Job's build to try stands as the Job's own card, in this card's place: its head names the build, so no frame here.
+        if !inset && face::answers_on_card(turn) {
+            return div().flex().flex_col().gap(look.length(token::SPACE_3)).child(self.ready_body(look)).children(self.refused_line(turn, look)).into_any_element();
+        }
         let title = face::card_title(turn);
         let target = self.target().is_some_and(|target| target.id == turn.id);
         let danger = look.color(token::STATUS_COMPLETED_FAILED);
@@ -214,7 +218,21 @@ impl OperatorPageView {
 
     /// My read, the options and Fleet's refusal.
     fn card_body(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Div {
-        let refused = self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_4))
+            .children(self.asks(turn, look))
+            .children(self.my_read(turn, look))
+            .child(self.options(turn, keyed, window, look, cx))
+            .children(self.refused_line(turn, look))
+    }
+
+    /// Fleet's refusal of his last press on the card, in red.
+    fn refused_line(&self, turn: &OperatorTurnItem, look: &Look) -> Option<impl IntoElement> {
+        self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
             labelled(
                 div()
                     .id("operator-refused")
@@ -228,20 +246,10 @@ impl OperatorPageView {
                 Role::Alert,
                 why.clone(),
             )
-        });
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_4))
-            .children(self.asks(turn, look))
-            .children(self.my_read(turn, look))
-            .child(if face::answers_on_card(turn) { self.ready_body(look).into_any_element() } else { self.options(turn, keyed, window, look, cx).into_any_element() })
-            .children(refused)
+        })
     }
 
-    /// A Job's Ready to try, in the options' place: the Job view's own card with its answers, or its skeleton until the view
+    /// A Job's Ready to try, in the card's place: the Job view's own card with its answers, or its skeleton until the view
     /// shows the Job.
     fn ready_body(&self, look: &Look) -> Div {
         let drawn = self.ready_drawn.borrow_mut().take();
@@ -254,7 +262,7 @@ impl OperatorPageView {
                 .child(super::view::bone(0.6, look.length(token::LEADING_SM), look))
                 .child(super::view::bone(1., look.length(token::H_CONTROL_LG), look))
         };
-        div().relative().mt(look.length(token::SPACE_1)).child(measured(&self.drawn, "ready")).child(drawn.unwrap_or_else(|| bones().into_any_element()))
+        div().relative().child(measured(&self.drawn, "ready")).child(drawn.unwrap_or_else(|| bones().into_any_element()))
     }
 
     /// The options of a card he has picked on, none to press: his pick lit in the accent with Picked at its right, the rest
