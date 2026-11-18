@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 53] = [
+pub static STEPS: [Step; 50] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("The Job's glyph stands at the start of the line", Verb::Look, "img", "Job"),
     step("The project is one picker at the start of the band; Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Project"),
@@ -56,8 +56,15 @@ pub static STEPS: [Step; 53] = [
     step("Tab goes on to the card under the sheet", Verb::Key("tab"), "button", "New Side Job in sample-api"),
     step("Tab from the card wraps to the request", Verb::Key("tab"), "textbox", "Request"),
     step("Shift-Tab from the request goes back to the card, the way Tab came", Verb::Key("shift-tab"), "button", "New Side Job in sample-api"),
-    answer("A send Fleet refused as too large: the failure toast says what failed and why, each fact on a row of its own", "refuse-too-large", "alert", "Toast: The Job was not dispatched: Fleet refused it as too large"),
-    step("Copy debug info, Dismiss and Dispatch job stand at its trailing edge", Verb::Hover, "button", "Copy debug info"),
+];
+
+/// A send Fleet refused: straight to the failure toast, what it says and what it offers.
+pub static REFUSED: [Step; 6] = [
+    step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("He writes the request; pasted screenshots ride with it", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Project, finding"),
+    answer("Fleet refused the send as too large: the failure toast says what failed and why, each fact on a row of its own", "refuse-too-large", "alert", "Toast: The Job was not dispatched: Fleet refused it as too large"),
+    step("Copy debug info puts the rows and Fleet's debug report on the clipboard", Verb::Hover, "button", "Copy debug info"),
+    step("Dispatch job starts an Armada Job told all of it, and opens it", Verb::Hover, "button", "Dispatch job"),
     step("Dismiss puts it away", Verb::Gone, "button", "Dismiss"),
 ];
 

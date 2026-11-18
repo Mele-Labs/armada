@@ -1368,13 +1368,19 @@ impl Render for Toasts {
             }
             stack = stack.children(front);
         }
-        div()
-            .absolute()
-            .top_0()
-            .left_0()
-            .size_full()
-            .child(stack)
-            .when(self.history, |layer| layer.child(self.history_panel(look, cx)))
+        // Deferred, so the pile paints and takes presses over the dispatch sheet's scrim, which is drawn over this
+        // screen: a refused send keeps the sheet open, and its failure toast's buttons must still press. Under
+        // Settings and the palette (2).
+        gpui::deferred(
+            div()
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .child(stack)
+                .when(self.history, |layer| layer.child(self.history_panel(look, cx))),
+        )
+        .with_priority(1)
     }
 }
 
