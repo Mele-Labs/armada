@@ -481,6 +481,12 @@ impl JobView {
         self.review().is_some_and(|review| review.open)
     }
 
+    /// The card whose open box holds the keys, by the key its ⌘↵ is kept under.
+    fn focused_card_box(&self, window: &Window, cx: &gpui::App) -> Option<String> {
+        let page = self.shown.as_ref().and_then(|id| self.pages.get(id))?;
+        page.cards.boxes.iter().find(|(_, area)| area.read(cx).focus_handle(cx).contains_focused(window, cx)).and_then(|(key, _)| key.rsplit_once(':').map(|(card, _)| card.to_string()))
+    }
+
     fn review_noting(&self, window: &Window, cx: &gpui::App) -> bool {
         self.review().and_then(|review| review.note.as_ref()).is_some_and(|note| note.area.read(cx).focus_handle(cx).contains_focused(window, cx))
     }
@@ -1041,6 +1047,9 @@ impl JobView {
         if act.is("send_message") {
             if self.review_noting(window, cx) {
                 self.review_changes(window, cx);
+            } else if let Some(key) = self.focused_card_box(window, cx) {
+                // A part's Ask for changes box in the panel sends as its Send does.
+                self.commit_box(&key, window, cx);
             }
             return true;
         }
