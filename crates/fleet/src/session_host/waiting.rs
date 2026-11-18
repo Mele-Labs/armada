@@ -61,6 +61,7 @@ use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
+use crate::session_host::look_asks::{look_ask_of, look_item_refusal, pull_of, OwnChange};
 use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
@@ -72,6 +73,7 @@ const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
+const SESSION_WAITING_LOOK: &str = "fleet.session_waiting_look";
 pub(super) const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -171,6 +173,8 @@ pub(crate) struct WaitingReads {
     archived: Vec<String>,
     /// The notes it offered, which its Ready to try cards are.
     ready: Vec<store::KeptBuildNote>,
+    /// The branches it has on the preview list.
+    offered: Vec<String>,
 }
 
 impl WaitingReads {
@@ -245,6 +249,7 @@ pub(crate) fn waiting_reads(
         seen: store.artifact_seen(&session.id)?,
         archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
         ready: store.build_notes_of_session(&session.id)?,
+        offered: store.preview_offered_branches_of(&session.id)?,
     })
 }
 
@@ -541,7 +546,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready, offered } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -600,6 +605,11 @@ where
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
+        // Once its branch is on the preview list, an ask to try the Job's own change is its Ready to try card's.
+        if !offered.is_empty() {
+            let change = OwnChange { pulls: attachments.iter().filter_map(|one| pull_of(&one.kind, &one.target, &one.detail)).collect(), branches: offered };
+            items.retain(|one| one.source != WaitingSource::Agent || look_ask_of(one.approves, one.options.len(), one.act.as_ref(), &one.text, &change).is_none());
+        }
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
                 let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
@@ -942,14 +952,26 @@ where
             }
         }
         // A merge wait is Fleet's to follow. An item already kept, written again unchanged, is not a new one.
-        let (kept, pulls) = {
+        // In a repository with a preview, an ask to try the Job's own change is its Ready to try card's.
+        let previewed = self.preview_place().map(|(_, served)| served.manifest().id().as_str().to_string());
+        let (kept, pulls, change) = {
             let store = self.store().lock().await;
-            (store.waiting_for(&id).unwrap_or_default(), store.attachments_of(&store::Holder::session(&id)).map(|rows| merging_of(&rows)).unwrap_or_default())
+            let rows = store.attachments_of(&store::Holder::session(&id)).unwrap_or_default();
+            let ours = previewed.is_some() && store.session(&id).ok().flatten().and_then(|one| one.manifest_id) == previewed;
+            let change = ours.then(|| OwnChange {
+                pulls: rows.iter().filter_map(|one| pull_of(&one.kind, &one.target, &one.detail)).collect(),
+                branches: store.preview_offered_branches_of(&id).unwrap_or_default(),
+            });
+            (store.waiting_for(&id).unwrap_or_default(), merging_of(&rows), change)
         };
         for item in &set.items {
             let again = kept.iter().any(|old| old.item_id == item.id.trim() && old.text == item.text.trim());
             if let Some(number) = merge_wait_of(item.act.as_ref(), &item.text, &pulls).filter(|_| !again) {
                 return Err(self.hosted_refusal(SESSION_WAITING_MERGING, &merge_item_refusal(item.id.trim(), number)));
+            }
+            let look = change.as_ref().and_then(|change| look_ask_of(item.approves, item.options.len(), item.act.as_ref(), &item.text, change));
+            if let Some(named) = look.filter(|_| !again) {
+                return Err(self.hosted_refusal(SESSION_WAITING_LOOK, &look_item_refusal(item.id.trim(), &named)));
             }
         }
         let now = self.clock().now().as_str().to_string();

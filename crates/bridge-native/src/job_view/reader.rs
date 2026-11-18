@@ -358,6 +358,10 @@ pub(super) struct Reader {
     pub said: Option<SharedString>,
     /// The heading of a page the contents mark: the one last gone to, since the page scrolls inside its own view.
     pub at_head: usize,
+    /// What a save from Share came to, said in the band for a moment.
+    pub shared: Option<SharedString>,
+    /// Ask for changes, opened in place under the answers: what should change, sent with the notes on the words.
+    pub ask: Option<(Entity<TextareaState>, Subscription)>,
 }
 
 impl Reader {
@@ -383,6 +387,8 @@ impl Reader {
             width: Rc::new(Cell::new(gpui::px(0.))),
             said: None,
             at_head: 0,
+            shared: None,
+            ask: None,
         }
     }
 
@@ -405,7 +411,9 @@ impl Reader {
     pub(super) fn typing(&self, window: &Window, cx: &gpui::App) -> bool {
         use gpui::Focusable as _;
         let in_area = |area: &Entity<TextareaState>| area.read(cx).focus_handle(cx).contains_focused(window, cx);
-        self.notes.iter().any(|one| in_area(&one.area)) || self.edit.as_ref().is_some_and(|edit| edit.areas.iter().any(in_area))
+        self.notes.iter().any(|one| in_area(&one.area))
+            || self.edit.as_ref().is_some_and(|edit| edit.areas.iter().any(in_area))
+            || self.ask.as_ref().is_some_and(|(area, _)| in_area(area))
     }
 
     /// The notes as `Note`s, as they are kept.
@@ -579,12 +587,36 @@ impl JobView {
         self.reader_notes_changed(reader, cx);
     }
 
+    /// Ask for changes opened in place, the caret in its box.
+    pub(super) fn reader_ask_open(&mut self, id: &SharedString, reader: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(2, 8).placeholder("What should change?"));
+        let typing = cx.subscribe_in(&area, window, |_, _, event: &InputEvent, _, cx| {
+            if let InputEvent::Change = event {
+                cx.notify();
+            }
+        });
+        let Some(held) = self.reader_mut(id, reader) else { return };
+        held.ask = Some((area.clone(), typing));
+        area.update(cx, |area, cx| area.focus(window, cx));
+        cx.notify();
+    }
+
+    /// Cancel or Esc: the box goes with what was typed in it, and the notes on the words stay.
+    pub(super) fn reader_ask_cancel(&mut self, id: &SharedString, reader: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(held) = self.reader_mut(id, reader) {
+            held.ask = None;
+        }
+        window.focus(&self.row_focus, cx);
+        cx.notify();
+    }
+
     /// The notes were sent with a verdict: they and what was kept for them go.
     fn reader_notes_spent(&mut self, id: &SharedString, reader: &str, cx: &mut Context<Self>) {
         let artifact = self.reader_artifact(id, reader, cx);
         if let Some(held) = self.reader_mut(id, reader) {
             held.notes.clear();
             held.on = None;
+            held.ask = None;
         }
         if let Some(artifact) = artifact {
             self.keep_words(&notes_key(id, &artifact), "", cx);
@@ -594,20 +626,22 @@ impl JobView {
 
     /// His verdict, with his notes, as `answer_items` takes it. The card reads it at once; Fleet's refusal takes it back.
     pub(super) fn reader_answer(&mut self, id: &SharedString, reader: &str, how: ItemHow, card_key: String, item: String, window: &mut Window, cx: &mut Context<Self>) {
-        let notes = self.reader_of(id, reader).map(|held| items_of(&held.kept_notes(cx))).unwrap_or_default();
-        if how == ItemHow::SendBack && notes.is_empty() {
-            // Nothing written yet: a note with no words opens for what should change.
-            let block = self.reader_of(id, reader).and_then(|held| held.blocks.iter().find(|one| one.block.kind == BlockKind::Text).map(|one| one.block.id.clone())).unwrap_or_default();
-            let has_blank = self.reader_of(id, reader).is_some_and(|held| held.notes.iter().any(|one| one.area.read(cx).value().trim().is_empty() && one.quote.is_empty()));
-            if has_blank {
-                let area = self.reader_of(id, reader).and_then(|held| held.notes.iter().find(|one| one.quote.is_empty()).map(|one| one.area.clone()));
-                if let Some(area) = area {
-                    area.update(cx, |area, cx| area.focus(window, cx));
+        let mut notes = self.reader_of(id, reader).map(|held| items_of(&held.kept_notes(cx))).unwrap_or_default();
+        if how == ItemHow::SendBack {
+            // Ask for changes opens a box in place first; its words go with the notes on the words, as a note on the whole.
+            let typed = self.reader_of(id, reader).and_then(|held| held.ask.as_ref()).map(|(area, _)| (area.clone(), area.read(cx).value().trim().to_string()));
+            match typed {
+                None => {
+                    self.reader_ask_open(id, reader, window, cx);
+                    return;
                 }
-            } else {
-                self.reader_add_note(id, reader, String::new(), block, window, cx);
+                Some((area, words)) if words.is_empty() && notes.is_empty() => {
+                    area.update(cx, |area, cx| area.focus(window, cx));
+                    return;
+                }
+                Some((_, words)) if !words.is_empty() => notes.push(ItemNote { text: words, on: None }),
+                Some(_) => {}
             }
-            return;
         }
         let answer = match how {
             ItemHow::Approve => Answer::Approved,

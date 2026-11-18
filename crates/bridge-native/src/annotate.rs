@@ -176,7 +176,11 @@ struct Menu {
     _dismissed: Subscription,
 }
 
+mod beside;
+
 pub struct Layer {
+    /// The features of the opened note: chips under its card and their page beside it.
+    beside: Entity<beside::Beside>,
     on: bool,
     /// The screen the layer sits over, where aim and a box may hold.
     area: Rc<Cell<Option<Bounds<Pixels>>>>,
@@ -225,6 +229,7 @@ pub struct Layer {
 impl Layer {
     pub fn new(area: Rc<Cell<Option<Bounds<Pixels>>>>, targets: Vec<Offered>, cx: &mut Context<Self>) -> Layer {
         Layer {
+            beside: beside::Beside::new(cx),
             on: false,
             area,
             screen: None,
@@ -460,6 +465,7 @@ impl Layer {
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
             CaptureEvent::Closed => this.arm(window, cx),
+            CaptureEvent::Passed => this.pass_escape(window, cx),
         });
         let focus = capture.read(cx).focus_handle(cx);
         window.defer(cx, move |window, cx| window.focus(&focus, cx));
@@ -793,6 +799,19 @@ impl Layer {
         self.open_menu(ids, at, corner, window, cx);
     }
 
+    /// Esc with nothing held is the screen's, not the layer's: it goes to what had the keys when annotating began, so
+    /// one Esc still closes the panel he is on. Annotating stays on, and the keys come back to the capture after.
+    fn pass_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(keys) = self.keys_were.clone() {
+            window.focus(&keys, cx);
+            if let Ok(escape) = gpui::Keystroke::parse("escape") {
+                window.dispatch_keystroke(escape, cx);
+            }
+            self.keys_were = window.focused(cx);
+        }
+        self.refocus(window, cx);
+    }
+
     /// The keys go back to the capture after a menu or a card.
     pub(crate) fn refocus(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if let Some((capture, _)) = &self.capture {
@@ -1115,6 +1134,7 @@ impl Render for Layer {
             .children(self.capture.as_ref().map(|(capture, _)| capture.clone()))
             .children(pins)
             .children(opened)
+            .map(|root| beside::attach(root, self, window, cx))
             .children(panel)
             .child(self.bar(cx))
             .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))

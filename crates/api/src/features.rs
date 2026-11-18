@@ -94,12 +94,13 @@ pub(crate) async fn write_feature_sections<D: Features>(State(served): State<Ser
     }
 }
 
+/// The Operator or the owner keeps areas and features. **Placed as `change_feature` is.**
 pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let upsert: ipc::UpsertFeatures = match ipc::decode_body("areas and features to keep", &body) {
         Ok(upsert) => upsert,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().upsert_features(upsert).await {
+    match served.daemon().upsert_features(crate::acting::asking(), upsert).await {
         Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -130,7 +131,7 @@ pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<
     }
 }
 
-/// The Operator merges or renames a feature. **Placed by its connection**, as `raise_card` is.
+/// The Operator or the owner merges, renames or moves a feature. **A door call is placed by its connection**, as `raise_card` is; a call by no door is the owner's, from Bridge.
 pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let change: ipc::ChangeFeature = match ipc::decode_body("a change to a feature", &body) {
         Ok(change) => change,

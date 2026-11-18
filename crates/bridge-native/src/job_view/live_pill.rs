@@ -234,7 +234,9 @@ mod tests {
         redraw(cx);
         assert_eq!(says(&view, cx).as_deref(), Some("Reading page_votes.rs"), "it works and the thread is scrolled up");
         assert!(drawn_like(cx, Role::Button, "Now: ").is_empty(), "no room, so no pill");
-        assert_eq!(row(cx), at_end, "Auto, the model and the rest measure as they do with no pill");
+        // A card scrolled up behind the composer draws its own buttons at the row's height, so only the row's own are compared.
+        let now: Vec<_> = row(cx).into_iter().filter(|(name, _)| at_end.iter().any(|(own, _)| own == name)).collect();
+        assert_eq!(now, at_end, "Auto, the model and the rest measure as they do with no pill");
     }
 
     #[gpui::test]

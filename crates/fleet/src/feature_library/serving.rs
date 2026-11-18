@@ -90,7 +90,8 @@ where
         self.feature_sections_written(caller, write).await
     }
 
-    async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
+    async fn upsert_features(&self, caller: Option<api::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
+        self.owner_or_operator_called(caller)?;
         self.features_upserted(upsert).await
     }
 

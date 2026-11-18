@@ -56,10 +56,11 @@ pub trait Features: Send + Sync + 'static {
         write: ipc::WriteFeatureSections,
     ) -> impl Future<Output = Result<ipc::FeatureSectionsWritten, Refusal>> + Send;
 
-    /// `upsert_features` — areas and features kept by slug, for the Operator's seeding. [`Refusal::Unacceptable`] for a
-    /// feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a blank part
-    /// (`fleet.feature_blank`), with nothing kept.
-    fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
+    /// `upsert_features` — areas and features kept by slug, for the Operator's seeding and for the owner's confirming and
+    /// splitting from Bridge. [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's
+    /// (`fleet.not_the_operator`), a feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a
+    /// blank part (`fleet.feature_blank`), with nothing kept.
+    fn upsert_features(&self, caller: Option<crate::Caller>, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
@@ -67,7 +68,7 @@ pub trait Features: Send + Sync + 'static {
     /// holds features (`fleet.feature_seeded`).
     fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
 
-    /// `change_feature` — the Operator merges a feature into another or renames it. [`Refusal::Unacceptable`]
+    /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
     fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;

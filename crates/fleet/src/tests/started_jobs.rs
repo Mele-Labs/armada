@@ -452,7 +452,7 @@ async fn a_job_may_message_any_live_job_and_is_refused_an_ended_or_unknown_one()
         let fleet = Arc::clone(&rig.fleet);
         async move {
             let caller = at(from).expect("an address");
-            fleet.message_reach(caller, ipc::MessageTo { to }).await.expect("answered")
+            fleet.message_reach(caller, ipc::MessageTo { to, message: None }).await.expect("answered")
         }
     };
     let reach = |from: u16, to: &SessionId| reach_to(from, address_of(to.as_str()));

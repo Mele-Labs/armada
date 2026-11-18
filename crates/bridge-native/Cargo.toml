@@ -37,6 +37,8 @@ gpui-kit-assets = "=0.9.0"
 # A mock's markup is parsed and cleaned as the browser parses it; gpui-component already links these exact versions.
 html5ever = "=0.27.0"
 markup5ever_rcdom = "=0.3.0"
+# Copied words go on the pasteboard as HTML too (`src/pasteboard.rs`); gpui-base already links this exact version.
+markdown = "=1.0.0"
 # A diff's code is coloured by syntect's grammars, the version gpui-component's own `syntect` backend
 # names, without its theme: only scopes are read, and each scope takes a token. `regex-fancy` is pure
 # Rust, so no C library builds.
@@ -80,14 +82,15 @@ getrandom = "0.3"
 # The Dock badge and the banner's sound. gpui posts a system notification but carries no sound, and its
 # macOS platform already links these exact versions; the features are only what `banner.rs` calls.
 # Dictation, the third Talk voice (`src/dictation.rs`), is one `sendAction` on the shared application, so it
-# shares `objc2` and `objc2-app-kit` and needs only the classes that call names.
-objc2 = "0.6"
+# shares `objc2` and `objc2-app-kit` and needs only the classes that call names. `NSPasteboard` is Copy on
+# words (`src/pasteboard.rs`): gpui's clipboard item carries one string, and the HTML has to ride beside it.
+objc2 ="0.6"
 block2 = "0.6"
 objc2-foundation = "0.3"
-objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "block2", "NSApplication", "NSDockTile", "NSResponder", "NSRunningApplication", "libc", "NSAppearance", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSEvent", "NSImage", "NSImageRep", "NSView", "NSWindow"] }
+objc2-app-kit = { version = "0.3", default-features = false, features = ["std", "block2", "NSApplication", "NSDockTile", "NSResponder", "NSRunningApplication", "libc", "NSAppearance", "NSBezierPath", "NSBitmapImageRep", "NSColor", "NSEvent", "NSImage", "NSImageRep", "NSPasteboard", "NSView", "NSWindow"] }
 # Web pages: Apple's web view, WKWebView, placed over the gpui window's own NSView (`src/web/`). The owner chose it over
 # embedding Chrome on 13 Nov. Only the classes `src/web/wk.rs` calls. `raw-window-handle` is how gpui hands out that NSView.
-objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-app-kit", "objc2-core-foundation", "WKWebView", "WKWebViewConfiguration", "WKWebsiteDataStore", "WKWebpagePreferences", "WKSnapshotConfiguration", "WKNavigation", "WKNavigationAction", "WKNavigationDelegate", "WKContentWorld", "WKFrameInfo", "WKScriptMessage", "WKScriptMessageHandler", "WKUserContentController"] }
+objc2-web-kit = { version = "0.3", default-features = false, features = ["std", "block2", "objc2-app-kit", "objc2-core-foundation", "WKWebView", "WKWebViewConfiguration", "WKWebsiteDataStore", "WKWebpagePreferences", "WKSnapshotConfiguration", "WKNavigation", "WKNavigationAction", "WKNavigationDelegate", "WKPDFConfiguration", "WKContentWorld", "WKFrameInfo", "WKScriptMessage", "WKScriptMessageHandler", "WKUserContentController"] }
 raw-window-handle = "0.6"
 objc2-user-notifications = { version = "0.3", default-features = false, features = ["std", "block2", "UNNotificationContent", "UNNotificationRequest", "UNNotificationSound", "UNUserNotificationCenter"] }
 
