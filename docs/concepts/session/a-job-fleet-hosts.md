@@ -65,6 +65,11 @@ send of. **A paused job is not woken by it**: the message is kept and read after
 [Spike 26](../../spikes/026-does-a-message-from-another-session-wake-a-live-process.md).
 **A job writes to any live job**, in any repository, whichever job started either of them.
 Before `SendMessage` runs, the mod asks Fleet (`message_reach`), which places the sender by its connection and refuses only an address that names an ended job, or a job address no job has.
+**A message is carried once, and the sender is told by whom.**
+The CLI's own `SendMessage` reaches only a job whose process runs.
+To a job between turns, paused, on its start card or on his other Mac, Fleet carries the message itself, and the mod answers the call with Fleet's word, `Queued for job "…" (s-…)` and why, so the CLI never says the job is not reachable.
+The mod's ask and Fleet's reading of the call off the sender's stream settle the carrier between them, whichever comes first.
+`ListAgents` lists only jobs with a running process, so the mod adds the live jobs with none (`quiet_jobs`), each marked between turns, paused or not started.
 The receiver reads the sender's title and address with the message.
 Where the mod's hooks do not run, as on a Mac whose managed settings skip them, nothing asks and the message goes.
 Fleet does not start an ended job for it: the message is not drawn on that job's thread, and the sender's thread says it was refused.

@@ -438,6 +438,7 @@ impl Hosts {
                 lease: tokio::sync::Mutex::new(()),
                 delivery: tokio::sync::Mutex::new(()),
                 starting: tokio::sync::Mutex::new(()),
+                messaging: tokio::sync::Mutex::new(()),
                 writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
@@ -504,6 +505,9 @@ pub(crate) struct Runtime {
     pub(crate) delivery: tokio::sync::Mutex<()>,
     /// Held while the process is found or started, so two senders at once start one process.
     pub(crate) starting: tokio::sync::Mutex<()>,
+    /// Held while who carries one of this Job's `SendMessage`s is settled, so the mod's ask and
+    /// Fleet's reading of the call agree on one. `message_reach`.
+    pub(crate) messaging: tokio::sync::Mutex<()>,
     /// Whether this session's retro is being written, so a second press waits.
     pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,
@@ -618,6 +622,9 @@ pub(crate) struct State {
     /// reported was older. A replacement that still reports an older one is not restarted for the same
     /// copy again. In memory.
     pub moved_onto: Option<String>,
+    /// This Job's `SendMessage`s whose carrier one side settled and the other has not yet followed.
+    /// In memory. `message_reach`.
+    pub(crate) messages_settled: Vec<message_reach::Settled>,
 }
 
 impl State {
@@ -711,6 +718,7 @@ impl State {
             tools_missing: None,
             healed_into: None,
             moved_onto: None,
+            messages_settled: Vec::new(),
         }
     }
 }
