@@ -95,7 +95,9 @@ The stretch before the first build known belongs to no build.
 **A build from before builds were kept has "first told" as its start.** Fleet's first rows are the builds it had told a Job of, stamped with the time of the first telling, and a build told to no Job has none.
 `source` (`main` or `preview`) and the main commit under a preview may be unknown, and Fleet asks git for them where the repositories it serves hold the commit.
 
-**What a preview holds is `Armada/preview-held`.** `scripts/preview` writes the preview commit, the main commit it stands on and a line for each branch merged into it, and Fleet keeps that with the build (`docs/practices/running-locally.md`).
+**What a preview holds is read from its own commit.**
+The branches `scripts/preview` merged are the commit's first-parent merges, each at the second parent of its merge, and Fleet reads them once per build.
+`Armada/preview-held` (`docs/practices/running-locally.md`) is the fallback where the commit shows no merge, and where it names this build it gives the main commit.
 
 ## Far over
 

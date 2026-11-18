@@ -366,6 +366,27 @@ async fn an_offer_the_running_preview_holds_at_its_tip_is_in_the_build_and_needs
 }
 
 #[tokio::test]
+async fn an_offer_the_build_commit_merges_is_in_the_build_though_preview_held_names_no_branch() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, tip) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    offer(&rig, &session, None, Some("One")).await.expect("offered");
+    checked(&rig).await;
+    assert!(offers(&rig).await.refresh.is_some());
+
+    let main = base(&rig);
+    git(&root(&rig), &["checkout", "-q", "-B", "preview", &main]);
+    git(&root(&rig), &["merge", "-q", "--no-ff", "-m", "Merge branch 'armada/one' into preview", "armada/one"]);
+    let build = git(&root(&rig), &["rev-parse", "HEAD"]);
+    rig.on_file_at(&build, true);
+    fs::write(rig.support().join("preview-held"), format!("{build}\n{main}\n")).unwrap();
+
+    let read = offers(&rig).await;
+    assert_eq!((read.offers[0].tip.as_str(), read.offers[0].in_build), (tip.as_str(), true), "the commit merges it at that tip");
+    assert_eq!(read.refresh, None);
+}
+
+#[tokio::test]
 async fn the_moved_since_the_preview_left_it_out_row_is_no_longer_raised() {
     let rig = a_rig();
     a_previewable_repository(&rig);

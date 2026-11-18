@@ -692,7 +692,7 @@ Every compile runs at utility priority.
 Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
 
 **`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
-**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads `Armada/preview-held`).
+**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads the running build commit's own merges, and `Armada/preview-held` where the commit shows none).
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
 `preview_offers.changed` carries the answer whole.
 
@@ -700,7 +700,7 @@ The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a differ
 On every accepted offer Fleet keeps one note a (branch, tip) in `build_notes`: the Job, its `about`, `look` and `steps`, when it was offered and when the owner looked.
 A re-offer at the same tip updates the note and keeps the mark, and a new tip is a new note that is not looked at.
 Fleet drops an offer when its Job ends or its tip lands, and the note stays, because the build the owner loaded still holds the branch.
-**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
+**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds, read from its commit's merges and from `Armada/preview-held` where it shows none, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
 Off the preview it answers no notes and no commit.
 `build_notes.changed` carries it whole, when a note is marked, when a Job whose note the build holds ends, and when the running build changes.
 Fleet looks for the last two on the sweep that reads `main`, so a Job's end reaches Bridge within one sweep.
