@@ -122,6 +122,20 @@
 
   // Votes.
   const votes = new Map();
+  // With two or more votes there is no Send on each: one bar at the foot of the page sends every vote that has a result.
+  const several = document.querySelectorAll("armada-vote").length > 1;
+  let bar = null;
+
+  // Whether a vote has something to send: a result, not already in flight, and not the result Fleet already holds.
+  const sendable = (vote) => {
+    const result = resultOf(vote);
+    return Boolean(result) && !vote.busy && JSON.stringify(result) !== vote.sent;
+  };
+
+  const refresh = (vote) => {
+    if (vote?.send) vote.send.disabled = Boolean(vote.busy);
+    if (bar) bar.disabled = ![...votes.values()].some(sendable);
+  };
 
   const pick = (vote, id) => {
     vote.picked = id;
@@ -204,7 +218,8 @@
       vote.status.textContent = "Pick a take first";
       return;
     }
-    vote.send.disabled = true;
+    vote.busy = true;
+    refresh(vote);
     vote.status.textContent = "";
     post({ kind: "vote", vote: vote.id, result });
   };
@@ -227,9 +242,20 @@
         }
       }
     }
-    vote.send.disabled = false;
+    vote.busy = false;
+    vote.sent = JSON.stringify(resultOf(vote));
+    refresh(vote);
     vote.status.className = "armada-vote-status armada-done";
     vote.status.textContent = "Sent to the Job";
+  };
+
+  // The bar's press. A vote with no result says so and stays open; one already sent as it stands is left as it is.
+  const sendAll = () => {
+    for (const vote of votes.values()) {
+      const result = resultOf(vote);
+      if (vote.busy || (result && JSON.stringify(result) === vote.sent)) continue;
+      submit(vote);
+    }
   };
 
   const isField = (element) => element.tagName === "TEXTAREA" || element.tagName === "INPUT";
@@ -295,15 +321,21 @@
       list.append(take);
     }
     if (question) element.prepend(make("p", { class: "armada-vote-question" }, question));
-    vote.send = make("button", { type: "button", class: "armada-send", title: "Send (⌘↵)" }, "Send");
-    vote.send.addEventListener("click", () => submit(vote));
     vote.status = make("span", { class: "armada-vote-status", role: "status" });
     const foot = make("div", { class: "armada-vote-foot" });
-    foot.append(vote.send, vote.status);
+    if (several) {
+      foot.append(vote.status);
+      // A pick, a move, a mark or a note changes whether the bar has something to send.
+      for (const name of ["click", "input", "change", "keydown"]) element.addEventListener(name, () => refresh(vote));
+    } else {
+      vote.send = make("button", { type: "button", class: "armada-send", title: "Send (⌘↵)" }, "Send");
+      vote.send.addEventListener("click", () => submit(vote));
+      foot.append(vote.send, vote.status);
+    }
     element.append(list, foot);
     if (form === "rank") renumber(vote);
     element.addEventListener("keydown", (event) => {
-      if (sendKey(event)) {
+      if (!several && sendKey(event)) {
         event.preventDefault();
         submit(vote);
         return;
@@ -335,6 +367,20 @@
     if (!votes.has(id)) votes.set(id, vote);
   }
 
+  if (several) {
+    bar = make("button", { type: "button", class: "armada-send", title: "Send picks (⌘↵)" }, "Send picks");
+    bar.addEventListener("click", sendAll);
+    const foot = make("div", { class: "armada-vote-bar" });
+    foot.append(bar);
+    document.body.append(foot);
+    document.addEventListener("keydown", (event) => {
+      if (event.defaultPrevented || !sendKey(event) || bar.disabled) return;
+      event.preventDefault();
+      sendAll();
+    });
+    refresh();
+  }
+
   // The host's answers.
   const refused = (message) => {
     const action = actions.get(message.action);
@@ -346,7 +392,8 @@
     }
     const vote = votes.get(message.vote);
     if (vote) {
-      vote.send.disabled = false;
+      vote.busy = false;
+      refresh(vote);
       vote.status.className = "armada-vote-status armada-refused";
       vote.status.textContent = message.message;
     }
