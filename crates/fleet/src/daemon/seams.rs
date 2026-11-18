@@ -305,6 +305,9 @@ where
     pub(crate) fn phone_held(&self) -> &crate::phone::PhoneHeld {
         &self.phone_held
     }
+    pub(crate) fn review_lists_kept(&self) -> &crate::pull_review_kept::Kept {
+        &self.review_lists_kept
+    }
     pub(crate) fn home_held(&self) -> &crate::home::HomeHeld {
         &self.home_held
     }

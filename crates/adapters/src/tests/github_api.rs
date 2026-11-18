@@ -338,7 +338,13 @@ fn a_rate_limit_named_only_in_a_graphql_error_holds_too() {
     let server = serve(|_| ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#));
     let (api, _) = api(&server.url, &["t"]);
     let first = api.graphql::<Viewer, _>("query { viewer }", &Number { number: 7 });
-    assert!(matches!(first, Err(ApiFailure::GraphQl(_))), "{first:?}");
+    match first {
+        Err(ApiFailure::RateLimited { said, seconds }) => {
+            assert!(said[0].contains("rate limit"), "{said:?}");
+            assert!(seconds >= 150, "the hold it started: {seconds}");
+        }
+        other => panic!("said as the limit, not as a query GitHub would not read: {other:?}"),
+    }
     assert!(matches!(api.get("/repos/o/r"), Err(ApiFailure::HeldBack { .. })));
     assert_eq!(server.seen().len(), 1);
 }

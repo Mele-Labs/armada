@@ -4,7 +4,7 @@
 //! holding this fake exists.
 
 use adapter_traits::{
-    ComparedPatches, FilePatch, ListedPull, PatchedFile, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
+    ComparedPatches, FilePatch, ListFailure, ListedPull, PatchedFile, PullRequestFacts, PullRequestPageFacts, PullRequestStanding, PullRequestWrite,
     Remark, ReviewList, ReviewListAsk, UnderReview,
 };
 
@@ -72,6 +72,8 @@ pub(super) struct PullRequests {
     pub(super) review_lists: Vec<(ReviewList, Vec<ListedPull>)>,
     /// Review list reads that answer only alongside the others.
     pub(super) review_lists_together: Option<Arc<Together>>,
+    /// Why a list nobody scripted is silent. Absent is a plain silence.
+    pub(super) review_lists_failure: Option<ListFailure>,
     /// The forge's reply to resolving or reopening a review thread.
     pub(super) thread_resolved: Result<(), String>,
     /// What the forge's facts become once a merge, a ready or an auto-merge is
@@ -102,6 +104,7 @@ impl Default for PullRequests {
             written: Ok(()),
             review_lists: Vec::new(),
             review_lists_together: None,
+            review_lists_failure: None,
             thread_resolved: Ok(()),
             follows_writes: true,
             hold_after_write: None,
@@ -287,8 +290,8 @@ impl FakeVcs {
     }
 
     /// `Forge::pull_review_list`: recorded, then answered as scripted. A list nobody
-    /// scripted is the forge's silence.
-    pub(super) fn review_list_read(&self, ask: &ReviewListAsk<'_>) -> Option<Vec<ListedPull>> {
+    /// scripted is the forge's silence, or the failure said for it with `now_review_lists_fail`.
+    pub(super) fn review_list_read(&self, ask: &ReviewListAsk<'_>) -> Result<Vec<ListedPull>, ListFailure> {
         self.delivered
             .lock()
             .expect("not poisoned")
@@ -298,12 +301,15 @@ impl FakeVcs {
                 repositories: ask.repositories.to_vec(),
             });
         let together = self.pull_requests.lock().expect("not poisoned").review_lists_together.clone();
+        let silent = || ListFailure::Other("Nothing was scripted for it.".to_string());
         if together.is_some_and(|together| !together.arrive()) {
-            return None;
+            return Err(self.pull_requests.lock().expect("not poisoned").review_lists_failure.clone().unwrap_or_else(silent));
         }
         let forge = self.pull_requests.lock().expect("not poisoned");
-        let rows = forge.review_lists.iter().find(|(list, _)| *list == ask.list)?;
-        Some(rows.1.iter().take(ask.most).cloned().collect())
+        let Some(rows) = forge.review_lists.iter().find(|(list, _)| *list == ask.list) else {
+            return Err(forge.review_lists_failure.clone().unwrap_or_else(silent));
+        };
+        Ok(rows.1.iter().take(ask.most).cloned().collect())
     }
 
     /// `Forge::resolve_review_thread`: recorded, then answered as scripted.
@@ -321,6 +327,11 @@ impl FakeVcs {
             .thread_resolved
             .clone()
             .map(|()| resolved)
+    }
+
+    /// Say why every review list nobody scripted is not read: the rate limit, say.
+    pub fn now_review_lists_fail(&self, failure: ListFailure) {
+        self.pull_requests.lock().expect("not poisoned").review_lists_failure = Some(failure);
     }
 
     /// Say what the forge answers for one review list. Say nothing, and that list is silent.
