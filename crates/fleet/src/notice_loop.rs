@@ -36,6 +36,7 @@ where
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
         waits.slot_waits_ended_at_boot().await;
+        waits.gate_runs_lost_at_boot().await;
         waits.slot_lines_restored().await;
         waits.operator_orders_read().await;
     });

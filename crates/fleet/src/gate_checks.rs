@@ -334,6 +334,15 @@ where
         began
     }
 
+    /// The runs the last Fleet began ended with it, as [`GateRuns`] does, so none is still `running`. A
+    /// held `all_done` then reaches Needs you, where a kept `running` hid it for good. Called once at boot.
+    pub(crate) async fn gate_runs_lost_at_boot(&self) {
+        let lost = self.store().lock().await.forget_running_gate_checks().unwrap_or_default();
+        for id in lost {
+            let _ = self.published_hosted(&id).await;
+        }
+    }
+
     /// A run at `sha` ended. Closes the first open `checks_green` gate where the verdict is green and
     /// keeps the run as red where it is not. Nothing is kept for a Job whose gate has closed.
     pub(crate) async fn gate_checked(self: &Arc<Self>, id: &str, sha: &str, ended: Ended) {
