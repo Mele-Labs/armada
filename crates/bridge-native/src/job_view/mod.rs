@@ -58,6 +58,7 @@ mod perm;
 mod picture_view;
 mod pictures;
 mod pinned;
+mod thread_rail;
 mod place;
 mod plan;
 mod plan_edit;
@@ -122,6 +123,8 @@ mod report_brief;
 mod side;
 mod side_chat;
 mod spine;
+pub(crate) mod story;
+pub(crate) mod kind_chip;
 mod spoken;
 mod start_card;
 mod workflow;
@@ -182,6 +185,7 @@ pub fn bind(cx: &mut App) {
     head::bind(cx);
     lanes_copy::bind(cx);
     web_walk::bind(cx);
+    story::init(cx);
     job_browser::bind(cx);
 }
 
@@ -1375,6 +1379,7 @@ impl Render for JobView {
                     .size_full()
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
+                    .when_some(self.rail_width(&id, cx), |thread, rail| thread.pr(rail))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.thread_row(ix, window, cx))).size_full())
                     .child(fade(&look, true))
@@ -1397,7 +1402,7 @@ impl Render for JobView {
                 .flex_col()
                 .children(origin)
                 .children(find)
-                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)).children(self.render_thread_rail(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()
