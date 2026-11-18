@@ -170,6 +170,12 @@ impl ReviewsScreen {
             Role::Heading,
             title.clone(),
         );
+        let close = labelled(
+            icon_button("sheet-close", "x", look.color(token::FG_MUTED), look).size(look.length(token::H_CONTROL)).tooltip(tip("Close")).on_click(cx.listener(|this, _, window, cx| this.open_sheet(false, window, cx))),
+            Role::Button,
+            "Close Review changes",
+        );
+        let heading = div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(heading)).child(close);
         let caption = |id: &'static str, said: &'static str| {
             labelled(
                 div()
@@ -185,11 +191,26 @@ impl ReviewsScreen {
         let mut drafts = div().flex().flex_col().gap(look.length(token::SPACE_3));
         let mine: Vec<_> = self.drafts.iter().filter(|draft| draft.number == page.number).collect();
         if mine.is_empty() {
-            drafts = drafts.child(labelled(
-                div().id("sheet-no-drafts").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child("No drafts"),
-                Role::Label,
-                "No drafts",
-            ));
+            // Nothing drafted and no review run on it yet: the sheet offers the same picker as Review this pull request.
+            let start = (!self.ran_review(page)).then(|| {
+                labelled(
+                    Btn::new("sheet-start-review", "Start review", Weight::Secondary).icon("bot").draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.open_review("Start review", window, cx))),
+                    Role::Button,
+                    "Start review",
+                )
+            });
+            drafts = drafts.child(
+                div()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3))
+                    .child(labelled(
+                        div().id("sheet-no-drafts").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_MUTED)).child("No drafts"),
+                        Role::Label,
+                        "No drafts",
+                    ))
+                    .children(start),
+            );
         }
         for draft in mine {
             let Some(boxed) = self.boxes.get(&draft.id) else { continue };
