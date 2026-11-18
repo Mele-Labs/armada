@@ -464,6 +464,18 @@ mod tests {
     }
 
     #[gpui::test]
+    fn an_artifact_of_one_drawing_takes_approve_and_ask_for_changes_in_the_panels_foot(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-folds", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| assert!(view.open_named("sketch:Step flow", window, cx)));
+        redraw(cx);
+        let panel = bounds_of(cx, Role::Dialog, "Review");
+        let approve = bounds_of(cx, Role::Button, "Approve");
+        let ask = bounds_of(cx, Role::Button, "Ask for changes");
+        let low = panel.top() + panel.size.height * 0.75;
+        assert!(approve.top() > low && ask.top() > low && approve.bottom() < panel.bottom(), "both stand in the foot, at the panel's bottom");
+    }
+
+    #[gpui::test]
     fn a_takes_row_of_the_jobs_review_opens_the_panel_on_this_jobs_items_with_that_row_picked(cx: &mut gpui::TestAppContext) {
         let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {

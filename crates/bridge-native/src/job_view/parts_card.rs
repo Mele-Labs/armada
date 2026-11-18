@@ -768,7 +768,13 @@ impl JobView {
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
         let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
-        let pick = parts.iter().find(|part| is_pick(part)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        // A takes part's pick row, or, for an artifact of one drawing (drawn whole in the focus view, so its own bar is
+        // not drawn), that drawing's Approve and Ask for changes.
+        let lone_drawing = match parts.as_slice() {
+            [part] if is_words_like(part) && matches!(part.content, PartContent::Drawing { .. }) => Some(part),
+            _ => None,
+        };
+        let pick = parts.iter().find(|part| is_pick(part)).or(lone_drawing).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
         Some(match pick {
             Some(pick) => div()
                 .flex()
