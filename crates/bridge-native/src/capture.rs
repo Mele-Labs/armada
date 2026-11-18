@@ -228,14 +228,16 @@ pub struct Noted {
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     /// The card's tools, with the changes and pictures that stand in them.
     pub tools: Option<Entity<Tools>>,
-    /// The url of the Job's page a box was drawn over: a part of the page carries its own (`Held::Page`).
-    pub address: Option<String>,
+    /// The url of the Job's page a box was drawn over, and that Job: a part of the page carries its own (`Held::Page`).
+    pub address: Option<(String, SharedString)>,
 }
 
 pub enum CaptureEvent {
     Noted(Noted),
     /// Esc, or Cancel: the person put it away.
     Closed,
+    /// Esc with nothing held or being drawn: the key is not Capture's, and goes on to what had the keys before.
+    Passed,
 }
 
 impl EventEmitter<CaptureEvent> for Capture {}
@@ -256,8 +258,8 @@ pub struct Capture {
     aiming: Option<Task<()>>,
     /// A press on a page, until the page has answered what is under it.
     holding: Option<Task<()>>,
-    /// The page a box was drawn over.
-    address: Option<String>,
+    /// The page a box was drawn over, and its Job.
+    address: Option<(String, SharedString)>,
     /// The Job's pages, held still while this is armed.
     freeze: page_note::Freeze,
     from: Option<Point<Pixels>>,
@@ -473,7 +475,7 @@ impl Capture {
                 return;
             }
         }
-        self.address = boxed.and_then(|_| self.words.pages.then(|| page_note::page_at(from, cx)).flatten()).map(|over| over.address(cx));
+        self.address = boxed.and_then(|_| self.words.pages.then(|| page_note::page_at(from, cx)).flatten()).map(|over| (over.address(cx), over.job.clone()));
         // A press holds what is under it, which is what the last move aimed at when a pointer made both.
         let under = |this: &mut Self| {
             let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
@@ -573,7 +575,11 @@ impl gpui::Render for Capture {
             .capture_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, _, cx| {
                 if event.keystroke.key == "escape" {
                     cx.stop_propagation();
-                    this.close(cx);
+                    if this.held.is_none() && this.from.is_none() {
+                        cx.emit(CaptureEvent::Passed);
+                    } else {
+                        this.close(cx);
+                    }
                 }
             }))
             .absolute()
@@ -845,6 +851,35 @@ mod tests {
         assert_eq!(spot(right, false, room, card, px(8.)).x, px(1080.));
     }
 
+    #[gpui::test]
+    fn escape_with_nothing_held_goes_on_and_with_a_box_begun_puts_the_box_away(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: false, pages: false };
+        let (capture, cx) = cx.add_window_view(|_, cx| Capture::new(Rc::new(Cell::new(None)), words, None, cx));
+        let heard = Rc::new(std::cell::RefCell::new(Vec::new()));
+        cx.update(|window, cx| {
+            let into = Rc::clone(&heard);
+            cx.subscribe(&capture, move |_, event: &CaptureEvent, _| {
+                into.borrow_mut().push(match event {
+                    CaptureEvent::Noted(_) => "noted",
+                    CaptureEvent::Closed => "closed",
+                    CaptureEvent::Passed => "passed",
+                })
+            })
+            .detach();
+            window.focus(&capture.read(cx).focus_handle(cx), cx);
+        });
+        cx.run_until_parked();
+        cx.simulate_keystrokes("escape");
+        assert_eq!(*heard.borrow(), ["passed"], "nothing held: the key is the panel's under it, and the layer stays on");
+        capture.update(cx, |capture, _| capture.from = Some(point(px(10.), px(10.))));
+        cx.simulate_keystrokes("escape");
+        assert_eq!(*heard.borrow(), ["passed", "closed"], "a box begun: Esc puts it away");
+    }
+
     fn drawn(name: &str, role: Role, x: f32, y: f32, w: f32, h: f32) -> Drawn {
         let bounds = Bounds { origin: point(px(x), px(y)), size: size(px(w), px(h)) };
         Drawn { role, name: name.to_string().into(), bounds, shown: bounds, radius: None, parent: None, path: Vec::new(), painted: 0 }
@@ -914,6 +949,7 @@ mod tests {
             bounds,
             said: "fast.com › button · Google Search".into(),
             address: "https://fast.com/".into(),
+            job: "job-1".into(),
             read: Read {
                 rect: Rect { x: 10., y: 20., width: 50., height: 30. },
                 words: Words { role: "button".into(), name: "Google Search".into(), tag: "input".into() },

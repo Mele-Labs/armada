@@ -5,7 +5,7 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, MouseButton, Pixels, Point, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Context, FocusHandle, MouseButton, Pixels, Point, Role, SharedString, Window};
 use gpui_component::input::Enter;
 
 use super::acts::{button, Mode, Tone, SHEET};
@@ -34,15 +34,15 @@ pub(super) struct Writing {
 }
 
 /// The notes as the Job reads them, one numbered block each (`notesMessage`): what it is about on the number's line, then the
-/// note under it, indented past the number.
-pub(super) fn notes_message(title: &str, notes: &[Held]) -> String {
+/// note under it, indented past the number. `about` names what was drawn, `Sketch "<title>"` or `Artifact "<title>"`.
+pub(super) fn notes_message(about: &str, notes: &[Held]) -> String {
     notes
         .iter()
         .enumerate()
         .map(|(at, note)| {
             let n = at + 1;
             let parts = note.parts.iter().map(|part| format!("{} ({})", part.id, part.label)).collect::<Vec<_>>().join(", ");
-            let heading = format!("{n}. Sketch \"{title}\", {} {parts}", if note.parts.len() == 1 { "part" } else { "parts" });
+            let heading = format!("{n}. {about}, {} {parts}", if note.parts.len() == 1 { "part" } else { "parts" });
             let indent = " ".repeat(n.to_string().len() + 2);
             let body = note.text.trim().lines().map(|line| if line.is_empty() { String::new() } else { format!("{indent}{line}") });
             std::iter::once(heading).chain(body).collect::<Vec<_>>().join("\n")
@@ -56,15 +56,58 @@ fn said(parts: &[Part]) -> String {
     parts.iter().map(|part| part.label.as_str()).collect::<Vec<_>>().join(", ")
 }
 
+/// Where his notes are being taken: a drawing part open over the app, else the sketch read on its own.
+struct Noting {
+    /// Where the notes are held: `sketch:<job>:<card>` (`SketchBody`'s scope), or `artifact:<job>:<part key>`.
+    scope: String,
+    /// The key the drawing is kept by, which `scene::part_at` and `nodes` ask for.
+    drawn: String,
+    /// What the Job is told the notes are on.
+    about: String,
+    /// The key of the note's box.
+    key: String,
+    /// An earlier revision asks nothing, and takes no note.
+    earlier: bool,
+    focus: FocusHandle,
+}
+
 impl JobView {
-    /// Where his notes on the sketch read are held, `sketch:<job>:<card>` (`SketchBody`'s scope).
-    fn notes_scope(&self) -> Option<String> {
+    fn noting(&self) -> Option<Noting> {
+        let job = self.shown.as_ref()?;
+        if let Some((key, drawn, focus)) = self.viewed_drawing() {
+            let (artifact, _) = self.part_of_key(key)?;
+            let title = self.artifact_of(job, &artifact).map_or_else(String::new, |one| one.title.clone());
+            return Some(Noting { scope: format!("artifact:{job}:{key}"), drawn, about: format!("Artifact \"{title}\""), key: format!("note:{key}"), earlier: false, focus });
+        }
         let reading = self.sketch_reading.as_ref()?;
-        Some(format!("sketch:{}:{}", self.shown.as_ref()?, reading.card))
+        Some(Noting {
+            scope: format!("sketch:{job}:{}", reading.card),
+            drawn: Self::drawn_key(reading),
+            about: format!("Sketch \"{}\"", reading.title),
+            key: format!("note:{}", reading.answer),
+            earlier: reading.earlier,
+            focus: reading.focus.clone(),
+        })
     }
 
-    pub(super) fn held_on_reading(&self) -> &[Held] {
-        self.notes_scope().and_then(|scope| self.sketch_notes.get(&scope)).map_or(&[], Vec::as_slice)
+    /// The part picked and the note being written, where notes are being taken.
+    fn noting_slots(&mut self) -> Option<(&mut Option<Part>, &mut Option<Writing>)> {
+        if self.viewed_drawing().is_some() {
+            return self.pictures.viewing.as_mut().map(|viewing| (&mut viewing.target, &mut viewing.writing));
+        }
+        self.sketch_reading.as_mut().map(|reading| (&mut reading.target, &mut reading.writing))
+    }
+
+    fn note_slots_ref(&self) -> Option<(&Option<Part>, &Option<Writing>)> {
+        if self.viewed_drawing().is_some() {
+            return self.pictures.viewing.as_ref().map(|viewing| (&viewing.target, &viewing.writing));
+        }
+        self.sketch_reading.as_ref().map(|reading| (&reading.target, &reading.writing))
+    }
+
+    /// The notes held where notes are being taken.
+    pub(super) fn held_notes(&self) -> &[Held] {
+        self.noting().and_then(|noting| self.sketch_notes.get(&noting.scope)).map_or(&[], Vec::as_slice)
     }
 
     /// The key the drawing of this reading is kept by, which `scene::part_at` and `nodes` ask for.
@@ -76,32 +119,35 @@ impl JobView {
         }
     }
 
-    /// The numbers standing on the sketch: each held note's, the one being written, and the part picked ringed.
-    pub(super) fn marks_of(&self, reading: &Reading) -> Rc<Marks> {
-        let held = self.held_on_reading();
+    /// The part under `at` in the drawing notes are being taken on.
+    pub(super) fn note_part_at(&self, at: Point<Pixels>) -> Option<Part> {
+        crate::scene::part_at(&self.noting()?.drawn, at).map(|(part, _)| part)
+    }
+
+    /// The numbers standing on the drawing: each held note's, the one being written, and the part picked ringed.
+    pub(super) fn note_marks(&self) -> Rc<Marks> {
+        let held = self.held_notes();
         let mut notes: Vec<Mark> = held.iter().enumerate().map(|(at, one)| Mark { n: at + 1, writing: false, ids: one.parts.iter().map(|part| part.id.clone()).collect() }).collect();
-        if let Some(writing) = &reading.writing {
+        let Some((target, writing)) = self.note_slots_ref() else { return Rc::new(Marks { notes, picked: Vec::new() }) };
+        if let Some(writing) = writing {
             notes.push(Mark { n: held.len() + 1, writing: true, ids: writing.parts.iter().map(|part| part.id.clone()).collect() });
         }
-        Rc::new(Marks { notes, picked: reading.target.iter().map(|part| part.id.clone()).collect() })
+        Rc::new(Marks { notes, picked: target.iter().map(|part| part.id.clone()).collect() })
     }
 
     /// A right press, or Shift+F10: the menu at `at`, about `part` where there is one. A part is picked as it is pressed.
     pub(super) fn note_menu(&mut self, at: Point<Pixels>, part: Option<Part>, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(reading) = self.sketch_reading.as_mut() else { return };
-        if reading.earlier {
-            return;
-        }
+        let Some(noting) = self.noting().filter(|noting| !noting.earlier) else { return };
+        let Some((target, _)) = self.noting_slots() else { return };
         if part.is_some() {
-            reading.target = part;
+            *target = part;
         }
-        let about = reading.target.is_some();
-        let back = reading.focus.clone();
+        let about = target.is_some();
         let mut entries = Vec::new();
         if about {
             entries.push(Entry::Act { id: "note", label: "Add note".into(), icon: Some("message-square-plus"), danger: false });
         }
-        if !self.held_on_reading().is_empty() {
+        if !self.held_notes().is_empty() {
             entries.push(Entry::Item { id: "send-notes", label: "Send notes".into(), icon: Some("send"), danger: false, key: Some("\u{2318}\u{21b5}".into()), off: None });
         }
         if entries.is_empty() {
@@ -112,7 +158,7 @@ impl JobView {
             "Note",
             entries,
             at,
-            Some(back),
+            Some(noting.focus),
             |this, id, window, cx| match id {
                 "note" => this.begin_note(window, cx),
                 "send-notes" => this.send_sketch_notes(window, cx),
@@ -125,85 +171,81 @@ impl JobView {
 
     /// A press that did not travel: the part under it is picked.
     pub(super) fn pick_part(&mut self, part: Option<Part>, cx: &mut Context<Self>) {
-        if let Some(reading) = self.sketch_reading.as_mut() {
-            reading.target = part;
+        if let Some((target, _)) = self.noting_slots() {
+            *target = part;
         }
         cx.notify();
     }
 
-    /// Tab and Shift+Tab walk the nodes of the sketch: the next one is picked, and a note is about it.
+    /// Tab and Shift+Tab walk the nodes of the drawing: the next one is picked, and a note is about it.
     pub(super) fn walk_parts(&mut self, back: bool, cx: &mut Context<Self>) {
-        let Some(reading) = self.sketch_reading.as_mut() else { return };
-        let all = crate::scene::nodes(&Self::drawn_key(reading));
+        let Some(noting) = self.noting() else { return };
+        let all = crate::scene::nodes(&noting.drawn);
+        let Some((target, _)) = self.noting_slots() else { return };
         if all.is_empty() {
             return;
         }
-        let at = reading.target.as_ref().and_then(|part| all.iter().position(|(one, _)| one.id == part.id));
+        let at = target.as_ref().and_then(|part| all.iter().position(|(one, _)| one.id == part.id));
         let next = match (at, back) {
             (None, false) => 0,
             (None, true) => all.len() - 1,
             (Some(at), false) => (at + 1) % all.len(),
             (Some(at), true) => (at + all.len() - 1) % all.len(),
         };
-        reading.target = Some(all[next].0.clone());
+        *target = Some(all[next].0.clone());
         cx.notify();
     }
 
     /// Shift+F10: the menu at the foot of the part picked.
     pub(super) fn note_menu_by_keys(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(reading) = self.sketch_reading.as_ref() else { return };
-        let at = reading
-            .target
+        let (Some(noting), Some((target, _))) = (self.noting(), self.note_slots_ref()) else { return };
+        let at = target
             .as_ref()
-            .and_then(|part| crate::scene::bounds_of(&Self::drawn_key(reading), &part.id))
+            .and_then(|part| crate::scene::bounds_of(&noting.drawn, &part.id))
             .map_or_else(|| window.mouse_position(), |bounds| gpui::point(bounds.left(), bounds.bottom()));
         self.note_menu(at, None, window, cx);
     }
 
-    fn note_box_key(reading: &Reading) -> String {
-        format!("note:{}", reading.answer)
-    }
-
     /// Add note: the box opens under the part, with the words he left in it before.
     fn begin_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(reading) = self.sketch_reading.as_mut() else { return };
-        let Some(part) = reading.target.clone() else { return };
-        let key = Self::note_box_key(reading);
-        reading.writing = Some(Writing { key: key.clone(), parts: vec![part] });
-        self.open_box(SHEET, &key, Mode::Note, "", window, cx);
+        let Some(noting) = self.noting() else { return };
+        let Some((target, writing)) = self.noting_slots() else { return };
+        let Some(part) = target.clone() else { return };
+        *writing = Some(Writing { key: noting.key.clone(), parts: vec![part] });
+        self.open_box(SHEET, &noting.key, Mode::Note, "", window, cx);
     }
 
     /// Hold (Enter): the note is kept with its number standing on the part, and the box shuts.
     pub(super) fn hold_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(scope), Some(reading)) = (self.notes_scope(), self.sketch_reading.as_ref()) else { return };
-        let Some(writing) = reading.writing.clone() else { return };
+        let (Some(noting), Some((_, Some(writing)))) = (self.noting(), self.note_slots_ref()) else { return };
+        let writing = writing.clone();
         let text = self.typed_in(&writing.key, Mode::Note, cx).trim().to_string();
         if text.is_empty() {
             return;
         }
-        self.sketch_notes.entry(scope).or_default().push(Held { parts: writing.parts, text });
+        self.sketch_notes.entry(noting.scope).or_default().push(Held { parts: writing.parts, text });
         self.shut_note(window, cx);
     }
 
-    /// The box shuts and the keys go back to the sketch; the words stay kept for the next open unless they were held.
+    /// The box shuts and the keys go back to the drawing; the words stay kept for the next open unless they were held.
     pub(super) fn shut_note(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(reading) = self.sketch_reading.as_mut() else { return };
-        let Some(writing) = reading.writing.take() else { return };
-        let focus = reading.focus.clone();
+        let Some(noting) = self.noting() else { return };
+        let Some((_, writing)) = self.noting_slots() else { return };
+        let Some(writing) = writing.take() else { return };
         // Held, the words go; shut with Esc they are kept for the next time (`keep`), as Classic's box keeps them.
-        let held = self.held_on_reading().last().is_some_and(|one| one.parts == writing.parts && self.typed_in(&writing.key, Mode::Note, cx).trim() == one.text);
+        let held = self.held_notes().last().is_some_and(|one| one.parts == writing.parts && self.typed_in(&writing.key, Mode::Note, cx).trim() == one.text);
         if held {
             self.close_box(SHEET, &writing.key, cx);
         } else if let Some(cards) = self.cards_mut() {
             cards.modes.remove(&writing.key);
         }
-        window.focus(&focus, cx);
+        window.focus(&noting.focus, cx);
         cx.notify();
     }
 
     fn drop_sketch_note(&mut self, at: usize, cx: &mut Context<Self>) {
-        if let Some(scope) = self.notes_scope() {
-            if let Some(held) = self.sketch_notes.get_mut(&scope).filter(|held| at < held.len()) {
+        if let Some(noting) = self.noting() {
+            if let Some(held) = self.sketch_notes.get_mut(&noting.scope).filter(|held| at < held.len()) {
                 held.remove(at);
             }
         }
@@ -212,10 +254,9 @@ impl JobView {
 
     /// ⌘↵: every held note, and the one being written if it has words, goes to the Job as one message.
     pub(super) fn send_sketch_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let (Some(scope), Some(reading), Some(job)) = (self.notes_scope(), self.sketch_reading.as_ref(), self.shown.clone()) else { return };
-        let title = reading.title.to_string();
-        let writing = reading.writing.clone();
-        let mut all = self.held_on_reading().to_vec();
+        let (Some(noting), Some(job)) = (self.noting(), self.shown.clone()) else { return };
+        let writing = self.note_slots_ref().and_then(|(_, writing)| writing.clone());
+        let mut all = self.held_notes().to_vec();
         if let Some(writing) = &writing {
             let text = self.typed_in(&writing.key, Mode::Note, cx).trim().to_string();
             if !text.is_empty() {
@@ -225,26 +266,26 @@ impl JobView {
         if all.is_empty() {
             return;
         }
-        let text = notes_message(&title, &all);
-        let row = Self::note_box_key(reading);
-        self.send_to_job(job.to_string(), text, row, window, cx, move |this, window, cx| {
+        let text = notes_message(&noting.about, &all);
+        let (scope, focus) = (noting.scope.clone(), noting.focus.clone());
+        self.send_to_job(job.to_string(), text, noting.key, window, cx, move |this, window, cx| {
             this.sketch_notes.remove(&scope);
-            if let Some(writing) = this.sketch_reading.as_mut().and_then(|reading| reading.writing.take()) {
+            if let Some(writing) = this.noting_slots().and_then(|(_, writing)| writing.take()) {
                 this.close_box(SHEET, &writing.key, cx);
             }
-            if let Some(focus) = this.sketch_reading.as_ref().map(|reading| reading.focus.clone()) {
-                window.focus(&focus, cx);
-            }
+            window.focus(&focus, cx);
             cx.notify();
         });
     }
 
     /// The box under the part it is about: its number and the part, the notes held before it, the words, and Hold and Send.
-    pub(super) fn render_note_box(&self, reading: &Reading, room: gpui::Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let writing = reading.writing.as_ref()?;
-        let held = self.held_on_reading();
+    pub(super) fn render_note_box(&self, room: gpui::Bounds<Pixels>, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let noting = self.noting()?;
+        let (_, writing) = self.note_slots_ref()?;
+        let writing = writing.as_ref()?;
+        let held = self.held_notes();
         let about = said(&writing.parts);
-        let anchor = writing.parts.first().and_then(|part| crate::scene::bounds_of(&Self::drawn_key(reading), &part.id));
+        let anchor = writing.parts.first().and_then(|part| crate::scene::bounds_of(&noting.drawn, &part.id));
         let key = writing.key.clone();
         let blank = self.typed_in(&key, Mode::Note, cx).trim().is_empty();
         let width = look.length(token::SPACE_12) * 6.;
@@ -393,14 +434,14 @@ mod tests {
     #[test]
     fn a_note_names_its_sketch_and_the_part_by_id_and_label() {
         let one = held(&[("hook", "Pre-push hook")], "Keep the failed tone this red");
-        assert_eq!(notes_message("Freshness chip", &[one]), "1. Sketch \"Freshness chip\", part hook (Pre-push hook)\n   Keep the failed tone this red");
+        assert_eq!(notes_message("Sketch \"Freshness chip\"", &[one]), "1. Sketch \"Freshness chip\", part hook (Pre-push hook)\n   Keep the failed tone this red");
     }
 
     #[test]
     fn notes_are_numbered_and_an_element_of_a_mock_is_its_node_and_key() {
         let all = [held(&[("mock-chip#body > span:nth-child(1)", "2 behind")], "Say how many"), held(&[("a", "A"), ("b", "B")], "One line\n\nand more")];
         assert_eq!(
-            notes_message("Chip", &all),
+            notes_message("Sketch \"Chip\"", &all),
             "1. Sketch \"Chip\", part mock-chip#body > span:nth-child(1) (2 behind)\n   Say how many\n\n2. Sketch \"Chip\", parts a (A), b (B)\n   One line\n\n   and more"
         );
     }

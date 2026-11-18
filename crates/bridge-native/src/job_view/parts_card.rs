@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, HashMap};
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, px, AnyElement, Context, Entity, FontWeight, Focusable, KeyDownEvent, Role, SharedString, Window};
+use gpui::{canvas, div, prelude::*, px, AnyElement, ClickEvent, Context, Entity, FontWeight, Focusable, KeyDownEvent, MouseButton, Role, SharedString, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 use gpui_component::text::TextView;
 use ipc::{AnswerPart, ArtifactPart, ArtifactState, DismissWaiting, JobArtifact, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake, PressDid, PressPageAction, SessionId, VoteForm};
@@ -36,6 +36,8 @@ const JOIN: char = '\u{1f}';
 const ACROSS: usize = 3;
 /// The least a take is drawn wide side by side with another in the reading column, in points. Narrower, they stand one a row.
 const SIDE_BY_SIDE: f32 = 520.;
+/// How long Copy reads Copied after a press.
+const COPIED_FOR: std::time::Duration = std::time::Duration::from_millis(1500);
 /// How tall a picture may stand in the reading column, against the pane it is read in. In the review panel it is `reader_sheet::TALL_SHARE`.
 const TALL_SHARE: f32 = 0.6;
 
@@ -56,7 +58,12 @@ pub(super) fn part_key(artifact: &str, part: &str) -> String {
     format!("{artifact}{JOIN}{part}")
 }
 
-fn split_key(key: &str) -> Option<(&str, &str)> {
+/// `element`, whose presses are its own: they do not reach the card under it, so a press on a control never also opens the card.
+fn held_press(element: AnyElement) -> AnyElement {
+    div().on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation()).child(element).into_any_element()
+}
+
+pub(super) fn split_key(key: &str) -> Option<(&str, &str)> {
     key.split_once(JOIN)
 }
 
@@ -77,6 +84,11 @@ pub(super) struct PartsState {
     typing: HashMap<String, gpui::Subscription>,
     /// Fleet's reason for the last act on a part it refused, by part.
     said: HashMap<String, SharedString>,
+    /// Words parts he opened past their cut with Read more, by part.
+    whole: std::collections::HashSet<String>,
+    /// The words part whose Copy reads Copied, and the wait that turns it back.
+    copied: Option<String>,
+    _copying: Option<gpui::Task<()>>,
 }
 
 /// The part as he reads it: his answer on it where Fleet's list has not caught up, on the revision he answered.
@@ -242,6 +254,8 @@ struct Ctx<'a> {
     /// The part the keys A and C answer, and the takes part 1 to 6 and Cmd-Enter answer: the first of each still asking.
     words: Option<String>,
     takes: Option<String>,
+    /// Two or more votes still ask: each keeps its note box, and one Send picks in the foot sends them all.
+    several: bool,
 }
 
 impl PartsState {
@@ -276,6 +290,11 @@ fn is_pick(part: &ArtifactPart) -> bool {
     part.is_open_ask() && matches!(part.content, PartContent::Takes { form: VoteForm::Pick, .. })
 }
 
+/// Whether two or more votes of an artifact still ask, so their picks are sent together.
+fn several_picks(parts: &[ArtifactPart]) -> bool {
+    parts.iter().filter(|part| is_pick(part)).count() > 1
+}
+
 /// A key that stops where a button takes Enter and Space as a press, so the card's own Enter does not open its page too.
 fn presses_on_enter(event: &KeyDownEvent, cx: &mut gpui::App) {
     if !event.keystroke.modifiers.modified() && matches!(event.keystroke.key.as_str(), "enter" | "space") {
@@ -291,9 +310,9 @@ impl JobView {
         held
     }
 
-    /// Whether a sketch, draft or page the thread holds a card for is a part of an artifact, which its card draws.
+    /// Whether a sketch, draft or page the thread holds a card for is an artifact of parts or one of its parts, which its card draws.
     pub(super) fn is_part(&self, job: &str, id: &str) -> bool {
-        self.parts_artifacts(job).iter().any(|one| one.parts.iter().any(|part| part.id == id))
+        self.parts_artifacts(job).iter().any(|one| one.id == id || one.parts.iter().any(|part| part.id == id))
     }
 
     /// A part by its key, as he reads it, with the id of the artifact it belongs to.
@@ -333,6 +352,7 @@ impl JobView {
             sheet: false,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: false,
         };
         if is_pick(&part) {
             let ready = self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some());
@@ -401,7 +421,10 @@ impl JobView {
             let sent = key.clone();
             let typing = cx.subscribe_in(&input, window, move |this, _, event: &InputEvent, window, cx| {
                 if let InputEvent::PressEnter { .. } = event {
-                    this.send_pick(&sent, window, cx);
+                    match split_key(&sent).map(|(artifact, _)| artifact.to_string()) {
+                        Some(artifact) if this.several_ask(&artifact) => this.send_picks(&artifact, window, cx),
+                        _ => this.send_pick(&sent, window, cx),
+                    }
                 }
             });
             if let Some(page) = self.pages.get_mut(job) {
@@ -409,6 +432,8 @@ impl JobView {
                 page.cards.parts.typing.insert(key, typing);
             }
         }
+        // The panel's page parts are pages, which are live entities too.
+        self.sync_panel_pages(window, cx);
     }
 
     /// Whether he is typing in a part's note or in the box of Ask for changes: the keys are the box's own then.
@@ -525,6 +550,33 @@ impl JobView {
         self.answer_part(&artifact, &held, PartHow::Picked, Some(take), words, window, cx);
     }
 
+    /// Send every pick he has made on an artifact's votes, one answer to each with its own note. A vote with no pick keeps asking.
+    pub(super) fn send_picks(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        for key in self.picks_made(artifact) {
+            self.send_pick(&key, window, cx);
+        }
+    }
+
+    /// Whether two or more votes of an artifact still ask.
+    fn several_ask(&self, artifact: &str) -> bool {
+        let Some(job) = self.shown.as_ref() else { return false };
+        let (Some(held), Some(page)) = (self.artifact_of(job, artifact), self.pages.get(job)) else { return false };
+        let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).collect();
+        several_picks(&parts)
+    }
+
+    /// The keys of the votes of an artifact that ask and have a take chosen.
+    fn picks_made(&self, artifact: &str) -> Vec<String> {
+        let Some(job) = self.shown.as_ref() else { return Vec::new() };
+        let (Some(held), Some(page)) = (self.artifact_of(job, artifact), self.pages.get(job)) else { return Vec::new() };
+        held.parts
+            .iter()
+            .filter(|part| is_pick(&effective(part, &part_key(artifact, &part.id), &page.cards.parts)))
+            .map(|part| part_key(artifact, &part.id))
+            .filter(|key| self.takes_of_key(key).is_some_and(|(_, _, chosen)| chosen.is_some()))
+            .collect()
+    }
+
     /// Choose a take of a takes part, as a press or a digit does. It stays a choice until Send pick.
     pub(super) fn choose_take(&mut self, key: &str, take: usize, cx: &mut Context<Self>) {
         if let Some(state) = self.parts_state_mut() {
@@ -611,7 +663,9 @@ impl JobView {
         });
         let plain = !modifiers.modified();
         let handled = if pressed == "enter" && modifiers.platform {
-            if let Some(key) = take_key.as_deref() {
+            if several_picks(&parts) {
+                self.send_picks(artifact, window, cx);
+            } else if let Some(key) = take_key.as_deref() {
                 self.send_pick(key, window, cx);
             }
             true
@@ -703,6 +757,7 @@ impl JobView {
             sheet,
             words: parts.iter().find(|part| is_words_like(part)).map(|part| part.id.clone()),
             takes: parts.iter().find(|part| is_pick(part)).map(|part| part.id.clone()),
+            several: several_picks(&parts),
         };
         let blocks: Vec<AnyElement> = parts.iter().enumerate().map(|(at, part)| self.part_block(&ctx, part, at == 0, cx)).collect();
         let spot = page.keys.spot(&format!("{}:{id}", if tab { "reader" } else { "card" }), cx);
@@ -721,12 +776,26 @@ impl JobView {
                 .children(blocks);
             return Some(labelled(column, Role::Region, named).into_any_element());
         }
-        let footer = Some(self.parts_footer(ix, id, &parts, asking, page, look, cx));
+        let footer = Some(held_press(self.parts_footer(ix, id, &parts, asking, None, page, look, cx)));
+        // A press anywhere on the card that is not on one of its controls, and did not travel, grows it out over the app.
+        let (opened, kept, store) = (id.to_string(), id.to_string(), self.pictures.cards.clone());
         let card = frame(look, self.band_narrow(look))
             .id(SharedString::from(format!("artifact:{id}")))
+            .relative()
             .track_focus(&spot.focus)
             .in_focus(|style| style.border_color(look.color(token::ACCENT)))
+            .cursor_pointer()
             .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+            .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
+                if let ClickEvent::Mouse(press) = event {
+                    let travel = press.up.position - press.down.position;
+                    if travel.x.abs() > px(4.) || travel.y.abs() > px(4.) {
+                        return;
+                    }
+                }
+                this.open_card(&opened, window, cx);
+            }))
+            .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept.clone(), bounds); }, |_, _, _, _| {}).absolute().size_full())
             .child(head)
             .children(blocks)
             .children(footer);
@@ -739,8 +808,18 @@ impl JobView {
         let parts: Vec<ArtifactPart> = artifact.parts.iter().map(|part| effective(part, &part_key(id, &part.id), &page.cards.parts)).collect();
         let dismissed = page.cards.answers.get(id) == Some(&Answer::Withdrawn);
         let asking = !dismissed && stand_of(&parts, artifact.state) == Stand::Asking;
-        let footer = self.parts_footer(ix, id, &parts, asking, page, look, cx);
-        let pick = parts.iter().find(|part| is_pick(part)).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        // A takes part's pick row stands over the footer. For an artifact of one drawing (drawn whole in the focus view, so its
+        // own bar is not drawn), that drawing's Approve and Ask for changes stand in the footer's row beside Dismiss, and only
+        // the note box Ask for changes opens takes a row of its own.
+        let lone_drawing = match parts.as_slice() {
+            [part] if is_words_like(part) && matches!(part.content, PartContent::Drawing { .. }) => Some(part),
+            _ => None,
+        };
+        let lone_noting = lone_drawing.is_some_and(|part| page.cards.modes.get(&part_key(id, &part.id)) == Some(&Mode::Note));
+        let inline = lone_drawing.filter(|_| !lone_noting).and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
+        let footer = self.parts_footer(ix, id, &parts, asking, inline, page, look, cx);
+        let above = parts.iter().find(|part| is_pick(part)).filter(|_| !several_picks(&parts)).or(lone_drawing.filter(|_| lone_noting));
+        let pick = above.and_then(|part| self.part_acts(&part_key(id, &part.id), look, cx));
         Some(match pick {
             Some(pick) => div()
                 .flex()
@@ -752,9 +831,10 @@ impl JobView {
         })
     }
 
-    /// The card's footer: what settles it, the refusal he last had, and Dismiss or Archive. In the focus view it is pinned below
-    /// the reader instead of ending the card.
-    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// The card's footer: what settles it, the refusal he last had, `acts` where the footer carries a part's own, and Dismiss or
+    /// Archive. In the focus view it is pinned below the reader instead of ending the card.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn parts_footer(&self, ix: usize, id: &str, parts: &[ArtifactPart], asking: bool, acts: Option<AnyElement>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let run: Do = {
             let id = id.to_string();
             Rc::new(move |this, act, window, cx| match act {
@@ -765,6 +845,7 @@ impl JobView {
         };
         let foot = Foot { ix, key: id.to_string(), asking, archivable: !asking, openable: false, editable: false, commit: false, route: "/sessions/waiting/dismiss", run };
         let line = settles_line(parts).filter(|_| asking);
+        let picks = (asking && several_picks(parts)).then(|| self.send_picks_button(id, look, cx));
         let away = if asking {
             ghost(look, &foot, "dismiss", "Dismiss", "D", "Put it away with no answer", Act::Dismiss, cx)
         } else {
@@ -786,9 +867,28 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .when_some(line, |one, line| one.tooltip(tip(line.clone())).child(SharedString::from(line))),
                 )
+                .children(picks)
+                .children(acts.map(|acts| div().flex_none().child(acts)))
                 .child(div().flex_none().child(away)),
         );
         footer.into_any_element()
+    }
+
+    /// Send picks: one button for every vote of the artifact that has a pick. It waits until one does.
+    fn send_picks_button(&self, id: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let ready = !self.picks_made(id).is_empty();
+        let artifact = id.to_string();
+        super::acts::gated(
+            div().id(SharedString::from(format!("send-picks:{id}"))).flex_none().child(labelled(
+                act(look, format!("send-picks-button:{id}"), "Send picks", Kind::Primary, "\u{2318}\u{21b5}", ready).when(ready, |button| {
+                    button.tooltip(tip("Send your picks to the Job")).on_click(cx.listener(move |this, _, window, cx| this.send_picks(&artifact, window, cx)))
+                }),
+                Role::Button,
+                "Send picks",
+            )),
+            self.off_shown_to(ANSWER_PART, cx),
+        )
+        .into_any_element()
     }
 
     /// One part: its caption and tag, what it holds and, where it asks, how he answers it.
@@ -797,7 +897,7 @@ impl JobView {
         let key = part_key(c.id, &part.id);
         let (mark, name) = kind_look(part.content.kind());
         let body = match &part.content {
-            PartContent::Words { text } => self.words_body(c, &key, text, part),
+            PartContent::Words { text } => self.words_body(c, &key, text, part, cx),
             PartContent::Takes { question, form, takes, .. } => self.takes_body(c, &key, part, question.as_deref(), *form, takes, cx),
             PartContent::Drawing { scene } => self.drawing_body(c, &key, part, scene, cx),
             PartContent::Buttons { actions } => self.buttons_body(c, &key, part, actions, cx),
@@ -810,8 +910,9 @@ impl JobView {
             _ => None,
         };
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
-        // Words, buttons and a page stand at the measure in the sheet; takes and a drawing take its width.
-        let body = if matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
+        // Words, buttons and a still of a page stand at the measure in the sheet; takes, a drawing and a live page take its width.
+        let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(&c.job, path, part.revision, cx).is_some());
+        let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
         labelled(
             div()
                 .id(SharedString::from(format!("part:{key}")))
@@ -821,9 +922,9 @@ impl JobView {
                 .when(!c.sheet, |block| block.px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)))
                 .when(c.sheet && !first, |block| block.pt(look.length(token::SPACE_4)))
                 .when(!first, |block| block.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
-                .child(self.measured(c, self.caption(c, &key, mark, name, part)))
-                .child(body)
-                .children(answer.map(|answer| self.measured(c, answer)))
+                .child(self.measured(c, self.caption(c, &key, mark, name, part, cx)))
+                .child(if matches!(part.content, PartContent::Words { .. } | PartContent::Drawing { .. }) { body } else { held_press(body) })
+                .children(answer.map(|answer| held_press(self.measured(c, answer))))
                 .children(said.map(|said| self.measured(c, said))),
             Role::Group,
             name,
@@ -841,7 +942,7 @@ impl JobView {
     }
 
     /// The small caps caption with the kind's glyph, and the tag at the right.
-    fn caption(&self, c: &Ctx, key: &str, mark: &'static str, name: &'static str, part: &ArtifactPart) -> AnyElement {
+    fn caption(&self, c: &Ctx, key: &str, mark: &'static str, name: &'static str, part: &ArtifactPart, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let tag = Tag::of(part);
         let (said, answered) = tag_of(part);
@@ -880,22 +981,104 @@ impl JobView {
             .text_color(look.color(token::FG_SUBTLE))
             .child(glyph(look, mark, Size::Small, look.color(token::FG_SUBTLE)))
             .child(name.to_uppercase());
-        div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(caption, Role::Heading, name)).child(pill).into_any_element()
+        let copy = matches!(part.content, PartContent::Words { .. }).then(|| self.copy_button(c, key, cx));
+        div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(caption, Role::Heading, name)).child(pill).children(copy).into_any_element()
+    }
+
+    /// Copy at the end of a words part's caption, which puts the words on the pasteboard with their formatting.
+    fn copy_button(&self, c: &Ctx, key: &str, cx: &Context<Self>) -> AnyElement {
+        let said: &'static str = if c.state().copied.as_deref() == Some(key) { "Copied" } else { "Copy" };
+        let (job, held) = (c.job.clone(), key.to_string());
+        labelled(
+            act(c.look, format!("words-copy:{key}"), said, Kind::Ghost, "", true)
+                .tooltip(tip("Copy with formatting"))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // The press is the button's alone, never the card's.
+                    cx.stop_propagation();
+                    this.copy_words(&job, &held, cx)
+                })),
+            Role::Button,
+            said,
+        )
+        .into_any_element()
+    }
+
+    /// The words of a part put on the pasteboard as markdown and as HTML, and its Copy reading Copied for a moment.
+    pub(super) fn copy_words(&mut self, job: &str, key: &str, cx: &mut Context<Self>) {
+        let Some((artifact, id)) = split_key(key) else { return };
+        let text = self.artifact_of(job, artifact).and_then(|one| one.parts.iter().find(|part| part.id == id)).and_then(|part| match &part.content {
+            PartContent::Words { text } => Some(text.clone()),
+            _ => None,
+        });
+        let Some(text) = text else { return };
+        crate::pasteboard::copy_words(&text, cx);
+        let (artifact, held) = (artifact.to_string(), key.to_string());
+        let back = {
+            let artifact = artifact.clone();
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(COPIED_FOR).await;
+                let _ = this.update(cx, |this, cx| {
+                    if let Some(state) = this.parts_state_mut().filter(|state| state.copied.as_deref() == Some(held.as_str())) {
+                        state.copied = None;
+                    }
+                    this.parts_changed(&artifact, cx);
+                });
+            })
+        };
+        if let Some(state) = self.parts_state_mut() {
+            state.copied = Some(key.to_string());
+            state._copying = Some(back);
+        }
+        self.parts_changed(&artifact, cx);
     }
 
     // ---- words ---------------------------------------------------------------------------------------------------
 
     /// Words the Job wrote, as markdown. Long ones are cut as a page's first screen is.
-    fn words_body(&self, c: &Ctx, key: &str, text: &str, part: &ArtifactPart) -> AnyElement {
+    fn words_body(&self, c: &Ctx, key: &str, text: &str, part: &ArtifactPart, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let words = TextView::markdown(gpui::ElementId::Name(format!("words:{}:{key}:{}", c.job, part.drawn).into()), text.to_string())
             .w_full()
             .text_size(look.length(token::TEXT_SM))
             .text_color(look.color(token::FG_DEFAULT));
-        if text.chars().count() > 600 || text.lines().count() > 8 {
-            return well(look, true, words.into_any_element());
+        // The review panel and the artifact's own tab are where he reads it whole; only the thread's card cuts.
+        let long = text.chars().count() > 600 || text.lines().count() > 8;
+        if !long || c.tab || c.sheet {
+            return div().w_full().child(words).into_any_element();
         }
-        div().w_full().child(words).into_any_element()
+        let open = c.state().whole.contains(key);
+        let said: &'static str = if open { "Show less" } else { "Read more" };
+        let held = key.to_string();
+        let press = labelled(
+            act(look, format!("words-whole:{key}"), said, Kind::Ghost, "", true)
+                .tooltip(tip(if open { "Cut the words back to their first screen" } else { "Show the rest of the words here" }))
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    // The press is the button's alone, never the card's, which would grow the whole card.
+                    cx.stop_propagation();
+                    this.flip_whole_words(&held, cx)
+                })),
+            Role::Button,
+            said,
+        );
+        let body = if open {
+            div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).child(words).into_any_element()
+        } else {
+            well(look, true, words.into_any_element())
+        };
+        div().w_full().flex().flex_col().child(body).child(div().px(look.length(token::SPACE_4)).flex().child(press)).into_any_element()
+    }
+
+    /// Words opened past their cut, or cut back.
+    pub(super) fn flip_whole_words(&mut self, key: &str, cx: &mut Context<Self>) {
+        if let Some(state) = self.parts_state_mut() {
+            if !state.whole.remove(key) {
+                state.whole.insert(key.to_string());
+            }
+        }
+        if let Some((artifact, _)) = split_key(key) {
+            let artifact = artifact.to_string();
+            self.parts_changed(&artifact, cx);
+        }
     }
 
     /// Approve and Ask for changes under words, a drawing or a page that asks, or the note box in their place.
@@ -1020,7 +1203,7 @@ impl JobView {
             }
         };
         // In the review panel the words box and Send pick stand in its foot beside the answers, so the pick is never off screen.
-        let send = (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx));
+        let send = if c.several { open.then(|| self.note_row(c, key)) } else { (open && !c.sheet).then(|| self.pick_row(c, key, chosen.is_some(), target, cx)) };
         let answered = (!part.is_open_ask() && part.asks).then(|| self.answered_line(c, key, part));
         div()
             .flex()
@@ -1186,7 +1369,10 @@ impl JobView {
         let raw: ipc::RawScene = serde_json::from_str(text).ok()?;
         let scene = crate::scene::read(key, &raw)?;
         // The canvas's shape is known once it has been drawn; the frame before that draws at a plain 16 to 10 and draws again.
-        let ratio = crate::scene::canvas_size(key).map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        let canvas = crate::scene::canvas_size(key);
+        let ratio = canvas.map_or(1.6, |(w, h)| (w / h).clamp(0.2, 8.));
+        // No wider than the drawing stands at its most (its own size, or twice it), so a chip-sized mock is not given the column.
+        let widest = canvas.map_or(f32::INFINITY, |(w, _)| w * Fit::Column.most_zoom(&scene));
         Some(
             div()
                 .w_full()
@@ -1196,7 +1382,7 @@ impl JobView {
                     div()
                         .relative()
                         .w_full()
-                        .max_w(tall * ratio)
+                        .max_w((tall * ratio).min(px(widest)))
                         .aspect_ratio(ratio)
                         .overflow_hidden()
                         .when(!flat, |picture| picture.rounded(look.length(token::RADIUS_MD)))
@@ -1296,10 +1482,14 @@ impl JobView {
         div().flex().flex_col().gap(look.length(token::SPACE_3)).child(bar).children(picture).children(choose).into_any_element()
     }
 
-    /// The note beside the pick and Send pick, which sends it: the vote's one act.
-    fn pick_row(&self, c: &Ctx, key: &str, ready: bool, target: bool, cx: &Context<Self>) -> AnyElement {
+    /// The note that goes with a pick, in a box of its own: under each vote where several ask.
+    fn note_row(&self, c: &Ctx, key: &str) -> AnyElement {
+        div().id(SharedString::from(format!("pick-note:{key}"))).flex().items_center().children(self.note_field(c, key)).into_any_element()
+    }
+
+    fn note_field(&self, c: &Ctx, key: &str) -> Option<AnyElement> {
         let look = c.look;
-        let field = c.state().notes.get(key).map(|input| {
+        c.state().notes.get(key).map(|input| {
             labelled(
                 div()
                     .id(SharedString::from(format!("note:{key}")))
@@ -1319,7 +1509,14 @@ impl JobView {
                 Role::TextInput,
                 "Note on your pick",
             )
-        });
+            .into_any_element()
+        })
+    }
+
+    /// The note beside the pick and Send pick, which sends it: the vote's one act.
+    fn pick_row(&self, c: &Ctx, key: &str, ready: bool, target: bool, cx: &Context<Self>) -> AnyElement {
+        let look = c.look;
+        let field = self.note_field(c, key);
         let send_key = key.to_string();
         super::acts::gated(
             div().id(SharedString::from(format!("pick:{key}"))).flex().items_center().gap(look.length(token::SPACE_2)).children(field).child(labelled(
@@ -1345,6 +1542,7 @@ impl JobView {
         }
         let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), look, c.sheet) else { return div().into_any_element() };
         let (artifact, press) = (c.id.to_string(), key.to_string());
+        let grows = !c.sheet && !c.tab;
         let name = format!("See {} larger", kind_look(part.content.kind()).1.to_lowercase());
         let eye = labelled(
             div()
@@ -1383,7 +1581,15 @@ impl JobView {
                 .cursor_pointer()
                 .child(drawn)
                 .child(eye)
-                .on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    // In the thread the drawing grows out of its card, as a press anywhere on the card does.
+                    cx.stop_propagation();
+                    if grows {
+                        this.grow_drawing(&press, window, cx);
+                    } else {
+                        this.open_drawing(&press, window, cx);
+                    }
+                })),
             Role::Button,
             "Drawing",
         )
@@ -1501,9 +1707,20 @@ impl JobView {
         div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element()
     }
 
-    /// A page: its first screen in a well, which a press opens in its own tab.
+    /// A page: in the review panel the live page itself, the detail's width and as tall as a picture stands there, which scrolls
+    /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
     fn page_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, path: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
+        if let Some(live) = c.sheet.then(|| self.panel_page(&c.job, path, part.revision, cx)).flatten() {
+            return div()
+                .id(SharedString::from(format!("page:{key}")))
+                .w_full()
+                .h(self.tall_most(c))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(live)
+                .into_any_element();
+        }
         let width = self.first_screen_width(look);
         let want = PictureKey { job: c.job.to_string(), page: path.to_string(), revision: part.revision, width, dark: look.tone() == crate::look::Tone::Dark };
         let screen = match self.picture_of(&want) {
@@ -1516,7 +1733,7 @@ impl JobView {
         };
         let page = path.to_string();
         labelled(
-            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document_tab(&page, window, cx))),
+            div().id(SharedString::from(format!("page:{key}"))).w_full().cursor_pointer().children(screen).on_click(cx.listener(move |this, _, window, cx| this.open_document(&page, window, cx))),
             Role::Button,
             format!("Open page {path}"),
         )
@@ -1654,6 +1871,47 @@ mod tests {
 
     fn held_part(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, artifact: &str, part: &str) -> ArtifactPart {
         view.read_with(cx, |view, _| view.artifact_of(JOB, artifact).and_then(|one| one.parts.iter().find(|held| held.id == part)).cloned().expect("the artifact holds the part"))
+    }
+
+    #[gpui::test]
+    fn long_words_on_the_thread_card_open_whole_with_read_more_and_cut_back_with_show_less(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        assert!(!drawn(cx, gpui::Role::Button, "Read more"), "short words stand whole with no Read more");
+        view.update(cx, |view, cx| {
+            let part = view.artifact_mut(JOB, "draft:Commit words").and_then(|one| one.parts.first_mut()).expect("the card holds its words");
+            part.content = PartContent::Words { text: (1..=14).map(|line| format!("Line {line} of a long reply.")).collect::<Vec<_>>().join("\n\n") };
+            view.parts_changed("draft:Commit words", cx);
+        });
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Read more"), "long words are cut and say so");
+        let key = part_key("draft:Commit words", "commit");
+        view.update(cx, |view, cx| view.flip_whole_words(&key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Show less"), "opened, the words stand whole");
+        assert!(!drawn(cx, gpui::Role::Button, "Read more"));
+        view.update(cx, |view, cx| view.flip_whole_words(&key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Read more"), "Show less cuts them back");
+    }
+
+    #[gpui::test]
+    fn copy_on_words_puts_them_on_the_clipboard_and_reads_copied_for_a_moment(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = folds_job(cx, |_| {});
+        assert!(drawn(cx, gpui::Role::Button, "Copy"), "words carry Copy");
+        assert!(!drawn(cx, gpui::Role::Button, "Copied"));
+        let key = part_key("draft:Commit words", "commit");
+        view.update(cx, |view, cx| view.copy_words(JOB, &key, cx));
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Copied"), "the press says it took");
+        let text = match held_part(&view, cx, "draft:Commit words", "commit").content {
+            PartContent::Words { text } => text,
+            _ => unreachable!("the commit part is words"),
+        };
+        assert_eq!(cx.read_from_clipboard().and_then(|item| item.text()), Some(text), "the markdown as written");
+        cx.executor().advance_clock(COPIED_FOR);
+        redraw(cx);
+        assert!(drawn(cx, gpui::Role::Button, "Copy"), "and goes back to Copy");
+        assert!(!drawn(cx, gpui::Role::Button, "Copied"));
     }
 
     #[gpui::test]

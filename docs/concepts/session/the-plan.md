@@ -57,6 +57,8 @@ A run that fails names its failing tests, and Fleet runs only those at the commi
 A test red there too is `already_red` and does not hold the gate; a base result is kept per repository, base commit and test, so a base runs a test once.
 Green closes the gate with the fact `Checks passed at <sha>`, with `, <n> already red on main` where tests were, or `: no test touched` where the push touched none.
 While the gate is open the first such group carries `gate_checks`: the commit, `running` or `red`, the tests that failed and the ones also red on main.
+Runs live in Fleet's memory, so a Fleet that starts forgets every `running` it finds and waits for the next push.
+A red run stays.
 
 **The agent is told when a gate closes, and `all_done` waits for every gate** (`crates/fleet/src/gate_holding.rs`, owner, 8 Nov 2026).
 Each close sends one line, `Gate closed on "<group title>": <fact>.`, from one funnel, and only for a row written then.

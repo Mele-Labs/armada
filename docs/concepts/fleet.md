@@ -529,6 +529,10 @@ Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `sessi
 Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
 
+**An ask to try a Job's own change is the Ready to try card's, and `waiting_for` refuses it** in a repository with a preview (`fleet.session_waiting_look`, `session_host/look_asks.rs`).
+An item is one when its `approve_pr` act names one of the Job's pull requests, or its words name one of them or a branch it offered and it is marked `approves` or opens with *Try*, *Look at* or *Test*.
+A kept one comes off Needs you once the Job's branch is on the preview list.
+
 ### Telling the Jobs that read a wire type
 
 **No agent relays a wire change. Fleet tells every other live hosted Job whose branch reads a type a pull request changes.**

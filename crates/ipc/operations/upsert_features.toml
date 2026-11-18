@@ -10,7 +10,9 @@ notes = """
 
 **`paths` replaces the feature's prefixes whole**, as written, relative to the repository. Several features may own one prefix. `state` stays what it was for a feature already kept unless the call names one.
 
-**Only the Operator reaches it.** A Job writes sections, never the shape of the library.
+**The Operator and Bridge reach it.** Through the door it is the Operator's own session alone, and any other session is refused 422 `fleet.not_the_operator`; Bridge calls it for the owner to confirm a pending feature and to keep a new area when he splits one from the Features screen, with the Operator off. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`. A Job writes sections, never the shape of the library.
+
+**A new area needs no feature in the same call**: `areas` with `features` empty keeps it. An area is kept at its place in this call's `areas`, and an area left out is left as it was, so give the whole list in the order it should show.
 
 The library lives on this Mac. Sharing it with teammates is not built.
 """

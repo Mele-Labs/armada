@@ -204,7 +204,7 @@ impl JobView {
             }
             let mut line = artifact_line(one, "doc");
             if thread.is_some_and(|held| super::review::document_card(&held.items, &page).is_some()) {
-                line.opens = Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_document_tab(&page, window, cx)));
+                line.opens = Some(Rc::new(move |this: &mut JobView, window: &mut Window, cx: &mut Context<JobView>| this.open_document(&page, window, cx)));
             }
             let shape = if is_report(one) { Shape::Report(line) } else { Shape::Row(line) };
             out.push(Made { bucket: Bucket::Document, group: None, shape, time: None });
@@ -732,6 +732,56 @@ pub(super) fn task_track(group: &str, tasks: &[ipc::SessionPlanTask], look: &Loo
         said,
     )
     .into_any_element()
+}
+
+/// The lines a done card leads with, one an ask of the Job with its state's glyph in its hue, open ones first, over the Job's
+/// own summary. Bones while the story is read; nothing where Fleet leads with none. `job` is the Job the card is of.
+pub(super) fn lead_lines(job: &str, look: &Look, cx: &gpui::App) -> Option<AnyElement> {
+    use super::story::lead::{lines, Lines};
+    let at = |name: String, inner: Vec<AnyElement>| labelled(div().id(SharedString::from(name)).flex().flex_col().gap(look.length(token::SPACE_1)).children(inner), Role::Group, "What he asked for");
+    match lines(job, cx)? {
+        Lines::Reading => {
+            let bones: Vec<AnyElement> = (0..2)
+                .map(|n| {
+                    div()
+                        .id(SharedString::from(format!("done-lead-bone-{n}")))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .child(crate::settings::view::bone(look, look.length(token::SPACE_3), look.length(token::SPACE_3)))
+                        .child(crate::settings::view::bone(look, gpui::px(180. + 40. * n as f32), look.length(token::LEADING_SM) - gpui::px(6.)))
+                        .into_any_element()
+                })
+                .collect();
+            Some(labelled(div().id("done-lead-loading").flex().flex_col().gap(look.length(token::SPACE_2)).children(bones), Role::Image, "Loading").into_any_element())
+        }
+        Lines::Read(read) if read.is_empty() => None,
+        Lines::Read(read) => {
+            let rows: Vec<AnyElement> = read
+                .into_iter()
+                .enumerate()
+                .map(|(n, (stand, said))| {
+                    let ink = look.color(crate::features::asks::hue_token(stand.hue));
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("done-lead-{n}")))
+                            .flex()
+                            .items_start()
+                            .gap(look.length(token::SPACE_2))
+                            .text_size(look.length(token::TEXT_SM))
+                            .line_height(look.length(token::LEADING_SM))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .child(div().id(SharedString::from(format!("done-lead-mark-{n}"))).flex_none().h(look.length(token::LEADING_SM)).flex().items_center().tooltip(tip(stand.word)).child(glyph(look, stand.glyph, Size::Mark, ink)))
+                            .child(div().flex_1().min_w_0().child(SharedString::from(said.clone()))),
+                        Role::ListItem,
+                        said,
+                    )
+                    .into_any_element()
+                })
+                .collect();
+            Some(at("done-lead".into(), rows).into_any_element())
+        }
+    }
 }
 
 #[cfg(test)]
