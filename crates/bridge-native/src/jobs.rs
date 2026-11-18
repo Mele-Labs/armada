@@ -337,23 +337,35 @@ fn repository_of(job: &SessionRecord) -> String {
 struct Names {
     projects: HashMap<String, String>,
     repositories: HashMap<String, String>,
+    /// A copy of another Mac's project, by id, to this Mac's own project of the same name: **one project on two
+    /// Macs is one group**, merged or not, as the switcher lists only this Mac's own.
+    same: HashMap<String, String>,
 }
 
 impl Names {
     fn of(served: &[ipc::RepositorySummary], projects: Option<&ipc::Projects>) -> Names {
         let named = crate::titlebar::repositories_of(served, &[]);
         let id_of = |one: &ipc::RepositorySummary| one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref()).map(|id| id.as_str().to_string());
+        let all = projects.map(|all| all.projects.as_slice()).unwrap_or_default();
+        let own = |name: &str| all.iter().find(|one| one.mac.is_none() && one.name == name).map(|one| one.id.clone());
         Names {
-            projects: projects.map(|all| all.projects.iter().map(|one| (one.id.clone(), one.name.clone())).collect()).unwrap_or_default(),
+            projects: all.iter().map(|one| (one.id.clone(), one.name.clone())).collect(),
             repositories: served.iter().zip(named).filter_map(|(one, named)| Some((id_of(one)?, named.name.to_string()))).collect(),
+            same: all.iter().filter(|one| one.mac.is_some()).filter_map(|one| Some((one.id.clone(), own(&one.name)?))).collect(),
         }
+    }
+
+    /// The project a Job counts in: its own id, or this Mac's project that a copy of the same name stands for.
+    fn project_of<'a>(&'a self, job: &'a SessionRecord) -> Option<&'a str> {
+        let id = job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref())?;
+        Some(self.same.get(id).map_or(id, String::as_str))
     }
 }
 
 /// The group a Job stands in, as its key and its heading: the project Fleet says it was started for, by
 /// that project's name, else its repository by name. A heading is never an id.
 fn group_of(job: &SessionRecord, names: &Names) -> (String, String) {
-    let project = job.hosted.as_ref().and_then(|hosted| hosted.project.as_ref());
+    let project = names.project_of(job);
     if let Some((id, name)) = project.and_then(|id| names.projects.get(id).map(|name| (id, name))) {
         return (format!("project:{id}"), name.clone());
     }
@@ -492,7 +504,7 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
 /// search still apply within it. A starter in another project is not drawn for its place, and an idea stands only
 /// where a Job of the project stands in its root.
 fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>) -> Vec<Line> {
-    let of_project = |job: &&SessionRecord| project.is_none_or(|id| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some(id));
+    let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     // Fleet clears `snoozed_until` when the snooze runs out, so one that is set is still ahead (`Held::snoozed`).
@@ -3176,6 +3188,7 @@ impl JobsScreen {
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
                 crate::titlebar::Asked::ChangeBuild { build, clear } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false, clear: *clear })),
+                crate::titlebar::Asked::RefreshBoth => Some(crate::pairing::refresh_act(crate::pairing::macs(cx))),
                 crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
@@ -3578,6 +3591,7 @@ impl Render for JobsScreen {
             .flex_col()
             .bg(look.color(token::BG_BASE))
             .child(title)
+            .children(crate::pairing::frozen_band(look, crate::pairing::macs(cx), self.list.read(cx).port(cx), cx))
             .child(
                 div()
                     .relative()
@@ -3766,6 +3780,31 @@ mod tests {
         // sample-api's Jobs were started for no project: a project keeps none of them, and one Fleet does not list keeps nothing.
         assert!(ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("ledger"))).is_empty());
         assert!(!ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("storefront"))).iter().any(|id| id == "mock-11"));
+    }
+
+    #[test]
+    fn a_job_in_another_macs_copy_of_a_project_stands_in_this_macs_project_of_that_name() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let mut projects = crate::mock::projects();
+        let own = projects.projects.iter().find(|one| one.id == "armada").expect("Armada is this Mac's").clone();
+        projects.projects.push(ipc::Project { id: "theirs".into(), mac: Some("kiavi".into()), ..own.clone() });
+        let names = Names::of(&crate::mock::repositories(), Some(&projects));
+        let here = all.iter().find(|job| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some("armada")).expect("a Job in Armada").clone();
+        let mut there = here.clone();
+        there.id = ipc::SessionId::carried("kiavi-01".to_string());
+        there.mac = Some("kiavi".into());
+        there.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        assert_eq!(group_of(&there, &names), group_of(&here, &names), "one group for one project on two Macs");
+        let lines = lines_of(&[here.clone(), there.clone()], &[], Scope::All, "", &[], &names);
+        assert!(headings(&lines).len() <= 1, "{:?}", headings(&lines));
+        assert!(ids(&lines_within(&[here, there], &[], Scope::All, "", &[], &names, Some("armada"))).contains(&"kiavi-01".to_string()), "picking Armada keeps the other Mac's Jobs");
+        // A copy with no project of its name here is its own group.
+        let mut alone = crate::mock::projects();
+        alone.projects.push(ipc::Project { id: "theirs".into(), name: "Kiavi only".into(), mac: Some("kiavi".into()), ..own });
+        let lone = Names::of(&crate::mock::repositories(), Some(&alone));
+        let mut ledger = all[0].clone();
+        ledger.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        assert_eq!(group_of(&ledger, &lone), ("project:theirs".to_string(), "Kiavi only".to_string()));
     }
 
     #[test]

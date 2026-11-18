@@ -19,6 +19,7 @@ mod act_failing;
 mod feature_catalog;
 mod feature_library;
 mod feature_reads;
+mod floor_plan;
 mod pre_pr;
 mod job_command;
 mod judge;

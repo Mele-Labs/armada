@@ -82,6 +82,8 @@ pub enum Asked {
     BuildNotes,
     /// Restart onto `build`; `clear` first moves the untracked files that stop main updating.
     ChangeBuild { build: BuildSource, clear: Option<ClearBlocked> },
+    /// Refresh preview on this Mac and the other paired one, onto one commit.
+    RefreshBoth,
     Revert,
     Keep,
     Swap,
@@ -839,6 +841,17 @@ impl TitleBar {
 
     /// The restart is under way in this frame: the button turns to its pending word and the select goes off.
     fn restart_onto(&mut self, build: BuildSource, clear: Option<ClearBlocked>, cx: &mut Context<Self>) {
+        self.mark_restarting(build, cx);
+        cx.emit(Asked::ChangeBuild { build, clear });
+    }
+
+    /// Refresh both Macs: this bar reads the restart the same way, and the wiring posts `/macs/update`.
+    fn refresh_both(&mut self, cx: &mut Context<Self>) {
+        self.mark_restarting(BuildSource::Preview, cx);
+        cx.emit(Asked::RefreshBoth);
+    }
+
+    fn mark_restarting(&mut self, build: BuildSource, cx: &mut Context<Self>) {
         self.answer(
             |face| {
                 if let Some(held) = face.build.as_mut() {
@@ -849,7 +862,6 @@ impl TitleBar {
             },
             cx,
         );
-        cx.emit(Asked::ChangeBuild { build, clear });
     }
 
 

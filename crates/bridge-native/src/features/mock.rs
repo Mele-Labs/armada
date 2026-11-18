@@ -144,6 +144,7 @@ pub fn page(slug: &str) -> FeaturePage {
         ],
         docs: Vec::new(),
         tickets: Vec::new(),
+        floor_plan: None,
     }
 }
 

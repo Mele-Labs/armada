@@ -343,7 +343,7 @@ pub use open::Store;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
-pub use review_runs::KeptReviewRun;
+pub use review_runs::{KeptReviewRun, RunPull};
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;

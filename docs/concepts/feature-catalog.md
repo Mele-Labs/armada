@@ -173,6 +173,37 @@ Fleet accepts `upsert_features` and `change_feature` from the Operator's own ses
 The Operator may also merge two seeded features that are one, and tells him on a card that carries what was absorbed, with an Undo that keeps it again through `upsert_features`.
 That keeps the feature and its prefixes and entry points, and takes the alias away, but the links, files and asks that moved stay with the target.
 
+## Floor plan
+
+A feature's page carries a floor plan: the project's code map, with the rooms the feature owns lit and the contracts it reaches drawn as doors.
+Fleet reads it from the repository's files when the page is read.
+It costs no model and does not read the code graph.
+
+A room is a module.
+Fleet walks each repository the project holds and takes the folder of each build manifest: `Cargo.toml`, `package.json`, `go.mod`, `pyproject.toml`, a Gradle `settings.gradle(.kts)`, `pom.xml`, `.csproj` and `Package.swift`.
+A module is named as its manifest names it, and carries the manifest it came from and the modules of the same repository it depends on.
+A manifest that only lists members is a root and is no room: a virtual Cargo workspace, an npm `workspaces` or pnpm root, a Maven aggregator.
+A tree with no manifest has its top folders as rooms.
+The walk skips hidden folders, `target`, `node_modules`, `dist`, `build`, `vendor` and the like, stops at eight folders deep and at 3,000 folders, and keeps at most 400 modules, shallowest first.
+
+> **Rule.** A room is lit when the feature owns a file in it by the rules above, and no other way.
+> Why: a second way to say what a feature touches would drift from the first, and a Job would learn to trust neither.
+
+A room is lit when the feature's prefix is the module's folder or a parent of it, when a prefix or a filed file lies inside it, and when no feature owns it more closely.
+A prefix `crates` lights each crate under it unless a longer prefix of another feature takes that crate.
+
+A door is a dependency out of a lit module to another module of the same repository, as the manifest declares it.
+Dependencies are the ones a build needs: Cargo `dependencies`, `build-dependencies` and target tables, npm `dependencies`, `peerDependencies` and `optionalDependencies`, and not the ones only tests or tools use.
+A door is a contract where the module it leads to carries a wire or API contract.
+A module does when its name or the last segment of its folder is one of `api`, `ipc`, `proto`, `contract`, `schema` or `openapi` (and their plurals), or when a `.proto` or OpenAPI or Swagger file lies inside it.
+In Armada that is the `ipc` crate.
+
+> **Rule.** A project declares no contracts, Fleet reads them off the names and files above.
+> Why: a list a person keeps of the contracts is the second record that goes stale, and a name or a `.proto` file already says it.
+
+A page read by `section` has no floor plan.
+A repository that does not read, or a project with no module, has none either.
+
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.

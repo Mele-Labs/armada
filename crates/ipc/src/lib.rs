@@ -199,7 +199,7 @@ mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
-/// The pull requests waiting on a person as four lists, and the acts of a review on one.
+/// The pull requests waiting on a person as five lists, and the acts of a review on one.
 mod pull_reviews;
 /// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
 mod pull_review_memory;
@@ -377,6 +377,7 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use features::{FloorDoor, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};

@@ -261,7 +261,7 @@ where
         };
         let docs = reads_of(&links, feature_link_kind::DOC);
         let tickets = reads_of(&links, feature_link_kind::TICKET);
-        Ok(FeaturePage {
+        let mut page = FeaturePage {
             project: loaded.project.clone(),
             feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
@@ -276,7 +276,13 @@ where
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
             docs,
             tickets,
-        })
+            floor_plan: None,
+        };
+        drop(store);
+        if only.is_none() {
+            page.floor_plan = self.floor_plan_of(&loaded, &feature).await;
+        }
+        Ok(page)
     }
 
     /// `get_feature_brief`.
