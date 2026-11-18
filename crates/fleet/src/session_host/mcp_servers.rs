@@ -25,6 +25,8 @@ const STATUS_WITHIN: Duration = Duration::from_secs(10);
 const CONNECT_WITHIN: Duration = Duration::from_secs(90);
 /// A sign-in answers once the server has said where its sign-in page is.
 const SIGN_IN_WITHIN: Duration = Duration::from_secs(30);
+/// A set answers once the CLI has taken it, without waiting for the servers to connect: spike 40.
+pub(super) const SET_WITHIN: Duration = Duration::from_secs(30);
 
 /// Whoever waits on one control line's answer.
 pub(crate) type Waiter = oneshot::Sender<Result<Answered, String>>;
@@ -94,8 +96,15 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The servers job `id`'s process has, and where each stands.
+    /// The servers job `id`'s process has, and where each stands, once any its files gained since
+    /// it started are loaded into it (`mcp_added`).
     pub(crate) async fn session_mcp(&self, id: &str) -> Result<Vec<McpServer>, Refusal> {
+        let listed = self.servers_listed(id).await?;
+        self.with_servers_added(id, listed).await
+    }
+
+    /// The servers job `id`'s process lists, as it lists them.
+    pub(super) async fn servers_listed(&self, id: &str) -> Result<Vec<McpServer>, Refusal> {
         match self.asked_of_process(id, McpRequest::Status, STATUS_WITHIN).await? {
             Answered::Servers(servers) => Ok(servers),
             _ => Err(self.hosted_refusal(
@@ -123,6 +132,19 @@ where
 
     /// Write one control line to job `id`'s process and wait up to `within` for its answer.
     async fn asked_of_process(&self, id: &str, request: McpRequest<'_>, within: Duration) -> Result<Answered, Refusal> {
+        self.asked(id, request, within).await?.map_err(|why| {
+            self.hosted_refusal(SESSION_MCP_REFUSED, &format!("job {id}'s process refused: {why}"))
+        })
+    }
+
+    /// As [`Self::asked_of_process`], with the process's own refusal kept as its words, apart from
+    /// a job it could not be asked of.
+    pub(super) async fn asked(
+        &self,
+        id: &str,
+        request: McpRequest<'_>,
+        within: Duration,
+    ) -> Result<Result<Answered, String>, Refusal> {
         let refused = |code: &'static str, why: String| self.hosted_refusal(code, &why);
         if self.terminal_session(id).await?.is_some() {
             return Err(refused(
@@ -149,8 +171,7 @@ where
             process.send(adapters::mcp_request(&request_id, request));
         }
         match tokio::time::timeout(within, answer).await {
-            Ok(Ok(Ok(answered))) => Ok(answered),
-            Ok(Ok(Err(why))) => Err(refused(SESSION_MCP_REFUSED, format!("job {id}'s process refused: {why}"))),
+            Ok(Ok(said)) => Ok(said),
             Ok(Err(_)) => Err(refused(
                 SESSION_MCP_REFUSED,
                 format!("job {id}'s process ended before it answered. Its next message starts another"),
