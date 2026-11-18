@@ -28,8 +28,10 @@ use crate::settings::wire::{body, request, Ask, Refused};
 
 /// The tab's kind in a Job's panes.
 const KIND: &str = "loadout";
+/// The kind of the tab a press on a row opens, which holds that one item, named by its key.
+pub(super) const ITEM_KIND: &str = "loadout_item";
 
-/// Each Job view's Loadout tabs, by Job and then by tab id. Held app-wide rather than on the Job view, so the Job view
+/// Each Job view's Loadout tabs and item tabs, by Job and then by tab id. Held app-wide rather than on the Job view, so the Job view
 /// carries no field of the Loadout's.
 #[derive(Default)]
 struct Loadouts {
@@ -45,7 +47,7 @@ enum Read {
     Failed,
 }
 
-/// The row a press opened, and its contents.
+/// The item an item tab holds, and its contents.
 struct Opened {
     pub item: ItemRef,
     pub body: Body,
@@ -92,6 +94,8 @@ struct LoadoutTab {
     pub mcp: Mcp,
     mcp_reading: Option<Task<()>>,
     _poll: Option<Task<()>>,
+    /// The item this tab holds alone, where it is an item tab a press on a row opened; None is the Loadout's list.
+    pub item: Option<ItemRef>,
     pub opened: Option<Opened>,
     opening: Option<Task<()>>,
     pub kit: Option<KitInventory>,
@@ -119,7 +123,15 @@ struct LoadoutTab {
 }
 
 impl LoadoutTab {
-    pub fn new(job: SharedString, hosted: bool, fleet: Option<Entity<FleetConnection>>, view: WeakEntity<JobView>, summary: Option<&LoadoutSummary>, cx: &mut Context<Self>) -> Self {
+    pub fn new(
+        job: SharedString,
+        hosted: bool,
+        fleet: Option<Entity<FleetConnection>>,
+        view: WeakEntity<JobView>,
+        summary: Option<&LoadoutSummary>,
+        item: Option<ItemRef>,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let latest = summary.and_then(|one| one.latest_turn.clone());
         let mut this = LoadoutTab {
             job,
@@ -133,6 +145,7 @@ impl LoadoutTab {
             mcp: Mcp::default(),
             mcp_reading: None,
             _poll: None,
+            item: item.clone(),
             opened: None,
             opening: None,
             kit: None,
@@ -154,8 +167,15 @@ impl LoadoutTab {
         };
         this.relist();
         this.read_loadout(cx);
-        this.read_kit(cx);
-        if hosted {
+        // An item tab asks only for what its item's acts need: Kit for a skill's, the live servers for a server's.
+        let server = item.as_ref().map(|one| one.kind == LoadoutKind::McpServer);
+        if server != Some(true) {
+            this.read_kit(cx);
+        }
+        if let Some(item) = item {
+            this.open_item(item, cx);
+        }
+        if hosted && server != Some(false) {
             this.read_mcp(cx);
             // Asked again every few seconds while the Job is on screen, as Classic's `MCP_EVERY_MS`.
             this._poll = Some(cx.spawn(async move |this, cx| loop {
@@ -246,7 +266,16 @@ impl LoadoutTab {
 
     // ---- reading one row ---------------------------------------------------------------------
 
-    /// A press on a row opens it; the last press wins. An MCP server reads nothing and lists its tools.
+    /// A press on a row: the item opens in a tab of its own beside this one, or comes to the front where it has one.
+    pub fn press_row(&mut self, item: ItemRef, window: &mut Window, cx: &mut Context<Self>) {
+        let (job, me, view) = (self.job.clone(), cx.entity_id(), self.view.clone());
+        // After this tab's own update ends: the Job view reads every Loadout tab as it places the item's, this one too.
+        window.defer(cx, move |window, cx| {
+            let _ = view.update(cx, |view, cx| view.open_loadout_item(&job, me, item, window, cx));
+        });
+    }
+
+    /// The item tab reads what its item holds. An MCP server reads nothing and lists its tools.
     pub fn open_item(&mut self, item: ItemRef, cx: &mut Context<Self>) {
         if item.kind == LoadoutKind::McpServer {
             self.opening = None;
@@ -284,10 +313,17 @@ impl LoadoutTab {
         cx.notify();
     }
 
-    pub fn close_item(&mut self, cx: &mut Context<Self>) {
-        self.opened = None;
-        self.opening = None;
-        cx.notify();
+    /// Whether the read failed, so a press on its row reads it again.
+    fn read_failed(&self) -> bool {
+        self.opened.as_ref().is_some_and(|opened| matches!(opened.body, Body::Failed))
+    }
+
+    /// Whether the Job no longer holds the item this tab holds: its Loadout read lists it nowhere and no live server is it.
+    pub fn item_gone(&self) -> bool {
+        let Some(item) = &self.item else { return false };
+        let listed = self.rows.iter().any(|row| ItemRef::of(&row.item) == *item);
+        let live = item.kind == LoadoutKind::McpServer && self.server(&item.name).is_some();
+        matches!(self.read, Read::Read(_)) && !listed && !live
     }
 
     // ---- MCP servers ------------------------------------------------------------------------
@@ -523,12 +559,33 @@ impl LoadoutTab {
                 }
                 self.kit = Some(removed.setup);
                 self.match_kit();
+                self.share_kit(cx);
             }
             Err(refused) => {
                 self.skill_refused.insert(key, refused.said);
             }
         }
         cx.notify();
+    }
+
+    /// The Job's other Loadout and item tabs take what this one's act did to Kit, so a skill removed in its own tab reads
+    /// Removed on its row too.
+    fn share_kit(&self, cx: &mut Context<Self>) {
+        let (me, view) = (cx.entity_id(), self.view.entity_id());
+        let others: Vec<Entity<LoadoutTab>> = cx
+            .try_global::<Loadouts>()
+            .and_then(|all| all.by_view.get(&(view, self.job.to_string())))
+            .map(|held| held.values().filter(|one| one.entity_id() != me).cloned().collect())
+            .unwrap_or_default();
+        let (gone, kit) = (self.gone.clone(), self.kit.clone());
+        for other in others {
+            other.update(cx, |other, cx| {
+                other.gone = gone.clone();
+                other.kit = kit.clone();
+                other.match_kit();
+                cx.notify();
+            });
+        }
     }
 
     fn restore(&mut self, key: String, cx: &mut Context<Self>) {
@@ -543,6 +600,7 @@ impl LoadoutTab {
                 Ok(setup) => {
                     this.gone.retain(|_, one| one.as_deref() != Some(held.as_str()));
                     this.landed_kit(setup, cx);
+                    this.share_kit(cx);
                 }
                 Err(refused) => {
                     this.skill_refused.insert(key, refused.said);
@@ -652,13 +710,22 @@ impl LoadoutTab {
 // ---- the Job view's hooks -----------------------------------------------------------------------
 
 impl JobView {
-    fn loadout_ids(&self, job: &str) -> Vec<String> {
+    /// Job `job`'s Loadout tabs and item tabs, each with the item it holds. An item tab whose key names no item is left out.
+    fn loadout_ids(&self, job: &str) -> Vec<(String, Option<ItemRef>)> {
         let Some(arrangement) = self.arrangement_of(job) else { return Vec::new() };
-        tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).filter(|tab| tab.kind == KIND).map(|tab| tab.id.clone()).collect()
+        tree::panes_of(&arrangement.root)
+            .into_iter()
+            .flat_map(|pane| pane.tabs.iter())
+            .filter_map(|tab| match tab.kind.as_str() {
+                KIND => Some((tab.id.clone(), None)),
+                ITEM_KIND => Some((tab.id.clone(), Some(ItemRef::of_key(tab.row.as_deref()?)?))),
+                _ => None,
+            })
+            .collect()
     }
 
-    /// Each Loadout tab Job `job` has gets its entity, once; one whose tab closed or whose Job went goes with it. A
-    /// Loadout open reads again when the Job's record says its list or its latest turn moved.
+    /// Each Loadout tab and item tab Job `job` has gets its entity, once; one whose tab closed or whose Job went goes with
+    /// it. One open reads again when the Job's record says its list or its latest turn moved.
     fn sync_loadouts(&self, job: &SharedString, cx: &mut Context<Self>) {
         let me = cx.entity_id();
         let ids = self.loadout_ids(job);
@@ -673,8 +740,8 @@ impl JobView {
             all.by_view.remove(&key);
         }
         let mut held = all.by_view.remove(&(me, job.to_string())).unwrap_or_default();
-        held.retain(|id, _| ids.contains(id));
-        for id in ids {
+        held.retain(|id, _| ids.iter().any(|(one, _)| one == id));
+        for (id, item) in ids {
             match held.get(&id) {
                 Some(tab) => {
                     if tab.read(cx).summary != model::summary_key(summary.as_ref()) {
@@ -682,7 +749,7 @@ impl JobView {
                     }
                 }
                 None => {
-                    let tab = cx.new(|cx| LoadoutTab::new(job.clone(), hosted, fleet.clone(), weak.clone(), summary.as_ref(), cx));
+                    let tab = cx.new(|cx| LoadoutTab::new(job.clone(), hosted, fleet.clone(), weak.clone(), summary.as_ref(), item, cx));
                     held.insert(id, tab);
                 }
             }
@@ -696,12 +763,58 @@ impl JobView {
         cx.try_global::<Loadouts>()?.by_view.get(&(cx.entity_id(), job.to_string()))?.get(tab).cloned()
     }
 
-    /// The body of a Loadout tab in front, its entity made as it first draws: a plain body, as the Browser tab's, since
-    /// the tab scrolls its own list under its filter.
+    /// The body of a Loadout tab or an item tab in front, its entity made as it first draws: a plain body, as the Browser
+    /// tab's, since the tab scrolls its own list. An item tab whose key names no item, as a kept one may, says so.
     pub(super) fn loadout_body(&self, job: &SharedString, tab: &Tab, cx: &mut Context<Self>) -> Option<AnyElement> {
         self.sync_loadouts(job, cx);
-        let held = self.held_loadout(job, &tab.id, cx)?;
+        let held = match self.held_loadout(job, &tab.id, cx) {
+            Some(held) => held.into_any_element(),
+            None if tab.kind == ITEM_KIND => loadout_draw::not_held(crate::look::ActiveLook::look(&**cx)),
+            None => return None,
+        };
         Some(div().id(SharedString::from(format!("pane-body:{}", tab.id))).flex_1().min_h_0().flex().flex_col().child(div().size_full().child(held)).into_any_element())
+    }
+
+    /// The word and glyph of an item tab: its item's name and its kind's glyph, read from the key the tab keeps.
+    pub(super) fn loadout_item_look(tab: &Tab) -> (&'static str, SharedString) {
+        match tab.row.as_deref().and_then(ItemRef::of_key) {
+            Some(item) => (model::kind_look(item.kind).0, item.name.into()),
+            None => ("layers", tab.label.clone().unwrap_or_default().into()),
+        }
+    }
+
+    /// A press on a Loadout row: the item's tab comes to the front where the Job has one, else opens in the pane of the
+    /// Loadout tab pressed, in front, with the keys. A read that failed is read again.
+    fn open_loadout_item(&mut self, job: &SharedString, from: EntityId, item: ItemRef, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(arrangement) = self.arrangement_of(job).cloned() else { return };
+        let key = item.key();
+        let open = tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == ITEM_KIND && tab.row.as_deref() == Some(key.as_str())).map(|tab| tab.id.clone());
+        let tab = match open {
+            Some(tab) => {
+                let id = tab.clone();
+                self.look_in(job, move |arrangement| tree::activate(arrangement, &id), cx);
+                tab
+            }
+            None => {
+                let pressed = cx.try_global::<Loadouts>().and_then(|all| all.by_view.get(&(cx.entity_id(), job.to_string()))?.iter().find(|(_, one)| one.entity_id() == from).map(|(id, _)| id.clone()));
+                let pane = pressed.and_then(|tab| tree::pane_of_tab(&arrangement, &tab)).or_else(|| tree::holder_of(&arrangement, KIND)).map_or_else(|| arrangement.focus.clone(), |pane| pane.id.clone());
+                let extras = tree::Extras { label: Some(item.name.clone()), row: Some(key.clone()), ..Default::default() };
+                self.rearrange_in(job, None, true, move |arrangement| tree::add_tab(arrangement, &pane, ITEM_KIND, extras), cx);
+                let Some(arrangement) = self.arrangement_of(job) else { return };
+                let Some(tab) = tree::panes_of(&arrangement.root).into_iter().flat_map(|pane| pane.tabs.iter()).find(|tab| tab.kind == ITEM_KIND && tab.row.as_deref() == Some(key.as_str())).map(|tab| tab.id.clone()) else { return };
+                tab
+            }
+        };
+        self.sync_loadouts(job, cx);
+        if let Some(held) = self.held_loadout(job, &tab, cx) {
+            if held.read(cx).read_failed() {
+                held.update(cx, |held, cx| held.open_item(item, cx));
+            }
+            let keys = held.read(cx).focus.clone();
+            window.focus(&keys, cx);
+        }
+        self.want_pane_reads(window, cx);
+        cx.notify();
     }
 
     /// The Loadout tab in front where the Job keeps one.
@@ -914,7 +1027,7 @@ mod tests {
     /// A hosted Job's Loadout tab on mock data, drawn.
     fn drawn(cx: &mut gpui::TestAppContext) -> (Entity<LoadoutTab>, &mut VisualTestContext) {
         init(cx);
-        let (root, cx) = cx.add_window_view(|_, cx| Rooted(cx.new(|cx| LoadoutTab::new("mock-05".into(), true, None, WeakEntity::new_invalid(), None, cx))));
+        let (root, cx) = cx.add_window_view(|_, cx| Rooted(cx.new(|cx| LoadoutTab::new("mock-05".into(), true, None, WeakEntity::new_invalid(), None, None, cx))));
         let tab = root.read_with(cx, |root, _| root.0.clone());
         cx.run_until_parked();
         (tab, cx)
@@ -1131,5 +1244,101 @@ mod tests {
         assert_eq!(tab.read_with(cx, |tab, _| tab.query.clone()), "TIDYx", "the field kept its words from one draw to the next");
         assert!(row_buttons(&tab, cx).is_empty());
         assert!(names(cx, Role::Group).iter().all(|one| one != "Skills"));
+    }
+
+    /// Job `job`'s item tabs, each with the word its strip reads and the pane it is in.
+    fn item_tabs(view: &Entity<JobView>, job: &SharedString, cx: &mut VisualTestContext) -> Vec<(String, String, String)> {
+        view.read_with(cx, |view, _| {
+            let arrangement = view.arrangement();
+            tree::panes_of(&arrangement.root)
+                .into_iter()
+                .flat_map(|pane| pane.tabs.iter().filter(|tab| tab.kind == ITEM_KIND).map(|tab| (tab.id.clone(), view.tab_word(job, tab).to_string(), pane.id.clone())))
+                .collect()
+        })
+    }
+
+    fn press(cx: &mut VisualTestContext, name: &str) {
+        let row = bounds_of(cx, Role::Button, name).unwrap_or_else(|| panic!("the row {name} is drawn"));
+        cx.simulate_click(row.center(), gpui::Modifiers::none());
+        redraw(cx);
+    }
+
+    #[gpui::test]
+    fn a_press_on_a_row_opens_the_item_in_a_tab_of_its_own_and_a_second_press_brings_it_forward(cx: &mut gpui::TestAppContext) {
+        let (view, job, cx) = hosted_job(cx);
+        view.update_in(cx, |view, window, cx| view.open_loadout(false, window, cx));
+        redraw(cx);
+        press(cx, "tidy-imports");
+        let tabs = item_tabs(&view, &job, cx);
+        let [(tab, word, pane)] = tabs.as_slice() else { panic!("one item tab: {tabs:?}") };
+        assert_eq!(word, "tidy-imports", "the tab is named for the item");
+        let loadout = view.read_with(cx, |view, _| tree::holder_of(&view.arrangement(), KIND).map(|pane| pane.id.clone()));
+        assert_eq!(loadout.as_ref(), Some(pane), "it opens beside the Loadout tab");
+        let front = view.read_with(cx, |view, _| tree::pane_by_id(&view.arrangement(), pane).and_then(|pane| pane.active.clone()));
+        assert_eq!(front.as_ref(), Some(tab), "in front");
+        assert!(bounds_of(cx, Role::Tab, "Job tab: tidy-imports").is_some(), "its strip names it");
+        assert!(bounds_of(cx, Role::Region, "tidy-imports").is_some(), "its body is the item");
+        assert!(bounds_of(cx, Role::Button, "Edit tidy-imports").is_some(), "with the row's acts");
+        // Back to the Loadout, a second press on the row brings the same tab forward rather than opening another.
+        view.update_in(cx, |view, window, cx| view.open_loadout(false, window, cx));
+        redraw(cx);
+        press(cx, "tidy-imports");
+        let again = item_tabs(&view, &job, cx);
+        assert_eq!(again.len(), 1, "no second tab: {again:?}");
+        let front = view.read_with(cx, |view, _| tree::pane_by_id(&view.arrangement(), pane).and_then(|pane| pane.active.clone()));
+        assert_eq!(front.as_ref(), Some(tab), "the item's tab is in front again");
+        // Another row opens a tab of its own.
+        view.update_in(cx, |view, window, cx| view.open_loadout(false, window, cx));
+        redraw(cx);
+        press(cx, "linear");
+        let words: Vec<String> = item_tabs(&view, &job, cx).into_iter().map(|(_, word, _)| word).collect();
+        assert_eq!(words, ["tidy-imports", "linear"]);
+        assert!(bounds_of(cx, Role::Button, "Turn off linear").is_some(), "a server's tab offers its acts");
+        // A skill removed in its own tab reads Removed on its row in the Loadout too.
+        let held: Vec<Entity<LoadoutTab>> = cx.update(|_, cx| cx.try_global::<Loadouts>().map(|all| all.by_view.values().flat_map(|one| one.values().cloned()).collect()).unwrap_or_default());
+        let skill = held.iter().find(|one| one.read_with(cx, |one, _| one.item.as_ref().is_some_and(|item| item.name == "tidy-imports"))).expect("the skill's tab").clone();
+        let list = held.iter().find(|one| one.read_with(cx, |one, _| one.item.is_none())).expect("the Loadout").clone();
+        let key = skill.read_with(cx, |one, _| one.item.as_ref().map(ItemRef::key)).expect("its key");
+        skill.update(cx, |one, cx| one.remove(key.clone(), SkillAct::Remove, cx));
+        list.read_with(cx, |one, _| assert!(one.gone.contains_key(&key), "the Loadout knows it was removed"));
+    }
+
+    #[gpui::test]
+    fn the_loadout_list_has_no_panel_of_its_own(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        press(cx, "tidy-imports");
+        tab.read_with(cx, |tab, _| assert!(tab.opened.is_none(), "the list reads no item"));
+        assert!(names(cx, Role::Region).is_empty(), "no panel over the list");
+        assert!(!names(cx, Role::Button).iter().any(|one| one.starts_with("Close ")), "no close");
+    }
+
+    /// An item tab on mock data, alone.
+    fn item_tab(cx: &mut gpui::TestAppContext, item: ItemRef) -> (Entity<LoadoutTab>, &mut VisualTestContext) {
+        init(cx);
+        let (root, cx) = cx.add_window_view(move |_, cx| Rooted(cx.new(|cx| LoadoutTab::new("mock-05".into(), true, None, WeakEntity::new_invalid(), None, Some(item), cx))));
+        let tab = root.read_with(cx, |root, _| root.0.clone());
+        cx.run_until_parked();
+        redraw(cx);
+        (tab, cx)
+    }
+
+    #[gpui::test]
+    fn an_item_tab_reads_its_item_and_says_so_where_the_job_no_longer_holds_it(cx: &mut gpui::TestAppContext) {
+        let held = ItemRef { kind: LoadoutKind::Skill, name: "tidy-imports".into(), source: ipc::LoadoutSource::Kit, from: None };
+        let (tab, cx) = item_tab(cx, held);
+        tab.read_with(cx, |tab, _| {
+            assert!(!tab.item_gone());
+            assert!(matches!(tab.opened.as_ref().map(|opened| &opened.body), Some(Body::Read(_))), "the item was read");
+        });
+        assert!(names(cx, Role::Heading).iter().any(|one| one == "tidy-imports"));
+        assert!(!names(cx, Role::Label).iter().any(|one| one == "Not in this Job's Loadout."));
+    }
+
+    #[gpui::test]
+    fn an_item_tab_kept_from_before_says_its_item_has_gone(cx: &mut gpui::TestAppContext) {
+        let gone = ItemRef { kind: LoadoutKind::Skill, name: "retired-skill".into(), source: ipc::LoadoutSource::Kit, from: None };
+        let (tab, cx) = item_tab(cx, gone);
+        tab.read_with(cx, |tab, _| assert!(tab.item_gone()));
+        assert!(names(cx, Role::Label).iter().any(|one| one == "Not in this Job's Loadout."), "{:?}", names(cx, Role::Label));
     }
 }
