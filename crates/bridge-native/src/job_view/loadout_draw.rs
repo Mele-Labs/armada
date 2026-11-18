@@ -1,7 +1,8 @@
-//! The Loadout tab drawn: the search, the source filter, Used this session and the sort, the row a press opened, then
-//! Knows and Told, as Classic's `LoadoutSheet`, `LoadoutMcp`, `LoadoutSkill` and `LoadoutItemPanel` lay them out. Every
-//! row's kind wears its glyph and hue, a state is its registry glyph with a tooltip, and the used dot, when it was last
-//! used and the acts down a list each sit in one column of one width.
+//! The Loadout tab drawn: the search, the source filter, Used this session and the sort, then Knows and Told, as
+//! Classic's `LoadoutSheet`, `LoadoutMcp` and `LoadoutSkill` lay them out. Every row's kind wears its glyph and hue, a
+//! state is its registry glyph with a tooltip, and the used dot, when it was last used and the acts down a list each sit
+//! in one column of one width. A press on a row opens the item in a tab of its own, drawn here as Classic's
+//! `LoadoutItemPanel` draws it, with the row's acts beside its name.
 
 use gpui::{div, prelude::*, relative, Anchor, AnyElement, Context, DismissEvent, Div, ElementId, Entity, Focusable, FontWeight, Hsla, Role, SharedString, Stateful, Toggled, Window};
 use gpui_component::input::{InputEvent, InputState};
@@ -13,7 +14,6 @@ use super::{Body, LoadoutTab, Read};
 use crate::job_view::head::{below_left, drawn, tip};
 use crate::job_view::rows::{glyph, mono, Size};
 use crate::jobs::{list_bar, list_search};
-use crate::job_view::tabs::frame;
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -26,6 +26,9 @@ const SOURCE_IDS: [&str; 24] = [
 
 impl Render for LoadoutTab {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        if let Some(item) = &self.item {
+            return self.item_page(item, cx.look(), cx);
+        }
         let search = self.search_field(window, cx);
         let look = cx.look();
         let list = div()
@@ -51,12 +54,12 @@ impl Render for LoadoutTab {
                 .line_height(look.length(token::LEADING_XS))
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(self.head(look, &search, cx))
-                .children(self.item_panel(look, cx))
                 .child(list)
                 .children(self.menu.as_ref().map(|(menu, _)| menu.clone().into_any_element())),
             Role::Group,
             "Loadout",
         )
+        .into_any_element()
     }
 }
 
@@ -260,10 +263,9 @@ impl LoadoutTab {
         acted_row(look, labelled(press, Role::Button, item.name.clone()), column, refused)
     }
 
-    /// The part of a row a press opens: the used dot's column, then its kind's glyph.
+    /// The part of a row a press opens in a tab of its own: the used dot's column, then its kind's glyph.
     fn press(&self, reference: &ItemRef, row: Option<&Row>, look: &Look, cx: &Context<Self>) -> Stateful<Div> {
         let key = reference.key();
-        let open = self.opened.as_ref().is_some_and(|opened| opened.item == *reference);
         let (icon, hue) = model::kind_look(reference.kind);
         let target = reference.clone();
         let hover = look.color(token::BG_HOVER);
@@ -282,10 +284,9 @@ impl LoadoutTab {
             .tab_index(0)
             .focus_visible(move |style| style.border_1().border_color(ring))
             .hover(move |style| style.bg(hover))
-            .when(open, |row| row.bg(hover))
             .child(used_cell(look, &key, row.is_some_and(|row| row.used)))
             .child(glyph(look, icon, Size::Small, look.color(hue)))
-            .on_click(cx.listener(move |this, _, _, cx| this.open_item(target.clone(), cx)))
+            .on_click(cx.listener(move |this, _, window, cx| this.press_row(target.clone(), window, cx)))
     }
 
     /// A live server: its name, its state's mark, what the CLI said of it, and its acts.
@@ -302,6 +303,13 @@ impl LoadoutTab {
             Role::Button,
             server.name.clone(),
         );
+        let refused = self.server_refused(server);
+        let column = self.server_cell(server, look, cx);
+        acted_row(look, press.into_any_element(), Some(column), refused.map(|said| refusal(look, said)))
+    }
+
+    /// A server's acts: the one its state offers on its face, the rest behind its caret.
+    fn server_cell(&self, server: &SessionMcpServer, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (face_act, menu, pending) = self.server_acts(server);
         let refused = self.server_refused(server);
         let name = server.name.clone();
@@ -339,7 +347,7 @@ impl LoadoutTab {
             });
             div().flex().items_center().child(face_button).children(caret_button)
         }));
-        acted_row(look, press.into_any_element(), Some(column.into_any_element()), refused.map(|said| refusal(look, said)))
+        column.into_any_element()
     }
 
     /// A skill row's acts: Edit on its face and Remove behind its caret, or Restore once removed, or the word of an act out.
@@ -396,28 +404,29 @@ impl LoadoutTab {
             .into_any_element()
     }
 
-    // ---- the row opened ----------------------------------------------------------------------
+    // ---- an item's own tab --------------------------------------------------------------------
 
-    /// What a press opened, over the list, with a close.
-    fn item_panel(&self, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let opened = self.opened.as_ref()?;
-        let item = &opened.item;
+    /// The item tab: its name, source, state and path, its acts beside them, then what it holds. One the Job no longer
+    /// holds says so in its body's place.
+    fn item_page(&self, item: &ItemRef, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (icon, hue) = model::kind_look(item.kind);
         let key = item.key();
-        let path = match &opened.body {
-            Body::Read(LoadoutItemBody::Read { path: Some(path), .. }) => Some(path.clone()),
+        let body = self.opened.as_ref().map(|opened| &opened.body);
+        let path = match body {
+            Some(Body::Read(LoadoutItemBody::Read { path: Some(path), .. })) => Some(path.clone()),
             _ => None,
         };
+        let server = (item.kind == LoadoutKind::McpServer).then(|| self.server(&item.name)).flatten();
         let mark = match item.kind {
-            LoadoutKind::McpServer => self.server(&item.name).map(|one| Mark::of_live(one.state)),
+            LoadoutKind::McpServer => server.map(|one| Mark::of_live(one.state)),
             _ if self.gone.contains_key(&key) => Some(Mark::Removed),
             _ => self.items().iter().find(|one| ItemRef::of(one) == *item).and_then(|one| Mark::of_report(one.state)),
         };
-        let close = labelled(
-            frame(look, "loadout-close", "x").tooltip(tip("Close".into())).on_click(cx.listener(|this, _, _, cx| this.close_item(cx))),
-            Role::Button,
-            format!("Close {}", item.name),
-        );
+        let (acts, refused) = match server {
+            Some(server) => (Some(self.server_cell(server, look, cx)), self.server_refused(server)),
+            None if item.kind == LoadoutKind::McpServer => (None, None),
+            None => (self.skill_acts(&key).map(|_| self.skill_cell(&key, &item.name, look, cx)), self.skill_refused.get(&key).map(String::as_str)),
+        };
         let title = div()
             .flex()
             .items_start()
@@ -431,12 +440,17 @@ impl LoadoutTab {
                     .flex_col()
                     .gap(look.length(token::SPACE_1))
                     .child(
-                        div()
-                            .text_size(look.length(token::TEXT_SM))
-                            .line_height(look.length(token::LEADING_SM))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .font_family(mono(look))
-                            .child(SharedString::from(item.name.clone())),
+                        labelled(
+                            div()
+                                .id("loadout-item-name")
+                                .text_size(look.length(token::TEXT_SM))
+                                .line_height(look.length(token::LEADING_SM))
+                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                .font_family(mono(look))
+                                .child(SharedString::from(item.name.clone())),
+                            Role::Heading,
+                            item.name.clone(),
+                        ),
                     )
                     .child(
                         div()
@@ -446,49 +460,58 @@ impl LoadoutTab {
                             .gap(look.length(token::SPACE_3))
                             .text_color(look.color(token::FG_MUTED))
                             .child(SharedString::from(model::source_said(item.source, item.from.as_deref())))
-                            .children(mark.map(|mark| mark_cell(look, &format!("panel:{key}"), Some(mark))))
+                            .children(mark.map(|mark| mark_cell(look, &format!("item:{key}"), Some(mark))))
                             .children(path.map(|path| div().min_w_0().font_family(mono(look)).child(SharedString::from(path)))),
                     ),
             )
-            .child(close);
-        let body = match &opened.body {
-            Body::Server => self.server_tools(item, look),
-            Body::Reading => skeleton(look),
-            Body::Failed => none(look, "Not read. Press the row again."),
-            Body::Read(LoadoutItemBody::NotRead { why }) => div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(why.clone())).into_any_element(),
-            Body::Read(LoadoutItemBody::Read { format, body, truncated, .. }) => div()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .when(*truncated, |body| body.child(none(look, "Only the start is shown.")))
-                .child(match format {
-                    LoadoutItemFormat::Markdown => TextView::markdown(gpui::ElementId::Name(format!("loadout-read:{key}").into()), model::fenced_front_matter(body)).w_full().selectable(true).into_any_element(),
-                    LoadoutItemFormat::Text => div().font_family(mono(look)).child(SharedString::from(body.clone())).into_any_element(),
-                })
-                .into_any_element(),
-        };
-        Some(
-            labelled(
-                div()
-                    .id("loadout-item")
-                    .flex_none()
-                    .max_h(relative(0.5))
-                    .overflow_y_scroll()
+            .children(acts);
+        let content = if self.item_gone() {
+            not_held_line(look)
+        } else {
+            match body {
+                Some(Body::Server) => self.server_tools(item, look),
+                Some(Body::Reading) | None => skeleton(look),
+                Some(Body::Failed) => none(look, "Not read. Press its row in the Loadout again."),
+                Some(Body::Read(LoadoutItemBody::NotRead { why })) => {
+                    div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(SharedString::from(why.clone())).into_any_element()
+                }
+                Some(Body::Read(LoadoutItemBody::Read { format, body, truncated, .. })) => div()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_3))
-                    .bg(look.color(token::BG_RAISED))
-                    .border_b_1()
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .child(title)
-                    .child(body),
-                Role::Region,
-                item.name.clone(),
-            )
-            .into_any_element(),
+                    .when(*truncated, |body| body.child(none(look, "Only the start is shown.")))
+                    .child(match format {
+                        LoadoutItemFormat::Markdown => {
+                            TextView::markdown(gpui::ElementId::Name(format!("loadout-read:{key}").into()), model::fenced_front_matter(body)).w_full().selectable(true).into_any_element()
+                        }
+                        LoadoutItemFormat::Text => div().font_family(mono(look)).child(SharedString::from(body.clone())).into_any_element(),
+                    })
+                    .into_any_element(),
+            }
+        };
+        labelled(
+            div()
+                .id("loadout-item")
+                .track_focus(&self.focus)
+                .size_full()
+                .overflow_y_scroll()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_3))
+                .px(look.length(token::SPACE_3))
+                .pt(look.length(token::SPACE_3))
+                .pb(look.length(token::SPACE_4))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .text_color(look.color(token::FG_DEFAULT))
+                .child(title)
+                .children(refused.map(|said| refusal(look, said)))
+                .child(content)
+                .children(self.menu.as_ref().map(|(menu, _)| menu.clone().into_any_element())),
+            Role::Region,
+            item.name.clone(),
         )
+        .into_any_element()
     }
 
     /// An MCP server's tools, from the Loadout, Loaded or Deferred.
@@ -518,6 +541,18 @@ impl LoadoutTab {
 }
 
 // ---- pieces -------------------------------------------------------------------------------------
+
+/// What an item tab says where the Job no longer holds its item.
+const NOT_HELD: &str = "Not in this Job's Loadout.";
+
+/// An item tab whose key names no item, as a tab kept from an older run may.
+pub(super) fn not_held(look: &Look) -> AnyElement {
+    div().size_full().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_XS)).child(not_held_line(look)).into_any_element()
+}
+
+fn not_held_line(look: &Look) -> AnyElement {
+    labelled(div().id("loadout-not-held").child(none(look, NOT_HELD)), Role::Label, NOT_HELD).into_any_element()
+}
 
 /// A section's heading, with `empty`'s words under it where it holds nothing.
 fn heading(look: &Look, words: &'static str, gap: bool, empty: Option<&'static str>) -> AnyElement {
