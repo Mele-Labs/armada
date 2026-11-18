@@ -293,10 +293,18 @@ impl JobView {
             }
         }
         // A refusal came back at once, so the build stays open with Fleet's sentence on it; else the next open one opens.
+        let mut advance = None;
         if let Some(cards) = self.cards_mut() {
-            if !cards.said.contains_key(&card.id) && cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
-                cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
+            if !cards.said.contains_key(&card.id) {
+                advance = next.clone();
+                if cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
+                    cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
+                }
             }
+        }
+        // In the review panel the next open build comes up, as a build in the thread's card does.
+        if let Some(next) = advance.filter(|_| ix == super::acts::SHEET && self.review_open()) {
+            self.review_at(&next, window, cx);
         }
     }
 
@@ -820,6 +828,23 @@ impl JobView {
             Some(self.ready_detail(card, super::acts::SHEET, wide, page, Local::now(), look, cx))
         })();
         drawn.unwrap_or_else(|| div().into_any_element())
+    }
+
+    /// A press on a Job's builds to try, on its Needs you row or its For you row: the review panel opens over the window with each build
+    /// still to answer listed and one chosen: the build the press names, else the newest. A build already answered, and a Job with none
+    /// still asking, go to the line in the thread as before, and so does a panel that could not open.
+    pub(super) fn open_ready_review(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let pick = self.thread(job, cx).and_then(|held| {
+            let mut asking = held.items.iter().rev().filter_map(|item| match item {
+                ThreadItem::ReadyToTry(card) if matches!(card.state, ReadyState::Open | ReadyState::Later) => Some(card.id.clone()),
+                _ => None,
+            });
+            // A build's own id names that build, and the Job's row its newest.
+            if id.contains('@') { asking.find(|asking| asking == id) } else { asking.next() }
+        });
+        let Some(pick) = pick else { return self.go_to_ready(job, id, window, cx) };
+        self.open_review_with(super::review::Scope::Job(job.to_string()), None, Some(&pick), window, cx);
+        self.review_open() || self.go_to_ready(job, id, window, cx)
     }
 
     /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card at the thread's end,

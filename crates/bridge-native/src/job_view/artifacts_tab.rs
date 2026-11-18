@@ -245,8 +245,9 @@ impl JobView {
         self.review_from = window.focused(cx);
         // A Ready to try card is no artifact of the Job: its id names the card in the thread (`try:<branch>@<tip>`).
         if super::ready_card::is_card(artifact) {
-            let held = self.go_to_ready(&job, artifact, window, cx);
-            if held {
+            let held = self.open_ready_review(&job, artifact, window, cx);
+            // The panel shut the Needs you panel as it opened and holds the keys; a build opened in the thread does not.
+            if held && !self.review_open() {
                 self.set_needs(false, None, window, cx);
             }
             return held;
@@ -712,7 +713,7 @@ impl JobView {
     /// and its drawing large; a page opens in its tab, a draft in its tab, and a sketch large over the window, where it zooms.
     pub(super) fn open_artifact(&mut self, job: &str, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
         if super::ready_card::is_card(artifact) {
-            self.go_to_ready(job, artifact, window, cx);
+            self.open_ready_review(job, artifact, window, cx);
             return;
         }
         let Some(one) = self.artifact_of(job, artifact).cloned() else { return };
