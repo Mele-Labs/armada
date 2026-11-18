@@ -355,7 +355,7 @@ pub fn tell_retry(sentence: impl Into<SharedString>, retry: Retry, cx: &mut App)
 }
 
 /// A call Fleet refused, as Classic's failure toast says it: `what` failed and why, Fleet's own sentence, the facts of
-/// the call and of the build, then Copy debug info, Dismiss and Dispatch job. Fleet's debug report is read now, for
+/// the call and of the build, then Dismiss, Copy debug info and Dispatch job. Fleet's debug report is read now, for
 /// the Armada and harness rows and for what Copy and Dispatch job carry.
 pub fn tell_refused(what: impl Into<String>, refusal: Refusal, cx: &mut App) {
     let fleet = live_fleet(cx);
@@ -994,7 +994,7 @@ impl Toasts {
     }
 
     /// A call Fleet refused (`tell_refused`): the failed glyph and the headline, Fleet's sentence, a row for each fact
-    /// with its label dimmer than its value, then Copy debug info, Dismiss and Dispatch job at the trailing edge.
+    /// with its label dimmer than its value, then Dismiss, Copy debug info and Dispatch job at the trailing edge.
     fn failure_toast(&self, key: u64, headline: &SharedString, failure: &Failure, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let edge = look.color(token::STATUS_COMPLETED_FAILED);
         let rows = failure.refusal.rows(failure.build.as_ref(), &failure.report).into_iter().map(|(label, value)| {
@@ -1052,7 +1052,7 @@ impl Toasts {
             )
             .children(failure.refusal.said.clone().map(|said| labelled(div().id(SharedString::from(format!("toast-failure-said:{key}"))).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(said.clone()), Role::Label, said)))
             .child(div().flex().flex_col().gap(look.length(token::SPACE_1) / 2.).children(rows))
-            .child(div().flex().justify_end().items_center().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).child(copy).child(dismiss).child(dispatch));
+            .child(div().flex().justify_end().items_center().gap(look.length(token::SPACE_2)).pt(look.length(token::SPACE_1)).child(dismiss).child(copy).child(dispatch));
         labelled(
             div()
                 .id(SharedString::from(format!("toast-failure:{key}")))
