@@ -90,7 +90,29 @@ impl Built {
 }
 
 fn first_line(words: &str) -> String {
-    words.split_whitespace().collect::<Vec<_>>().join(" ")
+    plain(words).split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// His words as plain text: his markdown marks (emphasis, code ticks, a heading's hashes, a link's address) are not drawn.
+fn plain(words: &str) -> String {
+    let mut out = String::with_capacity(words.len());
+    let mut rest = words.trim_start().trim_start_matches(['#', '>']).trim_start();
+    while let Some(one) = rest.chars().next() {
+        rest = &rest[one.len_utf8()..];
+        match one {
+            '*' | '`' => {}
+            // `[name](address)` reads as its name.
+            '[' => match rest.find("](").and_then(|close| rest[close..].find(')').map(|end| (close, close + end))) {
+                Some((close, end)) if !rest[..close].contains(['[', '\n']) => {
+                    out.push_str(&rest[..close]);
+                    rest = &rest[end + 1..];
+                }
+                _ => out.push(one),
+            },
+            _ => out.push(one),
+        }
+    }
+    out
 }
 
 /// How he decided about what he was shown, in Armada's voice.

@@ -261,6 +261,41 @@ fn a_long_title_gives_way_and_the_state_keeps_its_place_at_the_heads_end(cx: &mu
 }
 
 #[gpui::test]
+fn a_heads_last_line_sits_under_its_title_and_the_state_stays_inside_the_card(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_resize(gpui::size(gpui::px(700.), gpui::px(800.)));
+    let title = "Schedule work or set up watcher scripts outside jobs, so that a person can leave a repository to be looked at on a timetable and not by hand";
+    tab.update(cx, |tab, cx| {
+        if let super::Load::Read(story) = &mut tab.story {
+            story.asks[0].ask.title = title.into();
+            story.asks[0].ask.said = vec![mock::words("row-long", ipc::MessageKind::Revision, "**Read the whole of the watcher design and decided that a timetable belongs to the repository, not to the Job that first asked for one**", 17)];
+        }
+        tab.rebuild(cx);
+    });
+    for _ in 0..2 {
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    let last = tab.read_with(cx, |tab, _| tab.built.cards[0].last.clone());
+    assert!(!last.contains('*'), "the Last line is plain words: {last}");
+    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
+        cx.update(|window, cx| {
+            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
+        })
+    };
+    let said = format!("1. {title}");
+    let head = bounds(cx, Role::Label, &said).expect("the title is drawn");
+    let under = bounds(cx, Role::Label, &last).expect("the Last line is drawn");
+    let state = bounds(cx, Role::Image, "Open").expect("the state is drawn");
+    let card = bounds(cx, Role::ListBoxOption, &said).expect("the card is drawn");
+    assert!(under.top() >= head.bottom(), "the Last line is a row under the title, not beside it: title {head:?}, last {under:?}");
+    assert!(head.size.height > gpui::px(24.), "a long title wraps to a second line and is not cut: {head:?}");
+    assert!(state.right() <= card.right(), "the state stays inside the card: {state:?} in {card:?}");
+    assert!(under.right() <= card.right(), "the Last line is cut at the card's edge: {under:?} in {card:?}");
+}
+
+#[gpui::test]
 fn the_tab_draws_a_role_and_a_name_for_every_head_and_row(cx: &mut TestAppContext) {
     let (_tab, cx) = open(cx);
     assert!(drawn(cx, Role::Button, "1. Feature catalog"), "a head is a button named as it reads");
