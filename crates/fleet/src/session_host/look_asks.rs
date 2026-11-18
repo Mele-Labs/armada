@@ -86,7 +86,7 @@ mod tests {
     }
 
     fn act(kind: WaitingActKind, target: &str) -> WaitingAct {
-        WaitingAct { kind, target: target.to_string() }
+        WaitingAct { kind, target: target.to_string(), on: None }
     }
 
     #[test]

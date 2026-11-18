@@ -34,7 +34,7 @@ pub(crate) fn not_ours_item(kept: &KeptWatchWhole) -> Option<WaitingItem> {
         text: format!("{}: {} failed", held.name, names.join(", ")),
         since: Instant::carried(held.ended_at.as_deref().unwrap_or(&held.changed_at)),
         source: WaitingSource::WatchNotOurs,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: held.id.clone() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: held.id.clone(), on: None }),
         options: vec![option("Ignore"), option("Fix it")],
         steps: Vec::new(),
         place: None,

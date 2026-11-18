@@ -178,9 +178,9 @@ pub(crate) fn derived(seen: &Seen) -> Vec<WaitingItem> {
                 }
                 let mut one = item(id, &first_line(&ask.sentence), ended, WaitingSource::Replied);
                 one.act = seen.extracted.map(|_| match ask.act {
-                    super::extracting::Act::Run(command) => WaitingAct { kind: WaitingActKind::Run, target: command },
-                    super::extracting::Act::ApprovePr(number) => WaitingAct { kind: WaitingActKind::ApprovePr, target: number },
-                    super::extracting::Act::Answer => WaitingAct { kind: WaitingActKind::Answer, target: String::new() },
+                    super::extracting::Act::Run(command) => WaitingAct { kind: WaitingActKind::Run, target: command, on: None },
+                    super::extracting::Act::ApprovePr(number) => WaitingAct { kind: WaitingActKind::ApprovePr, target: number, on: None },
+                    super::extracting::Act::Answer => WaitingAct { kind: WaitingActKind::Answer, target: String::new(), on: None },
                 });
                 one.options = ask.options.into_iter().map(|label| WaitingOption { label, description: None, picture: None }).collect();
                 items.push(one);

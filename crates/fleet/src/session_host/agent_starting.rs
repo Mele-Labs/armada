@@ -62,7 +62,7 @@ pub(crate) fn held_child_item(child: &HeldChild) -> WaitingItem {
         text: format!("Press Start on \"{}\"", child.title),
         since: Instant::carried(&child.since),
         source: WaitingSource::HeldChild,
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: child.id.clone() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: child.id.clone(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

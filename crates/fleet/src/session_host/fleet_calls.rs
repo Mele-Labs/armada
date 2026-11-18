@@ -17,7 +17,7 @@ pub(crate) fn call_item(call: &store::KeptCall) -> WaitingItem {
         text: call.text.clone(),
         since: Instant::carried(&call.raised_at),
         source: WaitingSource::FleetCall,
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: call.session_id.clone() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: call.session_id.clone(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

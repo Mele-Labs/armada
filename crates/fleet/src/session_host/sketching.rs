@@ -616,7 +616,7 @@ pub(crate) fn sketch_items<'a>(
         text,
         since: one.changed_at.clone(),
         source: WaitingSource::Sketch,
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

@@ -3156,6 +3156,7 @@ pub static WALKS: &[Walk] = &[
             step("Each stop is a numbered frame, and Start the walk is at the head", Verb::Look, "button", "Start the walk"),
             step("↓ again: the command, its steps as chips joined by chevrons", Verb::Key("down"), "status", "4 of 4"),
             step("The command stands in a mono well under the steps, with Run", Verb::Look, "button", "Run"),
+            step("Copy stands beside Run, for a command meant for another Mac", Verb::Look, "button", "Copy"),
             step("↑ goes back one item", Verb::Key("up"), "status", "3 of 4"),
             step("← goes back to the list", Verb::Key("left"), "button", "Open Which layout does the checkout page take?"),
             step("The question opens with a picture for each option, named, with the Job's pick ringed and marked", Verb::Open("button", "Open Which layout does the checkout page take?"), "group", "Stacked, my pick"),
