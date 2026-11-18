@@ -76,7 +76,7 @@ import {
   waitedOf,
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
-import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
+import type { Asked, Door, Fact, QuietJobs, Reach, Report, Task } from './fleet'
 import { commitStaging, placeOfCall } from './handoff'
 import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
@@ -481,10 +481,11 @@ async function postAsk($: Door, port: number, body: unknown, bound: number): Pro
 const REACH_MS = 3000
 
 /**
- * Whether Fleet lets this Job write to `to`. **Fleet places the Job by its connection** and decides;
- * nothing here names the sender. A Fleet out of reach or slow answers nothing, and the message goes.
+ * Whether Fleet lets this Job write to `to`, and who carries `message`. **Fleet places the Job by its
+ * connection** and decides; nothing here names the sender. A Fleet out of reach or slow answers
+ * nothing, and the message goes.
  */
-async function messageReach($: Door, to: string): Promise<Reach | undefined> {
+async function messageReach($: Door, to: string, message: string | undefined): Promise<Reach | undefined> {
   const port = await portOf($).catch(() => undefined)
   if (port === undefined || to === '') return undefined
   const sent = await Promise.race([
@@ -492,12 +493,39 @@ async function messageReach($: Door, to: string): Promise<Reach | undefined> {
       .fetch(`http://127.0.0.1:${port}/sessions/message_reach`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ to }),
+        body: JSON.stringify(message === undefined ? { to } : { to, message }),
       })
       .catch(() => undefined),
     $.clock.sleep(REACH_MS).then(() => undefined),
   ])
   return sent?.ok === true ? (JSON.parse(sent.text) as Reach) : undefined
+}
+
+/** The live Jobs with no process, which the CLI's own `ListAgents` leaves out. Nothing where Fleet is out of reach. */
+async function quietJobs($: Door): Promise<QuietJobs['jobs']> {
+  const port = await portOf($).catch(() => undefined)
+  if (port === undefined) return []
+  const sent = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/quiet_jobs`, { method: 'GET' }).catch(() => undefined),
+    $.clock.sleep(REACH_MS).then(() => undefined),
+  ])
+  return sent?.ok === true ? ((JSON.parse(sent.text) as QuietJobs).jobs ?? []) : []
+}
+
+const QUIET_WHY: Record<QuietJobs['jobs'][number]['why'], string> = {
+  between_turns: 'between turns; a message starts it',
+  paused: 'paused; a message is its first turn at Resume',
+  held: 'not started yet; a message goes when it starts',
+}
+
+/** What `ListAgents` adds of the Jobs it leaves out. Empty where there are none. */
+export function quietListing(jobs: QuietJobs['jobs']): string {
+  if (jobs.length === 0) return ''
+  const lines = jobs.map(job => `- ${job.address}${job.title ? ` "${job.title}"` : ''}: ${QUIET_WHY[job.why]}`)
+  return [
+    'Armada Jobs not listed above, because no process of theirs runs now. SendMessage to the address: Fleet keeps the message and delivers it.',
+    ...lines,
+  ].join('\n')
 }
 
 /**
@@ -1475,12 +1503,22 @@ export const register: Register = on => {
   })
 
   // A Job writes to any live Job, and is refused an ended or unknown one: Fleet decides, before the
-  // message goes. `message_reach` holds the rule.
+  // message goes. `message_reach` holds the rule. **A Job with no process is carried by Fleet**: the
+  // CLI's own send would say it is not reachable, so it never runs and the sender reads Fleet's word.
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
-    const to = (e as Record<string, unknown>).to
-    const reach = await messageReach($, typeof to === 'string' ? to : '')
+    const { to, message } = e as Record<string, unknown>
+    const reach = await messageReach($, typeof to === 'string' ? to : '', typeof message === 'string' ? message : undefined)
     if (reach?.outcome === 'refused') return { deny: reach.message }
+    if (reach?.outcome === 'queued') return { result: { success: true, message: reach.message }, text: reach.message }
     return next(e)
+  })
+
+  // The CLI lists only Jobs whose process runs; Fleet names the live ones between turns beside them.
+  on('tool.call', { tool: 'ListAgents' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined) return ran
+    const listing = quietListing(await quietJobs($))
+    return listing === '' ? ran : { ...ran, context: [...(ran.context ?? []), listing] }
   })
 
   // A question asked in the terminal is also put to Bridge, and the first answer wins; Fleet refusing it

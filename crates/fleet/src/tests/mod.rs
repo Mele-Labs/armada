@@ -188,6 +188,7 @@ mod story;
 mod session_done;
 mod session_finish_up;
 mod models_switched_off;
+mod message_queued;
 mod session_host;
 mod session_mcp;
 mod plan_held;

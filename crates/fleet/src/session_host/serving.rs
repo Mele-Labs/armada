@@ -194,7 +194,11 @@ where
     }
 
     async fn message_reach(self: Arc<Self>, caller: api::Caller, to: ipc::MessageTo) -> Result<ipc::MessageReach, Refusal> {
-        self.message_reach_of(caller, &to.to).await
+        self.message_reach_of(caller, &to.to, to.message).await
+    }
+
+    async fn quiet_jobs(self: Arc<Self>, caller: api::Caller) -> Result<ipc::QuietJobs, Refusal> {
+        self.quiet_jobs_of(caller).await
     }
 
     /// Fleet's own sends reach a Job here, and none of them is the person in it.
