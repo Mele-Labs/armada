@@ -57,6 +57,8 @@ const FIX_NEEDS_A_FINDING: &str = "fleet.review_fix_needs_a_finding";
 const FIX_ON_OLD_LINES: &str = "fleet.review_fix_on_old_lines";
 /// A fix of a finding in a file the pull request does not change, or on no range of lines. A 422.
 const FIX_OFF_THE_CHANGE: &str = "fleet.review_fix_off_the_change";
+/// A run on a repository that was only linked, with no clone to run in. A 422.
+pub(crate) const REPOSITORY_NOT_ADDED: &str = "fleet.repository_not_added";
 /// A range on a fix, or from something that is not a commit, or from the head itself. A 422.
 const RANGE_INVALID: &str = "fleet.review_range_invalid";
 /// A range from a commit the forge no longer has, as after a force-push. A 409.
@@ -330,6 +332,18 @@ where
         })
     }
 
+    /// The repository a run reads in, **refused where it was only linked** for a pull request link:
+    /// it has no clone for an agent to read in, so the person adds it first.
+    pub(crate) fn served_for_review(&self, manifest_id: &ManifestId) -> Result<crate::repositories::Served, Refusal> {
+        let served = self.served_named(Some(manifest_id))?;
+        match served.repository().linked_to() {
+            Some(slug) => Err(Refusal::Unacceptable(
+                self.pr_refusal(REPOSITORY_NOT_ADDED, format!("Add {slug} to run an agent review.")),
+            )),
+            None => Ok(served),
+        }
+    }
+
     /// Press a run. **Answers at once**: with a kept result as it stands, with the run already
     /// going for this key, or with a new one still queued, whose work goes on a task of its own
     /// so a caller that stops waiting does not stop the run.
@@ -338,7 +352,7 @@ where
         manifest_id: ManifestId,
         start: StartReviewRun,
     ) -> Result<ReviewRun, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
+        let served = self.served_for_review(&manifest_id)?;
         let unacceptable = |code: &'static str, said: String| Refusal::Unacceptable(self.pr_refusal(code, said));
         // What is asked, as a key and a label, before anything is read or spent.
         let (name, label, asking, shape) = match start.kind {

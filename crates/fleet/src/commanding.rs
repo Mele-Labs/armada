@@ -371,6 +371,14 @@ where
         self.added_repository(asked).await
     }
 
+    /// Serve the repository a pull request link names, unlisted — `crate::repositories`.
+    async fn link_repository(
+        self: Arc<Self>,
+        asked: ipc::LinkRepository,
+    ) -> Result<ipc::RepositorySummary, Refusal> {
+        self.linked_repository(asked).await
+    }
+
     /// Clone from a URL, then serve it — `crate::repositories`.
     async fn clone_repository(
         self: Arc<Self>,

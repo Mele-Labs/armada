@@ -9,7 +9,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::ManifestId;
+use crate::ids::{Instant, ManifestId};
 use crate::pull_requests::PullRequestReviewState;
 
 /// The four lists the forge answers, and the fifth from Fleet's own runs. A pull request can be on
@@ -106,14 +106,35 @@ pub struct PullReviewLists {
     pub reviewing: Vec<PullReviewRow>,
     /// The lists the forge would not answer. **Their rows above are empty and say nothing**, so
     /// a reader keeps what it last held for them. All four silent is a 500
-    /// `fleet.review_lists_unreadable` and no body.
+    /// `fleet.review_lists_unreadable` and no body. **The forge's rate limit with nothing kept to show**
+    /// is a 500 `fleet.review_lists_rate_limited` instead, its `fields.until` the time to try again
+    /// as RFC 3339, absent where none was named; a no token or an unanswering forge is the
+    /// first code with a sentence that says which.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub silent: Vec<PullReviewList>,
+    /// Present where **the forge is rate-limiting us and these are the lists Fleet last read**, at
+    /// `fetched_at`, not read now. Fleet asks nothing until the hold lifts. Absent for a live read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limited: Option<PullReviewRateLimited>,
+}
+
+/// The rate limit that keeps the lists from being read again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullReviewRateLimited {
+    /// When Fleet asks again: what the forge said, else Fleet's own wait. Absent where it named no time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+    /// The forge's own sentence for the limit, without a time, for Bridge to say as it is.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub said: String,
 }
 
 /// The most rows one list keeps. The forge is asked for exactly this many, so a list at the cap
 /// has more behind it.
 pub const MOST_PER_LIST: usize = 50;
+
+/// The code of a read that every list was held back from by the forge's rate limit.
+pub const REVIEW_LISTS_RATE_LIMITED: &str = "fleet.review_lists_rate_limited";
 
 /// Which side of the diff a line is on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

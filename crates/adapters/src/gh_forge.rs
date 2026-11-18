@@ -240,8 +240,9 @@ impl Forge for GhForge {
         &self,
         in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
         crate::pull_review_lists::read(in_repo, ask)
+            .ok_or_else(|| adapter_traits::ListFailure::Other("gh would not list them.".to_string()))
     }
 
     fn open_pulls_numbered(

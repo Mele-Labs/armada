@@ -230,7 +230,7 @@ impl<F: Forge> Forge for GitVcs<F> {
         &self,
         in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
         self.forge.pull_review_list(in_repo, ask)
     }
 

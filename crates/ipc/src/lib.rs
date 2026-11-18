@@ -616,9 +616,9 @@ pub use pull_requests::{
     WritePullRequest,
 };
 pub use pull_reviews::{
-    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists,
+    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRateLimited,
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
-    ResolvePullThread, MOST_PER_LIST,
+    ResolvePullThread, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
     MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
@@ -655,7 +655,7 @@ pub use requests::{
     VariableWrite, REQUESTS_VERSION, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
-    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, RepositoryList,
+    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, LinkRepository, RepositoryList,
     RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;

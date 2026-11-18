@@ -1,7 +1,8 @@
 //! One artifact a Job grows. **While an artifact still asks him, anything new the Job shows joins it as a part**:
 //! a sketch, a draft, a page that asks, or a part from `add_part`. It never becomes a second artifact or a second
 //! Needs you item, and Fleet enforces it where each is kept, never by asking the agent. Once every part that asks
-//! is answered the artifact settles, and the next thing the Job shows starts a new one.
+//! is answered the artifact settles, and the next thing the Job shows starts a new one. **In an artifact that holds
+//! takes, his pick is the answer**: its drawings inform and ask nothing, whichever came first.
 //! `docs/concepts/artifact.md`, *Parts*.
 //!
 //! **How it is kept.** The artifact is a sketch row, `sketch:<title>`: the first thing shown, or a scene-less one
@@ -86,6 +87,12 @@ pub(crate) fn holds_members(attachments: &[ipc::Attachment], root: &str) -> bool
 /// The drawing a sketch row holds is put to him and neither answered nor taken back.
 fn drawing_asks(detail: &BTreeMap<String, String>) -> bool {
     detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !detail.contains_key(SKETCH_SETTLED) && !detail.contains_key(SKETCH_WITHDRAWN)
+}
+
+/// Whether a row keeps a takes part. **In an artifact that holds one, his pick is its one answer**, so a drawing in
+/// it informs and asks nothing.
+pub(crate) fn holds_takes(detail: &BTreeMap<String, String>) -> bool {
+    stored(detail).iter().any(|part| part.content.kind() == PartKind::Takes)
 }
 
 /// Whether a sketch row has a part still asking: its drawing, or one `add_part` put to him.
@@ -503,6 +510,13 @@ where
             }
         };
         store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
+        // Takes joined: every drawing in the artifact stops asking, this row's own with the part.
+        if checked.content.kind() == PartKind::Takes {
+            self.drawings_informed(id, target, Some(target)).await?;
+            if drawing_asks(&detail) {
+                detail.remove(SKETCH_ASKED);
+            }
+        }
         if said.is_some() || !detail.contains_key(ipc::ARTIFACT_FOR) {
             with_for(&mut detail, self.for_line(id, said).await.as_ref());
         }
@@ -665,6 +679,32 @@ where
         let answer = PartAnswer { words, at: Some(self.instant()), ..PartAnswer::default() };
         self.stored_part_settled(id, &artifact.id, &part.id, &part.drawn, state, answer).await?;
         self.published_hosted(id).await?;
+        Ok(())
+    }
+
+    /// **Each drawing of the artifact at `root` that still asks him stops asking**, as one shown with asks false: it
+    /// informs, and the takes the artifact holds are its answer. `except` is a row the caller writes itself.
+    pub(crate) async fn drawings_informed(&self, id: &str, root: &str, except: Option<&str>) -> Result<(), Refusal> {
+        let held = self.held_rows(id).await?;
+        let ours = |one: &ipc::Attachment| one.target == root || joined_of(&held, one) == Some(root);
+        let asking: Vec<ipc::Attachment> =
+            held.iter().filter(|one| is_sketch(one) && ours(one) && Some(one.target.as_str()) != except && drawing_asks(&one.detail)).cloned().collect();
+        if asking.is_empty() {
+            return Ok(());
+        }
+        let harness = {
+            let store = self.store().lock().await;
+            store.session(id).map_err(|why| self.ledger_fault(why))?.map(|session| session.harness).unwrap_or_default()
+        };
+        for mut one in asking {
+            one.detail.remove(SKETCH_ASKED);
+            self.report_session(SessionReport {
+                harness: harness.clone(),
+                session_id: SessionId::carried(id),
+                fact: SessionFact::Attached { attachment: AttachmentReport { kind: one.kind, target: one.target, detail: one.detail } },
+            })
+            .await?;
+        }
         Ok(())
     }
 

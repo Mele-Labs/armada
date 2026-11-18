@@ -376,13 +376,13 @@ pub trait Forge {
 
     /// One of the four lists of pull requests waiting on a person, across every repository named
     /// in `ask`, newest-updated first and at most `ask.most` rows. **One forge call**, whoever
-    /// opened the pull requests and whether or not a Session holds them. `None` is the forge's
-    /// silence, for [`landed`](crate::Delivery::landed)'s reason; an empty list is an answer.
+    /// opened the pull requests and whether or not a Session holds them. `Err` is why the forge
+    /// did not answer, the rate limit with its time where it gave one; an empty list is an answer.
     fn pull_review_list(
         &self,
         in_repo: &str,
         ask: &crate::ReviewListAsk<'_>,
-    ) -> Option<Vec<crate::ListedPull>>;
+    ) -> Result<Vec<crate::ListedPull>, crate::ListFailure>;
 
     /// The open ones of `pulls`, read by number as rows of a list are, each carrying `login`'s
     /// latest review: pull requests Fleet knows of that no list names. **One forge call** for all of

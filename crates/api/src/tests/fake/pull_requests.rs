@@ -189,6 +189,7 @@ impl PullRequestPanel for FakeDaemon {
             mine: Vec::new(),
             reviewing: Vec::new(),
             silent: Vec::new(),
+            rate_limited: None,
         })
     }
 

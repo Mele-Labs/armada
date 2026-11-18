@@ -210,6 +210,17 @@ impl Locating for Locator {
         Some(self.machine.join("machine").join("watches"))
     }
 
+    fn linked(&self, owner: &str, name: &str) -> Result<Located, NotLocated> {
+        let folder = self.machine.join("linked").join(owner.to_lowercase()).join(name.to_lowercase());
+        if !adapters::inside_a_repository(&folder) {
+            adapters::start_linked_repository(&folder, owner, name).map_err(|why| {
+                eprintln!("{owner}/{name} was not linked: {why}");
+                NotLocated::Refused { root: format!("{owner}/{name}"), why }
+            })?;
+        }
+        self.located(&folder)
+    }
+
     fn started(&self, folder: &Path) -> Result<(), NotLocated> {
         adapters::start_repository(folder).map_err(|why| {
             eprintln!("{} was not started as a repository: {why}", folder.display());

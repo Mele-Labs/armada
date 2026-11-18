@@ -10,7 +10,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, Delivery, ListedChecks, ListedPull, NumberedPull, ReviewList, ReviewListAsk, Vcs, WorkProduct,
+    AgentHarness, Delivery, ListFailure, ListedChecks, ListedPull, NumberedPull, ReviewList, ReviewListAsk, Vcs, WorkProduct,
 };
 use api::Refusal;
 use ipc::{
@@ -163,6 +163,11 @@ where
         if repositories.is_empty() {
             return Err(unreadable("no repository served has a remote the forge could be asked about"));
         }
+        // The forge's wait is on: no call goes out, and the lists last read are shown, marked.
+        let now = self.clock().now().epoch_millis().unwrap_or(0);
+        if let Some(hold) = self.review_lists_kept().held(now) {
+            return self.lists_limited(project, hold);
+        }
         let read = |list: ReviewList| {
             let (login, repositories) = (me.clone(), repositories.clone());
             self.forge_asked(from.root(), move |vcs: &V, root: &str| {
@@ -202,20 +207,31 @@ where
         let answers = [answers.0, answers.1, answers.2, answers.3];
         let mut lists: [Vec<PullReviewRow>; 5] = Default::default();
         let mut silent = Vec::new();
+        let mut failures = Vec::new();
         for (at, ((_, wire), asked)) in LISTS.into_iter().zip(answers).enumerate() {
             match asked {
-                Some(pulls) => {
+                Ok(pulls) => {
                     lists[at] = pulls
                         .into_iter()
                         .filter_map(|pull| row_of(pull, &served))
                         .take(MOST_PER_LIST)
                         .collect();
                 }
-                None => silent.push(wire),
+                Err(failure) => {
+                    silent.push(wire);
+                    failures.push(failure);
+                }
             }
         }
         if silent.len() == LISTS.len() {
-            return Err(unreadable("the forge would not answer any of the four lists"));
+            return match crate::pull_review_kept::worst(failures) {
+                Some(ListFailure::RateLimited { until, said }) => {
+                    let hold = self.review_lists_kept().hold(now, until, said);
+                    self.lists_limited(project, hold)
+                }
+                Some(other) => Err(unreadable(other.said())),
+                None => Err(unreadable("The forge did not answer. Open Reviews again.")),
+            };
         }
         let was_reviewed = |row: &PullReviewRow| reviewed.iter().any(|(id, number)| *id == row.manifest_id && *number == row.number);
         for row in lists.iter_mut().flatten() {
@@ -255,7 +271,15 @@ where
         self.asked_told_onto(requested).await;
         let mut read = self.lists_of(me, lists);
         read.silent = silent;
+        self.review_lists_kept().keep(project, &read);
         Ok(read)
+    }
+
+    /// The lists last read, marked as kept for the rate limit; with none read, the refusal that names it.
+    fn lists_limited(&self, project: Option<&str>, hold: crate::pull_review_kept::Hold) -> Result<PullReviewLists, Refusal> {
+        self.review_lists_kept().limited(project, hold).map_err(|(until, said)| {
+            crate::pull_review_kept::rate_limited_refusal(|code, message| self.pr_refusal(code, message), until, said)
+        })
     }
 
     fn lists_of(&self, me: String, lists: [Vec<PullReviewRow>; 5]) -> PullReviewLists {
@@ -269,6 +293,7 @@ where
             mine,
             reviewing,
             silent: Vec::new(),
+            rate_limited: None,
         }
     }
 
