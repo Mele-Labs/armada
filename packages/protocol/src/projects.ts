@@ -139,7 +139,7 @@ export type ProjectPlace = {
   cloud?: RunCloud;
 };
 
-/** A project file Fleet could not read. */
+/** A project file Fleet could not read, or could not take away. */
 export type ProjectLeftOut = {
   /** `this_mac`, `synced` or `cloud`. */
   place: RunPlace;
@@ -160,6 +160,8 @@ export type Projects = {
   loose: ProjectRow[];
   /** The project files Fleet could not read. A file a project of his names is here too, and that project says so as `unread`. */
   left_out: ProjectLeftOut[];
+  /** The project files an act could not take away, each with the words the place gave. Only the answer to that act carries it; absent where nothing was left. */
+  left_behind?: ProjectLeftOut[];
 };
 
 /** `POST /projects`: the name, trimmed, and what the project starts with. Absent `members` is none, and absent `place` is this Mac. */
@@ -182,6 +184,17 @@ export type EditProject = {
   values?: ValuesSet;
   /** Turns sharing with his other Macs on or off. Absent leaves it as it is. */
   shared_with_macs?: boolean;
+};
+
+/**
+ * `POST /projects/merge`: two projects of one name, one this Mac's own and one a copy of another Mac's, made one. `kept` stays,
+ * whichever it is, and `gone` goes. `from_gone` names the value keys (a field of `ValuesSet`) where `gone`'s value wins over a
+ * different one of `kept`'s; a key left out keeps `kept`'s. `kept` must be shared with his other Macs.
+ */
+export type MergeProjects = {
+  kept: string;
+  gone: string;
+  from_gone?: string[];
 };
 
 /** `POST /projects/rows/:row/edit` and `POST /projects/rows/:row/subtasks` (a task under the top-level task `row`): title and notes, whole. */

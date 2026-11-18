@@ -1,6 +1,6 @@
 # Job story
 
-**What it is:** The owner's messages in a Job sorted into asks, and the story of each Job read from its asks, what he was shown and decided, what was built and what was handed on.
+**What it is:** The owner's messages in a Job sorted into asks and questions, the reply that answers each question, and the story of each Job read from its asks, what he was shown and decided, what was built and what was handed on.
 
 ---
 
@@ -23,14 +23,16 @@ The owner approved the design on 16 Nov 2026.
 | An ask handed when its Job starts or messages another Job with it | Built |
 | A Job's story, `get_job_story`, and the done card's lead lines | Built in Fleet; native draws the Story tab later |
 | A project's asks by feature slug, `list_feature_asks` | Built in Fleet; the feature library files asks under slugs later |
-| Asks from outside a Job: words to the Operator, notes, voice | Built: the Operator files each with `file_ask`, under the features it belongs to |
+| Asks from outside a Job: words to the Operator, notes, voice | Built: the Operator files each with `file_ask`, under the features it belongs to. A note on a screen is filed by Fleet itself while the Operator is off |
+| A question linked to the reply that answers it, `list_job_questions`, `mark_answer_read`, `answer_unread` on the record | Built in Fleet; native draws the Q&A tab, the folded answer and the row's dot later |
 
 ## Sorting a message
 
-**Rule.** Every message he sends in a Job is one of four kinds.
+**Rule.** Every message he sends in a Job is one of five kinds.
 A new ask opens an ask, and its kind is a bug, a change request, an idea or a fix.
 A revision changes an ask the Job holds, and the ask keeps what he first said.
 An answer is a pick, an approval or a reply, joined to the ask it answers.
+A question asks the Job something he wants an answer to, such as why, what or how, rather than asking for work.
 Talk stays in the thread and opens nothing.
 
 **Rule.** Delivery writes one row and goes on.
@@ -48,6 +50,27 @@ It runs on the model of `models.dispute`, the cheapest on the roster.
 The change is kept with `sorted_by` set to `owner`, and the newest few ride in the next prompt as examples.
 A message he has set is never sorted again, and a read of the model that was running when he set it is dropped.
 A message that opened an ask and becomes something else takes the ask with it, unless the ask holds revisions or answers of its own, which Fleet refuses.
+
+## A question and its answer
+
+**Rule.** A question is linked to the reply of the Job's that answers it.
+When the Job's turn ends, each of its open questions is due a read, and so is a message as soon as it is sorted as a question.
+The notice loop takes the due questions three at a time and reads each on a task of its own, on the model of `models.dispute`.
+The model reads his words and the Job's last message after the question, and answers yes or no.
+A reply over 4000 characters is cut to its first 1000 and its last 3000, since an agent concludes at the close.
+
+**Rule.** A yes keeps the link: his question, the agent's message row that answers it, the reply's first prose up to about 300 characters, and when.
+The row id is the one `get_job_thread` takes as `before` and `upto`, so a client scrolls the thread to the answer.
+A no keeps the reply as read, so the same reply is not asked about again, and the question stays open for the next turn.
+The model may answer a bare yes or no, without the label, and markdown around it is read through.
+A failed read, or an answer that says neither, is logged with what the model said and tried again on the next passes of the loop, three reads in all, and then waits for the next turn's end.
+The count of tries is kept in memory, and a turn's end starts it over.
+
+**Rule.** An answer starts unread, and `mark_answer_read` marks it read when he jumps to it or a client draws it.
+The store keeps it, so it holds across a restart, and a read on another Mac is passed on to the Mac that holds the Job.
+`answer_unread` on the Job's record says whether any answer of the Job's waits unread, for the dot on its row.
+A question he sorts as another kind loses its link.
+`list_job_questions` lists a Job's questions, the unanswered first and each group newest first.
 
 ## An ask
 
@@ -93,6 +116,13 @@ A note is filed under its id, so the same note filed twice is one ask.
 **Rule.** A note arrives with the features Fleet reads from where he left it.
 The files its element was drawn from, `source` and `definition` in the note, are mapped by the library's path prefixes, and where a note names no file its component's name is read against the files of each feature's entry points and prefixes.
 A note that names neither arrives with no feature, and the Operator chooses from the library.
+
+**Rule.** The Operator being off does not leave a note unfiled.
+A note sent to a Job is that Job's, and its message is sorted there.
+A note open and sent to no Job for ten minutes is filed by Fleet: one ask with no Job, in the backlog, under the features Fleet reads from where he left it.
+Its kind and title come from the sorter a Job's messages go through, and its key is the note's id, so the same note filed twice is one ask.
+A note the sorter reads as talk or a question is no ask, and a sorter that fails leaves it a change request.
+With the Operator on this does not run, and the Operator files the note as above.
 
 ## Open questions
 

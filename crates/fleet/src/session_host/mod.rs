@@ -178,6 +178,8 @@ pub struct Hosts {
     stops_owed: stopping::Owed,
     /// The Jobs stopped with their agent alive, which a repair is due for.
     stops_silent: stopping::Silent,
+    /// The reads of his questions that came back unclear or failed, each tried again on the next passes. Memory only.
+    question_tries: crate::story::questions::Tries,
     asks: Asks,
     runtime: Mutex<HashMap<String, Arc<Runtime>>>,
     minted: AtomicU64,
@@ -239,6 +241,7 @@ impl Hosts {
             stuck: Mutex::new(std::collections::HashSet::new()),
             stops_owed: stopping::Owed::default(),
             stops_silent: stopping::Silent::default(),
+            question_tries: Default::default(),
             asks: Asks::holding_for(hold),
             runtime: Mutex::new(HashMap::new()),
             minted: AtomicU64::new(0),
@@ -345,6 +348,10 @@ impl Hosts {
         &self.stops_silent
     }
 
+    pub(crate) fn question_tries(&self) -> &crate::story::questions::Tries {
+        &self.question_tries
+    }
+
     pub(crate) fn slot_queue(&self) -> &Arc<queueing::SlotQueue> {
         &self.slot_queue
     }
@@ -432,6 +439,7 @@ impl Hosts {
                 lease: tokio::sync::Mutex::new(()),
                 delivery: tokio::sync::Mutex::new(()),
                 starting: tokio::sync::Mutex::new(()),
+                messaging: tokio::sync::Mutex::new(()),
                 writing_retro: AtomicBool::new(false),
                 state: Mutex::new(State::new()),
             })
@@ -498,6 +506,9 @@ pub(crate) struct Runtime {
     pub(crate) delivery: tokio::sync::Mutex<()>,
     /// Held while the process is found or started, so two senders at once start one process.
     pub(crate) starting: tokio::sync::Mutex<()>,
+    /// Held while who carries one of this Job's `SendMessage`s is settled, so the mod's ask and
+    /// Fleet's reading of the call agree on one. `message_reach`.
+    pub(crate) messaging: tokio::sync::Mutex<()>,
     /// Whether this session's retro is being written, so a second press waits.
     pub(crate) writing_retro: AtomicBool,
     state: Mutex<State>,
@@ -612,6 +623,9 @@ pub(crate) struct State {
     /// reported was older. A replacement that still reports an older one is not restarted for the same
     /// copy again. In memory.
     pub moved_onto: Option<String>,
+    /// This Job's `SendMessage`s whose carrier one side settled and the other has not yet followed.
+    /// In memory. `message_reach`.
+    pub(crate) messages_settled: Vec<message_reach::Settled>,
 }
 
 impl State {
@@ -705,6 +719,7 @@ impl State {
             tools_missing: None,
             healed_into: None,
             moved_onto: None,
+            messages_settled: Vec::new(),
         }
     }
 }

@@ -577,7 +577,7 @@ impl JobView {
     }
 
     /// The tab's shapes while Fleet has not answered.
-    fn for_you_shapes(&self, look: &Look) -> AnyElement {
+    pub(super) fn for_you_shapes(&self, look: &Look) -> AnyElement {
         use gpui::AnimationExt as _;
         let bar = |width: f32| div().h(look.length(token::SPACE_3)).w(gpui::relative(width)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::FG_DEFAULT).opacity(0.07));
         labelled(

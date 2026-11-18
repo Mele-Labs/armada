@@ -49,7 +49,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_forge_repositories, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, link_repository, list_forge_repositories, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -378,6 +378,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/asks/change", post(crate::story::change_ask::<D>))
         .route("/asks/file", post(crate::story::file_ask::<D>))
         .route("/projects/asks", get(crate::story::list_feature_asks::<D>))
+        .route("/sessions/questions", get(crate::story::list_job_questions::<D>))
+        .route("/sessions/question/read", post(crate::story::mark_answer_read::<D>))
         .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
@@ -832,6 +834,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::message_reach::<D>),
         )
         .route(
+            "/sessions/quiet_jobs",
+            get(crate::hosted_sessions::quiet_jobs::<D>),
+        )
+        .route(
             "/sessions/held",
             post(crate::hosted_sessions::take_held_messages::<D>),
         )
@@ -844,6 +850,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/repositories/link", post(link_repository::<D>))
         .route("/repositories/forge", get(list_forge_repositories::<D>))
         .route("/import/folders", get(crate::importing::list_import_folders::<D>))
         .route("/import/runs", get(crate::importing::get_import_runs::<D>))
@@ -938,6 +945,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
         .route("/projects/project/:project/claims", get(crate::projects::get_project_claims::<D>))
+        .route("/projects/merge", post(crate::projects::merge_projects::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

@@ -77,6 +77,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         pull_request_drafts: Vec::new(),
         claim_waits: Vec::new(),
         claims_unsent: false,
+        answer_unread: false,
     }
 }
 

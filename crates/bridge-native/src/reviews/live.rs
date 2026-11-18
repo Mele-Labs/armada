@@ -55,6 +55,8 @@ pub(super) struct Live {
     tools: HashMap<String, Vec<model::ReviewTool>>,
     /// Why the inbox could not be read, until a read lands.
     pub inbox_said: Option<String>,
+    /// Over rows kept from an earlier read, while the forge is rate-limiting us.
+    pub inbox_banner: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
     pub writing: bool,
@@ -73,7 +75,7 @@ enum Verb {
 
 /// Fleet's own reason for a refusal, as a sentence he reads.
 fn refusal(status: u16, bytes: &[u8]) -> String {
-    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| map::refused_words(&error))
 }
 
 async fn fetch<T: DeserializeOwned>(port: u16, verb: Verb, path: &str, body: Option<String>, name: &'static str) -> Result<T, String> {
@@ -125,6 +127,7 @@ impl ReviewsScreen {
             pulls: HashMap::new(),
             tools: HashMap::new(),
             inbox_said: None,
+            inbox_banner: None,
             write_said: HashMap::new(),
             writing: false,
             chained: HashSet::new(),
@@ -216,6 +219,7 @@ impl ReviewsScreen {
                     let (rows, found) = map::inbox_of(&lists);
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = None;
+                        live.inbox_banner = map::kept_banner(&lists);
                         for (number, row) in found {
                             match live.pulls.get_mut(&number) {
                                 Some(pull) => pull.row = row,
@@ -236,9 +240,27 @@ impl ReviewsScreen {
                     }
                 }
             }
+            this.read_again_when_limit_lifts(window, cx);
             cx.notify();
         });
         cx.notify();
+    }
+
+    /// While the forge is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
+    fn read_again_when_limit_lifts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(live) = self.live.as_ref() else { return };
+        let limited = live.inbox_banner.is_some() || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));
+        if !limited {
+            return;
+        }
+        let wait = self.wait(super::LIMIT_REREAD, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.live_refresh(window, cx));
+        });
+        if let Some(live) = self.live.as_mut() {
+            live.tasks.insert("limit-again".into(), task);
+        }
     }
 
     /// A row pressed: its page as last read at once, read again behind it; never read, a skeleton until it lands.
@@ -675,6 +697,11 @@ impl ReviewsScreen {
     /// Why Review changes was refused on this pull request, and whether it is being sent.
     pub(super) fn live_write(&self, number: u64) -> (Option<&str>, bool) {
         self.live.as_ref().map_or((None, false), |live| (live.write_said.get(&number).map(String::as_str), live.writing))
+    }
+
+    /// The banner over the inbox's rows where they are the last read, kept.
+    pub(super) fn live_inbox_banner(&self) -> Option<String> {
+        self.live.as_ref()?.inbox_banner.clone()
     }
 
     /// What the inbox says in place of its rows while there are none: reading, or why it could not be read.

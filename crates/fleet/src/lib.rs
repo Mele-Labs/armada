@@ -260,6 +260,7 @@ mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;
+mod pull_review_kept;
 mod pull_review_lists;
 mod pull_review_memory;
 /// His latest review of a pull request and what came since: the page's *Your review* bar.
@@ -280,6 +281,7 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
+mod project_merging;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.

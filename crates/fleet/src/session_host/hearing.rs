@@ -10,7 +10,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, DroneEvent, Speaker, Vcs, WorkProduct};
 use ipc::{SessionRow, SessionTurn, SessionVoice, SessionVoiceNamed};
 
-use super::message_reach::{refused_to, Unreachable};
+use super::message_reach::{refused_to, Carrier, Side, Unreachable};
 use super::process::Heard;
 use super::rows::UserLine;
 use super::{address_of, Move, Runtime};
@@ -476,6 +476,8 @@ where
         // for a slot and resumed in it is one turn to the person, so that move's end is not entered.
         if moving.is_none() {
             self.turn_end_kept(id, &now, said.as_deref(), carded).await;
+            // His open questions are read against the reply on the notice loop, off this turn.
+            self.questions_due_at(id).await;
             // A turn held for a slot stays open: the same turn carries on in it.
             self.turn_closed(id).await;
         }
@@ -606,10 +608,22 @@ where
         let _ = self.published_hosted(id).await;
     }
 
+    /// One session's `SendMessage` to another that Fleet hosts, read off the sender's stream. **Not carried
+    /// twice**: where the mod's ask settled first that Fleet carries it, it already has (`message_reach`).
+    async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
+        let agreed = self.carrier_settled(from, to, Side::Relay).await;
+        let fleet_carries = matches!(agreed.map(|one| one.carrier), Some(Carrier::Fleet(_)));
+        if fleet_carries && agreed.is_some_and(|one| !one.first) {
+            return;
+        }
+        self.carried(from, to, message, fleet_carries).await;
+    }
+
     /// One session's `SendMessage` to another that Fleet hosts: the receiving
     /// thread draws it as that session's, the timeline enters it, and a receiver whose process was ended is started with it, unless it is paused
     /// or the Job itself has ended (`message_reach`). **One his other Mac holds and shares is sent there** (`delivered_across`).
-    async fn delivered(self: &Arc<Self>, from: &str, to: &str, message: &str) {
+    /// `as_turn`: Fleet carries it, so a process that started since it was settled is sent it too.
+    pub(super) async fn carried(self: &Arc<Self>, from: &str, to: &str, message: &str, as_turn: bool) {
         let (found, named) = {
             let store = self.store().lock().await;
             let Ok(hostings) = store.hostings() else {
@@ -634,7 +648,7 @@ where
             return;
         }
         let voice = SessionVoice::Session { id: from.to_string(), title, mac: None };
-        if self.message_written(&target, &hosting, voice, message).await {
+        if self.message_written(&target, &hosting, voice, message, as_turn).await {
             self.session_messaged(from, named, &target, message);
         }
     }
@@ -701,13 +715,14 @@ where
             None => {}
         }
         let voice = SessionVoice::Session { id: message.from.as_str().to_string(), title: message.title, mac: Some(mac) };
-        self.message_written(to, &hosting, voice, &message.text).await;
+        self.message_written(to, &hosting, voice, &message.text, false).await;
         Ok(())
     }
 
     /// Another Job's message written into `target`'s thread in `voice`, and `target` woken by it: held on its start
     /// card, kept while paused, or sent to its agent, started for it where it had ended. False where it could not be.
-    async fn message_written(self: &Arc<Self>, target: &str, hosting: &store::KeptHosting, voice: SessionVoice, message: &str) -> bool {
+    /// **A live process is left to the CLI's own delivery** unless `as_turn`.
+    async fn message_written(self: &Arc<Self>, target: &str, hosting: &store::KeptHosting, voice: SessionVoice, message: &str, as_turn: bool) -> bool {
         let SessionVoice::Session { id: from, title, mac } = &voice else {
             return false;
         };
@@ -746,6 +761,14 @@ where
         let runtime = self.hosts().of(target);
         runtime.state().woken_by.push(SessionVoiceNamed { id: from.clone(), title: title.clone() });
         if runtime.state().process.is_some() {
+            if as_turn {
+                let said = super::cut_off::told(&mut runtime.state(), said);
+                if let Ok(line) = ipc::encode(&UserLine::of(said, Vec::new())) {
+                    if let Some(process) = &runtime.state().process {
+                        process.send(line);
+                    }
+                }
+            }
             return true;
         }
         // A Job on its start card keeps it with the turns that wait, and Begin sends it after them.

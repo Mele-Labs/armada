@@ -218,12 +218,31 @@ impl ReviewsScreen {
         let said = self.live_inbox_said();
         let reading = said.is_some() && !self.refreshed && rows.is_empty();
         if let Some(said) = said.filter(|_| !reading) {
+            // A second line is what happens next, in the muted ink.
+            let (title, caption) = said.split_once('\n').map_or((said.clone(), None), |(title, caption)| (title.to_string(), Some(caption.to_string())));
+            let name = said.replace('\n', " ");
             body.insert(
                 0,
                 labelled(
-                    div().id("inbox-refused").p(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::RUN_FAILED)).child(SharedString::from(said.clone())),
+                    div()
+                        .id("inbox-refused")
+                        .p(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_SM))
+                        .text_color(look.color(token::RUN_FAILED))
+                        .child(SharedString::from(title))
+                        .children(caption.map(|caption| div().text_color(muted).child(SharedString::from(caption)))),
                     Role::Status,
-                    said,
+                    name,
+                )
+                .into_any_element(),
+            );
+        } else if let Some(banner) = self.live_inbox_banner() {
+            body.insert(
+                0,
+                labelled(
+                    div().id("inbox-limited").p(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).text_color(look.color(token::RUN_FAILED)).child(SharedString::from(banner.clone())),
+                    Role::Status,
+                    banner,
                 )
                 .into_any_element(),
             );

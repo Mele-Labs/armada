@@ -57,6 +57,12 @@ pub fn for_you() -> Option<ipc::ForYou> {
     scenario_is("job-for-you").then(|| ipc::decode::<ipc::ForYou>("ForYou", include_bytes!("../fixtures/for-you.json")).unwrap_or_else(|why| panic!("the For you fixture does not decode: {why}")))
 }
 
+/// His questions to the first Job on `job-questions`: one the agent's reply answers, not read yet, and one asked last that
+/// nothing answers. Every other Job and scenario holds none.
+pub fn questions() -> Option<ipc::JobQuestions> {
+    scenario_is("job-questions").then(|| ipc::decode::<ipc::JobQuestions>("JobQuestions", include_bytes!("../fixtures/job-questions.json")).unwrap_or_else(|why| panic!("the questions fixture does not decode: {why}")))
+}
+
 /// Whether the scenario last named is this one.
 pub fn scenario_is(name: &str) -> bool {
     SCENARIO.lock().is_ok_and(|named| named.as_str() == name)
@@ -73,7 +79,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     crate::ways::set_look(if scenario == "ways-look" { ipc::TakeIn::Look } else { ipc::TakeIn::Read }, ipc::LookQuestions::PicturesMix, ipc::LookResults::PictureEvery);
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
-        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
@@ -197,6 +203,12 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "jobs-other-mac" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") {
             other_mac_pages(one)?;
+        }
+    }
+    // An answer to a question of his waits on the first Job, so its row wears the dot.
+    if scenario == "job-questions" {
+        for one in sessions.iter_mut().filter(|one| one.id.as_str() == "mock-01") {
+            one.answer_unread = true;
         }
     }
     // The box's Jobs with Native Bridge foundation at work, so its working line says what it is doing.
@@ -517,6 +529,13 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     if all.is_empty() {
         return Ok(all);
     }
+    // The first Job's thread ends on a question of his that nothing has answered yet.
+    if scenario == "job-questions" {
+        if let Some(thread) = all.get_mut("mock-01") {
+            let asked = r#"{"kind":"row","row":{"kind":"message","id":"m-036","at":"2026-11-09T13:55:10Z","from":{"kind":"you"},"text":"Does a branch with no remote need a state of its own?"}}"#;
+            thread.items.push(ipc::decode("question row", asked.as_bytes()).map_err(|why| why.to_string())?);
+        }
+    }
     for job in jobs(scenario)? {
         let id = job.id.as_str();
         if all.contains_key(id) || refused(scenario, id).is_some() {
@@ -589,7 +608,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "job-for-you" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.

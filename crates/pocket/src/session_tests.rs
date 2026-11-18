@@ -132,7 +132,7 @@ fn threads(id: &str) -> Option<String> {
 fn shared_projects() -> String {
     let members = ipc::decode::<Vec<ipc::ProjectMember>>("members", br#"[{"manifest_id":"m1"},{"manifest_id":"m2"}]"#).unwrap();
     let shop = ipc::Project { id: "shop".into(), name: "Shop".into(), members, shared_with_macs: true, ..Default::default() };
-    ipc::encode(&ipc::Projects { projects: vec![shop], loose: Vec::new(), left_out: Vec::new() }).unwrap()
+    ipc::encode(&ipc::Projects { projects: vec![shop], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }).unwrap()
 }
 
 async fn fake_fleet_with(seen: Seen, start_status: u16, message_status: u16, rows: String) -> u16 {

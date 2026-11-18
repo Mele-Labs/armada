@@ -863,7 +863,10 @@ void app.whenReady().then(() => {
       },
     },
   );
-  connection.sessions.onBrowser((request) => void jobBrowsers.request(request));
+  // **One Bridge answers an act**: while the native app runs it does, as it owns the banners (`nativeTakeover`).
+  connection.sessions.onBrowser((request) => {
+    if (!nativeTakeover.active) void jobBrowsers.request(request);
+  });
   connection.sessions.onBrowserAskAnswered((answered) => jobBrowsers.askAnswered(answered));
   handleJobBrowsers({
     ipc: ipcMain,

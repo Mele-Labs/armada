@@ -455,7 +455,7 @@ impl Layer {
 
     /// A fresh capture over the screen, with the keys on it.
     fn arm(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true };
+        let words = Words { save: "Save note", band: Some("New note"), card: "New note", tools: true, pages: true };
         let capture = cx.new(|cx| Capture::new(Rc::clone(&self.area), words, Some(KEEP_NOTE.into()), cx));
         let watch = cx.subscribe_in(&capture, window, |this, _, event: &CaptureEvent, window, cx| match event {
             CaptureEvent::Noted(noted) => this.noted(noted, window, cx),
@@ -473,6 +473,7 @@ impl Layer {
             Held::Element(drawn) => capture::role_word(drawn.role).unwrap_or("element").to_lowercase(),
             Held::Region(_) => "region".to_string(),
             Held::Window { .. } => "window".to_string(),
+            Held::Page(page) => page.tag().to_string(),
         };
         let tools = noted.tools.clone().unwrap_or_else(|| cx.new(|_| Tools::new(Scope::Window)));
         let now = store::now();
@@ -483,6 +484,7 @@ impl Layer {
             Held::Element(drawn) => (format!("{} \"{}\"", on, drawn.name), drawn.name.to_string(), Some(path.clone())),
             Held::Region(_) => ("region".to_string(), String::new(), Some(path.clone())),
             Held::Window { .. } => ("window".to_string(), String::new(), None),
+            Held::Page(page) => (page.read.selector.clone(), page.read.words.name.clone(), Some(path.clone())),
         };
         let mut raw = json!({
             "id": key, "status": "open", "text": noted.said, "component": null, "owners": [], "ownersFrom": "parent",
@@ -495,6 +497,13 @@ impl Layer {
         let mut pictures: Vec<(String, Vec<u8>)> = Vec::new();
         if matches!(noted.held, Held::Window { .. }) {
             raw["scope"] = json!("window");
+        }
+        // A part of a Job's page is told as the page told it, with its address; a box over a page has the address alone.
+        if let Held::Page(page) = &noted.held {
+            page.write_into(&mut raw);
+        } else if let Some((address, job)) = &noted.address {
+            raw["address"] = json!(address);
+            raw["job"] = json!(job);
         }
         if let Some((picture, _)) = &noted.picture {
             let mut png = Vec::new();
@@ -579,6 +588,11 @@ impl Layer {
             self.targets = targets;
             cx.notify();
         }
+    }
+
+    /// The live Job whose Browser tab every one of these notes was made over, if it is one Job.
+    pub(crate) fn own_job(&self, ids: &[u32]) -> Option<Offered> {
+        own_of(ids.iter().map(|id| self.note(*id).and_then(|note| note.raw["job"].as_str())), &self.targets)
     }
 
     /// The pending send's notes as the live send needs them, numbered in the order they were written.
@@ -762,7 +776,13 @@ impl Layer {
 
     /// The Jobs' picker right beside the Send to job drawn at `from`: under it, or over it in the window's
     /// lower half.
+    /// Notes made over a live Job's Browser tab go to that Job with no pick.
     pub(crate) fn open_menu_by(&mut self, ids: Vec<u32>, from: &Cell<Option<Bounds<Pixels>>>, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(job) = self.own_job(&ids) {
+            self.refocus(window, cx);
+            self.send(ids, Some(job), cx);
+            return;
+        }
         let Some(from) = from.get() else { return };
         let gap = cx.look().length(token::SPACE_1);
         let (at, corner) = if from.center().y < window.viewport_size().height / 2. {
@@ -867,8 +887,8 @@ fn keyed(look: &Look, part: Stateful<Div>, focus: Option<(&FocusHandle, bool)>) 
 }
 
 /// Send to job, then Start job, both in sight: the send leads, and its press opens the live Jobs beside
-/// it. `pending` names a send under way, drawn turning in Start job's place. `name` tells Send to job
-/// apart where two are drawn at once.
+/// it, or sends to `own`, the Job whose Browser tab the notes were made over. `pending` names a send under
+/// way, drawn turning in Start job's place. `name` tells Send to job apart where two are drawn at once.
 #[allow(clippy::too_many_arguments)]
 pub(crate) fn sends(
     look: &Look,
@@ -878,6 +898,7 @@ pub(crate) fn sends(
     off: bool,
     no_jobs: bool,
     pending: Option<SharedString>,
+    own: Option<SharedString>,
     at: Rc<Cell<Option<Bounds<Pixels>>>>,
     keys: Option<(&(FocusHandle, FocusHandle), [bool; 2])>,
     send: impl Fn(&ClickEvent, &mut Window, &mut App) + 'static,
@@ -891,9 +912,10 @@ pub(crate) fn sends(
         .draw(look, cx)
         .relative()
         .child(measure)
-        .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)));
+        .when(own.is_none(), |to| to.child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT))));
     let to = keyed(look, to, keys.map(|(keys, on)| (&keys.0, on[0])))
         .when(no_jobs && !busy, |to| to.tooltip(tip("No Job is live")))
+        .when_some(own.filter(|_| !send_off), |to, title| to.tooltip(tip(format!("To {title}"))))
         .when(!send_off, |to| to.on_click(send));
     let started = match pending {
         Some(said) => labelled(Btn::new(SharedString::from(format!("{id}-start")), said.clone(), Weight::Secondary).pending(true).draw(look, cx), Role::Button, said),
@@ -909,6 +931,16 @@ pub(crate) fn sends(
         .gap(look.length(token::SPACE_2))
         .child(labelled(to, Role::Button, name.to_string()))
         .child(started)
+}
+
+/// The live Job every one of these notes' Jobs is, the Job whose Browser tab each was made over.
+fn own_of<'a>(jobs: impl IntoIterator<Item = Option<&'a str>>, targets: &[Offered]) -> Option<Offered> {
+    let mut jobs = jobs.into_iter();
+    let first = jobs.next()??;
+    if !jobs.all(|job| job == Some(first)) {
+        return None;
+    }
+    targets.iter().find(|one| one.id.as_ref() == first).cloned()
 }
 
 impl Render for Layer {
@@ -1045,6 +1077,7 @@ impl Render for Layer {
                                 off,
                                 self.targets.is_empty(),
                                 None,
+                                self.own_job(&[id]).map(|job| job.title),
                                 Rc::clone(&self.card_at),
                                 Some((&self.card_keys, [self.card_keys.0.is_focused(window), self.card_keys.1.is_focused(window)])),
                                 cx.listener(move |this, _, window, cx| {
@@ -1106,6 +1139,7 @@ impl Layer {
                 false,
                 self.targets.is_empty(),
                 pending.clone(),
+                self.own_job(&self.sendable_here()).map(|job| job.title),
                 Rc::clone(&self.split_at),
                 None,
                 cx.listener(|this, _, window, cx| this.open_bar_menu(window, cx)),
@@ -1247,5 +1281,16 @@ mod tests {
         let started_in_source = |dir: &Path| dir == Path::new("/src/armada");
         assert!(is_dev_build(Some(shipped), Some(Path::new("/src/armada/crates")), &started_in_source, &none));
         assert!(is_dev_build(Some(Path::new("/src/armada/target/debug/bridge-native")), Some(Path::new("/")), &none, &none));
+    }
+
+    #[test]
+    fn notes_made_over_one_live_jobs_browser_go_to_that_job() {
+        let job = |id: &str, title: &str| Offered { id: id.to_string().into(), title: title.to_string().into() };
+        let live = [job("a", "Job browser in native"), job("b", "Feature Catalog")];
+        assert_eq!(own_of([Some("b"), Some("b")], &live), Some(job("b", "Feature Catalog")));
+        assert_eq!(own_of([Some("a"), Some("b")], &live), None, "two Jobs' pages: picked");
+        assert_eq!(own_of([Some("a"), None], &live), None, "a note on Bridge's own screen beside it: picked");
+        assert_eq!(own_of([Some("gone")], &live), None, "a Job no longer live: picked");
+        assert_eq!(own_of(std::iter::empty::<Option<&str>>(), &live), None);
     }
 }

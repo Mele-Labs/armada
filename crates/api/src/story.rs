@@ -7,7 +7,7 @@ use axum::response::Response;
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::Story;
+use crate::daemon::{OtherMacs, Story};
 use crate::served::Served;
 
 /// `?session_id=` on the reads of one Job.
@@ -90,6 +90,30 @@ pub(crate) async fn file_ask<D: Story>(State(served): State<Served<D>>, body: By
     };
     match served.daemon().file_ask(crate::acting::asking(), file).await {
         Ok(ask) => answer(StatusCode::OK, &ask, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The questions he asked in the Job and their answers. 200; 404 for no such Job.
+pub(crate) async fn list_job_questions<D: Story>(State(served): State<Served<D>>, Query(of): Query<OfJob>) -> Response {
+    match served.daemon().list_job_questions(ipc::SessionId::carried(of.session_id)).await {
+        Ok(list) => answer(StatusCode::OK, &list, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// He read an answer. 200 with the question as kept; 404 for a Job or a question not held; 409 for a question no reply answers yet.
+/// **Passed on to the Mac that holds the Job**, whose store keeps what he read.
+pub(crate) async fn mark_answer_read<D: Story + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let mark: ipc::MarkAnswerRead = match ipc::decode_body("an answer read", &body) {
+        Ok(mark) => mark,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    if let Some(mac) = served.daemon().mac_holding_job(mark.session_id.as_str()).await {
+        return crate::mac_acts::across(&served, mac, ipc::JobAct::AnswerRead(mark)).await;
+    }
+    match served.daemon().mark_answer_read(mark).await {
+        Ok(question) => answer(StatusCode::OK, &question, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

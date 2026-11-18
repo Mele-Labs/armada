@@ -86,4 +86,45 @@ where
         }
         Ok(SessionList { sessions })
     }
+
+    /// Every Job of this Mac whose project is `gone` moved into `kept`, as a merge of the two asks. **Nothing is
+    /// checked and nothing else of a Job changes**: its frozen values and the tasks it holds stay, as in
+    /// [`Fleet::sessions_project_set`]. Each is published as `session.changed`, and the projects once where one
+    /// of them was in a shared project and is not now.
+    pub(crate) async fn jobs_repointed(&self, gone: &str, kept: &str) -> Result<(), Refusal> {
+        let ids: Vec<String> = {
+            let store = self.store().lock().await;
+            let hostings = store.hostings().map_err(|why| self.ledger_fault(why))?;
+            hostings.into_iter().filter(|one| one.project.as_deref() == Some(gone)).map(|one| one.session_id).collect()
+        };
+        if ids.is_empty() {
+            return Ok(());
+        }
+        let mut was_shared = Vec::new();
+        for id in &ids {
+            if self.job_shared(id).await {
+                was_shared.push(id.clone());
+            }
+        }
+        {
+            let mut store = self.store().lock().await;
+            for id in &ids {
+                if let Some(mut hosting) = store.hosting(id).map_err(|why| self.ledger_fault(why))? {
+                    hosting.project = Some(kept.to_string());
+                    store.keep_hosting(&hosting).map_err(|why| self.ledger_fault(why))?;
+                }
+            }
+        }
+        for id in &ids {
+            self.published_hosted(id).await?;
+        }
+        let mut left_sharing = false;
+        for id in &was_shared {
+            left_sharing |= !self.job_shared(id).await;
+        }
+        if left_sharing {
+            self.projects_published().await;
+        }
+        Ok(())
+    }
 }

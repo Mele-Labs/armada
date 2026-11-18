@@ -153,12 +153,17 @@ pub struct Held {
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
     /// The Jobs whose For you moved, folded since the last take, oldest first.
     for_you_moved: Vec<ipc::ForYouChanged>,
+    /// The Jobs whose sorting, asks or questions moved (`session.story`), folded since the last take, oldest first.
+    story_moved: Vec<ipc::StoryChanged>,
     /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
     asides_moved: Vec<ipc::Aside>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
     shells: Vec<ShellNews>,
+    /// The acts an agent asked of a Job's browser (`browser.request`), and the page asks the owner answered in Needs you
+    /// (`browser.ask_answered`), since the last take, oldest first. Told once: Fleet replays neither.
+    browser: BrowserNews,
     /// What the Operator did with dispatches, folded since the last take, oldest first.
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
     /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
@@ -223,9 +228,11 @@ impl Held {
             workflows: None,
             subagents_moved: Vec::new(),
             for_you_moved: Vec::new(),
+            story_moved: Vec::new(),
             asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
+            browser: BrowserNews::default(),
             dispatched: Vec::new(),
             removed: Vec::new(),
             review_runs: Vec::new(),
@@ -377,6 +384,11 @@ impl Held {
         std::mem::take(&mut self.for_you_moved)
     }
 
+    /// The Jobs whose story moved, folded since the last take, oldest first.
+    pub fn take_story_moved(&mut self) -> Vec<ipc::StoryChanged> {
+        std::mem::take(&mut self.story_moved)
+    }
+
     /// The asides that moved, each as Fleet sent it whole, folded since the last take, oldest first.
     pub fn take_asides_moved(&mut self) -> Vec<ipc::Aside> {
         std::mem::take(&mut self.asides_moved)
@@ -385,6 +397,11 @@ impl Held {
     /// The shells' news folded since the last take, oldest first.
     pub fn take_shells(&mut self) -> Vec<ShellNews> {
         std::mem::take(&mut self.shells)
+    }
+
+    /// The Job browser's news folded since the last take, oldest first.
+    pub fn take_browser(&mut self) -> BrowserNews {
+        std::mem::take(&mut self.browser)
     }
 
     /// What the Operator did with dispatches, folded since the last take, oldest first.
@@ -551,6 +568,7 @@ impl Held {
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
                         Event::SessionForYou(moved) => self.for_you_moved.push(moved),
+                        Event::SessionStory(moved) => self.story_moved.push(moved),
                         // An aside arrives whole: the side chat replaces the one it holds by its id.
                         Event::SessionAside(aside) => self.asides_moved.push(aside),
                         Event::JobThreadTail(tail) => {
@@ -596,6 +614,8 @@ impl Held {
                         Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
                         Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
                         Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
+                        Event::BrowserRequest(request) => self.browser.requests.push(request),
+                        Event::BrowserAskAnswered(answered) => self.browser.answered.push(answered),
                         _ => {}
                     }
                 }
@@ -691,6 +711,11 @@ pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
 
 impl EventEmitter<ForYouMoved> for FleetConnection {}
 
+/// The Jobs whose story moved in one folded batch (`session.story`): his questions among it, for a view holding them to read again.
+pub struct StoryMoved(pub Vec<ipc::StoryChanged>);
+
+impl EventEmitter<StoryMoved> for FleetConnection {}
+
 /// The asides that moved in one folded batch (`session.aside`), each whole, for a side chat to replace the one it holds.
 pub struct AsidesMoved(pub Vec<ipc::Aside>);
 
@@ -704,6 +729,16 @@ pub enum ShellNews {
     /// The agent asked for it in front (`show_terminal`).
     Shown(ipc::JobTerminal),
 }
+
+/// What happened in the Jobs' browsers in one folded batch: the acts agents asked for, which Bridge answers, and the page asks the
+/// owner answered in Needs you.
+#[derive(Default)]
+pub struct BrowserNews {
+    pub requests: Vec<ipc::BrowserRequest>,
+    pub answered: Vec<ipc::BrowserAskAnswered>,
+}
+
+impl EventEmitter<BrowserNews> for FleetConnection {}
 
 /// The Jobs `session.removed` took away in one folded batch, for the list and the open Job to let go of.
 pub struct Removed(pub Vec<String>);
@@ -1243,9 +1278,11 @@ impl FleetConnection {
                     }
                     let subagents = this.held.take_subagents_moved();
                     let for_you = this.held.take_for_you_moved();
+                    let story = this.held.take_story_moved();
                     let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
+                    let browser = this.held.take_browser();
                     let dispatched = this.held.take_dispatched();
                     let removed = this.held.take_removed();
                     let (review_runs, review_runs_lost) = this.held.take_review_runs();
@@ -1262,6 +1299,9 @@ impl FleetConnection {
                     if !shells.is_empty() {
                         cx.emit(Shells(shells));
                     }
+                    if !browser.requests.is_empty() || !browser.answered.is_empty() {
+                        cx.emit(browser);
+                    }
                     if !dispatched.is_empty() {
                         cx.emit(Dispatched(dispatched));
                     }
@@ -1270,6 +1310,9 @@ impl FleetConnection {
                     }
                     if !for_you.is_empty() {
                         cx.emit(ForYouMoved(for_you));
+                    }
+                    if !story.is_empty() {
+                        cx.emit(StoryMoved(story));
                     }
                     if !asides.is_empty() {
                         cx.emit(AsidesMoved(asides));
@@ -1597,6 +1640,19 @@ mod tests {
     }
 
     #[test]
+    fn a_job_whose_story_moved_is_handed_over_once_as_fleet_sends_it() {
+        let moved = |job: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.story","session_id":"{job}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("df1ea0bd-adbe-4e29-aa04-50716fbeeeae"), moved("s1")]);
+        let told: Vec<String> = held.take_story_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
+        assert_eq!(told, ["df1ea0bd-adbe-4e29-aa04-50716fbeeeae", "s1"]);
+        assert!(held.take_story_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
     fn an_aside_that_moved_is_handed_over_whole_once_in_the_order_it_came() {
         let moved = |id: &str, state: &str, answer: &str| {
             let wire = format!(
@@ -1647,6 +1703,25 @@ mod tests {
         assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
         assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
         assert!(held.take_shells().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn an_agents_browser_acts_and_the_owners_answers_to_a_pages_asks_are_handed_over_once_in_the_order_they_came() {
+        let event = |body: &str| Signal::Stream(crate::frames::decode(&format!(r#"{{"message":"event","cursor":1,"event":{body}}}"#)).expect("an event"));
+        let mut held = Held::new();
+        held.fold(vec![
+            event(r#"{"kind":"browser.request","session_id":"s0","request_id":"browser-1","act":{"kind":"snapshot"}}"#),
+            event(r#"{"kind":"browser.ask_answered","session_id":"s0","ask_id":"tab-7","choice":null}"#),
+            event(r#"{"kind":"browser.request","session_id":"s1","request_id":"browser-2","act":{"kind":"open","url":"https://example.com/"}}"#),
+        ]);
+        let news = held.take_browser();
+        let asked: Vec<(&str, &str)> = news.requests.iter().map(|one| (one.session_id.as_str(), one.request_id.as_str())).collect();
+        assert_eq!(asked, [("s0", "browser-1"), ("s1", "browser-2")]);
+        assert_eq!(news.requests[1].act, ipc::BrowserAct::Open { url: "https://example.com/".into() });
+        assert_eq!(news.answered.len(), 1);
+        assert_eq!(news.answered[0].choice, None, "null is a dismissal");
+        let again = held.take_browser();
+        assert!(again.requests.is_empty() && again.answered.is_empty(), "news is told once");
     }
 
     #[test]

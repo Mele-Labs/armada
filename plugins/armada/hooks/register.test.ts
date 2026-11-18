@@ -13,7 +13,7 @@ type Posted = { url: string; body: any }
 
 function world(
   on: On,
-  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; handoff?: 'down' | 'slow' | 'refused' | string; commit?: 'down' | 'slow' | 'refused' | string; staged?: string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
+  options: { running?: () => boolean; slowReports?: boolean; heldGate?: Promise<void>; held?: string[]; heldCommands?: { command: string; args: string }[]; heldEnd?: boolean; model?: () => string; onCommand?: () => void; transcript?: string; tasksOnDisk?: Record<string, string>; env?: Record<string, string>; cwd?: () => string; polls?: (string | Promise<string> | Error)[]; asks?: string; reach?: string; quiet?: string; permission?: Record<string, unknown>; limits?: { kind: string; percentUsed: number; resetsAt?: string }[]; breakdown?: unknown; stopBlock?: string; thread?: unknown; logbook?: 'down' | 'slow' | 'refused' | string; handoff?: 'down' | 'slow' | 'refused' | string; commit?: 'down' | 'slow' | 'refused' | string; staged?: string; prePr?: 'passed' | 'failed' | 'down' | 'slow' | 'refused' } = {},
 ) {
   const running = options.running ?? (() => true)
   const posts: Posted[] = []
@@ -70,6 +70,10 @@ function world(
       reached.push(JSON.parse(e.init?.body ?? '{}'))
       if (options.reach === undefined) throw new Error('connection refused')
       return { value: { status: 200, ok: true, headers: {}, text: options.reach } }
+    }
+    if (e.url.endsWith('/sessions/quiet_jobs')) {
+      if (options.quiet === undefined) throw new Error('connection refused')
+      return { value: { status: 200, ok: true, headers: {}, text: options.quiet } }
     }
     // A question held by Fleet answers when the test says; the terminal's settling is answered at once.
     if (e.url.endsWith('/sessions/ask/terminal')) {
@@ -2341,7 +2345,7 @@ test('a message Fleet refuses is denied before it is sent', async ($, on) => {
 
   expect(out.deny).toBe(ENDED)
   expect(sent).toBe(false)
-  expect(reached).toEqual([{ to: 's-0badc0de' }])
+  expect(reached).toEqual([{ to: 's-0badc0de', message: 'Finish the operator' }])
 })
 
 test('a message Fleet allows is sent', async ($, on) => {
@@ -2351,6 +2355,48 @@ test('a message Fleet allows is sent', async ($, on) => {
 
   expect(out.deny).toBeUndefined()
   expect(out.result).toBe('sent')
+})
+
+const QUEUED = 'Queued for job "Reader" (s-1234abcd). Its agent is between turns, and Fleet starts it with your message.'
+
+test('a message Fleet queues for a Job between turns is answered with Fleet\'s word and never sent by the CLI', async ($, on) => {
+  const { reached } = world(on, { reach: JSON.stringify({ outcome: 'queued', message: QUEUED }) })
+  let sent = false
+  on('tool.call', { tool: 'SendMessage' }, () => {
+    sent = true
+    return { result: { success: false, message: "No agent named 's-1234abcd' is reachable." } }
+  })
+  const out = await $.tool.call({ tool: 'SendMessage', to: 's-1234abcd', message: 'are you there' })
+
+  expect(sent).toBe(false)
+  expect(out.deny).toBeUndefined()
+  expect(out.result).toEqual({ success: true, message: QUEUED })
+  expect(reached).toEqual([{ to: 's-1234abcd', message: 'are you there' }])
+})
+
+test('ListAgents names the Jobs between turns that the CLI leaves out', async ($, on) => {
+  const quiet = { jobs: [{ address: 's-e43bc397', title: 'Native review fixes', why: 'between_turns' }, { address: 's-0badc0de', title: null, why: 'paused' }] }
+  world(on, { quiet: JSON.stringify(quiet) })
+  on('tool.call', { tool: 'ListAgents' }, () => ({ result: 'peers' }))
+  const out = await $.tool.call({ tool: 'ListAgents' })
+
+  expect(out.result).toBe('peers')
+  expect(out.context).toEqual([
+    [
+      'Armada Jobs not listed above, because no process of theirs runs now. SendMessage to the address: Fleet keeps the message and delivers it.',
+      '- s-e43bc397 "Native review fixes": between turns; a message starts it',
+      '- s-0badc0de: paused; a message is its first turn at Resume',
+    ].join('\n'),
+  ])
+})
+
+test('ListAgents is as the CLI says where Fleet is out of reach', async ($, on) => {
+  world(on)
+  on('tool.call', { tool: 'ListAgents' }, () => ({ result: 'peers' }))
+  const out = await $.tool.call({ tool: 'ListAgents' })
+
+  expect(out.result).toBe('peers')
+  expect(out.context ?? []).toEqual([])
 })
 
 test('a message is sent when Fleet is out of reach', async ($, on) => {

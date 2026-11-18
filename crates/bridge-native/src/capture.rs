@@ -17,13 +17,14 @@ use std::sync::Arc;
 
 use gpui::{
     anchored, deferred, div, Anchor, point, prelude::*, Bounds, Context, CursorStyle, Entity, EventEmitter, ExternalPaths, FocusHandle,
-    Focusable, MouseButton, Pixels, Point, Role, SharedString, Subscription, Window,
+    Focusable, MouseButton, Pixels, Point, Role, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 
 use crate::annotate::tools::{self, Tools};
 use crate::labels::{holds, labelled, Drawn, LabelBook};
 use crate::look::{token, ActiveLook};
+use crate::page_note::{self, Aim, PageHeld};
 use crate::walk::bar::{button, Weight};
 
 /// Below this, in each direction, a press that moved is still a press and not a box.
@@ -36,6 +37,8 @@ pub enum Held {
     Region(Bounds<Pixels>),
     /// The whole window, with the screen it was on: no element, so no outline and no pin.
     Window { bounds: Bounds<Pixels>, screen: Option<SharedString> },
+    /// A part of a Job's page, read by the page's own layer: its box in the window, and what it is.
+    Page(PageHeld),
 }
 
 impl Held {
@@ -44,6 +47,7 @@ impl Held {
             Held::Element(drawn) => drawn.bounds,
             Held::Region(bounds) => *bounds,
             Held::Window { bounds, .. } => *bounds,
+            Held::Page(page) => page.bounds,
         }
     }
 
@@ -57,6 +61,7 @@ impl Held {
             },
             Held::Region(_) => "A box you drew".into(),
             Held::Window { screen, .. } => format!("Whole window · {}", screen.as_deref().unwrap_or("no screen marked")).into(),
+            Held::Page(page) => page.said.clone(),
         }
     }
 }
@@ -211,6 +216,8 @@ pub struct Words {
     pub card: &'static str,
     /// The layer's card carries the tools and the pictures; a walk's does not.
     pub tools: bool,
+    /// The layer reaches into a Job's page under the pointer and holds it still while it is armed; a walk's does not.
+    pub pages: bool,
 }
 
 /// A note written on what was held.
@@ -221,6 +228,8 @@ pub struct Noted {
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     /// The card's tools, with the changes and pictures that stand in them.
     pub tools: Option<Entity<Tools>>,
+    /// The url of the Job's page a box was drawn over, and that Job: a part of the page carries its own (`Held::Page`).
+    pub address: Option<(String, SharedString)>,
 }
 
 pub enum CaptureEvent {
@@ -240,6 +249,17 @@ pub struct Capture {
     /// The place the card's words are kept for, so a card put away and opened again finds them.
     keep: Option<String>,
     hover: Option<Drawn>,
+    /// What the pointer is over in a Job's page, as the page's own layer answered (`aim_page`).
+    hover_page: Option<Aim>,
+    /// Where the pointer last was over a page and has not been asked of yet, and the asking while one is.
+    aim_at: Option<Point<Pixels>>,
+    aiming: Option<Task<()>>,
+    /// A press on a page, until the page has answered what is under it.
+    holding: Option<Task<()>>,
+    /// The page a box was drawn over, and its Job.
+    address: Option<(String, SharedString)>,
+    /// The Job's pages, held still while this is armed.
+    freeze: page_note::Freeze,
     from: Option<Point<Pixels>>,
     to: Option<Point<Pixels>>,
     held: Option<Held>,
@@ -261,11 +281,20 @@ impl Focusable for Capture {
 
 impl Capture {
     pub fn new(within: Rc<Cell<Option<Bounds<Pixels>>>>, words: Words, keep: Option<String>, cx: &mut Context<Self>) -> Self {
+        // Armed, the Job's pages hold still as their pictures, and go live again when this is put away.
+        let freeze = if words.pages { page_note::Freeze::new(cx) } else { page_note::Freeze::default() };
+        cx.on_release(|this, cx| this.freeze.thaw(cx)).detach();
         Capture {
             within,
             words,
             keep,
             hover: None,
+            hover_page: None,
+            aim_at: None,
+            aiming: None,
+            holding: None,
+            address: None,
+            freeze,
             from: None,
             to: None,
             held: None,
@@ -319,10 +348,90 @@ impl Capture {
         }
         if self.from.is_some() {
             self.to = Some(at);
+        } else if self.words.pages && page_note::page_at(at, cx).is_some() {
+            // Over a Job's page the page's own part is aimed at, which the page answers when it can.
+            self.hover = None;
+            self.aim_at = Some(at);
+            self.aim_page(cx);
         } else {
+            self.aim_at = None;
+            self.hover_page = None;
             let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
             self.hover = self.within.get().and_then(|within| element_at(&drawn, at, within));
         }
+        cx.notify();
+    }
+
+    /// Asks the page what is at the pointer, one ask at a time and the latest place last, as Classic's pane aims
+    /// (`JobBrowserPane.tsx`: `aiming.busy`).
+    fn aim_page(&mut self, cx: &mut Context<Self>) {
+        if self.aiming.is_some() {
+            return;
+        }
+        self.aiming = Some(cx.spawn(async move |this, cx| loop {
+            let step = this
+                .update(cx, |this, cx| match this.aim_at.take() {
+                    None => {
+                        this.aiming = None;
+                        None
+                    }
+                    Some(at) => Some(page_note::page_at(at, cx).map(|over| (at, over.address(cx), over))),
+                })
+                .ok()
+                .flatten();
+            let Some(step) = step else { break };
+            let Some((at, address, over)) = step else {
+                if this.update(cx, |this, cx| {
+                    this.hover_page = None;
+                    cx.notify();
+                })
+                .is_err()
+                {
+                    break;
+                }
+                continue;
+            };
+            let aim = page_note::read_at(&over, at, false, cx).await.and_then(|answer| over.aim(&answer, &address));
+            let kept = this.update(cx, |this, cx| {
+                if this.held.is_none() && this.aim_at.is_none_or(|next| page_note::page_at(next, cx).is_some()) {
+                    this.hover_page = aim;
+                    cx.notify();
+                }
+            });
+            if kept.is_err() {
+                break;
+            }
+        }));
+    }
+
+    /// A press on a page: the part under it is read, and held once the page has answered. A page that answers nothing leaves the
+    /// press to what the screen labels there, the page's own region.
+    fn hold_page(&mut self, at: Point<Pixels>, over: page_note::Over, window: &mut Window, cx: &mut Context<Self>) {
+        let address = over.address(cx);
+        self.holding = Some(cx.spawn_in(window, async move |this, cx| {
+            let held = page_note::read_at(&over, at, true, cx).await.and_then(|answer| over.held(&answer, address));
+            let _ = this.update_in(cx, |this, window, cx| match held {
+                Some(held) => this.begin_note(Held::Page(held), cx),
+                None => {
+                    let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
+                    if let Some(found) = this.within.get().and_then(|within| element_at(&drawn, at, within)) {
+                        this.begin_note(Held::Element(found), cx);
+                    }
+                }
+            });
+        }));
+        cx.notify();
+    }
+
+    /// What was pressed is held: a note with nothing on it gives way to it, and the window draws once with nothing of Capture's
+    /// over the screen, which is the note's picture.
+    fn begin_note(&mut self, held: Held, cx: &mut Context<Self>) {
+        self.note = None;
+        self.tools = None;
+        self.paste = None;
+        self.hover_page = None;
+        self.held = Some(held);
+        self.clean = true;
         cx.notify();
     }
 
@@ -357,13 +466,21 @@ impl Capture {
         }
         let from = self.from.take().unwrap_or(at);
         self.to = None;
+        let boxed = region(from, at);
+        if boxed.is_none() && self.words.pages {
+            if let Some(over) = page_note::page_at(at, cx) {
+                self.hold_page(at, over, window, cx);
+                return;
+            }
+        }
+        self.address = boxed.and_then(|_| self.words.pages.then(|| page_note::page_at(from, cx)).flatten()).map(|over| (over.address(cx), over.job.clone()));
         // A press holds what is under it, which is what the last move aimed at when a pointer made both.
         let under = |this: &mut Self| {
             let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
             let under = this.within.get().and_then(|within| element_at(&drawn, at, within));
             this.hover.take().filter(|_| under.is_none()).or(under)
         };
-        let held = region(from, at).map(Held::Region).or_else(|| under(self).map(Held::Element));
+        let held = boxed.map(Held::Region).or_else(|| under(self).map(Held::Element));
         let Some(held) = held else {
             cx.notify();
             return;
@@ -430,7 +547,11 @@ impl Capture {
         let picture = self.picture.take();
         self.paste = None;
         let tools = self.tools.take();
-        cx.emit(CaptureEvent::Noted(Noted { said, held, picture, tools }));
+        let address = match &held {
+            Held::Region(_) => self.address.take(),
+            _ => None,
+        };
+        cx.emit(CaptureEvent::Noted(Noted { said, held, picture, tools, address }));
     }
 
     fn close(&mut self, cx: &mut Context<Self>) {
@@ -501,13 +622,18 @@ impl gpui::Render for Capture {
         let dragged = self.from.zip(self.to).and_then(|(from, to)| region(from, to));
         if let Some(bounds) = dragged {
             layer = layer.child(outline(bounds));
-        } else if let Some(hover) = self.hover.as_ref().filter(|_| self.held.is_none()) {
-            let name = named(hover);
-            layer = layer.child(outline(hover.bounds)).child(
+        } else if let Some((hover_bounds, name)) = self
+            .hover
+            .as_ref()
+            .map(|hover| (hover.bounds, named(hover)))
+            .or_else(|| self.hover_page.as_ref().map(|aim| (aim.bounds, aim.said.clone())))
+            .filter(|_| self.held.is_none())
+        {
+            layer = layer.child(outline(hover_bounds)).child(
                 div()
                     .absolute()
-                    .left(hover.bounds.origin.x)
-                    .top(hover.bounds.origin.y - look.length(token::H_BADGE) - edge)
+                    .left(hover_bounds.origin.x)
+                    .top(hover_bounds.origin.y - look.length(token::H_BADGE) - edge)
                     .h(look.length(token::H_BADGE))
                     .px(look.length(token::SPACE_2))
                     .flex()
@@ -780,5 +906,46 @@ mod tests {
         assert_eq!(back.get_pixel(70, 120).0, [0; 4], "inside the ring is left as it was");
         assert_eq!(back.get_pixel(41, 79).0, ink, "the number's pill stands above the ring");
         assert!(ringed(&picture, Bounds { origin: point(px(90.), px(40.)), size: size(px(50.), px(50.)) }, 2., 1, ink, [255; 4]).is_some());
+    }
+
+    fn page_part(bounds: Bounds<Pixels>) -> PageHeld {
+        use crate::page_note::read::{Rect, Read, Words};
+        PageHeld {
+            bounds,
+            said: "fast.com › button · Google Search".into(),
+            address: "https://fast.com/".into(),
+            job: "job-1".into(),
+            read: Read {
+                rect: Rect { x: 10., y: 20., width: 50., height: 30. },
+                words: Words { role: "button".into(), name: "Google Search".into(), tag: "input".into() },
+                text: String::new(),
+                label: None,
+                selector: "form > input".into(),
+                component: None,
+                owners: Vec::new(),
+                screen: None,
+                layer: None,
+                location: "/".into(),
+                nearby: Vec::new(),
+                stamp: None,
+                selected: Vec::new(),
+            },
+        }
+    }
+
+    #[test]
+    fn a_part_of_a_job_page_is_said_by_the_page_and_held_at_its_box_in_the_window() {
+        let bounds = Bounds { origin: point(px(110.), px(70.)), size: size(px(50.), px(30.)) };
+        let held = Held::Page(page_part(bounds));
+        assert_eq!(held.said(), SharedString::from("fast.com › button · Google Search"));
+        assert_eq!(held.bounds(), bounds);
+        // The window's picture carries the page as it was held, so the ring burned at the part's place in the window rings it.
+        let picture = image::RgbaImage::new(400, 300);
+        let ink = [0, 128, 255, 255];
+        let burned = ringed(&picture, held.bounds(), 2., 1, ink, [255; 4]).expect("a picture");
+        use base64::Engine as _;
+        let back = image::load_from_memory(&base64::engine::general_purpose::STANDARD.decode(burned).expect("base64")).expect("a PNG").to_rgba8();
+        assert_eq!(back.get_pixel(220, 160).0, ink, "the part's left edge, at twice the points");
+        assert_eq!(back.get_pixel(260, 150).0, [0; 4], "inside the ring is the page as it was");
     }
 }

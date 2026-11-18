@@ -48,6 +48,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘T       new Side Job: started with no sheet and opened on its thread, in the native Bridge only
 ⌥⌘C      capture a note onto the open Studio
 ⌘[ ⌘]    back / forward
+⌘R       reload the Job browser's page, in the native Bridge only, where a Job browser is in front
 ⌘Enter   send the message in the field that has focus
 ⇧⌘Enter  Queue for later: save a Session's request as an idea, not started
 ⌘N       dispatch, from every surface and from a field
@@ -63,6 +64,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
+⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel

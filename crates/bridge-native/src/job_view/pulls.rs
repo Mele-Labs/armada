@@ -531,6 +531,39 @@ impl JobView {
         known
     }
 
+    /// What the link table (`refs`, `known_pulls`) is read from, as one number, so a Fleet move that changed
+    /// none of it leaves the table as it is: while a Job streams its thread, Fleet moves many times a second.
+    pub(super) fn link_key(&self, manifest: Option<&str>, cx: &gpui::App) -> u64 {
+        use std::hash::{Hash, Hasher};
+        let mut key = std::collections::hash_map::DefaultHasher::new();
+        manifest.hash(&mut key);
+        for record in self.list.read(cx).records() {
+            (record.id.as_str(), &record.title, record.manifest_id.as_ref().map(|id| id.as_str())).hash(&mut key);
+            for one in record.attachments.iter().filter(|one| matches!(one.kind.as_str(), "pr" | "pull_request")) {
+                (&one.target, one.state == AttachmentState::GivenBack, one.detail.get("address")).hash(&mut key);
+            }
+        }
+        let mut line = |served: &[ipc::RepositorySummary], lines: &[ipc::MergeLineView]| {
+            for one in served {
+                (&one.root, one.manifest.as_ref().map(|held| held.id.as_str())).hash(&mut key);
+            }
+            for line in lines {
+                line.root.hash(&mut key);
+                for view in &line.pulls {
+                    (view.pull.number, &view.pull.url).hash(&mut key);
+                }
+            }
+        };
+        match &self.fleet {
+            Some(fleet) => {
+                let held = fleet.read(cx).held();
+                line(held.repositories.as_deref().unwrap_or_default(), held.merge_lines.as_deref().unwrap_or_default());
+            }
+            None => line(&crate::mock::repositories(), &crate::mock::merge_lines().unwrap_or_default()),
+        }
+        key.finish()
+    }
+
     /// A forge pull request's address pressed in words opens in the PR tab: the pull request a Job holds at
     /// that address, else one no Job holds in the Manifest its repository names. False where it is no pull
     /// request's address or no Manifest is read from its repository, and the browser takes it.
