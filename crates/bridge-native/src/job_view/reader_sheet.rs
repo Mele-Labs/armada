@@ -464,6 +464,24 @@ mod tests {
     }
 
     #[gpui::test]
+    fn an_artifact_of_one_drawing_takes_approve_and_ask_for_changes_in_the_panels_foot(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-folds", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| assert!(view.open_named("sketch:Step flow", window, cx)));
+        redraw(cx);
+        let panel = bounds_of(cx, Role::Dialog, "Review");
+        let approve = bounds_of(cx, Role::Button, "Approve");
+        let ask = bounds_of(cx, Role::Button, "Ask for changes");
+        let dismiss = bounds_of(cx, Role::Button, "Dismiss");
+        let low = panel.top() + panel.size.height * 0.75;
+        assert!(approve.top() > low && ask.top() > low && approve.bottom() < panel.bottom(), "both stand in the foot, at the panel's bottom");
+        for (name, one) in [("Approve", approve), ("Ask for changes", ask)] {
+            assert!(one.top() < dismiss.bottom() && one.bottom() > dismiss.top(), "{name} stands in Dismiss's row: {one:?} {dismiss:?}");
+        }
+        assert!(approve.right() <= ask.left() && ask.right() <= dismiss.left(), "right-aligned, in the order Approve, Ask for changes, Dismiss");
+        assert!(approve.left() > panel.left() + panel.size.width * 0.5, "on the right of the foot");
+    }
+
+    #[gpui::test]
     fn a_takes_row_of_the_jobs_review_opens_the_panel_on_this_jobs_items_with_that_row_picked(cx: &mut gpui::TestAppContext) {
         let row = format!(r#"[{{"id":"sketch:takes:bar","text":"Pick a take for the step bar","since":"2026-11-09T14:01:00Z","source":"sketch","artifact":"{ID}"}}]"#);
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |jobs| {
@@ -673,6 +691,21 @@ mod tests {
         let (_, cx) = opened(cx, 1400., 900.);
         assert!(drawn(cx, Role::Button, "Send pick"), "a single vote has its own Send pick");
         assert!(!drawn(cx, Role::Button, "Send picks"), "and no Send picks");
+    }
+
+    #[gpui::test]
+    fn cmd_enter_in_an_ask_for_changes_box_sends_the_note(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
+        redraw(cx);
+        cx.simulate_input("Shorter, please.");
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.clone(), post.how, post.words.clone())).collect();
+            assert_eq!(posts, [("intro".to_string(), ipc::PartHow::SentBack, Some("Shorter, please.".to_string()))], "⌘↩ sends the note as Send does");
+        });
     }
 
     #[gpui::test]
