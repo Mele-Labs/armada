@@ -242,6 +242,25 @@ fn a_story_link_puts_its_ask_in_front_when_the_tab_first_draws_and_one_for_anoth
 }
 
 #[gpui::test]
+fn a_long_title_gives_way_and_the_state_keeps_its_place_at_the_heads_end(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_resize(gpui::size(gpui::px(360.), gpui::px(800.)));
+    for _ in 0..2 {
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    // The book of a window with no label root keeps every frame's entries, so the last is the frame just drawn.
+    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
+        cx.update(|window, cx| {
+            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
+        })
+    };
+    let state = bounds(cx, Role::Image, "Fixed").expect("the state is drawn");
+    assert!(state.right() <= gpui::px(360.), "the state stays in view at 360 wide: {state:?}");
+}
+
+#[gpui::test]
 fn the_tab_draws_a_role_and_a_name_for_every_head_and_row(cx: &mut TestAppContext) {
     let (_tab, cx) = open(cx);
     assert!(drawn(cx, Role::Button, "1. Feature catalog"), "a head is a button named as it reads");

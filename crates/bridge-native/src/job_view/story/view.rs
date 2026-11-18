@@ -139,7 +139,8 @@ impl StoryTab {
                 window.focus(&this.focus, cx);
                 this.toggle(ix, cx);
             }))
-            .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).whitespace_nowrap().child(SharedString::from(said.clone())))
+            // The title gives way before the state, which keeps its column whatever the title's length.
+            .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone())))
             .child(chip(look, card.kind))
             .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(card.last.clone())))
             .child(state);
