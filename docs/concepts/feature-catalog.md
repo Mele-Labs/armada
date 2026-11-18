@@ -148,6 +148,83 @@ Fleet accepts `upsert_features` and `change_feature` from the Operator's own ses
 The Operator may also merge two seeded features that are one, and tells him on a card that carries what was absorbed, with an Undo that keeps it again through `upsert_features`.
 That keeps the feature and its prefixes and entry points, and takes the alias away, but the links, files and asks that moved stay with the target.
 
+## Floor plan
+
+A feature's page carries a floor plan: the project's code map, with the rooms the feature owns lit and the contracts it reaches drawn as doors.
+Fleet reads it from the repository's files when the page is read.
+It costs no model and does not read the code graph.
+
+A room is a module.
+Fleet walks each repository the project holds and takes the folder of each build manifest: `Cargo.toml`, `package.json`, `go.mod`, `pyproject.toml`, a Gradle `settings.gradle(.kts)`, `pom.xml`, `.csproj` and `Package.swift`.
+A module is named as its manifest names it, and carries the manifest it came from and the modules of the same repository it depends on.
+A manifest that only lists members is a root and is no room: a virtual Cargo workspace, an npm `workspaces` or pnpm root, a Maven aggregator.
+A tree with no manifest has its top folders as rooms.
+The walk skips hidden folders, `target`, `node_modules`, `dist`, `build`, `vendor` and the like, stops at eight folders deep and at 3,000 folders, and keeps at most 400 modules, shallowest first.
+
+> **Rule.** A room is lit when the feature owns a file in it by the rules above, and no other way.
+> Why: a second way to say what a feature touches would drift from the first, and a Job would learn to trust neither.
+
+A room is lit when the feature's prefix is the module's folder or a parent of it, when a prefix or a filed file lies inside it, and when no feature owns it more closely.
+A prefix `crates` lights each crate under it unless a longer prefix of another feature takes that crate.
+
+A door is a dependency out of a lit module to another module of the same repository, as the manifest declares it.
+Dependencies are the ones a build needs: Cargo `dependencies`, `build-dependencies` and target tables, npm `dependencies`, `peerDependencies` and `optionalDependencies`, and not the ones only tests or tools use.
+A door is a contract where the module it leads to carries a wire or API contract.
+A module does when its name or the last segment of its folder is one of `api`, `ipc`, `proto`, `contract`, `schema` or `openapi` (and their plurals), or when a `.proto` or OpenAPI or Swagger file lies inside it.
+In Armada that is the `ipc` crate.
+
+> **Rule.** A project declares no contracts, Fleet reads them off the names and files above.
+> Why: a list a person keeps of the contracts is the second record that goes stale, and a name or a `.proto` file already says it.
+
+A page read by `section` has no floor plan.
+A repository that does not read, or a project with no module, has none either.
+
+## Project overview
+
+The Features screen opens a project on its overview: what it is, its code map, the features busiest now, and its glossary.
+`get_project_overview` reads it from the repository's files and the library's rows, with no model.
+
+What it is, is the first sentence of the first repository's README, with the file it came from.
+The first repository is the first the project lists that Fleet serves.
+Fleet takes the first paragraph of prose after the title, badges, code and lists, strips the markup, and ends it at the first full stop that is not an `e.g.`.
+A repository with no README has none, and the screen draws nothing there.
+
+The code map is the project's rooms, the modules the floor plan reads, and each room names the area that owns most of its files.
+A file is counted for the feature that owns it by the rules above, the longest prefix first, and a pending feature owns none.
+A room no feature owns a file in has no area.
+
+> **Rule.** A room's area is counted from the files in it, and never kept as a second record.
+> Why: a list of which area holds which room would drift from the prefixes the moment a feature moved.
+
+The busiest features are the five with the most merges in the last 14 days, most first, each with its pull requests' numbers, newest first.
+A feature with no merge in the window is not listed.
+Both numbers are chosen, not measured.
+The glossary is a list of `term` and `meaning`, and is empty until it is built.
+
+## Since you looked
+
+Beside the overview, the screen says what moved since he last looked.
+Bridge keeps the time he last looked and sends it as `since` to `get_since_you_looked`.
+The answer is by feature, each with a tag:
+
+| Tag | Where |
+|---|---|
+| `needs_you` | The feature is pending and waits for his Confirm |
+| `changed` | A pull request merged on it since, and it was in the catalog before |
+| `new` | It entered the catalog since |
+
+A pending feature is `needs_you` however old it is, and a feature both added and merged on since is `new`, since he has not seen it yet.
+Needs you comes first, then Changed by newest merge, then New by newest added.
+Each feature carries one line, `what`, made from the titles of the pull requests merged since, newest first and at most three.
+A merge kept before titles were kept has none, and then the line is the feature's summary.
+`pulls` are those pull requests' numbers.
+`paragraph` is empty: a model's paragraph over the list comes later.
+
+> **Rule.** Fleet builds the list from merges and the catalog's own dates, and a model only ever words it.
+> Why: a list a model chose would drop a feature on a bad day, and he reads it to find what changed.
+
+A project with nothing since answers an empty `features`, and a `since` that is no time is refused with `fleet.feature_since_unreadable`.
+
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
@@ -176,6 +253,29 @@ A move changes the feature's area and nothing else: its slug, prefixes, asks and
 
 The seed's largest area holds eight, so seeding raises none.
 
+## Librarian
+
+The librarian is the Fleet work that keeps a project's catalog current.
+It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
+`since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
+No part is built yet, so a run today keeps its record and does nothing else.
+
+Three settings in `settings.json` say what it does, on the Features page, `runs` first.
+`features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
+`features.librarianParts` names the parts a run does, all nine as it ships.
+`features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
+
+`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, and the parts that ran.
+`list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
+Fleet reads those numbers from the merge links it already keeps and does not ask the forge.
+Bridge draws "not read since #N" from it.
+
+> **Rule.** Fleet starts no librarian run by itself while `features.librarianRuns` is `on_press`.
+> Why: the owner wants it on demand until it has been tested more, and a run Fleet started on its own would be one he did not ask for.
+
+`after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
+A word Fleet cannot read means `on_press`.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -190,12 +290,15 @@ A Job whose turns were read before searches were counted is in no week until its
 | `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
 | `get_feature_page` | One feature whole, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
+| `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
+| `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
+| `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |

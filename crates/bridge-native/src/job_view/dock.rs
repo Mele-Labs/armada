@@ -738,7 +738,14 @@ impl JobView {
     /// (`sessions-wired.tsx` `switching`). Fleet answering that it began is the pass.
     fn restart(&mut self, command: String, build: BuildSource, adopt: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"));
+        // A plain preview refresh is the Refresh row's act, both Macs where another is paired.
+        let (route, body) = match (build, adopt) {
+            (BuildSource::Preview, false) => {
+                let act = crate::pairing::refresh_act(crate::pairing::macs(cx));
+                (act.route(), act.body().unwrap_or_else(|| Err("no body".into())))
+            }
+            _ => ("/fleet/build/change", ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"))),
+        };
         self.mark_run(&job, &command, Some(RunMark::Running), cx);
         let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
             self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
@@ -750,7 +757,7 @@ impl JobView {
                 .spawn(async move {
                     let body = body?;
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let (status, bytes) = runtime.block_on(crate::transport::post(port, "/fleet/build/change", body))?;
+                    let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
                     if (200..300).contains(&status) {
                         return Ok(());
                     }
@@ -1040,10 +1047,23 @@ impl JobView {
                     _ => None,
                 };
                 let ran = command.and_then(|command| self.dock_of(id)?.runs.get(command)).map(RunMark::look);
-                let (icon, said) = ran.unwrap_or((icon_of(row.glyph.kind), row.glyph.said.clone().into()));
+                // A command meant for another Mac is never run from here: in Look its press opens it whole, with no
+                // Run, and otherwise it copies the command, to paste on that Mac.
+                let away = command.and(super::run_mac::elsewhere(crate::pairing::macs(cx), row.on.as_deref()));
+                let copies = (away.is_some() && !crate::ways::looks()).then(|| command.cloned()).flatten();
+                let (icon, said) = match (ran, &away) {
+                    (Some(ran), _) => ran,
+                    (None, Some(name)) if copies.is_some() => (icon_of(row.glyph.kind), format!("On {name}. Press to copy").into()),
+                    (None, Some(name)) => (icon_of(row.glyph.kind), format!("On {name}").into()),
+                    (None, None) => (icon_of(row.glyph.kind), row.glyph.said.clone().into()),
+                };
                 let (act, item) = (row.act.clone(), row.id.clone());
                 let open = key.clone();
-                self.list_row(id, &key, icon, said, row.text.clone(), Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)), Some(row), look, cx)
+                let press: Box<dyn Fn(&mut Self, &mut Window, &mut Context<Self>)> = match copies {
+                    Some(command) => Box::new(move |_, _, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(command.clone()))),
+                    None => Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)),
+                };
+                self.list_row(id, &key, icon, said, row.text.clone(), press, Some(row), look, cx)
             }
         }
     }

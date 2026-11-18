@@ -15,6 +15,7 @@ use ipc::{OpenOtherMacPage, OtherMacPageOpened, SessionId, WireError, WireValue}
 use super::now::lead;
 use super::JobView;
 use crate::labels::labelled;
+use crate::refusal::Refusal;
 use crate::look::{token, Look};
 
 /// Where a page not yet drawn stands.
@@ -32,12 +33,15 @@ pub(super) struct PagesOpen(HashMap<(String, String), PageOpen>);
 
 /// What a refusal of `open_other_mac_page` comes to: asleep with its time, else its sentence.
 fn refused(status: u16, bytes: &[u8]) -> PageOpen {
-    let Ok(error) = ipc::decode::<WireError>("WireError", bytes) else { return PageOpen::Refused(format!("Fleet answered {status}")) };
+    let refusal = Refusal::read("POST", ROUTE, status, bytes);
+    let Ok(error) = ipc::decode::<WireError>("WireError", bytes) else { return PageOpen::Refused(refusal.to_string()) };
     match error.fields.get("since") {
-        Some(WireValue::Int(since)) if error.code == "fleet.other_mac_asleep" => PageOpen::Asleep { said: error.message, since: *since },
-        _ => PageOpen::Refused(error.message),
+        Some(WireValue::Int(since)) if error.code == "fleet.other_mac_asleep" => PageOpen::Asleep { said: refusal.to_string(), since: *since },
+        _ => PageOpen::Refused(refusal.to_string()),
     }
 }
+
+const ROUTE: &str = "/sessions/other_mac_page";
 
 /// What a walk's mock Fleet answers for a page of Air's Job: asleep while Air sleeps, the link's sentence while it
 /// does not carry, else an address standing in for the one on this Mac's loopback.
@@ -80,16 +84,26 @@ impl JobView {
             let answer = cx
                 .background_executor()
                 .spawn(async move {
-                    let body = body.map_err(|why| PageOpen::Refused(format!("{why:?}")))?;
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| PageOpen::Refused(why.to_string()))?;
-                    let (status, bytes) = runtime.block_on(crate::transport::post(port, "/sessions/other_mac_page", body)).map_err(PageOpen::Refused)?;
+                    let body = body.map_err(|why| (PageOpen::Refused(format!("{why:?}")), None))?;
+                    let sent = body.len();
+                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| (PageOpen::Refused(why.to_string()), None))?;
+                    let (status, bytes) = runtime.block_on(crate::transport::post(port, ROUTE, body)).map_err(|why| (PageOpen::Refused(why), None))?;
                     if !(200..300).contains(&status) {
-                        return Err(refused(status, &bytes));
+                        return Err((refused(status, &bytes), Some(Refusal::read("POST", ROUTE, status, &bytes).sent(sent))));
                     }
-                    ipc::decode::<OtherMacPageOpened>("OtherMacPageOpened", &bytes).map(|opened| opened.url).map_err(|why| PageOpen::Refused(why.to_string()))
+                    ipc::decode::<OtherMacPageOpened>("OtherMacPageOpened", &bytes).map(|opened| opened.url).map_err(|why| (PageOpen::Refused(why.to_string()), None))
                 })
                 .await;
-            let _ = this.update_in(cx, |this, window, cx| this.page_answered(key, answer, window, cx));
+            let _ = this.update_in(cx, |this, window, cx| {
+                // A Mac asleep is said in the page's tab with its time; any other refusal also raises the toast.
+                let answer = answer.map_err(|(open, refusal)| {
+                    if let (PageOpen::Refused(_), Some(refusal)) = (&open, refusal) {
+                        cx.defer(move |cx| crate::toasts::tell_refused("The page was not opened", refusal, cx));
+                    }
+                    open
+                });
+                this.page_answered(key, answer, window, cx)
+            });
         })
         .detach();
     }

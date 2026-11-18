@@ -48,6 +48,7 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
+mod librarian;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -199,7 +200,7 @@ mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
-/// The pull requests waiting on a person as four lists, and the acts of a review on one.
+/// The pull requests waiting on a person as five lists, and the acts of a review on one.
 mod pull_reviews;
 /// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
 mod pull_review_memory;
@@ -377,6 +378,8 @@ pub use features::{
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use librarian::{LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+pub use features::{FloorDoor, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
@@ -618,7 +621,7 @@ pub use pull_requests::{
 pub use pull_reviews::{
     DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRateLimited,
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
-    ResolvePullThread, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
+    ResolvePullThread, ReviewListsChanged, ReviewListsFailed, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
     MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
@@ -930,3 +933,7 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+
+/// The project overview and Since you looked pages of the Features screen.
+mod feature_pages;
+pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};

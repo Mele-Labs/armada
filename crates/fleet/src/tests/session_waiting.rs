@@ -24,6 +24,7 @@ fn kept(id: &str, kind: &str, target: &str) -> KeptWaiting {
         options: Vec::new(),
         pictures: String::new(),
         artifact: String::new(),
+        act_on: String::new(),
         steps: Vec::new(),
     }
 }
@@ -127,6 +128,7 @@ fn set(id: &ipc::SessionId, items: &[(&str, &str)]) -> SetWaitingFor {
                 act: Some(WaitingAct {
                     kind: WaitingActKind::Run,
                     target: "cargo test".into(),
+                    on: None,
                 }),
                 options: vec![WaitingOption { label: "Yes".into(), description: None, picture: None }],
                 steps: Vec::new(),
@@ -349,7 +351,7 @@ async fn a_pick_with_words_tells_the_agent_both() {
 
 /// One item as an agent sends it for a walk: a `walk` act, the only thing Fleet reads as one.
 fn said(id: &ipc::SessionId, item: &str, text: &str) -> SetWaitingFor {
-    let act = WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5187/?walk=filesAsATree".into() };
+    let act = WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5187/?walk=filesAsATree".into(), on: None };
     SetWaitingFor {
         session_id: Some(id.clone()),
         items: vec![WaitingInput { approves: false, id: item.into(), text: text.into(), act: Some(act), options: Vec::new(), steps: Vec::new(), artifact: None }],
@@ -383,7 +385,7 @@ async fn an_agent_item_asking_him_to_walk_is_refused_once_a_window_is_shown_and_
     let worded = said(&id, "files-tree", "Walk the pull request Files tab at localhost:5187/?walk=filesAsATree, then say land it.");
     refused_for(rig.fleet.waiting_for(None, worded).await);
     let mut acted = set(&id, &[("again", "Look at the other page")]);
-    acted.items[0].act = Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into() });
+    acted.items[0].act = Some(WaitingAct { kind: WaitingActKind::Walk, target: "http://localhost:5173/never".into(), on: None });
     refused_for(rig.fleet.waiting_for(None, acted).await);
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert_eq!(ids(&record), [format!("walk:{url}").as_str()], "one walk, Fleet's");
@@ -404,6 +406,7 @@ async fn an_agent_walk_item_kept_before_the_rule_is_never_drawn_and_approve_clea
         options: Vec::new(),
         pictures: String::new(),
         artifact: String::new(),
+        act_on: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[kept]).unwrap();
@@ -694,7 +697,7 @@ fn answer_item(id: &ipc::SessionId, item: &str, text: &str, labels: &[&str]) -> 
             approves: false,
             id: item.into(),
             text: text.into(),
-            act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new() }),
+            act: Some(WaitingAct { kind: WaitingActKind::Answer, target: String::new(), on: None }),
             options: options_of(labels),
             steps: Vec::new(),
             artifact: None,
@@ -740,6 +743,7 @@ async fn an_item_kept_before_the_refusal_is_left_off_while_the_question_lapsed()
         options: labels.iter().map(|label| (*label).to_string()).collect(),
         pictures: String::new(),
         artifact: String::new(),
+        act_on: String::new(),
         steps: Vec::new(),
     };
     rig.fleet.store().lock().await.replace_waiting_for(id.as_str(), &[item("clock", &["Fake", "Frozen"]), item("tz", &["UTC", "Local"])]).unwrap();
@@ -834,4 +838,54 @@ async fn parts_picked_on_an_item_nothing_holds_are_settled_already() {
     let id = rig.start().await;
     let refused = Arc::clone(&rig.fleet).answer_waiting_parts(parts(&id, &[(0, "nav")])).await.expect_err("no such item");
     assert_eq!(refused.status(), 409);
+}
+
+/// One run item for Mac `on`.
+fn for_mac(id: &ipc::SessionId, on: &str) -> SetWaitingFor {
+    let mut set = set(id, &[("peers", "Read the peers on the other Mac")]);
+    set.items[0].options = Vec::new();
+    set.items[0].act = Some(WaitingAct { kind: WaitingActKind::Run, target: "curl -s localhost:4000/v1/peers".into(), on: Some(on.into()) });
+    set
+}
+
+#[tokio::test]
+async fn a_run_item_names_a_paired_mac_and_one_fleet_does_not_know_is_refused_naming_the_known() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    {
+        let mut store = rig.fleet.store().lock().await;
+        store.this_mac_or(&store::ThisMac { id: "686f6d65".into(), name: "Home".into(), colour: "teal".into(), minted_at: 1 }).unwrap();
+        store
+            .keep_mac(&store::PairedMac {
+                id: "6b696176".into(),
+                name: "Nick-Meles-MacBook-Pro---Kiavi".into(),
+                colour: "orange".into(),
+                address: "https://kiavi.example".into(),
+                public_key: Some(vec![1]),
+                build: None,
+                paired_at: 1,
+                state: store::MacState::Linked,
+                back_code: None,
+                last_heard_at: None,
+                asleep_since: None,
+                why: None,
+                wire: None,
+                built_at: None,
+                source: None,
+                pin: None,
+            })
+            .unwrap();
+    }
+    let why = match rig.fleet.waiting_for(None, for_mac(&id, "Studio")).await {
+        Err(api::Refusal::Unacceptable(error)) => error.message,
+        other => panic!("expected a Mac Fleet does not know refused, got {other:?}"),
+    };
+    assert!(why.contains("\"Home\" (this Mac) and \"Nick-Meles-MacBook-Pro---Kiavi\""), "{why}");
+    assert!(rig.fleet.store().lock().await.waiting_for(id.as_str()).unwrap().is_empty(), "nothing kept");
+
+    rig.fleet.waiting_for(None, for_mac(&id, "nick-meles-macbook-pro---kiavi")).await.unwrap();
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    let act = record.waiting_for.iter().find(|one| one.id == "peers").and_then(|one| one.act.clone()).unwrap();
+    assert_eq!(act.on.as_deref(), Some("Nick-Meles-MacBook-Pro---Kiavi"), "kept under the Mac's own name");
+    assert_eq!(rig.fleet.store().lock().await.waiting_for(id.as_str()).unwrap()[0].act_on, "Nick-Meles-MacBook-Pro---Kiavi");
 }

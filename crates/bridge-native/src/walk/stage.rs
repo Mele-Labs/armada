@@ -657,6 +657,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             });
             Ok(())
         }
+        // A send Fleet refused as too large raises the failure toast over whatever screen is in front.
+        Verb::Answer("refuse-too-large") => {
+            crate::toasts::refused_too_large(cx);
+            Ok(())
+        }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
                 // A name the page does not know is the dispatch screen's, where the whole app is in the walk.

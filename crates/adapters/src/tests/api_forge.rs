@@ -9,7 +9,9 @@
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ListFailure, ReviewList, ReviewListAsk, Said};
+use adapter_traits::{
+    ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ListFailure, NumberedPull, ReviewList, ReviewListAsk, Said,
+};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -25,6 +27,8 @@ const LIST: &str = include_str!("github_answers/review_list.json");
 const LIST_GH: &str = include_str!("github_answers/review_list.tsv");
 const ASKED: &str = include_str!("github_answers/review_list_asked.json");
 const ASKED_GH: &str = include_str!("github_answers/review_list_asked.tsv");
+const NUMBERED: &str = include_str!("github_answers/review_list_numbered.json");
+const NUMBERED_GH: &str = include_str!("github_answers/review_list_numbered.tsv");
 const PAGE: &str = include_str!("github_answers/page_2190.json");
 const PAGE_GH: &str = include_str!("github_answers/page_2190.tsv");
 const REVIEWED: &str = include_str!("github_answers/page_reviewed.json");
@@ -149,6 +153,32 @@ fn the_time_he_was_asked_over_the_api_is_the_time_gh_reads_and_only_the_lists_th
     let searches: Vec<String> = server.seen().into_iter().filter(|seen| seen.target == "/graphql").map(|seen| seen.body).collect();
     let asked: Vec<bool> = searches.iter().map(|body| body.contains(r#""asked":true"#)).collect();
     assert_eq!(asked, [true, true, false], "{searches:?}");
+}
+
+#[test]
+fn pull_requests_read_by_number_over_the_api_are_the_open_ones_gh_reads() {
+    let server = serve(|seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") => ok(NUMBERED),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = checkout("https://github.com/acme/billing.git");
+    let pulls: Vec<NumberedPull> = [("acme/billing", 41), ("acme/billing", 38), ("acme/ledger", 7), ("acme/ledger", 9)]
+        .map(|(repository, number)| NumberedPull { repository: repository.to_string(), number })
+        .to_vec();
+
+    let mut open = forge.open_pulls_numbered(&repo.root_str(), "mira", &pulls).unwrap();
+    open.sort_by_key(|row| row.number);
+    let mut gh = listed_folded(&lines(NUMBERED_GH), Teams::Unwanted, "mira");
+    gh.sort_by_key(|row| row.number);
+    assert_eq!(open, gh);
+    let numbers: Vec<u64> = open.iter().map(|row| row.number).collect();
+    assert_eq!(numbers, [9, 41], "a merged and a closed one are left out");
+    assert_eq!(open[1].my_latest.as_ref().map(|it| it.said), Some(LatestReviewSaid::Commented));
+
+    let asked = &server.seen()[0].body;
+    assert!(asked.contains(r#"r1:repository(owner:\"acme\",name:\"ledger\")"#), "{asked}");
+    assert!(asked.contains(r#""me":"mira""#) && asked.contains(r#""asked":false"#), "{asked}");
 }
 
 #[test]

@@ -39,6 +39,7 @@ pub(super) fn item(id: &str, text: &str, options: &[&str]) -> KeptWaiting {
         options: options.iter().map(|one| (*one).into()).collect(),
         pictures: String::new(),
         artifact: String::new(),
+        act_on: String::new(),
         steps: Vec::new(),
     }
 }
@@ -472,7 +473,7 @@ fn everything_but_the_kinds_waits_whatever_is_checked() {
         text: "Merge once ci is green".into(),
         since: ipc::Instant::carried(OLD),
         source: ipc::WaitingSource::Agent,
-        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "gh pr merge 1".into() }),
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "gh pr merge 1".into(), on: None }),
         options: vec![ipc::WaitingOption { label: "Go (Recommended)".into(), description: None, picture: None }],
         steps: Vec::new(),
         place: None,

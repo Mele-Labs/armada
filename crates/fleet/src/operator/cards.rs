@@ -121,7 +121,7 @@ where
             text: title.to_string(),
             since: Instant::carried(at.as_str()),
             source: WaitingSource::Agent,
-            act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone() }),
+            act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone(), on: None }),
             options: options_of(&card.options),
             approves: false,
             steps: Vec::new(),

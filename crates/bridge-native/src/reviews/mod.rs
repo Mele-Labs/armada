@@ -10,6 +10,7 @@ mod markdown;
 mod mock;
 pub(crate) mod model;
 mod panes;
+mod rail_width;
 mod tabs;
 pub mod walk;
 
@@ -31,6 +32,7 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
+use live::Find;
 use model::{Critique, DraftOf, Explain, Group, Inbox, Mine, Page, Summary, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
@@ -65,6 +67,8 @@ const PAGE_READ: Duration = Duration::from_millis(1500);
 const REFRESH_READ: Duration = Duration::from_millis(4000);
 /// How long a rate-limited inbox waits before reading again.
 const LIMIT_REREAD: Duration = Duration::from_secs(30);
+/// How often the age of the lists in the header is said again.
+const AGE_TICK: Duration = Duration::from_secs(30);
 /// The menu on a practice he corrected.
 const CHANGE_REASON: &str = "Change the reason";
 const UNDO: &str = "Undo";
@@ -126,6 +130,8 @@ pub struct ReviewsScreen {
     pub within: FocusHandle,
     /// The inbox's rows, which the arrows move through.
     pub rows: FocusHandle,
+    /// The inbox's own scroll, kept as it is when fresh rows swap in.
+    inbox_scroll: ScrollHandle,
     inbox: Inbox,
     folded: HashSet<Group>,
     lists: Option<PullReviewList>,
@@ -141,6 +147,8 @@ pub struct ReviewsScreen {
     last_visit: Option<Page>,
     refreshed: bool,
     arrangement: Arrangement,
+    /// The Files rail's width, as he last dragged it.
+    rail_width: f32,
     layouts: Layouts,
     control: Entity<LayoutControl>,
     /// The panes' area as last drawn, so a drop that would squeeze a pane is refused.
@@ -216,6 +224,9 @@ pub struct ReviewsScreen {
     copied: Option<(u64, Task<()>)>,
     /// The mock's Find problems runs, by pull request.
     finding: HashMap<u64, Task<()>>,
+    /// The pull requests he started a review on in this run of the app: their rows keep the bot mark
+    /// through a refresh that read the lists before Fleet recorded the run.
+    ran_here: HashSet<u64>,
     /// The card above each page's description: which of Summarize, Explain or Simplify it shows.
     rewrites: HashMap<u64, model::Rewrite>,
     /// Each answer as it stands, by pull request and question.
@@ -270,6 +281,7 @@ impl ReviewsScreen {
             refreshed: false,
             layouts: Layouts::new(arrangement.clone()),
             arrangement,
+            rail_width: rail_width::load(),
             control,
             area: Rc::default(),
             strips: Rc::default(),
@@ -293,6 +305,7 @@ impl ReviewsScreen {
             explains: HashMap::new(),
             explain_runs: HashMap::new(),
             chosen: HashMap::new(),
+            inbox_scroll: ScrollHandle::new(),
             set_scroll: ScrollHandle::new(),
             asking: None,
             asking_review: None,
@@ -314,6 +327,7 @@ impl ReviewsScreen {
             me: mock::ME.into(),
             copied: None,
             finding: HashMap::new(),
+            ran_here: HashSet::new(),
             rewrites: HashMap::new(),
             rewritten: HashMap::new(),
             rewrite_runs: HashMap::new(),
@@ -644,6 +658,7 @@ impl ReviewsScreen {
         if self.finding.contains_key(&number) {
             return;
         }
+        self.mark_reviewing(number);
         let wait = self.wait(FIND_RUN, cx);
         let task = cx.spawn_in(window, async move |this, cx| {
             wait.await;
@@ -927,19 +942,48 @@ impl ReviewsScreen {
         }
     }
 
-    /// Start: the ask is remembered for the repository and the review runs on it. Nothing ticked,
-    /// nothing starts.
+    /// Start: the ask is remembered for the repository, the change sets and the overview run where
+    /// they have not read this commit, and each ticked tool runs. Nothing ticked runs those two alone.
     pub(super) fn start_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(open) = self.asking_review.as_ref() else { return };
-        if open.ask.tools.is_empty() {
-            return;
-        }
         let Some(mut open) = self.asking_review.take() else { return };
         open.ask.focus = open.focus.read(cx).value().trim().to_string();
-        if let Some(repository) = self.page().map(|page| page.repository.clone()) {
-            self.review_asks.insert(repository, open.ask.clone());
+        let Some(page) = self.page() else { return };
+        let (number, repository) = (page.number, page.repository.clone());
+        let found = page.kept
+            || match self.live_finds(number) {
+                Some(finds) => finds.flags == Find::Done || finds.sets == Find::Running || finds.flags == Find::Running,
+                None => page.overview.read || self.finding.contains_key(&number),
+            };
+        self.review_asks.insert(repository, open.ask.clone());
+        self.sheet = false;
+        if !found {
+            self.find_problems(window, cx);
+        }
+        if open.ask.tools.is_empty() {
+            self.bring_kind("pr-overview", cx);
+            window.focus(&self.rows, cx);
+            cx.notify();
+            return;
         }
         self.start_critique(open.ask, window, cx);
+    }
+
+    /// He started a review on it here: its row takes the bot mark at once, and keeps it.
+    pub(super) fn mark_reviewing(&mut self, number: u64) {
+        self.ran_here.insert(number);
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            row.reviewing = true;
+        }
+    }
+
+    /// Whether he ran any review on it: a tool, the change sets or the overview, here or before.
+    pub(super) fn ran_review(&self, page: &model::Page) -> bool {
+        let row = self.inbox.rows.iter().any(|row| row.number == page.number && row.reviewing);
+        let found = match self.live_finds(page.number) {
+            Some(finds) => finds.sets != Find::NotRun || finds.flags != Find::NotRun,
+            None => page.overview.read || self.finding.contains_key(&page.number),
+        };
+        row || found || !matches!(page.critique, Critique::None)
     }
 
     /// The review run reads the range for what he asked, and its findings come to Review comments.
@@ -948,6 +992,7 @@ impl ReviewsScreen {
         let Some(page) = self.pages.get_mut(&number) else { return };
         let range = page.range();
         page.critique = Critique::Running { range: range.clone(), asked: asked.clone() };
+        self.mark_reviewing(number);
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
         if self.is_live() {
@@ -1080,22 +1125,37 @@ impl ReviewsScreen {
     fn submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         if self.is_live() {
-            self.live_submit(verdict, window, cx);
+            self.live_submit(verdict, false, window, cx);
             return;
         }
-        self.sent_review(number, verdict, window, cx);
+        self.sent_review(number, verdict, false, window, cx);
     }
 
-    /// The review went: its drafts and summary are cleared, and his verdict stands on the page and row.
-    fn sent_review(&mut self, number: u64, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
-        let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
-        let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
-        self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
-        for id in gone {
-            self.discard_draft(&id, cx);
+    /// No problems found's Approve: an approving review at the head with no body and no comments, by
+    /// the same send as Review changes. His drafts and summary stay for a later review.
+    pub(super) fn approve_bare(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        if self.is_live() {
+            self.live_submit(Verdict::Approved, true, window, cx);
+            return;
         }
-        crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
-        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
+        self.sent_review(number, Verdict::Approved, true, window, cx);
+    }
+
+    /// No problems found's Approve with comments: Review changes opens with the summary in focus.
+    pub(super) fn approve_with_comments(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_sheet(true, window, cx);
+        if let Some(summary) = self.summary.as_ref() {
+            summary.state.update(cx, |area, cx| area.focus(window, cx));
+        }
+    }
+
+    /// The review went: his verdict stands on the page and row. A review that carried his drafts and
+    /// summary clears them; a bare approval leaves them.
+    fn sent_review(&mut self, number: u64, verdict: Verdict, bare: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !bare {
+            self.clear_sent(number, window, cx);
+        }
         if let Some(page) = self.pages.get_mut(&number) {
             page.mine = Mine { verdict, on: Some(page.head.clone()), day: Some("today".into()), requested: None, commits: 0, replies: 0 };
         }
@@ -1105,6 +1165,18 @@ impl ReviewsScreen {
             row.new_commits = None;
         }
         self.open_sheet(false, window, cx);
+    }
+
+    /// The drafts and summary that went with a review.
+    fn clear_sent(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
+        let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
+        self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
+        for id in gone {
+            self.discard_draft(&id, cx);
+        }
+        crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
+        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
     }
 
     fn send_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1300,6 +1372,7 @@ impl ReviewsScreen {
             Entry::Choice { id: "team", label: "Team".into(), on: on == Some(PullReviewList::Team) },
             Entry::Choice { id: "assigned", label: "Assigned".into(), on: on == Some(PullReviewList::Assigned) },
             Entry::Choice { id: "mine", label: "Mine".into(), on: on == Some(PullReviewList::Mine) },
+            Entry::Choice { id: "reviewing", label: model::Group::Reviewing.said().into(), on: on == Some(PullReviewList::Reviewing) },
         ];
         self.open_menu("Lists", entries, at, |this, id, _, cx| {
             this.lists = match id {
@@ -1307,6 +1380,7 @@ impl ReviewsScreen {
                 "team" => Some(PullReviewList::Team),
                 "assigned" => Some(PullReviewList::Assigned),
                 "mine" => Some(PullReviewList::Mine),
+                "reviewing" => Some(PullReviewList::Reviewing),
                 _ => None,
             };
             cx.notify();

@@ -37,6 +37,14 @@ pub(crate) struct OfProject {
     project: Option<String>,
 }
 
+/// `?project=&since=` on `get_since_you_looked`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfSince {
+    #[serde(default)]
+    project: Option<String>,
+    since: String,
+}
+
 /// `?path=&project=&manifest_id=` on `get_features_of_path`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfPath {
@@ -64,6 +72,20 @@ pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, 
 pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeaturePage>) -> Response {
     match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature, asked.section).await {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_project_overview<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_project_overview(crate::acting::asking(), asked.project).await {
+        Ok(overview) => answer(StatusCode::OK, &overview, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_since_you_looked<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfSince>) -> Response {
+    match served.daemon().get_since_you_looked(crate::acting::asking(), asked.project, asked.since).await {
+        Ok(looked) => answer(StatusCode::OK, &looked, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
@@ -114,6 +136,18 @@ pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, 
     };
     match served.daemon().seed_features(crate::acting::asking(), seed).await {
         Ok(seeded) => answer(StatusCode::OK, &seeded, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner or the Operator presses Catch up: the project's librarian runs now. **Placed as `upsert_features` is.**
+pub(crate) async fn run_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let run: ipc::RunLibrarian = match ipc::decode_body("a project to run the librarian for", &body) {
+        Ok(run) => run,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().run_librarian(crate::acting::asking(), run).await {
+        Ok(ran) => answer(StatusCode::OK, &ran, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

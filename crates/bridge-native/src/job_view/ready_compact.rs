@@ -16,7 +16,7 @@ use ipc::{Instant, ReadyState, ThreadItem, ThreadReadyToTry};
 
 use super::acts::Answer;
 use super::band_card::{frame, Act};
-use super::ready_card::{clock, pending, Parts, Standing, NOT_IN_PREVIEW, NOT_IN_PREVIEW_TIP};
+use super::ready_card::{clock, pending, Parts, Preview, RefreshKeys, Standing, NOT_IN_PREVIEW};
 use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::labels::labelled;
@@ -93,9 +93,9 @@ pub(super) fn shots(items: &[ThreadItem]) -> Vec<ipc::SentFile> {
 }
 
 /// The word at the right of a build's row.
-fn word_of(build: &Build, answers: &HashMap<String, Answer>, now: DateTime<Local>) -> String {
+fn word_of(build: &Build, preview: &Preview, answers: &HashMap<String, Answer>, now: DateTime<Local>) -> String {
     match build.standing {
-        Standing::Open if pending(build.standing, build.card) => NOT_IN_PREVIEW.to_string(),
+        Standing::Open if pending(build.standing, preview) => preview.word().unwrap_or(NOT_IN_PREVIEW).to_string(),
         Standing::Open => "Ready".to_string(),
         Standing::Later => until(build.card, answers).map_or_else(|| "Later".to_string(), |at| format!("Later until {}", clock(&at, now))),
         other => other.word().to_string(),
@@ -136,23 +136,39 @@ impl JobView {
         let newest = listed.iter().max_by_key(|build| build.at).map(|build| build.card);
         let job = self.shown.clone().unwrap_or_default();
         let ids: Vec<String> = listed.iter().map(|build| build.card.id.clone()).collect();
-        let waits = standing == Standing::Open && !listed.iter().any(|build| build.standing == Standing::Open && build.card.in_build);
-        let word: SharedString = if waits { NOT_IN_PREVIEW.into() } else { standing.word().into() };
-        let head = newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, waits, listed.iter().any(|build| !build.card.in_build), now, look, cx));
+        let previews: Vec<Preview> = listed.iter().map(|build| self.preview_of(build.card, cx)).collect();
+        let open = || listed.iter().zip(&previews).filter(|(build, _)| build.standing == Standing::Open).map(|(_, preview)| preview);
+        let waits = standing == Standing::Open && !open().any(|preview| *preview == Preview::In);
+        // While no open build is in the preview, the head says the nearest: one Refresh would bring in, else one still checked, else one off the list.
+        let near = |preview: &&Preview| match preview {
+            Preview::NotIn => 0,
+            Preview::Checking => 1,
+            _ => 2,
+        };
+        let nearest = open().min_by_key(near);
+        let word: SharedString = match nearest.and_then(Preview::word) {
+            Some(word) if waits => word.into(),
+            _ => standing.word().into(),
+        };
+        let pending_tip = nearest.filter(|_| waits).map(Preview::tip);
+        // The Refresh keys stand while any listed build is outside the preview, and take a press only once one is ready for it.
+        let refresh = previews.iter().filter(|preview| **preview != Preview::In).min_by_key(near).map(|preview| RefreshKeys { ready: preview.refreshes(), why: preview.tip() });
+        let head = newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, pending_tip, refresh, now, look, cx));
         let rows: Vec<AnyElement> = listed
             .iter()
+            .zip(previews)
             .enumerate()
-            .map(|(at, build)| {
+            .map(|(at, (build, preview))| {
                 let card = build.card;
                 let spot = page.keys.spot(&format!("ready-row:{}", card.id), cx);
-                let waits = pending(build.standing, card);
+                let waits = pending(build.standing, &preview);
                 let ink = look.color(if waits { token::STATUS_AWAITING_REVIEW } else { build.standing.ink() });
-                let word = word_of(build, &page.cards.answers, now);
+                let word = word_of(build, &preview, &page.cards.answers, now);
                 let said = format!("{}, {word}", card.about);
                 let (pressed, keyed, opened, ids, neighbours) = (card.id.clone(), card.id.clone(), job.clone(), ids.clone(), job.clone());
-                let dot_tip = if waits { NOT_IN_PREVIEW_TIP } else { build.standing.tip() };
+                let dot_tip: SharedString = if waits { preview.tip() } else { build.standing.tip().into() };
                 let dot = labelled(
-                    div().id(SharedString::from(format!("ready-dot:{}", card.id))).flex_none().tooltip(tip(dot_tip)).child(glyph(look, dot_of(build.standing), Size::Mark, ink)),
+                    div().id(SharedString::from(format!("ready-dot:{}", card.id))).flex_none().tooltip(tip(dot_tip.clone())).child(glyph(look, dot_of(build.standing), Size::Mark, ink)),
                     Role::Image,
                     dot_tip,
                 );
@@ -839,12 +855,14 @@ mod tests {
     }
 
     #[gpui::test]
-    fn refresh_preview_stands_beside_the_built_chip_of_a_build_not_in_the_preview(cx: &mut gpui::TestAppContext) {
+    fn refresh_preview_stands_under_the_card_head_and_not_in_the_built_frame_of_an_opened_build(cx: &mut gpui::TestAppContext) {
         let (view, cx) = on_screen(cx, "tool-edit", 1400.);
         let outside = id_of(&view, SHOT, cx);
         view.update(cx, |view, cx| view.ready_open("tool-edit", &outside, cx));
         redraw(cx);
-        assert!(refresh_in(cx, &format!("Ready to try: {SHOT}")), "the build not in the preview offers Refresh beside its Built chip");
+        assert!(refresh_in(cx, "Ready to try"), "the card's head offers it");
+        assert!(!refresh_in(cx, &format!("Ready to try: {SHOT}")), "the built picture's frame only says where the build stands");
+        assert!(drawn(cx, Role::Status, "Restarts Fleet on latest main."), "what Refresh builds stands under it");
     }
 
     #[gpui::test]
@@ -854,11 +872,11 @@ mod tests {
         view.update(cx, |view, cx| view.ready_open("tool-edit", &outside, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "its row, right above it, says it");
-        assert_eq!(super::super::ready_card::built_label(false).0, "Not in your preview yet", "and so does the built picture's frame");
+        assert_eq!(super::super::ready_card::built_label(&Preview::NotIn).0, "Not in your preview yet", "and so does the built picture's frame");
         for name in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
             assert!(!drawn(cx, Role::Button, name), "{name} waits until the preview holds the build");
         }
-        assert!(refresh_in(cx, &format!("Ready to try: {SHOT}")), "Refresh preview stays");
+        assert!(refresh_in(cx, "Ready to try"), "Refresh preview stays");
     }
 
     #[gpui::test]
@@ -868,7 +886,7 @@ mod tests {
         view.update(cx, |view, cx| view.ready_open("tool-edit", &inside, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Status, "Ready to try"), "the card's chip is the plain one");
-        assert_eq!(super::super::ready_card::built_label(true).0, "Built \u{b7} in the preview");
+        assert_eq!(super::super::ready_card::built_label(&Preview::In).0, "Built \u{b7} in the preview");
         for name in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
             assert!(drawn(cx, Role::Button, name), "{name} is on a build the preview holds");
         }
@@ -880,6 +898,75 @@ mod tests {
         assert!(drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "its row says it");
         assert!(drawn(cx, Role::Button, &format!("{FULL}, Ready")), "a build the preview holds is Ready");
         assert!(drawn(cx, Role::Image, "The running preview does not hold this build yet"), "its dot says it");
+    }
+
+    /// Fleet's offers holding the build titled `about`, at its branch and tip, in `state`.
+    fn offers_of(about: &str, state: &str, why: Option<&str>) -> ipc::PreviewOffers {
+        let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
+        let card = threads
+            .values()
+            .flat_map(|thread| &thread.items)
+            .find_map(|item| match item {
+                ThreadItem::ReadyToTry(card) if card.about == about => Some(card.clone()),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("the thread holds a build titled {about}"));
+        let why = why.map_or(String::new(), |why| format!(r#","why":"{why}""#));
+        let wire = format!(
+            r#"{{"offers":[{{"branch":"{}","tip":"{}","session_id":"tool-edit","title":"Tool edit","about":"{about}","offered_at":"2026-11-15T14:10:00Z","state":"{state}","in_build":false{why}}}]}}"#,
+            card.branch, card.tip
+        );
+        ipc::decode::<ipc::PreviewOffers>("offers", wire.as_bytes()).expect("offers")
+    }
+
+    fn offers_held(fleet: &gpui::Entity<crate::fleet::FleetConnection>, offers: ipc::PreviewOffers, cx: &mut gpui::VisualTestContext) {
+        fleet.update(cx, |fleet, cx| {
+            fleet.hold_offers(offers);
+            cx.notify();
+        });
+        redraw(cx);
+    }
+
+    const CHECKING_TIP: &str = "Fleet is merging this build onto main and compiling it. Refresh preview can take it once that passes";
+
+    #[gpui::test]
+    fn a_build_fleet_is_still_checking_says_so_and_its_refresh_is_off(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        offers_held(&fleet, offers_of(SHOT, "checking", None), cx);
+        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Checking for your preview")), "its row says Fleet is still checking it");
+        assert!(!drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "not a word that sends him to Refresh");
+        assert!(refresh_in(cx, "Ready to try"), "Refresh stands where he looks for it");
+        assert!(drawn(cx, Role::Status, CHECKING_TIP), "off, and under it why");
+        assert!(drawn_like(cx, Role::Status, "Restarts Fleet").is_empty(), "no promise of a rebuild that would leave the branch out");
+    }
+
+    #[gpui::test]
+    fn a_build_whose_check_failed_is_off_the_list_with_fleets_why_and_its_refresh_is_off(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        let why = "Fleet's check failed it: conflicts with main in src/queue.rs";
+        offers_held(&fleet, offers_of(SHOT, "failed", Some("conflicts with main in src/queue.rs")), cx);
+        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Off the preview list")), "its row says the check failed it");
+        assert!(drawn(cx, Role::Image, why), "its dot says why");
+        assert!(drawn(cx, Role::Status, why), "and so does the line under the Refresh it cannot use");
+        assert!(drawn_like(cx, Role::Status, "Restarts Fleet").is_empty(), "Refresh cannot bring it in");
+    }
+
+    #[gpui::test]
+    fn a_build_fleet_checked_ready_offers_refresh_with_what_it_builds(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        offers_held(&fleet, offers_of(SHOT, "ready", None), cx);
+        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "ready and not built reads as before");
+        assert!(refresh_in(cx, "Ready to try"), "Refresh brings it in");
+        assert!(drawn(cx, Role::Status, "Restarts Fleet on latest main with Tool edit."), "the title bar's sentence names what it builds");
+        assert!(!drawn(cx, Role::Status, CHECKING_TIP), "nothing holds it off");
+    }
+
+    #[test]
+    fn only_a_build_fleet_checked_ready_takes_a_refresh() {
+        assert!(Preview::NotIn.refreshes());
+        for off in [Preview::In, Preview::Checking, Preview::Off(None)] {
+            assert!(!off.refreshes(), "{off:?}");
+        }
     }
 
     #[gpui::test]

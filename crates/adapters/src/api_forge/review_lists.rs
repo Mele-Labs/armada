@@ -1,16 +1,30 @@
 //! One list of pull requests waiting on a person, over GitHub's API: the search `gh` asks, read
 //! into the rows `crate::pull_review_lists` folds from `gh`'s records.
 
-use adapter_traits::{ListedPull, ReviewList, ReviewListAsk};
+use std::collections::BTreeMap;
+
+use adapter_traits::{ListedPull, NumberedPull, ReviewList, ReviewListAsk};
 use serde::{Deserialize, Serialize};
 
 use super::{joined, login_of, Login, Nodes};
 use crate::github_api::{ApiFailure, GitHubApi};
 use crate::pull_request_detail::review_standing;
-use crate::pull_review_lists::{asked_at_of, asks_read, checks_of, latest_of, search_of, team_named, Teams, MOST_A_CALL, QUERY};
+use crate::pull_review_lists::{
+    asked_at_of, asks_read, checks_of, latest_of, numbered_query, search_of, team_named, Teams, MOST_A_CALL, QUERY,
+};
 
 /// The most pages of the person's teams read: 1,000 teams.
 const MOST_TEAM_PAGES: usize = 10;
+
+/// The read by number's variables: no row reads its review requests.
+#[derive(Serialize)]
+struct NumberedAsked<'a> {
+    me: Option<&'a str>,
+    asked: bool,
+}
+
+/// `data` of the read by number: each repository's alias, then each pull request's.
+type Numbered = BTreeMap<String, Option<BTreeMap<String, Option<Found>>>>;
 
 #[derive(Serialize)]
 struct Asked<'a> {
@@ -41,6 +55,8 @@ struct Found {
     author: Option<Login>,
     updated_at: Option<String>,
     review_decision: Option<String>,
+    /// Read by number only; the search asks only for open ones.
+    state: Option<String>,
     commits: Option<Nodes<Commit>>,
     review_requests: Option<Nodes<Request>>,
     my_review: Option<Nodes<MyReview>>,
@@ -138,6 +154,23 @@ pub(super) fn read(api: &GitHubApi, ask: &ReviewListAsk<'_>) -> Result<Option<Ve
     let held = held.ok();
     let teams = held.as_deref().map_or(Teams::Unread, Teams::Held);
     Ok(Some(listed(found?, teams, ask.login)))
+}
+
+/// `pulls` read by number, the open ones as rows, as for `gh`.
+pub(super) fn numbered(api: &GitHubApi, login: &str, pulls: &[NumberedPull]) -> Result<Option<Vec<ListedPull>>, ApiFailure> {
+    let Some(query) = numbered_query(pulls) else { return Ok(Some(Vec::new())) };
+    let asked = NumberedAsked { me: (!login.is_empty()).then_some(login), asked: false };
+    let read: Numbered = api.graphql(&query, &asked)?;
+    let open: Vec<Option<Found>> = read
+        .into_values()
+        .flatten()
+        .flat_map(BTreeMap::into_values)
+        .flatten()
+        .filter(|pull| pull.state.as_deref() == Some("OPEN"))
+        .map(Some)
+        .collect();
+    let found = Searched { search: Some(Nodes { nodes: Some(open) }) };
+    Ok(Some(listed(found, Teams::Unwanted, login)))
 }
 
 /// The teams the person is on, as lowercase `org/slug`. A refusal is a token without `read:org`,

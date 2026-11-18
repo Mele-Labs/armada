@@ -39,6 +39,8 @@ mod job_cli;
 /// What the stream carries, under the names `operations/` declares.
 mod events;
 mod session_wire;
+/// A run item names the Mac its command is for.
+mod waiting_mac;
 mod message_edits;
 mod issue_reading;
 /// A refused body names its whole shape.
@@ -50,6 +52,7 @@ mod thought;
 mod limits;
 mod judge;
 mod asides;
+mod pull_review_lists;
 mod pull_review_memory;
 mod review_runs;
 mod layout;

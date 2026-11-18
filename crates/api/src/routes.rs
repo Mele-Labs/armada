@@ -85,6 +85,7 @@ pub use served::{Route, SERVED};
 /// door's own calls carry no `Origin` — they are built here, not forwarded —
 /// so a tool call passes exactly as a Bridge request does.
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
+    let served_run_id = served.run_id().clone();
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
     // Over the listener and not the door's copy: what the door offers a Job is the inventory's
@@ -105,7 +106,11 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
         )),
         None => app,
     };
-    app.layer(refusing_a_job).layer(refusing_a_page)
+    // Outermost, so it sees a 413 from any layer or extractor beneath it.
+    let naming_a_413 = from_fn_with_state(served_run_id, crate::too_large::name_a_413);
+    app.layer(refusing_a_job)
+        .layer(refusing_a_page)
+        .layer(naming_a_413)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.
@@ -585,7 +590,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route(
             "/sessions/dispatch",
-            post(crate::hosted_sessions::dispatch_job::<D>),
+            post(crate::hosted_sessions::dispatch_job::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
         )
         .route(
             "/sessions/parked",
@@ -927,11 +936,14 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/values", get(crate::projects::get_values::<D>))
         .route("/features", get(crate::features::list_features::<D>))
         .route("/features/page", get(crate::features::get_feature_page::<D>))
+        .route("/features/overview", get(crate::features::get_project_overview::<D>))
+        .route("/features/since", get(crate::features::get_since_you_looked::<D>))
         .route("/features/brief", get(crate::features::get_feature_brief::<D>))
         .route("/features/of_path", get(crate::features::get_features_of_path::<D>))
         .route("/features/write_sections", post(crate::features::write_feature_sections::<D>))
         .route("/features/upsert", post(crate::features::upsert_features::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
+        .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))

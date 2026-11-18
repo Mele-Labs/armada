@@ -21,7 +21,7 @@ use async_channel::{Receiver, Sender};
 use gpui::{App, Task};
 use ipc::{
     JobTerminals, ListedTerminal, ManifestId, OpenTerminal, RenameTerminal, ResizeSessionRun, SessionId, SessionRunMessage, SessionRunUnderway, StartSessionRun,
-    StartSideJob, StopSessionRun, SideJobStarted, WireError, WriteSessionRun,
+    StartSideJob, StopSessionRun, SideJobStarted, WriteSessionRun,
 };
 
 use super::screen::Cells;
@@ -94,13 +94,15 @@ fn ask<T: serde::de::DeserializeOwned + Send + 'static>(port: Option<u16>, path:
     cx.background_executor().spawn(async move {
         let port = port.ok_or_else(|| "Fleet is not connected".to_string())?;
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+        let (method, sent) = match &body {
+            Some(body) => ("POST", Some(body.len())),
+            None => ("GET", None),
+        };
         let (status, bytes) = match body {
             Some(body) => runtime.block_on(crate::transport::post(port, &path, body))?,
             None => runtime.block_on(crate::transport::get(port, &path))?,
         };
-        if !(200..300).contains(&status) {
-            return Err(ipc::decode::<WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message));
-        }
+        let bytes = crate::refusal::answered(method, &path, sent, status, bytes).map_err(|refusal| refusal.to_string())?;
         ipc::decode::<T>(what, &bytes).map_err(|why| why.to_string())
     })
 }

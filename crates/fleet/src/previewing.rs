@@ -22,7 +22,9 @@ use ipc::{
 use sha2::{Digest, Sha256};
 use store::{KeptPreviewOffered, SessionState};
 
-use crate::building::{commit_in, held_in, restarting_in, source_in};
+use adapters::BuildMerges;
+
+use crate::building::{commit_in, held_by_merges, held_in, restarting_in, source_in, Held};
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
 use crate::repositories::Served;
@@ -48,6 +50,8 @@ pub(crate) struct Previewing {
     pub(crate) notes_sent: Mutex<Option<ipc::BuildNotes>>,
     /// The main commit the last check ran against, so a move of main asks for another.
     main_seen: Mutex<Option<String>>,
+    /// What the merges of the last build commit read said it holds, so git is asked once per build.
+    walked: Mutex<Option<(String, Option<BuildMerges>)>>,
 }
 
 impl Default for Previewing {
@@ -59,6 +63,7 @@ impl Default for Previewing {
             sent: Mutex::new(None),
             notes_sent: Mutex::new(None),
             main_seen: Mutex::new(None),
+            walked: Mutex::new(None),
         }
     }
 }
@@ -333,8 +338,19 @@ where
             return None;
         }
         let commit = commit_in(&support)?;
-        let tips = held_in(&support, &commit).map(|held| held.tips).unwrap_or_default();
+        let tips = self.preview_held(&support, &commit).map(|held| held.tips).unwrap_or_default();
         Some((commit, tips))
+    }
+
+    /// What the preview build at `commit` holds: its own merges, where it has any, else `preview-held`.
+    /// The merges are read from git once per build commit.
+    pub(crate) fn preview_held(&self, support: &std::path::Path, commit: &str) -> Option<Held> {
+        let mut walked = self.previewing().walked.lock().expect("not poisoned");
+        if walked.as_ref().map(|(seen, _)| seen.as_str()) != Some(commit) {
+            let root = self.build_checkout().map(|checkout| checkout.to_string_lossy().into_owned());
+            *walked = Some((commit.to_string(), root.and_then(|root| adapters::build_merges(&root, commit))));
+        }
+        held_by_merges(held_in(support, commit), walked.as_ref().and_then(|(_, merges)| merges.clone()))
     }
 
     /// The set of offers moved: write what `scripts/preview` reads and publish the answer, each only where

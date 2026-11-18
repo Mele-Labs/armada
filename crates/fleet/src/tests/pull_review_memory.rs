@@ -48,7 +48,7 @@ fn the_inbox_is_the_first_state_that_holds() {
 #[tokio::test]
 async fn a_pull_request_marked_seen_shows_it_on_its_page_and_its_row_and_a_moved_head_is_changed_since_you_looked() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "NickMele");
     let mut approved = pull(12, SLUG);
@@ -56,7 +56,7 @@ async fn a_pull_request_marked_seen_shows_it_on_its_page_and_its_row_and_a_moved
     fleet.vcs().now_review_list(ReviewList::Requested, vec![approved, pull(13, SLUG)]);
     fleet.vcs().now_pull_request_page(Some(a_page()));
 
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested[0].inbox, PullInbox::Done, "never seen, and he approved");
     assert_eq!(lists.requested[0].my_review.as_ref().map(|it| it.said), Some(MyReviewSaid::Approved));
     assert_eq!(lists.requested[1].inbox, PullInbox::NeedsFirstLook);
@@ -65,14 +65,14 @@ async fn a_pull_request_marked_seen_shows_it_on_its_page_and_its_row_and_a_moved
     assert_eq!(kept.head, OLD);
     let page = fleet.get_pull_request_detail(id.clone(), 12).await.expect("read");
     assert_eq!(page.seen.map(|it| it.head), Some(OLD.to_string()));
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested[0].seen.as_ref().map(|it| it.head.as_str()), Some(OLD));
     assert_eq!(lists.requested[0].inbox, PullInbox::ChangedSinceYouLooked);
     assert_eq!(lists.requested[1].inbox, PullInbox::NeedsFirstLook, "a mark is one pull request's");
 
     // He reads it again and leaves at the head: back to what his review says.
     fleet.mark_pull_request_seen(id.clone(), MarkPullSeen { number: 12, head: HEAD.into() }).await.expect("kept");
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested[0].inbox, PullInbox::Done);
 
     let refused = fleet.mark_pull_request_seen(id, MarkPullSeen { number: 12, head: "main".into() }).await.unwrap_err();

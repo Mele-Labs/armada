@@ -15,7 +15,7 @@ fn a_body_reads_every_field_and_marks_the_ones_it_may_leave_out() {
 fn a_nested_list_an_optional_object_and_an_enum_read_whole() {
     assert_eq!(
         shape::of::<SetWaitingFor>(),
-        "{items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}, \
+        "{items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string, on?: string}, \
          options?: [{label: string, description?: string, picture?: {image: string, width: number, height: number, \
          parts?: [object]}}], approves?: boolean, steps?: [string], artifact?: string}], session_id?: string}"
     );

@@ -539,7 +539,8 @@ A kept one comes off Needs you once the Job's branch is on the preview list.
 It reads the pull request's patches from the forge when it enters the merge queue, and again once it has merged.
 The changed types are the `pub struct`, `pub enum` and `pub type` items under `crates/ipc/src` with an added or removed line in their body; a patch under `crates/ipc/src/tests` and a changed comment are not the wire.
 Where the lines are fields or variants, the notice names them as added, removed or changed.
-A Job reads a type when its branch, against its merge base with main, changes a file under `crates/bridge-native`, `apps/pocket` or `packages/protocol`, and its worktree names the type there as a whole word.
+A Job reads a type when a file its branch changes, against its merge base with main, under `crates/bridge-native`, `apps/pocket` or `packages/protocol` names the type as a whole word.
+A file the branch did not change is not read, however many times it names the type.
 The notice gives at most three `path:line` for each type.
 **The pull request's own Jobs are not told.**
 **Each notice is told once a pull request, cause and Job**, kept in the store beside the pull request notices.
@@ -574,11 +575,19 @@ The pull reading reads every open pull request with its author on one call, so t
 
 ### The pull requests waiting on a person
 
-**`get_review_lists` (`GET /review_lists`) reads four lists from the forge when somebody looks, and nothing polls them.** Fleet keeps no copy of other people's pull requests, so a reply is as old as the forge's answer, and Bridge reads again when the Reviews tab opens and on Refresh.
-Bridge keeps the last reading and draws it at once while the next one is read.
+**`get_review_lists` (`GET /review_lists`) reads five lists from the forge when somebody looks, and nothing polls them.** Bridge asks when the Reviews tab opens and on Refresh, and Armada does not watch other people's pull requests between.
+**Fleet keeps the lists it last read, for each project, in its store (`review_lists_kept`)**, so they survive a restart of Fleet and a preview build.
+Where lists are kept the ask answers them at once, with their `fetched_at` and `refreshing` set, and reads the forge behind them.
+A row is marked again from Fleet's own record when it is served, so his seen head, inbox state, holder, written reviews and `reviewing` are current: Mark as seen shows at once.
+**When that read ends Fleet publishes `review_lists.changed`**, carrying the fresh lists whole, or the failure (`code`, `said`, `until`), which leaves the kept rows as they were.
+One read a project is in flight, and the event is not replayed: a client that reconnects or sees a gap asks `get_review_lists` again.
+With nothing kept the ask waits for the read, and `refreshing` is absent.
+Bridge draws the kept rows at once under their age, and swaps the fresh ones in without moving the selection or the scroll.
 The lists are review asked of the person by name, asked of a team they are on and not of them by name, assigned to them, and opened by them.
+The fifth, `reviewing`, is the open pull requests the person ran a review tool on in Armada that are on none of the four, read by number in one forge call from the pull requests Fleet keeps a tool, explanation, change-set, overview or practice run of.
+Every row of every list says whether he ran one, as `reviewing`.
 Every one is searched for the person's login, the first of *Whose pull requests Fleet reads*, across every served repository at once: **one forge call a list, whoever opened the pull request and whether or not a Job holds it**.
-**The four are read at once**, so a person waits on the slowest and not on the sum.
+**The five are read at once**, so a person waits on the slowest and not on the sum.
 For a repository on `github.com` they go over GitHub's API through one pooled client every forge call shares, and so does every other forge read and write.
 Four stay `gh`'s: reading the token, `pr merge`, an issue, pull request or milestone a source names for a Job to read, and any call about a repository on another host.
 **A refusal for GitHub's rate limit holds every call of that client** until GitHub's `Retry-After`, else the reset of a window it spent, else three minutes that double for each refusal that follows a hold, up to fifteen.
@@ -591,8 +600,10 @@ A pull request on several lists is a row on each, and a team row names the first
 Where the forge kept none, a request by name is dated from when Fleet first told the person of it, which is as late as the next look after the ask.
 
 **A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list.
-All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
-**GitHub's rate limit** is its own answer: with the lists last read, those are shown with `rate_limited` set (`until`, RFC 3339 with milliseconds, absent where GitHub named no time) and `fetched_at` their time, and Fleet asks nothing until `until`, or for three minutes where none was named; with none read it is a 500 `fleet.review_lists_rate_limited`, `fields.until` the same time.
+All four of the forge's own lists silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+A read by number that fails names `reviewing` in `silent` and fails nothing else.
+**GitHub's rate limit** is its own answer: with the lists kept, those are shown with `rate_limited` set (`until`, RFC 3339 with milliseconds, absent where GitHub named no time) and `fetched_at` their time, and Fleet asks nothing until `until`, or for three minutes where none was named; with none kept it is a 500 `fleet.review_lists_rate_limited`, `fields.until` the same time.
+The hold itself stays in memory, so a restart of Fleet forgets it and the next ask reads the forge again.
 No token and an unanswering GitHub are `fleet.review_lists_unreadable` with a sentence that says which.
 
 **`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review.
@@ -688,7 +699,7 @@ Every compile runs at utility priority.
 Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
 
 **`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
-**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads `Armada/preview-held`).
+**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads the running build commit's own merges, and `Armada/preview-held` where the commit shows none).
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
 `preview_offers.changed` carries the answer whole.
 
@@ -696,7 +707,7 @@ The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a differ
 On every accepted offer Fleet keeps one note a (branch, tip) in `build_notes`: the Job, its `about`, `look` and `steps`, when it was offered and when the owner looked.
 A re-offer at the same tip updates the note and keeps the mark, and a new tip is a new note that is not looked at.
 Fleet drops an offer when its Job ends or its tip lands, and the note stays, because the build the owner loaded still holds the branch.
-**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds in `Armada/preview-held`, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
+**`get_build_notes` is the build's side of what Bridge draws**: the note of each (branch, tip) the running build holds, read from its commit's merges and from `Armada/preview-held` where it shows none, in the order the branches were offered, with the Job's title (its id where it has none), `job_ended`, `looked_at` and `verdict`, and the build's commit.
 Off the preview it answers no notes and no commit.
 `build_notes.changed` carries it whole, when a note is marked, when a Job whose note the build holds ends, and when the running build changes.
 Fleet looks for the last two on the sweep that reads `main`, so a Job's end reaches Bridge within one sweep.

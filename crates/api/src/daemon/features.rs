@@ -30,6 +30,22 @@ pub trait Features: Send + Sync + 'static {
         section: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
+    /// `get_project_overview` — the project's README sentence, code map, busiest features and glossary.
+    fn get_project_overview(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::ProjectOverview, Refusal>> + Send;
+
+    /// `get_since_you_looked` — the features that are new, changed or waiting on him since `since`. [`Refusal::Unacceptable`]
+    /// (`fleet.feature_since_unreadable`) for a `since` that is no RFC 3339 instant.
+    fn get_since_you_looked(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        since: String,
+    ) -> impl Future<Output = Result<ipc::SinceYouLooked, Refusal>> + Send;
+
     /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.
     fn get_feature_brief(
         &self,
@@ -67,6 +83,11 @@ pub trait Features: Send + Sync + 'static {
     /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that
     /// holds features (`fleet.feature_seeded`).
     fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
+
+    /// `run_librarian` — the project's librarian runs its enabled parts now, on a press of Catch up, and keeps a record of the run.
+    /// [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's (`fleet.not_the_operator`) or a
+    /// project Fleet does not hold (`fleet.feature_project`).
+    fn run_librarian(&self, caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> impl Future<Output = Result<ipc::LibrarianRan, Refusal>> + Send;
 
     /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),

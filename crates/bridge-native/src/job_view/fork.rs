@@ -13,6 +13,7 @@ use super::rows::{glyph, tip, Size};
 use super::JobView;
 use crate::dropdown::Entry;
 use crate::labels::labelled;
+use crate::refusal::Failed;
 use crate::look::{token, ActiveLook};
 
 /// Words selected in one block, and where the bar for them stands.
@@ -266,12 +267,11 @@ impl JobView {
                 .background_executor()
                 .spawn(async move {
                     let body = body?;
+                    let sent = body.len();
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::post(port, "/sessions/start", body))?;
-                    if (200..300).contains(&status) {
-                        return ipc::decode::<ipc::SessionRecord>("a forked Job", &bytes).map(|record| record.id.as_str().to_string()).map_err(|why| format!("{why:?}"));
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    let bytes = crate::refusal::answered("POST", "/sessions/start", Some(sent), status, bytes)?;
+                    ipc::decode::<ipc::SessionRecord>("a forked Job", &bytes).map(|record| record.id.as_str().to_string()).map_err(|why| Failed::from(format!("{why:?}")))
                 })
                 .await;
             let _ = this.update(cx, |this, cx| match answer {
@@ -280,8 +280,10 @@ impl JobView {
                     this.open_job(id, cx);
                 }
                 Err(why) => {
+                    let told = why.clone();
+                    cx.defer(move |cx| told.tell_refusal("The fork was not started", cx));
                     if let Some(page) = this.shown.clone().and_then(|job| this.pages.get_mut(&job)) {
-                        page.cards.said.insert("fork".into(), why.into());
+                        page.cards.said.insert("fork".into(), why.to_string().into());
                     }
                     cx.notify();
                 }
