@@ -27,6 +27,8 @@ use model::{Built, Features};
 pub(crate) mod lead;
 pub(crate) mod mock;
 pub(crate) mod model;
+#[allow(dead_code)]
+pub(crate) mod shots;
 mod view;
 
 #[cfg(test)]

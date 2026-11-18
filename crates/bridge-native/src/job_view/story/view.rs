@@ -100,11 +100,13 @@ impl StoryTab {
 
     fn render_head(&self, ix: usize, card: &Card, open: bool, on: bool, look: &Look, cx: &mut gpui::Context<Self>) -> AnyElement {
         let said = format!("{} {}", card.number, card.title);
+        // The state sits on the title's first line: it is as tall as one line of the title, so its glyph and word line up with it.
         let state = labelled(
             div()
                 .id(SharedString::from(format!("story-state-{ix}")))
                 .flex_none()
                 .w(look.length(token::SPACE_12) * 2.)
+                .h(look.length(token::LEADING_SM))
                 .flex()
                 .items_center()
                 .justify_end()
@@ -117,11 +119,27 @@ impl StoryTab {
             Role::Image,
             card.stand.word,
         );
+        let title = labelled(
+            div().id(SharedString::from(format!("story-title-{ix}"))).w_full().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone())),
+            Role::Label,
+            said.clone(),
+        );
+        // Under the title, cut only where the panel ends.
+        let last = if card.last.is_empty() {
+            None
+        } else {
+            Some(labelled(
+                div().id(SharedString::from(format!("story-last-{ix}"))).flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(card.last.clone())),
+                Role::Label,
+                card.last.clone(),
+            ))
+        };
+        let under = div().w_full().flex().items_center().gap(look.length(token::SPACE_2)).child(chip(look, card.kind)).children(last);
         let head = div()
             .id(SharedString::from(format!("story-head-{ix}")))
             .w_full()
             .flex()
-            .items_center()
+            .items_start()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_2))
             .mx(-look.length(token::SPACE_2))
@@ -139,10 +157,8 @@ impl StoryTab {
                 window.focus(&this.focus, cx);
                 this.toggle(ix, cx);
             }))
-            // The title gives way before the state, which keeps its column whatever the title's length.
-            .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone())))
-            .child(chip(look, card.kind))
-            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(card.last.clone())))
+            // The title wraps and the state keeps its column, whatever the title's length.
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(title).child(under))
             .child(state);
         labelled(head, Role::Button, said).into_any_element()
     }

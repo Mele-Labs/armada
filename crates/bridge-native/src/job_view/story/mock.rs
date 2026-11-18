@@ -46,7 +46,7 @@ fn ask(id: &str, kind: AskKind, title: &str, words: &str, state: AskState, opene
     }
 }
 
-fn words(id: &str, kind: MessageKind, said: &str, day: u32) -> AskWords {
+pub fn words(id: &str, kind: MessageKind, said: &str, day: u32) -> AskWords {
     AskWords { session_id: SessionId::carried(JOB), row_id: id.into(), kind, words: said.into(), at: at(day) }
 }
 
