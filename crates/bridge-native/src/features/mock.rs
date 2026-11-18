@@ -76,6 +76,7 @@ pub fn library() -> FeatureLibrary {
             ),
             area("pending", "pending", vec![pending]),
         ],
+        librarian: Default::default(),
     }
 }
 

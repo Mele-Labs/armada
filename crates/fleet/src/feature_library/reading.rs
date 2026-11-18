@@ -211,7 +211,8 @@ where
                 None => areas.push(FeatureAreaRow { slug: feature.area.clone(), title: feature.area.clone(), features: vec![row] }),
             }
         }
-        Ok(FeatureLibrary { project: chosen, areas })
+        let librarian = super::librarian::state_of(&store, &chosen).map_err(|why| self.feature_fault(why))?;
+        Ok(FeatureLibrary { project: chosen, areas, librarian })
     }
 
     /// The Jobs on each feature of the project: those that filed a file under it and are live and
