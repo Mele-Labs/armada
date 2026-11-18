@@ -136,6 +136,9 @@ The Operator brings him one card, with three options.
 | Merge into an existing feature | `change_feature` with `into`. Its prefixes, entry points, links, files, sections and asks move to the target, which keeps its id, its state and its `added_at` |
 | Rename | `change_feature` with `slug` and `title` |
 
+With the Operator off, he does each of the three himself from the Features screen, and Bridge makes the same calls the Operator would.
+Fleet accepts `upsert_features` and `change_feature` from the Operator's own session and from Bridge, and from no other session: a Job's agent is refused.
+
 > **Rule.** A merged or renamed slug stays as an alias of the feature it became.
 > Why: a trailer already in git names the old slug, and Fleet reads it again each time, so without the alias it would make the pending feature again.
 
@@ -161,6 +164,8 @@ An area that holds more than eight features is told to the Operator, who reads i
 Pending features are not counted.
 Nothing changes until he answers.
 After he picks, the Operator keeps each new area with `upsert_features` and moves each feature with `change_feature` and `area`, which must be an area the project keeps.
+With the Operator off, he splits the area from the Features screen, which makes the same two calls.
+A new area is kept by `upsert_features` with `features` empty.
 A move changes the feature's area and nothing else: its slug, prefixes, asks and `added_at` stay.
 
 > **Rule.** An area is told again only when it has grown by another eight.
@@ -186,9 +191,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
 | `write_feature_sections` | The calling Job writes sections of a feature |
-| `upsert_features` | The Operator keeps areas and features |
+| `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
-| `change_feature` | The Operator merges a feature into another, renames it, or moves it to another area |
+| `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
 
