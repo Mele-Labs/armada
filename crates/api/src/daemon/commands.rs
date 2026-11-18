@@ -258,6 +258,13 @@ pub trait Commands: Send + Sync + 'static {
         asked: ipc::AddRepository,
     ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
 
+    /// `link_repository` — serve the repository a pull request link names, unlisted, so its pull
+    /// requests read without the repository being added; the one served already where there is one.
+    fn link_repository(
+        self: std::sync::Arc<Self>,
+        asked: ipc::LinkRepository,
+    ) -> impl Future<Output = Result<ipc::RepositorySummary, Refusal>> + Send;
+
     /// `clone_repository` — clone from a URL into a new folder under `parent`,
     /// then serve it as [`add_repository`](Commands::add_repository) does.
     /// Answers when git finishes; its refusals are `add_repository`'s and three

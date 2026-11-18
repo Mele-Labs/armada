@@ -8,7 +8,7 @@ use super::held;
 #[derive(Default)]
 pub(crate) struct Seat {
     /// Reports, issues and notes waiting to be told.
-    pub(super) sources: super::Sources,
+    pub(crate) sources: super::Sources,
     /// The standing orders, as the store keeps them: read where no lock on the store may be taken.
     orders: Mutex<super::Orders>,
     /// What reads Your turn against the Jobs' lists, one at a time.

@@ -145,7 +145,9 @@ That keeps the feature and its prefixes and entry points, and takes the alias aw
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
-Fleet tells the Operator once when a project holds Armada's repository and no feature, and the Operator calls `seed_features`.
+Fleet keeps the seed itself, on its own tick, when a project holds Armada's repository and no feature, whether or not the Operator is on, and logs what it left out.
+A project the seed does not fit is checked once in a Fleet run.
+The Operator's `seed_features` is the same act on his word, and is refused once the project holds a feature.
 
 > **Rule.** A seed is kept once per project, and only where a repository of the project holds the seed's marker paths.
 > Why: a second seed would rewrite what Jobs and the Operator have since confirmed, merged and renamed.

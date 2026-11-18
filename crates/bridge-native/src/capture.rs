@@ -228,8 +228,8 @@ pub struct Noted {
     pub picture: Option<(Arc<image::RgbaImage>, f32)>,
     /// The card's tools, with the changes and pictures that stand in them.
     pub tools: Option<Entity<Tools>>,
-    /// The url of the Job's page a box was drawn over: a part of the page carries its own (`Held::Page`).
-    pub address: Option<String>,
+    /// The url of the Job's page a box was drawn over, and that Job: a part of the page carries its own (`Held::Page`).
+    pub address: Option<(String, SharedString)>,
 }
 
 pub enum CaptureEvent {
@@ -256,8 +256,8 @@ pub struct Capture {
     aiming: Option<Task<()>>,
     /// A press on a page, until the page has answered what is under it.
     holding: Option<Task<()>>,
-    /// The page a box was drawn over.
-    address: Option<String>,
+    /// The page a box was drawn over, and its Job.
+    address: Option<(String, SharedString)>,
     /// The Job's pages, held still while this is armed.
     freeze: page_note::Freeze,
     from: Option<Point<Pixels>>,
@@ -473,7 +473,7 @@ impl Capture {
                 return;
             }
         }
-        self.address = boxed.and_then(|_| self.words.pages.then(|| page_note::page_at(from, cx)).flatten()).map(|over| over.address(cx));
+        self.address = boxed.and_then(|_| self.words.pages.then(|| page_note::page_at(from, cx)).flatten()).map(|over| (over.address(cx), over.job.clone()));
         // A press holds what is under it, which is what the last move aimed at when a pointer made both.
         let under = |this: &mut Self| {
             let drawn = cx.try_global::<LabelBook>().map(|book| book.drawn(window.window_handle().window_id()).to_vec()).unwrap_or_default();
@@ -914,6 +914,7 @@ mod tests {
             bounds,
             said: "fast.com › button · Google Search".into(),
             address: "https://fast.com/".into(),
+            job: "job-1".into(),
             read: Read {
                 rect: Rect { x: 10., y: 20., width: 50., height: 30. },
                 words: Words { role: "button".into(), name: "Google Search".into(), tag: "input".into() },

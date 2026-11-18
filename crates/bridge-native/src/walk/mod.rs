@@ -3849,6 +3849,10 @@ pub static WALKS: &[Walk] = &[
             scene("Start refused", "crash-panel-refused", "dialog", "Armada quit"),
             step("Return presses Start a Job to fix it; what Fleet said stands under the files, and the panel stays", Verb::Key("enter"), "status", "Fleet serves no repository named armada"),
             step("Esc is Later: the panel goes", Verb::Key("escape"), "tab", "Job column: Open"),
+            scene("A crash no panic wrote, a signal inside WebKit: the same panel, read from macOS's report", "crash-panel-signal", "dialog", "Armada quit"),
+            step("The exception and the frame it faulted in", Verb::Look, "status", "EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x0000000000000010, WTF::Detail::CallableWrapper<-[WKContentRuleListStore removeContentRuleListForIdentifier:completionHandler:]::$_4, void, std::__1::error_code>::call(std::__1::error_code) in WebKit"),
+            step("The Job gets macOS's report", Verb::Look, "list", "The Job gets"),
+            step("Esc is Later: the panel goes", Verb::Key("escape"), "tab", "Job column: Open"),
         ],
     },
 ];

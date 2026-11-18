@@ -260,6 +260,7 @@ mod pull_registry;
 /// What a pull request's panel reads when it opens, and its comment box writes.
 /// Since 23.83.
 mod pull_request_panel;
+mod pull_review_kept;
 mod pull_review_lists;
 mod pull_review_memory;
 /// His latest review of a pull request and what came since: the page's *Your review* bar.

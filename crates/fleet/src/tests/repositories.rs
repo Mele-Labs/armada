@@ -54,6 +54,8 @@ pub struct Planted {
     recipes: Mutex<Vec<config::WatchRecipeWritten>>,
     /// Where this machine's own recipes are written, where a test gives one.
     machine_watches: Mutex<Option<PathBuf>>,
+    /// Every `owner/name` Fleet asked the composition root to make a link stub for.
+    linking: Mutex<Vec<String>>,
 }
 
 impl Planted {
@@ -164,6 +166,15 @@ impl Planted {
 }
 
 impl Locating for Planted {
+    fn linked(&self, owner: &str, name: &str) -> Result<Located, NotLocated> {
+        self.linking.lock().unwrap_or_else(PoisonError::into_inner).push(format!("{owner}/{name}"));
+        Ok(Located {
+            root: format!("/linked/{owner}/{name}"),
+            records_root: format!("/linked-records/{owner}/{name}"),
+            set_up: None,
+        })
+    }
+
     fn watch_recipes(&self, _root: &Path, _base: Option<&str>) -> Vec<config::WatchRecipeWritten> {
         self.machine_watch_recipes()
     }
@@ -611,4 +622,102 @@ fn a_relative_root_is_refused_and_nothing_is_served() {
         "{why}"
     );
     assert!(repositories.served().is_empty());
+}
+
+fn link_body(owner: &str, name: &str) -> String {
+    format!(r#"{{"owner":"{owner}","name":"{name}"}}"#)
+}
+
+/// **A repository only a link names is served, once, and never listed**: the second link finds the
+/// stub the first made, and `list_repositories` still holds only what a person added.
+#[tokio::test]
+async fn a_linked_repository_is_served_once_and_left_out_of_the_list() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+
+    let (status, body) = call(&app, "POST", "/repositories/link", &link_body("Acme", "Shop")).await;
+    assert_eq!(status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&body));
+    let linked: ipc::RepositorySummary = ipc::decode("the repository", &body).expect("a repository");
+    assert_eq!(linked.root, "/linked/Acme/Shop");
+    assert!(linked.implicit_id.is_some(), "a stub has no Manifest, and a Job-free read names it by this");
+
+    let (status, body) = call(&app, "POST", "/repositories/link", &link_body("acme", "shop")).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let again: ipc::RepositorySummary = ipc::decode("the repository", &body).expect("a repository");
+    assert_eq!(again.root, linked.root, "spelled in another case, it is the same repository");
+    assert_eq!(planted.linking.lock().unwrap().len(), 1, "and no second stub was made");
+
+    let (_, body) = call(&app, "GET", "/repositories", "").await;
+    let listed: RepositoryList = ipc::decode("repositories", &body).expect("repositories");
+    assert!(
+        listed.repositories.iter().all(|one| !one.root.starts_with("/linked")),
+        "a stub nobody added is not listed: {:?}",
+        listed.repositories.iter().map(|one| &one.root).collect::<Vec<_>>()
+    );
+}
+
+/// **An owner or a name that is not one segment is refused**, and nothing is made.
+#[tokio::test]
+async fn a_link_that_is_not_an_owner_and_a_name_is_refused() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+    for (owner, name) in [("", "shop"), ("acme", ".."), ("a/b", "shop"), ("acme", "sh op")] {
+        let (status, body) = call(&app, "POST", "/repositories/link", &link_body(owner, name)).await;
+        assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{owner}/{name}");
+        assert_eq!(code(&body), "fleet.link_refused");
+    }
+    assert!(planted.linking.lock().unwrap().is_empty());
+}
+
+/// **No agent review runs on a stub**, which has no clone: it is told to add the repository.
+#[tokio::test]
+async fn an_agent_review_on_a_linked_repository_asks_for_it_to_be_added() {
+    let home = TempDir::new();
+    let planted = Arc::new(Planted::nothing());
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+    let (_, body) = call(&app, "POST", "/repositories/link", &link_body("acme", "shop")).await;
+    let linked: ipc::RepositorySummary = ipc::decode("the repository", &body).expect("a repository");
+    let id = linked.implicit_id.expect("an implicit id");
+
+    let asked = r#"{"number":7,"kind":"tool","name":"bugs"}"#;
+    let (status, body) = call(&app, "POST", &format!("/review_runs/{}", id.as_str()), asked).await;
+    assert_eq!(status, StatusCode::UNPROCESSABLE_ENTITY, "{}", String::from_utf8_lossy(&body));
+    assert_eq!(code(&body), "fleet.repository_not_added");
+    assert!(
+        String::from_utf8_lossy(&body).contains("Add acme/shop to run an agent review."),
+        "{}",
+        String::from_utf8_lossy(&body)
+    );
+}
+
+/// **Adding the repository for real drops its stub**, found by the `origin` both carry.
+#[tokio::test]
+async fn adding_a_repository_replaces_the_stub_a_link_made_for_it() {
+    let home = TempDir::new();
+    let real = home.path().join("shop");
+    adapters::start_linked_repository(&real, "acme", "shop").expect("a repository with an origin");
+    let located = folder_at(&home, "shop", None);
+    let folder = located.root.clone();
+    let planted = Arc::new(Planted::nothing().with(&folder, located));
+    let fleet = Arc::new(a_fleet_reading(&home, &planted));
+    let app = served(&fleet);
+
+    call(&app, "POST", "/repositories/link", &link_body("acme", "shop")).await;
+    assert!(fleet.repositories().every().iter().any(|one| one.linked_to().is_some()));
+    let (status, body) = call(&app, "POST", "/repositories/add", &body_of(&folder)).await;
+    assert_eq!(status, StatusCode::CREATED, "{}", String::from_utf8_lossy(&body));
+    assert!(
+        fleet.repositories().every().iter().all(|one| one.linked_to().is_none()),
+        "the stub went with the real one's arrival"
+    );
+
+    let (status, body) = call(&app, "POST", "/repositories/link", &link_body("acme", "shop")).await;
+    assert_eq!(status, StatusCode::CREATED);
+    let found: ipc::RepositorySummary = ipc::decode("the repository", &body).expect("a repository");
+    assert_eq!(found.root, folder, "a link now finds the repository served, by its origin");
 }
