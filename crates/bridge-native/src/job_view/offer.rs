@@ -155,7 +155,7 @@ impl JobView {
             // A report's box offers no commands and no Jobs to tag, as `ReportBox` passes none.
             '/' if self.reporting.is_some() => ("Skills and commands", Vec::new()),
             '/' => {
-                let commands = self.record(&id, cx).and_then(|job| job.hosted.as_ref()).map(|hosted| hosted.commands.clone()).unwrap_or_default();
+                let commands = self.record(&id, cx).and_then(|job| job.hosted.as_ref()).map(|hosted| super::loadout_tab::with_mcp(&hosted.commands)).unwrap_or_default();
                 ("Skills and commands", commands_for(&commands, &query))
             }
             '#' => {
