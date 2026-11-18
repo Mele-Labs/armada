@@ -10,6 +10,7 @@ mod markdown;
 mod mock;
 pub(crate) mod model;
 mod panes;
+mod rail_width;
 mod tabs;
 pub mod walk;
 
@@ -141,6 +142,8 @@ pub struct ReviewsScreen {
     last_visit: Option<Page>,
     refreshed: bool,
     arrangement: Arrangement,
+    /// The Files rail's width, as he last dragged it.
+    rail_width: f32,
     layouts: Layouts,
     control: Entity<LayoutControl>,
     /// The panes' area as last drawn, so a drop that would squeeze a pane is refused.
@@ -270,6 +273,7 @@ impl ReviewsScreen {
             refreshed: false,
             layouts: Layouts::new(arrangement.clone()),
             arrangement,
+            rail_width: rail_width::load(),
             control,
             area: Rc::default(),
             strips: Rc::default(),
