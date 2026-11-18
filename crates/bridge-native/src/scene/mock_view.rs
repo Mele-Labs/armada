@@ -622,4 +622,18 @@ mod tests {
         let muted = html[tokens..rule].split("--fg-muted: ").nth(1).and_then(|rest| rest.split(';').next()).expect("a value");
         assert!(!matches!(muted, "#000000" | "#000" | "black"), "the chip's text is not the web view's default black: {muted}");
     }
+
+    /// The chip's own sheet, as the repository keeps it. Every token it names must be one the page declares, or the rule that reads it
+    /// (a verdict's hue, a run's) falls back to the inherited value as the unstyled chip did.
+    #[test]
+    fn every_token_the_chip_sheet_names_is_declared_on_the_page() {
+        let sheet = include_str!("../../../../packages/components/src/compositions/FactChip/FactChip.css");
+        let tokens = super::super::export::declarations(&Look::dark());
+        let mut named: Vec<&str> = sheet.split("var(").skip(1).filter_map(|rest| rest.split([')', ',']).next()).collect();
+        named.sort_unstable();
+        named.dedup();
+        assert!(named.len() > 8, "the sheet names its tokens: {named:?}");
+        let missing: Vec<&&str> = named.iter().filter(|name| !tokens.contains(&format!("{name}: "))).collect();
+        assert!(missing.is_empty(), "the page leaves these undeclared: {missing:?}");
+    }
 }
