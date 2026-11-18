@@ -933,3 +933,7 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+
+/// The project overview and Since you looked pages of the Features screen.
+mod feature_pages;
+pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
