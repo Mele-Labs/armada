@@ -50,7 +50,7 @@ pub(crate) fn plan_item(session: &str, version: u32, since: &str) -> WaitingItem
         text: String::from(PLAN_TO_APPROVE),
         since: Instant::carried(since),
         source: WaitingSource::Plan,
-        act: Some(ipc::WaitingAct { kind: WaitingActKind::Message, target: session.to_string() }),
+        act: Some(ipc::WaitingAct { kind: WaitingActKind::Message, target: session.to_string(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

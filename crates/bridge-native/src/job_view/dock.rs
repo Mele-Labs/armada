@@ -1047,10 +1047,23 @@ impl JobView {
                     _ => None,
                 };
                 let ran = command.and_then(|command| self.dock_of(id)?.runs.get(command)).map(RunMark::look);
-                let (icon, said) = ran.unwrap_or((icon_of(row.glyph.kind), row.glyph.said.clone().into()));
+                // A command meant for another Mac is never run from here: in Look its press opens it whole, with no
+                // Run, and otherwise it copies the command, to paste on that Mac.
+                let away = command.and(super::run_mac::elsewhere(crate::pairing::macs(cx), row.on.as_deref()));
+                let copies = (away.is_some() && !crate::ways::looks()).then(|| command.cloned()).flatten();
+                let (icon, said) = match (ran, &away) {
+                    (Some(ran), _) => ran,
+                    (None, Some(name)) if copies.is_some() => (icon_of(row.glyph.kind), format!("On {name}. Press to copy").into()),
+                    (None, Some(name)) => (icon_of(row.glyph.kind), format!("On {name}").into()),
+                    (None, None) => (icon_of(row.glyph.kind), row.glyph.said.clone().into()),
+                };
                 let (act, item) = (row.act.clone(), row.id.clone());
                 let open = key.clone();
-                self.list_row(id, &key, icon, said, row.text.clone(), Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)), Some(row), look, cx)
+                let press: Box<dyn Fn(&mut Self, &mut Window, &mut Context<Self>)> = match copies {
+                    Some(command) => Box::new(move |_, _, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string(command.clone()))),
+                    None => Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)),
+                };
+                self.list_row(id, &key, icon, said, row.text.clone(), press, Some(row), look, cx)
             }
         }
     }

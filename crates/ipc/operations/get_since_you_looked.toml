@@ -1,0 +1,22 @@
+[operations.get_since_you_looked]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read what moved in a project's features since he last looked: each feature tagged new, changed or needs_you, with a line made from the merged pull requests' titles. Give since as an RFC 3339 instant and project where the caller is placed by no Job"
+notes = """
+`GET /features/since?project=&since=`, answered with `SinceYouLooked`: `project`, `paragraph` and `features`. Bridge keeps the time he last looked and sends it as `since`.
+
+**`paragraph` is empty.** A model's paragraph over the list comes later.
+
+**Each feature has a `tag`**: `needs_you` where it is pending and waits for his Confirm, `new` where it entered the catalog after `since`, `changed` where a pull request merged on it after `since`. A pending feature is `needs_you` whenever it is read, and a feature both added and merged since is `new`. Beside it are `slug`, `title`, `what` and `pulls`.
+
+**`what` is the titles of the pull requests merged since**, newest first and at most three, joined with a semicolon. Where none carries a title, such as a merge kept before titles were, it is the feature's summary.
+
+**`pulls` are the merged pull requests' numbers since `since`**, newest first.
+
+**Order is Needs you, then Changed by newest merge, then New**, newest added first. A project with nothing since answers an empty `features`.
+
+422 `fleet.feature_since_unreadable` where `since` is no RFC 3339 instant.
+
+`agent_access` is `Bridge only`: it is the screen's own read.
+"""

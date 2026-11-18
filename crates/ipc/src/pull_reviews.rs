@@ -116,6 +116,58 @@ pub struct PullReviewLists {
     /// `fetched_at`, not read now. Fleet asks nothing until the hold lifts. Absent for a live read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rate_limited: Option<PullReviewRateLimited>,
+    /// True where **these are the lists Fleet kept, answered at once, and a read of the forge is going**
+    /// behind them: the fresh lists follow as `review_lists.changed`. Absent for a read that reached
+    /// the forge before answering.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub refreshing: bool,
+}
+
+impl PullReviewLists {
+    /// Every list's rows, `requested` first. **The one place that says which lists there are**, so what Fleet does to
+    /// each list's rows (the local overlays on kept lists) reaches a list added later without being told of it.
+    pub fn lists_mut(&mut self) -> Vec<&mut Vec<PullReviewRow>> {
+        vec![&mut self.requested, &mut self.team, &mut self.assigned, &mut self.mine, &mut self.reviewing]
+    }
+}
+
+/// The forge read Fleet started behind kept lists, and what it came to. `docs/practices/protocol.md`.
+///
+/// **Exactly one of `lists` and `failed`**, which the two constructors keep: a read that reached the
+/// forge carries the fresh lists whole, and one that did not carries why. A failure leaves the lists
+/// Fleet kept as they were, so a reader keeps what it holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewListsChanged {
+    /// The project the read was for. Absent for every project.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lists: Option<PullReviewLists>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<ReviewListsFailed>,
+}
+
+impl ReviewListsChanged {
+    /// A read that reached the forge, or was held back by its rate limit with lists to show.
+    pub fn read(project: Option<String>, lists: PullReviewLists) -> Self {
+        Self { project, lists: Some(lists), failed: None }
+    }
+
+    pub fn failed(project: Option<String>, failed: ReviewListsFailed) -> Self {
+        Self { project, lists: None, failed: Some(failed) }
+    }
+}
+
+/// Why the read behind kept lists did not give fresh ones, as the answer of `get_review_lists` would have said it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewListsFailed {
+    /// `fleet.review_lists_unreadable`, `fleet.review_lists_rate_limited`, or the code of any other refusal.
+    pub code: String,
+    /// The sentence for a person.
+    pub said: String,
+    /// Where the forge named a time to try again, RFC 3339.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
 }
 
 /// The rate limit that keeps the lists from being read again.

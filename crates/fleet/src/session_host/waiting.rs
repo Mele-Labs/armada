@@ -64,6 +64,7 @@ use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
 use crate::session_host::look_asks::{look_ask_of, look_item_refusal, pull_of, OwnChange};
 use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
+use crate::session_host::run_macs::{on_settled, KnownMac};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
@@ -75,6 +76,7 @@ const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
 const SESSION_WAITING_LOOK: &str = "fleet.session_waiting_look";
+const SESSION_WAITING_MAC: &str = "fleet.session_waiting_mac";
 pub(super) const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -349,6 +351,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
     let act = Some(WaitingAct {
         kind: WaitingActKind::Answer,
         target: asked.call.clone(),
+        on: None,
     });
     if let Some(first) = asked.questions.first() {
         let single = asked.questions.len() == 1 && !first.multi_select;
@@ -434,6 +437,7 @@ pub(crate) fn merged(
         act: Some(WaitingAct {
             kind: WaitingActKind::Walk,
             target: one.url.clone(),
+            on: None,
         }),
         options: Vec::new(),
         steps: Vec::new(),
@@ -465,7 +469,7 @@ pub(crate) fn merged(
             since: Instant::carried(&one.since),
             source: WaitingSource::Agent,
             act: one.act.and_then(|(kind, target)| {
-                act_kind_of(&kind).map(|kind| WaitingAct { kind, target })
+                act_kind_of(&kind).map(|kind| WaitingAct { kind, target, on: Some(one.act_on).filter(|on| !on.is_empty()) })
             }),
             options: options_served(one.options, &one.pictures),
             steps: one.steps,
@@ -524,7 +528,7 @@ where
                     text: one.text,
                     since: Instant::carried(&one.since),
                     source,
-                    act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target })),
+                    act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target, on: Some(one.act_on).filter(|on| !on.is_empty()) })),
                     options: options_served(one.options, &one.pictures),
                     steps: one.steps,
                     place: None,
@@ -634,6 +638,7 @@ where
                     act: Some(WaitingAct {
                         kind: WaitingActKind::Message,
                         target: session.id.clone(),
+                        on: None,
                     }),
                     options: Vec::new(),
                     steps: Vec::new(),
@@ -725,6 +730,7 @@ where
                     act: Some(WaitingAct {
                         kind: WaitingActKind::Message,
                         target: session.id.clone(),
+                        on: None,
                     }),
                     options: Vec::new(),
                     steps: Vec::new(),
@@ -805,6 +811,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Walk,
                             target: window,
+                            on: None,
                         }),
                         options,
                         steps: Vec::new(),
@@ -831,6 +838,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
+                            on: None,
                         }),
                         id,
                         text: title,
@@ -855,6 +863,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
+                            on: None,
                         }),
                         id,
                         text: handoff_answers::CARD_ASKS.to_string(),
@@ -934,6 +943,20 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        // A run item meant for another Mac names it, and Fleet checks the name against the Macs it knows.
+        if set.items.iter().any(|item| item.act.as_ref().is_some_and(|act| act.on.is_some())) {
+            let (this, paired) = {
+                let store = self.store().lock().await;
+                let this = store.this_mac().ok().flatten().map(|mac| KnownMac { id: mac.id, name: mac.name });
+                let paired: Vec<KnownMac> = store.paired_macs().unwrap_or_default().into_iter().map(|mac| KnownMac { id: mac.id, name: mac.name }).collect();
+                (this, paired)
+            };
+            for item in &mut set.items {
+                if let Some(act) = item.act.as_mut() {
+                    on_settled(item.id.trim(), act, this.as_ref(), &paired).map_err(|why| self.hosted_refusal(SESSION_WAITING_MAC, &why))?;
+                }
+            }
+        }
         self.options_refused(&set.items)?;
         // An item about an artifact names one the Job holds, by its id or its title, and keeps its id.
         let mut artifacts = std::collections::HashMap::new();
@@ -1000,6 +1023,7 @@ where
                             .unwrap_or_else(|| now.clone()),
                         item_id,
                         text: one.text.trim().to_string(),
+                        act_on: one.act.as_ref().and_then(|act| act.on.as_deref()).map(str::trim).unwrap_or_default().to_string(),
                         act: one
                             .act
                             .map(|act| (act_kind_text(act.kind).to_string(), act.target)),
@@ -1687,6 +1711,7 @@ where
             options: item.options.iter().map(|option| option.label.clone()).collect(),
             pictures: pictures_kept(&item.options),
             artifact: item.artifact.clone().unwrap_or_default(),
+            act_on: item.act.as_ref().and_then(|act| act.on.clone()).unwrap_or_default(),
             steps: item.steps.clone(),
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
@@ -1775,6 +1800,7 @@ where
                 options: kept.options,
                 pictures: kept.pictures,
                 artifact: kept.artifact,
+                act_on: kept.act_on,
                 steps: kept.steps,
             })
         };

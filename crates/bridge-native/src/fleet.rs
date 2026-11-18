@@ -174,6 +174,10 @@ pub struct Held {
     review_runs: Vec<ipc::ReviewRun>,
     /// A gap in the stream since the last take may have lost a `review_run.changed`, which Fleet does not replay.
     review_runs_lost: bool,
+    /// The review lists `review_lists.changed` carried since the last take, one for each project, the last it said.
+    review_lists: Vec<ipc::ReviewListsChanged>,
+    /// A gap in the stream since the last take may have lost a `review_lists.changed`, which Fleet does not replay.
+    review_lists_lost: bool,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -240,6 +244,8 @@ impl Held {
             removed: Vec::new(),
             review_runs: Vec::new(),
             review_runs_lost: false,
+            review_lists: Vec::new(),
+            review_lists_lost: false,
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -291,6 +297,7 @@ impl Held {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
         self.review_runs_lost = true;
+        self.review_lists_lost = true;
         // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
         self.watches_asked.clear();
         self.watches_spoken.clear();
@@ -432,6 +439,19 @@ impl Held {
         (std::mem::take(&mut self.review_runs), std::mem::take(&mut self.review_runs_lost))
     }
 
+    /// The review lists that moved since the last take, the last for each project, and whether a gap may have lost one.
+    pub fn take_review_lists(&mut self) -> (Vec<ipc::ReviewListsChanged>, bool) {
+        (std::mem::take(&mut self.review_lists), std::mem::take(&mut self.review_lists_lost))
+    }
+
+    /// A read behind kept lists ended: it replaces an earlier one for the same project not yet taken.
+    fn review_lists_changed(&mut self, changed: ipc::ReviewListsChanged) {
+        match self.review_lists.iter_mut().find(|held| held.project == changed.project) {
+            Some(held) => *held = changed,
+            None => self.review_lists.push(changed),
+        }
+    }
+
     fn set_settings(&mut self, list: &SettingsList) {
         self.settings_stamp += 1;
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
@@ -562,6 +582,7 @@ impl Held {
                         Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
                         Event::OperatorDispatched(done) => self.dispatched.push(done),
                         Event::ReviewRunChanged { run } => self.review_runs.push(run),
+                        Event::ReviewListsChanged(changed) => self.review_lists_changed(changed),
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
                                 Some(held) => *held = record,
@@ -704,6 +725,15 @@ pub struct ReviewRunsMoved {
 }
 
 impl EventEmitter<ReviewRunsMoved> for FleetConnection {}
+
+/// The review lists a read behind kept lists ended with in one folded batch (`review_lists.changed`), one for
+/// each project, and whether a gap in the stream may have lost one, so Reviews asks for the lists again.
+pub struct ReviewListsMoved {
+    pub changed: Vec<ipc::ReviewListsChanged>,
+    pub lost: bool,
+}
+
+impl EventEmitter<ReviewListsMoved> for FleetConnection {}
 
 /// The subagents whose own thread moved in one folded batch (`session.subagent`), for a view holding
 /// one open to read it again.
@@ -1315,7 +1345,11 @@ impl FleetConnection {
                     let dispatched = this.held.take_dispatched();
                     let removed = this.held.take_removed();
                     let (review_runs, review_runs_lost) = this.held.take_review_runs();
+                    let (review_lists, review_lists_lost) = this.held.take_review_lists();
                     cx.notify();
+                    if !review_lists.is_empty() || review_lists_lost {
+                        cx.emit(ReviewListsMoved { changed: review_lists, lost: review_lists_lost });
+                    }
                     if !review_runs.is_empty() || review_runs_lost {
                         cx.emit(ReviewRunsMoved { runs: review_runs, lost: review_runs_lost });
                     }
@@ -1412,6 +1446,42 @@ mod tests {
             r#"{{"message":"event","cursor":{cursor},"event":{{"kind":"repositories.changed","repositories":[]}}}}"#
         );
         Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+    }
+
+    fn lists_event(cursor: u64, changed: ipc::ReviewListsChanged) -> Signal {
+        Signal::Stream(StreamMessage::Event(ipc::Delivered { cursor: Cursor::at(cursor), event: Event::ReviewListsChanged(changed) }))
+    }
+
+    fn read_lists(fetched_at: &str) -> ipc::PullReviewLists {
+        ipc::PullReviewLists {
+            me: "nick".into(),
+            fetched_at: fetched_at.into(),
+            requested: Vec::new(),
+            team: Vec::new(),
+            assigned: Vec::new(),
+            mine: Vec::new(),
+            reviewing: Vec::new(),
+            silent: Vec::new(),
+            rate_limited: None,
+            refreshing: false,
+        }
+    }
+
+    #[test]
+    fn review_lists_fold_to_the_last_for_each_project_and_a_gap_says_one_may_be_lost() {
+        let mut held = Held::new();
+        held.fold(vec![
+            lists_event(1, ipc::ReviewListsChanged::read(None, read_lists("2026-11-18T10:00:00Z"))),
+            lists_event(2, ipc::ReviewListsChanged::read(Some("harbor".into()), read_lists("2026-11-18T10:00:01Z"))),
+            lists_event(3, ipc::ReviewListsChanged::read(None, read_lists("2026-11-18T10:00:02Z"))),
+        ]);
+        let (changed, lost) = held.take_review_lists();
+        let said: Vec<(Option<&str>, &str)> = changed.iter().map(|one| (one.project.as_deref(), one.lists.as_ref().map_or("", |lists| lists.fetched_at.as_str()))).collect();
+        assert_eq!(said, [(None, "2026-11-18T10:00:02Z"), (Some("harbor"), "2026-11-18T10:00:01Z")]);
+        assert!(!lost);
+        assert!(held.take_review_lists().0.is_empty(), "told once");
+        held.fold(vec![Signal::Stream(StreamMessage::Missed(Missed { dropped: 2 }))]);
+        assert!(held.take_review_lists().1, "a gap may have lost the event, which Fleet does not replay");
     }
 
     fn mods(wire: &str) -> ModList {
