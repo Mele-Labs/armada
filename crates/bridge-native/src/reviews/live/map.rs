@@ -652,9 +652,9 @@ mod tests {
             [(7, &[PullReviewList::Requested, PullReviewList::Mine][..], true), (8, &[PullReviewList::Mine][..], true), (9, &[PullReviewList::Reviewing][..], true)]
         );
         assert_eq!(kept.len(), 3, "a pull request on the fifth list alone is kept, so its page reads");
-        // Still asked of him, #7 stays under Review requested; his own #8 and the fifth list's #9 are Reviewed with Armada.
+        // Asked of him or not, each he started reviewing is In review.
         let groups: Vec<model::Group> = rows.iter().map(|row| row.group()).collect();
-        assert_eq!(groups, [model::Group::Requested, model::Group::Reviewing, model::Group::Reviewing]);
+        assert_eq!(groups, [model::Group::Reviewing; 3]);
     }
 
     fn page_with(viewed: Vec<ipc::PullViewedFile>) -> Page {

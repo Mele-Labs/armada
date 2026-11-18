@@ -178,7 +178,7 @@ impl ReviewsScreen {
             list_control(look)
                 .id("inbox-lists")
                 .text_color(look.color(ink))
-                .tooltip(tip("The forge's lists: requested of you, of your team, assigned, your own, and those you reviewed with Armada"))
+                .tooltip(tip("The forge's lists: requested of you, of your team, assigned, your own, and those you started reviewing in Armada"))
                 .on_click(cx.listener({
                     let name = lists_name.clone();
                     move |this, event: &gpui::ClickEvent, window, cx| {

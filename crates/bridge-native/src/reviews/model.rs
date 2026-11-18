@@ -18,13 +18,13 @@ pub enum Group {
 }
 
 impl Group {
-    pub const ALL: [Group; 6] = [Group::Requested, Group::LookAgain, Group::Reviewing, Group::Yours, Group::Team, Group::Done];
+    pub const ALL: [Group; 6] = [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done];
 
     pub fn said(self) -> &'static str {
         match self {
             Group::Requested => "Review requested from you",
             Group::LookAgain => "You reviewed, look again",
-            Group::Reviewing => "Reviewed with Armada",
+            Group::Reviewing => "In review",
             Group::Yours => "Yours",
             Group::Team => "Asked of your team",
             Group::Done => "Done",
@@ -49,14 +49,15 @@ impl Group {
 }
 
 /// The group a pull request lands in: the first that takes it. `changed` is Fleet's inbox state
-/// "changed since you looked"; `reviewing`, that he ran a review tool on it in Armada.
+/// "changed since you looked"; `reviewing`, that he ran a review tool on it in Armada, which takes
+/// it before any list does: one he has started reviewing is in review, whoever asked.
 pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool, reviewing: bool) -> Group {
-    if lists.contains(&PullReviewList::Requested) {
+    if reviewing || lists.contains(&PullReviewList::Reviewing) {
+        Group::Reviewing
+    } else if lists.contains(&PullReviewList::Requested) {
         Group::Requested
     } else if mine != Verdict::NotReviewed && changed {
         Group::LookAgain
-    } else if reviewing || lists.contains(&PullReviewList::Reviewing) {
-        Group::Reviewing
     } else if lists.contains(&PullReviewList::Mine) {
         Group::Yours
     } else if lists.contains(&PullReviewList::Team) {
@@ -1022,10 +1023,11 @@ mod group_tests {
     }
 
     #[test]
-    fn reviewed_with_armada_comes_after_requested_and_look_again_and_before_yours() {
-        // Still asked of him, it stays where he is asked; reviewed and changed, he looks again.
-        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, true), Group::Requested);
-        assert_eq!(group_of(&[Assigned], Verdict::Commented, true, true), Group::LookAgain);
+    fn in_review_takes_every_pull_request_he_started_reviewing_before_any_list() {
+        // Asked of him, or reviewed and changed since, once he has started a review it is in review.
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Assigned], Verdict::Commented, true, true), Group::Reviewing);
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, false), Group::Requested);
         assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, true), Group::Reviewing);
         assert_eq!(group_of(&[Team], Verdict::Approved, false, true), Group::Reviewing);
         assert_eq!(group_of(&[Reviewing], Verdict::NotReviewed, false, true), Group::Reviewing);
@@ -1093,6 +1095,6 @@ mod group_tests {
     fn team_and_done_start_folded() {
         let folded: Vec<Group> = Group::ALL.into_iter().filter(|group| group.starts_folded()).collect();
         assert_eq!(folded, [Group::Team, Group::Done]);
-        assert_eq!(Group::ALL, [Group::Requested, Group::LookAgain, Group::Reviewing, Group::Yours, Group::Team, Group::Done]);
+        assert_eq!(Group::ALL, [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done]);
     }
 }
