@@ -18,6 +18,7 @@ pub(crate) mod mapping;
 mod measuring;
 mod modules;
 mod pending;
+mod project_pages;
 mod reading;
 mod seeding;
 mod serving;
@@ -34,3 +35,5 @@ pub(crate) use seeding::PROJECT as PROJECT_UNKNOWN;
 pub(crate) use floor_plan::{is_contract, plan as floor_plan_of_layouts};
 #[cfg(test)]
 pub(crate) use modules::read as read_modules;
+#[cfg(test)]
+pub(crate) use project_pages::first_sentence;

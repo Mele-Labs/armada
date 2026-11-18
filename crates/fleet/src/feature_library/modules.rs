@@ -15,12 +15,12 @@ use std::path::Path;
 use super::mapping::owns;
 
 /// Folders that hold what other people wrote or what a build wrote.
-const SKIPPED: &[&str] = &["target", "node_modules", "dist", "build", "out", "vendor", "venv", "__pycache__", "bin", "obj", "Pods", "coverage"];
+pub(super) const SKIPPED: &[&str] = &["target", "node_modules", "dist", "build", "out", "vendor", "venv", "__pycache__", "bin", "obj", "Pods", "coverage"];
 
 /// The most folders looked at, so a very large tree costs a bounded read.
-const MOST_FOLDERS: usize = 3000;
+pub(super) const MOST_FOLDERS: usize = 3000;
 /// How deep under the root a folder is looked at.
-const DEEPEST: usize = 8;
+pub(super) const DEEPEST: usize = 8;
 /// The most modules kept; the walk stops there, shallowest first.
 const MOST_MODULES: usize = 400;
 /// The largest manifest read, in bytes.
