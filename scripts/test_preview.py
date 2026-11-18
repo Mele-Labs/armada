@@ -956,6 +956,28 @@ error[E0599]: no variant, associated function, or constant named `Workspace` fou
         self.assertNotEqual(done.returncode, 0)
         self.assertIn("preview: the commit 1234567890 is not in this repository", done.stderr)
 
+    def test_at_a_commit_the_ref_has_since_moved_past_stands_down_instead_of_failing(self):
+        origin = self.with_origin()
+        older = self.pushed_by_the_other_mac(origin)
+        other = os.path.join(self.dir, "other")
+        # The second Refresh's commit is built beside the first, so the force-push drops the first.
+        run(other, "checkout", "-q", "--orphan", "newer")
+        with open(os.path.join(other, "y.txt"), "w") as f:
+            f.write("y\n")
+        run(other, "add", "y.txt")
+        run(other, "commit", "-q", "-m", "a newer Refresh")
+        run(other, "push", "-q", "--force", "origin", "HEAD:refs/heads/preview/mac-a")
+        newer = run(other, "rev-parse", "HEAD")
+        self.assertNotEqual(older, newer)
+        self.hold()
+        ran = os.path.join(self.dir, "restart-ran")
+        self.undetached_restart(f'echo ran > "{ran}"')
+        done = self.run_preview_refused("--restart", "--at", older, "--ref", "preview/mac-a")
+        self.assertEqual(done.returncode, 75, done.stderr)
+        self.assertIn(f"preview: superseded: {older[:10]} was replaced by {newer[:10]} on preview/mac-a", done.stdout + done.stderr)
+        self.assertNotIn("is not in this repository", done.stderr)
+        self.assertFalse(os.path.exists(ran), "a superseded request builds nothing")
+
     def test_at_and_the_flags_that_pick_branches_are_refused_together(self):
         for other in (["--all"], ["--only", "a"], ["--skip", "a"], ["--picked", "f"], ["--watch"], ["--push-as", "x"]):
             done = self.run_preview_refused("--at", "1234567", *other)
