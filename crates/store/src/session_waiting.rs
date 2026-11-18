@@ -25,6 +25,8 @@ pub struct KeptWaiting {
     pub approves: bool,
     /// The id of the artifact it is about, empty where it names none.
     pub artifact: String,
+    /// The Mac a `run` act's command is meant for, empty where it names none.
+    pub act_on: String,
 }
 
 /// An item the person closed, kept whole at the moment he did. `source` is the wire name of the item's
@@ -44,6 +46,8 @@ pub struct KeptClosed {
     pub approves: bool,
     /// As [`KeptWaiting::artifact`].
     pub artifact: String,
+    /// As [`KeptWaiting::act_on`].
+    pub act_on: String,
 }
 
 /// An Approve he pressed on an agent's item that asks for his approval. `at` is RFC3339.
@@ -83,7 +87,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact
+                "SELECT item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact, act_on
                  FROM session_waiting WHERE session_id = ?1 ORDER BY position",
             )
             .map_err(fault(doing))
@@ -104,6 +108,7 @@ impl Store {
                     steps: serde_json::from_str(&steps).unwrap_or_default(),
                     approves: row.get(7)?,
                     artifact: row.get(9)?,
+                    act_on: row.get(10)?,
                 })
             })
             .map_err(fault(doing))
@@ -126,8 +131,8 @@ impl Store {
             for (position, item) in items.iter().enumerate() {
                 transaction.execute(
                     "INSERT INTO session_waiting
-                     (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact)
-                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+                     (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact, act_on)
+                     VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
                     params![
                         session_id,
                         position as i64,
@@ -141,6 +146,7 @@ impl Store {
                         item.approves,
                         item.pictures,
                         item.artifact,
+                        item.act_on,
                     ],
                 )?;
             }
@@ -297,7 +303,7 @@ impl Store {
         let mut statement = self
             .conn
             .prepare(
-                "SELECT item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures, artifact
+                "SELECT item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures, artifact, act_on
                  FROM session_waiting_dismissed WHERE session_id = ?1 AND closed_at IS NOT NULL
                  ORDER BY closed_at DESC, rowid DESC",
             )
@@ -321,6 +327,7 @@ impl Store {
                     approves: row.get(9)?,
                     pictures: row.get(10)?,
                     artifact: row.get(11)?,
+                    act_on: row.get(12)?,
                 })
             })
             .map_err(fault(doing))
@@ -338,11 +345,11 @@ impl Store {
             let transaction = self.conn.transaction()?;
             transaction.execute(
                 "INSERT INTO session_waiting_dismissed
-                 (session_id, item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures, artifact)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)
+                 (session_id, item_id, text, source, act_kind, act_target, options, steps, since, closed_at, approves, pictures, artifact, act_on)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13, ?14)
                  ON CONFLICT (session_id, item_id) DO UPDATE SET
                  text = ?3, source = ?4, act_kind = ?5, act_target = ?6, options = ?7, steps = ?8, since = ?9, closed_at = ?10,
-                 approves = ?11, pictures = ?12, artifact = ?13",
+                 approves = ?11, pictures = ?12, artifact = ?13, act_on = ?14",
                 params![
                     session_id,
                     closed.item_id,
@@ -357,6 +364,7 @@ impl Store {
                     closed.approves,
                     closed.pictures,
                     closed.artifact,
+                    closed.act_on,
                 ],
             )?;
             transaction.execute(
@@ -395,9 +403,9 @@ impl Store {
                 if held == 0 {
                     transaction.execute(
                         "INSERT INTO session_waiting
-                         (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact)
+                         (session_id, position, item_id, text, since, act_kind, act_target, options, steps, approves, pictures, artifact, act_on)
                          VALUES (?1, (SELECT COALESCE(MAX(position) + 1, 0) FROM session_waiting WHERE session_id = ?1),
-                                 ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
+                                 ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
                         params![
                             session_id,
                             item.item_id,
@@ -410,6 +418,7 @@ impl Store {
                             item.approves,
                             item.pictures,
                             item.artifact,
+                            item.act_on,
                         ],
                     )?;
                 }

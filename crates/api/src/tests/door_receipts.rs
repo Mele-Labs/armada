@@ -87,7 +87,7 @@ fn long_lived() -> SessionRecord {
         running: Vec::new(),
         waiting_for: vec![
             WaitingItem {
-                act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),
+                act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into(), on: None }),
                 steps: vec!["Quit Bridge".into(), "Run `scripts/restart`".into()],
                 ..waiting("merge", "Approve the pull request", WaitingSource::Agent, None)
             },

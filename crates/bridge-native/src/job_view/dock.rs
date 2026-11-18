@@ -1040,8 +1040,15 @@ impl JobView {
                     _ => None,
                 };
                 let ran = command.and_then(|command| self.dock_of(id)?.runs.get(command)).map(RunMark::look);
-                let (icon, said) = ran.unwrap_or((icon_of(row.glyph.kind), row.glyph.said.clone().into()));
-                let (act, item) = (row.act.clone(), row.id.clone());
+                // A command meant for another Mac is never run from here: in Look its press opens it whole, with no
+                // Run, and otherwise it does nothing.
+                let away = command.and(super::run_mac::elsewhere(crate::pairing::macs(cx), row.on.as_deref()));
+                let (icon, said) = match (ran, &away) {
+                    (Some(ran), _) => ran,
+                    (None, Some(name)) => (icon_of(row.glyph.kind), format!("On {name}").into()),
+                    (None, None) => (icon_of(row.glyph.kind), row.glyph.said.clone().into()),
+                };
+                let (act, item) = (if away.is_some() && !crate::ways::looks() { NeedsYouAct::None } else { row.act.clone() }, row.id.clone());
                 let open = key.clone();
                 self.list_row(id, &key, icon, said, row.text.clone(), Box::new(move |this, window, cx| this.press_row(&open, &item, &act, window, cx)), Some(row), look, cx)
             }

@@ -463,7 +463,8 @@ impl JobView {
 
     // ---- A command ---------------------------------------------------------------------------------------------
 
-    /// The steps as chips joined by chevrons, the command in a mono well under them, and Run.
+    /// The steps as chips joined by chevrons, the command in a mono well under them, and Run. A command meant for
+    /// another Mac has no Run: a chip names that Mac in its place.
     fn look_command(&self, id: &SharedString, row: &NeedsYouRow, command: &str, steps: &[String], look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = self.dock_of(id).and_then(|dock| dock.runs.get(command).cloned());
         let held = matches!(mark, Some(super::dock::RunMark::Running | super::dock::RunMark::Passed));
@@ -494,13 +495,21 @@ impl JobView {
         });
         let command_text = command.to_string();
         let run_text = command.to_string();
-        let run = labelled(
-            button(look, "look-run", "Run", Tone::Primary, false, None, !held).when(!held, |press| {
-                press.on_click(cx.listener(move |this, _, window, cx| this.run_item(run_text.clone(), window, cx)))
-            }),
-            Role::Button,
-            "Run",
-        );
+        let macs = crate::pairing::macs(cx);
+        let away = super::run_mac::elsewhere(macs, row.on.as_deref());
+        let on = away.as_deref().map(|name| {
+            let hue = macs.iter().find(|one| one.name == name).map_or_else(|| look.color(token::FG_MUTED), |one| crate::settings::macs::colour_of(look, one.colour));
+            crate::pairing::pill_capped(look, "look-run-on".into(), &format!("On {name}"), hue)
+        });
+        let run = away.is_none().then(|| {
+            labelled(
+                button(look, "look-run", "Run", Tone::Primary, false, None, !held).when(!held, |press| {
+                    press.on_click(cx.listener(move |this, _, window, cx| this.run_item(run_text.clone(), window, cx)))
+                }),
+                Role::Button,
+                "Run",
+            )
+        });
         let ran = mark.as_ref().map(|mark| {
             let (icon, said) = mark.look();
             div().id("look-run-mark").flex_none().tooltip(tip(said)).child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
@@ -510,7 +519,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).child(run))
+            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).children(on).children(run))
             .children((!steps.is_empty()).then(|| {
                 labelled(div().id("look-steps").w_full().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(chips), Role::List, "Steps")
             }))
