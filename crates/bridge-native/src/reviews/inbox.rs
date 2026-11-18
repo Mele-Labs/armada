@@ -139,6 +139,7 @@ impl ReviewsScreen {
             )
             .into_any_element()
         };
+        let read_age = self.read_age_mark(look);
         let head = div()
             .flex_none()
             .flex()
@@ -163,7 +164,7 @@ impl ReviewsScreen {
                     "Reviews",
                 ),
             )
-            .child(mark);
+            .child(div().flex().items_center().gap(look.length(token::SPACE_2)).children(read_age).child(mark));
         let lists_said = match self.lists {
             None => "All",
             Some(ipc::PullReviewList::Requested) => "Requested",
@@ -279,6 +280,7 @@ impl ReviewsScreen {
                             .id("inbox-rows")
                             .key_context("list")
                             .track_focus(&self.rows)
+                            .track_scroll(&self.inbox_scroll)
                             .on_action(cx.listener(Self::on_act))
                             .flex_1()
                             .min_h_0()

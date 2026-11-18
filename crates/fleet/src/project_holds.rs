@@ -45,7 +45,7 @@ pub(crate) fn task_done_item(asked: &KeptAsked) -> WaitingItem {
     };
     WaitingItem {
         approves: false,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id.clone(), on: None }),
         id,
         text,
         since: Instant::carried(&asked.since),

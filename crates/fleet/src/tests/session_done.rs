@@ -26,7 +26,7 @@ fn owed(id: &SessionId, items: usize) -> SetWaitingFor {
                 approves: false,
                 id: format!("i{one}"),
                 text: "Look".into(),
-                act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into() }),
+                act: Some(WaitingAct { kind: WaitingActKind::Run, target: "cargo test".into(), on: None }),
                 options: Vec::new(),
                 steps: Vec::new(),
                 artifact: None,

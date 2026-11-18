@@ -72,8 +72,12 @@ pub trait PullRequestPanel: Send + Sync + 'static {
     /// the forge across every served repository. **Read when somebody looks, never polled.**
     /// With `project`, every list keeps only the rows of that project's member repositories.
     /// [`Refusal::Fault`] where no list could be read, or no login is known; [`Refusal::NotFound`]
-    /// for a project he has none of.
-    fn get_review_lists(&self, project: Option<String>) -> impl Future<Output = Result<PullReviewLists, Refusal>> + Send;
+    /// for a project he has none of. **Where lists were kept, they answer at once** with `refreshing` set,
+    /// and the read of the forge goes on a task of its own, which ends as the event `review_lists.changed`.
+    fn get_review_lists(
+        self: std::sync::Arc<Self>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<PullReviewLists, Refusal>> + Send;
 
     /// `resolve_review_thread` — resolve a conversation on a pull request's diff, or open it
     /// again. **A write to a shared place, taken at once**, so a person's press.

@@ -94,6 +94,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // The read behind kept Reviews lists ended: the fresh lists whole, or why none.
+    Route {
+        operation: "review_lists.changed",
+        method: "GET",
+        path: "/events",
+    },
     // A pulled-down walk's place moved: checking out, starting, ready, failed or closed, whole.
     Route {
         operation: "review_walk.changed",

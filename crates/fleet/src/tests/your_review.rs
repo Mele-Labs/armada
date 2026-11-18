@@ -157,7 +157,7 @@ async fn a_page_for_somebody_fleet_cannot_name_has_no_review_bar() {
 #[tokio::test]
 async fn after_he_approves_the_page_and_his_row_show_it_while_the_forge_still_answers_with_the_review_before() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "Rowan-Ashe");
     // The forge lags: every read below still says his latest is the comment at OLD.
@@ -176,7 +176,7 @@ async fn after_he_approves_the_page_and_his_row_show_it_while_the_forge_still_an
     assert_eq!((mine.said, mine.commit.as_deref()), (MyReviewSaid::Approved, Some(HEAD)), "the next page is not the stale read");
     assert_eq!(next.since_my_review.and_then(|it| it.commits), Some(0));
 
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested[0].my_review.as_ref().map(|it| it.said), Some(MyReviewSaid::Approved));
     assert_eq!(lists.requested[0].inbox, PullInbox::Done);
 

@@ -128,7 +128,7 @@ where
     }
 
     /// Each pull request of a served repository he ran a review tool on, newest run first.
-    async fn reviewed_pulls(&self, served: &[Named]) -> Vec<(ManifestId, u64)> {
+    pub(crate) async fn reviewed_pulls(&self, served: &[Named]) -> Vec<(ManifestId, u64)> {
         let ran = self.store().lock().await.review_run_pulls(&REVIEWING_KINDS).unwrap_or_default();
         ran.into_iter()
             .filter(|it| served.iter().any(|named| named.manifest_id.as_str() == it.manifest_id))
@@ -166,8 +166,9 @@ where
         // The forge's wait is on: no call goes out, and the lists last read are shown, marked.
         let now = self.clock().now().epoch_millis().unwrap_or(0);
         if let Some(hold) = self.review_lists_kept().held(now) {
-            return self.lists_limited(project, hold);
+            return self.lists_limited(project, hold).await;
         }
+        let began = std::time::Instant::now();
         let read = |list: ReviewList| {
             let (login, repositories) = (me.clone(), repositories.clone());
             self.forge_asked(from.root(), move |vcs: &V, root: &str| {
@@ -205,6 +206,7 @@ where
         let answers = tokio::join!(read(requested), read(team), read(assigned), read(mine), by_number);
         let numbered = answers.4;
         let answers = [answers.0, answers.1, answers.2, answers.3];
+        let forge_ms = began.elapsed().as_millis();
         let mut lists: [Vec<PullReviewRow>; 5] = Default::default();
         let mut silent = Vec::new();
         let mut failures = Vec::new();
@@ -227,7 +229,7 @@ where
             return match crate::pull_review_kept::worst(failures) {
                 Some(ListFailure::RateLimited { until, said }) => {
                     let hold = self.review_lists_kept().hold(now, until, said);
-                    self.lists_limited(project, hold)
+                    self.lists_limited(project, hold).await
                 }
                 Some(other) => Err(unreadable(other.said())),
                 None => Err(unreadable("The forge did not answer. Open Reviews again.")),
@@ -257,29 +259,56 @@ where
             }
             None => silent.push(PullReviewList::Reviewing),
         }
-        // Which Session of the owner's works each pull request, for a note that goes to it.
-        for row in lists.iter_mut().flatten() {
-            row.holder = self.holder_of(row).await;
-        }
-        // His review, the one Fleet just wrote where the forge does not show it yet, and where each
-        // stands in his inbox, from it and the head he last left it at.
-        for list in &mut lists {
-            self.written_onto(list).await;
-            self.inbox_onto(list).await;
-        }
-        let [requested, ..] = &mut lists;
-        self.asked_told_onto(requested).await;
+        let overlaid = self.overlays_onto(&mut lists.iter_mut().collect::<Vec<_>>()).await;
+        eprintln!("review_lists timing: forge {forge_ms}ms; {overlaid}; total {}ms", began.elapsed().as_millis());
         let mut read = self.lists_of(me, lists);
         read.silent = silent;
-        self.review_lists_kept().keep(project, &read);
+        self.keep_lists(project, &read).await;
         Ok(read)
     }
 
     /// The lists last read, marked as kept for the rate limit; with none read, the refusal that names it.
-    fn lists_limited(&self, project: Option<&str>, hold: crate::pull_review_kept::Hold) -> Result<PullReviewLists, Refusal> {
-        self.review_lists_kept().limited(project, hold).map_err(|(until, said)| {
+    pub(crate) async fn lists_limited(
+        &self,
+        project: Option<&str>,
+        hold: crate::pull_review_kept::Hold,
+    ) -> Result<PullReviewLists, Refusal> {
+        let kept = self.kept_lists(project).await;
+        crate::pull_review_kept::limited(kept, hold).map_err(|(until, said)| {
             crate::pull_review_kept::rate_limited_refusal(|code, message| self.pr_refusal(code, message), until, said)
         })
+    }
+
+    /// What Fleet knows locally of each row: the Session that holds it, his review written here where the
+    /// forge does not show it yet, and where it stands in his inbox, from it and the head he last left it at.
+    /// Cheap and local, so it is applied again to lists kept. Answers how long each took, for the timing line.
+    pub(crate) async fn overlays_onto(&self, lists: &mut [&mut Vec<PullReviewRow>]) -> String {
+        let began = std::time::Instant::now();
+        let mut rows = 0;
+        for row in lists.iter_mut().flat_map(|list| list.iter_mut()) {
+            row.holder = self.holder_of(row).await;
+            rows += 1;
+        }
+        let holder_ms = began.elapsed().as_millis();
+        let (mut written_ms, mut inbox_ms) = (0, 0);
+        for list in lists.iter_mut() {
+            let at = std::time::Instant::now();
+            self.written_onto(list).await;
+            written_ms += at.elapsed().as_millis();
+            let at = std::time::Instant::now();
+            self.inbox_onto(list).await;
+            inbox_ms += at.elapsed().as_millis();
+        }
+        // Only the list that asks him by name, the first.
+        let at = std::time::Instant::now();
+        if let Some(requested) = lists.first_mut() {
+            self.asked_told_onto(requested).await;
+        }
+        let told_ms = at.elapsed().as_millis();
+        format!(
+            "rows {rows}: holder_of {holder_ms}ms, written_onto {written_ms}ms, inbox_onto {inbox_ms}ms, asked_told_onto {told_ms}ms (rows {}ms)",
+            began.elapsed().as_millis()
+        )
     }
 
     fn lists_of(&self, me: String, lists: [Vec<PullReviewRow>; 5]) -> PullReviewLists {
@@ -294,6 +323,7 @@ where
             reviewing,
             silent: Vec::new(),
             rate_limited: None,
+            refreshing: false,
         }
     }
 
