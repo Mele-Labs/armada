@@ -9,7 +9,7 @@
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
 use gpui::{div, prelude::*, AnyElement, App, Div, FontWeight, Global, Role, SharedString};
@@ -34,6 +34,10 @@ pub fn hold(macs: Vec<Mac>, cx: &mut App) {
     if cx.try_global::<Updating>().is_some_and(|going| going.0.iter().any(|id| !still.contains(id))) {
         cx.global_mut::<Updating>().0.retain(|id| still.contains(id));
     }
+    // A hidden band returns once its Mac's build changes or its link stops reading older.
+    if cx.try_global::<Hidden>().is_some_and(|hidden| !hidden.0.is_empty()) {
+        cx.global_mut::<Hidden>().0.retain(|id, build| macs.iter().any(|one| &one.id == id && hideable(one) && &one.build == build));
+    }
     if cx.try_global::<Held>().is_some_and(|held| held.0 == macs) {
         return;
     }
@@ -46,6 +50,19 @@ pub fn hold(macs: Vec<Mac>, cx: &mut App) {
 struct Updating(HashSet<String>);
 
 impl Global for Updating {}
+
+/// The older-build bands he hid, by Mac id, with the build that Mac ran when he hid it. Held here and nowhere
+/// else: a different build brings the band back.
+#[derive(Default)]
+struct Hidden(HashMap<String, Option<String>>);
+
+impl Global for Hidden {}
+
+/// Whether the band for this Mac may be hidden: only when that Mac runs an older build. A newer build is this
+/// Mac's own update to take, so its band stays.
+fn hideable(mac: &Mac) -> bool {
+    !mac.this_mac && mac.link == Some(MacLink::OlderBuild)
+}
 
 /// The Macs last held.
 pub fn macs(cx: &App) -> &[Mac] {
@@ -135,11 +152,18 @@ pub struct Frozen {
     pub why: String,
     pub label: String,
     pub update: ipc::UpdateMac,
+    /// The build the band may be hidden at: only where the other Mac is the older one. `None` is a band that never hides.
+    pub hide_at: Option<Option<String>>,
 }
 
 /// The first Mac frozen on a build, if any. Asleep and linked Macs give none.
 pub fn frozen(macs: &[Mac]) -> Option<Frozen> {
-    let mac = macs.iter().find(|one| frozen_link(one))?;
+    frozen_unhidden(macs, &HashMap::new())
+}
+
+/// The first frozen Mac whose band is not hidden at the build it runs now.
+fn frozen_unhidden(macs: &[Mac], hidden: &HashMap<String, Option<String>>) -> Option<Frozen> {
+    let mac = macs.iter().find(|one| frozen_link(one) && !(hideable(one) && hidden.get(&one.id) == Some(&one.build)))?;
     let older = mac.link == Some(MacLink::OlderBuild);
     let (label, update) = if older {
         (format!("Update {}", mac.name), ipc::UpdateMac { mac: Some(mac.id.clone()), ..Default::default() })
@@ -153,7 +177,15 @@ pub fn frozen(macs: &[Mac]) -> Option<Frozen> {
             format!("{} runs a newer build. Nothing crosses until this Mac updates.", mac.name)
         }
     });
-    Some(Frozen { id: mac.id.clone(), name: mac.name.clone(), colour: mac.colour, why, label, update })
+    Some(Frozen { id: mac.id.clone(), name: mac.name.clone(), colour: mac.colour, why, label, update, hide_at: hideable(mac).then(|| mac.build.clone()) })
+}
+
+/// Hide the band for a Mac running an older build, until that Mac's build changes.
+fn hide_frozen(frozen: &Frozen, cx: &mut App) {
+    if let Some(build) = &frozen.hide_at {
+        cx.default_global::<Hidden>().0.insert(frozen.id.clone(), build.clone());
+        cx.refresh_windows();
+    }
 }
 
 /// Ask Fleet to end the freeze: `POST /macs/update`. The band says Updating until the list reads the Mac unfrozen;
@@ -198,8 +230,9 @@ pub fn update_frozen(frozen: &Frozen, port: Option<u16>, cx: &mut App) {
 /// The band along the top of the Jobs screen for a Mac frozen on a build that differs: its name, the Gateway's why,
 /// and the press that ends the freeze. Nothing while every Mac is linked or asleep.
 pub fn frozen_band(look: &Look, macs: &[Mac], port: Option<u16>, cx: &App) -> Option<AnyElement> {
-    let frozen = frozen(macs)?;
-    let going = cx.try_global::<Updating>().is_some_and(|going| going.0.contains(&frozen.id));
+    let hidden = cx.try_global::<Hidden>().map(|hidden| hidden.0.clone()).unwrap_or_default();
+    let frozen = frozen_unhidden(macs, &hidden)?;
+    let going =cx.try_global::<Updating>().is_some_and(|going| going.0.contains(&frozen.id));
     let ink = look.color(token::STATUS_ESCALATED);
     let hue = crate::settings::macs::colour_of(look, frozen.colour);
     let label = if going { format!("Updating {}", if frozen.update.like.is_some() { "this Mac" } else { frozen.name.as_str() }) } else { frozen.label.clone() };
@@ -231,7 +264,16 @@ pub fn frozen_band(look: &Look, macs: &[Mac], port: Option<u16>, cx: &App) -> Op
                 .child(crate::titlebar::parts::glyph("unplug", look.length(token::SPACE_4), ink))
                 .child(pill_in(look, "frozen-link-mac".into(), &frozen.name, hue))
                 .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(said))
-                .child(labelled(button, Role::Button, label)),
+                .child(labelled(button, Role::Button, label))
+                .children(frozen.hide_at.is_some().then(|| {
+                    let name = frozen.name.clone();
+                    let press = frozen.clone();
+                    let hide = crate::titlebar::parts::Btn::new("frozen-link-hide", "Hide", crate::titlebar::parts::Weight::Ghost)
+                        .draw(look, cx)
+                        .tooltip(crate::titlebar::parts::tip(format!("Hide this until {name}'s build changes. {name} offers its own update when you get to it")))
+                        .on_click(move |_, _, cx| hide_frozen(&press, cx));
+                    labelled(hide, Role::Button, "Hide")
+                })),
             Role::Group,
             SharedString::from(format!("{} runs another build", frozen.name)),
         )
@@ -461,6 +503,61 @@ mod tests {
         assert_eq!(frozen(&[this(), linked("air", "Air", MacColour::Orange)]), None);
         assert_eq!(frozen(&[this(), frozen_mac(MacLink::Asleep { since: 5 }, None)]), None);
         assert_eq!(frozen(&[this()]), None);
+    }
+
+    fn with_build(link: MacLink, build: &str) -> Mac {
+        Mac { build: Some(build.into()), ..frozen_mac(link, None) }
+    }
+
+    fn hidden_at(build: &str) -> HashMap<String, Option<String>> {
+        HashMap::from([("air".to_string(), Some(build.to_string()))])
+    }
+
+    #[test]
+    fn an_older_build_band_stays_hidden_until_the_other_macs_build_changes() {
+        let macs = [this(), with_build(MacLink::OlderBuild, "aaa")];
+        assert!(frozen_unhidden(&macs, &HashMap::new()).is_some_and(|band| band.hide_at == Some(Some("aaa".into()))), "it can be hidden at the build it runs");
+        assert_eq!(frozen_unhidden(&macs, &hidden_at("aaa")), None, "hidden at that build, it stays gone");
+        let moved = [this(), with_build(MacLink::OlderBuild, "bbb")];
+        assert!(frozen_unhidden(&moved, &hidden_at("aaa")).is_some(), "a different build brings it back");
+    }
+
+    #[test]
+    fn a_band_for_this_mac_being_older_never_hides() {
+        let macs = [this(), with_build(MacLink::NewerBuild, "aaa")];
+        let band = frozen_unhidden(&macs, &HashMap::new()).expect("a newer build is frozen");
+        assert_eq!((band.label.as_str(), band.hide_at), ("Update this Mac", None), "no hide on this Mac's own update");
+        assert!(frozen_unhidden(&macs, &hidden_at("aaa")).is_some(), "even a stale hide does not remove it");
+    }
+
+    #[gpui::test]
+    fn the_hide_press_removes_the_band_and_a_new_build_returns_it(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_app);
+        cx.update(|cx| hold(vec![this(), with_build(MacLink::OlderBuild, "aaa")], cx));
+        let (_probe, cx) = cx.add_window_view(|_, _| Probe);
+        assert!(drawn(cx, Role::Button, "Hide"), "an older build offers Hide");
+        let band = frozen(&[this(), with_build(MacLink::OlderBuild, "aaa")]).expect("frozen");
+        cx.update(|_, cx| hide_frozen(&band, cx));
+        // The label book keeps what an earlier frame drew, so ask the band itself.
+        let has_band = |cx: &mut gpui::VisualTestContext| {
+            cx.update(|_, cx| {
+                use crate::look::ActiveLook;
+                let look = cx.look().clone();
+                frozen_band(&look, &macs(cx).to_vec(), None, cx).is_some()
+            })
+        };
+        assert!(!has_band(cx), "hidden");
+        cx.update(|_, cx| hold(vec![this(), with_build(MacLink::OlderBuild, "bbb")], cx));
+        assert!(has_band(cx), "a new build brings it back");
+    }
+
+    #[gpui::test]
+    fn the_newer_build_band_draws_no_hide(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_app);
+        cx.update(|cx| hold(vec![this(), with_build(MacLink::NewerBuild, "aaa")], cx));
+        let (_probe, cx) = cx.add_window_view(|_, _| Probe);
+        assert!(drawn(cx, Role::Button, "Update this Mac"));
+        assert!(!drawn(cx, Role::Button, "Hide"));
     }
 
     /// A parent that draws the band as the Jobs screen does.
