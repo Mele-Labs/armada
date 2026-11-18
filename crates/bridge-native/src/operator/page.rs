@@ -119,6 +119,21 @@ pub struct OperatorPageView {
     pub(super) talk_said: Vec<super::talk::Said>,
     /// The talk has overflowed its space: the card in front folds to one line from then on.
     pub(super) talk_long: Rc<Cell<bool>>,
+    /// How tall the talk's rows are together, as last drawn.
+    pub(super) talk_tall: Rc<Cell<gpui::Pixels>>,
+    /// How tall the open card's scrolling words are, and the room the front needs with them scrolled away, as last drawn.
+    pub(super) said_tall: Rc<Cell<gpui::Pixels>>,
+    pub(super) front_floor: Rc<Cell<gpui::Pixels>>,
+    /// How much of the open card's answers a short window scrolled away, as last drawn.
+    pub(super) answers_hidden: Rc<Cell<gpui::Pixels>>,
+    /// Where the open card's foot ends, the front's height and the room it needs, where the box ends and how tall the talk
+    /// is, as last drawn.
+    pub(super) foot_low: Rc<Cell<gpui::Pixels>>,
+    pub(super) front_need: Rc<Cell<(gpui::Pixels, gpui::Pixels)>>,
+    pub(super) box_low: Rc<Cell<gpui::Pixels>>,
+    pub(super) talk_room: Rc<Cell<gpui::Pixels>>,
+    /// How much of the talk's top row its top edge cuts while it follows its tail, as last drawn.
+    pub(super) talk_cut: Rc<Cell<gpui::Pixels>>,
     /// He opened the folded card. It folds again when the talk grows or he sends.
     pub(super) unfolded: bool,
     /// The cards that would have taken the front while it was folded or the talk in use, oldest first: the new-card strip.
@@ -211,6 +226,15 @@ impl OperatorPageView {
             },
             talk_said: Vec::new(),
             talk_long: Rc::new(Cell::new(false)),
+            talk_tall: Rc::new(Cell::new(gpui::px(0.))),
+            said_tall: Rc::new(Cell::new(gpui::px(0.))),
+            front_floor: Rc::new(Cell::new(gpui::px(0.))),
+            answers_hidden: Rc::new(Cell::new(gpui::px(0.))),
+            foot_low: Rc::new(Cell::new(gpui::px(0.))),
+            front_need: Rc::new(Cell::new((gpui::px(0.), gpui::px(0.)))),
+            box_low: Rc::new(Cell::new(gpui::px(0.))),
+            talk_room: Rc::new(Cell::new(gpui::px(0.))),
+            talk_cut: Rc::new(Cell::new(gpui::px(0.))),
             unfolded: false,
             fresh: Vec::new(),
             talk_heard: None,

@@ -5,7 +5,7 @@
 //! **A press on an option, or its number, settles the card at once** with that option. An item that is no card, such as a
 //! plan, a walk or a go-ahead to file a note, draws the same card: its options are the item's, its Thens, or its one pick.
 
-use gpui::{div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString, Stateful, Window};
+use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString, Stateful, Window};
 use ipc::operator_page::OperatorTurnItem;
 
 use super::face;
@@ -162,7 +162,62 @@ impl OperatorPageView {
         let danger = look.color(token::STATUS_COMPLETED_FAILED);
         let returned = face::returned(turn);
         let head = card_head(face::kind_of(turn), title.clone(), look).when(returned, |head| head.border_color(danger)).children(self.names(turn, true, look, cx));
-        let card = card_frame(&turn.id, inset, look).when(returned, |card| card.border_color(danger)).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
+        if inset {
+            let card = card_frame(&turn.id, inset, look).when(returned, |card| card.border_color(danger)).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
+            return labelled(card, Role::Article, title).into_any_element();
+        }
+        // In front, a tall card scrolls what it says in its own place; its answers and its foot stay whole at its bottom edge.
+        // It keeps a line's worth in sight. The page reads how much more of it is drawn, to know the room the card needs
+        // without it.
+        let (asks, read) = (self.asks(turn, look), self.my_read(turn, look));
+        let said = (asks.is_some() || read.is_some()).then(|| {
+            let (tall, least) = (self.said_tall.clone(), look.length(token::SPACE_12));
+            div()
+                .id(SharedString::from(format!("card-said-{}", turn.id)))
+                .relative()
+                .flex_shrink(100.)
+                .min_h(least)
+                .overflow_y_scroll()
+                .mt(look.length(token::SPACE_4))
+                .child(
+                    div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).children(asks).children(read),
+                )
+                .child(canvas(move |bounds, _, _| tall.set((bounds.size.height - least).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+        });
+        // The answers hold their room, and scroll in their place only in a window too short for them and the box.
+        // The page reads how much of them a short window scrolled away, to give it back.
+        let (inner, hidden) = (std::rc::Rc::new(std::cell::Cell::new(gpui::px(0.))), self.answers_hidden.clone());
+        let whole = inner.clone();
+        let answers = div()
+            .id(SharedString::from(format!("card-answers-{}", turn.id)))
+            .relative()
+            .flex_shrink(1.)
+            .min_h_0()
+            .overflow_y_scroll()
+            .mt(look.length(if said.is_some() { token::SPACE_3 } else { token::SPACE_4 }))
+            .px(look.length(token::SPACE_4))
+            .child(
+                div()
+                    .relative()
+                    .child(self.options(turn, target, window, look, cx))
+                    .child(canvas(move |bounds, _, _| whole.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
+            )
+            .child(canvas(move |bounds, _, _| hidden.set((inner.get() - bounds.size.height).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
+        let refused = div().flex_none().flex().flex_col().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_4)).children(self.refused_line(turn, look).map(|line| div().pt(look.length(token::SPACE_3)).child(line)));
+        let card = card_frame(&turn.id, false, look)
+            .flex_shrink(1.)
+            .min_h_0()
+            .flex()
+            .flex_col()
+            .when(returned, |card| card.border_color(danger))
+            .child(head.flex_none())
+            .children(said)
+            .child(answers)
+            .child(refused)
+            .child({
+                let low = self.foot_low.clone();
+                self.card_foot(target, look, cx).flex_none().relative().child(canvas(move |bounds, _, _| low.set(bounds.bottom()), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            });
         labelled(card, Role::Article, title).into_any_element()
     }
 

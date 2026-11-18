@@ -407,6 +407,45 @@ impl OperatorPageView {
         crate::job_view::ready_on_page(job.as_str(), &item, wide.max(0.), cx)
     }
 
+    /// Measures the front as drawn: the room it needs with the open card's words scrolled away. That is what it has, less
+    /// the words' part, plus whatever of the card's answers it scrolled away or of its foot it cut off.
+    fn need_watch(&self, look: &Look) -> gpui::Canvas<()> {
+        let (said, hidden, low, need, edge) = (self.said_tall.clone(), self.answers_hidden.clone(), self.foot_low.clone(), self.front_need.clone(), look.length(token::BORDER_WIDTH));
+        canvas(
+            move |bounds, _, _| {
+                let cut = (low.get() + edge - bounds.bottom()).max(gpui::px(0.));
+                need.set((bounds.size.height, bounds.size.height - said.get() + hidden.get() + cut));
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+    }
+
+    /// Measures the column as drawn, after the box: the front holds the room it needs, but never more than the front and
+    /// the talk have together above the box, so the box is never cut at the window's foot.
+    fn floor_watch(&self) -> gpui::Canvas<()> {
+        let (need, low, floor, talk) = (self.front_need.clone(), self.box_low.clone(), self.front_floor.clone(), self.talk_room.clone());
+        canvas(
+            move |bounds, window, _| {
+                let (has, needs) = need.get();
+                let room = has + talk.get() + (bounds.bottom() - low.get());
+                let hold = needs.min(room);
+                if (hold - floor.get()).abs() > gpui::px(0.5) {
+                    floor.set(hold);
+                    window.refresh();
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+    }
+
     /// Under the status line: a Mac asking to pair, the card in front or its folded line, the new-card strip, the talk, and
     /// the box at the foot. A stopped Operator's red card stands in front of any queued card, and the talk and the box dim
     /// under the scrim until it is back.
@@ -415,6 +454,7 @@ impl OperatorPageView {
         let now = self.clock_now.unwrap_or_else(chrono::Local::now);
         let folded = self.is_folded();
         let mut front: Vec<AnyElement> = self.pairing_cards(look, cx);
+        let mut pinned = false;
         let card = if matches!(status, Status::Off) || self.stopped_in_front() {
             self.status_card(look, cx)
         } else if let Some(idea) = self.front_idea(cx) {
@@ -424,6 +464,8 @@ impl OperatorPageView {
             // A card from the feed's working entries stands there too, to be read: it is picked, so it takes no press.
             if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.working_card(turn, look, cx) }
         } else if let Some(turn) = self.open_item() {
+            // An open card gives up the room it cannot have by scrolling what it says, its answers and foot kept whole.
+            pinned = !folded && !face::answers_on_card(turn);
             if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.card(turn, false, window, look, cx) }
         } else if folded {
             // Nothing is in front: the Operator's state stands in the card's place.
@@ -431,18 +473,28 @@ impl OperatorPageView {
         } else {
             self.status_card(look, cx)
         };
+        // Read afresh as the card is drawn: no words scroll until a card with some says how tall they are.
+        self.said_tall.set(gpui::px(0.));
+        self.answers_hidden.set(gpui::px(0.));
+        let last = front.len();
         front.push(card);
         // A Job's build to try keeps its whole height, so its answers are never scrolled away: the talk gives up its room.
         let whole = !folded && !matches!(status, Status::Off) && !self.stopped_in_front() && self.ready_in_front().is_some();
         let dim = matches!(status, Status::Stopped { .. });
-        // No min_h_0: the box keeps its height, and a tall card scrolls in its own place instead.
+        // The talk and the box under the front: the talk gives up room only to a card's answers and foot.
         let talk = div()
             .relative()
-            .flex_1()
+            .flex_grow(1.)
+            .flex_shrink(1.)
+            // Its parts hold their own least room: the box keeps its whole height.
+            .min_h_0()
             .flex()
             .flex_col()
             .child(self.talk(look, cx))
-            .child(div().flex_none().child(self.composer.clone()))
+            .child({
+                let low = self.box_low.clone();
+                div().flex_none().relative().child(self.composer.clone()).child(canvas(move |bounds, _, _| low.set(bounds.bottom()), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+            })
             .children(dim.then(|| div().absolute().inset_0().bg(look.color(token::SCRIM))));
         div()
             .flex_1()
@@ -457,15 +509,23 @@ impl OperatorPageView {
                     .id("operator-main")
                     .track_scroll(&self.main_scroll)
                     .min_h_0()
-                    .when(whole, |main| main.flex_shrink_0())
+                    // The front gives up its room well before the talk does; an open card's answers and foot hold theirs.
+                    .flex_shrink(if whole { 0. } else { 100. })
+                    .when(pinned, |main| main.min_h(self.front_floor.get()))
                     .overflow_y_scroll()
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_3))
-                    // Each part held at its own height, so a tall card scrolls instead of squeezing the talk away.
-                    .children(front.into_iter().map(|part| div().flex_none().child(part))),
+                    // Each part held at its own height, so a tall card scrolls instead of squeezing the talk away; an open card
+                    // scrolls inside itself.
+                    .children(front.into_iter().enumerate().map(|(at, part)| match pinned && at == last {
+                        true => div().flex_shrink(1.).min_h_0().flex().flex_col().child(part),
+                        false => div().flex_none().child(part),
+                    }))
+                    .when(pinned, |main| main.child(self.need_watch(look))),
             )
             .children(self.strip(look, cx))
             .child(talk)
+            .when(pinned, |column| column.relative().child(self.floor_watch()))
     }
 }

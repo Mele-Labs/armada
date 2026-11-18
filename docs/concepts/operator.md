@@ -65,6 +65,9 @@ A card never holds a count or a status report.
 The card, the talk and the composer share one width, with Next up and the feed in a panel of their own beside them.
 The talk is the session's thread, drawn as a Job's thread is, and follows its end unless you scrolled up.
 While it overflows its room, the card in front folds to one line: its title, the Operator's last act and a chevron.
+A card too tall for its room scrolls its read in its own place and keeps a line of it in sight.
+Its answers and its foot, Snooze and Discuss, stay whole at its bottom edge, and the talk gives up room for them.
+The talk starts below the card's edge on a whole row, and the box under it is always whole.
 
 **A card that comes while the card is folded, or the talk is in use, waits in a strip.**
 The strip stands over the talk: a bell, how many cards came, the newest one's title and Show.

@@ -904,6 +904,28 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_tall_plan_card_keeps_its_answer_and_foot_whole_and_the_talk_starts_below_it(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let page = screen.read_with(cx, |screen, _| screen.page.clone());
+        cx.simulate_resize(gpui::size(gpui::px(1100.), gpui::px(640.)));
+        page.update(cx, |page, cx| page.scene("plan-comes", cx).expect("a scene"));
+        redraw(cx);
+        // The book keeps every label a test window drew: start it again so only this frame's are read.
+        cx.update(|_, cx| cx.set_global(LabelBook::default()));
+        redraw(cx);
+        let card = drawn(cx, Role::Article, "Fix the merge line freshness chip").expect("the plan's card is in front");
+        let high = cx.update(|window, _| window.viewport_size().height);
+        for name in ["Review", "Snooze", "Discuss"] {
+            let one = drawn(cx, Role::Button, name).unwrap_or_else(|| panic!("{name} is drawn"));
+            assert!(one.top() >= card.top() && one.bottom() <= card.bottom() && one.bottom() <= high, "{name} is whole inside the card: {one:?} in {card:?}");
+        }
+        let talk = drawn(cx, Role::Log, "Talk with the Operator").expect("the talk is drawn");
+        assert!(talk.top() >= card.bottom(), "the talk starts below the card's edge: {talk:?} under {card:?}");
+        let typed = drawn(cx, Role::TextInput, "Message").expect("the box is drawn");
+        assert!(typed.bottom() <= high, "the box under the talk is whole: {typed:?}");
+    }
+
+    #[gpui::test]
     fn one_on_the_page_says_looks_good_on_a_build_to_try_as_on_the_jobs_thread(cx: &mut TestAppContext) {
         let (screen, cx) = page_screen(cx);
         let page = screen.read_with(cx, |screen, _| screen.page.clone());

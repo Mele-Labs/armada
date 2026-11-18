@@ -107,11 +107,27 @@ impl OperatorPageView {
     /// The talk, between the card and the box: a list that follows its tail unless he scrolled up. Its overflow is measured
     /// as it is drawn, and folds the card in front from then on.
     pub(super) fn talk(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let (long, state) = (self.talk_long.clone(), self.talk_list.clone());
+        let (long, tall, cut, state) = (self.talk_long.clone(), self.talk_tall.clone(), self.talk_cut.clone(), self.talk_list.clone());
         let watch = canvas(
             move |_, window, _| {
+                // At its tail, the part of a row its top edge cuts, which stands blank so the talk starts on a whole row.
+                let top = state.logical_scroll_top();
+                let part = match state.is_scrolled_to_end() {
+                    Some(true) if top.offset_in_item > gpui::px(0.) => state.bounds_for_item(top.item_ix).map_or(gpui::px(0.), |row| (row.bottom() - state.viewport_bounds().top()).max(gpui::px(0.))),
+                    _ => gpui::px(0.),
+                };
+                if (part - cut.get()).abs() > gpui::px(0.5) {
+                    cut.set(part);
+                    window.refresh();
+                }
                 if !long.get() && state.max_offset_for_scrollbar().y > gpui::px(0.) {
                     long.set(true);
+                    window.refresh();
+                }
+                // How tall the talk is whole, so it is given room for its rows up to its least room.
+                let whole = state.viewport_bounds().size.height + state.max_offset_for_scrollbar().y;
+                if (whole - tall.get()).abs() > gpui::px(0.5) {
+                    tall.set(whole);
                     window.refresh();
                 }
             },
@@ -119,15 +135,28 @@ impl OperatorPageView {
         )
         .absolute()
         .size_0();
+        let room = if self.talk_said.is_empty() { gpui::px(0.) } else { self.talk_tall.get().min(look.length(token::SPACE_12) * 3.).max(look.length(token::SPACE_12)) };
         let rows = list(self.talk_list.clone(), cx.processor(|this, ix: usize, window, cx| this.talk_row(ix, window, cx))).size_full();
         labelled(
             div()
                 .id("operator-talk")
                 .relative()
-                .flex_1()
-                .min_h(if self.talk_said.is_empty() { gpui::px(0.) } else { look.length(token::SPACE_12) })
+                // The talk draws inside its own room, never over the card above it.
+                .overflow_hidden()
+                .flex_grow(1.)
+                .flex_shrink(1.)
+                // Room for its newest rows whole, up to three lines' worth, before the card above scrolls any: a short talk is
+                // never cut at its top under the card. It gives that room up only to a card's answers and foot, as the build to
+                // try's card has it.
+                .flex_basis(room)
+                .min_h_0()
                 .child(rows)
-                .child(watch),
+                .child(div().absolute().top_0().left_0().w_full().h(self.talk_cut.get()).bg(look.color(token::BG_RAISED)))
+                .child(watch)
+                .child({
+                    let room = self.talk_room.clone();
+                    canvas(move |bounds, _, _| room.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()
+                }),
             Role::Log,
             "Talk with the Operator",
         )
