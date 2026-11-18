@@ -32,9 +32,9 @@ pub struct Offer {
 
 /// The Mac a Job goes to from here: the first other Mac whose link is up, else the first asleep. Only one other
 /// Mac is paired today, and a second would need a menu of its own.
-fn other(macs: &[Mac]) -> Option<&Mac> {
+pub fn other(macs: &[Mac]) -> Option<&Mac> {
     let others = || macs.iter().filter(|one| !one.this_mac);
-    others().find(|one| one.link == Some(MacLink::Linked)).or_else(|| others().find(|one| matches!(one.link, Some(MacLink::Asleep { .. }))))
+    others().find(|one| one.link == Some(MacLink::Linked)).or_else(|| others().find(|one| crate::pairing::paired(one)))
 }
 
 /// The id of the Mac a Job that went from here is on now: the other Mac.
@@ -57,9 +57,9 @@ pub fn moving_to(job: &SessionRecord) -> Option<&str> {
     job.hosted.as_ref().and_then(|hosted| hosted.moving_to_mac.as_deref())
 }
 
-/// The act for `job`, or none where it cannot move: no other Mac is linked or asleep, the Job is not one Fleet
-/// hosts, has ended, is paused or is moving already. A Job this Mac holds is left off, with why, while the Mac it
-/// would go to sleeps. A Job the other Mac holds is asked of that Mac through Fleet's queue, so it stays on.
+/// The act for `job`, or none where it cannot move: no other Mac is paired, the Job is not one Fleet hosts, has
+/// ended, is paused or is moving already. A Job this Mac holds is left off, with why, while the Mac it would go to
+/// sleeps or runs another build. A Job the other Mac holds is asked of that Mac through Fleet's queue, so it stays on.
 pub fn offer(job: &SessionRecord, macs: &[Mac]) -> Option<Offer> {
     if !crate::pairing::shows_chips(macs) || job.state == SessionState::Ended {
         return None;
@@ -74,6 +74,7 @@ pub fn offer(job: &SessionRecord, macs: &[Mac]) -> Option<Offer> {
     let to = other(macs)?;
     let off = match to.link {
         Some(MacLink::Asleep { since }) => Some(crate::pairing::asleep_said(since)),
+        Some(MacLink::OlderBuild | MacLink::NewerBuild) => Some(to.why.clone().unwrap_or_else(|| format!("{} runs another build. Update it in Settings, Macs", to.name))),
         _ => None,
     };
     Some(Offer { label: format!("Move to {}", to.name), to: Some(to.id.clone()), off })
@@ -209,6 +210,16 @@ mod tests {
         assert_eq!((shown.label.as_str(), shown.to.as_deref()), ("Move to Air", Some("air")));
         assert_eq!(shown.off, Some(crate::pairing::asleep_said(99)));
         assert!(shown.off.is_some_and(|why| why.starts_with("Asleep since ")));
+    }
+
+    #[test]
+    fn a_mac_on_another_build_lists_the_move_off_with_the_gateways_why() {
+        for link in [MacLink::NewerBuild, MacLink::OlderBuild] {
+            let frozen = Mac { why: Some("Air runs a newer build. Nothing crosses until this Mac updates.".into()), ..air(link.clone()) };
+            let shown = offer(&job(), &[studio(), frozen]).expect("the act is listed while the builds differ");
+            assert_eq!((shown.label.as_str(), shown.to.as_deref()), ("Move to Air", Some("air")));
+            assert_eq!(shown.off.as_deref(), Some("Air runs a newer build. Nothing crosses until this Mac updates."), "{link:?}");
+        }
     }
 
     #[test]

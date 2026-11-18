@@ -283,18 +283,33 @@ impl TitleBar {
         let said = |text: SharedString| -> AnyElement {
             div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(text).into_any_element()
         };
+        // Another Mac paired: Refresh takes it along, and a Mac pressing alone is what froze the link.
+        let partner = crate::pairing::refresh_partner(crate::pairing::macs(cx)).map(|other| other.name.clone());
         let refresh = (on == BuildSource::Preview || refresh_row.is_some()).then(|| {
-            let label = if refreshing { "Refreshing" } else { "Refresh" };
+            let label = match (refreshing, partner.is_some()) {
+                (true, _) => "Refreshing",
+                (false, true) => "Refresh both Macs",
+                (false, false) => "Refresh",
+            };
             let weight = if refresh_row.is_some() { Weight::Primary } else { Weight::Secondary };
-            let button = Btn::new("refresh-build", label, weight)
-                .icon("rotate-cw")
-                .pending(refreshing)
-                .disabled(busy)
-                .full()
-                .draw(look, cx)
-                .flex_1()
-                .tooltip(tip("Merge the offered branches onto latest main and restart Fleet"));
-            let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, None, window, cx))) };
+            let tooltip = match &partner {
+                Some(name) => format!("Merge the offered branches onto latest main, restart Fleet, and have {name} build the same commit"),
+                None => "Merge the offered branches onto latest main and restart Fleet".into(),
+            };
+            let button = Btn::new("refresh-build", label, weight).icon("rotate-cw").pending(refreshing).disabled(busy).full().draw(look, cx).flex_1().tooltip(tip(tooltip));
+            let button = if busy {
+                button
+            } else if partner.is_some() {
+                button.on_click(cx.listener(|this, _, _, cx| this.refresh_both(cx)))
+            } else {
+                button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, None, window, cx)))
+            };
+            // Beside it, the press that moves this Mac only. It stands while a restart is under way, off.
+            let alone = partner.is_some().then(|| {
+                let button = Btn::new("refresh-this-mac", "This Mac only", Weight::Secondary).disabled(busy).draw(look, cx).tooltip(tip("Merge the offered branches onto latest main and restart Fleet here only"));
+                let button = if busy { button } else { button.on_click(cx.listener(|this, _, window, cx| this.change_build(BuildSource::Preview, None, window, cx))) };
+                labelled(button, Role::Button, "This Mac only")
+            });
             let skip = refresh_row.map(|refresh| {
                 let id = refresh.id.clone();
                 let button = Btn::new("skip-offers", "Skip", Weight::Secondary).draw(look, cx).tooltip(tip("Hide what waits until the offers change"));
@@ -304,7 +319,7 @@ impl TitleBar {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(button, Role::Button, label)).children(skip))
+                .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(button, Role::Button, label)).children(alone).children(skip))
                 .children((!restarting).then(|| said(story::refresh_said(offers).into())))
         });
         let update = (on == BuildSource::Main).then(|| {
@@ -696,7 +711,13 @@ mod tests {
 
     /// A bar whose Fleet panel stands open on `rest` of a build report, and what the bar asked.
     fn opened<'a>(cx: &'a mut TestAppContext, rest: &str) -> (Entity<TitleBar>, &'a mut VisualTestContext, Rc<RefCell<Vec<Asked>>>) {
+        opened_with(cx, rest, Vec::new())
+    }
+
+    /// The same, with `macs` held as the Gateway listed them.
+    fn opened_with<'a>(cx: &'a mut TestAppContext, rest: &str, macs: Vec<ipc::Mac>) -> (Entity<TitleBar>, &'a mut VisualTestContext, Rc<RefCell<Vec<Asked>>>) {
         cx.update(crate::init_app);
+        cx.update(|cx| crate::pairing::hold(macs, cx));
         let asked = Rc::new(RefCell::new(Vec::new()));
         let heard = Rc::clone(&asked);
         cx.update(|cx| cx.set_global(AskedSink(Rc::new(move |one: &Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
@@ -737,6 +758,8 @@ mod tests {
     fn nothing_is_drawn_for_a_checkout_that_is_not_blocked(cx: &mut TestAppContext) {
         let (_bar, cx, _) = opened(cx, PREVIEW);
         assert!(drawn(cx, Role::Button, "Refresh").is_some(), "the panel is open");
+        assert!(drawn(cx, Role::Button, "This Mac only").is_none(), "one Mac: one Refresh, as before");
+        assert!(drawn(cx, Role::Button, "Refresh both Macs").is_none());
         assert!(drawn(cx, Role::Button, "Stash and refresh").is_none());
         assert!(drawn(cx, Role::List, "Untracked files").is_none());
     }
@@ -769,5 +792,30 @@ mod tests {
         cx.simulate_click(at.center(), Modifiers::none());
         redraw(cx);
         assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Main, clear: Some(ClearBlocked::Delete) }]);
+    }
+
+    #[gpui::test]
+    fn a_paired_mac_makes_refresh_move_both_and_leaves_this_mac_only_beside_it(cx: &mut TestAppContext) {
+        let (_bar, cx, asked) = opened_with(cx, PREVIEW, crate::pairing::mock_macs(true));
+        assert!(drawn(cx, Role::Button, "Refresh").is_none(), "the lone Refresh is gone");
+        let both = drawn(cx, Role::Button, "Refresh both Macs").expect("Refresh both Macs is drawn");
+        let alone = drawn(cx, Role::Button, "This Mac only").expect("This Mac only is drawn");
+        assert_eq!(both.origin.y, alone.origin.y, "the two presses share a line");
+        cx.simulate_click(alone.center(), Modifiers::none());
+        redraw(cx);
+        assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Preview, clear: None }], "This Mac only is today's change");
+        assert!(!asked.borrow().contains(&Asked::RefreshBoth));
+    }
+
+    #[gpui::test]
+    fn refresh_both_macs_asks_for_both(cx: &mut TestAppContext) {
+        let (bar, cx, asked) = opened_with(cx, PREVIEW, crate::pairing::mock_macs(true));
+        let at = drawn(cx, Role::Button, "Refresh both Macs").expect("Refresh both Macs is drawn");
+        cx.simulate_click(at.center(), Modifiers::none());
+        redraw(cx);
+        assert!(asked.borrow().contains(&Asked::RefreshBoth));
+        assert!(changes(&asked).is_empty());
+        let restarting = bar.read_with(cx, |bar, _| bar.face.build.as_ref().and_then(|held| held.report.restarting));
+        assert_eq!(restarting, Some(BuildSource::Preview), "the restart reads as it does for a single Refresh");
     }
 }
