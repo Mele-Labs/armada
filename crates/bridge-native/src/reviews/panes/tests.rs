@@ -30,7 +30,8 @@ fn the_first_tab_of_a_pane_follows_the_panels_curve_and_the_others_stay_square(c
         // The first tab of a pane is the one with no tab to its left in its row.
         let first = !tabs.iter().any(|(other, _)| other.y == origin.y && other.x < origin.x && (other.y - origin.y).abs() < px(1.));
         let expected = if first { inner } else { px(0.) };
-        assert_eq!(*radius, Some(expected), "tab at {origin:?}: only a pane's first tab takes the panel's curve");
+        // A tab that sets no radius reports None, which is square.
+        assert_eq!(radius.unwrap_or(px(0.)), expected, "tab at {origin:?}: only a pane's first tab takes the panel's curve");
     }
     assert!(tabs.iter().any(|(_, radius)| *radius == Some(inner)), "some tab is first in its pane");
 }
