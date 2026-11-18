@@ -41,6 +41,7 @@ impl Features for FakeDaemon {
             sections: Vec::new(),
             links: Vec::new(),
             files: Vec::new(),
+            floor_plan: None,
         })
     }
 

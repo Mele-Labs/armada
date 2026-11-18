@@ -5,7 +5,7 @@
 //! **One forge call a list for all the repositories**, because the search takes a `repo:`
 //! qualifier for each and ORs them. Nothing here polls; the caller reads when somebody looks.
 
-use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, ListedPull, ReviewList, ReviewListAsk};
+use adapter_traits::{LatestReview, LatestReviewSaid, ListedChecks, ListedPull, NumberedPull, ReviewList, ReviewListAsk};
 
 use crate::delivery::{read_in, FORGE};
 use crate::pull_request_detail::review_standing;
@@ -14,17 +14,27 @@ use crate::under_review::as_written;
 /// The most rows the forge's search will give a call.
 pub(crate) const MOST_A_CALL: usize = 100;
 
-/// `asks`, read only where `$asked`, is the latest ten review requests of each pull request: enough
-/// to reach his among others asked about the same time, and one connection a row as `myReview` is,
-/// so a search of 50 stays at GitHub's cost of two points.
-pub(crate) const QUERY: &str = "query($q:String!,$n:Int!,$me:String,$asked:Boolean!){search(query:$q,type:ISSUE,first:$n){nodes{\
-    ... on PullRequest{repository{nameWithOwner} number title headRefName url isDraft headRefOid \
+/// The fields a row is read from, in the search and in the read by number alike.
+macro_rules! pull_fields {
+    () => {
+        "repository{nameWithOwner} number title headRefName url isDraft headRefOid \
     author{login} updatedAt reviewDecision \
     commits(last:1){nodes{commit{statusCheckRollup{state}}}} \
     reviewRequests(first:10){nodes{requestedReviewer{... on Team{name slug organization{login}}}}} \
     myReview:reviews(author:$me,last:1,states:[APPROVED,CHANGES_REQUESTED,COMMENTED]){nodes{state submittedAt commit{oid}}} \
     asks:timelineItems(itemTypes:[REVIEW_REQUESTED_EVENT],last:10)@include(if:$asked){nodes{\
-    ... on ReviewRequestedEvent{createdAt requestedReviewer{... on User{login} ... on Team{slug organization{login}}}}}}}}}}";
+    ... on ReviewRequestedEvent{createdAt requestedReviewer{... on User{login} ... on Team{slug organization{login}}}}}}"
+    };
+}
+
+/// `asks`, read only where `$asked`, is the latest ten review requests of each pull request: enough
+/// to reach his among others asked about the same time, and one connection a row as `myReview` is,
+/// so a search of 50 stays at GitHub's cost of two points.
+pub(crate) const QUERY: &str = concat!(
+    "query($q:String!,$n:Int!,$me:String,$asked:Boolean!){search(query:$q,type:ISSUE,first:$n){nodes{... on PullRequest{",
+    pull_fields!(),
+    "}}}}"
+);
 
 /// One pull request a line: repository, number, title, branch, address, draft, head, author,
 /// updated, review decision, rollup state, then the teams asked (RS apart) as `org/slug` and the
@@ -99,15 +109,9 @@ pub(crate) fn asks_read(list: ReviewList) -> bool {
 /// The search text, or `None` where it would not mean what it says: **no repository, or a name
 /// with a space in it, would widen the search past the repositories Fleet serves**.
 pub(crate) fn search_of(ask: &ReviewListAsk<'_>) -> Option<String> {
-    let name = |text: &str| {
-        !text.is_empty()
-            && text
-                .chars()
-                .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '[' | ']'))
-    };
     // The open list names no one, so it needs no login; every other list is the login's.
-    let login_ok = ask.list == ReviewList::Open || name(ask.login);
-    if ask.repositories.is_empty() || !login_ok || !ask.repositories.iter().all(|it| name(it)) {
+    let login_ok = ask.list == ReviewList::Open || plain(ask.login);
+    if ask.repositories.is_empty() || !login_ok || !ask.repositories.iter().all(|it| plain(it)) {
         return None;
     }
     let mut search = String::from("is:pr is:open sort:updated-desc");
@@ -124,6 +128,73 @@ pub(crate) fn search_of(ask: &ReviewListAsk<'_>) -> Option<String> {
         ReviewList::Open => String::new(),
     });
     Some(search)
+}
+
+/// A login or `owner/name` that cannot say more than its name inside a search or a query.
+fn plain(text: &str) -> bool {
+    !text.is_empty()
+        && text
+            .chars()
+            .all(|c| c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.' | '/' | '[' | ']'))
+}
+
+/// The open ones of `pulls`, read by number in one call, as the rows of a list. Folded by [`LINES`]
+/// once the reduction has gathered every repository's pull requests where the search puts its nodes.
+const NUMBERED_PICKED: &str =
+    r#"{data:{search:{nodes:[.data[]? | select(. != null) | .[]? | select(. != null and .state == "OPEN")]}}}"#;
+
+/// `pulls` read by number, the open ones as rows. `None` where the forge would not answer.
+pub(crate) fn numbered(in_repo: &str, login: &str, pulls: &[NumberedPull]) -> Option<Vec<ListedPull>> {
+    let Some(query) = numbered_query(pulls) else { return Some(Vec::new()) };
+    let query = format!("query={query}");
+    let me = format!("me={login}");
+    let lines = format!("{NUMBERED_PICKED} | {LINES}");
+    let mut args = vec!["api", "graphql", "-F", "asked=false", "-f", &query, "--jq", &lines];
+    if !login.is_empty() {
+        args.extend(["-f", me.as_str()]);
+    }
+    let run = read_in(in_repo, FORGE, &args).ok()?;
+    if !run.status.success() {
+        return None;
+    }
+    let lines: Vec<String> = String::from_utf8_lossy(&run.stdout)
+        .lines()
+        .filter(|line| !line.is_empty())
+        .map(str::to_string)
+        .collect();
+    Some(listed_folded(&lines, Teams::Unwanted, login))
+}
+
+/// One query for `pulls`: each repository aliased `r<i>`, each of its pull requests `p<number>`
+/// under it, every one the fields a list reads and its `state`. `None` where no pull request has a
+/// name that can go in a query; one that cannot is left out, so it cannot widen what is read.
+pub(crate) fn numbered_query(pulls: &[NumberedPull]) -> Option<String> {
+    let mut held: Vec<(&str, &str, Vec<u64>)> = Vec::new();
+    for pull in pulls {
+        let Some((owner, name)) = pull.repository.split_once('/') else { continue };
+        if !plain(owner) || !plain(name) || name.contains('/') {
+            continue;
+        }
+        let same = |(o, n, _): &&mut (&str, &str, Vec<u64>)| o.eq_ignore_ascii_case(owner) && n.eq_ignore_ascii_case(name);
+        match held.iter_mut().find(same) {
+            Some((_, _, numbers)) if numbers.contains(&pull.number) => {}
+            Some((_, _, numbers)) => numbers.push(pull.number),
+            None => held.push((owner, name, vec![pull.number])),
+        }
+    }
+    if held.is_empty() {
+        return None;
+    }
+    let mut query = String::from("query($me:String,$asked:Boolean!){");
+    for (at, (owner, name, numbers)) in held.iter().enumerate() {
+        query.push_str(&format!("r{at}:repository(owner:\"{owner}\",name:\"{name}\"){{"));
+        for number in numbers {
+            query.push_str(&format!("p{number}:pullRequest(number:{number}){{...Row}} "));
+        }
+        query.push('}');
+    }
+    query.push_str(concat!("} fragment Row on PullRequest{state ", pull_fields!(), "}"));
+    Some(query)
 }
 
 /// The teams the person is on. `None` is the forge's refusal: a token without `read:org` gets

@@ -1,4 +1,4 @@
-//! The pull requests waiting on a person, as four lists through a real Fleet and a scripted
+//! The pull requests waiting on a person, as five lists through a real Fleet and a scripted
 //! forge. **No forge is called**: `FakeVcs` answers each list as it was told to and records what
 //! it was asked, which is how a test says one call a list named every repository.
 
@@ -214,4 +214,94 @@ async fn where_the_forge_gave_no_time_a_request_by_name_is_dated_from_when_fleet
     let asked: Vec<(u64, Option<&str>)> = lists.requested.iter().map(|row| (row.number, row.asked_at.as_deref())).collect();
     assert_eq!(asked, [(12, Some(told.as_str())), (13, Some("2026-11-01T09:00:00Z"))], "the forge's own time is kept");
     assert_eq!(lists.team[0].asked_at, None, "Fleet tells only of a request by name");
+}
+
+/// A finished run of `kind` on pull request `number`, started at `started`.
+async fn ran(fleet: &Fixture, id: &ipc::ManifestId, number: u64, kind: &str, started: &str) {
+    let run = store::KeptReviewRun {
+        manifest_id: id.as_str().into(),
+        number,
+        head: "3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e3f9c1d2e".into(),
+        kind: kind.into(),
+        name: "risks".into(),
+        label: "risks".into(),
+        state: "done".into(),
+        started_at: started.into(),
+        finished_at: Some(started.into()),
+        failed: None,
+        result: None,
+        cost_micros: None,
+        slot: None,
+        holder: None,
+    };
+    fleet.store().lock().await.keep_review_run(&run).expect("kept");
+}
+
+#[tokio::test]
+async fn a_row_he_ran_a_review_tool_on_says_so_and_one_he_only_asked_about_does_not() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "nick");
+    ran(&fleet, &id, 7, "tool", "2026-11-16T09:00:00Z").await;
+    ran(&fleet, &id, 8, "ask", "2026-11-16T10:00:00Z").await;
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(7, SLUG), pull(8, SLUG)]);
+    fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(7, SLUG)]);
+    for list in [ReviewList::Team, ReviewList::Assigned] {
+        fleet.vcs().now_review_list(list, Vec::new());
+    }
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    let flagged: Vec<(u64, bool)> = lists.requested.iter().map(|row| (row.number, row.reviewing)).collect();
+    assert_eq!(flagged, [(7, true), (8, false)]);
+    assert!(lists.mine[0].reviewing, "on a row of every list");
+    assert!(lists.reviewing.is_empty(), "a pull request a list names is not listed again: {:?}", lists.reviewing);
+}
+
+#[tokio::test]
+async fn an_open_pull_request_he_ran_a_tool_on_that_no_list_names_is_listed_and_a_closed_one_is_not() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "nick");
+    ran(&fleet, &id, 7, "tool", "2026-11-16T12:00:00Z").await;
+    ran(&fleet, &id, 20, "tool", "2026-11-16T09:00:00Z").await;
+    ran(&fleet, &id, 21, "overview", "2026-11-16T11:00:00Z").await;
+    ran(&fleet, &id, 22, "change_sets", "2026-11-16T10:00:00Z").await;
+    ran(&fleet, &id, 23, "fix", "2026-11-16T13:00:00Z").await;
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(7, SLUG)]);
+    for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
+        fleet.vcs().now_review_list(list, Vec::new());
+    }
+    // #22 has closed, so the forge leaves it out of a read by number.
+    fleet.vcs().now_open_by_number(vec![pull(20, SLUG), pull(7, SLUG), pull(21, SLUG), pull(23, SLUG)]);
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    let listed: Vec<(u64, bool)> = lists.reviewing.iter().map(|row| (row.number, row.reviewing)).collect();
+    assert_eq!(listed, [(21, true), (20, true)], "newest run first, and a fix is not a review tool");
+    assert_eq!(lists.reviewing[0].manifest_id, id);
+    assert!(lists.silent.is_empty());
+    let asked: Vec<Vec<(String, u64)>> = fleet
+        .vcs()
+        .numbered_reads_asked()
+        .into_iter()
+        .map(|read| read.into_iter().map(|it| (it.repository, it.number)).collect())
+        .collect();
+    let slug = SLUG.to_string();
+    assert_eq!(asked, [vec![(slug.clone(), 7), (slug.clone(), 21), (slug.clone(), 22), (slug, 20)]], "one call");
+}
+
+#[tokio::test]
+async fn a_read_by_number_the_forge_would_not_answer_leaves_the_fifth_list_empty_and_named() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "nick");
+    ran(&fleet, &id, 20, "tool", "2026-11-16T09:00:00Z").await;
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(7, SLUG)]);
+    for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
+        fleet.vcs().now_review_list(list, Vec::new());
+    }
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert_eq!(lists.silent, [PullReviewList::Reviewing]);
+    assert!(lists.reviewing.is_empty());
+    assert_eq!(lists.requested.len(), 1, "the four stand");
 }

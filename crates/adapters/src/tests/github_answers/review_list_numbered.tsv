@@ -1,0 +1,2 @@
+acme/billing	41	Bill a trial at its end	trial-billing	https://github.com/acme/billing/pull/41	true	4141414141414141414141414141414141414141	tobias	2026-11-16T12:00:00Z	REVIEW_REQUIRED	FAILURE		COMMENTED	4040404040404040404040404040404040404040	2026-11-15T10:00:00Z	
+acme/ledger	9	Speed up the ledger	ledger-speed	https://github.com/acme/ledger/pull/9	false	0909090909090909090909090909090909090909	ada	2026-11-17T08:00:00Z							
