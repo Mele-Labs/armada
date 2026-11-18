@@ -102,6 +102,9 @@ impl OperatorScreen {
         let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.fleet = Some(fleet.clone());
+        // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
+        this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
+        cx.defer(crate::deep_link::settle);
         // A layout saved in Settings arrives with Fleet's answer: the strip draws again where it hides or shows a place.
         let layout = cx.observe(fleet, |this, _, cx| this.show_places(cx));
         this._subs.push(layout);
@@ -372,6 +375,20 @@ pub fn open_call(key: String, cx: &mut App) {
     if let Some(page) = live(cx) {
         page.update(cx, |page, cx| page.show_pairing(&key, cx));
     }
+}
+
+/// What a link is decided with: whether `features.deepLinks` is on and the repositories Fleet serves, each `None`
+/// until Fleet has said. `None` where the screen is not up yet, or has no Fleet to read.
+pub fn link_state(cx: &App) -> Option<(Option<bool>, Option<Vec<ipc::RepositorySummary>>)> {
+    let screen = cx.try_global::<Here>()?.0.upgrade()?;
+    let fleet = screen.read(cx).fleet.clone()?;
+    let held = fleet.read(cx).held();
+    Some((held.deep_links, held.repositories.clone()))
+}
+
+/// The Fleet a link is linked through, where the screen has one.
+pub fn link_fleet(cx: &App) -> Option<Entity<FleetConnection>> {
+    cx.try_global::<Here>()?.0.upgrade()?.read(cx).fleet.clone()
 }
 
 /// A banner's press on a review asked of him: [`OperatorScreen::open_review`] from outside the screen.

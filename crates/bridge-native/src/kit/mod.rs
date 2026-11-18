@@ -10,7 +10,9 @@ mod mock;
 mod model;
 mod view;
 pub mod walk;
-mod wire;
+pub(crate) mod wire;
+
+pub(crate) use model::source_path;
 
 use std::collections::HashMap;
 

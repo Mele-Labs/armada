@@ -19,8 +19,13 @@ bundle="$folder/Open in Armada.workflow"
 
 read -r -d '' command <<'SH' || true
 for address in "$@"; do
-  link=$(printf '%s' "$address" | sed -nE 's#^[[:space:]]*https?://github\.com/([^/]+)/([^/]+)/pull/([0-9]+).*#armada://pull/\1/\2/\3#p')
-  open "${link:-$address}"
+  # Slack and others hand over the link's text, which can lack the scheme: github.com/<owner>/...
+  link=$(printf '%s' "$address" | sed -nE 's#^[[:space:]]*(https?://)?(www\.)?github\.com/([^/]+)/([^/]+)/pull/([0-9]+).*#armada://pull/\3/\4/\5#p')
+  if [ -z "$link" ]; then
+    link=$(printf '%s' "$address" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+    case "$link" in *://*) ;; *) link="https://$link" ;; esac
+  fi
+  open "$link"
 done
 SH
 

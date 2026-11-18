@@ -59,7 +59,32 @@ pub fn point_at_current_build() {
         for stale in others(&own, found) {
             lsregister("-u", &stale);
         }
+        claim_armada_scheme();
     });
+}
+
+#[link(name = "CoreServices", kind = "framework")]
+extern "C" {
+    fn LSSetDefaultHandlerForURLScheme(scheme: *const std::ffi::c_void, bundle_id: *const std::ffi::c_void) -> i32;
+}
+
+/// Makes this app the one macOS opens for `armada://`. The bundle's `Info.plist` only offers the scheme; where
+/// Armada Classic or an older build holds it, a link goes there until this says otherwise.
+#[allow(unsafe_code)]
+fn claim_armada_scheme() {
+    use objc2_foundation::NSString;
+    let (scheme, bundle_id) = (NSString::from_str("armada"), NSString::from_str("dev.armada.bridge.native"));
+    // SAFETY: an `NSString` is toll-free bridged to the `CFStringRef` this takes, both outlive the call, and the
+    // call reads them without keeping them.
+    let status = unsafe {
+        LSSetDefaultHandlerForURLScheme(
+            &*scheme as *const NSString as *const std::ffi::c_void,
+            &*bundle_id as *const NSString as *const std::ffi::c_void,
+        )
+    };
+    if status != 0 {
+        log::Note::warn("macOS refused armada:// to this app").field("status", status.to_string()).emit();
+    }
 }
 
 #[cfg(test)]

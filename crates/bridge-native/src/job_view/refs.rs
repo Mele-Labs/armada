@@ -12,6 +12,9 @@ use ipc::SessionRecord;
 /// The scheme a Job reference travels through the markdown in, as Electron's `armada-ref:`.
 const REF: &str = "armada-ref:session/";
 
+/// The scheme a file path travels through the markdown in: a code span that is a whole path opens in a file tab.
+const FILE: &str = "armada-ref:file/";
+
 /// Each Job and the words that name it, and each pull request known in the Manifest by its number and address.
 pub(super) struct Refs {
     jobs: Vec<(String, Vec<String>)>,
@@ -133,6 +136,11 @@ impl Refs {
         address.strip_prefix(REF).map(|id| id.to_string())
     }
 
+    /// The file a press on a link opens, where the link is one this file wrote.
+    pub(super) fn file_of(address: &str) -> Option<String> {
+        address.strip_prefix(FILE).map(str::to_string)
+    }
+
     /// The words with each Job they name written as a link, and code left alone: a code span that is exactly
     /// a Job's id, or a web address, is the link; a number or a name inside a fence or a span is not.
     pub(super) fn linked(&self, text: &str) -> String {
@@ -151,6 +159,7 @@ impl Refs {
             match job {
                 Some(id) => out.push_str(&format!("[{part}]({REF}{id})")),
                 None if is_web(inner) => out.push_str(&format!("[{part}](<{inner}>)")),
+                None if is_path(inner) => out.push_str(&format!("[{part}](<{FILE}{inner}>)")),
                 None => out.push_str(part),
             }
         }
@@ -230,6 +239,17 @@ fn github_page(address: &str) -> bool {
 fn whole(text: &str, start: usize, end: usize) -> bool {
     let joins = |c: char| c.is_alphanumeric() || c == '_' || c == '-';
     !text[..start].chars().next_back().is_some_and(joins) && !text[end..].chars().next().is_some_and(joins)
+}
+
+/// A code span that is a whole file path: no spaces, a slash, and a file name with an extension. Fleet refuses one
+/// that is not a file of the Job's repository, and the tab says so.
+fn is_path(text: &str) -> bool {
+    if text.contains(char::is_whitespace) || text.contains("://") || !text.contains('/') {
+        return false;
+    }
+    let name = text.rsplit('/').next().unwrap_or("");
+    let name = name.split(':').next().unwrap_or("");
+    name.rsplit_once('.').is_some_and(|(stem, ext)| !stem.is_empty() && !ext.is_empty() && ext.len() <= 8 && ext.chars().all(|c| c.is_ascii_alphanumeric()))
 }
 
 fn is_web(text: &str) -> bool {
@@ -317,6 +337,13 @@ mod tests {
     fn code_is_left_alone_unless_it_is_exactly_a_job_or_an_address() {
         let out = refs().linked("`s-ad34a1b8` `fix s-ad34a1b8` `https://example.com/a` ```\ns-ad34a1b8\n```");
         assert_eq!(out, "[`s-ad34a1b8`](armada-ref:session/ad34a1b8-683f) `fix s-ad34a1b8` [`https://example.com/a`](<https://example.com/a>) ```\ns-ad34a1b8\n```");
+    }
+
+    #[test]
+    fn a_code_span_that_is_a_whole_file_path_is_a_file_link() {
+        let out = refs().linked("`/tmp/armada-red/operator-handoff.md` `crates/a/b.rs` `a/b` `cargo test` `x.rs`");
+        assert_eq!(out, "[`/tmp/armada-red/operator-handoff.md`](<armada-ref:file//tmp/armada-red/operator-handoff.md>) [`crates/a/b.rs`](<armada-ref:file/crates/a/b.rs>) `a/b` `cargo test` `x.rs`");
+        assert_eq!(Refs::file_of("armada-ref:file//tmp/x.md").as_deref(), Some("/tmp/x.md"));
     }
 
     #[test]

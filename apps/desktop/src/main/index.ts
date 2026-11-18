@@ -636,7 +636,8 @@ let linked: PullLink | null = null;
  * review page. macOS hands it over with `open-url`, which can come before the app is ready, so it is listened for here and not in `whenReady`.
  */
 const deepLinks = new DeepLinks({
-  claim: () => void app.setAsDefaultProtocolClient(DEEP_LINK_SCHEME),
+  // The native Bridge claims the scheme (`crates/bridge-native/src/launch_services.rs`), so Classic never does; it only lets go.
+  claim: () => {},
   release: () => void app.removeAsDefaultProtocolClient(DEEP_LINK_SCHEME),
   deliver: (link) => {
     linked = link;
