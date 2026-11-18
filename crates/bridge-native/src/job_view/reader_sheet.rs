@@ -592,6 +592,101 @@ mod tests {
         });
     }
 
+    /// The panel open on the artifact with a second vote added under the first: "side", of two takes with no scene.
+    fn opened_with_two_votes<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                ID,
+                |artifact| {
+                    let at = artifact.parts.iter().position(|part| part.id == "bar").expect("the first vote");
+                    let take = |id: &str, title: &str| ipc::PartTake { id: id.into(), title: title.into(), scene: None };
+                    let content = ipc::PartContent::Takes { question: Some("Which side?".into()), form: ipc::VoteForm::Pick, takes: vec![take("left", "L \u{b7} Left"), take("right", "R \u{b7} Right")], parts: Vec::new() };
+                    let side = ipc::ArtifactPart { id: "side".into(), drawn: "side-1".into(), content, ..artifact.parts[at].clone() };
+                    artifact.parts.insert(at + 1, side);
+                },
+                cx,
+            )
+        });
+        redraw(cx);
+        (view, cx)
+    }
+
+    fn note(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, key: &str, words: &str) {
+        view.update_in(cx, |view, window, cx| {
+            let input = view.pages.get(JOB).and_then(|page| page.cards.parts.notes(key)).expect("the vote's words box");
+            input.update(cx, |input, cx| input.set_value(words, window, cx));
+        });
+    }
+
+    #[gpui::test]
+    fn several_votes_are_sent_by_one_send_picks_with_each_votes_own_note(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_with_two_votes(cx);
+        let (bar, side) = (super::super::parts_card::part_key(ID, "bar"), super::super::parts_card::part_key(ID, "side"));
+        assert!(!drawn(cx, Role::Button, "Send pick"), "no vote has a Send pick of its own");
+        view.update_in(cx, |view, _, cx| {
+            view.choose_take(&bar, 1, cx);
+            view.choose_take(&side, 0, cx);
+        });
+        note(&view, cx, &bar, "Rail, but narrower.");
+        note(&view, cx, &side, "Left reads first.");
+        redraw(cx);
+        let send = bounds_of(cx, Role::Button, "Send picks").center();
+        cx.simulate_click(send, Modifiers::none());
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.as_str(), post.take.as_deref(), post.words.as_deref())).collect();
+            assert_eq!(posts, [("bar", Some("rail"), Some("Rail, but narrower.")), ("side", Some("left"), Some("Left reads first."))], "one answer to each vote, each with its own note");
+            let held = view.artifact_of(JOB, ID).expect("the artifact");
+            let state = |id: &str| held.parts.iter().find(|part| part.id == id).map(|part| part.state);
+            assert_eq!((state("bar"), state("side")), (Some(ipc::PartState::Picked), Some(ipc::PartState::Picked)), "both votes are answered");
+        });
+    }
+
+    #[gpui::test]
+    fn a_vote_with_no_pick_stays_asking_after_send_picks_and_the_button_waits_for_a_pick(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_with_two_votes(cx);
+        let side = super::super::parts_card::part_key(ID, "side");
+        let send = bounds_of(cx, Role::Button, "Send picks").center();
+        cx.simulate_click(send, Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.mock_part_posts().is_empty()), "with no pick there is nothing to send");
+        view.update_in(cx, |view, _, cx| view.choose_take(&side, 1, cx));
+        redraw(cx);
+        let send = bounds_of(cx, Role::Button, "Send picks").center();
+        cx.simulate_click(send, Modifiers::none());
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.as_str(), post.take.as_deref())).collect();
+            assert_eq!(posts, [("side", Some("right"))], "only the vote with a pick went");
+            let held = view.artifact_of(JOB, ID).expect("the artifact");
+            let state = |id: &str| held.parts.iter().find(|part| part.id == id).map(|part| part.state);
+            assert_eq!((state("bar"), state("side")), (Some(ipc::PartState::Open), Some(ipc::PartState::Picked)), "the other vote still asks");
+        });
+        assert!(drawn(cx, Role::Button, "Send pick"), "one vote left is a single vote again");
+    }
+
+    #[gpui::test]
+    fn cmd_enter_sends_every_pick_of_several_votes(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_with_two_votes(cx);
+        let (bar, side) = (super::super::parts_card::part_key(ID, "bar"), super::super::parts_card::part_key(ID, "side"));
+        view.update_in(cx, |view, _, cx| {
+            view.choose_take(&bar, 0, cx);
+            view.choose_take(&side, 1, cx);
+        });
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.mock_part_posts().len()), 2, "the key sends them all");
+    }
+
+    #[gpui::test]
+    fn one_takes_part_keeps_its_send_pick(cx: &mut gpui::TestAppContext) {
+        let (_, cx) = opened(cx, 1400., 900.);
+        assert!(drawn(cx, Role::Button, "Send pick"), "a single vote has its own Send pick");
+        assert!(!drawn(cx, Role::Button, "Send picks"), "and no Send picks");
+    }
+
     #[gpui::test]
     fn escape_in_an_ask_for_changes_box_closes_the_box_and_the_next_one_closes_the_panel(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
