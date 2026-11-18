@@ -7,7 +7,7 @@
 
 use std::sync::Arc;
 
-use api::{HostedSessions, Sessions};
+use api::HostedSessions;
 use ipc::{PageAct, PressDid, PressPageAction, SessionId, SessionRow};
 use testkit::{FakeTracker, FakeTrackers, IssueWritten};
 
