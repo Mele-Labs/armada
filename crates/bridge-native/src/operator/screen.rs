@@ -86,6 +86,10 @@ fn with_places(mut face: Face, here: Front, reviews: bool, kit: bool, features: 
     if features && !face.places.iter().any(|place| place.id == "features") {
         face.places.push(Place { id: "features", label: "Features", glyph: "library", shown: true, hideable: true });
     }
+    // Settings > Layout's choice for a place that has a row there, read each time the places are drawn.
+    for place in face.places.iter_mut().filter(|place| matches!(place.id, "kit" | "features")) {
+        place.shown = !crate::settings::layout::hidden("rail", place.id);
+    }
     face.here = Some(here.id());
     face
 }
@@ -98,6 +102,9 @@ impl OperatorScreen {
         let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.fleet = Some(fleet.clone());
+        // A layout saved in Settings arrives with Fleet's answer: the strip draws again where it hides or shows a place.
+        let layout = cx.observe(fleet, |this, _, cx| this.show_places(cx));
+        this._subs.push(layout);
         this
     }
 
@@ -248,6 +255,10 @@ impl OperatorScreen {
         let face = with_places(held.or_else(|| cx.try_global::<Opening>().map(|opening| opening.0.clone())).unwrap_or_else(Face::bare), self.front, self.reviews.is_some(), self.kit.is_some(), self.features.is_some());
         cx.set_global(Opening(face.clone()));
         if let Some(bar) = titlebar::live(cx) {
+            // Fleet's events come often: the bar draws again only when its places or the one in front changed.
+            if bar.read(cx).face.places == face.places && bar.read(cx).face.here == face.here {
+                return;
+            }
             bar.update(cx, |bar, cx| {
                 bar.face.places = face.places.clone();
                 bar.face.here = face.here;
@@ -512,6 +523,20 @@ mod tests {
         assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Features", "library", true, true));
         assert!(face.may_hide("features"));
         assert_eq!(with_places(Face::bare(), Front::Jobs, true, true, false).places.len(), 4, "a screen without Features draws no place for it");
+    }
+
+    #[test]
+    fn settings_layout_hides_features_from_the_strip_as_it_hides_kit() {
+        let drawn_ids = |face: &Face| face.drawn_places().map(|place| place.id).collect::<Vec<_>>();
+        crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["features"]}}"#);
+        let hidden = with_places(Face::bare(), Front::Jobs, true, true, true);
+        assert_eq!(drawn_ids(&hidden), ["operator", "jobs", "reviews", "kit"]);
+        // Places already in the bar are read again, so a layout saved after they were first drawn takes hold.
+        crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["kit"]}}"#);
+        let swapped = with_places(hidden, Front::Jobs, true, true, true);
+        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "features"], "Features is back and Kit is gone");
+        crate::settings::layout::hold("");
+        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, true, true, true)), ["operator", "jobs", "reviews", "kit", "features"]);
     }
 
     #[gpui::test]
