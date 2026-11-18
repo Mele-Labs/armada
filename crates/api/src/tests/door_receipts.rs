@@ -555,7 +555,7 @@ async fn a_body_the_door_refuses_names_its_whole_shape() {
     assert!(said.contains("missing field `text`") || said.contains("invalid type"), "{said}");
     assert!(
         said.contains(
-            "The body is {items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}"
+            "The body is {items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string, on?: string}"
         ),
         "{said}"
     );
