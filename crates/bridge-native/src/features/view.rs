@@ -80,29 +80,40 @@ impl FeaturesScreen {
         bones
     }
 
-    fn render_line(&mut self, ix: usize, focused: bool, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+    fn render_line(&mut self, ix: usize, focused: bool, window: &Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let look = cx.look().clone();
         let look = &look;
         match self.listed.lines.get(ix).cloned() {
-            Some(Line::Head { slug, title }) => labelled(
+            Some(Line::Head { slug, title }) => {
+                let beside = self.split_beside(&slug, &title, look, cx);
                 div()
                     .id(SharedString::from(format!("features-area-{slug}")))
                     .w_full()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
                     .px(look.length(token::SPACE_3))
                     .py(look.length(token::SPACE_1) + px(2.))
                     .border_t(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .bg(look.color(token::BG_SUNKEN))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_MUTED))
-                    .child(SharedString::from(title.to_uppercase())),
-                Role::Heading,
-                title,
-            )
-            .into_any_element(),
+                    .child(labelled(
+                        div()
+                            .id(SharedString::from(format!("features-area-title-{slug}")))
+                            .flex_1()
+                            .min_w_0()
+                            .text_size(look.length(token::TEXT_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_MUTED))
+                            .child(SharedString::from(title.to_uppercase())),
+                        Role::Heading,
+                        title,
+                    ))
+                    .children(beside)
+                    .into_any_element()
+            }
             Some(Line::Feature(at)) => match self.listed.shown.get(at).cloned() {
-                Some(shown) => self.render_feature(&shown, focused, look, cx),
+                Some(shown) => self.render_feature(&shown, focused, look, window, cx),
                 None => div().into_any_element(),
             },
             None => div().into_any_element(),
@@ -111,7 +122,7 @@ impl FeaturesScreen {
 
     /// One feature: its title, who is on it now and its stale mark. The one opened wears the accent and its edge,
     /// the one the keys are on a lighter ground with the focus colour's edge.
-    fn render_feature(&self, shown: &Shown, focused: bool, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+    fn render_feature(&self, shown: &Shown, focused: bool, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let slug = shown.row.slug.clone();
         let opened = self.opened.as_deref() == Some(slug.as_str());
         let under_keys = self.cursor.as_deref() == Some(slug.as_str());
@@ -123,13 +134,26 @@ impl FeaturesScreen {
             None
         };
         let press = slug.clone();
+        let pending = super::curate::is_pending(&shown.row);
+        let main = if pending {
+            self.pending_line(&shown.row, look, cx)
+        } else {
+            div()
+                .w_full()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.row.title.clone())))
+                .child(on_column(look, shown))
+                .child(stale_column(look, shown))
+                .into_any_element()
+        };
         let row = div()
             .id(SharedString::from(format!("feature-{slug}")))
             .relative()
             .w_full()
             .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
+            .flex_col()
             .px(look.length(token::SPACE_3))
             .py(look.length(token::SPACE_2))
             .border_t(look.length(token::BORDER_WIDTH))
@@ -156,9 +180,8 @@ impl FeaturesScreen {
                 }
             }))
             .children(edge.map(|colour| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(colour)))
-            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.row.title.clone())))
-            .child(on_column(look, shown))
-            .child(stale_column(look, shown));
+            .child(main)
+            .children(if pending { self.form_under(&slug, look, window, cx) } else { None });
         labelled(row, Role::ListBoxOption, shown.row.title.clone()).into_any_element()
     }
 
@@ -191,7 +214,7 @@ impl FeaturesScreen {
             Load::Read(_) => {
                 let focused = self.list_focus.is_focused(window);
                 labelled(
-                    div().id("features-list").size_full().child(list(self.list.clone(), cx.processor(move |this, ix: usize, _, cx| this.render_line(ix, focused, cx))).size_full()),
+                    div().id("features-list").size_full().child(list(self.list.clone(), cx.processor(move |this, ix: usize, window, cx| this.render_line(ix, focused, window, cx))).size_full()),
                     Role::ListBox,
                     "Features",
                 )
@@ -268,5 +291,7 @@ impl Render for FeaturesScreen {
                 (true, false) => screen.child(self.render_list(&look, window, cx)),
                 (false, _) => screen.child(self.render_list(&look, window, cx)).child(self.render_page_slot(&look)),
             })
+            .children(self.render_sheet(&look, window, cx))
+            .children(self.curate.menu.as_ref().map(|open| open.menu.clone()))
     }
 }

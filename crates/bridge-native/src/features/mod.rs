@@ -6,6 +6,8 @@
 //! title bar's strip (`operator/screen.rs`).
 
 pub(crate) mod asks;
+mod curate;
+mod curate_view;
 mod looked;
 pub(crate) mod mock;
 mod model;
@@ -77,6 +79,8 @@ pub struct FeaturesScreen {
     read_for: Option<Key>,
     entered: bool,
     work: Option<Task<()>>,
+    /// The buttons, editor, picker and sheet that curate the library from the list.
+    curate: curate::Curate,
     bar: Option<Subscription>,
     _subs: Vec<Subscription>,
 }
@@ -142,6 +146,7 @@ impl FeaturesScreen {
             read_for: None,
             entered: false,
             work: None,
+            curate: curate::Curate::default(),
             bar: None,
             _subs: subs,
         }
@@ -248,6 +253,7 @@ impl FeaturesScreen {
     /// The lines the list draws from what is held and what the filter says, and the row the keys are on.
     fn relist(&mut self, cx: &mut Context<Self>) {
         let query = self.filter.read(cx).value().to_string();
+        self.keep_stops(cx);
         self.listed = match &self.library {
             Load::Read(library) => model::listed(library, &query),
             _ => Listed::default(),
@@ -474,6 +480,10 @@ impl FeaturesScreen {
     // ---- keys --------------------------------------------------------------------------------
 
     fn on_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if event.keystroke.key == "escape" && self.escape_curate(window, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if event.keystroke.key == "escape" && self.typing(window, cx) {
             self.focus_list(window, cx);
             cx.stop_propagation();
@@ -482,8 +492,18 @@ impl FeaturesScreen {
 
     /// The registry's `features` acts, pressed. Not answered while the filter has the keys, which take them as typing.
     fn on_features_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.typing(window, cx) {
-            return false;
+        // Tab goes through a row's own buttons, an editor or the sheet before it goes on to the page.
+        let tab_here = act.id == "features_pane" && (!self.typing(window, cx) || self.typing_in_curate(window, cx));
+        if tab_here && self.tab_curate(act.slot % 2 == 1, window, cx) {
+            return true;
+        }
+        if self.typing(window, cx) || self.curating(window, cx) {
+            // Up and Down move along the sheet's checklist; Enter on a button of a row presses it.
+            return match act.id {
+                "features_move" => self.curate.sheet.is_some() && self.step_split(if act.slot % 2 == 0 { 1 } else { -1 }, window, cx),
+                "features_open" if !self.typing(window, cx) && !self.typing_in_curate(window, cx) && self.curate.menu.is_none() => self.press_stop(window, cx),
+                _ => false,
+            };
         }
         match act.id {
             "features_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
@@ -513,6 +533,8 @@ impl FeaturesScreen {
 
 #[cfg(test)]
 mod ask_tests;
+#[cfg(test)]
+mod curate_tests;
 #[cfg(test)]
 mod of_path_tests;
 #[cfg(test)]

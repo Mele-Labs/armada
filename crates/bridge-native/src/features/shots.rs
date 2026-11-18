@@ -281,3 +281,67 @@ pub fn shoot_narrow(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The pending row, the Merge into picker, an area of nine and the split sheet at 1400 wide.
+pub fn shoot_pending(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    for step in ["pending-row", "pending-confirm", "pending-merge-picker", "area-of-nine", "split-sheet"] {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(820.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.library = super::Load::Read(super::mock::library_with(if step.starts_with("pending") { 0 } else { 5 }));
+                screen.relist(cx);
+                screen.cursor = Some("agent-notes-on-a-diff".into());
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        cx.update_window(handle.into(), |_, window, cx| {
+            screen.update(cx, |screen, cx| match step {
+                "pending-row" => {
+                    let focus = screen.curate.stops["agent-notes-on-a-diff"][0].clone();
+                    window.focus(&focus, cx);
+                }
+                "pending-confirm" => screen.open_confirm("agent-notes-on-a-diff".into(), window, cx),
+                "pending-merge-picker" => screen.open_merge("agent-notes-on-a-diff".into(), window, cx),
+                "area-of-nine" => {}
+                _ => {
+                    screen.open_split("running-a-job".into(), window, cx);
+                    if let Some(sheet) = &screen.curate.sheet {
+                        let name = sheet.name.clone();
+                        name.update(cx, |state, cx| state.set_value("Starting Jobs".to_string(), window, cx));
+                    }
+                    screen.toggle_split(0, cx);
+                    screen.toggle_split(4, cx);
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{step}-1400.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

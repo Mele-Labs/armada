@@ -78,6 +78,17 @@ pub fn library() -> FeatureLibrary {
     }
 }
 
+/// The library with `more` features added to the first area, for the areas past eight: the mock's own has four there.
+pub fn library_with(more: usize) -> FeatureLibrary {
+    let mut library = library();
+    let running = "running-a-job";
+    let titles = ["Quick dispatch", "Snooze a Job", "Move a Job to a project", "Job time buckets", "Handoff to a fresh Job", "Fork from a selection", "Pause on a limit", "Plan downshift"];
+    for (n, title) in titles.iter().take(more).enumerate() {
+        library.areas[0].features.push(feature(running, &format!("{}-{n}", title.to_lowercase().replace(' ', "-")), title, ""));
+    }
+    library
+}
+
 fn at(day: u32) -> Instant {
     Instant::carried(format!("2026-11-{day:02}T12:00:00Z"))
 }
