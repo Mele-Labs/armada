@@ -4,12 +4,13 @@
 //! **Read when somebody looks and never polled**: Fleet keeps no copy of other people's pull
 //! requests, so the reply is as old as the forge's answer. Four lists, one forge call each read at
 //! once, each naming every served repository; a list the forge would not answer is empty and named in
-//! `silent`, so one failure does not blank the others.
+//! `silent`, so one failure does not blank the others. A fifth, read beside them, is the open pull
+//! requests he ran a review tool on that no list names: Fleet's record of runs, read by number.
 
 use std::sync::Arc;
 
 use adapter_traits::{
-    AgentHarness, Delivery, ListFailure, ListedChecks, ListedPull, ReviewList, ReviewListAsk, Vcs, WorkProduct,
+    AgentHarness, Delivery, ListFailure, ListedChecks, ListedPull, NumberedPull, ReviewList, ReviewListAsk, Vcs, WorkProduct,
 };
 use api::Refusal;
 use ipc::{
@@ -32,6 +33,13 @@ const LISTS: [(ReviewList, PullReviewList); 4] = [
     (ReviewList::Assigned, PullReviewList::Assigned),
     (ReviewList::Mine, PullReviewList::Mine),
 ];
+
+/// The kinds of run that are reviewing a pull request, as `review_runs` keeps them: a tool or an
+/// explanation, the change sets, the overview and a practice check. Not a question, a fix or a search.
+const REVIEWING_KINDS: [&str; 5] = ["tool", "explanation", "change_sets", "overview", "practices"];
+
+/// The most pull requests read by number for the fifth list. More than it shows, as some have closed.
+const MOST_READ_BY_NUMBER: usize = 2 * MOST_PER_LIST;
 
 /// A served repository as the forge names it, lowercase, with the id it answers to.
 pub(crate) struct Named {
@@ -71,6 +79,7 @@ pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow
         seen: None,
         my_review: pull.my_latest.map(crate::pull_review_memory::my_review_of),
         inbox: PullInbox::NeedsFirstLook,
+        reviewing: false,
     })
 }
 
@@ -118,11 +127,21 @@ where
         Some(PullReviewHolder { id, title })
     }
 
-    /// The four lists, read at once: the forge answers each in a call, and a person waits on
-    /// the slowest of four calls rather than Fleet holding a copy that goes stale.
+    /// Each pull request of a served repository he ran a review tool on, newest run first.
+    pub(crate) async fn reviewed_pulls(&self, served: &[Named]) -> Vec<(ManifestId, u64)> {
+        let ran = self.store().lock().await.review_run_pulls(&REVIEWING_KINDS).unwrap_or_default();
+        ran.into_iter()
+            .filter(|it| served.iter().any(|named| named.manifest_id.as_str() == it.manifest_id))
+            .map(|it| (ManifestId::carried(&it.manifest_id), it.number))
+            .collect()
+    }
+
+    /// The four lists, and the fifth beside them, read at once: the forge answers each in a call,
+    /// and a person waits on the slowest of five calls rather than Fleet holding a copy that goes
+    /// stale.
     ///
     /// With `project`, only that project's member repositories are asked about, so every list keeps
-    /// the rows of its members and no others. A project with no served member has four empty lists.
+    /// the rows of its members and no others. A project with no served member has five empty lists.
     pub(crate) async fn review_lists_read(&self, project: Option<&str>) -> Result<PullReviewLists, Refusal> {
         let members = match project {
             Some(id) => Some(self.project_repositories(id).await?),
@@ -165,11 +184,30 @@ where
             })
         };
         // The four do not wait on each other, so a person waits on the slowest, not the sum.
+        let reviewed = self.reviewed_pulls(&served).await;
+        let numbered: Vec<NumberedPull> = reviewed
+            .iter()
+            .take(MOST_READ_BY_NUMBER)
+            .filter_map(|(manifest_id, number)| {
+                let named = served.iter().find(|it| &it.manifest_id == manifest_id)?;
+                Some(NumberedPull { repository: named.slug.clone(), number: *number })
+            })
+            .collect();
+        // Beside the four rather than after them, so it costs no wait; one a list names is dropped below.
+        let by_number = async {
+            if numbered.is_empty() {
+                return Some(Vec::new());
+            }
+            let login = me.clone();
+            self.forge_asked(from.root(), move |vcs: &V, root: &str| vcs.open_pulls_numbered(root, &login, &numbered))
+                .await
+        };
         let [requested, team, assigned, mine] = LISTS.map(|(list, _)| list);
-        let answers = tokio::join!(read(requested), read(team), read(assigned), read(mine));
+        let answers = tokio::join!(read(requested), read(team), read(assigned), read(mine), by_number);
+        let numbered = answers.4;
         let answers = [answers.0, answers.1, answers.2, answers.3];
         let forge_ms = began.elapsed().as_millis();
-        let mut lists: [Vec<PullReviewRow>; 4] = Default::default();
+        let mut lists: [Vec<PullReviewRow>; 5] = Default::default();
         let mut silent = Vec::new();
         let mut failures = Vec::new();
         for (at, ((_, wire), asked)) in LISTS.into_iter().zip(answers).enumerate() {
@@ -196,6 +234,30 @@ where
                 Some(other) => Err(unreadable(other.said())),
                 None => Err(unreadable("The forge did not answer. Open Reviews again.")),
             };
+        }
+        let was_reviewed = |row: &PullReviewRow| reviewed.iter().any(|(id, number)| *id == row.manifest_id && *number == row.number);
+        for row in lists.iter_mut().flatten() {
+            row.reviewing = was_reviewed(row);
+        }
+        match numbered {
+            Some(pulls) => {
+                let listed = |row: &PullReviewRow| {
+                    lists.iter().flatten().any(|it| it.manifest_id == row.manifest_id && it.number == row.number)
+                };
+                let mut rows: Vec<PullReviewRow> = pulls
+                    .into_iter()
+                    .filter_map(|pull| row_of(pull, &served))
+                    .filter(|row| was_reviewed(row) && !listed(row))
+                    .collect();
+                rows.sort_by_key(|row| reviewed.iter().position(|(id, number)| *id == row.manifest_id && *number == row.number));
+                rows.dedup_by(|one, other| one.manifest_id == other.manifest_id && one.number == other.number);
+                rows.truncate(MOST_PER_LIST);
+                for row in &mut rows {
+                    row.reviewing = true;
+                }
+                lists[4] = rows;
+            }
+            None => silent.push(PullReviewList::Reviewing),
         }
         let overlaid = self.overlays_onto(&mut lists.iter_mut().collect::<Vec<_>>()).await;
         eprintln!("review_lists timing: forge {forge_ms}ms; {overlaid}; total {}ms", began.elapsed().as_millis());
@@ -249,8 +311,8 @@ where
         )
     }
 
-    fn lists_of(&self, me: String, lists: [Vec<PullReviewRow>; 4]) -> PullReviewLists {
-        let [requested, team, assigned, mine] = lists;
+    fn lists_of(&self, me: String, lists: [Vec<PullReviewRow>; 5]) -> PullReviewLists {
+        let [requested, team, assigned, mine, reviewing] = lists;
         PullReviewLists {
             me,
             fetched_at: self.clock().now().as_str().to_string(),
@@ -258,6 +320,7 @@ where
             team,
             assigned,
             mine,
+            reviewing,
             silent: Vec::new(),
             rate_limited: None,
             refreshing: false,

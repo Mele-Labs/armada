@@ -31,6 +31,7 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, chan
         lists: lists.to_vec(),
         checks,
         mine,
+        reviewing: false,
     }
 }
 
@@ -54,6 +55,7 @@ pub fn inbox() -> Inbox {
         row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
         row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", true, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
         row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", false, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
+        row(2205, "harbor/ledger-api", "Batch the ledger sync writes", "tobias", "1d", false, None, &[Reviewing], PullReviewChecks::Passed, Verdict::NotReviewed),
         row(865, "harbor/web-shell", "Cache the avatar images", "priya", "1h", true, Some(2), &[Assigned], PullReviewChecks::Failed, Verdict::ChangesRequested),
         row(143, "harbor/infra-kit", "Pin the runner image", "you", "3d", false, None, &[Mine], PullReviewChecks::Passed, Verdict::NotReviewed),
         row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", false, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
@@ -62,10 +64,13 @@ pub fn inbox() -> Inbox {
     ];
     // When each was asked of him: oldest first under Review requested, not as the list came.
     let asked = [(2231, "2026-11-16T09:30:00Z"), (2214, "2026-11-16T09:00:00Z"), (2198, "2026-11-14T15:00:00Z"), (2190, "2026-11-12T10:00:00Z")];
+    // He ran a review in Armada on these: one asked of him, and one on no list of the forge's.
+    let reviewing = [2190, 2205];
     let rows = rows
         .into_iter()
         .map(|mut row| {
             row.asked_at = asked.iter().find(|(number, _)| *number == row.number).map(|(_, at)| at.to_string());
+            row.reviewing = reviewing.contains(&row.number);
             row
         })
         .collect();
@@ -525,7 +530,8 @@ pub fn page(number: u64) -> Option<Page> {
                 (false, Verdict::Approved) => vec![person(ME, Some(PullRequestVerdict::Approved))],
             };
             let address = address(&row.repository, number);
-            Page {
+            let reviewing = row.reviewing;
+            let mut page = Page {
                 number,
                 repository: row.repository,
                 title: row.title,
@@ -560,7 +566,13 @@ pub fn page(number: u64) -> Option<Page> {
                 reviewers,
                 address,
                 draft: number == 143,
+            };
+            // A review he ran here finished with nothing found, so the page shows No problems found.
+            if reviewing {
+                page.overview.read = true;
+                page.critique = Critique::Finished { range: page.range(), findings: Vec::new(), asked: model::ReviewAsk::first(&review_tools()) };
             }
+            page
         }
     })
 }

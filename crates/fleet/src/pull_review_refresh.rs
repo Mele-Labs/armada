@@ -95,6 +95,12 @@ where
 
     /// The local overlays of a read, applied again to lists kept, so what he has seen and his inbox are current.
     async fn overlay_lists(&self, lists: &mut PullReviewLists) -> String {
+        // A review he ran since the read marks its row, on whichever list holds it.
+        let served = self.named_repositories().await;
+        let reviewed = self.reviewed_pulls(&served).await;
+        for row in lists.lists_mut().into_iter().flatten() {
+            row.reviewing = reviewed.iter().any(|(id, number)| *id == row.manifest_id && *number == row.number);
+        }
         self.overlays_onto(&mut lists.lists_mut()).await
     }
 

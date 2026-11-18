@@ -584,7 +584,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route(
             "/sessions/dispatch",
-            post(crate::hosted_sessions::dispatch_job::<D>),
+            post(crate::hosted_sessions::dispatch_job::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
         )
         .route(
             "/sessions/parked",

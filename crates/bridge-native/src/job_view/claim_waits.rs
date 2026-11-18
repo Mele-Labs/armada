@@ -74,7 +74,7 @@ pub(super) fn waited(since: &Instant, now: DateTime<Utc>) -> Option<String> {
 /// The line drawn while the Job's claims have not reached the store.
 pub(super) const UNSENT: &str = "Other Jobs cannot see what this Job holds yet";
 /// Under it: when they go.
-pub(super) const UNSENT_UNDER: &str = "The project's store is not answering. Armada keeps trying";
+pub(super) const UNSENT_UNDER: &str = "The project's store did not take them. Armada keeps trying";
 
 impl JobView {
     /// The card, or `None` where the Job waits on no held item and every claim is sent.

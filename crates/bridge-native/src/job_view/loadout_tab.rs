@@ -1,4 +1,4 @@
-//! A Job's Loadout as a tab of its panes: what its agent knows and was told, what each turn used, a hosted Job's MCP
+//! A Job's Loadout as a tab of its panes: what its agent knows and was told, when it last used each, a hosted Job's MCP
 //! servers live with their acts, and Kit's acts on the skills it holds. Classic's `session-loadout.tsx` and
 //! `LoadoutSheet`, in a tab rather than a sheet. `loadout_model.rs` says what each row is; `loadout_draw.rs` draws it.
 //!
@@ -13,7 +13,7 @@ use ipc::{
     OpenKitPiece, SessionId, SessionLoadout, SessionMcp, SessionMcpActed, SessionMcpServer,
 };
 
-use self::loadout_model::{self as model, ItemRef, KitSkillMatch, McpGate, SkillAct};
+use self::loadout_model::{self as model, ItemRef, KitSkillMatch, McpGate, Narrow, SkillAct, Sort};
 
 // The Loadout's own files sit beside this one, as its children, so the Job view's module list names it once.
 #[path = "loadout_draw.rs"]
@@ -105,8 +105,13 @@ struct LoadoutTab {
     pub source: Option<String>,
     /// Kinds whose whole list was asked for with Show more.
     pub whole: Vec<LoadoutKind>,
-    /// The turn open, by its start; the latest is open until another is pressed.
-    pub open_turn: Option<String>,
+    /// Every row with when it was last used, from the read or, until it lands, the latest turn.
+    pub rows: Vec<model::Row>,
+    /// What the search field holds, kept here so it outlives the field when the tab is not drawn.
+    pub query: String,
+    /// Used this session: only the rows a turn used.
+    pub used_only: bool,
+    pub sort: Sort,
     pub scroll: ScrollHandle,
     reveal: bool,
     pub menu: Option<(Entity<Dropdown>, Vec<Subscription>)>,
@@ -122,7 +127,6 @@ impl LoadoutTab {
             fleet,
             view,
             summary: model::summary_key(summary),
-            open_turn: latest.as_ref().map(|turn| turn.started_at.as_str().to_string()),
             latest,
             read: Read::Reading,
             reading: None,
@@ -138,12 +142,17 @@ impl LoadoutTab {
             skill_acting: HashMap::new(),
             skill_refused: HashMap::new(),
             source: None,
+            rows: Vec::new(),
+            query: String::new(),
+            used_only: false,
+            sort: Sort::default(),
             whole: Vec::new(),
             scroll: ScrollHandle::new(),
             reveal: false,
             menu: None,
             focus: cx.focus_handle(),
         };
+        this.relist();
         this.read_loadout(cx);
         this.read_kit(cx);
         if hosted {
@@ -193,16 +202,8 @@ impl LoadoutTab {
     fn landed_loadout(&mut self, got: Result<SessionLoadout, Refused>, cx: &mut Context<Self>) {
         match got {
             Ok(loadout) => {
-                // A turn begun since the tab opened takes the open place only where the last latest still held it.
-                let latest = loadout.turns.last().map(|turn| turn.started_at.as_str().to_string());
-                let was = match &self.read {
-                    Read::Read(old) => old.turns.last().map(|turn| turn.started_at.as_str().to_string()),
-                    _ => self.latest.as_ref().map(|turn| turn.started_at.as_str().to_string()),
-                };
-                if self.open_turn == was {
-                    self.open_turn = latest;
-                }
                 self.read = Read::Read(loadout);
+                self.relist();
                 self.match_kit();
             }
             // A read that failed after one landed keeps the one drawn.
@@ -221,7 +222,12 @@ impl LoadoutTab {
         }
         self.summary = key;
         self.latest = summary.and_then(|one| one.latest_turn.clone());
+        self.relist();
         self.read_loadout(cx);
+    }
+
+    fn relist(&mut self) {
+        self.rows = model::rows_of(self.items(), &self.turns());
     }
 
     pub fn items(&self) -> &[LoadoutItem] {
@@ -577,14 +583,11 @@ impl LoadoutTab {
         }
     }
 
-    /// The kinds of what it knows that have rows under the filter, in the tab's order. While the Loadout is read, the live MCP servers alone.
+    /// The kinds of what it knows that have rows under the filter, in the tab's order. While the Loadout is read, the
+    /// live MCP servers and what the latest turn used.
     pub fn held_known(&self) -> Vec<LoadoutKind> {
         let live = self.live_servers().is_some_and(|servers| !servers.is_empty());
-        match self.read {
-            Read::Read(_) => model::KNOWN.into_iter().filter(|kind| (*kind == LoadoutKind::McpServer && self.mcp.servers.is_some() && live) || self.kept(*kind).next().is_some()).collect(),
-            _ if live => vec![LoadoutKind::McpServer],
-            _ => Vec::new(),
-        }
+        model::KNOWN.into_iter().filter(|kind| (*kind == LoadoutKind::McpServer && live) || !self.kept(*kind).is_empty()).collect()
     }
 
     /// The MCP group's place among the list's children: under the Knows heading, after the kinds before it.
@@ -592,25 +595,31 @@ impl LoadoutTab {
         self.held_known().iter().position(|kind| *kind == LoadoutKind::McpServer).map(|at| at + 1)
     }
 
-    /// Whether a row is under the source picked.
-    pub fn shown(&self, said: &str) -> bool {
-        self.source.as_deref().is_none_or(|source| source == said)
+    /// What narrows every group now.
+    pub fn narrow(&self) -> Narrow<'_> {
+        Narrow { source: self.source.as_deref(), query: &self.query, used_only: self.used_only }
     }
 
-    /// One kind's rows under the filter.
-    pub fn kept(&self, kind: LoadoutKind) -> impl Iterator<Item = &LoadoutItem> {
-        self.items().iter().filter(move |one| one.kind == kind && self.shown(&model::source_said(one.source, one.from.as_deref())))
+    /// One kind's rows under the filter, the search and Used this session, in the order picked.
+    pub fn kept(&self, kind: LoadoutKind) -> Vec<&model::Row> {
+        model::kept_rows(&self.rows, kind, self.narrow(), self.sort)
+    }
+
+    /// The row an MCP server the agent reported stands at.
+    pub fn server_row_of(&self, name: &str) -> Option<&model::Row> {
+        self.rows.iter().find(|one| one.item.kind == LoadoutKind::McpServer && one.item.name == name)
     }
 
     /// The live servers under the filter: one the agent reported keeps that report's source, one it did not is under All sources only.
     pub fn live_servers(&self) -> Option<Vec<&SessionMcpServer>> {
         let servers = self.mcp.servers.as_ref()?;
+        let narrow = self.narrow();
         Some(
             servers
                 .iter()
-                .filter(|server| match self.items().iter().find(|one| one.kind == LoadoutKind::McpServer && one.name == server.name) {
-                    Some(reported) => self.shown(&model::source_said(reported.source, reported.from.as_deref())),
-                    None => self.source.is_none(),
+                .filter(|server| match self.server_row_of(&server.name) {
+                    Some(reported) => narrow.keeps(&server.name, &model::source_said(reported.item.source, reported.item.from.as_deref()), reported.used),
+                    None => self.source.is_none() && narrow.keeps(&server.name, "", false),
                 })
                 .collect(),
         )
@@ -618,6 +627,24 @@ impl LoadoutTab {
 
     pub fn pick_source(&mut self, source: Option<String>, cx: &mut Context<Self>) {
         self.source = source;
+        cx.notify();
+    }
+
+    /// The search field's words moved.
+    pub fn search(&mut self, query: String, cx: &mut Context<Self>) {
+        if query != self.query {
+            self.query = query;
+            cx.notify();
+        }
+    }
+
+    pub fn toggle_used(&mut self, cx: &mut Context<Self>) {
+        self.used_only = !self.used_only;
+        cx.notify();
+    }
+
+    pub fn pick_sort(&mut self, sort: Sort, cx: &mut Context<Self>) {
+        self.sort = sort;
         cx.notify();
     }
 }
@@ -786,6 +813,8 @@ mod mock {
                     used("10:30", LoadoutUseKind::Skill, "tidy-imports", Kit, None, None),
                     used("10:30", LoadoutUseKind::Tool, "mcp__linear__list_issues", Mcp, Some("linear"), Some(2)),
                     used("10:30", LoadoutUseKind::Subagent, "explorer", Armada, None, None),
+                    // Listed nowhere in the Loadout: it still gets a row under Tools.
+                    used("10:30", LoadoutUseKind::Tool, "WebFetch", BuiltIn, None, None),
                 ],
             },
         ];
@@ -1038,5 +1067,69 @@ mod tests {
             tab.landed_mcp(seq, Ok(SessionMcp { servers: stale }), cx);
             assert_eq!(tab.server("linear").map(|one| one.state), Some(McpServerState::Connected), "the read is dropped");
         });
+    }
+
+    fn row_buttons(tab: &Entity<LoadoutTab>, cx: &mut VisualTestContext) -> Vec<String> {
+        let rows: Vec<String> = tab.read_with(cx, |tab, _| tab.rows.iter().map(|one| one.item.name.clone()).collect());
+        names(cx, Role::Button).into_iter().filter(|one| rows.contains(one)).collect()
+    }
+
+    #[gpui::test]
+    fn each_row_says_when_it_was_last_used_and_a_use_listed_nowhere_gets_its_row(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        assert!(names(cx, Role::Heading).iter().all(|one| one != "Used by turn"), "no section by turn");
+        let buttons = names(cx, Role::Button);
+        assert!(buttons.iter().any(|one| one == "WebFetch"), "a tool the Loadout does not list still has its row: {buttons:?}");
+        let labels = names(cx, Role::Label);
+        let used = ["tidy-imports", "explorer", "Read", "mcp__linear__list_issues", "WebFetch"];
+        assert_eq!(labels.iter().filter(|one| one.starts_with("Last used ")).count(), used.len(), "{labels:?}");
+        assert_eq!(names(cx, Role::Image).iter().filter(|one| *one == "Used this session").count(), used.len(), "a dot on each row used");
+        // Every other row, the live servers too, keeps the column and says never.
+        let rows = tab.read_with(cx, |tab, _| tab.rows.iter().filter(|one| one.item.kind != LoadoutKind::McpServer).count());
+        let servers = mock::servers().len();
+        assert_eq!(labels.iter().filter(|one| *one == "Never used").count(), rows - used.len() + servers, "{labels:?}");
+    }
+
+    #[gpui::test]
+    fn the_search_used_this_session_and_the_sort_narrow_and_order_the_rows(cx: &mut gpui::TestAppContext) {
+        let (tab, cx) = drawn(cx);
+        let search = bounds_of(cx, Role::SearchInput, "Search Loadout").expect("the search field is drawn");
+        for (role, name) in [(Role::ComboBox, "Source"), (Role::Switch, "Used this session"), (Role::ComboBox, "Sort")] {
+            let control = bounds_of(cx, role, name).unwrap_or_else(|| panic!("{name} is drawn"));
+            assert_eq!((control.top(), control.size.height), (search.top(), search.size.height), "{name} shares the search field's line and height");
+        }
+        let order = |names: &[&str], cx: &mut VisualTestContext| -> Vec<String> {
+            let mut at: Vec<(gpui::Pixels, String)> = names.iter().map(|name| (bounds_of(cx, Role::Button, name).expect("the row is drawn").top(), name.to_string())).collect();
+            at.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("a place"));
+            at.into_iter().map(|(_, name)| name).collect()
+        };
+        let tools = ["Edit", "mcp__linear__create_issue", "mcp__linear__list_issues", "Read", "WebFetch"];
+        assert_eq!(order(&tools, cx), tools, "by name");
+        tab.update(cx, |tab, cx| tab.pick_sort(Sort::LastUsed, cx));
+        redraw(cx);
+        assert_eq!(order(&tools, cx), ["mcp__linear__list_issues", "WebFetch", "Read", "Edit", "mcp__linear__create_issue"], "latest first, never used last");
+        assert!(names(cx, Role::Heading).iter().any(|one| one == "Told"), "the groups keep their place");
+
+        let switch = bounds_of(cx, Role::Switch, "Used this session").expect("the switch is drawn");
+        cx.simulate_click(switch.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(tab.read_with(cx, |tab, _| tab.used_only));
+        let mut shown = row_buttons(&tab, cx);
+        shown.sort();
+        assert_eq!(shown, ["Read", "WebFetch", "explorer", "mcp__linear__list_issues", "tidy-imports"]);
+        assert!(!names(cx, Role::Button).iter().any(|one| one == "Turn off linear"), "a server no turn used goes too");
+        assert!(names(cx, Role::Heading).iter().any(|one| one == "Told"));
+        tab.update(cx, |tab, cx| tab.toggle_used(cx));
+
+        cx.simulate_click(search.center(), gpui::Modifiers::none());
+        cx.simulate_input("TIDY");
+        redraw(cx);
+        assert_eq!(tab.read_with(cx, |tab, _| tab.query.clone()), "TIDY");
+        assert_eq!(row_buttons(&tab, cx), ["tidy-imports"], "any case, every group");
+        cx.simulate_input("x");
+        redraw(cx);
+        assert_eq!(tab.read_with(cx, |tab, _| tab.query.clone()), "TIDYx", "the field kept its words from one draw to the next");
+        assert!(row_buttons(&tab, cx).is_empty());
+        assert!(names(cx, Role::Group).iter().all(|one| one != "Skills"));
     }
 }

@@ -738,7 +738,14 @@ impl JobView {
     /// (`sessions-wired.tsx` `switching`). Fleet answering that it began is the pass.
     fn restart(&mut self, command: String, build: BuildSource, adopt: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"));
+        // A plain preview refresh is the Refresh row's act, both Macs where another is paired.
+        let (route, body) = match (build, adopt) {
+            (BuildSource::Preview, false) => {
+                let act = crate::pairing::refresh_act(crate::pairing::macs(cx));
+                (act.route(), act.body().unwrap_or_else(|| Err("no body".into())))
+            }
+            _ => ("/fleet/build/change", ipc::encode(&ipc::ChangeFleetBuild { build, adopt, clear: None }).map_err(|why| format!("{why:?}"))),
+        };
         self.mark_run(&job, &command, Some(RunMark::Running), cx);
         let Some(port) = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port()) else {
             self.mark_run(&job, &command, Some(RunMark::Failed("Fleet is not connected".into())), cx);
@@ -750,7 +757,7 @@ impl JobView {
                 .spawn(async move {
                     let body = body?;
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let (status, bytes) = runtime.block_on(crate::transport::post(port, "/fleet/build/change", body))?;
+                    let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
                     if (200..300).contains(&status) {
                         return Ok(());
                     }

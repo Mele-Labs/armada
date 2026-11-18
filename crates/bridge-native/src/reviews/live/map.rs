@@ -93,17 +93,21 @@ fn verdict_of(said: Option<MyReviewSaid>) -> Verdict {
     }
 }
 
-/// The four lists as one inbox: a pull request on several lists is one row that names each. The rows
-/// kept, by number. Two repositories' pull requests of one number keep the first.
+/// The five lists as one inbox: a pull request on several lists is one row that names each, marked
+/// reviewing where any of them says so. The rows kept, by number. Two repositories' pull requests of
+/// one number keep the first.
 pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
     let mut rows: Vec<InboxRow> = Vec::new();
     let mut kept: Vec<(u64, Row)> = Vec::new();
-    let all = [(PullReviewList::Requested, &lists.requested), (PullReviewList::Team, &lists.team), (PullReviewList::Assigned, &lists.assigned), (PullReviewList::Mine, &lists.mine)];
+    let all = [(PullReviewList::Requested, &lists.requested), (PullReviewList::Team, &lists.team), (PullReviewList::Assigned, &lists.assigned), (PullReviewList::Mine, &lists.mine), (PullReviewList::Reviewing, &lists.reviewing)];
     for (list, on) in all {
         for row in on.iter() {
             if let Some(at) = kept.iter().position(|(number, _)| *number == row.number) {
-                if kept[at].1.manifest == row.manifest_id.as_str() && !rows[at].lists.contains(&list) {
-                    rows[at].lists.push(list);
+                if kept[at].1.manifest == row.manifest_id.as_str() {
+                    if !rows[at].lists.contains(&list) {
+                        rows[at].lists.push(list);
+                    }
+                    rows[at].reviewing |= row.reviewing;
                 }
                 continue;
             }
@@ -121,6 +125,7 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                 lists: vec![list],
                 checks: row.checks,
                 mine: verdict_of(row.my_review.as_ref().map(|mine| mine.said)),
+                reviewing: row.reviewing || list == PullReviewList::Reviewing,
             });
             kept.push((
                 row.number,
@@ -397,6 +402,21 @@ pub fn from_runs(page: &Page, facts: &Facts) -> Mapped {
     Mapped { summary, sets, flags, critique, finds, answers }
 }
 
+/// The Overview's No problems found card: the change sets and the overview finished at this head,
+/// nothing was found, and no tool's run failed. **A failed run never says nothing was found.**
+pub fn clean_overview(finds: &Finds, flags: usize) -> bool {
+    finds.sets == Find::Done && finds.flags == Find::Done && finds.critique_failed.is_empty() && flags == 0
+}
+
+/// Review comments' No problems found card: the tools finished and found nothing, and no run of the
+/// review failed.
+pub fn clean_critique(critique: &Critique, finds: &Finds) -> bool {
+    matches!(critique, Critique::Finished { findings, .. } if findings.is_empty())
+        && finds.critique_failed.is_empty()
+        && !matches!(finds.sets, Find::Failed(_))
+        && !matches!(finds.flags, Find::Failed(_))
+}
+
 /// What kind of change a set is, after "Practices for".
 fn kind_said(kind: ChangeSetKind) -> &'static str {
     match kind {
@@ -587,11 +607,12 @@ mod tests {
             seen: None,
             my_review: said.map(|said| ipc::PullMyReview { said, commit: None, submitted_at: None }),
             inbox,
+            reviewing: false,
         }
     }
 
     fn lists(requested: Vec<ipc::PullReviewRow>, mine: Vec<ipc::PullReviewRow>) -> PullReviewLists {
-        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, silent: Vec::new(), rate_limited: None }
+        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, reviewing: Vec::new(), silent: Vec::new(), rate_limited: None }
     }
 
     #[test]
@@ -617,6 +638,23 @@ mod tests {
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0].lists, [PullReviewList::Requested, PullReviewList::Mine]);
         assert_eq!(kept.len(), 1);
+    }
+
+    #[test]
+    fn the_fifth_list_is_read_and_reviewing_on_any_list_marks_the_row() {
+        let ran = |number: u64| ipc::PullReviewRow { reviewing: true, ..pull(number, PullInbox::NeedsFirstLook, None) };
+        let mut read = lists(vec![pull(7, PullInbox::NeedsFirstLook, None)], vec![ran(7), ran(8)]);
+        read.reviewing = vec![ran(9)];
+        let (rows, kept) = inbox_of(&read);
+        let says: Vec<(u64, &[PullReviewList], bool)> = rows.iter().map(|row| (row.number, row.lists.as_slice(), row.reviewing)).collect();
+        assert_eq!(
+            says,
+            [(7, &[PullReviewList::Requested, PullReviewList::Mine][..], true), (8, &[PullReviewList::Mine][..], true), (9, &[PullReviewList::Reviewing][..], true)]
+        );
+        assert_eq!(kept.len(), 3, "a pull request on the fifth list alone is kept, so its page reads");
+        // Asked of him or not, each he started reviewing is In review.
+        let groups: Vec<model::Group> = rows.iter().map(|row| row.group()).collect();
+        assert_eq!(groups, [model::Group::Reviewing; 3]);
     }
 
     fn page_with(viewed: Vec<ipc::PullViewedFile>) -> Page {
@@ -682,6 +720,26 @@ mod tests {
         assert_eq!(answer_of(&facts(vec![failed], Vec::new()), question), Some(model::Answer::Failed("The bay stopped".into())));
         let refused = vec![(ReviewRunKind::Ask, question.to_string(), "Fleet is busy".to_string())];
         assert_eq!(answer_of(&facts(Vec::new(), refused), question), Some(model::Answer::Failed("Fleet is busy".into())));
+    }
+
+    #[test]
+    fn no_problems_found_only_after_every_run_finished_and_none_failed() {
+        let run = |kind: ReviewRunKind, name: &str, state: ReviewRunState, result: Option<ReviewResult>| ReviewRun { kind, result, ..ask(name, "h2", "2026-11-17T10:00:00Z", state, None) };
+        let sets = |state| run(ReviewRunKind::ChangeSets, "change_sets", state, (state == ReviewRunState::Done).then(|| ReviewResult::ChangeSets { sets: Vec::new() }));
+        let overview = |state| run(ReviewRunKind::Overview, "overview", state, (state == ReviewRunState::Done).then(|| ReviewResult::Overview { findings: Vec::new() }));
+        let tool = |state| run(ReviewRunKind::Tool, "bugs", state, (state == ReviewRunState::Done).then(|| ReviewResult::Findings { findings: Vec::new() }));
+        let page = page_with(Vec::new());
+        let clean = |runs: Vec<ReviewRun>| {
+            let mapped = from_runs(&page, &Facts { head: Some("h2".into()), runs, ..Facts::default() });
+            (clean_overview(&mapped.finds, mapped.flags.len()), clean_critique(&mapped.critique, &mapped.finds))
+        };
+        use ReviewRunState::{Done, Failed, Running};
+        assert_eq!(clean(vec![sets(Done), overview(Done), tool(Done)]), (true, true), "finished with nothing found");
+        assert_eq!(clean(vec![sets(Done), overview(Done), tool(Failed)]), (false, false), "a failed tool is not a clean review");
+        assert_eq!(clean(vec![sets(Done), overview(Failed), tool(Done)]), (false, false), "a failed overview is not a clean review either");
+        assert_eq!(clean(vec![sets(Failed)]), (false, false));
+        assert_eq!(clean(vec![sets(Done), overview(Running), tool(Running)]), (false, false), "not before the runs end");
+        assert_eq!(clean(Vec::new()), (false, false), "nor before any ran");
     }
 
     #[test]

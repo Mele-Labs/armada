@@ -10,8 +10,8 @@ use api::{Next, PullRequestPanel};
 use ipc::{Event, ReviewListsChanged};
 use store::review_lists_kept::KeptReviewLists;
 
-use super::pull_requesting::{a_fleet, Fixture};
-use super::pull_review_lists::{pull, signed_in_as, SLUG};
+use super::pull_requesting::{a_fleet, manifest, Fixture};
+use super::pull_review_lists::{pull, ran, signed_in_as, SLUG};
 use crate::tests::tmp::TempDir;
 
 const LISTS: [ReviewList; 4] = [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine];
@@ -181,4 +181,26 @@ async fn a_stored_row_that_does_not_decode_is_nothing_kept() {
     assert!(!answered.refreshing, "nothing was kept, so the forge was read before the answer");
     assert_eq!(numbers(&answered.requested), [7]);
     assert_eq!(fleet.vcs().review_lists_asked().len(), 4);
+}
+
+#[tokio::test]
+async fn the_fifth_list_is_kept_and_a_review_run_since_marks_the_kept_rows() {
+    let home = TempDir::new();
+    let fleet = a_signed_in_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    ran(&fleet, &id, 20, "tool", "2026-11-16T09:00:00Z").await;
+    forge_says(&fleet, 7);
+    fleet.vcs().now_open_by_number(vec![pull(20, SLUG)]);
+    let first = fleet.clone().get_review_lists(None).await.expect("read");
+    assert_eq!(numbers(&first.reviewing), [20]);
+    assert!(!first.requested[0].reviewing);
+    // A review run after the read: the kept row of the first list says so, with the forge held back.
+    ran(&fleet, &id, 7, "overview", "2026-11-16T10:00:00Z").await;
+    let hold = fleet.vcs().hold_review_lists();
+    let kept = fleet.clone().get_review_lists(None).await.expect("kept, at once");
+    assert!(kept.refreshing);
+    assert_eq!(numbers(&kept.reviewing), [20], "the fifth list is kept with the four");
+    assert!(kept.reviewing[0].reviewing && kept.requested[0].reviewing, "the run since marks the kept row");
+    until_waiting(&hold, 4).await;
+    hold.open();
 }

@@ -49,6 +49,7 @@ mod holding;
 mod main_ci;
 mod manifest_edits;
 mod merging;
+mod numbered_pulls;
 mod park_gate;
 mod pull_requests;
 mod scripting;
@@ -126,6 +127,8 @@ pub struct FakeVcs {
     pull_requests: Mutex<pull_requests::PullRequests>,
     /// What the forge lists of the account's repositories, and each time it was asked.
     account: Mutex<account::AccountListing>,
+    /// Which pull requests the forge holds open when read by number, and each read.
+    numbered_pulls: Mutex<numbered_pulls::NumberedPulls>,
     /// Answers `merge_by_push` gives before `merging` does, first first — a
     /// base that moves once and then holds still is two answers.
     pushes_in_turn: Mutex<VecDeque<Merging>>,
