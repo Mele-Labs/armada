@@ -541,6 +541,10 @@ impl JobView {
                     Some(id) => {
                         view.update(cx, |this, cx| this.open_job(id, cx)).ok();
                     }
+                    None if super::refs::Refs::file_of(address).is_some() => {
+                        let path = super::refs::Refs::file_of(address).unwrap_or_default();
+                        view.update(cx, |this, cx| this.open_file(path, window, cx)).ok();
+                    }
                     None => {
                         if !view.update(cx, |this, cx| this.open_pull_address(address, window, cx)).unwrap_or(false) {
                             cx.open_url(address);

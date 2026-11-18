@@ -466,7 +466,7 @@ impl JobView {
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(eyebrow(look, &when).flex_1().text_color(look.color(token::FG_MUTED))).child(jump))
-                    .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(one_line(&answer.excerpt)))),
+                    .child(self.prose(format!("answer-words:{row}"), &one_line(&answer.excerpt), look, cx)),
                 Role::Group,
                 "Answer",
             )
