@@ -4,7 +4,7 @@
 //! waiting). **A Job's `mac` is the id of the Mac it runs on; absent means this one.** The window holds
 //! the list once ([`hold`]) and every row, head and menu reads it, as the write-clash marks do.
 //!
-//! **Nothing is drawn until a second Mac is linked or asleep** ([`shows_chips`]). A Job on another Mac is read
+//! **Nothing is drawn until a second Mac is linked, asleep or on another build** ([`shows_chips`]). A Job on another Mac is read
 //! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge, and the move that brings a Job here) go from
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
@@ -83,7 +83,13 @@ pub fn scene(name: &str, cx: &mut App) -> Result<(), String> {
 
 /// Whether a second Mac is listed that is linked or asleep. A claim waiting on a Confirm does not count.
 pub fn shows_chips(macs: &[Mac]) -> bool {
-    macs.iter().any(|one| !one.this_mac && matches!(one.link, Some(MacLink::Linked | MacLink::Asleep { .. })))
+    macs.iter().any(|one| !one.this_mac && paired(one))
+}
+
+/// Whether both Macs hold a key for each other: linked, asleep, or frozen on a build that differs. A frozen Mac's
+/// rows stay listed, so its chips and the move stay too, the move off with why.
+pub fn paired(mac: &Mac) -> bool {
+    matches!(mac.link, Some(MacLink::Linked | MacLink::Asleep { .. } | MacLink::OlderBuild | MacLink::NewerBuild))
 }
 
 /// What a Job's chip says: the Mac's name in its colour, and when it fell asleep if it did.
@@ -276,6 +282,10 @@ mod tests {
         assert!(shows_chips(&[this(), linked("air", "Air", MacColour::Orange)]));
         let asleep = Mac { id: "air".into(), link: Some(MacLink::Asleep { since: 5 }), ..Default::default() };
         assert!(shows_chips(&[this(), asleep]));
+        for link in [MacLink::NewerBuild, MacLink::OlderBuild] {
+            let frozen = Mac { id: "air".into(), link: Some(link), ..Default::default() };
+            assert!(shows_chips(&[this(), frozen]), "a Mac on another build is still paired, and its rows still listed");
+        }
     }
 
     #[test]
