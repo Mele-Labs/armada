@@ -54,7 +54,7 @@ pub enum Reading {
 
 /// The librarian's state at `at`, with the times as of now so a picture reads the same each day.
 pub fn librarian(at: Reading) -> ipc::LibrarianState {
-    let ago = |minutes: i64| Instant::carried((chrono::Utc::now() - chrono::Duration::minutes(minutes)).to_rfc3339());
+    let ago = |minutes: i64| Instant::carried((chrono::Utc::now() - chrono::Duration::seconds(minutes * 60 + 30)).to_rfc3339());
     match at {
         Reading::Never => ipc::LibrarianState::default(),
         Reading::Current => ipc::LibrarianState { last_run: Some(ago(4)), read_through: Some(3864), merged_since: Vec::new() },

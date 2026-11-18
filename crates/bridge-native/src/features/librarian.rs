@@ -12,7 +12,7 @@ use ipc::LibrarianState;
 use super::dossier::{button, tint};
 use super::{FeaturesScreen, Load};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look, Token};
+use crate::look::{token, Look, Token};
 use crate::reviews::card_inner_radius;
 use crate::settings::view::{refusal, tip};
 use crate::settings::wire::Refused;

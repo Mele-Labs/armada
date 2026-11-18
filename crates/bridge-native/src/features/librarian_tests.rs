@@ -71,7 +71,7 @@ fn a_press_reads_and_comes_back_current_with_the_new_read_through(cx: &mut TestA
     let_it_read(cx);
     let Some(Card::Current { through, .. }) = card_of(&screen, cx) else { panic!("it is current once the run is back: {:?}", card_of(&screen, cx)) };
     assert_eq!(through, Some(3864), "the newest merged pull request is what it read through");
-    assert!(!drawn(cx, Role::Button, "Catch up"), "a current card has no button");
+    assert_eq!(card_of(&screen, cx).and_then(|card| card.button()), None, "a current card has no button");
 }
 
 #[gpui::test]

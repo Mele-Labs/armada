@@ -5,7 +5,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString,
 
 use super::{chosen, mock, FeaturesScreen, Load, Source};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, Look};
 
 impl FeaturesScreen {
     /// Every project to draw a chip for, as `(id, name)` in Fleet's order. None where Fleet has not said.
