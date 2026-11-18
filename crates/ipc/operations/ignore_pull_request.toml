@@ -1,0 +1,12 @@
+[operations.ignore_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Ignore a pull request in the Reviews inbox, on this Mac only"
+notes = """
+`POST /pull_request_ignored/:repository`, `repository` a manifest id, body `IgnorePull`: `number`. Answers `PullIgnored`: `number` and `at`, an RFC 3339 time. A later ignore replaces the time.
+
+Kept per manifest, repository and number in Fleet's store, never on the forge. Each row of `get_review_lists` carries `ignored` while it holds. **It stops holding by itself once the row's `asked_at` is later than `at`**: he was asked of it again. An `asked_at` that is absent or unreadable leaves it ignored.
+
+A 422 for a repository Fleet does not serve.
+"""

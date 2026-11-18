@@ -126,6 +126,8 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                 checks: row.checks,
                 mine: verdict_of(row.my_review.as_ref().map(|mine| mine.said)),
                 reviewing: row.reviewing || list == PullReviewList::Reviewing,
+                ignored: row.ignored,
+                seen: row.seen.as_ref().is_some_and(|seen| seen.head == row.head),
             });
             kept.push((
                 row.number,
@@ -138,6 +140,7 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                     holder: row.holder.clone(),
                     address: row.address.clone(),
                     draft: row.draft,
+                    head: row.head.clone(),
                 },
             ));
         }
@@ -608,6 +611,7 @@ mod tests {
             my_review: said.map(|said| ipc::PullMyReview { said, commit: None, submitted_at: None }),
             inbox,
             reviewing: false,
+            ignored: false,
         }
     }
 
@@ -657,6 +661,18 @@ mod tests {
         assert_eq!(groups, [model::Group::Reviewing; 3]);
     }
 
+    #[test]
+    fn a_row_is_seen_only_at_its_head_and_carries_fleets_ignore() {
+        let seen_at = |number: u64, head: &str| ipc::PullReviewRow { seen: Some(ipc::PullSeen { head: head.into(), at: String::new() }), ..pull(number, PullInbox::NeedsFirstLook, None) };
+        let ignored = ipc::PullReviewRow { ignored: true, ..pull(3, PullInbox::NeedsFirstLook, None) };
+        let (rows, kept) = inbox_of(&lists(vec![seen_at(1, "abc1234"), seen_at(2, "0ld0000"), ignored], Vec::new()));
+        let says: Vec<(u64, bool, bool)> = rows.iter().map(|row| (row.number, row.seen, row.ignored)).collect();
+        assert_eq!(says, [(1, true, false), (2, false, false), (3, false, true)]);
+        assert_eq!(rows[2].group(), model::Group::Ignored);
+        // Mark as seen in the inbox sends the head the lists read.
+        assert_eq!(kept[0].1.head, "abc1234");
+    }
+
     fn page_with(viewed: Vec<ipc::PullViewedFile>) -> Page {
         let detail = PullRequestPage {
             head: Some("abcdef1234567".into()),
@@ -677,6 +693,7 @@ mod tests {
             holder: None,
             address: "https://example.com/harbor/ledger-api/pull/1".into(),
             draft: true,
+            head: "abc1234".into(),
         }
     }
 

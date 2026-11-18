@@ -76,6 +76,11 @@ The page and each row of the lists carry it as `seen`.
 His latest review is his own last submitted one, as the forge says on the list's read; a pending review is not one.
 The lists stay as they are, and the state is a field of the row.
 
+**He can ignore a pull request, and it stays ignored until he is asked of it again.** Fleet keeps when he ignored it, and the row says `ignored` while no request of him on it is later than that.
+A request the forge gives no time for keeps the ignore, since Fleet then knows only when it first saw him asked.
+Nothing goes to the forge.
+The native inbox puts an ignored row in a folded Ignored group after Done, and a row seen at its head stays in its group, dimmed, below the ones he has not seen.
+
 **What changed since he looked is the forge's compare from his seen head to the head.** The forge compares from the two commits' merge base, so after a rebase the change can hold commits that came from the target branch and not from the author.
 A seen head the forge no longer has, as after a force-push, is the outcome `base_gone` and not an error, and Bridge offers the whole pull request.
 
