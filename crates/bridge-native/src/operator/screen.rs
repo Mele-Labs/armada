@@ -55,6 +55,11 @@ pub struct OperatorScreen {
     fleet: Option<Entity<FleetConnection>>,
     /// The Operator's session, opened on the Jobs screen from the status card: its id, and the Job that was open before it.
     over: Option<(SharedString, Option<SharedString>)>,
+    /// A Job the page opened in the Job view without a pick, for the Review panel it holds or the Ready to try card in front: its
+    /// id, and the Job open before it, which comes back when the page is done with it.
+    lent: Option<(SharedString, Option<SharedString>)>,
+    /// The Review panel is up over the page.
+    reviewing: bool,
     _subs: Vec<gpui::Subscription>,
 }
 
@@ -153,8 +158,13 @@ impl OperatorScreen {
     ) -> Self {
         cx.set_global(Live(page.downgrade()));
         let list = jobs.read(cx).list.clone();
+        let view = jobs.read(cx).view().clone();
         let subs = vec![
             cx.subscribe_in(&page, window, |this, _, opened: &Opened, window, cx| this.opened(opened, window, cx)),
+            // The card in front may be a Job's Ready to try, drawn from the Job view; and the Review panel, opened over the page,
+            // gives the page back its Job when it shuts.
+            cx.observe_in(&page, window, |this, _, window, cx| this.reconcile(window, cx)),
+            cx.observe_in(&view, window, |this, _, window, cx| this.review_moved(window, cx)),
             // The Jobs the box's `@` names are the ones the list holds.
             cx.observe(&list, |this, _, cx| this.name_jobs(cx)),
         ];
@@ -228,7 +238,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), reviews, kit, features, toasts, fleet: None, over: None, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), reviews, kit, features, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if front == Front::Operator {
@@ -299,8 +309,15 @@ impl OperatorScreen {
         if to == Front::Operator {
             self.leave_session(cx);
         }
+        // Another place is no place for the page's Job: the one open before it comes back.
+        if self.front == Front::Operator {
+            self.give_back(cx);
+        }
         self.front = to;
         self.show_places(cx);
+        if to == Front::Operator {
+            self.reconcile(window, cx);
+        }
         match to {
             Front::Operator => {
                 let keys = self.page.read(cx).focus.clone();
@@ -359,6 +376,7 @@ impl OperatorScreen {
     /// "See what it is doing": the Operator's own session opens on the Jobs screen as any Job does, though the list holds no row
     /// for it. Esc, or the strip's Operator, comes back to the page.
     fn open_session(&mut self, id: &SessionId, window: &mut Window, cx: &mut Context<Self>) {
+        self.give_back(cx);
         let list = self.jobs.read(cx).list.clone();
         let was = list.read(cx).opened_id();
         if let Some(record) = self.page.read(cx).session.clone() {
@@ -385,6 +403,7 @@ impl OperatorScreen {
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
             Opened::Session(id) => return self.open_session(id, window, cx),
+            Opened::Review(item, read) => return self.review_over(item, read.clone(), window, cx),
             Opened::Job(id) => Some(id.clone()),
             Opened::Act(act, session) => {
                 Note::info("an item's act was left to the Job that holds it").field("act", format!("{:?}", act.kind)).field("target", act.target.as_str()).emit();
@@ -397,6 +416,71 @@ impl OperatorScreen {
         list.update(cx, |list, cx| {
             list.open_job(job.as_str(), cx);
         });
+    }
+}
+
+impl OperatorScreen {
+    /// A plan, sketch, page or draft pressed on the page: the Review panel opens over it with the item chosen, on its Job opened
+    /// without a pick. Esc gives the keys back to the card.
+    fn review_over(&mut self, item: &ipc::ItemRef, read: Option<(SharedString, Option<SharedString>)>, window: &mut Window, cx: &mut Context<Self>) {
+        self.lend(&SharedString::from(item.session_id.as_str().to_string()), cx);
+        crate::job_view::open_over(window, cx, item.clone(), read);
+        self.reviewing = self.jobs.read(cx).view().read(cx).review_up();
+        if !self.reviewing {
+            self.reconcile(window, cx);
+        }
+        cx.notify();
+    }
+
+    /// The Job view moved: once the panel over the page shuts, the page's Job is settled again.
+    fn review_moved(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.reviewing || self.jobs.read(cx).view().read(cx).review_up() {
+            return;
+        }
+        self.reviewing = false;
+        self.reconcile(window, cx);
+        cx.notify();
+    }
+
+    /// The Job the page wants open: the one whose Ready to try is in front, else none, and the one open before comes back.
+    fn reconcile(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        if self.reviewing || self.front != Front::Operator {
+            return;
+        }
+        match self.page.read(cx).ready_in_front() {
+            Some(job) => self.lend(&SharedString::from(job.as_str().to_string()), cx),
+            None => self.give_back(cx),
+        }
+    }
+
+    /// Job `job` opens in the Job view without a pick, so its box does not take the keys from the page. The Operator's own
+    /// session is held for it first, as the list keeps it apart from its Jobs.
+    fn lend(&mut self, job: &SharedString, cx: &mut Context<Self>) {
+        let list = self.jobs.read(cx).list.clone();
+        if let Some(record) = self.page.read(cx).session.clone() {
+            if list.read(cx).operator_record() != Some(&record) {
+                list.update(cx, |list, _| list.hold_operator(record));
+            }
+        }
+        let opened = list.read(cx).opened_id();
+        if opened.as_ref() == Some(job) {
+            return;
+        }
+        let was = match self.lent.take() {
+            Some((_, was)) => was,
+            None => opened,
+        };
+        list.update(cx, |list, cx| list.open_quietly(Some(job.clone()), cx));
+        self.lent = Some((job.clone(), was));
+    }
+
+    /// The Job open before the page lent one is open again, unless another has been opened since.
+    fn give_back(&mut self, cx: &mut Context<Self>) {
+        let Some((job, was)) = self.lent.take() else { return };
+        let list = self.jobs.read(cx).list.clone();
+        if list.read(cx).opened_id() == Some(job) {
+            list.update(cx, |list, cx| list.open_quietly(was, cx));
+        }
     }
 }
 
@@ -452,7 +536,20 @@ impl Render for OperatorScreen {
             Front::Jobs => self.jobs.clone().into_any_element(),
             Front::Operator => {
                 let title = crate::chrome::title_row(window, cx);
-                div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().child(self.page.clone())).into_any_element()
+                // The Job view draws the Review panel and a Ready to try card's menus: unseen under the page, its sheets and menus
+                // laid over it.
+                let view = self.jobs.read(cx).view().clone();
+                let hosts = self.lent.is_some() || view.read(cx).review_up();
+                div()
+                    .size_full()
+                    .relative()
+                    .flex()
+                    .flex_col()
+                    .bg(cx.look().color(token::BG_BASE))
+                    .children(hosts.then(|| div().absolute().size_full().invisible().child(view)))
+                    .child(title)
+                    .child(div().flex_1().min_h_0().child(self.page.clone()))
+                    .into_any_element()
             }
             Front::Reviews => {
                 let title = crate::chrome::title_row(window, cx);
@@ -737,5 +834,71 @@ mod tests {
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Jobs);
         screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
         assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-01"));
+    }
+
+    /// The page's walk's screen: the Jobs' threads, a build to try among them, and the Operator's session; Audit the docs index open.
+    fn page_screen(cx: &mut TestAppContext) -> (Entity<OperatorScreen>, &mut VisualTestContext) {
+        ready(cx);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
+            let list = cx.new(|cx| JobsList::mock(&records, cx));
+            let threads = crate::operator::scenes::page_threads().expect("the threads decode");
+            let jobs = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+            OperatorScreen::mock(jobs, window, cx)
+        });
+        cx.run_until_parked();
+        let list = screen.read_with(cx, |screen, cx| screen.jobs.read(cx).list.clone());
+        list.update(cx, |list, cx| list.open("mock-04".into(), cx));
+        screen.update_in(cx, |screen, window, cx| {
+            let keys = screen.page.read(cx).focus.clone();
+            window.focus(&keys, cx);
+        });
+        cx.run_until_parked();
+        (screen, cx)
+    }
+
+    #[gpui::test]
+    fn a_plan_pressed_on_the_page_opens_review_over_it_with_the_operators_page_and_esc_gives_the_card_its_keys_back(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let (page, list, view) = screen.read_with(cx, |screen, cx| (screen.page.clone(), screen.jobs.read(cx).list.clone(), screen.jobs.read(cx).view().clone()));
+        page.update(cx, |page, cx| page.scene("plan-comes", cx).expect("a scene"));
+        redraw(cx);
+        let review = drawn(cx, Role::Button, "Review").expect("the plan's Review is drawn");
+        cx.simulate_click(review.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator, "the page stays in front");
+        assert!(view.read_with(cx, |view, _| view.review_up()), "the panel is up");
+        assert!(drawn(cx, Role::Dialog, "Review").is_some(), "it is drawn over the page");
+        assert!(drawn(cx, Role::Group, "Operator").is_some(), "with what the Operator read of the plan");
+        assert!(drawn(cx, Role::Heading, "Operator").is_some() && drawn(cx, Role::Button, "Backlog report for armada").is_some(), "the Operator's report page is listed under Operator");
+        assert!(list.read_with(cx, |list, _| list.records().iter().all(|record| !record.operator)), "and the Operator is no Job in the list");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_up()), "Esc shuts the panel");
+        // A test window has no label root, so the book keeps every label drawn: the panel's absence is read from the screen.
+        assert!(screen.read_with(cx, |screen, _| screen.lent.is_none()), "the Job view is no longer drawn under the page");
+        assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Operator);
+        assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the keys are back on the page's card");
+        assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-04"), "the Job open before is open again");
+    }
+
+    #[gpui::test]
+    fn a_build_to_try_in_front_draws_the_jobs_own_card_and_another_place_gives_the_job_back(cx: &mut TestAppContext) {
+        let (screen, cx) = page_screen(cx);
+        let (page, list) = screen.read_with(cx, |screen, cx| (screen.page.clone(), screen.jobs.read(cx).list.clone()));
+        page.update(cx, |page, cx| page.scene("build-comes", cx).expect("a scene"));
+        redraw(cx);
+        for answer in ["Looks good", "Needs rework", "Show me how", "Remind me"] {
+            assert!(drawn(cx, Role::Button, answer).is_some(), "{answer} is drawn on the page");
+        }
+        assert!(drawn(cx, Role::Article, "Ready to try: The places strip keeps its order after a restart").is_some());
+        assert!(drawn(cx, Role::Button, "Yes").is_none(), "the page's own pick is not drawn for it");
+        assert!(cx.update(|window, cx| page.read(cx).focus.contains_focused(window, cx)), "the Job opened for it leaves the keys on the page");
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Jobs), window, cx));
+        cx.run_until_parked();
+        assert_eq!(list.read_with(cx, |list, _| list.opened_id()).as_deref(), Some("mock-04"), "the Jobs screen opens on the Job open before");
+        screen.update_in(cx, |screen, window, cx| screen.bring(Some(Front::Operator), window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Looks good").is_some(), "back on the page, the card is drawn again");
     }
 }

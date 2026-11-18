@@ -2,7 +2,8 @@
 //! its About row, the card folded while the talk overflows and a card the Operator raises in it, Next up and a kept idea
 //! brought from it, Snooze, the feed, a card arriving, a refused and a lost answer, the Operator off in the card's place and
 //! switched on, the status card where nothing needs him: working, its session opened, watching, stopped and restarted, and
-//! a card that comes while the card is folded, waiting in the new-card strip. Fleet is the mock in `operator/scenes.rs`; a
+//! a card that comes while the card is folded, waiting in the new-card strip, a Job's plan read in the Review panel over the
+//! page with the Operator's report page listed in it, and a Job's build to try. Fleet is the mock in `operator/scenes.rs`; a
 //! step that names a scene is Fleet speaking first. The key map is the last step's.
 
 use super::{answer, step, Step, Verb};
@@ -27,8 +28,11 @@ const ASKED: &str = "Why hold Pocket and not the other Job? Is a 2 hour wait wor
 const COMES: &str = "Checkout's coupon fix has a walk for you";
 /// Fleet's why for a Snooze whose time has passed, as the scene `late` has it refuse.
 const LATE: &str = "That time has passed. Pick a later one.";
+/// The Job whose plan comes in front, and the Operator's report page its Review panel lists.
+const PLAN_JOB: &str = "Fix the merge line freshness chip";
+const REPORT: &str = "Backlog report for armada";
 
-pub static STEPS: [Step; 55] = [
+pub static STEPS: [Step; 60] = [
     step("The head: Operator, the red main as a pill, and at the right what the Operator does unasked, by project, since the window is on All", Verb::Look, "button", ACTS),
     step("Its menu has each project as a header with its three values under it: Act then tell, Ask before starting or Only when told, ticked where set", Verb::Open("button", ACTS), "menuitemcheckbox", "Ask before starting"),
     step("A press sets that project's value at once", Verb::Open("menuitemcheckbox", "Ask before starting"), "button", ACTS),
@@ -83,6 +87,11 @@ pub static STEPS: [Step; 55] = [
     answer("The Operator says more in the talk: the talk grows, and the card in front folds to one line again", "replies", "button", "Unfold Nothing needs you"),
     answer("A card comes where nothing was in front while the card is folded: it does not take the front. A strip over the talk holds it, with a bell, how many came, its title and Show. It glows once, then holds", "front-arrives", "region", "New card: Checkout's coupon fix has a walk for you"),
     step("⌘Enter, as Show, brings the newest card in front, unfolded, and the strip goes", Verb::Key("cmd-enter"), "article", COMES),
+    answer("A Job's plan comes in front. Its one row is Review, and My read says what the Operator found", "plan-comes", "button", "Review"),
+    step("A press opens the Review panel over the page with the plan chosen. What the Operator read of it, and its pick, stand above the plan", Verb::Open("button", "Review"), "group", "Operator"),
+    step("The Operator's report page waits in the panel's list under Operator, apart from the Jobs", Verb::Look, "button", REPORT),
+    step("Esc shuts the panel and gives the keys back to the plan's card", Verb::Key("escape"), "article", PLAN_JOB),
+    answer("A Job's build to try comes in front: the card its thread draws, with Looks good, Needs rework, Show me how and Remind me", "build-comes", "button", "Looks good"),
     step("The keys: 1 to 4 settle the card with that option, A or Enter its pick, / Discuss, S Snooze, ↓ ↑ or j k bring the next or the last queued card, Esc leaves the box, Next up, a kept idea or a picked card, ⌘Enter shows a card waiting in the strip, Tab moves through the page and Enter or Space presses what it is on", Verb::Look, "heading", "Operator"),
 ];
 

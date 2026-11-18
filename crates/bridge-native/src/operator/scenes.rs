@@ -58,6 +58,20 @@ pub fn session(state: &str) -> ipc::SessionRecord {
     all.remove(state).unwrap_or_else(|| panic!("no Operator session in the state {state}"))
 }
 
+/// The Jobs' threads the page's walk opens: the Job view's own, a build to try at the foot of Native Bridge foundation's, and the
+/// Operator's session.
+pub fn page_threads() -> Result<std::collections::HashMap<String, JobThread>, String> {
+    let mut threads = crate::mock::threads("job-view")?;
+    let wire = r#"{"kind":"ready_to_try","id":"try:native/strip@5c1e9a2","at":"2026-11-11T14:24:00-05:00","offered_at":"2026-11-11T14:24:00-05:00","branch":"native/strip","tip":"5c1e9a2","about":"The places strip keeps its order after a restart","in_build":true,"state":"open","steps":[{"say":"Drag Kit before Jobs in the strip"},{"say":"Quit and open Bridge again"}]}"#;
+    let card = ipc::decode::<ipc::ThreadItem>("ready card", wire.as_bytes()).map_err(|why| why.to_string())?;
+    threads.get_mut(READY_JOB).ok_or("no thread for the Job with a build to try")?.items.push(card);
+    threads.insert(session("working").id.as_str().to_string(), thread());
+    Ok(threads)
+}
+
+/// The Job whose build to try comes in front.
+const READY_JOB: &str = "mock-02";
+
 /// The Operator session's thread before the walk's talk.
 pub fn thread() -> JobThread {
     ipc::decode::<JobThread>("JobThread", include_bytes!("../../fixtures/operator-talk.json")).expect("the Operator talk fixture decodes")
@@ -250,6 +264,25 @@ impl MockFleet {
         }
         self.page.turn.insert(0, turn);
         Some(())
+    }
+
+    /// A Job's plan comes in front at 14:22, and the Operator's session holds its backlog report for him to read.
+    pub fn plan_comes(&mut self) -> Option<String> {
+        let wire = br#"{"id":"turn:50","kind":"decision","session_id":"mock-01","job":"Fix the merge line freshness chip","manifest_id":"armada","repository":"armada","item":{"id":"plan:2","text":"Plan to approve","since":"2026-11-11T14:22:00-05:00","source":"plan"},"read":{"read":"It keeps the chip's colour in one place and tests it on a stale branch.","pick":"Approve"},"raised_at":"2026-11-11T14:22:00-05:00"}"#;
+        let turn = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()?;
+        let id = turn.id.clone();
+        self.page.turn.insert(0, turn);
+        self.session = Some(session("reported"));
+        Some(id)
+    }
+
+    /// A Job's build to try comes in front at 14:24.
+    pub fn build_comes(&mut self) -> Option<String> {
+        let wire = br#"{"id":"turn:51","kind":"decision","session_id":"mock-02","job":"Native Bridge foundation","manifest_id":"armada","repository":"armada","item":{"id":"try:mock-02","text":"Ready to try","since":"2026-11-11T14:24:00-05:00","source":"ready_to_try"},"raised_at":"2026-11-11T14:24:00-05:00"}"#;
+        let turn = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()?;
+        let id = turn.id.clone();
+        self.page.turn.insert(0, turn);
+        Some(id)
     }
 
     /// A card comes at 14:20 where nothing was in front.

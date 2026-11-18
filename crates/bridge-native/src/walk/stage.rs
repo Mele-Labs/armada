@@ -136,9 +136,7 @@ impl Stage {
                 let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
                 // The page's own walk opens the Operator's session as a Job, so the Jobs screen holds its thread.
                 let threads = if walk.name == "operator-page" {
-                    let mut threads = crate::mock::threads(walk.scenario)?;
-                    threads.insert(crate::operator::scenes::session("working").id.as_str().to_string(), crate::operator::scenes::thread());
-                    Some(threads)
+                    Some(crate::operator::scenes::page_threads()?)
                 } else {
                     None
                 };

@@ -237,8 +237,24 @@ impl OperatorPageView {
             .py(look.length(token::SPACE_4))
             .children(self.asks(turn, look))
             .children(self.my_read(turn, look))
-            .child(self.options(turn, keyed, window, look, cx))
+            .child(if face::answers_on_card(turn) { self.ready_body(look).into_any_element() } else { self.options(turn, keyed, window, look, cx).into_any_element() })
             .children(refused)
+    }
+
+    /// A Job's Ready to try, in the options' place: the Job view's own card with its answers, or its skeleton until the view
+    /// shows the Job.
+    fn ready_body(&self, look: &Look) -> Div {
+        let drawn = self.ready_drawn.borrow_mut().take();
+        let bones = || {
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(super::view::bone(1., look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3), look))
+                .child(super::view::bone(0.6, look.length(token::LEADING_SM), look))
+                .child(super::view::bone(1., look.length(token::H_CONTROL_LG), look))
+        };
+        div().relative().mt(look.length(token::SPACE_1)).child(measured(&self.drawn, "ready")).child(drawn.unwrap_or_else(|| bones().into_any_element()))
     }
 
     /// The options of a card he has picked on, none to press: his pick lit in the accent with Picked at its right, the rest

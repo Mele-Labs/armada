@@ -35,7 +35,7 @@ pub(super) fn is_card(id: &str) -> bool {
 
 /// The card an id names in a thread, with where it stands. A card's own id (`try:<branch>@<tip>`) names that card; the Job's
 /// one Needs you row (`try:<session>`, no `@`) names its newest open card, else its newest card.
-fn card_named(items: &[ThreadItem], id: &str) -> Option<(usize, String)> {
+pub(super) fn card_named(items: &[ThreadItem], id: &str) -> Option<(usize, String)> {
     let cards = || items.iter().enumerate().rev().filter_map(|(at, item)| match item {
         ThreadItem::ReadyToTry(card) => Some((at, card)),
         _ => None,

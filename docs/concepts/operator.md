@@ -48,6 +48,8 @@ A card never holds a count or a status report.
 | You do | What happens |
 |---|---|
 | Press an option, or its key | The card leaves the front for the top of the feed at once and the next one comes up, before Fleet has answered. If Fleet refuses, the card comes back in front with Fleet's reason. The Operator is told which card and which option, and does it now |
+| Press Review on a card for a Job's plan, sketch, document or draft, or its key 1 | The Review panel opens over the page with that item chosen, and the Operator's read and pick above it. The card stays in front until he answers in the panel. Esc shuts the panel and gives the keys back to the card |
+| Answer a card for a Job's build to try | The card holds the Job's own Ready to try card, as the Job's thread draws it: Looks good, Needs rework, Remind me and Refresh preview, answered as in the thread. Keys 1 to 4 do nothing on it |
 | Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | His words join the talk under the card, after a row `About:` and the card's title where they turn to a card. The talk runs until the item settles or the Operator puts up a new card |
 | Press the folded card | It opens above the talk, and stays open until the talk grows or you send again |
@@ -116,6 +118,10 @@ A snoozed Job raises nothing until it wakes.
 It holds what the Operator dispatched, merges, Jobs that ended, and what Jobs asked or told it.
 A line in the feed is information.
 A decision is never a line in the feed.
+
+**The pages the Operator keeps for him are read in Review, under Operator.**
+A backlog report and any other page the Operator offers stand in the Review panel as a group named Operator, beside the Jobs' groups.
+The Operator is listed nowhere else as a Job.
 
 **Job questions stay in each Job's own Needs you.**
 The Operator is not handed them, so only you answer them, or Autopilot while you are away.

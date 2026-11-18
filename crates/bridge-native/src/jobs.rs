@@ -1301,10 +1301,20 @@ impl JobsList {
         self.operator = Some(record);
     }
 
+    /// The Operator's own session, which the list holds apart from its Jobs.
+    pub fn operator_record(&self) -> Option<&SessionRecord> {
+        self.operator.as_ref()
+    }
+
     /// The Operator's session is shut again: the Job that was open before it is open once more.
     pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
-        self.opened = was.clone();
-        self.focused = was;
+        self.open_quietly(was, cx);
+    }
+
+    /// A Job opens as no pick does: the Job's box does not take the keys. For a place over the Jobs screen that draws one of its Job's parts.
+    pub fn open_quietly(&mut self, id: Option<SharedString>, cx: &mut Context<Self>) {
+        self.opened = id.clone();
+        self.focused = id;
         self.card = None;
         cx.notify();
     }
@@ -3306,6 +3316,11 @@ impl JobsScreen {
     /// The palette, for the screen this one sits in to draw while another place is in front.
     pub(crate) fn palette(&self) -> &Entity<crate::palette::Palette> {
         &self.palette
+    }
+
+    /// The Job view, for the screen this one sits in to draw under its own while the Review panel it holds is up there.
+    pub(crate) fn view(&self) -> &Entity<JobView> {
+        &self.view
     }
 
     /// The room the three columns share: the window less its padding and the gaps between them.

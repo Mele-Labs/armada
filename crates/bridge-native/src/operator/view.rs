@@ -126,7 +126,7 @@ fn worded(element: Stateful<Div>, look: &Look) -> Stateful<Div> {
 }
 
 /// A grey shape where words will be, while the page is read.
-fn bone(width: f32, height: Pixels, look: &Look) -> Div {
+pub(super) fn bone(width: f32, height: Pixels, look: &Look) -> Div {
     div().h(height).w(gpui::relative(width)).rounded(look.length(token::RADIUS_LG)).bg(look.color(token::BG_HOVER))
 }
 /// A press that opens a menu or a list keeps where it was drawn, by name, so the menu opens under it.
@@ -348,6 +348,8 @@ pub(super) fn minute(at: &str, now: chrono::DateTime<chrono::Local>) -> Option<S
 impl Render for OperatorPageView {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         self.reveal_pairing(window, cx);
+        let ready = self.ready_card(window, cx);
+        *self.ready_drawn.borrow_mut() = ready;
         let look = cx.look();
         let root = div()
             .id("operator-page")
@@ -391,6 +393,20 @@ impl Render for OperatorPageView {
 }
 
 impl OperatorPageView {
+    /// The Ready to try in front, drawn from the Job view at the card's width: as drawn last, else as the window has room for it.
+    /// None until the Job view shows its Job.
+    fn ready_card(&self, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let job = self.ready_in_front()?;
+        let look = cx.look().clone();
+        let item = self.open_item()?.item.id.clone();
+        let estimate = || {
+            let insets = look.length(token::SPACE_3) * 2. + look.length(token::GAP_PANEL) + look.length(token::SPACE_4) * 4. + look.length(token::BORDER_WIDTH) * 4.;
+            f32::from(window.viewport_size().width - look.length(token::SPACE_12) * 7.5 - insets)
+        };
+        let wide = self.drawn.borrow().get("ready").map(|drawn| f32::from(drawn.size.width)).unwrap_or_else(estimate);
+        crate::job_view::ready_on_page(job.as_str(), &item, wide.max(0.), cx)
+    }
+
     /// Under the status line: a Mac asking to pair, the card in front or its folded line, the new-card strip, the talk, and
     /// the box at the foot. A stopped Operator's red card stands in front of any queued card, and the talk and the box dim
     /// under the scrim until it is back.

@@ -33,6 +33,9 @@ pub enum Opened {
     /// The Operator's own session, from the status card's button: it opens as a Job's view does, and the Operator's page
     /// is where Esc comes back to.
     Session(SessionId),
+    /// A plan, sketch, page or draft a Job holds, from its card: the Review panel opens over the page with it chosen, the
+    /// Operator's reading and pick beside it.
+    Review(ipc::ItemRef, Option<(SharedString, Option<SharedString>)>),
 }
 
 /// Items that joined the queue since the page was last read, oldest first: what raises a toast. Jobs
@@ -128,6 +131,8 @@ pub struct OperatorPageView {
     pub(super) later_focus: FocusHandle,
     /// The option rows' focus handles, by card and place: a row lifts while it has the keys.
     pub(super) option_focus: RefCell<HashMap<String, FocusHandle>>,
+    /// The Ready to try card in front, drawn from the Job view this frame for the card's body to take.
+    pub(super) ready_drawn: RefCell<Option<gpui::AnyElement>>,
     /// Where each press that opens a menu was drawn, by name, so the menu opens under it.
     pub(super) drawn: Bounded,
     /// Snooze's menu of when the card comes back, while it is open.
@@ -212,6 +217,7 @@ impl OperatorPageView {
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
             option_focus: RefCell::new(HashMap::new()),
+            ready_drawn: RefCell::new(None),
             drawn: Default::default(),
             later_menu: None,
             acts_menu: None,
@@ -337,6 +343,15 @@ impl OperatorPageView {
     /// The card the keys act on: the newest the Operator raised in the talk, else the one in front.
     pub fn target(&self) -> Option<&OperatorTurnItem> {
         self.talk_cards().last().copied().or_else(|| self.open_item())
+    }
+
+    /// The Job whose Ready to try is the card in front, drawn whole with its own answers: the window opens that Job in the Job
+    /// view without a pick, which holds the card's state.
+    pub fn ready_in_front(&self) -> Option<SessionId> {
+        if self.idea_front.is_some() || self.working_front.is_some() {
+            return None;
+        }
+        self.open_item().filter(|turn| face::answers_on_card(turn)).and_then(|turn| turn.session_id.clone())
     }
 
     /// A Job's title, as the card's chip says it.
@@ -694,9 +709,18 @@ impl OperatorPageView {
             }
         } else if let Some(offer) = turn.then.get(at) {
             self.settle_then(&turn.id, offer.then, cx);
-        } else if at == 0 && turn.then.is_empty() {
+        } else if at == 0 && face::goes_to_review(&turn) {
+            self.review(&turn, cx);
+        } else if at == 0 && turn.then.is_empty() && !face::answers_on_card(&turn) {
             self.settle(&turn.id, None, None, cx);
         }
+    }
+
+    /// The card's item opens in the Review panel over the page, with what the Operator read of it.
+    fn review(&mut self, turn: &OperatorTurnItem, cx: &mut Context<Self>) {
+        let Some(session_id) = turn.session_id.clone() else { return };
+        let read = turn.read.as_ref().map(|read| (SharedString::from(read.read.clone()), Some(read.pick.trim()).filter(|pick| !pick.is_empty()).map(|pick| SharedString::from(pick.to_string()))));
+        cx.emit(Opened::Review(ipc::ItemRef { session_id, item: turn.item.id.clone() }, read));
     }
 
     /// The card settles at once on the option named.
@@ -724,6 +748,13 @@ impl OperatorPageView {
             if let Some(job) = turn.session_id.clone() {
                 cx.emit(Opened::Job(job));
             }
+            return;
+        }
+        // A plan, sketch, page or draft is read and answered in the Review panel; a Ready to try on its own card's buttons.
+        if face::goes_to_review(&turn) {
+            return self.review(&turn, cx);
+        }
+        if face::answers_on_card(&turn) {
             return;
         }
         // A pick of Later is done by Yes: the card goes Later, nothing is answered.
@@ -1432,6 +1463,19 @@ impl OperatorPageView {
                 let page = mock.page.clone();
                 self.set_page(page, cx);
             }
+            // A Job's plan, then its build to try, comes in front unfolded, as a press on the strip's Show brings a card.
+            "plan-comes" | "build-comes" => {
+                let id = if name == "plan-comes" { mock.plan_comes() } else { mock.build_comes() }.ok_or("the card did not decode")?;
+                let (page, session) = (mock.page.clone(), mock.session.clone());
+                if let Some(seen) = self.seen.as_mut() {
+                    seen.insert(id.clone());
+                }
+                self.session = session;
+                self.set_page(page, cx);
+                self.bring(&id, cx);
+                self.fresh.clear();
+                self.unfolded = true;
+            }
             "arrives" => {
                 mock.arrives();
                 let page = mock.page.clone();
@@ -1975,6 +2019,33 @@ mod tests {
         assert!(page.read_with(cx, |page, _| page.session_id().is_none()));
         page.update(cx, |page, cx| page.open_session(cx));
         assert_eq!(asked.borrow().len(), 1, "with no session nothing is asked");
+    }
+
+    #[gpui::test]
+    fn a_plans_review_and_its_number_ask_for_the_review_panel_and_a_build_to_try_takes_no_key(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let asked = std::rc::Rc::new(RefCell::new(Vec::new()));
+        let heard = asked.clone();
+        let _hearing = cx.update(|_, cx| cx.subscribe(&page, move |_, event: &Opened, _| heard.borrow_mut().push(event.clone())));
+        page.update(cx, |page, cx| page.scene("plan-comes", cx).expect("a scene"));
+        cx.run_until_parked();
+        let review = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "Review").map(|drawn| drawn.bounds)).expect("Review is drawn");
+        cx.simulate_click(review.center(), gpui::Modifiers::none());
+        page.update(cx, |page, cx| page.digit(1, cx));
+        cx.run_until_parked();
+        let read = Some(("It keeps the chip's colour in one place and tests it on a stale branch.".into(), Some("Approve".into())));
+        let plan = Opened::Review(ipc::ItemRef { session_id: SessionId::carried("mock-01"), item: "plan:2".into() }, read);
+        assert_eq!(*asked.borrow(), [plan.clone(), plan], "the press and 1 each ask for the panel");
+        page.read_with(cx, |page, _| assert!(page.pending.is_empty() && page.open_item().is_some_and(|turn| turn.id == "turn:50"), "nothing is answered: the plan stays in front"));
+        page.update(cx, |page, cx| page.scene("build-comes", cx).expect("a scene"));
+        cx.update(|window, cx| page.update(cx, |page, cx| page.answer(OperatorAnswer::Yes, window, cx)));
+        page.update(cx, |page, cx| page.digit(1, cx));
+        cx.run_until_parked();
+        assert_eq!(asked.borrow().len(), 2, "a build to try asks for nothing");
+        page.read_with(cx, |page, _| {
+            assert!(page.pending.is_empty(), "nor is it answered: its answers are its own card's");
+            assert_eq!(page.ready_in_front().map(|job| job.as_str().to_string()).as_deref(), Some("mock-02"));
+        });
     }
 
     #[gpui::test]
