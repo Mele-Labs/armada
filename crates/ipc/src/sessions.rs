@@ -585,6 +585,10 @@ pub enum WaitingActKind {
 pub struct WaitingAct {
     pub kind: WaitingActKind,
     pub target: String,
+    /// The Mac a `run` act's command is meant for, by its name: this one or a paired one. Absent where the
+    /// asker named none, which means this Mac. Bridge offers Run only where it names this Mac or none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<String>,
 }
 
 /// One choice of an `answer` item, in the order to draw and number them.

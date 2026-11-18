@@ -97,7 +97,7 @@ fn job_ask_item(ask: &KeptJobAsk) -> Option<WaitingItem> {
     };
     Some(WaitingItem {
         approves: false,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: ask.id.clone() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: ask.id.clone(), on: None }),
         id: ask.id.clone(),
         text,
         since: Instant::carried(&ask.at),

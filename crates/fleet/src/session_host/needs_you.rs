@@ -190,8 +190,10 @@ fn pressed(item: &WaitingItem, job: &str) -> NeedsYouAct {
         return NeedsYouAct::Answer { options: item.options.clone(), other: takes_words(item.source) };
     }
     let command = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).map(|act| act.target.clone());
-    // A restart is the band's key even where the agent wrote steps for it, as Classic draws it.
-    if let Some((label, build, adopt)) = command.as_deref().and_then(restart_of) {
+    // A restart is the band's key even where the agent wrote steps for it, as Classic draws it. Not one meant
+    // for a named Mac: the key restarts the Fleet of the Mac it is pressed on.
+    let named_mac = item.act.as_ref().is_some_and(|act| act.on.is_some());
+    if let Some((label, build, adopt)) = command.as_deref().filter(|_| !named_mac).and_then(restart_of) {
         return NeedsYouAct::Restart { label: label.into(), build, adopt, command: command.clone().unwrap_or_default() };
     }
     if !item.steps.is_empty() {
@@ -206,7 +208,7 @@ fn pressed(item: &WaitingItem, job: &str) -> NeedsYouAct {
         WaitingActKind::Answer if words => NeedsYouAct::Reply,
         WaitingActKind::Answer => NeedsYouAct::Answer { options: Vec::new(), other: false },
         WaitingActKind::ApprovePr => NeedsYouAct::ApprovePr { target: act.target.clone() },
-        WaitingActKind::Run => match restart_of(&act.target) {
+        WaitingActKind::Run => match restart_of(&act.target).filter(|_| act.on.is_none()) {
             Some((label, build, adopt)) => NeedsYouAct::Restart { label: label.into(), build, adopt, command: act.target.clone() },
             None => NeedsYouAct::Run { command: act.target.clone() },
         },
@@ -296,6 +298,7 @@ pub(crate) fn needs_you_of(job: &str, items: &[WaitingItem]) -> NeedsYou {
                 since: item.since.clone(),
                 glyph: glyph_of(item, &act),
                 dismiss: dismissal_of(item, &act),
+                on: item.act.as_ref().and_then(|act| act.on.clone()),
                 act,
             };
             (section_of(item, &row.act), row)

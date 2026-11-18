@@ -22,6 +22,11 @@ Natural Search is a run across every repository, and the Walk tool is a run that
 **Identity is the logins `crates/fleet/src/my_pulls.rs` already uses.** A pull request on two lists is one row that knows both.
 
 **The lists are fetched when the tab opens and when Refresh is pressed.** Nothing polls.
+**Fleet keeps the lists it last read**, for each project, in its store on his Mac, so they survive a restart of Fleet and a preview build.
+It answers them at once and reads the forge behind them; the fresh lists follow as one event, and a failed read leaves the kept ones as they were.
+
+**The header says how old the rows are**, as "Read 4m ago", and says nothing under five seconds.
+The fresh rows are swapped in without moving his selection or his scroll, and a failed read keeps the rows and says why.
 
 **He ran a review tool on a pull request when Fleet keeps a run of a tool, an explanation, the change sets, the overview or a practice check on it, at any head.** A question or a fix is not one.
 Every row of every list carries it as `reviewing`.

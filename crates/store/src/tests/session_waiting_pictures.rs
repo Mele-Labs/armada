@@ -17,6 +17,7 @@ fn item(pictures: &str) -> KeptWaiting {
         steps: Vec::new(),
         approves: false,
         artifact: String::new(),
+        act_on: String::new(),
     }
 }
 
@@ -42,6 +43,7 @@ fn the_pictures_of_an_item_are_kept_open_closed_and_reopened() {
         closed_at: "2026-11-13T10:00:00.000Z".into(),
         approves: false,
         artifact: String::new(),
+        act_on: String::new(),
     };
     store.keep_closed_waiting("s1", &closed).unwrap();
     drop(store);

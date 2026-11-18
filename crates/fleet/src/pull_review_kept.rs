@@ -1,8 +1,11 @@
-//! The lists last read, and the wait the forge's rate limit puts on reading them again.
-//! In memory: a Fleet that starts has read none, and the Reviews tab asks.
+//! The lists last read, the wait the forge's rate limit puts on reading them again, and the read going now.
+//! The wait and the read going are in memory. The lists are kept in the store too (`crate::pull_review_refresh`),
+//! so a Fleet that starts answers the Reviews tab at once.
 
 use std::collections::BTreeMap;
-use std::sync::{Mutex, PoisonError};
+use std::sync::{Arc, Mutex, PoisonError};
+
+use tokio::sync::watch;
 
 use adapter_traits::ListFailure;
 use api::Refusal;
@@ -22,11 +25,34 @@ pub(crate) struct Hold {
     pub(crate) asks_again_at: i64,
 }
 
-/// The last read of each project's lists (`None` is every project's), and the wait in force.
+type Going = Arc<Mutex<BTreeMap<Option<String>, watch::Receiver<()>>>>;
+
+/// The last read of each project's lists (`None` is every project's), the wait in force, and the reads going.
 #[derive(Default)]
 pub(crate) struct Kept {
     lists: Mutex<BTreeMap<Option<String>, PullReviewLists>>,
     hold: Mutex<Option<Hold>>,
+    going: Going,
+}
+
+/// The one read of a project's lists going. Dropped, the project may be read again and whoever joined is woken.
+pub(crate) struct Reader {
+    project: Option<String>,
+    going: Going,
+    _done: watch::Sender<()>,
+}
+
+impl Drop for Reader {
+    fn drop(&mut self) {
+        self.going.lock().unwrap_or_else(PoisonError::into_inner).remove(&self.project);
+    }
+}
+
+/// Whether the asker is the one to read, or a read is going already.
+pub(crate) enum Reading {
+    Began(Reader),
+    /// Ends when that read does.
+    Going(watch::Receiver<()>),
 }
 
 impl Kept {
@@ -49,20 +75,37 @@ impl Kept {
         self.hold.lock().unwrap_or_else(PoisonError::into_inner).clone().filter(|hold| now < hold.asks_again_at)
     }
 
-    fn last(&self, project: Option<&str>) -> Option<PullReviewLists> {
+    pub(crate) fn last(&self, project: Option<&str>) -> Option<PullReviewLists> {
         self.lists.lock().unwrap_or_else(PoisonError::into_inner).get(&project.map(str::to_string)).cloned()
     }
 
-    /// What a rate-limited read answers: the lists last read, marked, else the refusal.
-    pub(crate) fn limited(&self, project: Option<&str>, hold: Hold) -> Result<PullReviewLists, (Option<String>, String)> {
-        let until = hold.until.map(rfc3339_utc);
-        match self.last(project) {
-            Some(mut lists) => {
-                lists.rate_limited = Some(PullReviewRateLimited { until: until.map(ipc::Instant::carried), said: hold.said });
-                Ok(lists)
-            }
-            None => Err((until, hold.said)),
+    /// Hold the lists as they were read, without lifting a wait: they came from the store.
+    pub(crate) fn recalled(&self, project: Option<&str>, lists: &PullReviewLists) {
+        self.lists.lock().unwrap_or_else(PoisonError::into_inner).insert(project.map(str::to_string), lists.clone());
+    }
+
+    /// Begin reading a project's lists, or find the read going. **One a project**, so a second ask joins it.
+    pub(crate) fn begin(&self, project: Option<&str>) -> Reading {
+        let key = project.map(str::to_string);
+        let mut going = self.going.lock().unwrap_or_else(PoisonError::into_inner);
+        if let Some(wait) = going.get(&key) {
+            return Reading::Going(wait.clone());
         }
+        let (done, wait) = watch::channel(());
+        going.insert(key.clone(), wait);
+        Reading::Began(Reader { project: key, going: Arc::clone(&self.going), _done: done })
+    }
+}
+
+/// What a rate-limited read answers: the lists last read, marked, else the refusal.
+pub(crate) fn limited(kept: Option<PullReviewLists>, hold: Hold) -> Result<PullReviewLists, (Option<String>, String)> {
+    let until = hold.until.map(rfc3339_utc);
+    match kept {
+        Some(mut lists) => {
+            lists.rate_limited = Some(PullReviewRateLimited { until: until.map(ipc::Instant::carried), said: hold.said });
+            Ok(lists)
+        }
+        None => Err((until, hold.said)),
     }
 }
 
