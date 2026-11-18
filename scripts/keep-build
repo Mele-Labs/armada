@@ -200,7 +200,10 @@ PY
   [[ ! -d "$src/apps/desktop/sounds" ]] || clone "$src/apps/desktop/sounds" "$making/bridge/sounds"
   # Before Armada Voice is copied below: `native-app` builds it in `$src` where it is missing or stale, so both apps carry the one built.
   if [[ -n "$native_bin" ]]; then
-    NATIVE_APP_TREE="$src" "$here/native-app" "$native_bin" "$making" "$icon" >/dev/null
+    # The kept tree's own recipe where it has one, so a preview carries that branch's `Info.plist` and not this checkout's.
+    native_recipe="$here/native-app"
+    [[ ! -x "$src/scripts/native-app" ]] || native_recipe="$src/scripts/native-app"
+    NATIVE_APP_TREE="$src" "$native_recipe" "$native_bin" "$making" "$icon" >/dev/null
   fi
   if [[ -d "$src/apps/desktop/native/voice/build" ]]; then
     mkdir -p "$making/bridge/native/voice"

@@ -64,6 +64,11 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
          sendAction:to:from: unsafe, and no safe method sends an action by selector",
     ),
     (
+        "crates/bridge-native/src/launch_services.rs",
+        "LSSetDefaultHandlerForURLScheme, which makes the native app the one macOS opens for armada:// — \
+         CoreServices has no safe binding, and objc2 declares none",
+    ),
+    (
         "crates/bridge-native/src/web/wk.rs",
         "Apple's web view, WKWebView, for the pages a Job's walk shows: its load, snapshot and script \
          calls, the NSView it is placed in over the gpui window, and the event monitor that gives it \
