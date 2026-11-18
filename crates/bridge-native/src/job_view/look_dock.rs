@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{div, prelude::*, AnyElement, Bounds, Context, Pixels, FontWeight, Image, ImageFormat, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Bounds, ClipboardItem, Context, Pixels, FontWeight, Image, ImageFormat, Role, SharedString, Window};
 use ipc::{LeadPicture, NeedsYouAct, NeedsYouRow, SessionRow, WaitingOption};
 
 use super::acts::{button, Tone};
@@ -501,6 +501,15 @@ impl JobView {
             Role::Button,
             "Run",
         );
+        let copy_text = command.to_string();
+        let copy = labelled(
+            button(look, "look-copy", "Copy", Tone::Secondary, false, None, true)
+                .tooltip(tip("Copy the command, to run it on another Mac"))
+                .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(copy_text.clone()))),
+            Role::Button,
+            "Copy",
+        );
+        let well_text = command.to_string();
         let ran = mark.as_ref().map(|mark| {
             let (icon, said) = mark.look();
             div().id("look-run-mark").flex_none().tooltip(tip(said)).child(glyph(look, icon, Size::Small, look.color(token::FG_MUTED)))
@@ -510,7 +519,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).child(run))
+            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).child(copy).child(run))
             .children((!steps.is_empty()).then(|| {
                 labelled(div().id("look-steps").w_full().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(chips), Role::List, "Steps")
             }))
@@ -518,6 +527,9 @@ impl JobView {
                 div()
                     .id("look-command")
                     .w_full()
+                    .cursor_pointer()
+                    .tooltip(tip("Press to copy"))
+                    .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(well_text.clone())))
                     .p(look.length(token::SPACE_2))
                     .rounded(look.length(token::RADIUS_SM))
                     .border(look.length(token::BORDER_WIDTH))
