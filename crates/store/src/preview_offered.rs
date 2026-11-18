@@ -133,6 +133,21 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The branches the Job has on the preview list.
+    pub fn preview_offered_branches_of(&self, session_id: &str) -> Result<Vec<String>, WriteError> {
+        let doing = "reading a job's offers for the preview";
+        let mut statement = self
+            .conn
+            .prepare("SELECT branch FROM preview_offered WHERE session_id = ?1 ORDER BY offered_at, branch")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        statement
+            .query_map(params![session_id], |row| row.get(0))
+            .and_then(|rows| rows.collect::<Result<Vec<String>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
     /// The Job's offer of `branch`.
     pub fn preview_offered_of(&self, session_id: &str, branch: &str) -> Result<Option<KeptPreviewOffered>, WriteError> {
         self.conn

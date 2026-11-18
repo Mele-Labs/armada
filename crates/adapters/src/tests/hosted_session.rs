@@ -290,6 +290,15 @@ fn the_rules_never_put_an_open_pull_requests_wait_in_waiting_for() {
     assert!(!rules().contains("name the wait in `waiting_for`"));
 }
 
+/// Fleet refuses an item asking him to try the Job's own change, which the Ready to try card asks: the
+/// rules say so, since a sentence asking agents to remember it went unread and the card was asked twice.
+#[test]
+fn the_rules_say_fleet_refuses_an_item_asking_him_to_try_the_jobs_own_change() {
+    let needs = rules().split("\n\n").find(|block| block.starts_with("Needs.")).expect("a needs paragraph");
+    assert!(needs.contains("Fleet refuses an item that asks him to try, look at or approve your own pull request or offered branch: call `offer_preview`"));
+    assert!(!rules().contains("raise no item of your own to ask what that card asks"));
+}
+
 /// A hosted session is told to dispute a Fleet notice it finds wrong through the call, not only in
 /// its reply, since the call is what starts the review, and to report a bug too when the notice is wrong for any job.
 #[test]

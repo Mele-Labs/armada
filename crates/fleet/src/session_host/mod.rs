@@ -48,6 +48,7 @@ mod artifact_seen;
 mod for_you;
 pub(crate) mod drafting;
 pub(crate) mod lapsed_asks;
+pub(crate) mod look_asks;
 pub(crate) mod merge_waits;
 pub(crate) mod showing_file;
 pub(crate) mod styling;
