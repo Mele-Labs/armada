@@ -140,6 +140,9 @@ pub struct FeatureAreaRow {
 pub struct FeatureLibrary {
     pub project: String,
     pub areas: Vec<FeatureAreaRow>,
+    /// Where the project's librarian stands: when it last ran and what has merged since.
+    #[serde(default)]
+    pub librarian: crate::LibrarianState,
 }
 
 /// A written section as it stands.

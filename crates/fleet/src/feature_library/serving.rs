@@ -103,6 +103,10 @@ where
         self.features_seeded(caller, seed).await
     }
 
+    async fn run_librarian(&self, caller: Option<api::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
+        self.librarian_pressed(caller, run).await
+    }
+
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         self.feature_changed(caller, change).await
     }

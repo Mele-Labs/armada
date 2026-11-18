@@ -76,6 +76,11 @@ pub trait Features: Send + Sync + 'static {
     /// holds features (`fleet.feature_seeded`).
     fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
 
+    /// `run_librarian` — the project's librarian runs its enabled parts now, on a press of Catch up, and keeps a record of the run.
+    /// [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's (`fleet.not_the_operator`) or a
+    /// project Fleet does not hold (`fleet.feature_project`).
+    fn run_librarian(&self, caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> impl Future<Output = Result<ipc::LibrarianRan, Refusal>> + Send;
+
     /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).

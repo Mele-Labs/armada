@@ -125,6 +125,18 @@ pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+/// The owner or the Operator presses Catch up: the project's librarian runs now. **Placed as `upsert_features` is.**
+pub(crate) async fn run_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let run: ipc::RunLibrarian = match ipc::decode_body("a project to run the librarian for", &body) {
+        Ok(run) => run,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().run_librarian(crate::acting::asking(), run).await {
+        Ok(ran) => answer(StatusCode::OK, &ran, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
 /// not on the agent's connection.
 pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {

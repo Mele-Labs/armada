@@ -138,6 +138,8 @@ where
             fleet.projects_seeded().await;
             // Armada's glossary beside it, kept once for the same projects.
             fleet.glossaries_seeded().await;
+            // The librarian, run by itself only where the owner set it to after merges or nightly.
+            fleet.librarians_due().await;
             // The files each Job wrote, filed under the features that own them.
             fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.

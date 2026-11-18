@@ -48,6 +48,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/seed",
     },
     Route {
+        operation: "run_librarian",
+        method: "POST",
+        path: "/features/librarian",
+    },
+    Route {
         operation: "change_feature",
         method: "POST",
         path: "/features/change",

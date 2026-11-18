@@ -207,14 +207,37 @@ A move changes the feature's area and nothing else: its slug, prefixes, asks and
 
 The seed's largest area holds eight, so seeding raises none.
 
+## Librarian
+
+The librarian is the Fleet work that keeps a project's catalog current.
+It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
+`since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
+No part is built yet, so a run today keeps its record and does nothing else.
+
+Three settings in `settings.json` say what it does, on the Features page, `runs` first.
+`features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
+`features.librarianParts` names the parts a run does, all nine as it ships.
+`features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
+
+`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, and the parts that ran.
+`list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
+Fleet reads those numbers from the merge links it already keeps and does not ask the forge.
+Bridge draws "not read since #N" from it.
+
+> **Rule.** Fleet starts no librarian run by itself while `features.librarianRuns` is `on_press`.
+> Why: the owner wants it on demand until it has been tested more, and a run Fleet started on its own would be one he did not ask for.
+
+`after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
+A word Fleet cannot read means `on_press`.
+
 ## Glossary
 
 Each project has a glossary of its terms: the word, what it means, and the words that mean the same and should not be used.
-The librarian keeps it and Jobs fill it.
+The librarian keeps it and Jobs fill most of it.
 A Job that introduces a word gives it as `glossary`, `{term, meaning, not}`, in the `write_feature_sections` call it makes before it ends, and no Job is ever asked for one.
 A term is unique per project without regard to case, so a later write of `take` replaces `Take`.
 `get_glossary` reads a project's terms, and each carries the Job that wrote it.
-No model is read to keep it, so a model has only gaps to fill later.
+Nothing here reads a model: the librarian's `glossary` part, not built yet, is where a model fills the gaps Jobs leave.
 
 Armada's own glossary is seeded from the lexicon and the retired terms in [Voice and copy](../contracts/design-system/voice-copy.md), with the same rule as the catalog: kept once per project, and only where a repository of the project holds the seed's marker paths.
 Only a word that means one thing in this repository is listed as one not to use, so `server`, `session`, `run`, `step` and `agent` are left out.
@@ -250,6 +273,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
+| `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |

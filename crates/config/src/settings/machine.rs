@@ -2,7 +2,7 @@
 //! a behaviour on or off, the programs Bridge opens a file or a folder in, where
 //! a Job's terminal and a pull request link open, and the name this machine goes by.
 
-use super::{Applies, Entry, Flag, Json, Kind, List, Options, Section, Shipped, Words};
+use super::{Applies, Entry, Flag, Integer, Json, Kind, List, Options, Section, Shipped, Words};
 
 pub const HARNESS_AGENT: Words = Words("harness.agent");
 pub const HARNESS_BINARY_PATH: Words = Words("harness.binaryPath");
@@ -16,6 +16,12 @@ pub const DRAFT_PULL_REQUESTS: Flag = Flag("features.draftPullRequests");
 pub const OPEN_GUIDES_FIRST_TIME: Flag = Flag("features.openGuidesFirstTime");
 pub const WORKFLOWS: Flag = Flag("features.workflows");
 pub const DISPUTE_REVIEWS: Flag = Flag("features.disputeReviews");
+/// When the librarian runs: `on_press` (the shipped one), `after_merges` or `nightly`.
+pub const LIBRARIAN_RUNS: Words = Words("features.librarianRuns");
+/// Which of the librarian's parts run, by name.
+pub const LIBRARIAN_PARTS: List = List("features.librarianParts");
+/// How many model calls the librarian may make in a night.
+pub const LIBRARIAN_MODEL_SHARE: Integer = Integer("features.librarianModelShare");
 /// Whether Fleet reads the close of an agent's reply for something it asks, and raises a Needs you item for it.
 pub const READ_REPLIES_FOR_NEEDS: Flag = Flag("features.readRepliesForNeeds");
 /// The Operator as a whole: off, nothing is handed to it, no call runs and nothing waits on it.
@@ -45,6 +51,14 @@ pub const OPEN_PULL_REQUESTS_IN: Words = Words("links.openPullRequestsIn");
 pub const MACHINE_NAME: Words = Words("machine.name");
 
 pub const ACCOUNT_CLIENT_ID: Words = Words("account.clientId");
+
+/// When the librarian may run. `on_press` is the only one Fleet honours until the owner changes it.
+pub const LIBRARIAN_RUN_MODES: &[&str] = &["on_press", "after_merges", "nightly"];
+
+/// The librarian's parts, as `features.librarianParts` names them, all of them on as it ships.
+/// `fleet::feature_library::librarian::Part` is the same list in code, and a test holds the two together.
+pub const LIBRARIAN_PART_NAMES: &[&str] =
+    &["floor_plans", "links", "decisions", "health", "drift", "retire", "glossary", "since_you_looked", "gists"];
 
 /// The terminal programs Bridge knows how to open a folder in, and the one
 /// that runs `terminal.command` instead.
@@ -274,6 +288,43 @@ pub(super) const FEATURES: &[Entry] = &[
         shipped: Shipped::Nothing,
         applies: Applies::Live,
         row: Some("workflows-switched-off"),
+        env: None,
+        tip: None,
+    },
+    // The three librarian rows, `runs` first as the switch. **On press until the owner changes it** (the owner, 18 Nov 2026).
+    Entry {
+        key: LIBRARIAN_RUNS.0,
+        section: Section::Features,
+        title: "Librarian runs",
+        description: "When Fleet keeps a project's feature catalog current. On press, Fleet runs it only when you press Catch up. After merges and nightly are not run until you choose them.",
+        kind: Kind::Choice(Options::Fixed(LIBRARIAN_RUN_MODES)),
+        shipped: Shipped::Text("on_press"),
+        applies: Applies::Live,
+        row: Some("librarian"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LIBRARIAN_PARTS.0,
+        section: Section::Features,
+        title: "Librarian parts",
+        description: "The parts a run does, one a line: floor_plans, links, decisions, health, drift, retire, glossary, since_you_looked, gists. A name that is no part is ignored.",
+        kind: Kind::TextList,
+        shipped: Shipped::TextList(LIBRARIAN_PART_NAMES),
+        applies: Applies::Live,
+        row: Some("librarian"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: LIBRARIAN_MODEL_SHARE.0,
+        section: Section::Features,
+        title: "Librarian model share",
+        description: "How many model calls the librarian's model-written parts may make in one night. Zero leaves those parts to a press.",
+        kind: Kind::Integer { min: 0, max: 500, unit: "calls a night" },
+        shipped: Shipped::Integer(20),
+        applies: Applies::Live,
+        row: Some("librarian"),
         env: None,
         tip: None,
     },
