@@ -363,6 +363,14 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// The review tools of the repository a pull request is in, as Fleet last read them, for Review this
+    /// pull request. A page opens once its read lands, after `apply`, so opening it takes them too.
+    pub(super) fn live_tools(&mut self, number: u64) {
+        if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
+            self.review_tools = tools.clone();
+        }
+    }
+
     /// What the runs come to lands on the page: the summary, the change sets and findings, the critique.
     fn apply(&mut self, number: u64, mapped: map::Mapped, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.pages.get_mut(&number) else { return };
@@ -392,9 +400,7 @@ impl ReviewsScreen {
             }
         }
         if self.open == Some(number) {
-            if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
-                self.review_tools = tools.clone();
-            }
+            self.live_tools(number);
         }
         self.suggestion_boxes(number, window, cx);
         self.colour(number, cx);
@@ -800,6 +806,39 @@ mod tests {
             let row = reviews.live.as_ref().and_then(|live| live.pulls.get(&2231)).map(|pull| (pull.row.manifest.clone(), pull.row.title.clone()));
             assert_eq!(row, Some(("ledger-api".to_string(), "Say which stage of an invoice failed".to_string())), "its page is read in the repository the request names");
             assert_eq!(reviews.showing(), Some(2231), "and it opens once read");
+        });
+    }
+
+    #[gpui::test]
+    fn a_page_opened_once_read_offers_its_repositorys_review_tools(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let fleet = cx.update(|cx| cx.new(FleetConnection::idle));
+        let (reviews, cx) = cx.add_window_view(|window, cx| ReviewsScreen::live(&fleet, window, cx));
+        let asked = ipc::ReviewAsked {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number: 2231,
+            title: "Say which stage of an invoice failed".into(),
+            author: "mira".into(),
+            address: "https://example.com/harbor/ledger-api/pull/2231".into(),
+        };
+        cx.update(|window, cx| reviews.update(cx, |reviews, cx| reviews.open_asked(&asked, window, cx)));
+        // The read lands: its page and the repository's tools are held, and the page he waited for opens.
+        cx.update(|window, cx| {
+            reviews.update(cx, |reviews, cx| {
+                let page = crate::reviews::mock::page(2231).expect("a mock page");
+                reviews.pages.insert(2231, page);
+                if let Some(live) = reviews.live.as_mut() {
+                    live.tools.insert("ledger-api".into(), crate::reviews::mock::review_tools());
+                }
+                reviews.show(2231, window, cx);
+            })
+        });
+        reviews.read_with(cx, |reviews, _| {
+            assert!(!reviews.review_tools.is_empty(), "Review this pull request offers the tools Fleet read for its repository");
         });
     }
 }
