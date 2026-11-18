@@ -251,6 +251,7 @@ fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> 
     WriteFeatureSections {
         feature: feature.to_string(),
         sections: sections.iter().map(|section| FeatureSectionText { section: *section, text: format!("The {} text.", section.name()) }).collect(),
+        glossary: Vec::new(),
         project: None,
         session_id: Some(id.clone()),
     }

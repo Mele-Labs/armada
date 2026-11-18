@@ -22,6 +22,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/brief",
     },
     Route {
+        operation: "get_glossary",
+        method: "GET",
+        path: "/features/glossary",
+    },
+    Route {
         operation: "get_features_of_path",
         method: "GET",
         path: "/features/of_path",

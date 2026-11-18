@@ -931,3 +931,5 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+mod glossary;
+pub use glossary::{Glossary, GlossaryTerm, GlossaryTermWrite};

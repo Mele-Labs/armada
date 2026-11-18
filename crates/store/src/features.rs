@@ -38,7 +38,9 @@ pub mod link_kind {
     pub const DRAFT: &str = "draft";
     pub const COMMIT: &str = "commit";
     pub const BUG: &str = "bug";
-    pub const ALL: [&str; 9] = [JOB, PULL_REQUEST, MERGE, SKETCH, PAGE, WALK, DRAFT, COMMIT, BUG];
+    /// A Job used a word the project's glossary says not to: the word is the target, the term to use is the title.
+    pub const GLOSSARY_FLAG: &str = "glossary_flag";
+    pub const ALL: [&str; 10] = [JOB, PULL_REQUEST, MERGE, SKETCH, PAGE, WALK, DRAFT, COMMIT, BUG, GLOSSARY_FLAG];
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

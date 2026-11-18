@@ -68,6 +68,13 @@ pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>
     }
 }
 
+pub(crate) async fn get_glossary<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_glossary(crate::acting::asking(), asked.project).await {
+        Ok(glossary) => answer(StatusCode::OK, &glossary, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_feature_brief<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeature>) -> Response {
     match served.daemon().get_feature_brief(crate::acting::asking(), asked.project, asked.feature).await {
         Ok(brief) => answer(StatusCode::OK, &brief, served.run_id()),

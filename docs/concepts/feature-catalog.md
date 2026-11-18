@@ -207,6 +207,28 @@ A move changes the feature's area and nothing else: its slug, prefixes, asks and
 
 The seed's largest area holds eight, so seeding raises none.
 
+## Glossary
+
+Each project has a glossary of its terms: the word, what it means, and the words that mean the same and should not be used.
+The librarian keeps it and Jobs fill it.
+A Job that introduces a word gives it as `glossary`, `{term, meaning, not}`, in the `write_feature_sections` call it makes before it ends, and no Job is ever asked for one.
+A term is unique per project without regard to case, so a later write of `take` replaces `Take`.
+`get_glossary` reads a project's terms, and each carries the Job that wrote it.
+No model is read to keep it, so a model has only gaps to fill later.
+
+Armada's own glossary is seeded from the lexicon and the retired terms in [Voice and copy](../contracts/design-system/voice-copy.md), with the same rule as the catalog: kept once per project, and only where a repository of the project holds the seed's marker paths.
+Only a word that means one thing in this repository is listed as one not to use, so `server`, `session`, `run`, `step` and `agent` are left out.
+A term a Job wrote before the seed was kept stays as the Job wrote it.
+
+A commit a Job is about to make is read for the `not` words of its project's glossary, in the commit's own words and not in the paths given to `git add`.
+Each word found is filed as a `glossary_flag` link on every feature the Job is on, naming the word as its target, the term to use as its title and the Job.
+The flag is kept once for a word and a Job, and it shows among the feature's links.
+
+> **Rule.** A word used against the glossary is a flag on the feature, never a refusal.
+> Why: the Job may be quoting the word, or the glossary may be the one that is wrong, and a refused commit would teach Jobs to avoid the word rather than say what they mean.
+
+Sections, pull request descriptions and other text Jobs write are not read yet.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -224,7 +246,8 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
-| `write_feature_sections` | The calling Job writes sections of a feature |
+| `write_feature_sections` | The calling Job writes sections of a feature, and the glossary terms it introduced |
+| `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |

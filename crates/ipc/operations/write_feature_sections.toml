@@ -2,15 +2,17 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Write what you know of a feature before you end: how to test it, how it runs, how to observe it and its tech debt. Give the feature's slug and each section's text. Rewrite a section whose text is still true as it stands; all_done is refused while a feature your merged or pushed work changed has a section you have not written since you started"
+description = "Write what you know of a feature before you end: how to test it, how it runs, how to observe it and its tech debt. Give the feature's slug and each section's text. Rewrite a section whose text is still true as it stands; all_done is refused while a feature your merged or pushed work changed has a section you have not written since you started. Also give `glossary`, a list of `{term, meaning, not}` for any word you introduced that the project should keep using, with `not` the words that mean the same and should not be used; it is never required"
 notes = """
-`POST /features/write_sections`, body `WriteFeatureSections`: `feature` (a slug), `sections` (a list of `{section, text}`, where `section` is `test`, `runs`, `observe` or `debt`), and an optional `project` and `session_id`. Answered with `FeatureSectionsWritten`: `feature`, `written`, and `owed`, what this Job still owes across features.
+`POST /features/write_sections`, body `WriteFeatureSections`: `feature` (a slug), `sections` (a list of `{section, text}`, where `section` is `test`, `runs`, `observe` or `debt`), an optional `glossary` and an optional `project` and `session_id`. Answered with `FeatureSectionsWritten`: `feature`, `written`, `glossary`, the terms kept, and `owed`, what this Job still owes across features.
+
+**`glossary` is a list of `{term, meaning, not?}`** for a word you introduced that the project should keep using: `term` the word, `meaning` a sentence, `not` the words that mean the same and should not be used. It is kept in the project's glossary that holds the feature, and read back with `get_glossary`. A term the project holds under the same word, in any case, is replaced. `sections` may be empty where `glossary` is not, and `all_done` never asks for a glossary. Fleet flags a Job that later uses a `not` word in a commit message, on the features it is on, and never refuses the commit.
 
 **The job is the one whose process holds the connection**, as `all_done`'s is. Only a Job Fleet hosts writes, and an ended one is refused. Nobody else reaches this operation, so a section always names the Job that wrote it.
 
 **Fleet keeps who wrote it, when, and the commit the Job's checkout stood at.** A section is replaced whole by the next write of it; the text is kept as written, trimmed.
 
-422 `fleet.feature_unknown` where no feature the Job's projects hold has that slug, and `fleet.feature_section_empty` for a blank text.
+422 `fleet.feature_unknown` where no feature the Job's projects hold has that slug, `fleet.feature_section_empty` for a blank text or a call with neither sections nor glossary, and `fleet.glossary_blank` for a term with no word or no meaning.
 
 `agent_access` is `Yes`: only the Job that did the work knows how the feature runs and what it owes.
 """

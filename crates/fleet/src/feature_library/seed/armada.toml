@@ -720,3 +720,71 @@ title = "Fleet link"
 summary = "Connecting to Fleet"
 paths = ["crates/bridge-native/src/link.rs", "crates/bridge-native/src/fleet.rs", "crates/bridge-native/src/transport.rs", "crates/fleet/src/runtime.rs"]
 entry_points = ["crates/bridge-native/src/link.rs:126", "crates/bridge-native/src/fleet.rs:85", "crates/bridge-native/src/titlebar/link_panel.rs:47", "crates/bridge-native/src/restart_fleet.rs", "docs/practices/protocol/the-protocol-id.md"]
+
+# Armada's glossary, read from the lexicon and the retired terms in `docs/contracts/design-system/voice-copy.md`. Only a
+# word that means one thing in this repository is listed as one not to use: `server`, `session`, `run`, `step` and `agent`
+# stand for too many other things to flag.
+[[glossary]]
+term = "Fleet"
+meaning = "The daemon."
+not = ["backend", "sidecar"]
+
+[[glossary]]
+term = "Bridge"
+meaning = "The operational surfaces."
+not = ["dashboard"]
+
+[[glossary]]
+term = "Operator"
+meaning = "The one long-running agent session per machine that puts up cards and acts with Fleet's tools."
+not = ["assistant"]
+
+[[glossary]]
+term = "Drone"
+meaning = "One agent instance."
+not = ["bot"]
+
+[[glossary]]
+term = "Job Board"
+meaning = "The open queue."
+not = ["backlog"]
+
+[[glossary]]
+term = "Kit"
+meaning = "The tool set you bring: Skills, MCP, sub agents, Agent files, Plugins, Commands, the allowlist and the models list."
+not = ["guild"]
+
+[[glossary]]
+term = "Judge"
+meaning = "The one reading a person asks for on an artifact of a Job, which looks for what the person or the agent missed."
+not = ["auditor"]
+
+[[glossary]]
+term = "Job proposer"
+meaning = "The model call that reads a request and proposes a Job: its workflow, what to call it, and the order between Jobs."
+not = ["classifier"]
+
+[[glossary]]
+term = "Doctor"
+meaning = "The health check."
+not = ["diagnostics"]
+
+[[glossary]]
+term = "Workspace"
+meaning = "One unit inside a repo."
+not = ["sub-repo"]
+
+[[glossary]]
+term = "Studio"
+meaning = "The typed graph of one stretch of work, kept per repository."
+not = ["playground"]
+
+[[glossary]]
+term = "Scout"
+meaning = "The read-only agent a Studio sends to read and report back as a Finding."
+not = ["researcher"]
+
+[[glossary]]
+term = "Retro"
+meaning = "What got in the way while one Job ran, written once it ends."
+not = ["post-mortem"]
