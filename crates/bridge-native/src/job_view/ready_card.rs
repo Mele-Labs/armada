@@ -462,6 +462,8 @@ impl JobView {
         // He cannot judge a build he cannot run: the answers wait until the preview holds it. Refresh preview stands in the head or the built picture's frame.
         let foot_row = (asking && card.in_build).then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
         let name = format!("Ready to try: {}", card.about);
+        // With no answer row under it, the last part keeps a gap above the card's foot.
+        let bottom = if foot_row.is_none() { look.length(token::SPACE_4) } else { px(0.) };
         if !framed {
             let body = div()
                 .id(SharedString::from(format!("ready:{key}")))
@@ -473,7 +475,8 @@ impl JobView {
                 .children(pictures)
                 .children(words)
                 .children(changed)
-                .children(foot_row);
+                .children(foot_row)
+                .pb(bottom);
             return labelled(body, Role::Article, name).into_any_element();
         }
         labelled(
@@ -485,7 +488,8 @@ impl JobView {
                 .children(pictures)
                 .children(words)
                 .children(changed)
-                .children(foot_row),
+                .children(foot_row)
+                .pb(bottom),
             Role::Article,
             name,
         )
