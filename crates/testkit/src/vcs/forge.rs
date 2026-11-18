@@ -326,7 +326,7 @@ impl Forge for FakeVcs {
         &self,
         _in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
         self.review_list_read(ask)
     }
 

@@ -236,6 +236,15 @@ pub enum WorkflowNotRemoved {
 /// Reading a folder into a repository. **A seam**, because what reads one —
 /// git, `armada.yml`, Kit's workflows — is the composition root's.
 pub trait Locating: Send + Sync {
+    /// Make, or find again, the stub repository a pull request link to `owner/name` is read
+    /// through: a git repository with that `origin` and no fetch, kept where this machine keeps
+    /// Fleet's own files. **Refuses by default**, so a locator with no such place links nothing.
+    fn linked(&self, owner: &str, name: &str) -> Result<Located, NotLocated> {
+        Err(NotLocated::Refused {
+            root: format!("{owner}/{name}"),
+            why: "this locator keeps no linked repositories".into(),
+        })
+    }
     /// Check one definition against `manifest` and this machine's models, and
     /// write it in `asked.scope` only if it fits. **Checked before anything is
     /// written**, with the loader's own rules, so what is saved is what would
@@ -343,10 +352,14 @@ pub struct Repository {
     /// A form's edit to `armada.yml` sent as a pull request and not yet in the
     /// checkout — `crate::pending_edit`.
     pending_edit: crate::pending_edit::Held,
+    /// `owner/name`, lowercased, where this is a stub made only so a pull request link can be
+    /// read — `link_repository`. A person never added it: it is hidden from the repository list
+    /// and has no clone to run an agent in.
+    linked: Option<String>,
 }
 
 impl Repository {
-    fn of(root: String, records_root: String, set_up: Option<SetUp>) -> Arc<Repository> {
+    fn of(root: String, records_root: String, set_up: Option<SetUp>, linked: Option<String>) -> Arc<Repository> {
         let implicit = implicit_set_up(&root);
         let repository = Repository {
             root,
@@ -356,6 +369,7 @@ impl Repository {
             reading: Mutex::new(None),
             proposals: Default::default(),
             pending_edit: Default::default(),
+            linked,
         };
         if let Some(set_up) = set_up {
             let _ = repository.set_up.set(set_up);
@@ -365,6 +379,11 @@ impl Repository {
 
     pub fn root(&self) -> &str {
         &self.root
+    }
+
+    /// The `owner/name`, lowercased, this stub was linked for; absent for a repository a person added.
+    pub fn linked_to(&self) -> Option<&str> {
+        self.linked.as_deref()
     }
 
     pub fn records_root(&self) -> &str {
@@ -523,7 +542,7 @@ impl Repositories {
 
     /// Serving one repository that has a Manifest, for a fixture.
     pub fn starting_in(root: String, records_root: String, set_up: SetUp) -> Repositories {
-        let first = Repository::of(root, records_root, Some(set_up));
+        let first = Repository::of(root, records_root, Some(set_up), None);
         Repositories(RwLock::new(vec![first]), cloning::Cloning::default(), forge_listing::ForgeListing::default())
     }
 
@@ -542,6 +561,24 @@ impl Repositories {
     /// Serve one more. Checked and added under one lock, so two adds of one
     /// folder cannot both pass.
     pub fn add(&self, located: Located) -> Result<Arc<Repository>, NotAdded> {
+        self.added(located, None)
+    }
+
+    /// Serve a stub made for a pull request link to `slug` (`owner/name`, lowercased), refused
+    /// as [`Repositories::add`] refuses any root served twice.
+    pub fn add_linked(&self, located: Located, slug: &str) -> Result<Arc<Repository>, NotAdded> {
+        self.added(located, Some(slug.to_string()))
+    }
+
+    /// Stop serving every stub linked for `slug`: the repository is added for real.
+    pub fn drop_linked(&self, slug: &str) -> usize {
+        let mut every = self.0.write().unwrap_or_else(PoisonError::into_inner);
+        let before = every.len();
+        every.retain(|one| one.linked.as_deref() != Some(slug));
+        before - every.len()
+    }
+
+    fn added(&self, located: Located, linked: Option<String>) -> Result<Arc<Repository>, NotAdded> {
         if !std::path::Path::new(&located.root).is_absolute() {
             return Err(NotAdded::RelativeRoot { root: located.root });
         }
@@ -552,7 +589,7 @@ impl Repositories {
         if let Some(set_up) = &located.set_up {
             refuse_a_second_id(&every, set_up.manifest())?;
         }
-        let added = Repository::of(located.root, located.records_root, located.set_up);
+        let added = Repository::of(located.root, located.records_root, located.set_up, linked);
         every.push(Arc::clone(&added));
         Ok(added)
     }

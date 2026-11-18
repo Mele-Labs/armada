@@ -13,7 +13,6 @@ use ipc::SessionRecord;
 const REF: &str = "armada-ref:session/";
 
 /// Each Job and the words that name it, and each pull request known in the Manifest by its number and address.
-#[derive(PartialEq)]
 pub(super) struct Refs {
     jobs: Vec<(String, Vec<String>)>,
     pulls: Vec<(u64, String)>,

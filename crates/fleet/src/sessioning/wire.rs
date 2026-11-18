@@ -208,5 +208,6 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
             .collect(),
         claim_waits: Vec::new(),
         claims_unsent: false,
+        answer_unread: false,
     }
 }

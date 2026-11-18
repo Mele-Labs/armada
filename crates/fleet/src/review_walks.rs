@@ -119,7 +119,7 @@ where
         manifest_id: ManifestId,
         open: OpenReviewWalk,
     ) -> Result<ReviewWalk, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
+        let served = self.served_for_review(&manifest_id)?;
         if let Some(problem) = place_problem(&open.place) {
             return Err(self.walk_place_refusal(problem));
         }

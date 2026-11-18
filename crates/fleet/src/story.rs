@@ -9,6 +9,7 @@ use std::sync::Arc;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Story};
 use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
+use ipc::{JobQuestion, JobQuestions, MarkAnswerRead};
 
 use crate::daemon::Fleet;
 use crate::session_host::serving::NO_SUCH_SESSION;
@@ -16,6 +17,7 @@ use crate::session_host::serving::NO_SUCH_SESSION;
 mod asks;
 mod outside;
 mod progress;
+pub(crate) mod questions;
 mod reading;
 pub(crate) mod sorting;
 pub(crate) mod telling;
@@ -57,5 +59,13 @@ where
 
     async fn file_ask(&self, caller: Option<api::Caller>, file: FileAsk) -> Result<Ask, Refusal> {
         self.ask_filed(caller, file).await
+    }
+
+    async fn list_job_questions(&self, session_id: SessionId) -> Result<JobQuestions, Refusal> {
+        self.job_questions_listed(&session_id).await
+    }
+
+    async fn mark_answer_read(&self, mark: MarkAnswerRead) -> Result<JobQuestion, Refusal> {
+        self.answer_read_marked(mark).await
     }
 }

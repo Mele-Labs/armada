@@ -63,6 +63,8 @@ pub fn default_arrangement() -> Arrangement {
 const PAGE_READ: Duration = Duration::from_millis(1500);
 /// How long the mock forge takes to read the inbox again.
 const REFRESH_READ: Duration = Duration::from_millis(4000);
+/// How long a rate-limited inbox waits before reading again.
+const LIMIT_REREAD: Duration = Duration::from_secs(30);
 /// The menu on a practice he corrected.
 const CHANGE_REASON: &str = "Change the reason";
 const UNDO: &str = "Undo";

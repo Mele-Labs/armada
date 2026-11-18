@@ -155,3 +155,14 @@ fn a_repository_with_no_remote_has_nothing_to_catch_up_to_and_nothing_held_back(
     assert_ne!(pulled.code, 0, "a pull with nowhere to pull from says so rather than panicking");
     assert!(!pulled.output.is_empty());
 }
+
+#[test]
+fn a_linked_stub_is_a_repository_whose_origin_names_the_forge_repository() {
+    let beside = TempRepo::empty();
+    let folder = beside.root().with_extension("linked").join("acme").join("shop");
+    crate::start_linked_repository(&folder, "Acme", "Shop").expect("a stub");
+    assert!(inside_a_repository(&folder));
+    let address = crate::remote_of(&folder).expect("an origin");
+    assert_eq!(address.slug(), "acme/shop");
+    assert_eq!(address.host(), "github.com");
+}

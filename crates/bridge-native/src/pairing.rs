@@ -201,6 +201,20 @@ pub fn pill_in(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> An
     labelled(pill_drawn(look, id, name, hue), Role::Image, SharedString::from(name.to_string())).into_any_element()
 }
 
+/// A Mac's chip beside a name that matters more: it gives way to the name, stops at a width of its own, ends in an
+/// ellipsis, and the whole Mac name is its tooltip.
+pub fn pill_capped(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> AnyElement {
+    let said = SharedString::from(name.to_string());
+    div()
+        .id(SharedString::from(format!("{id}-slot")))
+        .flex()
+        .min_w_0()
+        .max_w(look.length(token::SPACE_12) * 2.25)
+        .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).build(window, cx))
+        .child(pill_in(look, id, name, hue))
+        .into_any_element()
+}
+
 fn pill_drawn(look: &Look, id: SharedString, name: &str, hue: gpui::Hsla) -> gpui::Stateful<Div> {
     div()
         .id(id)

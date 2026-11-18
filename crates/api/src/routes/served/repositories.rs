@@ -75,6 +75,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/merge_lines/checkout_to_pull_request",
     },
+    // A pull request link's repository, read without being added: a stub, unlisted.
+    Route {
+        operation: "link_repository",
+        method: "POST",
+        path: "/repositories/link",
+    },
     Route {
         operation: "clone_repository",
         method: "POST",
