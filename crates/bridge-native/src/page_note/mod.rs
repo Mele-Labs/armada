@@ -29,17 +29,17 @@ const READER: &str = include_str!("read.js");
 /// A page that does not answer within this is read as nothing.
 const ANSWER: Duration = Duration::from_secs(5);
 
-/// The pages a note may be made over: each Job browser's.
+/// The pages a note may be made over: each Job browser's, with the Job it is.
 #[derive(Default)]
-struct Offered(Vec<WeakEntity<WebPage>>);
+struct Offered(Vec<(WeakEntity<WebPage>, SharedString)>);
 
 impl Global for Offered {}
 
-/// A Job browser's page, which a note may be made over.
-pub fn offer(page: &Entity<WebPage>, cx: &mut App) {
+/// A Job browser's page, which a note may be made over, and its Job, which the note goes to.
+pub fn offer(page: &Entity<WebPage>, job: SharedString, cx: &mut App) {
     let offered = cx.default_global::<Offered>();
-    offered.0.retain(|one| one.upgrade().is_some());
-    offered.0.push(page.downgrade());
+    offered.0.retain(|(one, _)| one.upgrade().is_some());
+    offered.0.push((page.downgrade(), job));
 }
 
 /// The page under a point of the window, and where its viewport is drawn.
@@ -50,14 +50,16 @@ pub struct Over {
     pub origin: Point<Pixels>,
     /// Its size in points, which is its viewport's in CSS pixels.
     pub viewport: (f64, f64),
+    /// The Job whose browser it is.
+    pub job: SharedString,
 }
 
 /// The offered page a pane draws at `at`, if one does.
 pub fn page_at(at: Point<Pixels>, cx: &App) -> Option<Over> {
     let offered = cx.try_global::<Offered>()?;
-    offered.0.iter().filter_map(WeakEntity::upgrade).find_map(|page| {
+    offered.0.iter().filter_map(|(page, job)| Some((page.upgrade()?, job))).find_map(|(page, job)| {
         let (bounds, visible) = page.read(cx).place()?;
-        visible.contains(&at).then(|| Over { origin: bounds.origin, viewport: (f64::from(bounds.size.width), f64::from(bounds.size.height)), page })
+        visible.contains(&at).then(|| Over { origin: bounds.origin, viewport: (f64::from(bounds.size.width), f64::from(bounds.size.height)), page, job: job.clone() })
     })
 }
 
@@ -79,7 +81,7 @@ pub struct Freeze(Vec<WeakEntity<WebPage>>);
 
 impl Freeze {
     pub fn new(cx: &mut App) -> Self {
-        let pages: Vec<WeakEntity<WebPage>> = cx.try_global::<Offered>().map(|offered| offered.0.clone()).unwrap_or_default();
+        let pages: Vec<WeakEntity<WebPage>> = cx.try_global::<Offered>().map(|offered| offered.0.iter().map(|(page, _)| page.clone()).collect()).unwrap_or_default();
         let mut held = Vec::new();
         for page in pages {
             if let Some(page) = page.upgrade() {
@@ -141,6 +143,8 @@ pub struct PageHeld {
     pub said: SharedString,
     /// The page's url as loaded.
     pub address: String,
+    /// The Job whose browser the page is.
+    pub job: SharedString,
     pub read: read::Read,
 }
 
@@ -163,7 +167,7 @@ impl Over {
     pub fn held(&self, answer: &Value, address: String) -> Option<PageHeld> {
         let read = read::held(answer, self.viewport)?;
         let said = read::said(read::host_of(&address).as_deref(), &read.words, &read.text);
-        Some(PageHeld { bounds: bounds_of(read.rect, self.origin), said: said.into(), address, read })
+        Some(PageHeld { bounds: bounds_of(read.rect, self.origin), said: said.into(), address, job: self.job.clone(), read })
     }
 }
 
@@ -178,6 +182,7 @@ impl PageHeld {
     pub fn write_into(&self, raw: &mut Value) {
         let read = &self.read;
         raw["address"] = json!(self.address);
+        raw["job"] = json!(self.job);
         raw["selector"] = json!(read.selector);
         raw["element"] = json!({ "tag": read.words.tag, "text": read.text, "label": read.label });
         raw["component"] = json!(read.component);
@@ -213,13 +218,13 @@ mod tests {
             stamp: Some("src/a.tsx:3".into()),
             selected: Vec::new(),
         };
-        PageHeld { bounds: bounds_of(read.rect, point(px(0.), px(0.))), said: "fast.com › button · Google Search".into(), address: "https://fast.com/search?scenario=wide".into(), read }
+        PageHeld { bounds: bounds_of(read.rect, point(px(0.), px(0.))), said: "fast.com › button · Google Search".into(), address: "https://fast.com/search?scenario=wide".into(), job: "job-1".into(), read }
     }
 
     #[gpui::test]
     fn armed_layers_hold_the_job_pages_still_and_the_last_to_go_lets_them_live_again(cx: &mut gpui::TestAppContext) {
         let page = cx.new(|cx| WebPage::for_job_browser(cx));
-        cx.update(|cx| offer(&page, cx));
+        cx.update(|cx| offer(&page, "job-1".into(), cx));
         let held = |cx: &mut gpui::TestAppContext| page.read_with(cx, |page, _| page.pinned());
         assert!(!held(cx));
         let mut first = cx.update(Freeze::new);
@@ -257,6 +262,7 @@ mod tests {
         let mut raw = json!({ "screen": "Job", "location": "/" });
         held.write_into(&mut raw);
         assert_eq!(raw["address"], "https://fast.com/search?scenario=wide");
+        assert_eq!(raw["job"], "job-1");
         assert_eq!(raw["selector"], "form > input");
         assert_eq!(raw["element"]["tag"], "input");
         assert_eq!(raw["element"]["label"], "Search");
