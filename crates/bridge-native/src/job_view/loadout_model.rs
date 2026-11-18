@@ -230,7 +230,20 @@ impl ItemRef {
     pub fn key(&self) -> String {
         format!("{}:{}:{}:{}", kind_wire(self.kind), source_wire(self.source), self.from.as_deref().unwrap_or(""), self.name)
     }
+
+    /// The item a key names, as an item's tab keeps it between runs. None where the key is not one.
+    pub fn of_key(key: &str) -> Option<ItemRef> {
+        let mut parts = key.splitn(4, ':');
+        let (kind, source, from, name) = (parts.next()?, parts.next()?, parts.next()?, parts.next()?);
+        let kind = KNOWN.into_iter().chain(TOLD).find(|one| kind_wire(*one) == kind)?;
+        let source = SOURCES.into_iter().find(|one| source_wire(*one) == source)?;
+        (!name.is_empty()).then(|| ItemRef { kind, name: name.to_string(), source, from: (!from.is_empty()).then(|| from.to_string()) })
+    }
 }
+
+/// Every source an item can come from.
+const SOURCES: [LoadoutSource; 7] =
+    [LoadoutSource::Kit, LoadoutSource::Armada, LoadoutSource::Repository, LoadoutSource::Plugin, LoadoutSource::Mcp, LoadoutSource::BuiltIn, LoadoutSource::Managed];
 
 pub(super) fn kind_wire(kind: LoadoutKind) -> &'static str {
     match kind {
@@ -775,6 +788,18 @@ mod tests {
         let repository = Narrow { source: Some("Repository"), ..all };
         assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, repository, Sort::Name)), ["audit"]);
         assert!(kept_rows(&rows, LoadoutKind::Skill, Narrow { used_only: true, ..repository }, Sort::Name).is_empty(), "every narrowing holds at once");
+    }
+
+    #[test]
+    fn an_items_key_names_it_again_after_a_restart() {
+        let skill = ItemRef { kind: LoadoutKind::Skill, name: "docs:write-page".into(), source: LoadoutSource::Plugin, from: Some("docs".into()) };
+        let tool = ItemRef { kind: LoadoutKind::Tool, name: "Read".into(), source: LoadoutSource::BuiltIn, from: None };
+        for item in [skill, tool] {
+            assert_eq!(ItemRef::of_key(&item.key()), Some(item.clone()), "a name with a colon in it too");
+        }
+        for not_one in ["", "skill:kit:", "skill:kit", "wand:kit::tidy", "skill:shelf::tidy"] {
+            assert_eq!(ItemRef::of_key(not_one), None, "{not_one:?}");
+        }
     }
 
     #[test]

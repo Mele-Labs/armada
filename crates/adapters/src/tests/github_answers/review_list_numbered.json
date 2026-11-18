@@ -1,0 +1,72 @@
+{
+ "data": {
+  "r0": {
+   "p41": {
+    "state": "OPEN",
+    "repository": {"nameWithOwner": "acme/billing"},
+    "number": 41,
+    "title": "Bill a trial at its end",
+    "headRefName": "trial-billing",
+    "url": "https://github.com/acme/billing/pull/41",
+    "isDraft": true,
+    "headRefOid": "4141414141414141414141414141414141414141",
+    "author": {"login": "tobias"},
+    "updatedAt": "2026-11-16T12:00:00Z",
+    "reviewDecision": "REVIEW_REQUIRED",
+    "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "FAILURE"}}}]},
+    "reviewRequests": {"nodes": [{"requestedReviewer": {}}]},
+    "myReview": {"nodes": [{"state": "COMMENTED", "submittedAt": "2026-11-15T10:00:00Z", "commit": {"oid": "4040404040404040404040404040404040404040"}}]}
+   },
+   "p38": {
+    "state": "MERGED",
+    "repository": {"nameWithOwner": "acme/billing"},
+    "number": 38,
+    "title": "Round a refund to the cent",
+    "headRefName": "refund-rounding",
+    "url": "https://github.com/acme/billing/pull/38",
+    "isDraft": false,
+    "headRefOid": "3838383838383838383838383838383838383838",
+    "author": {"login": "mira"},
+    "updatedAt": "2026-11-10T12:00:00Z",
+    "reviewDecision": "APPROVED",
+    "commits": {"nodes": [{"commit": {"statusCheckRollup": {"state": "SUCCESS"}}}]},
+    "reviewRequests": {"nodes": []},
+    "myReview": {"nodes": []}
+   }
+  },
+  "r1": {
+   "p7": {
+    "state": "CLOSED",
+    "repository": {"nameWithOwner": "acme/ledger"},
+    "number": 7,
+    "title": "Try a second ledger",
+    "headRefName": "second-ledger",
+    "url": "https://github.com/acme/ledger/pull/7",
+    "isDraft": false,
+    "headRefOid": "0707070707070707070707070707070707070707",
+    "author": {"login": "tobias"},
+    "updatedAt": "2026-11-09T12:00:00Z",
+    "reviewDecision": null,
+    "commits": {"nodes": []},
+    "reviewRequests": {"nodes": []},
+    "myReview": {"nodes": []}
+   },
+   "p9": {
+    "state": "OPEN",
+    "repository": {"nameWithOwner": "acme/ledger"},
+    "number": 9,
+    "title": "Speed up the ledger",
+    "headRefName": "ledger-speed",
+    "url": "https://github.com/acme/ledger/pull/9",
+    "isDraft": false,
+    "headRefOid": "0909090909090909090909090909090909090909",
+    "author": {"login": "ada"},
+    "updatedAt": "2026-11-17T08:00:00Z",
+    "reviewDecision": null,
+    "commits": {"nodes": [{"commit": {"statusCheckRollup": null}}]},
+    "reviewRequests": {"nodes": []},
+    "myReview": {"nodes": []}
+   }
+  }
+ }
+}
