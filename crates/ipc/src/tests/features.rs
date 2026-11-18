@@ -6,7 +6,8 @@ use crate::{decode, shape, ChangeFeature, FeatureChanged, FeatureSectionKind, Fe
 fn the_two_bodies_say_their_shape() {
     assert_eq!(
         shape::of::<WriteFeatureSections>(),
-        "{feature: string, sections: [{section: test|runs|observe|debt, text: string}], project?: string, session_id?: string}"
+        "{feature: string, sections?: [{section: test|runs|observe|debt, text: string}], glossary?: [{term: string, meaning: string, not?: [string]}], \
+         project?: string, session_id?: string}"
     );
     assert_eq!(
         shape::of::<UpsertFeatures>(),
