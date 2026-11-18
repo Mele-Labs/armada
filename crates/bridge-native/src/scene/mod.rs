@@ -1895,9 +1895,9 @@ mod tests {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
-        let raw: ipc::RawScene = serde_json::from_str(CHIP_TAKE).expect("a raw scene");
+        let raw: ipc::RawScene = ipc::decode("a chip take", CHIP_TAKE.as_bytes()).expect("a raw scene");
         let chip = Rc::new(raw.scene().expect("it reads"));
-        let boxed: ipc::RawScene = serde_json::from_str(r#"{"nodes":[{"id":"b","kind":"box","x":0,"y":0,"w":220,"title":"Box"}],"edges":[]}"#).expect("a raw scene");
+        let boxed: ipc::RawScene = ipc::decode("a box", br#"{"nodes":[{"id":"b","kind":"box","x":0,"y":0,"w":220,"title":"Box"}],"edges":[]}"#).expect("a raw scene");
         let boxed = Rc::new(boxed.scene().expect("it reads"));
         let (_, cx) = cx.add_window_view(|_, _| Columns(chip, boxed));
         cx.simulate_resize(size(px(1040.), px(400.)));
