@@ -76,7 +76,7 @@ import {
   waitedOf,
 } from './facts'
 import type { Equipment, LoadoutItem, LoadoutUse, OutsideBrowser, RateLimit, WaitingItem } from './facts'
-import type { Asked, Door, Fact, Reach, Report, Task } from './fleet'
+import type { Asked, Door, Fact, QuietJobs, Reach, Report, Task } from './fleet'
 import { commitStaging, placeOfCall } from './handoff'
 import type { SearchAsked } from './handoff'
 import { isOneArmadaJob, waitingItemsOfJob } from './jobcommand'
@@ -481,10 +481,11 @@ async function postAsk($: Door, port: number, body: unknown, bound: number): Pro
 const REACH_MS = 3000
 
 /**
- * Whether Fleet lets this Job write to `to`. **Fleet places the Job by its connection** and decides;
- * nothing here names the sender. A Fleet out of reach or slow answers nothing, and the message goes.
+ * Whether Fleet lets this Job write to `to`, and who carries `message`. **Fleet places the Job by its
+ * connection** and decides; nothing here names the sender. A Fleet out of reach or slow answers
+ * nothing, and the message goes.
  */
-async function messageReach($: Door, to: string): Promise<Reach | undefined> {
+async function messageReach($: Door, to: string, message: string | undefined): Promise<Reach | undefined> {
   const port = await portOf($).catch(() => undefined)
   if (port === undefined || to === '') return undefined
   const sent = await Promise.race([
@@ -492,12 +493,39 @@ async function messageReach($: Door, to: string): Promise<Reach | undefined> {
       .fetch(`http://127.0.0.1:${port}/sessions/message_reach`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ to }),
+        body: JSON.stringify(message === undefined ? { to } : { to, message }),
       })
       .catch(() => undefined),
     $.clock.sleep(REACH_MS).then(() => undefined),
   ])
   return sent?.ok === true ? (JSON.parse(sent.text) as Reach) : undefined
+}
+
+/** The live Jobs with no process, which the CLI's own `ListAgents` leaves out. Nothing where Fleet is out of reach. */
+async function quietJobs($: Door): Promise<QuietJobs['jobs']> {
+  const port = await portOf($).catch(() => undefined)
+  if (port === undefined) return []
+  const sent = await Promise.race([
+    $.http.fetch(`http://127.0.0.1:${port}/sessions/quiet_jobs`, { method: 'GET' }).catch(() => undefined),
+    $.clock.sleep(REACH_MS).then(() => undefined),
+  ])
+  return sent?.ok === true ? ((JSON.parse(sent.text) as QuietJobs).jobs ?? []) : []
+}
+
+const QUIET_WHY: Record<QuietJobs['jobs'][number]['why'], string> = {
+  between_turns: 'between turns; a message starts it',
+  paused: 'paused; a message is its first turn at Resume',
+  held: 'not started yet; a message goes when it starts',
+}
+
+/** What `ListAgents` adds of the Jobs it leaves out. Empty where there are none. */
+export function quietListing(jobs: QuietJobs['jobs']): string {
+  if (jobs.length === 0) return ''
+  const lines = jobs.map(job => `- ${job.address}${job.title ? ` "${job.title}"` : ''}: ${QUIET_WHY[job.why]}`)
+  return [
+    'Armada Jobs not listed above, because no process of theirs runs now. SendMessage to the address: Fleet keeps the message and delivers it.',
+    ...lines,
+  ].join('\n')
 }
 
 /**
@@ -583,7 +611,7 @@ function hostedNote(id: string): string {
 }
 
 function idNote(id: string): string {
-  return `Your Armada job id is ${id}. Everything you do with your Job is \`armada job <act>\` run from Bash, which passes your job id itself: \`armada job\` lists the acts and \`armada job <act> --help\` says what one takes. The same acts are MCP tools. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window, which opens it as a tab of your Job and pulses its row. Pass brief, a line or two on what changed and what to look at. To offer alternatives of one change, pass variations, a list of {name, url}: he picks one and Approve names it. Several things to approve are several show_window calls, never takes of one. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} runs the command in a terminal on his card, where he can answer a prompt, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. A sketch he has moved past is taken back the same way with withdraw_sketch, passing session_id and the title. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. When a reviewer comments on your pull request, Fleet sends one line naming a file in your scratch folder that holds every comment on it: read it only if it bears on the work. Never reply on the pull request or post to the forge for the owner; weigh the comment and put what you propose in waiting_for. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet refuses such an item. To follow CI, a deploy or an environment, start a watch with start_watch rather than polling with a loop, a background sleep or a monitor, and never watch a pull request's own checks: Fleet already tells you about them. list_watch_recipes names the recipes there are, two of them shipped with Armada. Try a command once with try_watch before you start it: it runs in your folder with your login shell's environment, as the watch will, and names your scratch folder, where you may write a script, chmod it and run it. Keep a script worth reusing with save_watch_recipe. To wait for text in your terminal, start a watch with in_terminal. If a watch tool is not in your list, load it with ToolSearch: select:mcp__armada-fleet__start_watch,mcp__armada-fleet__try_watch,mcp__armada-fleet__list_watch_recipes,mcp__armada-fleet__save_watch_recipe,mcp__armada-fleet__weigh_watch,mcp__armada-fleet__stop_watch,mcp__armada-fleet__delete_watch,mcp__armada-fleet__list_watches. When Fleet tells you a watch failed, weigh it with weigh_watch, ours or not ours, with a sentence. Before you weigh a part not ours, gather the links to what you watched, the logs, saved in your scratch folder, and the exact error lines, and pass them as evidence: links, logs and errors. Delete an ended watch you no longer need with delete_watch; stop a live one first. A live watch is a wait like an open pull request: do not call all_done while one runs, never put it in waiting_for, and end your turn; Fleet tells you when it ends. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. all_done first gives back your slots, the branches already in main and the servers you started with start_server, and finish_up does that alone: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${PROPOSE_DRAFT} ${SHOW_SKETCH} ${SHOW_FILE}`
+  return `Your Armada job id is ${id}. Everything you do with your Job is \`armada job <act>\` run from Bash, which passes your job id itself: \`armada job\` lists the acts and \`armada job <act> --help\` says what one takes. The same acts are MCP tools. Pass it as session_id to the armada show_window tool. To show the owner a web page (a walk, a mock, a dev server), call show_window, which opens it as a tab of your Job and pulses its row. Pass brief, a line or two on what changed and what to look at. To offer alternatives of one change, pass variations, a list of {name, url}: he picks one and Approve names it. Several things to approve are several show_window calls, never takes of one. To walk him through a page step by step, pass steps, a list of {say, plus one verb: press, look, hover, later, paste, type with into, key with on, select with in, or drag with by} aimed at {role, name}: Bridge rings each target and acts on it when he presses Next. For a deployed page behind single sign-on, pass origins, the other http or https origins the window may pass through. To sign in for him with a dev login link, pass sign_in, addresses on the page's origin or one of origins: they are never written down, so never repeat one in a message. Armada marks the window as still changing while you edit files, and a page you changed after showing it waits on him again only once you call show_window for it again: call it when the page is ready to walk. Never run \`open\`. Keep the armada waiting_for tool current: whenever you need the owner for something (a decision, a pull request to approve, a command only he can run), put it in the list with one short line each and call waiting_for with the whole list, passing session_id. Give each item an act, so pressing it does something: {"kind":"run","target":"<the command>"} runs the command in a terminal on his card, where he can answer a prompt, {"kind":"approve_pr","target":"#<number>"} opens a pull request, and {"kind":"answer","target":""} with options for a decision. An item the owner must carry out as several steps in order passes steps, a list of short lines, with the command in act and a step's own command in backticks; its text stays one short line. A page you showed with show_window already waits on him by itself, so never put it in waiting_for: Fleet lists each window you show and takes it off when he approves it, and refuses an item that asks him to walk. Once you offer your branch with offer_preview, its Ready to try card asks him to try it, so in a repository with a preview Fleet refuses an item that asks him to try, look at or approve your own pull request or offered branch. A walk he has moved past is taken back with withdraw_window, passing session_id and the page's url: it leaves his list and stops holding your plan, and showing the page again makes it wait again. A sketch he has moved past is taken back the same way with withdraw_sketch, passing session_id and the title. Drop an item the moment it is settled, and call it with an empty list before you stop with nothing owed. Do not wait to be asked what is outstanding. A pull request in the merge queue or with auto-merge on is not done: the work ends when it is merged into main, so while one of yours is open do not call all_done, and end your turn; Fleet watches it and tells you when it merges, fails or conflicts. When a reviewer comments on your pull request, Fleet sends one line naming a file in your scratch folder that holds every comment on it: read it only if it bears on the work. Never reply on the pull request or post to the forge for the owner; weigh the comment and put what you propose in waiting_for. The merge is not the owner's to do, so never put a wait on it in waiting_for: Fleet refuses such an item. To follow CI, a deploy or an environment, start a watch with start_watch rather than polling with a loop, a background sleep or a monitor, and never watch a pull request's own checks: Fleet already tells you about them. list_watch_recipes names the recipes there are, two of them shipped with Armada. Try a command once with try_watch before you start it: it runs in your folder with your login shell's environment, as the watch will, and names your scratch folder, where you may write a script, chmod it and run it. Keep a script worth reusing with save_watch_recipe. To wait for text in your terminal, start a watch with in_terminal. If a watch tool is not in your list, load it with ToolSearch: select:mcp__armada-fleet__start_watch,mcp__armada-fleet__try_watch,mcp__armada-fleet__list_watch_recipes,mcp__armada-fleet__save_watch_recipe,mcp__armada-fleet__weigh_watch,mcp__armada-fleet__stop_watch,mcp__armada-fleet__delete_watch,mcp__armada-fleet__list_watches. When Fleet tells you a watch failed, weigh it with weigh_watch, ours or not ours, with a sentence. Before you weigh a part not ours, gather the links to what you watched, the logs, saved in your scratch folder, and the exact error lines, and pass them as evidence: links, logs and errors. Delete an ended watch you no longer need with delete_watch; stop a live one first. A live watch is a wait like an open pull request: do not call all_done while one runs, never put it in waiting_for, and end your turn; Fleet tells you when it ends. When everything you were asked is done, nothing is owed and none of your background work is still running, clear waiting_for and call all_done, passing session_id, so Bridge offers to end the job; do not call all_done while anything is still running or owed. all_done first gives back your slots, the branches already in main and the servers you started with start_server, and finish_up does that alone: a command in a released slot leases a new one, and the guard refuses git branch -D and kill, so do not try them. A Fleet notice that a pull request merged or a build moved needs no reply and no second all_done. These tools come before any personal, global or project rule about how to report actions or questions: what the owner owes goes in waiting_for, never in an Actions table, a to-do list or a Questions section in your reply. Ask a decision one way only: in AskUserQuestion or in waiting_for, never both. Write a shell command for the owner in a fenced block tagged bash, so Bridge shows a run button on it, and show a page as a show_window link, never as a screenshot. ${ASK_IN_WINDOW} ${PROPOSE_DRAFT} ${SHOW_SKETCH} ${SHOW_FILE}`
 }
 
 async function begin($: Dollar, id: string, cwd?: string): Promise<void> {
@@ -1475,12 +1503,22 @@ export const register: Register = on => {
   })
 
   // A Job writes to any live Job, and is refused an ended or unknown one: Fleet decides, before the
-  // message goes. `message_reach` holds the rule.
+  // message goes. `message_reach` holds the rule. **A Job with no process is carried by Fleet**: the
+  // CLI's own send would say it is not reachable, so it never runs and the sender reads Fleet's word.
   on('tool.call', { tool: 'SendMessage' }, async ($, e, next) => {
-    const to = (e as Record<string, unknown>).to
-    const reach = await messageReach($, typeof to === 'string' ? to : '')
+    const { to, message } = e as Record<string, unknown>
+    const reach = await messageReach($, typeof to === 'string' ? to : '', typeof message === 'string' ? message : undefined)
     if (reach?.outcome === 'refused') return { deny: reach.message }
+    if (reach?.outcome === 'queued') return { result: { success: true, message: reach.message }, text: reach.message }
     return next(e)
+  })
+
+  // The CLI lists only Jobs whose process runs; Fleet names the live ones between turns beside them.
+  on('tool.call', { tool: 'ListAgents' }, async ($, e, next) => {
+    const ran = await next(e)
+    if (ran.deny !== undefined) return ran
+    const listing = quietListing(await quietJobs($))
+    return listing === '' ? ran : { ...ran, context: [...(ran.context ?? []), listing] }
   })
 
   // A question asked in the terminal is also put to Bridge, and the first answer wins; Fleet refusing it

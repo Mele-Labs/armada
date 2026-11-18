@@ -91,6 +91,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         async { Ok(ipc::MessageReach::Allowed {}) }
     }
 
+    /// `quiet_jobs`: the live Jobs with no process, which the CLI's own `ListAgents` leaves out, for the
+    /// Job holding `caller`'s connection. **None by default.**
+    fn quiet_jobs(self: Arc<Self>, _caller: crate::Caller) -> impl Future<Output = Result<ipc::QuietJobs, Refusal>> + Send {
+        async { Ok(ipc::QuietJobs::default()) }
+    }
+
     /// `start_waiting_now`: the person starts a waiting Session at once, whatever its condition.
     /// [`Refusal::IllegalMove`] where it does not wait.
     fn start_waiting_now(

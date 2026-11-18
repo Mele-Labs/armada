@@ -772,6 +772,9 @@ pub struct Native {
     ui: Option<Ui>,
     /// The observer of the address, title and history, once `watch` has been asked: `Drop` takes it off.
     watching: RefCell<Option<Retained<Watching>>>,
+    /// The named content worlds Bridge's scripts run in, held for the page's life: WebKit clears a world nobody holds, and with it
+    /// the finder an earlier script put there.
+    worlds: RefCell<Vec<(String, Retained<WKContentWorld>)>>,
     mtm: MainThreadMarker,
 }
 
@@ -884,7 +887,7 @@ impl Native {
         if let Some(made) = made {
             let _ = made.try_send(Request::Made);
         }
-        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui_delegate, site, gate, serial, ui, watching: RefCell::new(None), mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui_delegate, site, gate, serial, ui, watching: RefCell::new(None), worlds: RefCell::new(Vec::new()), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -1218,6 +1221,18 @@ impl Native {
         }
     }
 
+    /// The content world named `name`, the one this page holds.
+    fn world(&self, name: &str) -> Retained<WKContentWorld> {
+        let mut worlds = self.worlds.borrow_mut();
+        if let Some((_, world)) = worlds.iter().find(|(held, _)| held == name) {
+            return world.clone();
+        }
+        // SAFETY: a world named by Bridge, made on the main thread.
+        let world = unsafe { WKContentWorld::worldWithName(&NSString::from_str(name), self.mtm) };
+        worlds.push((name.to_string(), world.clone()));
+        world
+    }
+
     /// Runs `script` in the content world named `world`, which shares the page's DOM and nothing else, and answers its string
     /// result (`None`: it threw or answered no string).
     pub fn evaluate_in(&self, world: &str, script: &str, done: impl FnOnce(Option<String>) + 'static) {
@@ -1236,9 +1251,9 @@ impl Native {
                 done(text);
             }
         });
+        let world = self.world(world);
         // SAFETY: a script string and a named content world, evaluated on the main thread; the block is copied.
         unsafe {
-            let world = WKContentWorld::worldWithName(&NSString::from_str(world), self.mtm);
             self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
         }
     }
@@ -1267,8 +1282,8 @@ impl Native {
             }
         });
         // SAFETY: a function body and no arguments, in a named content world, on the main thread; the block is copied.
+        let world = self.world(world);
         unsafe {
-            let world = WKContentWorld::worldWithName(&NSString::from_str(world), self.mtm);
             let none = NSDictionary::<NSString, AnyObject>::new();
             self.view.callAsyncJavaScript_arguments_inFrame_inContentWorld_completionHandler(&NSString::from_str(body), Some(&none), None, &world, Some(&block));
         }

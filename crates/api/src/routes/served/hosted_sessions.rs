@@ -347,6 +347,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/message_reach",
     },
     Route {
+        operation: "quiet_jobs",
+        method: "GET",
+        path: "/sessions/quiet_jobs",
+    },
+    Route {
         operation: "take_held_messages",
         method: "POST",
         path: "/sessions/held",

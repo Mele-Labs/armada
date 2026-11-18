@@ -15,11 +15,13 @@ use super::session_host::{eventually, rig_placing, Rig};
 use crate::feature_library::Seed;
 
 const OPERATOR_PORT: u16 = 50999;
+const JOB_PORT: u16 = 50001;
 const HOST_PORT: u16 = 12345;
 
 fn rig() -> Rig {
     let peers = Placing::nothing();
     peers.holding(1000, OPERATOR_PORT, HOST_PORT);
+    peers.holding(1001, JOB_PORT, HOST_PORT);
     rig_placing(Some(peers))
 }
 
@@ -29,6 +31,11 @@ fn the_operator() -> Option<api::Caller> {
 
 fn a_job() -> Option<api::Caller> {
     Some(api::Caller::at("127.0.0.1:50000".parse().unwrap()))
+}
+
+/// A Job's own agent, placed to its session by the connection it holds.
+fn a_placed_job() -> Option<api::Caller> {
+    Some(api::Caller::at(format!("127.0.0.1:{JOB_PORT}").parse().unwrap()))
 }
 
 fn code(refused: Refusal) -> (u16, String) {
@@ -191,7 +198,7 @@ async fn libraried(rig: &Rig, project: &str) {
             feature(ACTIONS, &["crates/pages/actions"], &[]),
         ],
     };
-    rig.fleet.upsert_features(upsert).await.expect("kept");
+    rig.fleet.upsert_features(None, upsert).await.expect("kept");
 }
 
 fn filing(project: &str, words: &str, features: &[&str]) -> FileAsk {
@@ -450,7 +457,7 @@ async fn a_pending_feature_is_confirmed_by_an_upsert_and_keeps_what_was_filed_un
             manifest_id: None,
         }],
     };
-    rig.fleet.upsert_features(confirm).await.expect("confirmed");
+    rig.fleet.upsert_features(None, confirm).await.expect("confirmed");
     assert_eq!(state_of(&rig, &project, "rank-votes").await, Some((FeatureState::Confirmed, "takes".to_string())));
     let kept = rig.fleet.store().lock().await.feature_named(&project, "rank-votes").expect("read").expect("held");
     assert_eq!(kept.id, id, "the same feature");
@@ -508,7 +515,7 @@ async fn two_seeded_features_that_are_one_merge_with_their_code_and_the_target_k
             manifest_id: None,
         }],
     };
-    rig.fleet.upsert_features(undo).await.expect("kept again");
+    rig.fleet.upsert_features(None, undo).await.expect("kept again");
     assert_eq!(state_of(&rig, &project, ACTIONS).await.map(|one| one.0), Some(FeatureState::Seeded), "a merge is undone by keeping the old feature again");
     assert!(rig.fleet.store().lock().await.feature_aliases(&project).expect("read").is_empty(), "and the alias goes");
 }
@@ -529,7 +536,7 @@ async fn grown(rig: &Rig, project: &str, count: usize) {
             manifest_id: None,
         })
         .collect();
-    rig.fleet.upsert_features(UpsertFeatures { project: project.to_string(), areas: Vec::new(), features }).await.expect("kept");
+    rig.fleet.upsert_features(None, UpsertFeatures { project: project.to_string(), areas: Vec::new(), features }).await.expect("kept");
 }
 
 #[tokio::test]
@@ -573,7 +580,7 @@ async fn a_feature_moves_to_an_area_the_project_keeps_and_to_no_other() {
     let project = a_project(&rig).await;
     libraried(&rig, &project).await;
     rig.fleet
-        .upsert_features(UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: "actions".into(), title: "Actions".into() }], features: Vec::new() })
+        .upsert_features(None, UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: "actions".into(), title: "Actions".into() }], features: Vec::new() })
         .await
         .expect("kept");
     let ask = rig.fleet.file_ask(the_operator(), filing(&project, "Buttons on a page", &[ACTIONS])).await.expect("filed");
@@ -654,4 +661,37 @@ async fn with_the_operator_on_fleet_files_no_note_itself() {
     note_drawn_from(&rig, "n-rank", "crates/pages/voting/ranks.rs");
     rig.fleet.sources_handed().await;
     assert!(rig.fleet.list_feature_asks(project, None).await.expect("listed").asks.is_empty());
+}
+
+/// With the Operator off he confirms, merges, renames and splits from Bridge, which reaches Fleet by no door.
+#[tokio::test]
+async fn bridge_and_the_operator_keep_the_catalog_and_a_jobs_agent_does_not() {
+    let rig = rig();
+    started(&rig).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    a_job_in(&rig, &project).await;
+    assert!(rig.fleet.session_holding(&api::Caller::at(format!("127.0.0.1:{JOB_PORT}").parse().unwrap())).is_some(), "the Job's agent is placed");
+
+    let new_area = |slug: &str| UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: slug.into(), title: slug.into() }], features: Vec::new() };
+    let retitle = |title: &str| ChangeFeature { project: project.clone(), feature: ACTIONS.to_string(), into: None, slug: None, title: Some(title.to_string()), area: None };
+    let titled = || async { rig.fleet.store().lock().await.feature_named(&project, ACTIONS).expect("read").expect("held").title };
+    let areas = || async { rig.fleet.store().lock().await.feature_areas(&project).expect("read").len() };
+    let before = areas().await;
+
+    for agent in [a_placed_job(), a_job()] {
+        let refused = rig.fleet.upsert_features(agent, new_area("elsewhere")).await.expect_err("an agent keeps no catalog");
+        assert_eq!(code(refused), (422, "fleet.not_the_operator".to_string()));
+        let refused = rig.fleet.change_feature(agent, retitle("Buttons")).await.expect_err("an agent changes no feature");
+        assert_eq!(code(refused), (422, "fleet.not_the_operator".to_string()));
+    }
+    assert_eq!((areas().await, titled().await.as_str()), (before, ACTIONS), "nothing was kept");
+
+    rig.fleet.upsert_features(None, new_area("from-bridge")).await.expect("Bridge keeps an area on its own");
+    rig.fleet.change_feature(None, retitle("From Bridge")).await.expect("Bridge retitles");
+    assert_eq!((areas().await, titled().await.as_str()), (before + 1, "From Bridge"));
+
+    rig.fleet.upsert_features(the_operator(), new_area("from-operator")).await.expect("the Operator keeps an area");
+    rig.fleet.change_feature(the_operator(), retitle("From the Operator")).await.expect("the Operator retitles");
+    assert_eq!((areas().await, titled().await.as_str()), (before + 2, "From the Operator"));
 }
