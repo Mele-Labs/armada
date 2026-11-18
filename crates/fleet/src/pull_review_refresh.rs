@@ -108,6 +108,7 @@ where
     fn read_behind(self: &Arc<Self>, project: Option<String>) {
         let Reading::Began(reading) = self.review_lists_kept().begin(project.as_deref()) else { return };
         let fleet = Arc::clone(self);
+        let began = std::time::Instant::now();
         tokio::spawn(async move {
             let read = fleet.review_lists_read(project.as_deref()).await;
             // Ended before it is told, so a Bridge that asks on the event finds no read going.
@@ -117,6 +118,7 @@ where
                 Err(refusal) => ReviewListsChanged::failed(project, failure_of(&refusal)),
             };
             fleet.publish(ipc::Event::ReviewListsChanged(told));
+            eprintln!("review_lists timing: review_lists.changed published {}ms after the read behind began", began.elapsed().as_millis());
         });
     }
 }
