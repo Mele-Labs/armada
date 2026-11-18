@@ -213,9 +213,12 @@ where
                 false => self.claims_exchanged(&job, asked, &live_here).await,
             };
             let mut shared = Vec::new();
+            let failed = answered.as_ref().and_then(|one| one.failed.as_ref()).map(adapter_traits::StoreError::said);
+            let mut went_unsent = false;
             let words = self.job_claims().with(|kept| {
                 let held = kept.jobs.entry(job.id.clone()).or_default();
                 answered_in(held, answered, &wanted, now, &mut shared);
+                went_unsent = held.unsent && !before.1;
                 let words = waits_kept(&job, held, &person_held, &since);
                 ended.extend(test_waits_kept(&job, held, &since));
                 if (held.waits.clone(), held.unsent) != before {
@@ -223,6 +226,11 @@ where
                 }
                 words
             });
+            // The card says only that the claims are unsent; the store's own words are kept here, once per spell,
+            // so a refusal (a device it does not know, a clock off by over a minute) is not read as an outage.
+            if let (true, Some(why)) = (went_unsent, failed) {
+                self.session_warned(&job.id, "a Job's claims did not reach the store", why);
+            }
             let words = self.claims_unrepeated(&job.id, words, shared).await;
             if !words.is_empty() {
                 said.told.entry(job.id.clone()).or_default().extend(words);

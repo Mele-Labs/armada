@@ -107,6 +107,11 @@ impl FeatureMap {
         owning
     }
 
+    /// The files Jobs filed under `feature`.
+    pub(crate) fn filed_of(&self, feature: &str) -> impl Iterator<Item = &str> {
+        self.filed.get(feature).into_iter().flatten().map(String::as_str)
+    }
+
     /// Whether the feature owns `path` by either way.
     pub(crate) fn feature_owns(&self, feature: &str, manifest: Option<&str>, path: &str) -> bool {
         self.owners(manifest, path).iter().any(|owner| owner.feature.id == feature)

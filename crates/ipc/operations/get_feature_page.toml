@@ -4,11 +4,13 @@ transport = "HTTP"
 agent_access = "Yes"
 description = "Read one feature's full page: its prefixes, entry points, written sections, links and the files Jobs wrote most. Give feature as its slug, section (test, runs, observe or debt) for that one section alone, and project where the repository is in more than one"
 notes = """
-`GET /features/page?feature=<slug>&section=&project=`, answered with `FeaturePage`: `project`, `feature` (a `FeatureRow`, with its `health`), `manifest_id`, `paths`, `entry_points`, `sections`, `links` and `files`.
+`GET /features/page?feature=<slug>&section=&project=`, answered with `FeaturePage`: `project`, `feature` (a `FeatureRow`, with its `health`), `manifest_id`, `paths`, `entry_points`, `sections`, `links`, `files` and `floor_plan`.
 
 **`sections` holds only what was written**, in the order a page shows them: test, runs, observe, debt. Each carries `text`, `job`, `written_at`, `commit` and `stale_since`, a pull request's number where a merge after the section's commit changed a file of the feature.
 
 **`section` names one of `test`, `runs`, `observe` or `debt`** (any case, trimmed; blank is none) and answers the page with that section alone in `sections` and with no `links` or `files`, which is the full section the condensed page's last line tells a Job to fetch. A section nobody has written leaves `sections` empty. Any other name is 422 `fleet.feature_section_unknown`, nothing read.
+
+**`floor_plan` is the project's code map with the feature's rooms lit**: `rooms` (`module`, `path`, `kind`, `lit`, and `manifest_id` where the project holds more than one repository) and `doors` (`from`, `to`, `contract`). A room is a module read from the repository's build manifests, or a top folder where it has none. It is lit where the feature owns a file in it. A door is a dependency out of a lit module to another module, and `contract` is true where that module carries a wire or API contract. It is read on every page read, and absent on a read by `section` or where no repository reads.
 
 **`links` are oldest first.** A `FeatureLink` is `kind` (`job`, `pull_request`, `merge`, `sketch`, `page`, `walk`, `draft`, `commit` or `bug`), `target`, `title`, `state`, `job`, `via` and `at`.
 

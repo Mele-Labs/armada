@@ -181,6 +181,38 @@ pub struct FeatureFile {
     pub jobs: u32,
 }
 
+/// One room of a floor plan: a module of the project's code, and whether the feature owns files in it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FloorRoom {
+    /// The package's name where its manifest gives one, otherwise its folder.
+    pub module: String,
+    /// Where its folder is in its repository, `.` for the repository's own root.
+    pub path: String,
+    /// Which manifest named it: `cargo`, `npm`, `go`, `python`, `gradle`, `maven`, `dotnet`, `swift`, or `folder` where the tree has none.
+    pub kind: String,
+    /// The feature owns a file in it, by prefix or by a Job's filing.
+    pub lit: bool,
+    /// The repository, where the feature is not tied to one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub manifest_id: Option<String>,
+}
+
+/// One door of a floor plan: a lit module depends on another module of its repository.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FloorDoor {
+    pub from: String,
+    pub to: String,
+    /// The module it leads to carries a wire or API contract.
+    pub contract: bool,
+}
+
+/// The project's code map with one feature's rooms lit.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FloorPlan {
+    pub rooms: Vec<FloorRoom>,
+    pub doors: Vec<FloorDoor>,
+}
+
 /// `get_feature_page`: one feature, whole.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeaturePage {
@@ -200,6 +232,9 @@ pub struct FeaturePage {
     pub links: Vec<FeatureLink>,
     /// The files the most Jobs wrote, most first.
     pub files: Vec<FeatureFile>,
+    /// The code map with this feature's rooms lit. Absent on a page read by `section`, and where no repository could be read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub floor_plan: Option<FloorPlan>,
 }
 
 /// `get_feature_brief`: the page condensed for an agent.
