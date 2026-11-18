@@ -361,6 +361,14 @@ impl PullRequestPanel for FakeDaemon {
         Ok(ipc::PullSeen { head: mark.head, at: "2026-10-16T09:00:00Z".into() })
     }
 
+    async fn ignore_pull_request(&self, _manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::PullIgnored, Refusal> {
+        Ok(ipc::PullIgnored { number: ignore.number, at: "2026-10-16T09:00:00Z".into() })
+    }
+
+    async fn unignore_pull_request(&self, _manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::IgnorePull, Refusal> {
+        Ok(ignore)
+    }
+
     async fn mark_file_viewed(&self, _manifest_id: ManifestId, mark: ipc::MarkFileViewed) -> Result<ipc::PullViewedFile, Refusal> {
         Ok(ipc::PullViewedFile { path: mark.path, commit: mark.commit, viewed_at: "2026-10-16T09:00:00Z".into(), still: true })
     }

@@ -6,14 +6,14 @@
 use adapter_traits::{ComparedPatches, LatestReview, LatestReviewSaid, PatchedFile, ReviewList};
 use api::PullRequestPanel;
 use ipc::{
-    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview, PullRequestCompare,
+    IgnorePull, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview, PullRequestCompare,
     PullRequestCompareOf, PullSeen, SaveReviewLayout, UnmarkFileViewed,
 };
 
 use super::pull_request_panel::a_page;
 use super::pull_requesting::{a_fleet, code, manifest};
 use super::pull_review_lists::{pull, signed_in_as, SLUG};
-use crate::pull_review_memory::inbox_of;
+use crate::pull_review_memory::{ignored_of, inbox_of};
 use crate::tests::tmp::TempDir;
 
 /// What `a_page` and `pull` say the head is.
@@ -205,4 +205,48 @@ async fn default_cannot_be_saved_over_or_deleted_and_a_layout_is_an_object_with_
         assert_eq!((refused.status(), code(refused)), (422, "fleet.pull_review_memory_invalid"));
     }
     assert_eq!(names(&fleet.list_review_layouts().await.expect("read")), ["Default"], "nothing was kept");
+}
+
+#[test]
+fn an_ignore_stands_until_he_is_asked_again_after_it() {
+    let at = Some("2026-11-13T09:00:00Z");
+    assert!(!ignored_of(None, Some("2026-11-14T09:00:00Z")), "never ignored");
+    assert!(ignored_of(at, None), "no ask time keeps it");
+    assert!(ignored_of(at, Some("2026-11-12T09:00:00Z")), "asked before keeps it");
+    assert!(ignored_of(at, Some("2026-11-13T09:00:00Z")), "asked at the same moment keeps it");
+    assert!(ignored_of(at, Some("not a time")), "an unreadable ask keeps it");
+    assert!(!ignored_of(at, Some("2026-11-13T09:00:01Z")), "asked after lifts it");
+}
+
+#[tokio::test]
+async fn an_ignored_pull_request_says_so_on_its_row_until_asked_again_or_unignored() {
+    let home = TempDir::new();
+    let fleet = a_fleet(&home);
+    let (id, _) = manifest(&fleet);
+    signed_in_as(&fleet, "NickMele");
+    let mut asked = pull(12, SLUG);
+    asked.asked_at = Some("2000-01-01T00:00:00Z".into());
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![asked.clone(), pull(13, SLUG)]);
+
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert!(!lists.requested[0].ignored);
+
+    let kept = fleet.ignore_pull_request(id.clone(), IgnorePull { number: 12 }).await.expect("kept");
+    assert_eq!(kept.number, 12);
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert!(lists.requested[0].ignored, "asked long before he ignored it");
+    assert!(!lists.requested[1].ignored, "an ignore is one pull request's");
+
+    asked.asked_at = Some("2999-01-01T00:00:00Z".into());
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![asked.clone(), pull(13, SLUG)]);
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert!(!lists.requested[0].ignored, "asked again after he ignored it");
+
+    asked.asked_at = Some("2000-01-01T00:00:00Z".into());
+    fleet.vcs().now_review_list(ReviewList::Requested, vec![asked, pull(13, SLUG)]);
+    let unignore = IgnorePull { number: 12 };
+    fleet.unignore_pull_request(id.clone(), unignore.clone()).await.expect("forgotten");
+    fleet.unignore_pull_request(id, unignore).await.expect("one not ignored is not an error");
+    let lists = fleet.get_review_lists(None).await.expect("read");
+    assert!(!lists.requested[0].ignored);
 }

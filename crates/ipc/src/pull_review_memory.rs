@@ -78,6 +78,21 @@ pub struct MarkPullSeen {
     pub head: String,
 }
 
+/// The body of `ignore_pull_request` and `unignore_pull_request`, and the answer of the second.
+/// `POST /pull_request_ignored/:repository` and `POST /pull_request_ignored/:repository/unignore`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct IgnorePull {
+    pub number: u64,
+}
+
+/// `ignore_pull_request`'s answer: when Fleet kept the ignore.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullIgnored {
+    pub number: u64,
+    /// RFC 3339.
+    pub at: String,
+}
+
 /// A file he marked viewed, as the page carries it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullViewedFile {

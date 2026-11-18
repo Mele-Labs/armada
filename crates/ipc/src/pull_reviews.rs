@@ -85,6 +85,9 @@ pub struct PullReviewRow {
     /// On a row of any list. False from a Fleet before it.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub reviewing: bool,
+    /// He ignored it and it has not been asked of him since.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignored: bool,
 }
 
 /// `get_review_lists`: the five lists, one forge call each, at most [`MOST_PER_LIST`] a list

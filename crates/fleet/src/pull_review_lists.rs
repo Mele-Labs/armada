@@ -80,6 +80,7 @@ pub(crate) fn row_of(pull: ListedPull, served: &[Named]) -> Option<PullReviewRow
         my_review: pull.my_latest.map(crate::pull_review_memory::my_review_of),
         inbox: PullInbox::NeedsFirstLook,
         reviewing: false,
+        ignored: false,
     })
 }
 

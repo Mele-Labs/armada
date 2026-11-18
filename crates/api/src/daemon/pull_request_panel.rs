@@ -216,6 +216,20 @@ pub trait PullRequestPanel: Send + Sync + 'static {
         mark: ipc::MarkPullSeen,
     ) -> impl Future<Output = Result<ipc::PullSeen, Refusal>> + Send;
 
+    /// `ignore_pull_request` — keep a pull request as ignored, on this Mac only.
+    fn ignore_pull_request(
+        &self,
+        manifest_id: ManifestId,
+        ignore: ipc::IgnorePull,
+    ) -> impl Future<Output = Result<ipc::PullIgnored, Refusal>> + Send;
+
+    /// `unignore_pull_request` — stop ignoring it. Idempotent.
+    fn unignore_pull_request(
+        &self,
+        manifest_id: ManifestId,
+        ignore: ipc::IgnorePull,
+    ) -> impl Future<Output = Result<ipc::IgnorePull, Refusal>> + Send;
+
     /// `mark_file_viewed` — keep a file as viewed at a commit and blob.
     fn mark_file_viewed(
         &self,
