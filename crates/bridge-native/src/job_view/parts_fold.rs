@@ -281,6 +281,13 @@ pub(super) fn folds_job<'a>(cx: &'a mut gpui::TestAppContext, tune: impl FnOnce(
 pub(super) struct Rooted(gpui::Entity<JobView>);
 
 #[cfg(test)]
+impl Rooted {
+    pub(super) fn of(view: gpui::Entity<JobView>) -> Self {
+        Rooted(view)
+    }
+}
+
+#[cfg(test)]
 impl gpui::Render for Rooted {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         crate::labels::label_root(div().size_full().child(self.0.clone()))

@@ -680,8 +680,18 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: SharedString, corner: Option<Pixels>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = self.dock_of(id).and_then(|dock| dock.runs.get(&command).cloned());
-        let held = matches!(mark, Some(RunMark::Running | RunMark::Passed));
+        // A preview rebuild under way, from this key or any other Refresh preview, holds the key at its stage until Fleet is back.
+        let refreshing = if build == BuildSource::Preview { self.preview_refreshing(cx) } else { None };
+        let held = refreshing.is_some() || matches!(mark, Some(RunMark::Running | RunMark::Passed));
         let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
+        let said = refreshing.map_or(said, SharedString::from);
+        let label = if refreshing.is_some() { SharedString::from("Refreshing") } else { label };
+        let ink = look.color(token::FG_INVERSE);
+        let mark: AnyElement = if refreshing.is_some() {
+            crate::titlebar::parts::spinner(SharedString::from(format!("needs-refreshing:{command}")), look.length(token::TEXT_XS), ink, cx).into_any_element()
+        } else {
+            glyph(look, icon, Size::Small, ink).into_any_element()
+        };
         let accent = look.color(token::ACCENT);
         let hover = look.color(token::ACCENT_HOVER);
         labelled(
@@ -698,7 +708,7 @@ impl JobView {
                 .text_size(look.length(token::TEXT_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .when(!held, move |key| key.cursor_pointer().hover(move |style| style.bg(hover)))
-                .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
+                .child(mark)
                 .child(label.clone())
                 .tooltip(tip(said.to_string()))
                 .when(!held, |key| {
@@ -747,11 +757,18 @@ impl JobView {
                     Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
                 })
                 .await;
+            let took = answer.is_ok();
             let mark = match answer {
                 Ok(()) => RunMark::Passed,
                 Err(why) => RunMark::Failed(why.into()),
             };
-            let _ = this.update(cx, |this, cx| this.mark_run(&job, &command, Some(mark), cx));
+            let _ = this.update(cx, |this, cx| {
+                // Every other Refresh preview reads the rebuild from Fleet's build report, so it is marked there at once.
+                if let Some(fleet) = this.fleet.clone().filter(|_| took) {
+                    fleet.update(cx, |fleet, cx| fleet.restarting(build, cx));
+                }
+                this.mark_run(&job, &command, Some(mark), cx)
+            });
         })
         .detach();
     }

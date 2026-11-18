@@ -11,7 +11,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local};
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, pulsating_between, Animation, AnimationExt, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use ipc::{Instant, ReadyState, ThreadItem, ThreadReadyToTry};
 
 use super::acts::Answer;
@@ -225,13 +225,24 @@ impl JobView {
         let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
         // The open build reads under the rows inside the one card; a second card with its own head said the same head twice.
         let detail = open.map(|build| self.ready_detail_inside(build.card, ix, wide, page, now, look, cx));
+        // While the preview rebuilds, from a Refresh preview pressed anywhere, the whole card breathes in the running hue.
+        let refreshing = self.preview_refreshing(cx).is_some();
+        let wash = look.color(token::STATUS_RUNNING);
         let group = labelled(
             frame(look, false)
                 .id("ready-compact")
-                .border_color(ink.opacity(0.45))
+                .relative()
+                .border_color(if refreshing { wash.opacity(0.6) } else { ink.opacity(0.45) })
                 .children(head)
                 .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows))
-                .children(detail),
+                .children(detail)
+                .when(refreshing, |card| {
+                    card.child(div().absolute().inset_0().with_animation(
+                        "ready-refreshing",
+                        Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(pulsating_between(0.03, 0.1)),
+                        move |breath, at| breath.bg(wash.opacity(at)),
+                    ))
+                }),
             Role::Group,
             "Ready to try",
         );
@@ -412,6 +423,58 @@ mod tests {
         list.update(cx, |list, cx| list.open(job.into(), cx));
         redraw(cx);
         (view, cx)
+    }
+
+    /// The Job open over an idle Fleet whose build report a test sets.
+    fn on_screen_over_fleet<'a>(cx: &'a mut gpui::TestAppContext, job: &str) -> (gpui::Entity<crate::fleet::FleetConnection>, &'a mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
+        let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
+        let fleet = cx.new(crate::fleet::FleetConnection::idle);
+        // Over a connection the view draws what Fleet holds, not the mock's threads, so Fleet holds them.
+        fleet.update(cx, |fleet, _| fleet.hold_threads(threads.values().cloned()));
+        let list = cx.new(|cx| crate::jobs::JobsList::mock_over(&jobs, fleet.clone(), cx));
+        // Under the label root, as the app draws it, so the book holds only the last frame and a test can ask that a button is gone.
+        let (_root, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| super::super::parts_fold::Rooted::of(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
+        let job = job.to_string();
+        list.update(cx, |list, cx| list.open(job.into(), cx));
+        redraw(cx);
+        (fleet, cx)
+    }
+
+    fn build_report(json: &str) -> ipc::FleetBuildReport {
+        ipc::decode::<ipc::FleetBuildReport>("build", json.as_bytes()).expect("a report")
+    }
+
+    #[gpui::test]
+    fn refresh_preview_on_the_card_reads_refreshing_while_a_rebuild_pressed_anywhere_runs_and_comes_back_after(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview"}"#), cx));
+        redraw(cx);
+        assert!(refresh_in(cx, "Ready to try"), "with no rebuild under way the card offers Refresh preview");
+        // Pressed in another Job's card, the title bar or Needs you: all Fleet's report says is that the preview rebuilds.
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview","restarting":"preview","stage":"building_fleet"}"#), cx));
+        redraw(cx);
+        assert!(!refresh_in(cx, "Ready to try"), "no second press while it rebuilds");
+        assert!(drawn(cx, Role::Status, "Refreshing"), "the card's key reads Refreshing");
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview"}"#), cx));
+        redraw(cx);
+        assert!(refresh_in(cx, "Ready to try") && !drawn(cx, Role::Status, "Refreshing"), "Fleet back on the new build, the key is Refresh preview again");
+    }
+
+    #[gpui::test]
+    fn a_rebuild_onto_main_leaves_refresh_preview_as_it_is(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview","restarting":"main"}"#), cx));
+        redraw(cx);
+        assert!(!drawn(cx, Role::Status, "Refreshing"), "only a preview rebuild reads Refreshing");
     }
 
     fn press(cx: &mut gpui::VisualTestContext, role: Role, name: &str) {

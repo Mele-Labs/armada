@@ -189,11 +189,13 @@ impl JobView {
                 continue;
             }
             self.pictures.held.insert(held.clone(), Picture::Reading);
-            if self.fleet.is_none() {
-                // Asked in the middle of the list's own layout: the answer lands after it, as Fleet's would.
-                let (media_type, name) = (file.media_type.clone(), file.name.clone());
+            // Asked in the middle of the list's own layout: the answer lands after it, as Fleet's would. With no Fleet link
+            // the refusal comes back at once, and the row measuring again then would reach into the list being laid out.
+            let unlinked = self.fleet.is_some() && self.port(cx).is_none();
+            if self.fleet.is_none() || unlinked {
+                let (media_type, name, mock) = (file.media_type.clone(), file.name.clone(), self.fleet.is_none());
                 cx.spawn(async move |this, cx| {
-                    let _ = this.update(cx, |this, cx| this.keep_picture(held, &media_type, mock_picture(&name), cx));
+                    let _ = this.update(cx, |this, cx| this.keep_picture(held, &media_type, mock.then(|| mock_picture(&name)).flatten(), cx));
                 })
                 .detach();
                 continue;

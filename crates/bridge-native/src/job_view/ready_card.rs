@@ -12,7 +12,7 @@
 use std::rc::Rc;
 
 use chrono::{DateTime, Local};
-use gpui::{canvas, div, prelude::*, px, size, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{canvas, div, prelude::*, px, size, AnyElement, App, Context, FontWeight, Role, SharedString, Window};
 use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
 
 use super::acts::{kbd, refusal, Answer, Mode};
@@ -367,8 +367,28 @@ impl JobView {
             .into_any_element()
     }
 
+    /// The stage of a preview rebuild under way, whichever Refresh preview started it: Fleet's one build report says so, so every
+    /// key and card reads the same. `None` while no rebuild runs.
+    pub(super) fn preview_refreshing(&self, cx: &App) -> Option<&'static str> {
+        let build = self.fleet.as_ref()?.read(cx).held().build.as_ref()?;
+        (build.restarting == Some(ipc::BuildSource::Preview)).then(|| build.stage.map_or("Refreshing", crate::titlebar::stage_word))
+    }
+
     /// Refresh preview, where a build is not in the running preview yet: the title bar's build switcher's Refresh row, pressed here.
+    /// While a rebuild runs, from a press here or anywhere else, it reads Refreshing with its stage and takes no press.
     fn refresh_preview_button(&self, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if let Some(stage) = self.preview_refreshing(cx) {
+            let ink = look.color(token::FG_MUTED);
+            return labelled(
+                act(look, format!("refresh-preview:{key}"), "Refreshing", Kind::Secondary, "", true)
+                    .cursor_default()
+                    .child(crate::titlebar::parts::spinner(SharedString::from(format!("refreshing:{key}")), look.length(token::TEXT_XS), ink, cx))
+                    .tooltip(tip(stage)),
+                Role::Status,
+                "Refreshing",
+            )
+            .into_any_element();
+        }
         labelled(
             act(look, format!("refresh-preview:{key}"), "Refresh preview", Kind::Secondary, "", true)
                 .tab_index(0)
