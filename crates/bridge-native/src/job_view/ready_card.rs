@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 use chrono::{DateTime, Local};
 use gpui::{canvas, div, prelude::*, px, size, AnyElement, App, Context, FontWeight, Role, SharedString, Window};
-use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
+use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, PreviewOffers, PreviewState, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
 
 use super::acts::{kbd, refusal, Answer, Mode};
 use super::artifacts_tab::{Picture, PictureKey};
@@ -132,17 +132,83 @@ pub(super) const NOT_IN_PREVIEW: &str = "Not in your preview yet";
 /// The tooltip of that state.
 pub(super) const NOT_IN_PREVIEW_TIP: &str = "The running preview does not hold this build yet";
 
+/// What a build says while Fleet is still merging and compiling its offer: Refresh preview cannot take it yet.
+pub(super) const CHECKING_FOR_PREVIEW: &str = "Checking for your preview";
+
+/// What a build says once Fleet's check failed its offer.
+pub(super) const OFF_PREVIEW_LIST: &str = "Off the preview list";
+
+/// Where a build stands against the preview: in it, or why not yet. **The offer's check decides**, not only the running build,
+/// since Refresh preview takes only an offer Fleet has checked: a card that offered it while the check ran rebuilt without the branch.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) enum Preview {
+    /// The running preview holds it at its tip.
+    In,
+    /// Ready for the preview, which does not hold it yet: Refresh preview brings it in.
+    NotIn,
+    /// Fleet is still merging it onto main and compiling it.
+    Checking,
+    /// Fleet's check failed it, with the first error or conflict where Fleet said one.
+    Off(Option<String>),
+}
+
+impl Preview {
+    /// The build as the card and the offers Fleet last listed say it. No offer for its branch at its tip, or no list yet, reads
+    /// as ready, as the card always has.
+    pub(super) fn of(card: &ThreadReadyToTry, offers: Option<&PreviewOffers>) -> Preview {
+        if card.in_build {
+            return Preview::In;
+        }
+        match offers.and_then(|offers| offers.offers.iter().find(|one| one.branch == card.branch && one.tip == card.tip)) {
+            Some(one) if one.state == PreviewState::Checking => Preview::Checking,
+            Some(one) if one.state == PreviewState::Failed => Preview::Off(one.why.clone()),
+            _ => Preview::NotIn,
+        }
+    }
+
+    /// Whether Refresh preview would bring the build in.
+    pub(super) fn refreshes(&self) -> bool {
+        *self == Preview::NotIn
+    }
+
+    /// The chip's words while the preview does not hold the build; `None` once it does.
+    pub(super) fn word(&self) -> Option<&'static str> {
+        match self {
+            Preview::In => None,
+            Preview::NotIn => Some(NOT_IN_PREVIEW),
+            Preview::Checking => Some(CHECKING_FOR_PREVIEW),
+            Preview::Off(_) => Some(OFF_PREVIEW_LIST),
+        }
+    }
+
+    /// The tooltip of that state.
+    pub(super) fn tip(&self) -> SharedString {
+        match self {
+            Preview::In => SharedString::default(),
+            Preview::NotIn => NOT_IN_PREVIEW_TIP.into(),
+            Preview::Checking => "Fleet is merging this build onto main and compiling it. Refresh preview can take it once that passes".into(),
+            Preview::Off(Some(why)) => format!("Fleet's check failed it: {why}").into(),
+            Preview::Off(None) => "Fleet's check failed it, and the Job is told why".into(),
+        }
+    }
+}
+
+/// The Refresh keys under a head band: live where a build here is ready for the preview, else off with why.
+pub(super) struct RefreshKeys {
+    pub ready: bool,
+    pub why: SharedString,
+}
+
 /// An open build the running preview does not hold. It reads as pending, never as ready.
-pub(super) fn pending(standing: Standing, card: &ThreadReadyToTry) -> bool {
-    standing == Standing::Open && !card.in_build
+pub(super) fn pending(standing: Standing, preview: &Preview) -> bool {
+    standing == Standing::Open && *preview != Preview::In
 }
 
 /// The label and ink of the built picture's frame: green once the running preview holds the build, amber until then.
-pub(super) fn built_label(in_build: bool) -> (&'static str, Token) {
-    if in_build {
-        ("Built \u{b7} in the preview", token::STATUS_COMPLETED_SUCCESS)
-    } else {
-        (NOT_IN_PREVIEW, token::STATUS_AWAITING_REVIEW)
+pub(super) fn built_label(preview: &Preview) -> (&'static str, Token) {
+    match preview.word() {
+        None => ("Built \u{b7} in the preview", token::STATUS_COMPLETED_SUCCESS),
+        Some(word) => (word, token::STATUS_AWAITING_REVIEW),
     }
 }
 
@@ -309,10 +375,10 @@ impl JobView {
     }
 
     /// The head band: the state's chip, the Job, and the time at the right in mono. `key` names its parts, so a thread's band and
-    /// a tab's differ.
+    /// a tab's differ. `pending` is the tooltip of a build the preview does not hold yet; `refresh` puts the Refresh keys under the band.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn ready_head(&self, key: &str, standing: Standing, word: SharedString, at: &Instant, offered: Option<&Instant>, pending: bool, refresh: bool, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let band = if pending { token::STATUS_AWAITING_REVIEW } else { standing.ink() };
+    pub(super) fn ready_head(&self, key: &str, standing: Standing, word: SharedString, at: &Instant, offered: Option<&Instant>, pending: Option<SharedString>, refresh: Option<RefreshKeys>, now: DateTime<Local>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let band = if pending.is_some() { token::STATUS_AWAITING_REVIEW } else { standing.ink() };
         let ink = look.color(band);
         let chip = labelled(
             div()
@@ -328,7 +394,7 @@ impl JobView {
                 .line_height(look.length(token::LEADING_2XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(ink)
-                .tooltip(tip(if pending { NOT_IN_PREVIEW_TIP } else { standing.tip() }))
+                .tooltip(tip(pending.unwrap_or_else(|| standing.tip().into())))
                 .child(gpui::svg().path(crate::assets::icon_path("circle-dot")).flex_none().size(look.length(token::TEXT_2XS)).text_color(ink))
                 .child(word.clone()),
             Role::Status,
@@ -336,7 +402,8 @@ impl JobView {
         );
         let job = self.shown.as_ref().and_then(|job| self.title_of(job, cx));
         let seen = offered.map(|offered| format!("Offered {}", clock(offered, now)));
-        div()
+        let strip = refresh.map(|keys| self.refresh_strip(key, keys, look, cx));
+        let band = div()
             .id(SharedString::from(format!("ready-head:{key}")))
             .flex()
             .items_center()
@@ -360,7 +427,6 @@ impl JobView {
                     .text_color(look.color(token::FG_MUTED))
                     .when_some(job, |one, job| one.tooltip(tip(job.clone())).child(job)),
             )
-            .children(refresh.then(|| self.refresh_preview_button(key, look, cx)))
             .child(
                 div()
                     .id(SharedString::from(format!("ready-time:{key}")))
@@ -371,8 +437,11 @@ impl JobView {
                     .text_color(look.color(token::FG_MUTED))
                     .when_some(seen, |one, seen| one.tooltip(tip(seen)))
                     .child(SharedString::from(clock(at, now))),
-            )
-            .into_any_element()
+            );
+        match strip {
+            None => band.into_any_element(),
+            Some(strip) => div().flex().flex_col().child(band).child(strip).into_any_element(),
+        }
     }
 
     /// The stage of a preview rebuild under way, whichever Refresh preview started it: Fleet's one build report says so, so every
@@ -382,9 +451,44 @@ impl JobView {
         (build.restarting == Some(ipc::BuildSource::Preview)).then(|| build.stage.map_or("Refreshing", crate::titlebar::stage_word))
     }
 
-    /// Refresh preview, where a build is not in the running preview yet: the title bar's build switcher's Refresh row, pressed here.
-    /// While a rebuild runs, from a press here or anywhere else, it reads Refreshing with its stage and takes no press.
-    fn refresh_preview_button(&self, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// Where a build stands against the preview, read against the offers Fleet last listed.
+    pub(super) fn preview_of(&self, card: &ThreadReadyToTry, cx: &App) -> Preview {
+        Preview::of(card, self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().offers.as_ref()))
+    }
+
+    /// The strip under a head band while a build is not in the preview: the title bar's Refresh keys, and under them what Refresh
+    /// builds. Off, with why, while no build here is ready for it, so a press never rebuilds without the branch.
+    fn refresh_strip(&self, key: &str, keys: RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let offers = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().offers.as_ref());
+        let line: SharedString = if keys.ready { crate::titlebar::refresh_said(offers).into() } else { keys.why.clone() };
+        div()
+            .id(SharedString::from(format!("ready-refresh:{key}")))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(self.refresh_preview_keys(key, &keys, look, cx))
+            .child(labelled(
+                div()
+                    .id(SharedString::from(format!("ready-refresh-said:{key}")))
+                    .text_size(look.length(token::TEXT_XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child(line.clone()),
+                Role::Status,
+                line,
+            ))
+            .into_any_element()
+    }
+
+    /// Refresh preview, where a build is not in the running preview yet: the title bar's build switcher's Refresh keys, pressed here.
+    /// Refresh both Macs and This Mac only where another Mac is paired, Refresh preview where none is. While a rebuild runs, from a
+    /// press here or anywhere else, it reads Refreshing with its stage and takes no press.
+    fn refresh_preview_keys(&self, key: &str, keys: &RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
+        use crate::titlebar::parts::{Btn, Weight};
         if let Some(stage) = self.preview_refreshing(cx) {
             let ink = look.color(token::FG_MUTED);
             return labelled(
@@ -397,16 +501,32 @@ impl JobView {
             )
             .into_any_element();
         }
-        labelled(
-            act(look, format!("refresh-preview:{key}"), "Refresh preview", Kind::Secondary, "", true)
-                .tab_index(0)
-                .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
-                .tooltip(tip("Merge the offered branches onto latest main and restart Fleet"))
-                .on_click(cx.listener(|this, _, _, cx| this.refresh_preview(cx))),
-            Role::Button,
-            "Refresh preview",
-        )
-        .into_any_element()
+        let partner = crate::pairing::refresh_partner(crate::pairing::macs(cx)).map(|other| other.name.clone());
+        let off = !keys.ready;
+        let label = if partner.is_some() { "Refresh both Macs" } else { "Refresh preview" };
+        let said: SharedString = match (&partner, off) {
+            (_, true) => keys.why.clone(),
+            (Some(name), false) => format!("Merge the offered branches onto latest main, restart Fleet, and have {name} build the same commit").into(),
+            (None, false) => "Merge the offered branches onto latest main and restart Fleet".into(),
+        };
+        let both = Btn::new(SharedString::from(format!("refresh-preview:{key}")), label, Weight::Primary).icon("rotate-cw").disabled(off).draw(look, cx).tooltip(tip(said));
+        let both = if off { both } else { both.tab_index(0).on_click(cx.listener(|this, _, _, cx| this.refresh_preview(cx))) };
+        // Beside it, the press that moves this Mac only, as the title bar's.
+        let alone = partner.is_some().then(|| {
+            let said: SharedString = if off { keys.why.clone() } else { "Merge the offered branches onto latest main and restart Fleet here only".into() };
+            let button = Btn::new(SharedString::from(format!("refresh-this-mac:{key}")), "This Mac only", Weight::Secondary).disabled(off).draw(look, cx).tooltip(tip(said));
+            let button = if off { button } else { button.tab_index(0).on_click(cx.listener(|this, _, _, cx| this.refresh_this_mac(cx))) };
+            labelled(button, Role::Button, "This Mac only")
+        });
+        div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(both, Role::Button, label)).children(alone).into_any_element()
+    }
+
+    /// This Mac only: Fleet here restarts onto the preview, and the other Mac stays where it is.
+    fn refresh_this_mac(&mut self, cx: &mut Context<Self>) {
+        if let Some(fleet) = self.fleet.clone() {
+            let act = crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None });
+            fleet.update(cx, |fleet, cx| fleet.build_act(act, cx));
+        }
     }
 
     /// The same act as the Refresh row of the title bar's build switcher: Fleet restarts onto a preview of the offered branches, both Macs where another is paired.
@@ -437,14 +557,16 @@ impl JobView {
         let job = self.shown.clone().unwrap_or_default();
         let run = self.ready_run(ix, card, parts.clone());
         let foot = Foot { ix, key: key.clone(), asking, archivable: false, openable: false, editable: false, commit: true, route: ANSWER_READY, run };
-        let waits = pending(standing, card);
+        let preview = self.preview_of(card, cx);
+        let waits = pending(standing, &preview);
         let ink = look.color(if waits { token::STATUS_AWAITING_REVIEW } else { standing.ink() });
         let word: SharedString = match (standing, super::ready_compact::until(card, &page.cards.answers)) {
             (Standing::Later, Some(until)) => format!("Later until {}", clock(&until, now)).into(),
-            _ if waits => NOT_IN_PREVIEW.into(),
+            _ if waits => preview.word().unwrap_or(NOT_IN_PREVIEW).into(),
             _ => standing.word().into(),
         };
-        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), waits, asking && !card.in_build && !matches!(parts.pictures, Pictures::Both | Pictures::Built), now, look, cx);
+        let refresh = (asking && preview != Preview::In).then(|| RefreshKeys { ready: preview.refreshes(), why: preview.tip() });
+        let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), waits.then(|| preview.tip()), refresh, now, look, cx);
         let title = div()
             .id(SharedString::from(format!("ready-title:{key}")))
             .px(look.length(token::SPACE_4))
@@ -564,10 +686,9 @@ impl JobView {
         let body = self.picture_in(&file, room, look, cx).unwrap_or_else(|| {
             div().text_size(look.length(token::TEXT_XS)).font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.name.clone())).into_any_element()
         });
-        let (label, ink) = built_label(card.in_build);
-        // A build the running preview does not hold yet offers the title bar's Refresh preview beside its chip.
-        let refresh = (!card.in_build).then(|| self.refresh_preview_button(&format!("built:{}", card.id), look, cx));
-        self.ready_frame(format!("ready-built:{}", card.id), label.into(), refresh, ink, body, look).into_any_element()
+        // The Refresh keys stand under the card's head band, so the frame only says where the build stands.
+        let (label, ink) = built_label(&self.preview_of(card, cx));
+        self.ready_frame(format!("ready-built:{}", card.id), label.into(), None, ink, body, look).into_any_element()
     }
 
     /// What he approved, at the revision he approved, drawn as the card of its kind draws it. A press reads it large in its own tab.

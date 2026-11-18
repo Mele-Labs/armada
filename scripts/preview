@@ -428,7 +428,26 @@ def land_at(root, sha, ref):
         f.write(text)
     sys.stdout.write(text)
     sys.stdout.flush()
-    return wt, stands
+    rows, tips = merged_into(root, stands, full)
+    return wt, stands, rows, tips
+
+
+MERGED_INTO_PREVIEW = re.compile(r"^Merge branch '(.+)' into preview$")
+
+
+def merged_into(root, stands, full):
+    """The rows and tips of the branches the Mac that built `full` merged into it, read from its own
+    merge commits, so `preview-held` names them here too and each Job's card says it is in the build."""
+    log = out(root, "log", "--first-parent", "--reverse", "--format=%P%x09%s", f"{stands}..{full}")
+    rows, tips = [], {}
+    for line in log.splitlines():
+        parents, _, subject = line.partition("\t")
+        found = MERGED_INTO_PREVIEW.match(subject)
+        parents = parents.split()
+        if found and len(parents) == 2:
+            rows.append((found.group(1), "merged", None))
+            tips[found.group(1)] = parents[1]
+    return rows, tips
 
 
 def merge_tree(wt, cur, branch):
@@ -799,8 +818,7 @@ def main():
         pull_main(root, args.dry_run)
 
     if args.at:
-        wt, base = land_at(root, args.at, args.ref)
-        rows, tips = [], {}
+        wt, base, rows, tips = land_at(root, args.at, args.ref)
     else:
         wt, base, rows, tips = merge_pass(root, only, skip, every=args.all)
     if args.push_as is not None and not args.restart:
