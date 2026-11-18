@@ -218,6 +218,14 @@ impl JobView {
         Some(wire)
     }
 
+    /// Dismiss: every answer of the Job not read yet reads as read, with no jump and no tab opened.
+    fn dismiss_answers(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let rows: Vec<String> = self.questions.read.get(job).and_then(Option::as_ref).map(|read| unread(read).iter().map(|one| one.row_id.clone()).collect()).unwrap_or_default();
+        for row in rows {
+            self.mark_answer_read(job, &row, window, cx);
+        }
+    }
+
     /// To the reply that answers his question at `row`, which he has then read; to the question itself while none does.
     pub(super) fn jump_to_answer(&mut self, job: &str, row: &str, window: &mut Window, cx: &mut Context<Self>) {
         let reply = self.question(job, row).and_then(|one| one.answer.as_ref()).map(|answer| answer.reply_row.clone());
@@ -495,7 +503,7 @@ impl JobView {
     }
 
     /// The pinned line at the thread's foot while an answer is unread: which question it answers, ‹ › where more than one
-    /// is, and Jump. It goes once every answer is read.
+    /// is, Jump, and Dismiss, which reads them all. It goes once every answer is read.
     pub(super) fn render_answer_line(&self, id: &SharedString, cx: &Context<Self>) -> Option<AnyElement> {
         let read = self.questions.read.get(id.as_ref())?.as_ref()?;
         let unread = unread(read);
@@ -529,6 +537,28 @@ impl JobView {
             };
             div().flex_none().flex().items_center().child(arrow("newer", "chevron-left", "Newer answer", -1)).child(arrow("older", "chevron-right", "Older answer", 1))
         });
+        let dismiss = {
+            let spot = page.keys.spot("answer-line:dismiss", cx);
+            let (keyed, pressed) = (id.to_string(), id.to_string());
+            labelled(
+                super::tabs::frame(look, "answer-line:dismiss", "x")
+                    .track_focus(&spot.focus)
+                    .focus_visible(|button| button.bg(look.color(token::BG_HOVER)))
+                    .tooltip(tip("Dismiss"))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                        if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                            cx.stop_propagation();
+                            this.dismiss_answers(&keyed, window, cx);
+                        }
+                    }))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.dismiss_answers(&pressed, window, cx);
+                    })),
+                Role::Button,
+                "Dismiss the unread answer",
+            )
+        };
         let said = format!("Answered: {}", one_line(&question.words));
         let line = div()
             .id("answer-line")
@@ -548,7 +578,8 @@ impl JobView {
             .child(labelled(div().id("answer-line-dot").flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::YOU)).tooltip(tip("Answer not read")), Role::Image, "Answer not read"))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(said.clone())))
             .children(arrows)
-            .child(self.jump_button("answer-line:jump-button", &jump.focus, id, &question.row_id, look, cx));
+            .child(self.jump_button("answer-line:jump-button", &jump.focus, id, &question.row_id, look, cx))
+            .child(dismiss);
         Some(
             div()
                 .w_full()
@@ -651,5 +682,26 @@ mod tests {
     fn qa_is_a_tab_a_pane_can_hold_and_a_zone_that_draws_it() {
         assert!(super::super::pane_tree::is_tab_kind("qa"));
         assert_eq!(super::super::panes_place::zone_of("qa").map(super::super::side::Zone::id), Some("qa"));
+    }
+
+    #[gpui::test]
+    fn dismissing_the_unread_answer_reads_every_answer_of_the_job_and_takes_the_line_away(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{drawn, redraw, rooted_job};
+        let (view, cx) = rooted_job(cx, "job-questions", "mock-01", gpui::size(gpui::px(1400.), gpui::px(900.)), |_| {});
+        assert!(drawn(cx, Role::Group, "Unread answer"), "the line stands while an answer is unread");
+        let unread_now = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.questions.read.get("mock-01").and_then(Option::as_ref).map_or(usize::MAX, |read| unread(read).len()));
+        assert_eq!(unread_now(&view, cx), 1);
+        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
+        // The key is what drives it here: a click made in the test window does not reach the pinned line (Jump's does not either).
+        view.update_in(cx, |view, window, cx| {
+            let spot = view.pages.get("mock-01").and_then(|page| page.keys.spot_of("answer-line:dismiss")).expect("Dismiss is drawn on the line");
+            window.focus(&spot.focus, cx);
+        });
+        assert!(drawn(cx, Role::Button, "Dismiss the unread answer"), "Dismiss is drawn on the line");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        assert_eq!(unread_now(&view, cx), 0, "every answer of the Job reads as read");
+        assert!(!drawn(cx, Role::Group, "Unread answer"), "the line is gone");
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no tab opened, no jump made");
     }
 }
