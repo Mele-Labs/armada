@@ -67,6 +67,10 @@ pub struct FeaturesScreen {
     opened: Option<String>,
     /// That page, and what it says to this screen.
     page: Option<Entity<FeaturePageView>>,
+    /// The window is narrower than `model::STACKED_BELOW`: the list and the page take turns at the full width.
+    stacked: bool,
+    /// Stacked: the page is the one drawn, full width, and the list is under it. Never set at a width where they sit side by side.
+    showing: bool,
     page_sub: Option<Subscription>,
     /// The project the library on screen belongs to.
     library_project: Option<String>,
@@ -104,7 +108,7 @@ impl FeaturesScreen {
         if let Some(words) = crate::drafts::kept(KEEP_FILTER, cx) {
             filter.update(cx, |state, cx| state.set_value(words, window, cx));
         }
-        let subs = vec![cx.subscribe_in(&filter, window, |this, state, event: &InputEvent, window, cx| match event {
+        let mut subs = vec![cx.subscribe_in(&filter, window, |this, state, event: &InputEvent, window, cx| match event {
             InputEvent::Change => {
                 let text = state.read(cx).value().to_string();
                 if text.is_empty() {
@@ -117,6 +121,7 @@ impl FeaturesScreen {
             InputEvent::PressEnter { .. } => this.focus_list(window, cx),
             _ => {}
         })];
+        subs.push(cx.observe_window_bounds(window, |this, window, cx| this.resized(window, cx)));
         FeaturesScreen {
             within: cx.focus_handle(),
             list_focus: cx.focus_handle(),
@@ -130,6 +135,8 @@ impl FeaturesScreen {
             window: window.window_handle(),
             opened: None,
             page: None,
+            stacked: window.viewport_size().width < gpui::px(model::STACKED_BELOW),
+            showing: false,
             page_sub: None,
             library_project: None,
             read_for: None,
@@ -255,12 +262,16 @@ impl FeaturesScreen {
 
     /// The page of the feature the keys are on draws beside the list as the row moves, with the keys staying on the list.
     fn preview(&mut self, cx: &mut Context<Self>) {
+        // Stacked, the list is alone: a page is opened by Enter or a press, never by the row moving.
+        if self.stacked {
+            return;
+        }
         let Some(slug) = self.cursor.clone().filter(|slug| self.opened.as_deref() != Some(slug.as_str())) else { return };
         let (me, handle) = (cx.entity(), self.window);
         cx.defer(move |cx| {
             let _ = handle.update(cx, |_, window, cx| {
                 me.update(cx, |this, cx| {
-                    if this.cursor.as_deref() == Some(slug.as_str()) && this.opened.as_deref() != Some(slug.as_str()) && this.listed.find(&slug).is_some() {
+                    if !this.stacked && this.cursor.as_deref() == Some(slug.as_str()) && this.opened.as_deref() != Some(slug.as_str()) && this.listed.find(&slug).is_some() {
                         this.open_at(slug, window, cx);
                     }
                 })
@@ -332,6 +343,7 @@ impl FeaturesScreen {
             if let Some(page) = page {
                 page.update(cx, |page, cx| page.set_area(area, cx));
                 self.page_sub = Some(cx.subscribe_in(&page, window, |this, _, event: &FeaturePageEvent, window, cx| match event {
+                    FeaturePageEvent::Escape if this.stacked => this.back(window, cx),
                     FeaturePageEvent::Escape => this.focus_list(window, cx),
                     FeaturePageEvent::Story { session_id, ask_id } => this.open_story(session_id.clone(), ask_id.clone(), cx),
                 }));
@@ -355,7 +367,46 @@ impl FeaturesScreen {
         if let Some(slug) = self.cursor.clone() {
             self.open_at(slug, window, cx);
             self.engage_page(cx);
+            self.show_page(window, cx);
         }
+    }
+
+    /// Stacked, the page just opened is drawn full width and has the keys, as the list is not drawn to hold them.
+    fn show_page(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.stacked {
+            return;
+        }
+        if let Some(page) = self.page.clone() {
+            self.showing = true;
+            page.update(cx, |page, cx| page.focus_rail(window, cx));
+            cx.notify();
+        }
+    }
+
+    /// Stacked, Back or Esc on the page: the list is drawn again with the same row selected, and the page is put away,
+    /// which stamps it looked at where he engaged with it.
+    fn back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_page(cx);
+        self.focus_list(window, cx);
+    }
+
+    /// The window grew past or shrank under the width the list and the page share. Narrowing puts the open page away so
+    /// the list is alone; widening draws the page of the row the keys are on beside the list again.
+    fn resized(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let stacked = window.viewport_size().width < gpui::px(model::STACKED_BELOW);
+        if stacked == self.stacked {
+            return;
+        }
+        self.stacked = stacked;
+        if stacked {
+            if self.page.is_some() {
+                self.back(window, cx);
+            }
+        } else {
+            self.showing = false;
+            self.preview(cx);
+        }
+        cx.notify();
     }
 
     /// Enter or a press on the feature: he is on its page, so leaving it counts as looked at.
@@ -372,6 +423,7 @@ impl FeaturesScreen {
         }
         self.page_sub = None;
         self.opened = None;
+        self.showing = false;
     }
 
     /// The title of an area of the library on screen, by its slug.
@@ -396,7 +448,10 @@ impl FeaturesScreen {
     /// Brought to the front: the keys go to the list, and Fleet is read again.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.entered = true;
-        self.focus_list(window, cx);
+        match self.page.clone().filter(|_| self.showing) {
+            Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
+            None => self.focus_list(window, cx),
+        }
         if let Some(page) = &self.page {
             page.update(cx, |page, cx| page.enter(cx));
         }
@@ -433,10 +488,13 @@ impl FeaturesScreen {
         match act.id {
             "features_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
             "features_open" => self.open_cursor(window, cx),
+            // Stacked, the list has no page beside it: Tab opens the row's page, as Enter does.
+            "features_pane" if self.stacked && !self.showing => self.open_cursor(window, cx),
             "features_pane" => match self.page.clone() {
                 Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
                 None => return false,
             },
+            "features_filter" if self.showing => return false,
             "features_filter" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
                 window.focus(&filter, cx);

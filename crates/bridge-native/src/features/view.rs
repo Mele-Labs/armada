@@ -8,7 +8,7 @@ use super::model::{narrow_list_width, Line, Shown};
 use super::{FeaturesScreen, Load};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
-use crate::settings::view::{bone, ring_colour, tip};
+use crate::settings::view::{bone, ghost_with, ring_colour, tip};
 use crate::titlebar::parts::sans;
 
 /// A filled chip: its words in a hue on a tint of that hue (`color-mix(... 14%, transparent)`).
@@ -149,7 +149,11 @@ impl FeaturesScreen {
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.open_at(press.clone(), window, cx);
                 this.engage_page(cx);
-                this.focus_list(window, cx);
+                if this.stacked {
+                    this.show_page(window, cx);
+                } else {
+                    this.focus_list(window, cx);
+                }
             }))
             .children(edge.map(|colour| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(colour)))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.row.title.clone())))
@@ -199,6 +203,9 @@ impl FeaturesScreen {
             .track_focus(&self.list_focus)
             .flex_none()
             .map(|column| {
+                if self.stacked {
+                    return column.w_full();
+                }
                 // The page wants its rail, 240, and 480 beside it for the asks: fifteen token-steps. Where the screen is
                 // narrower than a thousand the list gives up its floor for it, and keeps what its columns need.
                 match narrow_list_width(window.viewport_size().width, look.length(token::W_DIALOG), list_need(look), look.length(token::SPACE_12) * 15.) {
@@ -210,11 +217,28 @@ impl FeaturesScreen {
             .h_full()
             .flex()
             .flex_col()
-            .border_r(look.length(token::BORDER_WIDTH))
+            .when(!self.stacked, |column| column.border_r(look.length(token::BORDER_WIDTH)))
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_RAISED))
             .child(top)
             .child(div().flex_1().min_h_0().child(body))
+    }
+
+    /// The strip over a page drawn alone: Back, as the overlay's page has it.
+    fn render_back(&self, look: &Look, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let back = labelled(ghost_with(look, "features-back", Some("arrow-left"), "Back", false).on_click(cx.listener(|this, _, window, cx| this.back(window, cx))), Role::Button, "Back");
+        div()
+            .id("features-back-strip")
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_2))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .bg(look.color(token::BG_SUNKEN))
+            .child(back)
     }
 
     /// The right of the list. A feature's page is drawn here once one is open.
@@ -226,8 +250,6 @@ impl FeaturesScreen {
 impl Render for FeaturesScreen {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        let list = self.render_list(&look, window, cx);
-        let page = self.render_page_slot(&look);
         div()
             .id("features")
             .key_context(crate::generated::actions::ActionScope::Features.key_context().unwrap_or_default())
@@ -240,7 +262,11 @@ impl Render for FeaturesScreen {
             .bg(look.color(token::BG_BASE))
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(list)
-            .child(page)
+            .map(|screen| match (self.stacked, self.showing) {
+                // Narrow: one at a time, each the full width. The page has a Back row over it, as the overlay's page has.
+                (true, true) => screen.flex_col().child(self.render_back(&look, cx)).child(self.render_page_slot(&look)),
+                (true, false) => screen.child(self.render_list(&look, window, cx)),
+                (false, _) => screen.child(self.render_list(&look, window, cx)).child(self.render_page_slot(&look)),
+            })
     }
 }

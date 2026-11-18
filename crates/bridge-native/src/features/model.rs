@@ -8,6 +8,9 @@ use ipc::{FeatureLibrary, FeatureRow};
 /// Under this width of the screen the list column gives up its floor, so the page beside it keeps room to read.
 pub const NARROW_BELOW: f32 = 1000.;
 
+/// Under this width of the window the list is drawn alone and a feature's page takes the whole width, with a Back row over it.
+pub const STACKED_BELOW: f32 = 900.;
+
 /// The list column's width on a narrow screen, or None where the column keeps its share and floor, which is from
 /// `NARROW_BELOW` up. It takes what the page leaves it, `page_min` less than the screen, but never more than the
 /// share and floor would give it and never less than `need`, what its fixed columns and a few letters of a title ask for.

@@ -236,8 +236,9 @@ fn the_list_needs_401_and_at_900_it_takes_that_and_the_page_the_rest(cx: &mut Te
 }
 
 #[gpui::test]
-fn at_820_the_list_keeps_its_need_and_the_page_gets_what_is_left(cx: &mut TestAppContext) {
-    assert_eq!(widths_at(cx, 820.), (px(400.), px(419.)));
+fn at_820_the_page_takes_the_whole_width_where_it_is_opened(cx: &mut TestAppContext) {
+    let (_, page) = widths_at(cx, 820.);
+    assert_eq!(page, px(820.), "the list is not beside it");
 }
 
 #[gpui::test]
@@ -277,4 +278,152 @@ fn tab_into_a_page_and_leaving_it_stamps_it_and_a_page_only_passed_over_does_not
     cx.simulate_keystrokes("down");
     cx.run_until_parked();
     assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "job-list-and-live-status", cx)), None, "the one he only passed over is not looked at");
+}
+
+/// The screen on the mock library in a window `wide` across, drawn once.
+fn open_wide(cx: &mut TestAppContext, wide: f32) -> (gpui::Entity<FeaturesScreen>, &mut VisualTestContext) {
+    ready(cx);
+    let (screen, cx) = cx.add_window_view(|window, cx| FeaturesScreen::mock(window, cx));
+    cx.simulate_resize(gpui::size(px(wide), px(800.)));
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.enter(window, cx)));
+    redraw(cx);
+    (screen, cx)
+}
+
+fn redraw(cx: &mut VisualTestContext) {
+    for _ in 0..3 {
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+}
+
+/// Where the last drawing of a thing is in the window's book, which keeps every frame's entries: a larger place is a later frame.
+fn last_drawn(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> Option<(usize, gpui::Pixels)> {
+    cx.update(|window, cx| {
+        cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().enumerate().rev().find(|(_, one)| one.role == role && one.name == name).map(|(at, one)| (at, one.bounds.size.width))
+    })
+}
+
+fn page_of(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) -> Option<String> {
+    screen.read_with(cx, |screen, _| screen.opened().map(|row| row.slug.clone()))
+}
+
+/// Whether the list is the screen's last drawing and the page is not: the list alone, with no Back row.
+fn list_alone(cx: &mut VisualTestContext) -> bool {
+    let list = last_drawn(cx, gpui::Role::ListBox, "Features").expect("the list was drawn");
+    let back = last_drawn(cx, gpui::Role::Button, "Back");
+    back.is_none_or(|back| list.0 > back.0) && list.1 == px(820.)
+}
+
+#[gpui::test]
+fn at_820_j_moves_the_row_and_no_page_is_drawn_and_the_list_is_the_whole_width(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 820.);
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"));
+    assert_eq!(page_of(&screen, cx), None, "no page opens beside a list that has the width");
+    cx.simulate_keystrokes("j");
+    redraw(cx);
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"), "J moves the row");
+    cx.simulate_keystrokes("down down k up");
+    redraw(cx);
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"), "the arrows and K move it too: two down, two back");
+    assert!(screen.read_with(cx, |screen, _| screen.page.is_none()), "no page is held");
+    assert!(list_alone(cx), "the list is drawn alone, across the window");
+    assert!(last_drawn(cx, gpui::Role::Region, "Feature page").is_none_or(|page| page.0 < last_drawn(cx, gpui::Role::ListBox, "Features").expect("the list").0), "no page is drawn with it");
+}
+
+#[gpui::test]
+fn at_820_enter_opens_the_page_full_width_with_a_back_row_and_escape_returns_to_the_same_row(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 820.);
+    cx.simulate_keystrokes("j j");
+    cx.simulate_keystrokes("enter");
+    redraw(cx);
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("pause-resume-stop-snooze"));
+    let (page, wide) = last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page is drawn");
+    assert_eq!(wide, px(820.), "the page has the whole width");
+    let (back, _) = last_drawn(cx, gpui::Role::Button, "Back").expect("a Back row is over the page");
+    assert!(back < page, "Back is above the page");
+    assert!(last_drawn(cx, gpui::Role::ListBox, "Features").expect("the list was drawn before").0 < back, "the list is not drawn with it");
+    assert!(cx.update(|window, cx| screen.read(cx).page.clone().expect("a page").read(cx).rail.is_focused(window)), "the keys are on the page, the list not being drawn to hold them");
+    cx.simulate_keystrokes("escape");
+    redraw(cx);
+    assert!(screen.read_with(cx, |screen, _| screen.page.is_none()));
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("pause-resume-stop-snooze"), "the same row is selected");
+    assert!(list_alone(cx));
+    cx.simulate_keystrokes("k");
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"), "the list has the keys again");
+}
+
+#[gpui::test]
+fn at_820_a_press_on_a_row_or_on_back_opens_and_closes_the_page(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 820.);
+    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::ListBoxOption, "Job list and live status").map(|one| one.bounds)).expect("the row is drawn");
+    cx.simulate_click(row.center(), gpui::Modifiers::default());
+    redraw(cx);
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"));
+    assert_eq!(last_drawn(cx, gpui::Role::Region, "Feature page").expect("the page").1, px(820.));
+    let back = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "Back").map(|one| one.bounds)).expect("Back is drawn");
+    cx.simulate_click(back.center(), gpui::Modifiers::default());
+    redraw(cx);
+    assert!(screen.read_with(cx, |screen, _| screen.page.is_none()));
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"), "the row stays");
+    assert!(list_alone(cx));
+}
+
+#[gpui::test]
+fn at_820_tab_opens_the_page_as_enter_does(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 820.);
+    cx.simulate_keystrokes("tab");
+    redraw(cx);
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("start-a-job"));
+    assert!(cx.update(|window, cx| screen.read(cx).page.clone().expect("a page").read(cx).rail.is_focused(window)), "Tab is in the page's sections");
+    cx.simulate_keystrokes("j");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.page.clone()).expect("a page").read_with(cx, |page, _| page.section()), super::page_model::Section::Code, "J moves the section there");
+}
+
+#[gpui::test]
+fn at_820_a_page_is_stamped_looked_at_when_he_leaves_it_and_a_row_passed_over_is_not(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 820.);
+    cx.update(|_, cx| super::looked::forget_all(cx));
+    cx.simulate_keystrokes("j j j");
+    cx.run_until_parked();
+    for slug in ["start-a-job", "job-list-and-live-status", "pause-resume-stop-snooze"] {
+        assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, slug, cx)), None, "{slug} was only passed over");
+    }
+    cx.simulate_keystrokes("enter");
+    assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "model-and-context", cx)), None, "opening is not looking");
+    cx.simulate_keystrokes("escape");
+    cx.run_until_parked();
+    assert!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "model-and-context", cx)).is_some(), "Enter was engaging, so leaving counts");
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("model-and-context"));
+}
+
+#[gpui::test]
+fn at_1400_the_page_still_follows_the_selection_beside_the_list(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 1400.);
+    cx.run_until_parked();
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("start-a-job"));
+    cx.simulate_keystrokes("j");
+    cx.run_until_parked();
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"), "moving the row moves the page");
+    redraw(cx);
+    assert!(last_drawn(cx, gpui::Role::Button, "Back").is_none(), "no Back row where the page is beside the list");
+}
+
+#[gpui::test]
+fn the_window_narrowing_puts_the_page_away_and_widening_brings_the_row_s_page_back(cx: &mut TestAppContext) {
+    let (screen, cx) = open_wide(cx, 1400.);
+    cx.run_until_parked();
+    cx.simulate_keystrokes("j");
+    cx.run_until_parked();
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"));
+    cx.simulate_resize(gpui::size(px(820.), px(800.)));
+    redraw(cx);
+    assert_eq!(page_of(&screen, cx), None, "the list is alone");
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"), "on the row it was on");
+    assert!(list_alone(cx));
+    cx.simulate_keystrokes("j");
+    assert_eq!(page_of(&screen, cx), None);
+    cx.simulate_resize(gpui::size(px(1400.), px(800.)));
+    redraw(cx);
+    assert_eq!(page_of(&screen, cx).as_deref(), Some("pause-resume-stop-snooze"), "the page follows the row again");
 }
