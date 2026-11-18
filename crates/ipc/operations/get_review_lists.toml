@@ -4,7 +4,9 @@ transport = "HTTP"
 agent_access = "Bridge only"
 description = "The pull requests waiting on a person, as four lists read from the forge: asked of them by name, asked of a team they are on, assigned to them, and opened by them"
 notes = """
-`GET /review_lists`, or `GET /review_lists?project=<id>`. `PullReviewLists`. **Read when the Reviews tab opens and on Refresh, and never polled**: Armada does not watch other people's pull requests, so Fleet holds no copy and the reply is as old as the forge's answer.
+`GET /review_lists`, or `GET /review_lists?project=<id>`. `PullReviewLists`. **Read when the Reviews tab opens and on Refresh, and never polled**: Armada does not watch other people's pull requests, so a read of the forge goes out only because this was asked.
+
+**Fleet keeps the lists it last read**, one set a project (none is every project), in its store, so a Fleet that starts has them. **Where lists are kept they answer at once**, as old as `fetched_at` says, with `refreshing` set, local overlays (`holder`, `seen`, `inbox`, `my_review`) applied again so they are current, and the forge is read behind them on a task of its own, **one read a project**: a second ask while it goes joins it. What it finds is kept and told as the event `review_lists.changed`, the fresh lists whole; where it finds none, the kept lists stay as they were and the event carries `failed` instead. **Where nothing is kept** (a first read, or a stored row an older build wrote that does not read), the forge is read before the answer, `refreshing` absent, as it always was.
 
 Open pull requests of every repository Fleet serves, **one forge call a list** (`gh api graphql` over a search that names all the served repositories), newest-updated first and **capped at 50 a list**; a list at 50 has more behind it. `me` is the "mine" login of `fleet::my_pulls`, the account Armada is signed in as for the repository, else the forge command line's, and every list is asked for that login by name. `team` is review requested of a team the person is on and not of them by name; its rows carry the team's name. A pull request on several lists is on each, as a row.
 

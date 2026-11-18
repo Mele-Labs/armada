@@ -38,7 +38,7 @@ pub(super) fn signed_in_as(fleet: &Fixture, login: &str) {
 #[tokio::test]
 async fn each_list_is_the_forges_rows_in_the_wires_words() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     let (id, _) = manifest(&fleet);
     signed_in_as(&fleet, "NickMele");
     let mut failing = pull(7, SLUG);
@@ -49,7 +49,7 @@ async fn each_list_is_the_forges_rows_in_the_wires_words() {
     fleet.vcs().now_review_list(ReviewList::Team, Vec::new());
     fleet.vcs().now_review_list(ReviewList::Assigned, vec![pull(9, SLUG)]);
     fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(7, SLUG)]);
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.me, "NickMele", "the login as the forge wrote it");
     assert!(lists.silent.is_empty() && !lists.fetched_at.is_empty());
     let numbers = |rows: &[ipc::PullReviewRow]| rows.iter().map(|it| it.number).collect::<Vec<_>>();
@@ -67,14 +67,14 @@ async fn each_list_is_the_forges_rows_in_the_wires_words() {
 #[tokio::test]
 async fn the_four_lists_are_read_at_once() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "NickMele");
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, vec![pull(7, SLUG)]);
     }
     // Each read answers only while the other three are being read.
     fleet.vcs().review_lists_answer_together(4);
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert!(lists.silent.is_empty(), "lists read one after another: {:?}", lists.silent);
     assert_eq!([&lists.requested, &lists.team, &lists.assigned, &lists.mine].map(Vec::len), [1; 4]);
 }
@@ -82,10 +82,10 @@ async fn the_four_lists_are_read_at_once() {
 #[tokio::test]
 async fn one_call_a_list_names_the_login_and_every_served_repository() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
     fleet.vcs().now_review_list(ReviewList::Mine, Vec::new());
-    fleet.get_review_lists(None).await.expect("read");
+    fleet.clone().get_review_lists(None).await.expect("read");
     let asked = fleet.vcs().review_lists_asked();
     let lists: Vec<ReviewList> = asked.iter().map(|(list, ..)| *list).collect();
     assert_eq!(lists.len(), 4, "{lists:?}");
@@ -98,11 +98,11 @@ async fn one_call_a_list_names_the_login_and_every_served_repository() {
 #[tokio::test]
 async fn a_list_the_forge_would_not_answer_is_empty_and_named_while_the_others_stand() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
     fleet.vcs().now_review_list(ReviewList::Requested, vec![pull(1, SLUG)]);
     fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.silent, [PullReviewList::Team, PullReviewList::Assigned]);
     assert_eq!((lists.requested.len(), lists.mine.len()), (1, 1));
     assert!(lists.team.is_empty() && lists.assigned.is_empty());
@@ -111,9 +111,9 @@ async fn a_list_the_forge_would_not_answer_is_empty_and_named_while_the_others_s
 #[tokio::test]
 async fn four_silent_lists_are_a_fault() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
-    let refused = fleet.get_review_lists(None).await.unwrap_err();
+    let refused = fleet.clone().get_review_lists(None).await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.review_lists_unreadable");
 }
@@ -121,9 +121,9 @@ async fn four_silent_lists_are_a_fault() {
 #[tokio::test]
 async fn nobody_known_to_ask_as_is_a_fault_and_the_forge_is_not_asked() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(2, SLUG)]);
-    let refused = fleet.get_review_lists(None).await.unwrap_err();
+    let refused = fleet.clone().get_review_lists(None).await.unwrap_err();
     assert_eq!(refused.status(), 500);
     assert_eq!(code(&refused), "fleet.review_lists_unreadable");
     assert!(fleet.vcs().review_lists_asked().is_empty());
@@ -132,7 +132,7 @@ async fn nobody_known_to_ask_as_is_a_fault_and_the_forge_is_not_asked() {
 #[tokio::test]
 async fn a_row_of_a_repository_fleet_does_not_serve_is_dropped() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
     fleet.vcs().now_review_list(
         ReviewList::Requested,
@@ -141,7 +141,7 @@ async fn a_row_of_a_repository_fleet_does_not_serve_is_dropped() {
     for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested.len(), 1);
     assert_eq!(lists.requested[0].number, 2, "the forge's case is not the slug's");
 }
@@ -149,7 +149,7 @@ async fn a_row_of_a_repository_fleet_does_not_serve_is_dropped() {
 #[tokio::test]
 async fn the_team_list_carries_the_team_a_row_was_asked_of() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
     let mut asked = pull(5, SLUG);
     asked.team = Some("Platform".into());
@@ -157,21 +157,21 @@ async fn the_team_list_carries_the_team_a_row_was_asked_of() {
     for list in [ReviewList::Requested, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.team[0].team.as_deref(), Some("Platform"));
 }
 
 #[tokio::test]
 async fn a_list_keeps_the_most_the_wire_allows() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "nick");
     let many: Vec<ListedPull> = (1..=MOST_PER_LIST as u64 + 10).map(|n| pull(n, SLUG)).collect();
     fleet.vcs().now_review_list(ReviewList::Mine, many);
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.mine.len(), MOST_PER_LIST);
     assert_eq!(lists.mine[0].number, 1, "the forge's order is kept");
 }
@@ -179,7 +179,7 @@ async fn a_list_keeps_the_most_the_wire_allows() {
 #[tokio::test]
 async fn the_forges_time_he_was_asked_rides_the_row() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "mira");
     let mut asked = pull(41, SLUG);
     asked.asked_at = Some("2026-11-14T09:00:00Z".into());
@@ -187,14 +187,14 @@ async fn the_forges_time_he_was_asked_rides_the_row() {
     for list in [ReviewList::Team, ReviewList::Assigned, ReviewList::Mine] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     assert_eq!(lists.requested[0].asked_at.as_deref(), Some("2026-11-14T09:00:00Z"));
 }
 
 #[tokio::test]
 async fn where_the_forge_gave_no_time_a_request_by_name_is_dated_from_when_fleet_told_him() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home);
+    let fleet = std::sync::Arc::new(a_fleet(&home));
     signed_in_as(&fleet, "mira");
     let mut dated = pull(13, SLUG);
     dated.asked_at = Some("2026-11-01T09:00:00Z".into());
@@ -210,7 +210,7 @@ async fn where_the_forge_gave_no_time_a_request_by_name_is_dated_from_when_fleet
         kept.into_iter().find(|it| it.number == 12).expect("told of #12").told_at
     };
 
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     let asked: Vec<(u64, Option<&str>)> = lists.requested.iter().map(|row| (row.number, row.asked_at.as_deref())).collect();
     assert_eq!(asked, [(12, Some(told.as_str())), (13, Some("2026-11-01T09:00:00Z"))], "the forge's own time is kept");
     assert_eq!(lists.team[0].asked_at, None, "Fleet tells only of a request by name");
