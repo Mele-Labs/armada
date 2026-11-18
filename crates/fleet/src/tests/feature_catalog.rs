@@ -1,5 +1,5 @@
 //! The Operator keeps the catalog, written before the code: **Armada's own catalog is kept once from the seed Fleet carries,
-//! on the Operator's word, and each feature is stamped with the moment it was kept.** What Jobs and he name later is told to
+//! by Fleet itself with the Operator on or off, and each feature is stamped with the moment it was kept.** What Jobs and he name later is told to
 //! the Operator, who brings one card for it. `docs/concepts/feature-catalog.md`.
 
 use std::collections::BTreeSet;
@@ -138,31 +138,32 @@ async fn a_path_the_repository_does_not_hold_is_left_out_and_named() {
 }
 
 #[tokio::test]
-async fn a_project_with_armadas_repository_and_no_feature_is_told_to_the_operator_once() {
+async fn fleet_seeds_a_project_with_armadas_repository_and_no_feature_with_the_operator_off_and_once() {
     let rig = rig();
-    started(&rig).await;
     armadas(&rig);
     let project = a_project(&rig).await;
+    assert!(!rig.fleet.operator_on(), "the Operator is off");
 
-    rig.fleet.sources_handed().await;
-    eventually(|| async { heard(&rig, "seed_features") >= 1 }).await;
-    assert_eq!(heard(&rig, &project), 1, "names the project");
-    rig.fleet.sources_handed().await;
-    assert_eq!(heard(&rig, "seed_features"), 1, "told once");
+    rig.fleet.projects_seeded().await;
+    let carried = Seed::armada().expect("reads");
+    let library = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed");
+    assert_eq!(library.areas.len(), carried.areas.len());
+    assert_eq!(library.areas.iter().map(|area| area.features.len()).sum::<usize>(), carried.features.len());
+    assert!(library.areas.iter().flat_map(|area| &area.features).all(|row| row.state == FeatureState::Seeded));
 
-    rig.fleet.seed_features(the_operator(), SeedFeatures { project: project.clone() }).await.expect("seeded");
-    let other = rig.fleet.seed_features(the_operator(), SeedFeatures { project }).await.expect_err("kept once");
-    assert_eq!(other.status(), 409);
+    let stamps: Vec<String> = rig.fleet.store().lock().await.features_in(&project).expect("read").into_iter().map(|one| one.added_at).collect();
+    rig.fleet.projects_seeded().await;
+    let again: Vec<String> = rig.fleet.store().lock().await.features_in(&project).expect("read").into_iter().map(|one| one.added_at).collect();
+    assert_eq!(stamps, again, "a second pass changes nothing");
 }
 
 #[tokio::test]
-async fn a_project_that_is_not_armadas_is_never_told_of_a_seed() {
+async fn a_project_that_is_not_armadas_is_never_seeded_by_fleet() {
     let rig = rig();
-    started(&rig).await;
-    a_project(&rig).await;
-    rig.fleet.sources_handed().await;
-    tokio::time::sleep(std::time::Duration::from_millis(200)).await;
-    assert_eq!(heard(&rig, "seed_features"), 0);
+    let project = a_project(&rig).await;
+    rig.fleet.projects_seeded().await;
+    rig.fleet.projects_seeded().await;
+    assert!(!rig.fleet.store().lock().await.project_has_features(&project).unwrap());
 }
 
 // Asks from outside a Job.
