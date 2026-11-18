@@ -23,7 +23,7 @@ The owner approved the design on 16 Nov 2026.
 | An ask handed when its Job starts or messages another Job with it | Built |
 | A Job's story, `get_job_story`, and the done card's lead lines | Built in Fleet; native draws the Story tab later |
 | A project's asks by feature slug, `list_feature_asks` | Built in Fleet; the feature library files asks under slugs later |
-| Asks from outside a Job: words to the Operator, notes, voice | Built: the Operator files each with `file_ask`, under the features it belongs to |
+| Asks from outside a Job: words to the Operator, notes, voice | Built: the Operator files each with `file_ask`, under the features it belongs to. A note on a screen is filed by Fleet itself while the Operator is off |
 | A question linked to the reply that answers it, `list_job_questions`, `mark_answer_read`, `answer_unread` on the record | Built in Fleet; native draws the Q&A tab, the folded answer and the row's dot later |
 
 ## Sorting a message
@@ -116,6 +116,13 @@ A note is filed under its id, so the same note filed twice is one ask.
 **Rule.** A note arrives with the features Fleet reads from where he left it.
 The files its element was drawn from, `source` and `definition` in the note, are mapped by the library's path prefixes, and where a note names no file its component's name is read against the files of each feature's entry points and prefixes.
 A note that names neither arrives with no feature, and the Operator chooses from the library.
+
+**Rule.** The Operator being off does not leave a note unfiled.
+A note sent to a Job is that Job's, and its message is sorted there.
+A note open and sent to no Job for ten minutes is filed by Fleet: one ask with no Job, in the backlog, under the features Fleet reads from where he left it.
+Its kind and title come from the sorter a Job's messages go through, and its key is the note's id, so the same note filed twice is one ask.
+A note the sorter reads as talk or a question is no ask, and a sorter that fails leaves it a change request.
+With the Operator on this does not run, and the Operator files the note as above.
 
 ## Open questions
 

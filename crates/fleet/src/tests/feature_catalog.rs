@@ -600,3 +600,58 @@ async fn a_feature_moves_to_an_area_the_project_keeps_and_to_no_other() {
     let asks = rig.fleet.list_feature_asks(project, Some(ACTIONS.to_string())).await.expect("asks");
     assert!(asks.asks.iter().any(|one| one.ask_id == ask.ask_id), "its asks stay with it");
 }
+
+// A note left on a screen, with the Operator off.
+
+const RANK_BAR: &str = "kind: new_ask\nask_kind: bug\nask: none\ntitle: Rank bar is too tight";
+
+/// A note in the served root's annotations, open and sent to no Job, drawn from `file`.
+fn note_drawn_from(rig: &Rig, id: &str, file: &str) -> ipc::annotations::NoteRead {
+    let dir = std::path::Path::new(&rig.root).join(".armada/annotations");
+    std::fs::create_dir_all(&dir).expect("made");
+    let body = format!(
+        "{{\n  \"id\": \"{id}\",\n  \"status\": \"open\",\n  \"text\": \"The rank bar is too tight\",\n  \"source\": {{ \"file\": \"{file}\" }},\n  \
+         \"element\": {{ \"tag\": \"div\" }},\n  \"screen\": \"takes\"\n}}\n"
+    );
+    std::fs::write(dir.join(format!("{id}.json")), &body).expect("written");
+    ipc::annotations::note_read(body.as_bytes()).expect("a note")
+}
+
+/// A rig whose sorter answers `RANK_BAR`, with the Operator `on` or off and a library for the project.
+async fn noted(on: bool) -> (Rig, String) {
+    let judge = std::sync::Arc::new(testkit::FakeJudge::saying(RANK_BAR));
+    let rig = super::session_host::rig_fitted(move |fittings| fittings.judge = judge);
+    switched(&rig, on).await;
+    let project = a_project(&rig).await;
+    libraried(&rig, &project).await;
+    rig.fleet.operator_seat().note_wait_is(std::time::Duration::ZERO);
+    (rig, project)
+}
+
+#[tokio::test]
+async fn with_the_operator_off_a_note_left_unsent_is_filed_under_the_features_of_its_file_and_a_second_filing_is_the_same_ask() {
+    let (rig, project) = noted(false).await;
+    rig.fleet.sources_handed().await;
+    let read = note_drawn_from(&rig, "n-rank", "crates/pages/voting/ranks.rs");
+    rig.fleet.sources_handed().await;
+
+    let listed = rig.fleet.list_feature_asks(project.clone(), Some(VOTING.to_string())).await.expect("listed");
+    assert_eq!(listed.asks.len(), 1, "{:?}", listed.asks);
+    let ask = &listed.asks[0];
+    assert_eq!((ask.kind, ask.state, ask.title.as_str()), (AskKind::Bug, AskState::Backlog, "Rank bar is too tight"));
+    assert!(ask.said_in.as_str().is_empty() && ask.building.is_none(), "no Job: {ask:?}");
+    assert_eq!((ask.features.as_slice(), ask.first_row.as_str()), ([VOTING.to_string()].as_slice(), "note:n-rank"));
+
+    rig.fleet.note_filed(rig.manifest.as_str(), &read).await.expect("filed again");
+    rig.fleet.sources_handed().await;
+    assert_eq!(rig.fleet.list_feature_asks(project, None).await.expect("listed").asks.len(), 1, "the note's own ask, once");
+}
+
+#[tokio::test]
+async fn with_the_operator_on_fleet_files_no_note_itself() {
+    let (rig, project) = noted(true).await;
+    rig.fleet.sources_handed().await;
+    note_drawn_from(&rig, "n-rank", "crates/pages/voting/ranks.rs");
+    rig.fleet.sources_handed().await;
+    assert!(rig.fleet.list_feature_asks(project, None).await.expect("listed").asks.is_empty());
+}
