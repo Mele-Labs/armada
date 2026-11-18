@@ -32,3 +32,9 @@ pub fn upsert(port: u16, body: &ipc::UpsertFeatures, cx: &App) -> Task<Result<ip
 pub fn change(port: u16, body: &ipc::ChangeFeature, cx: &App) -> Task<Result<ipc::FeatureChanged, Refused>> {
     request(port, Ask::Post("/features/change".into(), crate::settings::wire::body(body)), "FeatureChanged", cx)
 }
+
+/// `POST /features/librarian`: run a project's librarian now. `crates/ipc/operations/run_librarian.toml`.
+pub fn run_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::LibrarianRan, Refused>> {
+    let body = ipc::RunLibrarian { project: project.to_string() };
+    request(port, Ask::Post("/features/librarian".into(), crate::settings::wire::body(&body)), "LibrarianRan", cx)
+}

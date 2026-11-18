@@ -6,9 +6,11 @@
 //! title bar's strip (`operator/screen.rs`).
 
 pub(crate) mod asks;
+mod chosen;
 mod curate;
 mod curate_view;
 mod dossier;
+mod librarian;
 mod looked;
 pub(crate) mod mock;
 mod model;
@@ -17,6 +19,7 @@ pub mod overlay;
 pub mod page;
 pub(crate) mod page_model;
 mod page_view;
+mod projects;
 // Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
 #[allow(dead_code)]
 pub mod shots;
@@ -80,6 +83,11 @@ pub struct FeaturesScreen {
     read_for: Option<Key>,
     entered: bool,
     work: Option<Task<()>>,
+    /// Where the librarian's press stands, and the press itself while it is in flight.
+    press: librarian::Press,
+    ran: Option<Task<()>>,
+    /// What the mock's press is refused with, where a walk or a test wants it refused.
+    mock_refusal: Option<String>,
     /// The buttons, editor, picker and sheet that curate the library from the list.
     curate: curate::Curate,
     bar: Option<Subscription>,
@@ -93,8 +101,9 @@ impl FeaturesScreen {
     /// On Fleet. `project` is Fleet's id of the project to show; none follows the project the title bar is
     /// scoped to, and where none is picked, the first project that holds features.
     pub fn live(fleet: &Entity<FleetConnection>, project: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        chosen::persist(cx);
         let mut this = Self::new(Source::Live(fleet.clone()), window, cx);
-        this.explicit = project;
+        this.explicit = project.or_else(|| chosen::get(cx));
         let watch = cx.observe(fleet, |this, _, cx| this.moved(cx));
         this._subs.push(watch);
         this
@@ -104,6 +113,7 @@ impl FeaturesScreen {
     pub fn mock(window: &mut Window, cx: &mut Context<Self>) -> Self {
         let mut this = Self::new(Source::Mock, window, cx);
         this.library = Load::Read(mock::library());
+        this.library_project = Some(mock::PROJECT.to_string());
         this.relist(cx);
         this
     }
@@ -147,6 +157,9 @@ impl FeaturesScreen {
             read_for: None,
             entered: false,
             work: None,
+            press: librarian::Press::Idle,
+            ran: None,
+            mock_refusal: None,
             curate: curate::Curate::default(),
             bar: None,
             _subs: subs,
@@ -157,7 +170,12 @@ impl FeaturesScreen {
 
     /// The project asked for: the one given, else the one the title bar is scoped to. None is All.
     fn wanted(&self, cx: &App) -> Option<String> {
-        self.explicit.clone().or_else(|| titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string)))
+        // A project he chose that Fleet no longer lists is passed over.
+        let listed = |id: &String| match &self.source {
+            Source::Live(fleet) => fleet.read(cx).held().projects.as_ref().is_none_or(|read| read.projects.iter().any(|one| one.id == *id)),
+            Source::Mock => true,
+        };
+        self.explicit.clone().filter(listed).or_else(|| titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string)))
     }
 
     /// What a read would be made for now, or none where Fleet cannot be asked.
@@ -533,6 +551,8 @@ impl FeaturesScreen {
                 Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
                 None => return false,
             },
+            "features_project" => return act.digit.is_some_and(|digit| self.choose_number(digit, cx)),
+            "features_catch_up" => self.catch_up(cx),
             "features_filter" if self.showing => return false,
             "features_filter" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
@@ -556,6 +576,8 @@ mod ask_tests;
 mod curate_tests;
 #[cfg(test)]
 mod floor_tests;
+#[cfg(test)]
+mod librarian_tests;
 #[cfg(test)]
 mod of_path_tests;
 #[cfg(test)]

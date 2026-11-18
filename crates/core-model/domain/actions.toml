@@ -1840,6 +1840,29 @@ destructive = false
 confirms = false
 notes = "Moves along the filter chips above a page's asks while the keys are on them, and Enter applies the chip it is on. Its own row because Left and Right move nothing else in the Features tab. Native only, 17 Nov 2026."
 
+[actions.features_project]
+kind = "Motion"
+tier = "Contextual"
+verb = "Show a project"
+icon = ""
+shortcut = "1–9"
+scope = "features"
+destructive = false
+confirms = false
+notes = "The number on each project chip above the Features list, in the chips' order: the list and the page show that project, and it is kept for the next start. A number past the last chip does nothing. Native only, 18 Nov 2026."
+
+[actions.features_catch_up]
+kind = "Action"
+tier = "Contextual"
+verb = "Catch up the librarian"
+icon = ""
+icon_absent = "undecided"
+shortcut = "c"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Presses Catch up on the librarian card over the Features list, which runs the project's librarian now. It does nothing while the librarian is reading or has read through the last merge. Native only, 18 Nov 2026."
+
 [actions.features_story]
 kind = "Action"
 tier = "Contextual"

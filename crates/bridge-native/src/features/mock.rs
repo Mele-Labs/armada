@@ -34,6 +34,51 @@ fn area(slug: &str, title: &str, features: Vec<FeatureRow>) -> FeatureAreaRow {
     FeatureAreaRow { slug: slug.into(), title: title.into(), features }
 }
 
+/// The projects the mock names, in Fleet's order, as `(id, name)`: the first is the one `library` belongs to.
+pub fn projects() -> Vec<(String, String)> {
+    [(PROJECT, "Armada"), ("pocket", "Pocket"), ("store", "Store")].into_iter().map(|(id, name)| (id.to_string(), name.to_string())).collect()
+}
+
+/// Where the librarian can stand, for a walk and a test to ask for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Reading {
+    /// It never ran.
+    Never,
+    /// It read through the last merge, four minutes ago.
+    Current,
+    /// Three pull requests merged since its last read.
+    Behind,
+    /// Forty pull requests merged since, more than a line of numbers holds.
+    FarBehind,
+}
+
+/// The librarian's state at `at`, with the times as of now so a picture reads the same each day.
+pub fn librarian(at: Reading) -> ipc::LibrarianState {
+    let ago = |minutes: i64| Instant::carried((chrono::Utc::now() - chrono::Duration::minutes(minutes)).to_rfc3339());
+    match at {
+        Reading::Never => ipc::LibrarianState::default(),
+        Reading::Current => ipc::LibrarianState { last_run: Some(ago(4)), read_through: Some(3864), merged_since: Vec::new() },
+        Reading::Behind => ipc::LibrarianState { last_run: Some(ago(190)), read_through: Some(3861), merged_since: vec![3862, 3863, 3864] },
+        Reading::FarBehind => ipc::LibrarianState { last_run: Some(ago(60 * 30)), read_through: Some(3820), merged_since: (3821..=3860).collect() },
+    }
+}
+
+/// The library of the project `id`: Armada's own, or a short one for the other projects the mock names.
+pub fn library_of(id: &str) -> FeatureLibrary {
+    match id {
+        "pocket" => {
+            let sync = "sync-and-pairing";
+            FeatureLibrary {
+                project: id.into(),
+                areas: vec![area(sync, "Sync and pairing", vec![feature(sync, "pair-a-phone", "Pair a phone", "Scan a code to link a phone"), feature(sync, "offline-queue", "Offline queue", "Sends wait until the Mac is back")])],
+                librarian: librarian(Reading::Current),
+            }
+        }
+        "store" => FeatureLibrary { project: id.into(), areas: vec![area("checkout", "Checkout", vec![feature("checkout", "cart", "Cart", "Items, quantities, totals")])], librarian: librarian(Reading::Never) },
+        _ => library(),
+    }
+}
+
 pub fn library() -> FeatureLibrary {
     let running = "running-a-job";
     let thread = "job-thread-and-terminal";
@@ -75,7 +120,7 @@ pub fn library() -> FeatureLibrary {
             ),
             area("pending", "pending", vec![pending]),
         ],
-        librarian: Default::default(),
+        librarian: librarian(Reading::Behind),
     }
 }
 

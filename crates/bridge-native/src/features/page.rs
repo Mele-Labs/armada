@@ -595,9 +595,9 @@ impl FeaturePageView {
     }
 
     /// The registry's `features` acts, pressed while the keys are on the page. All of them stop here except
-    /// the filter, which is the list's: a page is never opened again by the list's own Enter.
+    /// the filter, the project chips and the librarian's Catch up, which are the list's: a page is never opened again by the list's own Enter.
     pub(super) fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
-        if !act.id.starts_with("features_") || act.id == "features_filter" {
+        if !act.id.starts_with("features_") || ["features_filter", "features_project", "features_catch_up"].contains(&act.id) {
             cx.propagate();
             return;
         }

@@ -246,7 +246,9 @@ impl FeaturesScreen {
             .h_full()
             .flex()
             .flex_col()
+            .children(self.render_chips(look, cx))
             .child(self.render_find(look))
+            .children(self.render_librarian(look, cx))
             .child(div().flex_1().min_h_0().child(body))
     }
 
