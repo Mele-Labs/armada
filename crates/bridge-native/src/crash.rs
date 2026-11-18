@@ -7,6 +7,10 @@
 //!
 //! A report is seen once he has been told of it: `mark_seen` leaves an empty `<report>.seen` beside it, so
 //! the report keeps the name its time was read from and the one it is attached by.
+//!
+//! A crash that is not a panic, a signal inside WebKit say, runs no hook. So each run leaves `run-<pid>` in
+//! the same folder while it runs, and a quit he meant takes it away: a mark left by another pid is a run that
+//! ended some other way, and macOS's own report from that pid is the crash. Seeing it takes the mark away.
 
 use std::collections::HashMap;
 use std::fmt::Write as _;
@@ -97,9 +101,16 @@ pub(crate) fn macos_reports_dir() -> Option<PathBuf> {
 /// Write a report on every panic, then what is held, then whatever hook was there before. Also write what is
 /// held when the app quits, which the stores' own waits would otherwise miss. Once, at the live app's start.
 pub(crate) fn install(cx: &mut gpui::App) {
+    if let Some(dir) = crashes_dir() {
+        if let Err(why) = begin_run(&dir, std::process::id()) {
+            Note::warn("this run was not marked").field("why", why.to_string()).emit();
+        }
+    }
     let previous = std::panic::take_hook();
     std::panic::set_hook(Box::new(move |info| {
         if let Some(dir) = crashes_dir() {
+            // The panic's report speaks for this run, so macOS's of the same end is not offered again.
+            end_run(&dir, std::process::id());
             let at = Utc::now();
             let thread = std::thread::current();
             let message = match info.payload().downcast_ref::<&str>() {
@@ -131,6 +142,9 @@ pub(crate) fn install(cx: &mut gpui::App) {
         flush(true);
         for file in WRITTEN.lock().map(|written| written.clone()).unwrap_or_default() {
             let _ = std::fs::write(seen_mark(&file), "");
+        }
+        if let Some(dir) = crashes_dir() {
+            end_run(&dir, std::process::id());
         }
         std::future::ready(())
     })
@@ -208,6 +222,9 @@ pub(crate) struct Crash {
     pub panic: String,
     /// Where it panicked, as `file:line:column`; empty where the report does not say.
     pub location: String,
+    /// Set where macOS's report is the crash and no panic wrote one: the mark of the run it ended. `panic`
+    /// then holds the exception and `location` the frame it faulted in.
+    pub run: Option<PathBuf>,
 }
 
 /// The time a report's name carries, and which of that second's it is, if the name is a report's.
@@ -246,7 +263,7 @@ pub(crate) fn newest_unseen(dir: &Path) -> Option<Crash> {
         .filter(|(_, file)| !seen_mark(file).exists())
         .max()?;
     let text = std::fs::read_to_string(&file).unwrap_or_default();
-    Some(Crash { file, at, panic: panic_line(&text), location: location_line(&text) })
+    Some(Crash { file, at, panic: panic_line(&text), location: location_line(&text), run: None })
 }
 
 /// The newest report not yet seen.
@@ -254,9 +271,173 @@ pub(crate) fn last_unseen() -> Option<Crash> {
     newest_unseen(&crashes_dir()?)
 }
 
-/// He has been told of this one.
+/// He has been told of this one. macOS's report is left as it is, and the mark of the run it ended goes.
 pub(crate) fn mark_seen(crash: &Crash) -> std::io::Result<()> {
-    std::fs::write(seen_mark(&crash.file), "")
+    match &crash.run {
+        Some(run) => std::fs::remove_file(run).or_else(|why| if why.kind() == std::io::ErrorKind::NotFound { Ok(()) } else { Err(why) }),
+        None => std::fs::write(seen_mark(&crash.file), ""),
+    }
+}
+
+// ---- a run that did not quit -----------------------------------------------------------------------
+
+/// The bundle the native app is built as, which macOS names in the first line of each report.
+const BUNDLE: &str = "dev.armada.bridge.native";
+
+fn run_mark(dir: &Path, pid: u32) -> PathBuf {
+    dir.join(format!("run-{pid}"))
+}
+
+/// This run has begun. The mark's time is when.
+pub(crate) fn begin_run(dir: &Path, pid: u32) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)?;
+    std::fs::write(run_mark(dir, pid), "")
+}
+
+/// This run ended as he meant, or a panic report speaks for it.
+pub(crate) fn end_run(dir: &Path, pid: u32) {
+    let _ = std::fs::remove_file(run_mark(dir, pid));
+}
+
+/// A run that ended without a quit he meant.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Run {
+    pub pid: u32,
+    pub began: SystemTime,
+    pub mark: PathBuf,
+}
+
+/// Every run mark but `me`'s. One native app runs at a time (`instance.rs`), so each is a run that ended.
+pub(crate) fn ended_runs(dir: &Path, me: u32) -> Vec<Run> {
+    let Ok(entries) = std::fs::read_dir(dir) else { return Vec::new() };
+    entries
+        .filter_map(|entry| entry.ok())
+        .filter_map(|entry| {
+            let pid: u32 = entry.file_name().to_str()?.strip_prefix("run-")?.parse().ok()?;
+            let began = entry.metadata().ok()?.modified().ok()?;
+            (pid != me).then(|| Run { pid, began, mark: entry.path() })
+        })
+        .collect()
+}
+
+/// The marks of ended runs, but the one a crash is offered by: a run macOS wrote no report of was killed or
+/// stopped, and an older crash than the newest is not offered.
+pub(crate) fn forget_runs(runs: &[Run], offered: Option<&Crash>) {
+    for run in runs.iter().filter(|run| offered.and_then(|crash| crash.run.as_ref()) != Some(&run.mark)) {
+        let _ = std::fs::remove_file(&run.mark);
+    }
+}
+
+#[derive(serde::Deserialize)]
+struct IpsHead {
+    #[serde(rename = "bundleID", default)]
+    bundle: String,
+}
+
+#[derive(serde::Deserialize)]
+struct IpsBody {
+    pid: u32,
+    #[serde(default)]
+    exception: IpsException,
+    #[serde(rename = "faultingThread", default)]
+    faulting: usize,
+    #[serde(default)]
+    threads: Vec<IpsThread>,
+    #[serde(rename = "usedImages", default)]
+    images: Vec<IpsImage>,
+}
+
+#[derive(serde::Deserialize, Default)]
+struct IpsException {
+    #[serde(rename = "type", default)]
+    kind: String,
+    #[serde(default)]
+    signal: String,
+    #[serde(default)]
+    subtype: String,
+}
+
+#[derive(serde::Deserialize)]
+struct IpsThread {
+    #[serde(default)]
+    frames: Vec<IpsFrame>,
+}
+
+#[derive(serde::Deserialize)]
+struct IpsFrame {
+    #[serde(rename = "imageIndex", default)]
+    image: usize,
+    #[serde(rename = "imageOffset", default)]
+    offset: u64,
+    symbol: Option<String>,
+}
+
+#[derive(serde::Deserialize)]
+struct IpsImage {
+    name: Option<String>,
+}
+
+/// What macOS's report says of a crash of this app.
+#[derive(Debug, PartialEq, Eq)]
+pub(crate) struct MacosCrash {
+    pub pid: u32,
+    /// As `EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x10`.
+    pub exception: String,
+    /// The faulting thread's top frame, as `symbol in image`.
+    pub frame: String,
+}
+
+/// A report's text read: a first line of JSON naming the app, then the report as JSON. None where it is
+/// another app's or does not read.
+pub(crate) fn read_ips(text: &str) -> Option<MacosCrash> {
+    let (head, body) = text.split_once('\n')?;
+    let head: IpsHead = ipc::decode("the first line of macOS's crash report", head.as_bytes()).ok()?;
+    if head.bundle != BUNDLE {
+        return None;
+    }
+    let body: IpsBody = ipc::decode("macOS's crash report", body.as_bytes()).ok()?;
+    let said = &body.exception;
+    let mut exception = if said.kind.is_empty() { "no exception named".to_string() } else { said.kind.clone() };
+    if !said.signal.is_empty() {
+        let _ = write!(exception, " ({})", said.signal);
+    }
+    if !said.subtype.is_empty() {
+        let _ = write!(exception, ", {}", said.subtype);
+    }
+    let frame = body
+        .threads
+        .get(body.faulting)
+        .and_then(|thread| thread.frames.first())
+        .map(|top| {
+            let image = body.images.get(top.image).and_then(|image| image.name.clone()).unwrap_or_else(|| "an unnamed image".into());
+            match &top.symbol {
+                Some(symbol) => format!("{symbol} in {image}"),
+                None => format!("{image} +0x{:x}", top.offset),
+            }
+        })
+        .unwrap_or_default();
+    Some(MacosCrash { pid: body.pid, exception, frame })
+}
+
+fn is_armada_ips(name: &str) -> bool {
+    name.starts_with("Armada") && name.ends_with(".ips")
+}
+
+/// The newest of macOS's reports in `reports` of one of `runs`: from its pid, and written after it began.
+pub(crate) fn newest_macos(reports: &Path, runs: &[Run]) -> Option<Crash> {
+    let earliest = runs.iter().map(|run| run.began).min()?;
+    std::fs::read_dir(reports)
+        .ok()?
+        .filter_map(|entry| entry.ok())
+        .filter(|entry| entry.file_name().to_str().is_some_and(is_armada_ips))
+        .filter_map(|entry| Some((entry.path(), entry.metadata().ok()?.modified().ok()?)))
+        .filter(|(_, written)| *written >= earliest)
+        .filter_map(|(file, written)| {
+            let said = read_ips(&std::fs::read_to_string(&file).ok()?)?;
+            let run = runs.iter().find(|run| run.pid == said.pid && written >= run.began)?;
+            Some(Crash { file, at: written.into(), panic: said.exception, location: said.frame, run: Some(run.mark.clone()) })
+        })
+        .max_by_key(|crash| crash.at)
 }
 
 /// How long after a report macOS may have written its own and still be taken for the same crash.
@@ -276,7 +457,7 @@ pub(crate) fn macos_report(dir: &Path, crash: &Crash) -> Option<PathBuf> {
     let found: Vec<(PathBuf, SystemTime)> = std::fs::read_dir(dir)
         .ok()?
         .filter_map(|entry| entry.ok())
-        .filter(|entry| entry.file_name().to_str().is_some_and(|name| name.starts_with("Armada") && name.ends_with(".ips")))
+        .filter(|entry| entry.file_name().to_str().is_some_and(is_armada_ips))
         .filter_map(|entry| Some((entry.path(), entry.metadata().ok()?.modified().ok()?)))
         .collect();
     pick_report(&found, crash.at.into())
@@ -358,7 +539,10 @@ fn upload(name: &str, bytes: &[u8]) -> SessionUpload {
 /// `files` are each file's name and bytes.
 pub(crate) fn fix_dispatch(crash: &Crash, files: Vec<(String, Vec<u8>)>, repository: ManifestId) -> DispatchJob {
     let at = crash.at.with_timezone(&Local).format("%Y-%m-%d %H:%M");
-    let text = format!("Armada quit at {at} on this panic. Find the cause and fix it.\n\n{}", crash.panic);
+    let text = match crash.run {
+        None => format!("Armada quit at {at} on this panic. Find the cause and fix it.\n\n{}", crash.panic),
+        Some(_) => format!("Armada quit at {at} on this crash, which macOS reported. Find the cause and fix it.\n\n{}\n{}", crash.panic, crash.location),
+    };
     let start = StartSession {
         manifest_id: repository,
         title: None,
@@ -464,12 +648,88 @@ mod tests {
     #[test]
     fn only_armada_reports_are_looked_at() {
         let reports = dir("macos");
-        let crash = Crash { file: reports.join("crash-2026-11-14T110102Z.txt"), at: Utc::now(), panic: String::new(), location: String::new() };
+        let crash = Crash { file: reports.join("crash-2026-11-14T110102Z.txt"), at: Utc::now(), panic: String::new(), location: String::new(), run: None };
         std::fs::write(reports.join("git-2026-11-14-160242.ips"), "x").unwrap();
         assert_eq!(macos_report(&reports, &crash), None);
         std::fs::write(reports.join("Armada-2026-11-14-111520.ips"), "x").unwrap();
         assert_eq!(macos_report(&reports, &crash), Some(reports.join("Armada-2026-11-14-111520.ips")));
         let _ = std::fs::remove_dir_all(&reports);
+    }
+
+    /// A report as macOS writes one: a first line naming the app, then the report, cut to what is read.
+    fn ips(bundle: &str, pid: u32) -> String {
+        let head = format!(r#"{{"app_name":"Armada","bug_type":"309","bundleID":"{bundle}","name":"Armada"}}"#);
+        let body = format!(
+            r#"{{"pid":{pid},"procName":"Armada","exception":{{"codes":"0x1, 0x10","type":"EXC_BAD_ACCESS","signal":"SIGSEGV","subtype":"KERN_INVALID_ADDRESS at 0x0000000000000010"}},"faultingThread":1,
+"threads":[{{"frames":[{{"imageOffset":4,"imageIndex":0}}]}},{{"triggered":true,"frames":[{{"imageOffset":7292348,"symbol":"WTF::Detail::CallableWrapper::call(std::__1::error_code)","imageIndex":1}},{{"imageOffset":9,"imageIndex":0}}]}}],
+"usedImages":[{{"name":"Armada"}},{{"name":"WebKit"}}]}}"#
+        );
+        format!("{head}\n{body}")
+    }
+
+    #[test]
+    fn macos_report_names_the_exception_and_the_frame_it_faulted_in() {
+        let said = read_ips(&ips("dev.armada.bridge.native", 73126)).expect("the report reads");
+        assert_eq!(said.pid, 73126);
+        assert_eq!(said.exception, "EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x0000000000000010");
+        assert_eq!(said.frame, "WTF::Detail::CallableWrapper::call(std::__1::error_code) in WebKit", "the faulting thread's top frame, not the first thread's");
+        assert_eq!(read_ips(&ips("dev.armada.bridge.electron", 73126)), None, "another bundle's report is not read");
+        assert_eq!(read_ips("not a report"), None);
+    }
+
+    #[test]
+    fn macos_report_of_a_run_that_did_not_quit_is_offered_once() {
+        let crashes = dir("runs");
+        let reports = dir("runs-macos");
+        let written = |name: &str, text: String, at: SystemTime| {
+            let path = reports.join(name);
+            std::fs::write(&path, text).unwrap();
+            std::fs::File::options().write(true).open(&path).unwrap().set_modified(at).unwrap();
+            path
+        };
+        let began = SystemTime::now() - Duration::from_secs(600);
+        begin_run(&crashes, 100).unwrap();
+        std::fs::File::options().write(true).open(crashes.join("run-100")).unwrap().set_modified(began).unwrap();
+        begin_run(&crashes, 300).unwrap();
+        begin_run(&crashes, 7).unwrap();
+        end_run(&crashes, 300);
+
+        let runs = ended_runs(&crashes, 7);
+        assert_eq!(runs.iter().map(|run| run.pid).collect::<Vec<_>>(), [100], "a run that quit as he meant left no mark, and this run's own is passed over");
+        assert_eq!(newest_macos(&reports, &runs), None, "no report yet");
+
+        written("Armada-2026-11-17-150000.ips", ips(BUNDLE, 100), began - Duration::from_secs(60));
+        written("Armada-2026-11-17-161000.ips", ips(BUNDLE, 200), began + Duration::from_secs(60));
+        written("Armada-2026-11-17-161100.ips", ips("dev.armada.bridge.electron", 100), began + Duration::from_secs(120));
+        written("git-2026-11-17-161200.ips", ips(BUNDLE, 100), began + Duration::from_secs(180));
+        assert_eq!(newest_macos(&reports, &runs), None, "one before the run began, another pid's, another bundle's and another app's are not its crash");
+
+        let ours = written("Armada-2026-11-17-162203.ips", ips(BUNDLE, 100), began + Duration::from_secs(300));
+        let crash = newest_macos(&reports, &runs).expect("the run's crash");
+        assert_eq!((crash.file.as_path(), crash.panic.as_str(), crash.run.as_deref()), (ours.as_path(), "EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x0000000000000010", Some(crashes.join("run-100").as_path())));
+        assert_eq!(crash.location, "WTF::Detail::CallableWrapper::call(std::__1::error_code) in WebKit");
+
+        mark_seen(&crash).unwrap();
+        assert!(ended_runs(&crashes, 7).is_empty(), "seen, the run's mark is gone, so it shows once");
+        assert!(ours.exists() && !reports.join("Armada-2026-11-17-162203.ips.seen").exists(), "macOS's report is left as it is");
+        assert!(crashes.join("run-7").exists(), "this run's mark stands until it quits");
+        let _ = std::fs::remove_dir_all(&crashes);
+        let _ = std::fs::remove_dir_all(&reports);
+    }
+
+    #[test]
+    fn ended_runs_with_no_report_are_forgotten_and_the_offered_one_is_kept() {
+        let crashes = dir("forget");
+        for pid in [1, 2, 3] {
+            begin_run(&crashes, pid).unwrap();
+        }
+        let runs = ended_runs(&crashes, 3);
+        let offered = Crash { file: PathBuf::from("Armada.ips"), at: Utc::now(), panic: String::new(), location: String::new(), run: Some(crashes.join("run-2")) };
+        forget_runs(&runs, Some(&offered));
+        assert_eq!(ended_runs(&crashes, 3).iter().map(|run| run.pid).collect::<Vec<_>>(), [2]);
+        forget_runs(&ended_runs(&crashes, 3), None);
+        assert!(ended_runs(&crashes, 3).is_empty());
+        let _ = std::fs::remove_dir_all(&crashes);
     }
 
     #[test]
@@ -509,7 +769,7 @@ mod tests {
 
     #[test]
     fn start_a_job_to_fix_it_sends_the_words_and_both_reports_as_text() {
-        let crash = Crash { file: PathBuf::from("crash-2026-11-14T110102Z.txt"), at: at("2026-11-14T110102Z"), panic: "already borrowed".into(), location: "src/x.rs:3:9".into() };
+        let crash = Crash { file: PathBuf::from("crash-2026-11-14T110102Z.txt"), at: at("2026-11-14T110102Z"), panic: "already borrowed".into(), location: "src/x.rs:3:9".into(), run: None };
         let job = fix_dispatch(&crash, vec![("crash-2026-11-14T110102Z.txt".into(), b"panic: x".to_vec()), ("Armada-2026-11-14-111520.ips".into(), b"{}".to_vec())], ManifestId::carried("armada-1"));
         assert_eq!(job.start.manifest_id, ManifestId::carried("armada-1"));
         assert_eq!(job.kind, Some(DispatchKind::Bug));
@@ -521,6 +781,22 @@ mod tests {
         let names: Vec<(&str, &str)> = message.attachments.iter().map(|one| (one.name.as_str(), one.media_type.as_str())).collect();
         assert_eq!(names, vec![("crash-2026-11-14T110102Z.txt", "text/plain"), ("Armada-2026-11-14-111520.ips", "text/plain")]);
         assert_eq!(message.attachments[0].data, base64::engine::general_purpose::STANDARD.encode(b"panic: x"));
+    }
+
+    #[test]
+    fn start_a_job_to_fix_a_crash_macos_reported_names_the_exception_and_the_frame() {
+        let crash = Crash {
+            file: PathBuf::from("Armada-2026-11-17-162203.ips"),
+            at: at("2026-11-17T212203Z"),
+            panic: "EXC_BAD_ACCESS (SIGSEGV)".into(),
+            location: "call() in WebKit".into(),
+            run: Some(PathBuf::from("run-100")),
+        };
+        let job = fix_dispatch(&crash, vec![("Armada-2026-11-17-162203.ips".into(), b"{}".to_vec())], ManifestId::carried("armada-1"));
+        let Some(DispatchThen::Message(message)) = job.then.first() else { panic!("one message follows the start") };
+        assert!(message.text.contains("on this crash, which macOS reported. Find the cause and fix it."), "{}", message.text);
+        assert!(message.text.ends_with("EXC_BAD_ACCESS (SIGSEGV)\ncall() in WebKit"), "{}", message.text);
+        assert_eq!(message.attachments.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["Armada-2026-11-17-162203.ips"]);
     }
 
     #[test]
