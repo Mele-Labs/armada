@@ -393,7 +393,7 @@ fn glyph_inner(name: &str) -> Option<String> {
 
 /// The values a page's own stylesheet and a screen's read, written in beside them so the file needs nothing of Bridge's
 /// (`EXPORT_TOKENS`).
-fn declarations(look: &Look) -> String {
+pub(super) fn declarations(look: &Look) -> String {
     const COLORS: &[Token] = &[
         token::BG_BASE,
         token::BG_SUNKEN,
