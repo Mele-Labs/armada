@@ -494,20 +494,64 @@ mod tests {
         assert!(drawn(cx, Role::Article, &format!("Ready to try: {SHOT}")), "and the build opened under its rows");
     }
 
+    /// The review panel's chosen build, and how many builds it lists.
+    fn panel_of(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Option<(String, usize)> {
+        view.read_with(cx, |view, _| {
+            let review = view.review().filter(|review| review.open)?;
+            let chosen = view.review_chosen()?;
+            assert_eq!(chosen.kind, super::super::review::Kind::Build, "the panel holds the Job's builds");
+            Some((chosen.id, review.groups.iter().map(|group| group.items.len()).sum()))
+        })
+    }
+
     #[gpui::test]
-    fn a_needs_you_row_and_a_try_id_open_the_build_at_the_end_not_up_in_the_history(cx: &mut gpui::TestAppContext) {
+    fn a_press_on_the_needs_you_row_opens_the_review_panel_with_every_open_build_and_the_newest_chosen(cx: &mut gpui::TestAppContext) {
         let (view, cx) = on_screen_high(cx, "tool-edit", 1400., 700.);
         to_the_top(&view, cx);
+        press(cx, Role::Button, "Needs you");
+        press(cx, Role::Button, "Open Ready to try");
+        assert_eq!(panel_of(&view, cx), Some((id_of(&view, BARE, cx), 3)), "the three open builds are listed, the newest chosen");
+        assert!(!view.read_with(cx, |view, cx| view.needs_up("tool-edit", cx)), "the Needs you panel shut as the review panel opened");
+        assert!(drawn(cx, Role::Article, &format!("Ready to try: {BARE}")), "its detail is the build drawn whole");
+        for answer in ["Looks good", "Needs rework"] {
+            assert!(drawn(cx, Role::Button, answer), "with its answer {answer}");
+        }
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert_eq!(panel_of(&view, cx), None, "Esc closes the panel");
+    }
+
+    #[gpui::test]
+    fn a_try_id_and_a_builds_own_id_open_the_review_panel_on_that_build(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
         view.update_in(cx, |view, window, cx| view.open_artifact("tool-edit", "try:tool-edit", window, cx));
         redraw(cx);
-        assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)));
-        assert!(at_its_end(&view, cx));
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {BARE}")));
-        to_the_top(&view, cx);
+        assert_eq!(panel_of(&view, cx), Some((id_of(&view, BARE, cx), 3)), "the Job's row chooses its newest open build");
+        view.update_in(cx, |view, window, cx| view.close_review(window, cx));
         let shot = id_of(&view, SHOT, cx);
         assert!(view.update_in(cx, |view, window, cx| view.open_named(&shot, window, cx)));
         redraw(cx);
-        assert!(at_its_end(&view, cx), "a build's own id too");
+        assert_eq!(panel_of(&view, cx), Some((shot, 3)), "a build's own id chooses it");
+        assert!(drawn(cx, Role::Article, &format!("Ready to try: {SHOT}")));
+        view.update_in(cx, |view, window, cx| view.close_review(window, cx));
+        assert!(!view.update_in(cx, |view, window, cx| view.open_named("try:native/gone@0000", window, cx)), "a build the thread no longer holds opens nothing");
+        assert_eq!(panel_of(&view, cx), None);
+    }
+
+    #[gpui::test]
+    fn an_answer_in_the_panel_is_sent_with_the_build_and_the_next_open_build_comes_up(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
+        view.update_in(cx, |view, window, cx| view.open_artifact("tool-edit", "try:tool-edit", window, cx));
+        redraw(cx);
+        press(cx, Role::Button, "Looks good");
+        view.read_with(cx, |view, _| {
+            let sent = view.mock_ready.last().expect("the answer is sent");
+            assert_eq!((sent.answer.clone(), sent.branch.as_str()), (ReadyAnswer::LooksGood, "native/reviewer-brief"));
+        });
+        let bare = id_of(&view, BARE, cx);
+        let chosen = panel_of(&view, cx).map(|(id, _)| id).expect("the panel stays up");
+        assert_ne!(chosen, bare, "the next open build is chosen");
+        assert!([id_of(&view, FULL, cx), id_of(&view, SHOT, cx)].contains(&chosen));
     }
 
     #[gpui::test]
@@ -617,20 +661,6 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_session_id_form_and_the_branch_form_each_open_a_build_in_place(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = on_screen(cx, "tool-edit", 1400.);
-        view.update_in(cx, |view, window, cx| view.open_artifact("tool-edit", "try:tool-edit", window, cx));
-        redraw(cx);
-        assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)), "the Job's item opens its newest open build");
-        let shot = id_of(&view, SHOT, cx);
-        assert!(view.update_in(cx, |view, window, cx| view.open_named(&shot, window, cx)));
-        redraw(cx);
-        assert_eq!(pick_of(&view, cx), Some(shot), "a build's own id opens it");
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {SHOT}")));
-        assert!(!view.update_in(cx, |view, window, cx| view.open_named("try:native/gone@0000", window, cx)), "a build the thread no longer holds opens nothing");
-    }
-
-    #[gpui::test]
     fn a_build_answered_withdrawn_or_replaced_still_folds_to_one_line_and_a_put_off_one_is_a_row(cx: &mut gpui::TestAppContext) {
         let (_view, cx) = on_screen(cx, "tool-done", 1400.);
         for line in [
@@ -671,7 +701,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn needs_you_holds_one_item_for_the_job_with_a_plain_dismiss_and_no_answer_and_a_press_opens_the_card(cx: &mut gpui::TestAppContext) {
+    fn needs_you_holds_one_item_for_the_job_with_a_plain_dismiss_and_no_answer_and_a_press_opens_the_review_panel(cx: &mut gpui::TestAppContext) {
         let (view, cx) = on_screen(cx, "tool-edit", 1400.);
         view.update_in(cx, |view, window, cx| view.set_needs(true, None, window, cx));
         redraw(cx);
@@ -679,7 +709,7 @@ mod tests {
         assert!(!drawn_like(cx, Role::Button, "Remove Ready to try").is_empty(), "a plain dismiss puts it away");
         assert!(drawn_like(cx, Role::Button, "Answer Ready to try").is_empty(), "no disabled Answer stands on it");
         press(cx, Role::Button, "Open Ready to try");
-        assert_eq!(pick_of(&view, cx), Some(id_of(&view, BARE, cx)), "the newest open build is opened in place");
+        assert_eq!(panel_of(&view, cx).map(|(id, _)| id), Some(id_of(&view, BARE, cx)), "the newest open build is chosen in the review panel");
     }
 
     /// Whether a Refresh preview button is drawn inside the labelled element whose name starts with `inside`.

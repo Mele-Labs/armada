@@ -641,10 +641,10 @@ impl JobView {
             WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
                 self.open_review_on(item, window, cx);
             }
-            // A card waiting to be tried is in the thread: the press goes to it and pulses it once.
+            // A Job's builds to try are listed in the review panel, the newest chosen.
             WaitingSource::ReadyToTry => {
                 if let Some(job) = self.shown.clone() {
-                    self.go_to_ready(&job, item, window, cx);
+                    self.open_ready_review(&job, item, window, cx);
                 }
             }
             WaitingSource::FirstMessage | WaitingSource::Done => {}

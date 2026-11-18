@@ -1079,7 +1079,7 @@ impl JobView {
         let artifact = row.and_then(|row| self.row_artifact(id, &row.id, cx));
         let gone = artifact.as_deref().is_some_and(|named| self.artifact_gone(id, named));
         let own = row.is_some_and(|row| !matches!(row.act, NeedsYouAct::None));
-        // A card to try goes to the card, whatever act Fleet gave its row: Message would only go to the box.
+        // A card to try opens in the review panel, whatever act Fleet gave its row: Message would only go to the box.
         let card = row.is_some_and(|row| row.source == ipc::WaitingSource::ReadyToTry);
         let press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)> = match &artifact {
             Some(named) if !own || card => {
