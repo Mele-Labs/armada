@@ -17,6 +17,8 @@ pub(super) fn hue(group: Group) -> crate::look::Token {
     match group {
         Group::Requested => token::STATUS_AWAITING_REVIEW,
         Group::LookAgain => token::STATUS_HANDED_IN,
+        // Not a state of the pull request but what Armada did on it, so the accent and not a status hue.
+        Group::Reviewing => token::ACCENT,
         Group::Yours => token::STATUS_RUNNING,
         Group::Team => token::STATUS_NOT_STARTED,
         Group::Done => token::STATUS_COMPLETED_SUCCESS,
@@ -68,7 +70,7 @@ impl ReviewsScreen {
         in_order(&self.inbox.rows)
             .into_iter()
             .filter(|row| in_scope(&row.repository, names.as_deref()))
-            .filter(|row| self.lists.is_none_or(|list| row.lists.contains(&list)))
+            .filter(|row| self.lists.is_none_or(|list| row.lists.contains(&list) || (list == ipc::PullReviewList::Reviewing && row.reviewing)))
             .filter(|row| {
                 query.is_empty()
                     || row.title.to_lowercase().contains(&query)
@@ -168,6 +170,7 @@ impl ReviewsScreen {
             Some(ipc::PullReviewList::Team) => "Team",
             Some(ipc::PullReviewList::Assigned) => "Assigned",
             Some(ipc::PullReviewList::Mine) => "Mine",
+            Some(ipc::PullReviewList::Reviewing) => Group::Reviewing.said(),
         };
         let lists_name = format!("Lists: {lists_said}");
         let ink = if self.lists.is_none() { token::FG_MUTED } else { token::ACCENT };
@@ -175,7 +178,7 @@ impl ReviewsScreen {
             list_control(look)
                 .id("inbox-lists")
                 .text_color(look.color(ink))
-                .tooltip(tip("The forge's lists: requested of you, of your team, assigned, your own"))
+                .tooltip(tip("The forge's lists: requested of you, of your team, assigned, your own, and those you started reviewing in Armada"))
                 .on_click(cx.listener({
                     let name = lists_name.clone();
                     move |this, event: &gpui::ClickEvent, window, cx| {
@@ -349,6 +352,10 @@ impl ReviewsScreen {
             };
             labelled(div().id(SharedString::from(format!("checks-{number}"))).tooltip(tip(said)).child(mark), Role::Image, said)
         });
+        let reviewing = row.reviewing.then(|| {
+            let said = "You ran a review in Armada";
+            labelled(div().id(SharedString::from(format!("reviewing-{number}"))).tooltip(tip(said)).child(glyph("bot", look.length(token::SPACE_4), look.color(token::ACCENT))), Role::Image, said)
+        });
         let weight = if open { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
         let card = row_card(look, SharedString::from(format!("pr-row-{number}")), open, focused, true, look.length(token::SPACE_2))
             .cursor_pointer()
@@ -370,7 +377,8 @@ impl ReviewsScreen {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(SharedString::from(row.title.clone())),
                     )
-                    // The checks' column keeps its width on every row, so the titles line up whether it is marked or not.
+                    // The review and checks columns keep their width on every row, so the titles and marks line up whether a row is marked or not.
+                    .child(div().flex_none().w(look.length(token::SPACE_4)).children(reviewing))
                     .child(div().flex_none().w(look.length(token::SPACE_4)).children(checks)),
             )
             .child(labelled(

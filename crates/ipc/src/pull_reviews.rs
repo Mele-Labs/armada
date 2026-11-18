@@ -1,4 +1,4 @@
-//! The pull requests waiting on a person, as four lists read from the forge, and the acts a
+//! The pull requests waiting on a person, as five lists read from the forge, and the acts a
 //! review makes on one: a line comment, a reply, a resolve. `docs/concepts/pull-review.md`.
 //!
 //! **Read when the person opens the Reviews tab or presses Refresh, and never polled.** Armada
@@ -12,7 +12,8 @@ use serde::{Deserialize, Serialize};
 use crate::ids::{Instant, ManifestId};
 use crate::pull_requests::PullRequestReviewState;
 
-/// The four lists. A pull request can be on several.
+/// The four lists the forge answers, and the fifth from Fleet's own runs. A pull request can be on
+/// several of the four.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PullReviewList {
@@ -24,6 +25,9 @@ pub enum PullReviewList {
     Assigned,
     /// Opened by the person: the account Armada is signed in as, else the forge command line's.
     Mine,
+    /// One the person ran a review tool on in Armada and that is on none of the other four: from
+    /// Fleet's own record of review runs, then read from the forge by number.
+    Reviewing,
 }
 
 /// What a row's forge checks have come to. Not Armada's Checks.
@@ -77,10 +81,14 @@ pub struct PullReviewRow {
     /// Where it stands in his inbox, worked out by Fleet from `seen`, `head` and `my_review`.
     #[serde(default)]
     pub inbox: crate::pull_review_memory::PullInbox,
+    /// He ran a review tool on it in Armada, at any head: a tool, the change sets or the overview.
+    /// On a row of any list. False from a Fleet before it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reviewing: bool,
 }
 
-/// `get_review_lists`: the four lists, one forge call each, at most [`MOST_PER_LIST`] a list
-/// and newest-updated first.
+/// `get_review_lists`: the five lists, one forge call each, at most [`MOST_PER_LIST`] a list
+/// and newest-updated first, `reviewing` newest run first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullReviewLists {
     /// Who the person is on the forge: the "mine" login, the account Armada is signed in as for
@@ -92,6 +100,10 @@ pub struct PullReviewLists {
     pub team: Vec<PullReviewRow>,
     pub assigned: Vec<PullReviewRow>,
     pub mine: Vec<PullReviewRow>,
+    /// Open pull requests he ran a review tool on that are on none of the four lists above, newest
+    /// run first, at most [`MOST_PER_LIST`]. Every row has `reviewing`. Empty from a Fleet before it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reviewing: Vec<PullReviewRow>,
     /// The lists the forge would not answer. **Their rows above are empty and say nothing**, so
     /// a reader keeps what it last held for them. All four silent is a 500
     /// `fleet.review_lists_unreadable` and no body. **The forge's rate limit with nothing kept to show**
