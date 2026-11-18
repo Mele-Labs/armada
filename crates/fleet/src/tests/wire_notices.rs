@@ -45,6 +45,7 @@ fn a_rig() -> Rig {
     git(home.path(), &["-c", "init.defaultBranch=main", "init", "--quiet"]);
     for (path, text) in [
         ("crates/bridge-native/src/view.rs", "fn draw() {}\n"),
+        ("crates/bridge-native/src/waiting.rs", "use ipc::SessionRow;\n"),
         ("crates/ipc/src/hosted_sessions.rs", "pub struct SessionRow {}\n"),
         ("docs/notes.md", "notes\n"),
     ] {
@@ -176,6 +177,23 @@ async fn a_queued_wire_change_is_told_to_the_job_whose_branch_reads_the_type_and
     assert!(rig.wire_words_to(&owner).await.is_empty(), "the pull request's own Job");
     assert!(rig.wire_words_to(&other_code).await.is_empty(), "a branch that reads nothing changed");
     assert!(rig.wire_words_to(&elsewhere).await.is_empty(), "a branch that changes nothing the wire is read from");
+}
+
+#[tokio::test]
+async fn a_branch_is_told_of_a_type_only_where_its_own_changed_files_read_it() {
+    let rig = a_rig();
+    // `waiting.rs` names the type on main; this branch never touches it.
+    let bystander = rig.a_job_in_slot(2, "crates/bridge-native/src/view.rs", "fn other() {}").await;
+    let reader = rig.a_job_in_slot(3, "crates/bridge-native/src/view.rs", "use ipc::SessionRow;").await;
+    rig.the_forge_says(PullQueue::Waiting);
+
+    rig.reads().await;
+
+    assert!(rig.wire_words_to(&bystander).await.is_empty(), "a file the branch did not change is not its read");
+    let told = rig.wire_words_to(&reader).await;
+    let [said] = told.as_slice() else { panic!("one word: {told:?}") };
+    assert!(said.contains("Read at crates/bridge-native/src/view.rs:2"), "{said}");
+    assert!(!said.contains("waiting.rs"), "{said}");
 }
 
 #[tokio::test]
