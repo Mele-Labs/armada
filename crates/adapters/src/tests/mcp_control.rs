@@ -123,3 +123,30 @@ fn a_line_that_is_not_a_control_answer_is_passed_over() {
         assert!(control_answer(line).is_none(), "{line}");
     }
 }
+
+/// A set names every server it hands the process, each with its file's settings unread, and is
+/// answered with what it added, removed and would not take: spike 40, CLI 2.1.301.
+#[test]
+fn a_set_carries_each_server_whole_and_its_answer_names_what_was_refused() {
+    let servers: std::collections::BTreeMap<String, crate::mcp_configured::McpConfig> = ipc::decode(
+        "servers",
+        br#"{"tracker-demo":{"type":"stdio","command":"python3","args":["server.py"],"env":{"PORT":"4100"}}}"#,
+    )
+    .unwrap();
+    assert_eq!(
+        mcp_request("x1", McpRequest::Set(&servers)),
+        r#"{"type":"control_request","request_id":"x1","request":{"subtype":"mcp_set_servers","servers":{"tracker-demo":{"args":["server.py"],"command":"python3","env":{"PORT":"4100"},"type":"stdio"}}}}"#
+    );
+
+    let answer = r#"{"type":"control_response","response":{"subtype":"success","request_id":"x1","response":{"added":["tracker-demo"],"removed":["notes-demo"],"errors":{"wiki-demo":"Invalid configuration: url is required"}}}}"#;
+    assert_eq!(
+        read(answer).outcome,
+        Ok(Answered::Set(crate::mcp_control::SetAnswer {
+            added: vec!["tracker-demo".to_string()],
+            removed: vec!["notes-demo".to_string()],
+            refused: [("wiki-demo".to_string(), "Invalid configuration: url is required".to_string())].into(),
+        }))
+    );
+    let nothing_changed = r#"{"type":"control_response","response":{"subtype":"success","request_id":"x2","response":{"added":[],"removed":[],"errors":{}}}}"#;
+    assert_eq!(read(nothing_changed).outcome, Ok(Answered::Set(Default::default())));
+}
