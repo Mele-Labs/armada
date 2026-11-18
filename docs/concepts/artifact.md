@@ -375,6 +375,8 @@ A `message` act opens a words field under its row, sent with ⌘↵.
 A take opens full width with F or Space, ← and → move between takes, and Esc goes back with the pick and the notes kept.
 A pick has a note box on each take not picked, a rank moves a take with ⌥↑ and ⌥↓, and a score marks each part of each take Keep or Drop.
 Send sits at the foot of a vote, with ⌘↵, and every control is reached by keyboard.
+A page with two or more votes has no Send on each: one Send picks bar is fixed at the foot of the page, also ⌘↵, and sends every vote that has a result as its own post.
+A vote with no pick stays open and reads Pick a take first, and a vote already sent as it stands is not sent again.
 
 **Rule.** The page never calls Fleet.
 It posts each press and vote to its host, which makes the call and posts the answer back for the page to draw.

@@ -84,6 +84,7 @@ mod reader;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
+mod reader_share;
 mod web_walk;
 pub(crate) mod rows;
 mod row_views;
@@ -1042,7 +1043,9 @@ impl JobView {
         }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
-        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
+        // The pin is keyed by the sketch's ledger id, which a revision drawn against an earlier title keeps while its title changes.
+        let pinned = held.head.sketch.as_ref().map(|one| one.sketch.as_str());
+        extras.retain(|extra| !(matches!(extra, Extra::Sketch(_)) && pinned.is_some_and(|ledger| self.is_part(id, ledger))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);

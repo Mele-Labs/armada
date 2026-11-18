@@ -636,15 +636,15 @@ impl JobView {
             // A draft opens its card as a tab, and a page owed alone is read in its own (`openOwedDocument`).
             WaitingSource::Draft => self.open_draft_tab(item.strip_prefix("draft:").unwrap_or(item), window, cx),
             WaitingSource::Document if self.shown.as_ref().and_then(|id| self.sole_document(id, cx)).is_some_and(|page| super::review::page_of_item(item) == Some(page.as_str())) => {
-                self.open_document_tab(super::review::page_of_item(item).unwrap_or(item), window, cx);
+                self.open_document(super::review::page_of_item(item).unwrap_or(item), window, cx);
             }
             WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document => {
                 self.open_review_on(item, window, cx);
             }
-            // A card waiting to be tried is in the thread: the press goes to it and pulses it once.
+            // A Job's builds to try are listed in the review panel, the newest chosen.
             WaitingSource::ReadyToTry => {
                 if let Some(job) = self.shown.clone() {
-                    self.go_to_ready(&job, item, window, cx);
+                    self.open_ready_review(&job, item, window, cx);
                 }
             }
             WaitingSource::FirstMessage | WaitingSource::Done => {}

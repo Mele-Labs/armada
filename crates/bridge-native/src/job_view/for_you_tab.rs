@@ -278,9 +278,9 @@ impl JobView {
                 match item.opens {
                     ForYouOpens::Artifact { id } => self.open_artifact(job, &id, window, cx),
                     ForYouOpens::Walk { url } => self.press_walk(&url, window, cx),
-                    // A Job's builds to try go to its card in the thread, as the Needs you row does.
+                    // A Job's builds to try open in the review panel, as the Needs you row does.
                     ForYouOpens::Waiting { id } if super::ready_card::is_card(&id) => {
-                        self.go_to_ready(job, &id, window, cx);
+                        self.open_ready_review(job, &id, window, cx);
                     }
                     ForYouOpens::Waiting { id } => self.set_needs(true, Some(format!("item:{id}")), window, cx),
                     ForYouOpens::Plan => self.add_tab("plan", window, cx),
@@ -675,6 +675,51 @@ mod tests {
         assert_eq!(waiting(&view, cx).len(), 2);
         let said = view.read_with(cx, |view, _| view.for_you.refused.get(&(JOB.to_string(), "sketch:Chip states".to_string())).cloned());
         assert_eq!(said.as_deref(), Some("The id names no row"));
+    }
+
+    #[gpui::test]
+    fn the_review_button_on_a_ready_to_try_row_opens_the_review_panel_with_the_newest_build_chosen(cx: &mut TestAppContext) {
+        use super::super::parts_fold::{drawn, redraw};
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("ready-to-try").expect("the fixture decodes");
+        let threads = crate::mock::threads("ready-to-try").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(900.)));
+        list.update(cx, |list, cx| list.open("tool-edit".to_string().into(), cx));
+        let row = ForYouItem {
+            id: "try:tool-edit".into(),
+            kind: ipc::ForYouKind::Approve,
+            title: "Ready to try".into(),
+            line: None,
+            placed: false,
+            since: ipc::Instant::carried("2026-11-15T14:02:00Z"),
+            added_by: ipc::ForYouBy::Fleet,
+            opens: ForYouOpens::Waiting { id: "try:tool-edit".into() },
+            approves: false,
+        };
+        let read = ForYou { job: SessionId::carried("tool-edit".to_string()), waiting: vec![row], building: Vec::new(), landing: Vec::new() };
+        view.update(cx, |view, cx| {
+            view.for_you.read.insert("tool-edit".into(), Some(read));
+            cx.notify();
+        });
+        redraw(cx);
+        let at = cx
+            .update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, "Review Ready to try").map(|one| one.bounds.center()))
+            .expect("the row has its Review button");
+        cx.simulate_click(at, gpui::Modifiers::none());
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review().filter(|review| review.open).and_then(|_| view.review_chosen()));
+        let chosen = chosen.expect("the review panel is open on an item");
+        assert_eq!(chosen.kind, super::super::review::Kind::Build);
+        assert_eq!(chosen.name, "The reviewer's brief names its files", "the newest open build is chosen");
+        assert!(drawn(cx, gpui::Role::Article, "Ready to try: The reviewer's brief names its files"), "drawn whole, with its answers");
     }
 
     #[test]

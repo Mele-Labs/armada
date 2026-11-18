@@ -73,7 +73,7 @@ They are not route bodies and have no operation file: the host's call to Fleet i
 | Page to host | `press` | `artifact, revision, action, words?` | The host calls `press_page_action` with the Job's `session_id` and these fields |
 | Page to host | `vote` | `artifact, revision, vote, result`, `result` exactly a `VoteResult` | The host calls `cast_page_vote` with the Job's `session_id` and these fields |
 | Host to page | `pressed` | `press`, the `PagePress` Fleet answered | The row turns green with a 3px success edge and reads `Sent to the Job: <label>`, then `, started Job <8 characters>` or `, answered`. Its buttons stay |
-| Host to page | `voted` | `cast`, the `VoteCast` Fleet answered | The vote shows the result and reads `Sent to the Job` beside Send |
+| Host to page | `voted` | `cast`, the `VoteCast` Fleet answered | The vote shows the result and reads `Sent to the Job` beside Send, or in its own status line where the page has Send picks |
 | Host to page | `refused` | `action?` or `vote?`, `code`, `message`, the refusal's | The row's line, or the vote's, shows `message`, and its button can be pressed again |
 
 A `message` act opens a words field under its row, sent with Send or ⌘↵, which is `words`.

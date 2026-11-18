@@ -25,7 +25,7 @@ use crate::dropdown::{Entry, Row};
 use crate::scene::{export, Clock, Fit, Lens};
 
 /// How long a save or a copy is said in the sheet's band.
-const SAID_FOR: Duration = Duration::from_secs(4);
+pub(super) const SAID_FOR: Duration = Duration::from_secs(4);
 
 /// What Save as image or Save as web page hands the save dialog.
 enum Shared {
@@ -577,7 +577,7 @@ impl JobView {
         .child(reading.zoom.probe())
             .child({
                 let clock = Clock { steps: reading.steps, flows: Some(reading.opened) };
-                let marks = self.marks_of(reading);
+                let marks = self.note_marks();
                 match reading.against.as_ref().filter(|_| reading.changes) {
                     Some((_, before)) => {
                         let key = format!("{}:changes", reading.key);
@@ -684,7 +684,7 @@ impl JobView {
         // The rail is a column of the frame beside the drawing, never a layer over it.
         let drawing = div().flex().flex_1().min_h_0().bg(look.color(token::BG_SUNKEN)).child(rail).child(pane);
         let foot = self.reading_foot(reading, &look, cx);
-        let note_box = self.render_note_box(reading, room, &look, cx);
+        let note_box = self.render_note_box(room, &look, cx);
         Some(
             deferred(
                 anchored().position(room.origin).anchor(Anchor::TopLeft).child(

@@ -7,7 +7,7 @@ use ipc::{
     SessionThread, SessionVoice, ThreadItem, TimelineEvent, TimelineKind, TimelineSubject, TimelineTone,
 };
 
-use crate::thread_view::{folded, tail_of, window, Revisions};
+use crate::thread_view::{folded, folded_with, tail_of, window, Revisions};
 
 pub(super) const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"A"}],"edges":[]}"#;
 
@@ -333,6 +333,20 @@ fn a_document_card_stands_before_the_first_row_written_after_its_revision() {
     let ThreadItem::Document(card) = &found[2] else { panic!("a card") };
     assert_eq!((card.revision, card.asked, card.title.as_str()), (2, true, "Video script"));
     assert!(card.settled.is_none());
+}
+
+#[test]
+fn a_ready_card_stands_at_its_offer_though_an_early_row_was_rewritten_later() {
+    // A settled ask is kept under one id, so its row stays where it first stood while its time moves on.
+    let mut rewritten = agent("ask", 1, "ask");
+    if let SessionRow::Message { at, .. } = &mut rewritten {
+        *at = self::at(50);
+    }
+    let card = r#"{"id":"try:b@t","at":"2026-11-03T10:10:00.000Z","offered_at":"2026-11-03T10:10:00.000Z","branch":"b","tip":"t","about":"One","in_build":false,"state":"open"}"#;
+    let card: ipc::ThreadReadyToTry = ipc::decode("a card", card.as_bytes()).expect("a card");
+    let rows = vec![agent("a", 0, "x"), rewritten, agent("b", 5, "y"), agent("c", 20, "z")];
+    let found = folded_with(&thread(rows), &[], &Revisions::new(), &[card]).1;
+    assert_eq!(ids(&found), ["a", "ask", "b", "try:b@t", "c"]);
 }
 
 #[test]

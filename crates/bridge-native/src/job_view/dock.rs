@@ -286,6 +286,7 @@ impl JobView {
         use NeedsYouSectionKind as Kind;
         let hidden = self.dock_of(id).map(|dock| &dock.hidden);
         let held = self.thread(id, cx);
+        let card_stands = self.ready_pinned_for(id, cx);
         let asked = held.and_then(|held| held.head.asked.as_ref());
         let carries = |row: &NeedsYouRow| asked.is_some_and(|ask| row.id == format!("ask:{}", ask.call.call) || row.id == format!("perm:{}", ask.call.call));
         let mut carried = false;
@@ -298,6 +299,8 @@ impl JobView {
                 .rows
                 .iter()
                 .filter(|row| !hidden.is_some_and(|hidden| hidden.contains(&row.id)))
+                // The card pinned at the thread's end says it; the row would repeat it.
+                .filter(|row| !(card_stands && row.source == ipc::WaitingSource::ReadyToTry))
                 // A To do stands in its own strip over the box (`todo_strip.rs`).
                 .filter(|row| !is_todo(row))
                 .filter_map(|row| match asked {
@@ -332,11 +335,11 @@ impl JobView {
     /// Whether the band offers the review sheet: where Fleet says so, and wherever a page waits on him at all. Fleet keeps a
     /// lone plan, sketch or draft on its thread card, which can sit far up a long thread; he looks for it here (16 Nov).
     pub(super) fn band_reviews(&self, id: &str, cx: &gpui::App) -> bool {
+        let card_stands = self.ready_pinned_for(id, cx);
         self.needs_of(id, cx).is_some_and(|view| {
-            view.review_in_band
-                || view.sections.iter().any(|section| {
-                    section.kind == NeedsYouSectionKind::ToReview && section.rows.iter().any(|row| row.source != ipc::WaitingSource::ReadyToTry)
-                })
+            // Fleet sets `review_in_band` for a card to try alone; with the card pinned that is no reason for the sheet.
+            let pages = view.sections.iter().any(|section| section.kind == NeedsYouSectionKind::ToReview && section.rows.iter().any(|row| row.source != ipc::WaitingSource::ReadyToTry));
+            pages || (view.review_in_band && !card_stands)
         })
     }
 
@@ -500,7 +503,24 @@ impl JobView {
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
                 Thing::Row(_) => None,
             })
-            .chain(view.into_iter().flat_map(|view| view.glyphs.iter().filter(|glyph| glyph.kind != NeedsYouGlyphKind::Todo).map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))))
+            .chain(view.into_iter().flat_map(|view| {
+                // Fleet's glyph for a Ready to try row is the row's own; the pinned card stands for it.
+                let mut card_glyphs: Vec<&ipc::NeedsYouGlyph> = match self.ready_pinned_for(id, cx) {
+                    true => view.sections.iter().flat_map(|section| &section.rows).filter(|row| row.source == ipc::WaitingSource::ReadyToTry).map(|row| &row.glyph).collect(),
+                    false => Vec::new(),
+                };
+                view.glyphs
+                    .iter()
+                    .filter(|glyph| glyph.kind != NeedsYouGlyphKind::Todo)
+                    .filter(move |glyph| match card_glyphs.iter().position(|card| card == glyph) {
+                        Some(at) => {
+                            card_glyphs.swap_remove(at);
+                            false
+                        }
+                        None => true,
+                    })
+                    .map(|glyph| (icon_of(glyph.kind), glyph.said.clone()))
+            }))
             // Fleet leaves a lone page's mark off its glyphs; the band names it all the same.
             .chain(
                 view.filter(|view| !view.review_in_band)
@@ -660,8 +680,18 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     fn restart_key(&self, id: &str, command: String, build: BuildSource, adopt: bool, label: SharedString, corner: Option<Pixels>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let mark = self.dock_of(id).and_then(|dock| dock.runs.get(&command).cloned());
-        let held = matches!(mark, Some(RunMark::Running | RunMark::Passed));
+        // A preview rebuild under way, from this key or any other Refresh preview, holds the key at its stage until Fleet is back.
+        let refreshing = if build == BuildSource::Preview { self.preview_refreshing(cx) } else { None };
+        let held = refreshing.is_some() || matches!(mark, Some(RunMark::Running | RunMark::Passed));
         let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
+        let said = refreshing.map_or(said, SharedString::from);
+        let label = if refreshing.is_some() { SharedString::from("Refreshing") } else { label };
+        let ink = look.color(token::FG_INVERSE);
+        let mark: AnyElement = if refreshing.is_some() {
+            crate::titlebar::parts::spinner(SharedString::from(format!("needs-refreshing:{command}")), look.length(token::TEXT_XS), ink, cx).into_any_element()
+        } else {
+            glyph(look, icon, Size::Small, ink).into_any_element()
+        };
         let accent = look.color(token::ACCENT);
         let hover = look.color(token::ACCENT_HOVER);
         labelled(
@@ -678,7 +708,7 @@ impl JobView {
                 .text_size(look.length(token::TEXT_XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .when(!held, move |key| key.cursor_pointer().hover(move |style| style.bg(hover)))
-                .child(glyph(look, icon, Size::Small, look.color(token::FG_INVERSE)))
+                .child(mark)
                 .child(label.clone())
                 .tooltip(tip(said.to_string()))
                 .when(!held, |key| {
@@ -727,11 +757,18 @@ impl JobView {
                     Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
                 })
                 .await;
+            let took = answer.is_ok();
             let mark = match answer {
                 Ok(()) => RunMark::Passed,
                 Err(why) => RunMark::Failed(why.into()),
             };
-            let _ = this.update(cx, |this, cx| this.mark_run(&job, &command, Some(mark), cx));
+            let _ = this.update(cx, |this, cx| {
+                // Every other Refresh preview reads the rebuild from Fleet's build report, so it is marked there at once.
+                if let Some(fleet) = this.fleet.clone().filter(|_| took) {
+                    fleet.update(cx, |fleet, cx| fleet.restarting(build, cx));
+                }
+                this.mark_run(&job, &command, Some(mark), cx)
+            });
         })
         .detach();
     }
@@ -1022,7 +1059,7 @@ impl JobView {
             // A page he is only to read opens in the reader at once, beside whatever else is owed.
             NeedsYouAct::OpenDocument { path } if item.starts_with("read:") => {
                 self.set_needs(false, None, window, cx);
-                self.open_document_tab(path, window, cx);
+                self.open_document(path, window, cx);
             }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.
@@ -1079,7 +1116,7 @@ impl JobView {
         let artifact = row.and_then(|row| self.row_artifact(id, &row.id, cx));
         let gone = artifact.as_deref().is_some_and(|named| self.artifact_gone(id, named));
         let own = row.is_some_and(|row| !matches!(row.act, NeedsYouAct::None));
-        // A card to try goes to the card, whatever act Fleet gave its row: Message would only go to the box.
+        // A card to try opens in the review panel, whatever act Fleet gave its row: Message would only go to the box.
         let card = row.is_some_and(|row| row.source == ipc::WaitingSource::ReadyToTry);
         let press: Box<dyn Fn(&mut JobView, &mut Window, &mut Context<JobView>)> = match &artifact {
             Some(named) if !own || card => {
