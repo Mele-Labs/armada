@@ -1801,10 +1801,9 @@ pub static WALKS: &[Walk] = &[
         scenario: "artifact-asides",
         steps: &[
             press_on("A Job's one artifact asks which way an aside opens", "row", "Edit the merge line", "status", "Asking"),
-            step("Read up, away from the artifact's card", Verb::Wheel("region", "Thread", -2400), "button", "Needs you"),
-            press_on("Needs you holds the question about it", "button", "Needs you", "button", "Open Asides"),
-            press_on("A press on the question's words opens the review panel, the artifact picked", "button", "Open Asides", "dialog", "Review"),
+            press_on("A press on the question about it opens the review panel, the artifact picked", "button", "Open Asides", "dialog", "Review"),
             step("The two takes stand side by side, each picture across its tile", Verb::Look, "radio", "Pick A \u{b7} Beside the thread"),
+            step("Esc shuts the panel: the thread is as it was", Verb::Key("escape"), "button", "Open Asides"),
         ],
     },
     Walk {
@@ -2722,7 +2721,9 @@ pub static WALKS: &[Walk] = &[
             step("The chosen item: its head, its body and its notes", Verb::Look, "region", "Plan v2"),
             step("J moves down", Verb::Key("j"), "region", "Tail layout"),
             step("K moves back", Verb::Key("k"), "region", "Plan v2"),
-            step("The foot holds the item's answers, then a rule, then Approve all and Dismiss all", Verb::Look, "toolbar", "Every item"),
+            step("The chosen item's answers stand in its band, at the right of its title", Verb::Look, "button", "Approve"),
+            step("The list's foot holds Approve all, and the caret beside it holds Dismiss all", Verb::Look, "toolbar", "Every item"),
+            step("The caret", Verb::Look, "button", "More for every item"),
             step("A approves this item alone", Verb::Key("a"), "img", "Approved"),
             step("The next open item comes up", Verb::Look, "region", "Tail layout"),
             step("C with no notes puts the caret in the item's notes", Verb::Key("c"), "textbox", "Notes"),

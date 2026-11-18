@@ -67,6 +67,7 @@ mod operator;
 mod pairing;
 mod palette;
 mod paste_link;
+mod pasteboard;
 mod point;
 mod queued;
 mod restart_fleet;
