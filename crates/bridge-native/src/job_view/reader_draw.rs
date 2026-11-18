@@ -8,7 +8,7 @@
 //! | Gutter | Each note pinned beside its block; a table takes the whole width and its notes stand under it; in a narrow reader every note stands under its paragraph |
 //!
 //! Keys, with the reader holding the focus: N a note on the words picked, J and K between notes, Enter into the one
-//! on, Backspace drops it, A C D answer, E edits, R the revisions, T the contents.
+//! on, Backspace drops it, A C D answer, E edits, R the revisions, T the contents, S shares a page.
 
 use gpui::{div, prelude::*, px, AnyElement, Context, FontWeight, Hsla, KeyDownEvent, Role, SharedString, Window};
 use gpui_component::input::{Enter, Textarea};
@@ -61,6 +61,7 @@ pub(super) enum RKey {
     Drop,
     Revisions,
     Contents,
+    Share,
 }
 
 /// What a bare key means to the reader. A, C and D answer only while it asks, E edits only where it can.
@@ -77,6 +78,7 @@ pub(super) fn key_of(key: &str, asking: bool, editable: bool, page: bool) -> Opt
         "backspace" | "delete" => RKey::Drop,
         "r" => RKey::Revisions,
         "t" => RKey::Contents,
+        "s" if page => RKey::Share,
         _ => return None,
     })
 }
@@ -238,6 +240,15 @@ impl JobView {
         let line = subject.for_line.as_ref().filter(|line| line.text.as_deref().is_some_and(|text| !text.trim().is_empty()) || !line.links.is_empty());
         let line = if editing { words } else { line.map(|line| self.reader_for_line(name, line, look)) };
         let notes = self.reader_notes_button(id, name, held.notes_on, look, cx);
+        // Share, last of the acts as Classic's head has it, with what a save came to before it.
+        let share = (subject.form == ArtifactForm::Page && !editing).then(|| self.reader_share_button(id, name, look, cx));
+        let shared = held.shared.clone().map(|said| {
+            labelled(
+                div().id(SharedString::from(format!("reader-shared:{name}"))).flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said.clone()),
+                Role::Status,
+                said,
+            )
+        });
         let (under_acts, foot_acts) = if pinned { ((None, None, None), (switch, away, Some(notes))) } else { ((switch, away, Some(notes)), (None, None, None)) };
         let under = div()
             .flex()
@@ -247,7 +258,9 @@ impl JobView {
             .children(yours.map(|said| super::band_card::yours_pill(look, format!("reader-yours:{name}"), said)))
             .children(under_acts.0)
             .children(under_acts.1)
-            .children(under_acts.2);
+            .children(under_acts.2)
+            .children(shared)
+            .children(share);
         let foot = pinned.then(|| {
             labelled(
                 div()
@@ -917,6 +930,7 @@ impl JobView {
             RKey::Contents => {
                 self.reader_contents(id, name, gpui::point(px(240.), px(96.)), true, window, cx);
             }
+            RKey::Share => self.reader_share(id, name, window, cx),
         }
     }
 
@@ -996,6 +1010,8 @@ mod tests {
         assert_eq!(key_of("enter", true, true, false), Some(RKey::Into));
         assert_eq!(key_of("backspace", true, true, false), Some(RKey::Drop));
         assert_eq!(key_of("x", true, true, false), None);
+        assert_eq!(key_of("s", false, false, true), Some(RKey::Share), "S shares a page");
+        assert_eq!(key_of("s", true, true, false), None, "a draft has no Share");
     }
 
     #[test]

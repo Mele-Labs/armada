@@ -25,7 +25,7 @@ use crate::dropdown::{Entry, Row};
 use crate::scene::{export, Clock, Fit, Lens};
 
 /// How long a save or a copy is said in the sheet's band.
-const SAID_FOR: Duration = Duration::from_secs(4);
+pub(super) const SAID_FOR: Duration = Duration::from_secs(4);
 
 /// What Save as image or Save as web page hands the save dialog.
 enum Shared {

@@ -358,6 +358,8 @@ pub(super) struct Reader {
     pub said: Option<SharedString>,
     /// The heading of a page the contents mark: the one last gone to, since the page scrolls inside its own view.
     pub at_head: usize,
+    /// What a save from Share came to, said in the band for a moment.
+    pub shared: Option<SharedString>,
     /// Ask for changes, opened in place under the answers: what should change, sent with the notes on the words.
     pub ask: Option<(Entity<TextareaState>, Subscription)>,
 }
@@ -385,6 +387,7 @@ impl Reader {
             width: Rc::new(Cell::new(gpui::px(0.))),
             said: None,
             at_head: 0,
+            shared: None,
             ask: None,
         }
     }
