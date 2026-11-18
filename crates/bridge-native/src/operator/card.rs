@@ -1,4 +1,4 @@
-//! The card: one decision, drawn whole in front, folded to one line while he talks about it, and whole again where the
+//! The card: one decision, drawn whole in front, folded to one line while the talk under it overflows, and whole again where the
 //! Operator raises one in the talk. Its frame and chips wear the Operator's hue; a head band names its kind, title and Jobs;
 //! My read and the options are its body; Snooze and Discuss are its foot.
 //!
@@ -429,20 +429,22 @@ impl OperatorPageView {
             .child(discuss)
     }
 
-    /// The card folded to one line: its kind, title and Jobs, and a chevron that opens it again.
-    pub(super) fn folded(&self, turn: &OperatorTurnItem, open: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let title = face::card_title(turn);
-        let said = format!("{} {title}", if open { "Fold" } else { "Unfold" });
+    /// The card in front folded to one line while the talk overflows: its title, the Operator's last act, and a chevron. A
+    /// press opens it.
+    pub(super) fn folded(&self, id: &str, title: SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let said = format!("Unfold {title}");
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let last = self.page.as_ref().and_then(|page| page.feed.first()).map(|entry| super::status::last_act(entry, now));
         let line = div()
-            .id(SharedString::from(format!("folded-{}", turn.id)))
+            .id(SharedString::from(format!("folded-{id}")))
             .flex_none()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_2))
-            .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_2))
+            .gap(look.length(token::SPACE_3))
+            .h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
-            .rounded(look.length(token::RADIUS_LG) * 1.25)
+            .rounded(round(look))
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::OPERATOR_EDGE))
             .bg(look.color(token::OPERATOR_FAINT))
@@ -450,11 +452,19 @@ impl OperatorPageView {
             .focusable()
             .tab_stop(true)
             .focus_visible(move |style| style.border_color(ring))
-            .tooltip(tip(if open { "Fold the card to one line" } else { "Open the card beside the talk" }))
-            .child(kind_chip(face::kind_of(turn), look))
-            .child(div().flex_none().max_w(gpui::relative(0.5)).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
-            .child(div().flex_1().min_w_0().overflow_hidden().flex().items_center().gap(look.length(token::SPACE_2)).children(self.names(turn, false, look, cx)))
-            .child(glyph(if open { "chevron-down" } else { "chevron-right" }, look.length(token::SPACE_4), look.color(token::OPERATOR)));
-        labelled(pressed(line, cx, |this, _, cx| this.toggle_fold(cx)), Role::Button, said).into_any_element()
+            .tooltip(tip("Open the card above the talk"))
+            .child(div().flex_none().max_w(gpui::relative(0.6)).truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title))
+            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).children(last))
+            .child(glyph("chevron-right", look.length(token::SPACE_4), look.color(token::OPERATOR)));
+        // The line goes once it is open, so the keys go back to the page.
+        labelled(
+            pressed(line, cx, |this, window, cx| {
+                this.unfold(cx);
+                window.focus(&this.focus, cx);
+            }),
+            Role::Button,
+            said,
+        )
+        .into_any_element()
     }
 }

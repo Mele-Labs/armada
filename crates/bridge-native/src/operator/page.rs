@@ -2,11 +2,11 @@
 //! Operator is allowed to do unasked. Every press answers at once: the page moves first and takes Fleet's page when it
 //! comes. A refusal puts the card back and says why on it.
 
-use std::cell::RefCell;
+use std::cell::{Cell, RefCell};
 use std::collections::{BTreeSet, HashMap};
 use std::rc::Rc;
 
-use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
+use gpui::{App, AppContext as _, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable as _, FollowMode, ListAlignment, ListState, Pixels, ScrollHandle, SharedString, Subscription, Task, Window};
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorAnswered, OperatorPage, OperatorThen, OperatorTurnItem};
 use ipc::{OperatorActs, ParkedIdea, SessionId, WaitingAct};
@@ -43,15 +43,13 @@ pub struct Arrived(pub Vec<OperatorTurnItem>);
 impl EventEmitter<Opened> for OperatorPageView {}
 impl EventEmitter<Arrived> for OperatorPageView {}
 
-/// A talk about a card: the card folds to one line and the Operator's thread runs under it.
+/// A talk about a card: his words with its tag, and the cards the Operator raises about it, in the talk under the card.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Talk {
     /// The card's id.
     pub about: String,
-    /// The card's title, for the tag in the box and the folded line.
+    /// The card's title, for the tag in the box and the talk's About row.
     pub title: SharedString,
-    /// The folded card is open again, beside the talk.
-    pub unfolded: bool,
     /// What he sent that the thread has not echoed yet, drawn as his own message.
     pub sent: Option<SharedString>,
 }
@@ -113,7 +111,17 @@ pub struct OperatorPageView {
     /// The front card waits to be scrolled to and given the keys at the next frame.
     pub(super) pairing_reveal: bool,
     pub(super) main_scroll: ScrollHandle,
-    pub(super) talk_scroll: ScrollHandle,
+    /// The talk under the card, a list that follows its tail, and the rows it draws.
+    pub(super) talk_list: ListState,
+    pub(super) talk_said: Vec<super::talk::Said>,
+    /// The talk has overflowed its space: the card in front folds to one line from then on.
+    pub(super) talk_long: Rc<Cell<bool>>,
+    /// He opened the folded card. It folds again when the talk grows or he sends.
+    pub(super) unfolded: bool,
+    /// The cards that would have taken the front while it was folded or the talk in use, oldest first: the new-card strip.
+    pub(super) fresh: Vec<String>,
+    /// How long the live thread was when the talk last read it, so a change elsewhere in Fleet does not read it again.
+    talk_heard: Option<(usize, Option<String>)>,
     /// The page's first tab stop, its first pill: where Tab goes from the page itself.
     pub(super) first_stop: FocusHandle,
     /// The open card's Snooze, so a test can put the keys on a press.
@@ -191,7 +199,16 @@ impl OperatorPageView {
             pairing_focus: cx.focus_handle(),
             pairing_reveal: false,
             main_scroll: ScrollHandle::new(),
-            talk_scroll: ScrollHandle::new(),
+            talk_list: {
+                let list = ListState::new(0, ListAlignment::Top, gpui::px(600.));
+                list.set_follow_mode(FollowMode::Tail);
+                list
+            },
+            talk_said: Vec::new(),
+            talk_long: Rc::new(Cell::new(false)),
+            unfolded: false,
+            fresh: Vec::new(),
+            talk_heard: None,
             first_stop: cx.focus_handle(),
             later_focus: cx.focus_handle(),
             option_focus: RefCell::new(HashMap::new()),
@@ -237,6 +254,7 @@ impl OperatorPageView {
             if ready && !this.parked.read(cx).is_read() && !this.parked_reading {
                 this.read_parked(cx);
             }
+            this.heard_thread(cx);
         }));
         // An idea kept for later is on the list as the Operator says it was kept.
         this.subs.push(cx.subscribe(fleet, |this, _, done: &crate::fleet::Dispatched, cx| {
@@ -301,7 +319,8 @@ impl OperatorPageView {
     /// The card in front: the one he brought there, else the first in line.
     pub fn open_item(&self) -> Option<&OperatorTurnItem> {
         let queue = self.queue();
-        self.open.as_deref().and_then(|open| queue.iter().copied().find(|turn| turn.id == open)).or_else(|| queue.first().copied())
+        // A card waiting in the new-card strip is not in front until he shows it.
+        self.open.as_deref().and_then(|open| queue.iter().copied().find(|turn| turn.id == open)).or_else(|| queue.iter().copied().find(|turn| !self.fresh.contains(&turn.id)))
     }
 
     /// The cards waiting behind the one in front, in the order Fleet queues them.
@@ -352,6 +371,9 @@ impl OperatorPageView {
     /// is told once. A card he settled here stays out of the queue, though Fleet keeps one whose act it left to him
     /// to open until he does it.
     pub fn set_page(&mut self, mut page: OperatorPage, cx: &mut Context<Self>) {
+        // While the card is folded or the talk in use, a card that would take the front waits in the strip instead.
+        let holds = self.page.is_some() && self.holds_front(cx);
+        let was_front = self.open_item().map(|turn| turn.id.clone());
         // A card whose press is in flight stays in the feed's working entries, though Fleet's page may be older than the press.
         let local: Vec<OperatorTurnItem> = self
             .page
@@ -362,8 +384,10 @@ impl OperatorPageView {
         let was_back: BTreeSet<String> = self.page.as_ref().map(|old| old.turn.iter().filter(|turn| face::returned(turn)).map(|turn| turn.id.clone()).collect()).unwrap_or_default();
         let came_back = page.turn.iter().find(|turn| face::returned(turn) && !was_back.contains(&turn.id) && !self.settled.contains(&turn.id)).map(|turn| turn.id.clone());
         let ids: BTreeSet<String> = page.turn.iter().map(|turn| turn.id.clone()).collect();
+        let mut new_ids: Vec<String> = Vec::new();
         if let Some(seen) = &self.seen {
             let new: Vec<OperatorTurnItem> = page.turn.iter().filter(|turn| !seen.contains(&turn.id)).cloned().collect();
+            new_ids = new.iter().map(|turn| turn.id.clone()).collect();
             if !new.is_empty() {
                 cx.emit(Arrived(new));
             }
@@ -377,11 +401,20 @@ impl OperatorPageView {
         if self.talk.as_ref().is_some_and(|talk| !ids.contains(&talk.about)) {
             self.talk = None;
         }
-        let keep = self.open.as_ref().filter(|open| self.queue().iter().any(|turn| &turn.id == *open)).cloned();
-        self.open = keep.or_else(|| self.queue().first().map(|turn| turn.id.clone()));
-        // A card that came back stands ahead of the rest, and what went wrong needs his eyes: it takes the front, unless he is
-        // talking about the card there.
-        if let Some(id) = came_back.filter(|_| self.talk.is_none()) {
+        let queued: Vec<String> = self.queue().iter().map(|turn| turn.id.clone()).collect();
+        self.fresh.retain(|id| queued.contains(id));
+        if holds {
+            // What would have come in front: a card that came back, or the first new one where nothing was in front.
+            let would = came_back.clone().or_else(|| was_front.is_none().then(|| queued.iter().find(|id| new_ids.contains(id)).cloned()).flatten());
+            if let Some(id) = would.filter(|id| !self.fresh.contains(id) && Some(id) != was_front.as_ref()) {
+                self.fresh.push(id);
+            }
+        }
+        let keep = self.open.as_ref().filter(|open| queued.contains(open)).cloned();
+        self.open = keep.or_else(|| queued.iter().find(|id| !self.fresh.contains(id)).cloned());
+        // A card that came back stands ahead of the rest, and what went wrong needs his eyes: it takes the front, unless the
+        // card there is folded or the talk in use, where it waits in the strip.
+        if let Some(id) = came_back.filter(|_| !holds) {
             self.open = Some(id);
             self.idea_front = None;
             self.working_front = None;
@@ -389,9 +422,8 @@ impl OperatorPageView {
         }
         let working = self.page.as_ref().map_or(&[][..], |page| page.working.as_slice());
         self.working_front = self.working_front.take().filter(|id| working.iter().any(|one| one.id == *id));
-        if self.talk.is_some() {
-            self.read_thread(cx);
-        }
+        self.read_thread(cx);
+        self.sync_talk(cx);
         cx.notify();
     }
 
@@ -401,6 +433,10 @@ impl OperatorPageView {
         // ⌥M puts the caret in the box from anywhere on the page, as it does in a Job's view.
         if act.is("message_job") {
             return self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+        }
+        // ⌘Enter is Show where the new-card strip stands and the box holds no words to send.
+        if act.is("send_message") && !self.fresh.is_empty() && self.composer.read(cx).words(cx).trim().is_empty() {
+            return self.show_fresh(window, cx);
         }
         if self.composer.read(cx).has_keys(window, cx) {
             // ⌘Enter sends from the box; every other act is the box's to take, or goes on.
@@ -418,6 +454,10 @@ impl OperatorPageView {
         // Esc puts the Operator's own card back where a kept idea, or a card he picked, is in front.
         if act.is("close") && (self.idea_front.take().is_some() || self.working_front.take().is_some()) {
             cx.notify();
+            return;
+        }
+        // A stopped Operator stands in front of the queued card: its keys wait until it is back.
+        if self.stopped_in_front() && matches!(act.id, "call_yes" | "call_send" | "call_snooze" | "call_ask" | "call_pick") {
             return;
         }
         match act.id {
@@ -522,9 +562,20 @@ impl OperatorPageView {
             self.composer.update(cx, |composer, cx| composer.untag(cx));
         }
         self.open = Some(id.to_string());
+        self.fresh.retain(|one| one != id);
         self.idea_front = None;
         self.working_front = None;
         self.main_scroll.set_offset(gpui::Point::default());
+        cx.notify();
+    }
+
+    /// Show, on the new-card strip, or ⌘Enter while it stands: the newest card comes in front, unfolded, and the strip goes.
+    pub fn show_fresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.fresh.last().cloned() else { return };
+        self.bring(&id, cx);
+        self.fresh.clear();
+        self.unfolded = true;
+        window.focus(&self.focus, cx);
         cx.notify();
     }
 
@@ -888,13 +939,16 @@ impl OperatorPageView {
         let title = self.items().iter().find(|turn| turn.id == about).map(face::card_title).unwrap_or_else(|| about.clone().into());
         // He is talking about the front card, or one the Operator raised in the talk.
         if self.talk.as_ref().map(|talk| talk.about.as_str()) != Some(about.as_str()) && self.is_front(&about) {
-            self.talk = Some(Talk { about: about.clone(), title, unfolded: false, sent: None });
+            self.talk = Some(Talk { about: about.clone(), title, sent: None });
         }
         if let Some(talk) = self.talk.as_mut() {
             talk.sent = Some(words.clone().into());
         }
+        // A send folds the card he had opened, and the talk shows its end.
+        self.unfolded = false;
         self.read_thread(cx);
-        self.talk_scroll.scroll_to_bottom();
+        self.sync_talk(cx);
+        self.talk_list.set_follow_mode(FollowMode::Tail);
         cx.notify();
         let task = self.wire.say(words, Some(about), cx);
         let Some(task) = task else {
@@ -923,32 +977,56 @@ impl OperatorPageView {
         self.open_item().is_some_and(|turn| turn.id == id) || self.items().iter().any(|turn| turn.id == id && self.is_talk_card(turn))
     }
 
-    /// The folded card opens beside the talk, or folds again.
-    pub fn toggle_fold(&mut self, cx: &mut Context<Self>) {
-        if let Some(talk) = self.talk.as_mut() {
-            talk.unfolded = !talk.unfolded;
-            cx.notify();
-        }
+    /// A press on the folded card: it opens above the talk until the talk grows or he sends.
+    pub fn unfold(&mut self, cx: &mut Context<Self>) {
+        self.unfolded = true;
+        cx.notify();
     }
 
-    /// The Operator session's thread, read from Fleet: the talk's rows are drawn from it.
+    /// The card in front is folded to one line: the talk has overflowed its space and he has not opened it since. A card
+    /// that says the Operator is off or stopped, or a Mac asking to pair, never folds.
+    pub fn is_folded(&self) -> bool {
+        self.talk_long.get() && !self.unfolded && !matches!(self.status(), super::status::Status::Off) && !self.stopped_in_front() && self.pairing_front.is_none()
+    }
+
+    /// A stopped Operator stands in front, in red, ahead of any queued card. A kept idea or picked card he brought is his own.
+    pub(super) fn stopped_in_front(&self) -> bool {
+        matches!(self.status(), super::status::Status::Stopped { .. }) && self.idea_front.is_none() && self.working_front.is_none()
+    }
+
+    /// The card in front is folded, or the talk is in use: his words are about a card, or wait in the box.
+    pub(super) fn holds_front(&self, cx: &App) -> bool {
+        !matches!(self.status(), super::status::Status::Off) && !self.stopped_in_front() && (self.is_folded() || self.talk.is_some() || !self.composer.read(cx).words(cx).trim().is_empty())
+    }
+
+    /// The Operator session's thread, read from Fleet once: the talk's rows are drawn from it, and Fleet keeps it fresh.
     fn read_thread(&mut self, cx: &mut Context<Self>) {
         let (Some(session), Wire::Live(fleet)) = (self.page.as_ref().and_then(|page| page.session_id.clone()), &self.wire) else { return };
+        if fleet.read(cx).held().threads.contains_key(session.as_str()) {
+            return;
+        }
         fleet.update(cx, |fleet, cx| fleet.read_thread(session.as_str(), false, cx));
     }
 
-    /// The rows of the Operator's thread this talk draws: from his last words about the card on, as Fleet tags them.
-    pub(super) fn talk_rows(&self, cx: &App) -> Vec<ipc::ThreadItem> {
-        let (Some(talk), Some(session)) = (&self.talk, self.page.as_ref().and_then(|page| page.session_id.clone())) else { return Vec::new() };
-        let items: Vec<ipc::ThreadItem> = match &self.wire {
-            Wire::Live(fleet) => fleet.read(cx).held().threads.get(session.as_str()).map(|held| held.items.clone()).unwrap_or_default(),
-            Wire::Mock(mock) => mock.thread.items.clone(),
+    /// Fleet changed: where the Operator's thread did, the talk reads it again.
+    fn heard_thread(&mut self, cx: &mut Context<Self>) {
+        let Some(session) = self.page.as_ref().and_then(|page| page.session_id.clone()) else { return };
+        let heard = {
+            let Wire::Live(fleet) = &self.wire else { return };
+            let Some(held) = fleet.read(cx).held().threads.get(session.as_str()) else { return };
+            let last = held.items.last().and_then(|item| match item {
+                ipc::ThreadItem::Row { row: ipc::SessionRow::Message { id, text, .. } } => Some(format!("{id}:{}", text.len())),
+                _ => None,
+            });
+            (held.items.len(), last)
         };
-        let tag = format!("[About card {} ", talk.about);
-        let start = items.iter().rposition(|item| matches!(item, ipc::ThreadItem::Row { row: ipc::SessionRow::Message { from: ipc::SessionVoice::You, text, .. } } if text.starts_with(&tag)));
-        match start {
-            Some(start) => items[start..].to_vec(),
-            None => Vec::new(),
+        if self.talk_heard.as_ref() != Some(&heard) {
+            self.talk_heard = Some(heard);
+            let was = self.talk_said.len();
+            self.sync_talk(cx);
+            if self.talk_said.len() != was {
+                cx.notify();
+            }
         }
     }
 
@@ -1081,10 +1159,14 @@ impl OperatorPageView {
         self.session.as_ref().map(|session| session.id.clone())
     }
 
-    /// Where the Operator's session stands, as its record reads. While Restart is in flight it reads Starting.
+    /// Where the Operator's session stands, as its record reads. While Restart is in flight it reads Starting; with the
+    /// switch off, Off.
     pub fn status(&self) -> super::status::Status {
         if self.restarting {
             return super::status::Status::Starting;
+        }
+        if self.page.as_ref().is_some_and(|page| !page.on) {
+            return super::status::Status::Off;
         }
         super::status::status_of(self.session.as_ref())
     }
@@ -1299,8 +1381,8 @@ impl OperatorPageView {
 
     // -- the walk's scenes -------------------------------------------------------------------------
 
-    /// Move the mock Fleet to a named scene: the Operator answers the talk and raises a card in it (`said`), a new card
-    /// joins the queue (`arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
+    /// Move the mock Fleet to a named scene: the Operator answers the talk and raises a card in it (`said`), says more in
+    /// it (`replies`), a new card joins the queue (`arrives`) or comes where nothing was in front (`front-arrives`), three join at once (`raised`), the next answer is refused (`refuse`) or its
     /// reply lost (`lose`), the next change of what it does unasked is refused (`acts-refused`), or it is switched off
     /// (`off`). Two scenes only scroll the page: `rest` to what is under the card, `top` back to it.
     pub fn scene(&mut self, name: &str, cx: &mut Context<Self>) -> Result<(), String> {
@@ -1312,6 +1394,13 @@ impl OperatorPageView {
             }
             "top" => {
                 self.main_scroll.set_offset(gpui::Point::default());
+                cx.notify();
+                return Ok(());
+            }
+            // He scrolls the talk up to the Operator's last words, and it stops following its end.
+            "talk-up" => {
+                let ix = self.talk_said.iter().rposition(|said| matches!(said, super::talk::Said::Operator { .. })).ok_or("the Operator has said nothing")?;
+                self.talk_list.scroll_to(gpui::ListOffset { item_ix: ix, offset_in_item: gpui::px(0.) });
                 cx.notify();
                 return Ok(());
             }
@@ -1330,7 +1419,18 @@ impl OperatorPageView {
                     seen.extend(page.turn.iter().map(|turn| turn.id.clone()));
                 }
                 self.set_page(page, cx);
-                self.talk_scroll.scroll_to_bottom();
+            }
+            // The Operator says more in the talk, with no card raised: the talk grows, and a card he opened folds again.
+            "replies" => {
+                mock.replies();
+                self.sync_talk(cx);
+                cx.notify();
+            }
+            // A card arrives where nothing was in front, while the card is folded: it waits in the new-card strip.
+            "front-arrives" => {
+                mock.comes();
+                let page = mock.page.clone();
+                self.set_page(page, cx);
             }
             "arrives" => {
                 mock.arrives();
@@ -1508,11 +1608,15 @@ mod tests {
         let (page, cx) = open(cx);
         page.update_in(cx, |page, window, cx| page.talk_about("Why hold Pocket?".into(), "turn:31".into(), window, cx));
         page.update(cx, |page, cx| page.scene("said", cx).expect("the Operator answers"));
-        page.read_with(cx, |page, cx| {
+        page.read_with(cx, |page, _| {
             assert_eq!(page.talk_cards().iter().map(|turn| turn.id.as_str()).collect::<Vec<_>>(), ["turn:36"]);
             assert_eq!(page.waiting().len(), 4, "the raised card does not wait in line");
-            let rows = page.talk_rows(cx);
-            assert_eq!(rows.len(), 2, "his words, then the Operator's");
+            use super::super::talk::Said;
+            assert!(
+                matches!(&page.talk_said[..], [Said::About { .. }, Said::You { .. }, Said::Operator { .. }, Said::Raised(id)] if id == "turn:36"),
+                "the About row, his words, the Operator's, then the card it raised: {:?}",
+                page.talk_said
+            );
         });
         page.update(cx, |page, cx| page.digit(2, cx));
         cx.run_until_parked();
@@ -1898,5 +2002,110 @@ mod tests {
         cx.run_until_parked();
         assert!(drawn(cx, gpui::Role::Alert, "Not restarted: Settings are locked"));
         assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"));
+    }
+
+    /// A press on a labelled element, found where it was drawn.
+    fn press_on(cx: &mut VisualTestContext, role: gpui::Role, name: &str) {
+        let at = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|drawn| drawn.bounds)).unwrap_or_else(|| panic!("{name} is drawn"));
+        cx.simulate_click(at.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+    }
+
+    fn act(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext, id: &'static str) {
+        page.update_in(cx, |page, window, cx| page.on_act(&crate::keymap::Act { id, slot: 0, digit: None }, window, cx));
+        cx.run_until_parked();
+    }
+
+    /// The Operator says more, until the talk overflows its room and the frame that measured it is drawn.
+    fn talk_overflows(page: &Entity<OperatorPageView>, cx: &mut VisualTestContext) {
+        page.update(cx, |page, cx| {
+            for _ in 0..12 {
+                page.scene("replies", cx).expect("the Operator replies");
+            }
+        });
+        cx.run_until_parked();
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+    }
+
+    #[gpui::test]
+    fn switched_off_its_card_stands_in_the_front_cards_place_and_switch_on_turns_it_on(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("off", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert_eq!(page.status(), super::super::status::Status::Off));
+        assert!(drawn(cx, gpui::Role::Region, "The Operator is off"));
+        assert!(drawn(cx, gpui::Role::Status, "Every Job asks you directly"));
+        press_on(cx, gpui::Role::Button, "Switch the Operator on");
+        page.read_with(cx, |page, _| {
+            assert!(page.page.as_ref().is_some_and(|page| page.on), "the press switches it on");
+            assert_ne!(page.status(), super::super::status::Status::Off);
+        });
+    }
+
+    #[gpui::test]
+    fn a_stopped_operator_comes_in_front_of_the_queued_card_and_the_cards_keys_wait(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("stopped", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:31"), "the card still waits");
+            assert!(page.stopped_in_front());
+        });
+        assert!(drawn(cx, gpui::Role::Region, "The Operator stopped 25m ago"));
+        assert!(drawn(cx, gpui::Role::Button, "Restart the Operator"));
+        act(&page, cx, "call_yes");
+        page.update(cx, |page, _| assert!(page.mock_fleet().expect("the walk's Fleet").pressed.is_empty(), "Y settles nothing while it is stopped"));
+        // Restarted, the card is in front again and its keys act.
+        page.update(cx, |page, cx| page.restart(cx));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| assert!(!page.stopped_in_front()));
+    }
+
+    #[gpui::test]
+    fn the_card_folds_once_the_talk_overflows_and_a_press_opens_it_until_the_talk_grows(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.read_with(cx, |page, _| assert!(!page.is_folded(), "with no talk the card is open"));
+        talk_overflows(&page, cx);
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "a talk longer than its room folds the card"));
+        assert!(drawn(cx, gpui::Role::Button, "Unfold Two Jobs are changing paging.rs"));
+        press_on(cx, gpui::Role::Button, "Unfold Two Jobs are changing paging.rs");
+        page.read_with(cx, |page, _| assert!(!page.is_folded(), "the press opens it"));
+        page.update(cx, |page, cx| page.scene("replies", cx).expect("the Operator replies"));
+        page.read_with(cx, |page, _| assert!(page.is_folded(), "the talk grew, and the card folds again"));
+    }
+
+    #[gpui::test]
+    fn a_card_that_comes_while_the_card_is_folded_waits_in_the_strip_and_show_brings_it_unfolded(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        talk_overflows(&page, cx);
+        page.update(cx, |page, cx| page.scene("front-arrives", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.fresh, ["turn:41"], "the card waits in the strip");
+            assert!(page.open_item().is_none(), "and does not take the front");
+        });
+        assert!(drawn(cx, gpui::Role::Region, "New card: Checkout's coupon fix has a walk for you"));
+        assert!(drawn(cx, gpui::Role::Status, "A new card"));
+        // ⌘Enter with nothing in the box is Show.
+        act(&page, cx, "send_message");
+        page.read_with(cx, |page, _| {
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:41"));
+            assert!(page.fresh.is_empty() && !page.is_folded(), "it comes in front, open");
+        });
+    }
+
+    #[gpui::test]
+    fn a_card_that_comes_while_the_card_is_open_and_the_talk_idle_takes_the_front(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.update(cx, |page, cx| page.scene("front-arrives", cx).expect("a scene"));
+        cx.run_until_parked();
+        page.read_with(cx, |page, _| {
+            assert!(page.fresh.is_empty(), "no strip");
+            assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:41"));
+        });
     }
 }

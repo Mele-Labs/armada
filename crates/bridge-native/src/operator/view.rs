@@ -1,16 +1,17 @@
-//! The page drawn, as the approved sketch "Operator page: one card, Discuss in the composer" lays it out: the
-//! head with what the Operator does unasked, the one card in front with the box directly under it, and
-//! Next up and the feed Since you last looked in the column at the right. Roomier than the sketch: controls a step taller,
-//! corners rounder, as the native screens are.
+//! The page drawn, as the approved sketches lay it out: two raised panels side by side on the base ground. The main panel
+//! holds the status line with what the Operator does unasked, the card in front, the new-card strip, the talk under the
+//! card and the box at the foot, all one width. The right panel holds Next up and the feed Since you last looked. Roomier
+//! than the sketch: controls a step taller, corners rounder, as the native screens are.
 
 use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window};
 use ipc::MainCiState;
 
 use super::face::{self, Kind};
 use super::page::OperatorPageView;
+use super::status::Status;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
-use crate::titlebar::parts::{glyph, kbd, sans, spinner, tip};
+use crate::titlebar::parts::{glyph, kbd, sans, tip};
 
 /// The card's corners: rounder than a control's, as the native screens draw cards.
 pub(super) fn round(look: &Look) -> Pixels {
@@ -246,12 +247,14 @@ impl OperatorPageView {
             );
             div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(refused).child(control)
         });
+        // The head is as wide as the main panel: where it is too narrow, the controls at its right wrap to a line of their own.
         div()
             .flex_none()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_6))
+            .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
             .child(
                 div()
@@ -268,9 +271,17 @@ impl OperatorPageView {
             )
             .children(mains)
             .children(slots)
-            .children(acts_refused)
-            .children(acts)
-            .children(switch_off)
+            .child(
+                div()
+                    .flex_none()
+                    .ml_auto()
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .children(acts_refused)
+                    .children(acts)
+                    .children(switch_off),
+            )
     }
 
     /// A time as the page reads it: a press flips every time on the page between a clock and an age.
@@ -306,101 +317,25 @@ impl OperatorPageView {
 
     // -- skeletons ---------------------------------------------------------------------------------
 
-    fn skeleton(&self, look: &Look) -> impl IntoElement {
+    /// The panels' bones while the page is read: the main panel under its head, and the right panel.
+    fn skeleton(&self, look: &Look) -> [AnyElement; 2] {
         let line = look.length(token::LEADING_SM);
-        div()
+        let main = div()
             .flex_1()
-            .min_h_0()
             .flex()
-            .child(
-                div()
-                    .flex_1()
-                    .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_4))
-                    .px(look.length(token::SPACE_6))
-                    .py(look.length(token::SPACE_6))
-                    .child(bone(0.2, line, look))
-                    .child(div().h(look.length(token::SPACE_12) * 4.).rounded(round(look)).bg(look.color(token::BG_HOVER)))
-                    .children((0..3).map(|_| bone(1., look.length(token::H_CONTROL_LG) + look.length(token::SPACE_2), look))),
-            )
-            .child(side(look).child(div().flex().flex_col().gap(look.length(token::SPACE_3)).child(bone(0.6, line, look)).children((0..4).map(|_| bone(1., look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1), look)))))
-    }
-
-    /// Where the page says the Operator is off: what that means, and the switch Electron's Permissions tab has.
-    fn off(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let switch = if self.switching {
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .text_color(look.color(token::FG_MUTED))
-                .child(spinner("switch-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
-                .child(if self.switching_off { "Switching off" } else { "Switching on" })
-                .into_any_element()
-        } else {
-            labelled(
-                // The press goes as the page reads on: the keys go to the page, where Tab starts at the pills.
-                pressed(press("operator-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look).tooltip(tip("Queue what needs you here")), cx, |this, window, cx| {
-                    this.switch_on(cx);
-                    window.focus(&this.focus, cx);
-                }),
-                Role::Button,
-                "Switch the Operator on",
-            )
-            .into_any_element()
-        };
-        let refused = self.switch_refused.clone().map(|why| {
-            labelled(
-                div().id("switch-refused").text_size(look.length(token::TEXT_SM)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(format!("Not switched on: {why}")),
-                Role::Alert,
-                format!("Not switched on: {why}"),
-            )
-        });
-        labelled(
-            div()
-                .id("operator-off")
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .p(look.length(token::SPACE_4))
-                .rounded(round(look))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::OPERATOR_EDGE))
-                .bg(look.color(token::OPERATOR_FAINT))
-                .child(
-                    div()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_3))
-                        .child(glyph("bot", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
-                        .child(
-                            div()
-                                .flex_1()
-                                .min_w_0()
-                                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("The Operator is off"))
-                                .child(div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child("Every Job asks you directly.")),
-                        )
-                        .child(switch),
-                )
-                .children(refused),
-            Role::Region,
-            "The Operator is off",
-        )
-        .into_any_element()
+            .flex_col()
+            .gap(look.length(token::SPACE_4))
+            .p(look.length(token::SPACE_4))
+            .child(div().h(look.length(token::SPACE_12) * 4.).rounded(round(look)).bg(look.color(token::BG_HOVER)))
+            .children((0..3).map(|_| bone(1., look.length(token::H_CONTROL_LG) + look.length(token::SPACE_2), look)));
+        let side = div().flex().flex_col().gap(look.length(token::SPACE_3)).p(look.length(token::SPACE_4)).child(bone(0.6, line, look)).children((0..4).map(|_| bone(1., look.length(token::H_CONTROL_LG) + look.length(token::SPACE_1), look)));
+        [main.into_any_element(), side.into_any_element()]
     }
 }
 
-/// The column at the right, for Next up and the feed: lower than the page, with the width of the old digest.
+/// The right panel, for Next up and the feed: the width of the old digest.
 pub(super) fn side(look: &Look) -> Div {
-    div()
-        .flex_none()
-        .w(look.length(token::SPACE_12) * 7.5)
-        .h_full()
-        .p(look.length(token::SPACE_4))
-        .border_l(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::BORDER_DEFAULT))
-        .bg(look.color(token::BG_SUNKEN))
+    crate::reviews::panel(look).flex_none().w(look.length(token::SPACE_12) * 7.5).h_full()
 }
 
 /// A time as the page reads it, in his clock to the minute: `12:47`, with the day when it is not today (`Nov 10 16:00`).
@@ -429,26 +364,26 @@ impl Render for OperatorPageView {
                     cx.stop_propagation();
                 }
             }))
+            .relative()
             .size_full()
             .flex()
-            .flex_col()
+            .gap(look.length(token::GAP_PANEL))
+            .p(look.length(token::SPACE_3))
             .bg(look.color(token::BG_BASE))
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
             .text_size(look.length(token::TEXT_SM));
-        let top = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
+        // The status line heads the main panel, over everything the card and the talk draw.
+        let head = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
+        let main = crate::reviews::panel(look).flex_1().min_w_0().h_full().flex().flex_col().child(head);
         let Some(page) = self.page.as_ref() else {
-            return root.child(top).child(self.skeleton(look)).into_any_element();
+            let [bones, side_bones] = self.skeleton(look);
+            return root.child(main.child(bones)).child(side(look).child(side_bones)).into_any_element();
         };
-        // A restart switches the Operator off and on: the page keeps its place while it does.
-        let off = (!page.on && !self.restarting).then(|| self.off(look, cx));
-        let talking = self.talk.is_some();
-        let main = if talking { self.talk_column(window, look, cx) } else { self.card_column(off, window, look, cx) };
         let feed = self.feed(page, look, cx);
         let next_up = self.next_up(look, cx);
-        root.relative()
-            .child(top)
-            .child(div().flex_1().min_h_0().flex().child(main).child(side(look).id("operator-side").overflow_y_scroll().child(div().flex().flex_col().gap(look.length(token::SPACE_4)).children(next_up).child(feed))))
+        root.child(main.child(self.main_column(window, look, cx)))
+            .child(side(look).child(div().id("operator-side").size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(div().flex().flex_col().gap(look.length(token::SPACE_4)).children(next_up).child(feed))))
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
             .children(self.acts_menu.as_ref().map(|(menu, _)| menu.clone()))
             .into_any_element()
@@ -456,41 +391,62 @@ impl Render for OperatorPageView {
 }
 
 impl OperatorPageView {
-    /// The main column with no talk: a Mac asking to pair, the card in front, and the box directly under it.
-    fn card_column(&self, off: Option<AnyElement>, window: &Window, look: &Look, cx: &Context<Self>) -> gpui::Stateful<Div> {
-        let mut parts: Vec<AnyElement> = Vec::new();
-        let on = off.is_none();
-        // Another Mac waiting for his Confirm stands first: it lapses in five minutes and no Job holds it.
-        parts.extend(self.pairing_cards(look, cx));
-        parts.extend(off);
-        // A kept idea brought from Next up stands in front in the Operator's card's place.
-        // A card from the feed's working entries stands there too, to be read: it is picked, so it takes no press.
-        match (self.front_idea(cx), self.front_working()) {
-            (Some(idea), _) => parts.push(self.idea_card(&idea, window, look, cx)),
-            (None, Some(turn)) => parts.push(self.working_card(turn, look, cx)),
-            (None, None) => match self.open_item() {
-                Some(turn) => parts.push(self.card(turn, false, window, look, cx)),
-                // Nothing is in front: the Operator's state stands in the card's place.
-                None if on => parts.push(self.status_card(look, cx)),
-                None => {}
-            },
-        }
-        parts.push(self.composer.clone().into_any_element());
-        div()
-            .id("operator-main")
-            .track_scroll(&self.main_scroll)
+    /// Under the status line: a Mac asking to pair, the card in front or its folded line, the new-card strip, the talk, and
+    /// the box at the foot. A stopped Operator's red card stands in front of any queued card, and the talk and the box dim
+    /// under the scrim until it is back.
+    fn main_column(&self, window: &Window, look: &Look, cx: &Context<Self>) -> Div {
+        let status = self.status();
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let folded = self.is_folded();
+        let mut front: Vec<AnyElement> = self.pairing_cards(look, cx);
+        let card = if matches!(status, Status::Off) || self.stopped_in_front() {
+            self.status_card(look, cx)
+        } else if let Some(idea) = self.front_idea(cx) {
+            // A kept idea brought from Next up stands in front in the Operator's card's place.
+            if folded { self.folded(&idea.id, super::parked::words_of(&idea).into(), look, cx) } else { self.idea_card(&idea, window, look, cx) }
+        } else if let Some(turn) = self.front_working() {
+            // A card from the feed's working entries stands there too, to be read: it is picked, so it takes no press.
+            if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.working_card(turn, look, cx) }
+        } else if let Some(turn) = self.open_item() {
+            if folded { self.folded(&turn.id, face::card_title(turn), look, cx) } else { self.card(turn, false, window, look, cx) }
+        } else if folded {
+            // Nothing is in front: the Operator's state stands in the card's place.
+            self.folded("status", status.title(now).into(), look, cx)
+        } else {
+            self.status_card(look, cx)
+        };
+        front.push(card);
+        let dim = matches!(status, Status::Stopped { .. });
+        // No min_h_0: the box keeps its height, and a tall card scrolls in its own place instead.
+        let talk = div()
+            .relative()
             .flex_1()
-            .min_w_0()
-            .h_full()
-            .overflow_y_scroll()
             .flex()
             .flex_col()
-            .px(look.length(token::SPACE_6))
-            .pt(look.length(token::SPACE_4) + look.length(token::SPACE_1))
-            // Room under the last row, so it never sits on the window's edge.
-            .pb(look.length(token::SPACE_12))
+            .child(self.talk(look, cx))
+            .child(div().flex_none().child(self.composer.clone()))
+            .children(dim.then(|| div().absolute().inset_0().bg(look.color(token::SCRIM))));
+        div()
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .flex_col()
             .gap(look.length(token::SPACE_3))
-            // Each part a child of the scroll, held at its own height, so a tall card scrolls instead of squeezing the box.
-            .children(parts.into_iter().map(|part| div().flex_none().child(part)))
+            .px(look.length(token::SPACE_4))
+            .pt(look.length(token::SPACE_4))
+            .child(
+                div()
+                    .id("operator-main")
+                    .track_scroll(&self.main_scroll)
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_3))
+                    // Each part held at its own height, so a tall card scrolls instead of squeezing the talk away.
+                    .children(front.into_iter().map(|part| div().flex_none().child(part))),
+            )
+            .children(self.strip(look, cx))
+            .child(talk)
     }
 }

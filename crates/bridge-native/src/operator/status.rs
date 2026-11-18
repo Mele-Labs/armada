@@ -1,5 +1,6 @@
 //! The status card: what stands in the front card's place while nothing needs him, so a quiet page reads as the Operator
-//! working, watching, stopped or not started yet. It reads the Operator's own session record from Fleet's held Jobs
+//! working, watching, stopped, not started yet or switched off. Stopped stands in front of any queued card, in red, until
+//! Restart brings the Operator back. It reads the Operator's own session record from Fleet's held Jobs
 //! (`operator: true`) and derives nothing Fleet has not said: the state comes from `turn_since`, `standing`, `state` and
 //! `stopped`, the doing line from `activity`.
 
@@ -33,6 +34,8 @@ pub enum Status {
     Stopped { at: String, why: String },
     /// The switch is on and no session exists yet.
     Starting,
+    /// `features.operator` is off: every Job asks him directly.
+    Off,
 }
 
 /// The state a session record reads as. No record is a session not started.
@@ -85,6 +88,7 @@ impl Status {
     pub fn title(&self, now: DateTime<Local>) -> String {
         match self {
             Status::Stopped { at, .. } => format!("The Operator stopped {}", ago(at, now)),
+            Status::Off => "The Operator is off".into(),
             _ => "Nothing needs you".into(),
         }
     }
@@ -96,6 +100,7 @@ impl Status {
             Status::Watching { .. } => ("Watching", "The Operator is between turns and waits for the next thing", token::ACCENT, token::ACCENT_MUTED),
             Status::Stopped { .. } => ("Stopped", "The Operator's session is not running", token::STATUS_COMPLETED_FAILED, token::STATUS_COMPLETED_FAILED_BG),
             Status::Starting => ("Starting", "Fleet has not started the Operator's session yet", token::FG_MUTED, token::BG_HOVER),
+            Status::Off => ("Off", "Nothing is handed to the Operator and it makes no calls", token::FG_MUTED, token::BG_HOVER),
         }
     }
 
@@ -106,6 +111,7 @@ impl Status {
             Status::Watching { heard } => format!("Between turns. Last heard from {}", ago(heard, now)),
             Status::Stopped { why, .. } => why.clone(),
             Status::Starting => "Fleet starts its session on the next tick".into(),
+            Status::Off => "Every Job asks you directly".into(),
         }
     }
 
@@ -116,6 +122,7 @@ impl Status {
             Status::Stopped { .. } => ("circle-alert", "Stopped"),
             Status::Working { .. } => ("loader-circle", "In a turn"),
             Status::Starting => ("loader-circle", "Starting"),
+            Status::Off => ("power", "Off"),
         }
     }
 }
@@ -142,15 +149,16 @@ impl OperatorPageView {
         let title = status.title(now);
         let (word, said, hue, ground) = status.chip();
         let state = labelled(chip(word, look.color(hue), look.color(ground), look).id("status-chip").tooltip(tip(said)), Role::Status, word);
-        let button = self.session_id().map(|_| {
+        let off = status == Status::Off;
+        let button = if off { Some(self.switch_on_press(look, cx)) } else { self.session_id().map(|_| {
             if stopped {
                 let restart = press("status-restart", "Restart".into(), Some("rotate-cw"), None, Weight::Danger, look).tooltip(tip("Switch the Operator off and on, so Fleet starts a new session"));
-                labelled(pressed(restart, cx, |this, _, cx| this.restart(cx)), Role::Button, "Restart the Operator")
+                labelled(pressed(restart, cx, |this, _, cx| this.restart(cx)), Role::Button, "Restart the Operator").into_any_element()
             } else {
                 let open = press("status-open", "See what it is doing".into(), None, None, Weight::Plain, look).tooltip(tip("Open the Operator's session as a Job"));
-                labelled(pressed(open, cx, |this, _, cx| this.open_session(cx)), Role::Button, "See what it is doing")
+                labelled(pressed(open, cx, |this, _, cx| this.open_session(cx)), Role::Button, "See what it is doing").into_any_element()
             }
-        });
+        }) };
         let head = div()
             .flex()
             .flex_wrap()
@@ -158,10 +166,10 @@ impl OperatorPageView {
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
-            .bg(look.color(token::OPERATOR_FAINT))
+            .bg(look.color(if stopped { token::STATUS_COMPLETED_FAILED_BG } else { token::OPERATOR_FAINT }))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(if stopped { token::STATUS_COMPLETED_FAILED } else { token::OPERATOR_EDGE }))
-            .child(glyph("bot", look.length(token::SPACE_4) + look.length(token::SPACE_1), look.color(token::OPERATOR)))
+            .child(glyph("bot", look.length(token::SPACE_4) + look.length(token::SPACE_1), look.color(if off { token::FG_MUTED } else { token::OPERATOR })))
             .child(div().flex_none().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
             .child(state)
             .child(div().flex_1())
@@ -208,14 +216,38 @@ impl OperatorPageView {
                 said,
             )
         });
-        let refused = self.restart_refused.clone().map(|why| {
-            labelled(
-                div().id("restart-refused").text_size(look.length(token::TEXT_SM)).text_color(danger).child(SharedString::from(format!("Not restarted: {why}"))),
-                Role::Alert,
-                format!("Not restarted: {why}"),
-            )
+        let refused = self.restart_refused.clone().map(|why| format!("Not restarted: {why}"));
+        let refused = refused.or_else(|| self.switch_refused.clone().filter(|_| off).map(|why| format!("Not switched on: {why}"))).map(|said| {
+            labelled(div().id("status-refused").text_size(look.length(token::TEXT_SM)).text_color(danger).child(SharedString::from(said.clone())), Role::Alert, said)
         });
         let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).child(doing).children(last).children(refused);
         labelled(card_frame("status", false, look).when(stopped, |card| card.border_color(danger)).child(head).child(body), Role::Region, title).into_any_element()
+    }
+
+    /// Switch on, in the Off card's head: the setting Electron's Permissions tab saves, or its spinner while Fleet saves it.
+    fn switch_on_press(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if self.switching {
+            return div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL_LG))
+                .text_color(look.color(token::FG_MUTED))
+                .child(spinner("switch-spin", look.length(token::SPACE_4), look.color(token::OPERATOR), cx))
+                .child(if self.switching_off { "Switching off" } else { "Switching on" })
+                .into_any_element();
+        }
+        // The press goes as the page reads on: the keys go to the page, where Tab starts at the pills.
+        let switch = press("operator-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look).tooltip(tip("Queue what needs you here"));
+        labelled(
+            pressed(switch, cx, |this, window, cx| {
+                this.switch_on(cx);
+                window.focus(&this.focus, cx);
+            }),
+            Role::Button,
+            "Switch the Operator on",
+        )
+        .into_any_element()
     }
 }

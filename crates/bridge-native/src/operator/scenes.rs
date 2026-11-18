@@ -82,7 +82,8 @@ impl MockFleet {
     pub fn new() -> MockFleet {
         MockFleet {
             page: page(),
-            thread: thread(),
+            // The walk opens on the card: the talk starts with the walk's own words.
+            thread: JobThread { items: Vec::new(), ..thread() },
             fronted: 0,
             heard: Vec::new(),
             pressed: Vec::new(),
@@ -227,6 +228,19 @@ impl MockFleet {
         Some(())
     }
 
+    /// The Operator says more in its thread, with no card raised: what it found on the next tick.
+    pub fn replies(&mut self) {
+        let n = self.thread.items.len();
+        let words = [
+            "Pocket pushed at 13:31 and its checks are green. The other Job on paging.rs rebased onto it with no conflict.",
+            "Storefront's main is still red. The Job that fixes desktop_unit is in review, and its checks pass.",
+            "Nothing else waits on you. I will put a card in front of you when something does.",
+        ];
+        for (at, said) in words.into_iter().enumerate() {
+            self.thread.items.push(row(&format!("op-{:03}", n + at), "2026-11-11T13:40:00-05:00", "agent", said));
+        }
+    }
+
     /// The Operator reports the oldest card it is working on failed: the card comes back first in the queue, with its
     /// steps and why.
     pub fn returns(&mut self) -> Option<()> {
@@ -236,6 +250,14 @@ impl MockFleet {
         }
         self.page.turn.insert(0, turn);
         Some(())
+    }
+
+    /// A card comes at 14:20 where nothing was in front.
+    pub fn comes(&mut self) {
+        let wire = br#"{"id":"turn:41","kind":"decision","manifest_id":"armada","repository":"armada","item":{"id":"card:0029","text":"Checkout's coupon fix has a walk for you","since":"2026-11-11T14:20:00-05:00","source":"agent","act":{"kind":"answer","target":"card:0029"},"options":[{"label":"Open the walk","description":"About 5 min"},{"label":"Approve without it","description":"Its checks are green"}]},"read":{"read":"The total shows once after a coupon, which is what the idea asked for.","pick":"Open the walk"},"raised_at":"2026-11-11T14:20:00-05:00","card":{"kind":"deal","sessions":["mock-05"]}}"#;
+        if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
+            self.page.turn.push(turn);
+        }
     }
 
     /// A new card joins the queue at 14:02, at its end.
