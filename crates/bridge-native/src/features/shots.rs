@@ -345,3 +345,40 @@ pub fn shoot_pending(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The Dossier page open on the first feature at 1400 wide beside the list, and at 820 wide where the page is drawn alone.
+pub fn shoot_dossier(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    for (name, wide) in [("dossier-1400", 1400.), ("dossier-820", 820.)] {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(wide), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_cursor(window, cx);
+            });
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

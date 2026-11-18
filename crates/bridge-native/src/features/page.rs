@@ -7,16 +7,17 @@
 //! **When he last looked at the feature is stamped when he leaves the page**, and never when he opens it, so the
 //! chip Since my last look compares with the look before this one while he is on it.
 
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Utc};
-use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
+use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, ListAlignment, ListState, Pixels, Subscription, Task, Window};
 use ipc::{FeatureAsks, FeaturePage, SessionId};
 
 use super::page_model::{self, Body, Chip, Entry, Item, Section, Titles};
 use super::{looked, mock, wire};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
+use crate::look::Token;
 use crate::settings::wire::Refused;
 
 /// What the page tells whoever holds it.
@@ -39,12 +40,14 @@ pub(super) enum Load<T> {
     Failed(String),
 }
 
-/// The three parts of a page the keys can be in.
+/// The parts of a page the keys can be in: the card they are on, the filter chips of the asks, the rows of the card, and the
+/// button that starts a Job on the feature.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Region {
     Rail,
     Chips,
     Rows,
+    Start,
 }
 
 pub struct FeaturePageView {
@@ -52,6 +55,7 @@ pub struct FeaturePageView {
     pub(super) rail: FocusHandle,
     pub(super) chips: FocusHandle,
     pub(super) rows: FocusHandle,
+    pub(super) start: FocusHandle,
     source: Source,
     project: String,
     slug: String,
@@ -60,8 +64,18 @@ pub struct FeaturePageView {
     pub(super) page: Load<FeaturePage>,
     pub(super) asks: Load<FeatureAsks>,
     pub(super) entries: Vec<Entry>,
+    /// What every section holds under the chip applied, which is what the cards draw.
+    pub(super) cards: HashMap<Section, Body>,
+    /// Whether the feature has any ask at all, whatever the chip keeps.
+    pub(super) has_asks: bool,
+    /// What the open section holds.
     pub(super) body: Body,
+    /// The card the keys are on, and the one whose rows and chips Tab reaches.
     pub(super) section: Section,
+    /// The hue of the feature's area, where whoever opened the page knows it.
+    pub(super) hue: Option<Token>,
+    /// How much of the window's width is not the page's: the list beside it.
+    pub(super) inset: Pixels,
     /// What the list holds, in its order: the rows, and the line that folds the older asks.
     pub(super) items: Vec<Item>,
     /// The ask sections whose older rows are open. Not saved.
@@ -127,6 +141,7 @@ impl FeaturePageView {
             rail: cx.focus_handle(),
             chips: cx.focus_handle(),
             rows: cx.focus_handle(),
+            start: cx.focus_handle(),
             source,
             project,
             slug,
@@ -135,8 +150,12 @@ impl FeaturePageView {
             page: Load::Reading,
             asks: Load::Reading,
             entries: Vec::new(),
+            cards: HashMap::new(),
+            has_asks: false,
             body: Body::Rows(Vec::new()),
             section: Section::Who,
+            hue: None,
+            inset: gpui::px(0.),
             items: Vec::new(),
             unfolded: HashSet::new(),
             titles: Titles::new(),
@@ -170,6 +189,22 @@ impl FeaturePageView {
     pub fn set_area(&mut self, title: Option<String>, cx: &mut Context<Self>) {
         if self.area != title {
             self.area = title;
+            cx.notify();
+        }
+    }
+
+    /// The hue of the feature's area, for the band across the top.
+    pub fn set_hue(&mut self, hue: Option<Token>, cx: &mut Context<Self>) {
+        if self.hue != hue {
+            self.hue = hue;
+            cx.notify();
+        }
+    }
+
+    /// The width the list beside the page takes, so the page lays its cards out in what is left.
+    pub fn set_inset(&mut self, inset: Pixels, cx: &mut Context<Self>) {
+        if self.inset != inset {
+            self.inset = inset;
             cx.notify();
         }
     }
@@ -248,9 +283,24 @@ impl FeaturePageView {
     pub(super) fn rebuild(&mut self, cx: &mut Context<Self>) {
         if let Load::Read(page) = &self.page {
             self.entries = page_model::entries(page, self.asks_read());
-            self.body = page_model::body(self.section, page, self.asks_read(), self.chip, self.looked, &self.titles);
+            let asks = match &self.asks {
+                Load::Read(read) => Some(&read.asks[..]),
+                _ => None,
+            };
+            self.cards = Section::ALL.into_iter().map(|section| (section, page_model::body(section, page, asks, self.chip, self.looked, &self.titles))).collect();
+            self.has_asks = [Section::Bugs, Section::Changes, Section::Ideas].into_iter().any(|section| matches!(page_model::body(section, page, asks, Chip::All, None, &self.titles), Body::Rows(rows) if !rows.is_empty()));
+            // A card left out for having nothing in it is not one the keys can be on.
+            if !self.present(self.section) && !(self.section.is_asks() && self.has_asks) {
+                if let Some(first) = Section::NAV.into_iter().find(|section| self.present(*section)) {
+                    self.section = first;
+                    self.row_at = None;
+                }
+            }
+            self.body = self.cards.get(&self.section).cloned().unwrap_or(Body::Rows(Vec::new()));
         } else {
             self.entries.clear();
+            self.cards.clear();
+            self.has_asks = false;
             self.body = Body::Rows(Vec::new());
         }
         self.refold(cx);
@@ -266,6 +316,16 @@ impl FeaturePageView {
         self.list.reset(count);
         self.row_at = self.row_at.filter(|at| *at < count);
         cx.notify();
+    }
+
+    /// Whether the section has a card on the page: one with nothing in it is left out.
+    pub(super) fn present(&self, section: Section) -> bool {
+        match self.cards.get(&section) {
+            Some(Body::Rows(rows)) => !rows.is_empty(),
+            Some(Body::Code(code)) => !(code.paths.is_empty() && code.entry_points.is_empty() && code.files.is_empty()),
+            Some(Body::Written(written)) => written.is_some(),
+            None => false,
+        }
     }
 
     /// The places the keys can be on: each row, and the fold line.
@@ -323,9 +383,10 @@ impl FeaturePageView {
     }
 
     fn step_section(&mut self, by: isize, cx: &mut Context<Self>) {
-        let at = Section::ALL.iter().position(|one| *one == self.section).unwrap_or(0) as isize;
-        let next = (at + by).clamp(0, Section::ALL.len() as isize - 1) as usize;
-        self.select(Section::ALL[next], cx);
+        let order: Vec<Section> = Section::NAV.into_iter().filter(|one| self.present(*one) || *one == self.section).collect();
+        let at = order.iter().position(|one| *one == self.section).unwrap_or(0) as isize;
+        let next = (at + by).clamp(0, order.len() as isize - 1) as usize;
+        self.select(order[next], cx);
     }
 
     pub(super) fn apply(&mut self, chip: Chip, cx: &mut Context<Self>) {
@@ -389,6 +450,14 @@ impl FeaturePageView {
         }
     }
 
+    /// Start a Job on the feature: the dispatch panel opens as any screen opens it.
+    pub(super) fn start_job(&mut self, cx: &mut Context<Self>) {
+        self.engaged = true;
+        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+            (sink.0)(&crate::titlebar::Asked::Dispatch, cx);
+        }
+    }
+
     /// The parts of the page that hold something, in the order Tab goes through them.
     pub(super) fn regions(&self) -> Vec<Region> {
         let mut regions = vec![Region::Rail];
@@ -398,6 +467,9 @@ impl FeaturePageView {
         if self.row_count() > 0 {
             regions.push(Region::Rows);
         }
+        if matches!(self.page, Load::Read(_)) {
+            regions.push(Region::Start);
+        }
         regions
     }
 
@@ -406,6 +478,8 @@ impl FeaturePageView {
             Region::Chips
         } else if self.rows.is_focused(window) {
             Region::Rows
+        } else if self.start.is_focused(window) {
+            Region::Start
         } else {
             Region::Rail
         }
@@ -424,6 +498,7 @@ impl FeaturePageView {
             Region::Rail => &self.rail,
             Region::Chips => &self.chips,
             Region::Rows => &self.rows,
+            Region::Start => &self.start,
         };
         window.focus(handle, cx);
         cx.notify();
@@ -464,7 +539,7 @@ impl FeaturePageView {
                 match region {
                     Region::Rail => self.step_section(by, cx),
                     Region::Rows => self.step_row(by, cx),
-                    Region::Chips => {}
+                    Region::Chips | Region::Start => {}
                 }
             }
             "features_chip" if region == Region::Chips => self.step_chip(if act.slot == 0 { -1 } else { 1 }, cx),
@@ -472,6 +547,7 @@ impl FeaturePageView {
                 Region::Chips => self.apply(self.chip_at, cx),
                 Region::Rail => self.next_region(1, window, cx),
                 Region::Rows => self.press_row(cx),
+                Region::Start => self.start_job(cx),
             },
             "features_story" if region == Region::Rows => {
                 if let Some(at) = self.row_at {

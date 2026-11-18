@@ -8,6 +8,7 @@
 pub(crate) mod asks;
 mod curate;
 mod curate_view;
+mod dossier;
 mod looked;
 pub(crate) mod mock;
 mod model;
@@ -108,7 +109,7 @@ impl FeaturesScreen {
     }
 
     fn new(source: Source, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Filter"));
+        let filter = cx.new(|cx| InputState::new(window, cx).placeholder("Find a feature"));
         if let Some(words) = crate::drafts::kept(KEEP_FILTER, cx) {
             filter.update(cx, |state, cx| state.set_value(words, window, cx));
         }
@@ -263,6 +264,7 @@ impl FeaturesScreen {
             self.cursor = self.listed.shown.first().map(|one| one.row.slug.clone());
         }
         self.preview(cx);
+        self.tune_page(cx);
         cx.notify();
     }
 
@@ -355,9 +357,23 @@ impl FeaturesScreen {
                 }));
                 self.page = Some(page);
                 self.opened = Some(slug);
+                self.tune_page(cx);
             }
         }
         cx.notify();
+    }
+
+    /// What the open page takes from the list beside it: its area's hue, and the width the list leaves it.
+    fn tune_page(&mut self, cx: &mut Context<Self>) {
+        let Some(page) = self.page.clone() else { return };
+        let hue = self.opened.as_deref().and_then(|slug| self.listed.find(slug)).map(|at| self.hue_of(&self.listed.shown[at].row.area));
+        let inset = self.inset(cx);
+        page.update(cx, |page, cx| {
+            if let Some(hue) = hue {
+                page.set_hue(Some(hue), cx);
+            }
+            page.set_inset(inset, cx);
+        });
     }
 
     /// The Story of an ask: the request is left for the Story tab to read, and the Job opens as any screen opens one.
@@ -412,6 +428,7 @@ impl FeaturesScreen {
             self.showing = false;
             self.preview(cx);
         }
+        self.tune_page(cx);
         cx.notify();
     }
 

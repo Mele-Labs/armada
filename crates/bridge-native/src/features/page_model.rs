@@ -27,6 +27,9 @@ pub enum Section {
 impl Section {
     pub const ALL: [Section; 10] = [Section::Who, Section::Code, Section::Test, Section::Designs, Section::Bugs, Section::Changes, Section::Ideas, Section::Runs, Section::Observe, Section::Debt];
 
+    /// The order the keys go through them: down the page's columns, as the cards stand.
+    pub const NAV: [Section; 10] = [Section::Who, Section::Bugs, Section::Changes, Section::Ideas, Section::Test, Section::Runs, Section::Designs, Section::Code, Section::Observe, Section::Debt];
+
     pub fn title(self) -> &'static str {
         match self {
             Section::Who => "Who worked on it",
@@ -175,6 +178,9 @@ pub struct AskLine {
     pub after: String,
     /// The Job a press on Story opens. Absent for an ask with no Job at all.
     pub story: Option<SessionId>,
+    /// Where the ask stands, in a sentence, and the day it was said: the line under its title on the page.
+    pub state_said: String,
+    pub date: String,
 }
 
 /// One row of the open section: a Job, a design, an ask.
@@ -494,9 +500,10 @@ fn ask_row(ask: &Ask, titles: &Titles) -> Row {
     } else {
         format!("You, {date}")
     };
-    let after = format!(". {}", state_sentence(ask, titles));
+    let state_said = state_sentence(ask, titles);
+    let after = format!(". {state_said}");
     let meta = format!("{before}{}{after}", said_in.as_deref().unwrap_or_default());
-    let line = AskLine { ask_id: ask.ask_id.clone(), words: ask_words(ask), before, job: said_in, after, story: story_of(ask) };
+    let line = AskLine { ask_id: ask.ask_id.clone(), words: ask_words(ask), before, job: said_in, after, story: story_of(ask), state_said, date };
     Row { key: ask.ask_id.clone(), glyph, hue, said: said.into(), title: ask.title.clone(), meta, on: false, ask: Some(line) }
 }
 

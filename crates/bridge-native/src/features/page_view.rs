@@ -1,172 +1,299 @@
-//! A feature's page drawn from what `page_model.rs` made of Fleet's read: a strip across the top, the sections
-//! down the side, and the open one beside them. Every value is a token.
+//! A feature's page drawn from what `page_model.rs` made of Fleet's read, in the owner's Dossier look: a band across the top
+//! tinted with the area's hue, and under it raised cards in columns. A section nobody wrote has no card. Every value is a token.
 
-use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Render, Role, SharedString, Toggled, Window};
+use gpui::{div, prelude::*, px, relative, AnyElement, ClipboardItem, Div, ElementId, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Stateful, Toggled, Window};
 
-use super::asks;
+use super::asks::{self, Spot};
+use super::dossier::{button, hue_of_name, pill, pill_area, tint};
 use super::page::{FeaturePageView, Load, Region};
-use super::page_model::{Block, Body, Chip, Code, Entry, Item, Section, Written};
+use super::page_model::{Body, Chip, Code, Item, Row, Section, Written};
 use crate::labels::labelled;
-use crate::look::{token, ActiveLook, Look};
+use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ring_colour, tip};
 use crate::titlebar::parts::{mono, sans};
 
-/// The words a pane's small heads are in: caps, light and muted.
-fn small_head(look: &Look, words: &str) -> Div {
-    div()
-        .text_size(look.length(token::TEXT_2XS))
-        .line_height(look.length(token::LEADING_2XS))
-        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-        .text_color(look.color(token::FG_MUTED))
-        .child(SharedString::from(words.to_uppercase()))
+/// What a card holds: the Jobs on the feature, the asks of its three kinds together, or a section.
+#[derive(Clone, Copy, PartialEq)]
+enum Card {
+    Who,
+    Asks,
+    Section(Section),
 }
 
-impl FeaturePageView {
-    fn render_top(&self, look: &Look) -> impl IntoElement {
-        let title = match &self.page {
-            Load::Read(page) => div().child(SharedString::from(page.feature.title.clone())).into_any_element(),
-            _ => bone(look, px(160.), look.length(token::LEADING_SM) - px(4.)).into_any_element(),
-        };
-        let area = match (&self.page, &self.area) {
-            (Load::Read(_), Some(area)) => Some(area.clone()),
-            (Load::Read(page), None) => Some(page.feature.area.replace('-', " ")),
-            _ => None,
-        };
-        let current = match &self.page {
-            Load::Read(page) => super::page_model::current_as_of(page),
-            _ => None,
-        };
+/// The sides of the page the cards stand in: the page's padding (`.grid`) either side.
+fn side(look: &Look) -> Pixels {
+    look.length(token::SPACE_6) + look.length(token::SPACE_1)
+}
+
+/// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs and asks, how it is tested and runs
+/// and its designs, then its code and what is stale or owed.
+fn columns(count: usize) -> Vec<Vec<Card>> {
+    use Card::{Asks, Who};
+    use Section::{Code, Debt, Designs, Observe, Runs, Test};
+    let s = Card::Section;
+    match count {
+        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), s(Observe), s(Debt)]],
+        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), s(Observe), s(Debt)]],
+        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), s(Observe), s(Debt)]],
+    }
+}
+
+/// A raised card (`.card`): the hairline, the card shadow, and where the keys are on it the focus colour. The one that says what
+/// runs now is tinted with the running hue (`.now`).
+fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
+    let edge = if ring {
+        ring_colour(look)
+    } else if running {
+        look.color(token::STATUS_RUNNING).opacity(0.38)
+    } else {
+        look.color(token::BORDER_SUBTLE)
+    };
+    let ground = if running { tint(look, look.color(token::BG_RAISED), token::STATUS_RUNNING, 0.09) } else { look.color(token::BG_RAISED) };
+    div().id(id.into()).w_full().flex().flex_col().rounded(look.length(token::RADIUS_LG)).border(look.length(token::BORDER_WIDTH)).border_color(edge).bg(ground).shadow(look.shadows(token::SHADOW_CARD)).overflow_hidden()
+}
+
+/// A card's title (`h3`): on a ground a little under the card's own, or in the running hue for the card that says what runs.
+fn head(look: &Look, key: &str, title: &str, running: bool) -> impl IntoElement {
+    let (ground, ink, edge) = if running {
+        (tint(look, look.color(token::BG_RAISED), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
+    } else {
+        (tint(look, look.color(token::BG_BASE), token::BG_RAISED, 0.70), look.color(token::FG_DEFAULT), look.color(token::BORDER_SUBTLE))
+    };
+    labelled(
         div()
-            .id("feature-top")
+            .id(SharedString::from(format!("feature-card-title-{key}")))
             .flex_none()
             .flex()
             .items_center()
-            .gap(look.length(token::SPACE_4))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_2) + px(2.))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(edge)
+            .bg(ground)
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(ink)
+            .child(SharedString::from(title.to_string())),
+        Role::Heading,
+        title.to_string(),
+    )
+}
+
+/// The inside of a card that holds text (`.in`).
+fn inner(look: &Look) -> Div {
+    div().flex().flex_col().gap(look.length(token::SPACE_3) - px(2.)).px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_3))
+}
+
+impl FeaturePageView {
+    // ---- the band ----------------------------------------------------------------------------
+
+    /// The hue of the feature's area: the one whoever opened the page gave, or one from the area's name.
+    fn band_hue(&self) -> Token {
+        self.hue.unwrap_or_else(|| match &self.page {
+            Load::Read(page) => hue_of_name(&page.feature.area),
+            _ => hue_of_name(""),
+        })
+    }
+
+    /// The band over the cards (`.head`): the title, the line under it, the area and when the page was last current, and at the
+    /// right the button that starts a Job on the feature.
+    fn render_top(&self, look: &Look, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+        let hue = self.band_hue();
+        let read = match &self.page {
+            Load::Read(page) => Some(page),
+            _ => None,
+        };
+        let title = match read {
+            Some(page) => div().child(SharedString::from(page.feature.title.clone())).into_any_element(),
+            None => bone(look, px(160.), look.length(token::LEADING_XL) - px(8.)).into_any_element(),
+        };
+        let area = match (read, &self.area) {
+            (Some(_), Some(area)) => Some(area.clone()),
+            (Some(page), None) => Some(page.feature.area.replace('-', " ")),
+            _ => None,
+        };
+        let current = read.and_then(super::page_model::current_as_of);
+        let summary = read.map(|page| page.feature.summary.clone()).filter(|summary| !summary.is_empty());
+        let start = labelled(
+            button(look, "feature-start", "Start a Job on it", true, true, read.is_none(), Some(&self.start)).tooltip(tip("Open the dispatch panel to start a Job")).on_click(cx.listener(|this, _, window, cx| {
+                this.focus_region(Region::Start, window, cx);
+                this.start_job(cx);
+            })),
+            Role::Button,
+            "Start a Job on it",
+        );
+        div()
+            .id("feature-top")
+            .relative()
+            .flex_none()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_6))
+            .px(side(look))
+            .pt(look.length(token::SPACE_6) - px(2.))
+            .pb(look.length(token::SPACE_4) + px(2.))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .child(labelled(div().id("feature-title").text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(title), Role::Heading, match &self.page {
-                Load::Read(page) => page.feature.title.clone(),
-                _ => "Feature".into(),
-            }))
-            .children(area.map(|area| {
-                labelled(
-                    div()
-                        .id("feature-area")
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .h(look.length(token::H_BADGE))
-                        .px(look.length(token::SPACE_2))
-                        .rounded(look.length(token::RADIUS_MD))
-                        .bg(look.color(token::FG_DEFAULT).opacity(0.08))
-                        .text_size(look.length(token::TEXT_2XS))
-                        .text_color(look.color(token::FG_MUTED))
-                        .whitespace_nowrap()
-                        .child(SharedString::from(area.clone())),
-                    Role::Label,
-                    format!("Area: {area}"),
-                )
-            }))
-            .children(current.map(|current| {
-                div().id("feature-current").ml_auto().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(current))
-            }))
-    }
-
-    // ---- the rail ----------------------------------------------------------------------------
-
-    fn render_rail(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        let focused = self.rail.is_focused(window);
-        let mut rail = div().flex().flex_col();
-        match &self.page {
-            Load::Read(_) => {
-                for entry in &self.entries {
-                    rail = rail.child(self.render_entry(entry, focused, look, cx));
-                }
-            }
-            Load::Reading => {
-                for at in 0..Section::ALL.len() {
-                    rail = rail.child(
+            .bg(tint(look, look.color(token::BG_BASE), hue, 0.08))
+            .child(div().absolute().top_0().left_0().right_0().h(look.length(token::EDGE_ACTIVE)).bg(look.color(hue)))
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .child(labelled(
                         div()
-                            .id(SharedString::from(format!("feature-section-bone-{at}")))
+                            .id("feature-title")
+                            .text_size(look.length(token::TEXT_XL))
+                            .line_height(look.length(token::LEADING_XL))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_DEFAULT))
+                            .child(title),
+                        Role::Heading,
+                        match read {
+                            Some(page) => page.feature.title.clone(),
+                            None => "Feature".into(),
+                        },
+                    ))
+                    .children(summary.map(|summary| {
+                        div()
+                            .id("feature-summary")
+                            .mt(look.length(token::SPACE_1) + px(2.))
+                            .max_w(look.length(token::SPACE_12) * 12.)
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .text_color(look.color(token::FG_MUTED))
+                            .child(SharedString::from(summary))
+                    }))
+                    .child(
+                        div()
                             .flex()
-                            .flex_col()
-                            .gap(px(2.))
-                            .px(look.length(token::SPACE_4))
-                            .py(look.length(token::SPACE_2))
-                            .child(bone(look, px(84. + 18. * (at % 3) as f32), look.length(token::LEADING_XS) - px(4.)))
-                            .child(bone(look, px(120. + 14. * (at % 4) as f32), look.length(token::LEADING_2XS) - px(4.))),
-                    );
-                }
-                rail = div().flex().flex_col().child(labelled(rail.id("feature-sections-loading"), Role::Image, "Loading"));
-            }
-            Load::Failed(_) => {}
-        }
-        div()
-            .id("feature-rail")
-            .track_focus(&self.rail)
-            .flex_none()
-            .w(look.length(token::SPACE_12) * 5.)
-            .h_full()
-            .py(look.length(token::SPACE_2))
-            .bg(look.color(token::BG_SUNKEN))
-            .border_r(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(labelled(rail.id("feature-sections"), Role::TabList, "Sections"))
-    }
-
-    /// A section: its title, and the line under it. The open one is filled and has an edge at its left.
-    fn render_entry(&self, entry: &Entry, focused: bool, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
-        let section = entry.section;
-        let open = self.section == section;
-        let summary_ink = if entry.stale { token::STATUS_AWAITING_REVIEW } else { token::FG_SUBTLE };
-        let row = div()
-            .id(SharedString::from(format!("feature-section-{}", section.id())))
-            .relative()
-            .w_full()
-            .flex()
-            .flex_col()
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_2))
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(if open && focused { ring_colour(look) } else { gpui::transparent_black() })
-            .when(open, |row| row.bg(look.color(token::ACCENT_MUTED)))
-            .when(!open, |row| row.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))))
-            .aria_selected(open)
-            .on_click(cx.listener(move |this, _, window, cx| {
-                this.select(section, cx);
-                this.focus_region(Region::Rail, window, cx);
-            }))
-            .children(open.then(|| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(look.color(token::ACCENT))))
-            .child(
-                div()
-                    .min_w_0()
-                    .truncate()
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(section.title()),
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .mt(look.length(token::SPACE_3) - px(2.))
+                            .children(area.map(|area| labelled(pill_area(look, hue, area.clone()).id("feature-area"), Role::Label, format!("Area: {area}"))))
+                            .children(current.map(|current| div().id("feature-current").text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(current)))),
+                    ),
             )
-            .child(
-                div()
-                    .min_w_0()
-                    .h(look.length(token::LEADING_2XS))
-                    .truncate()
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
-                    .text_color(look.color(summary_ink))
-                    .child(SharedString::from(entry.summary.clone())),
-            );
-        labelled(row, Role::Tab, section.title()).into_any_element()
+            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).child(start))
     }
 
-    // ---- the pane ----------------------------------------------------------------------------
+    // ---- rows --------------------------------------------------------------------------------
 
+    /// One row of a card. The keys are on it where `row_at` is its place and the card is the one they are on.
+    fn render_row(&self, section: Section, ix: usize, row: &Row, first: bool, divider: Option<Hsla>, look: &Look, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let picked = self.section == section && self.row_at == Some(ix);
+        let id = SharedString::from(format!("feature-row-{}-{ix}", section.id()));
+        let spot = Spot { picked, first, bug: section == Section::Bugs, divider };
+        let line = match (&row.ask, section) {
+            (Some(ask), _) => asks::ask(
+                look,
+                id,
+                row,
+                ask,
+                spot,
+                cx.listener(move |this, _, _, cx| {
+                    this.select(section, cx);
+                    this.open_story(ix, cx);
+                }),
+            ),
+            (None, Section::Bugs) => asks::filed(look, id, row, spot),
+            (None, Section::Designs) => asks::design(look, id, row, spot),
+            (None, _) => asks::job(look, id, row, spot),
+        }
+        .on_click(cx.listener(move |this, _, window, cx| {
+            this.select(section, cx);
+            this.pick_row(ix, cx);
+            this.focus_region(Region::Rows, window, cx);
+        }));
+        labelled(line, Role::ListBoxOption, row.title.clone()).into_any_element()
+    }
+
+    /// The rows of one section, with the line that folds the older asks of a kind. The list tracks the focus where the keys are on
+    /// this section's rows.
+    fn render_rows(&self, section: Section, rows: &[Row], divider: Option<Hsla>, look: &Look, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let open = self.unfolded.contains(&section);
+        let mut list = div().id(SharedString::from(format!("feature-rows-{}", section.id()))).w_full().flex().flex_col();
+        if self.section == section {
+            list = list.track_focus(&self.rows);
+        }
+        for (at, item) in super::page_model::items(section, rows.len(), open).into_iter().enumerate() {
+            match item {
+                Item::Fold => {
+                    let picked = self.section == section && self.row_at == Some(at);
+                    list = list.child(asks::fold(
+                        look,
+                        SharedString::from(format!("feature-row-{}-{at}", section.id())),
+                        open,
+                        picked,
+                        cx.listener(move |this, _, window, cx| {
+                            this.select(section, cx);
+                            this.pick_row(at, cx);
+                            this.focus_region(Region::Rows, window, cx);
+                            this.toggle_fold(cx);
+                        }),
+                    ));
+                }
+                Item::Row(row) => {
+                    if let Some(row) = rows.get(row) {
+                        list = list.child(self.render_row(section, at, row, at == 0, divider, look, cx));
+                    }
+                }
+            }
+        }
+        labelled(list, Role::ListBox, section.title()).into_any_element()
+    }
+
+    // ---- the cards ---------------------------------------------------------------------------
+
+    fn rows_of(&self, section: Section) -> &[Row] {
+        match self.cards.get(&section) {
+            Some(Body::Rows(rows)) => rows,
+            _ => &[],
+        }
+    }
+
+    /// Whether the keys are on a card of one of `here`, which draws it in the focus colour.
+    fn under_keys(&self, here: &[Section], window: &Window) -> bool {
+        self.rail.is_focused(window) && here.contains(&self.section)
+    }
+
+    /// The Jobs on the feature now in a card of their own, and those that worked on it before under it.
+    fn render_who(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        let rows = self.rows_of(Section::Who);
+        if rows.is_empty() {
+            return None;
+        }
+        let ring = self.under_keys(&[Section::Who], window);
+        let on = rows.iter().take_while(|row| row.on).count();
+        let running_edge = look.color(token::STATUS_RUNNING).opacity(0.18);
+        let mut who = div().id("feature-who").w_full().flex().flex_col().gap(look.length(token::SPACE_4));
+        if self.section == Section::Who {
+            who = who.track_focus(&self.rows);
+        }
+        if on > 0 {
+            let mut list = div().w_full().flex().flex_col();
+            for (at, row) in rows.iter().take(on).enumerate() {
+                list = list.child(self.render_row(Section::Who, at, row, at == 0, Some(running_edge), look, cx));
+            }
+            who = who.child(labelled(shell(look, "feature-card-on", ring, true).child(head(look, "on", "On it now", true)).child(list), Role::Region, "On it now"));
+        }
+        if rows.len() > on {
+            let mut list = div().w_full().flex().flex_col();
+            for (at, row) in rows.iter().enumerate().skip(on) {
+                list = list.child(self.render_row(Section::Who, at, row, at == on, None, look, cx));
+            }
+            who = who.child(labelled(shell(look, "feature-card-who", ring, false).child(head(look, "who", Section::Who.title(), false)).child(list), Role::Region, Section::Who.title()));
+        }
+        Some(who.into_any_element())
+    }
+
+    /// The filter chips of the asks, in a strip under the card's title.
     fn render_chips(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let focused = self.chips.is_focused(window);
-        let mut chips = div().flex().items_center().gap(look.length(token::SPACE_2));
+        let mut chips = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
         for chip in Chip::ALL {
             let on = self.chip == chip;
             let cursor = focused && self.chip_at == chip;
@@ -184,15 +311,16 @@ impl FeaturePageView {
                 .items_center()
                 .h(look.length(token::H_BADGE))
                 .px(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
+                .rounded(look.length(token::H_BADGE) / 2.)
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(if cursor { ring_colour(look) } else { gpui::transparent_black() })
-                .bg(if on { look.color(token::ACCENT_MUTED) } else { look.color(token::FG_DEFAULT).opacity(0.08) })
+                .bg(if on { look.color(token::ACCENT_MUTED) } else { look.color(token::BG_HOVER) })
                 .text_size(look.length(token::TEXT_2XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .text_color(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
                 .whitespace_nowrap()
                 .cursor_pointer()
-                .when(!on, |pill| pill.hover(|style| style.bg(look.color(token::BG_HOVER))))
+                .when(!on, |pill| pill.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.14))))
                 .aria_toggled(if on { Toggled::True } else { Toggled::False })
                 .when_some(said, |pill, said| pill.tooltip(tip(said)))
                 .on_click(cx.listener(move |this, _, window, cx| {
@@ -202,212 +330,254 @@ impl FeaturePageView {
                 .child(chip.label());
             chips = chips.child(labelled(pill, Role::Button, chip.label()));
         }
-        div().id("feature-chips").track_focus(&self.chips).px(look.length(token::SPACE_2)).child(labelled(chips.id("feature-chip-row"), Role::Group, "Show"))
+        div()
+            .id("feature-chips")
+            .track_focus(&self.chips)
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_2))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .child(labelled(chips.id("feature-chip-row"), Role::Group, "Show"))
     }
 
-    fn render_row(&self, ix: usize, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
-        let Body::Rows(rows) = &self.body else { return div().into_any_element() };
-        let Some(item) = self.items.get(ix) else { return div().into_any_element() };
-        let picked = self.row_at == Some(ix);
-        let id = SharedString::from(format!("feature-row-{ix}"));
-        let row = match *item {
-            Item::Fold => {
-                return asks::fold(look, id, self.is_unfolded(), picked, cx.listener(move |this, _, window, cx| {
-                    this.pick_row(ix, cx);
-                    this.focus_region(Region::Rows, window, cx);
-                    this.toggle_fold(cx);
-                }))
-                .into_any_element();
+    /// The asks of the three kinds in one card, each kind under its own chip (`.lane-h`).
+    fn render_asks(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        let ring = self.under_keys(&[Section::Bugs, Section::Changes, Section::Ideas], window);
+        let card = shell(look, "feature-card-asks", ring, false).child(head(look, "asks", "Asks", false));
+        let body = match &self.asks {
+            Load::Reading => {
+                let mut bones = div().flex().flex_col();
+                for at in 0..3 {
+                    bones = bones.child(self.bone_row(look, at));
+                }
+                labelled(bones.id("feature-asks-loading"), Role::Image, "Loading").into_any_element()
             }
-            Item::Row(row) => match rows.get(row) {
-                Some(row) => row,
-                None => return div().into_any_element(),
-            },
+            Load::Failed(why) => self.not_read(look, why).into_any_element(),
+            Load::Read(_) if !self.has_asks => return None,
+            Load::Read(_) => {
+                let mut lanes = div().flex().flex_col();
+                let mut first = true;
+                for (section, words, hue) in [(Section::Bugs, "Bug", token::STATUS_COMPLETED_FAILED), (Section::Changes, "Change request", token::ACCENT), (Section::Ideas, "Idea", token::OPERATOR)] {
+                    let rows = self.rows_of(section);
+                    if rows.is_empty() {
+                        continue;
+                    }
+                    let heading = labelled(
+                        div()
+                            .id(SharedString::from(format!("feature-lane-{}", section.id())))
+                            .flex()
+                            .items_center()
+                            .px(look.length(token::SPACE_3) + px(2.))
+                            .py(look.length(token::SPACE_2))
+                            .when(!first, |lane| lane.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                            .child(pill(look, hue, words)),
+                        Role::Heading,
+                        words,
+                    );
+                    lanes = lanes.child(heading).child(self.render_rows(section, rows, None, look, cx));
+                    first = false;
+                }
+                div().flex().flex_col().child(self.render_chips(look, window, cx)).child(lanes).into_any_element()
+            }
         };
-        let line = match &row.ask {
-            Some(ask) => asks::ask(look, id, row, ask, picked, cx.listener(move |this, _, _, cx| this.open_story(ix, cx))),
-            None => asks::row(look, id, row, picked),
-        }
-        .on_click(cx.listener(move |this, _, window, cx| {
-            this.pick_row(ix, cx);
-            this.focus_region(Region::Rows, window, cx);
-        }));
-        labelled(line, Role::ListBoxOption, row.title.clone()).into_any_element()
+        Some(labelled(card.child(body), Role::Region, "Asks").into_any_element())
     }
 
-    fn render_code(&self, code: &Code, look: &Look) -> Div {
-        let line = |text: &str| div().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(text.to_string()));
-        let block = |head: &str, lines: Div| div().flex().flex_col().gap(look.length(token::SPACE_1)).child(small_head(look, head)).child(lines);
-        let mut out = div().flex().flex_col().gap(look.length(token::SPACE_4));
-        if !code.paths.is_empty() {
-            out = out.child(block("Paths", code.paths.iter().fold(div().flex().flex_col(), |lines, path| lines.child(line(path)))));
+    fn bone_row(&self, look: &Look, at: usize) -> impl IntoElement {
+        div()
+            .id(SharedString::from(format!("feature-row-bone-{at}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_2) + px(1.))
+            .when(at > 0, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+            .child(bone(look, look.length(token::SPACE_3), look.length(token::SPACE_3)))
+            .child(div().flex().flex_col().gap(px(4.)).child(bone(look, px(180. + 40. * (at % 3) as f32), look.length(token::LEADING_XS) - px(6.))).child(bone(look, px(110.), look.length(token::LEADING_2XS) - px(6.))))
+    }
+
+    fn not_read(&self, look: &Look, why: &str) -> Div {
+        div()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_3))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Not read"))
+            .child(SharedString::from(why.to_string()))
+    }
+
+    fn render_designs(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        let rows = self.rows_of(Section::Designs);
+        if rows.is_empty() {
+            return None;
         }
-        if !code.entry_points.is_empty() {
-            out = out.child(block("Entry points", code.entry_points.iter().fold(div().flex().flex_col(), |lines, point| lines.child(line(point)))));
+        let ring = self.under_keys(&[Section::Designs], window);
+        let card = shell(look, "feature-card-designs", ring, false).child(head(look, "designs", Section::Designs.title(), false)).child(self.render_rows(Section::Designs, rows, None, look, cx));
+        Some(labelled(card, Role::Region, Section::Designs.title()).into_any_element())
+    }
+
+    /// The entry points, files and prefixes of the feature as mono rows with a hairline between them (`.path`). A file's figure is
+    /// the Jobs that wrote it, in a column of its own.
+    fn render_code(&self, code: &Code, look: &Look, window: &Window) -> AnyElement {
+        let ring = self.under_keys(&[Section::Code], window);
+        let path = |at: usize, text: &str, tag: AnyElement| {
+            div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .py(look.length(token::SPACE_1) + px(2.))
+                .when(at > 0, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                .child(div().flex_1().min_w_0().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(text.to_string())))
+                .child(tag)
+        };
+        let word = |text: &'static str| div().flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(text).into_any_element();
+        let mut at = 0;
+        let mut rows = div().flex().flex_col();
+        for point in &code.entry_points {
+            rows = rows.child(path(at, point, word("entry")));
+            at += 1;
         }
-        if !code.files.is_empty() {
-            let mut files = div().flex().flex_col();
-            for (at, (path, jobs)) in code.files.iter().enumerate() {
-                // The figure stands in a column of its own, so the figures line up down the files.
-                let figure = div()
-                    .id(SharedString::from(format!("feature-file-jobs-{at}")))
-                    .flex_none()
-                    .w(look.length(token::SPACE_8))
-                    .flex()
-                    .justify_end()
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XS))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .tooltip(tip(if *jobs == 1 { "Jobs that wrote this file: 1".to_string() } else { format!("Jobs that wrote this file: {jobs}") }))
-                    .child(SharedString::from(jobs.to_string()));
-                files = files.child(
+        for (file, jobs) in &code.files {
+            let figure = div()
+                .id(SharedString::from(format!("feature-file-jobs-{at}")))
+                .flex_none()
+                .font_family(mono(look))
+                .text_size(look.length(token::TEXT_2XS))
+                .text_color(look.color(token::FG_SUBTLE))
+                .tooltip(tip(if *jobs == 1 { "Jobs that wrote this file: 1".to_string() } else { format!("Jobs that wrote this file: {jobs}") }))
+                .child(SharedString::from(jobs.to_string()));
+            rows = rows.child(path(at, file, labelled(figure, Role::Image, format!("Jobs that wrote {file}: {jobs}")).into_any_element()));
+            at += 1;
+        }
+        for prefix in &code.paths {
+            rows = rows.child(path(at, prefix, word("path")));
+            at += 1;
+        }
+        let card = shell(look, "feature-card-code", ring, false).child(head(look, "code", Section::Code.title(), false)).child(div().px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_1)).child(rows));
+        labelled(card, Role::Region, Section::Code.title()).into_any_element()
+    }
+
+    /// A written section: a command in a well with Copy at its right (`.well`), the rest as a paragraph, and who wrote it. A stale
+    /// one has a band over its title in the awaiting review hue (`.stale-band`).
+    fn render_written(&self, section: Section, written: &Written, look: &Look, window: &Window) -> AnyElement {
+        let ring = self.under_keys(&[section], window);
+        let mut body = inner(look);
+        for (at, block) in written.blocks.iter().enumerate() {
+            body = body.child(if block.command {
+                let text = block.text.clone();
+                let copy = labelled(
                     div()
-                        .flex()
-                        .items_baseline()
-                        .gap(look.length(token::SPACE_3))
-                        .child(div().flex_1().min_w_0().child(line(path)))
-                        .child(labelled(figure, Role::Image, format!("Jobs that wrote {path}: {jobs}"))),
+                        .id(SharedString::from(format!("feature-copy-{}-{at}", section.id())))
+                        .flex_none()
+                        .text_size(look.length(token::TEXT_2XS))
+                        .line_height(look.length(token::LEADING_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .cursor_pointer()
+                        .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                        .tooltip(tip("Copy the command"))
+                        .on_click(move |_, _, cx| cx.write_to_clipboard(ClipboardItem::new_string(text.clone())))
+                        .child("Copy"),
+                    Role::Button,
+                    "Copy",
                 );
-            }
-            out = out.child(block("Files", files));
-        }
-        out
-    }
-
-    fn render_written(&self, written: &Written, look: &Look) -> Div {
-        let mut out = div().flex().flex_col().gap(look.length(token::SPACE_3));
-        for Block { text, command } in &written.blocks {
-            out = out.child(if *command {
                 div()
-                    .px(look.length(token::SPACE_2))
-                    .py(look.length(token::SPACE_1))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_3) - px(2.))
+                    .px(look.length(token::SPACE_3) - px(1.))
+                    .py(look.length(token::SPACE_2) + px(1.))
                     .rounded(look.length(token::RADIUS_MD))
                     .bg(look.color(token::BG_SUNKEN))
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
-                    .font_family(mono(look))
-                    .text_size(look.length(token::TEXT_XS))
-                    .line_height(look.length(token::LEADING_XS))
-                    .text_color(look.color(token::FG_DEFAULT))
-                    .child(SharedString::from(text.clone()))
+                    .child(div().flex_1().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(block.text.clone())))
+                    .child(copy)
             } else {
-                div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(text.clone()))
+                div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(block.text.clone()))
             });
         }
-        out.child(
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_3))
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .text_color(look.color(token::FG_SUBTLE))
-                .child(SharedString::from(written.by.clone()))
-                .children(written.stale.clone().map(|stale| labelled(asks::tinted(look, token::STATUS_AWAITING_REVIEW, stale.clone()).id("feature-stale"), Role::Image, stale))),
-        )
+        body = body.child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(written.by.clone())));
+        let band = written.stale.clone().map(|stale| {
+            labelled(
+                div()
+                    .id("feature-stale")
+                    .flex_none()
+                    .px(look.length(token::SPACE_3) + px(2.))
+                    .py(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::STATUS_AWAITING_REVIEW).opacity(0.30))
+                    .bg(tint(look, look.color(token::BG_RAISED), token::STATUS_AWAITING_REVIEW, 0.14))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(look.color(token::STATUS_AWAITING_REVIEW))
+                    .child(SharedString::from(stale.clone())),
+                Role::Image,
+                stale,
+            )
+        });
+        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).children(band).child(head(look, section.id(), section.title(), false)).child(body);
+        labelled(card, Role::Region, section.title()).into_any_element()
     }
 
-    fn render_body(&self, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
-        let reading = match (&self.page, &self.asks) {
-            (Load::Reading, _) => true,
-            (_, Load::Reading) => self.section.is_asks(),
-            _ => false,
-        };
-        if reading {
-            let mut bones = div().flex().flex_col();
-            for at in 0..4 {
-                bones = bones.child(
-                    div()
-                        .id(SharedString::from(format!("feature-row-bone-{at}")))
-                        .flex()
-                        .items_start()
-                        .gap(look.length(token::SPACE_3))
-                        .px(look.length(token::SPACE_2))
-                        .py(look.length(token::SPACE_3))
-                        .border_t(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .child(bone(look, look.length(token::SPACE_4), look.length(token::SPACE_4)))
-                        .child(div().flex().flex_col().gap(px(4.)).child(bone(look, px(220. + 40. * (at % 3) as f32), look.length(token::LEADING_SM) - px(6.))).child(bone(look, px(140.), look.length(token::LEADING_XS) - px(6.)))),
-                );
-            }
-            return labelled(bones.id("feature-pane-loading"), Role::Image, "Loading").into_any_element();
-        }
-        let failed = match (&self.page, &self.asks) {
-            (Load::Failed(why), _) => Some(why.clone()),
-            (_, Load::Failed(why)) if self.section.is_asks() => Some(why.clone()),
-            _ => None,
-        };
-        if let Some(why) = failed {
-            return div()
-                .px(look.length(token::SPACE_2))
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_1))
-                .text_size(look.length(token::TEXT_SM))
-                .text_color(look.color(token::FG_MUTED))
-                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Not read"))
-                .child(SharedString::from(why))
-                .into_any_element();
-        }
-        match &self.body {
-            Body::Rows(rows) if rows.is_empty() => div().into_any_element(),
-            Body::Rows(_) => {
-                labelled(
-                    div()
-                        .id("feature-rows")
-                        .track_focus(&self.rows)
-                        .flex_1()
-                        .min_h_0()
-                        .child(list(self.list.clone(), cx.processor(move |this, ix: usize, _, cx| {
-                            let look = cx.look().clone();
-                            this.render_row(ix, &look, cx)
-                        })).size_full()),
-                    Role::ListBox,
-                    self.section.title(),
-                )
-                .into_any_element()
-            }
-            Body::Code(code) => div().id("feature-code").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_2)).child(self.render_code(code, look)).into_any_element(),
-            Body::Written(None) => div().into_any_element(),
-            Body::Written(Some(written)) => div().id("feature-written").flex_1().min_h_0().overflow_y_scroll().px(look.length(token::SPACE_2)).child(self.render_written(written, look)).into_any_element(),
+    fn render_card(&self, card: Card, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        match card {
+            Card::Who => self.render_who(look, window, cx),
+            Card::Asks => self.render_asks(look, window, cx),
+            Card::Section(Section::Designs) => self.render_designs(look, window, cx),
+            Card::Section(section) => match self.cards.get(&section)? {
+                Body::Code(code) if self.present(section) => Some(self.render_code(code, look, window)),
+                Body::Written(Some(written)) => Some(self.render_written(section, written, look, window)),
+                _ => None,
+            },
         }
     }
 
-    fn render_pane(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        let title = self.section.title();
-        let head = labelled(
-            div().id("feature-pane-title").px(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(title),
-            Role::Heading,
-            title,
-        );
-        let chips = (self.section.is_asks() && matches!(self.page, Load::Read(_))).then(|| self.render_chips(look, window, cx));
-        let body = self.render_body(look, cx);
-        labelled(
-            div()
-                .id("feature-pane")
-                .flex_1()
-                .min_w_0()
-                .h_full()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .px(look.length(token::SPACE_4))
-                .py(look.length(token::SPACE_4))
-                .child(head)
-                .children(chips)
-                .child(body),
-            Role::Region,
-            title,
-        )
+    /// The cards, in as many columns as the page has room for: the first is a little wider (`1.15fr 1fr 1fr`).
+    fn render_cards(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let gap = look.length(token::SPACE_4);
+        let width = window.viewport_size().width - self.inset - side(look) * 2.;
+        let least = look.length(token::SPACE_12) * 6.;
+        let count = (((width + gap) / (least + gap)).floor() as usize).clamp(1, 3);
+        let mut grid = div().w_full().flex().items_start().gap(gap);
+        for (at, cards) in columns(count).into_iter().enumerate() {
+            let mut column = div().min_w_0().flex_basis(relative(0.)).flex_grow(if at == 0 && count == 3 { 1.15 } else { 1. }).flex().flex_col().gap(gap);
+            for card in cards {
+                column = column.children(self.render_card(card, look, window, cx));
+            }
+            grid = grid.child(column);
+        }
+        grid.into_any_element()
+    }
+
+    fn render_loading(&self, look: &Look) -> AnyElement {
+        let mut grid = div().w_full().flex().items_start().gap(look.length(token::SPACE_4));
+        for column in 0..3 {
+            let mut card = shell(look, SharedString::from(format!("feature-card-bone-{column}")), false, false).child(
+                div().flex_none().px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_3)).border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(bone(look, px(96.), look.length(token::LEADING_XS) - px(6.))),
+            );
+            for at in 0..3 {
+                card = card.child(self.bone_row(look, at));
+            }
+            grid = grid.child(div().min_w_0().flex_1().child(card));
+        }
+        labelled(grid.id("feature-pane-loading"), Role::Image, "Loading").into_any_element()
     }
 }
 
 impl Render for FeaturePageView {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        let top = self.render_top(&look);
-        let rail = self.render_rail(&look, window, cx);
-        let pane = self.render_pane(&look, window, cx);
+        let top = self.render_top(&look, cx);
+        let content = match &self.page {
+            Load::Reading => self.render_loading(&look),
+            Load::Failed(why) => shell(&look, "feature-not-read", false, false).child(self.not_read(&look, why)).into_any_element(),
+            Load::Read(_) => self.render_cards(&look, window, cx),
+        };
         div()
             .id("feature-page-view")
             .key_context(crate::generated::actions::ActionScope::Features.key_context().unwrap_or_default())
@@ -422,6 +592,17 @@ impl Render for FeaturePageView {
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
             .child(top)
-            .child(div().flex_1().min_h_0().flex().child(rail).child(pane))
+            .child(
+                div()
+                    .id("feature-cards")
+                    .track_focus(&self.rail)
+                    .flex_1()
+                    .min_h_0()
+                    .overflow_y_scroll()
+                    .px(side(&look))
+                    .pt(look.length(token::SPACE_4) + px(2.))
+                    .pb(look.length(token::SPACE_6))
+                    .child(content),
+            )
     }
 }

@@ -167,7 +167,7 @@ fn the_selected_features_page_is_open_beside_the_list_and_moving_the_row_replace
     cx.run_until_parked();
     let page = screen.read_with(cx, |screen, _| screen.page.clone()).expect("the page of the selected feature is open without Enter");
     assert_eq!(page.read_with(cx, |page, _| page.slug().to_string()), "start-a-job");
-    assert!(drawn(cx, gpui::Role::Tab, "Who worked on it"), "the sections are down its side");
+    assert!(drawn(cx, gpui::Role::Region, "On it now"), "the cards are on its page");
     assert!(drawn(cx, gpui::Role::Heading, "Start a Job"));
     assert!(drawn(cx, gpui::Role::Label, "Area: Running a Job"), "the area chip is the area's title");
     assert_eq!(cx.update(|_, cx| super::looked::before(mock::PROJECT, "start-a-job", cx)), None, "opening is not looking");
@@ -183,24 +183,10 @@ fn the_selected_features_page_is_open_beside_the_list_and_moving_the_row_replace
     cx.simulate_keystrokes("tab");
     assert!(cx.update(|window, cx| second.read(cx).rail.is_focused(window)), "Tab from the list goes to the page's sections");
     cx.simulate_keystrokes("j");
-    assert_eq!(second.read_with(cx, |page, _| page.section()), super::page_model::Section::Code, "J moves the section, and the list stays");
+    assert_eq!(second.read_with(cx, |page, _| page.section()), super::page_model::Section::Bugs, "J moves the card, and the list stays");
     assert_eq!(cursor(&screen, cx).as_deref(), Some("job-list-and-live-status"));
     cx.simulate_keystrokes("escape");
     assert!(cx.update(|window, cx| screen.read(cx).list_focus.is_focused(window)), "Esc gives the keys back to the list");
-}
-
-#[test]
-fn the_list_keeps_its_share_and_floor_from_a_thousand_up_and_gives_the_floor_up_below_it() {
-    // The rail 240 and 480 of asks beside it, and 401 for the list: 264 of fixed columns, 16 of gaps, 24 of edges, 1 of border, 96 of title.
-    let (floor, need, page) = (px(440.), px(401.), px(720.));
-    let at = |screen: f32| model::narrow_list_width(px(screen), floor, need, page);
-    assert_eq!(at(1400.), None, "a wide screen is as it was");
-    assert_eq!(at(1000.), None, "a thousand is as it was");
-    assert_eq!(at(999.), Some(px(401.)), "just under it the list takes what it needs");
-    assert_eq!(at(900.), Some(px(401.)), "the page has 499");
-    assert_eq!(at(820.), Some(px(401.)), "the page has 419");
-    assert_eq!(at(600.), Some(px(401.)), "never less than the list needs");
-    assert_eq!(model::narrow_list_width(px(990.), px(440.), px(100.), px(720.)), Some(px(270.)), "a list that needs less takes what the page leaves: the screen less the page");
 }
 
 /// The list's and the page's widths with a feature open, the window being `wide` from the start.
@@ -227,12 +213,9 @@ fn widths_at(cx: &mut TestAppContext, wide: f32) -> (gpui::Pixels, gpui::Pixels)
 }
 
 #[gpui::test]
-fn the_list_needs_401_and_at_900_it_takes_that_and_the_page_the_rest(cx: &mut TestAppContext) {
-    ready(cx);
-    let need = cx.update(|cx| super::view::list_need(crate::look::ActiveLook::look(cx)));
-    assert_eq!(need, px(401.), "fixed columns 264, gaps 16, edges 24, border 1, a title's 96");
-    // The list's box is inside its 1px border.
-    assert_eq!(widths_at(cx, 900.), (px(400.), px(499.)));
+fn the_list_is_288_wide_from_900_up_and_the_page_has_the_rest(cx: &mut TestAppContext) {
+    // The rail is six steps of the largest space; the list's box is inside its 1px border.
+    assert_eq!(widths_at(cx, 900.), (px(287.), px(612.)));
 }
 
 #[gpui::test]
@@ -242,9 +225,9 @@ fn at_820_the_page_takes_the_whole_width_where_it_is_opened(cx: &mut TestAppCont
 }
 
 #[gpui::test]
-fn from_a_thousand_up_the_list_is_its_share_as_it_was(cx: &mut TestAppContext) {
+fn the_rail_does_not_grow_with_a_wide_window(cx: &mut TestAppContext) {
     let (list, page) = widths_at(cx, 1400.);
-    assert!((f32::from(list) - (1400. * 0.36 - 1.)).abs() < 0.01 && (f32::from(page) - 1400. * 0.64).abs() < 0.01, "{list:?} and {page:?}");
+    assert_eq!((list, page), (px(287.), px(1112.)), "the page takes what the rail leaves");
 }
 
 #[gpui::test]
@@ -377,7 +360,7 @@ fn at_820_tab_opens_the_page_as_enter_does(cx: &mut TestAppContext) {
     assert_eq!(page_of(&screen, cx).as_deref(), Some("start-a-job"));
     assert!(cx.update(|window, cx| screen.read(cx).page.clone().expect("a page").read(cx).rail.is_focused(window)), "Tab is in the page's sections");
     cx.simulate_keystrokes("j");
-    assert_eq!(screen.read_with(cx, |screen, _| screen.page.clone()).expect("a page").read_with(cx, |page, _| page.section()), super::page_model::Section::Code, "J moves the section there");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.page.clone()).expect("a page").read_with(cx, |page, _| page.section()), super::page_model::Section::Bugs, "J moves the card there");
 }
 
 #[gpui::test]

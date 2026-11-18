@@ -27,38 +27,7 @@ pub fn rename_name(title: &str) -> String {
 
 /// A small bordered chip that presses: `primary` is filled with the accent. It takes the keys through `focus`.
 fn chip_button(look: &Look, id: impl Into<gpui::ElementId>, words: &str, primary: bool, off: bool, focus: &FocusHandle) -> Stateful<Div> {
-    let (ground, hover, ink, edge) = if primary {
-        (look.color(token::ACCENT), look.color(token::ACCENT_HOVER), look.color(token::TEXT_ON_ACCENT), look.color(token::ACCENT))
-    } else {
-        (look.color(token::BG_RAISED), look.color(token::BG_HOVER), look.color(token::FG_DEFAULT), look.color(token::BORDER_DEFAULT))
-    };
-    let ring = ring_colour(look);
-    let button = div()
-        .id(id.into())
-        .track_focus(focus)
-        .tab_stop(!off)
-        .flex_none()
-        .flex()
-        .items_center()
-        .h(look.length(token::H_CONTROL_SM))
-        .px(look.length(token::SPACE_2))
-        .rounded(look.length(token::RADIUS_MD))
-        .border(look.length(token::BORDER_WIDTH))
-        .border_color(edge)
-        .bg(ground)
-        .text_size(look.length(token::TEXT_XS))
-        .line_height(look.length(token::LEADING_XS))
-        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-        .text_color(ink)
-        .whitespace_nowrap()
-        .focus_visible(move |style| style.border_color(ring))
-        .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
-        .child(SharedString::from(words.to_string()));
-    if off {
-        button.opacity(0.5)
-    } else {
-        button.cursor_pointer().hover(move |style| style.bg(hover))
-    }
+    super::dossier::button(look, id, words, primary, false, off, Some(focus))
 }
 
 /// A text box's frame: sunken, one hairline, the accent while it has the keys.
@@ -115,25 +84,24 @@ impl FeaturesScreen {
                 }));
             labelled(press, Role::Button, name)
         };
-        let text = div()
-            .flex_1()
-            .min_w_0()
-            .flex()
-            .flex_col()
-            .gap(gpui::px(2.))
-            .child(div().min_w_0().truncate().child(SharedString::from(row.title.clone())))
-            .when(!row.summary.is_empty(), |text| {
-                text.child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(row.summary.clone())))
-            });
-        div()
+        let title = div()
             .w_full()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(text)
+            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(row.title.clone())))
+            .child(super::dossier::dot(look, token::OPERATOR, false));
+        div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_1))
+            .child(title)
+            .when(!row.summary.is_empty(), |text| {
+                text.child(div().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(row.summary.clone())))
+            })
             .child(
                 div()
-                    .flex_none()
                     .flex()
                     .items_center()
                     .gap(look.length(token::SPACE_1))

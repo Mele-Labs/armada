@@ -215,22 +215,22 @@ fn a_page_opened_after_a_look_compares_with_that_look_and_another_feature_is_not
 }
 
 #[gpui::test]
-fn j_and_k_move_the_open_section_and_tab_goes_between_the_rail_the_chips_and_the_rows(cx: &mut TestAppContext) {
+fn j_and_k_move_the_card_the_keys_are_on_and_tab_goes_between_the_cards_the_chips_the_rows_and_the_start_button(cx: &mut TestAppContext) {
     let (page, cx) = open(cx);
     let section = |page: &gpui::Entity<FeaturePageView>, cx: &mut VisualTestContext| page.read_with(cx, |page, _| page.section());
     let region = |page: &gpui::Entity<FeaturePageView>, cx: &mut VisualTestContext| cx.update(|window, cx| page.read(cx).region_in(window));
     assert_eq!(section(&page, cx), Section::Who);
     cx.simulate_keystrokes("j");
-    assert_eq!(section(&page, cx), Section::Code, "the section the cursor is on is the one open");
+    assert_eq!(section(&page, cx), Section::Bugs, "the next card down the first column");
     cx.simulate_keystrokes("down down down");
-    assert_eq!(section(&page, cx), Section::Bugs);
+    assert_eq!(section(&page, cx), Section::Test, "the asks are three lanes of one card, and the next column follows");
     cx.simulate_keystrokes("k");
-    assert_eq!(section(&page, cx), Section::Designs);
-    cx.simulate_keystrokes("j up up up up up up");
+    assert_eq!(section(&page, cx), Section::Ideas);
+    cx.simulate_keystrokes("up up up up up up up up up up");
     assert_eq!(section(&page, cx), Section::Who, "it stops at the first");
-    cx.simulate_keystrokes("j j j j");
+    cx.simulate_keystrokes("j");
     assert_eq!(section(&page, cx), Section::Bugs);
-    // Tab: rail, then the chips, then the rows, round to the rail.
+    // Tab: the cards, then the chips, then the rows, then the button, round to the cards.
     assert_eq!(region(&page, cx), Region::Rail);
     cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Chips);
@@ -248,20 +248,57 @@ fn j_and_k_move_the_open_section_and_tab_goes_between_the_rail_the_chips_and_the
     cx.simulate_keystrokes("j j");
     assert_eq!(page.read_with(cx, |page, _| page.row_at), Some(2));
     cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Start, "the button that starts a Job on it");
+    cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Rail, "it wraps");
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(region(&page, cx), Region::Start);
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Rows);
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Chips);
-    // A section with no chips and nothing to pick goes straight round.
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Rail);
-    cx.simulate_keystrokes("j j");
-    assert_eq!(section(&page, cx), Section::Ideas);
-    cx.simulate_keystrokes("j j");
-    assert_eq!(section(&page, cx), Section::Observe);
+    // A written card has no chips and nothing to pick, so Tab goes straight to the button.
+    cx.simulate_keystrokes("j j j");
+    assert_eq!(section(&page, cx), Section::Test);
     cx.simulate_keystrokes("tab");
-    assert_eq!(region(&page, cx), Region::Rail, "the written section has no chips and no rows");
+    assert_eq!(region(&page, cx), Region::Start, "the written card has no chips and no rows");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Rail);
+}
+
+#[gpui::test]
+fn enter_on_the_start_button_opens_the_dispatch_panel(cx: &mut TestAppContext) {
+    ready(cx);
+    let asked: std::rc::Rc<std::cell::RefCell<Vec<crate::titlebar::Asked>>> = Default::default();
+    let heard = asked.clone();
+    cx.update(|cx| cx.set_global(crate::titlebar::AskedSink(std::rc::Rc::new(move |one: &crate::titlebar::Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
+    let (page, cx) = cx.add_window_view(|window, cx| FeaturePageView::mock(SLUG.into(), window, cx));
+    cx.update(|window, cx| page.update(cx, |page, cx| page.focus_rail(window, cx)));
+    cx.run_until_parked();
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(cx.update(|window, cx| page.read(cx).region_in(window)), Region::Start);
+    cx.simulate_keystrokes("enter");
+    assert!(matches!(asked.borrow().as_slice(), [crate::titlebar::Asked::Dispatch]));
+}
+
+#[gpui::test]
+fn a_section_nobody_wrote_has_no_card_and_the_keys_skip_it(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    page.update(cx, |page, cx| {
+        let mut read = mock::page(SLUG);
+        read.sections.retain(|section| section.section != ipc::FeatureSectionKind::Test);
+        page.page = Load::Read(read);
+        page.rebuild(cx);
+    });
+    cx.run_until_parked();
+    assert!(!page.read_with(cx, |page, _| page.present(Section::Test)), "an empty section is left out");
+    assert!(drawn(cx, Role::Region, "How it runs"));
+    page.update(cx, |page, cx| page.select(Section::Ideas, cx));
+    cx.update(|window, cx| page.update(cx, |page, cx| page.focus_rail(window, cx)));
+    cx.simulate_keystrokes("j");
+    assert_eq!(page.read_with(cx, |page, _| page.section()), Section::Runs, "the keys go from the asks to the next card that is there");
 }
 
 #[gpui::test]
@@ -279,22 +316,24 @@ fn every_part_of_the_page_is_found_by_its_role_and_name(cx: &mut TestAppContext)
     page.update(cx, |page, cx| page.select(Section::Bugs, cx));
     cx.run_until_parked();
     assert!(drawn(cx, Role::Heading, "Start a Job"));
-    assert!(drawn(cx, Role::TabList, "Sections"));
-    for section in Section::ALL {
-        assert!(drawn(cx, Role::Tab, section.title()), "{} is a tab", section.title());
+    assert!(drawn(cx, Role::Button, "Start a Job on it"));
+    assert!(drawn(cx, Role::Label, "Area: running a job"), "the area chip is named");
+    for card in ["On it now", "Who worked on it", "Asks", "Designs", "Code", "How to test it", "How it runs", "How to observe it", "Tech debt"] {
+        assert!(drawn(cx, Role::Region, card), "{card} is a region");
+        assert!(drawn(cx, Role::Heading, card), "{card} has its title");
     }
-    assert!(drawn(cx, Role::Region, "Bugs and issues"), "the pane is a region named by its section");
-    assert!(drawn(cx, Role::Heading, "Bugs and issues"));
+    for lane in ["Bug", "Change request", "Idea"] {
+        assert!(drawn(cx, Role::Heading, lane), "{lane} heads its asks");
+    }
     for chip in Chip::ALL {
         assert!(drawn(cx, Role::Button, chip.label()), "{} is a button", chip.label());
     }
     assert!(drawn(cx, Role::ListBox, "Bugs and issues"));
     assert!(drawn(cx, Role::ListBoxOption, "Native draws no sketch in a page"));
     assert!(drawn(cx, Role::Image, "Handed"), "a row's state has a name");
-    page.update(cx, |page, cx| page.select(Section::Code, cx));
-    cx.run_until_parked();
-    assert!(drawn(cx, Role::Region, "Code"));
     assert!(drawn(cx, Role::Image, "Jobs that wrote crates/fleet/src/start/card.rs: 6"));
+    assert!(drawn(cx, Role::Image, "Stale since #3692"), "a stale section says since which merge");
+    assert!(drawn(cx, Role::Button, "Copy"), "a command can be copied");
 }
 
 #[gpui::test]
@@ -314,6 +353,6 @@ fn the_page_draws_bones_while_it_is_read_and_its_sections_once_it_answers(cx: &m
         page.rebuild(cx);
     });
     cx.run_until_parked();
-    assert!(drawn(cx, Role::Tab, "Code"));
+    assert!(drawn(cx, Role::Region, "Code"));
     assert_eq!(page.read_with(cx, |page, _| page.entries.len()), 10);
 }

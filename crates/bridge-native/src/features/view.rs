@@ -1,66 +1,60 @@
-//! The Features tab drawn from what `model.rs` made of Fleet's read: area heads with their features under
-//! them in the left column, and the slot the feature's page fills on the right. Every value is a token.
+//! The Features tab drawn from what `model.rs` made of Fleet's read: in the left rail the field that finds a feature, and each
+//! area as a head with its own hue and its features indented under it, and on the right the slot the feature's page fills.
+//! The look is the owner's Dossier take. Every value is a token.
 
-use gpui::{div, list, prelude::*, px, relative, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
+use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
 use gpui_component::input::Input;
 
-use super::model::{narrow_list_width, Line, Shown};
+use super::dossier::{area_hue, hue_square, selected_shadow};
+use super::model::{Line, Shown};
 use super::{FeaturesScreen, Load};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ghost_with, ring_colour, tip};
+use crate::titlebar::parts::kbd;
 use crate::titlebar::parts::sans;
 
-/// A filled chip: its words in a hue on a tint of that hue (`color-mix(... 14%, transparent)`).
-fn chip(look: &Look, hue: Token, words: impl Into<SharedString>) -> Div {
-    div()
+/// The width of the list column (`.rail`): six steps of the largest space.
+fn rail_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 6.
+}
+
+/// The page's inset (`.rail` and its edge), which is none while the page is drawn alone.
+impl FeaturesScreen {
+    pub(super) fn inset(&self, cx: &gpui::App) -> Pixels {
+        if self.stacked {
+            px(0.)
+        } else {
+            rail_width(cx.look()) + cx.look().length(token::BORDER_WIDTH)
+        }
+    }
+}
+
+/// The mark a Job is on a feature: the running dot with its soft ring, and every Job in the tooltip. Absent where nobody is on it.
+fn on_mark(look: &Look, shown: &Shown) -> Option<gpui::AnyElement> {
+    shown.on.first()?;
+    let cell = div().id(SharedString::from(format!("feature-on-{}", shown.row.slug))).flex_none().p(look.length(token::SPACE_1) - px(1.)).tooltip(tip(shown.on_said())).child(super::dossier::dot(look, token::STATUS_RUNNING, true));
+    Some(labelled(cell, Role::Image, format!("On it now: {}", shown.on.join(", "))).into_any_element())
+}
+
+/// The word a stale section leaves on its feature (`.stale`), in the awaiting review hue.
+fn stale_mark(look: &Look, shown: &Shown) -> Option<gpui::AnyElement> {
+    let stale = shown.stale.clone()?;
+    let cell = div()
+        .id(SharedString::from(format!("feature-stale-{}", shown.row.slug)))
         .flex_none()
-        .flex()
-        .items_center()
-        .h(look.length(token::H_BADGE))
-        .px(look.length(token::SPACE_2))
-        .rounded(look.length(token::RADIUS_MD))
-        .bg(look.color(hue).opacity(0.14))
-        .text_color(look.color(hue))
         .text_size(look.length(token::TEXT_2XS))
-        .whitespace_nowrap()
-        .child(div().min_w_0().truncate().child(words.into()))
-}
-
-/// What the list column needs at least: the two fixed columns, the gaps and edges of a row, and two token-steps of room
-/// for a title, where a title is cut with an ellipsis.
-pub(super) fn list_need(look: &Look) -> Pixels {
-    let step = look.length(token::SPACE_12);
-    step * 3. + step * 2.5 + look.length(token::SPACE_2) * 2. + look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) + step * 2.
-}
-
-/// The column who is on a feature now has: a chip naming the first Job, a mark that there are more, and every
-/// Job in the tooltip. Fixed in width, so the chips line up down the list, and empty where nobody is on it.
-fn on_column(look: &Look, shown: &Shown) -> gpui::AnyElement {
-    let cell = div().flex_none().w(look.length(token::SPACE_12) * 3.).min_w_0().flex().items_center().gap(look.length(token::SPACE_1)).overflow_hidden();
-    let Some(first) = shown.on.first() else { return cell.into_any_element() };
-    let said = shown.on_said();
-    let cell = cell
-        .id(SharedString::from(format!("feature-on-{}", shown.row.slug)))
-        .tooltip(tip(said.clone()))
-        .child(chip(look, token::STATUS_RUNNING, first.clone()).flex_shrink(1.).min_w_0())
-        .when(shown.on.len() > 1, |cell| cell.child(chip(look, token::STATUS_RUNNING, "…")));
-    labelled(cell, Role::Image, format!("On it now: {}", shown.on.join(", "))).into_any_element()
-}
-
-/// The column the stale mark has, fixed and empty where nothing is stale.
-fn stale_column(look: &Look, shown: &Shown) -> gpui::AnyElement {
-    let cell = div().flex_none().w(look.length(token::SPACE_12) * 2.5).flex().items_center();
-    let Some(stale) = &shown.stale else { return cell.into_any_element() };
-    let cell = cell.id(SharedString::from(format!("feature-stale-{}", shown.row.slug))).tooltip(tip("A written section is older than the last merge that changed its files")).child(chip(look, token::STATUS_AWAITING_REVIEW, stale.clone()));
-    labelled(cell, Role::Image, stale.clone()).into_any_element()
+        .text_color(look.color(token::STATUS_AWAITING_REVIEW))
+        .tooltip(tip("A written section is older than the last merge that changed its files"))
+        .child("stale");
+    Some(labelled(cell, Role::Image, stale).into_any_element())
 }
 
 impl FeaturesScreen {
     fn render_bones(&self, look: &Look) -> Div {
-        let mut bones = div().flex().flex_col();
+        let mut bones = div().flex().flex_col().px(look.length(token::SPACE_2));
         for area in 0..3 {
-            bones = bones.child(div().px(look.length(token::SPACE_3)).py(look.length(token::SPACE_2)).bg(look.color(token::BG_SUNKEN)).child(bone(look, px(84.), look.length(token::LEADING_2XS))));
+            bones = bones.child(div().flex().items_center().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_2)).pt(look.length(token::SPACE_3)).pb(look.length(token::SPACE_1)).child(bone(look, look.length(token::SPACE_3), look.length(token::SPACE_3))).child(bone(look, px(84. + 20. * area as f32), look.length(token::LEADING_2XS))));
             for row in 0..3 {
                 bones = bones.child(
                     div()
@@ -68,16 +62,25 @@ impl FeaturesScreen {
                         .flex()
                         .items_center()
                         .gap(look.length(token::SPACE_2))
-                        .px(look.length(token::SPACE_3))
-                        .py(look.length(token::SPACE_2))
-                        .border_t(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .child(div().flex_1().child(bone(look, px(120. + 36. * ((area + row) % 3) as f32), look.length(token::LEADING_XS))))
-                        .child(bone(look, look.length(token::SPACE_12) * 2., look.length(token::H_BADGE))),
+                        .pl(look.length(token::SPACE_6) + px(2.))
+                        .pr(look.length(token::SPACE_2))
+                        .py(look.length(token::SPACE_1) + px(2.))
+                        .child(div().flex_1().child(bone(look, px(120. + 36. * ((area + row) % 3) as f32), look.length(token::LEADING_XS) - px(4.)))),
                 );
             }
         }
         bones
+    }
+
+    /// The hue of the area `slug`: its place among the areas the library keeps, and the Operator's for the pending group.
+    pub(super) fn hue_of(&self, slug: &str) -> Token {
+        if slug == super::curate::PENDING_AREA {
+            return token::OPERATOR;
+        }
+        match &self.library {
+            Load::Read(library) => library.areas.iter().filter(|area| area.slug != super::curate::PENDING_AREA).position(|area| area.slug == slug).map_or_else(|| super::dossier::hue_of_name(slug), area_hue),
+            _ => super::dossier::hue_of_name(slug),
+        }
     }
 
     fn render_line(&mut self, ix: usize, focused: bool, window: &Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
@@ -86,30 +89,36 @@ impl FeaturesScreen {
         match self.listed.lines.get(ix).cloned() {
             Some(Line::Head { slug, title }) => {
                 let beside = self.split_beside(&slug, &title, look, cx);
+                let shown_title = if slug == super::curate::PENDING_AREA { super::page_model::sentence(&title) } else { title.clone() };
                 div()
                     .id(SharedString::from(format!("features-area-{slug}")))
                     .w_full()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_1) + px(2.))
-                    .border_t(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::BG_SUNKEN))
-                    .child(labelled(
+                    .px(look.length(token::SPACE_2))
+                    .child(
                         div()
-                            .id(SharedString::from(format!("features-area-title-{slug}")))
-                            .flex_1()
-                            .min_w_0()
-                            .text_size(look.length(token::TEXT_2XS))
-                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                            .text_color(look.color(token::FG_MUTED))
-                            .child(SharedString::from(title.to_uppercase())),
-                        Role::Heading,
-                        title,
-                    ))
-                    .children(beside)
+                            .w_full()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .px(look.length(token::SPACE_2))
+                            .pt(look.length(token::SPACE_2) + px(2.))
+                            .pb(look.length(token::SPACE_1))
+                            .child(hue_square(look, self.hue_of(&slug), look.length(token::SPACE_2) + px(2.)))
+                            .child(labelled(
+                                div()
+                                    .id(SharedString::from(format!("features-area-title-{slug}")))
+                                    .flex_1()
+                                    .min_w_0()
+                                    .truncate()
+                                    .text_size(look.length(token::TEXT_XS))
+                                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                    .text_color(look.color(token::FG_DEFAULT))
+                                    .child(SharedString::from(shown_title)),
+                                Role::Heading,
+                                title,
+                            ))
+                            .children(beside),
+                    )
                     .into_any_element()
             }
             Some(Line::Feature(at)) => match self.listed.shown.get(at).cloned() {
@@ -120,19 +129,13 @@ impl FeaturesScreen {
         }
     }
 
-    /// One feature: its title, who is on it now and its stale mark. The one opened wears the accent and its edge,
-    /// the one the keys are on a lighter ground with the focus colour's edge.
+    /// One feature: its name, and at the right the dot that a Job is on it and the word that a section is stale. The one opened
+    /// is a raised row with a hairline and a shadow, and the one the keys are on has the focus colour for its hairline. A pending
+    /// feature has its three buttons under its name, and an editor under them where one is open.
     fn render_feature(&self, shown: &Shown, focused: bool, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let slug = shown.row.slug.clone();
         let opened = self.opened.as_deref() == Some(slug.as_str());
         let under_keys = self.cursor.as_deref() == Some(slug.as_str());
-        let edge = if opened {
-            Some(look.color(token::ACCENT))
-        } else if under_keys && focused {
-            Some(ring_colour(look))
-        } else {
-            None
-        };
         let press = slug.clone();
         let pending = super::curate::is_pending(&shown.row);
         let main = if pending {
@@ -144,29 +147,28 @@ impl FeaturesScreen {
                 .items_center()
                 .gap(look.length(token::SPACE_2))
                 .child(div().flex_1().min_w_0().truncate().child(SharedString::from(shown.row.title.clone())))
-                .child(on_column(look, shown))
-                .child(stale_column(look, shown))
+                .children(on_mark(look, shown))
+                .children(stale_mark(look, shown))
                 .into_any_element()
         };
         let row = div()
             .id(SharedString::from(format!("feature-{slug}")))
-            .relative()
             .w_full()
             .flex()
             .flex_col()
-            .px(look.length(token::SPACE_3))
-            .py(look.length(token::SPACE_2))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .text_size(look.length(token::TEXT_SM))
-            .text_color(look.color(token::FG_DEFAULT))
+            .pl(look.length(token::SPACE_6) + px(2.))
+            .pr(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1) + px(2.))
+            .rounded(look.length(token::RADIUS_MD))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
             .map(|row| {
                 if opened {
-                    row.bg(look.color(token::ACCENT).opacity(0.22))
-                } else if under_keys {
-                    row.bg(look.color(token::BG_HOVER))
+                    row.bg(look.color(token::BG_RAISED)).text_color(look.color(token::FG_DEFAULT)).shadow(selected_shadow(look, (under_keys && focused).then(|| ring_colour(look))))
+                } else if under_keys && focused {
+                    row.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)).shadow(selected_shadow(look, Some(ring_colour(look))))
                 } else {
-                    row.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    row.text_color(look.color(token::FG_MUTED)).cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)))
                 }
             })
             .aria_selected(opened)
@@ -179,26 +181,36 @@ impl FeaturesScreen {
                     this.focus_list(window, cx);
                 }
             }))
-            .children(edge.map(|colour| div().absolute().left_0().top_0().bottom_0().w(look.length(token::EDGE_ACTIVE)).bg(colour)))
             .child(main)
             .children(if pending { self.form_under(&slug, look, window, cx) } else { None });
-        labelled(row, Role::ListBoxOption, shown.row.title.clone()).into_any_element()
+        div().w_full().px(look.length(token::SPACE_2)).child(labelled(row, Role::ListBoxOption, shown.row.title.clone())).into_any_element()
     }
 
-    fn render_list(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+    /// The field that finds a feature, with the key that reaches it (`.find`).
+    fn render_find(&self, look: &Look) -> impl IntoElement {
         let filter = labelled(
-            div().id("features-filter").flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_SM)).child(Input::new(&self.filter)),
+            div().id("features-filter").flex_1().min_w_0().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_XS)).child(Input::new(&self.filter).appearance(false)),
             Role::SearchInput,
             "Filter features",
         );
-        let top = div()
+        div()
+            .id("features-find")
             .flex_none()
+            .m(look.length(token::SPACE_3))
+            .h(look.length(token::H_CONTROL_LG))
+            .px(look.length(token::SPACE_2) + px(2.))
             .flex()
             .items_center()
-            .p(look.length(token::SPACE_3))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(filter);
+            .gap(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_BASE))
+            .child(filter)
+            .child(kbd("/", look))
+    }
+
+    fn render_list(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let body = match &self.library {
             Load::Reading => labelled(self.render_bones(look).id("features-loading"), Role::Image, "Loading").into_any_element(),
             Load::Failed(why) => div()
@@ -214,7 +226,7 @@ impl FeaturesScreen {
             Load::Read(_) => {
                 let focused = self.list_focus.is_focused(window);
                 labelled(
-                    div().id("features-list").size_full().child(list(self.list.clone(), cx.processor(move |this, ix: usize, window, cx| this.render_line(ix, focused, window, cx))).size_full()),
+                    div().id("features-list").size_full().pb(look.length(token::SPACE_3)).child(list(self.list.clone(), cx.processor(move |this, ix: usize, window, cx| this.render_line(ix, focused, window, cx))).size_full()),
                     Role::ListBox,
                     "Features",
                 )
@@ -225,25 +237,14 @@ impl FeaturesScreen {
             .id("features-column")
             .track_focus(&self.list_focus)
             .flex_none()
-            .map(|column| {
-                if self.stacked {
-                    return column.w_full();
-                }
-                // The page wants its rail, 240, and 480 beside it for the asks: fifteen token-steps. Where the screen is
-                // narrower than a thousand the list gives up its floor for it, and keeps what its columns need.
-                match narrow_list_width(window.viewport_size().width, look.length(token::W_DIALOG), list_need(look), look.length(token::SPACE_12) * 15.) {
-                    Some(narrow) => column.w(narrow),
-                    // Below this the fixed columns would leave the titles no room.
-                    None => column.w(relative(0.36)).min_w(look.length(token::W_DIALOG)),
-                }
-            })
+            .map(|column| if self.stacked { column.w_full() } else { column.w(rail_width(look)) })
             .h_full()
             .flex()
             .flex_col()
             .when(!self.stacked, |column| column.border_r(look.length(token::BORDER_WIDTH)))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_RAISED))
-            .child(top)
+            .bg(look.color(token::BG_SUNKEN))
+            .child(self.render_find(look))
             .child(div().flex_1().min_h_0().child(body))
     }
 
