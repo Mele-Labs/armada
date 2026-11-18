@@ -15,6 +15,7 @@ mod filing;
 mod floor_plan;
 mod handoff;
 mod holding;
+pub(crate) mod librarian;
 pub(crate) mod mapping;
 mod measuring;
 mod modules;

@@ -104,6 +104,7 @@ pub mod leasing;
 mod main_ci;
 mod manifest_edit;
 mod mcp;
+mod mcp_configured;
 mod mcp_control;
 mod merge_queue;
 mod merging_in;
@@ -219,7 +220,10 @@ pub use test_map_static::TypeScriptImports;
 pub use taught_tracker::{TaughtTracker, TaughtTrackers, TrackerFile};
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
-pub use mcp_control::{control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState};
+pub use mcp_configured::{ConfigPlaces, ConfigStamp, Configured, McpConfig};
+pub use mcp_control::{
+    control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState, SetAnswer,
+};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,
     text_of_a_session, AnIssue, Fetch, MilestoneRead, Source, StaysALink, Taken, FETCH_SECONDS,

@@ -78,6 +78,7 @@ mod mod_moved;
 pub mod keeper;
 /// A hosted job's MCP servers, read and acted on through control lines: `get_session_mcp`,
 /// `act_on_session_mcp`.
+mod mcp_added;
 pub(crate) mod mcp_servers;
 pub(crate) mod kept;
 /// `send_session_note` and `send_session_notes`: pinned notes, with the lines of code each was
@@ -610,6 +611,8 @@ pub(crate) struct State {
     pub runs: crate::run_memory::RunLog,
     /// Who waits on each control line written to the process, by its request id. In memory.
     pub controls: HashMap<String, mcp_servers::Waiter>,
+    /// The servers Fleet loaded into the live process after it started. In memory.
+    pub(crate) mcp_added: mcp_added::Added,
     /// The harness said its sign-in ran out and the Job stopped, until the account works again. In
     /// memory: `signed_out`.
     pub signed_out: bool,
@@ -715,6 +718,7 @@ impl State {
             check_calls: check_calls::CheckCalls::default(),
             runs: crate::run_memory::RunLog::default(),
             controls: HashMap::new(),
+            mcp_added: mcp_added::Added::default(),
             signed_out: false,
             tools_missing: None,
             healed_into: None,

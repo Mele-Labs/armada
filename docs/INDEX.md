@@ -299,6 +299,9 @@ approximations.
 - [`spikes/039-would-a-fresh-session-per-step-save-tokens.md`](spikes/039-would-a-fresh-session-per-step-save-tokens.md)
   — a fresh session at each workflow step, simulated over 14 days of Jobs: 2.0% to 4.4% of all spend at a 400k window,
   −1.1% to 1.2% on top of 250k, since both reset a thread to about 70k; more than half the boundaries end a step the owner wrote in.
+- [`spikes/040-can-a-running-job-load-a-server-it-added.md`](spikes/040-can-a-running-job-load-a-server-it-added.md)
+  — `mcp_set_servers` loads a server into a running headless CLI with no restart; the set owns every name it is given,
+  so Fleet sends only the servers it added; the CLI does not notice its own config change, so Fleet reads it.
 - [`spikes/item-clarity.md`](spikes/item-clarity.md)
   — whether the owner can act on an item an agent puts on his Needs you list, by rules and by an
   `item_clear` head: 569 labelled items, rules alone against the head and both, dev folds and a held half,

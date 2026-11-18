@@ -78,6 +78,7 @@ mod manifest_edit;
 mod outside;
 mod consulting;
 mod mcp;
+mod mcp_configured;
 mod mcp_control;
 mod models_offered;
 mod merging_after_a_kill;

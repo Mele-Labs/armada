@@ -146,3 +146,105 @@ async fn the_wire_reads_the_servers_and_asks_the_act_bridge_named() {
     assert_eq!((acted.servers[0].state, acted.servers[0].tools), (ipc::McpServerState::Connected, 1));
     assert_eq!(acted.sign_in, None);
 }
+
+/// An `mcp_status` answer listing `servers`, each `(name, scope)` and connected.
+fn listing(servers: &[(&str, &str)]) -> String {
+    let rows: Vec<String> = servers
+        .iter()
+        .map(|(name, scope)| {
+            format!(r#"{{"name":"{name}","status":"connected","config":{{"type":"stdio"}},"scope":"{scope}","tools":[{{"name":"ping"}}]}}"#)
+        })
+        .collect();
+    format!(
+        r#"{{"type":"control_response","response":{{"subtype":"success","request_id":"{{id}}","response":{{"mcpServers":[{}]}}}}}}"#,
+        rows.join(",")
+    )
+}
+
+fn set_answer(added: &str, errors: &str) -> String {
+    format!(
+        r#"{{"type":"control_response","response":{{"subtype":"success","request_id":"{{id}}","response":{{"added":[{added}],"removed":[],"errors":{{{errors}}}}}}}}}"#
+    )
+}
+
+/// The folder job `id` runs in, where its `.mcp.json` is read.
+fn folder_of(rig: &Rig, id: &str) -> std::path::PathBuf {
+    std::path::PathBuf::from(rig.fleet.hosts().of(id).state().directory.clone())
+}
+
+/// A job that ran `claude mcp add` mid-run has the server in its Loadout at the next read, set on
+/// its live process alone: never the door, and never a server the process loaded from its files
+/// at start, since a set takes over every name it is given. Spike 40.
+#[tokio::test]
+async fn a_server_added_mid_run_is_set_on_the_live_process_and_nothing_it_loaded_at_start_is() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    let session = id.as_str().to_string();
+    let folder = folder_of(&rig, &session);
+    std::fs::write(
+        std::path::Path::new(&rig.root).join(".claude.json"),
+        r#"{"mcpServers":{"armada-fleet":{"type":"stdio","command":"door"},"notes-demo":{"type":"stdio","command":"notes"}}}"#,
+    )
+    .unwrap();
+    std::fs::write(folder.join(".mcp.json"), r#"{"mcpServers":{"tracker-demo":{"type":"stdio","command":"tracker","args":["--demo"]}}}"#)
+        .unwrap();
+    let read = |rig: &Rig| {
+        let (fleet, session) = (Arc::clone(&rig.fleet), session.clone());
+        tokio::spawn(async move { fleet.session_mcp(&session).await })
+    };
+    let at_start = [("armada-fleet", "dynamic"), ("notes-demo", "user")];
+
+    let reading = read(&rig);
+    answered(&rig, 1, &listing(&at_start)).await;
+    let set = answered(&rig, 2, &set_answer(r#""tracker-demo""#, "")).await;
+    answered(&rig, 3, &listing(&[at_start[0], at_start[1], ("tracker-demo", "dynamic")])).await;
+    assert_eq!(
+        set,
+        r#"{"type":"control_request","request_id":"{id}","request":{"subtype":"mcp_set_servers","servers":{"tracker-demo":{"args":["--demo"],"command":"tracker","type":"stdio"}}}}"#
+    );
+    let servers = reading.await.unwrap().expect("read");
+    let names: Vec<&str> = servers.iter().map(|server| server.name.as_str()).collect();
+    assert_eq!(names, ["armada-fleet", "notes-demo", "tracker-demo"]);
+
+    let reading = read(&rig);
+    answered(&rig, 4, &listing(&[at_start[0], at_start[1], ("tracker-demo", "dynamic")])).await;
+    reading.await.unwrap().expect("read");
+    assert_eq!(controls(&rig.stand_in.process(0)).len(), 4, "files unchanged since the last read are not set again");
+
+    std::fs::write(folder.join(".mcp.json"), r#"{"mcpServers":{}}"#).unwrap();
+    let reading = read(&rig);
+    answered(&rig, 5, &listing(&[at_start[0], at_start[1], ("tracker-demo", "dynamic")])).await;
+    let removed = answered(&rig, 6, &set_answer("", "")).await;
+    answered(&rig, 7, &listing(&at_start)).await;
+    assert!(removed.ends_with(r#""request":{"subtype":"mcp_set_servers","servers":{}}}"#), "{removed}");
+    assert_eq!(reading.await.unwrap().expect("read").len(), 2);
+}
+
+/// A server the live process will not take reads as failed, with its words and when it will load.
+#[tokio::test]
+async fn a_server_the_live_process_refuses_reads_as_failed_until_a_restart() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    rig.send(&id, "hello").await;
+    rig.stand_in.init(0);
+    let session = id.as_str().to_string();
+    std::fs::write(folder_of(&rig, &session).join(".mcp.json"), r#"{"mcpServers":{"wiki-demo":{"type":"http"}}}"#).unwrap();
+
+    let reading = tokio::spawn({
+        let (fleet, session) = (Arc::clone(&rig.fleet), session.clone());
+        async move { fleet.session_mcp(&session).await }
+    });
+    answered(&rig, 1, &listing(&[])).await;
+    answered(&rig, 2, &set_answer("", r#""wiki-demo":"Invalid configuration: url is required""#)).await;
+    answered(&rig, 3, &listing(&[])).await;
+
+    let servers = reading.await.unwrap().expect("read");
+    assert_eq!(servers.len(), 1);
+    assert_eq!((servers[0].name.as_str(), servers[0].state, servers[0].scope.as_deref()), ("wiki-demo", McpState::Failed, Some("project")));
+    assert_eq!(
+        servers[0].error.as_deref(),
+        Some("Added while this job ran, and its process would not load it: Invalid configuration: url is required. It loads when the job restarts.")
+    );
+}
