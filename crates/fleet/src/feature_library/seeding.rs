@@ -55,7 +55,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The roots of the repositories `project` holds that Fleet serves, or `None` for a project Fleet does not hold.
-    fn seed_roots(&self, project: &str) -> Option<Vec<PathBuf>> {
+    pub(super) fn seed_roots(&self, project: &str) -> Option<Vec<PathBuf>> {
         let held = self.projects_held();
         let one = held.running().find(|one| one.id().as_str() == project)?;
         Some(self.project_roots(one).into_iter().map(PathBuf::from).collect())

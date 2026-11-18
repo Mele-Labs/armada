@@ -136,6 +136,8 @@ where
             fleet.clashes_checked().await;
             // Armada's own catalog, kept once for a project that holds its repository and no feature, Operator or not.
             fleet.projects_seeded().await;
+            // The librarian, run by itself only where the owner set it to after merges or nightly.
+            fleet.librarians_due().await;
             // The files each Job wrote, filed under the features that own them.
             fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.
