@@ -731,7 +731,7 @@ impl JobView {
                         this.settle(ix, id.clone(), Answer::Withdrawn, "/sessions/waiting/dismiss", body, window, cx);
                     }
                     Act::Archive => this.archive_card(ix, &id, &page_name, window, cx),
-                    Act::Open => this.open_document_tab(&page_name, window, cx),
+                    Act::Open => this.open_document(&page_name, window, cx),
                     Act::Edit => {}
                 }
             })

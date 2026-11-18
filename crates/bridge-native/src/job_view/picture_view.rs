@@ -1,12 +1,13 @@
 //! A picture opened in a view that fills the app below the title bar, not the screen: a press on a take, a drawing part, a thread's
 //! picture. It opens at fit and zooms with the one helper (`zoomer.rs`). A take's head names the take and its two neighbours, ← and →
 //! step between them, and a Pick button sits in the head; a part that asks keeps its Approve and Ask for changes, or Send pick, at
-//! the foot. Esc closes it and the keys go back to where they were.
+//! the foot. Esc closes it and the keys go back to where they were. A press on an artifact card grows the view out of the card, and
+//! on a drawing a right press leaves a note on the part under it (`sketch_notes.rs`).
 
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{anchored, deferred, div, img, prelude::*, px, size, Anchor, AnyElement, App, Bounds, Context, FocusHandle, Image, KeyDownEvent, MouseButton, ObjectFit, Pixels, Role, SharedString, Size, Window};
+use gpui::{anchored, deferred, div, img, prelude::*, px, size, Anchor, Animation, AnimationExt, AnyElement, App, Bounds, Context, FocusHandle, Image, KeyDownEvent, MouseButton, MouseDownEvent, ObjectFit, Pixels, Role, SharedString, Size, Window};
 use ipc::{PartContent, Scene};
 
 use super::parts_card::pick_mark;
@@ -34,6 +35,11 @@ pub(super) struct Viewing {
     focus: FocusHandle,
     back: Option<FocusHandle>,
     zoom: Zoomer,
+    /// The card it grew out of, and which open this is.
+    from: Option<(Bounds<Pixels>, usize)>,
+    /// On a drawing: the part a note would be about, and the note being written.
+    pub(super) target: Option<super::sketch_notes::Part>,
+    pub(super) writing: Option<super::sketch_notes::Writing>,
 }
 
 /// The app's area below the title bar: where the view stands.
@@ -80,8 +86,38 @@ impl JobView {
         let focus = cx.focus_handle();
         let back = window.focused(cx);
         window.focus(&focus, cx);
-        self.pictures.viewing = Some(Viewing { what, focus, back, zoom: Zoomer::default() });
+        self.pictures.viewing = Some(Viewing { what, focus, back, zoom: Zoomer::default(), from: None, target: None, writing: None });
         cx.notify();
+    }
+
+    /// A press on artifact `id`'s card: its first drawing grows out of the card to fill the app, with every act the card has at
+    /// its foot. A card with no drawing opens in the review panel.
+    pub(super) fn open_card(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let drawing = self.artifact_of(&job, id).and_then(|artifact| artifact.parts.iter().find(|part| matches!(part.content, PartContent::Drawing { .. })).map(|part| part.id.clone()));
+        let Some(part) = drawing else {
+            self.open_artifact_review(id, window, cx);
+            return;
+        };
+        self.grow_drawing(&super::parts_card::part_key(id, &part), window, cx);
+    }
+
+    /// Drawing part `key` grows out of its artifact's card to fill the app.
+    pub(super) fn grow_drawing(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let from = super::parts_card::split_key(key).and_then(|(artifact, _)| self.pictures.cards.borrow().get(artifact).copied());
+        self.open_viewing(What::Drawing { key: key.to_string() }, window, cx);
+        self.pictures.opens += 1;
+        let opens = self.pictures.opens;
+        if let Some(viewing) = self.pictures.viewing.as_mut() {
+            viewing.from = from.map(|bounds| (bounds, opens));
+        }
+    }
+
+    /// The drawing part the view holds, where it holds one: its key, the key it is drawn under, and the view's focus.
+    pub(super) fn viewed_drawing(&self) -> Option<(&str, String, FocusHandle)> {
+        let viewing = self.pictures.viewing.as_ref()?;
+        let What::Drawing { key } = &viewing.what else { return None };
+        Some((key, self.held_of(&viewing.what, "view")?, viewing.focus.clone()))
     }
 
     /// Esc or Close: it shuts and the keys go back to where they were.
@@ -116,6 +152,18 @@ impl JobView {
     /// The same, held under `prefix`: the review panel's detail draws a drawing beside the view that enlarges it, and the two
     /// must not share one canvas.
     pub(super) fn scene_of_as(&self, what: &What, prefix: &str) -> Option<(String, Rc<Scene>)> {
+        let (held, text) = self.held_text(what, prefix)?;
+        let raw: ipc::RawScene = serde_json::from_str(&text).ok()?;
+        let scene = crate::scene::read(&held, &raw)?;
+        Some((held, scene))
+    }
+
+    /// The key a drawing is held under, without reading it.
+    fn held_of(&self, what: &What, prefix: &str) -> Option<String> {
+        self.held_text(what, prefix).map(|(held, _)| held)
+    }
+
+    fn held_text(&self, what: &What, prefix: &str) -> Option<(String, String)> {
         let job = self.shown.as_ref()?;
         let (key, text, tag) = match what {
             What::Raster { .. } => return None,
@@ -132,10 +180,7 @@ impl JobView {
                 (key.clone(), scene, tag)
             }
         };
-        let held = format!("{prefix}:{job}:{key}:{tag}");
-        let raw: ipc::RawScene = serde_json::from_str(&text).ok()?;
-        let scene = crate::scene::read(&held, &raw)?;
-        Some((held, scene))
+        Some((format!("{prefix}:{job}:{key}:{tag}"), text))
     }
 
     /// The key of the drawing part the viewer holds, where it holds one.
@@ -155,12 +200,20 @@ impl JobView {
         let key = &event.keystroke;
         let plain = !key.modifiers.modified();
         let take = self.pictures.viewing.as_ref().is_some_and(|viewing| matches!(viewing.what, What::Take { .. }));
+        let drawing = self.viewed_drawing().map(|(key, _, _)| key.to_string());
         match key.key.as_str() {
             "escape" if plain => self.close_picture(window, cx),
             "left" if plain && take => self.step_take(-1, cx),
             "right" if plain && take => self.step_take(1, cx),
+            "enter" if drawing.is_some() && key.modifiers.platform && !self.held_notes().is_empty() => self.send_sketch_notes(window, cx),
+            "f10" if drawing.is_some() && key.modifiers.shift => self.note_menu_by_keys(window, cx),
+            "tab" if drawing.is_some() && !key.modifiers.platform => self.walk_parts(key.modifiers.shift, cx),
             _ if zoomer::keyed(self, key, window, cx) => {}
-            _ => return,
+            // A drawing's view answers as its card does: A, C, D and the take keys.
+            _ => match drawing.as_deref().and_then(super::parts_card::split_key).map(|(artifact, _)| artifact.to_string()) {
+                Some(artifact) => return self.parts_key(&artifact, event, window, cx),
+                None => return,
+            },
         }
         cx.stop_propagation();
     }
@@ -296,11 +349,19 @@ impl JobView {
         let area = app_area(window, cx);
         let scene = self.scene_of(&viewing.what);
         let head = self.picture_head(viewing, look, cx);
+        let bar = |acts: AnyElement| div().flex_none().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_RAISED)).child(acts);
         let foot = match &viewing.what {
-            What::Take { key, .. } | What::Drawing { key } => self.part_acts(key, look, cx),
+            What::Take { key, .. } => self.part_acts(key, look, cx).map(bar).map(IntoElement::into_any_element),
+            // A drawing keeps everything its card asks: its own Approve and Ask for changes, the pick, and Dismiss.
+            What::Drawing { key } => {
+                let acts = self.part_acts(key, look, cx).map(bar);
+                let card = super::parts_card::split_key(key)
+                    .and_then(|(artifact, _)| self.pages.get(self.shown.as_ref()?).and_then(|page| self.parts_pinned_footer(super::acts::SHEET, artifact, page, look, cx)))
+                    .map(|card| div().flex_none().bg(look.color(token::BG_RAISED)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(card));
+                (acts.is_some() || card.is_some()).then(|| div().flex_none().flex().flex_col().children(acts).children(card).into_any_element())
+            }
             What::Raster { .. } => None,
-        }
-        .map(|acts| div().flex_none().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_RAISED)).child(acts));
+        };
         // The first frame stands in the area's own size; the probe in the body gives the view's from then on.
         let view = viewing.zoom.view().unwrap_or(size(f32::from(area.size.width), f32::from(area.size.height)));
         let stage = self.stage_of(viewing, view, cx);
@@ -317,6 +378,10 @@ impl JobView {
                     .child(img(image.clone()).size_full().object_fit(ObjectFit::Contain))
                     .into_any_element()
             }),
+            (What::Drawing { .. }, Some((held, scene))) => {
+                let lens = Lens { zoom: viewing.zoom.scale, pan: (viewing.zoom.pan.x, viewing.zoom.pan.y) };
+                Some(div().absolute().inset_0().child(crate::scene::view_marked(SharedString::from(held), scene, None, Fit::Reading, Clock::default(), lens, self.note_marks())).into_any_element())
+            }
             (_, Some((held, scene))) => {
                 let lens = Lens { zoom: viewing.zoom.scale, pan: (viewing.zoom.pan.x, viewing.zoom.pan.y) };
                 Some(div().absolute().inset_0().child(crate::scene::view(SharedString::from(held), scene, Fit::Reading, Clock::default(), lens)).into_any_element())
@@ -324,32 +389,50 @@ impl JobView {
             _ => None,
         };
         let name = self.picture_name(&viewing.what);
-        let body = zoomer::bind(div().id("picture-body").relative().flex_1().min_h_0().overflow_hidden().bg(look.color(token::BG_BASE)), cx, |_, _, _, _| {})
+        let drawing = matches!(viewing.what, What::Drawing { .. });
+        // On a drawing, a press that did not travel picks the part under it, and a right press offers a note on it.
+        let body = zoomer::bind(div().id("picture-body").relative().flex_1().min_h_0().overflow_hidden().bg(look.color(token::BG_BASE)), cx, |this, at, _, cx| {
+            if this.viewed_drawing().is_some() {
+                let part = this.note_part_at(at);
+                this.pick_part(part, cx);
+            }
+        })
+        .when(drawing, |body| {
+            body.on_mouse_down(MouseButton::Right, cx.listener(|this, event: &MouseDownEvent, window, cx| {
+                let part = this.note_part_at(event.position);
+                this.note_menu(event.position, part, window, cx);
+                cx.stop_propagation();
+            }))
+        })
             .child(viewing.zoom.probe())
             .children(content)
             .children(readout.map(|readout| zoomer::corner(look, readout, |this, _, cx| zoomer::refit(this, cx), cx)));
-        Some(
-            deferred(
-                anchored().position(area.origin).anchor(Anchor::TopLeft).child(labelled(
-                    div()
-                        .id("picture-view")
-                        .occlude()
-                        .track_focus(&viewing.focus)
-                        .flex()
-                        .flex_col()
-                        .w(area.size.width)
-                        .h(area.size.height)
-                        .bg(look.color(token::BG_BASE))
-                        .on_key_down(cx.listener(Self::picture_key))
-                        .child(head)
-                        .child(body)
-                        .children(foot),
-                    Role::Dialog,
-                    name,
-                )),
-            )
-            .with_priority(3),
-        )
+        let note_box = if drawing { self.render_note_box(area, look, cx) } else { None };
+        let view = labelled(
+            div()
+                .id("picture-view")
+                .relative()
+                .occlude()
+                .track_focus(&viewing.focus)
+                .flex()
+                .flex_col()
+                .w(area.size.width)
+                .h(area.size.height)
+                .bg(look.color(token::BG_BASE))
+                .on_key_down(cx.listener(Self::picture_key))
+                .child(head)
+                .child(body)
+                .children(foot)
+                .children(note_box),
+            Role::Dialog,
+            name,
+        );
+        // Opened from a card, the view grows out of where the card stood, as if it zoomed out of the thread.
+        let view = match viewing.from {
+            Some((from, opens)) => grow(view, from, area, look.length(token::RADIUS_LG), look.duration(token::DURATION_ENTER), opens),
+            None => view.into_any_element(),
+        };
+        Some(deferred(anchored().position(area.origin).anchor(Anchor::TopLeft).child(view)).with_priority(3))
     }
 
     /// The stage the open picture stands on in a view of `view` size, where it is drawn.
@@ -363,6 +446,26 @@ impl JobView {
             }
         }
     }
+}
+
+/// `view`, standing over `area`, grows out of `from`: it starts at the card's place and size, rounded as the card is, and eases out
+/// to fill the area. Each open (`opens`) grows afresh.
+fn grow(view: impl IntoElement + 'static, from: Bounds<Pixels>, area: Bounds<Pixels>, radius: Pixels, over: std::time::Duration, opens: usize) -> AnyElement {
+    let lerp = |a: Pixels, b: Pixels, at: f32| a + (b - a) * at;
+    div()
+        .overflow_hidden()
+        .child(view)
+        .with_animation(SharedString::from(format!("picture-grow:{opens}")), Animation::new(over).with_easing(gpui::ease_out_quint()), move |frame, at| {
+            frame
+                .relative()
+                .left(lerp(from.left() - area.left(), px(0.), at))
+                .top(lerp(from.top() - area.top(), px(0.), at))
+                .w(lerp(from.size.width, area.size.width, at))
+                .h(lerp(from.size.height, area.size.height, at))
+                .rounded(lerp(radius, px(0.), at))
+                .opacity(0.4 + 0.6 * at)
+        })
+        .into_any_element()
 }
 
 impl Zooms for JobView {
@@ -502,6 +605,52 @@ mod tests {
         cx.simulate_click(drawing.center(), gpui::Modifiers::none());
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Fit"), "a press on it opens the app-filling view");
+    }
+
+    const CARD: &str = "Artifact: Step bar for Jobs, Revision 2";
+
+    #[gpui::test]
+    fn a_press_anywhere_on_the_card_grows_its_drawing_out_of_the_card_into_the_app_filling_view(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let card = bounds_of(cx, Role::Article, CARD);
+        cx.simulate_click(card.origin + gpui::point(px(6.), px(6.)), gpui::Modifiers::none());
+        redraw(cx);
+        let from = view.read_with(cx, |view, _| view.pictures.viewing.as_ref().and_then(|viewing| viewing.from.map(|(from, _)| from)));
+        let from = from.expect("a press on the card's edge opens the view, grown from the card");
+        assert!((from.top() - card.top()).abs() <= px(2.) && (from.size.width - card.size.width).abs() <= px(2.), "it starts where the card stood, inside its border: {from:?} for {card:?}");
+        assert!(view.read_with(cx, |view, _| view.viewed_drawing().is_some()), "it shows the card's drawing");
+        assert!(drawn(cx, Role::Button, "Fit"), "and pans and zooms as the large view does");
+        cx.executor().advance_clock(std::time::Duration::from_secs(1));
+        redraw(cx);
+        let area = cx.update(|window, cx| app_area(window, cx));
+        let name = view.read_with(cx, |view, _| view.pictures.viewing.as_ref().map(|viewing| view.picture_name(&viewing.what))).expect("still open");
+        assert_eq!(bounds_of(cx, Role::Dialog, &name).size, area.size, "grown, it fills the app");
+    }
+
+    #[gpui::test]
+    fn a_press_on_an_act_of_the_card_does_its_act_and_grows_nothing(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let approve = bounds_of(cx, Role::Button, "Approve");
+        cx.simulate_click(approve.center(), gpui::Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none()), "the act's press stays with the act");
+    }
+
+    #[gpui::test]
+    fn a_right_press_on_a_part_of_the_grown_drawing_picks_it_for_a_note_on_the_artifact(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let card = bounds_of(cx, Role::Article, CARD);
+        cx.simulate_click(card.origin + gpui::point(px(6.), px(6.)), gpui::Modifiers::none());
+        cx.executor().advance_clock(std::time::Duration::from_secs(1));
+        redraw(cx);
+        let drawn_key = view.read_with(cx, |view, _| view.viewed_drawing().map(|(_, drawn, _)| drawn)).expect("a drawing is shown");
+        let (part, at) = crate::scene::nodes(&drawn_key).into_iter().next().expect("the drawing has a node");
+        cx.simulate_event(MouseDownEvent { button: MouseButton::Right, position: at.center(), modifiers: gpui::Modifiers::none(), click_count: 1, first_mouse: false });
+        redraw(cx);
+        let target = view.read_with(cx, |view, _| view.pictures.viewing.as_ref().and_then(|viewing| viewing.target.clone()));
+        assert_eq!(target.map(|one| one.id), Some(part.id.clone()), "the part under the right press is picked");
+        let marks = view.read_with(cx, |view, _| view.note_marks());
+        assert!(marks.picked.contains(&part.id), "and ringed on the drawing");
     }
 
     #[gpui::test]

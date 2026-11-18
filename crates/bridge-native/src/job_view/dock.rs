@@ -1022,7 +1022,7 @@ impl JobView {
             // A page he is only to read opens in the reader at once, beside whatever else is owed.
             NeedsYouAct::OpenDocument { path } if item.starts_with("read:") => {
                 self.set_needs(false, None, window, cx);
-                self.open_document_tab(path, window, cx);
+                self.open_document(path, window, cx);
             }
             NeedsYouAct::OpenPlan | NeedsYouAct::OpenSketch { .. } | NeedsYouAct::OpenDocument { .. } | NeedsYouAct::OpenDraft { .. } => {
                 // Where the band offers the sheet it opens; else the page is on the thread's card.

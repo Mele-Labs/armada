@@ -18,7 +18,7 @@ use super::zoomer::{self, Zoomer};
 use crate::labels::labelled;
 use crate::scene::{Clock, Fit, Lens};
 use super::parts_card::{effective_part, part_key, stand_of};
-use super::review::{Item, Kind, Verdict};
+use super::review::{page_of_item, Item, Kind, Verdict};
 use super::JobView;
 use crate::look::{token, Look};
 
@@ -132,6 +132,100 @@ impl JobView {
             return;
         }
         self.open_review_at(Some(artifact), window, cx);
+    }
+
+    /// The document `page` as the panel's item: its own `read:<page>` where nothing waits on him for it, so it is read in the
+    /// panel, and the card or the artifact it is read from. None where the Job holds neither, or the artifact is one of parts.
+    pub(super) fn document_item(&self, job: &str, page: &str, cx: &gpui::App) -> Option<Item> {
+        let card = self.thread(job, cx).and_then(|held| super::review::document_card(&held.items, page));
+        let (name, revision, since, for_line) = match card {
+            Some(card) => (card.title.clone(), card.revision, card.at.as_str().to_string(), card.for_line.as_ref()),
+            None => {
+                let one = self.artifact_of(job, page).filter(|one| one.parts.is_empty() && one.form == ipc::ArtifactForm::Page)?;
+                let last = one.revisions.last()?;
+                (one.title.clone(), last.number, last.at.as_str().to_string(), one.for_line.as_ref())
+            }
+        };
+        Some(Item {
+            job: job.to_string(),
+            id: format!("read:{page}"),
+            kind: Kind::Document,
+            name,
+            since,
+            for_line: for_line.and_then(|line| line.text.clone()).filter(|text| !text.trim().is_empty()),
+            revision: Some(format!("r{revision}")),
+            send_back: false,
+            read: true,
+            artifact: None,
+        })
+    }
+
+    /// The key of what the panel picks for the artifact or document `opened`: its artifact of parts, the item waiting on him for
+    /// the page, or the document read in place.
+    pub(super) fn opened_key(&self, job: &str, opened: &str, cx: &gpui::App) -> String {
+        if self.artifact_item(job, opened).is_some() {
+            return key_of_artifact(job, opened);
+        }
+        match self.review_items(job, cx).into_iter().find(|item| page_of_item(&item.id) == Some(opened)).or_else(|| self.document_item(job, opened, cx)) {
+            Some(item) => item.key(),
+            None => key_of_artifact(job, opened),
+        }
+    }
+
+    /// Read the document `page` of the shown Job in the review panel, with its live page: one press, as a page part is read. A
+    /// page the Job holds no card or artifact for opens nothing.
+    pub(super) fn open_document(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        if self.artifact_item(&job, page).is_none() && self.document_item(&job, page, cx).is_none() {
+            return;
+        }
+        self.set_needs(false, None, window, cx);
+        self.open_review_at(Some(page), window, cx);
+    }
+
+    /// The pages the chosen item reads live in the panel, each with its revision and the title of what holds it: a page part of an
+    /// artifact, or the document itself.
+    pub(super) fn panel_pages_of(&self, item: &Item, cx: &gpui::App) -> Vec<(String, u32, String)> {
+        match item.kind {
+            Kind::Artifact => artifact_in(item)
+                .and_then(|artifact| self.artifact_of(&item.job, artifact))
+                .map(|one| {
+                    one.parts
+                        .iter()
+                        .filter_map(|part| match &part.content {
+                            ipc::PartContent::Page { path } => Some((path.clone(), part.revision, one.title.clone())),
+                            _ => None,
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            Kind::Document => {
+                let Some(page) = page_of_item(&item.id) else { return Vec::new() };
+                let card = self.thread(&item.job, cx).and_then(|held| super::review::document_card(&held.items, page));
+                let held = match card {
+                    Some(card) => Some((card.revision, card.title.clone())),
+                    None => self.artifact_of(&item.job, page).and_then(|one| one.revisions.last().map(|last| (last.number, one.title.clone()))),
+                };
+                held.map(|(revision, title)| vec![(page.to_string(), revision, title)]).unwrap_or_default()
+            }
+            _ => Vec::new(),
+        }
+    }
+
+    /// The live page filling the detail, where the chosen item is a document or an artifact whose only part is a page that asks
+    /// nothing: the whole of the detail between its band and its foot, which the page scrolls inside.
+    pub(super) fn review_page_stage(&self, item: &Item, cx: &gpui::App) -> Option<AnyElement> {
+        let alone = match item.kind {
+            Kind::Document => true,
+            Kind::Artifact => match self.artifact_of(&item.job, artifact_in(item)?)?.parts.as_slice() {
+                [part] => matches!(part.content, ipc::PartContent::Page { .. }) && !part.asks,
+                _ => false,
+            },
+            _ => false,
+        };
+        let (page, revision, _) = self.panel_pages_of(item, cx).into_iter().next().filter(|_| alone)?;
+        let live = self.panel_page(&item.job, &page, revision, cx)?;
+        Some(div().id(SharedString::from(format!("review-page:{}", item.key()))).relative().flex_1().min_w_0().min_h_0().child(div().absolute().inset_0().child(live)).into_any_element())
     }
 
     /// The parts of the chosen artifact, drawn the way its card draws them, at the detail's width.
@@ -329,9 +423,12 @@ impl JobView {
 mod tests {
     use gpui::{px, size, Bounds, Modifiers, Role};
 
+    use ipc::PageToHost;
+
+    use super::super::page_tab::PageTabEvent;
     use super::super::parts_fold::{drawn, redraw, rooted_job};
     use super::*;
-    use crate::mock_parts::{ID, JOB, TITLE};
+    use crate::mock_parts::{ID, JOB, PAGE, TITLE};
 
     const TAKES: [&str; 2] = ["A \u{b7} Bar under the title", "B \u{b7} Rail (Job's pick)"];
 
@@ -711,6 +808,104 @@ mod tests {
         redraw(cx);
         let again = super::super::parts_card::part_key(ID, "flow-again");
         assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(again), "a press on the second opens it over the app");
+    }
+
+    #[gpui::test]
+    fn a_page_part_opened_from_the_artifacts_tab_is_the_live_page_in_the_panel_and_no_tab_opens(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the panel is up");
+        assert!(view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx).is_some()), "it holds the page's live view");
+        assert!(drawn(cx, Role::Region, "Page"), "the live page is drawn in the detail");
+        let (page, takes) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Takes"));
+        assert!(page.left() - takes.left() <= px(2.) && takes.right() - page.right() <= px(2.), "it takes the detail's whole width, as the takes do, less its hairline frame: {page:?} {takes:?}");
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(page.size.height <= panel * TALL_SHARE + px(1.), "and no taller than a picture stands: {page:?}");
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
+        assert!(view.read_with(cx, |view, _| view.row_tabs.get(JOB).is_none_or(|tabs| tabs.pages.is_empty())), "no tab holds the page");
+        view.update_in(cx, |view, window, cx| view.close_review(window, cx));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx).is_none()), "the page goes with the panel");
+    }
+
+    #[gpui::test]
+    fn a_plain_page_opened_from_the_artifacts_tab_is_the_live_page_filling_the_panels_detail_and_no_tab_opens(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "reader", "draft-job", size(px(1400.), px(900.)), |_| {});
+        let page = view
+            .read_with(cx, |view, _| view.artifacts_of("draft-job").iter().find(|one| one.form == ipc::ArtifactForm::Page && one.parts.is_empty()).map(|one| one.id.clone()))
+            .expect("the Job holds a page with no parts");
+        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(&page, window, cx)));
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_chosen()).expect("the panel is up with the page picked");
+        assert_eq!((chosen.kind, super::page_of_item(&chosen.id)), (Kind::Document, Some(page.as_str())));
+        let revision: u32 = chosen.revision.as_deref().and_then(|word| word.trim_start_matches('r').parse().ok()).expect("its revision");
+        assert!(view.read_with(cx, |view, cx| view.panel_page("draft-job", &page, revision, cx).is_some()), "it holds the page's live view");
+        let live = bounds_of(cx, Role::Region, "Page");
+        let (band, foot) = (bounds_of(cx, Role::Group, "Answers"), bounds_of(cx, Role::Toolbar, "Every item"));
+        assert!(live.top() - band.bottom() <= px(2.) && foot.top() - live.bottom() <= px(2.), "alone in the detail, it takes all of it between the band and the foot: {band:?} {live:?} {foot:?}");
+        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
+        assert!(view.read_with(cx, |view, _| view.row_tabs.get("draft-job").is_none_or(|tabs| tabs.pages.is_empty())), "no tab holds the page");
+        assert!(view.read_with(cx, |view, _| view.mock_seen_posts().iter().any(|one| one.artifact == page && one.revision == revision)), "Fleet is told he opened it, as the reader tells it");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc closes the panel");
+    }
+
+    #[gpui::test]
+    fn a_page_that_is_an_artifacts_only_part_takes_the_whole_detail_and_one_among_parts_keeps_its_share(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let panel = view.read_with(cx, |view, _| view.sheet.get().height);
+        assert!(bounds_of(cx, Role::Region, "Page").size.height <= panel * TALL_SHARE + px(1.), "among other parts it stands at its share");
+        view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| part.id == PAGE), cx));
+        redraw(cx);
+        let (page, band) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Answers"));
+        assert!(page.top() - band.bottom() <= px(2.), "alone, it starts under the band: {band:?} {page:?}");
+        assert!(page.size.height > panel * TALL_SHARE, "and takes more than a picture's share of the panel: {page:?}");
+    }
+
+    #[gpui::test]
+    fn a_vote_and_a_press_the_panels_page_posts_are_carried_to_fleet_and_its_answer_goes_back(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let tab = view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx)).expect("the panel's live page");
+        let post = |posted: PageToHost, cx: &mut gpui::VisualTestContext| {
+            tab.update(cx, |_, cx| cx.emit(PageTabEvent::Posted(posted)));
+            redraw(cx);
+        };
+        let pick = |take: &str| PageToHost::Vote { artifact: PAGE.into(), revision: 2, vote: "mark".into(), result: ipc::VoteResult::Pick { take: take.into(), notes: Default::default() } };
+        post(pick("fade"), cx);
+        let kept = view.read_with(cx, |view, _| view.row_tabs.get(JOB).and_then(|tabs| tabs.mock_kept.get(PAGE)).cloned()).expect("the mock Fleet kept the cast");
+        assert_eq!(kept.votes.iter().map(|cast| cast.vote.as_str()).collect::<Vec<_>>(), ["mark"], "cast_page_vote reached Fleet");
+        assert!(matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Voted { cast }) if cast.vote == "mark"), "and its answer went back to the page");
+        post(PageToHost::Press { artifact: PAGE.into(), revision: 2, action: "discuss-dark-mode".into(), words: None }, cx);
+        assert!(matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Pressed { press }) if press.action == "discuss-dark-mode"), "a row action is answered the same way");
+        post(PageToHost::Press { artifact: PAGE.into(), revision: 2, action: "drop-checkout".into(), words: None }, cx);
+        assert!(
+            matches!(tab.read_with(cx, |tab, _| tab.answers.last().cloned()), Some(ipc::HostToPage::Refused { code, .. }) if code == "fleet.page_ask_not_open"),
+            "Fleet's refusal goes back in its own words and code"
+        );
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and the panel stays up");
+    }
+
+    #[gpui::test]
+    fn a_page_fleet_refuses_says_so_in_the_panel_and_draws_no_picture(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                ID,
+                |artifact| {
+                    for part in artifact.parts.iter_mut().filter(|part| part.id == PAGE) {
+                        part.content = ipc::PartContent::Page { path: "notes".into() };
+                    }
+                },
+                cx,
+            )
+        });
+        redraw(cx);
+        assert!(drawn(cx, Role::Alert, "revision 2 of `notes` is not kept"), "Fleet's sentence stands where the page would");
+        assert!(view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx).is_none() && view.panel_page(JOB, "notes", 2, cx).is_some()), "the page the part names now is the one held");
     }
 
     #[gpui::test]

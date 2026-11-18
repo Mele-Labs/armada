@@ -489,7 +489,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn open_reads_a_page_and_a_draft_in_their_own_tabs_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
+    fn open_reads_a_page_in_the_review_panel_a_draft_in_its_own_tab_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
@@ -508,8 +508,15 @@ mod tests {
             let (id, _, _) = held.iter().find(|(_, held, bare)| *held == form && *bare).cloned().unwrap_or_else(|| panic!("the Job holds a {form:?} with no parts"));
             assert!(view.update_in(cx, |view, window, cx| view.open_named(&id, window, cx)));
             redraw(cx);
-            let kind = if form == ArtifactForm::Page { RowKind::Document } else { RowKind::Draft };
-            view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == kind), "a {form:?} opens in its own tab"));
+            if form == ArtifactForm::Page {
+                view.read_with(cx, |view, _| {
+                    assert!(view.review_open(), "a page opens the review panel");
+                    assert!(!view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Document), "and no tab of its own");
+                });
+                view.update_in(cx, |view, window, cx| view.close_review(window, cx));
+            } else {
+                view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Draft), "a {form:?} opens in its own tab"));
+            }
         }
     }
 }
