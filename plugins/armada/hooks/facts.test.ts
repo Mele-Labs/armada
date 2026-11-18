@@ -376,6 +376,13 @@ test('a quiet push that succeeded is a push of the branch its refspec names', ()
   expect(pushIn('git push origin topic', '')).toBeUndefined()
 })
 
+// 17 Nov 2026: `2>&1` was read as the branch `2>`, the push as another branch's, and no Checks ran.
+test('a quiet push whose output is redirected names the branch its refspec does', () => {
+  expect(pushIn('git push -q origin HEAD 2>&1 | tail -2; git log --oneline -1', '')).toEqual({})
+  expect(pushIn('git push -q origin topic 2>/dev/null', '')).toEqual({ branch: 'topic' })
+  expect(pushIn('git push -q origin topic >/tmp/push.log 2>&1', '')).toEqual({ branch: 'topic' })
+})
+
 test('a push of another branch is not the session own', () => {
   expect(isOwnPush({ branch: 'topic' }, 'armada/session-1')).toBe(false)
   expect(isOwnPush({ branch: 'armada/session-1' }, 'armada/session-1')).toBe(true)

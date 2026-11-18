@@ -216,6 +216,18 @@ impl Store {
         Ok(())
     }
 
+    /// Forget every gate-check run kept as `running`, and name the Jobs they were of. A red run stays:
+    /// it is a verdict, where `running` is only true of the Fleet that began it.
+    pub fn forget_running_gate_checks(&mut self) -> Result<Vec<String>, WriteError> {
+        let ids = self
+            .conn
+            .prepare("DELETE FROM session_gate_checks WHERE state = 'running' RETURNING session_id")
+            .and_then(|mut rows| rows.query_map([], |row| row.get::<_, String>(0))?.collect::<Result<Vec<_>, _>>())
+            .map_err(fault("forgetting gate checks no Fleet runs"))
+            .map_err(WriteError::Database)?;
+        Ok(ids)
+    }
+
     /// The Job's held `all_done`, where it has one.
     pub fn session_gate_hold(&self, session_id: &str) -> Result<Option<KeptGateHold>, WriteError> {
         self.conn
