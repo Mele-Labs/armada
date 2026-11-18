@@ -283,6 +283,7 @@ impl Rig {
         });
         Arc::clone(&rig.fleet).reattached_sessions().await;
         rig.fleet.slot_waits_ended_at_boot().await;
+        rig.fleet.gate_runs_lost_at_boot().await;
         rig
     }
 
