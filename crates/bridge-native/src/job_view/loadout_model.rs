@@ -3,9 +3,11 @@
 
 use std::collections::HashMap;
 
+use chrono::{DateTime, Datelike, Local, Utc};
+use ipc::time_format::TimeFormat;
 use ipc::{
-    KitInventory, LoadoutItem, LoadoutKind, LoadoutSource, LoadoutState, LoadoutSummary, LoadoutUse, LoadoutUseKind, McpServerAct, McpServerState, RemoveKitPiece,
-    SessionMcpServer, SetupItem, WhatWasRead,
+    KitInventory, LoadoutItem, LoadoutKind, LoadoutSource, LoadoutState, LoadoutSummary, LoadoutTurn, LoadoutUse, LoadoutUseKind, McpServerAct, McpServerState,
+    RemoveKitPiece, SessionMcpServer, SetupItem, WhatWasRead,
 };
 
 use crate::look::{token, Token};
@@ -58,15 +60,6 @@ pub(super) fn kind_of_use(kind: LoadoutUseKind) -> LoadoutKind {
     }
 }
 
-/// One use's kind, beside its name.
-pub(super) fn use_kind_said(kind: LoadoutUseKind) -> &'static str {
-    match kind {
-        LoadoutUseKind::Skill => "Skill",
-        LoadoutUseKind::Tool => "Tool",
-        LoadoutUseKind::Subagent => "Subagent",
-    }
-}
-
 /// Where an item or a use came from, as a person reads it: `Kit`, `Armada`, a plugin's or a server's own name.
 pub(super) fn source_said(source: LoadoutSource, from: Option<&str>) -> String {
     match (source, from) {
@@ -101,21 +94,125 @@ pub(super) fn sources_of(items: &[LoadoutItem], uses: &[&LoadoutUse]) -> Vec<Str
         .collect()
 }
 
-/// Where a use came from, and the model a subagent was sent on: `Armada · sonnet`.
-pub(super) fn use_said(one: &LoadoutUse) -> String {
-    let source = source_said(one.source, one.from.as_deref());
-    match one.model.as_deref().filter(|model| !model.is_empty()) {
-        Some(model) => format!("{source} · {model}"),
-        None => source,
+// ---- last used, search, filter and sort ------------------------------------------------------
+
+/// One row of a kind's group: an item the agent reported, or a use that matches none, so nothing used goes unlisted.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Row {
+    pub item: LoadoutItem,
+    /// A turn of this session used it.
+    pub used: bool,
+    /// The start of the latest turn that used it, where its instant reads.
+    pub last: Option<DateTime<Utc>>,
+}
+
+/// The use's row among `rows`: the one of its kind and name, and where two share both, the one from its source.
+fn row_of_use(rows: &[Row], one: &LoadoutUse) -> Option<usize> {
+    let kind = kind_of_use(one.kind);
+    let named: Vec<usize> = rows.iter().enumerate().filter(|(_, row)| row.item.kind == kind && row.item.name == one.name).map(|(at, _)| at).collect();
+    if named.len() < 2 {
+        return named.first().copied();
+    }
+    let same = |at: &&usize, from: bool| rows[**at].item.source == one.source && (!from || rows[**at].item.from == one.from);
+    named.iter().find(|at| same(at, true)).or_else(|| named.iter().find(|at| same(at, false))).or(named.first()).copied()
+}
+
+/// Every reported item as a row with when it was last used, then each use that matches no item as a row of its own.
+pub(super) fn rows_of(items: &[LoadoutItem], turns: &[&LoadoutTurn]) -> Vec<Row> {
+    let mut rows: Vec<Row> = items.iter().map(|item| Row { item: item.clone(), used: false, last: None }).collect();
+    for turn in turns {
+        for one in &turn.used {
+            let at = [one.turn_started_at.as_str(), turn.started_at.as_str()].into_iter().find_map(|at| DateTime::parse_from_rfc3339(at).ok()).map(|at| at.with_timezone(&Utc));
+            let found = row_of_use(&rows, one).unwrap_or_else(|| {
+                let item = LoadoutItem { kind: kind_of_use(one.kind), name: one.name.clone(), source: one.source, from: one.from.clone(), state: None, tokens: None };
+                rows.push(Row { item, used: false, last: None });
+                rows.len() - 1
+            });
+            let row = &mut rows[found];
+            row.used = true;
+            row.last = row.last.max(at);
+        }
+    }
+    rows
+}
+
+/// When a row was last used: the clock today, the day before that, `never` where no turn used it.
+pub(super) fn last_used_said(row: &Row, now: DateTime<Local>, format: TimeFormat) -> String {
+    match row.last.map(|at| at.with_timezone(&Local)) {
+        Some(at) if at.date_naive() == now.date_naive() => crate::settings::time::time_of(at, TimeFormat { seconds: false, ..format }),
+        Some(at) if at.year() == now.year() => at.format("%b %-d").to_string(),
+        Some(at) => at.format("%b %-d %Y").to_string(),
+        None if row.used => "this session".into(),
+        None => "never".into(),
     }
 }
 
-/// How often a use was heard in its turn, `× 40`, and nothing where it was once.
-pub(super) fn count_said(one: &LoadoutUse) -> Option<String> {
-    one.count.filter(|count| *count > 1).map(|count| format!("× {count}"))
+/// How each group's rows are ordered.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub(super) enum Sort {
+    #[default]
+    Name,
+    LastUsed,
 }
 
-/// One Loadout row, from Knows, Told or a turn's uses.
+impl Sort {
+    pub const ALL: [Sort; 2] = [Sort::Name, Sort::LastUsed];
+
+    pub fn said(self) -> &'static str {
+        match self {
+            Sort::Name => "Name",
+            Sort::LastUsed => "Last used",
+        }
+    }
+
+    /// A menu row's id, since a menu's ids live as long as the app.
+    pub fn id(self) -> &'static str {
+        match self {
+            Sort::Name => "sort-name",
+            Sort::LastUsed => "sort-last-used",
+        }
+    }
+}
+
+/// What narrows every group: the source picked, the words searched for, and Used this session.
+#[derive(Clone, Copy, Debug, Default)]
+pub(super) struct Narrow<'a> {
+    pub source: Option<&'a str>,
+    pub query: &'a str,
+    pub used_only: bool,
+}
+
+impl Narrow<'_> {
+    /// Whether anything narrows the list, so an empty group says nothing matched rather than nothing reported.
+    pub fn any(&self) -> bool {
+        self.source.is_some() || !self.query.trim().is_empty() || self.used_only
+    }
+
+    /// Whether a name is one the search finds: what was typed, in any case, anywhere in it.
+    pub fn finds(&self, name: &str) -> bool {
+        let query = self.query.trim().to_lowercase();
+        query.is_empty() || name.to_lowercase().contains(&query)
+    }
+
+    /// Whether a row from `source` stays.
+    pub fn keeps(&self, name: &str, source: &str, used: bool) -> bool {
+        self.source.is_none_or(|picked| picked == source) && self.finds(name) && (used || !self.used_only)
+    }
+}
+
+/// One kind's rows under the narrowing, in the order picked; the groups keep theirs.
+pub(super) fn kept_rows<'a>(rows: &'a [Row], kind: LoadoutKind, narrow: Narrow<'_>, sort: Sort) -> Vec<&'a Row> {
+    let mut kept: Vec<&Row> = rows.iter().filter(|row| row.item.kind == kind && narrow.keeps(&row.item.name, &source_said(row.item.source, row.item.from.as_deref()), row.used)).collect();
+    let by_name = |a: &&Row, b: &&Row| a.item.name.to_lowercase().cmp(&b.item.name.to_lowercase());
+    match sort {
+        Sort::Name => kept.sort_by(by_name),
+        // Latest first; a use whose instant did not read before never used.
+        Sort::LastUsed => kept.sort_by(|a, b| b.last.cmp(&a.last).then(b.used.cmp(&a.used)).then_with(|| by_name(a, b))),
+    }
+    kept
+}
+
+/// Which item a Loadout row stands for, wherever it is listed.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct ItemRef {
     pub kind: LoadoutKind,
@@ -127,10 +224,6 @@ pub(super) struct ItemRef {
 impl ItemRef {
     pub fn of(item: &LoadoutItem) -> ItemRef {
         ItemRef { kind: item.kind, name: item.name.clone(), source: item.source, from: item.from.clone() }
-    }
-
-    pub fn of_use(one: &LoadoutUse) -> ItemRef {
-        ItemRef { kind: kind_of_use(one.kind), name: one.name.clone(), source: one.source, from: one.from.clone() }
     }
 
     /// One identity for an item wherever it is listed, so a use and the item it used are the same row.
@@ -595,13 +688,102 @@ mod tests {
         assert!(fenced_front_matter("---\nsays: ```\n---\nbody").starts_with("````yaml\n"), "the fence is longer than any run inside");
     }
 
+    fn turn(at: &str, used: Vec<(LoadoutUseKind, &str, LoadoutSource, Option<&str>)>) -> LoadoutTurn {
+        let at = ipc::Instant::carried(at.to_string());
+        let used = used
+            .into_iter()
+            .map(|(kind, name, source, from)| LoadoutUse { turn_started_at: at.clone(), kind, name: name.into(), source, from: from.map(str::to_string), model: None, by: None, count: None })
+            .collect();
+        LoadoutTurn { started_at: at, used }
+    }
+
+    fn row(kind: LoadoutKind, name: &str, last: Option<&str>) -> Row {
+        let last = last.map(|at| DateTime::parse_from_rfc3339(at).expect("an instant").with_timezone(&Utc));
+        Row { item: item(kind, name, LoadoutSource::Kit, None), used: last.is_some(), last }
+    }
+
+    #[test]
+    fn a_use_finds_its_row_by_kind_and_name_and_a_use_of_nothing_listed_gets_a_row_of_its_own() {
+        let items = vec![
+            item(LoadoutKind::Skill, "tidy", LoadoutSource::Kit, None),
+            item(LoadoutKind::Tool, "tidy", LoadoutSource::BuiltIn, None),
+            item(LoadoutKind::Skill, "write", LoadoutSource::Plugin, Some("alpha")),
+            item(LoadoutKind::Skill, "write", LoadoutSource::Plugin, Some("beta")),
+            item(LoadoutKind::Subagent, "explorer", LoadoutSource::Armada, None),
+        ];
+        let early = turn("2026-11-17T09:00:00Z", vec![(LoadoutUseKind::Skill, "tidy", LoadoutSource::Kit, None), (LoadoutUseKind::Tool, "Bash", LoadoutSource::BuiltIn, None)]);
+        let late = turn(
+            "2026-11-17T10:30:00Z",
+            vec![(LoadoutUseKind::Skill, "tidy", LoadoutSource::Repository, None), (LoadoutUseKind::Skill, "write", LoadoutSource::Plugin, Some("beta")), (LoadoutUseKind::Tool, "Bash", LoadoutSource::BuiltIn, None)],
+        );
+        let rows = rows_of(&items, &[&early, &late]);
+        let at = |at: &str| Some(DateTime::parse_from_rfc3339(at).expect("an instant").with_timezone(&Utc));
+        assert_eq!(rows.len(), 6, "Bash is listed nowhere and gets one row, however often it was used");
+        assert_eq!((rows[0].used, rows[0].last), (true, at("2026-11-17T10:30:00Z")), "the skill's own name, whatever source the use says, and its latest turn");
+        assert!(!rows[1].used, "a tool of the same name is another row");
+        assert!(!rows[2].used, "of two skills with one name, the use's source picks the other");
+        assert_eq!(rows[3].last, at("2026-11-17T10:30:00Z"));
+        assert!(!rows[4].used);
+        assert_eq!((rows[5].item.kind, rows[5].item.name.as_str(), rows[5].item.source), (LoadoutKind::Tool, "Bash", LoadoutSource::BuiltIn));
+        assert_eq!(rows[5].last, at("2026-11-17T10:30:00Z"));
+        // A use whose instant does not read is still a use.
+        let unread = turn("not an instant", vec![(LoadoutUseKind::Subagent, "explorer", LoadoutSource::Armada, None)]);
+        let rows = rows_of(&items, &[&unread]);
+        assert_eq!((rows[4].used, rows[4].last), (true, None));
+    }
+
+    #[test]
+    fn last_used_says_the_clock_today_the_day_before_and_never() {
+        use chrono::TimeZone;
+        let now = Local.with_ymd_and_hms(2026, 11, 18, 14, 2, 9).single().expect("a time");
+        let used_at = |at: DateTime<Local>| Row { item: item(LoadoutKind::Skill, "tidy", LoadoutSource::Kit, None), used: true, last: Some(at.with_timezone(&Utc)) };
+        let twelve = TimeFormat { hour12: true, seconds: true, date: true };
+        let today = Local.with_ymd_and_hms(2026, 11, 18, 9, 43, 46).single().expect("a time");
+        assert_eq!(last_used_said(&used_at(today), now, twelve), "9:43 AM", "today is its clock alone, without seconds or day");
+        assert_eq!(last_used_said(&used_at(today), now, TimeFormat { hour12: false, seconds: true, date: false }), "09:43", "in the clock he set");
+        let yesterday = Local.with_ymd_and_hms(2026, 11, 17, 23, 59, 0).single().expect("a time");
+        assert_eq!(last_used_said(&used_at(yesterday), now, twelve), "Nov 17");
+        let last_year = Local.with_ymd_and_hms(2025, 12, 30, 10, 0, 0).single().expect("a time");
+        assert_eq!(last_used_said(&used_at(last_year), now, twelve), "Dec 30 2025");
+        let mut never = used_at(today);
+        (never.used, never.last) = (false, None);
+        assert_eq!(last_used_said(&never, now, twelve), "never");
+        never.used = true;
+        assert_eq!(last_used_said(&never, now, twelve), "this session");
+    }
+
+    #[test]
+    fn search_source_and_used_this_session_narrow_each_kind_and_sort_orders_within_it() {
+        let mut rows = vec![
+            row(LoadoutKind::Skill, "release-notes", None),
+            row(LoadoutKind::Skill, "Docs:write", Some("2026-11-17T09:00:00Z")),
+            row(LoadoutKind::Skill, "tidy", Some("2026-11-17T10:30:00Z")),
+            row(LoadoutKind::Skill, "audit", None),
+            row(LoadoutKind::Tool, "Read", Some("2026-11-17T11:00:00Z")),
+        ];
+        rows[3].item.source = LoadoutSource::Repository;
+        let names = |kept: Vec<&Row>| kept.into_iter().map(|row| row.item.name.clone()).collect::<Vec<_>>();
+        let all = Narrow::default();
+        assert!(!all.any());
+        assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, all, Sort::Name)), ["audit", "Docs:write", "release-notes", "tidy"], "by name in any case, Tools apart");
+        assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, all, Sort::LastUsed)), ["tidy", "Docs:write", "audit", "release-notes"], "latest first, never used last by name");
+        let searched = Narrow { query: " DOCS ", ..all };
+        assert!(searched.any());
+        assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, searched, Sort::Name)), ["Docs:write"], "any case, anywhere in the name");
+        let used = Narrow { used_only: true, ..all };
+        assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, used, Sort::Name)), ["Docs:write", "tidy"]);
+        let repository = Narrow { source: Some("Repository"), ..all };
+        assert_eq!(names(kept_rows(&rows, LoadoutKind::Skill, repository, Sort::Name)), ["audit"]);
+        assert!(kept_rows(&rows, LoadoutKind::Skill, Narrow { used_only: true, ..repository }, Sort::Name).is_empty(), "every narrowing holds at once");
+    }
+
     #[test]
     fn every_glyph_the_loadout_draws_is_in_the_icon_set() {
         use gpui::AssetSource;
         let has = |name: &str| crate::assets::Assets.load(&crate::assets::icon_path(name)).ok().flatten().is_some();
         let kinds = KNOWN.into_iter().chain(TOLD).map(|kind| kind_look(kind).0);
         let marks = [Mark::Connected, Mark::Failed, Mark::Connecting, Mark::NeedsSignIn, Mark::Off, Mark::Removed].map(|mark| mark.look().0);
-        for name in kinds.chain(marks).chain(["layers", "chevron-down", "x"]) {
+        for name in kinds.chain(marks).chain(["layers", "chevron-down", "x", "search", "arrow-up-down"]) {
             assert!(has(name), "{name} is in the icon set");
         }
     }
