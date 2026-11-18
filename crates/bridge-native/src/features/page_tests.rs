@@ -259,13 +259,33 @@ fn j_and_k_move_the_card_the_keys_are_on_and_tab_goes_between_the_cards_the_chip
     assert_eq!(region(&page, cx), Region::Chips);
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Rail);
-    // A written card has no chips and nothing to pick, so Tab goes straight to the button.
+    // A written card has no chips and nothing to pick: Tab goes to its command well, then the button.
     cx.simulate_keystrokes("j j j");
     assert_eq!(section(&page, cx), Section::Test);
     cx.simulate_keystrokes("tab");
-    assert_eq!(region(&page, cx), Region::Start, "the written card has no chips and no rows");
+    assert_eq!(region(&page, cx), Region::Well, "the written card has a command to copy");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Start);
     cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Rail);
+    // A written card with no command has no well.
+    cx.simulate_keystrokes("j");
+    assert_eq!(section(&page, cx), Section::Runs);
+    cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Start, "no command, no well");
+}
+
+#[gpui::test]
+fn enter_on_a_command_well_copies_the_command(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    page.update(cx, |page, cx| page.select(Section::Test, cx));
+    cx.update(|window, cx| page.update(cx, |page, cx| page.focus_region(Region::Well, window, cx)));
+    cx.run_until_parked();
+    assert_eq!(cx.update(|window, cx| page.read(cx).region_in(window)), Region::Well);
+    cx.update(|_, cx| cx.write_to_clipboard(gpui::ClipboardItem::new_string("nothing".into())));
+    cx.simulate_keystrokes("enter");
+    let copied = cx.update(|_, cx| cx.read_from_clipboard().and_then(|item| item.text()));
+    assert_eq!(copied.as_deref(), Some("armada check test start_card\narmada check crates/bridge-native:test dispatch"));
 }
 
 #[gpui::test]

@@ -465,9 +465,15 @@ impl FeaturePageView {
     /// one has a band over its title in the awaiting review hue (`.stale-band`).
     fn render_written(&self, section: Section, written: &Written, look: &Look, window: &Window) -> AnyElement {
         let ring = self.under_keys(&[section], window);
-        let mut body = inner(look);
+        let mut body = inner(look).id(SharedString::from(format!("feature-body-{}", section.id())));
+        if self.section == section && !self.wells().is_empty() {
+            body = body.track_focus(&self.well);
+        }
+        let mut well = 0;
         for (at, block) in written.blocks.iter().enumerate() {
             body = body.child(if block.command {
+                let keys = self.section == section && self.well.is_focused(window) && self.well_at == well;
+                well += 1;
                 let text = block.text.clone();
                 let copy = labelled(
                     div()
@@ -493,7 +499,7 @@ impl FeaturePageView {
                     .rounded(look.length(token::RADIUS_MD))
                     .bg(look.color(token::BG_SUNKEN))
                     .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .border_color(if keys { ring_colour(look) } else { look.color(token::BORDER_SUBTLE) })
                     .child(div().flex_1().min_w_0().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(block.text.clone())))
                     .child(copy)
             } else {

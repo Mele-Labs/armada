@@ -47,6 +47,8 @@ pub(super) enum Region {
     Rail,
     Chips,
     Rows,
+    /// The command wells of a written card, which Enter copies.
+    Well,
     Start,
 }
 
@@ -55,7 +57,10 @@ pub struct FeaturePageView {
     pub(super) rail: FocusHandle,
     pub(super) chips: FocusHandle,
     pub(super) rows: FocusHandle,
+    pub(super) well: FocusHandle,
     pub(super) start: FocusHandle,
+    /// The command well the keys are on, among those of the open card.
+    pub(super) well_at: usize,
     source: Source,
     project: String,
     slug: String,
@@ -141,7 +146,9 @@ impl FeaturePageView {
             rail: cx.focus_handle(),
             chips: cx.focus_handle(),
             rows: cx.focus_handle(),
+            well: cx.focus_handle(),
             start: cx.focus_handle(),
+            well_at: 0,
             source,
             project,
             slug,
@@ -378,6 +385,7 @@ impl FeaturePageView {
         if self.section != section {
             self.section = section;
             self.row_at = None;
+            self.well_at = 0;
             self.rebuild(cx);
         }
     }
@@ -450,6 +458,21 @@ impl FeaturePageView {
         }
     }
 
+    /// The commands of the open card, one for each well it draws.
+    pub(super) fn wells(&self) -> Vec<String> {
+        match self.cards.get(&self.section) {
+            Some(Body::Written(Some(written))) => written.blocks.iter().filter(|block| block.command).map(|block| block.text.clone()).collect(),
+            _ => Vec::new(),
+        }
+    }
+
+    /// Put the command of the well the keys are on on the clipboard.
+    pub(super) fn copy_well(&mut self, cx: &mut Context<Self>) {
+        if let Some(command) = self.wells().get(self.well_at) {
+            cx.write_to_clipboard(gpui::ClipboardItem::new_string(command.clone()));
+        }
+    }
+
     /// Start a Job on the feature: the dispatch panel opens as any screen opens it.
     pub(super) fn start_job(&mut self, cx: &mut Context<Self>) {
         self.engaged = true;
@@ -467,6 +490,9 @@ impl FeaturePageView {
         if self.row_count() > 0 {
             regions.push(Region::Rows);
         }
+        if !self.wells().is_empty() {
+            regions.push(Region::Well);
+        }
         if matches!(self.page, Load::Read(_)) {
             regions.push(Region::Start);
         }
@@ -478,6 +504,8 @@ impl FeaturePageView {
             Region::Chips
         } else if self.rows.is_focused(window) {
             Region::Rows
+        } else if self.well.is_focused(window) {
+            Region::Well
         } else if self.start.is_focused(window) {
             Region::Start
         } else {
@@ -498,6 +526,7 @@ impl FeaturePageView {
             Region::Rail => &self.rail,
             Region::Chips => &self.chips,
             Region::Rows => &self.rows,
+            Region::Well => &self.well,
             Region::Start => &self.start,
         };
         window.focus(handle, cx);
@@ -539,6 +568,11 @@ impl FeaturePageView {
                 match region {
                     Region::Rail => self.step_section(by, cx),
                     Region::Rows => self.step_row(by, cx),
+                    Region::Well => {
+                        let last = self.wells().len().saturating_sub(1);
+                        self.well_at = (self.well_at as isize + by).clamp(0, last as isize) as usize;
+                        cx.notify();
+                    }
                     Region::Chips | Region::Start => {}
                 }
             }
@@ -547,6 +581,7 @@ impl FeaturePageView {
                 Region::Chips => self.apply(self.chip_at, cx),
                 Region::Rail => self.next_region(1, window, cx),
                 Region::Rows => self.press_row(cx),
+                Region::Well => self.copy_well(cx),
                 Region::Start => self.start_job(cx),
             },
             "features_story" if region == Region::Rows => {
