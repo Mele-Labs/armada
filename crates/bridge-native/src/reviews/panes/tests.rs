@@ -23,12 +23,13 @@ fn the_first_tab_of_a_pane_follows_the_panels_curve_and_the_others_stay_square(c
     let inner = cx.update(|_, cx| panel_inner_radius(cx.look()));
     assert!(inner > px(0.));
     let tabs: Vec<_> = cx.update(|window, cx| {
-        cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == Role::Tab).map(|drawn| (drawn.bounds.origin, drawn.radius)).collect()
+        cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|drawn| drawn.role == Role::Tab).map(|drawn| (drawn.bounds, drawn.radius)).collect()
     });
     assert!(tabs.len() > 1, "the page draws a pane with several tabs");
-    for (origin, radius) in &tabs {
-        // The first tab of a pane is the one with no tab to its left in its row.
-        let first = !tabs.iter().any(|(other, _)| other.y == origin.y && other.x < origin.x && (other.y - origin.y).abs() < px(1.));
+    for (bounds, radius) in &tabs {
+        let origin = bounds.origin;
+        // The first tab of a pane is the one no tab of its strip abuts on its left (panes sit side by side with a gap).
+        let first = !tabs.iter().any(|(other, _)| (other.origin.y - origin.y).abs() < px(1.) && (other.origin.x + other.size.width - origin.x).abs() < px(1.5));
         let expected = if first { inner } else { px(0.) };
         // A tab that sets no radius reports None, which is square.
         assert_eq!(radius.unwrap_or(px(0.)), expected, "tab at {origin:?}: only a pane's first tab takes the panel's curve");
