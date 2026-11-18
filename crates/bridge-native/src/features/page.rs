@@ -49,6 +49,8 @@ pub(super) enum Region {
     Rows,
     /// The command wells of a written card, which Enter copies.
     Well,
+    /// The press that opens the unlit rooms of a long floor plan.
+    Floor,
     Start,
 }
 
@@ -58,9 +60,12 @@ pub struct FeaturePageView {
     pub(super) chips: FocusHandle,
     pub(super) rows: FocusHandle,
     pub(super) well: FocusHandle,
+    pub(super) floor: FocusHandle,
     pub(super) start: FocusHandle,
     /// The command well the keys are on, among those of the open card.
     pub(super) well_at: usize,
+    /// Whether the floor plan shows its unlit rooms past the fold. Not saved.
+    pub(super) floor_open: bool,
     source: Source,
     project: String,
     slug: String,
@@ -149,8 +154,10 @@ impl FeaturePageView {
             chips: cx.focus_handle(),
             rows: cx.focus_handle(),
             well: cx.focus_handle(),
+            floor: cx.focus_handle(),
             start: cx.focus_handle(),
             well_at: 0,
+            floor_open: false,
             source,
             project,
             slug,
@@ -368,6 +375,20 @@ impl FeaturePageView {
         }
     }
 
+    /// Whether the floor plan has unlit rooms to fold, which is where the press that opens them is drawn.
+    pub(super) fn floor_folds(&self) -> bool {
+        match &self.page {
+            Load::Read(page) => matches!(page_model::floor(page, self.floor_open), page_model::Floor::Plan(plan) if plan.folds),
+            _ => false,
+        }
+    }
+
+    /// Open the unlit rooms of the floor plan, or fold them again.
+    pub(super) fn toggle_floor(&mut self, cx: &mut Context<Self>) {
+        self.floor_open = !self.floor_open;
+        cx.notify();
+    }
+
     // ---- looking -----------------------------------------------------------------------------
 
     /// The page is in front again: what was last looked at is read again, and so is Fleet.
@@ -504,6 +525,9 @@ impl FeaturePageView {
         if !self.wells().is_empty() {
             regions.push(Region::Well);
         }
+        if self.floor_folds() {
+            regions.push(Region::Floor);
+        }
         if matches!(self.page, Load::Read(_)) {
             regions.push(Region::Start);
         }
@@ -517,6 +541,8 @@ impl FeaturePageView {
             Region::Rows
         } else if self.well.is_focused(window) {
             Region::Well
+        } else if self.floor.is_focused(window) {
+            Region::Floor
         } else if self.start.is_focused(window) {
             Region::Start
         } else {
@@ -538,6 +564,7 @@ impl FeaturePageView {
             Region::Chips => &self.chips,
             Region::Rows => &self.rows,
             Region::Well => &self.well,
+            Region::Floor => &self.floor,
             Region::Start => &self.start,
         };
         window.focus(handle, cx);
@@ -558,6 +585,8 @@ impl FeaturePageView {
             // The older asks fold before the keys leave the page.
             if self.region_in(window) == Region::Rows && self.is_unfolded() {
                 self.toggle_fold(cx);
+            } else if self.region_in(window) == Region::Floor && self.floor_open {
+                self.toggle_floor(cx);
             } else {
                 cx.emit(FeaturePageEvent::Escape);
             }
@@ -584,7 +613,7 @@ impl FeaturePageView {
                         self.well_at = (self.well_at as isize + by).clamp(0, last as isize) as usize;
                         cx.notify();
                     }
-                    Region::Chips | Region::Start => {}
+                    Region::Chips | Region::Floor | Region::Start => {}
                 }
             }
             "features_chip" if region == Region::Chips => self.step_chip(if act.slot == 0 { -1 } else { 1 }, cx),
@@ -593,6 +622,7 @@ impl FeaturePageView {
                 Region::Rail => self.next_region(1, window, cx),
                 Region::Rows => self.press_row(cx),
                 Region::Well => self.copy_well(cx),
+                Region::Floor => self.toggle_floor(cx),
                 Region::Start => self.start_job(cx),
             },
             "features_story" if region == Region::Rows => {

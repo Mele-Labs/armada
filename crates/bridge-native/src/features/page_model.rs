@@ -241,6 +241,84 @@ pub enum Body {
     Written(Option<Written>),
 }
 
+// ---- the floor plan --------------------------------------------------------------------------
+
+/// How many rooms draw before the unlit ones fold under a count.
+pub const ROOMS_SHOWN: usize = 24;
+
+/// One tile of the floor plan.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Room {
+    pub module: String,
+    /// The tile's tooltip: what kind of module it is, where it is, and whether the feature has files in it.
+    pub said: String,
+    pub lit: bool,
+}
+
+/// One row under the grid: a lit room and the module it depends on.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Door {
+    pub from: String,
+    pub to: String,
+    pub contract: bool,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+pub struct Plan {
+    /// The lit rooms first, then the unlit ones, each in the order Fleet gave them. The unlit ones are left out while folded.
+    pub rooms: Vec<Room>,
+    pub doors: Vec<Door>,
+    /// The unlit rooms the fold leaves out.
+    pub hidden: usize,
+    /// Whether there are enough rooms to fold, so the press that opens them is drawn.
+    pub folds: bool,
+}
+
+/// What the floor plan card holds.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Floor {
+    Plan(Plan),
+    /// No rooms to draw: the line that says why.
+    Empty(&'static str),
+}
+
+/// Why the card is empty, and what fills it.
+pub const NO_PLAN: &str = "No code map. It draws when the full page is read from a repository Fleet can open.";
+pub const NO_ROOMS: &str = "No modules found. They draw from the repository's package manifests and folders.";
+
+fn kind_words(kind: &str) -> &'static str {
+    match kind {
+        "cargo" => "Cargo crate",
+        "npm" => "npm package",
+        "go" => "Go module",
+        "python" => "Python package",
+        "gradle" => "Gradle project",
+        "maven" => "Maven project",
+        "dotnet" => ".NET project",
+        "swift" => "Swift package",
+        _ => "Folder",
+    }
+}
+
+/// The code map with the feature's rooms lit. `open` shows the unlit rooms of a plan too long to show whole.
+pub fn floor(page: &FeaturePage, open: bool) -> Floor {
+    let Some(plan) = &page.floor_plan else { return Floor::Empty(NO_PLAN) };
+    if plan.rooms.is_empty() {
+        return Floor::Empty(NO_ROOMS);
+    }
+    let room = |room: &ipc::FloorRoom| Room {
+        module: room.module.clone(),
+        said: format!("{}, {}. {}", kind_words(&room.kind), room.path, if room.lit { "This feature has files here" } else { "This feature has no files here" }),
+        lit: room.lit,
+    };
+    let (lit, unlit): (Vec<&ipc::FloorRoom>, Vec<&ipc::FloorRoom>) = plan.rooms.iter().partition(|room| room.lit);
+    let folds = plan.rooms.len() > ROOMS_SHOWN && !unlit.is_empty();
+    let hidden = if folds && !open { unlit.len() } else { 0 };
+    let doors = plan.doors.iter().filter(|door| lit.iter().any(|room| room.module == door.from)).map(|door| Door { from: door.from.clone(), to: door.to.clone(), contract: door.contract }).collect();
+    let rooms = lit.into_iter().chain(if hidden > 0 { Vec::new() } else { unlit }).map(room).collect();
+    Floor::Plan(Plan { rooms, doors, hidden, folds })
+}
+
 // ---- the fold --------------------------------------------------------------------------------
 
 /// How many of an ask section's rows show before the rest fold under one line.

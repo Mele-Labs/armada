@@ -29,3 +29,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. A Log is read from the newest down, as the sheet is. Tooltip and tab label: Log."
+
+  [[icons.scroll-text.usage]]
+    means = "A door of a feature's floor plan whose module carries a wire or API contract"
+    group = "Features"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 18 Nov 2026 for the Floor plan card on a feature's page. A written agreement between two modules is something authored, which is what the sheet depicts. Coloured in the accent, with the chip `contract` at the row's right. Tooltip `Contract: the module it leads to carries a wire or API contract`."

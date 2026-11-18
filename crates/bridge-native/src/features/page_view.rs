@@ -6,18 +6,20 @@ use gpui::{div, prelude::*, px, relative, AnyElement, ClipboardItem, Div, Elemen
 use super::asks::{self, Spot};
 use super::dossier::{button, hue_of_name, pill, pill_area, tint};
 use super::page::{FeaturePageView, Load, Region};
-use super::page_model::{Body, Chip, Code, Item, Row, Section, Written};
+use super::page_model::{Body, Chip, Code, Door, Floor, Item, Plan, Room, Row, Section, Written};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::reviews::{card_inner_radius, panel_inner_radius};
 use crate::settings::view::{bone, ring_colour, tip};
-use crate::titlebar::parts::{mono, sans};
+use crate::titlebar::parts::{glyph, mono, sans};
 
 /// What a card holds: the Jobs on the feature, the asks of its three kinds together, or a section.
 #[derive(Clone, Copy, PartialEq)]
 enum Card {
     Who,
     Asks,
+    /// The code map with the feature's rooms lit. Not a section: it has no place in the rail.
+    Floor,
     Section(Section),
 }
 
@@ -29,13 +31,13 @@ fn side(look: &Look) -> Pixels {
 /// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs and asks, how it is tested and runs
 /// and its designs, then its code and what is stale or owed.
 fn columns(count: usize) -> Vec<Vec<Card>> {
-    use Card::{Asks, Who};
+    use Card::{Asks, Floor, Who};
     use Section::{Code, Debt, Designs, Observe, Runs, Test};
     let s = Card::Section;
     match count {
-        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), s(Observe), s(Debt)]],
-        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), s(Observe), s(Debt)]],
-        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), s(Observe), s(Debt)]],
+        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), Floor, s(Observe), s(Debt)]],
+        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), Floor, s(Observe), s(Debt)]],
+        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), Floor, s(Observe), s(Debt)]],
     }
 }
 
@@ -104,7 +106,11 @@ pub(super) fn said_empty(key: &str) -> &'static str {
 
 /// A card with nothing in it: its title and one muted line under it. It has no rows, chips or buttons, so no key stops on it.
 fn empty_card(look: &Look, key: &str, title: &str) -> AnyElement {
-    let said = said_empty(key);
+    empty_card_saying(look, key, title, said_empty(key))
+}
+
+/// The same, where the line is the model's.
+fn empty_card_saying(look: &Look, key: &str, title: &str, said: &'static str) -> AnyElement {
     let line = labelled(
         div()
             .id(SharedString::from(format!("feature-empty-{key}")))
@@ -572,10 +578,151 @@ impl FeaturePageView {
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 
+    // ---- the floor plan ----------------------------------------------------------------------
+
+    /// One tile (`room`): the module's name in mono. A lit one wears the feature's hue as a tinted fill and an edge, with its name at
+    /// full weight; an unlit one is a step under the card's ground with quiet ink.
+    fn render_room(&self, at: usize, room: &Room, hue: Token, look: &Look) -> AnyElement {
+        let (ground, edge, ink) = if room.lit {
+            (tint(look, look.color(token::BG_BASE), hue, 0.16), look.color(hue).opacity(0.60), look.color(token::FG_DEFAULT))
+        } else {
+            (look.color(token::BG_SUNKEN), look.color(token::BORDER_SUBTLE), look.color(token::FG_SUBTLE))
+        };
+        let tile = div()
+            .id(SharedString::from(format!("feature-room-{at}")))
+            .flex_none()
+            .min_w_0()
+            .max_w_full()
+            .truncate()
+            .px(look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_SM))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(edge)
+            .bg(ground)
+            .font_family(mono(look))
+            .text_size(look.length(token::TEXT_2XS))
+            .line_height(look.length(token::LEADING_2XS))
+            .font_weight(FontWeight(look.number(if room.lit { token::WEIGHT_HEADING } else { token::WEIGHT_BODY })))
+            .text_color(ink)
+            .tooltip(tip(room.said.clone()))
+            .child(SharedString::from(room.module.clone()));
+        labelled(tile, Role::ListItem, format!("{}, {}", room.module, if room.lit { "in this feature" } else { "not in this feature" })).into_any_element()
+    }
+
+    /// One door (`from` to `to`) in fixed columns: the lit room, the glyph for the way in, the module it leads to, and the chip column.
+    fn render_door(&self, at: usize, door: &Door, look: &Look) -> AnyElement {
+        let (name, said, ink) = if door.contract {
+            ("scroll-text", "Contract: the module it leads to carries a wire or API contract", token::ACCENT)
+        } else {
+            ("corner-down-right", "Depends on", token::FG_SUBTLE)
+        };
+        let way = labelled(
+            div().id(SharedString::from(format!("feature-door-way-{at}"))).flex_none().flex().items_center().justify_center().w(look.length(token::SPACE_4)).tooltip(tip(said)).child(glyph(name, look.length(token::SPACE_3) + px(2.), look.color(ink))),
+            Role::Image,
+            said,
+        );
+        let chip = door.contract.then(|| labelled(div().id(SharedString::from(format!("feature-door-contract-{at}"))).flex_none().child(pill(look, token::ACCENT, "contract")), Role::Label, format!("Contract: {} to {}", door.from, door.to)));
+        let word = |text: &str, ink: Hsla, grow: f32| div().min_w_0().flex_basis(relative(0.)).flex_grow(grow).truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_XS)).text_color(ink).child(SharedString::from(text.to_string()));
+        labelled(
+            div()
+                .id(SharedString::from(format!("feature-door-{at}")))
+                .w_full()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .py(look.length(token::SPACE_1) + px(2.))
+                .when(at > 0, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                .child(word(&door.from, look.color(token::FG_DEFAULT), 1.2))
+                .child(way)
+                .child(word(&door.to, look.color(token::FG_MUTED), 1.))
+                .child(div().flex_none().w(look.length(token::SPACE_12) + look.length(token::SPACE_4)).flex().justify_end().children(chip)),
+            Role::ListItem,
+            format!("{} to {}", door.from, door.to),
+        )
+        .into_any_element()
+    }
+
+    /// The press under the grid that opens the unlit rooms of a long plan, and folds them again. The keys can be on it.
+    fn render_floor_fold(&self, plan: &Plan, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let words = if self.floor_open { "Fewer modules".to_string() } else { format!("{} more modules", plan.hidden) };
+        let keys = self.floor.is_focused(window);
+        labelled(
+            div()
+                .id("feature-floor-fold")
+                .track_focus(&self.floor)
+                .tab_stop(true)
+                .self_start()
+                .ml(px(0.) - look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_2))
+                .py(look.length(token::SPACE_1))
+                .rounded(look.length(token::RADIUS_SM))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if keys { ring_colour(look) } else { gpui::transparent_black() })
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(look.color(token::FG_SUBTLE))
+                .cursor_pointer()
+                .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                .aria_expanded(self.floor_open)
+                .on_click(cx.listener(|this, _, window, cx| {
+                    this.focus_region(Region::Floor, window, cx);
+                    this.toggle_floor(cx);
+                }))
+                .child(SharedString::from(words.clone())),
+            Role::Button,
+            words,
+        )
+        .into_any_element()
+    }
+
+    /// The code map as a card: the rooms as a wrapping grid, the doors from the lit ones as rows under it. With nothing to draw it says
+    /// why and what fills it.
+    fn render_floor(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let Load::Read(page) = &self.page else { return empty_card_saying(look, "floor", "Floor plan", super::page_model::NO_PLAN) };
+        let plan = match super::page_model::floor(page, self.floor_open) {
+            Floor::Empty(said) => return empty_card_saying(look, "floor", "Floor plan", said),
+            Floor::Plan(plan) => plan,
+        };
+        let hue = self.band_hue();
+        let pad = look.length(token::SPACE_3) + px(2.);
+        let mut grid = div().id("feature-floor-rooms").flex().flex_wrap().gap(look.length(token::SPACE_2));
+        for (at, room) in plan.rooms.iter().enumerate() {
+            grid = grid.child(self.render_room(at, room, hue, look));
+        }
+        let mut body = div().flex().flex_col().gap(look.length(token::SPACE_3)).px(pad).py(look.length(token::SPACE_3)).child(labelled(grid, Role::List, "Modules"));
+        if plan.folds {
+            body = body.child(self.render_floor_fold(&plan, look, window, cx));
+        }
+        let card = shell(look, "feature-card-floor", false, false).child(head(look, "floor", "Floor plan", false, true)).child(body);
+        let card = if plan.doors.is_empty() {
+            card
+        } else {
+            let mut doors = div().id("feature-floor-doors").w_full().flex().flex_col();
+            for (at, door) in plan.doors.iter().enumerate() {
+                doors = doors.child(self.render_door(at, door, look));
+            }
+            card.child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .px(pad)
+                    .pb(look.length(token::SPACE_2))
+                    .pt(look.length(token::SPACE_2))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child("Doors"))
+                    .child(labelled(doors, Role::List, "Doors")),
+            )
+        };
+        labelled(card, Role::Region, "Floor plan").into_any_element()
+    }
+
     fn render_card(&self, card: Card, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         match card {
             Card::Who => self.render_who(look, window, cx),
             Card::Asks => self.render_asks(look, window, cx),
+            Card::Floor => self.render_floor(look, window, cx),
             Card::Section(Section::Designs) => self.render_designs(look, window, cx),
             Card::Section(section) => match self.cards.get(&section) {
                 Some(Body::Code(code)) if self.present(section) => self.render_code(code, look, window),

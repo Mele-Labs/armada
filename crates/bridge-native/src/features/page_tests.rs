@@ -412,7 +412,7 @@ fn what_is_painted_flush_against_a_rounded_parent_rounds_its_own_corners_to_the_
     });
     assert!(panel > gpui::px(0.) && card > gpui::px(0.));
     assert_eq!(radius(cx, Role::Region, "Feature band"), Some(panel), "the band sits on the page panel's top edge");
-    for head in ["On it now", "Who worked on it", "Asks", "Designs", "Code", "How to test it", "How it runs"] {
+    for head in ["On it now", "Who worked on it", "Asks", "Designs", "Code", "Floor plan", "How to test it", "How it runs"] {
         assert_eq!(radius(cx, Role::Heading, head), Some(card), "{head} sits on its card's top edge");
     }
     assert_eq!(radius(cx, Role::Image, "Stale since #3692"), Some(card), "a stale mark is the card's first child");

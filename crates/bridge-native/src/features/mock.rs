@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorPlan, FloorRoom, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -142,7 +142,30 @@ pub fn page(slug: &str) -> FeaturePage {
             FeatureFile { path: "crates/ipc/src/start.rs".into(), jobs: 3 },
             FeatureFile { path: "apps/desktop/src/renderer/src/dispatch/StartCard.tsx".into(), jobs: 2 },
         ],
-        floor_plan: None,
+        floor_plan: Some(floor_plan()),
+    }
+}
+
+/// The code map of the mock's repository: twelve modules, the four the feature has files in lit, three doors and one contract.
+fn floor_plan() -> FloorPlan {
+    let room = |module: &str, path: &str, kind: &str, lit: bool| FloorRoom { module: module.into(), path: path.into(), kind: kind.into(), lit, manifest_id: None };
+    let door = |from: &str, to: &str, contract: bool| FloorDoor { from: from.into(), to: to.into(), contract };
+    FloorPlan {
+        rooms: vec![
+            room("core-model", "crates/core-model", "cargo", false),
+            room("fleet", "crates/fleet", "cargo", true),
+            room("config", "crates/config", "cargo", false),
+            room("bridge-native", "crates/bridge-native", "cargo", true),
+            room("drone", "crates/drone", "cargo", false),
+            room("ipc", "crates/ipc", "cargo", true),
+            room("store", "crates/store", "cargo", false),
+            room("testkit", "crates/testkit", "cargo", false),
+            room("desktop", "apps/desktop", "npm", true),
+            room("tokens", "packages/tokens", "npm", false),
+            room("components", "packages/components", "npm", false),
+            room("xtask", "xtask", "cargo", false),
+        ],
+        doors: vec![door("bridge-native", "ipc", true), door("fleet", "config", false), door("fleet", "core-model", false)],
     }
 }
 

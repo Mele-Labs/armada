@@ -4,3 +4,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 31 Oct 2026 for the walk `jumpToStep`, which the owner approved. It sits in a step's band beside Skip, on each step still to come, and Fleet skips the steps between (`jump_session_step`). The arrow turns down into the step it lands on. Refused: `skip-forward`, which is Skip, one step passed over; `corner-up-right`, which is a redirect into a live Drone. Tooltip `Jump here`."
+
+  [[icons.corner-down-right.usage]]
+    means = "A door of a feature's floor plan: a lit module depends on the module that follows"
+    group = "Features"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 18 Nov 2026 for the Floor plan card on a feature's page. The arrow turns down into the module the row's first one leads to, muted between two names. Tooltip `Depends on`. Refused: `arrow-right`, reserved to old and new words, and `move-right`, reserved to a retro item."

@@ -382,3 +382,57 @@ pub fn shoot_dossier(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The floor plan card on the first feature's page at 1400 wide: the mock's twelve rooms, then a page with no plan, then a plan of
+/// thirty rooms folded and the same unfolded.
+pub fn shoot_floor_plan(dir: &Path) -> Result<(), String> {
+    use ipc::{FloorPlan, FloorRoom};
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    let long = || FloorPlan {
+        rooms: (0..30).map(|n| FloorRoom { module: format!("module-{n:02}"), path: format!("crates/module-{n:02}"), kind: "cargo".into(), lit: n % 9 == 0, manifest_id: None }).collect(),
+        doors: Vec::new(),
+    };
+    for (name, step) in [("floor-plan-1400", 0), ("floor-plan-none-1400", 1), ("floor-plan-long-1400", 2), ("floor-plan-long-open-1400", 3)] {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_cursor(window, cx);
+                if let Some(page) = screen.page.clone() {
+                    page.update(cx, |page, cx| {
+                        if step > 0 {
+                            if let super::page::Load::Read(read) = &mut page.page {
+                                read.floor_plan = if step == 1 { None } else { Some(long()) };
+                            }
+                        }
+                        page.floor_open = step == 3;
+                        page.rebuild(cx);
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

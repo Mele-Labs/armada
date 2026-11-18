@@ -555,6 +555,8 @@ mod ask_tests;
 #[cfg(test)]
 mod curate_tests;
 #[cfg(test)]
+mod floor_tests;
+#[cfg(test)]
 mod of_path_tests;
 #[cfg(test)]
 mod page_tests;
