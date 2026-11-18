@@ -12,7 +12,7 @@
 use std::rc::Rc;
 
 use chrono::{DateTime, Local};
-use gpui::{canvas, div, prelude::*, px, size, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use gpui::{canvas, div, prelude::*, px, size, AnyElement, App, Context, FontWeight, Role, SharedString, Window};
 use ipc::{AnswerReadyToTry, ArtifactForm, Instant, NoteVerdict, ReadyAnswer, ReadyApproved, ReadyState, SentFile, SessionId, ThreadItem, ThreadReadyToTry};
 
 use super::acts::{kbd, refusal, Answer, Mode};
@@ -293,10 +293,18 @@ impl JobView {
             }
         }
         // A refusal came back at once, so the build stays open with Fleet's sentence on it; else the next open one opens.
+        let mut advance = None;
         if let Some(cards) = self.cards_mut() {
-            if !cards.said.contains_key(&card.id) && cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
-                cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
+            if !cards.said.contains_key(&card.id) {
+                advance = next.clone();
+                if cards.ready_pick.as_deref().is_none_or(|pick| pick == card.id) {
+                    cards.ready_pick = Some(next.unwrap_or_else(|| card.id.clone()));
+                }
             }
+        }
+        // In the review panel the next open build comes up, as a build in the thread's card does.
+        if let Some(next) = advance.filter(|_| ix == super::acts::SHEET && self.review_open()) {
+            self.review_at(&next, window, cx);
         }
     }
 
@@ -367,8 +375,28 @@ impl JobView {
             .into_any_element()
     }
 
+    /// The stage of a preview rebuild under way, whichever Refresh preview started it: Fleet's one build report says so, so every
+    /// key and card reads the same. `None` while no rebuild runs.
+    pub(super) fn preview_refreshing(&self, cx: &App) -> Option<&'static str> {
+        let build = self.fleet.as_ref()?.read(cx).held().build.as_ref()?;
+        (build.restarting == Some(ipc::BuildSource::Preview)).then(|| build.stage.map_or("Refreshing", crate::titlebar::stage_word))
+    }
+
     /// Refresh preview, where a build is not in the running preview yet: the title bar's build switcher's Refresh row, pressed here.
+    /// While a rebuild runs, from a press here or anywhere else, it reads Refreshing with its stage and takes no press.
     fn refresh_preview_button(&self, key: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        if let Some(stage) = self.preview_refreshing(cx) {
+            let ink = look.color(token::FG_MUTED);
+            return labelled(
+                act(look, format!("refresh-preview:{key}"), "Refreshing", Kind::Secondary, "", true)
+                    .cursor_default()
+                    .child(crate::titlebar::parts::spinner(SharedString::from(format!("refreshing:{key}")), look.length(token::TEXT_XS), ink, cx))
+                    .tooltip(tip(stage)),
+                Role::Status,
+                "Refreshing",
+            )
+            .into_any_element();
+        }
         labelled(
             act(look, format!("refresh-preview:{key}"), "Refresh preview", Kind::Secondary, "", true)
                 .tab_index(0)
@@ -434,6 +462,8 @@ impl JobView {
         // He cannot judge a build he cannot run: the answers wait until the preview holds it. Refresh preview stands in the head or the built picture's frame.
         let foot_row = (asking && card.in_build).then(|| foot_box(look).child(self.ready_footer(&foot, card, &parts, page, look, cx)));
         let name = format!("Ready to try: {}", card.about);
+        // With no answer row under it, the last part keeps a gap above the card's foot.
+        let bottom = if foot_row.is_none() { look.length(token::SPACE_4) } else { px(0.) };
         if !framed {
             let body = div()
                 .id(SharedString::from(format!("ready:{key}")))
@@ -445,7 +475,8 @@ impl JobView {
                 .children(pictures)
                 .children(words)
                 .children(changed)
-                .children(foot_row);
+                .children(foot_row)
+                .pb(bottom);
             return labelled(body, Role::Article, name).into_any_element();
         }
         labelled(
@@ -457,7 +488,8 @@ impl JobView {
                 .children(pictures)
                 .children(words)
                 .children(changed)
-                .children(foot_row),
+                .children(foot_row)
+                .pb(bottom),
             Role::Article,
             name,
         )
@@ -800,6 +832,23 @@ impl JobView {
             Some(self.ready_detail(card, super::acts::SHEET, wide, page, Local::now(), look, cx))
         })();
         drawn.unwrap_or_else(|| div().into_any_element())
+    }
+
+    /// A press on a Job's builds to try, on its Needs you row or its For you row: the review panel opens over the window with each build
+    /// still to answer listed and one chosen: the build the press names, else the newest. A build already answered, and a Job with none
+    /// still asking, go to the line in the thread as before, and so does a panel that could not open.
+    pub(super) fn open_ready_review(&mut self, job: &str, id: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let pick = self.thread(job, cx).and_then(|held| {
+            let mut asking = held.items.iter().rev().filter_map(|item| match item {
+                ThreadItem::ReadyToTry(card) if matches!(card.state, ReadyState::Open | ReadyState::Later) => Some(card.id.clone()),
+                _ => None,
+            });
+            // A build's own id names that build, and the Job's row its newest.
+            if id.contains('@') { asking.find(|asking| asking == id) } else { asking.next() }
+        });
+        let Some(pick) = pick else { return self.go_to_ready(job, id, window, cx) };
+        self.open_review_with(super::review::Scope::Job(job.to_string()), None, Some(&pick), window, cx);
+        self.review_open() || self.go_to_ready(job, id, window, cx)
     }
 
     /// The build an item in Needs you, or a press on a build, names: opened in place under the compact card at the thread's end,

@@ -25,7 +25,7 @@ use std::path::Path;
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 use std::time::Duration;
 
-use adapter_traits::Secret;
+use adapter_traits::{ListFailure, Secret};
 use reqwest::blocking::{Client, Response};
 use reqwest::header::{HeaderMap, HeaderValue, ACCEPT, AUTHORIZATION, CONTENT_TYPE, LINK, LOCATION};
 use reqwest::redirect::Policy;
@@ -139,6 +139,9 @@ pub enum ApiFailure {
     Malformed(String),
     /// Not asked: GitHub refused for its rate limit, and every call waits out the hold.
     HeldBack { seconds: u64 },
+    /// A GraphQL answer named the rate limit, as `errors` beside a 200. `seconds` is the hold it
+    /// started, which is the wait it named no time for.
+    RateLimited { said: Vec<String>, seconds: u64 },
 }
 
 impl fmt::Display for ApiFailure {
@@ -160,6 +163,9 @@ impl fmt::Display for ApiFailure {
             ApiFailure::Malformed(why) => write!(out, "{why}"),
             ApiFailure::HeldBack { seconds } => {
                 write!(out, "Not asked: GitHub is rate-limiting us, held for {seconds} s more")
+            }
+            ApiFailure::RateLimited { said, seconds } => {
+                write!(out, "GitHub is rate-limiting us, held for {seconds} s: {}", said.join("; "))
             }
         }
     }
@@ -198,11 +204,47 @@ impl ApiFailure {
             ApiFailure::Malformed(_) => {
                 "GitHub's answer could not be read. Open it again; if it stays, update Armada.".to_string()
             }
-            ApiFailure::HeldBack { seconds } => {
+            ApiFailure::HeldBack { seconds } | ApiFailure::RateLimited { seconds, .. } => {
                 format!("GitHub is rate-limiting us. Open it again in {} minutes.", seconds.div_ceil(60))
             }
         }
     }
+
+    /// Why a review list was not read: the rate limit with the time GitHub gave, else the plain reason.
+    pub(crate) fn listed(&self) -> ListFailure {
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |it| it.as_secs());
+        match self {
+            ApiFailure::NoToken(_) => ListFailure::NoToken(NO_TOKEN_SAID.to_string()),
+            ApiFailure::Unreachable(_) => ListFailure::Unreachable(UNREACHABLE_SAID.to_string()),
+            ApiFailure::HeldBack { seconds } | ApiFailure::RateLimited { seconds, .. } => {
+                ListFailure::RateLimited { until: Some(now + seconds), said: LIMITED_SAID.to_string() }
+            }
+            ApiFailure::Refused { status, said, limit } if limits(*status, said, *limit) => ListFailure::RateLimited {
+                until: match limit {
+                    Some(RateLimit { retry_after: Some(seconds), .. }) => Some(now + seconds),
+                    Some(RateLimit { remaining: Some(0), reset_at: Some(at), .. }) => Some(*at),
+                    _ => None,
+                },
+                said: LIMITED_SAID.to_string(),
+            },
+            other => ListFailure::Other(other.to_act_on()),
+        }
+    }
+}
+
+/// What a person reads for each way a review list was not read.
+pub(crate) const LIMITED_SAID: &str = "GitHub is rate-limiting us";
+pub(crate) const NO_TOKEN_SAID: &str = "GitHub has no token for this machine. Run `gh auth login`, then open Reviews again.";
+pub(crate) const UNREACHABLE_SAID: &str = "GitHub did not answer. Check the network, then open Reviews again.";
+
+fn names_the_limit(said: &str) -> bool {
+    said.to_ascii_lowercase().contains("rate limit")
+}
+
+/// Whether a refusal is the rate limit: a 429, a 403 that names a wait or an empty window, or any
+/// refusal whose words name it.
+fn limits(status: u16, said: &str, limit: Option<RateLimit>) -> bool {
+    status == 429 || limit.is_some_and(|it| it.retry_after.is_some() || it.remaining == Some(0)) || names_the_limit(said)
 }
 
 type ReadToken = dyn Fn() -> Result<Secret<String>, ApiFailure> + Send + Sync;
@@ -465,24 +507,22 @@ impl GitHubApi {
     /// window, or any refusal whose words name the rate limit: a secondary limit's 403 may carry no
     /// headers, and GraphQL's comes as an error beside a 200.
     fn counted<T>(&self, at: &'static Location<'static>, api: Api, answer: Result<T, ApiFailure>) -> Result<T, ApiFailure> {
-        let names_the_limit = |said: &str| said.to_ascii_lowercase().contains("rate limit");
         match &answer {
             Ok(_) => {
                 self.inner.hold.lock().unwrap_or_else(PoisonError::into_inner).streak = 0;
                 forge_tally::counted(at, api, Outcome::Answered, None);
             }
             Err(ApiFailure::NoToken(_) | ApiFailure::HeldBack { .. }) => {}
-            Err(ApiFailure::Refused { status, said, limit })
-                if *status == 429
-                    || limit.is_some_and(|it| it.retry_after.is_some() || it.remaining == Some(0))
-                    || names_the_limit(said) =>
-            {
+            Err(ApiFailure::Refused { status, said, limit }) if limits(*status, said, *limit) => {
                 self.held(*limit);
                 forge_tally::counted(at, api, Outcome::RateLimited, Some((said.clone(), *limit)));
             }
             Err(ApiFailure::GraphQl(messages)) if messages.iter().any(|it| names_the_limit(it)) => {
                 self.held(None);
                 forge_tally::counted(at, api, Outcome::RateLimited, Some((messages.join("; "), None)));
+                // Said as the limit it is, with the wait: not as a query GitHub would not read.
+                let seconds = self.held_for().unwrap_or(1);
+                return Err(ApiFailure::RateLimited { said: messages.clone(), seconds });
             }
             Err(_) => forge_tally::counted(at, api, Outcome::Failed, None),
         }

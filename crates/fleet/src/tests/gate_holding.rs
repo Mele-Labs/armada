@@ -210,6 +210,19 @@ async fn checks_nobody_has_started_are_asked_and_a_run_that_has_begun_is_not() {
     assert!(gate_item(&read(&rig, &id).await).is_none(), "its own Checks are running");
 }
 
+/// 17 Nov 2026: a run began, Fleet restarted, and the Job's held `all_done` sat silent for good under a
+/// `running` the new Fleet was not running.
+#[tokio::test]
+async fn a_run_a_restart_cut_off_is_not_running_and_the_held_call_is_asked() {
+    let rig = rig_placing(None);
+    let id = with_gates(&rig, &[("Build it", PlanGate::ChecksGreen)]).await;
+    assert!(rig.fleet.gate_check_began(id.as_str(), SHA).await);
+    done(&rig, &id).await;
+    assert!(gate_item(&read(&rig, &id).await).is_none(), "its own Checks are running");
+    let rig = rig.restarted_keeping_processes().await;
+    assert_eq!(gate_item(&read(&rig, &id).await).map(|one| one.text.as_str()), Some("\"Build it\" waits on Checks at a pushed commit"));
+}
+
 #[tokio::test]
 async fn approve_closes_the_gate_on_his_word_and_skip_closes_it_skipped() {
     let rig = rig_placing(None);

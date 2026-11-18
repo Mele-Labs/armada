@@ -89,10 +89,12 @@ impl Fit {
         }
     }
 
-    /// The most the fit draws a scene at: its own size, or in the column up to twice it.
-    fn most_zoom(self) -> f32 {
+    /// The most the fit draws a scene at: its own size, or in the column up to twice it. **A scene holding a mock stays at its
+    /// own size**: a mock is a page laid out at its own width, and a chip drawn twice over is not the chip the Job meant.
+    pub(crate) fn most_zoom(self, scene: &Scene) -> f32 {
         match self {
             Fit::Preview | Fit::Reading => 1.,
+            Fit::Column if scene.nodes.iter().any(|node| node.kind == SceneKind::Mock) => 1.,
             Fit::Column => 2.,
         }
     }
@@ -560,21 +562,11 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let marks: Vec<Option<Rect>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| starts.contains(node.id.as_str()).then(|| start::pill(*rect, pill_w))).collect();
     let badges: Vec<Option<(Rect, String)>> = scene.nodes.iter().zip(&rects).map(|(node, rect)| tile::badge(node, *rect)).collect();
     let bounds = canvas_of(&rects, &marks, &badges, &ways, scene);
-    // A lane is a row of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
+    // Lanes one under another are rows of the canvas, edge to edge: the first stands at its top and the last runs to its foot.
+    // Lanes the Drone set side by side are its columns, top to foot, the first from its left edge and the last to its right.
     let lanes: Vec<usize> = scene.nodes.iter().enumerate().filter(|(_, node)| node.kind == SceneKind::Lane).map(|(at, _)| at).collect();
-    let top = lanes.iter().copied().min_by(|a, b| rects[*a].y.total_cmp(&rects[*b].y));
-    let foot = lanes.iter().copied().max_by(|a, b| (rects[*a].y + rects[*a].h).total_cmp(&(rects[*b].y + rects[*b].h)));
-    for &at in &lanes {
-        rects[at].x = bounds.x;
-        rects[at].w = bounds.w;
-    }
-    if let Some(at) = top {
-        rects[at].h += rects[at].y - bounds.y;
-        rects[at].y = bounds.y;
-    }
-    if let Some(at) = foot {
-        rects[at].h = bounds.y + bounds.h - rects[at].y;
-    }
+    let columns = lanes.iter().any(|&a| lanes.iter().any(|&b| a != b && rects[b].x >= rects[a].x + rects[a].w));
+    stretch_lanes(&mut rects, &lanes, bounds, columns);
     // A step is a number a node, an arrow or an element of a screen carries, and what shares a number plays together.
     let mut steps: Vec<f64> = scene
         .nodes
@@ -588,6 +580,39 @@ fn lay(scene: &Scene, trees: &[Option<Rc<ScreenElement>>], sheets: &[Option<(f32
     let glyphs = facts.iter().map(|facts| facts.mark).collect();
     let held = Rect { x: bounds.x + tile::CANVAS_PAD - tile::EDGE, y: bounds.y + tile::CANVAS_PAD - tile::EDGE, w: bounds.w - 2. * (tile::CANVAS_PAD - tile::EDGE), h: bounds.h - 2. * (tile::CANVAS_PAD - tile::EDGE) };
     Laid { rects, ways, bounds, held, marks, badges, glyphs, steps, mocks }
+}
+
+/// Lanes stretched to the canvas: rows run its width, the first from its top and the last to its foot; columns run its height,
+/// the first from its left and the last to its right.
+fn stretch_lanes(rects: &mut [Rect], lanes: &[usize], bounds: Rect, columns: bool) {
+    let span = |rect: &Rect| if columns { (rect.x, rect.x + rect.w) } else { (rect.y, rect.y + rect.h) };
+    let first = lanes.iter().copied().min_by(|a, b| span(&rects[*a]).0.total_cmp(&span(&rects[*b]).0));
+    let last = lanes.iter().copied().max_by(|a, b| span(&rects[*a]).1.total_cmp(&span(&rects[*b]).1));
+    for &at in lanes {
+        if columns {
+            rects[at].y = bounds.y;
+            rects[at].h = bounds.h;
+        } else {
+            rects[at].x = bounds.x;
+            rects[at].w = bounds.w;
+        }
+    }
+    if let Some(at) = first {
+        if columns {
+            rects[at].w += rects[at].x - bounds.x;
+            rects[at].x = bounds.x;
+        } else {
+            rects[at].h += rects[at].y - bounds.y;
+            rects[at].y = bounds.y;
+        }
+    }
+    if let Some(at) = last {
+        if columns {
+            rects[at].w = bounds.x + bounds.w - rects[at].x;
+        } else {
+            rects[at].h = bounds.y + bounds.h - rects[at].y;
+        }
+    }
 }
 
 /// The boxes settled apart, as `settle` does once every box has its size: solid boxes first, then
@@ -727,16 +752,16 @@ struct View {
 impl View {
     /// The zoom that fits the whole scene inside `bounds`, less the fit's air and inset, never above the fit's most. There is no floor above
     /// the least a scene may be drawn at, so a wide or tall drawing is shrunk whole and never started at its corner.
-    fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit) -> f32 {
+    fn base(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, most: f32) -> f32 {
         let (w, h) = (f32::from(bounds.size.width), f32::from(bounds.size.height));
         let pad = |side: f32| ((side - side / (1. + fit.padding())) / 2.).floor();
         let across = if scene.w > 0. { (w - 2. * pad(w) - 2. * fit.inset()) / scene.w } else { 1. };
         let down = if scene.h > 0. { (h - 2. * pad(h) - 2. * fit.inset()) / scene.h } else { 1. };
-        across.min(down).clamp(Fit::MIN_ZOOM, fit.most_zoom())
+        across.min(down).clamp(Fit::MIN_ZOOM, most)
     }
 
-    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, lens: Lens) -> View {
-        let zoom = Self::base(bounds, scene, fit) * lens.zoom;
+    fn fit(bounds: Bounds<Pixels>, scene: Rect, fit: Fit, most: f32, lens: Lens) -> View {
+        let zoom = Self::base(bounds, scene, fit, most) * lens.zoom;
         let centre = Pt { x: scene.x + scene.w / 2., y: scene.y + scene.h / 2. };
         View { zoom, origin: bounds.center() + point(px(lens.pan.0), px(lens.pan.1)), centre }
     }
@@ -911,7 +936,8 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let look = cx.global::<Look>().clone();
     let laid = laid(key, scene, &look, window, cx);
     let canvas = if fit == Fit::Column { laid.held } else { laid.bounds };
-    let view = View::fit(bounds, canvas, fit, lens);
+    let most = fit.most_zoom(scene);
+    let view = View::fit(bounds, canvas, fit, most, lens);
     keep_canvas(key, canvas, window);
     let now = playing(&laid, clock.steps);
     let lit = lit(scene, now.as_ref());
@@ -945,7 +971,7 @@ fn prepare(key: &SharedString, scene: &Scene, changes: Option<Rc<Changes>>, fit:
     let placed = if fit == Fit::Reading { placed_of(scene, &laid, &sources, dark, cx) } else { Vec::new() };
     // A column drawing is kept too, with nothing placed: the review panel zooms one in place and reads its fit from here.
     if fit != Fit::Preview {
-        let base = View::base(bounds, canvas, fit);
+        let base = View::base(bounds, canvas, fit, most);
         notes::keep(key, notes::Probe { view, placed: placed.clone(), fit: size(canvas.w * base, canvas.h * base), base });
     }
     Prepared { laid, view, changes, now, sheets, mocks, placed, marks }
@@ -1555,7 +1581,7 @@ mod tests {
             let look = cx.global::<Look>().clone();
             let laid = laid(&SharedString::from("far-left"), &drawn, &look, window, cx);
             let bounds = Bounds::new(point(px(0.), px(0.)), size(px(900.), px(600.)));
-            (laid.clone(), View::fit(bounds, laid.bounds, Fit::Reading, Lens::default()))
+            (laid.clone(), View::fit(bounds, laid.bounds, Fit::Reading, Fit::Reading.most_zoom(&drawn), Lens::default()))
         });
         let leftmost = laid.rects.iter().map(|rect| rect.x).fold(f32::INFINITY, f32::min);
         assert!(leftmost < 0., "the leftmost node stays left of zero: {leftmost}");
@@ -1605,6 +1631,70 @@ mod tests {
 
     fn rect_of_node(drawn: &Scene, laid: &Laid, id: &str) -> Rect {
         laid.rects[drawn.nodes.iter().position(|node| node.id == id).expect("a node")]
+    }
+
+    /// Two lanes side by side, as a Drone placed them for "How a merge crosses the link", each with its own box, and a box
+    /// under the first.
+    fn lay_side_by_side(cx: &mut gpui::TestAppContext) -> (Rc<Scene>, Rc<Laid>) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let wire = br#"{"nodes":[
+            {"id":"a","kind":"lane","x":0,"y":0,"w":420,"h":560,"title":"Mac that keeps"},
+            {"id":"b","kind":"lane","x":520,"y":0,"w":420,"h":560,"title":"Mac that gives up"},
+            {"id":"one","kind":"box","x":40,"y":80,"title":"Holds the claim","step":1},
+            {"id":"two","kind":"box","x":560,"y":80,"title":"Lets it go","step":2},
+            {"id":"three","kind":"box","x":60,"y":400,"title":"Merges","body":"The merge runs on the Mac that keeps the claim, after the other let it go."}
+        ],"edges":[{"id":"e1","from":"one","to":"two","step":1}]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", wire).expect("a raw scene");
+        let drawn = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("side-by-side"), &drawn, &look, window, cx)
+        });
+        (drawn, laid)
+    }
+
+    #[gpui::test]
+    fn lanes_set_side_by_side_stand_as_columns_each_holding_its_own_boxes(cx: &mut gpui::TestAppContext) {
+        let (drawn, laid) = lay_side_by_side(cx);
+        let (a, b) = (rect_of_node(&drawn, &laid, "a"), rect_of_node(&drawn, &laid, "b"));
+        assert!(gaps(a, b).0 >= 0., "the lanes stand side by side, not on each other: {a:?} {b:?}");
+        assert!(a.h >= 560. && b.h >= 560., "each keeps at least the height it was given: {a:?} {b:?}");
+        let centre = |rect: Rect| (rect.x + rect.w / 2., rect.y + rect.h / 2.);
+        let holds = |lane: Rect, id: &str| {
+            let (x, y) = centre(rect_of_node(&drawn, &laid, id));
+            x >= lane.x && x <= lane.x + lane.w && y >= lane.y && y <= lane.y + lane.h
+        };
+        assert!(holds(a, "one") && holds(a, "three"), "the first lane holds its two boxes");
+        assert!(holds(b, "two") && !holds(b, "one"), "the second holds its own box and not the first lane's");
+    }
+
+    #[gpui::test]
+    fn lanes_set_one_under_another_still_run_the_canvas_width(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let wire = br#"{"nodes":[
+            {"id":"a","kind":"lane","x":0,"y":0,"w":300,"h":200,"title":"Fleet"},
+            {"id":"b","kind":"lane","x":0,"y":260,"w":300,"h":200,"title":"Bridge"},
+            {"id":"one","kind":"box","x":40,"y":60,"title":"Reads"},
+            {"id":"two","kind":"box","x":400,"y":320,"title":"Draws"}
+        ],"edges":[]}"#;
+        let raw: ipc::RawScene = ipc::decode("a raw scene", wire).expect("a raw scene");
+        let rows = Rc::new(raw.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| gpui::Empty);
+        let laid = cx.update(|window, cx| {
+            let look = cx.global::<Look>().clone();
+            laid(&SharedString::from("rows"), &rows, &look, window, cx)
+        });
+        for id in ["a", "b"] {
+            let lane = rect_of_node(&rows, &laid, id);
+            assert!((lane.x - laid.bounds.x).abs() < 0.01 && (lane.w - laid.bounds.w).abs() < 0.01, "{id} runs edge to edge: {lane:?} in {:?}", laid.bounds);
+        }
     }
 
     #[gpui::test]
@@ -1779,5 +1869,47 @@ mod tests {
             let hops = laid.ways[at].as_ref().expect("a way").path.iter().filter(|seg| matches!(seg, Seg::Arc(..))).count();
             assert_eq!(hops, 0, "{id} crosses nothing, and meets its trunk's other arrows where they leave");
         }
+    }
+
+    /// The take "Ready" of the status chip question as Fleet holds it: one `mock` node 260 wide.
+    const CHIP_TAKE: &str = r#"{"edges":[],"nodes":[{"html":"<div class=\"armada-chip\" data-part=\"chip\">Ready to try</div>","id":"chip-ready","kept":"504e17b72d4e43e5ad85c131e2a969b8","kind":"mock","styles":["packages/components/src/compositions/FactChip/FactChip.css"],"w":260,"x":0,"y":0}]}"#;
+
+    /// Two drawings, each in a column box 1040 wide, as a take's picture is drawn in a wide reading column.
+    struct Columns(Rc<Scene>, Rc<Scene>);
+
+    impl gpui::Render for Columns {
+        fn render(&mut self, _: &mut Window, _: &mut gpui::Context<Self>) -> impl IntoElement {
+            use gpui::ParentElement as _;
+            gpui::div()
+                .flex()
+                .flex_col()
+                .size_full()
+                .child(gpui::div().w(px(1040.)).h(px(200.)).child(view("chip-take".into(), self.0.clone(), Fit::Column, Clock::default(), Lens::default())))
+                .child(gpui::div().w(px(1040.)).h(px(200.)).child(view("box-take".into(), self.1.clone(), Fit::Column, Clock::default(), Lens::default())))
+        }
+    }
+
+    #[gpui::test]
+    fn a_chip_sized_mock_in_a_column_four_times_its_width_is_drawn_at_its_own_size_and_a_box_still_grows(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let raw: ipc::RawScene = ipc::decode("a chip take", CHIP_TAKE.as_bytes()).expect("a raw scene");
+        let chip = Rc::new(raw.scene().expect("it reads"));
+        let boxed: ipc::RawScene = ipc::decode("a box", br#"{"nodes":[{"id":"b","kind":"box","x":0,"y":0,"w":220,"title":"Box"}],"edges":[]}"#).expect("a raw scene");
+        let boxed = Rc::new(boxed.scene().expect("it reads"));
+        let (_, cx) = cx.add_window_view(|_, _| Columns(chip, boxed));
+        cx.simulate_resize(size(px(1040.), px(400.)));
+        for _ in 0..2 {
+            cx.update(|window, _| window.refresh());
+            cx.run_until_parked();
+        }
+        let (fit, drawn_at) = fit_of("chip-take").expect("the drawing was fitted");
+        let (natural, _) = canvas_size("chip-take").expect("its canvas");
+        assert!(drawn_at >= 1., "a mock stands at its own size or smaller, never the column's width: {drawn_at}");
+        assert!(fit.width <= natural + 0.01, "no wider than its natural size times one: {fit:?} of {natural}");
+        let (_, box_at) = fit_of("box-take").expect("the box drawing was fitted");
+        assert!(box_at < 1., "a drawing of boxes still grows in the column, up to twice: {box_at}");
     }
 }

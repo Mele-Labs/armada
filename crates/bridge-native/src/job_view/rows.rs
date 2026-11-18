@@ -1036,6 +1036,8 @@ impl JobView {
         };
         let editing = editable.then(|| self.edit_box(id, look, cx)).flatten();
         let open = editing.is_some();
+        // A question of his that a reply answers carries that answer folded under his words (`questions.rs`).
+        let answer = (!open).then(|| self.folded_answer(page, id, look, now, cx)).flatten();
         let words = match editing {
             Some(field) => field,
             None => match said_parts {
@@ -1047,6 +1049,7 @@ impl JobView {
                 None => self.block(page, id, self.prose(format!("you:{id}"), said, look, cx), cx),
             },
         };
+        let kind = self.kind_chip(page, id, look, cx);
         let region = div()
             .id(SharedString::from(format!("you:{id}")))
             .flex()
@@ -1114,10 +1117,12 @@ impl JobView {
                                 .child(words)
                                 .children(debug)
                                 .children(sent)
-                                .children(retry),
+                                .children(retry)
+                                .children(answer),
                             Role::Group,
                             "Message words",
                         ))
+                        .children(kind)
                         .child(band),
                 ),
             Role::Region,

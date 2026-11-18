@@ -14,7 +14,7 @@ const COMMAND_MOST = 300
  * repository's. **Bump it with `version` in `.claude-plugin/plugin.json`**: the mod cannot read that
  * file while it runs, and a Fleet test (`terminal_session.rs`) holds the two equal.
  */
-export const MOD_VERSION = '0.3.75'
+export const MOD_VERSION = '0.3.77'
 
 /** What fills the context window, trimmed for Fleet (`ContextBreakdown`, `crates/ipc/src/context_breakdown.rs`). */
 export type ContextBreakdown = {
@@ -612,11 +612,22 @@ export function pushIn(command: string, output: string): { branch?: string } | u
   if (push === null || /--dry-run|(?:^|\s)-n(?:\s|$)/.test(command)) return undefined
   const sent = /^\s*(?:[0-9a-f]{7,40}\.\.\.?[0-9a-f]{7,40}|\*\s+\[new (?:branch|tag)\]|\+\s+[0-9a-f]{7,40}\.\.\.[0-9a-f]{7,40})\s+\S+\s+->\s+(\S+)/m.exec(output)
   if (sent !== null) return { branch: sent[1] }
-  const words = (push[1] ?? '').trim().split(/\s+/).filter(word => word !== '')
+  const words = withoutRedirects((push[1] ?? '').trim().split(/\s+/).filter(word => word !== ''))
   if (!words.some(word => word === '-q' || word === '--quiet')) return undefined
   const named = words.filter(word => !word.startsWith('-')).slice(1).at(-1)
   const branch = named?.replace(/^\+/, '').split(':').at(-1)?.replace(/^refs\/heads\//, '')
   return branch === undefined || branch === '' || branch === 'HEAD' ? {} : { branch }
+}
+
+/** A command's words less its shell redirections: `2>&1` reaches here as `2>`, and `> file` is two words. */
+function withoutRedirects(words: string[]): string[] {
+  const kept: string[] = []
+  for (let at = 0; at < words.length; at++) {
+    const word = words[at] ?? ''
+    if (!/^\d*[<>]/.test(word)) kept.push(word)
+    else if (/^\d*[<>]+$/.test(word)) at++
+  }
+  return kept
 }
 
 /**

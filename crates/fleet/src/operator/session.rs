@@ -65,6 +65,19 @@ where
             .ok_or_else(|| self.hosted_refusal(NOT_THE_OPERATOR, "only the Operator's own session may call this"))
     }
 
+    /// Refuse a call through the door that is not the Operator's session, and let through a call that arrived by no door.
+    /// **The door is the only thing that places a caller** (`api::acting::asking`), so a call with none is the person's own
+    /// from Bridge, and `api::callers::THE_PERSONS_OWN` has already refused it to a process held inside a Job.
+    pub(crate) fn owner_or_operator_called(&self, caller: Option<api::Caller>) -> Result<(), Refusal> {
+        match caller {
+            None => Ok(()),
+            Some(_) => self
+                .operator_called(caller)
+                .map(drop)
+                .map_err(|_| self.hosted_refusal(NOT_THE_OPERATOR, "only Bridge or the Operator's own session may call this")),
+        }
+    }
+
     /// Once a tick: start the Operator's session while the switch is on and none runs, and end it once
     /// the switch is off.
     pub(crate) async fn operator_session_kept(self: &Arc<Self>) {

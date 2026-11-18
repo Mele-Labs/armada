@@ -21,6 +21,8 @@ const REPOSITORY_REFUSED: &str = "fleet.repository_refused";
 const ALREADY_SERVED: &str = "fleet.repository_served";
 /// A repository served and not written down, so a restart forgets it. A 500.
 const NOT_REMEMBERED: &str = "fleet.repository_not_remembered";
+/// An owner or a name that is not one path segment of a forge address. A 422.
+const LINK_REFUSED: &str = "fleet.link_refused";
 /// A `?repository=` naming nothing served. A 422.
 pub(crate) const NO_SUCH_REPOSITORY: &str = "fleet.no_such_repository";
 /// A request that needs a repository, when Fleet serves none yet. A 422.
@@ -104,13 +106,14 @@ where
         self.events().publish(ipc::Event::RepositoriesChanged(list));
     }
 
-    /// `list_repositories`.
+    /// `list_repositories`. **A stub linked for a pull request link is left out**: nobody added it.
     pub(crate) fn repository_list(&self) -> RepositoryList {
         RepositoryList {
             repositories: self
                 .repositories()
                 .every()
                 .iter()
+                .filter(|one| one.linked_to().is_none())
                 .map(|one| summary_of(one))
                 .collect(),
         }
@@ -146,6 +149,10 @@ where
             .repositories()
             .add(located)
             .map_err(|why| self.not_added(why))?;
+        // Added for real: the stub a link made for it has done its work.
+        if let Some(address) = adapters::remote_of(std::path::Path::new(added.root())) {
+            self.repositories().drop_linked(&address.slug());
+        }
         // Served already; a store that will not write only loses it at restart.
         let at = self.now();
         let remembered = self
@@ -172,6 +179,52 @@ where
             ))
         })?;
         Ok(summary_of(&added))
+    }
+
+    /// `link_repository`: the served repository whose `origin` is `owner/name`, else a stub made
+    /// for it — served, not listed, not remembered.
+    pub(crate) async fn linked_repository(
+        &self,
+        asked: ipc::LinkRepository,
+    ) -> Result<RepositorySummary, Refusal> {
+        let (owner, name) = (asked.owner.trim().to_string(), asked.name.trim().to_string());
+        if !is_a_segment(&owner) || !is_a_segment(&name) {
+            let why = format!("`{owner}/{name}` is not an owner and a repository name");
+            return Err(Refusal::Unacceptable(WireError::raised(LINK_REFUSED, why, self.run_id())));
+        }
+        let slug = format!("{owner}/{name}").to_lowercase();
+        let served = self.repositories().every();
+        let wanted = slug.clone();
+        let held = tokio::task::spawn_blocking(move || {
+            served.into_iter().find(|one| {
+                one.linked_to() == Some(wanted.as_str())
+                    || (one.linked_to().is_none()
+                        && adapters::remote_of(std::path::Path::new(one.root()))
+                            .is_some_and(|address| address.host() == "github.com" && address.slug() == wanted))
+            })
+        })
+        .await
+        .expect("reading served remotes panicked");
+        if let Some(held) = held {
+            return Ok(summary_of(&held));
+        }
+        let locating = Arc::clone(self.locating());
+        let (o, n) = (owner.clone(), name.clone());
+        let located = tokio::task::spawn_blocking(move || locating.linked(&o, &n))
+            .await
+            .expect("linking a repository panicked")
+            .map_err(|why| self.not_located(why))?;
+        let root = located.root.clone();
+        let stub = match self.repositories().add_linked(located, &slug) {
+            Ok(added) => added,
+            // A second link raced this one to the same folder.
+            Err(NotAdded::AlreadyServed { .. }) => self
+                .repositories()
+                .at(&root)
+                .expect("served, or the add would not have said so"),
+            Err(why) => return Err(self.not_added(why)),
+        };
+        Ok(summary_of(&stub))
     }
 
     /// Read `folder`, starting a git repository in it first where it is in none.
@@ -296,6 +349,12 @@ where
             self.run_id(),
         ))
     }
+}
+
+/// One path segment of a forge address: letters, digits, `-`, `_` and `.`, and not `.` or `..`.
+fn is_a_segment(word: &str) -> bool {
+    !matches!(word, "" | "." | "..")
+        && word.chars().all(|one| one.is_ascii_alphanumeric() || matches!(one, '-' | '_' | '.'))
 }
 
 /// One repository as the wire carries it.

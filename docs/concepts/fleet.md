@@ -529,6 +529,10 @@ Fleet refuses it as the agent writes it (`fleet.session_waiting_merging`, `sessi
 Only a merge, a fact, takes off an `approve_pr` item that names the merged number.
 The job note tells agents not to state it.
 
+**An ask to try a Job's own change is the Ready to try card's, and `waiting_for` refuses it** in a repository with a preview (`fleet.session_waiting_look`, `session_host/look_asks.rs`).
+An item is one when its `approve_pr` act names one of the Job's pull requests, or its words name one of them or a branch it offered and it is marked `approves` or opens with *Try*, *Look at* or *Test*.
+A kept one comes off Needs you once the Job's branch is on the preview list.
+
 ### Telling the Jobs that read a wire type
 
 **No agent relays a wire change. Fleet tells every other live hosted Job whose branch reads a type a pull request changes.**
@@ -589,6 +593,8 @@ Where the forge kept none, a request by name is dated from when Fleet first told
 
 **A list is capped at 50, newest-updated first, and a list at 50 has more behind it.** A list the forge would not answer is empty and named in `silent`, so one failure does not blank the others and Bridge keeps what it last held for that list.
 All four silent, or no login known, is a 500 `fleet.review_lists_unreadable`.
+**GitHub's rate limit** is its own answer: with the lists last read, those are shown with `rate_limited` set (`until`, RFC 3339 with milliseconds, absent where GitHub named no time) and `fetched_at` their time, and Fleet asks nothing until `until`, or for three minutes where none was named; with none read it is a 500 `fleet.review_lists_rate_limited`, `fields.until` the same time.
+No token and an unanswering GitHub are `fleet.review_lists_unreadable` with a sentence that says which.
 
 **`resolve_review_thread` (`POST /review_threads/:repository`) resolves a conversation on a diff, or opens it again.** It is the forge's own act, taken at once and seen by everyone watching, so it is a person's press and never part of the pending review.
 A 409 `fleet.review_thread_refused` carries the forge's sentence, and a repository Fleet does not serve is a 422.

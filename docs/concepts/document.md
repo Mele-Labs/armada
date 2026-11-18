@@ -19,6 +19,7 @@ A design, an investigation, a report or a set of findings is a document. The Job
 | Fleet keeping revisions, the `document` artifact, the sketch notice | Built |
 | The Delivery row, the Artifacts rows and thread headings reading the real artifact | Built |
 | Save as web page and Save as PDF | Built |
+| Share in the native reader, with Export to a document tool the Job has connected | Built in native; walk `native-reader-page` |
 | Each revision asking his approval, `answer_document`, the `document` item and the `document_approved` end | Built in Fleet; Bridge's wiring owed |
 | A page for reading unless it asks, by its mark or a `document_approved` gate | Built in Fleet; Classic draws no Approve on a reading page; native owed |
 
@@ -245,6 +246,7 @@ A press on it scrolls the page to that change.
 | Save as web page | Writes one HTML file, sketches drawn into it |
 | Save as PDF | Writes a PDF, sketches drawn into it |
 | Add to the repo | Asks the Job, in its thread, to commit the page |
+| Export to Notion, and each other document tool the Job has connected | Asks the Job, in its thread, to export the page with that tool and reply with the link |
 
 **Rule.** Save as web page writes one HTML file: the page as it is read, its CSS inline, each `<armada-sketch>` replaced by the sketch drawn as static markup by the sketch pane's own export, and the value of every token the page's rules read written into the file.
 The file holds no script and no address, and a policy in it allows nothing to load.
@@ -252,7 +254,14 @@ Why: the person who opens it has neither Armada nor a network the Job could have
 
 **Rule.** Save as PDF prints that same file in a window that is never shown, with scripts off and nothing but the file loadable.
 Both ask where to save in the system's save dialog, named for the page title.
+Native lays the page out at A4's width and makes it one PDF page as tall as the page, where Classic prints A4 pages.
 
 **Rule.** Add to the repo sends the Job one line naming the page's path and saying it is gitignored, so the Job adds it with `git add -f`.
+
+**Rule.** Export rows stand under a rule, one for each document tool the Job has an MCP server connected for, read from `get_session_mcp` as the menu opens.
+A server's name is matched by its words against one table in `crates/bridge-native/src/job_view/reader_share.rs`: Notion, Google Drive, Confluence, Dropbox, Box, OneDrive, SharePoint, Coda and Slite.
+A server that is not connected has no row.
+The row sends the Job one line naming the document, its artifact, the revision read, the tool and the server, and then reads Sent to the Job.
+Bridge never calls the server itself.
 
 **Rule.** The page leaves the Job only by the person's press. Adding to the repo is a request the Job carries out, so the commit is on its branch and in its diff.

@@ -30,6 +30,15 @@ pub struct CloneRepository {
     pub parent: String,
 }
 
+/// A repository a pull request link names, to read it through without adding it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LinkRepository {
+    /// The forge's owner, as the link spells it.
+    pub owner: String,
+    /// The repository's name, as the link spells it.
+    pub name: String,
+}
+
 /// The repositories the person's forge account can see, to pick one to clone.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ForgeRepositories {

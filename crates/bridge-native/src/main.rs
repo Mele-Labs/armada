@@ -34,6 +34,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod features;
 mod first_run;
 mod fleet;
 mod frames;
@@ -56,6 +57,7 @@ mod look;
 mod menu;
 mod merge_strip;
 mod option_pictures;
+mod page_note;
 mod mock;
 mod mock_parts;
 mod move_to_mac;
@@ -66,6 +68,7 @@ mod operator;
 mod pairing;
 mod palette;
 mod paste_link;
+mod pasteboard;
 mod point;
 mod queued;
 mod restart_fleet;

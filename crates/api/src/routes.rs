@@ -49,7 +49,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_forge_repositories, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, link_repository, list_forge_repositories, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -834,6 +834,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::message_reach::<D>),
         )
         .route(
+            "/sessions/quiet_jobs",
+            get(crate::hosted_sessions::quiet_jobs::<D>),
+        )
+        .route(
             "/sessions/held",
             post(crate::hosted_sessions::take_held_messages::<D>),
         )
@@ -846,6 +850,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/repositories/link", post(link_repository::<D>))
         .route("/repositories/forge", get(list_forge_repositories::<D>))
         .route("/import/folders", get(crate::importing::list_import_folders::<D>))
         .route("/import/runs", get(crate::importing::get_import_runs::<D>))

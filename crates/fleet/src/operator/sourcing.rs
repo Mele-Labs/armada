@@ -1,7 +1,8 @@
 //! Fleet handing the Operator's session work from outside a Job's own run. **Each arrives once**: a
 //! report as it is kept, an issue new since the last read of its tracker, and a note the person left on
 //! Bridge once its file is new to the repository's annotations and has waited, open and sent to no
-//! Job. Nothing arrives while the Operator is off or its session is not running, and what waited is let go.
+//! Job. Nothing arrives while the Operator is off or its session is not running, and what waited is let go, except a note: with
+//! the Operator off Fleet files it as an ask itself (`story::outside`).
 //!
 //! **Nothing is written to the forge.**
 
@@ -34,8 +35,10 @@ pub(crate) struct Sources {
     notes: Mutex<BTreeMap<String, BTreeSet<String>>>,
     /// The open notes sent to no Job yet, by repository and id, read again each tick.
     watching: Mutex<BTreeMap<(String, String), Watched>>,
-    /// The projects no seed describes, so a tick does not look at their repositories again.
-    pub(super) unseedable: Mutex<BTreeSet<String>>,
+    /// How long a note waits, where a test has set it.
+    wait: Mutex<Option<Duration>>,
+    /// The projects no seed describes, so a tick does not look at their repositories again. Fleet's own seeding keeps it.
+    pub(crate) unseedable: Mutex<BTreeSet<String>>,
 }
 
 /// An open note the person may still send to a Job.
@@ -89,7 +92,13 @@ impl Seat {
 
     /// How long a note waits to be sent to a Job.
     fn note_wait(&self) -> Duration {
-        NOTE_SENT_WAIT
+        held(&self.sources.wait).unwrap_or(NOTE_SENT_WAIT)
+    }
+
+    /// A test's own wait, so a note matures without ten minutes passing.
+    #[cfg(test)]
+    pub(crate) fn note_wait_is(&self, wait: Duration) {
+        *held(&self.sources.wait) = Some(wait);
     }
 }
 
@@ -117,6 +126,7 @@ where
         let fresh = std::mem::take(&mut *held(&seat.sources.fresh));
         self.job_asks_handed().await;
         if !self.operator_on() {
+            self.notes_filed().await;
             return;
         }
         for id in reports {
@@ -154,6 +164,18 @@ where
     /// there when Fleet started is watched too, but never handed on unsent.
     async fn notes_arrived(&self) -> Vec<Arrival> {
         let mut arrivals = Vec::new();
+        for (manifest, read) in self.notes_left().await {
+            let files: Vec<String> = [read.source.as_ref(), read.definition.as_ref()].into_iter().flatten().map(|one| one.file.clone()).collect();
+            let features = self.note_features(&manifest, &files, read.component.as_deref()).await;
+            arrivals.push(Note { id: read.id, manifest_id: manifest, text: read.text, screen: read.screen, component: read.component, features }.arrival());
+        }
+        arrivals
+    }
+
+    /// The notes that waited out [`NOTE_SENT_WAIT`] open and sent to no Job, each with the repository it was left in. **The same
+    /// watch whether the Operator is on or off**: what is done with them is the caller's.
+    pub(crate) async fn notes_left(&self) -> Vec<(String, NoteRead)> {
+        let mut found = Vec::new();
         let seat = self.operator_seat();
         let wait = seat.note_wait();
         for served in self.repositories().hosted() {
@@ -207,13 +229,9 @@ where
                     }
                 }
             }
-            for read in left {
-                let files: Vec<String> = [read.source.as_ref(), read.definition.as_ref()].into_iter().flatten().map(|one| one.file.clone()).collect();
-                let features = self.note_features(&manifest, &files, read.component.as_deref()).await;
-                arrivals.push(Note { id: read.id, manifest_id: manifest.clone(), text: read.text, screen: read.screen, component: read.component, features }.arrival());
-            }
+            found.extend(left.into_iter().map(|read| (manifest.clone(), read)));
         }
-        arrivals
+        found
     }
 
     async fn report_of(&self, id: &str) -> Option<Arrival> {

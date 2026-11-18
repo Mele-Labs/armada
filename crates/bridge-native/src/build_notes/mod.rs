@@ -41,6 +41,32 @@ impl NoteKey {
     }
 }
 
+/// A note's few-word title, made from its branch: the part after the last `/`, dashes read as spaces, the first
+/// letter capital. "native/drawing-approve" reads "Drawing approve".
+pub fn few_words(branch: &str) -> String {
+    let tail = branch.rsplit('/').next().unwrap_or(branch);
+    let spaced = tail.replace('-', " ");
+    let mut letters = spaced.trim().chars();
+    match letters.next() {
+        Some(first) => first.to_uppercase().chain(letters).collect(),
+        None => String::new(),
+    }
+}
+
+/// The notes with each Job's together, the Job seen first leading and each Job's notes in the order they came.
+pub fn grouped(notes: Vec<BuildNote>) -> Vec<BuildNote> {
+    let mut jobs: Vec<ipc::SessionId> = Vec::new();
+    for note in &notes {
+        if !jobs.contains(&note.session_id) {
+            jobs.push(note.session_id.clone());
+        }
+    }
+    let mut notes = notes;
+    // A stable sort keeps a Job's notes in their order.
+    notes.sort_by_key(|note| jobs.iter().position(|job| *job == note.session_id));
+    notes
+}
+
 /// The note the keys are on: the one chosen if Fleet still holds it, else the first not looked at, else the first.
 pub fn position(notes: &[BuildNote], chosen: Option<&NoteKey>, marked: &Marked) -> Option<usize> {
     chosen
@@ -296,7 +322,9 @@ impl BuildNotesSheet {
         }
     }
 
-    fn hold(&mut self, notes: BuildNotes, window: &mut Window, cx: &mut Context<Self>) {
+    fn hold(&mut self, mut notes: BuildNotes, window: &mut Window, cx: &mut Context<Self>) {
+        // The list draws a Job's notes together, and the arrows walk it in that order.
+        notes.notes = grouped(std::mem::take(&mut notes.notes));
         self.marked.retain(|key, given| notes.notes.iter().any(|note| NoteKey::of(note) == *key && note.verdict != Some(*given)));
         self.held = Some(notes);
         if self.open && !self.has_notes() {
@@ -595,6 +623,28 @@ mod tests {
     }
 
     #[test]
+    fn a_note_is_titled_in_a_few_words_from_the_end_of_its_branch() {
+        assert_eq!(few_words("native/drawing-approve"), "Drawing approve");
+        assert_eq!(few_words("fleet/page-send-votes"), "Page send votes");
+        assert_eq!(few_words("hotfix"), "Hotfix", "no slash: the whole branch");
+        assert_eq!(few_words("a/b/c-d"), "C d", "only the part after the last slash");
+    }
+
+    fn of_job(job: &str, branch: &str) -> BuildNote {
+        let mut one = note(branch, false);
+        one.session_id = ipc::SessionId::carried(job);
+        one
+    }
+
+    #[test]
+    fn notes_come_out_grouped_by_job_with_the_job_seen_first_leading_and_each_jobs_order_kept() {
+        let out = grouped(vec![of_job("x", "x1"), of_job("y", "y1"), of_job("x", "x2"), of_job("y", "y2"), of_job("x", "x3")]);
+        let branches: Vec<&str> = out.iter().map(|note| note.branch.as_str()).collect();
+        assert_eq!(branches, ["x1", "x2", "x3", "y1", "y2"]);
+        assert!(grouped(Vec::new()).is_empty());
+    }
+
+    #[test]
     fn an_arrow_stops_at_either_end_of_the_notes() {
         assert_eq!(moved(3, 0, -1), 0);
         assert_eq!(moved(3, 0, 1), 1);
@@ -728,6 +778,23 @@ mod tests {
             sheet.on_act(&pressed("move_focus", 1, None), window, cx);
             assert_eq!(sheet.at(), Some(1));
             assert_eq!(sheet.feedback.read(cx).value().as_ref(), "on b", "b's draft came back");
+        });
+    }
+
+    #[gpui::test]
+    fn the_arrows_walk_the_notes_in_the_order_the_list_draws_them_grouped(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let held = BuildNotes { commit: Some("abc1234def".into()), notes: vec![of_job("x", "x1"), of_job("y", "y1"), of_job("x", "x2")] };
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.hold(held, window, cx);
+            sheet.show(window, cx);
+            sheet.select(0, window, cx);
+            let mut seen = vec![sheet.note().map(|note| note.branch.clone())];
+            for _ in 0..2 {
+                sheet.on_act(&pressed("move_focus", 0, None), window, cx);
+                seen.push(sheet.note().map(|note| note.branch.clone()));
+            }
+            assert_eq!(seen, [Some("x1".to_string()), Some("x2".to_string()), Some("y1".to_string())], "a heading is not a stop: down goes from one note to the next");
         });
     }
 

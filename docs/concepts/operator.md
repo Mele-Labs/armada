@@ -239,6 +239,7 @@ The wire is `../practices/protocol/the-operators-page-fleet-keeps.md`, and `../j
 
 ## The feature catalog
 
-Fleet tells the Operator what the project's feature library needs from it: a project that holds Armada's repository and no feature, a feature a Job named that the library lacks, an area that grew, and his words and notes that are asks.
+Fleet tells the Operator what the project's feature library needs from it: a feature a Job named that the library lacks, an area that grew, and his words and notes that are asks.
 Each is kept and carried out with the Operator's own tools, and every decision is a card.
+Fleet keeps Armada's own seed itself, so the library is not empty while the Operator is off.
 [Feature catalog](feature-catalog.md) says what each holds and what the Operator does with it.

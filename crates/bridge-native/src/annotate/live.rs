@@ -33,6 +33,16 @@ pub enum Picture {
 #[derive(Clone, Copy)]
 pub struct Ink(pub [u8; 4], pub [u8; 4]);
 
+/// What a note's file keeps of a page's parts, as `sessionNoteBody` sends them: at most this many of each.
+const MOST_OWNERS: usize = 16;
+const MOST_NEARBY: usize = 8;
+const MOST_SELECTED: usize = 12;
+
+/// The strings of a list in a note's file, at most `most`.
+fn strings(value: &Value, most: usize) -> Vec<String> {
+    value.as_array().map(|all| all.iter().filter_map(|one| one.as_str().map(str::to_string)).take(most).collect()).unwrap_or_default()
+}
+
 fn text(raw: &Value, name: &str) -> String {
     raw[name].as_str().unwrap_or_default().to_string()
 }
@@ -98,26 +108,36 @@ fn note_of(out: &Outgoing, ink: Ink) -> SessionNote {
         said.push(String::new());
         said.extend(changed);
     }
+    // The line the hooks read a feature's page by (`docs/concepts/feature-catalog.md`, Handing a Job its pages).
+    let features = super::beside::slugs_of(&out.key);
+    if !features.is_empty() {
+        said.push(String::new());
+        said.extend(features.iter().take(crate::features::of_path::MOST).map(|slug| format!("Feature: {slug}")));
+    }
     let location = raw["location"].as_str().unwrap_or("/").to_string();
     let screen = raw["screen"].as_str().map(str::to_string);
+    // A note on a Job's page carries the page's own address; any other is Bridge's own screen's.
+    let address = raw["address"].as_str().map(str::to_string).unwrap_or_else(|| format!("armada://native/{}", screen.as_deref().unwrap_or("window")));
     SessionNote {
         said: said.join("\n"),
-        address: format!("armada://native/{}", screen.as_deref().unwrap_or("window")),
+        address,
         note_id: Some(out.key.clone()),
         place: NotePlace {
             component: raw["component"].as_str().map(str::to_string),
+            owners: strings(&raw["owners"], MOST_OWNERS),
             selector: text(raw, "selector"),
             element: NoteElement {
                 tag: text(&raw["element"], "tag"),
                 text: text(&raw["element"], "text").chars().take(200).collect(),
                 label: raw["element"]["label"].as_str().map(str::to_string),
             },
+            nearby: strings(&raw["nearby"], MOST_NEARBY),
+            stamp: raw["stamp"].as_str().map(str::to_string),
             location,
             screen,
             layer: raw["layer"].as_str().map(str::to_string),
-            ..NotePlace::default()
         },
-        state: NoteState { scenario: raw["scenario"].as_str().map(str::to_string), ..NoteState::default() },
+        state: NoteState { selected: strings(&raw["selected"], MOST_SELECTED), scenario: raw["scenario"].as_str().map(str::to_string), ..NoteState::default() },
         crop: picture_of(out, ink).map(|data| NoteCrop { media_type: "image/png".into(), data }),
         job: Vec::new(),
     }
@@ -197,5 +217,76 @@ pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgo
             Some(id) => Ok(Dispatched::Kept { id, title: first_line }),
             None => Err("Fleet answered the dispatch with nothing in it".to_string()),
         },
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn out(raw: Value) -> Outgoing {
+        Outgoing { key: "note-1".into(), raw, window: false, number: 1, picture: Picture::None }
+    }
+
+    const INK: Ink = Ink([0, 0, 0, 255], [255, 255, 255, 255]);
+
+    #[test]
+    fn a_note_on_a_job_page_goes_with_the_pages_address_and_what_was_held() {
+        let raw = json!({
+            "text": " Make it bigger ", "address": "https://fast.com/search?scenario=wide", "selector": "form > input:nth-of-type(1)",
+            "element": { "tag": "input", "text": "", "label": "Search" }, "location": "/search?scenario=wide", "screen": null,
+            "owners": ["Search", "App"], "nearby": ["Main", "Search"], "stamp": "src/Search.tsx:42", "selected": ["tab \"Web\""], "scenario": "wide",
+        });
+        let note = note_of(&out(raw), INK);
+        assert_eq!(note.address, "https://fast.com/search?scenario=wide");
+        assert_eq!(note.said, "Make it bigger");
+        assert_eq!(note.place.selector, "form > input:nth-of-type(1)");
+        assert_eq!(note.place.element.tag, "input");
+        assert_eq!(note.place.element.label.as_deref(), Some("Search"));
+        assert_eq!(note.place.location, "/search?scenario=wide");
+        assert_eq!(note.place.owners, ["Search", "App"]);
+        assert_eq!(note.place.nearby, ["Main", "Search"]);
+        assert_eq!(note.place.stamp.as_deref(), Some("src/Search.tsx:42"));
+        assert_eq!(note.state.selected, ["tab \"Web\""]);
+        assert_eq!(note.state.scenario.as_deref(), Some("wide"));
+        assert_eq!(note.note_id.as_deref(), Some("note-1"));
+    }
+
+    #[test]
+    fn a_note_on_bridges_own_screen_keeps_its_native_address() {
+        let note = note_of(&out(json!({ "text": "x", "screen": "Jobs", "selector": "button \"Save\"", "element": { "tag": "button", "text": "Save" } })), INK);
+        assert_eq!(note.address, "armada://native/Jobs");
+        assert!(note.place.owners.is_empty() && note.place.nearby.is_empty() && note.place.stamp.is_none());
+    }
+
+    #[test]
+    fn the_lists_of_a_note_are_cut_to_what_the_wire_allows() {
+        let long: Vec<String> = (0..40).map(|one| format!("n{one}")).collect();
+        let note = note_of(&out(json!({ "text": "x", "address": "https://a.test/", "owners": long, "nearby": long, "selected": long })), INK);
+        assert_eq!((note.place.owners.len(), note.place.nearby.len(), note.state.selected.len()), (16, 8, 12));
+    }
+
+    fn out_with(key: &str, features: &[&str]) -> Outgoing {
+        super::super::beside::remember(key, features.iter().map(|slug| slug.to_string()).collect());
+        let raw = serde_json::json!({ "text": "The row clips its title", "selector": "div.row", "element": { "tag": "div", "text": "" }, "screen": "Jobs" });
+        Outgoing { key: key.into(), raw, window: false, number: 1, picture: Picture::None }
+    }
+
+    #[test]
+    fn a_note_goes_to_the_job_with_a_feature_line_for_each_feature_it_maps_to() {
+        let said = note_of(&out_with("live-two", &["job-list-and-live-status", "pause-resume-stop-snooze"]), Ink([0; 4], [0; 4])).said;
+        assert_eq!(said, "The row clips its title\n\nFeature: job-list-and-live-status\nFeature: pause-resume-stop-snooze");
+    }
+
+    #[test]
+    fn a_note_with_no_feature_goes_as_it_did() {
+        assert_eq!(note_of(&out_with("live-none", &[]), Ink([0; 4], [0; 4])).said, "The row clips its title");
+    }
+
+    #[test]
+    fn no_more_feature_lines_go_than_a_read_hands_a_job() {
+        let said = note_of(&out_with("live-four", &["a", "b", "c", "d"]), Ink([0; 4], [0; 4])).said;
+        assert_eq!(said.lines().filter(|line| line.starts_with("Feature: ")).count(), 3);
     }
 }

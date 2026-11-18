@@ -57,6 +57,8 @@ const FIX_NEEDS_A_FINDING: &str = "fleet.review_fix_needs_a_finding";
 const FIX_ON_OLD_LINES: &str = "fleet.review_fix_on_old_lines";
 /// A fix of a finding in a file the pull request does not change, or on no range of lines. A 422.
 const FIX_OFF_THE_CHANGE: &str = "fleet.review_fix_off_the_change";
+/// A run on a repository that was only linked, with no clone to run in. A 422.
+pub(crate) const REPOSITORY_NOT_ADDED: &str = "fleet.repository_not_added";
 /// A range on a fix, or from something that is not a commit, or from the head itself. A 422.
 const RANGE_INVALID: &str = "fleet.review_range_invalid";
 /// A range from a commit the forge no longer has, as after a force-push. A 409.
@@ -330,6 +332,18 @@ where
         })
     }
 
+    /// The repository a run reads in, **refused where it was only linked** for a pull request link:
+    /// it has no clone for an agent to read in, so the person adds it first.
+    pub(crate) fn served_for_review(&self, manifest_id: &ManifestId) -> Result<crate::repositories::Served, Refusal> {
+        let served = self.served_named(Some(manifest_id))?;
+        match served.repository().linked_to() {
+            Some(slug) => Err(Refusal::Unacceptable(
+                self.pr_refusal(REPOSITORY_NOT_ADDED, format!("Add {slug} to run an agent review.")),
+            )),
+            None => Ok(served),
+        }
+    }
+
     /// Press a run. **Answers at once**: with a kept result as it stands, with the run already
     /// going for this key, or with a new one still queued, whose work goes on a task of its own
     /// so a caller that stops waiting does not stop the run.
@@ -338,7 +352,7 @@ where
         manifest_id: ManifestId,
         start: StartReviewRun,
     ) -> Result<ReviewRun, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
+        let served = self.served_for_review(&manifest_id)?;
         let unacceptable = |code: &'static str, said: String| Refusal::Unacceptable(self.pr_refusal(code, said));
         // What is asked, as a key and a label, before anything is read or spent.
         let (name, label, asking, shape) = match start.kind {
@@ -785,8 +799,9 @@ fn brief(
 /// are. `docs/contracts/agent-prompt/5j-the-review-run-brief.md`.
 fn comment_rule() -> String {
     format!(
-        "The comment is what the person posts on the pull request as it stands, to its author: one or two \
-         plain sentences, at most {COMMENT_AT_MOST} characters, saying what is wrong and what to do about it. \
+        "The comment is what the person may keep as a draft comment on the pull request as it stands, to its \
+         author: one or two plain sentences, at most {COMMENT_AT_MOST} characters (count them: anything longer \
+         is cut off at the limit), saying what is wrong and what to do about it. \
          No jargon or review labels, nothing about yourself or how you read the change, and no detail dump: \
          no code, no list and no line numbers, which the comment's place already gives."
     )
@@ -907,15 +922,29 @@ pub(crate) fn nothing(what: &str, text: &str) -> Result<(), String> {
     }
 }
 
-/// A finding's comment as the rule has it: something to say, at most [`COMMENT_AT_MOST`]
-/// characters and [`COMMENT_SENTENCES_AT_MOST`] sentences.
+/// A comment that runs past [`COMMENT_AT_MOST`] characters, cut at the last whole word that fits
+/// with an ellipsis after it, so a finding that is a little long is kept rather than refusing the
+/// run. One that fits is only trimmed.
+pub(crate) fn cut_to_limit(text: &str) -> String {
+    let text = text.trim();
+    if text.chars().count() <= COMMENT_AT_MOST {
+        return text.to_string();
+    }
+    let room = COMMENT_AT_MOST - 1;
+    let head: String = text.chars().take(room).collect();
+    let whole = text.chars().nth(room).is_some_and(char::is_whitespace);
+    let kept = match (whole, head.rfind(char::is_whitespace)) {
+        (false, Some(at)) => &head[..at],
+        _ => head.as_str(),
+    };
+    format!("{}…", kept.trim_end())
+}
+
+/// A finding's comment as the rule has it: something to say, and at most
+/// [`COMMENT_SENTENCES_AT_MOST`] sentences. Its length is [`cut_to_limit`]'s, before this.
 pub(crate) fn comment_holds(comment: &str, what: &str) -> Result<(), String> {
     let comment = comment.trim();
     nothing(&format!("the comment of {what}"), comment)?;
-    let length = comment.chars().count();
-    if length > COMMENT_AT_MOST {
-        return Err(format!("the comment of {what} is {length} characters, and at most {COMMENT_AT_MOST} are posted"));
-    }
     let sentences = sentences_in(comment);
     if sentences > COMMENT_SENTENCES_AT_MOST {
         return Err(format!(
@@ -1033,9 +1062,12 @@ fn read_answer(
     let json = object_in(answer)?;
     match shape {
         Shape::Findings => {
-            let out: FindingsOut = said(json)?;
+            let mut out: FindingsOut = said(json)?;
             if out.findings.len() > FINDINGS_AT_MOST {
                 return Err(format!("it has {} findings, and at most {FINDINGS_AT_MOST} are kept", out.findings.len()));
+            }
+            for finding in &mut out.findings {
+                finding.comment = cut_to_limit(&finding.comment);
             }
             for (at, finding) in out.findings.iter().enumerate() {
                 let what = format!("finding {}", at + 1);

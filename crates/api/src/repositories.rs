@@ -4,7 +4,7 @@ use axum::body::Bytes;
 use axum::extract::{Query, State};
 use axum::http::StatusCode;
 use axum::response::Response;
-use ipc::{AddRepository, CloneRepository, CreateProject};
+use ipc::{AddRepository, CloneRepository, CreateProject, LinkRepository};
 
 use crate::answers::{answer, refused, undecodable};
 use crate::daemon::{Authoring, Commands, Queries};
@@ -100,6 +100,21 @@ pub(crate) async fn add_repository<D: Commands>(
     };
     match served.daemon().add_repository(asked).await {
         Ok(added) => answer(StatusCode::CREATED, &added, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// 201: the repository a pull request link names, served unlisted, or the one served already.
+pub(crate) async fn link_repository<D: Commands>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: LinkRepository = match ipc::decode_body("a repository to link", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().link_repository(asked).await {
+        Ok(linked) => answer(StatusCode::CREATED, &linked, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

@@ -33,7 +33,7 @@
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
 #                 logbook | issues | report | plan | thread | dispatch |
-#                 review sheet | kit
+#                 review sheet | kit | features
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -1504,6 +1504,18 @@ destructive = false
 confirms = false
 notes = "Steps to the previous match of the thread's find bar while it is open, from the first round to the last. ⇧Enter in the bar does the same. Native only."
 
+[actions.thread_question]
+kind = "Action"
+tier = "Global"
+verb = "Go to your question"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥↑ ⌥↓"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Scrolls the open Job's thread to the person's previous question with ⌥↑, or the next with ⌥↓, from the item at the top of the view: a message of his that Fleet sorted as a question (`list_job_questions`). Nothing moves past the first or the last. In the message box the keys stay the box's. Native only. Approved by the owner in a sketch on 17 Nov 2026."
+
 [actions.handoff_retry]
 kind = "Action"
 tier = "Contextual"
@@ -1768,3 +1780,110 @@ scope = "kit"
 destructive = false
 confirms = false
 notes = "Scrolls Kit's read pane by a page or to either end, while the keys are on that pane and nowhere else. The first four go down and up by a page and the last two to the top and the bottom. Native only, 16 Nov 2026."
+
+# ---------------------------------------------------------------- features
+
+[actions.features_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between features"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Moves the row in the Features list to the next or the previous feature, skipping the area heads. Its own row because the Features tab is not a list of Jobs, and `move_focus`'s scope is. Native only, 17 Nov 2026."
+
+[actions.features_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the feature"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Selects the feature the row is on and opens its page beside the list. Native only, 17 Nov 2026."
+
+[actions.features_filter]
+kind = "Action"
+tier = "Contextual"
+verb = "Filter"
+icon = ""
+icon_absent = "undecided"
+shortcut = "/"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Puts the caret in the box above the Features list, which narrows the features as he types. Esc gives the keys back to the list. Native only, 17 Nov 2026."
+
+[actions.features_pane]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between the parts of the page"
+icon = ""
+shortcut = "Tab / ⇧Tab"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Gives the keys to the next or the previous part of a feature's page: the list of sections, the filter chips and the rows. A part with nothing in it is passed over, and it wraps round at either end. From the Features list, Tab goes to the open page. Native only, 17 Nov 2026."
+
+[actions.features_chip]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between chips"
+icon = ""
+shortcut = "← / →"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Moves along the filter chips above a page's asks while the keys are on them, and Enter applies the chip it is on. Its own row because Left and Right move nothing else in the Features tab. Native only, 17 Nov 2026."
+
+[actions.features_story]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the story of the ask"
+icon = ""
+icon_absent = "undecided"
+shortcut = "s"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Opens the Job an ask on a feature's page came from, on its Story tab, at that ask. The same as Enter on the row and a press on its Story link. An ask filed outside a Job has none. Native only, 17 Nov 2026."
+
+[actions.note_feature]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the feature of this note"
+icon = ""
+icon_absent = "undecided"
+shortcut = "f"
+scope = "features"
+destructive = false
+confirms = false
+notes = "On the card of a note in the annotation layer: opens the page of the feature the note's element belongs to beside the card, and the next feature on a press while one is open, where the note maps to several. Fleet maps it from the file the element was drawn from, else from its component's name. The scope is `features` because the layer has none of its own and the key belongs to the feature page it opens; the card takes the scope's context while it has the keys. Esc closes the page before it closes the card. Native only, 17 Nov 2026."
+
+[actions.message_kind]
+kind = "Action"
+tier = "Global"
+verb = "Change the kind of the message"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥K"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the menu under the kind chip of one of his messages in a Job's thread, which lists Bug, Change request, Idea, Fix, Revision, Answer and Talk, the current one marked. The target is the chip that holds focus, else the chip of his newest sorted message. Revision and Answer then list the Job's open asks. Read by the key's place on the keyboard, since Option changes the character K types; K is free in the thread beside ⌥E, ⌥R and ⌥X. Native only, 17 Nov 2026."
+
+[actions.thread_rail]
+kind = "Action"
+tier = "Global"
+verb = "Open the asks of this thread"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌥T"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the list beside the contents rail on a Job's thread, which names each ask said in the thread in the order its first words come, the one in view marked. Up and Down move along it, Enter scrolls the thread to where the ask started and Esc puts the list away. A thread with no asks has no rail and the key does nothing. Read by the key's place on the keyboard, since Option changes the character T types; T is free in the thread beside ⌥E, ⌥R, ⌥X and ⌥K. Native only, 17 Nov 2026."

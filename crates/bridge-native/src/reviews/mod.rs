@@ -63,6 +63,8 @@ pub fn default_arrangement() -> Arrangement {
 const PAGE_READ: Duration = Duration::from_millis(1500);
 /// How long the mock forge takes to read the inbox again.
 const REFRESH_READ: Duration = Duration::from_millis(4000);
+/// How long a rate-limited inbox waits before reading again.
+const LIMIT_REREAD: Duration = Duration::from_secs(30);
 /// The menu on a practice he corrected.
 const CHANGE_REASON: &str = "Change the reason";
 const UNDO: &str = "Undo";
@@ -1487,6 +1489,17 @@ pub(crate) fn panel(look: &Look) -> gpui::Div {
         .border_color(look.color(token::BORDER_DEFAULT))
         .shadow(look.shadows(token::SHADOW_CARD))
         .overflow_hidden()
+}
+
+/// The radius for a child that paints its own background flush against `panel`'s top edge. gpui clips children to the
+/// rectangle, not the curve, so the child rounds its own top corners: the panel's radius less its doubled top border.
+pub(crate) fn panel_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH) * 2.
+}
+
+/// The same for a card with a border all round (a card on a panel): its radius less one border.
+pub(crate) fn card_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH)
 }
 
 /// Where a menu opens under the labelled element of this role and name, or at `fallback`.

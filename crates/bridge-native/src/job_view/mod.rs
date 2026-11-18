@@ -14,6 +14,7 @@ mod aa;
 mod acts;
 mod artifacts_tab;
 mod for_you_tab;
+mod questions;
 mod reader_sheet;
 mod band_card;
 mod bands;
@@ -57,6 +58,7 @@ mod perm;
 mod picture_view;
 mod pictures;
 mod pinned;
+mod thread_rail;
 mod place;
 mod plan;
 mod plan_edit;
@@ -83,6 +85,7 @@ mod reader;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
+mod reader_share;
 mod web_walk;
 pub(crate) mod rows;
 mod row_views;
@@ -120,6 +123,8 @@ mod report_brief;
 mod side;
 mod side_chat;
 mod spine;
+pub(crate) mod story;
+pub(crate) mod kind_chip;
 mod spoken;
 mod start_card;
 mod workflow;
@@ -180,6 +185,8 @@ pub fn bind(cx: &mut App) {
     head::bind(cx);
     lanes_copy::bind(cx);
     web_walk::bind(cx);
+    story::init(cx);
+    job_browser::bind(cx);
 }
 
 /// What a page draws after the thread's items: what stands over the whole thread, the person's
@@ -424,6 +431,8 @@ pub struct JobView {
     artifacts: artifacts_tab::Artifacts,
     /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
     for_you: for_you_tab::ForYouTab,
+    /// His questions to each Job and their answers, as Fleet last read them.
+    questions: questions::Questions,
     /// Mod switches he pressed that Fleet's list has not caught up with: was, then pressed.
     mod_switch: HashMap<String, (bool, bool)>,
     /// The Job fleet was last told is on screen.
@@ -599,10 +608,12 @@ impl JobView {
             subscriptions.push(cx.observe_in(fleet, window, |this, _, window, cx| {
                 this.synced(cx);
                 this.review_sync(window, cx);
+                this.questions_replied(window, cx);
                 cx.notify();
             }));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::SubagentsMoved, cx| this.subagents_moved(&moved.0, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::StoryMoved, window, cx| this.questions_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
             subscriptions.push(job_browser::follow(fleet, window, cx));
         }
@@ -684,6 +695,7 @@ impl JobView {
             aged: false,
             artifacts: artifacts_tab::Artifacts::default(),
             for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
+            questions: questions::Questions::mock(if mock_on { crate::mock::questions() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
             mod_switch: HashMap::new(),
             visiting: None,
@@ -870,7 +882,7 @@ impl JobView {
         for id in self.list.update(cx, |list, _| list.take_gone()) {
             self.pages.remove(&id);
             self.row_tabs.remove(&id);
-            self.forget_browsers(&id);
+            self.forget_browsers(&id, cx);
             self.mock.remove(id.as_ref());
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);
@@ -1035,7 +1047,9 @@ impl JobView {
         }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
-        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
+        // The pin is keyed by the sketch's ledger id, which a revision drawn against an earlier title keeps while its title changes.
+        let pinned = held.head.sketch.as_ref().map(|one| one.sketch.as_str());
+        extras.retain(|extra| !(matches!(extra, Extra::Sketch(_)) && pinned.is_some_and(|ledger| self.is_part(id, ledger))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -1309,6 +1323,7 @@ impl Render for JobView {
         self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
+        self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);
         let look = cx.look();
@@ -1364,6 +1379,7 @@ impl Render for JobView {
                     .size_full()
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
+                    .when_some(self.rail_width(&id, cx), |thread, rail| thread.pr(rail))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.thread_row(ix, window, cx))).size_full())
                     .child(fade(&look, true))
@@ -1386,7 +1402,7 @@ impl Render for JobView {
                 .flex_col()
                 .children(origin)
                 .children(find)
-                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)).children(self.render_thread_rail(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()
