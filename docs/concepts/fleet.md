@@ -535,7 +535,8 @@ The job note tells agents not to state it.
 It reads the pull request's patches from the forge when it enters the merge queue, and again once it has merged.
 The changed types are the `pub struct`, `pub enum` and `pub type` items under `crates/ipc/src` with an added or removed line in their body; a patch under `crates/ipc/src/tests` and a changed comment are not the wire.
 Where the lines are fields or variants, the notice names them as added, removed or changed.
-A Job reads a type when its branch, against its merge base with main, changes a file under `crates/bridge-native`, `apps/pocket` or `packages/protocol`, and its worktree names the type there as a whole word.
+A Job reads a type when a file its branch changes, against its merge base with main, under `crates/bridge-native`, `apps/pocket` or `packages/protocol` names the type as a whole word.
+A file the branch did not change is not read, however many times it names the type.
 The notice gives at most three `path:line` for each type.
 **The pull request's own Jobs are not told.**
 **Each notice is told once a pull request, cause and Job**, kept in the store beside the pull request notices.
