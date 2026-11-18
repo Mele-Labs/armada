@@ -9,6 +9,7 @@
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
+use std::collections::HashSet;
 use std::time::Duration;
 
 use gpui::{div, prelude::*, AnyElement, App, Div, FontWeight, Global, Role, SharedString};
@@ -28,12 +29,23 @@ impl Global for Held {}
 
 /// Hand the window the Macs. A Gateway that does not answer hands it none, so no chip stands.
 pub fn hold(macs: Vec<Mac>, cx: &mut App) {
+    // An update asked of a Mac is over once the list no longer reads it frozen.
+    let still: HashSet<String> = macs.iter().filter(|one| frozen_link(one)).map(|one| one.id.clone()).collect();
+    if cx.try_global::<Updating>().is_some_and(|going| going.0.iter().any(|id| !still.contains(id))) {
+        cx.global_mut::<Updating>().0.retain(|id| still.contains(id));
+    }
     if cx.try_global::<Held>().is_some_and(|held| held.0 == macs) {
         return;
     }
     cx.set_global(Held(macs));
     cx.refresh_windows();
 }
+
+/// The Macs whose update was asked from the band and has not read linked yet.
+#[derive(Default)]
+struct Updating(HashSet<String>);
+
+impl Global for Updating {}
 
 /// The Macs last held.
 pub fn macs(cx: &App) -> &[Mac] {
@@ -105,6 +117,126 @@ pub fn refresh_act(macs: &[Mac]) -> crate::fleet::BuildAct {
         Some(other) => crate::fleet::BuildAct::Macs(ipc::UpdateMac { mac: Some(other.id.clone()), this_mac_too: true, build: Some(ipc::BuildSource::Preview), ..Default::default() }),
         None => crate::fleet::BuildAct::Change(ipc::ChangeFleetBuild { build: ipc::BuildSource::Preview, adopt: false, clear: None }),
     }
+}
+
+/// Whether the Gateway froze the link for a build that differs.
+fn frozen_link(mac: &Mac) -> bool {
+    !mac.this_mac && matches!(mac.link, Some(MacLink::OlderBuild | MacLink::NewerBuild))
+}
+
+/// A Mac whose link is frozen on a build that differs, and the one press that ends it: the same bodies Settings,
+/// Macs sends (`settings/macs.rs` `update_mac`).
+#[derive(Clone, Debug, PartialEq)]
+pub struct Frozen {
+    pub id: String,
+    pub name: String,
+    pub colour: MacColour,
+    /// The Gateway's `why`, or what it would say.
+    pub why: String,
+    pub label: String,
+    pub update: ipc::UpdateMac,
+}
+
+/// The first Mac frozen on a build, if any. Asleep and linked Macs give none.
+pub fn frozen(macs: &[Mac]) -> Option<Frozen> {
+    let mac = macs.iter().find(|one| frozen_link(one))?;
+    let older = mac.link == Some(MacLink::OlderBuild);
+    let (label, update) = if older {
+        (format!("Update {}", mac.name), ipc::UpdateMac { mac: Some(mac.id.clone()), ..Default::default() })
+    } else {
+        ("Update this Mac".to_string(), ipc::UpdateMac { like: Some(mac.id.clone()), ..Default::default() })
+    };
+    let why = mac.why.clone().unwrap_or_else(|| {
+        if older {
+            format!("{} runs an older build. Nothing crosses until it updates.", mac.name)
+        } else {
+            format!("{} runs a newer build. Nothing crosses until this Mac updates.", mac.name)
+        }
+    });
+    Some(Frozen { id: mac.id.clone(), name: mac.name.clone(), colour: mac.colour, why, label, update })
+}
+
+/// Ask Fleet to end the freeze: `POST /macs/update`. The band says Updating until the list reads the Mac unfrozen;
+/// a refusal is a toast in Fleet's words and the press comes back.
+pub fn update_frozen(frozen: &Frozen, port: Option<u16>, cx: &mut App) {
+    let Some(port) = port else {
+        crate::toasts::tell("Fleet is not connected", cx);
+        return;
+    };
+    let body = match ipc::encode(&frozen.update) {
+        Ok(body) => body,
+        Err(why) => {
+            crate::toasts::tell(format!("{why:?}"), cx);
+            return;
+        }
+    };
+    let id = frozen.id.clone();
+    cx.default_global::<Updating>().0.insert(id.clone());
+    cx.refresh_windows();
+    cx.spawn(async move |cx| {
+        let answer = cx
+            .background_executor()
+            .spawn(async move {
+                let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                runtime.block_on(crate::transport::post(port, "/macs/update", body))
+            })
+            .await;
+        let said = match answer {
+            Ok((status, _)) if (200..300).contains(&status) => return,
+            Ok((status, bytes)) => crate::snooze::refusal_said(status, &bytes),
+            Err(why) => why,
+        };
+        cx.update(|cx| {
+            cx.default_global::<Updating>().0.remove(&id);
+            cx.refresh_windows();
+            crate::toasts::tell(said, cx);
+        });
+    })
+    .detach();
+}
+
+/// The band along the top of the Jobs screen for a Mac frozen on a build that differs: its name, the Gateway's why,
+/// and the press that ends the freeze. Nothing while every Mac is linked or asleep.
+pub fn frozen_band(look: &Look, macs: &[Mac], port: Option<u16>, cx: &App) -> Option<AnyElement> {
+    let frozen = frozen(macs)?;
+    let going = cx.try_global::<Updating>().is_some_and(|going| going.0.contains(&frozen.id));
+    let ink = look.color(token::STATUS_ESCALATED);
+    let hue = crate::settings::macs::colour_of(look, frozen.colour);
+    let label = if going { format!("Updating {}", if frozen.update.like.is_some() { "this Mac" } else { frozen.name.as_str() }) } else { frozen.label.clone() };
+    let tooltip = match (&frozen.update.like, going) {
+        (Some(_), _) => format!("Update this Mac onto {}'s build", frozen.name),
+        (None, _) => format!("Update {} onto this Mac's build", frozen.name),
+    };
+    let button = crate::titlebar::parts::Btn::new("frozen-link-update", label.clone(), crate::titlebar::parts::Weight::Primary).pending(going).disabled(going).draw(look, cx).tooltip(crate::titlebar::parts::tip(tooltip));
+    let press = frozen.clone();
+    let button = if going {
+        button
+    } else {
+        button.on_click(move |_, _, cx| update_frozen(&press, port, cx))
+    };
+    let said: SharedString = frozen.why.clone().into();
+    Some(
+        labelled(
+            div()
+                .id("frozen-link-band")
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_3))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .bg(ink.opacity(0.12))
+                .border_b(look.length(token::BORDER_WIDTH))
+                .border_color(ink)
+                .child(crate::titlebar::parts::glyph("unplug", look.length(token::SPACE_4), ink))
+                .child(pill_in(look, "frozen-link-mac".into(), &frozen.name, hue))
+                .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(said))
+                .child(labelled(button, Role::Button, label)),
+            Role::Group,
+            SharedString::from(format!("{} runs another build", frozen.name)),
+        )
+        .into_any_element(),
+    )
 }
 
 /// What a Job's chip says: the Mac's name in its colour, and when it fell asleep if it did.
@@ -307,6 +439,63 @@ mod tests {
         let both = refresh_act(&[this(), linked("air", "Air", MacColour::Orange)]);
         assert_eq!(both.route(), "/macs/update");
         assert_eq!(both.body().expect("it has a body").expect("it encodes"), r#"{"mac":"air","this_mac_too":true,"build":"preview"}"#);
+    }
+
+    fn frozen_mac(link: MacLink, why: Option<&str>) -> Mac {
+        Mac { id: "air".into(), name: "Air".into(), colour: MacColour::Orange, link: Some(link), why: why.map(Into::into), ..Default::default() }
+    }
+
+    #[test]
+    fn a_frozen_mac_offers_the_update_settings_sends() {
+        let older = frozen(&[this(), frozen_mac(MacLink::OlderBuild, Some("Air runs an older build."))]).expect("an older build is frozen");
+        assert_eq!((older.label.as_str(), older.why.as_str()), ("Update Air", "Air runs an older build."));
+        assert_eq!(older.update, ipc::UpdateMac { mac: Some("air".into()), ..Default::default() });
+        let newer = frozen(&[this(), frozen_mac(MacLink::NewerBuild, None)]).expect("a newer build is frozen");
+        assert_eq!(newer.label, "Update this Mac");
+        assert_eq!(newer.update, ipc::UpdateMac { like: Some("air".into()), ..Default::default() });
+        assert!(newer.why.contains("Air runs a newer build"), "a Gateway that says nothing gets the sentence");
+    }
+
+    #[test]
+    fn a_linked_or_sleeping_mac_is_not_frozen() {
+        assert_eq!(frozen(&[this(), linked("air", "Air", MacColour::Orange)]), None);
+        assert_eq!(frozen(&[this(), frozen_mac(MacLink::Asleep { since: 5 }, None)]), None);
+        assert_eq!(frozen(&[this()]), None);
+    }
+
+    /// A parent that draws the band as the Jobs screen does.
+    struct Probe;
+
+    impl gpui::Render for Probe {
+        fn render(&mut self, _: &mut gpui::Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
+            use crate::look::ActiveLook;
+            let look = cx.look();
+            div().size_full().children(frozen_band(look, macs(cx), None, cx))
+        }
+    }
+
+    fn drawn(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> bool {
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some()))
+    }
+
+    #[gpui::test]
+    fn the_band_draws_for_a_frozen_mac_with_its_why_and_one_press_and_not_for_a_linked_one(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_app);
+        cx.update(|cx| hold(vec![this(), frozen_mac(MacLink::OlderBuild, Some("Air runs an older build."))], cx));
+        let (_probe, cx) = cx.add_window_view(|_, _| Probe);
+        assert!(drawn(cx, Role::Group, "Air runs another build"), "the band is drawn");
+        assert!(drawn(cx, Role::Button, "Update Air"), "with the one press");
+    }
+
+    #[gpui::test]
+    fn no_band_draws_while_every_mac_is_linked(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_app);
+        cx.update(|cx| hold(vec![this(), linked("air", "Air", MacColour::Orange)], cx));
+        let (_probe, cx) = cx.add_window_view(|_, _| Probe);
+        assert!(!drawn(cx, Role::Group, "Air runs another build"));
+        assert!(!drawn(cx, Role::Button, "Update Air"));
     }
 
     #[test]

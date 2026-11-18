@@ -3579,6 +3579,7 @@ impl Render for JobsScreen {
             .flex_col()
             .bg(look.color(token::BG_BASE))
             .child(title)
+            .children(crate::pairing::frozen_band(look, crate::pairing::macs(cx), self.list.read(cx).port(cx), cx))
             .child(
                 div()
                     .relative()
