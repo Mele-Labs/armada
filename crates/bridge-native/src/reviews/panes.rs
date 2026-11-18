@@ -3,11 +3,14 @@
 
 use std::rc::Rc;
 
+#[cfg(test)]
+mod tests;
+
 use gpui::{canvas, div, prelude::*, px, relative, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Role, SharedString, Window};
 
 use super::model::{self, Page};
 use super::rail_width;
-use super::{panel, said, tabs, ReviewsScreen};
+use super::{panel, panel_inner_radius, said, tabs, ReviewsScreen};
 use crate::job_view::pane_tree::{self as tree, Dir, Node, Pane, Side, Size, Zone};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -401,7 +404,7 @@ impl ReviewsScreen {
             sum + shell + wide(said(&tab.kind), weight)
         });
         let crowded = room.is_some_and(|room| named > room);
-        let tabs: Vec<AnyElement> = pane.tabs.iter().map(|tab| self.tab(tab, active.as_deref() == Some(&tab.id), crowded, look, cx)).collect();
+        let tabs: Vec<AnyElement> = pane.tabs.iter().enumerate().map(|(at, tab)| self.tab(tab, at == 0, active.as_deref() == Some(&tab.id), crowded, look, cx)).collect();
         let add_name = "Add tab";
         let add_pane = pane.id.clone();
         let muted = look.color(token::FG_MUTED);
@@ -437,6 +440,8 @@ impl ReviewsScreen {
             .items_end()
             .pr(look.length(token::SPACE_1))
             .bg(look.color(token::BG_SUNKEN))
+            // The strip is the pane panel's first child, flush on its curved top edge.
+            .rounded_t(panel_inner_radius(look))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_DEFAULT))
             .child(labelled(div().id(SharedString::from(format!("tabs-{}", pane.id))).flex().h_full().min_w_0().overflow_x_hidden().children(tabs), Role::TabList, name.clone()))
@@ -524,7 +529,7 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    fn tab(&self, tab: &tree::Tab, front: bool, crowded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    fn tab(&self, tab: &tree::Tab, first: bool, front: bool, crowded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let label = said(&tab.kind);
         let id = tab.id.clone();
         let lifted = cx.has_active_drag() && self.lifted.as_deref() == Some(&tab.id);
@@ -544,6 +549,8 @@ impl ReviewsScreen {
                 .flex()
                 .items_center()
                 .overflow_hidden()
+                // The first tab sits in the pane's top-left corner, so its fill and accent follow the curve.
+                .when(first, |tab| tab.rounded_tl(panel_inner_radius(look)))
                 .px(look.length(token::SPACE_3))
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(ink)
