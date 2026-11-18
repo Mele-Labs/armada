@@ -79,7 +79,9 @@ The CLI also read the root's `.mcp.json` when it started in a folder below it.
 The CLI pushes nothing when its config changes, and a set needs the whole config of each server, so Fleet reads the three places above itself.
 Looking only when Bridge polls the Loadout would leave a Job without its server whenever nobody has the Loadout open.
 A file watcher per Job would work, and costs a watcher on `~/.claude.json`, which every CLI on the machine rewrites as it runs.
-The cheapest correct trigger is the command the Job ran: Fleet already hears each one end, and a stat of three files after each tells it whether any changed.
+Fleet already hears each command a Job runs end, and a stat of three files after each would tell it whether any changed.
+The owner chose the Loadout poll alone (18 Nov): a stat of the three files on each `GET /sessions/mcp`, and a read only when one changed.
+The cost is that a server loads only while someone has the Loadout open.
 
 ## What was not measured
 
