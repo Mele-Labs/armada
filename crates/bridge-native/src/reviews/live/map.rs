@@ -612,7 +612,7 @@ mod tests {
     }
 
     fn lists(requested: Vec<ipc::PullReviewRow>, mine: Vec<ipc::PullReviewRow>) -> PullReviewLists {
-        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, reviewing: Vec::new(), silent: Vec::new(), rate_limited: None }
+        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, reviewing: Vec::new(), silent: Vec::new(), rate_limited: None, refreshing: false }
     }
 
     #[test]

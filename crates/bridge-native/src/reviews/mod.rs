@@ -67,6 +67,8 @@ const PAGE_READ: Duration = Duration::from_millis(1500);
 const REFRESH_READ: Duration = Duration::from_millis(4000);
 /// How long a rate-limited inbox waits before reading again.
 const LIMIT_REREAD: Duration = Duration::from_secs(30);
+/// How often the age of the lists in the header is said again.
+const AGE_TICK: Duration = Duration::from_secs(30);
 /// The menu on a practice he corrected.
 const CHANGE_REASON: &str = "Change the reason";
 const UNDO: &str = "Undo";
@@ -128,6 +130,8 @@ pub struct ReviewsScreen {
     pub within: FocusHandle,
     /// The inbox's rows, which the arrows move through.
     pub rows: FocusHandle,
+    /// The inbox's own scroll, kept as it is when fresh rows swap in.
+    inbox_scroll: ScrollHandle,
     inbox: Inbox,
     folded: HashSet<Group>,
     lists: Option<PullReviewList>,
@@ -301,6 +305,7 @@ impl ReviewsScreen {
             explains: HashMap::new(),
             explain_runs: HashMap::new(),
             chosen: HashMap::new(),
+            inbox_scroll: ScrollHandle::new(),
             set_scroll: ScrollHandle::new(),
             asking: None,
             asking_review: None,
