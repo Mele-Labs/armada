@@ -6,10 +6,11 @@ use gpui_component::input::Textarea;
 
 use ipc::NoteVerdict;
 
-use super::{looked, mark, send_label, short, step_lines, verdict, BuildNotesSheet, STARTS_WITH};
+use super::{few_words, looked, mark, send_label, short, step_lines, verdict, BuildNotesSheet, STARTS_WITH};
 use crate::generated::actions::ActionScope;
 use crate::keymap::{self, Act, TEXT_BOX};
 use crate::labels::labelled;
+use crate::jobs::group_line;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{glyph, kbd, mono, sans, tip, Btn, Weight};
 
@@ -82,21 +83,24 @@ impl BuildNotesSheet {
             .child(kbd("Esc", look))
     }
 
-    /// One row for each note: its state's glyph first, then the Job's title, then a mark where the Job has ended.
+    /// The notes, a Job's together under a heading of the Job's title. A note's row reads its state's glyph, its few-word
+    /// title, then a mark where the Job has ended; the heading is not a stop for the keys.
     fn notes_column(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let at = self.at();
         let focused = self.list.is_focused(window);
-        let rows: Vec<AnyElement> = self
-            .notes()
-            .iter()
-            .enumerate()
-            .map(|(i, note)| {
+        let mut rows: Vec<AnyElement> = Vec::new();
+        for (i, note) in self.notes().iter().enumerate() {
+            if i == 0 || self.notes()[i - 1].session_id != note.session_id {
+                let job: SharedString = note.title.clone().into();
+                rows.push(labelled(group_line(look, rows.is_empty()).id(("build-note-job", i)).child(job.clone()), Role::Heading, job).into_any_element());
+            }
+            rows.push({
                 let seen = looked(note, &self.marked);
                 let state = mark(seen, verdict(note, &self.marked));
                 let chosen = at == Some(i);
                 let ink = look.color(state.hue);
-                let title: SharedString = note.title.clone().into();
+                let title: SharedString = few_words(&note.branch).into();
                 let row = div()
                     .id(("build-note", i))
                     .flex()
@@ -110,6 +114,7 @@ impl BuildNotesSheet {
                     .when(chosen, |row| row.bg(look.color(token::ACCENT_MUTED)))
                     .when(!chosen, |row| row.hover(|style| style.bg(look.color(token::BG_HOVER))))
                     .cursor_pointer()
+                    .tooltip(tip(note.about.clone()))
                     .on_click(cx.listener(move |this, _, window, cx| this.select(i, window, cx)))
                     .child(labelled(
                         div()
@@ -148,8 +153,8 @@ impl BuildNotesSheet {
                         )
                     }));
                 labelled(row, Role::ListItem, title).into_any_element()
-            })
-            .collect();
+            });
+        }
         div()
             .id("build-notes-list")
             .key_context("list")
@@ -172,7 +177,8 @@ impl BuildNotesSheet {
         let ended = note.job_ended;
         let good = verdict(note, &self.marked) == Some(NoteVerdict::Good);
         let needs_work_marked = verdict(note, &self.marked) == Some(NoteVerdict::NeedsWork);
-        let title: SharedString = note.title.clone().into();
+        let title: SharedString = few_words(&note.branch).into();
+        let job: SharedString = note.title.clone().into();
         let heading = div()
             .flex()
             .items_center()
@@ -321,7 +327,14 @@ impl BuildNotesSheet {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_4))
-            .child(heading)
+            .child(
+                div()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(heading)
+                    .child(div().id("build-note-job").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(job)),
+            )
             .children(look_line)
             .children((!steps.is_empty()).then(|| labelled(div().id("build-steps").flex().flex_col().gap(look.length(token::SPACE_2)).children(steps), Role::List, "Steps")))
             .child(field)
