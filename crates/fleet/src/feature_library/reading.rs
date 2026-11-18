@@ -259,7 +259,7 @@ where
                 store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?,
             )
         };
-        Ok(FeaturePage {
+        let mut page = FeaturePage {
             project: loaded.project.clone(),
             feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
@@ -272,7 +272,13 @@ where
                 .collect(),
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
-        })
+            floor_plan: None,
+        };
+        drop(store);
+        if only.is_none() {
+            page.floor_plan = self.floor_plan_of(&loaded, &feature).await;
+        }
+        Ok(page)
     }
 
     /// `get_feature_brief`.
