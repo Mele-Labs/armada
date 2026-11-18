@@ -82,6 +82,8 @@ OLD_MIGRATIONS = "crates/store/src/migrations.rs"
 # is what a Mac pushes its merged preview to for another Mac to build.
 NEVER = ("main", "preview")
 PUSHED = "preview/"
+# Exit code of `--at` when the ref has moved to a newer commit: scripts/restart-build reads it.
+SUPERSEDED = 75
 # What `git clean` keeps: the build directories, the Bridge, native Bridge and
 # phone app build stamps `scripts/restart` compares sources against, the test
 # list Fleet's build script writes (a recompile of Fleet when it goes), and the
@@ -415,6 +417,11 @@ def land_at(root, sha, ref):
     if git(root, "cat-file", "-e", commit, check=False).returncode != 0 and ref:
         git(root, "fetch", "--quiet", "origin", ref, check=False)
     if git(root, "cat-file", "-e", commit, check=False).returncode != 0:
+        tip = git(root, "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}", check=False).stdout.strip() if ref else ""
+        if tip and not tip.startswith(sha.lower()):
+            # A newer Refresh force-pushed over the ref: its own request builds the newer commit.
+            print(f"preview: superseded: {sha[:10]} was replaced by {tip[:10]} on {ref}; building nothing", flush=True)
+            sys.exit(SUPERSEDED)
         sys.exit(f"preview: the commit {sha[:10]} is not in this repository"
                  + (f" and `origin {ref}` did not bring it" if ref else " and no --ref says where to fetch it"))
     full = out(root, "rev-parse", commit)
