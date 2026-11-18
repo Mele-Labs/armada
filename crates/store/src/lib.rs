@@ -62,6 +62,8 @@ mod job_asks;
 mod feature_changes;
 mod feature_decisions;
 mod features;
+/// When a project's librarian ran, what it read through and which parts ran.
+mod librarian_runs;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
 /// What the owner asked of a Job, sorted from his messages: asks, how each message was sorted, merges and hands.
@@ -270,6 +272,7 @@ pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
 };
+pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
@@ -343,7 +346,7 @@ pub use open::Store;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
-pub use review_runs::KeptReviewRun;
+pub use review_runs::{KeptReviewRun, RunPull};
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
