@@ -653,6 +653,11 @@ impl KitScreen {
             }
             return;
         }
+        if keys.key == "escape" && self.pane == Pane::Detail && view::narrow(window) {
+            self.focus(Pane::List, window, cx);
+            cx.stop_propagation();
+            return;
+        }
         let typing = self.filter.read(cx).focus_handle(cx).is_focused(window);
         if typing {
             if keys.key == "escape" {

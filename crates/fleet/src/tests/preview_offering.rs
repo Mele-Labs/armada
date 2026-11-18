@@ -629,3 +629,114 @@ async fn a_step_names_an_act_from_the_registry_the_offered_branch_holds() {
     let gone = vec![step("Open Settings", Some("open_settings"))];
     assert_eq!(code(offer_noting(&rig, &session, about, Some("Look"), Some(gone)).await), "fleet.preview_step_act_unknown", "the branch's registry is the one read");
 }
+
+fn waiting(id: &str, text: &str, approves: bool, act: Option<(ipc::WaitingActKind, &str)>, options: &[&str]) -> ipc::WaitingInput {
+    ipc::WaitingInput {
+        approves,
+        id: id.into(),
+        text: text.into(),
+        act: act.map(|(kind, target)| ipc::WaitingAct { kind, target: target.into() }),
+        options: options.iter().map(|label| ipc::WaitingOption { label: (*label).into(), description: None, picture: None }).collect(),
+        steps: Vec::new(),
+        artifact: None,
+    }
+}
+
+async fn set_waiting(rig: &Rig, session: &str, items: Vec<ipc::WaitingInput>) -> Result<ipc::SessionRecord, Refusal> {
+    rig.fleet.set_waiting(None, ipc::SetWaitingFor { items, session_id: Some(SessionId::carried(session)) }).await
+}
+
+async fn waiting_ids(rig: &Rig, session: &str) -> Vec<String> {
+    let read = Arc::clone(&rig.fleet).get_session(SessionId::carried(session)).await.unwrap().session.waiting_for;
+    read.into_iter().filter(|one| one.source == WaitingSource::Agent).map(|one| one.id).collect()
+}
+
+/// The Job's pull request `number`, as the pull reading keeps it.
+async fn opened_pull(rig: &Rig, session: &str, number: u64) {
+    let at = rig.fleet.now().as_str().to_string();
+    let row = store::KeptAttachment {
+        holder: store::Holder::session(session),
+        kind: "pr".into(),
+        manifest_id: rig.fleet.repositories().first().expect("served").manifest().id().as_str().to_string(),
+        target: number.to_string(),
+        state: store::AttachmentState::Standing,
+        detail: [("state".to_string(), "open".to_string())].into(),
+        since: at.clone(),
+        changed_at: at,
+    };
+    rig.fleet.store().lock().await.attach(&row, true).unwrap();
+}
+
+/// On 17 Nov Jobs raised "Try page notes ..., then approve PR #3832" above the Ready to try card that asked the
+/// same: in a repository with a preview, an item asking him to try the Job's own change is refused by name.
+#[tokio::test]
+async fn an_item_asking_him_to_try_and_approve_the_jobs_own_change_is_refused() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    opened_pull(&rig, &session, 3832).await;
+    offer(&rig, &session, None, Some("Keeps one thing")).await.expect("offered");
+    checked(&rig).await;
+
+    for item in [
+        waiting("try", "Try page notes on a Job's Browser tab with ⌥⌘A, then approve PR #3832", false, None, &[]),
+        waiting("approve", "Approve the page notes", false, Some((ipc::WaitingActKind::ApprovePr, "#3832")), &[]),
+        waiting("approves", "Site asks behind the lock on armada/one", true, None, &[]),
+    ] {
+        let refused = set_waiting(&rig, &session, vec![item]).await.expect_err("refused").error().clone();
+        assert_eq!(refused.code, "fleet.session_waiting_look");
+        assert!(refused.message.contains("offer_preview") && refused.message.contains("Ready to try"), "{}", refused.message);
+    }
+    assert!(waiting_ids(&rig, &session).await.is_empty(), "nothing was kept");
+}
+
+/// Another Job's pull request and a decision with options are his to settle, so they stand.
+#[tokio::test]
+async fn an_approval_of_another_jobs_pull_request_and_a_decision_with_options_stand() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    opened_pull(&rig, &session, 3832).await;
+    let other = rig.a_hosted_session().await;
+    opened_pull(&rig, &other, 3834).await;
+    offer(&rig, &session, None, Some("Keeps one thing")).await.expect("offered");
+    checked(&rig).await;
+
+    set_waiting(
+        &rig,
+        &session,
+        vec![
+            waiting("theirs", "Approve PR #3834, the lock Job's change", true, None, &[]),
+            waiting("pick", "Try #3832's row: keep the count or drop it?", false, None, &["Drop it", "Keep it"]),
+        ],
+    )
+    .await
+    .expect("kept");
+
+    assert_eq!(waiting_ids(&rig, &session).await, ["theirs", "pick"]);
+}
+
+/// An ask kept before the rule leaves Needs you once the Job's branch is on the preview list, with no one acting.
+#[tokio::test]
+async fn a_kept_ask_to_try_the_change_leaves_needs_you_once_the_branch_is_offered() {
+    let rig = a_rig();
+    let (session, _) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    opened_pull(&rig, &session, 3832).await;
+    set_waiting(
+        &rig,
+        &session,
+        vec![
+            waiting("try", "Try site asks and Site settings behind the lock, then approve PR #3832", false, None, &[]),
+            waiting("restart", "Restart Fleet onto the new build", false, Some((ipc::WaitingActKind::Run, "scripts/restart")), &[]),
+        ],
+    )
+    .await
+    .expect("no preview yet, so nothing is refused");
+    assert_eq!(waiting_ids(&rig, &session).await, ["try", "restart"]);
+
+    a_previewable_repository(&rig);
+    offer(&rig, &session, None, Some("Keeps one thing")).await.expect("offered");
+    checked(&rig).await;
+
+    assert_eq!(waiting_ids(&rig, &session).await, ["restart"]);
+}

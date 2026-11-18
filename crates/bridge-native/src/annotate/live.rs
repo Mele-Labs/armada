@@ -108,6 +108,12 @@ fn note_of(out: &Outgoing, ink: Ink) -> SessionNote {
         said.push(String::new());
         said.extend(changed);
     }
+    // The line the hooks read a feature's page by (`docs/concepts/feature-catalog.md`, Handing a Job its pages).
+    let features = super::beside::slugs_of(&out.key);
+    if !features.is_empty() {
+        said.push(String::new());
+        said.extend(features.iter().take(crate::features::of_path::MOST).map(|slug| format!("Feature: {slug}")));
+    }
     let location = raw["location"].as_str().unwrap_or("/").to_string();
     let screen = raw["screen"].as_str().map(str::to_string);
     // A note on a Job's page carries the page's own address; any other is Bridge's own screen's.
@@ -259,5 +265,28 @@ mod tests {
         let long: Vec<String> = (0..40).map(|one| format!("n{one}")).collect();
         let note = note_of(&out(json!({ "text": "x", "address": "https://a.test/", "owners": long, "nearby": long, "selected": long })), INK);
         assert_eq!((note.place.owners.len(), note.place.nearby.len(), note.state.selected.len()), (16, 8, 12));
+    }
+
+    fn out_with(key: &str, features: &[&str]) -> Outgoing {
+        super::super::beside::remember(key, features.iter().map(|slug| slug.to_string()).collect());
+        let raw = serde_json::json!({ "text": "The row clips its title", "selector": "div.row", "element": { "tag": "div", "text": "" }, "screen": "Jobs" });
+        Outgoing { key: key.into(), raw, window: false, number: 1, picture: Picture::None }
+    }
+
+    #[test]
+    fn a_note_goes_to_the_job_with_a_feature_line_for_each_feature_it_maps_to() {
+        let said = note_of(&out_with("live-two", &["job-list-and-live-status", "pause-resume-stop-snooze"]), Ink([0; 4], [0; 4])).said;
+        assert_eq!(said, "The row clips its title\n\nFeature: job-list-and-live-status\nFeature: pause-resume-stop-snooze");
+    }
+
+    #[test]
+    fn a_note_with_no_feature_goes_as_it_did() {
+        assert_eq!(note_of(&out_with("live-none", &[]), Ink([0; 4], [0; 4])).said, "The row clips its title");
+    }
+
+    #[test]
+    fn no_more_feature_lines_go_than_a_read_hands_a_job() {
+        let said = note_of(&out_with("live-four", &["a", "b", "c", "d"]), Ink([0; 4], [0; 4])).said;
+        assert_eq!(said.lines().filter(|line| line.starts_with("Feature: ")).count(), 3);
     }
 }

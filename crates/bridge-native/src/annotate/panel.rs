@@ -280,6 +280,7 @@ impl Layer {
                         busy || chosen_sendable.is_empty(),
                         self.targets.is_empty(),
                         None,
+                        self.own_job(&again).map(|job| job.title),
                         Rc::clone(&self.header_at),
                         None,
                         cx.listener(move |this, _, window, cx| {

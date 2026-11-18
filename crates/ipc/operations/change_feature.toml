@@ -10,9 +10,9 @@ notes = """
 
 **The old slug stays as an alias** of the feature it became, so a `Feature:` trailer already in git, or an act that still names it, files under the right feature and makes no new pending one. `list_features`, the pages and `file_ask` all take an alias. `upsert_features` of a slug that is an alias keeps a feature by it and takes the alias away: that is how a merge is undone.
 
-**To confirm a pending feature, call `upsert_features`** with `state` `confirmed`, an area, a title and a line: there is no other act to confirm one.
+**To confirm a pending feature, Bridge or the Operator calls `upsert_features`** with `state` `confirmed`, an area, a title and a line: there is no other act to confirm one.
 
-**Only the Operator's own session may call it**, placed by its connection: any other caller is refused 422 `fleet.not_the_operator`. 404 `fleet.feature_unknown` for a slug or target the project does not hold, 409 `fleet.feature_slug_taken` for a new slug a feature holds, 422 `fleet.feature_slug` for a slug a trailer cannot carry. Nothing is kept on a refusal.
+**The Operator's own session may call it, and so may Bridge** for the owner, which is how he merges, renames and moves a feature from the Features screen with the Operator off. Any other session is refused 422 `fleet.not_the_operator`, placed by its connection. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`. 404 `fleet.feature_unknown` for a slug or target the project does not hold, 409 `fleet.feature_slug_taken` for a new slug a feature holds, 422 `fleet.feature_slug` for a slug a trailer cannot carry. Nothing is kept on a refusal.
 
 The library lives on this Mac. Sharing it with teammates is not built.
 """

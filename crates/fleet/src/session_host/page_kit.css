@@ -85,3 +85,8 @@ armada-take[data-picked] { border-color: var(--accent); }
 .armada-vote-status { color: var(--fg-muted); font-size: var(--text-xs); }
 .armada-vote-status.armada-done { color: var(--status-completed-success); }
 .armada-vote-status.armada-refused { color: var(--error); }
+.armada-vote-bar {
+  position: fixed; inset-inline: 0; inset-block-end: 0; display: flex; justify-content: flex-end; padding: var(--space-3) var(--space-6);
+  border-block-start: var(--border-width) solid var(--border-subtle); background: var(--bg-raised);
+}
+body:has(.armada-vote-bar) { padding-block-end: calc(var(--space-6) + var(--space-12)); }

@@ -92,6 +92,8 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("save_repository_flight_controls", "changes settings"),
     ("approve_repository_tile", "changes settings"),
     ("change_slot_pool", "changes the slot pool"),
+    ("upsert_features", "keeps the feature catalog"),
+    ("change_feature", "keeps the feature catalog"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),

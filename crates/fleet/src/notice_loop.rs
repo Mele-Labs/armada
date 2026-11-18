@@ -36,6 +36,7 @@ where
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
         waits.slot_waits_ended_at_boot().await;
+        waits.gate_runs_lost_at_boot().await;
         waits.slot_lines_restored().await;
         waits.operator_orders_read().await;
     });
@@ -133,6 +134,8 @@ where
             fleet.claims_kept().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // Armada's own catalog, kept once for a project that holds its repository and no feature, Operator or not.
+            fleet.projects_seeded().await;
             // The files each Job wrote, filed under the features that own them.
             fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.

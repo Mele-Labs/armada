@@ -58,6 +58,7 @@ mod perm;
 mod picture_view;
 mod pictures;
 mod pinned;
+mod thread_rail;
 mod place;
 mod plan;
 mod plan_edit;
@@ -84,6 +85,7 @@ mod reader;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
+mod reader_share;
 mod web_walk;
 pub(crate) mod rows;
 mod row_views;
@@ -121,6 +123,8 @@ mod report_brief;
 mod side;
 mod side_chat;
 mod spine;
+pub(crate) mod story;
+pub(crate) mod kind_chip;
 mod spoken;
 mod start_card;
 mod workflow;
@@ -182,6 +186,7 @@ pub fn bind(cx: &mut App) {
     head::bind(cx);
     lanes_copy::bind(cx);
     web_walk::bind(cx);
+    story::init(cx);
     job_browser::bind(cx);
 }
 
@@ -1043,7 +1048,9 @@ impl JobView {
         }
         let stands = extras.iter().position(|extra| matches!(extra, Extra::Pending(_) | Extra::Refreshing | Extra::Working | Extra::Subagents)).unwrap_or(extras.len());
         extras.splice(stands..stands, cards);
-        extras.retain(|extra| !matches!(extra, Extra::Sketch(title) if self.is_part(id, &format!("sketch:{title}"))));
+        // The pin is keyed by the sketch's ledger id, which a revision drawn against an earlier title keeps while its title changes.
+        let pinned = held.head.sketch.as_ref().map(|one| one.sketch.as_str());
+        extras.retain(|extra| !(matches!(extra, Extra::Sketch(_)) && pinned.is_some_and(|ledger| self.is_part(id, ledger))));
         let bands = self.bands_of(id, cx);
         if bands.waiting {
             extras.push(Extra::Waiting);
@@ -1373,6 +1380,7 @@ impl Render for JobView {
                     .size_full()
                     .pt(look.length(token::SPACE_4))
                     .pb(self.chip_room(&id, cx))
+                    .when_some(self.rail_width(&id, cx), |thread, rail| thread.pr(rail))
                     .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                     .child(list(state, cx.processor(|this, ix: usize, window, cx| this.thread_row(ix, window, cx))).size_full())
                     .child(fade(&look, true))
@@ -1395,7 +1403,7 @@ impl Render for JobView {
                 .flex_col()
                 .children(origin)
                 .children(find)
-                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)))
+                .child(div().relative().flex_1().min_h_0().child(body).children(self.render_scrim(&id, cx)).children(self.render_foot(&id, cx)).children(self.render_choose(&id, cx)).children(self.render_thread_rail(&id, cx)))
                 .children(self.render_bands(&id, cx))
                 .children(dock)
                 .into_any_element()

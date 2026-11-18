@@ -354,7 +354,7 @@ impl JobView {
     }
 
     /// `⌘Enter` in a card's open box: the act the box is for, as its primary press does.
-    fn commit_box(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn commit_box(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let run = self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.keys.commit_of(key));
         if let Some(run) = run {
             run(self, window, cx);

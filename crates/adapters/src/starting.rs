@@ -50,6 +50,18 @@ pub fn start_repository(folder: &Path) -> Result<(), String> {
     Ok(())
 }
 
+/// A stub of `owner/name` on the forge at `folder`: a repository started as
+/// [`start_repository`] does, with that `origin` and nothing fetched, so a read that runs in a
+/// checkout has one to run in.
+pub fn start_linked_repository(folder: &Path, owner: &str, name: &str) -> Result<(), String> {
+    std::fs::create_dir_all(folder).map_err(|why| why.to_string())?;
+    start_repository(folder)?;
+    let repo = Repository::open(folder).map_err(|why| why.message().to_string())?;
+    repo.remote("origin", &format!("https://github.com/{owner}/{name}.git"))
+        .map_err(|why| why.message().to_string())?;
+    Ok(())
+}
+
 /// The branch the repository at `root` merges into when nothing declares one:
 /// what `armada.yml`'s `base:` would otherwise say. **The branch it is on where
 /// it has neither `main` nor `master`**, since a repository with no `armada.yml`

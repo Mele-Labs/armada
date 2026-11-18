@@ -416,18 +416,32 @@ fn fleet_live(name: &str) -> Option<LiveFleet> {
 pub fn crash_scene(name: &str, job: &str) -> Option<(super::CrashOffer, super::CrashStandIn)> {
     use crate::crash::{Crash, KeptDraft};
     let answer = match name {
-        "crash-panel" => Ok(job.to_string()),
+        "crash-panel" | "crash-panel-signal" => Ok(job.to_string()),
         "crash-panel-refused" => Err("Fleet serves no repository named armada".to_string()),
         _ => return None,
     };
     let at = chrono::NaiveDate::from_ymd_opt(2026, 11, 14).and_then(|day| day.and_hms_opt(11, 1, 2)).map(|time| chrono::TimeZone::from_utc_datetime(&chrono::Utc, &time))?;
+    let kept = |key: &str, kind: &'static str, label: &str, first_line: &str| KeptDraft { key: key.into(), kind, label: label.into(), first_line: first_line.into() };
+    // A crash no panic wrote: macOS's report is the crash file, and the only one the Job gets.
+    if name == "crash-panel-signal" {
+        let crash = Crash {
+            file: "/Users/user/Library/Logs/DiagnosticReports/Armada-2026-11-17-162203.ips".into(),
+            at,
+            panic: "EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x0000000000000010".into(),
+            location: "WTF::Detail::CallableWrapper<-[WKContentRuleListStore removeContentRuleListForIdentifier:completionHandler:]::$_4, void, std::__1::error_code>::call(std::__1::error_code) in WebKit".into(),
+            run: Some("/Users/user/Library/Application Support/Armada/crashes/run-73126".into()),
+        };
+        let offer = super::CrashOffer { crash, macos: None, kept: vec![kept("dispatch:request", "Dispatch sheet", "Dispatch sheet", "Fix the toast that sits over the title row")] };
+        let files = vec![("Armada-2026-11-17-162203.ips".to_string(), b"{}".to_vec())];
+        return Some((offer, super::CrashStandIn { files, answer, done: Default::default() }));
+    }
     let crash = Crash {
         file: "/Users/user/Library/Application Support/Armada/crashes/crash-2026-11-14T110102Z.txt".into(),
         at,
         panic: "already mutably borrowed: BorrowError".into(),
         location: "crates/bridge-native/src/toasts/view.rs:412:18".into(),
+        run: None,
     };
-    let kept = |key: &str, kind: &'static str, label: &str, first_line: &str| KeptDraft { key: key.into(), kind, label: label.into(), first_line: first_line.into() };
     let offer = super::CrashOffer {
         crash,
         macos: Some("/Users/user/Library/Logs/DiagnosticReports/Armada-2026-11-14-111520.ips".into()),

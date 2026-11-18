@@ -103,6 +103,36 @@ pub fn render_html(html: String, width: f32, scale: f32, appearance: Appearance,
     })
 }
 
+/// A document printed to PDF, as Classic's `printToPdf`: `html` as it is (a sealed page carries its own policy), laid out
+/// `width` points across in a view nobody sees with its scripts off, made as tall as its content, then the whole of it one
+/// PDF. Off the main thread, or where the page or WebKit fails, it answers why.
+pub fn pdf_of(html: String, width: f32, cx: &mut App) -> Task<Result<Vec<u8>, String>> {
+    let (events, arrivals) = async_channel::unbounded();
+    let options = Options { store: None, scripts: false, sealed: true, dark: None, clear: false, kit: None };
+    let width = width.max(1.);
+    let Some(native) = Native::new(&options, Box_::new(0., 0., f64::from(width), 1.), events) else {
+        return Task::ready(Err("a web view needs the main thread".into()));
+    };
+    native.load_html(&html);
+    cx.spawn(async move |_| {
+        // Any end but Finished is no PDF; named this way it holds whatever other ends a load may gain.
+        match arrivals.recv().await {
+            Ok(Nav::Failed(why)) => return Err(why),
+            Ok(arrived) if !matches!(arrived, Nav::Finished) => return Err("the page did not load".into()),
+            Ok(_) => {}
+            Err(_) => return Err("the page was dropped".into()),
+        }
+        let height = content_height(&native).await.max(1.);
+        native.set_size(f64::from(width), f64::from(height));
+        content_height(&native).await;
+        let (tx, rx) = async_channel::bounded(1);
+        native.pdf(move |pdf| {
+            let _ = tx.try_send(pdf);
+        });
+        rx.recv().await.map_err(|_| "WebKit made no PDF".to_string())?
+    })
+}
+
 async fn content_height(native: &Native) -> f32 {
     let (tx, rx) = async_channel::bounded(1);
     native.evaluate("String(Math.ceil(document.documentElement.scrollHeight))", move |answer| {

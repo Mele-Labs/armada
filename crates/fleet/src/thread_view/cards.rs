@@ -133,6 +133,13 @@ pub(super) fn revisions_of(held: &Attachment, revisions: &Revisions) -> Vec<RawS
     paths.iter().map(|path| revisions.get(path).cloned()).collect::<Option<Vec<_>>>().unwrap_or_default()
 }
 
+/// Where a card kept at `kept` stands: after the last entry that is not later than it. **Never before the first later one**: a
+/// row Fleet rewrote after its place was kept, as a settled ask is under one id, reads later than a card that stands far below it,
+/// and would carry the card up to the oldest page of the thread.
+fn place(entries: &[Entry<'_>], kept: &Instant) -> usize {
+    entries.iter().rposition(|entry| !later_than(&entry.at, kept)).map_or(0, |last| last + 1)
+}
+
 /// Whether `at` is after `kept`. **A time that does not read as one is never later**, so a card follows it.
 pub(super) fn later_than(at: &Instant, kept: &Instant) -> bool {
     reads(at) && at > kept
@@ -185,8 +192,8 @@ pub(super) fn with_documents(entries: &mut Vec<Entry<'_>>, ledger: &[Attachment]
     let mut cards = ledger.iter().filter_map(document_card_of).collect::<Vec<_>>();
     cards.sort_by(|a, b| a.at.cmp(&b.at));
     for card in cards {
-        let later = entries.iter().position(|entry| later_than(&entry.at, &card.at)).unwrap_or(entries.len());
-        entries.insert(later, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::Document(card)) });
+        let at = place(entries, &card.at);
+        entries.insert(at, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::Document(card)) });
     }
 }
 
@@ -195,8 +202,8 @@ pub(super) fn with_ready(entries: &mut Vec<Entry<'_>>, ready: &[ipc::ThreadReady
     let mut cards = ready.to_vec();
     cards.sort_by(|a, b| a.at.cmp(&b.at));
     for card in cards {
-        let later = entries.iter().position(|entry| later_than(&entry.at, &card.at)).unwrap_or(entries.len());
-        entries.insert(later, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::ReadyToTry(card)) });
+        let at = place(entries, &card.at);
+        entries.insert(at, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::ReadyToTry(card)) });
     }
 }
 
