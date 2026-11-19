@@ -3,10 +3,14 @@
 
 use std::rc::Rc;
 
-use gpui::{canvas, div, prelude::*, relative, AnyElement, Context, DragMoveEvent, FontWeight, Role, SharedString, Window};
+#[cfg(test)]
+mod tests;
 
-use super::model::Page;
-use super::{panel, said, tabs, ReviewsScreen};
+use gpui::{canvas, div, prelude::*, px, relative, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Role, SharedString, Window};
+
+use super::model::{self, Page};
+use super::rail_width;
+use super::{panel, panel_inner_radius, said, tabs, ReviewsScreen};
 use crate::job_view::pane_tree::{self as tree, Dir, Node, Pane, Side, Size, Zone};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -22,6 +26,16 @@ pub(super) struct TabDrag {
 /// A split's gap being dragged.
 #[derive(Clone)]
 struct GapDrag(String);
+
+/// The Files rail's edge being dragged.
+#[derive(Clone)]
+struct RailDrag;
+
+impl Render for RailDrag {
+    fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+        div()
+    }
+}
 
 /// The tab under the pointer while it is dragged.
 struct TabGhost(SharedString);
@@ -95,6 +109,14 @@ impl ReviewsScreen {
                             .min_h_0()
                             .flex()
                             .gap(look.length(token::GAP_PANEL))
+                            .id("page-body")
+                            .on_drag_move(cx.listener(|this, event: &DragMoveEvent<RailDrag>, _, cx| {
+                                let to = rail_width::clamp(f32::from(event.event.position.x - event.bounds.origin.x));
+                                if to != this.rail_width {
+                                    this.rail_width = to;
+                                    cx.notify();
+                                }
+                            }))
                             .child(self.render_rail(&page, look, cx))
                             .child(div().flex_1().min_w_0().h_full().child(below)),
                     )
@@ -145,7 +167,60 @@ impl ReviewsScreen {
         let overview = row("rail-overview".into(), "Overview", glyph("layers", look.length(token::SPACE_3), look.color(token::FG_MUTED)).into_any_element(), on.is_none())
             .on_click(cx.listener(|this, _, _, cx| this.show_overview(cx)));
         let overview = labelled(overview, Role::ListBoxOption, "Overview");
-        let mut rail = panel(look).id("rail").flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)).flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        let mut rail = panel(look).id("rail").size_full().overflow_y_scroll().flex().flex_col().gap(look.length(token::SPACE_1)).p(look.length(token::SPACE_2)).child(overview);
+        // Until there are change sets, the page's files stand in the rail under their folders.
+        if page.overview.sets.is_empty() && !page.kept {
+            let muted = look.color(token::FG_MUTED);
+            for (folder, files) in model::by_folder(&page.files) {
+                let shown = if folder.is_empty() { page.repository.rsplit('/').next().unwrap_or(&page.repository).to_string() } else { folder.clone() };
+                rail = rail.child(labelled(
+                    div()
+                        .id(SharedString::from(format!("rail-folder-{folder}")))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::H_CONTROL))
+                        .px(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(muted)
+                        .tooltip(tip(shown.clone()))
+                        .child(glyph("folder", look.length(token::SPACE_3), muted).flex_none())
+                        .child(div().min_w_0().overflow_hidden().whitespace_nowrap().text_ellipsis_start().child(SharedString::from(shown.clone()))),
+                    Role::Label,
+                    format!("Folder: {shown}"),
+                ));
+                for file in files {
+                    let path = file.path.clone();
+                    let name = file.path.rsplit('/').next().unwrap_or(&file.path).to_string();
+                    let count = |said: String, hue| div().flex_none().w(look.length(token::SPACE_8)).flex().justify_end().text_color(look.color(hue)).child(SharedString::from(said));
+                    let one = div()
+                        .id(SharedString::from(format!("rail-file-{}", file.path)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .h(look.length(token::H_CONTROL))
+                        .pl(look.length(token::SPACE_6))
+                        .pr(look.length(token::SPACE_2))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .text_size(look.length(token::TEXT_XS))
+                        .cursor_pointer()
+                        .hover(move |style| style.bg(hover))
+                        .tooltip(tip(file.path.clone()))
+                        .on_click(cx.listener(move |this, _, window, cx| this.show_file(&path, window, cx)))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(name)))
+                        .child(
+                            div()
+                                .flex_none()
+                                .flex()
+                                .font_family(mono(look))
+                                .child(count(format!("+{}", file.additions), token::RUN_PASSED))
+                                .child(count(format!("−{}", file.deletions), token::RUN_FAILED)),
+                        );
+                    rail = rail.child(labelled(one, Role::ListBoxOption, format!("{}, {} added, {} removed", file.path, file.additions, file.deletions)));
+                }
+            }
+        }
         for set in &page.overview.sets {
             let id = set.id.clone();
             let lead = tabs::set_mark(format!("rail-mark-{}", set.id), &self.set_mark_of(page, &set.id), look.length(token::SPACE_3), look);
@@ -155,7 +230,31 @@ impl ReviewsScreen {
         if page.kept {
             rail = rail.child(div().px(look.length(token::SPACE_2)).py(look.length(token::SPACE_2)).child(grey("rail-wait", "Writing the change sets of the commits since you looked", &[0.8, 0.6], token::BG_SUNKEN, look)));
         }
-        labelled(rail, Role::ListBox, "Change sets").into_any_element()
+        let named = if page.overview.sets.is_empty() && !page.kept { "Files" } else { "Change sets" };
+        let gap = look.length(token::GAP_PANEL);
+        let line = look.color(token::ACCENT);
+        // The drag edge sits in the gap on the rail's right; the page body reads the pointer from it.
+        let edge = labelled(
+            div()
+                .id("rail-edge")
+                .absolute()
+                .top_0()
+                .bottom_0()
+                .right(-gap)
+                .w(gap)
+                .cursor(gpui::CursorStyle::ResizeLeftRight)
+                .flex()
+                .items_center()
+                .justify_center()
+                .group("rail-gap")
+                .on_drag(RailDrag, |drag, _, _, cx| cx.new(|_| drag.clone()))
+                .on_mouse_up(MouseButton::Left, cx.listener(|this, _, _, _| rail_width::keep(this.rail_width)))
+                .on_mouse_up_out(MouseButton::Left, cx.listener(|this, _, _, _| rail_width::keep(this.rail_width)))
+                .child(div().h_full().w(look.length(token::BORDER_WIDTH) * 2.).rounded_full().group_hover("rail-gap", move |style| style.bg(line))),
+            Role::Splitter,
+            "Resize the Files rail",
+        );
+        div().id("rail-wrap").relative().flex_none().h_full().w(px(self.rail_width)).child(labelled(rail, Role::ListBox, named)).child(edge).into_any_element()
     }
 
     /// While its fresh page is read: the panes' shape in grey, and what it waits on.
@@ -199,7 +298,7 @@ impl ReviewsScreen {
                     .flex()
                     .gap(look.length(token::GAP_PANEL))
                     // The rail keeps its own width; the panes share the rest as the default layout does.
-                    .child(column("rail", &[0.8, 0.9, 0.6, 0.7]).flex_none().w(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_8)))
+                    .child(column("rail", &[0.8, 0.9, 0.6, 0.7]).flex_none().w(px(self.rail_width)))
                     .child(
                         div()
                             .flex_1()
@@ -305,7 +404,7 @@ impl ReviewsScreen {
             sum + shell + wide(said(&tab.kind), weight)
         });
         let crowded = room.is_some_and(|room| named > room);
-        let tabs: Vec<AnyElement> = pane.tabs.iter().map(|tab| self.tab(tab, active.as_deref() == Some(&tab.id), crowded, look, cx)).collect();
+        let tabs: Vec<AnyElement> = pane.tabs.iter().enumerate().map(|(at, tab)| self.tab(tab, at == 0, active.as_deref() == Some(&tab.id), crowded, look, cx)).collect();
         let add_name = "Add tab";
         let add_pane = pane.id.clone();
         let muted = look.color(token::FG_MUTED);
@@ -341,6 +440,8 @@ impl ReviewsScreen {
             .items_end()
             .pr(look.length(token::SPACE_1))
             .bg(look.color(token::BG_SUNKEN))
+            // The strip is the pane panel's first child, flush on its curved top edge.
+            .rounded_t(panel_inner_radius(look))
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_DEFAULT))
             .child(labelled(div().id(SharedString::from(format!("tabs-{}", pane.id))).flex().h_full().min_w_0().overflow_x_hidden().children(tabs), Role::TabList, name.clone()))
@@ -364,6 +465,8 @@ impl ReviewsScreen {
         let kind = pane.tabs.iter().find(|tab| Some(&tab.id) == active.as_ref()).map(|tab| tab.kind.clone());
         // The change set scrolls itself, so Show in change set can bring a hunk to its top.
         let scrolls = kind.as_deref() != Some("pr-change-set");
+        // Files scrolls on a handle, so a file pressed in the rail can be brought to its top.
+        let files = kind.as_deref() == Some("pr-files");
         let body: AnyElement = match kind {
             Some(kind) => self.tab_body(&kind, page, look, cx),
             None => div()
@@ -418,7 +521,7 @@ impl ReviewsScreen {
                 .on_drop(cx.listener(move |this, drag: &TabDrag, _, cx| this.drop_tab(&drag.tab, &drop_pane, cx)))
                 .child(strip)
                 // Each pull request's tab keeps its own place, so a page opened fresh starts at its top.
-                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).child(body))
+                .child(div().id(SharedString::from(format!("body-{}-{}-{}", pane.id, page.number, active.as_deref().unwrap_or("")))).flex_1().min_h_0().when(scrolls, |body| body.overflow_y_scroll()).when(files, |body| body.track_scroll(&self.files_scroll)).child(body))
                 .children(overlay),
             Role::Region,
             name,
@@ -426,7 +529,7 @@ impl ReviewsScreen {
         .into_any_element()
     }
 
-    fn tab(&self, tab: &tree::Tab, front: bool, crowded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    fn tab(&self, tab: &tree::Tab, first: bool, front: bool, crowded: bool, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let label = said(&tab.kind);
         let id = tab.id.clone();
         let lifted = cx.has_active_drag() && self.lifted.as_deref() == Some(&tab.id);
@@ -446,6 +549,8 @@ impl ReviewsScreen {
                 .flex()
                 .items_center()
                 .overflow_hidden()
+                // The first tab sits in the pane's top-left corner, so its fill and accent follow the curve.
+                .when(first, |tab| tab.rounded_tl(panel_inner_radius(look)))
                 .px(look.length(token::SPACE_3))
                 .text_size(look.length(token::TEXT_XS))
                 .text_color(ink)

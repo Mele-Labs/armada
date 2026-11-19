@@ -9,11 +9,14 @@
 use std::path::PathBuf;
 
 use gpui::{AsyncApp, Entity, PromptButton, PromptLevel};
-use ipc::{FleetBuildReport, KeptBuildPrevious, WireError};
+use ipc::{FleetBuildReport, KeptBuildPrevious};
+#[cfg(test)]
+use ipc::WireError;
 
 use crate::editor;
 use crate::fleet::FleetConnection;
 use crate::log::Note;
+use crate::refusal::Refusal;
 use crate::runtime_file;
 use crate::transport;
 
@@ -99,10 +102,13 @@ pub enum Outcome {
 pub fn outcome_of(read: Result<(u16, Vec<u8>), String>) -> Outcome {
     match read {
         Ok((status, _)) if (200..300).contains(&status) => Outcome::Started,
-        Ok((status, bytes)) => match ipc::decode::<WireError>("WireError", &bytes) {
-            Ok(error) => Outcome::Refused(error.message),
-            Err(_) => Outcome::Transport(format!("Fleet answered {status}")),
-        },
+        Ok((status, bytes)) => {
+            let refusal = Refusal::read("POST", ROUTE, status, &bytes);
+            match refusal.said {
+                Some(said) => Outcome::Refused(said),
+                None => Outcome::Transport(refusal.to_string()),
+            }
+        }
         Err(why) => Outcome::Transport(why),
     }
 }
@@ -171,11 +177,18 @@ pub async fn ask(fleet: Entity<FleetConnection>, cx: &mut AsyncApp) {
             runtime.block_on(transport::post_bare(port, ROUTE))
         })
         .await;
+    let refusal = match &read {
+        Ok((status, bytes)) if !(200..300).contains(status) => Some(Refusal::read("POST", ROUTE, *status, bytes)),
+        _ => None,
+    };
     let outcome = outcome_of(read);
     if outcome == Outcome::Started {
         Note::info("a revert to the build before was started").emit();
         let _ = fleet.update(cx, |fleet, cx| fleet.mark_reverting(cx));
     } else {
+        if let Some(refusal) = refusal {
+            cx.update(|cx| crate::toasts::tell_refused("Revert did not start", refusal, cx));
+        }
         tell(cx, "Revert did not start", why_not(&outcome)).await;
     }
 }

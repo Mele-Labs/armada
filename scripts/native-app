@@ -76,6 +76,20 @@ plistlib.dump(
         "CFBundleInfoDictionaryVersion": "6.0",
         "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
+        # Claims armada://pull/<owner>/<name>/<n>; `deep_link.rs` reads what macOS then hands over.
+        "CFBundleURLTypes": [
+            {
+                "CFBundleURLName": "dev.armada.bridge.native",
+                "CFBundleURLSchemes": ["armada"],
+            }
+        ],
+        # WebKit gives a page no `navigator.mediaDevices` where the app names no use for them (measured with a probe app), so a Job
+        # browser's page could never ask for the camera or the microphone. Location
+        # takes its own, which macOS reads before it asks the person.
+        "NSCameraUsageDescription": "A page in a Job's browser asked to use the camera.",
+        "NSMicrophoneUsageDescription": "A page in a Job's browser asked to use the microphone.",
+        "NSLocationUsageDescription": "A page in a Job's browser asked for your location.",
+        "NSLocationWhenInUseUsageDescription": "A page in a Job's browser asked for your location.",
     },
     open(sys.argv[1], "wb"),
 )

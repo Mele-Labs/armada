@@ -1,0 +1,10 @@
+[operations."review_lists.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "The read of the forge behind kept Reviews lists ended: the fresh lists, or why it gave none"
+notes = """
+Sent once a read that `get_review_lists` started behind lists it answered at once (`refreshing`). Carries `project` (absent for every project) and **one of** `lists`, a `PullReviewLists` whole, which a reader replaces what it holds for that project with, and `failed`, `{code, said, until}` as the answer of a read would have said it. **A failed read leaves the lists Fleet kept as they were**, so a reader keeps what it holds and says why they are not fresh. A forge that rate-limits with lists kept sends `lists` with `rate_limited` set, the lists last read.
+
+Not replayed on a resync. A client that reconnects asks `get_review_lists` again, which answers the kept lists at once.
+"""

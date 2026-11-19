@@ -58,6 +58,16 @@ pub static STEPS: [Step; 50] = [
     step("Shift-Tab from the request goes back to the card, the way Tab came", Verb::Key("shift-tab"), "button", "New Side Job in sample-api"),
 ];
 
+/// A send Fleet refused: straight to the failure toast, what it says and what it offers.
+pub static REFUSED: [Step; 6] = [
+    step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
+    step("He writes the request; pasted screenshots ride with it", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Project, finding"),
+    answer("Fleet refused the send as too large: the failure toast says what failed and why, each fact on a row of its own", "refuse-too-large", "alert", "Toast: The Job was not dispatched: Fleet refused it as too large"),
+    step("Copy debug info puts the rows and Fleet's debug report on the clipboard", Verb::Hover, "button", "Copy debug info"),
+    step("Dispatch job starts an Armada Job told all of it, and opens it", Verb::Hover, "button", "Dispatch job"),
+    step("Dismiss puts it away", Verb::Gone, "button", "Dismiss"),
+];
+
 /// The start flow: a start he makes himself runs at once, and Draft is the one way it is held on its start card.
 pub static START_FLOW: [Step; 13] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),

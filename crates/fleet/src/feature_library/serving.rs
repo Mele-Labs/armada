@@ -72,6 +72,18 @@ where
         self.feature_paged(caller, project, feature, section).await
     }
 
+    async fn get_project_overview(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
+        self.project_overview_read(caller, project).await
+    }
+
+    async fn get_since_you_looked(&self, caller: Option<api::Caller>, project: Option<String>, since: String) -> Result<ipc::SinceYouLooked, Refusal> {
+        self.since_looked_read(caller, project, since).await
+    }
+
+    async fn get_whos_on_what(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::WhosOnWhat, Refusal> {
+        self.whos_on_what_read(caller, project).await
+    }
+
     async fn get_feature_brief(&self, caller: Option<api::Caller>, project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
         self.feature_briefed(caller, project, feature).await
     }
@@ -90,12 +102,17 @@ where
         self.feature_sections_written(caller, write).await
     }
 
-    async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
+    async fn upsert_features(&self, caller: Option<api::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
+        self.owner_or_operator_called(caller)?;
         self.features_upserted(upsert).await
     }
 
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
+    }
+
+    async fn run_librarian(&self, caller: Option<api::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
+        self.librarian_pressed(caller, run).await
     }
 
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {

@@ -111,7 +111,8 @@ pub use pull_request_detail::{
     ReviewerKind, Said,
 };
 pub use pull_review::{
-    DiffSide, LatestReview, LatestReviewSaid, ListedChecks, ListedPull, ReviewComment, ReviewList, ReviewListAsk, ReviewThreadFacts,
+    DiffSide, LatestReview, LatestReviewSaid, ListFailure, ListedChecks, ListedPull, NumberedPull, ReviewComment, ReviewList,
+    ReviewListAsk, ReviewThreadFacts,
     ThreadSaid,
 };
 pub use request::{

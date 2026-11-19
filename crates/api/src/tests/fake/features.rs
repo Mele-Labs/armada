@@ -28,6 +28,7 @@ impl Features for FakeDaemon {
         Ok(FeatureLibrary {
             project: project.unwrap_or_else(|| String::from("p1")),
             areas: vec![FeatureAreaRow { slug: String::from("takes"), title: String::from("Takes"), features: vec![row("voting-on-takes")] }],
+            librarian: Default::default(),
         })
     }
 
@@ -41,7 +42,22 @@ impl Features for FakeDaemon {
             sections: Vec::new(),
             links: Vec::new(),
             files: Vec::new(),
+            docs: Vec::new(),
+            tickets: Vec::new(),
+            floor_plan: None,
         })
+    }
+
+    async fn get_project_overview(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
+        Ok(ipc::ProjectOverview { project: project.unwrap_or_else(|| String::from("p1")), what_it_is: None, rooms: Vec::new(), busiest: Vec::new(), glossary: Vec::new() })
+    }
+
+    async fn get_since_you_looked(&self, _caller: Option<crate::Caller>, project: Option<String>, _since: String) -> Result<ipc::SinceYouLooked, Refusal> {
+        Ok(ipc::SinceYouLooked { project: project.unwrap_or_else(|| String::from("p1")), paragraph: String::new(), features: Vec::new() })
+    }
+
+    async fn get_whos_on_what(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::WhosOnWhat, Refusal> {
+        Ok(ipc::WhosOnWhat { project: project.unwrap_or_else(|| String::from("p1")), people: Vec::new(), features: Vec::new() })
     }
 
     async fn get_feature_brief(&self, _caller: Option<crate::Caller>, _project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
@@ -62,8 +78,12 @@ impl Features for FakeDaemon {
         Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], owed: Vec::new() })
     }
 
-    async fn upsert_features(&self, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
+    async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
         Ok(FeaturesUpserted { created: upsert.features.iter().map(|one| one.slug.clone()).collect(), updated: Vec::new(), areas: upsert.areas.len() as u32 })
+    }
+
+    async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
+        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new() })
     }
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {

@@ -128,6 +128,8 @@ struct Row {
     moving_to: Option<SharedString>,
     /// The Job went to the other Mac and ended here: its row there stands in for this one.
     moved: bool,
+    /// A reply answers a question of his he has not read (`answer_unread`): a dot in his hue.
+    answer: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -335,23 +337,35 @@ fn repository_of(job: &SessionRecord) -> String {
 struct Names {
     projects: HashMap<String, String>,
     repositories: HashMap<String, String>,
+    /// A copy of another Mac's project, by id, to this Mac's own project of the same name: **one project on two
+    /// Macs is one group**, merged or not, as the switcher lists only this Mac's own.
+    same: HashMap<String, String>,
 }
 
 impl Names {
     fn of(served: &[ipc::RepositorySummary], projects: Option<&ipc::Projects>) -> Names {
         let named = crate::titlebar::repositories_of(served, &[]);
         let id_of = |one: &ipc::RepositorySummary| one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref()).map(|id| id.as_str().to_string());
+        let all = projects.map(|all| all.projects.as_slice()).unwrap_or_default();
+        let own = |name: &str| all.iter().find(|one| one.mac.is_none() && one.name == name).map(|one| one.id.clone());
         Names {
-            projects: projects.map(|all| all.projects.iter().map(|one| (one.id.clone(), one.name.clone())).collect()).unwrap_or_default(),
+            projects: all.iter().map(|one| (one.id.clone(), one.name.clone())).collect(),
             repositories: served.iter().zip(named).filter_map(|(one, named)| Some((id_of(one)?, named.name.to_string()))).collect(),
+            same: all.iter().filter(|one| one.mac.is_some()).filter_map(|one| Some((one.id.clone(), own(&one.name)?))).collect(),
         }
+    }
+
+    /// The project a Job counts in: its own id, or this Mac's project that a copy of the same name stands for.
+    fn project_of<'a>(&'a self, job: &'a SessionRecord) -> Option<&'a str> {
+        let id = job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref())?;
+        Some(self.same.get(id).map_or(id, String::as_str))
     }
 }
 
 /// The group a Job stands in, as its key and its heading: the project Fleet says it was started for, by
 /// that project's name, else its repository by name. A heading is never an id.
 fn group_of(job: &SessionRecord, names: &Names) -> (String, String) {
-    let project = job.hosted.as_ref().and_then(|hosted| hosted.project.as_ref());
+    let project = names.project_of(job);
     if let Some((id, name)) = project.and_then(|id| names.projects.get(id).map(|name| (id, name))) {
         return (format!("project:{id}"), name.clone());
     }
@@ -490,14 +504,18 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
 /// search still apply within it. A starter in another project is not drawn for its place, and an idea stands only
 /// where a Job of the project stands in its root.
 fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>) -> Vec<Line> {
-    let of_project = |job: &&SessionRecord| project.is_none_or(|id| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some(id));
+    let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
     // Fleet clears `snoozed_until` when the snooze runs out, so one that is set is still ahead (`Held::snoozed`).
     let snoozed = |job: &SessionRecord| job.snoozed_until.is_some();
     // A Job that went to the other Mac stands among the live ones until its row there takes its place.
     let live = |job: &&SessionRecord| job.state == SessionState::Live || crate::move_to_mac::moved(job);
-    let placed = |job: &&SessionRecord| (order.iter().position(|id| id == job.id.as_str()).unwrap_or(usize::MAX), standing_of(job));
+    let mut at: HashMap<&str, usize> = HashMap::new();
+    for (place, id) in order.iter().enumerate() {
+        at.entry(id.as_str()).or_insert(place);
+    }
+    let placed = |job: &&SessionRecord| (at.get(job.id.as_str()).copied().unwrap_or(usize::MAX), standing_of(job));
     let mut lives: Vec<&SessionRecord> = jobs.iter().filter(live).filter(of_project).collect();
     lives.sort_by_key(placed);
     let mut ended: Vec<&SessionRecord> = jobs.iter().filter(|job| job.state == SessionState::Ended && !crate::move_to_mac::moved(job)).filter(of_project).collect();
@@ -597,6 +615,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 mac: None,
                 moving_to: None,
                 moved: false,
+                answer: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -633,6 +652,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             mac: job.mac.clone().map(Into::into),
             moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
             moved: crate::move_to_mac::moved(job),
+            answer: job.answer_unread,
         };
         fn under<'a>(
             parent: &str,
@@ -974,10 +994,17 @@ impl JobsList {
             this.follow_scope(cx);
             let held = fleet.read(cx).held();
             let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
-            // The Operator's own session is never a Job in the list: its page is the Operator's.
-            let mut jobs: Vec<SessionRecord> = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
-            this.hold_asked_titles(&mut jobs);
-            if jobs != this.jobs || names != this.names {
+            // The Operator's own session is never a Job in the list: its page is the Operator's. Compared before it is
+            // cloned: Fleet moves several times a second and the list holds hundreds of Jobs.
+            let unmoved = names == this.names && this.holds_already(held.jobs.iter().filter(|job| !job.operator));
+            let mut jobs: Vec<SessionRecord> = if unmoved { Vec::new() } else { held.jobs.iter().filter(|job| !job.operator).cloned().collect() };
+            if unmoved {
+                // A rename Fleet now serves is let go, as the hold below lets it go.
+                this.asked.retain(|id, (was, _)| held.jobs.iter().any(|job| job.id.as_str() == id && job.title == *was));
+            } else {
+                this.hold_asked_titles(&mut jobs);
+            }
+            if !unmoved && (jobs != this.jobs || names != this.names) {
                 this.jobs = jobs;
                 this.names = names;
                 this.place_new();
@@ -1126,6 +1153,12 @@ impl JobsList {
     /// Put each live Job the order has not met at its end, in the standing order it is drawn in,
     /// so no later change of state moves it (`store.ts`, a new one is added at the end).
     fn place_new(&mut self) {
+        // Most moves bring no new Job: each live one already has its place, and the lines need not be drawn up.
+        let placed: std::collections::HashSet<&str> = self.order.iter().map(String::as_str).collect();
+        let live = |job: &&SessionRecord| job.state == SessionState::Live || crate::move_to_mac::moved(job);
+        if self.jobs.iter().filter(live).filter(|job| spent(job, "replaced_by").is_none()).all(|job| placed.contains(job.id.as_str())) {
+            return;
+        }
         let fresh: Vec<String> = lines_of(&self.jobs, &[], Scope::All, "", &self.order, &self.names)
             .into_iter()
             .filter_map(|line| match line {
@@ -1232,6 +1265,23 @@ impl JobsList {
     }
 
     /// Put the titles still waiting on Fleet over the records it sent, and let go of those it has answered.
+    /// Whether `served` is the list held, as [`Self::hold_asked_titles`] would leave it: a title a rename was asked
+    /// for reads as asked while Fleet still serves the one it replaced.
+    fn holds_already<'a>(&self, served: impl Iterator<Item = &'a SessionRecord>) -> bool {
+        let mut held = self.jobs.iter();
+        for one in served {
+            let Some(mine) = held.next() else { return false };
+            if one == mine {
+                continue;
+            }
+            let asked = self.asked.get(one.id.as_str()).filter(|(was, asked)| one.title == *was && mine.title.as_deref() == Some(asked.as_str()));
+            if asked.is_none() || (SessionRecord { title: mine.title.clone(), ..one.clone() }) != *mine {
+                return false;
+            }
+        }
+        held.next().is_none()
+    }
+
     fn hold_asked_titles(&mut self, jobs: &mut [SessionRecord]) {
         self.asked.retain(|id, (was, asked)| match jobs.iter_mut().find(|job| job.id.as_str() == id) {
             Some(job) if job.title == *was => {
@@ -2695,6 +2745,10 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
+                    .children(row.answer.then(|| {
+                        let said = "An answer to your question is waiting";
+                        labelled(div().id(SharedString::from(format!("answer-{}", row.id))).flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::YOU)).tooltip(tip(said.into())), Role::Image, said)
+                    }))
                     .children(on_its_way)
                     // The time keeps the title line on every row, beside the state, by the owner's
                     // choice, where Electron moves it to the foot of a row with lines.
@@ -3083,6 +3137,10 @@ pub struct JobsScreen {
     remember: bool,
     /// The command palette, over the whole screen.
     palette: Entity<crate::palette::Palette>,
+    /// The open Job is drawn from gpui's cache (`job_area`): what it wrote when last drawn whole, and its count of draws.
+    kept: Rc<RefCell<crate::labels::KeptView>>,
+    drawn: Rc<std::cell::Cell<u64>>,
+    _drawn_with: Subscription,
 }
 
 impl JobsScreen {
@@ -3130,6 +3188,7 @@ impl JobsScreen {
             // The bar's build switcher: each press is Fleet's build act, followed until the report settles.
             let act = match asked {
                 crate::titlebar::Asked::ChangeBuild { build, clear } => Some(BuildAct::Change(ipc::ChangeFleetBuild { build: *build, adopt: false, clear: *clear })),
+                crate::titlebar::Asked::RefreshBoth => Some(crate::pairing::refresh_act(crate::pairing::macs(cx))),
                 crate::titlebar::Asked::Revert => Some(BuildAct::Revert),
                 crate::titlebar::Asked::Keep => Some(BuildAct::Keep),
                 crate::titlebar::Asked::Swap => Some(BuildAct::Swap),
@@ -3207,16 +3266,29 @@ impl JobsScreen {
                 }
             });
         })));
+        let drawn = view.read(cx).drawn();
+        // What moves this screen moves the open Job, which is otherwise drawn from its cache.
+        let drawn_with = cx.observe_self(|this, cx| this.view.update(cx, |_, cx| cx.notify()));
         JobsScreen {
             list,
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
         &self.within
+    }
+
+    /// The open Job, drawn from gpui's cache so a pulse on a list row does not draw it again each frame.
+    /// While an overlay stands it is drawn whole, since the cache cannot put an overlay's labels back.
+    fn job_area(&self, window: &Window, cx: &App) -> gpui::AnyElement {
+        let overlaid = cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.overlaid(window.window_handle().window_id()));
+        if overlaid {
+            return self.view.clone().into_any_element();
+        }
+        crate::labels::kept(self.view.clone().cached(gpui::StyleRefinement::default().size_full()), self.kept.clone(), self.drawn.clone()).into_any_element()
     }
 
     /// The palette, for the screen this one sits in to draw while another place is in front.
@@ -3519,6 +3591,7 @@ impl Render for JobsScreen {
             .flex_col()
             .bg(look.color(token::BG_BASE))
             .child(title)
+            .children(crate::pairing::frozen_band(look, crate::pairing::macs(cx), self.list.read(cx).port(cx), cx))
             .child(
                 div()
                     .relative()
@@ -3548,7 +3621,7 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(self.view.clone()),
+                                .child(self.job_area(window, cx)),
                         ),
                 )
                 // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
@@ -3707,6 +3780,31 @@ mod tests {
         // sample-api's Jobs were started for no project: a project keeps none of them, and one Fleet does not list keeps nothing.
         assert!(ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("ledger"))).is_empty());
         assert!(!ids(&lines_within(&all, &[], Scope::All, "", &[], &names, Some("storefront"))).iter().any(|id| id == "mock-11"));
+    }
+
+    #[test]
+    fn a_job_in_another_macs_copy_of_a_project_stands_in_this_macs_project_of_that_name() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let mut projects = crate::mock::projects();
+        let own = projects.projects.iter().find(|one| one.id == "armada").expect("Armada is this Mac's").clone();
+        projects.projects.push(ipc::Project { id: "theirs".into(), mac: Some("kiavi".into()), ..own.clone() });
+        let names = Names::of(&crate::mock::repositories(), Some(&projects));
+        let here = all.iter().find(|job| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some("armada")).expect("a Job in Armada").clone();
+        let mut there = here.clone();
+        there.id = ipc::SessionId::carried("kiavi-01".to_string());
+        there.mac = Some("kiavi".into());
+        there.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        assert_eq!(group_of(&there, &names), group_of(&here, &names), "one group for one project on two Macs");
+        let lines = lines_of(&[here.clone(), there.clone()], &[], Scope::All, "", &[], &names);
+        assert!(headings(&lines).len() <= 1, "{:?}", headings(&lines));
+        assert!(ids(&lines_within(&[here, there], &[], Scope::All, "", &[], &names, Some("armada"))).contains(&"kiavi-01".to_string()), "picking Armada keeps the other Mac's Jobs");
+        // A copy with no project of its name here is its own group.
+        let mut alone = crate::mock::projects();
+        alone.projects.push(ipc::Project { id: "theirs".into(), name: "Kiavi only".into(), mac: Some("kiavi".into()), ..own });
+        let lone = Names::of(&crate::mock::repositories(), Some(&alone));
+        let mut ledger = all[0].clone();
+        ledger.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        assert_eq!(group_of(&ledger, &lone), ("project:theirs".to_string(), "Kiavi only".to_string()));
     }
 
     #[test]

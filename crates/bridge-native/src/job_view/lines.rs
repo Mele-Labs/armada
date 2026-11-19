@@ -117,8 +117,10 @@ impl JobView {
             SessionRow::Handoff { .. } => super::handoff::Card::of(row).map(|card| self.handoff_card(&card, super::handoff::Place::Thread(ix), page, look, cx)),
             // How the work lands, where Fleet said so for the person: a line with a link to the setting.
             SessionRow::Delivery { id, said: Some(said), .. } => Some(self.delivery_line(id, said, page, look, cx)),
-            // Never drawn in the thread: the plan's card is its own item, and the others have no screen.
-            SessionRow::Plan { .. } | SessionRow::Delivery { .. } | SessionRow::BrowserReminder { .. } => None,
+            // A browser the Job reached for outside Bridge: a line that opens the Job browser and tells the Job to use it.
+            SessionRow::BrowserReminder { id, tool, address, .. } => Some(self.browser_reminder(ix, id, tool, address.as_deref(), page, look, cx)),
+            // Never drawn in the thread: the plan's card is its own item, and the other has no screen.
+            SessionRow::Plan { .. } | SessionRow::Delivery { .. } => None,
             _ => self.line(ix, row, page, look, now, cx),
         }
     }

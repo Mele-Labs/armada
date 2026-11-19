@@ -39,6 +39,39 @@ pub struct ReviewListAsk<'a> {
     pub most: usize,
 }
 
+/// One pull request named outright, for a read by number rather than by a list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct NumberedPull {
+    /// As `owner/name`.
+    pub repository: String,
+    pub number: u64,
+}
+
+/// Why a review list was not read. Each carries the sentence a person reads, written where the
+/// forge is named, so no caller needs the forge's name to say it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ListFailure {
+    /// The forge refused for its rate limit. `until` is when to try again, in seconds since the
+    /// epoch: its `retry-after`, else the reset of a spent window, else the client's own hold.
+    /// **Absent where it named no time.** `said` is the limit without a time.
+    RateLimited { until: Option<u64>, said: String },
+    /// No token for this machine.
+    NoToken(String),
+    /// Nothing answered.
+    Unreachable(String),
+    /// Anything else, in words a person can read.
+    Other(String),
+}
+
+impl ListFailure {
+    /// The sentence, as written where the failure was made.
+    pub fn said(&self) -> &str {
+        match self {
+            Self::RateLimited { said, .. } | Self::NoToken(said) | Self::Unreachable(said) | Self::Other(said) => said,
+        }
+    }
+}
+
 /// What a pull request's forge checks have come to. Not Armada's Checks.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ListedChecks {
@@ -71,6 +104,10 @@ pub struct ListedPull {
     /// The signed-in person's own latest submitted review, where he has one. A pending review and
     /// a dismissed one are not his latest.
     pub my_latest: Option<LatestReview>,
+    /// When the forge last asked the person for a review, by name on the requested list and of a
+    /// team they are on on the team list (RFC 3339). Absent on the other lists, and where the forge
+    /// kept no such request among the latest it was asked for.
+    pub asked_at: Option<String>,
 }
 
 /// What a person's own latest submitted review said.

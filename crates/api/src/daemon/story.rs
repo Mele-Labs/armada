@@ -4,6 +4,7 @@
 use std::future::Future;
 
 use ipc::{Ask, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageSorting, MessageSortings, SessionId, SetMessageKind};
+use ipc::{JobQuestion, JobQuestions, MarkAnswerRead};
 
 use crate::daemon::Refusal;
 
@@ -34,4 +35,12 @@ pub trait Story: Send + Sync + 'static {
     /// [`Refusal::Unacceptable`] (`fleet.not_the_operator`, `fleet.feature_project`, `fleet.ask_words_blank`), [`Refusal::NotFound`]
     /// (`fleet.feature_unknown`).
     fn file_ask(&self, caller: Option<crate::Caller>, file: FileAsk) -> impl Future<Output = Result<Ask, Refusal>> + Send;
+
+    /// `list_job_questions` — the questions he asked in the Job, each with the reply that answers it and whether he read it.
+    /// [`Refusal::NotFound`] (`fleet.no_such_session`).
+    fn list_job_questions(&self, session_id: SessionId) -> impl Future<Output = Result<JobQuestions, Refusal>> + Send;
+
+    /// `mark_answer_read` — he read the answer to a question. [`Refusal::NotFound`] (`fleet.no_such_session`,
+    /// `fleet.no_such_question`), [`Refusal::IllegalMove`] (`fleet.question_open`).
+    fn mark_answer_read(&self, mark: MarkAnswerRead) -> impl Future<Output = Result<JobQuestion, Refusal>> + Send;
 }

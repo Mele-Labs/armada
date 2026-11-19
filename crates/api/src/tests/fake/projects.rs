@@ -59,6 +59,7 @@ fn echoed(project: &str, said: String) -> ipc::Projects {
         }],
         loose: vec![task("r9", "Not in a project")],
         left_out: Vec::new(),
+        left_behind: Vec::new(),
     }
 }
 
@@ -182,6 +183,12 @@ impl Projects for FakeDaemon {
             return Err(Refusal::Unacceptable(raised("fleet.project_values_refused", "not an auto merge")));
         }
         Ok(ipc::KitValuesSaved { file: "kit/values.yml".to_string(), values: save.values })
+    }
+
+    async fn merge_projects(&self, merge: ipc::MergeProjects) -> Result<ipc::Projects, Refusal> {
+        held(&merge.kept)?;
+        held(&merge.gone)?;
+        Ok(echoed(&merge.kept, format!("merge_projects {} {} {}", merge.kept, merge.gone, merge.from_gone.join(","))))
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {

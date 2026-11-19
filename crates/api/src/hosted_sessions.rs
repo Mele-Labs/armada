@@ -141,6 +141,19 @@ pub(crate) async fn message_reach<D: HostedSessions>(
     }
 }
 
+/// The live Jobs with no process that the CLI's own `ListAgents` leaves out. **Placed by the
+/// connection**, so the asking Job is not among them.
+pub(crate) async fn quiet_jobs<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    peer: Option<axum::extract::ConnectInfo<std::net::SocketAddr>>,
+) -> Response {
+    let caller = peer.map_or_else(crate::Caller::unplaceable, |peer| crate::Caller::at(peer.0));
+    match served.shared().quiet_jobs(caller).await {
+        Ok(quiet) => answer(StatusCode::OK, &quiet, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The most a message may weigh. Its pictures and files ride inside it as base64, and one
 /// Retina screenshot is past axum's 2 MB default on its own.
 pub(crate) const MOST_A_MESSAGE_MAY_BE: usize = 64 * 1024 * 1024;

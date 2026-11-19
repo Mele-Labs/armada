@@ -1,0 +1,18 @@
+[operations.run_librarian]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Run a project's librarian now: it does the parts the setting enables and keeps a record of the run. Give the project's id"
+notes = """
+`POST /features/librarian`, body `RunLibrarian`: `project`. Answered with `LibrarianRan`: `project`, `ran_at`, `ran` (the parts that ran, in order), `read_through` (the newest merged pull request the run read through, absent where the project holds none) and `skipped_for_share` (the parts left out because the night's share of model calls was spent, absent where none was).
+
+**The press is the one way a run starts while `features.librarianRuns` is `on_press`**, which is what ships. Fleet starts no run by itself under it. `after_merges` and `nightly` start one only when the owner has set them. A press runs whatever the setting says.
+
+**The parts are the names in `features.librarianParts`**, from `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`; a name that is no part is left out. `since_you_looked` is the one part built. It asks a small model for the paragraph at the top of Since you looked, once, and only where something moved since the last run; it spends one call of the night's `features.librarianModelShare`.
+
+**The record** is one row a run in the store: when it ran, what started it, the newest merged pull request and the commit it read through, the parts that ran, the paragraph and the model calls it spent. `list_features` answers from it: `FeatureLibrary.librarian` holds `last_run`, `read_through` and `merged_since`.
+
+**Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
+
+The library lives on this Mac. Sharing it with teammates is not built.
+"""

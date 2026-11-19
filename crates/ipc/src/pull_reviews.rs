@@ -1,4 +1,4 @@
-//! The pull requests waiting on a person, as four lists read from the forge, and the acts a
+//! The pull requests waiting on a person, as five lists read from the forge, and the acts a
 //! review makes on one: a line comment, a reply, a resolve. `docs/concepts/pull-review.md`.
 //!
 //! **Read when the person opens the Reviews tab or presses Refresh, and never polled.** Armada
@@ -9,10 +9,11 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ids::ManifestId;
+use crate::ids::{Instant, ManifestId};
 use crate::pull_requests::PullRequestReviewState;
 
-/// The four lists. A pull request can be on several.
+/// The four lists the forge answers, and the fifth from Fleet's own runs. A pull request can be on
+/// several of the four.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum PullReviewList {
@@ -24,6 +25,9 @@ pub enum PullReviewList {
     Assigned,
     /// Opened by the person: the account Armada is signed in as, else the forge command line's.
     Mine,
+    /// One the person ran a review tool on in Armada and that is on none of the other four: from
+    /// Fleet's own record of review runs, then read from the forge by number.
+    Reviewing,
 }
 
 /// What a row's forge checks have come to. Not Armada's Checks.
@@ -56,6 +60,11 @@ pub struct PullReviewRow {
     pub author: String,
     /// RFC 3339.
     pub updated_at: String,
+    /// RFC 3339, when he was last asked to review it: the forge's own time of the request, else when
+    /// Fleet first saw him asked by name. Absent off the `requested` and `team` lists, and where
+    /// neither knows.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub asked_at: Option<String>,
     /// The team asked, as the forge names it, on the `team` list only.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<String>,
@@ -72,10 +81,17 @@ pub struct PullReviewRow {
     /// Where it stands in his inbox, worked out by Fleet from `seen`, `head` and `my_review`.
     #[serde(default)]
     pub inbox: crate::pull_review_memory::PullInbox,
+    /// He ran a review tool on it in Armada, at any head: a tool, the change sets or the overview.
+    /// On a row of any list. False from a Fleet before it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reviewing: bool,
+    /// He ignored it and it has not been asked of him since.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub ignored: bool,
 }
 
-/// `get_review_lists`: the four lists, one forge call each, at most [`MOST_PER_LIST`] a list
-/// and newest-updated first.
+/// `get_review_lists`: the five lists, one forge call each, at most [`MOST_PER_LIST`] a list
+/// and newest-updated first, `reviewing` newest run first.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PullReviewLists {
     /// Who the person is on the forge: the "mine" login, the account Armada is signed in as for
@@ -87,16 +103,93 @@ pub struct PullReviewLists {
     pub team: Vec<PullReviewRow>,
     pub assigned: Vec<PullReviewRow>,
     pub mine: Vec<PullReviewRow>,
+    /// Open pull requests he ran a review tool on that are on none of the four lists above, newest
+    /// run first, at most [`MOST_PER_LIST`]. Every row has `reviewing`. Empty from a Fleet before it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub reviewing: Vec<PullReviewRow>,
     /// The lists the forge would not answer. **Their rows above are empty and say nothing**, so
     /// a reader keeps what it last held for them. All four silent is a 500
-    /// `fleet.review_lists_unreadable` and no body.
+    /// `fleet.review_lists_unreadable` and no body. **The forge's rate limit with nothing kept to show**
+    /// is a 500 `fleet.review_lists_rate_limited` instead, its `fields.until` the time to try again
+    /// as RFC 3339, absent where none was named; a no token or an unanswering forge is the
+    /// first code with a sentence that says which.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub silent: Vec<PullReviewList>,
+    /// Present where **the forge is rate-limiting us and these are the lists Fleet last read**, at
+    /// `fetched_at`, not read now. Fleet asks nothing until the hold lifts. Absent for a live read.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rate_limited: Option<PullReviewRateLimited>,
+    /// True where **these are the lists Fleet kept, answered at once, and a read of the forge is going**
+    /// behind them: the fresh lists follow as `review_lists.changed`. Absent for a read that reached
+    /// the forge before answering.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub refreshing: bool,
+}
+
+impl PullReviewLists {
+    /// Every list's rows, `requested` first. **The one place that says which lists there are**, so what Fleet does to
+    /// each list's rows (the local overlays on kept lists) reaches a list added later without being told of it.
+    pub fn lists_mut(&mut self) -> Vec<&mut Vec<PullReviewRow>> {
+        vec![&mut self.requested, &mut self.team, &mut self.assigned, &mut self.mine, &mut self.reviewing]
+    }
+}
+
+/// The forge read Fleet started behind kept lists, and what it came to. `docs/practices/protocol.md`.
+///
+/// **Exactly one of `lists` and `failed`**, which the two constructors keep: a read that reached the
+/// forge carries the fresh lists whole, and one that did not carries why. A failure leaves the lists
+/// Fleet kept as they were, so a reader keeps what it holds.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewListsChanged {
+    /// The project the read was for. Absent for every project.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub project: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub lists: Option<PullReviewLists>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub failed: Option<ReviewListsFailed>,
+}
+
+impl ReviewListsChanged {
+    /// A read that reached the forge, or was held back by its rate limit with lists to show.
+    pub fn read(project: Option<String>, lists: PullReviewLists) -> Self {
+        Self { project, lists: Some(lists), failed: None }
+    }
+
+    pub fn failed(project: Option<String>, failed: ReviewListsFailed) -> Self {
+        Self { project, lists: None, failed: Some(failed) }
+    }
+}
+
+/// Why the read behind kept lists did not give fresh ones, as the answer of `get_review_lists` would have said it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ReviewListsFailed {
+    /// `fleet.review_lists_unreadable`, `fleet.review_lists_rate_limited`, or the code of any other refusal.
+    pub code: String,
+    /// The sentence for a person.
+    pub said: String,
+    /// Where the forge named a time to try again, RFC 3339.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+}
+
+/// The rate limit that keeps the lists from being read again.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PullReviewRateLimited {
+    /// When Fleet asks again: what the forge said, else Fleet's own wait. Absent where it named no time.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub until: Option<Instant>,
+    /// The forge's own sentence for the limit, without a time, for Bridge to say as it is.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub said: String,
 }
 
 /// The most rows one list keeps. The forge is asked for exactly this many, so a list at the cap
 /// has more behind it.
 pub const MOST_PER_LIST: usize = 50;
+
+/// The code of a read that every list was held back from by the forge's rate limit.
+pub const REVIEW_LISTS_RATE_LIMITED: &str = "fleet.review_lists_rate_limited";
 
 /// Which side of the diff a line is on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

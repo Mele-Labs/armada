@@ -14,7 +14,7 @@ use html5ever::serialize::{serialize, SerializeOpts, TraversalScope};
 use html5ever::tendril::{StrTendril, TendrilSink};
 use html5ever::tree_builder::TreeBuilderOpts;
 use html5ever::{parse_document, parse_fragment, Attribute, LocalName, Namespace, ParseOpts, QualName};
-use ipc::{KeptFont, KeptStyles};
+use ipc::{KeptFont, KeptSheet, KeptStyles};
 use markup5ever_rcdom::{Handle, Node, NodeData, RcDom, SerializableHandle};
 
 use crate::assets::{icon_path, Assets};
@@ -29,10 +29,16 @@ const ADDRESSES: [&str; 9] = ["src", "srcset", "href", "xlink:href", "action", "
 const GLYPH: u32 = 16;
 const HTML_NS: &str = "http://www.w3.org/1999/xhtml";
 
+/// Under the kept sheets: the app's sans, so markup no sheet gives a face is not drawn in the web view's serif.
+const BASE: &str = "html{font-family:var(--font-sans,system-ui,sans-serif);}";
+/// Over everything: a mock is a still, so an animation stands at its end and a transition has none. An entry animation
+/// whose first frame is clear (`armada-dialog-in`) otherwise leaves the snapshot blank.
+const STILL: &str = "*,*::before,*::after{animation-duration:0s!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important;}";
+
 /// The page for a `mock`: its `html` and own `css`, the style set Fleet kept for it (`None` where it has none: no
 /// sheets, no fonts, no theme) and the theme the stylesheets switch on, as Classic sets `data-theme` on the root.
 pub fn page(html: &str, css: Option<&str>, kept: Option<&KeptStyles>, dark: bool) -> String {
-    let mut head = format!(r#"<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="{POLICY}">"#);
+    let mut head = format!(r#"<meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="{POLICY}"><style>{BASE}</style>"#);
     if let Some(kept) = kept {
         let faces: String = kept.fonts.iter().filter_map(font_face).collect();
         if !faces.is_empty() {
@@ -45,11 +51,22 @@ pub fn page(html: &str, css: Option<&str>, kept: Option<&KeptStyles>, dark: bool
     if let Some(css) = css {
         let _ = write!(head, "<style>{}</style>", style_text(css));
     }
+    let _ = write!(head, "<style>{STILL}</style>");
     let theme = match kept {
         Some(_) => format!(r#" data-theme="{}""#, if dark { "dark" } else { "light" }),
         None => String::new(),
     };
     format!("<!doctype html><html{theme}><head>{head}</head><body>{}</body></html>", sanitise(html))
+}
+
+/// The kept style set with the app's own tokens under it. A set Fleet kept holds the sheets the agent named, and a chip's
+/// sheet is written in `var(--bg-raised)` and `var(--fg-muted)` with no sheet that declares them: the page then has no
+/// background, the face and size of an unstyled page, and the web view's black text. The tokens come first, so a kept sheet
+/// that declares its own wins, and the page's text takes the default colour where no rule names one.
+pub fn under_app_tokens(kept: Option<&KeptStyles>, tokens: &str) -> KeptStyles {
+    let app = KeptSheet { path: "app tokens".to_string(), css: format!(":root{{{tokens}}}html{{color:var(--fg-default);}}"), edited: false };
+    let (sheets, fonts) = kept.map_or_else(Default::default, |kept| (kept.sheets.clone(), kept.fonts.clone()));
+    KeptStyles { sheets: std::iter::once(app).chain(sheets).collect(), fonts }
 }
 
 /// A sheet's text safe inside a `<style>`: a `</style` in it would end the block, as `export-svg.ts` guards.
@@ -333,10 +350,9 @@ impl KeptCache {
             None => crate::mock::kept_styles(hash),
             Some(port) => {
                 let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                let (status, bytes) = runtime.block_on(crate::transport::get(port, &format!("/sessions/kept_styles?hash={hash}")))?;
-                if !(200..300).contains(&status) {
-                    return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
-                }
+                let route = format!("/sessions/kept_styles?hash={hash}");
+                let (status, bytes) = runtime.block_on(crate::transport::get(port, &route))?;
+                let bytes = crate::refusal::answered("GET", &route, None, status, bytes).map_err(|refusal| refusal.to_string())?;
                 ipc::decode::<KeptStyles>("KeptStyles", &bytes).map_err(|why| why.to_string())?
             }
         };
@@ -355,6 +371,23 @@ mod tests {
 
     fn sheet(css: &str) -> KeptSheet {
         KeptSheet { path: "a.css".into(), css: css.into(), edited: false }
+    }
+
+    #[test]
+    fn an_animation_stands_at_its_end_over_every_sheet_and_the_mocks_own_css() {
+        let kept = KeptStyles { sheets: vec![sheet(".armada-dialog{animation:armada-dialog-in 160ms ease-out}")], fonts: Vec::new() };
+        let out = page(r#"<div class="armada-dialog">Merge into</div>"#, Some(".own{animation:spin 1s infinite}"), Some(&kept), true);
+        let still = out.find(STILL).expect("the still rule is on the page");
+        assert!(out.find("armada-dialog-in").is_some_and(|at| at < still) && out.find(".own{").is_some_and(|at| at < still), "it comes after the sheets and the own css: {out}");
+        assert!(still < out.find("<body>").expect("a body"), "{out}");
+    }
+
+    #[test]
+    fn markup_no_sheet_gives_a_face_reads_in_the_apps_sans_and_a_sheet_still_wins() {
+        let out = page("<div>picker</div>", None, Some(&KeptStyles { sheets: vec![sheet("body{font-family:serif}")], fonts: Vec::new() }), false);
+        let base = out.find(BASE).expect("the base face is on the page");
+        assert!(base < out.find("body{font-family:serif}").expect("the sheet"), "the kept sheets come after it, so they win: {out}");
+        assert!(page("<div>picker</div>", None, None, false).contains(BASE), "a mock with no kept sheets gets it too");
     }
 
     #[test]
@@ -459,7 +492,9 @@ mod tests {
     fn a_style_end_tag_in_a_sheet_cannot_end_its_block() {
         let kept = KeptStyles { sheets: vec![sheet("a{} </STYLE><b onload=x>")], fonts: Vec::new() };
         let out = page("", None, Some(&kept), false);
-        assert_eq!(out.matches("</style>").count(), 1, "{out}");
+        // The app's face, the sheet and the still each close their own block; the sheet's end tag is escaped, not a fourth.
+        assert_eq!(out.matches("</style>").count(), 3, "{out}");
+        assert!(out.contains("<\\/style>"), "{out}");
     }
 
     #[test]

@@ -354,7 +354,7 @@ impl JobView {
     }
 
     /// `⌘Enter` in a card's open box: the act the box is for, as its primary press does.
-    fn commit_box(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn commit_box(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         let run = self.shown.as_ref().and_then(|id| self.pages.get(id)).and_then(|page| page.keys.commit_of(key));
         if let Some(run) = run {
             run(self, window, cx);
@@ -511,12 +511,10 @@ impl JobView {
                 .background_executor()
                 .spawn(async move {
                     let body = body?;
+                    let sent = body.len();
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
-                    if (200..300).contains(&status) {
-                        return Ok(());
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    crate::refusal::answered("POST", route, Some(sent), status, bytes).map(|_| ()).map_err(|refusal| refusal.to_string())
                 })
                 .await;
             if let Err(why) = answer {

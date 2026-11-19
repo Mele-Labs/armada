@@ -212,6 +212,19 @@ pub enum SessionFact {
     Read {
         path: String,
     },
+    /// A page, document or ticket the session read from outside the code: a web page, an MCP server's answer, an
+    /// issue, a doc in the repository. `tool` is the call that read it and `target` what it named (an address, a path
+    /// or an id). **`title` and `gist` are the mod's own reading of the result**, a title and a first sentence cut to
+    /// about 300 characters together, empty where the result held none. Fleet files it only where a later write of the
+    /// Job's reaches a feature (`docs/concepts/feature-catalog.md`, *Docs and tickets a Job read*). Since mod 0.3.78.
+    Consulted {
+        tool: String,
+        target: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        title: String,
+        #[serde(default, skip_serializing_if = "String::is_empty")]
+        gist: String,
+    },
     /// A shell command the session ran, as it was typed. Fleet hides what looks like a secret in it,
     /// cuts it, and counts it for the timeline; it is kept nowhere else.
     Ran {
@@ -585,6 +598,10 @@ pub enum WaitingActKind {
 pub struct WaitingAct {
     pub kind: WaitingActKind,
     pub target: String,
+    /// The Mac a `run` act's command is meant for, by its name: this one or a paired one. Absent where the
+    /// asker named none, which means this Mac. Bridge offers Run only where it names this Mac or none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<String>,
 }
 
 /// One choice of an `answer` item, in the order to draw and number them.
@@ -882,9 +899,10 @@ pub enum WaitingSource {
     /// restarts, and when no client holds `/events` open.
     BrowserAsk,
     /// Fleet: the Job's `all_done` is held at a gate nothing in the Job can close, and the person can.
-    /// Derived on every read, never kept: id `gate:<group id>`, text `"<group title>" waits on <what>`,
-    /// an `answer` act whose `target` is the Job's own id, and exactly two options, `Approve` (choice 0)
-    /// and `Skip this group` (choice 1), labels only. Listed while a hold stands, nothing in the Job
+    /// Derived on every read, never kept: id `gate:<group id>`, text `"<group title>" waits on <what>`
+    /// (for a merge, `has no open pull request to merge`), an `answer` act whose `target` is the Job's
+    /// own id, and exactly two options, `Approve` (choice 0) and `Skip this group` (choice 1), each with
+    /// a description of what it does. Listed while a hold stands, nothing in the Job
     /// runs, and the first open gate is one the person can close: an approval of any kind, a merge no
     /// queued pull request is on the way to, or Checks no run has begun. `Approve` on a `plan_approved`
     /// gate approves the plan; on any other it closes the gate by his word. `Skip this group` closes it
@@ -1693,6 +1711,10 @@ pub struct SessionRecord {
     /// answer. Fleet sends them when it does. Absent where all are sent. Since 14 Nov 2026.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub claims_unsent: bool,
+    /// Whether a reply of the Job's answers a question of his that he has not read yet, for the dot on the Job's row.
+    /// `list_job_questions` names which. Absent where none waits. Since 17 Nov 2026. `docs/concepts/job-story.md`.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub answer_unread: bool,
 }
 
 /// A tracker item a Job waits on: another Job holds its claim in the project's store, or a person is

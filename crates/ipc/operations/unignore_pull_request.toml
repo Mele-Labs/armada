@@ -1,0 +1,8 @@
+[operations.unignore_pull_request]
+kind = "command"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Stop ignoring a pull request"
+notes = """
+`POST /pull_request_ignored/:repository/unignore`, `repository` a manifest id, body `IgnorePull`: `number`. Answers the same body. A pull request that was not ignored is not an error.
+"""

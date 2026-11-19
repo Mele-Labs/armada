@@ -240,6 +240,7 @@ where
             limited: store.session_limit(&session.id).map_err(fault)?,
             snoozed: store.session_snooze(&session.id).map_err(fault)?,
             viewed: store.session_viewed(&session.id).map_err(fault)?,
+            answer_unread: store.answer_unread(&session.id).map_err(fault)?,
             context: store.session_context(&session.id).map_err(fault)?,
             loadout: crate::loadout_keeping::summary_read(store, &session.id).map_err(fault)?,
             plan,
@@ -351,6 +352,7 @@ where
         }
         record.snoozed_until = reads.snoozed.as_deref().map(wire_instant);
         record.viewed_at = reads.viewed.as_deref().map(wire_instant);
+        record.answer_unread = reads.answer_unread;
         record.context_breakdown = reads
             .context
             .as_deref()
@@ -588,13 +590,12 @@ where
     /// of the worktree it lies in: one the Session stands in, a pool slot whose lease is not
     /// another's, or any other linked worktree. **A write to the main checkout is not credited**:
     /// Fleet cannot tell whose change in it a file is.
-    pub(super) fn session_wrote(&self, store: &Store, session: &KeptSession, roots: &[(String, String)], paths: &[String]) {
-        let Some(manifest) = placed(&session.cwd, roots).manifest else {
-            return;
-        };
-        let Some((_, root)) = roots.iter().find(|(id, _)| *id == manifest) else {
-            return;
-        };
+    ///
+    /// Answers the repository and the files credited, repository-relative, for the feature library's read of what the Job
+    /// had read before it wrote them.
+    pub(super) fn session_wrote(&self, store: &Store, session: &KeptSession, roots: &[(String, String)], paths: &[String]) -> Option<(String, Vec<String>)> {
+        let manifest = placed(&session.cwd, roots).manifest?;
+        let (_, root) = roots.iter().find(|(id, _)| *id == manifest)?;
         let home = &self.host().home;
         let mut by_worktree: BTreeMap<String, Vec<String>> = BTreeMap::new();
         for path in paths {
@@ -614,9 +615,12 @@ where
             }
         }
         let who = crate::clashing::Who::Session(session.id.clone());
+        let mut credited = Vec::new();
         for (worktree, inside) in by_worktree {
+            credited.extend(inside.iter().cloned());
             self.writes().wrote_in(&who, &manifest, &worktree, inside, &self.now());
         }
+        Some((manifest, credited))
     }
 }
 

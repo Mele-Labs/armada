@@ -368,6 +368,7 @@ where
             models: fittings.models,
             models_held: Default::default(),
             phone_held: Default::default(),
+            review_lists_kept: Default::default(),
             home_held: Default::default(),
             downshift: Default::default(),
             agent_sign_in: crate::session_host::signed_out::Held::running(sign_in),

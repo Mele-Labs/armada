@@ -30,6 +30,29 @@ pub trait Features: Send + Sync + 'static {
         section: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
+    /// `get_project_overview` — the project's README sentence, code map, busiest features and glossary.
+    fn get_project_overview(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::ProjectOverview, Refusal>> + Send;
+
+    /// `get_since_you_looked` — the features that are new, changed or waiting on him since `since`. [`Refusal::Unacceptable`]
+    /// (`fleet.feature_since_unreadable`) for a `since` that is no RFC 3339 instant.
+    fn get_since_you_looked(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+        since: String,
+    ) -> impl Future<Output = Result<ipc::SinceYouLooked, Refusal>> + Send;
+
+    /// `get_whos_on_what` — who has an open pull request or a running Job on which feature of the project.
+    fn get_whos_on_what(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::WhosOnWhat, Refusal>> + Send;
+
     /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.
     fn get_feature_brief(
         &self,
@@ -56,10 +79,11 @@ pub trait Features: Send + Sync + 'static {
         write: ipc::WriteFeatureSections,
     ) -> impl Future<Output = Result<ipc::FeatureSectionsWritten, Refusal>> + Send;
 
-    /// `upsert_features` — areas and features kept by slug, for the Operator's seeding. [`Refusal::Unacceptable`] for a
-    /// feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a blank part
-    /// (`fleet.feature_blank`), with nothing kept.
-    fn upsert_features(&self, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
+    /// `upsert_features` — areas and features kept by slug, for the Operator's seeding and for the owner's confirming and
+    /// splitting from Bridge. [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's
+    /// (`fleet.not_the_operator`), a feature in an area neither the call nor the project has (`fleet.feature_area_unknown`) or a
+    /// blank part (`fleet.feature_blank`), with nothing kept.
+    fn upsert_features(&self, caller: Option<crate::Caller>, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
@@ -67,7 +91,12 @@ pub trait Features: Send + Sync + 'static {
     /// holds features (`fleet.feature_seeded`).
     fn seed_features(&self, caller: Option<crate::Caller>, seed: ipc::SeedFeatures) -> impl Future<Output = Result<ipc::FeaturesSeeded, Refusal>> + Send;
 
-    /// `change_feature` — the Operator merges a feature into another or renames it. [`Refusal::Unacceptable`]
+    /// `run_librarian` — the project's librarian runs its enabled parts now, on a press of Catch up, and keeps a record of the run.
+    /// [`Refusal::Unacceptable`] for a call through the door from any session but the Operator's (`fleet.not_the_operator`) or a
+    /// project Fleet does not hold (`fleet.feature_project`).
+    fn run_librarian(&self, caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> impl Future<Output = Result<ipc::LibrarianRan, Refusal>> + Send;
+
+    /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
     fn change_feature(&self, caller: Option<crate::Caller>, change: ipc::ChangeFeature) -> impl Future<Output = Result<ipc::FeatureChanged, Refusal>> + Send;

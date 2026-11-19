@@ -72,6 +72,12 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     })
 }
 
+/// Whether `tip` is `build` itself or a commit under it, so a branch that reached the build through `main`
+/// counts as in it. False where git cannot say: a commit this repository does not hold.
+pub fn tip_under_build(root: &str, build: &str, tip: &str) -> bool {
+    read_in(root, "git", &["merge-base", "--is-ancestor", tip, build]).is_ok_and(|run| run.status.success())
+}
+
 /// What git can say of a build after the fact, when nothing recorded it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BuildMade {
@@ -106,6 +112,35 @@ pub fn build_made_of(root: &str, commit: &str) -> Option<BuildMade> {
             }
             None => return Some(BuildMade { preview: true, main_commit: hash.to_string(), branches }),
         }
+    }
+    None
+}
+
+/// What the first-parent merges of a preview build say it holds: the main commit under it, and each branch
+/// merged with the tip it was merged at, oldest merge first.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildMerges {
+    pub main_commit: String,
+    pub merges: Vec<(String, String)>,
+}
+
+/// The branches `scripts/preview` merged into the build at `commit`, each at the second parent of its
+/// merge. **`None`** where git cannot say or the walk finds no merge: the build is not a preview, or
+/// holds nothing.
+pub fn build_merges(root: &str, commit: &str) -> Option<BuildMerges> {
+    let named = format!("{commit}^{{commit}}");
+    commits(root, &["rev-parse", "--verify", "--quiet", &named])?.pop()?;
+    let walk = commits(root, &["log", "--first-parent", "--format=%H\t%P\t%s", "-n", "400", commit])?;
+    let mut merges = Vec::new();
+    for line in &walk {
+        let mut fields = line.splitn(3, '\t');
+        let (hash, parents, subject) = (fields.next()?, fields.next()?, fields.next().unwrap_or_default());
+        let Some(branch) = merged_into_preview(subject) else {
+            merges.reverse();
+            return (!merges.is_empty()).then(|| BuildMerges { main_commit: hash.to_string(), merges });
+        };
+        let tip = parents.split_whitespace().nth(1)?;
+        merges.push((branch.to_string(), tip.to_string()));
     }
     None
 }

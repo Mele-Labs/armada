@@ -57,6 +57,7 @@ pub const REGIONS: [Region; 3] = [
             row("overview", "Cockpit", "layout-dashboard", false),
             row("sessions", "Jobs", "square-terminal", true),
             row("kit", "Kit", "briefcase", true),
+            row("features", "Features", "library", true),
             row("mods", "Mods", "puzzle", false),
             row("settings", "Settings", "settings", false),
             row("guides", "Guides", "book-open", true),
@@ -275,6 +276,20 @@ mod tests {
         assert!(hidden("dashboard.panels", "merge-line"));
         hold("not a layout");
         assert!(!hidden("job.panels", "done"), "text with a problem chooses nothing");
+    }
+
+    #[test]
+    fn hiding_features_hides_it_and_leaves_the_places_beside_it() {
+        hold(r#"{"version":1,"rail":{"hidden":["features"]}}"#);
+        assert!(hidden("rail", "features"));
+        assert!(!hidden("rail", "kit"));
+        hold(r#"{"version":1,"rail":{"hidden":[]}}"#);
+        assert!(!hidden("rail", "features"), "shown again");
+        let rail = REGIONS.iter().find(|region| region.id == "rail").expect("the rail");
+        let ids: Vec<_> = rail.rows.iter().map(|one| one.id).collect();
+        assert_eq!(ids.iter().position(|id| *id == "features"), ids.iter().position(|id| *id == "kit").map(|at| at + 1), "Features follows Kit");
+        let row = rail.rows.iter().find(|one| one.id == "features").expect("a row");
+        assert_eq!((row.label, row.icon, row.hideable), ("Features", "library", true));
     }
 
     #[test]

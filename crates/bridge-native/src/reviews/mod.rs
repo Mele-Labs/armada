@@ -6,9 +6,11 @@ mod bar;
 mod inbox;
 pub mod layout;
 mod live;
+mod markdown;
 mod mock;
 pub(crate) mod model;
 mod panes;
+mod rail_width;
 mod tabs;
 pub mod walk;
 
@@ -30,6 +32,7 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
+use live::Find;
 use model::{Critique, DraftOf, Explain, Group, Inbox, Mine, Page, Summary, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
@@ -62,6 +65,10 @@ pub fn default_arrangement() -> Arrangement {
 const PAGE_READ: Duration = Duration::from_millis(1500);
 /// How long the mock forge takes to read the inbox again.
 const REFRESH_READ: Duration = Duration::from_millis(4000);
+/// How long a rate-limited inbox waits before reading again.
+const LIMIT_REREAD: Duration = Duration::from_secs(30);
+/// How often the age of the lists in the header is said again.
+const AGE_TICK: Duration = Duration::from_secs(30);
 /// The menu on a practice he corrected.
 const CHANGE_REASON: &str = "Change the reason";
 const UNDO: &str = "Undo";
@@ -71,6 +78,12 @@ const CRITIQUE_RUN: Duration = Duration::from_millis(3000);
 const SUMMARY_WRITE: Duration = Duration::from_millis(2500);
 /// How long a change set's mock How it works or How to test takes.
 const EXPLAIN_RUN: Duration = Duration::from_millis(2000);
+/// How long the mock Find problems takes to write the change sets and their findings.
+const FIND_RUN: Duration = Duration::from_millis(3000);
+/// How long the mock Summarize, Explain or Simplify takes to write its answer.
+const REWRITE_RUN: Duration = Duration::from_millis(2000);
+/// How long the head says Link copied after Copy link.
+const COPIED_FOR: Duration = Duration::from_millis(2000);
 /// The change set tab's lines above its first hunk, so Show in change set can scroll to one.
 pub(super) const HUNKS_AT: usize = 6;
 
@@ -117,6 +130,8 @@ pub struct ReviewsScreen {
     pub within: FocusHandle,
     /// The inbox's rows, which the arrows move through.
     pub rows: FocusHandle,
+    /// The inbox's own scroll, kept as it is when fresh rows swap in.
+    inbox_scroll: ScrollHandle,
     inbox: Inbox,
     folded: HashSet<Group>,
     lists: Option<PullReviewList>,
@@ -132,6 +147,8 @@ pub struct ReviewsScreen {
     last_visit: Option<Page>,
     refreshed: bool,
     arrangement: Arrangement,
+    /// The Files rail's width, as he last dragged it.
+    rail_width: f32,
     layouts: Layouts,
     control: Entity<LayoutControl>,
     /// The panes' area as last drawn, so a drop that would squeeze a pane is refused.
@@ -201,6 +218,22 @@ pub struct ReviewsScreen {
     live: Option<live::Live>,
     /// A walk's stand-in for Fleet's calls: the reviews asked of him, opened as he opens each, for the strip's figure.
     asked: Option<ipc::StandingCalls>,
+    /// His login on the forge, so the head can say whether a review is asked of him.
+    me: String,
+    /// Copy link was pressed on this pull request: the head says so until the task clears it.
+    copied: Option<(u64, Task<()>)>,
+    /// The mock's Find problems runs, by pull request.
+    finding: HashMap<u64, Task<()>>,
+    /// The pull requests he started a review on in this run of the app: their rows keep the bot mark
+    /// through a refresh that read the lists before Fleet recorded the run.
+    ran_here: HashSet<u64>,
+    /// The card above each page's description: which of Summarize, Explain or Simplify it shows.
+    rewrites: HashMap<u64, model::Rewrite>,
+    /// Each answer as it stands, by pull request and question.
+    rewritten: HashMap<(u64, model::Rewrite), model::Answer>,
+    rewrite_runs: HashMap<(u64, model::Rewrite), Task<()>>,
+    /// Files' own scroll, which a file pressed in the rail moves to that file.
+    files_scroll: ScrollHandle,
     _subs: Vec<Subscription>,
 }
 
@@ -237,7 +270,7 @@ impl ReviewsScreen {
             within: cx.focus_handle(),
             rows: cx.focus_handle().tab_stop(true),
             inbox: mock::inbox(),
-            folded: HashSet::from([Group::Done]),
+            folded: Group::ALL.into_iter().filter(|group| group.starts_folded()).collect(),
             lists: None,
             search,
             focused: None,
@@ -248,6 +281,7 @@ impl ReviewsScreen {
             refreshed: false,
             layouts: Layouts::new(arrangement.clone()),
             arrangement,
+            rail_width: rail_width::load(),
             control,
             area: Rc::default(),
             strips: Rc::default(),
@@ -271,6 +305,7 @@ impl ReviewsScreen {
             explains: HashMap::new(),
             explain_runs: HashMap::new(),
             chosen: HashMap::new(),
+            inbox_scroll: ScrollHandle::new(),
             set_scroll: ScrollHandle::new(),
             asking: None,
             asking_review: None,
@@ -289,6 +324,14 @@ impl ReviewsScreen {
             next_draft: 1,
             live: None,
             asked: None,
+            me: mock::ME.into(),
+            copied: None,
+            finding: HashMap::new(),
+            ran_here: HashSet::new(),
+            rewrites: HashMap::new(),
+            rewritten: HashMap::new(),
+            rewrite_runs: HashMap::new(),
+            files_scroll: ScrollHandle::new(),
             _subs: subs,
         }
     }
@@ -479,6 +522,9 @@ impl ReviewsScreen {
         let gone = self.pages[&number].seen.as_ref().is_some_and(|seen| seen.gone);
         self.open = Some(number);
         self.focused = Some(number);
+        if self.is_live() {
+            self.live_tools(number);
+        }
         self.sheet = false;
         self.whole = !changed || gone;
         self.bring_kind("pr-overview", cx);
@@ -603,6 +649,119 @@ impl ReviewsScreen {
         if self.open == Some(number) && self.rail_on().as_deref() == Some(set.as_str()) {
             self.set_scroll.scroll_to_bottom();
         }
+        cx.notify();
+    }
+
+    /// Find problems on the mock: the change sets and what was found in them land after a moment.
+    pub(super) fn mock_find_problems(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        if self.finding.contains_key(&number) {
+            return;
+        }
+        self.mark_reviewing(number);
+        let wait = self.wait(FIND_RUN, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.end_find(number, window, cx));
+        });
+        self.finding.insert(number, task);
+        cx.notify();
+    }
+
+    fn end_find(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(page) = self.pages.get_mut(&number) {
+            let why = std::mem::take(&mut page.overview.why);
+            page.overview = model::Overview { why, ..mock::found(number) };
+        }
+        self.finding.remove(&number);
+        self.suggestion_boxes(number, window, cx);
+        self.colour(number, cx);
+        cx.notify();
+    }
+
+    /// Summarize, Explain or Simplify: its card opens above the description, written once and kept.
+    pub(super) fn ask_rewrite(&mut self, rewrite: model::Rewrite, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        self.rewrites.insert(number, rewrite);
+        if self.is_live() {
+            self.live_rewrite(number, rewrite, window, cx);
+            cx.notify();
+            return;
+        }
+        let key = (number, rewrite);
+        if self.rewritten.contains_key(&key) {
+            cx.notify();
+            return;
+        }
+        self.rewritten.insert(key, model::Answer::Writing);
+        let wait = self.wait(REWRITE_RUN, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update(cx, |this, cx| this.end_rewrite(key, cx));
+        });
+        self.rewrite_runs.insert(key, task);
+        cx.notify();
+    }
+
+    fn end_rewrite(&mut self, key: (u64, model::Rewrite), cx: &mut Context<Self>) {
+        self.rewritten.insert(key, model::Answer::Written(mock::rewrite(key.0, key.1)));
+        self.rewrite_runs.remove(&key);
+        cx.notify();
+    }
+
+    /// The card's x: the description stands alone again. The answer is kept for the next press.
+    pub(super) fn close_rewrite(&mut self, cx: &mut Context<Self>) {
+        if let Some(number) = self.open {
+            self.rewrites.remove(&number);
+        }
+        cx.notify();
+    }
+
+    /// Copy link: the pull request's address on the clipboard, and the head says so for a moment.
+    pub(super) fn copy_link(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.page().filter(|page| !page.address.is_empty()) else { return };
+        let number = page.number;
+        cx.write_to_clipboard(gpui::ClipboardItem::new_string(page.address.clone()));
+        let timer = cx.background_executor().timer(COPIED_FOR);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            timer.await;
+            let _ = this.update(cx, |this, cx| {
+                this.copied = None;
+                cx.notify();
+            });
+        });
+        self.copied = Some((number, task));
+        cx.notify();
+    }
+
+    pub(super) fn open_in_browser(&self, cx: &mut Context<Self>) {
+        if let Some(page) = self.page().filter(|page| !page.address.is_empty()) {
+            cx.open_url(&page.address);
+        }
+    }
+
+    /// A file pressed in the rail: Files in front, on the whole pull request where the file is not in
+    /// the change since he looked, the file open, and its card at the top once it is drawn.
+    pub(super) fn show_file(&mut self, path: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(page) = self.page() else { return };
+        let number = page.number;
+        if !page.files.iter().any(|file| file.path == path && file.since) {
+            self.whole = true;
+        }
+        self.opened.insert((number, path.to_string()), true);
+        self.bring_kind("pr-files", cx);
+        // Next-frame work runs before that frame draws, so the card is looked for one frame later.
+        let name = format!("File: {path}");
+        cx.on_next_frame(window, move |_, window, cx| cx.on_next_frame(window, move |this, window, cx| this.scroll_to_file(&name, window, cx)));
+        cx.notify();
+    }
+
+    fn scroll_to_file(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(card) = cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Article, name).map(|drawn| drawn.bounds)) else { return };
+        let body = self.files_scroll.bounds();
+        let (offset, most) = (self.files_scroll.offset(), self.files_scroll.max_offset());
+        let y = (offset.y - (card.origin.y - body.origin.y)).min(px(0.)).max(-most.y);
+        self.files_scroll.set_offset(gpui::point(offset.x, y));
         cx.notify();
     }
 
@@ -783,19 +942,48 @@ impl ReviewsScreen {
         }
     }
 
-    /// Start: the ask is remembered for the repository and the review runs on it. Nothing ticked,
-    /// nothing starts.
+    /// Start: the ask is remembered for the repository, the change sets and the overview run where
+    /// they have not read this commit, and each ticked tool runs. Nothing ticked runs those two alone.
     pub(super) fn start_review(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(open) = self.asking_review.as_ref() else { return };
-        if open.ask.tools.is_empty() {
-            return;
-        }
         let Some(mut open) = self.asking_review.take() else { return };
         open.ask.focus = open.focus.read(cx).value().trim().to_string();
-        if let Some(repository) = self.page().map(|page| page.repository.clone()) {
-            self.review_asks.insert(repository, open.ask.clone());
+        let Some(page) = self.page() else { return };
+        let (number, repository) = (page.number, page.repository.clone());
+        let found = page.kept
+            || match self.live_finds(number) {
+                Some(finds) => finds.flags == Find::Done || finds.sets == Find::Running || finds.flags == Find::Running,
+                None => page.overview.read || self.finding.contains_key(&number),
+            };
+        self.review_asks.insert(repository, open.ask.clone());
+        self.sheet = false;
+        if !found {
+            self.find_problems(window, cx);
+        }
+        if open.ask.tools.is_empty() {
+            self.bring_kind("pr-overview", cx);
+            window.focus(&self.rows, cx);
+            cx.notify();
+            return;
         }
         self.start_critique(open.ask, window, cx);
+    }
+
+    /// He started a review on it here: its row takes the bot mark at once, and keeps it.
+    pub(super) fn mark_reviewing(&mut self, number: u64) {
+        self.ran_here.insert(number);
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            row.reviewing = true;
+        }
+    }
+
+    /// Whether he ran any review on it: a tool, the change sets or the overview, here or before.
+    pub(super) fn ran_review(&self, page: &model::Page) -> bool {
+        let row = self.inbox.rows.iter().any(|row| row.number == page.number && row.reviewing);
+        let found = match self.live_finds(page.number) {
+            Some(finds) => finds.sets != Find::NotRun || finds.flags != Find::NotRun,
+            None => page.overview.read || self.finding.contains_key(&page.number),
+        };
+        row || found || !matches!(page.critique, Critique::None)
     }
 
     /// The review run reads the range for what he asked, and its findings come to Review comments.
@@ -804,6 +992,7 @@ impl ReviewsScreen {
         let Some(page) = self.pages.get_mut(&number) else { return };
         let range = page.range();
         page.critique = Critique::Running { range: range.clone(), asked: asked.clone() };
+        self.mark_reviewing(number);
         self.bring_kind("pr-findings", cx);
         window.focus(&self.rows, cx);
         if self.is_live() {
@@ -874,6 +1063,14 @@ impl ReviewsScreen {
         for key in explaining {
             self.end_explain(key, cx);
         }
+        let finding: Vec<u64> = self.finding.keys().copied().collect();
+        for number in finding {
+            self.end_find(number, window, cx);
+        }
+        let rewriting: Vec<(u64, model::Rewrite)> = self.rewrite_runs.keys().copied().collect();
+        for key in rewriting {
+            self.end_rewrite(key, cx);
+        }
         cx.notify();
     }
 
@@ -928,22 +1125,37 @@ impl ReviewsScreen {
     fn submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         if self.is_live() {
-            self.live_submit(verdict, window, cx);
+            self.live_submit(verdict, false, window, cx);
             return;
         }
-        self.sent_review(number, verdict, window, cx);
+        self.sent_review(number, verdict, false, window, cx);
     }
 
-    /// The review went: its drafts and summary are cleared, and his verdict stands on the page and row.
-    fn sent_review(&mut self, number: u64, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
-        let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
-        let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
-        self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
-        for id in gone {
-            self.discard_draft(&id, cx);
+    /// No problems found's Approve: an approving review at the head with no body and no comments, by
+    /// the same send as Review changes. His drafts and summary stay for a later review.
+    pub(super) fn approve_bare(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(number) = self.open else { return };
+        if self.is_live() {
+            self.live_submit(Verdict::Approved, true, window, cx);
+            return;
         }
-        crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
-        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
+        self.sent_review(number, Verdict::Approved, true, window, cx);
+    }
+
+    /// No problems found's Approve with comments: Review changes opens with the summary in focus.
+    pub(super) fn approve_with_comments(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_sheet(true, window, cx);
+        if let Some(summary) = self.summary.as_ref() {
+            summary.state.update(cx, |area, cx| area.focus(window, cx));
+        }
+    }
+
+    /// The review went: his verdict stands on the page and row. A review that carried his drafts and
+    /// summary clears them; a bare approval leaves them.
+    fn sent_review(&mut self, number: u64, verdict: Verdict, bare: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if !bare {
+            self.clear_sent(number, window, cx);
+        }
         if let Some(page) = self.pages.get_mut(&number) {
             page.mine = Mine { verdict, on: Some(page.head.clone()), day: Some("today".into()), requested: None, commits: 0, replies: 0 };
         }
@@ -953,6 +1165,18 @@ impl ReviewsScreen {
             row.new_commits = None;
         }
         self.open_sheet(false, window, cx);
+    }
+
+    /// The drafts and summary that went with a review.
+    fn clear_sent(&mut self, number: u64, window: &mut Window, cx: &mut Context<Self>) {
+        let gone: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).map(|draft| draft.id.clone()).collect();
+        let sent: Vec<String> = self.drafts.iter().filter(|draft| draft.number == number).filter_map(|draft| draft.finding.clone()).collect();
+        self.sent_findings.extend(sent.into_iter().map(|finding| ((number, finding), "today".to_string())));
+        for id in gone {
+            self.discard_draft(&id, cx);
+        }
+        crate::drafts::clear(&format!("reviews:summary:{number}"), cx);
+        self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
     }
 
     fn send_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1148,6 +1372,7 @@ impl ReviewsScreen {
             Entry::Choice { id: "team", label: "Team".into(), on: on == Some(PullReviewList::Team) },
             Entry::Choice { id: "assigned", label: "Assigned".into(), on: on == Some(PullReviewList::Assigned) },
             Entry::Choice { id: "mine", label: "Mine".into(), on: on == Some(PullReviewList::Mine) },
+            Entry::Choice { id: "reviewing", label: model::Group::Reviewing.said().into(), on: on == Some(PullReviewList::Reviewing) },
         ];
         self.open_menu("Lists", entries, at, |this, id, _, cx| {
             this.lists = match id {
@@ -1155,6 +1380,7 @@ impl ReviewsScreen {
                 "team" => Some(PullReviewList::Team),
                 "assigned" => Some(PullReviewList::Assigned),
                 "mine" => Some(PullReviewList::Mine),
+                "reviewing" => Some(PullReviewList::Reviewing),
                 _ => None,
             };
             cx.notify();
@@ -1337,6 +1563,17 @@ pub(crate) fn panel(look: &Look) -> gpui::Div {
         .border_color(look.color(token::BORDER_DEFAULT))
         .shadow(look.shadows(token::SHADOW_CARD))
         .overflow_hidden()
+}
+
+/// The radius for a child that paints its own background flush against `panel`'s top edge. gpui clips children to the
+/// rectangle, not the curve, so the child rounds its own top corners: the panel's radius less its doubled top border.
+pub(crate) fn panel_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH) * 2.
+}
+
+/// The same for a card with a border all round (a card on a panel): its radius less one border.
+pub(crate) fn card_inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH)
 }
 
 /// Where a menu opens under the labelled element of this role and name, or at `fallback`.

@@ -17,6 +17,13 @@ Only the act says it (`walk_asks.rs`); Fleet does not read the item's words, and
 **It refuses an item that is a merge wait** (`fleet.session_waiting_merging`): its `approve_pr` act names one of the Job's pull requests that is queued, has auto-merge on or has merged, or its words name such a pull request's number or link (`merge_waits.rs`).
 A merge wait is not a Needs you item, since Fleet follows the merge and tells the Job when it lands; the agent rewords.
 An item kept already, or written again as it was, is never taken off for it.
+**In a repository with a preview it refuses an item that asks him to try the Job's own change** (`fleet.session_waiting_look`): an `approve_pr` act on one of the Job's pull requests, `approves: true` whose words name one of them or a branch it offered, or words opening with *Try*, *Look at* or *Test* that name one (`look_asks.rs`).
+The Ready to try card of `offer_preview` asks him that, and his Looks good closes the `you_approved` gate, so the refusal tells the agent to offer the branch; a decision with options and an item about another Job's work stand.
+On 17 Nov 2026 Jobs raised such items above the card that asked the same thing, though the job note said not to; one kept before the rule comes off every read once the Job's branch is on the preview list.
+**A `run` item meant for another of his Macs names it in `act.on`**, and Bridge offers no Run for it on any other Mac (`run_macs.rs`, `job_view/run_mac.rs`).
+On 18 Nov 2026 a Job asked him to run a command on his other Mac, and Run ran it on the one he sat at.
+Only the act says it; the item's words are never read for a Mac.
+Fleet refuses a name that is neither this Mac nor a paired one (`fleet.session_waiting_mac`), naming the Macs it knows.
 **It refuses an item that repeats a question that lapsed** (`fleet.session_waiting_asked`): a question nobody answered inside the hold, or one kept for a walk, stays in his Needs you whole and his answer comes to the agent as a message.
 The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
 **Where he answers by buttons it refuses a question with no options, or more than four** (`fleet.session_waiting_options`), naming the item and telling the agent to ask it with two to four options, its pick first and a cost on each.

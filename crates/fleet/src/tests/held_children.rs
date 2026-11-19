@@ -88,7 +88,7 @@ async fn an_agents_own_item_for_a_held_child_is_left_off_the_parents_list() {
         approves: false,
         id: id.into(),
         text: text.into(),
-        act: Some(WaitingAct { kind: WaitingActKind::Message, target: target.into() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Message, target: target.into(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         artifact: None,

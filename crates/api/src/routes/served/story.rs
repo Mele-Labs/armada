@@ -38,4 +38,14 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/projects/asks",
     },
+    Route {
+        operation: "list_job_questions",
+        method: "GET",
+        path: "/sessions/questions",
+    },
+    Route {
+        operation: "mark_answer_read",
+        method: "POST",
+        path: "/sessions/question/read",
+    },
 ];

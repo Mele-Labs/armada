@@ -87,7 +87,7 @@ fn long_lived() -> SessionRecord {
         running: Vec::new(),
         waiting_for: vec![
             WaitingItem {
-                act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into() }),
+                act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Run, target: "scripts/restart".into(), on: None }),
                 steps: vec!["Quit Bridge".into(), "Run `scripts/restart`".into()],
                 ..waiting("merge", "Approve the pull request", WaitingSource::Agent, None)
             },
@@ -158,6 +158,7 @@ fn long_lived() -> SessionRecord {
         pull_request_drafts: Vec::new(),
         claim_waits: Vec::new(),
         claims_unsent: false,
+        answer_unread: false,
     }
 }
 
@@ -554,7 +555,7 @@ async fn a_body_the_door_refuses_names_its_whole_shape() {
     assert!(said.contains("missing field `text`") || said.contains("invalid type"), "{said}");
     assert!(
         said.contains(
-            "The body is {items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string}"
+            "The body is {items: [{id: string, text: string, act?: {kind: walk|answer|approve_pr|run|message, target: string, on?: string}"
         ),
         "{said}"
     );

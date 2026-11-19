@@ -179,7 +179,7 @@ impl PullRequestPanel for FakeDaemon {
         Ok(page(manifest_id, write.pull_request))
     }
 
-    async fn get_review_lists(&self, _project: Option<String>) -> Result<ipc::PullReviewLists, Refusal> {
+    async fn get_review_lists(self: std::sync::Arc<Self>, _project: Option<String>) -> Result<ipc::PullReviewLists, Refusal> {
         Ok(ipc::PullReviewLists {
             me: "octocat".into(),
             fetched_at: "2026-10-16T09:00:00Z".into(),
@@ -187,7 +187,10 @@ impl PullRequestPanel for FakeDaemon {
             team: Vec::new(),
             assigned: Vec::new(),
             mine: Vec::new(),
+            reviewing: Vec::new(),
             silent: Vec::new(),
+            rate_limited: None,
+            refreshing: false,
         })
     }
 
@@ -357,6 +360,14 @@ impl PullRequestPanel for FakeDaemon {
 
     async fn mark_pull_request_seen(&self, _manifest_id: ManifestId, mark: ipc::MarkPullSeen) -> Result<ipc::PullSeen, Refusal> {
         Ok(ipc::PullSeen { head: mark.head, at: "2026-10-16T09:00:00Z".into() })
+    }
+
+    async fn ignore_pull_request(&self, _manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::PullIgnored, Refusal> {
+        Ok(ipc::PullIgnored { number: ignore.number, at: "2026-10-16T09:00:00Z".into() })
+    }
+
+    async fn unignore_pull_request(&self, _manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::IgnorePull, Refusal> {
+        Ok(ignore)
     }
 
     async fn mark_file_viewed(&self, _manifest_id: ManifestId, mark: ipc::MarkFileViewed) -> Result<ipc::PullViewedFile, Refusal> {

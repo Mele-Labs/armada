@@ -37,6 +37,14 @@ pub(crate) struct OfProject {
     project: Option<String>,
 }
 
+/// `?project=&since=` on `get_since_you_looked`.
+#[derive(serde::Deserialize)]
+pub(crate) struct OfSince {
+    #[serde(default)]
+    project: Option<String>,
+    since: String,
+}
+
 /// `?path=&project=&manifest_id=` on `get_features_of_path`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfPath {
@@ -68,6 +76,27 @@ pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>
     }
 }
 
+pub(crate) async fn get_project_overview<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_project_overview(crate::acting::asking(), asked.project).await {
+        Ok(overview) => answer(StatusCode::OK, &overview, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_since_you_looked<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfSince>) -> Response {
+    match served.daemon().get_since_you_looked(crate::acting::asking(), asked.project, asked.since).await {
+        Ok(looked) => answer(StatusCode::OK, &looked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn get_whos_on_what<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_whos_on_what(crate::acting::asking(), asked.project).await {
+        Ok(who) => answer(StatusCode::OK, &who, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_feature_brief<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeature>) -> Response {
     match served.daemon().get_feature_brief(crate::acting::asking(), asked.project, asked.feature).await {
         Ok(brief) => answer(StatusCode::OK, &brief, served.run_id()),
@@ -94,12 +123,13 @@ pub(crate) async fn write_feature_sections<D: Features>(State(served): State<Ser
     }
 }
 
+/// The Operator or the owner keeps areas and features. **Placed as `change_feature` is.**
 pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let upsert: ipc::UpsertFeatures = match ipc::decode_body("areas and features to keep", &body) {
         Ok(upsert) => upsert,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().upsert_features(upsert).await {
+    match served.daemon().upsert_features(crate::acting::asking(), upsert).await {
         Ok(kept) => answer(StatusCode::OK, &kept, served.run_id()),
         Err(refusal) => refused(refusal),
     }
@@ -117,6 +147,18 @@ pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+/// The owner or the Operator presses Catch up: the project's librarian runs now. **Placed as `upsert_features` is.**
+pub(crate) async fn run_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let run: ipc::RunLibrarian = match ipc::decode_body("a project to run the librarian for", &body) {
+        Ok(run) => run,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().run_librarian(crate::acting::asking(), run).await {
+        Ok(ran) => answer(StatusCode::OK, &ran, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
 /// not on the agent's connection.
 pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
@@ -130,7 +172,7 @@ pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<
     }
 }
 
-/// The Operator merges or renames a feature. **Placed by its connection**, as `raise_card` is.
+/// The Operator or the owner merges, renames or moves a feature. **A door call is placed by its connection**, as `raise_card` is; a call by no door is the owner's, from Bridge.
 pub(crate) async fn change_feature<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let change: ipc::ChangeFeature = match ipc::decode_body("a change to a feature", &body) {
         Ok(change) => change,

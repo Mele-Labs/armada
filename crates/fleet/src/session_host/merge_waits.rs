@@ -44,7 +44,7 @@ pub(crate) fn merge_wait_of(act: Option<&WaitingAct>, text: &str, pulls: &[Mergi
 }
 
 /// Whether `text` names pull request `number`: `#12`, `/pull/12`, or `PR 12` and `pull request 12` in any case.
-fn names(text: &str, number: u64) -> bool {
+pub(crate) fn names(text: &str, number: u64) -> bool {
     let lower = text.to_lowercase();
     let mut digits = lower.char_indices().filter(|(_, c)| c.is_ascii_digit()).peekable();
     while let Some((start, _)) = digits.next() {
@@ -85,7 +85,7 @@ mod tests {
     }
 
     fn act(kind: WaitingActKind, target: &str) -> WaitingAct {
-        WaitingAct { kind, target: target.to_string() }
+        WaitingAct { kind, target: target.to_string(), on: None }
     }
 
     #[test]

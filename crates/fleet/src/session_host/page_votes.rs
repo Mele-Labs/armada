@@ -290,6 +290,8 @@ where
             };
             let answer = PartAnswer { words, take, notes: result.notes().clone(), at: Some(at.clone()) };
             self.stored_part_settled(id, &artifact.id, &part.id, &part.drawn, PartState::Picked, answer).await?;
+            // His pick is the artifact's one answer: a drawing still open in it stops asking too.
+            self.drawings_informed(id, &artifact.id, None).await?;
         }
         self.published_hosted(id).await?;
         Ok(VoteCast { revision, vote: vote.id, form, result, at })

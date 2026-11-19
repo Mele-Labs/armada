@@ -1223,19 +1223,53 @@ pub enum TerminalAsked {
     Gone {},
 }
 
-/// `message_reach`'s body: the address a Job's `SendMessage` names, asked before it is sent.
+/// `message_reach`'s body: the address a Job's `SendMessage` names, asked before it is sent, and
+/// its words. **A mod that sends no words is only told whether it may send**, and is never `Queued`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct MessageTo {
     pub to: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub message: Option<String>,
 }
 
 /// Whether the Job holding the connection may send to that address. `Refused` carries the
-/// sentence the agent reads.
+/// sentence the agent reads. **`Queued` is a message Fleet carries itself**, to a Job with no
+/// process for the CLI's own `SendMessage` to reach: the mod answers the call with `message`, and
+/// the CLI never runs it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "outcome", rename_all = "snake_case")]
 pub enum MessageReach {
     Allowed {},
     Refused { message: String },
+    Queued { message: String },
+}
+
+/// `quiet_jobs`: the live Jobs this Mac hosts that the CLI's own `ListAgents` leaves out, because no
+/// process of theirs runs. A `SendMessage` to one is kept and carried by Fleet.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuietJobs {
+    pub jobs: Vec<QuietJob>,
+}
+
+/// One live Job no process of which runs, as `ListAgents` adds it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct QuietJob {
+    /// `s-` and the first eight of its id: what `SendMessage` names it by.
+    pub address: String,
+    pub title: Option<String>,
+    pub why: QuietWhy,
+}
+
+/// Why a live Job has no process, and so when a message to it is read.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum QuietWhy {
+    /// Its agent ended its turn and Fleet let the process go: a message starts it.
+    BetweenTurns,
+    /// The person paused it: a message is its first turn at Resume.
+    Paused,
+    /// It waits on its start card: a message goes when it starts.
+    Held,
 }
 
 /// What a person sent a terminal session, oldest first, handed over once. The

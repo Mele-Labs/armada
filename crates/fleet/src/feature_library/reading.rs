@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
+    FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRead, FeatureRow, FeatureSection,
     FeatureSectionKind, FeatureState, Instant, SessionId,
 };
 use store::{feature_link_kind, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
@@ -14,7 +14,9 @@ use store::{feature_link_kind, KeptFeature, KeptFeatureLink, KeptSection, Store,
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
 use super::mapping::FeatureMap;
 use super::staleness::stale_since;
+use super::whos_on_what::elsewhere_of;
 use crate::daemon::Fleet;
+use crate::my_pulls::Mine;
 
 pub(super) const UNKNOWN: &str = "fleet.feature_unknown";
 const SECTION_UNKNOWN: &str = "fleet.feature_section_unknown";
@@ -199,17 +201,20 @@ where
                 None => areas.push(FeatureAreaRow { slug: feature.area.clone(), title: feature.area.clone(), features: vec![row] }),
             }
         }
-        Ok(FeatureLibrary { project: chosen, areas })
+        let librarian = super::librarian::state_of(&store, &chosen).map_err(|why| self.feature_fault(why))?;
+        Ok(FeatureLibrary { project: chosen, areas, librarian })
     }
 
-    /// The live Jobs that filed a file under each feature of the project.
-    fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
+    /// The Jobs on each feature of the project: those that filed a file under it and are live and
+    /// hold a worktree slot now, the fact `list_jobs` shows as `slot`. A live Job holding none has
+    /// stopped without ending, and is not at work on anything.
+    pub(super) fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
         let pairs = store.feature_job_pairs(project).map_err(|why| self.feature_fault(why))?;
         let jobs: BTreeSet<&str> = pairs.iter().map(|(_, job)| job.as_str()).collect();
         let mut live: BTreeMap<String, String> = BTreeMap::new();
         for job in jobs {
             if let Ok(Some(session)) = store.session(job) {
-                if session.state == store::SessionState::Live {
+                if session.state == store::SessionState::Live && holds_a_slot(store, job) {
                     live.insert(job.to_string(), session.title.unwrap_or_else(|| job.to_string()));
                 }
             }
@@ -257,7 +262,9 @@ where
                 store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?,
             )
         };
-        Ok(FeaturePage {
+        let docs = reads_of(&links, feature_link_kind::DOC);
+        let tickets = reads_of(&links, feature_link_kind::TICKET);
+        let mut page = FeaturePage {
             project: loaded.project.clone(),
             feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
@@ -270,20 +277,29 @@ where
                 .collect(),
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
-        })
+            docs,
+            tickets,
+            floor_plan: None,
+        };
+        drop(store);
+        if only.is_none() {
+            page.floor_plan = self.floor_plan_of(&loaded, &feature).await;
+        }
+        Ok(page)
     }
 
     /// `get_feature_brief`.
     pub(super) async fn feature_briefed(&self, caller: Option<api::Caller>, project: Option<String>, slug: String) -> Result<FeatureBrief, Refusal> {
         self.feature_writes_filed().await;
+        let mine = self.owner_logins().await;
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
         let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
-        self.feature_brief_of(&store, &loaded, &feature)
+        self.feature_brief_of(&store, &loaded, &feature, &mine)
     }
 
     /// One feature's page condensed, read from `store` with the library `loaded` holds it in.
-    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature) -> Result<FeatureBrief, Refusal> {
+    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature, mine: &Mine) -> Result<FeatureBrief, Refusal> {
         let on = self.jobs_on_features(store, &loaded.project)?;
         let marked = sections_marked(store, loaded, feature).map_err(|why| self.feature_fault(why))?;
         let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
@@ -307,6 +323,7 @@ where
                 .filter_map(|(section, since)| Some((FeatureSectionKind::from_name(&section.section)?.name().to_string(), (*since)?)))
                 .collect(),
             jobs_now: on.get(&feature.id).map(|jobs| jobs.iter().map(|job| job.title.clone()).collect()).unwrap_or_default(),
+            elsewhere: elsewhere_of(store, loaded, feature, mine),
             entry_points,
             test: text_of(store::feature_section::TEST),
             bugs: open_bugs(&links),
@@ -317,6 +334,15 @@ where
         let text = condensed(&facts);
         Ok(FeatureBrief { feature: feature.slug.clone(), tokens: tokens_of(&text), text })
     }
+}
+
+/// Whether `job` has a standing `slot` row in the ledger, which is what `list_jobs` reads as its `slot`.
+fn holds_a_slot(store: &Store, job: &str) -> bool {
+    store
+        .attachments_of(&store::Holder::session(job))
+        .unwrap_or_default()
+        .iter()
+        .any(|one| one.kind == "slot" && one.state == store::AttachmentState::Standing)
 }
 
 fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
@@ -353,6 +379,26 @@ fn link_on_the_wire(link: KeptFeatureLink) -> Option<FeatureLink> {
         via: link.via,
         at: instant(&link.at),
     })
+}
+
+/// The docs or tickets of `kind` the links hold, newest first, **each once by what it was read by**: the newest read of it
+/// names the Job. A read in two Jobs is one entry.
+fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
+    let mut reads: Vec<FeatureRead> = Vec::new();
+    for link in links.iter().rev().filter(|link| link.kind == kind) {
+        if reads.iter().any(|read| read.target == link.target) {
+            continue;
+        }
+        reads.push(FeatureRead {
+            target: link.target.clone(),
+            title: Some(link.title.clone()).filter(|title| !title.is_empty()).unwrap_or_else(|| link.target.clone()),
+            gist: link.gist.clone(),
+            job: link.job.clone(),
+            at: instant(&link.at),
+            state: link.state.clone(),
+        });
+    }
+    reads
 }
 
 /// The open bugs, newest first.

@@ -36,6 +36,7 @@ where
     let waits = Arc::clone(&fleet);
     tokio::spawn(async move {
         waits.slot_waits_ended_at_boot().await;
+        waits.gate_runs_lost_at_boot().await;
         waits.slot_lines_restored().await;
         waits.operator_orders_read().await;
     });
@@ -114,6 +115,8 @@ where
             fleet.standing_checked().await;
             // His new words, sorted by a small model off this loop, and the asks whose pull request merged.
             fleet.messages_sorting().await;
+            // His questions whose Job's turn ended, read for whether its reply answers them.
+            fleet.questions_reading().await;
             fleet.asks_built_checked().await;
             // A stop nothing excuses, told once a minute after it: every live Job read at start and now and then.
             if stops_swept.is_none_or(|at| at.elapsed() >= crate::session_host::stopping::SWEEP) {
@@ -131,6 +134,10 @@ where
             fleet.claims_kept().await;
             // Who wrote the same file as whom, once the wait after a write is over.
             fleet.clashes_checked().await;
+            // Armada's own catalog, kept once for a project that holds its repository and no feature, Operator or not.
+            fleet.projects_seeded().await;
+            // The librarian, run by itself only where the owner set it to after merges or nightly.
+            fleet.librarians_due().await;
             // The files each Job wrote, filed under the features that own them.
             fleet.feature_writes_filed().await;
             // The clashes of every repository, pushed when the set moved.

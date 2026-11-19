@@ -6,6 +6,7 @@ use gpui::{Context, SharedString, Window};
 use ipc::{ConvertDraftToDocument, DraftDocument, SessionId, ThreadItem};
 
 use super::JobView;
+use crate::refusal::Failed;
 
 /// Where the page's card stands in the thread: Fleet asks for it as `document:<path>`, and the card
 /// carries the path as its page.
@@ -35,17 +36,20 @@ impl JobView {
                 .background_executor()
                 .spawn(async move {
                     let body = body?;
+                    let sent = body.len();
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let (status, bytes) = runtime.block_on(crate::transport::post(port, "/sessions/draft/document", body))?;
-                    if (200..300).contains(&status) {
-                        return ipc::decode::<DraftDocument>("DraftDocument", &bytes).map_err(|why| why.to_string());
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    let bytes = crate::refusal::answered("POST", "/sessions/draft/document", Some(sent), status, bytes)?;
+                    ipc::decode::<DraftDocument>("DraftDocument", &bytes).map_err(|why| Failed::from(why.to_string()))
                 })
                 .await;
             this.update(cx, |this, cx| match answer {
                 Ok(made) => this.go_to_made(&job, made.path, cx),
-                Err(why) => this.undo(&job, ix, &key, SharedString::from(why), cx),
+                Err(why) => {
+                    let told = why.clone();
+                    cx.defer(move |cx| told.tell_refusal("The draft was not made a Document", cx));
+                    this.undo(&job, ix, &key, SharedString::from(why.to_string()), cx)
+                }
             })
             .ok();
         })

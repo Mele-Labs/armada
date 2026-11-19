@@ -13,10 +13,11 @@ use serde::de::{DeserializeOwned, IgnoredAny};
 
 use super::model::{self, Critique, Verdict};
 use super::ReviewsScreen;
-use crate::fleet::{FleetConnection, ReviewRunsMoved};
+use crate::fleet::{FleetConnection, ReviewListsMoved, ReviewRunsMoved};
 use crate::job_view::pane_tree::Arrangement;
 use crate::job_view::wire::encoded;
 
+mod kept;
 pub(super) mod map;
 
 pub(super) use map::Find;
@@ -33,6 +34,11 @@ pub(super) struct Row {
     pub branch: String,
     pub author: String,
     pub holder: Option<PullReviewHolder>,
+    /// Where it is on the forge.
+    pub address: String,
+    pub draft: bool,
+    /// The head the lists read, whole: what Mark as seen in the inbox keeps.
+    pub head: String,
 }
 
 /// One pull request as Fleet last answered for it.
@@ -52,6 +58,14 @@ pub(super) struct Live {
     tools: HashMap<String, Vec<model::ReviewTool>>,
     /// Why the inbox could not be read, until a read lands.
     pub inbox_said: Option<String>,
+    /// Over rows kept from an earlier read, while the forge is rate-limiting us.
+    pub inbox_banner: Option<String>,
+    /// Why Fleet refused the last act on a row of the inbox, until the next act or read.
+    act_said: Option<String>,
+    /// The banner is the forge's rate limit, so the inbox reads again by itself when it lifts.
+    banner_limited: bool,
+    /// When the lists on screen were read, as Fleet said it, for the age in the header.
+    fetched_at: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
     pub writing: bool,
@@ -70,7 +84,7 @@ enum Verb {
 
 /// Fleet's own reason for a refusal, as a sentence he reads.
 fn refusal(status: u16, bytes: &[u8]) -> String {
-    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)
+    ipc::decode::<ipc::WireError>("WireError", bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| map::refused_words(&error))
 }
 
 async fn fetch<T: DeserializeOwned>(port: u16, verb: Verb, path: &str, body: Option<String>, name: &'static str) -> Result<T, String> {
@@ -117,17 +131,22 @@ impl ReviewsScreen {
         this.sent_findings = HashMap::new();
         this.review_tools = Vec::new();
         let moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewRunsMoved, window, cx| this.runs_moved(moved, window, cx));
+        let lists_moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewListsMoved, window, cx| this.lists_moved(moved, window, cx));
         this.live = Some(Live {
             fleet: fleet.clone(),
             pulls: HashMap::new(),
             tools: HashMap::new(),
             inbox_said: None,
+            inbox_banner: None,
+            act_said: None,
+            banner_limited: false,
+            fetched_at: None,
             write_said: HashMap::new(),
             writing: false,
             chained: HashSet::new(),
             layouts_read: false,
             tasks: HashMap::new(),
-            _subs: vec![moved],
+            _subs: vec![moved, lists_moved],
         });
         this
     }
@@ -198,43 +217,45 @@ impl ReviewsScreen {
 
     // ---- The inbox ---------------------------------------------------------------------------------
 
-    /// Refresh: the forge's four lists again, and the page in front with them.
+    /// Refresh: the forge's lists again, and the page in front with them where its head moved. Fleet answers the
+    /// lists it kept at once, with `refreshing`, and tells the fresh ones as `review_lists.changed` (`kept`).
     pub(super) fn live_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.inbox.refreshing = true;
         if !self.live.as_ref().is_some_and(|live| live.layouts_read) {
             self.live_read_layouts(cx);
         }
         self.call("lists".into(), Verb::Get, "/review_lists".into(), None, "PullReviewLists", window, cx, |this, answer: Result<PullReviewLists, String>, window, cx| {
-            this.inbox.refreshing = false;
-            this.refreshed = true;
             match answer {
-                Ok(lists) => {
-                    let (rows, found) = map::inbox_of(&lists);
-                    if let Some(live) = this.live.as_mut() {
-                        live.inbox_said = None;
-                        for (number, row) in found {
-                            match live.pulls.get_mut(&number) {
-                                Some(pull) => pull.row = row,
-                                None => {
-                                    live.pulls.insert(number, Pull { row, facts: map::Facts::default(), notes: Vec::new(), finds: map::Finds::default() });
-                                }
-                            }
-                        }
-                    }
-                    this.inbox.rows = rows;
-                    if let Some(number) = this.open {
-                        this.live_read(number, window, cx);
-                    }
-                }
+                Ok(lists) => this.take_lists(lists, window, cx),
                 Err(why) => {
+                    this.inbox.refreshing = false;
+                    this.refreshed = true;
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = Some(why);
                     }
                 }
             }
+            this.read_again_when_limit_lifts(window, cx);
             cx.notify();
         });
         cx.notify();
+    }
+
+    /// While the forge is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
+    fn read_again_when_limit_lifts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(live) = self.live.as_ref() else { return };
+        let limited = live.banner_limited || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));
+        if !limited {
+            return;
+        }
+        let wait = self.wait(super::LIMIT_REREAD, cx);
+        let task = cx.spawn_in(window, async move |this, cx| {
+            wait.await;
+            let _ = this.update_in(cx, |this, window, cx| this.live_refresh(window, cx));
+        });
+        if let Some(live) = self.live.as_mut() {
+            live.tasks.insert("limit-again".into(), task);
+        }
     }
 
     /// A row pressed: its page as last read at once, read again behind it; never read, a skeleton until it lands.
@@ -260,6 +281,9 @@ impl ReviewsScreen {
                 branch: String::new(),
                 author: asked.author.clone(),
                 holder: None,
+                address: asked.address.clone(),
+                draft: false,
+                head: String::new(),
             },
             facts: map::Facts::default(),
             notes: Vec::new(),
@@ -357,6 +381,14 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// The review tools of the repository a pull request is in, as Fleet last read them, for Review this
+    /// pull request. A page opens once its read lands, after `apply`, so opening it takes them too.
+    pub(super) fn live_tools(&mut self, number: u64) {
+        if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
+            self.review_tools = tools.clone();
+        }
+    }
+
     /// What the runs come to lands on the page: the summary, the change sets and findings, the critique.
     fn apply(&mut self, number: u64, mapped: map::Mapped, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.pages.get_mut(&number) else { return };
@@ -372,6 +404,9 @@ impl ReviewsScreen {
         if let Some(pull) = self.live.as_mut().and_then(|live| live.pulls.get_mut(&number)) {
             pull.finds = mapped.finds;
         }
+        for (rewrite, answer) in mapped.answers {
+            self.rewritten.insert((number, rewrite), answer);
+        }
         let chained = self.live.as_ref().is_some_and(|live| live.chained.contains(&number));
         if chained && (sets_done || sets_failed) {
             if let Some(live) = self.live.as_mut() {
@@ -383,9 +418,7 @@ impl ReviewsScreen {
             }
         }
         if self.open == Some(number) {
-            if let Some(tools) = self.live.as_ref().and_then(|live| live.tools.get(&page_manifest(&live.pulls, number))) {
-                self.review_tools = tools.clone();
-            }
+            self.live_tools(number);
         }
         self.suggestion_boxes(number, window, cx);
         self.colour(number, cx);
@@ -486,6 +519,10 @@ impl ReviewsScreen {
 
     /// Find problems: the change sets, then the findings over them.
     pub(super) fn find_problems(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.is_live() {
+            self.mock_find_problems(window, cx);
+            return;
+        }
         let Some(number) = self.open else { return };
         let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
         let (finds, facts) = (pull.finds.clone(), &pull.facts);
@@ -495,6 +532,7 @@ impl ReviewsScreen {
         if finds.sets == Find::Running || finds.flags == Find::Running {
             return;
         }
+        self.mark_reviewing(number);
         if finds.sets == Find::Done {
             self.start_run(number, ReviewRunKind::Overview, "overview".into(), None, overview_again, window, cx);
         } else {
@@ -504,6 +542,20 @@ impl ReviewsScreen {
             self.start_run(number, ReviewRunKind::ChangeSets, "change_sets".into(), None, sets_again, window, cx);
         }
         cx.notify();
+    }
+
+    /// Summarize, Explain or Simplify on Fleet: an Ask run named by its question, at the head. One
+    /// written or being written stands; one that failed or was refused is asked again.
+    pub(super) fn live_rewrite(&mut self, number: u64, rewrite: model::Rewrite, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let question = rewrite.question();
+        let answer = map::answer_of(&pull.facts, question);
+        if matches!(answer, Some(model::Answer::Writing | model::Answer::Written(_))) {
+            return;
+        }
+        let again = matches!(answer, Some(model::Answer::Failed(_))) || pull.facts.kept_elsewhere(ReviewRunKind::Ask, question);
+        self.rewritten.insert((number, rewrite), model::Answer::Writing);
+        self.start_run(number, ReviewRunKind::Ask, question.into(), None, again, window, cx);
     }
 
     /// Check practices on one change set.
@@ -557,9 +609,65 @@ impl ReviewsScreen {
         });
     }
 
-    /// Send: the verdict, the summary and every draft as one review at the commit he read. A refusal
-    /// changes nothing: the drafts stay and the forge's words show beside Submit.
-    pub(super) fn live_submit(&mut self, verdict: Verdict, window: &mut Window, cx: &mut Context<Self>) {
+    /// Mark as seen in the inbox: at the row's own head, so a row never opened is marked too.
+    pub(super) fn live_mark_seen(&mut self, number: u64, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::MarkPullSeen { number, head: pull.row.head.clone() }).ok();
+        let route = format!("/pull_request_seen/{}", encoded(&pull.row.manifest));
+        self.set_act_said(None);
+        self.call_quiet(format!("row-seen:{number}"), Verb::Post, route, body, "PullSeen", cx, move |this, answer: Result<ipc::PullSeen, String>, cx| {
+            if let Err(why) = answer {
+                this.row_refused(number, format!("Mark as seen on #{number} was refused. {why}"), |row| row.seen = false, cx);
+            }
+        });
+    }
+
+    /// Ignore, or Stop ignoring, in the inbox.
+    pub(super) fn live_ignore(&mut self, number: u64, ignored: bool, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::IgnorePull { number }).ok();
+        let manifest = encoded(&pull.row.manifest);
+        self.set_act_said(None);
+        let key = format!("ignore:{number}");
+        if ignored {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}"), body, "PullIgnored", cx, move |this, answer: Result<ipc::PullIgnored, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Ignore on #{number} was refused. {why}"), |row| row.ignored = false, cx);
+                }
+            });
+        } else {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}/unignore"), body, "IgnorePull", cx, move |this, answer: Result<ipc::IgnorePull, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Stop ignoring on #{number} was refused. {why}"), |row| row.ignored = true, cx);
+                }
+            });
+        }
+    }
+
+    /// An act on a row Fleet refused: the row goes back as it was, and the inbox says why.
+    fn row_refused(&mut self, number: u64, said: String, put_back: impl FnOnce(&mut model::InboxRow), cx: &mut Context<Self>) {
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            put_back(row);
+        }
+        self.set_act_said(Some(said));
+        cx.notify();
+    }
+
+    fn set_act_said(&mut self, said: Option<String>) {
+        if let Some(live) = self.live.as_mut() {
+            live.act_said = said;
+        }
+    }
+
+    /// Why Fleet refused the last act on a row of the inbox.
+    pub(super) fn live_act_said(&self) -> Option<String> {
+        self.live.as_ref()?.act_said.clone()
+    }
+
+    /// Send: the verdict, the summary and every draft as one review at the commit he read; `bare`
+    /// sends the verdict alone. A refusal changes nothing: the drafts stay and the forge's words show
+    /// beside Submit.
+    pub(super) fn live_submit(&mut self, verdict: Verdict, bare: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(number) = self.open else { return };
         let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
         if self.live.as_ref().is_some_and(|live| live.writing) {
@@ -573,13 +681,13 @@ impl ReviewsScreen {
         let comments: Vec<ipc::PullReviewComment> = self
             .drafts
             .iter()
-            .filter(|draft| draft.number == number)
+            .filter(|draft| draft.number == number && !bare)
             .map(|draft| {
                 let body = self.boxes.get(&draft.id).map(|boxed| boxed.state.read(cx).value().to_string()).unwrap_or_else(|| draft.body.clone());
                 ipc::PullReviewComment::Line { path: draft.path.clone(), line: draft.line, side: ipc::DiffSide::Right, body, start_line: None }
             })
             .collect();
-        let summary = self.summary.as_ref().map(|boxed| boxed.state.read(cx).value().trim().to_string()).filter(|said| !said.is_empty());
+        let summary = self.summary.as_ref().filter(|_| !bare).map(|boxed| boxed.state.read(cx).value().trim().to_string()).filter(|said| !said.is_empty());
         let body = ipc::encode(&ipc::WritePullRequest { pull_request: number, kind, body: summary, comments, commit: pull.facts.head.clone(), session_id: None }).ok();
         let route = format!("/pull_request_writes/{}", encoded(&pull.row.manifest));
         if let Some(live) = self.live.as_mut() {
@@ -593,7 +701,7 @@ impl ReviewsScreen {
             }
             match answer {
                 Ok(_) => {
-                    this.sent_review(number, verdict, window, cx);
+                    this.sent_review(number, verdict, bare, window, cx);
                     this.live_read(number, window, cx);
                 }
                 Err(why) => {
@@ -642,6 +750,11 @@ impl ReviewsScreen {
     /// Why Review changes was refused on this pull request, and whether it is being sent.
     pub(super) fn live_write(&self, number: u64) -> (Option<&str>, bool) {
         self.live.as_ref().map_or((None, false), |live| (live.write_said.get(&number).map(String::as_str), live.writing))
+    }
+
+    /// The banner over the inbox's rows where they are the last read, kept.
+    pub(super) fn live_inbox_banner(&self) -> Option<String> {
+        self.live.as_ref()?.inbox_banner.clone()
     }
 
     /// What the inbox says in place of its rows while there are none: reading, or why it could not be read.
@@ -773,6 +886,39 @@ mod tests {
             let row = reviews.live.as_ref().and_then(|live| live.pulls.get(&2231)).map(|pull| (pull.row.manifest.clone(), pull.row.title.clone()));
             assert_eq!(row, Some(("ledger-api".to_string(), "Say which stage of an invoice failed".to_string())), "its page is read in the repository the request names");
             assert_eq!(reviews.showing(), Some(2231), "and it opens once read");
+        });
+    }
+
+    #[gpui::test]
+    fn a_page_opened_once_read_offers_its_repositorys_review_tools(cx: &mut TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let fleet = cx.update(|cx| cx.new(FleetConnection::idle));
+        let (reviews, cx) = cx.add_window_view(|window, cx| ReviewsScreen::live(&fleet, window, cx));
+        let asked = ipc::ReviewAsked {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            repository: "harbor/ledger-api".into(),
+            number: 2231,
+            title: "Say which stage of an invoice failed".into(),
+            author: "mira".into(),
+            address: "https://example.com/harbor/ledger-api/pull/2231".into(),
+        };
+        cx.update(|window, cx| reviews.update(cx, |reviews, cx| reviews.open_asked(&asked, window, cx)));
+        // The read lands: its page and the repository's tools are held, and the page he waited for opens.
+        cx.update(|window, cx| {
+            reviews.update(cx, |reviews, cx| {
+                let page = crate::reviews::mock::page(2231).expect("a mock page");
+                reviews.pages.insert(2231, page);
+                if let Some(live) = reviews.live.as_mut() {
+                    live.tools.insert("ledger-api".into(), crate::reviews::mock::review_tools());
+                }
+                reviews.show(2231, window, cx);
+            })
+        });
+        reviews.read_with(cx, |reviews, _| {
+            assert!(!reviews.review_tools.is_empty(), "Review this pull request offers the tools Fleet read for its repository");
         });
     }
 }

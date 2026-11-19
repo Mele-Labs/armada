@@ -632,7 +632,7 @@ impl DispatchScreen {
         let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         let words = begin.words;
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::ask(port, "/sessions/dispatch".into(), Some(body?)) }).await;
             let _ = this.update_in(cx, |this, window, cx| this.dispatched(answer, &words, window, cx));
         })
         .detach();
@@ -699,9 +699,9 @@ impl DispatchScreen {
         let then = vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: idea.text.clone(), attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
         let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::call(port, "/sessions/dispatch".into(), Some(body?)) }).await;
+            let answer = cx.background_executor().spawn(async move { live::ask(port, "/sessions/dispatch".into(), Some(body?)) }).await;
             let _ = this.update_in(cx, |this, _window, cx| {
-                match answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())) {
+                match answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| crate::refusal::Failed::from(why.to_string()))) {
                     // Fleet took it, whoever starts the Job: it leaves the queue. A Job started opens; with the Operator
                     // holding it, or keeping it as an idea, he stays where he was and the toast says what became of it.
                     Ok(done) => {
@@ -720,7 +720,8 @@ impl DispatchScreen {
                     }
                     Err(why) => {
                         crate::queued::set_starting(&idea.id, false, cx);
-                        crate::log::Note::warn("a queued idea did not start").field("why", why).emit();
+                        why.tell_refusal("The idea was not started", cx);
+                        crate::log::Note::warn("a queued idea did not start").field("why", why.to_string()).emit();
                     }
                 }
             });
@@ -730,8 +731,9 @@ impl DispatchScreen {
 
     /// Fleet answered the dispatch. A Job started opens; with the Operator holding it, or keeping it as an idea, the
     /// sheet goes and he stays where he was: the toast `operator.dispatched` raises says what became of it.
-    fn dispatched(&mut self, answer: Result<Vec<u8>, String>, words: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let done = answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string()));
+    /// A refusal also raises the failure toast, with what was sent and Fleet's facts; the sheet keeps its short line.
+    fn dispatched(&mut self, answer: Result<Vec<u8>, crate::refusal::Failed>, words: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let done = answer.and_then(|bytes| ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| crate::refusal::Failed::from(why.to_string())));
         match done {
             Ok(ipc::JobDispatched { session: Some(record), .. }) => {
                 let id = record.id.as_str().to_string();
@@ -749,7 +751,10 @@ impl DispatchScreen {
                     sheet.answered(window, cx);
                 });
             }
-            Err(why) => self.sheet.update(cx, |sheet, cx| sheet.refused(why.into(), cx)),
+            Err(why) => {
+                why.tell_refusal("The Job was not dispatched", cx);
+                self.sheet.update(cx, |sheet, cx| sheet.refused(why.to_string().into(), cx));
+            }
         }
         cx.notify();
     }
@@ -767,6 +772,9 @@ impl DispatchScreen {
     pub fn live_notes(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(layer) = self.layer.clone() else { return };
         layer.update(cx, |layer, cx| layer.forget_seeded(cx));
+        if let Some(fleet) = self.jobs.read(cx).list.read(cx).fleet() {
+            layer.update(cx, |layer, cx| layer.feature_source(crate::features::overlay::Source::Live(fleet), cx));
+        }
         match crate::annotate::store::dir() {
             Some(dir) => self.keep_notes(dir, window, cx),
             None => crate::toasts::tell("Notes are not saved: no repository found for this build", cx),
@@ -834,13 +842,13 @@ impl DispatchScreen {
                 (Some(job), _) => {
                     let title = job.title.to_string();
                     annotate::live::deliver(port, job.id.as_ref(), outgoing, ink).map_err(|why| (title.clone(), why))?;
-                    Ok::<_, (String, String)>(Sent::Into { session: job.id.to_string(), title })
+                    Ok::<_, (String, crate::refusal::Failed)>(Sent::Into { session: job.id.to_string(), title })
                 }
                 (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), why))? {
                     annotate::live::Dispatched::Started { id, title } => Ok(Sent::Started { session: id, title }),
                     annotate::live::Dispatched::Kept { id, title } => Ok(Sent::Kept { dispatch: id, title }),
                 },
-                (None, None) => Err(("a new Job".to_string(), "no repository".to_string())),
+                (None, None) => Err(("a new Job".to_string(), "no repository".to_string().into())),
             }
         });
         cx.spawn_in(window, async move |_, cx| {
@@ -866,8 +874,8 @@ impl DispatchScreen {
                     layer.update(cx, |layer, cx| layer.sent(&title, true, cx));
                 }
                 Err((title, why)) => {
-                    layer.update(cx, |layer, cx| layer.refused(&title, &why, cx));
-                    crate::toasts::tell(format!("Notes not sent to \"{title}\": {why}"), cx);
+                    layer.update(cx, |layer, cx| layer.refused(&title, &why.to_string(), cx));
+                    why.tell(format!("Notes not sent to \"{title}\""), cx);
                 }
             });
         })
@@ -1108,5 +1116,26 @@ mod tests {
         assert_eq!(terminal_place(Some("sample-api".into()), scope_of(&all)), Some((Place::Repository("sample-api".into()), None)));
         all.chosen = Some(1);
         assert_eq!(terminal_place(None, scope_of(&all)), Some((Place::Repository("sample-web".into()), None)));
+    }
+
+    #[gpui::test]
+    fn a_live_layer_reads_its_features_from_fleet_once_live_notes_is_called(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            crate::init_app(cx);
+            crate::terminal::shells::hold_walk(cx);
+            crate::scene::mock_view::hold_walk(cx);
+            crate::titlebar::scenes::begin(cx);
+        });
+        let records = crate::mock::jobs("job-view").expect("the fixture decodes");
+        let fleet = cx.new(crate::fleet::FleetConnection::idle);
+        let list = cx.new(|cx| crate::jobs::JobsList::mock_over(&records, fleet, cx));
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
+            DispatchScreen::new(jobs, &records, window, cx)
+        });
+        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("a development build mounts the layer");
+        assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
+        screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
+        assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");
     }
 }

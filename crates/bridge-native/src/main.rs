@@ -34,6 +34,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod features;
 mod first_run;
 mod fleet;
 mod frames;
@@ -56,6 +57,7 @@ mod look;
 mod menu;
 mod merge_strip;
 mod option_pictures;
+mod page_note;
 mod mock;
 mod mock_parts;
 mod move_to_mac;
@@ -65,8 +67,11 @@ mod notify;
 mod operator;
 mod pairing;
 mod palette;
+mod paste_link;
+mod pasteboard;
 mod point;
 mod queued;
+mod refusal;
 mod restart_fleet;
 mod room;
 mod revert;
@@ -275,8 +280,8 @@ fn main() -> ExitCode {
 
     let app = application().with_assets(assets::Assets);
     // macOS hands links over before the app is ready and on its own thread of control, so they cross a
-    // channel to a task that reads them where the app can be reached. Nothing registers the scheme with
-    // the OS, so none arrives unless something hands this app one (`deep_link.rs`).
+    // channel to a task that reads them where the app can be reached. The bundle's `Info.plist` claims
+    // the scheme (`scripts/native-app`); `deep_link.rs` holds a link until Fleet has answered.
     let (links, arrived) = async_channel::unbounded::<String>();
     app.on_open_urls(move |addresses| {
         for address in addresses {

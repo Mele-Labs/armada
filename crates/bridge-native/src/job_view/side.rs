@@ -1,5 +1,5 @@
 //! What the right column's tabs are: Open, Done and Deferred, and the kinds + opens after them (Plan,
-//! Changes, Ledger, Files, Subagents, Checks in `panes.rs`, Spine in `spine.rs`, Judge in `judge_tab.rs`, For you in `for_you_tab.rs`),
+//! Changes, Ledger, Files, Subagents, Checks in `panes.rs`, Spine in `spine.rs`, Judge in `judge_tab.rs`, For you in `for_you_tab.rs`, Q&A in `questions.rs`),
 //! with the column's state on a Job's page and the look of a strip's tab. Any pane may hold any of them
 //! (`place_draw.rs`); Now is `now.rs`.
 
@@ -24,6 +24,7 @@ pub(super) enum Zone {
     Done,
     Deferred,
     Plan,
+    Story,
     Changes,
     Pulls,
     Issues,
@@ -39,14 +40,16 @@ pub(super) enum Zone {
     Judge,
     Artifacts,
     ForYou,
+    Qa,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 19] = [
+    pub(super) const ALL: [Zone; 21] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
         Zone::Plan,
+        Zone::Story,
         Zone::Changes,
         Zone::Pulls,
         Zone::Issues,
@@ -62,6 +65,7 @@ impl Zone {
         Zone::Judge,
         Zone::Artifacts,
         Zone::ForYou,
+        Zone::Qa,
     ];
 
     pub(super) fn id(self) -> &'static str {
@@ -70,6 +74,7 @@ impl Zone {
             Zone::Done => "done",
             Zone::Deferred => "deferred",
             Zone::Plan => "plan",
+            Zone::Story => "story",
             Zone::Changes => "changes",
             Zone::Pulls => "pulls",
             Zone::Issues => "issues",
@@ -85,6 +90,7 @@ impl Zone {
             Zone::Judge => "judge",
             Zone::Artifacts => "artifacts",
             Zone::ForYou => "for_you",
+            Zone::Qa => "qa",
         }
     }
 
@@ -94,6 +100,7 @@ impl Zone {
             Zone::Done => ("circle-check", "Done"),
             Zone::Deferred => ("circle-dashed", "Deferred"),
             Zone::Plan => ("list-checks", "Plan"),
+            Zone::Story => ("book-open", "Story"),
             Zone::Changes => ("diff", "Changes"),
             Zone::Pulls => ("git-pull-request", "Pull Requests"),
             Zone::Issues => ("ticket", "Issues"),
@@ -109,6 +116,7 @@ impl Zone {
             Zone::Judge => ("scale", "Judge"),
             Zone::Artifacts => ("shapes", "Artifacts"),
             Zone::ForYou => ("user-check", "For you"),
+            Zone::Qa => ("messages-square", "Q&A"),
         }
     }
 }

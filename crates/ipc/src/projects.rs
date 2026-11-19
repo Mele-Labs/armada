@@ -21,6 +21,11 @@ pub struct Projects {
     /// The project files Fleet could not read, each with where it is and why. **A file a project of his
     /// names is here too**, and that project says so as `unread`.
     pub left_out: Vec<ProjectLeftOut>,
+    /// The project files an act took out of their place but could not take away, each with where it is and
+    /// the words the place gave. **Only the answer to that act carries it**: Delete, a place move or a merge
+    /// whose old file stayed because a bucket refused the delete. Absent where nothing was left.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_behind: Vec<ProjectLeftOut>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -100,7 +105,7 @@ pub struct ProjectPlace {
     pub cloud: Option<RunCloud>,
 }
 
-/// A project file Fleet could not read.
+/// A project file Fleet could not read, or could not take away.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ProjectLeftOut {
     pub place: RunPlace,
@@ -358,6 +363,24 @@ pub enum ProjectAct {
     /// Only within the projects of the Mac that holds the row.
     MoveProjectRow { row: String, to: MoveProjectRow },
     RemoveProjectRow { row: String },
+    /// A merge, on the Mac that holds the project to keep: `kept` takes `gone`'s tasks under their own ids, its
+    /// members, and the values it sets, `from_gone` naming the keys where `gone`'s value wins over a different one
+    /// of `kept`'s. **Running it again adds nothing.** Only `gone`'s id, name, members, values and rows are read.
+    Absorb { kept: String, gone: Project, from_gone: Vec<String> },
+    /// A merge, on the Mac that holds the project that goes: its Jobs move into `into`, every row not in `absorbed`
+    /// is sent to the Mac that holds `into`, and the project, its file and its tasks are deleted.
+    GiveUp { gone: String, into: String, absorbed: Vec<String> },
+}
+
+/// `merge_projects`: two projects of one name, one this Mac's own and one a copy of another Mac's, made one. `kept`
+/// stays, whichever of the two it is, and `gone` goes. `from_gone` names the value keys (`ValuesSet`'s field names)
+/// where `gone`'s value wins; a key both set differently and not named keeps `kept`'s.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct MergeProjects {
+    pub kept: String,
+    pub gone: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub from_gone: Vec<String>,
 }
 
 /// Which fields of a task an edit changed.

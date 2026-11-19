@@ -15,7 +15,8 @@ Fleet now matches it on branch `fleet/thread-matches-electron`.
 | `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet`, `ToolSearch`, `show_window` calls | dropped before the fold (`UNDRAWN`), so they neither join nor break a run, nor handle a Fleet turn | kept in runs | dropped before the fold |
 | Settled `ask` | a `tool` line, `<command>: <word>`, so it joins a run and a Fleet turn's reply | a `row`, which broke the run | joins the run as its `ask` row; no words |
 | `window_ask` | a `tool` line, so it joins a run | a `row` | joins the run as its `window_ask` row |
-| Waiting `ask`, `browser_reminder` | dropped | dropped | dropped |
+| Waiting `ask` | dropped | dropped | dropped |
+| `browser_reminder` | an inline card, from the rows Electron holds | dropped | a `row` where it was written, for native Bridge's line |
 | `plan` row | dropped; it only anchors the approved plan | a `row` | dropped; the `plan` item stands where Electron draws the card |
 | `delivery` row | dropped | a `row` | dropped |
 | `linked` row that `replaces` | dropped | a `row` | dropped |

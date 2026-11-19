@@ -61,7 +61,9 @@ use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
 use crate::session_host::lapsed_asks::{lapsed_item_refusal, repeats_lapsed};
+use crate::session_host::look_asks::{look_ask_of, look_item_refusal, pull_of, OwnChange};
 use crate::session_host::merge_waits::{merge_item_refusal, merge_wait_of, merging_of};
+use crate::session_host::run_macs::{on_settled, KnownMac};
 use crate::session_host::walk_asks::{asks_to_walk, walk_item_refusal};
 use crate::session_host::FIRST_MESSAGE_ITEM;
 
@@ -72,6 +74,8 @@ const SESSION_WAITING_UNREOPENABLE: &str = "fleet.session_waiting_unreopenable";
 const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
+const SESSION_WAITING_LOOK: &str = "fleet.session_waiting_look";
+const SESSION_WAITING_MAC: &str = "fleet.session_waiting_mac";
 pub(super) const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
 /// The last line of a message answering an agent item: it need not say the item again. It says the
@@ -171,6 +175,8 @@ pub(crate) struct WaitingReads {
     archived: Vec<String>,
     /// The notes it offered, which its Ready to try cards are.
     ready: Vec<store::KeptBuildNote>,
+    /// The branches it has on the preview list.
+    offered: Vec<String>,
 }
 
 impl WaitingReads {
@@ -245,6 +251,7 @@ pub(crate) fn waiting_reads(
         seen: store.artifact_seen(&session.id)?,
         archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
         ready: store.build_notes_of_session(&session.id)?,
+        offered: store.preview_offered_branches_of(&session.id)?,
     })
 }
 
@@ -343,6 +350,7 @@ fn card_item(asked: &CallInFlight) -> WaitingItem {
     let act = Some(WaitingAct {
         kind: WaitingActKind::Answer,
         target: asked.call.clone(),
+        on: None,
     });
     if let Some(first) = asked.questions.first() {
         let single = asked.questions.len() == 1 && !first.multi_select;
@@ -428,6 +436,7 @@ pub(crate) fn merged(
         act: Some(WaitingAct {
             kind: WaitingActKind::Walk,
             target: one.url.clone(),
+            on: None,
         }),
         options: Vec::new(),
         steps: Vec::new(),
@@ -459,7 +468,7 @@ pub(crate) fn merged(
             since: Instant::carried(&one.since),
             source: WaitingSource::Agent,
             act: one.act.and_then(|(kind, target)| {
-                act_kind_of(&kind).map(|kind| WaitingAct { kind, target })
+                act_kind_of(&kind).map(|kind| WaitingAct { kind, target, on: Some(one.act_on).filter(|on| !on.is_empty()) })
             }),
             options: options_served(one.options, &one.pictures),
             steps: one.steps,
@@ -518,7 +527,7 @@ where
                     text: one.text,
                     since: Instant::carried(&one.since),
                     source,
-                    act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target })),
+                    act: one.act.and_then(|(kind, target)| act_kind_of(&kind).map(|kind| WaitingAct { kind, target, on: Some(one.act_on).filter(|on| !on.is_empty()) })),
                     options: options_served(one.options, &one.pictures),
                     steps: one.steps,
                     place: None,
@@ -541,7 +550,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready, offered } = reads;
         let asked = self.hosts().of(&session.id).state().asked.clone();
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -600,6 +609,11 @@ where
         let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
         let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
+        // Once its branch is on the preview list, an ask to try the Job's own change is its Ready to try card's.
+        if !offered.is_empty() {
+            let change = OwnChange { pulls: attachments.iter().filter_map(|one| pull_of(&one.kind, &one.target, &one.detail)).collect(), branches: offered };
+            items.retain(|one| one.source != WaitingSource::Agent || look_ask_of(one.approves, one.options.len(), one.act.as_ref(), &one.text, &change).is_none());
+        }
         if let Some(lapsed) = lapsed_question(&rows) {
             items.retain(|one| {
                 let labels: Vec<&str> = one.options.iter().map(|option| option.label.as_str()).collect();
@@ -623,6 +637,7 @@ where
                     act: Some(WaitingAct {
                         kind: WaitingActKind::Message,
                         target: session.id.clone(),
+                        on: None,
                     }),
                     options: Vec::new(),
                     steps: Vec::new(),
@@ -714,6 +729,7 @@ where
                     act: Some(WaitingAct {
                         kind: WaitingActKind::Message,
                         target: session.id.clone(),
+                        on: None,
                     }),
                     options: Vec::new(),
                     steps: Vec::new(),
@@ -794,6 +810,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Walk,
                             target: window,
+                            on: None,
                         }),
                         options,
                         steps: Vec::new(),
@@ -820,6 +837,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
+                            on: None,
                         }),
                         id,
                         text: title,
@@ -844,6 +862,7 @@ where
                         act: Some(WaitingAct {
                             kind: WaitingActKind::Answer,
                             target: id.clone(),
+                            on: None,
                         }),
                         id,
                         text: handoff_answers::CARD_ASKS.to_string(),
@@ -923,6 +942,20 @@ where
                 return Err(self.hosted_refusal(SESSION_WAITING_WALK, &walk_item_refusal(item.id.trim())));
             }
         }
+        // A run item meant for another Mac names it, and Fleet checks the name against the Macs it knows.
+        if set.items.iter().any(|item| item.act.as_ref().is_some_and(|act| act.on.is_some())) {
+            let (this, paired) = {
+                let store = self.store().lock().await;
+                let this = store.this_mac().ok().flatten().map(|mac| KnownMac { id: mac.id, name: mac.name });
+                let paired: Vec<KnownMac> = store.paired_macs().unwrap_or_default().into_iter().map(|mac| KnownMac { id: mac.id, name: mac.name }).collect();
+                (this, paired)
+            };
+            for item in &mut set.items {
+                if let Some(act) = item.act.as_mut() {
+                    on_settled(item.id.trim(), act, this.as_ref(), &paired).map_err(|why| self.hosted_refusal(SESSION_WAITING_MAC, &why))?;
+                }
+            }
+        }
         self.options_refused(&set.items)?;
         // An item about an artifact names one the Job holds, by its id or its title, and keeps its id.
         let mut artifacts = std::collections::HashMap::new();
@@ -942,14 +975,26 @@ where
             }
         }
         // A merge wait is Fleet's to follow. An item already kept, written again unchanged, is not a new one.
-        let (kept, pulls) = {
+        // In a repository with a preview, an ask to try the Job's own change is its Ready to try card's.
+        let previewed = self.preview_place().map(|(_, served)| served.manifest().id().as_str().to_string());
+        let (kept, pulls, change) = {
             let store = self.store().lock().await;
-            (store.waiting_for(&id).unwrap_or_default(), store.attachments_of(&store::Holder::session(&id)).map(|rows| merging_of(&rows)).unwrap_or_default())
+            let rows = store.attachments_of(&store::Holder::session(&id)).unwrap_or_default();
+            let ours = previewed.is_some() && store.session(&id).ok().flatten().and_then(|one| one.manifest_id) == previewed;
+            let change = ours.then(|| OwnChange {
+                pulls: rows.iter().filter_map(|one| pull_of(&one.kind, &one.target, &one.detail)).collect(),
+                branches: store.preview_offered_branches_of(&id).unwrap_or_default(),
+            });
+            (store.waiting_for(&id).unwrap_or_default(), merging_of(&rows), change)
         };
         for item in &set.items {
             let again = kept.iter().any(|old| old.item_id == item.id.trim() && old.text == item.text.trim());
             if let Some(number) = merge_wait_of(item.act.as_ref(), &item.text, &pulls).filter(|_| !again) {
                 return Err(self.hosted_refusal(SESSION_WAITING_MERGING, &merge_item_refusal(item.id.trim(), number)));
+            }
+            let look = change.as_ref().and_then(|change| look_ask_of(item.approves, item.options.len(), item.act.as_ref(), &item.text, change));
+            if let Some(named) = look.filter(|_| !again) {
+                return Err(self.hosted_refusal(SESSION_WAITING_LOOK, &look_item_refusal(item.id.trim(), &named)));
             }
         }
         let now = self.clock().now().as_str().to_string();
@@ -977,6 +1022,7 @@ where
                             .unwrap_or_else(|| now.clone()),
                         item_id,
                         text: one.text.trim().to_string(),
+                        act_on: one.act.as_ref().and_then(|act| act.on.as_deref()).map(str::trim).unwrap_or_default().to_string(),
                         act: one
                             .act
                             .map(|act| (act_kind_text(act.kind).to_string(), act.target)),
@@ -1107,14 +1153,16 @@ where
         let unshown = self.picture_owed_text(store, id)?;
         let flying = if gated { None } else { self.lifecycles_hold_text(store, id) };
         let owed = crate::feature_library::sections_owed_text(store, id).map_err(|why| self.ledger_fault(why))?;
-        let code = match (&later, &unshown, &flying, &owed) {
-            (None, None, None, None) => return Ok(()),
-            (_, _, Some(_), _) => crate::lifecycles::ending::IN_FLIGHT,
-            (Some(_), _, None, _) => super::later::LATER_OPEN,
-            (None, Some(_), None, _) => super::ways_checking::PICTURE_OWED,
-            (None, None, None, Some(_)) => crate::feature_library::OWED,
+        let tasks = if gated { crate::gate_holding::tasks_open_text(store, id) } else { None };
+        let code = match (&later, &unshown, &flying, &owed, &tasks) {
+            (None, None, None, None, None) => return Ok(()),
+            (_, _, Some(_), _, _) => crate::lifecycles::ending::IN_FLIGHT,
+            (Some(_), _, None, _, _) => super::later::LATER_OPEN,
+            (None, Some(_), None, _, _) => super::ways_checking::PICTURE_OWED,
+            (None, None, None, Some(_), _) => crate::feature_library::OWED,
+            (None, None, None, None, Some(_)) => crate::gate_holding::TASKS_OPEN,
         };
-        let reasons: Vec<String> = [later, unshown, flying, owed].into_iter().flatten().collect();
+        let reasons: Vec<String> = [later, unshown, flying, owed, tasks].into_iter().flatten().collect();
         let said = format!("all_done refused. {}", reasons.join("\n\n"));
         Err(Refusal::IllegalMove(ipc::WireError::raised(code, said, self.run_id())))
     }
@@ -1654,6 +1702,7 @@ where
             options: item.options.iter().map(|option| option.label.clone()).collect(),
             pictures: pictures_kept(&item.options),
             artifact: item.artifact.clone().unwrap_or_default(),
+            act_on: item.act.as_ref().and_then(|act| act.on.clone()).unwrap_or_default(),
             steps: item.steps.clone(),
             since: item.since.as_str().to_string(),
             closed_at: self.clock().now().as_str().to_string(),
@@ -1742,6 +1791,7 @@ where
                 options: kept.options,
                 pictures: kept.pictures,
                 artifact: kept.artifact,
+                act_on: kept.act_on,
                 steps: kept.steps,
             })
         };

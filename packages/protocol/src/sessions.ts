@@ -305,6 +305,8 @@ export type SessionRecord = {
   claim_waits?: ClaimWait[];
   /** Whether the Job holds claims its project's store has not taken yet, because the store did not answer. Absent where all are sent. Since 14 Nov 2026. */
   claims_unsent?: boolean;
+  /** Whether a reply of the Job's answers a question of his that he has not read yet. Absent where none waits. Since 17 Nov 2026. */
+  answer_unread?: boolean;
 };
 
 /**
@@ -426,10 +428,14 @@ export type SessionProposal = {
   picked?: ProposedField[];
 };
 
-/** What a press on a waiting item does. `target` is an address, a call, a pull request number or a command. */
+/**
+ * What a press on a waiting item does. `target` is an address, a call, a pull request number or a command.
+ * `on` is the Mac a `run` act's command is meant for, by name; absent means this Mac.
+ */
 export type WaitingAct = {
   kind: "walk" | "answer" | "approve_pr" | "run" | "message";
   target: string;
+  on?: string;
 };
 
 /**
@@ -2158,4 +2164,6 @@ export type NeedsYouRow = {
   glyph: NeedsYouGlyph;
   act: NeedsYouAct;
   dismiss: NeedsYouDismiss;
+  /** The Mac the row's command is meant for, by name. Absent means this Mac. */
+  on?: string;
 };

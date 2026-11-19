@@ -281,6 +281,13 @@ pub(super) fn folds_job<'a>(cx: &'a mut gpui::TestAppContext, tune: impl FnOnce(
 pub(super) struct Rooted(gpui::Entity<JobView>);
 
 #[cfg(test)]
+impl Rooted {
+    pub(super) fn of(view: gpui::Entity<JobView>) -> Self {
+        Rooted(view)
+    }
+}
+
+#[cfg(test)]
 impl gpui::Render for Rooted {
     fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
         crate::labels::label_root(div().size_full().child(self.0.clone()))
@@ -296,13 +303,27 @@ pub(super) fn rooted_job<'a>(
     size: gpui::Size<gpui::Pixels>,
     tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
 ) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+    rooted_job_with(cx, scenario, job, size, tune, |_| {})
+}
+
+/// The same, with the scenario's threads changed by `threads` before the Job opens.
+#[cfg(test)]
+pub(super) fn rooted_job_with<'a>(
+    cx: &'a mut gpui::TestAppContext,
+    scenario: &str,
+    job: &str,
+    size: gpui::Size<gpui::Pixels>,
+    tune: impl FnOnce(&mut Vec<ipc::SessionRecord>),
+    tune_threads: impl FnOnce(&mut std::collections::HashMap<String, ipc::JobThread>),
+) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
     cx.update(|cx| {
         gpui_component::init(cx);
         crate::look::init(cx);
     });
     let mut jobs = crate::mock::jobs(scenario).expect("the fixture decodes");
     tune(&mut jobs);
-    let threads = crate::mock::threads(scenario).expect("the threads decode");
+    let mut threads = crate::mock::threads(scenario).expect("the threads decode");
+    tune_threads(&mut threads);
     let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
     let (root, cx) = cx.add_window_view({
         let list = list.clone();
@@ -445,6 +466,34 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_sketch_redrawn_under_a_new_title_draws_its_artifact_card_and_no_pinned_card_beside_it(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("artifact-folds").expect("the fixture decodes");
+        let mut threads = crate::mock::threads("artifact-folds").expect("the threads decode");
+        // Fleet pins the newest card of the sketch: its ledger id is the first title's, its title the new one.
+        let wire = r#"{"id":"sk-2","at":"2026-11-14T10:46:00Z","sketch":"sketch:Step flow","title":"Step flow, with the gate","drawing":{"nodes":[],"edges":[]},"asked":true}"#;
+        threads.get_mut(JOB).expect("the Job's thread").head.sketch = Some(ipc::decode::<ipc::ThreadSketch>("a pin", wire.as_bytes()).expect("a pin decodes"));
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (root, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| Rooted(cx.new(|cx| JobView::new(list, Some(threads), window, cx)))
+        });
+        let view = root.read_with(cx, |root, _| root.0.clone());
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(6000.)));
+        list.update(cx, |list, cx| list.open(JOB.into(), cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let page = view.pages.get(JOB).expect("the Job's page is held");
+            assert!(!page.extras.iter().any(|extra| matches!(extra, Extra::Sketch(_))), "no pinned card: the artifact's card draws the sketch");
+            let placed = page.anchors.iter().any(|one| one.artifact == "sketch:Step flow") || page.extras.iter().any(|extra| matches!(extra, Extra::Parts(id, _) if id == "sketch:Step flow"));
+            assert!(placed, "the artifact's card stands");
+        });
+    }
+
+    #[gpui::test]
     fn open_reads_a_parts_artifact_whole_in_the_review_panel_one_with_no_drawing_too(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |_| {});
         for id in ["sketch:Rollout order", "sketch:Step flow", "draft:Merge line wording"] {
@@ -461,7 +510,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn open_reads_a_page_and_a_draft_in_their_own_tabs_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
+    fn open_reads_a_page_in_the_review_panel_a_draft_in_its_own_tab_and_a_sketch_large(cx: &mut gpui::TestAppContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
@@ -480,8 +529,15 @@ mod tests {
             let (id, _, _) = held.iter().find(|(_, held, bare)| *held == form && *bare).cloned().unwrap_or_else(|| panic!("the Job holds a {form:?} with no parts"));
             assert!(view.update_in(cx, |view, window, cx| view.open_named(&id, window, cx)));
             redraw(cx);
-            let kind = if form == ArtifactForm::Page { RowKind::Document } else { RowKind::Draft };
-            view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == kind), "a {form:?} opens in its own tab"));
+            if form == ArtifactForm::Page {
+                view.read_with(cx, |view, _| {
+                    assert!(view.review_open(), "a page opens the review panel");
+                    assert!(!view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Document), "and no tab of its own");
+                });
+                view.update_in(cx, |view, window, cx| view.close_review(window, cx));
+            } else {
+                view.read_with(cx, |view, _| assert!(view.row_tab_list("draft-job").iter().any(|tab| tab.kind == RowKind::Draft), "a {form:?} opens in its own tab"));
+            }
         }
     }
 }

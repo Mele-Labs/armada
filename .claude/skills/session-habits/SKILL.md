@@ -47,6 +47,11 @@ are not repeated: see `how-the-owner-decides`, `armada-voice` and
   preview from his own row; a Job hands him no `scripts/preview --restart`, in
   `waiting_for` or a shell block. A plain restart onto `main` is never an option
   (7 and 13 Oct).
+- **His Looks good on the Ready to try card is his Approve of a `you_approved`
+  gate** (17 Nov: a Job raised its own `approves` item beside the card, he
+  removed it as a duplicate, and the gate held the Job until he approved a
+  second time). Raise no `approves` item for what the card asks. It closes the
+  first open gate, so gate only the group the preview settles.
 - **Never offer a branch you have not checked** (10 Nov: two refreshes a Job
   handed him failed on half-done branches and stale scripts, and he rescued his
   build in a terminal). Fleet checks that the offers merge and compile together,

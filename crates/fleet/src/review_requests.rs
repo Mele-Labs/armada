@@ -35,6 +35,21 @@ pub(crate) fn read_since(after: &str, read: &str) -> bool {
     after.is_empty() || matches!((millis(read), millis(after)), (Some(read), Some(after)) if read > after)
 }
 
+/// Each row the forge gave no time he was asked, the time Fleet told him of the request: the latest
+/// told for that pull request, the request standing. **Only as old as the look after the ask**, so
+/// the forge's own time is kept where it gave one.
+fn asked_told_of(rows: &mut [PullReviewRow], kept: &[KeptReviewRequest]) {
+    for row in rows.iter_mut().filter(|row| row.asked_at.is_none()) {
+        let repository = row.repository.to_lowercase();
+        row.asked_at = kept
+            .iter()
+            .filter(|it| it.repository == repository && it.number == row.number)
+            .map(|it| &it.told_at)
+            .max()
+            .cloned();
+    }
+}
+
 /// The call on him for one pull request, standing while he is asked. **Opened once he has opened it
 /// since he was asked**: its page read since the request. A first request is opened too by a seen
 /// head kept or an inbox other than a first look; one made again after his review is not, since his
@@ -134,7 +149,7 @@ where
                 vcs.pull_review_list(root, &ReviewListAsk { list: ReviewList::Requested, login: &me, repositories: &repositories, most: MOST_PER_LIST })
             })
             .await;
-        let Some(pulls) = asked else {
+        let Ok(pulls) = asked else {
             return skipped("the forge did not answer");
         };
         // The forge's own latest review of his names the request; the one Fleet wrote is only for the inbox.
@@ -190,6 +205,13 @@ where
         let told = news.into_iter().map(|at| arrival_of(&calls[at])).collect();
         self.calls_reviewed(calls, told);
         unkept
+    }
+
+    /// [`asked_told_of`] for the rows of the list that asks him by name. Unreadable, the rows keep
+    /// what the forge gave.
+    pub(crate) async fn asked_told_onto(&self, rows: &mut [PullReviewRow]) {
+        let kept = self.store().lock().await.review_requests_told().unwrap_or_default();
+        asked_told_of(rows, &kept);
     }
 
     /// He opened a pull request's page in Bridge (`PullRequestPanel::pull_request_opened`). Kept for the

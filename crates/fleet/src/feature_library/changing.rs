@@ -25,7 +25,7 @@ where
 {
     /// `change_feature`. **Nothing is kept on a refusal.**
     pub(super) async fn feature_changed(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
-        self.operator_called(caller)?;
+        self.owner_or_operator_called(caller)?;
         let project = change.project.trim().to_string();
         let blank = |one: &Option<String>| one.as_deref().map(str::trim).filter(|one| !one.is_empty()).map(str::to_string);
         let (into, slug, title, area) = (blank(&change.into), blank(&change.slug), blank(&change.title), blank(&change.area));

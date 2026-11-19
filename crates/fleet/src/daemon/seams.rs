@@ -168,6 +168,10 @@ where
                 .unwrap_or_else(std::sync::PoisonError::into_inner),
         )
     }
+    /// What `features.librarian*` say now. See [`crate::feature_library::librarian`].
+    pub(crate) fn librarian_set(&self) -> crate::feature_library::librarian::Librarian {
+        self.tuned(|dials| dials.librarian.clone())
+    }
     /// The prompts in force, read once by whoever is building one. See
     /// [`crate::prompts`].
     pub(crate) fn prompts(&self) -> crate::prompts::Prompts {
@@ -304,6 +308,9 @@ where
     }
     pub(crate) fn phone_held(&self) -> &crate::phone::PhoneHeld {
         &self.phone_held
+    }
+    pub(crate) fn review_lists_kept(&self) -> &crate::pull_review_kept::Kept {
+        &self.review_lists_kept
     }
     pub(crate) fn home_held(&self) -> &crate::home::HomeHeld {
         &self.home_held

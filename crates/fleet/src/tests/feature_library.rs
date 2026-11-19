@@ -16,7 +16,7 @@ use crate::feature_library::brief::{condensed, BriefFacts, CAP_CHARS};
 use crate::feature_library::mapping::{owns, FeatureMap, How};
 use crate::feature_library::staleness::stale_since;
 
-const VOTING: &str = "voting-on-takes";
+pub(super) const VOTING: &str = "voting-on-takes";
 const SOMEWHERE: &str = "crates/pages/voting";
 
 fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
@@ -122,6 +122,7 @@ fn facts() -> BriefFacts {
         current_as_of: Some((812, "2026-11-14".into())),
         stale: vec![("test".into(), 815)],
         jobs_now: vec!["Add rank votes".into()],
+        elsewhere: Vec::new(),
         entry_points: (1..=8).map(|n| format!("crates/votes/file{n}.rs:{n}")).collect(),
         test: Some("armada check test page_votes".into()),
         bugs: (1..=5).map(|n| format!("bug {n}")).collect(),
@@ -164,13 +165,13 @@ fn a_page_over_the_cap_loses_its_tail_first_and_never_its_head() {
 
 // What follows runs a Job through the library against a real store.
 
-async fn a_project(rig: &Rig) -> String {
+pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
     let new = NewProject { name: "Shop".to_string(), members, place: None, values: None };
     rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone()
 }
 
-async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
+pub(super) async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     let start = StartSession {
         project: Some(project.to_string()),
         manifest_id: rig.manifest.clone(),
@@ -192,7 +193,7 @@ async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     id
 }
 
-fn seeded(project: &str) -> UpsertFeatures {
+pub(super) fn seeded(project: &str) -> UpsertFeatures {
     let feature = |slug: &str, area: &str, paths: &[&str]| FeatureSeed {
         slug: slug.to_string(),
         area: area.to_string(),
@@ -211,7 +212,7 @@ fn seeded(project: &str) -> UpsertFeatures {
 }
 
 /// The Job wrote `path` in the rig's repository, and Fleet filed it.
-async fn wrote(rig: &Rig, id: &SessionId, path: &str) {
+pub(super) async fn wrote(rig: &Rig, id: &SessionId, path: &str) {
     rig.fleet.writes().wrote(&Who::Session(id.as_str().to_string()), rig.manifest.as_str(), [path.to_string()], &rig.fleet.now());
     rig.fleet.feature_writes_filed().await;
 }
@@ -223,6 +224,22 @@ async fn pushed(rig: &Rig, id: &SessionId, pull: &str) {
         kind: crate::pull_requesting::PR.into(),
         manifest_id: rig.manifest.as_str().to_string(),
         target: pull.to_string(),
+        state: AttachmentState::Standing,
+        detail: Default::default(),
+        since: now.clone(),
+        changed_at: now,
+    };
+    rig.fleet.store().lock().await.attach(&row, false).expect("attached");
+}
+
+/// The Job stands in pool slot `slot`, as the ledger holds it.
+pub(super) async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
+    let now = rig.fleet.now().as_str().to_string();
+    let row = KeptAttachment {
+        holder: Holder::session(id.as_str()),
+        kind: "slot".into(),
+        manifest_id: rig.manifest.as_str().to_string(),
+        target: slot.to_string(),
         state: AttachmentState::Standing,
         detail: Default::default(),
         since: now.clone(),
@@ -251,7 +268,7 @@ fn refused(result: Result<ipc::SessionRecord, api::Refusal>) -> (String, String)
 async fn all_done_is_held_while_pushed_work_changed_a_feature_whose_sections_are_not_written_and_names_them() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     pushed(&rig, &id, "812").await;
@@ -276,7 +293,7 @@ async fn all_done_is_held_while_pushed_work_changed_a_feature_whose_sections_are
 async fn a_job_that_changed_no_feature_file_is_never_held_and_neither_is_one_that_pushed_nothing() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
 
     // It wrote only where no feature owns the file, and pushed.
@@ -289,7 +306,7 @@ async fn a_job_that_changed_no_feature_file_is_never_held_and_neither_is_one_tha
 async fn work_that_was_never_pushed_holds_nothing_even_where_it_changed_a_feature() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     assert!(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await.is_ok());
@@ -327,12 +344,28 @@ async fn a_job_is_held_only_for_features_that_were_in_the_catalog_when_it_starte
 async fn a_second_seed_keeps_the_date_a_feature_entered_the_catalog() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let first = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("the feature").added_at;
     assert!(!first.is_empty());
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded again");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded again");
     let again = rig.fleet.store().lock().await.feature_named(&project, VOTING).expect("read").expect("the feature").added_at;
     assert_eq!(again, first);
+}
+
+#[tokio::test]
+async fn a_live_job_is_on_a_feature_only_while_it_holds_a_slot() {
+    let rig = rig(None);
+    let project = a_project(&rig).await;
+    let at_work = an_agent_for(&rig, &project).await;
+    let stopped = an_agent_for(&rig, &project).await;
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+    wrote(&rig, &at_work, "crates/pages/voting/ranks.rs").await;
+    wrote(&rig, &stopped, "crates/pages/voting/ranks.rs").await;
+    held_slot(&rig, &at_work, "4").await;
+
+    let listed = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed");
+    let row = listed.areas[0].features.iter().find(|one| one.slug == VOTING).expect("the feature");
+    assert_eq!(row.jobs_now.iter().map(|one| one.session_id.clone()).collect::<Vec<_>>(), [at_work], "the live Job holding no slot is not on it");
 }
 
 #[tokio::test]
@@ -340,8 +373,9 @@ async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_
     let rig = rig(None);
     let project = a_project(&rig).await;
     let id = an_agent_for(&rig, &project).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    held_slot(&rig, &id, "4").await;
     rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &[FeatureSectionKind::Test])).await.expect("written");
 
     let listed = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed");
@@ -385,23 +419,23 @@ async fn a_feature_in_an_area_nobody_kept_is_refused_with_nothing_kept_and_a_re_
     let project = a_project(&rig).await;
     let mut bad = seeded(&project);
     bad.features[0].area = "nowhere".into();
-    let refused = rig.fleet.upsert_features(bad).await.expect_err("refused");
+    let refused = rig.fleet.upsert_features(None, bad).await.expect_err("refused");
     let api::Refusal::Unacceptable(why) = refused else { panic!("{refused:?}") };
     assert_eq!(why.code.to_string(), "fleet.feature_area_unknown");
     assert!(rig.fleet.list_features(None, Some(project.clone())).await.expect("listed").areas.is_empty(), "nothing of the call was kept");
 
-    let first = rig.fleet.upsert_features(seeded(&project)).await.expect("kept");
+    let first = rig.fleet.upsert_features(None, seeded(&project)).await.expect("kept");
     assert_eq!(first.created.len(), 2);
     let id_of = |library: &ipc::FeatureLibrary| library.areas[0].features.iter().find(|one| one.slug == VOTING).map(|one| one.id.clone());
     let before = id_of(&rig.fleet.list_features(None, Some(project.clone())).await.expect("listed"));
-    let again = rig.fleet.upsert_features(seeded(&project)).await.expect("kept");
+    let again = rig.fleet.upsert_features(None, seeded(&project)).await.expect("kept");
     assert_eq!((again.created.len(), again.updated.len()), (0, 2));
     assert_eq!(id_of(&rig.fleet.list_features(None, Some(project)).await.expect("listed")), before);
 }
 
 // What follows hands a Job the pages of the features it works in.
 
-fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
+pub(super) fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
     ipc::HandOverFeatures {
         session_id: id.clone(),
         agent_id: agent.map(str::to_string),
@@ -414,7 +448,7 @@ fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>
 async fn a_feature_page_is_handed_once_per_job_and_once_per_subagent_and_the_record_outlives_the_call() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     let voting = "crates/pages/voting/ranks.rs";
 
@@ -439,7 +473,7 @@ async fn a_feature_page_is_handed_once_per_job_and_once_per_subagent_and_the_rec
 async fn a_brief_hands_over_the_features_it_names_and_a_later_read_of_their_files_hands_nothing() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     let brief = "Add rank votes.\n\nFeature: no-such-feature, voting-on-takes\nSee also `page-actions` and `cargo test`.";
 
@@ -478,7 +512,7 @@ async fn nothing_is_handed_to_a_job_fleet_does_not_know_a_project_with_no_librar
     let voting = "crates/pages/voting/ranks.rs";
     assert!(rig.fleet.hand_over_features(hand(&id, None, &[voting], None)).await.expect("asked").text.is_empty(), "no library yet");
 
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let stranger = SessionId::carried("s-unknown");
     assert!(rig.fleet.hand_over_features(hand(&stranger, None, &[voting], None)).await.expect("asked").text.is_empty());
     assert!(rig.fleet.hand_over_features(hand(&id, None, &["docs/elsewhere.md"], None)).await.expect("asked").text.is_empty());
@@ -512,7 +546,7 @@ fn only_a_commit_that_gives_its_message_in_the_line_is_read() {
 async fn a_job_started_after_the_catalog_was_seeded_is_refused_a_commit_with_no_feature_line_and_told_which_to_copy() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     let files = ["crates/pages/voting/a.rs", "crates/pages/voting/b.rs", "crates/pages/actions/c.rs", "docs/elsewhere.md"];
 
@@ -529,7 +563,7 @@ async fn a_job_started_after_the_catalog_was_seeded_is_refused_a_commit_with_no_
 async fn files_no_feature_owns_are_refused_without_a_feature_to_copy() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
 
     let refused = rig.fleet.check_commit_feature(commit_of(&id, r#"git commit -m "Fix a typo""#, &["docs/elsewhere.md"])).await.expect("asked");
@@ -555,7 +589,7 @@ async fn a_job_older_than_the_catalog_a_project_with_no_feature_and_a_commit_not
         .expect("kept");
     assert!(rig.fleet.check_commit_feature(commit_of(&id, line, &files)).await.expect("asked").allowed, "the Job started before the catalog did");
 
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let later = an_agent_for(&rig, &project).await;
     let ask = |command: &str, files: &[&str]| commit_of(&later, command, files);
     assert!(!rig.fleet.check_commit_feature(ask(line, &files)).await.expect("asked").allowed, "a Job started after is held to it");
@@ -574,7 +608,7 @@ fn made(form: &str, slugs: &str) -> std::collections::BTreeMap<String, String> {
 async fn an_artifact_is_linked_to_each_feature_it_names_and_a_name_the_project_does_not_hold_is_a_pending_feature() {
     let rig = rig(None);
     let project = a_project(&rig).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     let now = rig.fleet.now().as_str().to_string();
     let mut store = rig.fleet.store().lock().await;
@@ -616,7 +650,7 @@ async fn a_page_asked_for_one_section_holds_that_section_alone() {
     let rig = rig(None);
     let project = a_project(&rig).await;
     let id = an_agent_for(&rig, &project).await;
-    rig.fleet.upsert_features(seeded(&project)).await.expect("seeded");
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &FeatureSectionKind::ALL)).await.expect("written");
 

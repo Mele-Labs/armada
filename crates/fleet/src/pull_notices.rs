@@ -28,6 +28,19 @@ use crate::pull_owners::Owner;
 use crate::repositories::Served;
 
 /// How many lines of a failing job's log go in the message.
+/// The wait before each by-number read after the first in a sweep, so a repository with many
+/// followed pull requests does not send its reads to the forge in one second.
+const BY_NUMBER_GAP: std::time::Duration = std::time::Duration::from_millis(250);
+
+/// How long to wait before the `asked`th by-number read of a sweep: none before the first.
+pub(crate) fn by_number_gap(asked: usize) -> std::time::Duration {
+    if asked == 0 {
+        std::time::Duration::ZERO
+    } else {
+        BY_NUMBER_GAP
+    }
+}
+
 const TAIL_LINES: usize = 15;
 
 /// How many failing jobs' logs are read for it.
@@ -200,11 +213,14 @@ where
         let mine = self.mine_in(&root).await;
         let held = self.held_pulls(served).await;
         let mut read = Vec::new();
+        let mut asked = 0;
         for pull in followed.iter_mut() {
             let author = pull.author.as_ref().map(|it| it.as_written());
             if !held.contains(&pull.number) && !mine.knows(author) {
                 continue;
             }
+            tokio::time::sleep(by_number_gap(asked)).await;
+            asked += 1;
             let (gate, number) = (gate.clone(), pull.number);
             let one = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
@@ -219,6 +235,8 @@ where
         // The list stops at 100: a pull request someone holds that it left out is read by number.
         let listed: Vec<u64> = followed.iter().map(|pull| pull.number).collect();
         for number in held.into_iter().filter(|number| !listed.contains(number)) {
+            tokio::time::sleep(by_number_gap(asked)).await;
+            asked += 1;
             let gate = gate.clone();
             let one = self
                 .forge_asked(&root, move |vcs: &V, root: &str| {
@@ -568,7 +586,7 @@ where
             // A task a person linked this to is asked about, whoever opened the pull request.
             self.tasks_asked_by_linked_pull(served.manifest().id().as_str(), one.pull.number, one.pull.title.as_written()).await;
             // Whoever opened it, a merge is kept with its files: it is what makes a written section of the library stale.
-            self.feature_pull_filed(served, one.pull.number, Some((one.pull.merged_at.as_written(), one.pull.commit.as_ref().map(|it| it.as_written())))).await;
+            self.feature_pull_filed(served, one.pull.number, Some((one.pull.merged_at.as_written(), one.pull.commit.as_ref().map(|it| it.as_written()), one.pull.title.as_written()))).await;
             if !mine.owns(one.pull.author.as_ref().map(|it| it.as_written())) {
                 continue;
             }

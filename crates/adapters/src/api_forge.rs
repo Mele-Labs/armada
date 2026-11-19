@@ -538,11 +538,30 @@ impl Forge for ApiForge {
         &self,
         in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
+        use adapter_traits::ListFailure;
+        if self.on_github(in_repo).is_none() {
+            return self.gh.pull_review_list(in_repo, ask);
+        }
+        match review_lists::read(&self.api, ask) {
+            Ok(Some(rows)) => Ok(rows),
+            Ok(None) => Err(ListFailure::Other("The search would not mean what it says.".to_string())),
+            // `gh` holds its own sign-in; when it too has nothing, there is no token to speak of.
+            Err(ApiFailure::NoToken(_)) => self.gh.pull_review_list(in_repo, ask).map_err(|_| ListFailure::NoToken(crate::github_api::NO_TOKEN_SAID.to_string())),
+            Err(failure) => Err(failure.listed()),
+        }
+    }
+
+    fn open_pulls_numbered(
+        &self,
+        in_repo: &str,
+        login: &str,
+        pulls: &[adapter_traits::NumberedPull],
     ) -> Option<Vec<adapter_traits::ListedPull>> {
         self.read(
             in_repo,
-            |api, _| review_lists::read(api, ask),
-            |gh| gh.pull_review_list(in_repo, ask),
+            |api, _| review_lists::numbered(api, login, pulls),
+            |gh| gh.open_pulls_numbered(in_repo, login, pulls),
         )
     }
 

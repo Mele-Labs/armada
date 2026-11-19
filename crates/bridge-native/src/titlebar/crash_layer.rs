@@ -1,4 +1,5 @@
-//! The centred crash panel: on the first launch after Armada quit on a panic, a dimmed screen below the
+//! The centred crash panel: on the first launch after Armada quit on a panic, or on a crash macOS reported
+//! and no panic did, a dimmed screen below the
 //! title row and one red panel in its middle (`crash.rs` holds what it reads). It is drawn as the Fleet
 //! panel is (`link_layer.rs`) and takes the keys the same way: Return starts a Job to fix it, Esc is Later,
 //! Tab moves between the three buttons and Space presses the one the keys are on.
@@ -120,17 +121,43 @@ impl CrashPanel {
     }
 }
 
-/// Read the newest crash not yet seen, with macOS's report of it and what was kept. Blocking: off the main thread.
-pub fn read_offer(crashes: &Path, reports: Option<&Path>, title_of: &dyn Fn(&str) -> Option<String>) -> Option<Offer> {
-    let crash = crash::newest_unseen(crashes)?;
-    let macos = reports.and_then(|dir| crash::macos_report(dir, &crash));
-    Some(Offer { crash, macos, kept: crash::kept_now(title_of) })
+/// Read the newest crash not yet seen, with macOS's report of it and what was kept; where no panic wrote one,
+/// macOS's report of a run that did not quit. `last_try` forgets the ended runs macOS wrote nothing of.
+/// Blocking: off the main thread.
+pub fn read_offer(crashes: &Path, reports: Option<&Path>, last_try: bool, title_of: &dyn Fn(&str) -> Option<String>) -> Option<Offer> {
+    if let Some(crash) = crash::newest_unseen(crashes) {
+        let macos = reports.and_then(|dir| crash::macos_report(dir, &crash));
+        return Some(Offer { crash, macos, kept: crash::kept_now(title_of) });
+    }
+    let runs = crash::ended_runs(crashes, std::process::id());
+    let crash = reports.and_then(|dir| crash::newest_macos(dir, &runs));
+    if crash.is_some() || last_try {
+        crash::forget_runs(&runs, crash.as_ref());
+    }
+    Some(Offer { crash: crash?, macos: None, kept: crash::kept_now(title_of) })
 }
+
+/// How often the start looks again for macOS's report, and how long between: macOS writes it a moment after
+/// the process goes, and launchd may have opened this run first.
+const REPORT_TRIES: u32 = 15;
+const REPORT_PAUSE: std::time::Duration = std::time::Duration::from_secs(2);
 
 /// The live app's start: read what a crash left, and stand the panel if there is one. The wire is Fleet's.
 pub fn offer_crash(fleet: &Entity<FleetConnection>, cx: &mut gpui::App) {
     let (Some(crashes), reports) = (crash::crashes_dir(), crash::macos_reports_dir()) else { return };
-    let read = cx.background_executor().spawn(async move { read_offer(&crashes, reports.as_deref(), &|_| None) });
+    let executor = cx.background_executor().clone();
+    let read = cx.background_executor().spawn(async move {
+        for left in (0..REPORT_TRIES).rev() {
+            if let Some(offer) = read_offer(&crashes, reports.as_deref(), left == 0, &|_| None) {
+                return Some(offer);
+            }
+            if crash::ended_runs(&crashes, std::process::id()).is_empty() {
+                return None;
+            }
+            executor.timer(REPORT_PAUSE).await;
+        }
+        None
+    });
     let fleet = fleet.clone();
     cx.spawn(async move |cx| {
         let Some(offer) = read.await else { return };
@@ -328,13 +355,18 @@ impl TitleBar {
             let job = crash::fix_it(&offer.crash, offer.macos.as_deref(), repository).map_err(|why| why.to_string())?;
             let words = job.start.request.clone().unwrap_or_default();
             let body = ipc::encode(&job).map_err(|why| why.to_string())?;
-            let bytes = crate::dispatch::live::call(port, "/sessions/dispatch".into(), Some(body))?;
+            let bytes = crate::dispatch::live::ask(port, "/sessions/dispatch".into(), Some(body))?;
             let done = ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())?;
-            Ok(Dispatched { job: done.session.map(|record| record.id.as_str().to_string()), held: done.operator.or(done.parked), words })
+            Ok::<_, crate::refusal::Failed>(Dispatched { job: done.session.map(|record| record.id.as_str().to_string()), held: done.operator.or(done.parked), words })
         });
         self.crash._task = Some(cx.spawn(async move |this, cx| {
             let answer = ran.await;
-            let _ = this.update(cx, |bar, cx| bar.crash_answered(answer, cx));
+            let _ = this.update(cx, |bar, cx| {
+                if let Err(failed) = &answer {
+                    failed.tell_refusal("The Job to fix the crash was not started", cx);
+                }
+                bar.crash_answered(answer.map_err(String::from), cx)
+            });
         }));
     }
 
@@ -405,11 +437,13 @@ impl TitleBar {
                 Role::Timer,
                 at,
             ));
-        const WHY: &str = "It stopped on an error and reopened. What you were typing is back where it was.";
+        // A panic writes what was typed before the app goes; a crash macOS reported writes nothing more, so the
+        // panel claims only what the files held.
+        let said: &'static str = if offer.crash.run.is_some() { "It stopped on an error and reopened." } else { "It stopped on an error and reopened. What you were typing is back where it was." };
         let why = labelled(
-            div().id("crash-panel-why").px(pad).pt(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(WHY),
+            div().id("crash-panel-why").px(pad).pt(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(said),
             Role::Label,
-            WHY,
+            said,
         );
         let error_box = |id: &'static str, lines: Vec<String>, said: String| {
             labelled(
@@ -668,14 +702,70 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_crash_macos_reported_stands_the_panel_and_its_job_gets_the_report(cx: &mut TestAppContext) {
+        cx.update(crate::init_app);
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        let (offer, stand_in) = scenes::crash_scene("crash-panel-signal", "mock-02").expect("the scene");
+        let done = Rc::clone(&stand_in.done);
+        cx.update(|_, cx| cx.set_global(stand_in));
+        bar.update(cx, |bar, cx| bar.crash_offered(Some(offer), None, cx));
+        cx.run_until_parked();
+        let named = |cx: &mut VisualTestContext, role: &str, name: &str| {
+            cx.update(|window, cx| {
+                let role = crate::labels::role_named(role).expect("a role");
+                cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, name)).is_some()
+            })
+        };
+        assert!(named(cx, "dialog", "Armada quit"), "the same panel stands");
+        assert!(named(cx, "status", "EXC_BAD_ACCESS (SIGSEGV), KERN_INVALID_ADDRESS at 0x0000000000000010, WTF::Detail::CallableWrapper<-[WKContentRuleListStore removeContentRuleListForIdentifier:completionHandler:]::$_4, void, std::__1::error_code>::call(std::__1::error_code) in WebKit"), "the exception and the frame it faulted in");
+        assert!(named(cx, "label", "It stopped on an error and reopened."), "it claims nothing of what was typed");
+        cx.simulate_keystrokes("enter");
+        cx.run_until_parked();
+        let done = done.borrow();
+        let Some(Pressed::Started(job)) = done.iter().find(|one| matches!(one, Pressed::Started(_))) else { panic!("a Job is started: {done:?}") };
+        let Some(ipc::DispatchThen::Message(message)) = job.then.first() else { panic!("the dispatch carries the first message") };
+        assert_eq!(message.attachments.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["Armada-2026-11-17-162203.ips"]);
+        assert!(message.text.contains("on this crash, which macOS reported."), "{}", message.text);
+        assert!(done.contains(&Pressed::Seen), "the crash is marked seen");
+    }
+
+    #[test]
+    fn a_panic_report_comes_before_macos_report_of_the_run_and_the_report_follows_once_it_is_seen() {
+        let root = std::env::temp_dir().join(format!("armada-crash-panel-signal-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        let (crashes, reports) = (root.join("crashes"), root.join("reports"));
+        std::fs::create_dir_all(&reports).unwrap();
+        crash::begin_run(&crashes, 4242).unwrap();
+        crash::begin_run(&crashes, 4343).unwrap();
+        crash::write_report(&crashes, chrono::Utc::now(), "panic: one\n").unwrap();
+
+        let first = read_offer(&crashes, Some(&reports), true, &|_| None).expect("an offer");
+        assert_eq!((first.crash.panic.as_str(), first.crash.run.is_none()), ("one", true), "the panic report first");
+        crash::mark_seen(&first.crash).unwrap();
+
+        assert!(read_offer(&crashes, Some(&reports), false, &|_| None).is_none(), "macOS has not written its report yet");
+        assert!(crashes.join("run-4242").exists() && crashes.join("run-4343").exists(), "runs with no report are kept until the last try");
+
+        let text = "{\"bundleID\":\"dev.armada.bridge.native\"}\n{\"pid\":4242,\"exception\":{\"type\":\"EXC_BAD_ACCESS\",\"signal\":\"SIGSEGV\"},\"faultingThread\":0,\"threads\":[{\"frames\":[{\"imageIndex\":0,\"symbol\":\"call\"}]}],\"usedImages\":[{\"name\":\"WebKit\"}]}";
+        std::fs::write(reports.join("Armada-2026-11-17-162203.ips"), text).unwrap();
+        let next = read_offer(&crashes, Some(&reports), false, &|_| None).expect("macOS's report");
+        assert_eq!((next.crash.panic.as_str(), next.crash.location.as_str(), next.macos.as_deref()), ("EXC_BAD_ACCESS (SIGSEGV)", "call in WebKit", None));
+        assert_eq!(next.crash.file, reports.join("Armada-2026-11-17-162203.ips"), "Open crash file opens macOS's report");
+        assert!(crashes.join("run-4242").exists() && !crashes.join("run-4343").exists(), "the offered run is kept and the one with no report forgotten");
+        crash::mark_seen(&next.crash).unwrap();
+        assert!(read_offer(&crashes, Some(&reports), true, &|_| None).is_none(), "seen, it shows once");
+        let _ = std::fs::remove_dir_all(&root);
+    }
+
+    #[gpui::test]
     fn no_panel_stands_when_there_is_no_unseen_crash(cx: &mut TestAppContext) {
         let dir = std::env::temp_dir().join(format!("armada-crash-panel-test-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(&dir).unwrap();
-        assert!(read_offer(&dir, None, &|_| None).is_none(), "an empty folder has no crash");
+        assert!(read_offer(&dir, None, false, &|_| None).is_none(), "an empty folder has no crash");
         let seen = crash::write_report(&dir, chrono::Utc::now(), "panic: one\n").unwrap();
         crash::mark_seen(&crash::newest_unseen(&dir).unwrap()).unwrap();
-        assert!(seen.exists() && read_offer(&dir, None, &|_| None).is_none(), "a crash already seen is not offered");
+        assert!(seen.exists() && read_offer(&dir, None, false, &|_| None).is_none(), "a crash already seen is not offered");
         let _ = std::fs::remove_dir_all(&dir);
 
         cx.update(crate::init_app);

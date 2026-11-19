@@ -4,37 +4,95 @@
 //! inbox state of each pull request, the diff since he looked and the critique of a range. Each type
 //! says which of those it stands for. Wire types are reused where they already fit.
 
-use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullReviewChecks, PullReviewList, PullReviewThread};
+use ipc::{PullRequestCheckRow, PullRequestCommit, PullRequestEntry, PullRequestFileStatus, PullRequestReviewer, PullRequestReviewerKind, PullReviewChecks, PullReviewList, PullReviewThread};
 
-/// The four inbox groups, in the order they are drawn. Fleet's inbox state of a pull request.
+/// The inbox groups, in the order they are drawn. A row lands in the first that takes it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum Group {
-    FirstLook,
-    Changed,
-    Waiting,
+    Requested,
+    LookAgain,
+    Reviewing,
+    Yours,
+    Team,
     Done,
+    Ignored,
 }
 
 impl Group {
-    pub const ALL: [Group; 4] = [Group::FirstLook, Group::Changed, Group::Waiting, Group::Done];
+    pub const ALL: [Group; 7] = [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done, Group::Ignored];
 
     pub fn said(self) -> &'static str {
         match self {
-            Group::FirstLook => "Needs first look",
-            Group::Changed => "Changed since you looked",
-            Group::Waiting => "Waiting on author",
+            Group::Requested => "Review requested from you",
+            Group::LookAgain => "You reviewed, look again",
+            Group::Reviewing => "In review",
+            Group::Yours => "Yours",
+            Group::Team => "Asked of your team",
             Group::Done => "Done",
+            Group::Ignored => "Ignored",
         }
     }
 
     pub fn glyph(self) -> &'static str {
         match self {
-            Group::FirstLook => "eye",
-            Group::Changed => "git-commit-horizontal",
-            Group::Waiting => "hourglass",
+            Group::Requested => "eye",
+            Group::LookAgain => "git-commit-horizontal",
+            Group::Reviewing => "bot",
+            Group::Yours => "user",
+            Group::Team => "users",
             Group::Done => "circle-check",
+            Group::Ignored => "eye-off",
         }
     }
+
+    /// The groups drawn folded until he opens them.
+    pub fn starts_folded(self) -> bool {
+        matches!(self, Group::Team | Group::Done | Group::Ignored)
+    }
+}
+
+/// The group a pull request lands in: the first that takes it. `changed` is Fleet's inbox state
+/// "changed since you looked"; `reviewing`, that he ran a review tool on it in Armada, which takes
+/// it before any list does: one he has started reviewing is in review, whoever asked.
+pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool, reviewing: bool) -> Group {
+    if reviewing || lists.contains(&PullReviewList::Reviewing) {
+        Group::Reviewing
+    } else if lists.contains(&PullReviewList::Requested) {
+        Group::Requested
+    } else if mine != Verdict::NotReviewed && changed {
+        Group::LookAgain
+    } else if lists.contains(&PullReviewList::Mine) {
+        Group::Yours
+    } else if lists.contains(&PullReviewList::Team) {
+        Group::Team
+    } else {
+        Group::Done
+    }
+}
+
+/// The rows in the order the inbox draws them: group by group, each in the order it came, but
+/// **Review requested from you has the one he has waited on longest first**. In every group the
+/// rows he has seen at their head go after the rest, each part keeping that order.
+pub fn in_order(rows: &[InboxRow]) -> Vec<&InboxRow> {
+    let instant = |at: &str| chrono::DateTime::parse_from_rfc3339(at).ok();
+    // A time that is missing or does not read goes after every one that does.
+    let waited = |row: &InboxRow| {
+        let asked = row.asked_at.as_deref().and_then(instant);
+        let updated = instant(&row.updated_at);
+        (asked.is_none(), asked, updated.is_none(), updated)
+    };
+    Group::ALL
+        .iter()
+        .flat_map(|group| {
+            let mut rows: Vec<&InboxRow> = rows.iter().filter(|row| row.group() == *group).collect();
+            if *group == Group::Requested {
+                rows.sort_by_key(|row| waited(row));
+            }
+            // A stable sort, so each part keeps the order above.
+            rows.sort_by_key(|row| row.seen);
+            rows
+        })
+        .collect()
 }
 
 /// One pull request in the inbox: a `PullReviewRow` with the inbox state Fleet adds.
@@ -47,7 +105,12 @@ pub struct InboxRow {
     pub author: String,
     /// How long since it was updated, as the row says it. Fleet sends RFC 3339.
     pub age: String,
-    pub group: Group,
+    /// When it was updated, RFC 3339, as Fleet sent it.
+    pub updated_at: String,
+    /// When he was last asked to review it, RFC 3339, where Fleet knows.
+    pub asked_at: Option<String>,
+    /// Fleet's inbox state is changed since he looked.
+    pub changed: bool,
     /// Commits pushed since he looked: the chip on a changed row.
     pub new_commits: Option<u32>,
     /// The forge lists it is on, which the filter picks between.
@@ -55,9 +118,23 @@ pub struct InboxRow {
     pub checks: PullReviewChecks,
     /// Where his own review stands.
     pub mine: Verdict,
+    /// He ran a review tool on it in Armada, at any head: the row's bot mark.
+    pub reviewing: bool,
+    /// He ignored it, and it has not been asked of him since.
+    pub ignored: bool,
+    /// He has seen it at its head: drawn dimmed, after the rows he has not.
+    pub seen: bool,
 }
 
 impl InboxRow {
+    /// Ignored wins over every group: Fleet clears it once he is asked to review it again.
+    pub fn group(&self) -> Group {
+        if self.ignored {
+            return Group::Ignored;
+        }
+        group_of(&self.lists, self.mine, self.changed, self.reviewing)
+    }
+
     /// The repository's own name, without its owner.
     pub fn short_repository(&self) -> &str {
         self.repository.rsplit('/').next().unwrap_or(&self.repository)
@@ -252,6 +329,12 @@ pub struct Span {
     /// After "Critique of": `the 1 commit since you looked`.
     pub said: String,
     pub commits: String,
+}
+
+/// Whether a finished review may say it found nothing: no findings, and no tool that failed, since
+/// a run that failed read nothing.
+pub fn found_nothing(findings: &[Finding], failed: &[String]) -> bool {
+    findings.is_empty() && failed.is_empty()
 }
 
 /// A critique of a range: Fleet's range critique, a review run, with what he asked it to look for.
@@ -547,6 +630,8 @@ pub struct Overview {
     pub why: String,
     pub flags: Vec<Flag>,
     pub sets: Vec<ChangeSet>,
+    /// Find problems has read this commit. The mock's own; the live page asks Fleet's runs.
+    pub read: bool,
 }
 
 /// What a change set's Explain tools are asked.
@@ -599,6 +684,150 @@ pub struct Page {
     pub kept: bool,
     /// The refresh found it closed, or gone from the forge.
     pub ended: Option<Ended>,
+    /// Who is asked to review, and who reviewed unasked, as the forge lists them.
+    pub reviewers: Vec<PullRequestReviewer>,
+    /// Where it is on the forge. Empty where Fleet did not say.
+    pub address: String,
+    pub draft: bool,
+}
+
+/// Where the pull request stands on the forge, as the head's state chip says it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum PullState {
+    Open,
+    Draft,
+    Closed,
+    Gone,
+}
+
+impl PullState {
+    /// How it ended wins over whether it was a draft.
+    pub fn of(draft: bool, ended: Option<Ended>) -> PullState {
+        match (ended, draft) {
+            (Some(Ended::Closed), _) => PullState::Closed,
+            (Some(Ended::Gone), _) => PullState::Gone,
+            (None, true) => PullState::Draft,
+            (None, false) => PullState::Open,
+        }
+    }
+
+    pub fn said(self) -> &'static str {
+        match self {
+            PullState::Open => "Open",
+            PullState::Draft => "Draft",
+            PullState::Closed => "Closed",
+            PullState::Gone => "No longer on the forge",
+        }
+    }
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            PullState::Open => "git-pull-request",
+            PullState::Draft => "git-pull-request-draft",
+            PullState::Closed => "git-pull-request-closed",
+            PullState::Gone => "circle-slash",
+        }
+    }
+}
+
+/// Who is still asked to review, as Your review says it: whether he is, and the others.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Asked {
+    pub you: bool,
+    /// `Also asked: tobias, @payments-team` beside his own chip, `Asked: …` without it. None when
+    /// nobody else is asked.
+    pub others: Option<String>,
+}
+
+/// Still asked is a reviewer with no review: the forge drops a person from its requests once they
+/// review, and a team never has one. `me` is his own login.
+pub fn asked(reviewers: &[PullRequestReviewer], me: &str) -> Asked {
+    // A person who reviewed is no longer asked; a team never answers, so it stays asked.
+    let still: Vec<&PullRequestReviewer> = reviewers.iter().filter(|reviewer| reviewer.verdict.is_none()).collect();
+    let mine = |reviewer: &&PullRequestReviewer| reviewer.kind == PullRequestReviewerKind::Person && reviewer.login.eq_ignore_ascii_case(me);
+    let you = still.iter().any(mine);
+    let others: Vec<String> = still
+        .iter()
+        .filter(|reviewer| !mine(reviewer))
+        .map(|reviewer| match reviewer.kind {
+            PullRequestReviewerKind::Team => format!("@{}", reviewer.login),
+            PullRequestReviewerKind::Person => reviewer.login.clone(),
+        })
+        .collect();
+    let lead = if you { "Also asked" } else { "Asked" };
+    Asked { you, others: (!others.is_empty()).then(|| format!("{lead}: {}", others.join(", "))) }
+}
+
+/// The page's files under their folders, folders in path order and files by name within each. A
+/// file at the top of the repository is under the folder `""`.
+pub fn by_folder(files: &[PageFile]) -> Vec<(String, Vec<&PageFile>)> {
+    let mut folders: std::collections::BTreeMap<&str, Vec<&PageFile>> = std::collections::BTreeMap::new();
+    for file in files {
+        let folder = file.path.rsplit_once('/').map_or("", |(folder, _)| folder);
+        folders.entry(folder).or_default().push(file);
+    }
+    folders
+        .into_iter()
+        .map(|(folder, mut files)| {
+            files.sort_by(|a, b| a.path.cmp(&b.path));
+            (folder.to_string(), files)
+        })
+        .collect()
+}
+
+/// What the description's hover buttons ask of it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum Rewrite {
+    Summarize,
+    Explain,
+    Simplify,
+}
+
+impl Rewrite {
+    pub const ALL: [Rewrite; 3] = [Rewrite::Summarize, Rewrite::Explain, Rewrite::Simplify];
+
+    /// As its button says it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "Summarize",
+            Rewrite::Explain => "Explain",
+            Rewrite::Simplify => "Simplify",
+        }
+    }
+
+    pub fn glyph(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "scroll-text",
+            Rewrite::Explain => "circle-question-mark",
+            Rewrite::Simplify => "sliders-horizontal",
+        }
+    }
+
+    /// The small label over its answer.
+    pub fn label(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "Summary",
+            Rewrite::Explain => "Explanation",
+            Rewrite::Simplify => "Simpler",
+        }
+    }
+
+    /// The question Fleet's Ask run is put, in words it keeps lower-cased.
+    pub fn question(self) -> &'static str {
+        match self {
+            Rewrite::Summarize => "summarize this pull request's description in two or three sentences, in markdown",
+            Rewrite::Explain => "explain this pull request's description to a reader new to this code: what it changes and why, in markdown",
+            Rewrite::Simplify => "rewrite this pull request's description in plain, simpler words, keeping every fact, in markdown",
+        }
+    }
+}
+
+/// An answer to a question put to the pull request, while it is written and once it is.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Answer {
+    Writing,
+    Written(String),
+    Failed(String),
 }
 
 /// How a kept pull request ended before he came back to it.
@@ -704,6 +933,16 @@ mod tests {
     }
 
     #[test]
+    fn a_review_that_failed_never_reads_as_one_that_found_nothing() {
+        let finding = Finding { id: "f".into(), title: "t".into(), path: "a.rs".into(), line: 1, comment: "c".into() };
+        let failed = vec!["risks failed: the answer was refused".to_string()];
+        assert!(found_nothing(&[], &[]), "a clean run with no findings found nothing");
+        assert!(!found_nothing(&[], &failed), "a failed run found nothing to report, which is not nothing");
+        assert!(!found_nothing(&[finding.clone()], &[]));
+        assert!(!found_nothing(&[finding], &failed));
+    }
+
+    #[test]
     fn a_review_ask_says_what_it_looks_for_and_how_hard() {
         let tool = |id: &str, said: &str, first: bool| ReviewTool { id: id.into(), name: said.into(), said: said.into(), first };
         let list = [tool("bugs", "possible bugs", true), tool("risks", "risks", true), tool("api", "API breaking changes", false)];
@@ -724,5 +963,184 @@ mod tests {
         assert_eq!(Mark::of("a", &flags), Mark { worst: Some(FlagKind::Blocker), said: "1 blocker and 2 risks".into() });
         assert_eq!(Mark::of("b", &flags), Mark { worst: Some(FlagKind::PossibleBug), said: "1 possible bug".into() });
         assert_eq!(Mark::of("c", &flags), Mark::default());
+    }
+
+    #[test]
+    fn the_state_chip_says_how_it_ended_before_whether_it_is_a_draft() {
+        assert_eq!(PullState::of(false, None), PullState::Open);
+        assert_eq!(PullState::of(true, None), PullState::Draft);
+        assert_eq!(PullState::of(true, Some(Ended::Closed)), PullState::Closed);
+        assert_eq!(PullState::of(false, Some(Ended::Gone)), PullState::Gone);
+    }
+
+    fn reviewer(login: &str, kind: PullRequestReviewerKind, verdict: Option<ipc::PullRequestVerdict>) -> PullRequestReviewer {
+        PullRequestReviewer { login: login.into(), kind, verdict, name: None, url: None, team: None }
+    }
+
+    #[test]
+    fn the_asked_line_names_the_others_still_asked_and_marks_a_team() {
+        use PullRequestReviewerKind::{Person, Team};
+        let reviewers = [
+            reviewer("Wren", Person, None),
+            reviewer("tobias", Person, None),
+            reviewer("jun", Person, Some(ipc::PullRequestVerdict::Approved)),
+            reviewer("payments-team", Team, None),
+        ];
+        assert_eq!(asked(&reviewers, "wren"), Asked { you: true, others: Some("Also asked: tobias, @payments-team".into()) });
+        assert_eq!(asked(&reviewers, "kit"), Asked { you: false, others: Some("Asked: Wren, tobias, @payments-team".into()) });
+        assert_eq!(asked(&reviewers[..1], "wren"), Asked { you: true, others: None });
+        assert_eq!(asked(&reviewers[2..3], "wren"), Asked { you: false, others: None });
+    }
+
+    #[test]
+    fn files_sit_under_their_folders_in_path_order() {
+        let file = |path: &str| PageFile {
+            path: path.into(),
+            status: PullRequestFileStatus::Modified,
+            additions: 1,
+            deletions: 0,
+            viewed: Viewed::No,
+            since: false,
+            patch: String::new(),
+            patch_since: None,
+        };
+        let files = [file("src/jobs/retry.rs"), file("README.md"), file("src/db/schema.rs"), file("src/jobs/invoice.rs")];
+        let folders: Vec<(String, Vec<&str>)> = by_folder(&files).into_iter().map(|(folder, files)| (folder, files.iter().map(|file| file.path.as_str()).collect())).collect();
+        assert_eq!(
+            folders,
+            [
+                (String::new(), vec!["README.md"]),
+                ("src/db".to_string(), vec!["src/db/schema.rs"]),
+                ("src/jobs".to_string(), vec!["src/jobs/invoice.rs", "src/jobs/retry.rs"]),
+            ]
+        );
+    }
+}
+
+#[cfg(test)]
+mod group_tests {
+    use super::*;
+    use PullReviewList::*;
+
+    #[test]
+    fn requested_comes_first_even_when_he_reviewed_and_it_changed() {
+        assert_eq!(group_of(&[Requested, Mine], Verdict::Approved, true, false), Group::Requested);
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, false), Group::Requested);
+    }
+
+    #[test]
+    fn reviewed_and_changed_is_look_again_unless_requested() {
+        assert_eq!(group_of(&[Assigned], Verdict::ChangesRequested, true, false), Group::LookAgain);
+        assert_eq!(group_of(&[Mine, Team], Verdict::Commented, true, false), Group::LookAgain);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, true, false), Group::Done);
+        assert_eq!(group_of(&[Assigned], Verdict::Approved, false, false), Group::Done);
+    }
+
+    #[test]
+    fn in_review_takes_every_pull_request_he_started_reviewing_before_any_list() {
+        // Asked of him, or reviewed and changed since, once he has started a review it is in review.
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Assigned], Verdict::Commented, true, true), Group::Reviewing);
+        assert_eq!(group_of(&[Requested], Verdict::NotReviewed, false, false), Group::Requested);
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Team], Verdict::Approved, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Reviewing], Verdict::NotReviewed, false, true), Group::Reviewing);
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, false), Group::Yours);
+    }
+
+    #[test]
+    fn mine_then_team_then_done() {
+        assert_eq!(group_of(&[Mine], Verdict::NotReviewed, false, false), Group::Yours);
+        assert_eq!(group_of(&[Team, Mine], Verdict::NotReviewed, false, false), Group::Yours);
+        assert_eq!(group_of(&[Team], Verdict::NotReviewed, false, false), Group::Team);
+        assert_eq!(group_of(&[Team, Assigned], Verdict::Approved, false, false), Group::Team);
+        assert_eq!(group_of(&[Assigned], Verdict::NotReviewed, false, false), Group::Done);
+    }
+
+    fn row(number: u64, lists: &[PullReviewList], updated_at: &str, asked_at: Option<&str>) -> InboxRow {
+        InboxRow {
+            number,
+            repository: "acme/billing".into(),
+            title: format!("Pull {number}"),
+            author: "tobias".into(),
+            age: String::new(),
+            updated_at: updated_at.into(),
+            asked_at: asked_at.map(str::to_string),
+            changed: false,
+            new_commits: None,
+            lists: lists.to_vec(),
+            checks: PullReviewChecks::Passed,
+            mine: Verdict::NotReviewed,
+            reviewing: false,
+            ignored: false,
+            seen: false,
+        }
+    }
+
+    fn numbers(rows: &[InboxRow]) -> Vec<u64> {
+        in_order(rows).iter().map(|row| row.number).collect()
+    }
+
+    #[test]
+    fn review_requested_from_you_puts_the_longest_wait_first() {
+        let rows = [
+            row(1, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-16T09:00:00Z")),
+            row(2, &[Requested], "2026-11-10T12:00:00Z", None),
+            row(3, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T09:00:00+02:00")),
+            row(4, &[Requested], "2026-11-09T12:00:00Z", None),
+            row(5, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T08:00:00Z")),
+        ];
+        // #3 was asked at 07:00 UTC, before #5; an unknown time goes after, the oldest update first.
+        assert_eq!(numbers(&rows), [3, 5, 1, 4, 2]);
+    }
+
+    #[test]
+    fn a_time_that_does_not_read_is_no_time_and_other_groups_keep_their_order() {
+        let rows = [
+            row(10, &[Mine], "2026-11-01T00:00:00Z", None),
+            row(11, &[Requested], "2026-11-16T12:00:00Z", Some("yesterday")),
+            row(12, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-15T09:00:00Z")),
+            row(13, &[Mine], "2026-10-01T00:00:00Z", None),
+            row(14, &[Team], "2026-11-16T12:00:00Z", Some("2026-11-01T09:00:00Z")),
+            row(15, &[Team], "2026-11-16T12:00:00Z", Some("2026-10-01T09:00:00Z")),
+        ];
+        assert_eq!(numbers(&rows), [12, 11, 10, 13, 14, 15]);
+    }
+
+    #[test]
+    fn team_done_and_ignored_start_folded() {
+        let folded: Vec<Group> = Group::ALL.into_iter().filter(|group| group.starts_folded()).collect();
+        assert_eq!(folded, [Group::Team, Group::Done, Group::Ignored]);
+        assert_eq!(Group::ALL, [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done, Group::Ignored]);
+    }
+
+    #[test]
+    fn an_ignored_pull_request_is_ignored_whatever_else_would_take_it() {
+        let lists: [&[PullReviewList]; 6] = [&[Reviewing], &[Requested], &[Assigned], &[Mine], &[Team], &[]];
+        for lists in lists {
+            for mine in [Verdict::NotReviewed, Verdict::Commented, Verdict::Approved] {
+                for (changed, reviewing) in [(false, false), (true, false), (false, true), (true, true)] {
+                    let row = InboxRow { mine, changed, reviewing, ignored: true, ..row(1, lists, "2026-11-16T12:00:00Z", None) };
+                    assert_eq!(row.group(), Group::Ignored, "{lists:?} {mine:?} changed {changed} reviewing {reviewing}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn seen_rows_go_to_the_bottom_of_their_group_in_the_order_they_had() {
+        let seen = |row: InboxRow| InboxRow { seen: true, ..row };
+        let rows = [
+            seen(row(1, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-10T09:00:00Z"))),
+            row(2, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-16T09:00:00Z")),
+            seen(row(3, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T09:00:00Z"))),
+            row(4, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-14T09:00:00Z")),
+            seen(row(10, &[Mine], "2026-11-01T00:00:00Z", None)),
+            row(11, &[Mine], "2026-11-01T00:00:00Z", None),
+            seen(row(12, &[Mine], "2026-11-01T00:00:00Z", None)),
+            row(13, &[Mine], "2026-11-01T00:00:00Z", None),
+        ];
+        // Requested keeps the longest wait first within each part; Yours keeps the order it came.
+        assert_eq!(numbers(&rows), [4, 2, 1, 3, 11, 13, 10, 12]);
     }
 }

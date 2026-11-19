@@ -1,7 +1,7 @@
 //! Kit's three panes, drawn from what `model.rs` made of Fleet's read: the rail of kinds, the pieces grouped by
 //! where they come from, and the piece picked with its acts. Every value is a token.
 
-use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Render, Role, SharedString, Stateful, Window};
+use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Stateful, Window};
 use gpui_component::input::{Input, Textarea};
 use ipc::KitPlace;
 
@@ -12,6 +12,17 @@ use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, refusal, ring_colour, switch_track, tip};
 use crate::titlebar::parts::{glyph, kbd, mono, sans, Btn, Weight};
+
+/// The radius a fill flush against a `reviews::panel`'s edge wears: the panel's own, less its heavier top border, so the
+/// fill follows the curve and no square corner shows over it (overflow_hidden clips to a rectangle).
+fn inner_radius(look: &Look) -> Pixels {
+    look.length(token::RADIUS_LG) - look.length(token::BORDER_WIDTH) * 2.
+}
+
+/// Below this width the two panels cannot sit side by side: the list panel shows alone, then the content panel with Back.
+pub(super) fn narrow(window: &Window) -> bool {
+    window.viewport_size().width < px(1100.)
+}
 
 /// A hue as a tint: the ground a filled chip and a kind's tile wear (`color-mix(... 22%, transparent)`).
 fn tint(look: &Look, hue: Token) -> Hsla {
@@ -161,6 +172,7 @@ impl KitScreen {
                 .flex_col()
                 .py(look.length(token::SPACE_3))
                 .px(look.length(token::SPACE_2))
+                .rounded_l(inner_radius(look))
                 .border_r(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::BG_SUNKEN))
@@ -213,14 +225,11 @@ impl KitScreen {
             div()
                 .id("kit-list")
                 .track_focus(&self.panes[1])
-                .flex_none()
-                .w(look.length(token::W_GUIDE_LIST))
+                .when(narrow(window), |list| list.flex_1().min_w_0())
+                .when(!narrow(window), |list| list.flex_none().w(look.length(token::W_GUIDE_LIST)))
                 .h_full()
                 .flex()
                 .flex_col()
-                .border_r(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_SUBTLE))
-                .bg(look.color(token::BG_BASE))
                 .child(top)
                 .child(div().flex_1().min_h_0().child(body)),
             Role::Region,
@@ -242,7 +251,7 @@ impl KitScreen {
                     .rounded(look.length(token::RADIUS_MD))
                     .border(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::BG_RAISED))
+                    .bg(look.color(token::BG_BASE))
                     .child(bone(look, px(8.), px(8.)).rounded_full())
                     .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(bone(look, px(96.), look.length(token::LEADING_XS))).child(bone(look, px(168.), look.length(token::LEADING_2XS)))),
             );
@@ -333,13 +342,13 @@ impl KitScreen {
                 } else if picked {
                     card.border_color(self.selection(look, focused)).bg(look.color(token::ACCENT).opacity(0.12))
                 } else {
-                    card.border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_RAISED)).cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    card.border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_BASE)).cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER)))
                 }
             })
             .aria_selected(picked)
             .on_click(cx.listener(move |this, _, window, cx| {
                 this.pick(id.clone(), cx);
-                this.focus(Pane::List, window, cx);
+                this.focus(if narrow(window) { Pane::Detail } else { Pane::List }, window, cx);
             }))
             .child(lamp_cell)
             .child(
@@ -371,8 +380,31 @@ impl KitScreen {
                 .h_full()
                 .flex()
                 .flex_col()
-                .bg(look.color(token::BG_BASE))
-                .when(focused, |detail| detail.border_t(look.length(token::BORDER_WIDTH) * 2.).border_color(ring_colour(look)))
+                .when(focused, |detail| detail.rounded_t(inner_radius(look)).border_t(look.length(token::BORDER_WIDTH) * 2.).border_color(ring_colour(look)))
+                .children(narrow(window).then(|| {
+                    labelled(
+                        div()
+                            .id("kit-back")
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_1))
+                            .h(look.length(token::H_CONTROL_LG))
+                            .px(look.length(token::SPACE_3))
+                            .border_b(look.length(token::BORDER_WIDTH))
+                            .border_color(look.color(token::BORDER_SUBTLE))
+                            .text_size(look.length(token::TEXT_XS))
+                            .text_color(look.color(token::FG_MUTED))
+                            .cursor_pointer()
+                            .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
+                            .tooltip(tip("Back to the list (Esc)"))
+                            .on_click(cx.listener(|this, _, window, cx| this.focus(Pane::List, window, cx)))
+                            .child(glyph("chevron-left", look.length(token::SPACE_4), look.color(token::FG_MUTED)))
+                            .child("Back"),
+                        Role::Button,
+                        "Back",
+                    )
+                }))
                 .child(inside)
                 .child(self.render_keys(look)),
             Role::Region,
@@ -777,6 +809,8 @@ fn note(look: &Look, heading: &str, why: &str) -> gpui::AnyElement {
 impl Render for KitScreen {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
+        let narrow = narrow(window);
+        let in_detail = self.pane == Pane::Detail;
         let rail = self.render_rail(&look, window, cx);
         let list = self.render_list(&look, window, cx);
         let detail = self.render_detail(&look, window, cx);
@@ -791,12 +825,13 @@ impl Render for KitScreen {
             .relative()
             .size_full()
             .flex()
+            .gap(look.length(token::GAP_PANEL))
+            .p(look.length(token::SPACE_3))
             .bg(look.color(token::BG_BASE))
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(rail)
-            .child(list)
-            .child(detail)
+            .children((!narrow || !in_detail).then(|| crate::reviews::panel(&look).h_full().flex().when(narrow, |left| left.flex_1().min_w_0()).when(!narrow, |left| left.flex_none()).child(rail).child(list)))
+            .children((!narrow || in_detail).then(|| crate::reviews::panel(&look).flex_1().min_w_0().h_full().flex().child(detail)))
             .children(add)
             .children(confirm)
     }

@@ -70,6 +70,11 @@ pub trait Projects: Send + Sync + 'static {
     /// `save_kit_values` — Kit's `values.yml`, whole. [`Refusal::Unacceptable`] for a word its key does not take.
     fn save_kit_values(&self, save: ipc::SaveKitValues) -> impl Future<Output = Result<ipc::KitValuesSaved, Refusal>> + Send;
 
+    /// `merge_projects` — a project of this Mac's and a copy of another Mac's, of one name, made one. [`Refusal::NotFound`]
+    /// for an id he has none of, [`Refusal::Unacceptable`] for names that differ, two of this Mac's or two copies, and a
+    /// kept project that is not shared with his other Macs.
+    fn merge_projects(&self, merge: ipc::MergeProjects) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
+
     /// `delete_project` — the project and its rows, and its file where Fleet keeps it itself.
     fn delete_project(&self, project: String) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 

@@ -193,3 +193,28 @@ fn a_message_he_sorted_while_the_model_read_it_is_not_overwritten() {
     store.drop_message_read("s1", "m1").unwrap();
     assert_eq!(store.message_sorted("s1", "m1").unwrap().unwrap().sorted_by, "owner");
 }
+
+#[test]
+fn questions_list_the_unanswered_first_and_each_group_newest_first_and_a_read_answer_is_not_unread() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for (row, minute) in [("q1", "00"), ("q2", "01"), ("q3", "02"), ("q4", "03")] {
+        store.keep_message(&message("s1", row, message_kind::QUESTION, None, sorted_by::FLEET, &format!("2026-11-17T10:{minute}:00.000Z"))).unwrap();
+        store.keep_question("s1", row).unwrap();
+    }
+    assert!(store.keep_question_answered("s1", "q1", "r1", "because", "2026-11-17T10:05:00.000Z").unwrap());
+    assert!(store.keep_question_answered("s1", "q3", "r3", "since", "2026-11-17T10:06:00.000Z").unwrap());
+    assert!(!store.keep_question_answered("s1", "q3", "r9", "again", "2026-11-17T10:07:00.000Z").unwrap(), "linked once");
+
+    let order: Vec<String> = store.questions_of("s1").unwrap().into_iter().map(|one| one.row_id).collect();
+    assert_eq!(order, ["q4", "q2", "q3", "q1"]);
+    assert!(store.answer_unread("s1").unwrap());
+    assert!(store.keep_answer_read("s1", "q1", "2026-11-17T10:08:00.000Z").unwrap());
+    assert!(store.keep_answer_read("s1", "q3", "2026-11-17T10:08:00.000Z").unwrap());
+    assert!(!store.keep_answer_read("s1", "q3", "2026-11-17T10:09:00.000Z").unwrap(), "read once");
+    assert!(!store.answer_unread("s1").unwrap());
+
+    // A message sorted as something else is no question.
+    store.remove_question("s1", "q4").unwrap();
+    assert_eq!(store.questions_of("s1").unwrap().len(), 3);
+}

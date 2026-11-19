@@ -19,6 +19,7 @@ use crate::fleet::FleetConnection;
 use crate::keymap::{self, Act, Slot};
 use crate::log::Note;
 use crate::look::{token, Token};
+use crate::refusal::Failed;
 
 /// What a note's box says while empty.
 const PLACEHOLDER: &str = "Feedback for this Job";
@@ -39,6 +40,32 @@ impl NoteKey {
     pub fn draft(&self) -> String {
         format!("build-note:{}@{}", self.branch, self.tip)
     }
+}
+
+/// A note's few-word title, made from its branch: the part after the last `/`, dashes read as spaces, the first
+/// letter capital. "native/drawing-approve" reads "Drawing approve".
+pub fn few_words(branch: &str) -> String {
+    let tail = branch.rsplit('/').next().unwrap_or(branch);
+    let spaced = tail.replace('-', " ");
+    let mut letters = spaced.trim().chars();
+    match letters.next() {
+        Some(first) => first.to_uppercase().chain(letters).collect(),
+        None => String::new(),
+    }
+}
+
+/// The notes with each Job's together, the Job seen first leading and each Job's notes in the order they came.
+pub fn grouped(notes: Vec<BuildNote>) -> Vec<BuildNote> {
+    let mut jobs: Vec<ipc::SessionId> = Vec::new();
+    for note in &notes {
+        if !jobs.contains(&note.session_id) {
+            jobs.push(note.session_id.clone());
+        }
+    }
+    let mut notes = notes;
+    // A stable sort keeps a Job's notes in their order.
+    notes.sort_by_key(|note| jobs.iter().position(|job| *job == note.session_id));
+    notes
 }
 
 /// The note the keys are on: the one chosen if Fleet still holds it, else the first not looked at, else the first.
@@ -296,7 +323,9 @@ impl BuildNotesSheet {
         }
     }
 
-    fn hold(&mut self, notes: BuildNotes, window: &mut Window, cx: &mut Context<Self>) {
+    fn hold(&mut self, mut notes: BuildNotes, window: &mut Window, cx: &mut Context<Self>) {
+        // The list draws a Job's notes together, and the arrows walk it in that order.
+        notes.notes = grouped(std::mem::take(&mut notes.notes));
         self.marked.retain(|key, given| notes.notes.iter().any(|note| NoteKey::of(note) == *key && note.verdict != Some(*given)));
         self.held = Some(notes);
         if self.open && !self.has_notes() {
@@ -476,7 +505,7 @@ impl BuildNotesSheet {
         self.marked.insert(key.clone(), given);
         cx.notify();
         let body = encoded(&ipc::MarkBuildNoteLookedAt { branch: note.branch, tip: note.tip, verdict: Some(given) });
-        let task: Task<Result<BuildNotes, String>> = post(port, MARK_LOOKED, body, "BuildNotes", cx);
+        let task: Task<Result<BuildNotes, Failed>> = post(port, MARK_LOOKED, body, "BuildNotes", cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| match answer {
@@ -485,8 +514,11 @@ impl BuildNotesSheet {
                     if this.marked.get(&key) == Some(&given) {
                         this.marked.remove(&key);
                     }
-                    Note::warn("Fleet refused the mark").field("route", MARK_LOOKED).field("why", why.as_str()).emit();
-                    crate::toasts::tell(why, cx);
+                    Note::warn("Fleet refused the mark").field("route", MARK_LOOKED).field("why", why.to_string()).emit();
+                    cx.defer(move |cx| match why {
+                        Failed::Refused(refusal) => crate::toasts::tell_refused("The build note was not marked", refusal, cx),
+                        Failed::Unanswered(why) => crate::toasts::tell(why, cx),
+                    });
                     cx.notify();
                 }
             });
@@ -511,7 +543,7 @@ impl BuildNotesSheet {
         cx.notify();
         let key = NoteKey::of(&note);
         let body = encoded(&ipc::SendBuildNoteFeedback { branch: note.branch.clone(), tip: note.tip.clone(), words });
-        let task: Task<Result<BuildNoteFeedbackSent, String>> = post(port, SEND_FEEDBACK, body, "BuildNoteFeedbackSent", cx);
+        let task: Task<Result<BuildNoteFeedbackSent, Failed>> = post(port, SEND_FEEDBACK, body, "BuildNoteFeedbackSent", cx);
         self.work = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -525,9 +557,11 @@ impl BuildNotesSheet {
                         crate::toasts::job_started(sent.session_id.as_str(), sent_said(&note.title, &sent), cx);
                     }
                     Err(why) => {
-                        Note::warn("Fleet refused the feedback").field("route", SEND_FEEDBACK).field("why", why.as_str()).emit();
+                        Note::warn("Fleet refused the feedback").field("route", SEND_FEEDBACK).field("why", why.to_string()).emit();
+                        let told = why.clone();
+                        cx.defer(move |cx| told.tell_refusal("The feedback was not sent", cx));
                         if this.chosen.as_ref() == Some(&key) {
-                            this.refused = Some(why.into());
+                            this.refused = Some(why.to_string().into());
                         }
                     }
                 }
@@ -550,18 +584,11 @@ fn encoded(value: &impl serde::Serialize) -> String {
     ipc::encode(value).unwrap_or_default()
 }
 
-/// `POST path` off the main thread: the answer as `what` reads it, or Fleet's own sentence for a refusal.
-fn post<T: DeserializeOwned + Send + 'static>(port: u16, path: &'static str, body: String, what: &'static str, cx: &App) -> Task<Result<T, String>> {
+/// `POST path` off the main thread: the answer as `what` reads it, or Fleet's refusal kept whole.
+fn post<T: DeserializeOwned + Send + 'static>(port: u16, path: &'static str, body: String, what: &'static str, cx: &App) -> Task<Result<T, Failed>> {
     cx.background_spawn(async move {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-        let (status, bytes) = runtime.block_on(crate::transport::post(port, path, body))?;
-        if !(200..300).contains(&status) {
-            return Err(match ipc::decode::<ipc::WireError>("WireError", &bytes) {
-                Ok(error) => error.message,
-                Err(_) => format!("Fleet answered {status}"),
-            });
-        }
-        ipc::decode::<T>(what, &bytes).map_err(|why| why.to_string())
+        let bytes = crate::refusal::post(port, path, body)?;
+        ipc::decode::<T>(what, &bytes).map_err(|why| Failed::from(why.to_string()))
     })
 }
 
@@ -592,6 +619,28 @@ mod tests {
         assert_eq!(position(&[], None, &none), None);
         let marked: Marked = [(key("b"), NoteVerdict::Good)].into();
         assert_eq!(position(&notes, None, &marked), Some(2), "a note just marked is looked at already");
+    }
+
+    #[test]
+    fn a_note_is_titled_in_a_few_words_from_the_end_of_its_branch() {
+        assert_eq!(few_words("native/drawing-approve"), "Drawing approve");
+        assert_eq!(few_words("fleet/page-send-votes"), "Page send votes");
+        assert_eq!(few_words("hotfix"), "Hotfix", "no slash: the whole branch");
+        assert_eq!(few_words("a/b/c-d"), "C d", "only the part after the last slash");
+    }
+
+    fn of_job(job: &str, branch: &str) -> BuildNote {
+        let mut one = note(branch, false);
+        one.session_id = ipc::SessionId::carried(job);
+        one
+    }
+
+    #[test]
+    fn notes_come_out_grouped_by_job_with_the_job_seen_first_leading_and_each_jobs_order_kept() {
+        let out = grouped(vec![of_job("x", "x1"), of_job("y", "y1"), of_job("x", "x2"), of_job("y", "y2"), of_job("x", "x3")]);
+        let branches: Vec<&str> = out.iter().map(|note| note.branch.as_str()).collect();
+        assert_eq!(branches, ["x1", "x2", "x3", "y1", "y2"]);
+        assert!(grouped(Vec::new()).is_empty());
     }
 
     #[test]
@@ -728,6 +777,23 @@ mod tests {
             sheet.on_act(&pressed("move_focus", 1, None), window, cx);
             assert_eq!(sheet.at(), Some(1));
             assert_eq!(sheet.feedback.read(cx).value().as_ref(), "on b", "b's draft came back");
+        });
+    }
+
+    #[gpui::test]
+    fn the_arrows_walk_the_notes_in_the_order_the_list_draws_them_grouped(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let held = BuildNotes { commit: Some("abc1234def".into()), notes: vec![of_job("x", "x1"), of_job("y", "y1"), of_job("x", "x2")] };
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.hold(held, window, cx);
+            sheet.show(window, cx);
+            sheet.select(0, window, cx);
+            let mut seen = vec![sheet.note().map(|note| note.branch.clone())];
+            for _ in 0..2 {
+                sheet.on_act(&pressed("move_focus", 0, None), window, cx);
+                seen.push(sheet.note().map(|note| note.branch.clone()));
+            }
+            assert_eq!(seen, [Some("x1".to_string()), Some("x2".to_string()), Some("y1".to_string())], "a heading is not a stop: down goes from one note to the next");
         });
     }
 

@@ -22,7 +22,9 @@ use ipc::{
 use sha2::{Digest, Sha256};
 use store::{KeptPreviewOffered, SessionState};
 
-use crate::building::{commit_in, held_in, restarting_in, source_in};
+use adapters::BuildMerges;
+
+use crate::building::{commit_in, held_by_merges, held_in, restarting_in, source_in, Held};
 use crate::daemon::Fleet;
 use crate::pull_notices::short;
 use crate::repositories::Served;
@@ -48,6 +50,10 @@ pub(crate) struct Previewing {
     pub(crate) notes_sent: Mutex<Option<ipc::BuildNotes>>,
     /// The main commit the last check ran against, so a move of main asks for another.
     main_seen: Mutex<Option<String>>,
+    /// What the merges of the last build commit read said it holds, so git is asked once per build.
+    walked: Mutex<Option<(String, Option<BuildMerges>)>>,
+    /// Whether each tip asked about is under the last build commit, so git is asked once per build and tip.
+    reached: Mutex<(String, BTreeMap<String, bool>)>,
 }
 
 impl Default for Previewing {
@@ -59,6 +65,8 @@ impl Default for Previewing {
             sent: Mutex::new(None),
             notes_sent: Mutex::new(None),
             main_seen: Mutex::new(None),
+            walked: Mutex::new(None),
+            reached: Mutex::new((String::new(), BTreeMap::new())),
         }
     }
 }
@@ -286,7 +294,7 @@ where
 
     /// The offers and the Refresh row as Bridge draws them.
     pub(crate) async fn preview_offers_read(&self) -> PreviewOffers {
-        let held = self.preview_build_holds();
+        let build = self.preview_build();
         let store = self.store().lock().await;
         let kept = store.preview_offered_all().unwrap_or_default();
         let rows: Vec<PreviewOfferRow> = kept
@@ -301,7 +309,7 @@ where
                 state: state_of(&one.state),
                 why: one.why.clone(),
                 files: one.files.clone(),
-                in_build: held.get(&one.branch).is_some_and(|tip| *tip == one.tip),
+                in_build: self.build_holds(build.as_ref(), &one.branch, &one.tip),
             })
             .collect();
         let ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
@@ -320,9 +328,26 @@ where
         Ok(PreviewRefreshSkipped { id: asked.id })
     }
 
-    /// The branches the running build holds, at the tips it holds them, where the build is the preview.
-    fn preview_build_holds(&self) -> BTreeMap<String, String> {
-        self.preview_build().map(|(_, tips)| tips).unwrap_or_default()
+    /// Whether the running preview `build` holds `branch` at `tip`: it merged it, or `tip` is already under its
+    /// commit, as where the branch landed on the main the build was cut from. `None` is no preview, which holds nothing.
+    pub(crate) fn build_holds(&self, build: Option<&(String, BTreeMap<String, String>)>, branch: &str, tip: &str) -> bool {
+        let Some((commit, tips)) = build else { return false };
+        tips.get(branch).is_some_and(|held| held == tip) || self.tip_under_build(commit, tip)
+    }
+
+    /// Whether `tip` is a commit under the build at `commit`. Git is asked once per build commit and tip.
+    fn tip_under_build(&self, commit: &str, tip: &str) -> bool {
+        let mut reached = self.previewing().reached.lock().expect("not poisoned");
+        if reached.0 != commit {
+            *reached = (commit.to_string(), BTreeMap::new());
+        }
+        if let Some(known) = reached.1.get(tip) {
+            return *known;
+        }
+        let root = self.build_checkout().map(|checkout| checkout.to_string_lossy().into_owned());
+        let under = root.is_some_and(|root| adapters::tip_under_build(&root, commit, tip));
+        reached.1.insert(tip.to_string(), under);
+        under
     }
 
     /// The running build's commit and what it holds, where the build is the preview. `None` off it, and while
@@ -333,8 +358,19 @@ where
             return None;
         }
         let commit = commit_in(&support)?;
-        let tips = held_in(&support, &commit).map(|held| held.tips).unwrap_or_default();
+        let tips = self.preview_held(&support, &commit).map(|held| held.tips).unwrap_or_default();
         Some((commit, tips))
+    }
+
+    /// What the preview build at `commit` holds: its own merges, where it has any, else `preview-held`.
+    /// The merges are read from git once per build commit.
+    pub(crate) fn preview_held(&self, support: &std::path::Path, commit: &str) -> Option<Held> {
+        let mut walked = self.previewing().walked.lock().expect("not poisoned");
+        if walked.as_ref().map(|(seen, _)| seen.as_str()) != Some(commit) {
+            let root = self.build_checkout().map(|checkout| checkout.to_string_lossy().into_owned());
+            *walked = Some((commit.to_string(), root.and_then(|root| adapters::build_merges(&root, commit))));
+        }
+        held_by_merges(held_in(support, commit), walked.as_ref().and_then(|(_, merges)| merges.clone()))
     }
 
     /// The set of offers moved: write what `scripts/preview` reads and publish the answer, each only where

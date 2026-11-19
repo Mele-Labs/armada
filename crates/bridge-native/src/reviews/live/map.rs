@@ -9,7 +9,7 @@ use ipc::{
 };
 
 use super::Row;
-use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Group, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Summary, Verdict, Viewed};
+use crate::reviews::model::{self, ChangeSet, Critique, Flag, FlagKind, Hunk, InboxRow, Kept, Mine, Page, PageFile, Practice, Summary, Verdict, Viewed};
 pub use crate::since_looked::when;
 use crate::since_looked::{new_commits_of, seen_of, short};
 
@@ -42,6 +42,8 @@ pub struct Mapped {
     pub flags: Vec<Flag>,
     pub critique: Critique,
     pub finds: Finds,
+    /// What Summarize, Explain and Simplify answered at the head, those asked.
+    pub answers: Vec<(model::Rewrite, model::Answer)>,
 }
 
 /// What the runs are read against: the heads, the runs and patches as Fleet answered, and the runs it refused.
@@ -91,37 +93,41 @@ fn verdict_of(said: Option<MyReviewSaid>) -> Verdict {
     }
 }
 
-/// The four lists as one inbox: a pull request on several lists is one row that names each. The rows
-/// kept, by number. Two repositories' pull requests of one number keep the first.
+/// The five lists as one inbox: a pull request on several lists is one row that names each, marked
+/// reviewing where any of them says so. The rows kept, by number. Two repositories' pull requests of
+/// one number keep the first.
 pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
     let mut rows: Vec<InboxRow> = Vec::new();
     let mut kept: Vec<(u64, Row)> = Vec::new();
-    let all = [(PullReviewList::Requested, &lists.requested), (PullReviewList::Team, &lists.team), (PullReviewList::Assigned, &lists.assigned), (PullReviewList::Mine, &lists.mine)];
+    let all = [(PullReviewList::Requested, &lists.requested), (PullReviewList::Team, &lists.team), (PullReviewList::Assigned, &lists.assigned), (PullReviewList::Mine, &lists.mine), (PullReviewList::Reviewing, &lists.reviewing)];
     for (list, on) in all {
         for row in on.iter() {
             if let Some(at) = kept.iter().position(|(number, _)| *number == row.number) {
-                if kept[at].1.manifest == row.manifest_id.as_str() && !rows[at].lists.contains(&list) {
-                    rows[at].lists.push(list);
+                if kept[at].1.manifest == row.manifest_id.as_str() {
+                    if !rows[at].lists.contains(&list) {
+                        rows[at].lists.push(list);
+                    }
+                    rows[at].reviewing |= row.reviewing;
                 }
                 continue;
             }
-            let group = match row.inbox {
-                PullInbox::NeedsFirstLook => Group::FirstLook,
-                PullInbox::ChangedSinceYouLooked => Group::Changed,
-                PullInbox::WaitingOnAuthor => Group::Waiting,
-                PullInbox::Done => Group::Done,
-            };
+            let changed = row.inbox == PullInbox::ChangedSinceYouLooked;
             rows.push(InboxRow {
                 number: row.number,
                 repository: row.repository.clone(),
                 title: row.title.clone(),
                 author: row.author.clone(),
                 age: age(&row.updated_at),
-                group,
+                updated_at: row.updated_at.clone(),
+                asked_at: row.asked_at.clone(),
+                changed,
                 new_commits: None,
                 lists: vec![list],
                 checks: row.checks,
                 mine: verdict_of(row.my_review.as_ref().map(|mine| mine.said)),
+                reviewing: row.reviewing || list == PullReviewList::Reviewing,
+                ignored: row.ignored,
+                seen: row.seen.as_ref().is_some_and(|seen| seen.head == row.head),
             });
             kept.push((
                 row.number,
@@ -132,6 +138,9 @@ pub fn inbox_of(lists: &PullReviewLists) -> (Vec<InboxRow>, Vec<(u64, Row)>) {
                     branch: row.branch.clone(),
                     author: row.author.clone(),
                     holder: row.holder.clone(),
+                    address: row.address.clone(),
+                    draft: row.draft,
+                    head: row.head.clone(),
                 },
             ));
         }
@@ -220,11 +229,32 @@ pub fn page_of(number: u64, row: &Row, detail: &PullRequestPage, patches: &[Pull
         threads: detail.threads.clone(),
         critique: Critique::None,
         summary: Summary::None,
-        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new() },
+        overview: model::Overview { why, flags: Vec::new(), sets: Vec::new(), read: false },
         holder: row.holder.as_ref().map(|holder| holder.title.clone()),
         notes: notes.iter().filter(|note| note.sent_to.is_none() && note.status == ipc::NoteStatus::Open).map(|note| format!("{}:{} {}", note.path, note.line, note.body)).collect(),
         kept: false,
         ended: None,
+        reviewers: detail.reviewers.clone(),
+        address: row.address.clone(),
+        draft: row.draft,
+    }
+}
+
+/// What the latest Ask of these words at the page's head answered, or why Fleet refused it. None
+/// where it was never asked. Fleet keeps the words lower-cased and single-spaced.
+pub fn answer_of(facts: &Facts, question: &str) -> Option<model::Answer> {
+    let words = |said: &str| said.split_whitespace().collect::<Vec<_>>().join(" ").to_lowercase();
+    let question = words(question);
+    let head = facts.head.as_deref().unwrap_or_default();
+    let run = facts.runs.iter().filter(|run| run.kind == ReviewRunKind::Ask && run.head == head && words(&run.name) == question).max_by(|a, b| a.started_at.cmp(&b.started_at));
+    match run {
+        Some(run) => Some(match (&run.state, &run.result) {
+            (ReviewRunState::Queued | ReviewRunState::Running, _) => model::Answer::Writing,
+            (ReviewRunState::Done, Some(ReviewResult::Text { body })) => model::Answer::Written(body.clone()),
+            (ReviewRunState::Failed, _) => model::Answer::Failed(run.failed.clone().unwrap_or_else(|| "The run ended without a result".into())),
+            (ReviewRunState::Done, _) => model::Answer::Failed("The run ended without a result".into()),
+        }),
+        None => facts.refused.iter().find(|(kind, asked, _)| *kind == ReviewRunKind::Ask && words(asked) == question).map(|(_, _, why)| model::Answer::Failed(why.clone())),
     }
 }
 
@@ -371,7 +401,23 @@ pub fn from_runs(page: &Page, facts: &Facts) -> Mapped {
             Critique::Finished { range, findings, asked }
         }
     };
-    Mapped { summary, sets, flags, critique, finds }
+    let answers = model::Rewrite::ALL.into_iter().filter_map(|rewrite| answer_of(facts, rewrite.question()).map(|answer| (rewrite, answer))).collect();
+    Mapped { summary, sets, flags, critique, finds, answers }
+}
+
+/// The Overview's No problems found card: the change sets and the overview finished at this head,
+/// nothing was found, and no tool's run failed. **A failed run never says nothing was found.**
+pub fn clean_overview(finds: &Finds, flags: usize) -> bool {
+    finds.sets == Find::Done && finds.flags == Find::Done && finds.critique_failed.is_empty() && flags == 0
+}
+
+/// Review comments' No problems found card: the tools finished and found nothing, and no run of the
+/// review failed.
+pub fn clean_critique(critique: &Critique, finds: &Finds) -> bool {
+    matches!(critique, Critique::Finished { findings, .. } if findings.is_empty())
+        && finds.critique_failed.is_empty()
+        && !matches!(finds.sets, Find::Failed(_))
+        && !matches!(finds.flags, Find::Failed(_))
 }
 
 /// What kind of change a set is, after "Practices for".
@@ -417,9 +463,82 @@ fn cut(patch: &str, old_start: u64, new_start: u64) -> Option<String> {
     out.map(|lines| lines.join("\n"))
 }
 
+/// What the inbox says for a refused read: Fleet's sentence, a rate limit with its time and, on a second line, when it reads again.
+pub fn refused_words(error: &ipc::WireError) -> String {
+    if error.code != ipc::REVIEW_LISTS_RATE_LIMITED {
+        return error.message.clone();
+    }
+    let until = match error.fields.get("until") {
+        Some(ipc::WireValue::Str(until)) => crate::settings::time::stamp_at(until),
+        _ => None,
+    };
+    let title = until.map_or_else(|| error.message.clone(), |until| format!("{} until {until}", error.message));
+    format!("{title}\n{RATE_LIMIT_LIFTS}")
+}
+
+/// Said under a rate limit's title: nothing for him to do.
+pub const RATE_LIMIT_LIFTS: &str = "Reviews will read again by itself when the limit lifts.";
+
+/// The banner over rows kept from an earlier read while the forge is rate-limiting us.
+pub fn kept_banner(lists: &PullReviewLists) -> Option<String> {
+    let limit = lists.rate_limited.as_ref()?;
+    let until = limit.until.as_ref().and_then(|until| crate::settings::time::stamp_at(until.as_str()));
+    let from = crate::settings::time::stamp_at(&lists.fetched_at)?;
+    // A Fleet that sent no sentence still gets a plain one.
+    let said = if limit.said.is_empty() { "The forge is limiting us" } else { limit.said.as_str() };
+    Some(match until {
+        Some(until) => format!("{said} until {until}. These are from {from}."),
+        None => format!("{said}. These are from {from}."),
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const LIMIT: &str = "The forge is limiting us";
+    const NO_TOKEN: &str = "The forge has no token for this machine. Sign in, then open Reviews again.";
+
+    fn limited(until: Option<&str>) -> ipc::WireError {
+        let mut error = ipc::WireError::raised(ipc::REVIEW_LISTS_RATE_LIMITED, LIMIT, ipc::RunId::carried("run-1"));
+        if let Some(until) = until {
+            error.fields.insert("until".into(), ipc::WireValue::Str(until.into()));
+        }
+        error
+    }
+
+    #[test]
+    fn a_rate_limit_with_a_time_says_it_and_when_reading_resumes() {
+        let at = "2026-11-17T14:02:00.000Z";
+        let time = crate::settings::time::stamp_at(at).unwrap();
+        assert_eq!(refused_words(&limited(Some(at))), format!("{LIMIT} until {time}\nReviews will read again by itself when the limit lifts."));
+    }
+
+    #[test]
+    fn a_rate_limit_with_no_time_says_only_that() {
+        assert_eq!(refused_words(&limited(None)), format!("{LIMIT}\nReviews will read again by itself when the limit lifts."));
+    }
+
+    #[test]
+    fn no_token_and_no_answer_say_fleets_own_sentence() {
+        let none = ipc::WireError::raised("fleet.review_lists_unreadable", NO_TOKEN, ipc::RunId::carried("run-1"));
+        assert_eq!(refused_words(&none), NO_TOKEN);
+    }
+
+    #[test]
+    fn kept_rows_under_a_rate_limit_say_both_times() {
+        let mut lists = lists(Vec::new(), Vec::new());
+        assert_eq!(kept_banner(&lists), None);
+        let until = "2026-11-17T14:02:00.000Z";
+        lists.fetched_at = "2026-11-17T13:40:00.000Z".into();
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: Some(ipc::Instant::carried(until)), said: LIMIT.into() });
+        let (a, b) = (crate::settings::time::stamp_at(until).unwrap(), crate::settings::time::stamp_at("2026-11-17T13:40:00.000Z").unwrap());
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT} until {a}. These are from {b}.")));
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None, said: LIMIT.into() });
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT}. These are from {b}.")));
+        lists.rate_limited = Some(ipc::PullReviewRateLimited { until: None, said: String::new() });
+        assert_eq!(kept_banner(&lists), Some(format!("{LIMIT}. These are from {b}.")));
+    }
 
     #[test]
     fn a_hunk_is_cut_from_its_file_by_its_starts() {
@@ -485,20 +604,23 @@ mod tests {
             head: "abc1234".into(),
             author: "mira".into(),
             updated_at: "not a time".into(),
+            asked_at: None,
             team: None,
             holder: None,
             seen: None,
             my_review: said.map(|said| ipc::PullMyReview { said, commit: None, submitted_at: None }),
             inbox,
+            reviewing: false,
+            ignored: false,
         }
     }
 
     fn lists(requested: Vec<ipc::PullReviewRow>, mine: Vec<ipc::PullReviewRow>) -> PullReviewLists {
-        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, silent: Vec::new() }
+        PullReviewLists { me: "nick".into(), fetched_at: String::new(), requested, team: Vec::new(), assigned: Vec::new(), mine, reviewing: Vec::new(), silent: Vec::new(), rate_limited: None, refreshing: false }
     }
 
     #[test]
-    fn each_inbox_state_of_fleet_lands_in_its_group() {
+    fn fleets_changed_state_and_his_review_reach_the_row() {
         let (rows, _) = inbox_of(&lists(
             vec![
                 pull(1, PullInbox::NeedsFirstLook, None),
@@ -508,11 +630,10 @@ mod tests {
             ],
             Vec::new(),
         ));
-        let groups: Vec<(u64, Group, Verdict)> = rows.iter().map(|row| (row.number, row.group, row.mine)).collect();
-        assert_eq!(
-            groups,
-            [(1, Group::FirstLook, Verdict::NotReviewed), (2, Group::Changed, Verdict::Commented), (3, Group::Waiting, Verdict::ChangesRequested), (4, Group::Done, Verdict::Approved)]
-        );
+        let says: Vec<(u64, bool, Verdict)> = rows.iter().map(|row| (row.number, row.changed, row.mine)).collect();
+        assert_eq!(says, [(1, false, Verdict::NotReviewed), (2, true, Verdict::Commented), (3, false, Verdict::ChangesRequested), (4, false, Verdict::Approved)]);
+        // Each is on his requested list, so each lands in the first group.
+        assert!(rows.iter().all(|row| row.group() == model::Group::Requested));
     }
 
     #[test]
@@ -523,6 +644,35 @@ mod tests {
         assert_eq!(kept.len(), 1);
     }
 
+    #[test]
+    fn the_fifth_list_is_read_and_reviewing_on_any_list_marks_the_row() {
+        let ran = |number: u64| ipc::PullReviewRow { reviewing: true, ..pull(number, PullInbox::NeedsFirstLook, None) };
+        let mut read = lists(vec![pull(7, PullInbox::NeedsFirstLook, None)], vec![ran(7), ran(8)]);
+        read.reviewing = vec![ran(9)];
+        let (rows, kept) = inbox_of(&read);
+        let says: Vec<(u64, &[PullReviewList], bool)> = rows.iter().map(|row| (row.number, row.lists.as_slice(), row.reviewing)).collect();
+        assert_eq!(
+            says,
+            [(7, &[PullReviewList::Requested, PullReviewList::Mine][..], true), (8, &[PullReviewList::Mine][..], true), (9, &[PullReviewList::Reviewing][..], true)]
+        );
+        assert_eq!(kept.len(), 3, "a pull request on the fifth list alone is kept, so its page reads");
+        // Asked of him or not, each he started reviewing is In review.
+        let groups: Vec<model::Group> = rows.iter().map(|row| row.group()).collect();
+        assert_eq!(groups, [model::Group::Reviewing; 3]);
+    }
+
+    #[test]
+    fn a_row_is_seen_only_at_its_head_and_carries_fleets_ignore() {
+        let seen_at = |number: u64, head: &str| ipc::PullReviewRow { seen: Some(ipc::PullSeen { head: head.into(), at: String::new() }), ..pull(number, PullInbox::NeedsFirstLook, None) };
+        let ignored = ipc::PullReviewRow { ignored: true, ..pull(3, PullInbox::NeedsFirstLook, None) };
+        let (rows, kept) = inbox_of(&lists(vec![seen_at(1, "abc1234"), seen_at(2, "0ld0000"), ignored], Vec::new()));
+        let says: Vec<(u64, bool, bool)> = rows.iter().map(|row| (row.number, row.seen, row.ignored)).collect();
+        assert_eq!(says, [(1, true, false), (2, false, false), (3, false, true)]);
+        assert_eq!(rows[2].group(), model::Group::Ignored);
+        // Mark as seen in the inbox sends the head the lists read.
+        assert_eq!(kept[0].1.head, "abc1234");
+    }
+
     fn page_with(viewed: Vec<ipc::PullViewedFile>) -> Page {
         let detail = PullRequestPage {
             head: Some("abcdef1234567".into()),
@@ -530,8 +680,83 @@ mod tests {
             viewed,
             ..PullRequestPage::default()
         };
-        let row = Row { manifest: "ledger-api".into(), repository: "harbor/ledger-api".into(), title: "t".into(), branch: "b".into(), author: "mira".into(), holder: None };
-        page_of(1, &row, &detail, &[], None, &[])
+        page_of(1, &row(), &detail, &[], None, &[])
+    }
+
+    fn row() -> Row {
+        Row {
+            manifest: "ledger-api".into(),
+            repository: "harbor/ledger-api".into(),
+            title: "t".into(),
+            branch: "b".into(),
+            author: "mira".into(),
+            holder: None,
+            address: "https://example.com/harbor/ledger-api/pull/1".into(),
+            draft: true,
+            head: "abc1234".into(),
+        }
+    }
+
+    #[test]
+    fn a_page_carries_its_reviewers_its_address_and_whether_it_is_a_draft() {
+        let tobias = ipc::PullRequestReviewer { login: "tobias".into(), kind: ipc::PullRequestReviewerKind::Person, verdict: None, name: None, url: None, team: None };
+        let detail = PullRequestPage { reviewers: vec![tobias.clone()], ..PullRequestPage::default() };
+        let page = page_of(1, &row(), &detail, &[], None, &[]);
+        assert_eq!((page.reviewers, page.address.as_str(), page.draft), (vec![tobias], "https://example.com/harbor/ledger-api/pull/1", true));
+    }
+
+    fn ask(name: &str, head: &str, at: &str, state: ReviewRunState, body: Option<&str>) -> ReviewRun {
+        ReviewRun {
+            manifest_id: ipc::ManifestId::carried("ledger-api"),
+            number: 1,
+            kind: ReviewRunKind::Ask,
+            name: name.into(),
+            head: head.into(),
+            since: None,
+            state,
+            started_at: at.into(),
+            finished_at: None,
+            failed: (state == ReviewRunState::Failed).then(|| "The bay stopped".into()),
+            result: body.map(|body| ReviewResult::Text { body: body.into() }),
+            cost_micros: None,
+        }
+    }
+
+    #[test]
+    fn an_ask_answers_its_latest_run_at_the_head_whatever_the_case_of_its_words() {
+        let question = "Summarize this pull request's description";
+        let kept = "summarize this pull request's description";
+        let facts = |runs: Vec<ReviewRun>, refused: Vec<(ReviewRunKind, String, String)>| Facts { head: Some("h2".into()), runs, refused, ..Facts::default() };
+        let older = ask(kept, "h1", "2026-11-17T09:00:00Z", ReviewRunState::Done, Some("Old head"));
+        let first = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Done, Some("First"));
+        let again = ask(kept, "h2", "2026-11-17T11:00:00Z", ReviewRunState::Running, None);
+        assert_eq!(answer_of(&facts(vec![older.clone()], Vec::new()), question), None, "a run at another head is not this commit's");
+        assert_eq!(answer_of(&facts(vec![older, first.clone()], Vec::new()), question), Some(model::Answer::Written("First".into())));
+        assert_eq!(answer_of(&facts(vec![first, again], Vec::new()), question), Some(model::Answer::Writing));
+        let failed = ask(kept, "h2", "2026-11-17T10:00:00Z", ReviewRunState::Failed, None);
+        assert_eq!(answer_of(&facts(vec![failed], Vec::new()), question), Some(model::Answer::Failed("The bay stopped".into())));
+        let refused = vec![(ReviewRunKind::Ask, question.to_string(), "Fleet is busy".to_string())];
+        assert_eq!(answer_of(&facts(Vec::new(), refused), question), Some(model::Answer::Failed("Fleet is busy".into())));
+    }
+
+    #[test]
+    fn no_problems_found_only_after_every_run_finished_and_none_failed() {
+        let run = |kind: ReviewRunKind, name: &str, state: ReviewRunState, result: Option<ReviewResult>| ReviewRun { kind, result, ..ask(name, "h2", "2026-11-17T10:00:00Z", state, None) };
+        let sets = |state| run(ReviewRunKind::ChangeSets, "change_sets", state, (state == ReviewRunState::Done).then(|| ReviewResult::ChangeSets { sets: Vec::new() }));
+        let overview = |state| run(ReviewRunKind::Overview, "overview", state, (state == ReviewRunState::Done).then(|| ReviewResult::Overview { findings: Vec::new() }));
+        let tool = |state| run(ReviewRunKind::Tool, "bugs", state, (state == ReviewRunState::Done).then(|| ReviewResult::Findings { findings: Vec::new() }));
+        let page = page_with(Vec::new());
+        let clean = |runs: Vec<ReviewRun>| {
+            let mapped = from_runs(&page, &Facts { head: Some("h2".into()), runs, ..Facts::default() });
+            (clean_overview(&mapped.finds, mapped.flags.len()), clean_critique(&mapped.critique, &mapped.finds))
+        };
+        use ReviewRunState::{Done, Failed, Running};
+        assert_eq!(clean(vec![sets(Done), overview(Done), tool(Done)]), (true, true), "finished with nothing found");
+        assert_eq!(clean(vec![sets(Done), overview(Done), tool(Failed)]), (false, false), "a failed tool is not a clean review");
+        assert_eq!(clean(vec![sets(Done), overview(Failed), tool(Done)]), (false, false), "a failed overview is not a clean review either");
+        assert_eq!(clean(vec![sets(Failed)]), (false, false));
+        assert_eq!(clean(vec![sets(Done), overview(Running), tool(Running)]), (false, false), "not before the runs end");
+        assert_eq!(clean(Vec::new()), (false, false), "nor before any ran");
     }
 
     #[test]

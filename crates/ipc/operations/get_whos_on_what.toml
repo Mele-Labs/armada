@@ -1,0 +1,16 @@
+[operations.get_whos_on_what]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read who has an open pull request or a running Job on which feature of a project, so overlap between people shows. Give project where the caller is placed by no Job"
+notes = """
+`GET /features/who?project=`, answered with `WhosOnWhat`: `project`, `people` and `features`. Read from what Fleet kept the last time the Reviews lists were read, plus the owner's running Jobs, with no forge call and no model.
+
+**The pull requests are the open ones the Reviews lists name**, teammates' included, each kept with its author and the files it changes (the first 100) while its head is the one read. Their files are mapped to features as `get_features_of_path` maps a path. A pull request no list names any more is dropped, so a project nobody has opened Reviews for answers no pull requests.
+
+**`people` is `[{login, me}]`**: the owner first where his login is known, then everyone with a cell, by login. **`features` is `[{slug, title, cells}]`**, only features with at least one pull request or Job, most people first and then by title. A cell is `{login, pulls, jobs}`: `pulls` is `[{number, repository, title, draft}]`, newest number first, and `jobs` is the ids of the owner's own live Jobs holding a slot on that feature, as `list_features` shows them, and empty in a teammate's cell.
+
+**A feature with two or more cells is an overlap.** Fleet does not flag it.
+
+`agent_access` is `Bridge only`: a Job is told of a teammate's pull request on a feature in the page `get_feature_brief` and `hand_over_features` give it.
+"""

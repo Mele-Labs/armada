@@ -552,10 +552,26 @@ fn a_findings_comment_is_one_or_two_plain_sentences_and_no_longer() {
     assert!(read("findings", &with("Version 1.2 of `a.b` drops this... Bump it"), &dir, None).is_ok(), "a dot inside a word ends nothing");
     let three = read("findings", &with("It wraps. It is wrong. Fix it."), &dir, None).unwrap_err();
     assert!(three.contains("3 sentences"), "{three}");
-    let long = read("findings", &with(&"word ".repeat(60)), &dir, None).unwrap_err();
-    assert!(long.contains("characters"), "{long}");
     let blank = read("findings", &r#"{"findings":[{"title":"t","body":"b","severity":"low","at":{"path":"a.rs","side":"right","start":1,"end":1}}]}"#, &dir, None).unwrap_err();
     assert!(blank.contains("comment"), "{blank}");
+}
+
+#[test]
+fn a_comment_over_the_limit_is_kept_cut_at_a_word_boundary_and_never_refuses_the_run() {
+    let dir = checkout_with(&[]);
+    // 297 characters, one sentence, no sentence end to cut at.
+    let long = format!("{}end", "word ".repeat(58));
+    assert_eq!(long.chars().count(), 293);
+    let long = format!("{long}!!!!");
+    let answer = format!(
+        r#"{{"findings":[{{"title":"t","body":"b","severity":"low","at":{{"path":"a.rs","side":"right","start":1,"end":1}},"comment":"{long}"}}]}}"#
+    );
+    let Ok(ReviewResult::Findings { findings }) = read("findings", &answer, &dir, None) else { panic!("a long comment is still a finding") };
+    let kept = &findings[0].comment;
+    assert!(kept.chars().count() <= ipc::COMMENT_AT_MOST, "{} characters", kept.chars().count());
+    assert!(kept.starts_with("word word"), "{kept}");
+    assert!(kept.ends_with('…') && !kept.trim_end_matches('…').ends_with(' ') && !kept.contains("wor…"), "cut at a word boundary: {kept}");
+    assert!(!kept.contains("end"), "the word that did not fit is dropped whole: {kept}");
 }
 
 fn tour_of(stops: &[(&str, &str)]) -> String {
@@ -659,13 +675,14 @@ async fn a_listed_pull_request_names_the_session_that_holds_it() {
         review: ReviewStanding::None,
         team: None,
         my_latest: None,
+        asked_at: None,
     };
     for list in [ReviewList::Requested, ReviewList::Team, ReviewList::Assigned] {
         fleet.vcs().now_review_list(list, Vec::new());
     }
     fleet.vcs().now_review_list(ReviewList::Mine, vec![pull(12), pull(13)]);
     a_session_holding_pull_request_12(&fleet, "s-held").await;
-    let lists = fleet.get_review_lists(None).await.expect("read");
+    let lists = fleet.clone().get_review_lists(None).await.expect("read");
     let held = lists.mine.iter().find(|row| row.number == 12).unwrap().holder.clone();
     assert_eq!(held.map(|holder| (holder.id, holder.title)), Some(("s-held".to_string(), "fix the ledger".to_string())));
     assert!(lists.mine.iter().find(|row| row.number == 13).unwrap().holder.is_none(), "nobody holds 13");

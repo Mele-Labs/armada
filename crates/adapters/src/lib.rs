@@ -104,6 +104,7 @@ pub mod leasing;
 mod main_ci;
 mod manifest_edit;
 mod mcp;
+mod mcp_configured;
 mod mcp_control;
 mod merge_queue;
 mod merging_in;
@@ -114,6 +115,7 @@ pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
 mod history;
 mod outside;
+mod consulting;
 mod pull_reading;
 mod pull_request_comments;
 mod pull_request_detail;
@@ -191,7 +193,7 @@ mod tests;
 
 pub use annotations::annotation_places;
 pub use build_standing::{
-    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade,
+    branch_in_build, branch_tip, build_made_of, build_merges, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, tip_under_build, BranchInBuild, BuildMade, BuildMerges,
 };
 pub use main_blocked::{delete_files, main_blocked, pull_main, stash_files, MainBlocked};
 pub use ci_workflows::ActionsWorkflows;
@@ -211,13 +213,17 @@ pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
+pub use consulting::{consulted, Consulted, ConsultedKind};
 pub use issue_tracker::IssueTracker;
 pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;
 pub use taught_tracker::{TaughtTracker, TaughtTrackers, TrackerFile};
 pub use tracker_providers::TrackersByProvider;
 pub use mcp::{publish_the_agents_door, Published, REPOSITORY_CONFIG};
-pub use mcp_control::{control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState};
+pub use mcp_configured::{ConfigPlaces, ConfigStamp, Configured, McpConfig};
+pub use mcp_control::{
+    control_answer, mcp_request, Answered, ControlAnswer, McpRequest, McpServer, McpSignIn, McpState, SetAnswer,
+};
 pub use reading_in::{
     bounded, fetching, forge_facts, forge_node, milestone_read, source_of, text_of_a_page,
     text_of_a_session, AnIssue, Fetch, MilestoneRead, Source, StaysALink, Taken, FETCH_SECONDS,
@@ -245,7 +251,7 @@ pub use requests::HttpRequests;
 pub use store::HttpStore;
 pub use store_device::{device_id, remember_device, DeviceKey, ID_FILE, KEY_FILE};
 pub use store_peers::signed_for_peer;
-pub use starting::{inferred_base, inside_a_repository, start_repository};
+pub use starting::{inferred_base, inside_a_repository, start_linked_repository, start_repository};
 pub use test_map::NextestCoverage;
 pub use api_forge::{ApiForge, ApiTrackers};
 pub use gh_forge::GhForge;

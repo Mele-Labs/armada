@@ -224,7 +224,7 @@ impl JobView {
                 labelled(
                     chip("done-also-page", "file-text", "Page", true).on_click(cx.listener(move |this, _, window, cx| {
                         if let Some(page) = &page {
-                            this.open_document_tab(page, window, cx);
+                            this.open_document(page, window, cx);
                         }
                     })),
                     Role::Button,

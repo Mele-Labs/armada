@@ -22,8 +22,14 @@ export type Asked =
   | { outcome: 'refused'; message: string }
   | { outcome: 'gone' }
 
-/** Whether this Job may `SendMessage` an address (`MessageReach`, `crates/ipc/src/hosted_sessions.rs`). */
-export type Reach = { outcome: 'allowed' } | { outcome: 'refused'; message: string }
+/**
+ * Whether this Job may `SendMessage` an address (`MessageReach`, `crates/ipc/src/hosted_sessions.rs`).
+ * `queued` is a message Fleet carries itself, to a Job with no process for the CLI to reach.
+ */
+export type Reach = { outcome: 'allowed' } | { outcome: 'refused'; message: string } | { outcome: 'queued'; message: string }
+
+/** The live Jobs with no process that `ListAgents` leaves out (`QuietJobs`, `crates/ipc/src/hosted_sessions.rs`). */
+export type QuietJobs = { jobs: { address: string; title?: string | null; why: 'between_turns' | 'paused' | 'held' }[] }
 
 export type Usage = {
   context_tokens?: number
@@ -64,6 +70,7 @@ export type Fact =
   | { kind: 'touched'; paths: string[]; act?: 'write' | 'edit'; by?: string }
   | { kind: 'read'; path: string }
   | { kind: 'ran'; command: string }
+  | { kind: 'consulted'; tool: string; target: string; title?: string; gist?: string }
   | { kind: 'wrote' }
   | { kind: 'tasks'; tasks: Task[] }
   | { kind: 'plan_left' }

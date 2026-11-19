@@ -86,11 +86,28 @@ async fn a_job_cannot_change_the_slot_pool() {
     assert!(refused.message.contains("only the person changes the slot pool"), "{}", refused.message);
 }
 
+#[tokio::test]
+async fn a_job_cannot_keep_the_feature_catalog_and_bridge_can() {
+    let app = wired();
+    let upsert = ipc::encode(&ipc::UpsertFeatures { project: "p".into(), areas: Vec::new(), features: Vec::new() }).expect("encodes");
+    let change = ipc::encode(&ipc::ChangeFeature { project: "p".into(), feature: "f".into(), into: None, slug: None, title: Some("T".into()), area: None }).expect("encodes");
+    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change)] {
+        let (status, refused) = call(&app, "POST", uri, JOB, &body).await;
+        assert_eq!(status, StatusCode::FORBIDDEN, "{uri} from a Job");
+        let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");
+        assert_eq!(refused.code, A_JOBS_CALL);
+        assert!(refused.message.ends_with("is refused to a Job: only the person keeps the feature catalog, from Bridge"), "{}", refused.message);
+
+        let (status, _) = call(&app, "POST", uri, BRIDGE, &body).await;
+        assert_eq!(status, StatusCode::OK, "{uri} from Bridge");
+    }
+}
+
 /// The routes another Mac's rows and claims come in on, each with a body the fake takes.
 fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
     let event = ipc::OtherMacEvent {
         mac: "mac-work".into(),
-        event: ipc::Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() }),
+        event: ipc::Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }),
     };
     vec![
         ("PUT", "/other_macs/sessions", r#"{"mac":"mac-work","sessions":[]}"#.to_string()),

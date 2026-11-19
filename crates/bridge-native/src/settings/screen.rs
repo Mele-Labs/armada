@@ -64,6 +64,15 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walk of merging two projects of one name: this Mac's Pricing, and mac-air's copy of it.
+    pub fn with_mergeable_projects(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.mergeable_projects();
+            }
+        });
+    }
+
     /// For the walk of a workflow off in every repository Storefront keeps: sample-api has bug off from the start.
     pub fn with_api_bug_off(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {

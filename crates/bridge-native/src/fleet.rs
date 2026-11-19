@@ -139,6 +139,8 @@ pub struct Held {
     pub dropped: Option<std::time::Instant>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
+    /// Whether `features.deepLinks` is on: `None` until Fleet's settings have answered, as Electron's `DeepLinks` waits.
+    pub deep_links: Option<bool>,
     /// Whether `features.workflows` is off, so Jobs follow no workflow (`workflowsOffIn`). Off only once
     /// Fleet's settings say so.
     pub workflows_off: bool,
@@ -153,12 +155,17 @@ pub struct Held {
     subagents_moved: Vec<ipc::SessionSubagentChanged>,
     /// The Jobs whose For you moved, folded since the last take, oldest first.
     for_you_moved: Vec<ipc::ForYouChanged>,
+    /// The Jobs whose sorting, asks or questions moved (`session.story`), folded since the last take, oldest first.
+    story_moved: Vec<ipc::StoryChanged>,
     /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
     asides_moved: Vec<ipc::Aside>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
     arrived: Vec<CallArrival>,
     /// A Job's shells that opened, ended or were brought to the front since the last take. Told once.
     shells: Vec<ShellNews>,
+    /// The acts an agent asked of a Job's browser (`browser.request`), and the page asks the owner answered in Needs you
+    /// (`browser.ask_answered`), since the last take, oldest first. Told once: Fleet replays neither.
+    browser: BrowserNews,
     /// What the Operator did with dispatches, folded since the last take, oldest first.
     dispatched: Vec<ipc::operator_board::OperatorDispatched>,
     /// The Jobs `session.removed` took away since the last take. Told once, so a screen drops what it held for each.
@@ -167,6 +174,10 @@ pub struct Held {
     review_runs: Vec<ipc::ReviewRun>,
     /// A gap in the stream since the last take may have lost a `review_run.changed`, which Fleet does not replay.
     review_runs_lost: bool,
+    /// The review lists `review_lists.changed` carried since the last take, one for each project, the last it said.
+    review_lists: Vec<ipc::ReviewListsChanged>,
+    /// A gap in the stream since the last take may have lost a `review_lists.changed`, which Fleet does not replay.
+    review_lists_lost: bool,
     /// The port of the Fleet last connected to, so a command goes where the events come from.
     port: Option<u16>,
     /// The stylesheet Fleet checked for a mod, with the `changed_at` of the row it was checked for.
@@ -217,19 +228,24 @@ impl Held {
             read_at: None,
             dropped: None,
             notifications: true,
+            deep_links: None,
             workflows_off: false,
             settings_stamp: 0,
             open_group: true,
             workflows: None,
             subagents_moved: Vec::new(),
             for_you_moved: Vec::new(),
+            story_moved: Vec::new(),
             asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
+            browser: BrowserNews::default(),
             dispatched: Vec::new(),
             removed: Vec::new(),
             review_runs: Vec::new(),
             review_runs_lost: false,
+            review_lists: Vec::new(),
+            review_lists_lost: false,
             port: None,
             sheets: BTreeMap::new(),
             threads: BTreeMap::new(),
@@ -281,6 +297,7 @@ impl Held {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
         self.review_runs_lost = true;
+        self.review_lists_lost = true;
         // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
         self.watches_asked.clear();
         self.watches_spoken.clear();
@@ -377,6 +394,11 @@ impl Held {
         std::mem::take(&mut self.for_you_moved)
     }
 
+    /// The Jobs whose story moved, folded since the last take, oldest first.
+    pub fn take_story_moved(&mut self) -> Vec<ipc::StoryChanged> {
+        std::mem::take(&mut self.story_moved)
+    }
+
     /// The asides that moved, each as Fleet sent it whole, folded since the last take, oldest first.
     pub fn take_asides_moved(&mut self) -> Vec<ipc::Aside> {
         std::mem::take(&mut self.asides_moved)
@@ -385,6 +407,11 @@ impl Held {
     /// The shells' news folded since the last take, oldest first.
     pub fn take_shells(&mut self) -> Vec<ShellNews> {
         std::mem::take(&mut self.shells)
+    }
+
+    /// The Job browser's news folded since the last take, oldest first.
+    pub fn take_browser(&mut self) -> BrowserNews {
+        std::mem::take(&mut self.browser)
     }
 
     /// What the Operator did with dispatches, folded since the last take, oldest first.
@@ -412,11 +439,26 @@ impl Held {
         (std::mem::take(&mut self.review_runs), std::mem::take(&mut self.review_runs_lost))
     }
 
+    /// The review lists that moved since the last take, the last for each project, and whether a gap may have lost one.
+    pub fn take_review_lists(&mut self) -> (Vec<ipc::ReviewListsChanged>, bool) {
+        (std::mem::take(&mut self.review_lists), std::mem::take(&mut self.review_lists_lost))
+    }
+
+    /// A read behind kept lists ended: it replaces an earlier one for the same project not yet taken.
+    fn review_lists_changed(&mut self, changed: ipc::ReviewListsChanged) {
+        match self.review_lists.iter_mut().find(|held| held.project == changed.project) {
+            Some(held) => *held = changed,
+            None => self.review_lists.push(changed),
+        }
+    }
+
     fn set_settings(&mut self, list: &SettingsList) {
         self.settings_stamp += 1;
         let switch = list.settings.iter().find(|one| one.key == "features.notifications").map(|one| &one.value);
         self.notifications = switch != Some(&SettingValue::Bool(false));
         let value = |key: &str| list.settings.iter().find(|one| one.key == key).map(|one| &one.value);
+        // On unless the list says false, as `settings.ts` reads it.
+        self.deep_links = Some(value("features.deepLinks") != Some(&SettingValue::Bool(false)));
         self.workflows_off = value("features.workflows") == Some(&SettingValue::Bool(false));
         self.open_group = value("bridge.openGroup") != Some(&SettingValue::Bool(false));
     }
@@ -540,6 +582,7 @@ impl Held {
                         Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
                         Event::OperatorDispatched(done) => self.dispatched.push(done),
                         Event::ReviewRunChanged { run } => self.review_runs.push(run),
+                        Event::ReviewListsChanged(changed) => self.review_lists_changed(changed),
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
                                 Some(held) => *held = record,
@@ -551,6 +594,7 @@ impl Held {
                         Event::ModsChanged(list) => self.listed(list.mods),
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
                         Event::SessionForYou(moved) => self.for_you_moved.push(moved),
+                        Event::SessionStory(moved) => self.story_moved.push(moved),
                         // An aside arrives whole: the side chat replaces the one it holds by its id.
                         Event::SessionAside(aside) => self.asides_moved.push(aside),
                         Event::JobThreadTail(tail) => {
@@ -596,6 +640,8 @@ impl Held {
                         Event::TerminalOpened(shell) => self.shells.push(ShellNews::Opened(shell)),
                         Event::TerminalExited(shell) => self.shells.push(ShellNews::Exited(shell)),
                         Event::TerminalShown(shell) => self.shells.push(ShellNews::Shown(shell)),
+                        Event::BrowserRequest(request) => self.browser.requests.push(request),
+                        Event::BrowserAskAnswered(answered) => self.browser.answered.push(answered),
                         _ => {}
                     }
                 }
@@ -680,6 +726,15 @@ pub struct ReviewRunsMoved {
 
 impl EventEmitter<ReviewRunsMoved> for FleetConnection {}
 
+/// The review lists a read behind kept lists ended with in one folded batch (`review_lists.changed`), one for
+/// each project, and whether a gap in the stream may have lost one, so Reviews asks for the lists again.
+pub struct ReviewListsMoved {
+    pub changed: Vec<ipc::ReviewListsChanged>,
+    pub lost: bool,
+}
+
+impl EventEmitter<ReviewListsMoved> for FleetConnection {}
+
 /// The subagents whose own thread moved in one folded batch (`session.subagent`), for a view holding
 /// one open to read it again.
 pub struct SubagentsMoved(pub Vec<ipc::SessionSubagentChanged>);
@@ -690,6 +745,11 @@ impl EventEmitter<SubagentsMoved> for FleetConnection {}
 pub struct ForYouMoved(pub Vec<ipc::ForYouChanged>);
 
 impl EventEmitter<ForYouMoved> for FleetConnection {}
+
+/// The Jobs whose story moved in one folded batch (`session.story`): his questions among it, for a view holding them to read again.
+pub struct StoryMoved(pub Vec<ipc::StoryChanged>);
+
+impl EventEmitter<StoryMoved> for FleetConnection {}
 
 /// The asides that moved in one folded batch (`session.aside`), each whole, for a side chat to replace the one it holds.
 pub struct AsidesMoved(pub Vec<ipc::Aside>);
@@ -704,6 +764,16 @@ pub enum ShellNews {
     /// The agent asked for it in front (`show_terminal`).
     Shown(ipc::JobTerminal),
 }
+
+/// What happened in the Jobs' browsers in one folded batch: the acts agents asked for, which Bridge answers, and the page asks the
+/// owner answered in Needs you.
+#[derive(Default)]
+pub struct BrowserNews {
+    pub requests: Vec<ipc::BrowserRequest>,
+    pub answered: Vec<ipc::BrowserAskAnswered>,
+}
+
+impl EventEmitter<BrowserNews> for FleetConnection {}
 
 /// The Jobs `session.removed` took away in one folded batch, for the list and the open Job to let go of.
 pub struct Removed(pub Vec<String>);
@@ -747,6 +817,8 @@ const FOLLOW_FOR: std::time::Duration = std::time::Duration::from_secs(20 * 60);
 #[derive(Clone, Debug, PartialEq)]
 pub enum BuildAct {
     Change(ipc::ChangeFleetBuild),
+    /// `POST /macs/update`: this Mac and another onto one build, from [`crate::pairing::refresh_act`].
+    Macs(ipc::UpdateMac),
     Revert,
     Swap,
     Keep,
@@ -754,9 +826,10 @@ pub enum BuildAct {
 }
 
 impl BuildAct {
-    fn route(&self) -> &'static str {
+    pub(crate) fn route(&self) -> &'static str {
         match self {
             BuildAct::Change(_) => "/fleet/build/change",
+            BuildAct::Macs(_) => "/macs/update",
             BuildAct::Revert => "/fleet/build/revert",
             BuildAct::Swap => "/fleet/build/swap",
             BuildAct::Keep => "/fleet/build/keep",
@@ -764,10 +837,11 @@ impl BuildAct {
         }
     }
 
-    fn body(&self) -> Option<Result<String, String>> {
+    pub(crate) fn body(&self) -> Option<Result<String, String>> {
         let encoded = |body: Result<String, ipc::Unencodable>| body.map_err(|why| format!("{why:?}"));
         match self {
             BuildAct::Change(change) => Some(encoded(ipc::encode(change))),
+            BuildAct::Macs(update) => Some(encoded(ipc::encode(update))),
             BuildAct::Pick(pick) => Some(encoded(ipc::encode(pick))),
             BuildAct::Revert | BuildAct::Swap | BuildAct::Keep => None,
         }
@@ -788,6 +862,23 @@ fn changing(report: &FleetBuildReport) -> bool {
 }
 
 impl FleetConnection {
+    /// A build change Fleet said yes to from a press outside `build_act`, marked restarting at once as `build_act` marks it,
+    /// so every Refresh preview reads the rebuild until Fleet's report says it ended.
+    pub fn restarting(&mut self, build: ipc::BuildSource, cx: &mut Context<Self>) {
+        if let Some(report) = self.held.build.as_mut() {
+            report.failed = None;
+            report.restarting = Some(build);
+            cx.notify();
+        }
+    }
+
+    /// The build report as Fleet would say it, for a test.
+    #[cfg(test)]
+    pub fn build_said(&mut self, report: FleetBuildReport, cx: &mut Context<Self>) {
+        self.held.build = Some(report);
+        cx.notify();
+    }
+
     /// What Fleet has said, folded. Read it in an `observe` handler; it moves once per batch.
     pub fn held(&self) -> &Held {
         &self.held
@@ -893,16 +984,19 @@ impl FleetConnection {
             let outcome = crate::revert::outcome_of(read);
             let _ = this.update(cx, |this, cx| {
                 let took = outcome == crate::revert::Outcome::Started;
-                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Revert | BuildAct::Swap);
+                let marks = matches!(act, BuildAct::Change(_) | BuildAct::Macs(_) | BuildAct::Revert | BuildAct::Swap);
                 match (took, this.held.build.as_mut()) {
                     (true, Some(build)) if marks => {
                         build.failed = None;
                         match &act {
                             BuildAct::Change(change) => build.restarting = Some(change.build),
+                            BuildAct::Macs(update) => build.restarting = Some(update.build.unwrap_or(ipc::BuildSource::Main)),
                             BuildAct::Revert => build.reverting = true,
                             _ => build.swapping = true,
                         }
                     }
+                    // Both Macs are asked from places with no failed line, so Fleet's words go to a toast.
+                    (false, _) if matches!(act, BuildAct::Macs(_)) => crate::toasts::tell(crate::revert::why_not(&outcome).to_string(), cx),
                     (false, Some(build)) if marks => build.failed = Some(crate::revert::why_not(&outcome).to_string()),
                     (false, _) => Note::warn("Fleet refused a build act").field("route", route).field("why", crate::revert::why_not(&outcome)).emit(),
                     _ => {}
@@ -1243,13 +1337,19 @@ impl FleetConnection {
                     }
                     let subagents = this.held.take_subagents_moved();
                     let for_you = this.held.take_for_you_moved();
+                    let story = this.held.take_story_moved();
                     let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived();
                     let shells = this.held.take_shells();
+                    let browser = this.held.take_browser();
                     let dispatched = this.held.take_dispatched();
                     let removed = this.held.take_removed();
                     let (review_runs, review_runs_lost) = this.held.take_review_runs();
+                    let (review_lists, review_lists_lost) = this.held.take_review_lists();
                     cx.notify();
+                    if !review_lists.is_empty() || review_lists_lost {
+                        cx.emit(ReviewListsMoved { changed: review_lists, lost: review_lists_lost });
+                    }
                     if !review_runs.is_empty() || review_runs_lost {
                         cx.emit(ReviewRunsMoved { runs: review_runs, lost: review_runs_lost });
                     }
@@ -1262,6 +1362,9 @@ impl FleetConnection {
                     if !shells.is_empty() {
                         cx.emit(Shells(shells));
                     }
+                    if !browser.requests.is_empty() || !browser.answered.is_empty() {
+                        cx.emit(browser);
+                    }
                     if !dispatched.is_empty() {
                         cx.emit(Dispatched(dispatched));
                     }
@@ -1270,6 +1373,9 @@ impl FleetConnection {
                     }
                     if !for_you.is_empty() {
                         cx.emit(ForYouMoved(for_you));
+                    }
+                    if !story.is_empty() {
+                        cx.emit(StoryMoved(story));
                     }
                     if !asides.is_empty() {
                         cx.emit(AsidesMoved(asides));
@@ -1320,6 +1426,18 @@ impl FleetConnection {
     pub fn hold_calls(&mut self, calls: StandingCalls) {
         self.held.calls = Some(calls);
     }
+
+    /// The preview offers, as a read of them would hold them.
+    pub fn hold_offers(&mut self, offers: ipc::PreviewOffers) {
+        self.held.offers = Some(offers);
+    }
+
+    /// Threads as a read of each would hold them: a view over a connection draws these, never the mock's.
+    pub fn hold_threads(&mut self, threads: impl IntoIterator<Item = JobThread>) {
+        for read in threads {
+            self.held.thread_read(read);
+        }
+    }
 }
 
 #[cfg(test)]
@@ -1333,6 +1451,42 @@ mod tests {
             r#"{{"message":"event","cursor":{cursor},"event":{{"kind":"repositories.changed","repositories":[]}}}}"#
         );
         Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+    }
+
+    fn lists_event(cursor: u64, changed: ipc::ReviewListsChanged) -> Signal {
+        Signal::Stream(StreamMessage::Event(ipc::Delivered { cursor: Cursor::at(cursor), event: Event::ReviewListsChanged(changed) }))
+    }
+
+    fn read_lists(fetched_at: &str) -> ipc::PullReviewLists {
+        ipc::PullReviewLists {
+            me: "nick".into(),
+            fetched_at: fetched_at.into(),
+            requested: Vec::new(),
+            team: Vec::new(),
+            assigned: Vec::new(),
+            mine: Vec::new(),
+            reviewing: Vec::new(),
+            silent: Vec::new(),
+            rate_limited: None,
+            refreshing: false,
+        }
+    }
+
+    #[test]
+    fn review_lists_fold_to_the_last_for_each_project_and_a_gap_says_one_may_be_lost() {
+        let mut held = Held::new();
+        held.fold(vec![
+            lists_event(1, ipc::ReviewListsChanged::read(None, read_lists("2026-11-18T10:00:00Z"))),
+            lists_event(2, ipc::ReviewListsChanged::read(Some("harbor".into()), read_lists("2026-11-18T10:00:01Z"))),
+            lists_event(3, ipc::ReviewListsChanged::read(None, read_lists("2026-11-18T10:00:02Z"))),
+        ]);
+        let (changed, lost) = held.take_review_lists();
+        let said: Vec<(Option<&str>, &str)> = changed.iter().map(|one| (one.project.as_deref(), one.lists.as_ref().map_or("", |lists| lists.fetched_at.as_str()))).collect();
+        assert_eq!(said, [(None, "2026-11-18T10:00:02Z"), (Some("harbor"), "2026-11-18T10:00:01Z")]);
+        assert!(!lost);
+        assert!(held.take_review_lists().0.is_empty(), "told once");
+        held.fold(vec![Signal::Stream(StreamMessage::Missed(Missed { dropped: 2 }))]);
+        assert!(held.take_review_lists().1, "a gap may have lost the event, which Fleet does not replay");
     }
 
     fn mods(wire: &str) -> ModList {
@@ -1597,6 +1751,19 @@ mod tests {
     }
 
     #[test]
+    fn a_job_whose_story_moved_is_handed_over_once_as_fleet_sends_it() {
+        let moved = |job: &str| {
+            let wire = format!(r#"{{"message":"event","cursor":1,"event":{{"kind":"session.story","session_id":"{job}"}}}}"#);
+            Signal::Stream(crate::frames::decode(&wire).expect("an event"))
+        };
+        let mut held = Held::new();
+        held.fold(vec![moved("df1ea0bd-adbe-4e29-aa04-50716fbeeeae"), moved("s1")]);
+        let told: Vec<String> = held.take_story_moved().into_iter().map(|one| one.session_id.as_str().to_string()).collect();
+        assert_eq!(told, ["df1ea0bd-adbe-4e29-aa04-50716fbeeeae", "s1"]);
+        assert!(held.take_story_moved().is_empty(), "news is told once");
+    }
+
+    #[test]
     fn an_aside_that_moved_is_handed_over_whole_once_in_the_order_it_came() {
         let moved = |id: &str, state: &str, answer: &str| {
             let wire = format!(
@@ -1647,6 +1814,25 @@ mod tests {
         assert_eq!(told, [("opened", "t2"), ("shown", "t2"), ("exited", "t1")]);
         assert_eq!(news[0].clone(), ShellNews::Opened(ipc::JobTerminal { session_id: ipc::SessionId::carried("s0"), terminal: "t2".into(), run_id: "r-t2".into() }));
         assert!(held.take_shells().is_empty(), "news is told once");
+    }
+
+    #[test]
+    fn an_agents_browser_acts_and_the_owners_answers_to_a_pages_asks_are_handed_over_once_in_the_order_they_came() {
+        let event = |body: &str| Signal::Stream(crate::frames::decode(&format!(r#"{{"message":"event","cursor":1,"event":{body}}}"#)).expect("an event"));
+        let mut held = Held::new();
+        held.fold(vec![
+            event(r#"{"kind":"browser.request","session_id":"s0","request_id":"browser-1","act":{"kind":"snapshot"}}"#),
+            event(r#"{"kind":"browser.ask_answered","session_id":"s0","ask_id":"tab-7","choice":null}"#),
+            event(r#"{"kind":"browser.request","session_id":"s1","request_id":"browser-2","act":{"kind":"open","url":"https://example.com/"}}"#),
+        ]);
+        let news = held.take_browser();
+        let asked: Vec<(&str, &str)> = news.requests.iter().map(|one| (one.session_id.as_str(), one.request_id.as_str())).collect();
+        assert_eq!(asked, [("s0", "browser-1"), ("s1", "browser-2")]);
+        assert_eq!(news.requests[1].act, ipc::BrowserAct::Open { url: "https://example.com/".into() });
+        assert_eq!(news.answered.len(), 1);
+        assert_eq!(news.answered[0].choice, None, "null is a dismissal");
+        let again = held.take_browser();
+        assert!(again.requests.is_empty() && again.answered.is_empty(), "news is told once");
     }
 
     #[test]

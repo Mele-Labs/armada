@@ -2,11 +2,11 @@
 kind = "query"
 transport = "HTTP"
 agent_access = "No"
-description = "How each message the owner sent in a Job was sorted: new ask, revision, answer or talk"
+description = "How each message the owner sent in a Job was sorted: new ask, revision, answer, question or talk"
 notes = """
 `GET /sessions/message_kinds?session_id=`. `MessageSortings` `{ session_id, messages }`, oldest first, each a `MessageSorting` `{ session_id, row_id, kind, ask_kind?, ask_id?, title?, sorted_by, sorted_at }`. Since 16 Nov 2026.
 
-`kind` is `new_ask`, `revision`, `answer` or `talk`. `ask_kind` (`bug`, `change_request`, `idea`, `fix`) and `title` are set for a `new_ask` and absent otherwise. `ask_id` is the ask a `new_ask` opened or a `revision` or `answer` joined, and absent for `talk`. `sorted_by` is `fleet` or `owner`, the latter once he changed it with `set_message_kind`.
+`kind` is `new_ask`, `revision`, `answer`, `question` or `talk`; `question` since 17 Nov 2026, and `list_job_questions` holds its answer. `ask_kind` (`bug`, `change_request`, `idea`, `fix`) and `title` are set for a `new_ask` and absent otherwise. `ask_id` is the ask a `new_ask` opened or a `revision` or `answer` joined, and absent for `question` and `talk`. `sorted_by` is `fleet` or `owner`, the latter once he changed it with `set_message_kind`.
 
 **A message with no row here is not sorted**: the sort runs after the message is delivered, on a small model, and a failure leaves the message unsorted. The thread draws no chip for it. A sort that finishes publishes `session.story`.
 

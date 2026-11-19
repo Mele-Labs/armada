@@ -8,7 +8,7 @@ import type { PullInbox, PullMyReview, PullSeen } from "./pull-review-memory";
 import type { PullReviewHolder } from "./review-runs";
 
 /** The four lists. A pull request can be on several. */
-export type PullReviewList = "requested" | "team" | "assigned" | "mine";
+export type PullReviewList = "requested" | "team" | "assigned" | "mine" | "reviewing";
 
 /** What a row's forge checks have come to. Not Armada's Checks. */
 export type PullReviewChecks = "passed" | "failed" | "running";
@@ -32,6 +32,8 @@ export type PullReviewRow = {
   author: string;
   /** RFC 3339. */
   updated_at: string;
+  /** RFC 3339, when he was last asked to review it: the forge's time, else when Fleet first saw him asked by name. Absent off the `requested` and `team` lists, and where neither knows. */
+  asked_at?: string;
   /** The team asked, as the forge names it, on the `team` list only. */
   team?: string;
   /** The Session of the person's that holds it, where one does. Absent, and a note on it stays in Armada. */
@@ -42,6 +44,10 @@ export type PullReviewRow = {
   my_review?: PullMyReview;
   /** Where it stands in his inbox, worked out by Fleet. Absent from a Fleet before it, read as `needs_first_look`. */
   inbox?: PullInbox;
+  /** He ran a review tool on it in Armada, at any head. On a row of any list. Absent is false. */
+  reviewing?: boolean;
+  /** He ignored it and it has not been asked of him since. Absent is false. */
+  ignored?: boolean;
 };
 
 /** `get_review_lists`: read when the Reviews tab opens and on Refresh, never polled. At most `MOST_PER_LIST` a list. */
@@ -54,8 +60,40 @@ export type PullReviewLists = {
   team: PullReviewRow[];
   assigned: PullReviewRow[];
   mine: PullReviewRow[];
+  /** Open pull requests he ran a review tool on that are on none of the four lists, newest run first. Absent is empty. */
+  reviewing?: PullReviewRow[];
   /** The lists the forge would not answer. Their rows are empty and say nothing: keep what was last held. */
   silent?: PullReviewList[];
+  /** Present where the forge is rate-limiting us and these are the lists Fleet last read, at `fetched_at`. */
+  rate_limited?: PullReviewRateLimited;
+  /** True where these are the lists Fleet kept, answered at once, and a read of the forge is going: the fresh lists follow as `review_lists.changed`. */
+  refreshing?: boolean;
+};
+
+/** The rate limit that keeps the lists from being read again. */
+export type PullReviewRateLimited = {
+  /** When Fleet asks again, RFC 3339. Absent where the forge named no time. */
+  until?: string;
+  /** The forge's own sentence for the limit, without a time. */
+  said?: string;
+};
+
+/** Why the read behind kept lists gave none: the answer of a read would have said it so. */
+export type ReviewListsFailed = {
+  /** `fleet.review_lists_unreadable`, `fleet.review_lists_rate_limited`, or the code of any other refusal. */
+  code: string;
+  said: string;
+  /** Where the forge named a time to try again, RFC 3339. */
+  until?: string;
+};
+
+/** `review_lists.changed`: the read behind kept lists ended. One of `lists` and `failed`; a failure leaves the lists a reader holds as they are. */
+export type ReviewListsChanged = {
+  /** The project the read was for. Absent for every project. */
+  project?: string;
+  /** The fresh lists, whole. */
+  lists?: PullReviewLists;
+  failed?: ReviewListsFailed;
 };
 
 /** The forge is asked for exactly this many a list, so a list at the cap has more behind it. */

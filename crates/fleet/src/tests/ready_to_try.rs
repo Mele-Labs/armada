@@ -11,7 +11,7 @@ use ipc::{
 };
 
 use super::build_notices::{a_rig, Rig};
-use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, checked, code, holding, step};
+use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, built_on_main_holding, checked, code, holding, step};
 
 const BRANCH: &str = "armada/one";
 
@@ -83,6 +83,30 @@ async fn an_offer_is_an_open_card_in_its_jobs_thread_at_the_offer() {
         _ => None,
     }).collect();
     assert_eq!(drawn, [&one], "the thread draws the card");
+}
+
+#[tokio::test]
+async fn a_card_whose_tip_is_on_main_under_the_running_build_is_in_the_build() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    assert!(!card(&rig, &session, &tip).await.in_build, "no preview runs yet");
+
+    built_on_main_holding(&rig, &tip);
+
+    let one = card(&rig, &session, &tip).await;
+    assert!(one.in_build, "the build stands on a main that holds the tip, though no list names the branch");
+}
+
+#[tokio::test]
+async fn a_new_build_moves_the_cards_of_a_job_whose_branch_is_on_the_main_it_stands_on() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    rig.fleet.build_notes_published().await;
+
+    built_on_main_holding(&rig, &tip);
+
+    let moved = rig.fleet.build_notes_published().await;
+    assert!(moved.contains(&session), "no note lists the branch, yet its card now reads in_build: {moved:?}");
 }
 
 #[tokio::test]
@@ -159,6 +183,75 @@ async fn looks_good_keeps_the_verdict_tells_the_job_to_land_and_answers_the_card
     );
     let again = answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await;
     assert_eq!((code(again), rig.thread_of(&session).await.len()), ("fleet.ready_to_try_settled".to_string(), told.len()), "an answered card takes no other");
+}
+
+/// Two groups gated `you_approved` around one that is not, so the first open gate is told from the next.
+async fn planned_on_his_approve(rig: &Rig, session: &str) {
+    let gated = |title: &str, gate| ipc::PlanGroupInput {
+        gate,
+        ..super::session_plan::group(None, title, "rust-engineer", &["crates/fleet"], &[(None, &format!("Do {title}"))])
+    };
+    let groups = vec![gated("Walk", ipc::PlanGate::YouApproved), gated("Build", ipc::PlanGate::None), gated("Sign off", ipc::PlanGate::YouApproved)];
+    rig.fleet.record_plan(None, super::session_plan::plan(&SessionId::carried(session), groups), false).await.expect("recorded");
+    // The clock reads milliseconds: let the answer land after the plan.
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+}
+
+async fn closed_gates(rig: &Rig, session: &str) -> Vec<Option<String>> {
+    let record = Arc::clone(&rig.fleet).get_session(SessionId::carried(session)).await.expect("the Job").session;
+    record.plan.expect("a plan").groups.iter().map(|group| group.gate_closed.as_ref().map(|one| one.fact.clone())).collect()
+}
+
+#[tokio::test]
+async fn looks_good_on_a_card_closes_the_first_open_you_approved_gate_once_and_the_next_card_the_next() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    planned_on_his_approve(&rig, &session).await;
+    assert!(rig.fleet.gates_kept(&session).await.is_empty(), "nothing is approved yet");
+
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+
+    // The answer sweeps the gates itself: no row of the Job moved for the keeper to hear.
+    let facts = closed_gates(&rig, &session).await;
+    assert_eq!(facts.iter().map(Option::is_some).collect::<Vec<_>>(), [true, false, false], "the first open you_approved gate, in plan order, and no other");
+    assert!(facts[0].as_deref().is_some_and(|fact| fact.contains("Keeps one thing")), "{facts:?}");
+    assert!(rig.fleet.gates_kept(&session).await.is_empty(), "one answer closes one gate, once");
+
+    let newer = branch_with(&rig, BRANCH, BRANCH, "crates/x/more.rs", "2");
+    offer(&rig, offered(&session)).await.expect("offered again");
+    holding(&rig, &[(BRANCH, &newer)]);
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+    answer(&rig, &session, &newer, ReadyAnswer::LooksGood).await.expect("answered");
+    let next = closed_gates(&rig, &session).await;
+    assert_eq!(next.iter().map(Option::is_some).collect::<Vec<_>>(), [true, false, true], "the next card closes the next gate");
+}
+
+#[tokio::test]
+async fn needs_rework_and_a_reminder_on_a_card_close_no_you_approved_gate() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    planned_on_his_approve(&rig, &session).await;
+
+    answer(&rig, &session, &tip, ReadyAnswer::Remind { until: from_now(&rig, 3600) }).await.expect("later");
+    answer(&rig, &session, &tip, ReadyAnswer::NeedsRework { words: "Move the card".into() }).await.expect("rework");
+
+    assert!(rig.fleet.gates_kept(&session).await.is_empty());
+    assert_eq!(closed_gates(&rig, &session).await, [None, None, None]);
+}
+
+#[tokio::test]
+async fn a_looks_good_given_before_the_plan_closes_no_you_approved_gate() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+    tokio::time::sleep(std::time::Duration::from_millis(5)).await;
+
+    planned_on_his_approve(&rig, &session).await;
+
+    assert!(rig.fleet.gates_kept(&session).await.is_empty(), "what he approved before there was a plan is not its gate's");
 }
 
 #[tokio::test]

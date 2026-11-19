@@ -21,6 +21,7 @@ use std::sync::{Arc, Mutex, PoisonError};
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use adapters::BuildMerges;
 use api::Refusal;
 use ipc::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, ChangeFleetBuild, FleetBuildChanging, FleetBuildKept, FleetBuildReport,
@@ -262,6 +263,25 @@ pub(crate) fn held_in(support: &Path, commit: &str) -> Option<Held> {
     let branches = held.iter().map(|(branch, _)| branch.clone()).collect();
     let tips = held.into_iter().filter(|(_, tip)| !tip.is_empty()).collect();
     (!main_commit.is_empty()).then_some(Held { main_commit, branches, tips })
+}
+
+/// What a preview holds, the commit's own merges first: the branches and tips `walk` found in it, and the
+/// main commit the file recorded for this build, else the one under the merges. **The file alone** where
+/// the walk found none.
+pub(crate) fn held_by_merges(file: Option<Held>, walk: Option<BuildMerges>) -> Option<Held> {
+    let Some(walk) = walk else {
+        return file;
+    };
+    let mut branches: Vec<String> = Vec::new();
+    let mut tips = BTreeMap::new();
+    for (branch, tip) in walk.merges {
+        if !branches.contains(&branch) {
+            branches.push(branch.clone());
+        }
+        tips.insert(branch, tip);
+    }
+    let main_commit = file.map_or(walk.main_commit, |held| held.main_commit);
+    Some(Held { main_commit, branches, tips })
 }
 
 /// When the restart wrote `restart-commit`, in milliseconds since the epoch: when the build began.

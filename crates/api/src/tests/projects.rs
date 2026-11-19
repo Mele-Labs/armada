@@ -115,6 +115,20 @@ async fn the_projects_holding_a_repository_are_read_by_manifest_id() {
 }
 
 #[tokio::test]
+async fn merge_projects_takes_the_kept_and_the_gone_project_and_the_keys_the_gone_one_wins() {
+    let body = r#"{"kept":"p7","gone":"p8","from_gone":["auto_merge","delivery"]}"#;
+    let (said, id) = reached("POST", "/projects/merge", body).await;
+    assert_eq!((said.as_str(), id.as_str()), ("merge_projects p7 p8 auto_merge,delivery", "p7"));
+    let (said, _) = reached("POST", "/projects/merge", r#"{"kept":"p7","gone":"p8"}"#).await;
+    assert_eq!(said, "merge_projects p7 p8 ", "no key is the kept project's values throughout");
+    let (status, text) = refused("POST", "/projects/merge", r#"{"kept":"nope","gone":"p8"}"#).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
+    let (status, _) = refused("POST", "/projects/merge", r#"{"kept":"p7"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "both projects are named");
+}
+
+#[tokio::test]
 async fn delete_project_takes_the_project() {
     let (said, id) = reached("POST", "/projects/project/p7/delete", "").await;
     assert_eq!((said.as_str(), id.as_str()), ("delete_project", "p7"));

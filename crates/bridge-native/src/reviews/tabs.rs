@@ -1,13 +1,12 @@
 //! What each tab of a pull request's page draws. Every tab reads the page as Fleet sends it.
 
 use gpui::{anchored, deferred, div, prelude::*, Animation, AnimationExt, AnyElement, Context, Div, ElementId, FontWeight, Role, SharedString, Toggled, Transformation};
-use gpui_component::text::TextView;
 use ipc::{PullRequestCheckState, PullRequestEntry, PullRequestFileStatus, PullRequestVerdict};
 
 use gpui_component::input::{Input, Textarea};
 
 use super::live::Find;
-use super::model::{named, on_day, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Summary, Viewed, Wrong};
+use super::model::{found_nothing, named, on_day, Answer, ChangeSet, Critique, Effort, Explain, Finding, Flag, FlagKind, Kept, Mark, Page, PageFile, Practice, PracticeAt, ReviewAsk, Rewrite, Summary, Viewed, Wrong};
 use super::panes::{grey, place_line};
 use super::{AskingReview, ReviewsScreen, HUNKS_AT};
 use crate::diff;
@@ -218,10 +217,15 @@ impl ReviewsScreen {
         div().w_full().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_3)).child(inner).into_any_element()
     }
 
-    fn critique_button(&self, id: &'static str, name: &'static str, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let running = matches!(page.critique, Critique::Running { .. });
+    /// Review this pull request: the picker, whose Start runs the change sets, the overview and each ticked tool.
+    fn critique_button(&self, id: &'static str, name: &'static str, weight: Weight, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let finding = match self.live_finds(page.number) {
+            Some(finds) => finds.sets == Find::Running || finds.flags == Find::Running,
+            None => self.finding.contains_key(&page.number),
+        };
+        let running = finding || matches!(page.critique, Critique::Running { .. });
         labelled(
-            Btn::new(id, name, Weight::Primary).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.open_review(name, window, cx))),
+            Btn::new(id, name, weight).icon("bot").pending(running).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.open_review(name, window, cx))),
             Role::Button,
             name,
         )
@@ -309,11 +313,10 @@ impl ReviewsScreen {
             ));
         }
         let focus = labelled(div().id("review-ask-focus").key_context(crate::keymap::TEXT_BOX).child(Input::new(&open.focus)), Role::TextInput, "Anything to focus on?");
-        let none = open.ask.tools.is_empty();
         let start = labelled(
-            Btn::new("review-ask-start", "Start", Weight::Primary).icon("bot").disabled(none).draw(look, cx).when(none, |button| button.tooltip(tip("Tick something to look for"))).on_click(cx.listener(|this, _, window, cx| this.start_review(window, cx))),
+            Btn::new("review-ask-start", "Start", Weight::Primary).icon("bot").draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.start_review(window, cx))),
             Role::Button,
-            "Start review",
+            "Start",
         );
         let cancel = labelled(
             Btn::new("review-ask-cancel", "Cancel", Weight::Ghost).draw(look, cx).on_click(cx.listener(|this, _, window, cx| this.cancel_review(window, cx))),
@@ -336,7 +339,7 @@ impl ReviewsScreen {
                 .border_t(look.length(token::BORDER_WIDTH) * 2.)
                 .border_color(look.color(token::ACCENT))
                 .child(heading)
-                .child(muted("review-ask-range", format!("Reads {range}. Its suggestions come to Review comments.")))
+                .child(muted("review-ask-range", format!("Reads {range}. Change sets and problems come to the Overview, and each tool's suggestions to Review comments.")))
                 .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).child(caption("review-ask-what", "What to look for")).child(tools).when(self.review_tools.is_empty(), |list| {
                     list.child(muted("review-ask-no-tools", "No review tool is set up for this repository".to_string()))
                 }))
@@ -398,7 +401,7 @@ impl ReviewsScreen {
             );
             return column
                 .child(notice)
-                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Review the whole PR", page, look, cx)).child(whole))
+                .child(div().flex().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique-whole", "Review the whole PR", Weight::Primary, page, look, cx)).child(whole))
                 .into_any_element();
         }
         column = column.child(heading_tipped("changed-head", format!("Since you looked {}", seen.when()), Some(seen.commits()), look));
@@ -473,7 +476,7 @@ impl ReviewsScreen {
             "Diff since you looked",
         );
         column
-            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Review these changes", page, look, cx)).child(diff))
+            .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(self.critique_button("changed-critique", "Review these changes", Weight::Primary, page, look, cx)).child(diff))
             .child(table)
             .into_any_element()
     }
@@ -712,11 +715,10 @@ impl ReviewsScreen {
             labelled(div().id("findings-asked").text_size(look.length(token::TEXT_XS)).text_color(muted).child(SharedString::from(said.clone())), Role::Label, said)
         };
         // A tool's run that failed or was refused says so above whatever the others found.
-        let failed: Vec<AnyElement> = self
-            .live_finds(page.number)
-            .map(|finds| finds.critique_failed.clone())
-            .unwrap_or_default()
-            .into_iter()
+        let failed_said: Vec<String> = self.live_finds(page.number).map(|finds| finds.critique_failed.clone()).unwrap_or_default();
+        let failed: Vec<AnyElement> = failed_said
+            .iter()
+            .cloned()
             .enumerate()
             .map(|(n, said)| status(format!("findings-failed-{n}"), said, glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
             .collect();
@@ -726,7 +728,7 @@ impl ReviewsScreen {
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
                 .child(status("findings-none", "No suggestions on this pull request".into(), glyph("bot", look.length(token::SPACE_4), muted).into_any_element(), look))
-                .child(div().flex().child(self.critique_button("findings-critique", "Review this pull request", page, look, cx)))
+                .child(div().flex().child(self.critique_button("findings-critique", "Review this pull request", Weight::Primary, page, look, cx)))
                 .into_any_element(),
             Critique::Running { range, asked: ask } => div()
                 .flex()
@@ -760,8 +762,12 @@ impl ReviewsScreen {
                             && !self.drafts.iter().any(|draft| draft.number == page.number && draft.finding.as_deref() == Some(&finding.id))
                     })
                     .collect();
-                if findings.is_empty() {
-                    column = column.child(status("findings-empty", "Review found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
+                // A run that failed never says nothing was found: what failed says so above.
+                let clean = self.live_finds(page.number).is_none_or(|finds| super::live::map::clean_critique(&page.critique, finds));
+                if found_nothing(findings, &failed_said) && clean {
+                    column = column.child(self.clean_card("findings-clean", page, look, cx));
+                } else if findings.is_empty() {
+                    column = column.child(words("findings-empty", "No suggestions".into(), look));
                 } else if open.is_empty() {
                     column = column.child(words("findings-done", "No suggestions left".into(), look));
                 }
@@ -837,10 +843,15 @@ impl ReviewsScreen {
         Some(element)
     }
 
-    /// Where Find problems stands on the live page, while its findings are not in: not run, running or
-    /// failed, with the press that starts it. None once they are in, and on the mock.
+    /// Where the review's change sets and overview stand while their findings are not in: not run,
+    /// running or failed, with the press that starts it. None once they are in, and on the mock unless
+    /// it is running.
     fn find_problems_state(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let finds = self.live_finds(page.number)?;
+        let Some(finds) = self.live_finds(page.number) else {
+            return self.finding.contains_key(&page.number).then(|| {
+                status("overview-flags-running", "Finding problems".into(), spinner("overview-flags-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look)
+            });
+        };
         if finds.flags == Find::Done {
             return None;
         }
@@ -863,7 +874,7 @@ impl ReviewsScreen {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(status("overview-flags-failed", format!("Find problems failed: {why}"), glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
+                .child(status("overview-flags-failed", format!("Review failed: {why}"), glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
                 .child(div().flex().child(press("overview-find-again", "Try again", cx)))
                 .into_any_element()
         } else {
@@ -871,8 +882,8 @@ impl ReviewsScreen {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
-                .child(words("overview-flags-not-run", "Find problems has not read this commit".into(), look))
-                .child(div().flex().child(press("overview-find", "Find problems", cx)))
+                .child(words("overview-flags-not-run", "No review has read this commit".into(), look))
+                .child(div().flex().child(self.critique_button("overview-flags-critique", "Review this pull request", Weight::Secondary, page, look, cx)))
                 .into_any_element()
         };
         Some(element)
@@ -940,21 +951,199 @@ impl ReviewsScreen {
         Some(column.into_any_element())
     }
 
-    /// Overview: why the author made it, the blockers, risks and possible bugs Find problems wrote, and
-    /// the change sets, each with Review.
+    /// Neither the change sets nor the overview has run on this commit, nor started: the Overview offers
+    /// to start the review.
+    fn not_started(&self, page: &Page) -> bool {
+        if page.kept {
+            return false;
+        }
+        match self.live_finds(page.number) {
+            Some(finds) => finds.sets == Find::NotRun && finds.flags == Find::NotRun,
+            None => !page.overview.read && !self.finding.contains_key(&page.number),
+        }
+    }
+
+    /// The one card that starts a review on a commit nothing has read: Review this pull request.
+    fn start_card(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let title = "Start the review";
+        let ink = look.color(token::ACCENT);
+        let band = labelled(
+            div()
+                .id("overview-start-head")
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .h(look.length(token::H_CONTROL))
+                .px(look.length(token::SPACE_3))
+                .bg(ink.opacity(0.14))
+                .text_color(ink)
+                .text_size(look.length(token::TEXT_XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .child(glyph("scan-search", look.length(token::SPACE_4), ink))
+                .child(title),
+            Role::Heading,
+            title,
+        );
+        let review = self.critique_button("overview-critique", "Review this pull request", Weight::Primary, page, look, cx);
+        labelled(
+            frame(look)
+                .id("overview-start")
+                .flex()
+                .flex_col()
+                .child(band)
+                .child(
+                    div()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_3))
+                        .p(look.length(token::SPACE_3))
+                        .child(words("overview-start-said", "Armada splits this pull request into change sets, then looks for blockers, risks and possible bugs in each.".into(), look))
+                        .child(div().flex().child(review)),
+                ),
+            Role::Region,
+            title,
+        )
+        .into_any_element()
+    }
+
+    /// No problems found, after a review that finished with nothing found and nothing failed: Approve
+    /// sends an approval with no body at once; Approve with comments opens Review changes. Once he
+    /// approved this commit, the card says so in place of both.
+    fn clean_card(&self, id: &'static str, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let title = "No problems found";
+        let hue = token::STATUS_COMPLETED_SUCCESS;
+        let head = labelled(
+            div()
+                .id(SharedString::from(format!("{id}-title")))
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                .child(glyph("circle-check", look.length(token::SPACE_4), look.color(hue)).flex_none())
+                .child(title),
+            Role::Heading,
+            title,
+        );
+        let approved = page.mine.verdict == super::model::Verdict::Approved && page.mine.on.as_deref() == Some(page.head.as_str());
+        let below = if approved {
+            words(format!("{id}-approved"), "You approved this commit".into(), look)
+        } else {
+            let (refused, writing) = self.live_write(page.number);
+            let refused = refused.map(|why| format!("Not sent: {why}"));
+            let approve = labelled(
+                Btn::new(SharedString::from(format!("{id}-approve")), "Approve", Weight::Primary)
+                    .icon("check")
+                    .disabled(writing)
+                    .draw(look, cx)
+                    .on_click(cx.listener(|this, _, window, cx| this.approve_bare(window, cx))),
+                Role::Button,
+                "Approve",
+            );
+            let comments = labelled(
+                Btn::new(SharedString::from(format!("{id}-comments")), "Approve with comments", Weight::Secondary)
+                    .icon("scroll-text")
+                    .disabled(writing)
+                    .draw(look, cx)
+                    .on_click(cx.listener(|this, _, window, cx| this.approve_with_comments(window, cx))),
+                Role::Button,
+                "Approve with comments",
+            );
+            div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(div().flex().items_center().flex_wrap().gap(look.length(token::SPACE_2)).child(approve).child(comments))
+                .children(refused.map(|said| {
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("{id}-refused")))
+                            .text_size(look.length(token::TEXT_XS))
+                            .line_height(look.length(token::LEADING_XS))
+                            .text_color(look.color(token::RUN_FAILED))
+                            .child(SharedString::from(said.clone())),
+                        Role::Status,
+                        said,
+                    )
+                }))
+                .into_any_element()
+        };
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(head).child(below);
+        edged(id.into(), hue, body, title.into(), look)
+    }
+
+    /// The description's heading, with Summarize, Explain and Simplify at its right while it is hovered
+    /// or one of their cards is open.
+    fn why_head(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let shown = self.rewrites.get(&page.number).copied();
+        let mut acts = div().flex_none().flex().items_center().gap(look.length(token::SPACE_1));
+        for rewrite in Rewrite::ALL {
+            let on = shown == Some(rewrite);
+            let button = icon_button(SharedString::from(format!("overview-why-{}", rewrite.name())), rewrite.glyph(), look.color(if on { token::ACCENT } else { token::FG_MUTED }), look)
+                .size(look.length(token::H_CONTROL))
+                .tooltip(tip(rewrite.name()))
+                .on_click(cx.listener(move |this, _, window, cx| this.ask_rewrite(rewrite, window, cx)));
+            acts = acts.child(labelled(button, Role::Button, rewrite.name()));
+        }
+        let acts = if shown.is_some() { acts } else { acts.opacity(0.).group_hover("overview-why-group", |style| style.opacity(1.)) };
+        div().flex().items_center().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(heading("overview-why-head", format!("Why, from {}", named(&page.author)), look))).child(acts).into_any_element()
+    }
+
+    /// The card above the description: what Summarize, Explain or Simplify wrote, or that it is writing.
+    fn rewrite_card(&self, page: &Page, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let rewrite = *self.rewrites.get(&page.number)?;
+        let label = rewrite.label();
+        let close = labelled(
+            icon_button("overview-rewrite-close", "x", look.color(token::FG_MUTED), look).size(look.length(token::H_CONTROL)).tooltip(tip("Close")).on_click(cx.listener(|this, _, _, cx| this.close_rewrite(cx))),
+            Role::Button,
+            format!("Close {label}"),
+        );
+        let head = div()
+            .flex()
+            .items_center()
+            .child(div().flex_1().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::ACCENT)).child(label))
+            .child(close);
+        let answer = match self.rewritten.get(&(page.number, rewrite)) {
+            Some(Answer::Written(said)) => super::markdown::body("overview-rewrite-text", said, look),
+            Some(Answer::Failed(why)) => div()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .child(status("overview-rewrite-failed", format!("{} failed: {why}", rewrite.name()), glyph("circle-x", look.length(token::SPACE_4), look.color(token::RUN_FAILED)).into_any_element(), look))
+                .child(div().flex().child(labelled(
+                    Btn::new("overview-rewrite-again", "Try again", Weight::Secondary).icon(rewrite.glyph()).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| this.ask_rewrite(rewrite, window, cx))),
+                    Role::Button,
+                    "Try again",
+                )))
+                .into_any_element(),
+            Some(Answer::Writing) | None => status("overview-rewrite-writing", format!("Writing the {}", label.to_lowercase()), spinner("overview-rewrite-spin", look.length(token::SPACE_4), look.color(token::STATUS_RUNNING), cx).into_any_element(), look),
+        };
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_SM)).child(head).child(answer);
+        Some(edged("overview-rewrite".into(), token::ACCENT, body, label.into(), look))
+    }
+
+    /// Overview: why the author made it, the blockers, risks and possible bugs the review wrote, and
+    /// the change sets, each with Review. Before a review has read the commit, one card starts it.
     fn overview_tab(&mut self, page: &Page, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let mut column = div()
+        let why = div()
+            .group("overview-why-group")
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .child(heading("overview-why-head", format!("Why, from {}", named(&page.author)), look))
+            .child(self.why_head(page, look, cx))
+            .children(self.rewrite_card(page, look, cx))
             // The author writes markdown: headings, tables and links are drawn, not shown as their marks.
             .child(labelled(
-                div().id("overview-why").text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name("overview-why-text".into()), page.overview.why.clone()).selectable(true)),
+                div().id("overview-why").text_size(look.length(token::TEXT_SM)).child(super::markdown::body("overview-why-text", &page.overview.why, look)),
                 Role::Article,
                 page.overview.why.clone(),
-            ))
-            .child(div().pt(look.length(token::SPACE_2)).child(heading("overview-flags-head", "Blockers, risks and possible bugs".into(), look)));
+            ));
+        let mut column = div().flex().flex_col().gap(look.length(token::SPACE_3)).child(why);
+        if self.not_started(page) {
+            return column.child(div().pt(look.length(token::SPACE_2)).child(self.start_card(page, look, cx))).into_any_element();
+        }
+        column = column.child(div().pt(look.length(token::SPACE_2)).child(heading("overview-flags-head", "Blockers, risks and possible bugs".into(), look)));
         if page.kept {
             column = column.child(
                 frame(look).p(look.length(token::SPACE_3)).child(grey("overview-flags-wait", "Finding problems in the commits since you looked", &[0.5, 0.9, 0.7], token::BG_SUNKEN, look)),
@@ -963,8 +1152,12 @@ impl ReviewsScreen {
             column = column.child(state);
         } else {
             let open: Vec<&Flag> = page.overview.flags.iter().filter(|flag| !self.dismissed.contains(&(page.number, flag.id.clone()))).collect();
-            if page.overview.flags.is_empty() {
-                column = column.child(status("overview-flags-none", "Find problems found nothing".into(), glyph("circle-check", look.length(token::SPACE_4), look.color(token::RUN_PASSED)).into_any_element(), look));
+            // A run that failed never says nothing was found: Review comments says what failed.
+            let clean = self.live_finds(page.number).is_none_or(|finds| super::live::map::clean_overview(finds, page.overview.flags.len()));
+            if page.overview.flags.is_empty() && clean {
+                column = column.child(self.clean_card("overview-clean", page, look, cx));
+            } else if page.overview.flags.is_empty() {
+                column = column.child(words("overview-flags-none", "No blockers, risks or possible bugs".into(), look));
             } else if open.is_empty() {
                 column = column.child(words("overview-flags-done", "None left".into(), look));
             }
@@ -981,10 +1174,10 @@ impl ReviewsScreen {
         let sets = self.live_finds(page.number).map(|finds| finds.sets.clone());
         if page.kept {
             table = table.child(waiting("overview-sets-wait", "Writing the change sets of the commits since you looked", &[0.4, 0.8], look));
-        } else if sets == Some(Find::Running) {
+        } else if sets == Some(Find::Running) || self.finding.contains_key(&page.number) {
             table = table.child(waiting("overview-sets-wait", "Writing the change sets", &[0.4, 0.8], look));
         } else if sets.as_ref().is_some_and(|sets| *sets != Find::Done) {
-            table = table.child(div().p(look.length(token::SPACE_3)).child(words("overview-sets-not-run", "Find problems writes the change sets".into(), look)));
+            table = table.child(div().p(look.length(token::SPACE_3)).child(words("overview-sets-not-run", "Review this pull request writes the change sets".into(), look)));
         } else if page.overview.sets.is_empty() {
             table = table.child(div().p(look.length(token::SPACE_3)).child(words("overview-sets-none", "No change sets".into(), look)));
         }
@@ -1583,7 +1776,7 @@ fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
         format!("{} wants {} into {}", page.author, page.branch, page.base),
         look,
     ));
-    column = column.child(div().text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name("conversation-body".into()), page.body.clone())));
+    column = column.child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body("conversation-body", &page.body, look)));
     for entry in &page.conversation {
         let (id, author, at, body, verdict) = match entry {
             PullRequestEntry::Comment { id, author, at, body, .. } => (id, author, at, body, None),
@@ -1603,7 +1796,7 @@ fn conversation_tab(page: &Page, look: &Look) -> AnyElement {
                 .gap(look.length(token::SPACE_1))
                 .p(look.length(token::SPACE_3))
                 .child(div().flex().gap(look.length(token::SPACE_2)).text_size(look.length(token::TEXT_XS)).child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(said.clone()))).child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(at.clone()))))
-                .child(div().text_size(look.length(token::TEXT_SM)).child(TextView::markdown(ElementId::Name(format!("entry-body-{id}").into()), body.clone()))),
+                .child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body(format!("entry-body-{id}"), body, look))),
             Role::Article,
             format!("Comment by {said}"),
         ));
@@ -1661,7 +1854,7 @@ fn comments_tab(page: &Page, look: &Look) -> AnyElement {
                     .border_t(look.length(token::BORDER_WIDTH))
                     .border_color(look.color(token::BORDER_SUBTLE))
                     .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(comment.author.clone())))
-                    .child(div().text_size(look.length(token::TEXT_SM)).child(SharedString::from(comment.body.clone()))),
+                    .child(div().text_size(look.length(token::TEXT_SM)).child(super::markdown::body(format!("comment-body-{}", comment.id), &comment.body, look))),
             );
         }
         column = column.child(labelled(card, Role::Article, format!("Thread on {place}")));

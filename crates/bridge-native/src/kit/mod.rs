@@ -10,7 +10,9 @@ mod mock;
 mod model;
 mod view;
 pub mod walk;
-mod wire;
+pub(crate) mod wire;
+
+pub(crate) use model::source_path;
 
 use std::collections::HashMap;
 
@@ -649,6 +651,11 @@ impl KitScreen {
                 self.save_edit(window, cx);
                 cx.stop_propagation();
             }
+            return;
+        }
+        if keys.key == "escape" && self.pane == Pane::Detail && view::narrow(window) {
+            self.focus(Pane::List, window, cx);
+            cx.stop_propagation();
             return;
         }
         let typing = self.filter.read(cx).focus_handle(cx).is_focused(window);

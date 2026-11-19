@@ -326,8 +326,17 @@ impl Forge for FakeVcs {
         &self,
         _in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
         self.review_list_read(ask)
+    }
+
+    fn open_pulls_numbered(
+        &self,
+        _in_repo: &str,
+        _login: &str,
+        pulls: &[adapter_traits::NumberedPull],
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        self.numbered_pulls.lock().expect("not poisoned").asked(pulls)
     }
 
     fn resolve_review_thread(

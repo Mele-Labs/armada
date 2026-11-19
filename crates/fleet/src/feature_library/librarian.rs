@@ -1,0 +1,219 @@
+//! The librarian: Fleet work that keeps a project's catalog current. `docs/concepts/feature-catalog.md`, *Librarian*.
+//!
+//! **On demand until the owner says otherwise.** `features.librarianRuns` ships as `on_press`, and under it nothing here
+//! starts a run: [`Fleet::librarians_due`] returns before it looks at a project. A press of Catch up is `run_librarian`.
+//! `after_merges` and `nightly` are read only where the owner has set them, and a word that is neither reads as `on_press`.
+//!
+//! **This is the frame.** A run keeps its record (`librarian_runs`) and does the enabled parts that are built: a later group
+//! adds its part to [`BUILT`] with the work it does. **A part that writes with a model spends from the night's share**
+//! (`features.librarianModelShare`, in model calls for one project, a night being the machine's local midnight to midnight),
+//! and where the share is spent the part is left out and the run says so.
+
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
+use api::Refusal;
+use config::settings::{self as keys, Resolved};
+use ipc::{Instant, LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+
+use super::since_paragraph::Since;
+use store::{feature_link_kind, librarian_run_by, KeptLibrarianRun, Store, WriteError};
+
+use crate::daemon::Fleet;
+
+/// When the librarian runs without a press.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum Runs {
+    /// Only on a press. What ships, and what any word Fleet cannot read means.
+    OnPress,
+    /// After a merge it has not read through.
+    AfterMerges,
+    /// Once in twenty-four hours.
+    Nightly,
+}
+
+impl Runs {
+    fn from_word(word: &str) -> Runs {
+        match word {
+            "after_merges" => Runs::AfterMerges,
+            "nightly" => Runs::Nightly,
+            _ => Runs::OnPress,
+        }
+    }
+
+    fn by(self) -> &'static str {
+        match self {
+            Runs::OnPress => librarian_run_by::PRESS,
+            Runs::AfterMerges => librarian_run_by::AFTER_MERGES,
+            Runs::Nightly => librarian_run_by::NIGHTLY,
+        }
+    }
+}
+
+/// What `features.librarian*` say, read at one instant with the other live dials.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Librarian {
+    pub(crate) runs: Runs,
+    /// The enabled parts, in the order they run.
+    pub(crate) parts: Vec<LibrarianPart>,
+    /// How many model calls a night may spend: `features.librarianModelShare`.
+    pub(crate) model_share: u32,
+}
+
+impl Librarian {
+    /// As it ships: on press, every part, twenty calls a night.
+    pub(crate) fn shipped() -> Librarian {
+        Librarian { runs: Runs::OnPress, parts: LibrarianPart::ALL.to_vec(), model_share: 20 }
+    }
+
+    pub(crate) fn overlaid_by(&self, settings: &Resolved) -> Librarian {
+        Librarian {
+            runs: settings.chosen(keys::LIBRARIAN_RUNS).map_or(self.runs, |word| Runs::from_word(&word)),
+            parts: settings
+                .chosen(keys::LIBRARIAN_PARTS)
+                .map_or_else(|| self.parts.clone(), |names| LibrarianPart::ALL.into_iter().filter(|part| names.iter().any(|name| name == part.name())).collect()),
+            model_share: settings.chosen(keys::LIBRARIAN_MODEL_SHARE).map_or(self.model_share, |n| u32::try_from(n).unwrap_or(0)),
+        }
+    }
+}
+
+/// The parts that have work behind them.
+const BUILT: &[LibrarianPart] = &[LibrarianPart::SinceYouLooked];
+
+const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
+
+/// Where `project`'s librarian stands: its last run, and the merges Fleet kept for its features since.
+pub(crate) fn state_of(store: &Store, project: &str) -> Result<LibrarianState, WriteError> {
+    let last = store.librarian_last_run(project)?;
+    let mut merges = store.project_links(project, feature_link_kind::MERGE)?;
+    // Oldest first, a pull request once however many features it touched.
+    merges.reverse();
+    let mut seen = std::collections::BTreeSet::new();
+    let merged: Vec<(u64, String)> =
+        merges.into_iter().filter_map(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at))).filter(|(number, _)| seen.insert(*number)).collect();
+    Ok(match last {
+        None => LibrarianState { last_run: None, read_through: None, merged_since: merged.into_iter().map(|(number, _)| number).collect() },
+        Some(run) => LibrarianState {
+            last_run: Some(Instant::carried(run.ran_at)),
+            read_through: Some(run.through_pr).filter(|number| *number > 0),
+            merged_since: merged.into_iter().filter(|(_, at)| at.as_str() > run.through_at.as_str()).map(|(number, _)| number).collect(),
+        },
+    })
+}
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// `run_librarian`: the enabled parts for one project, now. **Whatever the setting says, a press runs.**
+    pub(super) async fn librarian_pressed(&self, caller: Option<api::Caller>, run: RunLibrarian) -> Result<LibrarianRan, Refusal> {
+        self.owner_or_operator_called(caller)?;
+        self.librarian_ran(run.project.trim(), librarian_run_by::PRESS).await
+    }
+
+    /// One run for `project`, started by `by`, and its record.
+    async fn librarian_ran(&self, project: &str, by: &str) -> Result<LibrarianRan, Refusal> {
+        let Some(roots) = self.seed_roots(project) else {
+            return Err(self.hosted_refusal(super::seeding::PROJECT, &format!("no project is named `{project}`")));
+        };
+        let enabled = self.librarian_set().parts;
+        let commit = match roots.into_iter().next() {
+            Some(root) => tokio::task::spawn_blocking(move || adapters::feature_commits::head(&root)).await.ok().flatten().unwrap_or_default(),
+            None => String::new(),
+        };
+        let at = self.now().as_str().to_string();
+        let night = self.night_of(&at).await;
+        let mut ran: Vec<LibrarianPart> = Vec::new();
+        let mut skipped: Vec<LibrarianPart> = Vec::new();
+        let mut paragraph = String::new();
+        let mut calls: u32 = 0;
+        let share = self.librarian_set().model_share;
+        for part in enabled.into_iter().filter(|part| BUILT.contains(part)) {
+            let (since, spent) = {
+                let store = self.store().lock().await;
+                (
+                    store.librarian_last_ran_part(project, part.name()).map_err(|why| self.ledger_fault(why))?,
+                    store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?,
+                )
+            };
+            let calls_left = share.saturating_sub(spent.saturating_add(calls));
+            match part {
+                LibrarianPart::SinceYouLooked => match self.since_paragraph(project, since.as_deref(), calls_left).await {
+                    Since::NoFacts => ran.push(part),
+                    Since::ShareSpent => skipped.push(part),
+                    Since::Wrote(words) => {
+                        calls += 1;
+                        paragraph = words;
+                        ran.push(part);
+                    }
+                    Since::Failed => calls += 1,
+                },
+                _ => {}
+            }
+        }
+        let mut store = self.store().lock().await;
+        let newest = store.project_links(project, feature_link_kind::MERGE).map_err(|why| self.ledger_fault(why))?;
+        let through = newest.first().and_then(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at.clone())));
+        store
+            .keep_librarian_run(&KeptLibrarianRun {
+                project: project.to_string(),
+                ran_at: at.clone(),
+                by: by.to_string(),
+                through_pr: through.as_ref().map_or(0, |(number, _)| *number),
+                through_at: through.as_ref().map(|(_, at)| at.clone()).unwrap_or_default(),
+                at_commit: commit,
+                parts: ran.iter().map(|part| part.name().to_string()).collect(),
+                paragraph,
+                night,
+                model_calls: calls,
+                skipped: skipped.iter().map(|part| part.name().to_string()).collect(),
+            })
+            .map_err(|why| self.ledger_fault(why))?;
+        Ok(LibrarianRan { project: project.to_string(), ran_at: Instant::carried(at), ran, read_through: through.map(|(number, _)| number), skipped_for_share: skipped })
+    }
+
+    /// The night `at` falls in, as this machine's local date: `2026-11-18`. A night is local midnight to midnight.
+    async fn night_of(&self, at: &str) -> String {
+        let reading = crate::clock::local_reading(core_model::Timestamp::from_rfc3339(at.to_string()).epoch_millis().unwrap_or(0)).await;
+        format!("{:04}-{:02}-{:02}", reading.year, reading.month, reading.day)
+    }
+
+    /// Once a tick: the projects whose librarian the setting says is due, run. **Under `on_press` this returns first, and
+    /// nothing is read.**
+    pub(crate) async fn librarians_due(&self) {
+        let set = self.librarian_set();
+        if set.runs == Runs::OnPress {
+            return;
+        }
+        let projects: Vec<String> = self.projects_held().running().map(|one| one.id().as_str().to_string()).collect();
+        for project in projects {
+            let due = {
+                let store = self.store().lock().await;
+                if !store.project_has_features(&project).unwrap_or(false) {
+                    continue;
+                }
+                let Ok(state) = state_of(&store, &project) else { continue };
+                match set.runs {
+                    Runs::OnPress => false,
+                    Runs::AfterMerges => !state.merged_since.is_empty(),
+                    Runs::Nightly => match &state.last_run {
+                        None => true,
+                        Some(at) => match (self.now().epoch_millis(), at.to_domain().epoch_millis()) {
+                            (Some(now), Some(then)) => now - then >= A_DAY_MILLIS,
+                            _ => false,
+                        },
+                    },
+                }
+            };
+            if due {
+                if let Err(refused) = self.librarian_ran(&project, set.runs.by()).await {
+                    eprintln!("fleet: the librarian did not run for project {project}: {}", refused.error().message);
+                }
+            }
+        }
+    }
+}

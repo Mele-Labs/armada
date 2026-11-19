@@ -2,8 +2,8 @@
 //! beside the notices, for the reason `build_notices.rs` gives. `docs/concepts/fleet.md`.
 //!
 //! A build begins when the restart wrote `restart-commit`, not when this sweep saw it. What a
-//! preview holds is `preview-held`, which `scripts/preview` writes; a build from before that file
-//! existed is asked of git once, and what git cannot say stays unknown.
+//! preview holds is `preview-held`, which `scripts/preview` writes; a build whose file names no branch,
+//! or from before that file existed, is asked of git once, and what git cannot say stays unknown.
 
 use std::path::Path;
 
@@ -21,8 +21,9 @@ pub(crate) fn build_on_file(support: &Path, build: BuildSource, commit: &str, no
     let (main_commit, branches, looked) = match build {
         BuildSource::Main => (Some(commit.to_string()), Vec::new(), true),
         BuildSource::Preview => match held_in(support, commit) {
-            Some(held) => (Some(held.main_commit), held.branches, true),
-            None => (None, Vec::new(), false),
+            Some(held) if !held.branches.is_empty() => (Some(held.main_commit), held.branches, true),
+            // A file that names no branch is not the last word: `builds_looked_at` reads the commit's merges.
+            _ => (None, Vec::new(), false),
         },
     };
     NewBuild {

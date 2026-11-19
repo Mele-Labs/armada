@@ -3,12 +3,15 @@
 //! records fold to for the same pull request. `github_answers/` holds both: a `.json` is the API's
 //! answer, a `.tsv` what `gh`'s reduction printed for it. `page_2190`, `patches_2190` and
 //! `review_list` are this repository's own, trimmed; `*_reviewed` are made up, because nothing
-//! here has been reviewed on the forge.
+//! here has been reviewed on the forge, and so is `review_list_asked`, whose `.tsv` is what jq
+//! printed for it through `LINES`.
 
 use std::sync::{Arc, Condvar, Mutex};
 use std::time::Duration;
 
-use adapter_traits::{ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ReviewList, ReviewListAsk, Said};
+use adapter_traits::{
+    ComparedPatches, FilePatch, Forge, LatestReview, LatestReviewSaid, ListFailure, NumberedPull, ReviewList, ReviewListAsk, Said,
+};
 
 use super::github_api::{api, ok, serve, Reply};
 use super::repo::TempRepo;
@@ -22,6 +25,10 @@ use crate::ApiForge;
 
 const LIST: &str = include_str!("github_answers/review_list.json");
 const LIST_GH: &str = include_str!("github_answers/review_list.tsv");
+const ASKED: &str = include_str!("github_answers/review_list_asked.json");
+const ASKED_GH: &str = include_str!("github_answers/review_list_asked.tsv");
+const NUMBERED: &str = include_str!("github_answers/review_list_numbered.json");
+const NUMBERED_GH: &str = include_str!("github_answers/review_list_numbered.tsv");
 const PAGE: &str = include_str!("github_answers/page_2190.json");
 const PAGE_GH: &str = include_str!("github_answers/page_2190.tsv");
 const REVIEWED: &str = include_str!("github_answers/page_reviewed.json");
@@ -104,7 +111,7 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
     let ask = |list| ReviewListAsk { list, login: "NickMele", repositories: &repositories, most: 50 };
 
     let requested = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)).unwrap();
-    assert_eq!(requested, listed_folded(&lines(LIST_GH), Teams::Unwanted));
+    assert_eq!(requested, listed_folded(&lines(LIST_GH), Teams::Unwanted, "NickMele"));
     assert_eq!(requested.len(), 6, "the node that is no pull request is dropped");
     let mine = requested[0].my_latest.as_ref().expect("the person's own latest review");
     assert_eq!(mine.said, adapter_traits::LatestReviewSaid::Commented);
@@ -114,12 +121,64 @@ fn a_review_list_over_the_api_is_the_list_gh_reads() {
     // The person is on Platform, the second team asked of #2712, and on no team asked of #2711.
     let team = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Team)).unwrap();
     let held = vec!["mele-labs/platform".to_string()];
-    assert_eq!(team, listed_folded(&lines(LIST_GH), Teams::Held(&held)));
+    assert_eq!(team, listed_folded(&lines(LIST_GH), Teams::Held(&held), "NickMele"));
     let named: Vec<Option<&str>> = team.iter().map(|row| row.team.as_deref()).collect();
     assert_eq!(named, vec![None, None, Some("Platform"), Some("Reviewers"), None, None]);
 
     let searched = &server.seen()[0].body;
     assert!(searched.contains(r#""q":"is:pr is:open sort:updated-desc repo:mele-labs/armada user-review-requested:NickMele""#), "{searched}");
+}
+
+#[test]
+fn the_time_he_was_asked_over_the_api_is_the_time_gh_reads_and_only_the_lists_that_ask_him_read_it() {
+    let server = serve(|seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") => ok(ASKED),
+        ("GET", "/user/teams?per_page=100") => ok(r#"[{"slug":"billing-reviewers","organization":{"login":"acme"}}]"#),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = checkout("https://github.com/acme/billing.git");
+    let repositories = vec!["acme/billing".to_string()];
+    let ask = |list| ReviewListAsk { list, login: "mira", repositories: &repositories, most: 50 };
+
+    let requested = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)).unwrap();
+    assert_eq!(requested, listed_folded(&lines(ASKED_GH), Teams::Unwanted, "mira"));
+    assert_eq!(requested[0].asked_at.as_deref(), Some("2026-11-14T09:00:00Z"));
+    let team = forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Team)).unwrap();
+    let held = vec!["acme/billing-reviewers".to_string()];
+    assert_eq!(team, listed_folded(&lines(ASKED_GH), Teams::Held(&held), "mira"));
+    assert_eq!(team[0].asked_at.as_deref(), Some("2026-11-12T09:00:00Z"));
+    forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Assigned)).unwrap();
+
+    let searches: Vec<String> = server.seen().into_iter().filter(|seen| seen.target == "/graphql").map(|seen| seen.body).collect();
+    let asked: Vec<bool> = searches.iter().map(|body| body.contains(r#""asked":true"#)).collect();
+    assert_eq!(asked, [true, true, false], "{searches:?}");
+}
+
+#[test]
+fn pull_requests_read_by_number_over_the_api_are_the_open_ones_gh_reads() {
+    let server = serve(|seen| match (seen.method.as_str(), seen.target.as_str()) {
+        ("POST", "/graphql") => ok(NUMBERED),
+        _ => not_found(),
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = checkout("https://github.com/acme/billing.git");
+    let pulls: Vec<NumberedPull> = [("acme/billing", 41), ("acme/billing", 38), ("acme/ledger", 7), ("acme/ledger", 9)]
+        .map(|(repository, number)| NumberedPull { repository: repository.to_string(), number })
+        .to_vec();
+
+    let mut open = forge.open_pulls_numbered(&repo.root_str(), "mira", &pulls).unwrap();
+    open.sort_by_key(|row| row.number);
+    let mut gh = listed_folded(&lines(NUMBERED_GH), Teams::Unwanted, "mira");
+    gh.sort_by_key(|row| row.number);
+    assert_eq!(open, gh);
+    let numbers: Vec<u64> = open.iter().map(|row| row.number).collect();
+    assert_eq!(numbers, [9, 41], "a merged and a closed one are left out");
+    assert_eq!(open[1].my_latest.as_ref().map(|it| it.said), Some(LatestReviewSaid::Commented));
+
+    let asked = &server.seen()[0].body;
+    assert!(asked.contains(r#"r1:repository(owner:\"acme\",name:\"ledger\")"#), "{asked}");
+    assert!(asked.contains(r#""me":"mira""#) && asked.contains(r#""asked":false"#), "{asked}");
 }
 
 #[test]
@@ -337,4 +396,60 @@ fn one_commits_files_are_read_from_the_commit_endpoint_and_a_commit_the_forge_la
     assert_eq!(forge.commit_patches(&root, "aaaa1111"), Some(listed(&lines(PATCHES_GH))));
     assert_eq!(forge.commit_patches(&root, "cccc3333"), None);
     assert_eq!(forge.commit_patches(&root, "not a sha"), None);
+}
+
+#[test]
+fn a_review_list_the_api_would_not_give_says_why_and_a_limit_says_when() {
+    let server = serve(|seen| {
+        if seen.body.contains("user-review-requested:") {
+            Reply {
+                status: 403,
+                headers: vec![("retry-after", "120".to_string())],
+                body: r#"{"message":"You have exceeded a secondary rate limit"}"#.to_string(),
+            }
+        } else {
+            ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#)
+        }
+    });
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let repositories = vec!["mele-labs/armada".to_string()];
+    let ask = |list| ReviewListAsk { list, login: "NickMele", repositories: &repositories, most: 50 };
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs();
+
+    match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Requested)) {
+        Err(ListFailure::RateLimited { until: Some(until), .. }) => assert!((now + 115..=now + 125).contains(&until), "until {until}, now {now}"),
+        other => panic!("the limit and its retry-after, not {other:?}"),
+    }
+    // Held now: the next list is not asked, and says the same, with the hold's time.
+    match forge.pull_review_list(&repo.root_str(), &ask(ReviewList::Mine)) {
+        Err(ListFailure::RateLimited { until: Some(until), .. }) => assert!(until > now + 60, "{until}"),
+        other => panic!("held, not {other:?}"),
+    }
+    assert_eq!(server.seen().len(), 1);
+}
+
+#[test]
+fn a_graphql_rate_limit_is_a_limit_with_a_time_and_not_a_token_problem() {
+    let server = serve(|_| ok(r#"{"data":null,"errors":[{"type":"RATE_LIMITED","message":"API rate limit already exceeded for user ID 1."}]}"#));
+    let forge = ApiForge::through(api(&server.url, &["t"]).0);
+    let repo = on_github();
+    let repositories = vec!["mele-labs/armada".to_string()];
+    let ask = ReviewListAsk { list: ReviewList::Mine, login: "NickMele", repositories: &repositories, most: 50 };
+    match forge.pull_review_list(&repo.root_str(), &ask) {
+        Err(ListFailure::RateLimited { until: Some(_), .. }) => {}
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn each_api_failure_is_a_list_failure_a_person_can_be_told() {
+    assert_eq!(ApiFailure::NoToken("x".into()).listed().said(), crate::github_api::NO_TOKEN_SAID);
+    assert_eq!(ApiFailure::Unreachable("x".into()).listed().said(), crate::github_api::UNREACHABLE_SAID);
+    let refused = ApiFailure::Refused { status: 429, said: "slow down".into(), limit: None };
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: None, said: crate::github_api::LIMITED_SAID.into() });
+    let spent = crate::github_api::RateLimit { remaining: Some(0), reset_at: Some(4_102_444_800), retry_after: None };
+    let refused = ApiFailure::Refused { status: 403, said: "API rate limit exceeded".into(), limit: Some(spent) };
+    assert_eq!(refused.listed(), ListFailure::RateLimited { until: Some(4_102_444_800), said: crate::github_api::LIMITED_SAID.into() });
+    assert!(matches!(ApiFailure::Refused { status: 502, said: "bad".into(), limit: None }.listed(), ListFailure::Other(_)));
 }

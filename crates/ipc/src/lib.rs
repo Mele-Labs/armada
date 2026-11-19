@@ -48,6 +48,7 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, their sections and links.
 mod features;
+mod librarian;
 /// Workspaces, lifecycles and rules, and where a Job's tickets, pull requests and deploys stand. Reads only.
 mod lifecycles;
 /// Saving and deleting one lifecycle, rule or autonomy default in Kit.
@@ -145,6 +146,7 @@ mod project_store;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
+mod values_merging;
 /// Kit's MCP servers and each Manifest's word over one (`#1275`), and the
 /// setup a person already works with, read to be shown (`#1491`).
 mod kit;
@@ -198,7 +200,7 @@ mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
 /// Since 23.48.
 mod pull_requests;
-/// The pull requests waiting on a person as four lists, and the acts of a review on one.
+/// The pull requests waiting on a person as five lists, and the acts of a review on one.
 mod pull_reviews;
 /// What Fleet remembers of a pull request for the person between visits, and his Reviews layouts.
 mod pull_review_memory;
@@ -372,10 +374,12 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
-    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed,
+    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureRead, FeatureOwed,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
+pub use librarian::{LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+pub use features::{FloorDoor, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
@@ -489,7 +493,7 @@ pub use hosted_sessions::{
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
     SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
-    TerminalAsked, TuneSession, MessageReach, MessageTo,
+    TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy,
 };
 pub use session_mcp::{
     ActOnSessionMcp, McpServerAct, McpServerState, McpSignIn, SessionMcp, SessionMcpActed,
@@ -543,6 +547,8 @@ pub use issue_queries::{
     InstallTool, InstalledTool, IssueQueries, IssueQueryGuide, SaveIssueQuery, SavedIssueQuery, SearchIssues, WriteIssueQuery,
     WrittenIssueQuery,
 };
+pub use values_merging::VALUE_KEYS;
+pub use projects::MergeProjects;
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use project_store::{ClaimsHolder, ClaimsWait, DeployProjectStore, HeldClaim, HeldClaimKind, JoinStore, ProjectClaims, ProjectStoreState, SetProjectStore, StoreDeploy, StoreDeployed, StoreJoin};
 pub use projects::{
@@ -613,12 +619,12 @@ pub use pull_requests::{
     WritePullRequest,
 };
 pub use pull_reviews::{
-    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists,
+    DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRateLimited,
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
-    ResolvePullThread, MOST_PER_LIST,
+    ResolvePullThread, ReviewListsChanged, ReviewListsFailed, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
-    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    IgnorePull, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullIgnored, PullInbox, PullMyReview,
     PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
     SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
 };
@@ -652,7 +658,7 @@ pub use requests::{
     VariableWrite, REQUESTS_VERSION, SERVER_BASE_VARIABLE, SERVER_ENVIRONMENT_PREFIX,
 };
 pub use repositories::{
-    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, RepositoryList,
+    AddRepository, CloneRepository, CreateProject, ForgeRepositories, ForgeRepository, LinkRepository, RepositoryList,
     RepositorySummary, RequestRepository,
 };
 pub use requester::Requester;
@@ -679,6 +685,7 @@ pub use story::{
     Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
     StoryBuilt, StoryChanged, StoryHanded, StoryShown,
 };
+pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{
     AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
     JudgeState, MarkJudgeRead, SendJudgeNote,
@@ -926,3 +933,8 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+
+/// The project overview and Since you looked pages of the Features screen.
+mod feature_pages;
+pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
+pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};

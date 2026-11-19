@@ -178,6 +178,9 @@ impl Stage {
                 if walk.name == crate::settings::walk::DELETE_PROJECT {
                     over.update(cx, |over, cx| over.with_deletable_projects(cx));
                 }
+                if walk.name == crate::settings::walk::MERGE_PROJECT {
+                    over.update(cx, |over, cx| over.with_mergeable_projects(cx));
+                }
                 if walk.name == crate::settings::walk::TAKE {
                     over.update(cx, |over, cx| over.copied_from_base(cx));
                 }
@@ -641,6 +644,11 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
                     press(MouseButton::Left, at, window, cx);
                 }
             });
+            Ok(())
+        }
+        // A send Fleet refused as too large raises the failure toast over whatever screen is in front.
+        Verb::Answer("refuse-too-large") => {
+            crate::toasts::refused_too_large(cx);
             Ok(())
         }
         Verb::Answer(name) => {

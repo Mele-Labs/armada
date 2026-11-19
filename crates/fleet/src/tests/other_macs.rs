@@ -216,7 +216,7 @@ async fn what_another_mac_says_of_its_jobs_reaches_bridge_and_never_fleets_own_l
     let elsewhere = Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: "mac-home".into(), event: moved("01WORKA") }).await;
     assert_eq!(elsewhere.expect_err("held from another Mac").status(), 404);
 
-    let projects = Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new() });
+    let projects = Event::ProjectsChanged(ipc::Projects { projects: Vec::new(), loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() });
     Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: projects }).await.expect("taken, and nothing done");
     let studio = Event::StudioDeleted(ipc::StudioDeleted { id: ipc::StudioId::carried("01S"), manifest_id: rig.manifest.clone() });
     let refused = Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: studio }).await.expect_err("not a kind that crosses");

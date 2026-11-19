@@ -174,6 +174,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/project/:project/store/deploy",
     },
     Route {
+        operation: "merge_projects",
+        method: "POST",
+        path: "/projects/merge",
+    },
+    Route {
         operation: "delete_project",
         method: "POST",
         path: "/projects/project/:project/delete",

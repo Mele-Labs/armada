@@ -230,8 +230,17 @@ impl<F: Forge> Forge for GitVcs<F> {
         &self,
         in_repo: &str,
         ask: &adapter_traits::ReviewListAsk<'_>,
-    ) -> Option<Vec<adapter_traits::ListedPull>> {
+    ) -> Result<Vec<adapter_traits::ListedPull>, adapter_traits::ListFailure> {
         self.forge.pull_review_list(in_repo, ask)
+    }
+
+    fn open_pulls_numbered(
+        &self,
+        in_repo: &str,
+        login: &str,
+        pulls: &[adapter_traits::NumberedPull],
+    ) -> Option<Vec<adapter_traits::ListedPull>> {
+        self.forge.open_pulls_numbered(in_repo, login, pulls)
     }
 
     fn resolve_review_thread(

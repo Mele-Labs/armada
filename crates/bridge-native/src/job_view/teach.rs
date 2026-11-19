@@ -19,6 +19,7 @@ use super::menus::{disable_label, Teach};
 use super::rows::{glyph, mono, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
+use crate::refusal::Failed;
 use crate::look::{token, ActiveLook, Look};
 
 /// The most of a thing's text a source carries: Fleet refuses more than 200 characters.
@@ -271,14 +272,12 @@ fn mock_proposal(said: &str) -> TeachingProposal {
 }
 
 /// A call to Fleet off the main thread: the answer's bytes, or Fleet's reason.
-fn ask(port: u16, route: &'static str, body: Result<String, String>) -> Result<Vec<u8>, String> {
+fn ask(port: u16, route: &'static str, body: Result<String, String>) -> Result<Vec<u8>, Failed> {
     let body = body?;
+    let sent = body.len();
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
     let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
-    if (200..300).contains(&status) {
-        return Ok(bytes);
-    }
-    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+    Ok(crate::refusal::answered("POST", route, Some(sent), status, bytes)?)
 }
 
 impl JobView {
@@ -382,19 +381,21 @@ impl JobView {
         .detach();
     }
 
-    fn teach_read_done(&mut self, mine: u64, answer: Result<Vec<u8>, String>, window: &mut Window, cx: &mut Context<Self>) {
+    fn teach_read_done(&mut self, mine: u64, answer: Result<Vec<u8>, Failed>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.teach.as_mut() else { return };
         if open.latest != mine {
             return;
         }
-        match answer.and_then(|bytes| ipc::decode::<TeachingProposal>("TeachingProposal", &bytes).map_err(|why| why.to_string())) {
+        match answer.and_then(|bytes| ipc::decode::<TeachingProposal>("TeachingProposal", &bytes).map_err(|why| Failed::from(why.to_string()))) {
             Ok(proposal) => {
                 open.proposal = Some(proposal);
                 self.teach_stage(Stage::Shown, window, cx);
             }
             Err(why) => {
                 // Fleet's refusal stands under the box, which keeps what was written.
-                self.teach_refused(why.into(), cx);
+                let told = why.clone();
+                cx.defer(move |cx| told.tell_refusal("What you wrote was not read", cx));
+                self.teach_refused(why.to_string().into(), cx);
                 self.teach_stage(Stage::Writing, window, cx);
             }
         }
@@ -436,13 +437,15 @@ impl JobView {
                 if this.teach.as_ref().is_none_or(|open| open.latest != mine) {
                     return;
                 }
-                match answer.and_then(|bytes| ipc::decode::<SavedTeaching>("SavedTeaching", &bytes).map_err(|why| why.to_string())) {
+                match answer.and_then(|bytes| ipc::decode::<SavedTeaching>("SavedTeaching", &bytes).map_err(|why| Failed::from(why.to_string()))) {
                     Ok(_) => this.teach_saved(&job, window, cx),
                     Err(why) => {
                         if let Some(open) = this.teach.as_mut() {
                             open.saving = false;
                         }
-                        this.teach_refused(why.into(), cx);
+                        let told = why.clone();
+                        cx.defer(move |cx| told.tell_refusal("The teaching was not saved", cx));
+                        this.teach_refused(why.to_string().into(), cx);
                     }
                 }
             });

@@ -49,6 +49,10 @@ pub fn is_bridges(press: Press) -> bool {
     if !press.command || press.control {
         return false;
     }
+    // ⌥⌘A starts the annotation layer, which Classic reads before it asks whether a key is Bridge's. ⌘A is the page's select all.
+    if press.option && press.code == KEY_A {
+        return true;
+    }
     !EDITING.contains(&press.code) && !SYSTEM.contains(&press.code)
 }
 
@@ -95,6 +99,14 @@ mod tests {
     fn option_with_command_still_goes_back_and_control_with_command_does_not() {
         assert!(is_bridges(Press { option: true, ..with_command(124) }));
         assert!(!is_bridges(Press { control: true, ..with_command(18) }));
+    }
+
+    #[test]
+    fn option_command_a_starts_the_annotation_layer_where_command_a_alone_selects_the_pages_text() {
+        assert!(is_bridges(Press { option: true, ..with_command(KEY_A) }));
+        assert!(!is_bridges(with_command(KEY_A)), "select all is the page's");
+        assert!(!is_bridges(Press { control: true, option: true, ..with_command(KEY_A) }), "control with command is never Bridge's");
+        assert!(is_bridges(Press { option: true, ..with_command(1) }), "⌥⌘S, the whole window, was Bridge's already");
     }
 
     #[test]

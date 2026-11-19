@@ -49,7 +49,7 @@ use crate::rehearsing::{
     undo_checkout_run,
 };
 use crate::repositories::{
-    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, list_forge_repositories, list_repositories, read_request_repository,
+    add_repository, checkout_diff, clone_repository, create_project, get_merge_line_view, get_merge_lines, link_repository, list_forge_repositories, list_repositories, read_request_repository,
 };
 use crate::repository_allow::{get_repository_allowed_commands, remove_repository_allowed_command};
 use crate::served::Served;
@@ -85,6 +85,7 @@ pub use served::{Route, SERVED};
 /// door's own calls carry no `Origin` — they are built here, not forwarded —
 /// so a tool call passes exactly as a Bridge request does.
 pub fn router<D: Daemon>(served: Served<D>) -> Router {
+    let served_run_id = served.run_id().clone();
     let refusing_a_page =
         from_fn_with_state(served.run_id().clone(), crate::callers::refuse_a_page);
     // Over the listener and not the door's copy: what the door offers a Job is the inventory's
@@ -105,7 +106,11 @@ pub fn router<D: Daemon>(served: Served<D>) -> Router {
         )),
         None => app,
     };
-    app.layer(refusing_a_job).layer(refusing_a_page)
+    // Outermost, so it sees a 413 from any layer or extractor beneath it.
+    let naming_a_413 = from_fn_with_state(served_run_id, crate::too_large::name_a_413);
+    app.layer(refusing_a_job)
+        .layer(refusing_a_page)
+        .layer(naming_a_413)
 }
 
 /// The HTTP surface and the Drone's endpoint: every route but the door.
@@ -378,6 +383,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/asks/change", post(crate::story::change_ask::<D>))
         .route("/asks/file", post(crate::story::file_ask::<D>))
         .route("/projects/asks", get(crate::story::list_feature_asks::<D>))
+        .route("/sessions/questions", get(crate::story::list_job_questions::<D>))
+        .route("/sessions/question/read", post(crate::story::mark_answer_read::<D>))
         .route("/sessions/judge", post(crate::judge::ask_judge::<D>))
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
@@ -582,7 +589,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route(
             "/sessions/dispatch",
-            post(crate::hosted_sessions::dispatch_job::<D>),
+            post(crate::hosted_sessions::dispatch_job::<D>).layer(
+                axum::extract::DefaultBodyLimit::max(
+                    crate::hosted_sessions::MOST_A_MESSAGE_MAY_BE,
+                ),
+            ),
         )
         .route(
             "/sessions/parked",
@@ -832,6 +843,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::message_reach::<D>),
         )
         .route(
+            "/sessions/quiet_jobs",
+            get(crate::hosted_sessions::quiet_jobs::<D>),
+        )
+        .route(
             "/sessions/held",
             post(crate::hosted_sessions::take_held_messages::<D>),
         )
@@ -844,6 +859,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/repositories/of_request", get(read_request_repository::<D>))
         .route("/repositories/add", post(add_repository::<D>))
         .route("/repositories/clone", post(clone_repository::<D>))
+        .route("/repositories/link", post(link_repository::<D>))
         .route("/repositories/forge", get(list_forge_repositories::<D>))
         .route("/import/folders", get(crate::importing::list_import_folders::<D>))
         .route("/import/runs", get(crate::importing::get_import_runs::<D>))
@@ -919,14 +935,18 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/values", get(crate::projects::get_values::<D>))
         .route("/features", get(crate::features::list_features::<D>))
         .route("/features/page", get(crate::features::get_feature_page::<D>))
+        .route("/features/overview", get(crate::features::get_project_overview::<D>))
+        .route("/features/since", get(crate::features::get_since_you_looked::<D>))
         .route("/features/brief", get(crate::features::get_feature_brief::<D>))
         .route("/features/of_path", get(crate::features::get_features_of_path::<D>))
         .route("/features/write_sections", post(crate::features::write_feature_sections::<D>))
         .route("/features/upsert", post(crate::features::upsert_features::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
+        .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))
+        .route("/features/who", get(crate::features::get_whos_on_what::<D>))
         .route("/usage/first_edit_searches", get(crate::features::get_first_edit_searches::<D>))
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))
@@ -938,6 +958,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         )
         .route("/projects/project/:project/store/deploy", post(crate::projects::deploy_project_store::<D>))
         .route("/projects/project/:project/claims", get(crate::projects::get_project_claims::<D>))
+        .route("/projects/merge", post(crate::projects::merge_projects::<D>))
         .route("/projects/project/:project/delete", post(crate::projects::delete_project::<D>))
         .route("/projects/tasks", post(crate::projects::add_project_task::<D>))
         .route("/projects/issues", post(crate::projects::link_project_issue::<D>))

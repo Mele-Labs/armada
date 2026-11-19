@@ -1,0 +1,211 @@
+#!/usr/bin/env bash
+#
+# Install "Open in Armada" in the macOS Services menu: right-click a GitHub
+# pull request link in any app, Services, Open in Armada, and Bridge opens on
+# that pull request's review page. The item is a Quick Action that rewrites
+# `https://github.com/<owner>/<name>/pull/<n>/...` to
+# `armada://pull/<owner>/<name>/<n>`, the link Bridge already claims while
+# `features.deepLinks` is on. Any other link opens in the default browser.
+#
+# Run it once; run it again to replace the item. Remove it by deleting
+# `~/Library/Services/Open in Armada.workflow`.
+#
+#   scripts/services-menu [<folder>]    # default ~/Library/Services
+
+set -euo pipefail
+
+folder="${1:-${HOME:?HOME must be set}/Library/Services}"
+bundle="$folder/Open in Armada.workflow"
+
+read -r -d '' command <<'SH' || true
+for address in "$@"; do
+  # Slack and others hand over the link's text, which can lack the scheme: github.com/<owner>/...
+  link=$(printf '%s' "$address" | sed -nE 's#^[[:space:]]*(https?://)?(www\.)?github\.com/([^/]+)/([^/]+)/pull/([0-9]+).*#armada://pull/\3/\4/\5#p')
+  if [ -z "$link" ]; then
+    link=$(printf '%s' "$address" | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//')
+    case "$link" in *://*) ;; *) link="https://$link" ;; esac
+  fi
+  open "$link"
+done
+SH
+
+# The command sits in a plist string, so its XML characters are escaped.
+escaped=$(printf '%s' "$command" | sed -e 's/&/\&amp;/g' -e 's/</\&lt;/g' -e 's/>/\&gt;/g')
+
+mkdir -p "$folder"
+rm -rf "$bundle"
+mkdir -p "$bundle/Contents"
+
+cat >"$bundle/Contents/Info.plist" <<'PLIST'
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSServices</key>
+	<array>
+		<dict>
+			<key>NSMenuItem</key>
+			<dict>
+				<key>default</key>
+				<string>Open in Armada</string>
+			</dict>
+			<key>NSMessage</key>
+			<string>runWorkflowAsService</string>
+			<key>NSRequiredContext</key>
+			<dict>
+				<key>NSTextContent</key>
+				<string>URL</string>
+			</dict>
+			<key>NSSendTypes</key>
+			<array>
+				<string>public.url</string>
+				<string>public.utf8-plain-text</string>
+			</array>
+		</dict>
+	</array>
+</dict>
+</plist>
+PLIST
+
+cat >"$bundle/Contents/document.wflow" <<WFLOW
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>AMApplicationBuild</key>
+	<string>528</string>
+	<key>AMApplicationVersion</key>
+	<string>2.10</string>
+	<key>AMDocumentVersion</key>
+	<string>2</string>
+	<key>actions</key>
+	<array>
+		<dict>
+			<key>action</key>
+			<dict>
+				<key>AMAccepts</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Optional</key>
+					<true/>
+					<key>Types</key>
+					<array>
+						<string>com.apple.cocoa.string</string>
+					</array>
+				</dict>
+				<key>AMActionVersion</key>
+				<string>2.0.3</string>
+				<key>AMApplication</key>
+				<array>
+					<string>Automator</string>
+				</array>
+				<key>AMParameterProperties</key>
+				<dict>
+					<key>COMMAND_STRING</key>
+					<dict/>
+					<key>CheckedForUserDefaultShell</key>
+					<dict/>
+					<key>inputMethod</key>
+					<dict/>
+					<key>shell</key>
+					<dict/>
+					<key>source</key>
+					<dict/>
+				</dict>
+				<key>AMProvides</key>
+				<dict>
+					<key>Container</key>
+					<string>List</string>
+					<key>Types</key>
+					<array>
+						<string>com.apple.cocoa.string</string>
+					</array>
+				</dict>
+				<key>ActionBundlePath</key>
+				<string>/System/Library/Automator/Run Shell Script.action</string>
+				<key>ActionName</key>
+				<string>Run Shell Script</string>
+				<key>ActionParameters</key>
+				<dict>
+					<key>COMMAND_STRING</key>
+					<string>$escaped</string>
+					<key>CheckedForUserDefaultShell</key>
+					<true/>
+					<key>inputMethod</key>
+					<integer>1</integer>
+					<key>shell</key>
+					<string>/bin/bash</string>
+					<key>source</key>
+					<string></string>
+				</dict>
+				<key>BundleIdentifier</key>
+				<string>com.apple.RunShellScript</string>
+				<key>CFBundleVersion</key>
+				<string>2.0.3</string>
+				<key>CanShowSelectedItemsWhenRun</key>
+				<false/>
+				<key>CanShowWhenRun</key>
+				<true/>
+				<key>Category</key>
+				<array>
+					<string>AMCategoryUtilities</string>
+				</array>
+				<key>Class Name</key>
+				<string>RunShellScriptAction</string>
+				<key>InputUUID</key>
+				<string>6B1E4F0C-3D52-4A0E-9C1A-0A1B2C3D4E01</string>
+				<key>Keywords</key>
+				<array>
+					<string>Shell</string>
+					<string>Script</string>
+				</array>
+				<key>OutputUUID</key>
+				<string>6B1E4F0C-3D52-4A0E-9C1A-0A1B2C3D4E02</string>
+				<key>UUID</key>
+				<string>6B1E4F0C-3D52-4A0E-9C1A-0A1B2C3D4E03</string>
+				<key>UnlocalizedApplications</key>
+				<array>
+					<string>Automator</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>connectors</key>
+	<dict/>
+	<key>workflowMetaData</key>
+	<dict>
+		<key>applicationBundleIDsByPath</key>
+		<dict/>
+		<key>applicationPaths</key>
+		<array/>
+		<key>inputTypeIdentifier</key>
+		<string>com.apple.Automator.text</string>
+		<key>outputTypeIdentifier</key>
+		<string>com.apple.Automator.nothing</string>
+		<key>presentationMode</key>
+		<integer>11</integer>
+		<key>processesInput</key>
+		<false/>
+		<key>serviceInputTypeIdentifier</key>
+		<string>com.apple.Automator.text</string>
+		<key>serviceOutputTypeIdentifier</key>
+		<string>com.apple.Automator.nothing</string>
+		<key>serviceProcessesInput</key>
+		<false/>
+		<key>systemImageName</key>
+		<string>NSActionTemplate</string>
+		<key>useAutomaticInputType</key>
+		<false/>
+		<key>workflowTypeIdentifier</key>
+		<string>com.apple.Automator.servicesMenu</string>
+	</dict>
+</dict>
+</plist>
+WFLOW
+
+plutil -lint "$bundle/Contents/Info.plist" "$bundle/Contents/document.wflow" >/dev/null
+# Services rereads its list on its own within a minute; this makes it now.
+/System/Library/CoreServices/pbs -update 2>/dev/null || true
+echo "Installed $bundle"
+echo "Right-click a GitHub pull request link, then Services > Open in Armada."

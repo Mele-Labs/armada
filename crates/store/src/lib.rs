@@ -61,6 +61,8 @@ mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
 mod features;
+/// When a project's librarian ran, what it read through and which parts ran.
+mod librarian_runs;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;
 /// What the owner asked of a Job, sorted from his messages: asks, how each message was sorted, merges and hands.
@@ -210,6 +212,7 @@ mod repositories;
 mod retro;
 /// What an agent said about one pull request, kept for the commit it read.
 mod review_runs;
+pub mod review_lists_kept;
 mod practice_catalogue;
 mod walk_places;
 /// The owner's notes on a pull request's lines, and which Job each was sent to.
@@ -236,6 +239,8 @@ mod test_map;
 mod timings;
 /// What Fleet saw happen, for the Cockpit's timeline.
 mod timeline;
+/// The open pull requests' authors and files, for Who's on what. `docs/concepts/feature-catalog.md`.
+mod open_pull_files;
 
 #[cfg(test)]
 mod tests;
@@ -268,9 +273,11 @@ pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
 };
+pub use librarian_runs::{run_by as librarian_run_by, KeptLibrarianRun};
 pub use job_asks::{kind as job_ask_kind, standing as job_ask_standing, JobAskPut, KeptJobAsk};
 pub use job_asides::{aside_state, KeptAside};
 pub use story_asks::{ask_state, message_kind, sorted_by, KeptAsk, KeptCorrection, KeptHandoff, KeptMerge, KeptMessage};
+pub use story_asks::KeptQuestion;
 pub use session_focus::KeptFocus;
 pub use session_plan::{KeptPlan, KeptPlanChange, KeptPlanGroup, KeptPlanTask, KeptTouch};
 pub use session_rail::{KeptRail, KeptStarted};
@@ -340,11 +347,11 @@ pub use open::Store;
 pub use ports::{PortClaim, PortClaimant};
 pub use preferences::{Preferences, SavedPreferences, SHIPPED_THEME};
 pub use retro::RetroLine;
-pub use review_runs::KeptReviewRun;
+pub use review_runs::{KeptReviewRun, RunPull};
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
-pub use pull_review_memory::{KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+pub use pull_review_memory::{KeptIgnore, KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{
@@ -355,3 +362,8 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+pub use open_pull_files::KeptOpenPull;
+
+/// What a Job read before it changed a feature's files.
+mod feature_reads;
+pub use feature_reads::KeptJobRead;
