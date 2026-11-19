@@ -175,6 +175,26 @@ impl Store {
         Ok(sharpest(found))
     }
 
+    /// Every file some test reaches in the repository, once each. Empty where the map was never fed.
+    pub fn files_tests_reach(&self, repository: &ManifestId) -> Result<Vec<String>, ReadError> {
+        let unreadable = |why: rusqlite::Error| ReadError::Database(fault("reading the files tests reach")(why));
+        let mut statement =
+            self.conn.prepare("SELECT DISTINCT file FROM test_map_edges WHERE repository = ?1 ORDER BY file").map_err(unreadable)?;
+        let rows = statement.query_map(params![repository.as_str()], |row| row.get(0)).map_err(unreadable)?;
+        rows.collect::<Result<_, _>>().map_err(unreadable)
+    }
+
+    /// Every file the test named `test` reaches, whatever Check and member it is in, once each.
+    pub fn files_of_test_named(&self, repository: &ManifestId, test: &str) -> Result<Vec<String>, ReadError> {
+        let unreadable = |why: rusqlite::Error| ReadError::Database(fault("reading the files a test reaches")(why));
+        let mut statement = self
+            .conn
+            .prepare("SELECT DISTINCT file FROM test_map_edges WHERE repository = ?1 AND test = ?2 ORDER BY file")
+            .map_err(unreadable)?;
+        let rows = statement.query_map(params![repository.as_str(), test], |row| row.get(0)).map_err(unreadable)?;
+        rows.collect::<Result<_, _>>().map_err(unreadable)
+    }
+
     /// The tip of the repository's main the map was last fed up to, or none where it never was.
     pub fn fed_test_map_tip(&self, repository: &ManifestId) -> Result<Option<String>, ReadError> {
         let unreadable = |why: rusqlite::Error| ReadError::Database(fault("reading the test map's fed tip")(why));

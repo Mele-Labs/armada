@@ -70,7 +70,7 @@ pub(super) fn key_of(key: &str, asking: bool, editable: bool, page: bool) -> Opt
         "a" if asking => RKey::Act(RAct::Approve),
         "c" if asking => RKey::Act(RAct::Ask),
         "d" => RKey::Act(if asking { RAct::Dismiss } else { RAct::Archive }),
-        "e" if editable && !page => RKey::Act(RAct::Edit),
+        "e" if editable => RKey::Act(RAct::Edit),
         "n" => RKey::Note,
         "j" => RKey::Next,
         "k" => RKey::Prev,
@@ -140,7 +140,7 @@ impl JobView {
                     if this.reader_of(&job_c, &name_c).is_some_and(|held| held.edit.is_some()) {
                         if key == "escape" && !mods.modified() {
                             cx.stop_propagation();
-                            this.reader_edit_leave(&job_c, &name_c, cx);
+                            this.reader_edit_leave(&job_c, &name_c, window, cx);
                             window.focus(&this.row_focus, cx);
                         } else if key == "s" && mods.platform && !mods.shift && !mods.alt {
                             cx.stop_propagation();
@@ -186,7 +186,7 @@ impl JobView {
         let last = subject.revisions.last();
         let yours = last.filter(|last| last.by == ArtifactBy::Owner && last.number == subject.newest && !editing).map(|last| format!("r{} is your edit", last.number));
         let picker = self.reader_picker(id, name, shown, look, cx);
-        let switch = (!subject.closed && !earlier && subject.form == ArtifactForm::Draft).then(|| self.reader_switch(id, name, editing, look, cx));
+        let switch = (!subject.closed && !earlier && matches!(subject.form, ArtifactForm::Draft | ArtifactForm::Page)).then(|| self.reader_switch(id, name, editing, look, cx));
         let (words, discard, save) = if editing { self.reader_edit_acts(id, name, held, look, cx) } else { (None, None, None) };
         // While Ask for changes is open under the words, its box holds the answer and the header holds none.
         let asking = subject.asking && !earlier && !editing && held.ask.is_none();
@@ -1005,7 +1005,8 @@ mod tests {
         assert_eq!(key_of("d", false, true, false), Some(RKey::Act(RAct::Archive)));
         assert_eq!(key_of("e", true, true, false), Some(RKey::Act(RAct::Edit)));
         assert_eq!(key_of("e", true, false, false), None, "a settled draft is not edited");
-        assert_eq!(key_of("e", true, true, true), None, "a page's words are not edited here");
+        assert_eq!(key_of("e", true, true, true), Some(RKey::Act(RAct::Edit)), "a page's words are edited in place");
+        assert_eq!(key_of("e", false, false, true), None, "a settled page is not edited");
         assert_eq!((key_of("j", true, true, false), key_of("k", true, true, false)), (Some(RKey::Next), Some(RKey::Prev)));
         assert_eq!(key_of("enter", true, true, false), Some(RKey::Into));
         assert_eq!(key_of("backspace", true, true, false), Some(RKey::Drop));

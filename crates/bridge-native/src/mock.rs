@@ -981,6 +981,38 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
     Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
 }
 
+/// The newest revision the Job wrote of a page the mock serves.
+fn page_newest(page: &str) -> u32 {
+    if page == "design" {
+        2
+    } else {
+        1
+    }
+}
+
+/// `get_artifact_page_source` on the mock: a revision as the Job wrote it, before Fleet sealed it, or one he wrote with Edit
+/// (`his`, his revisions after the Job's newest, in order).
+pub fn page_source(page: &str, revision: u32, his: &[String]) -> Result<String, String> {
+    if let Some(his) = revision.checked_sub(page_newest(page) + 1).and_then(|at| his.get(at as usize)) {
+        return Ok(his.clone());
+    }
+    match (page, revision) {
+        ("design", 1) => Ok(include_str!("../fixtures/page-actions-source.html").replacen("Four branches are stale now.", "Three branches are stale now.", 1)),
+        ("design", 2) => Ok(include_str!("../fixtures/page-actions-source.html").to_string()),
+        ("marks", 1) => Ok(include_str!("../fixtures/page-sketches-source.html").to_string()),
+        _ => Err(format!("revision {revision} of `{page}` is not kept")),
+    }
+}
+
+/// `get_artifact_page` on the mock, a revision he wrote with Edit included: the Job's newest sealed, with his words in it.
+pub fn sealed_revision(page: &str, revision: u32, his: &[String], presses: &[ipc::PagePress], votes: &[ipc::VoteCast]) -> Result<String, String> {
+    let newest = page_newest(page);
+    let Some(his) = revision.checked_sub(newest + 1).and_then(|at| his.get(at as usize)) else { return sealed_page(page, revision, presses, votes) };
+    let sealed = sealed_page(page, newest, presses, votes)?.replacen(&format!("\"revision\":{newest}"), &format!("\"revision\":{revision}"), 1);
+    let texts = crate::web::editing::Texts { was: crate::web::editing::words_of(&sealed), now: crate::web::editing::words_of(his) };
+    crate::web::editing::spliced(&sealed, &texts)
+}
+
 /// `get_session_mcp` on the mock: every Job's process has Notion connected, Confluence turned off, and Fleet's own door,
 /// so Share offers Export to Notion and nothing for the others.
 pub fn session_mcp() -> ipc::SessionMcp {

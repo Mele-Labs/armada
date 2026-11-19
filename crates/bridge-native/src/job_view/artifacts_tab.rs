@@ -445,6 +445,11 @@ impl JobView {
     /// He saved an edit, on mock data: one more revision, his.
     pub(super) fn edited_here(&mut self, job: &str, artifact: &str) {
         *self.artifacts.edits_here.entry((job.to_string(), artifact.to_string())).or_default() += 1;
+        // The list already read takes it at once, as a re-read would.
+        if let Some(one) = self.artifacts.read.get_mut(job).and_then(|read| read.rows.as_mut()).and_then(|rows| rows.iter_mut().find(|one| one.id == artifact)) {
+            let number = one.revisions.last().map_or(1, |last| last.number) + 1;
+            one.revisions.push(ipc::ArtifactRevision { number, at: Instant::carried(Local::now().to_rfc3339()), by: ArtifactBy::Owner, form: one.form });
+        }
     }
 
     // ---- a page's first screen ------------------------------------------------------------
