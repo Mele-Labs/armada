@@ -8,7 +8,7 @@
 pub(crate) mod asks;
 mod curate;
 mod curate_view;
-pub(crate) mod dossier;
+mod dossier;
 mod looked;
 pub(crate) mod mock;
 mod model;
@@ -34,6 +34,9 @@ use crate::settings::wire::Refused;
 use crate::titlebar;
 use model::{Line, Listed};
 use page::{FeaturePageEvent, FeaturePageView};
+
+/// The area colours the list draws, for a Job's Story tab to draw the same.
+pub(crate) use dossier::{hue_among, hue_square};
 
 /// Where the list reads from.
 enum Source {

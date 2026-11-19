@@ -7,7 +7,7 @@ use gpui_component::text::TextView;
 use super::model::{Card, Row};
 use super::{Load, Region, StoryTab};
 use crate::features::asks::hue_token;
-use crate::features::dossier::{hue_among, hue_square};
+use crate::features::{hue_among, hue_square};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::settings::view::{bone, ring_colour, tip};
