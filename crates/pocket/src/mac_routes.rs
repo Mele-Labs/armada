@@ -121,6 +121,26 @@ pub async fn update(State(gateway): State<Gateway>, Extension(MacId(mac)): Exten
     (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
 }
 
+/// `POST /api/mac/refresh_claim`: the other Mac says its Refresh is under way, at which stage, or that it ended,
+/// handed to Fleet's `/other_mac/refresh_claim` as the Mac the signature names. **Refused while the link is
+/// frozen**: the sender ignores that, and shows no claim here.
+pub async fn refresh_claim(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
+    let port = match port(&gateway) {
+        Ok(port) => port,
+        Err(refused) => return refused,
+    };
+    let answer = match fleet_client::send_as_mac(port, "POST", "/other_mac/refresh_claim", Some(&body), &mac).await {
+        Ok(answer) => answer,
+        Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
+    };
+    let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
+    let kind = answer.content_type.unwrap_or_else(|| String::from("application/json"));
+    (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
+}
+
 /// `GET /api/mac/hello`: who this Mac is now.
 pub async fn hello(State(gateway): State<Gateway>) -> Response {
     match hello_now(&gateway).await {

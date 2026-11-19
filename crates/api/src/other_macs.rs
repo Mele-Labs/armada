@@ -25,6 +25,7 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_mac/projects", get(share_projects::<D>))
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
         .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
+        .route("/other_mac/refresh_claim", post(hold_refresh_claim::<D>))
         .route("/other_mac/conversation", get(crate::mac_acts::share_job_conversation::<D>))
         .route("/sessions/move_to_mac", post(crate::mac_acts::move_job_to_mac::<D>))
         .route("/queued", get(crate::mac_acts::list_queued::<D>))
@@ -78,6 +79,22 @@ async fn project_act_from_mac<D: OtherMacs>(State(served): State<Served<D>>, bod
     };
     match served.daemon().project_act_from_mac(sent).await {
         Ok(projects) => answer(StatusCode::OK, &projects, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `POST /other_mac/refresh_claim`: the Refresh the Mac named in `x-armada-mac` has under way, or word it ended.
+async fn hold_refresh_claim<D: OtherMacs>(State(served): State<Served<D>>, headers: axum::http::HeaderMap, body: Bytes) -> Response {
+    let sent: ipc::RefreshClaimSent = match ipc::decode_body("a Refresh another Mac has under way", &body) {
+        Ok(sent) => sent,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let named = headers.get(crate::acting::MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    let Some(mac) = named else {
+        return undecodable("a Refresh another Mac has under way names the Mac in x-armada-mac", served.run_id());
+    };
+    match served.daemon().hold_refresh_claim(mac.to_string(), sent).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(refusal) => refused(refusal),
     }
 }

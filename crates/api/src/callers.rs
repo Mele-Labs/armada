@@ -134,6 +134,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("hold_other_mac_event", "pairs his other Macs"),
     ("forget_other_mac", "pairs his other Macs"),
     ("hold_mac_claims", "pairs his other Macs"),
+    ("hold_refresh_claim", "pairs his other Macs"),
 ];
 
 /// The operation a matched route serves and what its refusal says, where it is the person's.

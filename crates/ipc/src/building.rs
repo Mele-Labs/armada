@@ -149,6 +149,32 @@ pub struct FleetBuildReport {
     /// otherwise. `change_fleet_build`'s `clear` moves them out of the way. Since 16 Nov 2026.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub blocked: Option<CheckoutBlocked>,
+    /// A Refresh of both Macs that one of them pressed and that has not ended: this Mac's own, or the one
+    /// another Mac told this Mac of. Absent where none is. Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub refresh: Option<RefreshClaim>,
+}
+
+/// A Refresh under way on a Mac that pressed it, held on that Mac and on each Mac linked to it, so every one
+/// shows it running while the pressing Mac merges and pushes. Carried on `FleetBuildReport::refresh`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RefreshClaim {
+    /// The id of the Mac that pressed it: this Mac, where it did.
+    pub mac: String,
+    /// That Mac's name.
+    pub name: String,
+    /// Where its restart has got to. Absent where the restart has not said.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub stage: Option<BuildStage>,
+    /// When it was pressed.
+    pub at: Instant,
+}
+
+/// `hold_refresh_claim`'s body: the Refresh the sending Mac has under way, or `null` where it ended.
+/// `POST /other_mac/refresh_claim`. The sending Mac's id is `x-armada-mac`, and is the key the claim is held under.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RefreshClaimSent {
+    pub claim: Option<RefreshClaim>,
 }
 
 /// Untracked files in the checkout that stop `main` fast-forwarding to `origin/main`.

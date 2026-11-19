@@ -275,6 +275,7 @@ pub fn send_other_mac(
             "/other_mac/project_act" => "/api/mac/project_act",
             "/other_mac/act" => "/api/mac/act",
             "/other_mac/update" => "/api/mac/update",
+            "/other_mac/refresh_claim" => "/api/mac/refresh_claim",
             "/other_mac/terminal" => "/api/mac/terminal",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };

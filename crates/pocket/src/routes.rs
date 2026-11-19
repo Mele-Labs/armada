@@ -115,6 +115,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/project_act", post(mac_routes::project_act))
         .route("/api/mac/act", post(mac_routes::act))
         .route("/api/mac/update", post(mac_routes::update))
+        .route("/api/mac/refresh_claim", post(mac_routes::refresh_claim))
         .route("/api/mac/thread", get(mac_routes::read))
         .route("/api/mac/conversation", get(mac_routes::read_naming_mac))
         .route("/api/mac/page", get(mac_routes::read))

@@ -144,6 +144,10 @@ impl OtherMacs for FakeDaemon {
         )))
     }
 
+    async fn hold_refresh_claim(&self, _mac: String, _sent: ipc::RefreshClaimSent) -> Result<(), Refusal> {
+        Ok(())
+    }
+
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
     }

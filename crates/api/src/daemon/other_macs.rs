@@ -145,6 +145,10 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// [`Refusal::IllegalMove`] for one that has ended.
     fn message_from_mac(self: Arc<Self>, mac: String, message: JobMessage) -> impl Future<Output = Result<(), Refusal>> + Send;
 
+    /// `hold_refresh_claim` — the Refresh Mac `mac` has under way, or `None` where it ended, held in memory and shown on
+    /// `get_fleet_build`. [`Refusal::NotFound`] for a Mac this one is not paired with.
+    fn hold_refresh_claim(&self, mac: String, sent: ipc::RefreshClaimSent) -> impl Future<Output = Result<(), Refusal>> + Send;
+
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 

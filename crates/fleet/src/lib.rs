@@ -289,6 +289,8 @@ mod project_merging;
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
 mod mac_update;
+/// A Refresh of both Macs, claimed so each Mac shows it running.
+mod refresh_claim;
 /// A walk or dev server of a Job on one of his Macs, opened on another through the signed link.
 mod mac_pages;
 /// A task act another Mac made on a shared project of this Mac, run here.
