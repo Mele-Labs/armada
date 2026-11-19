@@ -17,4 +17,6 @@ The body closes with two scripts carrying the nonce, or with `host_kit` the reco
 Refused with 422: `fleet.artifact_not_held` for an artifact the Job does not hold, naming at most 20 it does, or one that is a sketch or a draft; `fleet.artifact_revision_unknown` for a revision never kept, or one whose file is gone; `fleet.session_unnamed` for a Job Fleet does not know.
 
 `agent_access` is `Bridge only`: the agent has its own page on disk.
+
+**A Job held from another Mac is read from that Mac's Fleet each time**, as `share_job_artifact_page` answers there, and nothing of it is kept here. What that Mac refuses is passed on as it said it. Since 18 Nov 2026.
 """

@@ -76,6 +76,8 @@ fn scene(name: &str) -> Option<Fill> {
             refused: Some("Compact not sent: job mock-04 is not a terminal job, and only a terminal runs a slash command".into()),
             ..fill(126_000, 63, "normal", Some(breakdown()), Some(CompactOffer::Offered { how: CompactHow::Terminal }))
         },
+        // The same card with the Job's tokens over time under its rows, read from the mock Job.
+        "ring-tokens" => fill(126_000, 63, "normal", Some(breakdown()), offered()),
         "ring-popover" => fill(126_000, 63, "normal", None, offered()),
         "ring-tip" => fill(126_000, 63, "normal", None, None),
         _ => return None,
@@ -94,12 +96,14 @@ pub struct JobHeadStandIn {
     epoch: u32,
     /// The scene starts with the pointer on the ring, so the card is open.
     opened: bool,
+    /// The scene's ring carries the Job's tokens over time.
+    tokens: Option<Entity<crate::job_tokens::TimelineRead>>,
 }
 
 impl JobHeadStandIn {
     pub fn new(screen: AnyView, cx: &mut Context<Self>) -> JobHeadStandIn {
         cx.set_global(Live(cx.entity().downgrade()));
-        JobHeadStandIn { screen, fill: None, epoch: 0, opened: false }
+        JobHeadStandIn { screen, fill: None, epoch: 0, opened: false, tokens: None }
     }
 }
 
@@ -112,7 +116,8 @@ pub fn apply(name: &str, cx: &mut App) -> Result<(), String> {
         if !name.ends_with("-refused") {
             stand_in.epoch += 1;
         }
-        stand_in.opened = matches!(name, "ring-warning" | "ring-danger" | "ring-tip");
+        stand_in.opened = matches!(name, "ring-warning" | "ring-danger" | "ring-tip" | "ring-tokens");
+        stand_in.tokens = (name == "ring-tokens").then(|| cx.new(|_| crate::job_tokens::TimelineRead::new(JOB.into(), None)));
         stand_in.fill = Some(next);
         cx.notify();
     });
@@ -139,6 +144,7 @@ impl Render for JobHeadStandIn {
             .map(|handle| handle.bounds.origin.x + handle.bounds.size.width + look.length(token::SPACE_2));
         let epoch = self.epoch;
         let opened = self.opened;
+        let tokens = self.tokens.clone();
         let ring = self.fill.clone().zip(from).map(|(fill, left)| {
             let hold: Rc<dyn Fn(CompactHow, &mut Window, &mut App)> = Rc::new(|_, _, _| {});
             div()
@@ -160,6 +166,10 @@ impl Render for JobHeadStandIn {
                         .bg(look.color(token::BG_RAISED))
                         .child({
                             let ring = ContextRing::new(SharedString::from(format!("{JOB}-{epoch}")), Some(fill)).on_compact(hold);
+                            let ring = match &tokens {
+                                Some(read) => ring.tokens(crate::job_tokens::Hook { read: read.clone(), open: Rc::new(|_, _| {}) }),
+                                None => ring,
+                            };
                             if opened { ring.opened() } else { ring }
                         }),
                     Role::Group,
