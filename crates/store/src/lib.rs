@@ -360,3 +360,7 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+
+/// What a Job read before it changed a feature's files.
+mod feature_reads;
+pub use feature_reads::KeptJobRead;

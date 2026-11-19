@@ -15,15 +15,15 @@ use adapter_traits::Reach;
 
 const FORGE: &str = "forge";
 /// The forge's own MCP server, by the name [`server_of`] gives it.
-const FORGE_SERVER: &str = "github";
+pub(crate) const FORGE_SERVER: &str = "github";
 const TRACKER: &str = "tracker";
 const WEB: &str = "web";
 
 /// MCP servers that reach an issue tracker, by the name [`server_of`] gives them.
-const TRACKERS: [&str; 6] = ["linear", "jira", "atlassian", "asana", "clickup", "monday"];
+pub(crate) const TRACKERS: [&str; 6] = ["linear", "jira", "atlassian", "asana", "clickup", "monday"];
 
 /// MCP servers whose calls stay on this machine. Armada's own are told by their prefix.
-const STAYS_HERE: [&str; 1] = ["gitnexus"];
+pub(crate) const STAYS_HERE: [&str; 1] = ["gitnexus"];
 
 /// The most subcommand words a `gh` line names: `gh pr view` is a group and a verb.
 const SUBCOMMANDS: usize = 2;
@@ -92,7 +92,7 @@ fn server_reach(tool: &str) -> Option<Reach> {
 
 /// A server as the person knows it: lowercase, without the prefix the harness adds for a connector
 /// (`claude_ai_Figma`) or for a plugin's (`plugin_productivity_linear`).
-fn server_of(raw: &str) -> String {
+pub(crate) fn server_of(raw: &str) -> String {
     let lower = raw.to_lowercase();
     if let Some(rest) = lower.strip_prefix("claude_ai_") {
         return rest.to_string();

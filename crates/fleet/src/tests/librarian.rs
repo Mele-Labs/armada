@@ -52,6 +52,7 @@ async fn merged(rig: &Rig, feature: &str, number: u64, at: &str) {
         target: number.to_string(),
         job: String::new(),
         title: String::new(),
+        gist: String::new(),
         state: String::new(),
         via: "detector".to_string(),
         at: at.to_string(),
