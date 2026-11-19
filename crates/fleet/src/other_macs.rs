@@ -51,7 +51,7 @@ fn listed(record: &SessionRecord, manifest: Option<&str>, text: Option<&str>, st
 
 /// A row of this Mac's as another Mac is sent it. **Its plan goes without `other_macs`**, which names Jobs as
 /// this Mac sees them, the receiver's own among them.
-fn sent_on(mut record: SessionRecord) -> SessionRecord {
+pub(crate) fn sent_on(mut record: SessionRecord) -> SessionRecord {
     if let Some(plan) = record.plan.as_mut() {
         plan.other_macs.clear();
     }
@@ -325,6 +325,10 @@ where
     async fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> Result<JobThread, Refusal> {
         self.act_from_other_mac(&read.session_id).await?;
         self.job_thread_served(read).await
+    }
+
+    async fn share_job_session(self: Arc<Self>, job: SessionId, window: Option<ipc::SessionWindow>) -> Result<ipc::SessionThread, Refusal> {
+        self.job_session_shared(job, window).await
     }
 
     async fn share_job_artifacts(&self, job: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {

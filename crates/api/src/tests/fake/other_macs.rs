@@ -108,6 +108,10 @@ impl OtherMacs for FakeDaemon {
         )))
     }
 
+    async fn share_job_session(self: Arc<Self>, job: SessionId, _window: Option<ipc::SessionWindow>) -> Result<ipc::SessionThread, Refusal> {
+        Err(no_such_job(&job))
+    }
+
     async fn share_job_artifacts(&self, job: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
         Err(no_such_job(&job))
     }

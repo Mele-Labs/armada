@@ -92,6 +92,7 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         .route("/other_mac/bug_reports", get(|| async { r#"{"reports":[]}"# }))
         .route("/other_mac/preview_offers", get(|| async { r#"{"offers":[]}"# }))
         .route("/other_mac/thread", get(thread))
+        .route("/other_mac/session", get(thread))
         .route("/other_mac/artifacts", get(thread))
         .route("/other_mac/artifact_page", get(thread))
         .route("/other_mac/events", get(events))
@@ -519,6 +520,16 @@ async fn a_thread_is_read_from_the_other_mac_and_nothing_else_is() {
     assert_eq!((status, String::from_utf8(body).unwrap()), (200, r#"{"asked":"session_id=s1&before=5"}"#.to_string()));
     assert!(crate::read_other_mac(&home.gateway, &work.id(), "/other_mac/sessions").await.is_err());
     assert!(crate::read_other_mac(&home.gateway, "nobody", "/other_mac/thread?session_id=s1").await.is_err());
+}
+
+#[tokio::test]
+async fn a_jobs_row_and_window_are_read_from_the_other_mac() {
+    let (home, work) = (Side::new("Home", &[]).await, Side::new("Work", &[]).await);
+    paired(&home, &work).await;
+    let path = "/other_mac/session?session_id=s1&last=3&before=r1";
+    let (status, body) = crate::read_other_mac(&home.gateway, &work.id(), path).await.unwrap();
+    assert_eq!((status, String::from_utf8(body).unwrap()), (200, r#"{"asked":"session_id=s1&last=3&before=r1"}"#.to_string()));
+    assert!(crate::read_other_mac(&home.gateway, &work.id(), "/other_mac/sessionsx").await.is_err(), "a name that only starts with it is not it");
 }
 
 #[tokio::test]

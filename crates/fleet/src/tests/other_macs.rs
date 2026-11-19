@@ -410,3 +410,77 @@ async fn a_jobs_artifacts_go_out_only_for_a_shared_job_and_are_refused_as_for_no
     let refused = rig.fleet.share_job_artifacts(in_none.clone()).await.expect_err("still none");
     assert_eq!(said(&refused, in_none.as_str()), said(&missing, nobody.as_str()));
 }
+
+#[tokio::test]
+async fn a_held_jobs_row_and_window_are_read_from_the_mac_that_holds_it() {
+    let rig = rig_placing(None);
+    let mine = job_in(&rig, None).await;
+    rig.fleet.fleet_note(mine.as_str(), "Work has begun".into()).await;
+    let template = record_of(&rig, &mine).await;
+    hold(&rig, vec![theirs(&template, "01WORKA", "Fix the sync")]).await;
+    // What Work answers: its own row, which has no `mac` there, and its newest rows with more behind them.
+    let mut at_work = Arc::clone(&rig.fleet).get_session(mine.clone()).await.expect("a thread");
+    at_work.session.id = SessionId::carried("01WORKA");
+    at_work.older = true;
+    let link = Arc::new(Link { asked: Mutex::new(Vec::new()), answer: Mutex::new((200, ipc::encode(&at_work).expect("encodes").into_bytes())) });
+    rig.fleet.switching_phone_with(Arc::clone(&link) as Arc<dyn PhoneSwitch>);
+    let held = SessionId::carried("01WORKA");
+
+    let opened = Arc::clone(&rig.fleet).get_session(held.clone()).await.expect("read through the link");
+    assert_eq!(opened.rows, at_work.rows, "Work's rows");
+    assert_eq!(opened.session.mac.as_deref(), Some(WORK), "the row names the Mac that holds it, as the list does");
+
+    let window = ipc::SessionWindow { last: 3, before: Some("row 1".into()) };
+    let cut = Arc::clone(&rig.fleet).get_session_window(held.clone(), window.clone()).await.expect("a window, through the link");
+    assert!(cut.older, "Work said more stand before it");
+    assert_eq!(
+        *link.asked.lock().expect("not poisoned"),
+        [
+            (WORK.to_string(), "/other_mac/session?session_id=01WORKA".to_string()),
+            (WORK.to_string(), "/other_mac/session?session_id=01WORKA&last=3&before=row%201".to_string()),
+        ],
+        "the window is asked of Work, which cuts it, and not cut here from the whole"
+    );
+
+    let theirs = WireError::raised("fleet.no_such_session", "No Job Fleet holds is named 01WORKA.", ipc::RunId::carried("01THEIRRUN"));
+    *link.answer.lock().expect("not poisoned") = (404, ipc::encode(&theirs).expect("encodes").into_bytes());
+    let refused = Arc::clone(&rig.fleet).get_session(held).await.expect_err("refused there");
+    assert_eq!((refused.status(), refused.error().code.as_str()), (404, "fleet.no_such_session"), "what Work refuses is passed on");
+
+    let own = Arc::clone(&rig.fleet).get_session_window(mine, window).await.expect("this Mac's own Job");
+    assert_eq!(own.session.mac, None);
+    assert_eq!(link.asked.lock().expect("not poisoned").len(), 3, "this Mac's own Job is read here");
+}
+
+#[tokio::test]
+async fn a_jobs_row_and_window_go_out_only_for_a_shared_job_and_are_refused_as_for_no_job() {
+    let rig = rig_placing(None);
+    let shop = project(&rig, "Shop").await;
+    project(&rig, "Yard").await;
+    let in_shop = job_in(&rig, Some(&shop)).await;
+    let in_none = job_in(&rig, None).await;
+    let nobody = SessionId::carried("01NOSUCHJOB0000000000000000");
+    let missing = Arc::clone(&rig.fleet).share_job_session(nobody.clone(), None).await.expect_err("no such Job");
+    assert_eq!((missing.status(), missing.error().code.as_str()), (404, "fleet.no_such_session"));
+    for job in [&in_shop, &in_none] {
+        let refused = Arc::clone(&rig.fleet).share_job_session(job.clone(), None).await.expect_err("not shared");
+        assert_eq!(said(&refused, job.as_str()), said(&missing, nobody.as_str()), "refused as a Job that does not exist");
+    }
+
+    shared(&rig, &shop, true).await;
+    for note in 0..5 {
+        rig.fleet.fleet_note(in_shop.as_str(), format!("Note {note}")).await;
+    }
+    let whole = Arc::clone(&rig.fleet).share_job_session(in_shop.clone(), None).await.expect("a shared Job");
+    let (rows, window) = (whole.rows.len(), |last, before: Option<String>| ipc::SessionWindow { last, before });
+    assert!(rows > 4 && !whole.older);
+    let newest = Arc::clone(&rig.fleet).share_job_session(in_shop.clone(), Some(window(2, None))).await.expect("the newest");
+    assert_eq!((&newest.rows[..], newest.older), (&whole.rows[rows - 2..], true), "only the window is answered");
+    let before = newest.rows[0].id().to_string();
+    let earlier = Arc::clone(&rig.fleet).share_job_session(in_shop.clone(), Some(window(2, Some(before)))).await.expect("the two before");
+    assert_eq!((&earlier.rows[..], earlier.older), (&whole.rows[rows - 4..rows - 2], true));
+    let all = Arc::clone(&rig.fleet).share_job_session(in_shop, Some(window(rows + 10, None))).await.expect("more than it holds");
+    assert_eq!((all.rows, all.older), (whole.rows, false));
+    let refused = Arc::clone(&rig.fleet).share_job_session(in_none.clone(), Some(window(2, None))).await.expect_err("still none");
+    assert_eq!(said(&refused, in_none.as_str()), said(&missing, nobody.as_str()));
+}
