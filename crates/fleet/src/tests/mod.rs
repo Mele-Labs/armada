@@ -17,6 +17,7 @@
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
 mod feature_catalog;
+mod feature_decisions;
 mod feature_library;
 mod librarian;
 mod floor_plan;

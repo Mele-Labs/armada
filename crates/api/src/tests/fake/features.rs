@@ -41,6 +41,7 @@ impl Features for FakeDaemon {
             entry_points: Vec::new(),
             sections: Vec::new(),
             links: Vec::new(),
+            decisions: Vec::new(),
             files: Vec::new(),
             docs: Vec::new(),
             tickets: Vec::new(),
