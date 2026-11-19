@@ -188,6 +188,8 @@ pub fn page(slug: &str) -> FeaturePage {
             FeatureFile { path: "crates/ipc/src/start.rs".into(), jobs: 3 },
             FeatureFile { path: "apps/desktop/src/renderer/src/dispatch/StartCard.tsx".into(), jobs: 2 },
         ],
+        docs: Vec::new(),
+        tickets: Vec::new(),
         floor_plan: Some(floor_plan()),
     }
 }

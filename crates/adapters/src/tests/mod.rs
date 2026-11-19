@@ -76,6 +76,7 @@ mod leasing_trim;
 mod disk_reclaim;
 mod manifest_edit;
 mod outside;
+mod consulting;
 mod mcp;
 mod mcp_configured;
 mod mcp_control;
