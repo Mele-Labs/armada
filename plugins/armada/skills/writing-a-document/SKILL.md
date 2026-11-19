@@ -318,6 +318,9 @@ says it all. A table and a sketch are enough for most pages.
   `<svg>`. All data lives in the page.
 - No form that submits, no navigation, no new window. An in-page `#anchor` is fine.
 - Do not rely on `localStorage` or cookies.
+- Shortcuts use plain keys or ⇧ only. Bridge takes Esc and almost every ⌘
+  key before the page hears it, so a ⌘J listener never fires. ⌘C, ⌘V, ⌘X, ⌘A
+  and ⌘Z still reach the page.
 - Set a colour or a size from a class and a rule in `<style>`, not from a
   `style="..."` attribute.
 - The page must read complete before any script runs. The card's small
