@@ -206,6 +206,7 @@ fn every_handle_names_an_entry_of_its_kind() {
     }
     for key in [
         s::LIBRARIAN_RUNS,
+        s::SUBAGENT_CACHE_TTL,
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
@@ -268,7 +269,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 12 + 17 + 28 + 4 + 21 + s::prompt_keys().count();
+    let handles = 21 + 12 + 17 + 29 + 4 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,

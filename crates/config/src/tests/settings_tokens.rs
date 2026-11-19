@@ -33,6 +33,7 @@ fn resolved(pairs: &[(&str, SettingValue)]) -> Result<Resolved, String> {
 fn the_token_use_settings_ship_as_the_walk_drew_them_in_the_fleet_group() {
     let nothing = resolved(&[]).expect("taken");
     assert_eq!(nothing.get(s::COMPACTION_WINDOW), 250_000);
+    assert_eq!(nothing.get(s::SUBAGENT_CACHE_TTL), "5m", "a subagent's cache ships at five minutes");
     assert!(nothing.get(s::SUMMARY_SHORT_CACHE), "a short cache ships on");
     assert!(!nothing.get(s::SUMMARY_THINKING), "thinking ships off");
     assert!(!nothing.get(s::COMPACT_WHILE_WAITING), "the trial ships off");
@@ -40,6 +41,7 @@ fn the_token_use_settings_ship_as_the_walk_drew_them_in_the_fleet_group() {
     assert_eq!(nothing.get(s::CONNECTORS_OFF), None, "no repository is told, so each follows its armada.yml");
     for key in [
         "tokens.compactionWindow",
+        "tokens.subagentCacheTtl",
         "tokens.summaryShortCache",
         "tokens.summaryThinking",
         "tokens.compactWhileWaiting",
@@ -63,6 +65,18 @@ fn the_compaction_window_is_held_to_the_range_the_cli_reads() {
         assert!(why.contains("tokens.compactionWindow"), "{why}");
     }
     assert!(resolved(&[("tokens.compactionWindow", SettingValue::Text("big".into()))]).is_err());
+}
+
+#[test]
+fn the_subagent_cache_length_takes_five_minutes_or_an_hour_and_nothing_else() {
+    for ok in ["5m", "1h"] {
+        let taken = resolved(&[("tokens.subagentCacheTtl", SettingValue::Text(ok.into()))]).expect("taken");
+        assert_eq!(taken.get(s::SUBAGENT_CACHE_TTL), ok);
+    }
+    for refused in [SettingValue::Text("2h".into()), SettingValue::Text("".into()), SettingValue::Integer(60)] {
+        let why = resolved(&[("tokens.subagentCacheTtl", refused)]).expect_err("refused");
+        assert!(why.contains("tokens.subagentCacheTtl"), "{why}");
+    }
 }
 
 #[test]
