@@ -4,7 +4,7 @@
 
 import { useEffect, useSyncExternalStore } from "react";
 
-import type { SessionState } from "@armada/components";
+import type { SessionState } from "./kit/components/compositions/SessionFrame/SessionFrame";
 
 import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, OperatorDispatched, PhoneSession, SessionsBody } from "./gateway";

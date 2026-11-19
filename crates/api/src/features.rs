@@ -20,7 +20,7 @@ pub(crate) struct OfFeature {
     feature: String,
 }
 
-/// `?project=&feature=&section=` on `get_feature_page`.
+/// `?project=&feature=&section=&files=` on `get_feature_page`.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfFeaturePage {
     #[serde(default)]
@@ -28,6 +28,9 @@ pub(crate) struct OfFeaturePage {
     feature: String,
     #[serde(default)]
     section: Option<String>,
+    /// The floor plan's rooms filled with their files. Only Bridge asks; an agent's read stays small.
+    #[serde(default)]
+    files: bool,
 }
 
 /// `?project=` on `list_features`.
@@ -70,7 +73,7 @@ pub(crate) async fn list_features<D: Features>(State(served): State<Served<D>>, 
 }
 
 pub(crate) async fn get_feature_page<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeaturePage>) -> Response {
-    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature, asked.section).await {
+    match served.daemon().get_feature_page(crate::acting::asking(), asked.project, asked.feature, asked.section, asked.files).await {
         Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -4,12 +4,12 @@
 import { useEffect, useState } from "react";
 import {
   mediaKindOf,
-  Prose,
   ShownVideo,
-  SketchScene,
-  ZoomablePicture,
   type ShownMedia,
-} from "@armada/components";
+} from "./kit/components/compositions/MediaRow/MediaRow";
+import { Prose } from "./kit/components/primitives/Prose/Prose";
+import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import { ZoomablePicture } from "./kit/components/primitives/Enlargeable/ZoomablePicture";
 
 import { macOf, start, useFleet } from "./fleet";
 import { readShown, readShownMedia, useJob, type Shown } from "./jobState";

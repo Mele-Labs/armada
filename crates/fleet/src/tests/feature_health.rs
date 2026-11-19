@@ -102,7 +102,7 @@ async fn a_stale_test_section_adds_a_reason_with_the_merge_it_is_stale_since() {
         })
         .expect("kept");
 
-    let page = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), None).await.expect("the page");
+    let page = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), None, false).await.expect("the page");
     assert_eq!(page.feature.health.mark, HealthMark::Watch);
     let reason = &page.feature.health.reasons[0];
     assert_eq!((reason.kind, reason.fact.as_str(), reason.target.as_deref()), (HealthReasonKind::StaleSection, "test section stale since #900", Some("900")));

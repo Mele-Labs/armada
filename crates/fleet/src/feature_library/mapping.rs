@@ -31,6 +31,7 @@ pub(crate) struct Owner<'a> {
 }
 
 /// A project's features and the files Jobs filed under them.
+#[derive(Clone)]
 pub(crate) struct FeatureMap {
     features: Vec<KeptFeature>,
     filed: BTreeMap<String, BTreeSet<String>>,

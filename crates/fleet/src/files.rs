@@ -349,7 +349,7 @@ fn listed(root: &Path) -> Option<Vec<String>> {
 }
 
 /// `git` run in `root`, whichever repository the caller's own environment names.
-fn git_in(root: &Path) -> Command {
+pub(crate) fn git_in(root: &Path) -> Command {
     let mut git = Command::new("git");
     git.current_dir(root)
         .env_remove("GIT_DIR")

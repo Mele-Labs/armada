@@ -2,7 +2,7 @@
 // Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
 // `SessionRecord` in `./wire`, and nothing here is generated.
 
-import type { SessionState } from "@armada/components";
+import type { SessionState } from "./kit/components/compositions/SessionFrame/SessionFrame";
 
 /**
  * One `data:` line of GET /api/live. `resync` means read the lists again. `operator` is what the Operator did with

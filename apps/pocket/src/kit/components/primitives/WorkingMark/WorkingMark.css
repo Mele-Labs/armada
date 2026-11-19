@@ -1,0 +1,24 @@
+/* The working mark. Transform only, so nothing reflows and the compositor
+   does the work. Held still under reduced motion. */
+.armada-working-mark {
+  display: inline-flex;
+  flex: none;
+}
+
+.armada-working-mark__spin {
+  transform-box: view-box;
+  transform-origin: 50% 50%;
+  animation: armada-working-spin var(--duration-spin) linear infinite;
+}
+
+@keyframes armada-working-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .armada-working-mark__spin {
+    animation: none;
+  }
+}

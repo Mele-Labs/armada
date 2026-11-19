@@ -251,8 +251,9 @@ where
         Err(self.feature_unknown(slug))
     }
 
-    /// `get_feature_page`. With `section` the page holds that section alone, and no links or files.
-    pub(super) async fn feature_paged(&self, caller: Option<api::Caller>, project: Option<String>, slug: String, section: Option<String>) -> Result<FeaturePage, Refusal> {
+    /// `get_feature_page`. With `section` the page holds that section alone, and no links or files. Without `with_files` the
+    /// floor plan's rooms are empty of files and git is not asked.
+    pub(super) async fn feature_paged(&self, caller: Option<api::Caller>, project: Option<String>, slug: String, section: Option<String>, with_files: bool) -> Result<FeaturePage, Refusal> {
         let only = match section.as_deref().map(str::trim).filter(|name| !name.is_empty()) {
             None => None,
             Some(name) => Some(FeatureSectionKind::from_name(&name.to_ascii_lowercase()).ok_or_else(|| {
@@ -299,7 +300,7 @@ where
         };
         drop(store);
         if only.is_none() {
-            page.floor_plan = self.floor_plan_of(&loaded, &feature).await;
+            page.floor_plan = self.floor_plan_of(&loaded, &feature, with_files).await;
         }
         Ok(page)
     }

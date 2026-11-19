@@ -27,6 +27,8 @@ const NOT_A_PAIR: &str = "fleet.merge_not_a_pair";
 const NAMES_DIFFER: &str = "fleet.merge_names_differ";
 /// The project to keep is not shared with his other Macs. A 422.
 const KEPT_NOT_SHARED: &str = "fleet.merge_kept_not_shared";
+/// The Mac told to give its project up holds no copy of the one kept. A 422.
+const KEPT_NOT_HELD: &str = "fleet.merge_kept_not_held";
 
 /// The members of `held` with `added` joined: a repository already whole adds no folder of it, and a whole repository
 /// takes the place of the folders of it.
@@ -144,9 +146,11 @@ where
         match (keeping, going) {
             (Side::Own(_), Side::Copy(copy)) => {
                 let Some(mac) = copy.mac.clone() else { return Err(not_a_pair()) };
-                self.absorb_run(&kept, copy.clone(), &from_gone).await?;
+                // The give-up first, so a Mac that refuses it leaves both projects as they were.
                 let absorbed = copy.rows.iter().map(|one| row_id(one).to_string()).collect();
-                self.act_on_copy(&mac, ProjectAct::GiveUp { gone, into: kept, absorbed }).await
+                self.act_on_copy_told(&mac, ProjectAct::GiveUp { gone, into: kept.clone(), absorbed }).await?;
+                self.absorb_run(&kept, copy, &from_gone).await?;
+                self.list_projects().await
             }
             (Side::Copy(copy), Side::Own(_)) => {
                 let Some(mac) = copy.mac.clone() else { return Err(not_a_pair()) };
@@ -241,7 +245,13 @@ where
     /// `GiveUp`, run on the Mac that holds `gone`: every row of it not in `absorbed` is sent to the Mac that holds `into`,
     /// this Mac's Jobs in it move into `into`, and the project is deleted with its file wherever Fleet keeps it, and its
     /// tasks. `via` is that Mac where the caller knows it, and otherwise the Mac whose copy of `into` this Mac holds.
+    /// Refused, 422 `fleet.merge_kept_not_held`, with nothing changed **while this Mac holds no copy of `into`**: its
+    /// project would go and nothing would stand in its place here.
     pub(crate) async fn give_up_run(&self, gone: &str, into: &str, absorbed: &[String], via: Option<&str>) -> Result<ipc::Projects, Refusal> {
+        if !self.copy_held(into, None).await {
+            let said = String::from("The project to keep is not on this Mac yet, so this Mac keeps its own. Merge again once it shows here.");
+            return Err(Refusal::Unacceptable(self.project_refusal(KEPT_NOT_HELD, said)));
+        }
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         let unsent: Vec<KeptProjectRow> = self.project_in(&kept, gone)?.rows.iter().filter(|one| !absorbed.contains(&one.id)).cloned().collect();
         if !unsent.is_empty() {
