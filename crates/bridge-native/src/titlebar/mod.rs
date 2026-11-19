@@ -44,7 +44,7 @@ use gpui::{
 use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
 pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
-pub use face::stage_word;
+pub use face::{refreshing, restarting, stage_word, Refreshing};
 pub use story::refresh_said;
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
 pub use link_layer::StandIn;

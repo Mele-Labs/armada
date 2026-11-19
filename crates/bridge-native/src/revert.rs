@@ -30,7 +30,7 @@ const ROUTE: &str = "/fleet/build/revert";
 /// True while a revert can be asked: a build before is kept and nothing is changing the build.
 pub fn can_revert(report: Option<&FleetBuildReport>) -> bool {
     report.is_some_and(|report| {
-        report.previous.is_some() && !report.reverting && report.restarting.is_none() && !report.swapping
+        report.previous.is_some() && !report.reverting && !crate::titlebar::restarting(report) && !report.swapping
     })
 }
 
