@@ -345,3 +345,63 @@ async fn a_reply_in_a_turn_where_the_agent_listed_items_asks_nothing_more() {
     rig.fleet.waiting_for(None, list(Vec::new())).await.unwrap();
     assert_eq!(replied_items(&rig, &id).await, ["Want me to order it now?"]);
 }
+
+/// The Job linked to a feature, as a trailer links it, so what he settled in it reads under that feature.
+async fn on_a_feature(rig: &Rig, id: &SessionId) {
+    let link = store::KeptFeatureLink {
+        feature_id: "feature-1".into(),
+        kind: store::feature_link_kind::JOB.into(),
+        target: id.as_str().into(),
+        job: id.as_str().into(),
+        title: String::new(),
+        gist: String::new(),
+        state: String::new(),
+        via: "trailer".into(),
+        at: "2026-11-18T09:00:00.000Z".into(),
+    };
+    rig.fleet.store().lock().await.put_feature_link(&link).unwrap();
+}
+
+#[tokio::test]
+async fn what_he_chooses_on_a_question_is_filed_as_a_decision_of_the_features_the_job_changed() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    on_a_feature(&rig, &id).await;
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    let ask = waiting_on(&rig, &id).await;
+
+    answer(&rig, &id, &ask.call, CallAnswer::AllowOnce, vec![chosen("Which toppings?", &["cheese", "ham"]), chosen("Which size?", &["L"])]).await.unwrap();
+    held.await.unwrap().unwrap();
+
+    let filed = rig.fleet.store().lock().await.feature_decisions("feature-1").unwrap();
+    let mut said: Vec<(&str, &str)> = filed.iter().map(|one| (one.question.as_str(), one.choice.as_str())).collect();
+    said.sort();
+    assert_eq!(said, [("Which size?", "L"), ("Which toppings?", "cheese, ham")]);
+}
+
+#[tokio::test]
+async fn a_question_answered_in_his_place_is_no_decision_of_his() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    on_a_feature(&rig, &id).await;
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    let ask = waiting_on(&rig, &id).await;
+
+    let said = AnswerSessionAsk {
+        session_id: id.clone(),
+        call: ask.call.clone(),
+        answer: CallAnswer::AllowOnce,
+        note: None,
+        answers: vec![chosen("Which toppings?", &["cheese"]), chosen("Which size?", &["S"])],
+        folder: None,
+        kind: None,
+    };
+    rig.fleet.session_ask_answered(said, false).await.unwrap();
+    held.await.unwrap().unwrap();
+
+    assert!(rig.fleet.store().lock().await.feature_decisions("feature-1").unwrap().is_empty());
+}

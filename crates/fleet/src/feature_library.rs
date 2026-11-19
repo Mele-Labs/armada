@@ -11,6 +11,7 @@ pub(crate) mod brief;
 mod changing;
 mod consulting;
 pub(crate) mod committing;
+pub(crate) mod deciding;
 mod filing;
 mod floor_plan;
 mod handoff;

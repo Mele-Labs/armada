@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -136,6 +136,10 @@ pub fn page(slug: &str) -> FeaturePage {
             link(FeatureLinkKind::Page, "documents/start-flow", "How a Job starts", "", 7),
             link(FeatureLinkKind::Walk, "walks/start-card", "Walk of the start card", "", 13),
             link(FeatureLinkKind::Bug, "bug-card-focus", "The card loses focus after a retry", "open", 14),
+        ],
+        decisions: vec![
+            FeatureDecision { question: "Where does the model picker go on the start card?".into(), choice: "Beside the workflow".into(), note: None, job: "job-start-card".into(), at: at(14) },
+            FeatureDecision { question: "Start card with the model picker".into(), choice: "Approved".into(), note: Some("Keep the picker one line.".into()), job: "job-start-card".into(), at: at(11) },
         ],
         files: vec![
             FeatureFile { path: "crates/fleet/src/start/card.rs".into(), jobs: 6 },
