@@ -84,6 +84,10 @@ where
         self.since_looked_read(caller, project, since).await
     }
 
+    async fn get_whos_on_what(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::WhosOnWhat, Refusal> {
+        self.whos_on_what_read(caller, project).await
+    }
+
     async fn get_feature_brief(&self, caller: Option<api::Caller>, project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
         self.feature_briefed(caller, project, feature).await
     }

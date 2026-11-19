@@ -52,6 +52,8 @@ pub(crate) struct Previewing {
     main_seen: Mutex<Option<String>>,
     /// What the merges of the last build commit read said it holds, so git is asked once per build.
     walked: Mutex<Option<(String, Option<BuildMerges>)>>,
+    /// Whether each tip asked about is under the last build commit, so git is asked once per build and tip.
+    reached: Mutex<(String, BTreeMap<String, bool>)>,
 }
 
 impl Default for Previewing {
@@ -64,6 +66,7 @@ impl Default for Previewing {
             notes_sent: Mutex::new(None),
             main_seen: Mutex::new(None),
             walked: Mutex::new(None),
+            reached: Mutex::new((String::new(), BTreeMap::new())),
         }
     }
 }
@@ -291,7 +294,7 @@ where
 
     /// The offers and the Refresh row as Bridge draws them.
     pub(crate) async fn preview_offers_read(&self) -> PreviewOffers {
-        let held = self.preview_build_holds();
+        let build = self.preview_build();
         let store = self.store().lock().await;
         let kept = store.preview_offered_all().unwrap_or_default();
         let rows: Vec<PreviewOfferRow> = kept
@@ -306,7 +309,7 @@ where
                 state: state_of(&one.state),
                 why: one.why.clone(),
                 files: one.files.clone(),
-                in_build: held.get(&one.branch).is_some_and(|tip| *tip == one.tip),
+                in_build: self.build_holds(build.as_ref(), &one.branch, &one.tip),
             })
             .collect();
         let ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
@@ -325,9 +328,26 @@ where
         Ok(PreviewRefreshSkipped { id: asked.id })
     }
 
-    /// The branches the running build holds, at the tips it holds them, where the build is the preview.
-    fn preview_build_holds(&self) -> BTreeMap<String, String> {
-        self.preview_build().map(|(_, tips)| tips).unwrap_or_default()
+    /// Whether the running preview `build` holds `branch` at `tip`: it merged it, or `tip` is already under its
+    /// commit, as where the branch landed on the main the build was cut from. `None` is no preview, which holds nothing.
+    pub(crate) fn build_holds(&self, build: Option<&(String, BTreeMap<String, String>)>, branch: &str, tip: &str) -> bool {
+        let Some((commit, tips)) = build else { return false };
+        tips.get(branch).is_some_and(|held| held == tip) || self.tip_under_build(commit, tip)
+    }
+
+    /// Whether `tip` is a commit under the build at `commit`. Git is asked once per build commit and tip.
+    fn tip_under_build(&self, commit: &str, tip: &str) -> bool {
+        let mut reached = self.previewing().reached.lock().expect("not poisoned");
+        if reached.0 != commit {
+            *reached = (commit.to_string(), BTreeMap::new());
+        }
+        if let Some(known) = reached.1.get(tip) {
+            return *known;
+        }
+        let root = self.build_checkout().map(|checkout| checkout.to_string_lossy().into_owned());
+        let under = root.is_some_and(|root| adapters::tip_under_build(&root, commit, tip));
+        reached.1.insert(tip.to_string(), under);
+        under
     }
 
     /// The running build's commit and what it holds, where the build is the preview. `None` off it, and while

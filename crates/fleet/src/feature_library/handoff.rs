@@ -10,6 +10,7 @@ use store::{KeptFeature, SessionState};
 
 use super::reading::Loaded;
 use crate::daemon::Fleet;
+use crate::my_pulls::Mine;
 
 /// How the page came to be handed over, as `feature_handoffs.via` names it.
 const BRIEF: &str = "brief";
@@ -69,6 +70,8 @@ where
         let before = store.feature_handoffs(&job, &holder).map_err(|why| self.ledger_fault(why))?;
         let mut features = Vec::new();
         let mut pages = Vec::new();
+        // Asked once, and only when a page is to be handed: the hook asks before every file read.
+        let mut mine: Option<Mine> = None;
         for project in self.projects_of_job_in(&store, &job) {
             if !store.project_has_features(&project).map_err(|why| self.ledger_fault(why))? {
                 continue;
@@ -94,7 +97,10 @@ where
                     continue;
                 }
                 // The page is read before it is counted, so one that could not be read is owed again.
-                let page = self.feature_brief_of(&store, &loaded, &feature)?;
+                if mine.is_none() {
+                    mine = Some(self.owner_logins().await);
+                }
+                let page = self.feature_brief_of(&store, &loaded, &feature, mine.get_or_insert_with(|| Mine::of([])))?;
                 if store.keep_feature_handoff(&job, &holder, &feature.id, via, &now).map_err(|why| self.ledger_fault(why))? {
                     features.push(feature.slug.clone());
                     pages.push(page.text);

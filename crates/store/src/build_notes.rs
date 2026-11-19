@@ -110,6 +110,17 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// Every Job that has offered a note, so a change of build can move each one's cards.
+    pub fn build_note_sessions(&self) -> Result<Vec<String>, WriteError> {
+        let doing = "reading the Jobs that offered notes";
+        let mut statement = self.conn.prepare("SELECT DISTINCT session_id FROM build_notes").map_err(fault(doing)).map_err(WriteError::Database)?;
+        statement
+            .query_map([], |row| row.get::<_, String>(0))
+            .and_then(|rows| rows.collect::<Result<Vec<_>, _>>())
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
     /// The newest note the Job offered of `branch`, at any tip: what a re-offer that leaves a card's parts out keeps.
     pub fn build_note_newest(&self, session_id: &str, branch: &str) -> Result<Option<KeptBuildNote>, WriteError> {
         self.conn

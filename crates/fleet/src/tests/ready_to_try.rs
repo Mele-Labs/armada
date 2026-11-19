@@ -11,7 +11,7 @@ use ipc::{
 };
 
 use super::build_notices::{a_rig, Rig};
-use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, checked, code, holding, step};
+use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, built_on_main_holding, checked, code, holding, step};
 
 const BRANCH: &str = "armada/one";
 
@@ -83,6 +83,30 @@ async fn an_offer_is_an_open_card_in_its_jobs_thread_at_the_offer() {
         _ => None,
     }).collect();
     assert_eq!(drawn, [&one], "the thread draws the card");
+}
+
+#[tokio::test]
+async fn a_card_whose_tip_is_on_main_under_the_running_build_is_in_the_build() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    assert!(!card(&rig, &session, &tip).await.in_build, "no preview runs yet");
+
+    built_on_main_holding(&rig, &tip);
+
+    let one = card(&rig, &session, &tip).await;
+    assert!(one.in_build, "the build stands on a main that holds the tip, though no list names the branch");
+}
+
+#[tokio::test]
+async fn a_new_build_moves_the_cards_of_a_job_whose_branch_is_on_the_main_it_stands_on() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    rig.fleet.build_notes_published().await;
+
+    built_on_main_holding(&rig, &tip);
+
+    let moved = rig.fleet.build_notes_published().await;
+    assert!(moved.contains(&session), "no note lists the branch, yet its card now reads in_build: {moved:?}");
 }
 
 #[tokio::test]

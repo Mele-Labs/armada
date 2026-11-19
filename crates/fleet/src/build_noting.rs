@@ -75,7 +75,7 @@ fn card_state(note: &KeptBuildNote, newest: bool, now: &str) -> ReadyState {
 /// `Ready to try`, since the oldest open card, opening the Job. It goes once no card is open. A card he dismissed
 /// the row for (`dismissed` holds its id) does not raise it, so a card offered later does.
 pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, dismissed: &[String]) -> Option<ipc::WaitingItem> {
-    let since = cards_of(notes, &BTreeMap::new(), now)
+    let since = cards_of(notes, &|_, _| false, now)
         .into_iter()
         .filter(|card| card.state == ReadyState::Open && !dismissed.contains(&card.id))
         .map(|card| card.at)
@@ -100,8 +100,8 @@ pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, d
     })
 }
 
-/// The Job's notes as its cards. `held` is what the running preview build holds, branch to tip.
-fn cards_of(notes: Vec<KeptBuildNote>, held: &BTreeMap<String, String>, now: &str) -> Vec<ThreadReadyToTry> {
+/// The Job's notes as its cards. `in_build` says whether the running build holds a branch at a tip.
+fn cards_of(notes: Vec<KeptBuildNote>, in_build: &dyn Fn(&str, &str) -> bool, now: &str) -> Vec<ThreadReadyToTry> {
     let mut newest: BTreeMap<&str, (&str, &str)> = BTreeMap::new();
     for note in &notes {
         let at = (note.offered_at.as_str(), note.tip.as_str());
@@ -119,7 +119,7 @@ fn cards_of(notes: Vec<KeptBuildNote>, held: &BTreeMap<String, String>, now: &st
                 id: card_id(&note.branch, &note.tip),
                 at: Instant::carried(note.back_at.as_deref().unwrap_or(&note.offered_at)),
                 offered_at: Instant::carried(&note.offered_at),
-                in_build: held.get(&note.branch).is_some_and(|tip| *tip == note.tip),
+                in_build: in_build(&note.branch, &note.tip),
                 verdict: verdict_read(note.verdict.as_deref()),
                 later_until: note.later_until.as_deref().filter(|_| state == ReadyState::Later).map(Instant::carried),
                 state,
@@ -245,7 +245,11 @@ where
             changed.then(|| sent.replace(now.clone()))
         };
         let Some(before) = before else { return BTreeSet::new() };
-        let touched = before.iter().flat_map(|one| one.notes.iter()).chain(now.notes.iter()).map(|note| note.session_id.as_str().to_string()).collect();
+        let mut touched: BTreeSet<String> = before.iter().flat_map(|one| one.notes.iter()).chain(now.notes.iter()).map(|note| note.session_id.as_str().to_string()).collect();
+        // A new build can hold a branch no list names, because it landed on the main the build stands on.
+        if before.as_ref().map(|one| &one.commit) != Some(&now.commit) {
+            touched.extend(self.store().lock().await.build_note_sessions().unwrap_or_default());
+        }
         self.publish(Event::BuildNotesChanged(now));
         touched
     }
@@ -256,8 +260,8 @@ where
         if notes.is_empty() {
             return Vec::new();
         }
-        let held = self.preview_build().map(|(_, tips)| tips).unwrap_or_default();
-        cards_of(notes, &held, self.now().as_str())
+        let build = self.preview_build();
+        cards_of(notes, &|branch, tip| self.build_holds(build.as_ref(), branch, tip), self.now().as_str())
     }
 
     /// The Job's cards moved: its thread, where a client holds it, is folded again with them, and its record, whose

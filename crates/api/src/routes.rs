@@ -947,6 +947,7 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/change", post(crate::features::change_feature::<D>))
         .route("/features/hand_over", post(crate::features::hand_over_features::<D>))
         .route("/features/commit_check", post(crate::features::check_commit_feature::<D>))
+        .route("/features/who", get(crate::features::get_whos_on_what::<D>))
         .route("/usage/first_edit_searches", get(crate::features::get_first_edit_searches::<D>))
         .route("/kit/values", post(crate::projects::save_kit_values::<D>))
         .route("/projects/project/:project/issues", get(crate::projects::list_project_issues::<D>))

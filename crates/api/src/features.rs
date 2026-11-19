@@ -97,6 +97,13 @@ pub(crate) async fn get_since_you_looked<D: Features>(State(served): State<Serve
     }
 }
 
+pub(crate) async fn get_whos_on_what<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfProject>) -> Response {
+    match served.daemon().get_whos_on_what(crate::acting::asking(), asked.project).await {
+        Ok(who) => answer(StatusCode::OK, &who, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_feature_brief<D: Features>(State(served): State<Served<D>>, Query(asked): Query<OfFeature>) -> Response {
     match served.daemon().get_feature_brief(crate::acting::asking(), asked.project, asked.feature).await {
         Ok(brief) => answer(StatusCode::OK, &brief, served.run_id()),

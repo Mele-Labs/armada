@@ -87,7 +87,7 @@ A merge is kept with the files it changed, so the mapping is read again when a p
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
-It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
+It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; a line for each open pull request of someone else on it (see [Who's on what](#whos-on-what)); the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
 When it is over the cap the last of these go first, and the head and that line always stay.
 
 ## Handing a Job its pages
@@ -252,6 +252,34 @@ The part and what it spends are under *Librarian*.
 
 A project with nothing since answers an empty `features`, and a `since` that is no time is refused with `fleet.feature_since_unreadable`.
 
+## Who's on what
+
+In a large team nobody knows who is working on what, so Fleet reads the open pull requests the Reviews tool already pulls, teammates' included, and sets them beside the owner's own Jobs.
+Whenever the Reviews lists are read, Fleet keeps each open pull request's author, title, draft mark, head commit and the paths it changes, the first 100 of them, with a mark where there are more.
+A pull request whose head is the one already kept is not read again: that is one forge read for each pull request and each new head, at the moment the lists are read anyway, and no model.
+A pull request the lists no longer name is dropped, except from a read where one of the lists did not answer.
+The files are mapped to features as any path is, by the prefixes a feature owns and the files Jobs filed under it.
+
+`get_whos_on_what` answers by feature, each with a cell for every person on it:
+
+| Part | Holds |
+|---|---|
+| `people` | The owner first, where Fleet knows his login, then everyone with a cell by login |
+| `features` | Only features with a pull request or a Job, the most people first and then by title |
+| a cell | A `login`, the open `pulls` on the feature and, in the owner's cell alone, the ids of his Jobs on it now |
+
+A feature with two or more cells is an overlap.
+Fleet does not flag it: the screen counts the cells.
+The owner is whoever Armada is signed in to the forge as, else the forge command line's account.
+His Jobs are the ones the feature's page lists as on it now.
+
+> **Rule.** A Job is told of a teammate's open pull request on a feature in the page it is handed, and the owner is not told by a notice.
+> Why: the Job can change what it does with it, and the owner has the screen to look at when he wants to.
+
+A page handed to a Job names each open pull request by someone else that changes a file of the feature, newest first and at most five: `Open elsewhere: #412 "Start card remembers the last workflow" by priya touches this feature.`
+Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
+The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
+
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
@@ -356,6 +384,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_feature_brief` | One feature condensed |
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
+| `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
