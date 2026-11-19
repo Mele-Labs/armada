@@ -258,6 +258,21 @@ export const SLOT_NAMES: Readonly<Record<string, readonly string[] | undefined>>
     "Down",
     "Up",
   ],
+  usage_move: [
+    "Down",
+    "Up",
+    "Down",
+    "Up",
+  ],
+  usage_open: [
+    "Enter",
+    "Space",
+  ],
+  usage_window: [
+    "Day",
+    "Week",
+    "Fortnight",
+  ],
   finding_move: [
     "Down",
     "Up",
@@ -588,6 +603,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "dispatch",
     "review-sheet",
     "kit",
+    "usage",
     "features",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
@@ -666,6 +682,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // Kit holds the keys while it is the place in front, so its letters meet only the global ones.
   kit: [
     "kit",
+  ],
+  // The Usage page holds the keys while it is the place in front, so its letters meet only the global ones.
+  usage: [
+    "usage",
   ],
   // The Features tab holds the keys while it is the place in front, so its letters meet only the global ones.
   features: [
@@ -819,6 +839,12 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
     title: "Kit",
     scopes: [
       "kit",
+    ],
+  },
+  {
+    title: "Usage",
+    scopes: [
+      "usage",
     ],
   },
   {

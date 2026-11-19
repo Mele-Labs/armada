@@ -30,6 +30,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Dispatch", &[ActionScope::Dispatch]),
     ("Review sheet", &[ActionScope::ReviewSheet]),
     ("Kit", &[ActionScope::Kit]),
+    ("Usage", &[ActionScope::Usage]),
     ("Features", &[ActionScope::Features]),
     ("Issues", &[ActionScope::Issues, ActionScope::Report]),
     ("Projects", &[ActionScope::Projects]),
@@ -45,7 +46,9 @@ fn slot_names(id: &str) -> &'static [&'static str] {
         "kit_move" => &["Down", "Up", "Down", "Up"],
         "kit_pane" => &["Next", "Previous"],
         "kit_scroll" => &["Page down", "Page up", "Page down", "Page up", "Top", "Bottom"],
-        "features_move" => &["Down", "Up", "Down", "Up"],
+        "features_move" | "usage_move" => &["Down", "Up", "Down", "Up"],
+        "usage_open" => &["Enter", "Space"],
+        "usage_window" => &["Day", "Week", "Fortnight"],
         _ => &[],
     }
 }
@@ -53,7 +56,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
 /// Where an act's keys are heard, so two acts meet only where both listen (`PLACES`).
 fn places(scope: ActionScope) -> &'static [&'static str] {
     match scope {
-        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "features"],
+        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "usage", "features"],
         ActionScope::List => &["board", "dashboard", "deck"],
         ActionScope::ListAndDetail => &["board", "detail", "dashboard"],
         ActionScope::OpenStudio => &["studio"],
@@ -71,6 +74,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::Dispatch => &["dispatch"],
         ActionScope::ReviewSheet => &["review-sheet"],
         ActionScope::Kit => &["kit"],
+        ActionScope::Usage => &["usage"],
         ActionScope::Features => &["features"],
     }
 }

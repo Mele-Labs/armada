@@ -400,6 +400,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
     Walk {
+        name: "usage",
+        title: "Usage: where the burn was wasted, kind by kind",
+        screen: Screen::Reviews,
+        scenario: "usage-week",
+        steps: &crate::usage_page::walk::STEPS,
+    },
+    Walk {
         name: "kit",
         title: "Kit: the setup you work with, kind by kind",
         screen: Screen::Reviews,

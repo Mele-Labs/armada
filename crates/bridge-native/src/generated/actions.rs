@@ -52,6 +52,7 @@ pub enum ActionScope {
     ReviewSheet,
     Terminal,
     Thread,
+    Usage,
 }
 
 impl ActionScope {
@@ -77,6 +78,7 @@ impl ActionScope {
             ActionScope::ReviewSheet => "review sheet",
             ActionScope::Terminal => "terminal",
             ActionScope::Thread => "thread",
+            ActionScope::Usage => "usage",
         }
     }
 
@@ -103,6 +105,7 @@ impl ActionScope {
             ActionScope::ReviewSheet => Some("review-sheet"),
             ActionScope::Terminal => Some("terminal"),
             ActionScope::Thread => Some("thread"),
+            ActionScope::Usage => Some("usage"),
         }
     }
 }
@@ -2174,6 +2177,48 @@ pub const ACTIONS: &[Act] = &[
         confirms: false,
         unbuilt: None,
         in_palette: false,
+    },
+    Act {
+        id: "usage_move",
+        kind: ActionKind::Motion,
+        tier: ActionTier::Contextual,
+        verb: "Move between kinds of waste",
+        glyph: None,
+        icon_absent: None,
+        shortcut: "j / k / ↓ / ↑",
+        scope: ActionScope::Usage,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: false,
+    },
+    Act {
+        id: "usage_open",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "Open the Jobs it hit",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "Enter / Space",
+        scope: ActionScope::Usage,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
+    Act {
+        id: "usage_window",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "Pick the window",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "d / w / f",
+        scope: ActionScope::Usage,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
     },
     Act {
         id: "features_move",

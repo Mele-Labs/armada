@@ -212,6 +212,9 @@ Enter          open in editor   (kit only)
 /              filter   (kit only)
 a              add from a link   (kit only)
 PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
+j / k / ↓ / ↑  move between kinds of waste   (usage only)
+Enter / Space  open the Jobs it hit   (usage only)
+d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
 /              filter   (features only)
@@ -279,6 +282,11 @@ field and while a dialog is up.
 `⌘Z` is the `pane_undo` act, which restores the skill removed last.
 The bare keys stand down in the filter, the add box and the file's text box, which take them as typing.
 What stays in Kit's own screen, since it is a state of the screen and not a key: `Esc` and `Enter` on the question before a plugin is removed, `Esc` and `Enter` in the add box, `Esc` and `⌘S` while a file is edited, and `Esc` out of the filter.
+
+**The Usage page has a scope of its own, `usage`, in the native Bridge.**
+It has no tab and no key to reach it, as in Classic: the palette finds it by the name Usage, or by tokens, burn, spend or plan usage.
+`j`, `k` and the arrows move the row between kinds of waste, `Enter` or `Space` opens the panel of the Jobs a kind hit and shuts it where it is open, and `d`, `w` and `f` read the day, the week and the fortnight.
+`Esc` shuts the open panel, and with none open it goes on.
 
 **The Features tab has a scope of its own, `features`, in the native Bridge.**
 `j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
