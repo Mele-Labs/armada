@@ -60,6 +60,7 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
+mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
 mod librarian_runs;
@@ -239,6 +240,8 @@ mod test_map;
 mod timings;
 /// What Fleet saw happen, for the Cockpit's timeline.
 mod timeline;
+/// The open pull requests' authors and files, for Who's on what. `docs/concepts/feature-catalog.md`.
+mod open_pull_files;
 
 #[cfg(test)]
 mod tests;
@@ -267,6 +270,7 @@ pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use feature_decisions::KeptFeatureDecision;
 pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
@@ -360,6 +364,7 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.
 mod feature_reads;

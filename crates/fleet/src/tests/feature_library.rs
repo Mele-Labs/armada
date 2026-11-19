@@ -122,6 +122,7 @@ fn facts() -> BriefFacts {
         current_as_of: Some((812, "2026-11-14".into())),
         stale: vec![("test".into(), 815)],
         jobs_now: vec!["Add rank votes".into()],
+        elsewhere: Vec::new(),
         entry_points: (1..=8).map(|n| format!("crates/votes/file{n}.rs:{n}")).collect(),
         test: Some("armada check test page_votes".into()),
         bugs: (1..=5).map(|n| format!("bug {n}")).collect(),
@@ -434,7 +435,7 @@ async fn a_feature_in_an_area_nobody_kept_is_refused_with_nothing_kept_and_a_re_
 
 // What follows hands a Job the pages of the features it works in.
 
-fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
+pub(super) fn hand(id: &SessionId, agent: Option<&str>, paths: &[&str], brief: Option<&str>) -> ipc::HandOverFeatures {
     ipc::HandOverFeatures {
         session_id: id.clone(),
         agent_id: agent.map(str::to_string),

@@ -18,7 +18,7 @@ const OPERATOR_PORT: u16 = 50999;
 const JOB_PORT: u16 = 50001;
 const HOST_PORT: u16 = 12345;
 
-fn rig() -> Rig {
+pub(super) fn rig() -> Rig {
     let peers = Placing::nothing();
     peers.holding(1000, OPERATOR_PORT, HOST_PORT);
     peers.holding(1001, JOB_PORT, HOST_PORT);
@@ -55,7 +55,7 @@ fn heard(rig: &Rig, containing: &str) -> usize {
     rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
 }
 
-async fn a_project(rig: &Rig) -> String {
+pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
     rig.fleet.add_project(NewProject { name: "Armada".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone()
 }
@@ -175,11 +175,11 @@ async fn a_project_that_is_not_armadas_is_never_seeded_by_fleet() {
 
 // Asks from outside a Job.
 
-const VOTING: &str = "voting-on-takes";
-const ACTIONS: &str = "page-actions";
+pub(super) const VOTING: &str = "voting-on-takes";
+pub(super) const ACTIONS: &str = "page-actions";
 
 /// A small library: two features in one area, `VOTING` owning `crates/pages/voting`.
-async fn libraried(rig: &Rig, project: &str) {
+pub(super) async fn libraried(rig: &Rig, project: &str) {
     let feature = |slug: &str, paths: &[&str], entry: &[&str]| FeatureSeed {
         slug: slug.to_string(),
         area: "takes".to_string(),
@@ -287,7 +287,7 @@ async fn a_note_points_to_the_features_of_the_files_it_was_drawn_from_and_failin
 
 // A feature a Job names that the library does not hold, and what the Operator does with it.
 
-async fn a_job_in(rig: &Rig, project: &str) -> SessionId {
+pub(super) async fn a_job_in(rig: &Rig, project: &str) -> SessionId {
     let start = StartSession {
         project: Some(project.to_string()),
         manifest_id: rig.manifest.clone(),
@@ -308,11 +308,11 @@ async fn a_job_in(rig: &Rig, project: &str) -> SessionId {
     id
 }
 
-fn trailer(slug: &str, sha: &str, files: &[&str]) -> NamingCommit {
+pub(super) fn trailer(slug: &str, sha: &str, files: &[&str]) -> NamingCommit {
     NamingCommit { sha: sha.to_string(), features: vec![slug.to_string()], files: files.iter().map(|one| one.to_string()).collect() }
 }
 
-async fn commits_filed(rig: &Rig, job: &SessionId, named: &[NamingCommit]) {
+pub(super) async fn commits_filed(rig: &Rig, job: &SessionId, named: &[NamingCommit]) {
     let now = rig.fleet.now().as_str().to_string();
     let mut store = rig.fleet.store().lock().await;
     rig.fleet.commits_filed_in(&mut store, job.as_str(), named, &now);

@@ -22,6 +22,7 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Pull requests and merges | Detected from the pull requests Fleet attached and the forge's merges |
 | Sketches, pages, walks and drafts | The act that made them names the feature: `feature` on `show_sketch`, `show_window` and `propose_draft`, `armada-feature` in a page's head |
 | Commits | Detected from `Feature:` trailer lines in git |
+| Decisions | Detected from what he settled in a Job, see *Decisions* |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
 A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
@@ -76,6 +77,21 @@ Fleet links the artifact to each feature the project holds, as a link of kind `s
 
 Fleet makes such a name a pending feature of the first project of the Job that holds features, and links the artifact to it, as it does a trailer's unknown slug.
 
+## Decisions
+
+A decision is something the owner settled in a Job.
+It is his answer to a question, an `AskUserQuestion` card or an item of `waiting_for` that offers options, his pick on takes, his Approve or Ask for changes on a sketch, a draft, a page or a plan, or his Looks good on a Ready to try card.
+Fleet keeps the question or the artifact's title, what he chose, his note if he gave one, the Job and the time, and `get_feature_page` serves them as `decisions`, newest first.
+No model reads anything: each place Fleet already records one of these answers files it.
+
+> **Rule.** A decision is filed under the features its artifact names, and where it names none, under the features its Job is linked to.
+> Why: a sketch made for one feature says which feature his answer shapes, and an answer to a bare question is best placed where the Job's work landed.
+
+The Job's features are read when the page is served, so a feature the Job is linked to after he answered shows the decision too.
+An artifact's features are the ones its link says, so a feature renamed or merged keeps its decisions.
+Hearing the same answer twice files it once, and an answer given in his place by the Operator or Autopilot is not filed.
+A plan's Approve settles the sketches it names, and those are filed with the plan, not again as their own.
+
 ## Stale
 
 > **Rule.** A written section is stale when a merge after it changed a file mapped to its feature, and it reads `stale since #<pr>`, the first such merge.
@@ -108,7 +124,7 @@ Left out, because Fleet keeps nothing per file for them: a pull request's forge 
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
-It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
+It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; a line for each open pull request of someone else on it (see [Who's on what](#whos-on-what)); the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
 When it is over the cap the last of these go first, and the head and that line always stay.
 
 ## Handing a Job its pages
@@ -273,6 +289,34 @@ The part and what it spends are under *Librarian*.
 
 A project with nothing since answers an empty `features`, and a `since` that is no time is refused with `fleet.feature_since_unreadable`.
 
+## Who's on what
+
+In a large team nobody knows who is working on what, so Fleet reads the open pull requests the Reviews tool already pulls, teammates' included, and sets them beside the owner's own Jobs.
+Whenever the Reviews lists are read, Fleet keeps each open pull request's author, title, draft mark, head commit and the paths it changes, the first 100 of them, with a mark where there are more.
+A pull request whose head is the one already kept is not read again: that is one forge read for each pull request and each new head, at the moment the lists are read anyway, and no model.
+A pull request the lists no longer name is dropped, except from a read where one of the lists did not answer.
+The files are mapped to features as any path is, by the prefixes a feature owns and the files Jobs filed under it.
+
+`get_whos_on_what` answers by feature, each with a cell for every person on it:
+
+| Part | Holds |
+|---|---|
+| `people` | The owner first, where Fleet knows his login, then everyone with a cell by login |
+| `features` | Only features with a pull request or a Job, the most people first and then by title |
+| a cell | A `login`, the open `pulls` on the feature and, in the owner's cell alone, the ids of his Jobs on it now |
+
+A feature with two or more cells is an overlap.
+Fleet does not flag it: the screen counts the cells.
+The owner is whoever Armada is signed in to the forge as, else the forge command line's account.
+His Jobs are the ones the feature's page lists as on it now.
+
+> **Rule.** A Job is told of a teammate's open pull request on a feature in the page it is handed, and the owner is not told by a notice.
+> Why: the Job can change what it does with it, and the owner has the screen to look at when he wants to.
+
+A page handed to a Job names each open pull request by someone else that changes a file of the feature, newest first and at most five: `Open elsewhere: #412 "Start card remembers the last workflow" by priya touches this feature.`
+Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
+The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
+
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
@@ -351,10 +395,11 @@ A Job whose turns were read before searches were counted is in no week until its
 | Operation | Does |
 |---|---|
 | `list_features` | A project's areas and features, with who is on each now, the oldest stale merge and each one's health |
-| `get_feature_page` | One feature whole, or with `section` that one section alone |
+| `get_feature_page` | One feature whole, with the decisions filed under it, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
+| `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |

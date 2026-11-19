@@ -46,6 +46,13 @@ pub trait Features: Send + Sync + 'static {
         since: String,
     ) -> impl Future<Output = Result<ipc::SinceYouLooked, Refusal>> + Send;
 
+    /// `get_whos_on_what` — who has an open pull request or a running Job on which feature of the project.
+    fn get_whos_on_what(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::WhosOnWhat, Refusal>> + Send;
+
     /// `get_feature_brief` — the page condensed to about a thousand tokens. Refused as `get_feature_page` is.
     fn get_feature_brief(
         &self,
