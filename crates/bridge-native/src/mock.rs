@@ -77,6 +77,11 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     // The preferences a scenario is read with: Fleet answers none on mock data, and the rest read as defaults.
     crate::ways::set(if scenario == "ways-buttons" { ipc::AnswerWith::Buttons } else { ipc::AnswerWith::Type }, true);
     crate::ways::set_look(if scenario == "ways-look" { ipc::TakeIn::Look } else { ipc::TakeIn::Read }, ipc::LookQuestions::PicturesMix, ipc::LookResults::PictureEvery);
+    jobs_of(scenario)
+}
+
+/// The Jobs of a named scenario, read for their names alone: the scenario a walk named stays named.
+pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
@@ -111,7 +116,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
-        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/jobs-tabs.json"),
+        "job-tabs" | "job-web-walk" | "page-actions" | "page-scripts" => include_bytes!("../fixtures/jobs-tabs.json"),
         // The panes' first Job with its plan approved and two groups finished, three pull requests
         // merged, its issue closed, a Job it started finished, and what Fleet did for it.
         "job-done" => include_bytes!("../fixtures/jobs-done.json"),
@@ -617,7 +622,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
         "needs-long" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and Quiet the write-clash notices holding the page it asks him to read.
-        "job-tabs" | "job-web-walk" | "page-actions" => include_bytes!("../fixtures/tabs-threads.json"),
+        "job-tabs" | "job-web-walk" | "page-actions" | "page-scripts" => include_bytes!("../fixtures/tabs-threads.json"),
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, and the mod Job's two Checks, the newest running.
@@ -951,13 +956,16 @@ pub fn walk_refused(url: &str) -> Option<String> {
     (named.as_str() == "job-tabs" && url == "armada://walk/chipColours").then(|| "Build the walk first: cargo build in crates/bridge-native in slot-4".to_string())
 }
 
-/// The page the mock Fleet serves sealed: `Stale branch design`, revision 2, sealed by Fleet's own code from
-/// `fixtures/page-actions-source.html` (`page_sealed`'s `the_native_mock_page_is_sealed_as_fleet_seals_it` writes it).
+/// The page the mock Fleet serves sealed, as it serves the native Bridge (`host_kit`): `Stale branch design`, revision 2,
+/// sealed by Fleet's own code from `fixtures/page-actions-source.html` (`page_sealed`'s
+/// `the_native_mock_page_is_sealed_as_fleet_seals_it` writes it, and the two below).
 const SEALED_PAGE: &str = include_str!("../fixtures/page-actions.html");
+/// The same page in `page-scripts`: one action, and a script of its own that tries to press it.
+const SCRIPTED_PAGE: &str = include_str!("../fixtures/page-scripts.html");
 /// The record Fleet sealed it with, which the mock swaps for what was pressed and voted on it.
 const SEALED_RECORD: &str = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
-/// A second page: `Stale marks`, whose own drawing and whose two takes each hold an `<armada-sketch>`, sealed round the body
-/// `fixtures/page-sketches-source.html` holds, with the kit Fleet seals the first page with.
+/// A second page: `Stale marks`, whose own drawing and whose two takes each hold an `<armada-sketch>`, sealed from
+/// `fixtures/page-sketches-source.html`.
 const SKETCHED_PAGE: &str = include_str!("../fixtures/page-sketches.html");
 const SKETCHED_RECORD: &str = r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#;
 /// When the mock Fleet says a press or a vote was kept.
@@ -976,7 +984,7 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
     }
     let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
     let record = format!(r#"{{"artifact":"design","revision":{revision},"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
-    let sealed = SEALED_PAGE.replacen(SEALED_RECORD, &record, 1);
+    let sealed = if scenario_is("page-scripts") { SCRIPTED_PAGE } else { SEALED_PAGE }.replacen(SEALED_RECORD, &record, 1);
     // The first revision counted three branches where the second counts four.
     Ok(if revision == 1 { sealed.replacen("Four branches are stale now.", "Three branches are stale now.", 1) } else { sealed })
 }
