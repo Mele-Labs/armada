@@ -11,6 +11,7 @@ use ipc::{
 };
 use store::{feature_link_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
 
+use super::health::Health;
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
 use super::mapping::FeatureMap;
 use super::staleness::stale_since;
@@ -167,6 +168,15 @@ where
         held.holding(&ipc::ManifestId::carried(&manifest).to_domain()).into_iter().map(|one| one.id().as_str().to_string()).collect()
     }
 
+    /// The repositories the project's members name, which a feature that names none is read in.
+    fn repositories_of(&self, project: &str) -> Vec<String> {
+        let held = self.projects_held();
+        let Some(project) = core_model::ScopeId::new(project).ok().and_then(|scope| held.get(&scope).cloned()) else {
+            return Vec::new();
+        };
+        project.repositories().into_iter().map(|one| one.as_str().to_string()).collect()
+    }
+
     fn feature_fault(&self, why: WriteError) -> Refusal {
         self.ledger_fault(why)
     }
@@ -191,10 +201,12 @@ where
         let loaded = Loaded::read(&store, &chosen).map_err(|why| self.feature_fault(why))?;
         let on = self.jobs_on_features(&store, &chosen)?;
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
+        let mut health = Health::new(&store, &loaded, self.repositories_of(&loaded.project));
         for feature in loaded.map.features() {
             let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
-            let row = row_of(feature, on.get(&feature.id).cloned().unwrap_or_default(), stale);
+            let jobs = on.get(&feature.id).cloned().unwrap_or_default();
+            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale);
             match areas.iter_mut().find(|area| area.slug == feature.area) {
                 Some(area) => area.features.push(row),
                 // A feature whose area was never kept is listed under its own slug rather than dropped.
@@ -254,6 +266,8 @@ where
         let on = self.jobs_on_features(&store, &loaded.project)?;
         let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
         let stale = marked.iter().filter_map(|(_, since)| *since).min();
+        let jobs = on.get(&feature.id).cloned().unwrap_or_default();
+        let health = Health::new(&store, &loaded, self.repositories_of(&loaded.project)).of(&feature, &marked, &jobs);
         let (links, files, decisions) = if only.is_some() {
             (Vec::new(), Vec::new(), Vec::new())
         } else {
@@ -267,7 +281,7 @@ where
         let tickets = reads_of(&links, feature_link_kind::TICKET);
         let mut page = FeaturePage {
             project: loaded.project.clone(),
-            feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
+            feature: row_of(&feature, health, jobs, stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
             paths: feature.paths.clone(),
             entry_points: feature.entry_points.clone(),
@@ -347,7 +361,7 @@ fn holds_a_slot(store: &Store, job: &str) -> bool {
         .any(|one| one.kind == "slot" && one.state == store::AttachmentState::Standing)
 }
 
-fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
+fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
     FeatureRow {
         id: feature.id.clone(),
         slug: feature.slug.clone(),
@@ -357,6 +371,7 @@ fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<
         state: state_of(&feature.state),
         jobs_now,
         stale_since,
+        health,
     }
 }
 

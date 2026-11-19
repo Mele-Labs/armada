@@ -934,6 +934,9 @@ pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
 
+/// A feature's health mark and the reasons behind it.
+mod feature_health;
+pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKind};
 /// The project overview and Since you looked pages of the Features screen.
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
