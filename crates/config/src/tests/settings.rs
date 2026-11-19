@@ -206,6 +206,7 @@ fn every_handle_names_an_entry_of_its_kind() {
     }
     for key in [
         s::LIBRARIAN_RUNS,
+        s::SUBAGENT_CACHE_TTL,
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,

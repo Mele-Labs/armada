@@ -61,6 +61,7 @@ pub mod job_time;
 mod job_timing;
 pub mod usage_rules;
 mod usage_summarising;
+mod usage_adjust;
 mod usage_waste;
 mod time_summarising;
 mod turn_usage_keeping;

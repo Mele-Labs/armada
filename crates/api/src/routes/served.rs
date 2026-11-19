@@ -265,6 +265,11 @@ const ROUTES: &[Route] = &[
         path: "/usage/waste",
     },
     Route {
+        operation: "get_usage_adjustments",
+        method: "GET",
+        path: "/usage/adjustments",
+    },
+    Route {
         operation: "get_usage_time",
         method: "GET",
         path: "/usage/time",

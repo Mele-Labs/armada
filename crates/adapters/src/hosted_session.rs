@@ -62,6 +62,12 @@ const NO_CONNECTORS: (&str, &str) = ("ENABLE_CLAUDEAI_MCP_SERVERS", "false");
 const COMPACT_WINDOW: &str = "CLAUDE_CODE_AUTO_COMPACT_WINDOW";
 const COMPACT_WINDOW_RANGE: (u32, u32) = (100_000, 1_000_000);
 
+/// How long the prompt cache of the requests made outside the main conversation, a subagent's among them,
+/// is held. The CLI reads `5m` or `1h`; measured on a run with it set to `1h`, every subagent write was
+/// an hour's, and with it unset every one was five minutes'.
+const SUBAGENT_CACHE_TTL: &str = "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL";
+const SUBAGENT_CACHE_TTLS: [&str; 2] = ["5m", "1h"];
+
 /// A skill the person switched off for a repository: hidden from the model's list, and still the
 /// person's own `/name`. The CLI's spelling in `skillOverrides`.
 const SKILL_HIDDEN: &str = "user-invocable-only";
@@ -118,6 +124,8 @@ pub struct HostedLaunch {
     connectors: bool,
     /// Tokens at which the CLI compacts the conversation. Absent leaves the CLI's own.
     compaction_window: Option<u32>,
+    /// How long a subagent's prompt cache is held, one of [`SUBAGENT_CACHE_TTLS`]. Absent leaves the CLI's own.
+    subagent_cache_ttl: Option<&'static str>,
     /// The skills hidden from the model's list in this process.
     skills_off: Vec<String>,
     /// Whether the CLI is asked for its thinking summaries.
@@ -189,6 +197,7 @@ impl HostedLaunch {
             models: Vec::new(),
             connectors: true,
             compaction_window: None,
+            subagent_cache_ttl: None,
             skills_off: Vec::new(),
             thinking_summaries: false,
             operator: false,
@@ -265,6 +274,12 @@ impl HostedLaunch {
     pub fn compacting_at(mut self, tokens: i64) -> HostedLaunch {
         let (least, most) = COMPACT_WINDOW_RANGE;
         self.compaction_window = Some(u32::try_from(tokens.clamp(i64::from(least), i64::from(most))).unwrap_or(least));
+        self
+    }
+
+    /// Have the CLI hold a subagent's prompt cache for `ttl`, `5m` or `1h`. Any other word leaves the CLI's own.
+    pub fn caching_subagents_for(mut self, ttl: &str) -> HostedLaunch {
+        self.subagent_cache_ttl = SUBAGENT_CACHE_TTLS.into_iter().find(|one| *one == ttl);
         self
     }
 
@@ -458,6 +473,10 @@ impl HeadlessAgent {
                     .and_then(|env| env.and(MCP_CONNECT_TIMEOUT.0, MCP_CONNECT_TIMEOUT.1))
                     .and_then(|env| match hosted.compaction_window {
                         Some(tokens) => env.and(COMPACT_WINDOW, &tokens.to_string()),
+                        None => Ok(env),
+                    })
+                    .and_then(|env| match hosted.subagent_cache_ttl {
+                        Some(ttl) => env.and(SUBAGENT_CACHE_TTL, ttl),
                         None => Ok(env),
                     })
                     .and_then(|env| match hosted.connectors {
