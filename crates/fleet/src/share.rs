@@ -316,6 +316,19 @@ where
             // A merge is for projects this Mac shares: the one it keeps, and the one it gives up.
             ProjectAct::Absorb { kept, .. } => project_shared(Some(kept)),
             ProjectAct::GiveUp { gone, .. } => project_shared(Some(gone)),
+            ProjectAct::DeleteProject { project } => project_shared(Some(project)),
+            // Where the file is kept is chosen only here, so an edit that names a place is refused whole.
+            ProjectAct::EditProject { project, edit } => {
+                project_shared(Some(project))?;
+                match edit.place {
+                    Some(_) => Err(Refusal::Unacceptable(WireError::raised(
+                        crate::project_files::PLACE_REFUSED,
+                        "A project's file is moved only on the Mac that keeps it.",
+                        self.run_id(),
+                    ))),
+                    None => Ok(()),
+                }
+            }
             ProjectAct::MoveProjectRow { row, to } => {
                 row_shared(row)?;
                 match &to.project {

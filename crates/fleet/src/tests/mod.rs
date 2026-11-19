@@ -188,6 +188,7 @@ mod phone_share;
 mod store_not_starved;
 mod other_macs;
 mod other_mac_projects;
+mod other_mac_project_edits;
 mod project_merging;
 mod project_bucket_files;
 mod two_macs;

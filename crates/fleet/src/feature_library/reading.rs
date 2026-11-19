@@ -168,10 +168,12 @@ where
         held.holding(&ipc::ManifestId::carried(&manifest).to_domain()).into_iter().map(|one| one.id().as_str().to_string()).collect()
     }
 
-    /// The repositories the project's members name, which a feature that names none is read in.
-    fn repositories_of(&self, project: &str) -> Vec<String> {
+    /// The repositories the project's members name, which a feature that names none is read in. **A copy of another
+    /// Mac's names its own**, read in this Mac's catalog.
+    fn repositories_of(&self, store: &Store, project: &str) -> Vec<String> {
         let held = self.projects_held();
-        let Some(project) = core_model::ScopeId::new(project).ok().and_then(|scope| held.get(&scope).cloned()) else {
+        let own = core_model::ScopeId::new(project).ok().and_then(|scope| held.get(&scope).cloned());
+        let Some(project) = own.or_else(|| self.copy_read_in(store, project)) else {
             return Vec::new();
         };
         project.repositories().into_iter().map(|one| one.as_str().to_string()).collect()
@@ -201,7 +203,7 @@ where
         let loaded = Loaded::read(&store, &chosen).map_err(|why| self.feature_fault(why))?;
         let on = self.jobs_on_features(&store, &chosen)?;
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
-        let mut health = Health::new(&store, &loaded, self.repositories_of(&loaded.project));
+        let mut health = Health::new(&store, &loaded, self.repositories_of(&store, &loaded.project));
         for feature in loaded.map.features() {
             let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
@@ -268,7 +270,7 @@ where
         let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
         let stale = marked.iter().filter_map(|(_, since)| *since).min();
         let jobs = on.get(&feature.id).cloned().unwrap_or_default();
-        let health = Health::new(&store, &loaded, self.repositories_of(&loaded.project)).of(&feature, &marked, &jobs);
+        let health = Health::new(&store, &loaded, self.repositories_of(&store, &loaded.project)).of(&feature, &marked, &jobs);
         let (links, files, decisions) = if only.is_some() {
             (Vec::new(), Vec::new(), Vec::new())
         } else {
