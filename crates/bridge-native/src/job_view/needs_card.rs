@@ -52,8 +52,9 @@ impl JobView {
         questions.iter().find(|row| Some(row.id.as_str()) == chosen).or(questions.first()).copied()
     }
 
-    /// The stepper: the question before (`by` -1) or after (1) comes to the front.
-    pub(super) fn step_card_question(&mut self, by: isize, cx: &mut Context<Self>) {
+    /// The stepper: the question before (`by` -1) or after (1) comes to the front, and the keys are the panel's, so a
+    /// number answers it.
+    pub(super) fn step_card_question(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let to = {
             let questions = self.card_questions(&id, cx);
@@ -64,6 +65,7 @@ impl JobView {
         if let Some(dock) = self.dock_mut() {
             dock.front = to;
         }
+        window.focus(&self.dock_focus, cx);
         cx.notify();
     }
 
@@ -99,12 +101,9 @@ impl JobView {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(gpui::transparent_black())
                 .tooltip(tip(said))
-                // Held at an end it keeps the keys it has, so they stay in the panel.
-                .focusable()
-                .focus_visible(move |style| style.border_color(ring))
                 .child(glyph(look, icon, Size::Small, ink));
             let key = if on {
-                pressed(key.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).tab_stop(true), cx, move |this, _, cx| this.step_card_question(by, cx))
+                pressed(key.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).focusable().tab_stop(true).focus_visible(move |style| style.border_color(ring)), cx, move |this, window, cx| this.step_card_question(by, window, cx))
             } else {
                 key.opacity(0.4)
             };
