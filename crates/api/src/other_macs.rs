@@ -3,7 +3,7 @@
 
 use axum::body::Bytes;
 use axum::extract::ws::{WebSocket, WebSocketUpgrade};
-use axum::extract::{Query, State};
+use axum::extract::{DefaultBodyLimit, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
@@ -16,6 +16,11 @@ use crate::daemon::{HostedSessions, OtherMacs, PullRequests, Queries, Sessions};
 use crate::served::Served;
 use crate::sockets::{resync, send};
 use crate::stream::Next;
+
+/// The most a list handed in from another Mac may weigh: that Mac's whole list of Jobs, projects or reports, or one
+/// event, which carries a Job's row whole. **Its every attachment rides in a Job's row**, so on 19 Nov one Mac's
+/// Job list was 5 MB, past axum's 2 MB default, and nothing after it crossed.
+pub(crate) const MOST_A_MAC_LIST_MAY_BE: usize = 64 * 1024 * 1024;
 
 pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
     Router::new()
@@ -34,11 +39,11 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_mac/thread", get(share_job_thread::<D>))
         .route("/other_mac/page", get(share_job_page::<D>))
         .route("/sessions/other_mac_page", post(open_other_mac_page::<D>))
-        .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>))
-        .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>))
-        .route("/other_macs/preview_offers", put(hold_other_mac_preview_offers::<D>))
-        .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
-        .route("/other_macs/event", post(hold_other_mac_event::<D>))
+        .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/preview_offers", put(hold_other_mac_preview_offers::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/projects", put(hold_other_mac_projects::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/event", post(hold_other_mac_event::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
         .route("/other_macs/claims", put(hold_mac_claims::<D>))
         .merge(crate::mac_terminals::mounted::<D>())

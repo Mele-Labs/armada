@@ -1408,22 +1408,24 @@ where
             ),
             None => None,
         };
-        let store = self.store().lock().await;
-        let found = store
-            .find_sessions(&SessionSearch {
-                manifest_id: manifest.as_deref(),
-                state: state.map(session_state),
-                text: text.as_deref(),
-            })
-            .map_err(|why| self.ledger_fault(why))?;
-        // Every row's reads are taken under the lock and it is let go before any is drawn: drawing
-        // reads transcripts and the slot pool from disk, and every other Fleet command waits meanwhile.
+        let found = {
+            let store = self.store().lock().await;
+            store
+                .find_sessions(&SessionSearch {
+                    manifest_id: manifest.as_deref(),
+                    state: state.map(session_state),
+                    text: text.as_deref(),
+                })
+                .map_err(|why| self.ledger_fault(why))?
+        };
+        // One row's reads are taken per hold of the lock, so every other Fleet command gets in between rows:
+        // with hundreds of Jobs a pass under one hold kept /fleet/build and /sessions/view waiting for minutes.
         let mut forecasts = Forecasts::default();
         let mut taken = Vec::with_capacity(found.len());
         for session in &found {
+            let store = self.store().lock().await;
             taken.push(self.ledger_reads_with(&store, session, &mut forecasts)?);
         }
-        drop(store);
         let sessions = found.iter().zip(taken).map(|(session, reads)| self.ledger_built(session, reads)).collect();
         let sessions = self.beside_other_macs(sessions, manifest.as_deref(), text.as_deref(), state).await?;
         Ok(SessionList { sessions })

@@ -519,6 +519,26 @@ async fn an_oversized_body_is_refused_as_a_wire_error_naming_the_route() {
     );
 }
 
+/// What the Gateway hands in from another Mac is that Mac's whole list, and a Job's row carries every
+/// attachment it ever had: on 19 Nov a 5 MB Job list was refused here, and no project crossed after it.
+#[tokio::test]
+async fn a_list_from_another_mac_past_two_megabytes_is_taken() {
+    for path in ["/other_macs/sessions", "/other_macs/projects", "/other_macs/bug_reports", "/other_macs/event"] {
+        let events = Broadcaster::new();
+        let app = wired(FakeDaemon::new(events.clone()), events);
+        let body = format!(r#"{{"mac":"mac-work","pad":"{}"}}"#, "a".repeat(5 * 1024 * 1024));
+        let request = Request::builder()
+            .method(if path == "/other_macs/event" { "POST" } else { "PUT" })
+            .uri(path)
+            .header("content-type", "application/json")
+            .header("content-length", body.len().to_string())
+            .body(Body::from(body))
+            .expect("a well-formed request");
+        let response = app.oneshot(request).await.expect("an answer");
+        assert_ne!(response.status(), StatusCode::PAYLOAD_TOO_LARGE, "{path} turned a 5 MB list away");
+    }
+}
+
 #[tokio::test]
 async fn the_phone_switch_is_read_and_set_over_the_router() {
     let events = Broadcaster::new();

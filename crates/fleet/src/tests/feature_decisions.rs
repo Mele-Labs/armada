@@ -28,7 +28,7 @@ fn takes(id: &SessionId, title: &str) -> ipc::AddPart {
 }
 
 async fn decisions(rig: &Rig, project: &str, slug: &str) -> Vec<FeatureDecision> {
-    rig.fleet.get_feature_page(None, Some(project.to_string()), slug.to_string(), None).await.expect("page").decisions
+    rig.fleet.get_feature_page(None, Some(project.to_string()), slug.to_string(), None, false).await.expect("page").decisions
 }
 
 #[tokio::test]

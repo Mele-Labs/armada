@@ -2,6 +2,7 @@
 //! its rows. Every value is a token.
 
 use gpui::{div, list, prelude::*, px, AnyElement, Div, FontWeight, Hsla, IntoElement, Render, Role, SharedString, Window};
+use gpui_component::text::TextView;
 
 use super::model::{Card, Row};
 use super::{Load, Region, StoryTab};
@@ -61,7 +62,12 @@ impl StoryTab {
             Role::Image,
             row.said.clone(),
         );
-        let mut text = div().flex_1().min_w_0().flex().flex_col().gap(px(2.)).child(div().text_color(ink).child(SharedString::from(row.text.clone())));
+        // His own words are drawn as the thread draws them, so a brief's headings, lists and code read as formatted.
+        let words: AnyElement = match row.words.as_ref().filter(|words| !words.is_empty()) {
+            Some(words) => TextView::markdown(gpui::ElementId::Name(format!("{id}-words").into()), words.clone()).w_full().text_color(ink).into_any_element(),
+            None => div().text_color(ink).child(SharedString::from(row.text.clone())).into_any_element(),
+        };
+        let mut text = div().flex_1().min_w_0().flex().flex_col().gap(px(2.)).child(words);
         if !row.meta.is_empty() {
             text = text.child(muted_line(look, &row.meta));
         }

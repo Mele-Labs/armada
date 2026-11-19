@@ -80,6 +80,8 @@ pub(crate) struct Module {
 pub(crate) struct Layout {
     pub(crate) modules: Vec<Module>,
     pub(crate) uses: BTreeSet<(usize, usize)>,
+    /// Its tracked files and their sizes, where the floor plan read them (`floor_files`); empty from [`read`].
+    pub(crate) files: Vec<(String, u64)>,
 }
 
 impl Layout {
@@ -155,7 +157,7 @@ pub(crate) fn read(root: &Path) -> Layout {
         found = top.into_iter().map(|folder| Module { name: folder.clone(), root: folder, kind: Kind::Folder, deps: Vec::new(), spec_files: false }).collect();
     }
     found.sort_by(|a, b| a.root.cmp(&b.root).then_with(|| a.name.cmp(&b.name)));
-    let mut layout = Layout { modules: found, uses: BTreeSet::new() };
+    let mut layout = Layout { modules: found, uses: BTreeSet::new(), files: Vec::new() };
     for dir in &spec_dirs {
         if let Some(at) = layout.holding(dir) {
             layout.modules[at].spec_files = true;

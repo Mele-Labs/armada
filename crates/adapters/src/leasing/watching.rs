@@ -118,8 +118,9 @@ impl State {
                 (Some("refs"), ["remotes", _, name @ ..]) if name.join("/") == base => {
                     Touched::All
                 }
-                // A worktree this has not met.
-                (Some("worktrees"), [_, ..]) => Touched::All,
+                // A worktree this has not met, made or gone: its own directory moving. What happens inside
+                // one that is not a slot (an agent's, Fleet's) is not the pool's, and is every git call there.
+                (Some("worktrees"), [_]) => Touched::All,
                 _ => Touched::Nothing,
             };
         }
@@ -537,4 +538,24 @@ pub(crate) fn heard_of(root: &Path) -> (bool, Vec<usize>) {
         let state = watch.shared.state();
         (state.moves.all, state.moves.slots.iter().copied().collect())
     })
+}
+
+#[cfg(test)]
+mod classifying {
+    use super::*;
+
+    fn touched(path: &str) -> Touched {
+        State::default().classify(Path::new("/repo/.git"), "main", Path::new(path))
+    }
+
+    #[test]
+    fn a_worktree_that_is_not_a_slot_moving_inside_is_not_every_slot_moving() {
+        assert!(matches!(touched("/repo/.git/worktrees/agent-1/index"), Touched::Nothing));
+        assert!(matches!(touched("/repo/.git/worktrees/agent-1/logs/HEAD"), Touched::Nothing));
+    }
+
+    #[test]
+    fn a_worktree_made_or_removed_is_every_slot_moving() {
+        assert!(matches!(touched("/repo/.git/worktrees/agent-1"), Touched::All));
+    }
 }

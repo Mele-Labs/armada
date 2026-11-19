@@ -178,9 +178,10 @@ impl Link<'_> {
         frozen_with(self.gateway, self.mac).is_some()
     }
 
+    /// Projects first, so a Job list this Fleet turns away cannot keep the projects from crossing.
     async fn both(&self) -> Result<(), String> {
-        self.sessions().await?;
         self.projects().await?;
+        self.sessions().await?;
         self.preview_offers().await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })

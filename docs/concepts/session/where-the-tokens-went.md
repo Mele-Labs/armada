@@ -96,12 +96,13 @@ Every figure is in the units above, so `total_units` is the summary's for the sa
 |---|---|---|
 | `cold_cache` | The cache writes of a turn that found the cache cold, as Spent on's `cold_cache` | The turn's input and cache writes, weighed, times the share it kept as `cold_cache`. One occurrence for each cold turn |
 | `fresh_starts` | What the first main-thread request after a compaction held as `start_up` | The turn's cache read times its `start_up` read share, plus its input and writes times its `start_up` write share. One occurrence for each such start |
-| `repeat_reads` | A Read of lines of a file the same thread already read, with no compaction and no edit of the file between | The repeat result's tokens (its bytes over 4), as a share of the input and writes of the request that carried it, times that request's weighed input and writes, out of what the request has left. One occurrence for each repeat read |
-| `big_results` | The part of a tool's result past 20 KB | The same, for the bytes past 20 KB of each such result that is not a repeat read. One occurrence for each such result |
+| `repeat_reads` | A Read of lines of a file the same thread already read, with no compaction and no edit of the file between | The repeat result's tokens (its bytes over 4), as a share of the input and writes of the request that carried it, times that request's weighed input and writes, out of what the request has left. Plus the same tokens read from the cache again by each later request of the thread, until its next compaction. One occurrence for each repeat read |
+| `big_results` | The part of a tool's result past 20 KB | The same, for the bytes past 20 KB of each such result that is not a repeat read, both when it is carried and when later requests read it again. One occurrence for each such result |
 | `main_context` | The part of a main-thread request past 300k tokens of context | What is left of the request's burn, times (context less 300k) over context. One occurrence for each such request |
 | `subagent_context` | The same, for a subagent's request | The same |
 
 **A request's burn is handed out once, in that order.** The cold cache takes its part first, a fresh start takes its start-up part of what is left, repeat reads and then big results take theirs of what is left after those, and the context kinds take their fraction of what is still left.
+A result's later reading is in the same order: a request takes what the earlier results cost it to read again, repeat reads first and then big results, after its own writes and before the context kinds.
 Both result kinds sit after the two kinds that are read off the request's own shares and before the context kinds, so a result that makes a request long is waste as a result and the context kind keeps only what it did not take.
 So a request is in as many kinds as it earned, and no unit is in two: the kinds add up to at most the burn of the requests they read.
 The 300k is one constant, `LONG_CONTEXT` in `crates/store/src/usage_summary.rs`, the figure the Context rule tells a Job at.
@@ -122,6 +123,15 @@ A request's results are summed first and the share is held to one, so estimate e
 A repeat read comes first: its whole result is the waste.
 A result over 20 KB that is not a repeat read gives the bytes past 20 KB, so a repeat that is also big is counted once, as a repeat read.
 The 20 KB is one constant, `BIG_RESULT_BYTES` in `crates/store/src/usage_waste.rs`, 20 x 1,024 bytes. A result of exactly that size is under it.
+
+**A result is read again by every request after it.** Once in the thread's context, a result is part of the cache read of each later request of the same thread, until the thread's next compaction empties it.
+Each later request pays for it as `tokens x the request's model weight x the cache-read weight`, in units, so a 10,000 token repeat read by 200 later requests on Opus costs 200 x 10,000 x 5 x 0.1 / 1,000,000 = 1 unit.
+That cost is taken from the later request's own burn, so it is out of what the request has left after its cold cache, its start and its own results, and before its context kinds, and it is held to the request's cache read less the start-up's part of it.
+The later request is not another occurrence: the count stays the results.
+The main thread's later requests are the Job's non-subagent ones up to its next compaction.
+A subagent's are its requests that made a call, which is how a request is known to be in the thread, and a subagent request that made none (its last, as a rule) pays nothing.
+Only results carried inside the window are counted, and only the later requests inside it, so a result carried before the window's start costs nothing in it.
+On a week of one machine's turns this raised `repeat_reads` from 4.8 to 24.1 units and `big_results` from 3.6 to 21.0.
 
 **A repeat read is lines of a file Read again while the earlier read is still in the thread's context.** The same path, in the same thread, whose lines overlap lines the thread already read, with the earlier result already returned, no compaction between, and no edit of the file by that thread between.
 A thread is the session's own, or one subagent's transcript, which is its own context: a file the main thread read and a subagent then read is not a repeat, and a subagent's edit does not reset the main thread's reads.
