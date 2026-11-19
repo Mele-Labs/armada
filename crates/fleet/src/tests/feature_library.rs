@@ -16,7 +16,7 @@ use crate::feature_library::brief::{condensed, BriefFacts, CAP_CHARS};
 use crate::feature_library::mapping::{owns, FeatureMap, How};
 use crate::feature_library::staleness::stale_since;
 
-const VOTING: &str = "voting-on-takes";
+pub(super) const VOTING: &str = "voting-on-takes";
 const SOMEWHERE: &str = "crates/pages/voting";
 
 fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
@@ -164,13 +164,13 @@ fn a_page_over_the_cap_loses_its_tail_first_and_never_its_head() {
 
 // What follows runs a Job through the library against a real store.
 
-async fn a_project(rig: &Rig) -> String {
+pub(super) async fn a_project(rig: &Rig) -> String {
     let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
     let new = NewProject { name: "Shop".to_string(), members, place: None, values: None };
     rig.fleet.add_project(new).await.expect("added").projects.last().expect("the project").id.clone()
 }
 
-async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
+pub(super) async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     let start = StartSession {
         project: Some(project.to_string()),
         manifest_id: rig.manifest.clone(),
@@ -192,7 +192,7 @@ async fn an_agent_for(rig: &Rig, project: &str) -> SessionId {
     id
 }
 
-fn seeded(project: &str) -> UpsertFeatures {
+pub(super) fn seeded(project: &str) -> UpsertFeatures {
     let feature = |slug: &str, area: &str, paths: &[&str]| FeatureSeed {
         slug: slug.to_string(),
         area: area.to_string(),

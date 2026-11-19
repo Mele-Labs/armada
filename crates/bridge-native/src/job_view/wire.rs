@@ -93,6 +93,11 @@ impl JobView {
             let answer = cx
                 .background_executor()
                 .spawn(async move {
+                    let (method, sent) = match verb {
+                        Verb::Get => ("GET", None),
+                        Verb::Post => ("POST", Some(body.as_deref().map_or(0, str::len))),
+                        Verb::PostBare => ("POST", None),
+                    };
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| (why.to_string(), None))?;
                     let (status, bytes) = runtime
                         .block_on(async {
@@ -103,11 +108,7 @@ impl JobView {
                             }
                         })
                         .map_err(|why| (why, None))?;
-                    if (200..300).contains(&status) {
-                        Ok(bytes)
-                    } else {
-                        Err(refusal(status, &bytes))
-                    }
+                    crate::refusal::answered(method, &path, sent, status, bytes).map_err(|refusal| (refusal.to_string(), refusal.code))
                 })
                 .await;
             let _ = this.update_in(cx, |this, window, cx| {

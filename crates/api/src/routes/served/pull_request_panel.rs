@@ -130,6 +130,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/pull_request_seen/:repository",
     },
     Route {
+        operation: "ignore_pull_request",
+        method: "POST",
+        path: "/pull_request_ignored/:repository",
+    },
+    Route {
+        operation: "unignore_pull_request",
+        method: "POST",
+        path: "/pull_request_ignored/:repository/unignore",
+    },
+    Route {
         operation: "mark_file_viewed",
         method: "POST",
         path: "/pull_request_viewed/:repository",

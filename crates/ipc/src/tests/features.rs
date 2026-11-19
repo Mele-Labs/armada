@@ -84,7 +84,7 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     assert_eq!(shape::of::<RunLibrarian>(), "{project: string}");
     assert_eq!(
         shape::of::<LibrarianRan>(),
-        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number}"
+        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists]}"
     );
     assert_eq!(shape::of::<LibrarianState>(), "{last_run?: string, read_through?: number, merged_since?: [number]}");
     assert!(shape::of::<FeatureLibrary>().contains("librarian?: {last_run?: string, read_through?: number, merged_since?: [number]}"));

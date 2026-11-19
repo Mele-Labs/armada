@@ -334,7 +334,7 @@ async fn fetch_jobs(tx: Sender<Signal>, port: u16) {
                 }
                 Err(why) => last = why.to_string(),
             },
-            Ok((status, _)) => last = format!("Fleet answered {status}"),
+            Ok((status, body)) => last = crate::refusal::Refusal::read("GET", "/sessions", status, &body).to_string(),
             Err(why) => last = why,
         }
     }
@@ -566,7 +566,7 @@ async fn read_with_retries<T: serde::de::DeserializeOwned>(
                 Ok(read) => return Ok(read),
                 Err(why) => last = why.to_string(),
             },
-            Ok((status, _)) => last = format!("Fleet answered {status}"),
+            Ok((status, body)) => last = crate::refusal::Refusal::read("GET", path, status, &body).to_string(),
             Err(why) => last = why,
         }
     }

@@ -374,7 +374,7 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
-    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed,
+    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureRead, FeatureOwed,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
@@ -621,10 +621,10 @@ pub use pull_requests::{
 pub use pull_reviews::{
     DiffSide, PullReviewChecks, PullReviewComment, PullReviewList, PullReviewLists, PullReviewRateLimited,
     PullReviewRow, PullReviewThread, PullReviewThreadComment, PullThreadResolved,
-    ResolvePullThread, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
+    ResolvePullThread, ReviewListsChanged, ReviewListsFailed, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
-    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    IgnorePull, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullIgnored, PullInbox, PullMyReview,
     PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
     SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
 };

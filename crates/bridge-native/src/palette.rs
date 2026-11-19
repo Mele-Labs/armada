@@ -25,6 +25,7 @@ use crate::keymap::{parse_chord, Act};
 use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look, Token};
+use crate::refusal::Failed;
 
 // ---- what the palette holds ------------------------------------------------------------------
 
@@ -1254,20 +1255,30 @@ impl Palette {
             }
             return;
         };
+        let headline = match id {
+            "pause" if paused => "The Job was not resumed",
+            "pause" => "The Job was not paused",
+            "stop" => "The Job was not stopped",
+            "fork" => "The fork was not started",
+            "open-pull" => "The pull request was not opened",
+            _ => "The pull request was not merged",
+        };
         cx.spawn_in(window, async move |this, cx| {
-            let answer: Result<Vec<u8>, String> = cx
+            let answer: Result<Vec<u8>, Failed> = cx
                 .background_executor()
                 .spawn(async move {
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+                    let (method, route, sent) = match &request {
+                        Request::Post(path, body) => ("POST", path.to_string(), Some(body.len())),
+                        Request::Merge(path) => ("POST", path.clone(), None),
+                        Request::Address(path) => ("GET", path.clone(), None),
+                    };
                     let (status, bytes) = match request {
                         Request::Post(path, body) => runtime.block_on(crate::transport::post(port, path, body))?,
                         Request::Merge(path) => runtime.block_on(crate::transport::post_bare(port, &path))?,
                         Request::Address(path) => runtime.block_on(crate::transport::get(port, &path))?,
                     };
-                    if (200..300).contains(&status) {
-                        return Ok(bytes);
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    Ok(crate::refusal::answered(method, &route, sent, status, bytes)?)
                 })
                 .await;
             let _ = this.update_in(cx, |this, window, cx| match answer {
@@ -1286,7 +1297,11 @@ impl Palette {
                         }
                     }
                 }
-                Err(why) => this.refused(why.into(), cx),
+                Err(why) => {
+                    let told = why.clone();
+                    cx.defer(move |cx| told.tell_refusal(headline, cx));
+                    this.refused(why.to_string().into(), cx)
+                }
             });
         })
         .detach();

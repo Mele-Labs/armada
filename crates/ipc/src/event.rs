@@ -251,6 +251,10 @@ pub enum Event {
     // `docs/concepts/pull-review.md`, *Agent runs*.
     #[serde(rename = "review_run.changed")]
     ReviewRunChanged { run: ReviewRun },
+    // The read of the forge behind kept Reviews lists ended: the fresh lists whole, or why it did not give them.
+    // `docs/practices/protocol.md`, *The Reviews tab*.
+    #[serde(rename = "review_lists.changed")]
+    ReviewListsChanged(crate::pull_reviews::ReviewListsChanged),
     // A place held up for a walk of a pull request moved: checking out, starting, ready, failed or
     // closed, whole. `docs/concepts/pull-review.md`, *Walk*.
     #[serde(rename = "review_walk.changed")]

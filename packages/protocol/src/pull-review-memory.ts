@@ -53,6 +53,21 @@ export type MarkPullSeen = {
   head: string;
 };
 
+/**
+ * `ignore_pull_request`'s and `unignore_pull_request`'s body (`POST /pull_request_ignored/:repository` and
+ * `.../unignore`); `unignore_pull_request` answers it as sent.
+ */
+export type IgnorePull = {
+  number: number;
+};
+
+/** `ignore_pull_request`'s answer: when Fleet kept the ignore. */
+export type PullIgnored = {
+  number: number;
+  /** RFC 3339. */
+  at: string;
+};
+
 /** A file he marked viewed, as the page carries it. `still` is false once the file changed since. */
 export type PullViewedFile = {
   path: string;

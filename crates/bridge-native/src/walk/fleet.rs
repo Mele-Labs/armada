@@ -5,7 +5,7 @@
 
 use ipc::{
     NoteCrop, NoteElement, NotePlace, NoteState, NoteTake, NoteWalk, SendSessionMessage, SendSessionMessageBody,
-    SendSessionNotes, SessionId, SessionNote, WindowClosed, WireError,
+    SendSessionNotes, SessionId, SessionNote, WindowClosed,
 };
 
 /// Who the walk answers to: the Job that showed it, the address it showed it on, and Fleet's port.
@@ -95,11 +95,9 @@ impl WalkFleet {
     fn send<T: serde::Serialize>(&self, path: &str, body: &T) -> Result<(), String> {
         let text = ipc::encode(body).map_err(|why| why.to_string())?;
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+        let sent = text.len();
         let (status, bytes) = runtime.block_on(crate::transport::post(self.port, path, text))?;
-        if (200..300).contains(&status) {
-            return Ok(());
-        }
-        Err(ipc::decode::<WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+        crate::refusal::answered("POST", path, Some(sent), status, bytes).map(|_| ()).map_err(|refusal| refusal.to_string())
     }
 }
 

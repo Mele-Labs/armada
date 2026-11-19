@@ -53,6 +53,7 @@ async fn job_waiting(compact: bool, old: bool, context: u64) -> (Rig, SessionId,
         options: Vec::new(),
         pictures: String::new(),
         artifact: String::new(),
+        act_on: String::new(),
         steps: Vec::new(),
     };
     store.replace_waiting_for(id.as_str(), &[item]).unwrap();

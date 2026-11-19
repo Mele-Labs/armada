@@ -70,6 +70,7 @@ export type Fact =
   | { kind: 'touched'; paths: string[]; act?: 'write' | 'edit'; by?: string }
   | { kind: 'read'; path: string }
   | { kind: 'ran'; command: string }
+  | { kind: 'consulted'; tool: string; target: string; title?: string; gist?: string }
   | { kind: 'wrote' }
   | { kind: 'tasks'; tasks: Task[] }
   | { kind: 'plan_left' }

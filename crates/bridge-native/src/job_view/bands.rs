@@ -6,7 +6,7 @@
 
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, App, Context, FontWeight, KeyDownEvent, Role, SharedString, Window};
 use ipc::{
     ActOnSessionMcp, DismissWait, DismissWaiting, HeldOpenBy, McpServerAct, MendSessionTools, PullRequestWait, SessionId,
     StopWatch, ToolMissing, ToolsMissing, WatchList,
@@ -18,6 +18,7 @@ use super::rows::{glyph, tip, Size};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
+use crate::refusal::Failed;
 
 const DONE: &str = "done";
 
@@ -322,9 +323,14 @@ impl JobView {
         }
         page.bands.said.remove(&format!("tools:{name}"));
         cx.notify();
+        let headline = match piece {
+            ToolMissing::Door => "The Fleet tools were not reconnected",
+            _ => "The agent was not restarted with the mod",
+        };
         self.post_then(
             route,
             body,
+            headline,
             move |this, outcome, cx| {
                 if let Some(page) = this.pages.get_mut(&id) {
                     page.bands.mending.remove(name);
@@ -375,6 +381,7 @@ impl JobView {
         self.post_then(
             "/sessions/waiting/dismiss",
             body,
+            "The Job was not kept going",
             move |this, outcome, cx| {
                 if let (Some(page), Some(why)) = (this.pages.get_mut(&job), outcome) {
                     page.bands.said.insert(DONE.into(), why);
@@ -697,7 +704,7 @@ impl JobView {
         match held {
             HeldOpenBy::PullRequest { number, .. } => {
                 let body = encoded(&DismissWait { session_id, pull_request: number });
-                self.post_then("/watches/dismiss_wait", body, failed, window, cx);
+                self.post_then("/watches/dismiss_wait", body, "The wait was not dismissed", failed, window, cx);
             }
             HeldOpenBy::Watch { name } | HeldOpenBy::Job { name } => self.stop_watch_named(session_id, name, failed, window, cx),
         }
@@ -718,35 +725,37 @@ impl JobView {
             return;
         };
         cx.spawn_in(window, async move |this, cx| {
-            let outcome = cx
+            let outcome: Result<(), Failed> = cx
                 .background_executor()
                 .spawn(async move {
                     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
                     let path = format!("/watches?session_id={}", session_id.as_str());
                     let (status, bytes) = runtime.block_on(crate::transport::get(port, &path))?;
-                    if !(200..300).contains(&status) {
-                        return Err(format!("Fleet answered {status}"));
-                    }
+                    let bytes = crate::refusal::answered("GET", &path, None, status, bytes)?;
                     let list: WatchList = ipc::decode("WatchList", &bytes).map_err(|why| format!("{why:?}"))?;
                     let Some(watch) = list.watches.iter().find(|watch| watch.live && watch.name == name) else { return Ok(()) };
                     let body = ipc::encode(&StopWatch { session_id: Some(session_id.clone()), watch: watch.id.clone() }).map_err(|why| format!("{why:?}"))?;
+                    let sent = body.len();
                     let (status, bytes) = runtime.block_on(crate::transport::post(port, "/watches/stop", body))?;
-                    if (200..300).contains(&status) {
-                        return Ok(());
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    crate::refusal::answered("POST", "/watches/stop", Some(sent), status, bytes)?;
+                    Ok(())
                 })
                 .await;
-            let _ = this.update(cx, |this, cx| then(this, outcome.err().map(SharedString::from), cx));
+            let _ = this.update(cx, |this, cx| {
+                let why = act_refused(outcome, "The watch was not stopped", cx);
+                then(this, why, cx)
+            });
         })
         .detach();
     }
 
     /// An act sent off the main thread; `then` runs with Fleet's reason when it was refused, and with none when it was taken.
+    /// A refusal raises the failure toast headed `headline` as well.
     fn post_then(
         &mut self,
         route: &'static str,
         body: Result<String, String>,
+        headline: &'static str,
         then: impl FnOnce(&mut JobView, Option<SharedString>, &mut Context<JobView>) + 'static,
         window: &mut Window,
         cx: &mut Context<Self>,
@@ -757,22 +766,28 @@ impl JobView {
             return;
         };
         cx.spawn_in(window, async move |this, cx| {
-            let outcome = cx
+            let outcome: Result<(), Failed> = cx
                 .background_executor()
                 .spawn(async move {
                     let body = body?;
-                    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                    let (status, bytes) = runtime.block_on(crate::transport::post(port, route, body))?;
-                    if (200..300).contains(&status) {
-                        return Ok(());
-                    }
-                    Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+                    crate::refusal::post(port, route, body).map(|_| ())
                 })
                 .await;
-            let _ = this.update(cx, |this, cx| then(this, outcome.err().map(SharedString::from), cx));
+            let _ = this.update(cx, |this, cx| {
+                let why = act_refused(outcome, headline, cx);
+                then(this, why, cx)
+            });
         })
         .detach();
     }
+}
+
+/// Why an act was not taken, as its band says it; a refusal also raises the failure toast, after this update.
+fn act_refused(outcome: Result<(), Failed>, headline: &'static str, cx: &mut App) -> Option<SharedString> {
+    let failed = outcome.err()?;
+    let said = SharedString::from(failed.to_string());
+    cx.defer(move |cx| failed.tell_refusal(headline, cx));
+    Some(said)
 }
 
 #[cfg(test)]

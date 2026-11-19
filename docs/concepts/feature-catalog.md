@@ -109,6 +109,31 @@ Fleet keeps the record per Job, holder and feature, so it holds across turns and
 A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
 A Fleet that is out or slow hands nothing and the read goes on.
 
+## Docs and tickets a Job read
+
+A page shows the docs and tickets that shaped a feature's work, as two lists of links beside the Jobs and pull requests.
+A **doc** is anything a Job read from outside the code: a web page, an MCP server's answer, or a markdown or doc file in the repository, under `docs/` or outside the source folders.
+A **ticket** is an issue or tracker item, as a GitHub issue, a beads id or a Linear or Jira item, and it has its own kind of link because the page shows it in a card of its own.
+
+> **Rule.** A read becomes a link only when the same Job then writes a file the feature owns.
+> Why: a Job reads a great deal that never shaped what it built, and a page that lists all of it says nothing.
+
+The mod hears the call and its result and tells Fleet the call, what it named, and a title and a first sentence cut to about 300 characters together.
+The Job reports nothing, and Fleet decides which calls were reads of a doc or a ticket and which were not: a server's call that changes something is not one, nor is a source file, `CLAUDE.md` or a server that stays on this Mac.
+Fleet keeps each read the first time it hears it, per Job.
+When the Job writes a file a feature owns, by the rules in [Which feature owns a file](#which-feature-owns-a-file), the reads it kept so far are linked to that feature, the newest twenty.
+A read after the write is linked by the Job's next write, never by the one before it, and a read in one Job is never linked by another's write.
+A link is one per Job, feature, kind and address, so reading a page again or writing again adds nothing, and the page shows an address once, under the newest Job that read it.
+
+Fleet sees the order of the read and the write and nothing of whether the Job quoted or acted on what it read, so the order is the whole test.
+A page that was fetched and read in the same Job as an unrelated edit is linked all the same.
+
+A link carries the title and the first sentence of what was read, and where Fleet did not see the result it carries the address or the id alone.
+A link whose address no longer answers keeps what it said and reads as `gone`.
+The state is on the link; nothing checks yet.
+
+A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's writes are linked from the mod's report of them, as the files it wrote are credited to a feature.
+
 ## Holding a Job's end
 
 > **Rule.** `all_done` is refused while the Job's merged or pushed work changed files of a feature whose four sections it has not written since it started.
@@ -218,7 +243,9 @@ Needs you comes first, then Changed by newest merge, then New by newest added.
 Each feature carries one line, `what`, made from the titles of the pull requests merged since, newest first and at most three.
 A merge kept before titles were kept has none, and then the line is the feature's summary.
 `pulls` are those pull requests' numbers.
-`paragraph` is empty: a model's paragraph over the list comes later.
+`paragraph` is the one short paragraph the librarian's `since_you_looked` part wrote, and it is empty where none was written.
+It is served only when `since` is at or before the run that wrote it, since he may have looked after that run, and the list under it is always read live.
+The part and what it spends are under *Librarian*.
 
 > **Rule.** Fleet builds the list from merges and the catalog's own dates, and a model only ever words it.
 > Why: a list a model chose would drop a feature on a bad day, and he reads it to find what changed.
@@ -258,20 +285,35 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-No part is built yet, so a run today keeps its record and does nothing else.
+Only `since_you_looked` is built so far, and a run does nothing else but keep its record.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
 `features.librarianParts` names the parts a run does, all nine as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
 
-`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, and the parts that ran.
+`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, the parts that ran, the paragraph it wrote, the calls it made and the parts it left out for the share.
 `list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
 Fleet reads those numbers from the merge links it already keeps and does not ask the forge.
 Bridge draws "not read since #N" from it.
 
 > **Rule.** Fleet starts no librarian run by itself while `features.librarianRuns` is `on_press`.
 > Why: the owner wants it on demand until it has been tested more, and a run Fleet started on its own would be one he did not ask for.
+
+**`since_you_looked` writes the paragraph at the top of Since you looked.**
+It takes the features new, changed or waiting on him since the last run that did the part, each with its merged pull request titles, which is the page's own list and costs no model.
+It puts them to the small model that sorts his messages in a Job (`models.dispute`), through the same call, and asks for at most three short sentences of facts, with no advice, no narration and no dashes.
+Fleet keeps the answer with the run, cut to three sentences with any dash taken out.
+A first run has no earlier run, so every feature reads as new, and the prompt names the first twenty and counts the rest.
+
+> **Rule.** Where nothing moved since the last run, the part makes no call and writes no paragraph.
+> Why: the model runs only where words must be written, and a paragraph about nothing would be words for the sake of words.
+
+**The part spends from the night's share.**
+A night is the machine's local midnight to midnight, and the share is counted in model calls for each project.
+A call that fails still counts, since it was made.
+Where the share is spent the part is left out, and the run's answer lists it in `skipped_for_share` so the librarian card can say "share spent".
+The facts then wait: the part's next run reads from the last run that did it.
 
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
@@ -338,3 +380,4 @@ What the library would hold in the clear there is in [Central store](../contract
 
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
+- The check that marks a doc or ticket link `gone`.

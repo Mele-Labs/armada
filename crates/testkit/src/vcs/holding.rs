@@ -68,6 +68,13 @@ impl super::FakeVcs {
         hold
     }
 
+    /// Hold every review list read shut, once it is recorded, until the returned [`Hold`] is opened.
+    pub fn hold_review_lists(&self) -> Arc<Hold> {
+        let hold = Hold::closed();
+        self.pull_requests.lock().expect("not poisoned").review_lists_held = Some(Arc::clone(&hold));
+        hold
+    }
+
     /// Hold every send of the served checkout's files shut until the returned [`Hold`] is opened.
     pub fn hold_checkout_sends(&self) -> Arc<Hold> {
         let hold = Hold::closed();

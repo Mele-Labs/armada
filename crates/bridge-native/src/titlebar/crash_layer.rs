@@ -355,13 +355,18 @@ impl TitleBar {
             let job = crash::fix_it(&offer.crash, offer.macos.as_deref(), repository).map_err(|why| why.to_string())?;
             let words = job.start.request.clone().unwrap_or_default();
             let body = ipc::encode(&job).map_err(|why| why.to_string())?;
-            let bytes = crate::dispatch::live::call(port, "/sessions/dispatch".into(), Some(body))?;
+            let bytes = crate::dispatch::live::ask(port, "/sessions/dispatch".into(), Some(body))?;
             let done = ipc::decode::<ipc::JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())?;
-            Ok(Dispatched { job: done.session.map(|record| record.id.as_str().to_string()), held: done.operator.or(done.parked), words })
+            Ok::<_, crate::refusal::Failed>(Dispatched { job: done.session.map(|record| record.id.as_str().to_string()), held: done.operator.or(done.parked), words })
         });
         self.crash._task = Some(cx.spawn(async move |this, cx| {
             let answer = ran.await;
-            let _ = this.update(cx, |bar, cx| bar.crash_answered(answer, cx));
+            let _ = this.update(cx, |bar, cx| {
+                if let Err(failed) = &answer {
+                    failed.tell_refusal("The Job to fix the crash was not started", cx);
+                }
+                bar.crash_answered(answer.map_err(String::from), cx)
+            });
         }));
     }
 
