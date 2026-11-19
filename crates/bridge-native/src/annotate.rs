@@ -801,15 +801,25 @@ impl Layer {
 
     /// Esc with nothing held is the screen's, not the layer's: it goes to what had the keys when annotating began, so
     /// one Esc still closes the panel he is on. Annotating stays on, and the keys come back to the capture after.
+    /// The Esc goes on once this update ends: passed from inside it, the redraw it causes updates the layer again
+    /// while it is still being updated, and that panic cannot unwind out of the key handler, so Armada quits.
     fn pass_escape(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(keys) = self.keys_were.clone() {
+        let Some(keys) = self.keys_were.clone() else {
+            self.refocus(window, cx);
+            return;
+        };
+        let layer = cx.entity().downgrade();
+        window.defer(cx, move |window, cx| {
             window.focus(&keys, cx);
             if let Ok(escape) = gpui::Keystroke::parse("escape") {
                 window.dispatch_keystroke(escape, cx);
             }
-            self.keys_were = window.focused(cx);
-        }
-        self.refocus(window, cx);
+            let focused = window.focused(cx);
+            let _ = layer.update(cx, |layer, cx| {
+                layer.keys_were = focused;
+                layer.refocus(window, cx);
+            });
+        });
     }
 
     /// The keys go back to the capture after a menu or a card.
@@ -1312,5 +1322,57 @@ mod tests {
         assert_eq!(own_of([Some("a"), None], &live), None, "a note on Bridge's own screen beside it: picked");
         assert_eq!(own_of([Some("gone")], &live), None, "a Job no longer live: picked");
         assert_eq!(own_of(std::iter::empty::<Option<&str>>(), &live), None);
+    }
+
+    /// A panel that had the keys before annotating began, drawn under the layer as the window draws it.
+    struct Panel {
+        keys: FocusHandle,
+        layer: Entity<Layer>,
+        heard_escape: Rc<Cell<bool>>,
+    }
+
+    impl Render for Panel {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            let heard = Rc::clone(&self.heard_escape);
+            div()
+                .size_full()
+                .child(div().track_focus(&self.keys).size_full().on_key_down(move |event, _, _| {
+                    if event.keystroke.key == "escape" {
+                        heard.set(true);
+                    }
+                }))
+                .child(self.layer.clone())
+        }
+    }
+
+    #[gpui::test]
+    fn escape_with_nothing_held_closes_the_panel_under_the_layer_without_quitting(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let heard_escape = Rc::new(Cell::new(false));
+        let (panel, cx) = cx.add_window_view(|_, cx| {
+            let layer = cx.new(|cx| Layer::new(Rc::new(Cell::new(None)), Vec::new(), cx));
+            Panel { keys: cx.focus_handle(), layer, heard_escape: Rc::clone(&heard_escape) }
+        });
+        cx.update(|window, cx| {
+            let (keys, layer) = (panel.read(cx).keys.clone(), panel.read(cx).layer.clone());
+            window.focus(&keys, cx);
+            layer.update(cx, |layer, cx| layer.toggle(window, cx));
+        });
+        cx.run_until_parked();
+        // Passing the Esc on redraws the window, and the redraw draws the layer: done inside the layer's own
+        // update, that updated it twice at once and quit Armada.
+        cx.simulate_keystrokes("escape");
+        cx.run_until_parked();
+        assert!(heard_escape.get(), "the panel that had the keys hears the Esc");
+        let layer = cx.update(|_, cx| panel.read(cx).layer.clone());
+        cx.update(|window, cx| {
+            let layer = layer.read(cx);
+            assert!(layer.on, "annotating stays on");
+            let capture = layer.capture.as_ref().map(|(capture, _)| capture.read(cx).focus_handle(cx));
+            assert!(capture.is_some_and(|capture| capture.is_focused(window)), "the keys come back to the capture");
+        });
     }
 }
