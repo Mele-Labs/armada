@@ -2,7 +2,7 @@
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
-description = "Write what you know of a feature before you end: how to test it, how it runs, how to observe it and its tech debt. Give the feature's slug and each section's text. Rewrite a section whose text is still true as it stands; all_done is refused while a feature your merged or pushed work changed has a section you have not written since you started"
+description = "Write what you know of a feature before you end: how to test it, how it runs, how to observe it and its tech debt. Give the feature's slug and each section's text. Rewrite a section whose text is still true as it stands; all_done is refused while a feature your commits named in a Feature: line has a section you have not written since you started"
 notes = """
 `POST /features/write_sections`, body `WriteFeatureSections`: `feature` (a slug), `sections` (a list of `{section, text}`, where `section` is `test`, `runs`, `observe` or `debt`), and an optional `project` and `session_id`. Answered with `FeatureSectionsWritten`: `feature`, `written`, and `owed`, what this Job still owes across features.
 

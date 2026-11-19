@@ -367,3 +367,6 @@ pub use open_pull_files::KeptOpenPull;
 /// What a Job read before it changed a feature's files.
 mod feature_reads;
 pub use feature_reads::KeptJobRead;
+
+/// The features a Job's commits named, as the commit gate saw them.
+mod feature_job_named;
