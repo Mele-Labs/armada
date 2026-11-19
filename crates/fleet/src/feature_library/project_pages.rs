@@ -35,7 +35,7 @@ const SINCE_UNREADABLE: &str = "fleet.feature_since_unreadable";
 const README_NAMES: &[&str] = &["readme.md", "readme.markdown", "readme.rst", "readme.txt", "readme"];
 
 /// A merge of a pull request on a feature.
-struct Merge {
+pub(super) struct Merge {
     at: i64,
     number: u64,
     title: String,
@@ -258,7 +258,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// The library of the project a call is about, and its merges. A Job in several projects reads the first that has a library.
-    async fn project_library(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<(Loaded, BTreeMap<String, Vec<Merge>>), Refusal> {
+    pub(super) async fn project_library(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<(Loaded, BTreeMap<String, Vec<Merge>>), Refusal> {
         self.feature_writes_filed().await;
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;

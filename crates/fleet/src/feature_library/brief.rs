@@ -24,6 +24,8 @@ pub(crate) struct BriefFacts {
     pub(crate) stale: Vec<(String, u64)>,
     /// The titles of the Jobs on it now.
     pub(crate) jobs_now: Vec<String>,
+    /// One line for each open pull request of somebody else that touches the feature.
+    pub(crate) elsewhere: Vec<String>,
     /// `path` or `path:line`, most useful first.
     pub(crate) entry_points: Vec<String>,
     pub(crate) test: Option<String>,
@@ -67,6 +69,10 @@ pub(crate) fn condensed(facts: &BriefFacts) -> String {
     if !facts.jobs_now.is_empty() {
         let titles: Vec<String> = facts.jobs_now.iter().take(JOBS).map(|title| cut(title)).collect();
         blocks.push(format!("On it now: {}.", titles.join("; ")));
+    }
+    if !facts.elsewhere.is_empty() {
+        let lines: Vec<String> = facts.elsewhere.iter().map(|line| cut(line)).collect();
+        blocks.push(lines.join("\n"));
     }
     if !facts.entry_points.is_empty() {
         let points: Vec<String> = facts.entry_points.iter().take(ENTRY_POINTS).map(|point| format!("- {}", cut(point))).collect();
