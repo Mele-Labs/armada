@@ -79,6 +79,7 @@ async fn a_repeat_read_is_served_with_its_words_and_the_file_it_read() {
             epoch: 0,
             tool: "Read".into(),
             path: Some("/a/f.rs".into()),
+            ..Default::default()
         };
         let reading = KeptReading {
             calls: vec![call("c1", "t1", 1), call("c2", "t2", 2)],

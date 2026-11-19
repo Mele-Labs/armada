@@ -5,8 +5,8 @@
 //! figures, and a stream it cannot read yields none rather than a guess.
 //!
 //! **Names and counts only.** A tool is its name; a shell command is read for its label
-//! ([`classify_bash`]) and dropped. A Read's file path is the one input kept, and a tool's result is
-//! its size in bytes ([`ToolCall`], [`CallResult`]).
+//! ([`classify_bash`]) and dropped. A Read's file path and line range, and the file an edit changed, are the
+//! inputs kept, and a tool's result is its size in bytes ([`ToolCall`], [`CallResult`]).
 //!
 //! **One message is several lines.** The CLI writes a message once for each content block as it
 //! streams, under one id, so a read joins the lines of an id: the figures of the line with the most
@@ -401,7 +401,18 @@ pub fn read_turns(
                     }
                 }
                 if let Some(call) = &block.id {
-                    let path = if name == "Read" { block.input.as_ref().and_then(|input| input.path.clone()) } else { None };
+                    let named = block.input.as_ref().and_then(|input| input.path.clone());
+                    let (path, edited) = if name == "Read" {
+                        (named, None)
+                    } else if EDITING.contains(&name.as_str()) {
+                        (None, named)
+                    } else {
+                        (None, None)
+                    };
+                    let (from_line, to_line) = match (name == "Read", block.input.as_ref()) {
+                        (true, Some(input)) => tool_calls::lines_of(input.offset, input.limit),
+                        _ => (None, None),
+                    };
                     tool_calls.push(ToolCall {
                         tool_use_id: call.clone(),
                         message_id: one.turn.message_id.clone(),
@@ -410,6 +421,9 @@ pub fn read_turns(
                         epoch: carry.epoch(),
                         tool: name.clone(),
                         path,
+                        from_line,
+                        to_line,
+                        edited,
                     });
                     let reads = READING.contains(&name.as_str()) || label == Some(BashUse::ReadSearch);
                     carry.called(call.clone(), if reads { Part::Reads } else { Part::OtherResults });

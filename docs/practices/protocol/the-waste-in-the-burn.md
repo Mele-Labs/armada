@@ -7,7 +7,9 @@ Since 18 Nov 2026. The burn Fleet can name as avoidable over the last day, week 
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/usage-waste.ts`, written by hand.
 The sums are made in SQL and in one pass over the requests that could be waste (`crates/store/src/usage_waste.rs`), so Bridge is sent figures and never rows.
-**Names and counts only**; a Job is its id, and Bridge joins `session_id` to the titles it holds. The one input named is the file a Read touched, in `causes`.
+**Names and counts only**; a Job is its id, and Bridge joins `session_id` to the titles it holds.
+The one input named is the file a Read touched, in `causes`.
+Kept beside it, and never sent, are the lines a Read asked for and the file an edit changed.
 What each kind is, how its cost is counted and the order a request's burn is handed out in are `docs/concepts/session/where-the-tokens-went.md`, *Waste*.
 
 | Where | Side | Carries |
@@ -28,7 +30,7 @@ What each kind is, how its cost is counted and the order a request's burn is han
 
 **Skew.** A Fleet that predates this answers 404, and the page offers no Waste view; a Bridge that predates it never asks.
 
-**The kinds this adds.** `repeat_reads`, "Same file read again": a Read of a file the same thread already read, with no compaction between, costed as the repeat result's tokens (bytes over 4) out of the input and writes of the request that carried it.
+**The kinds this adds.** `repeat_reads`, "Same file read again": a Read of lines of a file the same thread already read (the lines overlap, where no lines is the whole file), with no compaction and no edit of the file by that thread between, costed as the repeat result's tokens (bytes over 4) out of the input and writes of the request that carried it.
 `big_results`, "Tool results over 20 KB": a result over 20 KB that is not a repeat read, costed the same for the bytes past 20 KB.
 In a request's burn they come after the cold cache and the fresh start and before the two context kinds.
 The definitions, with what is kept to find them, are `docs/concepts/session/where-the-tokens-went.md`, *Waste*.

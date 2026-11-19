@@ -75,6 +75,9 @@ pub(crate) fn reading_kept(read: &TurnRead) -> KeptReading {
                 epoch: one.epoch,
                 tool: one.tool.clone(),
                 path: one.path.clone(),
+                from_line: one.from_line,
+                to_line: one.to_line,
+                edited: one.edited.clone(),
             })
             .collect(),
         call_results: read.call_results.iter().map(|one| KeptCallResult { tool_use_id: one.tool_use_id.clone(), bytes: one.bytes }).collect(),

@@ -113,15 +113,22 @@ struct Flagged {
 }
 
 /// The calls the window's requests carried results of that are waste, with the window on the request that
-/// carried them. A repeat is a Read of a file the same thread, since its last compaction, had read before,
-/// whose result had reached it. Takes the window as `?1` and `?2`.
+/// carried them. A repeat is a Read of lines of a file the same thread, since its last compaction, had read
+/// before, whose result had reached it, with no edit of the file by the thread between. A Read with no lines
+/// is the whole file. Takes the window as `?1` and `?2`.
 const FLAGGED: &str = "SELECT session_id, message_id, tool, path, bytes, repeated FROM (
         SELECT c.session_id AS session_id, c.carried_by AS message_id, c.tool AS tool, c.path AS path, c.result_bytes AS bytes,
                (c.path IS NOT NULL AND EXISTS (
                    SELECT 1 FROM session_tool_calls e
                     WHERE e.session_id = c.session_id AND e.thread = c.thread AND e.epoch = c.epoch AND e.path = c.path
                       AND e.result_bytes IS NOT NULL
-                      AND (e.at < c.at OR (e.at = c.at AND e.tool_use_id < c.tool_use_id)))) AS repeated
+                      AND COALESCE(e.from_line, 1) <= COALESCE(c.to_line, 9223372036854775807)
+                      AND COALESCE(c.from_line, 1) <= COALESCE(e.to_line, 9223372036854775807)
+                      AND (e.at < c.at OR (e.at = c.at AND e.tool_use_id < c.tool_use_id))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM session_tool_calls x
+                           WHERE x.session_id = c.session_id AND x.thread = c.thread AND x.edited = c.path
+                             AND x.at > e.at AND x.at < c.at))) AS repeated
           FROM session_turn_usage t JOIN session_tool_calls c ON c.session_id = t.session_id AND c.carried_by = t.message_id
          WHERE t.at >= ?1 AND t.at < ?2 AND c.result_bytes > 0)
      WHERE repeated OR bytes > ";

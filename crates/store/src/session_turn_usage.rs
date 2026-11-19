@@ -103,8 +103,8 @@ pub struct KeptReading {
     pub carriers: Vec<KeptCallCarrier>,
 }
 
-/// A tool call. **Kept apart from [`KeptTurnUsage`]**, as the times are. A Read's `path` is the one input
-/// kept, and no result is kept but its size ([`KeptCallResult`]).
+/// A tool call. **Kept apart from [`KeptTurnUsage`]**, as the times are. A Read's `path` and lines and the file
+/// an edit changed are the inputs kept, and no result is kept but its size ([`KeptCallResult`]).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct KeptToolCall {
     pub tool_use_id: String,
@@ -116,6 +116,12 @@ pub struct KeptToolCall {
     pub epoch: u32,
     pub tool: String,
     pub path: Option<String>,
+    /// The lines a Read asked for, first and last, one-based: both absent for the whole file, and `to_line` absent
+    /// for from a line to the end.
+    pub from_line: Option<u64>,
+    pub to_line: Option<u64>,
+    /// The file an edit changed.
+    pub edited: Option<String>,
 }
 
 /// The size of a call's result, in bytes.
@@ -330,11 +336,24 @@ impl Store {
         // heard again keeps the size and carrier it has.
         for call in &learnt.calls {
             kept.execute(
-                "INSERT INTO session_tool_calls (session_id, tool_use_id, message_id, at, thread, epoch, tool, path)
-                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)
+                "INSERT INTO session_tool_calls (session_id, tool_use_id, message_id, at, thread, epoch, tool, path, from_line, to_line, edited)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
                  ON CONFLICT (session_id, tool_use_id) DO UPDATE SET message_id = excluded.message_id, at = excluded.at,
-                     thread = excluded.thread, epoch = excluded.epoch, tool = excluded.tool, path = excluded.path",
-                params![session_id, call.tool_use_id, call.message_id, call.at, call.thread, call.epoch, call.tool, call.path],
+                     thread = excluded.thread, epoch = excluded.epoch, tool = excluded.tool, path = excluded.path,
+                     from_line = excluded.from_line, to_line = excluded.to_line, edited = excluded.edited",
+                params![
+                    session_id,
+                    call.tool_use_id,
+                    call.message_id,
+                    call.at,
+                    call.thread,
+                    call.epoch,
+                    call.tool,
+                    call.path,
+                    call.from_line.map(|one| one as i64),
+                    call.to_line.map(|one| one as i64),
+                    call.edited,
+                ],
             )
             .map_err(keeping)?;
         }

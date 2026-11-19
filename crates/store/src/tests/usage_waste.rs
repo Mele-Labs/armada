@@ -186,6 +186,7 @@ fn made(id: &str, message: &str, second: u32, tool: &str, path: Option<&str>, by
             epoch: 0,
             tool: tool.into(),
             path: path.map(str::to_string),
+            ..Default::default()
         },
         bytes,
         carried,
@@ -372,4 +373,91 @@ fn all_six_kinds_take_one_requests_burn_in_order_and_no_unit_is_in_two() {
     assert!(whole <= read.total_units + 1e-9, "no more than the burn: {whole} of {}", read.total_units);
     let of_one_request = whole - units(WasteKind::SubagentContext);
     assert!(of_one_request < 0.5, "the five kinds of one request hold less than its burn of 0.5: {of_one_request}");
+}
+
+/// `call` as a Read of the lines `from` to `to`.
+fn of_lines(mut call: Made, from: Option<u64>, to: Option<u64>) -> Made {
+    call.call.from_line = from;
+    call.call.to_line = to;
+    call
+}
+
+fn repeats_of(store: &crate::Store) -> (f64, u32) {
+    kind(&waste(store), WasteKind::RepeatReads).map_or((0.0, 0), |one| (one.units, one.occurrences))
+}
+
+/// Each read of 4,000 bytes is 1,000 of its carrier's 100,000 tokens, which weigh 0.1 units.
+const ONE_REPEAT: f64 = 0.1 * 1_000.0 / 100_000.0;
+
+#[test]
+fn lines_that_do_not_overlap_are_no_repeat_and_lines_that_do_are() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for (id, input) in [("m1", 10), ("m2", 100_000), ("m3", 100_000), ("m4", 100_000), ("m5", 100_000)] {
+        wrote(&mut store, "j1", id, input, false);
+    }
+    // Lines 1 to 100, then 101 to 200: the second starts where the first ended.
+    keep_calls(
+        &mut store,
+        "j1",
+        vec![
+            of_lines(made("t1", "m1", 1, "Read", Some("/f.rs"), 4_000, "m2"), Some(1), Some(100)),
+            of_lines(made("t2", "m2", 2, "Read", Some("/f.rs"), 4_000, "m3"), Some(101), Some(200)),
+        ],
+    );
+    assert_eq!(repeats_of(&store), (0.0, 0), "two slices of one file are no repeat");
+
+    // 150 to 300 runs into 101 to 200.
+    keep_calls(&mut store, "j1", vec![of_lines(made("t3", "m3", 3, "Read", Some("/f.rs"), 4_000, "m4"), Some(150), Some(300))]);
+    let (units, occurrences) = repeats_of(&store);
+    close(units, ONE_REPEAT);
+    assert_eq!(occurrences, 1);
+
+    // The whole file runs into every slice, and from a line to the end reaches 300.
+    keep_calls(&mut store, "j1", vec![of_lines(made("t4", "m4", 4, "Read", Some("/f.rs"), 4_000, "m5"), None, None)]);
+    let (units, occurrences) = repeats_of(&store);
+    close(units, 2.0 * ONE_REPEAT);
+    assert_eq!(occurrences, 2);
+    let open_ended = of_lines(made("t5", "m4", 5, "Read", Some("/f.rs"), 4_000, "m5"), Some(250), None);
+    keep_calls(&mut store, "j1", vec![open_ended]);
+    assert_eq!(repeats_of(&store).1, 3);
+}
+
+#[test]
+fn a_read_after_the_thread_edited_the_file_is_no_repeat_and_another_threads_edit_does_not_count() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    for (id, input) in [("m1", 10), ("m2", 100_000), ("m3", 100_000), ("m4", 100_000)] {
+        wrote(&mut store, "j1", id, input, false);
+    }
+    let edit = |id: &str, message: &str, second: u32, thread: &str, path: &str, carried: &'static str| {
+        let mut call = made(id, message, second, "Edit", None, 10, carried);
+        call.call.edited = Some(path.into());
+        call.call.thread = thread.into();
+        call
+    };
+    keep_calls(
+        &mut store,
+        "j1",
+        vec![
+            made("t1", "m1", 10, "Read", Some("/f.rs"), 4_000, "m2"),
+            edit("x1", "m2", 11, "", "/f.rs", "m3"),
+            made("t2", "m2", 12, "Read", Some("/f.rs"), 4_000, "m3"),
+        ],
+    );
+    assert_eq!(repeats_of(&store), (0.0, 0), "the file was changed between the two reads");
+
+    // An edit of another file, and an edit in another thread, leave the next read a repeat of the last.
+    keep_calls(
+        &mut store,
+        "j1",
+        vec![
+            edit("x2", "m3", 13, "", "/g.rs", "m4"),
+            edit("x3", "m3", 14, "agent-x", "/f.rs", "m4"),
+            made("t3", "m3", 15, "Read", Some("/f.rs"), 4_000, "m4"),
+        ],
+    );
+    let (units, occurrences) = repeats_of(&store);
+    close(units, ONE_REPEAT);
+    assert_eq!(occurrences, 1);
 }

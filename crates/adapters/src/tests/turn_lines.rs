@@ -333,3 +333,44 @@ fn a_call_keeps_its_tool_its_reads_path_and_its_results_size_and_never_the_text(
     assert_eq!([head.carried, tail.carried].concat(), whole.carried, "a result written in one read is carried in the next");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+/// A Read keeps its file and the lines it asked for, an edit keeps the file it changed, and no other call keeps either.
+#[test]
+fn a_read_keeps_its_lines_and_an_edit_the_file_it_changed() {
+    let call = |id: &str, name: &str, input: &str| format!(r#"{{"type":"tool_use","id":"{id}","name":"{name}","input":{input}}}"#);
+    let blocks = [
+        call("t1", "Read", r#"{"file_path":"/f.rs"}"#),
+        call("t2", "Read", r#"{"file_path":"/f.rs","offset":10,"limit":5}"#),
+        call("t3", "Read", r#"{"file_path":"/f.rs","offset":10}"#),
+        call("t4", "Read", r#"{"file_path":"/f.rs","limit":20}"#),
+        call("t5", "Edit", r#"{"file_path":"/f.rs","old_string":"secret","new_string":"s"}"#),
+        call("t6", "NotebookEdit", r#"{"notebook_path":"/n.ipynb","new_source":"x"}"#),
+        call("t7", "Write", r#"{"file_path":"/w.rs","content":"text"}"#),
+        call("t8", "Grep", r#"{"pattern":"x","path":"/src"}"#),
+    ]
+    .join(",");
+    let dir = std::env::temp_dir().join(format!("turn_lines_of_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("s.jsonl");
+    std::fs::write(&file, format!("{}\n", line("a", 5, &blocks))).unwrap();
+    let done = read_turns(&file, 0, false, u64::MAX, None, Carry::default()).unwrap();
+    let kept: Vec<(&str, Option<&str>, Option<u64>, Option<u64>, Option<&str>)> = done
+        .tool_calls
+        .iter()
+        .map(|one| (one.tool_use_id.as_str(), one.path.as_deref(), one.from_line, one.to_line, one.edited.as_deref()))
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            ("t1", Some("/f.rs"), None, None, None),
+            ("t2", Some("/f.rs"), Some(10), Some(14), None),
+            ("t3", Some("/f.rs"), Some(10), None, None),
+            ("t4", Some("/f.rs"), Some(1), Some(20), None),
+            ("t5", None, None, None, Some("/f.rs")),
+            ("t6", None, None, None, Some("/n.ipynb")),
+            ("t7", None, None, None, Some("/w.rs")),
+            ("t8", None, None, None, None),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

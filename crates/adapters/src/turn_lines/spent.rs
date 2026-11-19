@@ -262,14 +262,19 @@ pub(super) fn tokens(bytes: u64) -> u64 {
 }
 
 /// Any JSON value, measured as it is decoded: the bytes of its text, an image at
-/// [`IMAGE_TOKENS`], and of a map the `type`, `command` and `file_path` it names at the top.
+/// [`IMAGE_TOKENS`], and of a map the `type`, `command`, `file_path`, `offset` and `limit` it names at the top.
 #[derive(Debug, Default)]
 pub(super) struct Measured {
     pub bytes: u64,
     pub kind: Option<String>,
     pub command: Option<String>,
-    /// Of a map, the `file_path` it names at the top.
+    /// Of a map, the `file_path` (or a notebook's `notebook_path`) it names at the top.
     pub path: Option<String>,
+    /// Of a map, the `offset` and the `limit` it names at the top, where they are whole numbers.
+    pub offset: Option<u64>,
+    pub limit: Option<u64>,
+    /// Of a whole number, its value.
+    pub number: Option<u64>,
     /// A string that is a reminder the CLI wrote into the thread.
     pub reminder: bool,
 }
@@ -299,12 +304,12 @@ impl<'de> Visitor<'de> for Measuring {
         Ok(Measured { bytes: 4, ..Measured::default() })
     }
 
-    fn visit_i64<E: de::Error>(self, _: i64) -> Result<Measured, E> {
-        Ok(Measured { bytes: 4, ..Measured::default() })
+    fn visit_i64<E: de::Error>(self, one: i64) -> Result<Measured, E> {
+        Ok(Measured { bytes: 4, number: u64::try_from(one).ok(), ..Measured::default() })
     }
 
-    fn visit_u64<E: de::Error>(self, _: u64) -> Result<Measured, E> {
-        Ok(Measured { bytes: 4, ..Measured::default() })
+    fn visit_u64<E: de::Error>(self, one: u64) -> Result<Measured, E> {
+        Ok(Measured { bytes: 4, number: Some(one), ..Measured::default() })
     }
 
     fn visit_f64<E: de::Error>(self, _: f64) -> Result<Measured, E> {
@@ -332,12 +337,22 @@ impl<'de> Visitor<'de> for Measuring {
                     map.next_value::<de::IgnoredAny>()?;
                     measured.bytes += IMAGE_TOKENS * 4;
                 }
-                "type" | "command" | "file_path" => {
+                "offset" | "limit" => {
+                    let one = map.next_value::<Measured>()?;
+                    measured.bytes += one.bytes;
+                    if key == "offset" {
+                        measured.offset = one.number;
+                    } else {
+                        measured.limit = one.number;
+                    }
+                }
+                "type" | "command" | "file_path" | "notebook_path" => {
                     let Named(value, text) = map.next_value::<Named>()?;
                     measured.bytes += value.bytes;
                     match key.as_str() {
                         "type" => measured.kind = text,
                         "command" => measured.command = text,
+                        // A notebook names its file as `notebook_path`; nothing names both.
                         _ => measured.path = text,
                     }
                 }

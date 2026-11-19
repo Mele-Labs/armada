@@ -6,7 +6,8 @@
 Beside it, `session_turn_usage` holds a row for each answered message: its id, when, the model, input, cache-creation, cache-read and output tokens, the names of the tools the turn called, whether a subagent answered it, and, where its first call was a shell command, a `bash_use` label: `read_search`, `scripts`, `git`, `build_test`, `loops_waits`, `forge` or `other`, from the first real command once any leading `cd x &&` is gone.
 A message heard twice is one row: the larger output wins the figures and the calls are joined, because a harness writes the same message as it streams, a line for each block.
 `get_session_usage` returns a job's turns for a window of time, oldest first; adding the rows by model, tool or label is the reader's.
-Names and counts only: no message text, and no tool input but a Read's file path, which is kept so the same file read twice can be found (*Waste*). A label is not the command.
+Names and counts only: no message text, and no tool input but a Read's file path and lines and the file an edit changed, which are kept so the same lines read twice can be found (*Waste*).
+A label is not the command.
 
 **Nothing has to report a turn.** Fleet reads the agent CLI's transcripts itself, `<project>/<session>.jsonl` and the subagents' under `<project>/<session>/subagents/`, in `crates/fleet/src/turn_ingest.rs`.
 The files of every live job are read on the notice loop from the offset the last read reached, and a while after start the files written to in the last seven days are read once, one at a time with a pause between, so a week of jobs does not load the machine.
@@ -95,7 +96,7 @@ Every figure is in the units above, so `total_units` is the summary's for the sa
 |---|---|---|
 | `cold_cache` | The cache writes of a turn that found the cache cold, as Spent on's `cold_cache` | The turn's input and cache writes, weighed, times the share it kept as `cold_cache`. One occurrence for each cold turn |
 | `fresh_starts` | What the first main-thread request after a compaction held as `start_up` | The turn's cache read times its `start_up` read share, plus its input and writes times its `start_up` write share. One occurrence for each such start |
-| `repeat_reads` | A Read of a file the same thread already read, with no compaction between | The repeat result's tokens (its bytes over 4), as a share of the input and writes of the request that carried it, times that request's weighed input and writes, out of what the request has left. One occurrence for each repeat read |
+| `repeat_reads` | A Read of lines of a file the same thread already read, with no compaction and no edit of the file between | The repeat result's tokens (its bytes over 4), as a share of the input and writes of the request that carried it, times that request's weighed input and writes, out of what the request has left. One occurrence for each repeat read |
 | `big_results` | The part of a tool's result past 20 KB | The same, for the bytes past 20 KB of each such result that is not a repeat read. One occurrence for each such result |
 | `main_context` | The part of a main-thread request past 300k tokens of context | What is left of the request's burn, times (context less 300k) over context. One occurrence for each such request |
 | `subagent_context` | The same, for a subagent's request | The same |
@@ -122,18 +123,21 @@ A repeat read comes first: its whole result is the waste.
 A result over 20 KB that is not a repeat read gives the bytes past 20 KB, so a repeat that is also big is counted once, as a repeat read.
 The 20 KB is one constant, `BIG_RESULT_BYTES` in `crates/store/src/usage_waste.rs`, 20 x 1,024 bytes. A result of exactly that size is under it.
 
-**A repeat read is the same file Read again while the earlier read is still in the thread's context.** The same path, in the same thread, with the earlier result already returned, and no compaction between.
-A thread is the session's own, or one subagent's transcript, which is its own context: a file the main thread read and a subagent then read is not a repeat.
+**A repeat read is lines of a file Read again while the earlier read is still in the thread's context.** The same path, in the same thread, whose lines overlap lines the thread already read, with the earlier result already returned, no compaction between, and no edit of the file by that thread between.
+A thread is the session's own, or one subagent's transcript, which is its own context: a file the main thread read and a subagent then read is not a repeat, and a subagent's edit does not reset the main thread's reads.
 A compaction empties the context, so each read after one starts again.
-The path is compared as written, so `/a/f.rs` and `/a/../a/f.rs` are two files, and a Read of another range of a file is the same file: Fleet keeps no offset or limit, so a file read in two slices counts as read again.
-An Edit or Write between the two reads does not reset it.
+Subagent transcripts write compact boundaries as the session's do (132 of 1,395 on the machine this was checked on), so a subagent's own compactions reset its reads the same way.
+A Read's lines are its `offset` and `limit`: no offset and no limit is the whole file, an offset alone is from that line to the end, a limit alone is from line 1. Two reads overlap where they share a line, so a file read in two slices that do not meet is no repeat, a slice of a file already read whole is, and so is the whole file after a slice.
+An Edit, Write, MultiEdit or NotebookEdit of the path by the thread between two reads means the later one reads what the earlier one did not hold, so it is no repeat.
+The cost of a repeat is its whole result, not only the lines that overlap, so two slices that overlap by one line are costed in full.
+The path is compared as written, so `/a/f.rs` and `/a/../a/f.rs` are two files, and a change made by a shell command or by another thread is not seen.
 
 **`causes` says which file or which tool.** Each Job of `repeat_reads` and `big_results` carries its three largest causes, `{ name, units }`, largest first: file paths for the first and tool names for the second, including Fleet's own, such as `mcp__armada-fleet__waiting_for`.
 A cause's units are the kind's units for the Job split by the results' tokens, so a Job's causes add up to its units before the cut to three.
 No other kind has causes.
 
-**What is kept, to find these.** `session_tool_calls` holds a row for each tool call: the session, the call's id, its message, when, the thread (empty for the session's own, a subagent's transcript name for a subagent's), the compactions the thread had had, the tool's name, a Read's file path (null for any other tool), the result's size in bytes and the id of the request that carried it.
-No result text and no other input is kept.
+**What is kept, to find these.** `session_tool_calls` holds a row for each tool call: the session, the call's id, its message, when, the thread (empty for the session's own, a subagent's transcript name for a subagent's), the compactions the thread had had, the tool's name, a Read's file path and first and last line (null for any other tool), the file an Edit, Write, MultiEdit or NotebookEdit changed (null for any other tool), the result's size in bytes and the id of the request that carried it.
+These are numbers and file paths. No result text and no other input is kept, so not what was searched for, what a command was, or what an edit wrote.
 The rows come from the same transcript read as the turns: the size is the result's content measured as it is decoded, as the estimate above is, and the carrier is the first message of the thread after the result.
 A transcript read before this was kept is read again from the top once, as one read before searches were counted was, so a week of old turns gains its rows.
 A Job that ran before that, with its transcript gone, has none, and has no repeat reads or big results.

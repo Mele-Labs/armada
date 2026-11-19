@@ -165,6 +165,7 @@ fn call(id: &str, message: &str, tool: &str, path: Option<&str>) -> KeptToolCall
         epoch: 0,
         tool: tool.into(),
         path: path.map(str::to_string),
+        ..Default::default()
     }
 }
 
@@ -194,8 +195,11 @@ fn a_call_keeps_its_tool_a_reads_path_and_its_results_size_and_no_text() {
         .collect();
     assert_eq!(
         columns,
-        ["session_id", "tool_use_id", "message_id", "at", "thread", "epoch", "tool", "path", "result_bytes", "carried_by"],
-        "a session, a call, a tool, a path, a size and who carried it"
+        [
+            "session_id", "tool_use_id", "message_id", "at", "thread", "epoch", "tool", "path", "from_line", "to_line", "edited",
+            "result_bytes", "carried_by"
+        ],
+        "a session, a call, a tool, a path, its lines, a file edited, a size and who carried it"
     );
 
     let calls = KeptReading {
