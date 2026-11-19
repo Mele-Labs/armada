@@ -1061,6 +1061,19 @@ pub(crate) async fn get_usage_spent<D: Sessions>(State(served): State<Served<D>>
     }
 }
 
+/// `?window=` on `get_usage_waste`.
+#[derive(Deserialize)]
+pub(crate) struct WasteWindow {
+    window: Option<String>,
+}
+
+pub(crate) async fn get_usage_waste<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WasteWindow>) -> Response {
+    match served.daemon().get_usage_waste(which.window).await {
+        Ok(waste) => answer(StatusCode::OK, &waste, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_job_time`.
 pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
     match served.daemon().get_job_time(ipc::SessionId::carried(which.session_id)).await {

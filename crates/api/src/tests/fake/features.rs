@@ -20,6 +20,7 @@ fn row(slug: &str) -> FeatureRow {
         state: FeatureState::Seeded,
         jobs_now: Vec::new(),
         stale_since: None,
+        health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
     }
 }
 
@@ -41,11 +42,16 @@ impl Features for FakeDaemon {
             entry_points: Vec::new(),
             sections: Vec::new(),
             links: Vec::new(),
+            decisions: Vec::new(),
             files: Vec::new(),
             docs: Vec::new(),
             tickets: Vec::new(),
             floor_plan: None,
         })
+    }
+
+    async fn get_glossary(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::Glossary, Refusal> {
+        Ok(ipc::Glossary { project: project.unwrap_or_default(), terms: Vec::new() })
     }
 
     async fn get_project_overview(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
@@ -75,7 +81,7 @@ impl Features for FakeDaemon {
     }
 
     async fn write_feature_sections(&self, _caller: Option<crate::Caller>, write: WriteFeatureSections) -> Result<FeatureSectionsWritten, Refusal> {
-        Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], owed: Vec::new() })
+        Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], glossary: Vec::new(), owed: Vec::new() })
     }
 
     async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {

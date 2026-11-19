@@ -239,6 +239,7 @@ where
                 }
                 if attachment.kind == "artifact" {
                     self.artifact_filed(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
+                    self.artifact_decided(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
                 }
                 // A branch or pull request read from a slot the lease is another's is theirs, but a
                 // pull request the session opened itself is its own wherever it stood: the mod read
@@ -1533,6 +1534,17 @@ where
             return Err(self.ledger_unnamed("a time for the end of the window"));
         };
         Ok(crate::usage_summarising::spent_wire(read))
+    }
+
+    async fn get_usage_waste(&self, window: Option<String>) -> Result<ipc::UsageWaste, Refusal> {
+        let now = self.now().as_str().to_string();
+        let window = window.unwrap_or_else(|| crate::usage_waste::DEFAULT_WINDOW.to_string());
+        let store = self.store().lock().await;
+        let read = store.usage_waste(window.trim(), &now).map_err(|why| self.ledger_fault(why))?;
+        let Some(read) = read else {
+            return Err(self.ledger_unnamed("a window of day, week or fortnight"));
+        };
+        Ok(crate::usage_waste::wire(read))
     }
 
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {

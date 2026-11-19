@@ -29,6 +29,13 @@ fn needs_you_with_only_a_plan_opens_the_plan() {
     plays("needs-plan");
 }
 
+/// Two questions on the Operator's card in Needs you: the stepper, a number that answers the one in front, and
+/// Discuss putting the caret in the Job's box.
+#[test]
+fn a_question_in_needs_you_is_the_operators_card_and_discuss_goes_to_the_box() {
+    plays("native-ways-buttons");
+}
+
 /// Switching between Jobs, a thread of six hundred items among them, with its scroll and its box's words
 /// kept; the notes the walk emits carry each switch's time.
 #[test]

@@ -336,6 +336,7 @@ mod usage_rules;
 mod usage_summary;
 /// What the burn was spent on, and who spent it.
 mod usage_spent;
+mod usage_waste;
 /// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
 mod time_summary;
 /// The picture a Job last showed, which the native done card leads with.
@@ -374,7 +375,7 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
-    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureRead, FeatureOwed,
+    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
@@ -848,6 +849,7 @@ pub use context_breakdown::{
 pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, UsageSpent};
+pub use usage_waste::{UsageWaste, WasteJob, WasteKind, WasteWindow};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };
@@ -933,7 +935,12 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+mod glossary;
+pub use glossary::{Glossary, GlossaryEntry, GlossaryTermWrite};
 
+/// A feature's health mark and the reasons behind it.
+mod feature_health;
+pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKind};
 /// The project overview and Since you looked pages of the Features screen.
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};

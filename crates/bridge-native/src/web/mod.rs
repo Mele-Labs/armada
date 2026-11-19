@@ -12,11 +12,13 @@
 //! | Which keys go back to Bridge | [`keys`] |
 //! | A sealed page's kit: its posts, the Fleet calls they make, and the answers handed back | [`kit`] |
 //! | Walk steps found in a page, and ringed | [`finder`] |
+//! | Edit on a page: its words typed in place, and the page he saves made from its own markup | [`editing`] |
 //! | The WKWebView itself, the one file that speaks `unsafe` | `wk` |
 //!
 //! Sign-ins live in one persistent store per manifest (`frame::store_id`), never the default store Safari uses.
 
 mod acts;
+pub mod editing;
 pub mod finder;
 pub mod frame;
 pub mod keys;

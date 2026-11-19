@@ -12,7 +12,7 @@ notes = """
 
 **`busiest` is at most five features, most merges first, over the last 14 days.** Each is `slug`, `title` and `pulls`, its pull requests' numbers newest first. A feature with no merge in the window is not listed.
 
-**`glossary` is `[{term, meaning}]` and is empty** until the glossary is built.
+**`glossary` is `[{term, meaning}]`**, the project's glossary as `get_glossary` reads it, without who wrote each term.
 
 `agent_access` is `Bridge only`: it is the screen's own read, and a Job reads a feature through `get_feature_brief`.
 """

@@ -17,7 +17,7 @@ use crate::feature_library::mapping::{owns, FeatureMap, How};
 use crate::feature_library::staleness::stale_since;
 
 pub(super) const VOTING: &str = "voting-on-takes";
-const SOMEWHERE: &str = "crates/pages/voting";
+pub(super) const SOMEWHERE: &str = "crates/pages/voting";
 
 pub(super) fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
     store::KeptFeature {
@@ -258,6 +258,7 @@ pub(super) fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectio
     WriteFeatureSections {
         feature: feature.to_string(),
         sections: sections.iter().map(|section| FeatureSectionText { section: *section, text: format!("The {} text.", section.name()) }).collect(),
+        glossary: Vec::new(),
         project: None,
         session_id: Some(id.clone()),
     }

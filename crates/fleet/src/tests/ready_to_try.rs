@@ -166,6 +166,31 @@ async fn an_offer_carries_his_words_its_pictures_and_what_he_approved_and_a_re_o
 }
 
 #[tokio::test]
+async fn looks_good_is_filed_once_as_a_decision_of_the_features_the_job_changed() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    let link = store::KeptFeatureLink {
+        feature_id: "feature-1".into(),
+        kind: store::feature_link_kind::JOB.into(),
+        target: session.clone(),
+        job: session.clone(),
+        title: String::new(),
+        gist: String::new(),
+        state: String::new(),
+        via: "trailer".into(),
+        at: "2026-11-18T09:00:00.000Z".into(),
+    };
+    rig.fleet.store().lock().await.put_feature_link(&link).unwrap();
+
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+    let _ = answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await;
+
+    let filed = rig.fleet.store().lock().await.feature_decisions("feature-1").unwrap();
+    assert_eq!(filed.iter().map(|one| (one.question.as_str(), one.choice.as_str(), one.job.as_str())).collect::<Vec<_>>(), [("Keeps one thing", "Looks good", session.as_str())]);
+}
+
+#[tokio::test]
 async fn looks_good_keeps_the_verdict_tells_the_job_to_land_and_answers_the_card() {
     let rig = a_rig();
     let (session, tip) = an_offered_job(&rig).await;

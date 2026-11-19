@@ -51,6 +51,7 @@ mod session_turn_usage;
 mod first_edit_searches;
 mod usage_summary;
 mod usage_spent;
+mod usage_waste;
 mod usage_rule_trips;
 mod waiting_compactions;
 /// A job's word that a Fleet notice was wrong, and the notices its replies are read against.
@@ -60,6 +61,7 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
+mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
 mod librarian_runs;
@@ -264,11 +266,13 @@ pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, S
 pub use session_turn_usage::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
 pub use first_edit_searches::KeptFirstEdit;
 pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
+pub use usage_waste::{UsageWasteRead, WasteJobRead, WasteKind, WasteKindRead};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
 pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use feature_decisions::KeptFeatureDecision;
 pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,
@@ -362,6 +366,8 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+mod glossary;
+pub use glossary::{KeptTerm, SEED_JOB as GLOSSARY_SEED_JOB};
 pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.

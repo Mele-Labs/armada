@@ -30,6 +30,17 @@ pub(crate) struct Seed {
     pub(crate) areas: Vec<AreaSeed>,
     #[serde(default)]
     pub(crate) features: Vec<FeatureSeed>,
+    #[serde(default)]
+    pub(crate) glossary: Vec<GlossarySeed>,
+}
+
+/// A term of the seed's glossary, as its file holds it.
+#[derive(Debug, serde::Deserialize)]
+pub(crate) struct GlossarySeed {
+    pub(crate) term: String,
+    pub(crate) meaning: String,
+    #[serde(default)]
+    pub(crate) not: Vec<String>,
 }
 
 impl Seed {
@@ -105,6 +116,44 @@ where
                     if kept.dropped.is_empty() { String::new() } else { format!(": {}", kept.dropped.join(", ")) },
                 ),
                 Err(refused) => eprintln!("fleet: project {id} was not seeded: {}", refused.error().message),
+            }
+        }
+    }
+
+    /// Each running project whose glossary was never seeded and that the seed fits, given Armada's glossary, whether or not
+    /// it holds features. **Once**: the project's seed is marked in the same write as its terms, and a term a Job already
+    /// wrote is left as it is.
+    pub(crate) async fn glossaries_seeded(&self) {
+        let Ok(carried) = Seed::armada() else { return };
+        if carried.glossary.is_empty() {
+            return;
+        }
+        let projects: Vec<String> = self.projects_held().running().map(|one| one.id().as_str().to_string()).collect();
+        for id in projects {
+            if self.store().lock().await.glossary_seeded(&id).unwrap_or(true) || self.unseedable().contains(&id) {
+                continue;
+            }
+            if !self.seed_fits(&id, &carried).await {
+                self.unseedable().insert(id);
+                continue;
+            }
+            let at = self.now().as_str().to_string();
+            let terms: Vec<store::KeptTerm> = carried
+                .glossary
+                .iter()
+                .map(|one| store::KeptTerm {
+                    project: id.clone(),
+                    term: one.term.clone(),
+                    meaning: one.meaning.clone(),
+                    not: one.not.clone(),
+                    job: store::GLOSSARY_SEED_JOB.to_string(),
+                    at: at.clone(),
+                })
+                .collect();
+            match self.store().lock().await.keep_glossary_seed(&id, &terms, &at) {
+                Ok(true) => eprintln!("fleet: seeded project {id} with {} glossary terms", terms.len()),
+                Ok(false) => {}
+                Err(why) => eprintln!("fleet: project {id}'s glossary was not seeded: {why}"),
             }
         }
     }

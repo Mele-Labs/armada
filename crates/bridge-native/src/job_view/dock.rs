@@ -66,6 +66,8 @@ pub(super) struct DockState {
     pub answering: Option<String>,
     /// How wide the band's row for a question asked in pictures was last drawn: it decides how many thumbnails fit.
     pub look_row: Rc<std::cell::Cell<f32>>,
+    /// The question on the card in front, stepped to; absent, or answered, it is the first (`needs_card.rs`).
+    pub front: Option<String>,
 }
 
 /// How many draws a run started from a row is kept in view for.
@@ -964,18 +966,34 @@ impl JobView {
             .is_some_and(|page| page.cards.boxes.iter().any(|(name, area)| name.starts_with("dock:") && area.read(cx).focus_handle(cx).contains_focused(window, cx)))
     }
 
-    /// The list: Fleet's sections in its order, each under its label, each row as Fleet gave it.
+    /// The list: Fleet's sections in its order, each under its label, each row as Fleet gave it. The questions on the
+    /// card are one card, where the one in front stands; the others wait behind it.
     fn render_list(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
         let in_band = self.band_reviews(id, cx);
+        let front = self.front_question(id, cx).map(|row| row.id.clone());
+        let listed = |thing: &Thing| match thing {
+            Thing::Row(row) if super::needs_card::on_card(row) => (front.as_deref() == Some(row.id.as_str())).then(|| self.needs_card(id, row, true, look, cx)),
+            _ => Some(self.thing_row(id, thing, look, cx)),
+        };
         div()
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_4))
-            .children(self.groups(id, cx).into_iter().map(|group| {
+            .children(self.groups(id, cx).into_iter().filter_map(|group| {
                 let label = SharedString::from(group.label.to_string());
                 // A card to try is its own row beside the review sheet's: the sheet holds no body for it.
                 let (cards, rest): (Vec<Thing>, Vec<Thing>) = group.things.into_iter().partition(is_ready);
-                labelled(
+                let rows: Vec<AnyElement> = if group.kind == NeedsYouSectionKind::ToReview && in_band {
+                    let sheet = (!rest.is_empty()).then(|| self.sheet_row(&rest, look, cx));
+                    sheet.into_iter().chain(cards.iter().filter_map(listed)).collect()
+                } else {
+                    rest.iter().chain(cards.iter()).filter_map(listed).collect()
+                };
+                // A section that held only questions waiting behind the card has nothing of its own to show.
+                if rows.is_empty() {
+                    return None;
+                }
+                Some(labelled(
                     div()
                         .id(SharedString::from(format!("needs-group:{label}")))
                         .flex()
@@ -992,15 +1010,10 @@ impl JobView {
                                 .text_color(look.color(token::FG_MUTED))
                                 .child(label.clone()),
                         )
-                        .children(if group.kind == NeedsYouSectionKind::ToReview && in_band {
-                            let sheet = (!rest.is_empty()).then(|| self.sheet_row(&rest, look, cx));
-                            sheet.into_iter().chain(cards.iter().map(|thing| self.thing_row(id, thing, look, cx))).collect()
-                        } else {
-                            rest.iter().chain(cards.iter()).map(|thing| self.thing_row(id, thing, look, cx)).collect::<Vec<_>>()
-                        }),
+                        .children(rows),
                     Role::Region,
                     label,
-                )
+                ))
             }))
             .into_any_element()
     }
@@ -1362,7 +1375,7 @@ impl JobView {
     }
 
     /// Open the one-line box under a row for its reason or its note, or put it away if it is open for that.
-    fn open_row_box(&mut self, row: &str, what: RowBoxFor, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_row_box(&mut self, row: &str, what: RowBoxFor, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         if self.dock_of(&id).and_then(|dock| dock.row_box.as_ref()).is_some_and(|open| open.row == row && open.what == what) {
             self.close_row_box(window, cx);
@@ -1483,7 +1496,7 @@ impl JobView {
     }
 
     /// The box open under a row, as its press opened it: Enter sends it and Esc puts it away.
-    fn row_box_under(&self, id: &SharedString, row: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    pub(super) fn row_box_under(&self, id: &SharedString, row: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let open = self.dock_of(id)?.row_box.as_ref().filter(|open| open.row == row)?;
         let name = match open.what {
             RowBoxFor::Reason => "Reason",
@@ -1595,7 +1608,11 @@ impl JobView {
         match self.dock_of(id).and_then(|dock| dock.detail.clone()) {
             Some(open) => things.iter().find(|thing| Self::thing_key(thing) == open).and_then(asking),
             None if things.iter().any(|thing| matches!(thing, Thing::Ask(_) | Thing::Lapsed(_))) => None,
-            None => things.iter().find_map(asking),
+            // The questions on the card stand as one: the keys are on the one in front.
+            None => match things.iter().find(|thing| asking(thing).is_some()) {
+                Some(Thing::Row(row)) if super::needs_card::on_card(row) => self.front_question(id, cx).map(|row| (row.id.clone(), row_options(row).len())),
+                first => first.and_then(asking),
+            },
         }
     }
 
@@ -1650,7 +1667,7 @@ impl JobView {
 
     /// The two thumbs at the end of a sentence Fleet read from a reply: A question, and Not a question.
     /// Confirmed, Fleet has nothing left to ask, so there are none.
-    fn thumbs(&self, item: &str, confirmed: bool, back: FocusHandle, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn thumbs(&self, item: &str, confirmed: bool, back: FocusHandle, look: &Look, cx: &Context<Self>) -> AnyElement {
         let thumb = |id: &'static str, said: &'static str, icon: &'static str, yes: bool| {
             let (item, back) = (item.to_string(), back.clone());
             labelled(
@@ -1764,6 +1781,7 @@ impl JobView {
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
             // A Job's builds to try are never a question: its newest open build is drawn whole, with its own answers.
             Thing::Row(row) if row.source == WaitingSource::ReadyToTry => Pinned::body(self.ready_in_band(id, look, cx)),
+            Thing::Row(row) if super::needs_card::on_card(row) => Pinned::body(self.needs_card(id, row, false, look, cx)),
             Thing::Row(row) if ways::answers_with_buttons() && !row_options(row).is_empty() => {
                 let keyed = self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id);
                 let ask = div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.text.clone()));

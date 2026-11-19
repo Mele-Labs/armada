@@ -113,6 +113,8 @@ impl Notifier {
         let subscriptions = vec![
             cx.subscribe(fleet, |this, _fleet, arrived: &Arrived, cx| this.arrive(arrived.0.clone(), cx)),
             cx.observe(fleet, |this, _fleet, cx| this.follow_count(cx)),
+            // A Mac that falls asleep or wakes moves the count with no word from Fleet.
+            crate::pairing::observe(cx, |this, cx| this.follow_count(cx)),
         ];
         // A press on a banner comes back through gpui. This also readies the notification centre, which
         // does nothing outside an app bundle.
@@ -138,7 +140,7 @@ impl Notifier {
     /// The Dock count follows Fleet's calls. **Not before Fleet has answered once**: an empty first
     /// reading would clear a count that stands.
     fn follow_count(&mut self, cx: &mut Context<Self>) {
-        let Some(count) = self.fleet.read(cx).held().dock_count() else { return };
+        let Some(count) = self.fleet.read(cx).held().dock_count(crate::pairing::macs(cx)) else { return };
         if self.badge != Some(count) {
             self.badge = Some(count);
             banner::set_badge(count);
@@ -156,9 +158,10 @@ impl Notifier {
     }
 
     fn tell(&mut self, cx: &mut Context<Self>) {
-        // A Job snoozed since its news arrived is quiet: nothing of it goes out.
+        // A Job snoozed since its news arrived, or on a Mac asleep since, is quiet: nothing of it goes out.
         let fleet = self.fleet.read(cx).held();
-        self.collector.without(|job| fleet.snoozed(job));
+        let macs = crate::pairing::macs(cx);
+        self.collector.without(|job| fleet.snoozed(job) || fleet.unreachable(job, macs));
         let Some(told) = self.collector.close() else { return };
         if !self.fleet.read(cx).held().notifications {
             return;

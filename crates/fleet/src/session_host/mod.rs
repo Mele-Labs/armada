@@ -34,7 +34,7 @@ pub(crate) mod asking_in_window;
 pub(crate) mod draft_document;
 pub(crate) mod draft_page;
 mod artifact_for;
-mod artifact_parts;
+pub(crate) mod artifact_parts;
 mod artifacts;
 mod archiving;
 mod answering_items;

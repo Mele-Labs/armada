@@ -73,6 +73,7 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("list_terminals", &["session_id"]),
     ("get_job_time", &["session_id"]),
     ("get_usage_time", &["since", "until", "slowest"]),
+    ("get_usage_waste", &["window"]),
     ("get_workflow", &["workflow_id", "source"]),
     ("get_workflow_steps", &["workflow_id", "source"]),
     ("list_workflow_changes", &["workflow_id", "source"]),
@@ -200,6 +201,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The feature library a Job reads before it searches and writes into before it ends.
     "get_features_of_path",
     "get_feature_brief",
+    "get_glossary",
     "write_feature_sections",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",
