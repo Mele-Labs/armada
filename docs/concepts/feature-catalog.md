@@ -218,7 +218,9 @@ Needs you comes first, then Changed by newest merge, then New by newest added.
 Each feature carries one line, `what`, made from the titles of the pull requests merged since, newest first and at most three.
 A merge kept before titles were kept has none, and then the line is the feature's summary.
 `pulls` are those pull requests' numbers.
-`paragraph` is empty: a model's paragraph over the list comes later.
+`paragraph` is the one short paragraph the librarian's `since_you_looked` part wrote, and it is empty where none was written.
+It is served only when `since` is at or before the run that wrote it, since he may have looked after that run, and the list under it is always read live.
+The part and what it spends are under *Librarian*.
 
 > **Rule.** Fleet builds the list from merges and the catalog's own dates, and a model only ever words it.
 > Why: a list a model chose would drop a feature on a bad day, and he reads it to find what changed.
@@ -258,20 +260,35 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-No part is built yet, so a run today keeps its record and does nothing else.
+Only `since_you_looked` is built so far, and a run does nothing else but keep its record.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
 `features.librarianParts` names the parts a run does, all nine as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
 
-`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, and the parts that ran.
+`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, the parts that ran, the paragraph it wrote, the calls it made and the parts it left out for the share.
 `list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
 Fleet reads those numbers from the merge links it already keeps and does not ask the forge.
 Bridge draws "not read since #N" from it.
 
 > **Rule.** Fleet starts no librarian run by itself while `features.librarianRuns` is `on_press`.
 > Why: the owner wants it on demand until it has been tested more, and a run Fleet started on its own would be one he did not ask for.
+
+**`since_you_looked` writes the paragraph at the top of Since you looked.**
+It takes the features new, changed or waiting on him since the last run that did the part, each with its merged pull request titles, which is the page's own list and costs no model.
+It puts them to the small model that sorts his messages in a Job (`models.dispute`), through the same call, and asks for at most three short sentences of facts, with no advice, no narration and no dashes.
+Fleet keeps the answer with the run, cut to three sentences with any dash taken out.
+A first run has no earlier run, so every feature reads as new, and the prompt names the first twenty and counts the rest.
+
+> **Rule.** Where nothing moved since the last run, the part makes no call and writes no paragraph.
+> Why: the model runs only where words must be written, and a paragraph about nothing would be words for the sake of words.
+
+**The part spends from the night's share.**
+A night is the machine's local midnight to midnight, and the share is counted in model calls for each project.
+A call that fails still counts, since it was made.
+Where the share is spent the part is left out, and the run's answer lists it in `skipped_for_share` so the librarian card can say "share spent".
+The facts then wait: the part's next run reads from the last run that did it.
 
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.

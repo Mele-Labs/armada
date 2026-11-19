@@ -72,11 +72,14 @@ pub struct RunLibrarian {
 pub struct LibrarianRan {
     pub project: String,
     pub ran_at: Instant,
-    /// The parts that ran, in the order they ran. Empty while no part is built.
+    /// The parts that ran, in the order they ran.
     pub ran: Vec<LibrarianPart>,
     /// The newest merged pull request the run read through. Absent where the project holds none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub read_through: Option<u64>,
+    /// The parts the run left out because the night's share of model calls was spent. Absent where none was.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub skipped_for_share: Vec<LibrarianPart>,
 }
 
 /// Where a project's librarian stands, on `list_features`.
