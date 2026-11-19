@@ -61,6 +61,7 @@ pub mod job_time;
 mod job_timing;
 pub mod usage_rules;
 mod usage_summarising;
+mod usage_adjust;
 mod usage_waste;
 mod time_summarising;
 mod turn_usage_keeping;
@@ -85,6 +86,7 @@ mod building;
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.
 mod previewing;
+mod preview_macs;
 /// The notes of the build the owner runs: read, marked looked at, and answered.
 mod build_noting;
 /// The hours, builds and Jobs the Usage page reads time from.
@@ -288,6 +290,8 @@ mod project_merging;
 mod mac_acts;
 /// Moving this Mac, another of his Macs, or both onto one build, keeping running Jobs.
 mod mac_update;
+/// A Refresh of both Macs, claimed so each Mac shows it running.
+mod refresh_claim;
 /// A walk or dev server of a Job on one of his Macs, opened on another through the signed link.
 mod mac_pages;
 /// A task act another Mac made on a shared project of this Mac, run here.

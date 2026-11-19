@@ -1,0 +1,10 @@
+[operations.share_preview_offers]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's own ready preview offers that are on origin, for this Mac's Phone Gateway to send his other Macs"
+notes = """
+`GET /other_mac/preview_offers`, answered with `PreviewOffers`, cut: only this Mac's own offers that are `ready` and have been pushed to origin, each row as `get_preview_offers` has it with `mac` absent. `refresh` is absent and `left_out` is empty. An offer that is checking or failed, one not pushed, and one held from another Mac (`mac` set) are never listed. A Mac with no other Mac paired pushes nothing, so lists nothing.
+
+`preview_offers.changed` crosses to the other Mac cut the same way, so what the other Mac holds follows this list. A Mac on a build from before this route answers 404, and the link stays up without its offers.
+"""

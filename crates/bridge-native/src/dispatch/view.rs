@@ -471,7 +471,7 @@ impl DispatchSheet {
                 .child(labelled(div().id("dispatch-refused").text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why))
         });
         let tuning = {
-            let model = self.model.clone().or_else(|| self.face.tuning.default_model.clone()).unwrap_or_else(|| "Auto".into());
+            let model = self.model.clone().unwrap_or_else(|| "Auto".into());
             let effort = self.effort.clone().unwrap_or_else(|| "Auto".into());
             div()
                 .flex()

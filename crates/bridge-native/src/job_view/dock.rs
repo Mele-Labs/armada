@@ -686,7 +686,7 @@ impl JobView {
         let refreshing = if build == BuildSource::Preview { self.preview_refreshing(cx) } else { None };
         let held = refreshing.is_some() || matches!(mark, Some(RunMark::Running | RunMark::Passed));
         let (icon, said) = mark.as_ref().map_or(("rotate-cw", SharedString::from(command.clone())), RunMark::look);
-        let said = refreshing.map_or(said, SharedString::from);
+        let said = refreshing.as_ref().map_or(said, |now| SharedString::from(now.tip(crate::pairing::macs(cx))));
         let label = if refreshing.is_some() { SharedString::from("Refreshing") } else { label };
         let ink = look.color(token::FG_INVERSE);
         let mark: AnyElement = if refreshing.is_some() {

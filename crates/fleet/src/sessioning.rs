@@ -1549,6 +1549,27 @@ where
         Ok(crate::usage_waste::wire(read))
     }
 
+    async fn get_usage_adjustments(&self, window: Option<String>) -> Result<ipc::UsageAdjustments, Refusal> {
+        let now = self.now().as_str().to_string();
+        let window = window.unwrap_or_else(|| crate::usage_adjust::DEFAULT_WINDOW.to_string());
+        let window = window.trim();
+        let settings = self.machine_settings().now();
+        let priced = {
+            let store = self.store().lock().await;
+            let fault = |why| self.ledger_fault(why);
+            let Some(burn) = store.burn_of(window, &now).map_err(fault)? else {
+                return Err(self.ledger_unnamed("a window of day, week or fortnight"));
+            };
+            crate::usage_adjust::Priced {
+                burn,
+                cache: store.subagent_cache_estimate(window, &now).map_err(fault)?,
+                compaction: store.compaction_estimate(window, &now, crate::usage_adjust::SUGGESTED_COMPACTION).map_err(fault)?,
+                changes: store.settings_changes_read(&now, crate::usage_adjust::cuts_of).map_err(fault)?,
+            }
+        };
+        Ok(crate::usage_adjust::wire(&settings, priced))
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         let id = session_id.as_str().trim();
         let kept = self.job_split_read(id).await?;

@@ -107,6 +107,25 @@ where
         }
     }
 
+    /// Keep each setting the Usage page changes that `after` holds differently from `before`, so what the change
+    /// did to the waste it cuts can be read later. A save and a hand edit are kept alike.
+    async fn adjustments_kept(&self, before: &Resolved, after: &Resolved) {
+        let changed = crate::usage_adjust::changed(before, after);
+        if changed.is_empty() {
+            return;
+        }
+        let at = self.now().as_str().to_string();
+        let mut store = self.store().lock().await;
+        for (key, from, to) in changed {
+            if let Err(why) = store.keep_settings_change(key, &at, &from, &to) {
+                let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a change to a setting was not kept")
+                    .with_field("key", FieldValue::Str(key.to_string()))
+                    .with_field("why", FieldValue::Str(why.to_string()));
+                crate::transcript::note_aloud(&envelope);
+            }
+        }
+    }
+
     /// Put `saved` in force, clear any refusal, and say so.
     async fn settings_adopted(&self, saved: Saved) -> SettingsList {
         let settings = self.machine_settings();
@@ -117,12 +136,14 @@ where
                 .with_field("why", FieldValue::Str(why.to_string()));
             crate::transcript::note_aloud(&envelope);
         }
-        let resolved: Resolved = {
+        let (before, resolved): (Resolved, Resolved) = {
             let mut held = settings.held();
+            let before = held.now.clone();
             held.now = held.now.with(saved);
             held.refused = None;
-            held.now.clone()
+            (before, held.now.clone())
         };
+        self.adjustments_kept(&before, &resolved).await;
         self.retuned(&resolved);
         self.relimited(&resolved).await;
         self.downshift_settings_moved(&resolved).await;

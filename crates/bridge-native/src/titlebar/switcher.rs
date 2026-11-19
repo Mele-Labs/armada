@@ -6,7 +6,7 @@ use gpui::{
 };
 use ipc::{BuildSource, CheckoutBlocked, ClearBlocked};
 
-use super::face::{ahead_said, behind_said, blocked_said, built_said, kept_said, stage_word, Build, Position};
+use super::face::{ahead_said, behind_said, blocked_said, built_said, kept_said, refreshing, restarting as restarting_of, stage_word, Build, Position};
 use super::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
 use super::{story, Dialog, MenuKind, TitleBar};
 use crate::dropdown::Entry;
@@ -191,8 +191,8 @@ impl TitleBar {
     pub(super) fn build_section(&self, held: &Build, look: &Look, cx: &Context<Self>) -> (AnyElement, AnyElement) {
         let report = &held.report;
         let offers = self.face.offers.as_ref();
-        let busy = report.restarting.is_some() || report.reverting || report.swapping;
-        let restarting = report.restarting.is_some();
+        let busy = restarting_of(report) || report.reverting || report.swapping;
+        let restarting = restarting_of(report);
         let work = story::held(report, offers);
         let keep_row = (!report.trying.is_empty()).then(|| {
             let amber = look.color(token::STATUS_AWAITING_REVIEW);
@@ -278,7 +278,7 @@ impl TitleBar {
         // Each press with the sentence that says what it builds.
         let refresh_row = offers.and_then(|offers| offers.refresh.as_ref());
         let on = report.on;
-        let refreshing = report.restarting == Some(BuildSource::Preview);
+        let refreshing = refreshing(report);
         let updating = report.restarting == Some(BuildSource::Main);
         let said = |text: SharedString| -> AnyElement {
             div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(text).into_any_element()
@@ -286,17 +286,18 @@ impl TitleBar {
         // Another Mac paired: Refresh takes it along, and a Mac pressing alone is what froze the link.
         let partner = crate::pairing::refresh_partner(crate::pairing::macs(cx)).map(|other| other.name.clone());
         let refresh = (on == BuildSource::Preview || refresh_row.is_some()).then(|| {
-            let label = match (refreshing, partner.is_some()) {
+            let label = match (refreshing.is_some(), partner.is_some()) {
                 (true, _) => "Refreshing",
                 (false, true) => "Refresh both Macs",
                 (false, false) => "Refresh",
             };
             let weight = if refresh_row.is_some() { Weight::Primary } else { Weight::Secondary };
-            let tooltip = match &partner {
-                Some(name) => format!("Merge the offered branches onto latest main, restart Fleet, and have {name} build the same commit"),
-                None => "Merge the offered branches onto latest main and restart Fleet".into(),
+            let tooltip = match (&refreshing, &partner) {
+                (Some(now), _) => now.tip(crate::pairing::macs(cx)),
+                (None, Some(name)) => format!("Merge the offered branches onto latest main, restart Fleet, and have {name} build the same commit"),
+                (None, None) => "Merge the offered branches onto latest main and restart Fleet".into(),
             };
-            let button = Btn::new("refresh-build", label, weight).icon("rotate-cw").pending(refreshing).disabled(busy).full().draw(look, cx).flex_1().tooltip(tip(tooltip));
+            let button = Btn::new("refresh-build", label, weight).icon("rotate-cw").pending(refreshing.is_some()).disabled(busy).full().draw(look, cx).flex_1().tooltip(tip(tooltip));
             let button = if busy {
                 button
             } else if partner.is_some() {
@@ -320,7 +321,12 @@ impl TitleBar {
                 .flex_col()
                 .gap(look.length(token::SPACE_2))
                 .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(labelled(button, Role::Button, label)).children(alone).children(skip))
-                .children((!restarting).then(|| said(story::refresh_said(offers).into())))
+                .children((!restarting).then(|| said(story::refresh_said(offers, crate::pairing::macs(cx)).into())))
+                .children(refreshing.as_ref().and_then(|now| now.started_said(crate::pairing::macs(cx))).map(|started| {
+                    let started: SharedString = started.into();
+                    let line = div().id("refresh-started").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(started.clone());
+                    labelled(line, Role::Status, started).into_any_element()
+                }))
         });
         let update = (on == BuildSource::Main).then(|| {
             let idle = held.aligned && !restarting;
@@ -355,7 +361,7 @@ impl TitleBar {
         let report = &held.report;
         let said = held.revert_tip()?;
         let label = if report.reverting { "Reverting" } else { "Revert" };
-        let off = report.restarting.is_some() || report.reverting || report.swapping;
+        let off = restarting_of(report) || report.reverting || report.swapping;
         let button = Btn::new("revert-build", label, Weight::Secondary).icon("undo-2").pending(report.reverting).disabled(off).draw(look, cx).track_focus(&self.list_stops.revert).tooltip(tip(said));
         let button = if off { button } else { button.on_click(cx.listener(|this, _, window, cx| this.revert_pressed(window, cx))) };
         Some(labelled(button, Role::Button, label).into_any_element())
@@ -461,7 +467,11 @@ impl TitleBar {
                 .into_any_element(),
             Position::Restarting { target, stage } => {
                 let on = if target == BuildSource::Preview { "the preview" } else { "main" };
-                let tip_said = format!("Restarting Fleet on {on}");
+                let started = crate::titlebar::refreshing(&held.report).and_then(|now| now.started_said(crate::pairing::macs(_cx)));
+                let tip_said = match started {
+                    Some(started) => format!("Restarting Fleet on {on}. {started}"),
+                    None => format!("Restarting Fleet on {on}"),
+                };
                 let (role, name): (Role, SharedString) = match stage {
                     Some(stage) => (Role::Status, stage_word(stage).into()),
                     None => (Role::Image, "Restarting Fleet".into()),
@@ -805,6 +815,35 @@ mod tests {
         redraw(cx);
         assert_eq!(changes(&asked), [Asked::ChangeBuild { build: BuildSource::Preview, clear: None }], "This Mac only is today's change");
         assert!(!asked.borrow().contains(&Asked::RefreshBoth));
+    }
+
+    const CLAIMED: &str = r#""refresh":{"mac":"air","name":"Air","stage":"building_fleet","at":"2026-11-19T09:00:00Z"}"#;
+
+    #[gpui::test]
+    fn a_refresh_another_mac_started_reads_refreshing_here_and_its_keys_are_off_until_it_is_cleared(cx: &mut TestAppContext) {
+        let (bar, cx, asked) = opened_with(cx, &format!("{PREVIEW},{CLAIMED}"), crate::pairing::mock_macs(true));
+        assert!(drawn(cx, Role::Button, "Refreshing").is_some(), "the Refresh row reads Refreshing with no restart of this Mac's own");
+        assert!(drawn(cx, Role::Status, "Started on Air").is_some(), "it names the Mac that started it");
+        assert!(drawn(cx, Role::Button, "Refresh both Macs").is_none(), "the press is gone");
+        let alone = drawn(cx, Role::Button, "This Mac only").expect("This Mac only stands, off");
+        cx.simulate_click(alone.center(), Modifiers::none());
+        redraw(cx);
+        assert!(changes(&asked).is_empty() && !asked.borrow().contains(&Asked::RefreshBoth), "no press reaches Fleet while the claim stands: {:?}", asked.borrow());
+        // Cleared: Fleet's next report carries no claim.
+        let report = ipc::decode::<FleetBuildReport>("FleetBuildReport", format!("{{{PREVIEW}}}").as_bytes()).expect("the report decodes");
+        bar.update(cx, |bar, cx| {
+            bar.reset(Face { build: Some(build_of(&report)), ..scenes::rest() });
+            cx.notify();
+        });
+        redraw(cx);
+        // Reset shuts the panel; he opens it again. A bare bar's label book is never cleared, so Refreshing's stale entry is not asked; the press coming back is.
+        cx.update(|window, cx| bar.update(cx, |bar, cx| bar.fleet_pressed(window, cx)));
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Refresh both Macs").is_some(), "claim cleared, the keys are back");
+        let both = drawn(cx, Role::Button, "Refresh both Macs").expect("drawn");
+        cx.simulate_click(both.center(), Modifiers::none());
+        redraw(cx);
+        assert!(asked.borrow().contains(&Asked::RefreshBoth), "and press");
     }
 
     #[gpui::test]

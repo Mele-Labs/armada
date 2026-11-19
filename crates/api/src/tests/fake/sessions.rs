@@ -1016,6 +1016,21 @@ impl Sessions for FakeDaemon {
         Ok(ipc::UsageWaste { until: String::new(), window, total_units: 0.0, waste_units: 0.0, kinds: Vec::new() })
     }
 
+    async fn get_usage_adjustments(&self, window: Option<String>) -> Result<ipc::UsageAdjustments, Refusal> {
+        // The window the route read comes back as the one setting's key, so a route test can see what reached the daemon.
+        let key = window.unwrap_or_default();
+        let setting = ipc::AdjustSetting {
+            key,
+            label: String::new(),
+            now: ipc::SettingValue::Null,
+            choices: Vec::new(),
+            suggested: None,
+            cuts: String::new(),
+            saves_share: None,
+        };
+        Ok(ipc::UsageAdjustments { settings: vec![setting], changes: Vec::new() })
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         Ok(ipc::JobTime { session_id: session_id.as_str().to_string(), time: None })
     }

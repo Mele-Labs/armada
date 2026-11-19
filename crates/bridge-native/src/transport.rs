@@ -5,6 +5,7 @@
 //! approach is `crates/pocket/src/fleet_client.rs`.
 
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::Duration;
 
 use http_body_util::{BodyExt, Empty, Full};
@@ -20,6 +21,60 @@ const CONNECT_PATIENCE: Duration = Duration::from_secs(2);
 
 /// A read of a busy Fleet can be slow; past this the read failed.
 const ANSWER_PATIENCE: Duration = Duration::from_secs(30);
+
+/// Requests in a row that got no answer within `ANSWER_PATIENCE`, since Fleet last answered one.
+///
+/// Fleet's event stream can stay up while its routes hang (19 Nov: seven minutes of "no answer in 30
+/// seconds" with the cursor advancing), so the title bar reads this beside the link.
+pub struct Slowness(AtomicU32);
+
+/// Timeouts in a row after which Fleet is called slow.
+pub const SLOW_AFTER: u32 = 3;
+
+impl Slowness {
+    pub const fn new() -> Slowness {
+        Slowness(AtomicU32::new(0))
+    }
+
+    pub fn timed_out(&self) {
+        let _ = self.0.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |n| Some(n.saturating_add(1)));
+    }
+
+    /// Any answer, a refusal too, shows Fleet's routes work.
+    pub fn answered(&self) {
+        self.0.store(0, Ordering::Relaxed);
+    }
+
+    pub fn standing(&self) -> bool {
+        self.0.load(Ordering::Relaxed) >= SLOW_AFTER
+    }
+}
+
+static SLOWNESS: Slowness = Slowness::new();
+
+/// Whether Fleet's routes have timed out `SLOW_AFTER` times running.
+pub fn slow() -> bool {
+    SLOWNESS.standing()
+}
+
+/// Count a request's outcome: only a wait of the ordinary patience says Fleet is slow, since a clone or a
+/// model call is meant to wait longer.
+fn noted(result: Result<Result<(u16, Vec<u8>), String>, tokio::time::error::Elapsed>, patience: Duration) -> Result<(u16, Vec<u8>), String> {
+    match result {
+        Ok(answer) => {
+            if answer.is_ok() {
+                SLOWNESS.answered();
+            }
+            answer
+        }
+        Err(_) => {
+            if patience == ANSWER_PATIENCE {
+                SLOWNESS.timed_out();
+            }
+            Err(format!("no answer in {} seconds", patience.as_secs()))
+        }
+    }
+}
 
 // `MODEL_CALL_MS`: what a route with a model call inside it waits, as Electron's does.
 include!(concat!(env!("OUT_DIR"), "/model_call.rs"));
@@ -54,7 +109,7 @@ pub async fn get(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
         let body = response.into_body().collect().await.map_err(|why| why.to_string())?;
         Ok((status, body.to_bytes().to_vec()))
     };
-    timeout(ANSWER_PATIENCE, read).await.map_err(|_| "no answer in 30 seconds".to_string())?
+    noted(timeout(ANSWER_PATIENCE, read).await, ANSWER_PATIENCE)
 }
 
 /// POST `body`, JSON already encoded, to `path`; the status and the bytes, nothing interpreted.
@@ -114,7 +169,7 @@ async fn send(method: &str, port: u16, path: &str, body: Option<String>, patienc
         let body = response.into_body().collect().await.map_err(|why| why.to_string())?;
         Ok((status, body.to_bytes().to_vec()))
     };
-    timeout(patience, read).await.map_err(|_| format!("no answer in {} seconds", patience.as_secs()))?
+    noted(timeout(patience, read).await, patience)
 }
 
 /// Open Fleet's WebSocket at `path` and hand back the upgraded stream.
@@ -141,4 +196,28 @@ pub async fn upgrade(port: u16, path: &str) -> Result<TokioIo<hyper::upgrade::Up
     }
     let upgraded = hyper::upgrade::on(response).await.map_err(|why| why.to_string())?;
     Ok(TokioIo::new(upgraded))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn fleet_is_slow_after_timeouts_in_a_row_and_an_answer_ends_it() {
+        let slowness = Slowness::new();
+        for _ in 0..SLOW_AFTER - 1 {
+            slowness.timed_out();
+        }
+        assert!(!slowness.standing(), "two timeouts are not yet slow");
+        slowness.timed_out();
+        assert!(slowness.standing());
+        slowness.answered();
+        assert!(!slowness.standing(), "one answer and the run starts again");
+    }
+
+    #[test]
+    fn only_a_connected_stream_with_slow_routes_raises_the_notice() {
+        assert_eq!(crate::titlebar::slow_notice(true).map(|notice| notice.headline.to_string()), Some("Fleet is slow".to_string()));
+        assert!(crate::titlebar::slow_notice(false).is_none());
+    }
 }
