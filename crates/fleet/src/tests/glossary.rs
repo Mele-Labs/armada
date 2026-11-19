@@ -138,7 +138,7 @@ async fn a_not_word_in_a_commit_is_flagged_on_the_jobs_feature_and_the_commit_is
         files: vec!["crates/pages/voting/ranks.rs".to_string()],
     };
     let flags = || async {
-        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("page");
+        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None, false).await.expect("page");
         page.links.into_iter().filter(|link| link.kind == FeatureLinkKind::GlossaryFlag).collect::<Vec<_>>()
     };
 
