@@ -1,9 +1,9 @@
 //! What the Usage page shows, worked out from Fleet's waste reading (`ipc::UsageWaste`) and nothing there touches the screen.
 //! `Held` is what the page holds while a reading is asked for: the span on the switch, the rows last read, and why a read failed.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use ipc::{UsageWaste, WasteKind};
+use ipc::{AdjustChange, AdjustSetting, SettingValue, UsageAdjustments, UsageWaste, WasteKind};
 
 use crate::look::{token, Token};
 
@@ -27,7 +27,34 @@ impl Span {
         }
     }
 
-    /// The word Fleet's route takes: `GET /usage/waste?window=`.
+    /// Whose burn the window is: `today's`, `this week's`.
+    pub fn whose(self) -> &'static str {
+        match self {
+            Span::Day => "today's",
+            Span::Week => "this week's",
+            Span::Fortnight => "this fortnight's",
+        }
+    }
+
+    /// What a share is a share of, at the head of a column: `Share of today`.
+    pub fn share_head(self) -> &'static str {
+        match self {
+            Span::Day => "Share of today",
+            Span::Week => "Share of the week",
+            Span::Fortnight => "Share of the fortnight",
+        }
+    }
+
+    /// The head of the column of what a change would save: `Saves a week`.
+    pub fn saves_head(self) -> &'static str {
+        match self {
+            Span::Day => "Saves a day",
+            Span::Week => "Saves a week",
+            Span::Fortnight => "Saves a fortnight",
+        }
+    }
+
+    /// The word Fleet's route takes: `GET /usage/waste?window=`, and `GET /usage/adjustments?window=`.
     pub fn id(self) -> &'static str {
         match self {
             Span::Day => "day",
@@ -65,27 +92,31 @@ pub fn look_of(kind: &str) -> KindLook {
     KindLook { glyph, hue, one, many }
 }
 
-/// Fleet's burn units as a person reads them: `1,116`, `123`, `31`, `1.9`. A hundred or more is rounded with a thousands
-/// separator, ten to ninety-nine is rounded, and under ten keeps one decimal.
-pub fn units_said(units: f64) -> String {
-    let units = units.max(0.);
-    if units >= 100. {
-        let whole = units.round() as u64;
-        let digits = whole.to_string();
-        let mut said = String::new();
-        for (at, digit) in digits.chars().enumerate() {
-            if at > 0 && (digits.len() - at) % 3 == 0 {
-                said.push(',');
-            }
-            said.push(digit);
-        }
-        said
-    } else if units >= 9.95 {
-        format!("{}", units.round() as u64)
-    } else if units == 0. {
-        "0".into()
+/// A share of the burn, 0 to 1, as a person reads it: `15%`, and under ten percent one decimal, `5.5%`.
+pub fn share_said(share: f64) -> String {
+    let percent = (share * 100.).max(0.);
+    if percent == 0. {
+        "0%".into()
+    } else if percent < 9.95 {
+        format!("{percent:.1}%")
     } else {
-        format!("{units:.1}")
+        format!("{}%", percent.round() as u64)
+    }
+}
+
+/// A share with its decimal always, so a before and a since read against each other: `12.3%`.
+pub fn share_exact(share: f64) -> String {
+    format!("{:.1}%", (share * 100.).max(0.))
+}
+
+/// `2026-11-17T14:20:00Z` as `17 Nov`. A stamp this cannot read is said as it came.
+pub fn date_said(at: &str) -> String {
+    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let mut parts = at.get(..10).unwrap_or(at).split('-');
+    let (_, month, day) = (parts.next(), parts.next(), parts.next());
+    match (month.and_then(|month| month.parse::<usize>().ok()).filter(|month| (1..=12).contains(month)), day.and_then(|day| day.parse::<u32>().ok())) {
+        (Some(month), Some(day)) => format!("{day} {}", MONTHS[month - 1]),
+        _ => at.to_string(),
     }
 }
 
@@ -166,7 +197,8 @@ pub struct KindRow {
     pub title: String,
     pub glyph: &'static str,
     pub hue: Token,
-    pub units: String,
+    /// The kind's share of the window's burn.
+    pub share: String,
     /// What the figure's tooltip says: how many times it happened.
     pub tip: String,
 }
@@ -176,7 +208,8 @@ pub struct KindRow {
 pub struct JobLine {
     pub id: String,
     pub title: String,
-    pub units: String,
+    /// The Job's share of the window's burn the kind took.
+    pub share: String,
     /// Empty where Fleet recorded no peak.
     pub peak: String,
     /// The Job's largest cause, as drawn; empty for a kind that names none.
@@ -208,7 +241,12 @@ impl Board {
 
     /// The line over the list. None where the window holds no burn: it has nothing to say.
     pub fn header(&self) -> Option<String> {
-        (self.waste.total_units > 0.).then(|| format!("{} of {} units went to fixable waste", units_said(self.waste.waste_units), units_said(self.waste.total_units)))
+        (self.waste.total_units > 0.).then(|| format!("{} of {} burn was waste you can fix", share_said(self.waste.waste_units / self.waste.total_units), self.span.whose()))
+    }
+
+    /// A figure of units as a share of the window's whole burn, 0 to 1.
+    fn share_of(&self, units: f64) -> f64 {
+        if self.waste.total_units > 0. { units / self.waste.total_units } else { 0. }
     }
 
     pub fn rows(&self) -> Vec<KindRow> {
@@ -217,7 +255,7 @@ impl Board {
             .iter()
             .map(|kind| {
                 let look = look_of(&kind.kind);
-                KindRow { kind: kind.kind.clone(), title: kind.title.clone(), glyph: look.glyph, hue: look.hue, units: units_said(kind.units), tip: times_said(u64::from(kind.occurrences), look) }
+                KindRow { kind: kind.kind.clone(), title: kind.title.clone(), glyph: look.glyph, hue: look.hue, share: share_said(self.share_of(kind.units)), tip: times_said(u64::from(kind.occurrences), look) }
             })
             .collect()
     }
@@ -241,7 +279,7 @@ impl Board {
             .map(|job| JobLine {
                 id: job.session_id.clone(),
                 title: titles.get(&job.session_id).filter(|title| !title.is_empty()).cloned().unwrap_or_else(|| short_id(&job.session_id)),
-                units: units_said(job.units),
+                share: share_said(self.share_of(job.units)),
                 peak: job.peak_context.map(tokens_said).unwrap_or_default(),
                 cause: job.causes.first().filter(|_| shows_causes(kind)).map(|cause| cause_said(&cause.name, roots)).unwrap_or_default(),
                 cause_tip: job.causes.first().filter(|_| shows_causes(kind)).map(|cause| cause.name.clone()).unwrap_or_default(),
@@ -360,13 +398,235 @@ impl Selection {
         self.opened.take().is_some()
     }
 
-    /// A new reading: the cursor falls back to the first row where its kind is gone, and a panel whose kind is gone shuts.
-    pub fn keep(&mut self, kinds: &[&str]) {
-        if !self.cursor.as_deref().is_some_and(|cursor| kinds.contains(&cursor)) {
-            self.cursor = kinds.first().map(|first| first.to_string());
+    /// A new reading: the cursor falls back to the first row where its row is gone, and a panel whose kind is gone shuts.
+    /// `stops` are the rows the keys move between, settings first and then kinds; `kinds` are the ones that open a panel.
+    pub fn keep(&mut self, stops: &[&str], kinds: &[&str]) {
+        if !self.cursor.as_deref().is_some_and(|cursor| stops.contains(&cursor)) {
+            self.cursor = stops.first().map(|first| first.to_string());
         }
         if !self.opened.as_deref().is_some_and(|opened| kinds.contains(&opened)) {
             self.opened = None;
         }
     }
+}
+
+/// A waste kind's title from the reading, or its id spelled out where the reading is not held or does not name it.
+pub fn title_of(board: Option<&Board>, kind: &str) -> String {
+    board.and_then(|board| board.kind(kind)).map(|found| found.title.clone()).unwrap_or_else(|| {
+        let spelled = kind.replace('_', " ");
+        let mut letters = spelled.chars();
+        letters.next().map_or_else(String::new, |first| first.to_uppercase().chain(letters).collect())
+    })
+}
+
+/// What a settings row says under it, where it says something.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Note {
+    /// Fleet's reason a change was not taken.
+    Failed(String),
+    /// Saved, and in force once Fleet starts again.
+    Restart,
+}
+
+/// One row of the table of settings.
+#[derive(Clone, Debug, PartialEq)]
+pub struct SettingRow {
+    pub key: String,
+    pub label: String,
+    /// The label of the value in force, or of the one being applied.
+    pub now: String,
+    /// The value shown in `now` is waiting on Fleet.
+    pub pending: bool,
+    /// The labels of the values it may be changed to, and the one the dropdown shows.
+    pub choices: Vec<String>,
+    pub chosen: usize,
+    /// The title of the waste kind it cuts.
+    pub cuts: String,
+    /// `5.5%`, or `-` where Fleet cannot say.
+    pub saves: String,
+    /// The share's tooltip: the value it is priced at.
+    pub saves_tip: String,
+    pub can_apply: bool,
+    pub note: Option<Note>,
+}
+
+/// One row of the changes already made.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ChangeRow {
+    /// `Subagent cache length set to 1 hour on 17 Nov`.
+    pub said: String,
+    /// `Cold cache after a pause 12.3% → 3.1% of the week`, or `... 12.3% before` before a day has passed.
+    pub effect: String,
+}
+
+/// What the person did on the settings rows and has not been read back yet.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Edits {
+    /// The value a dropdown was left on.
+    chosen: HashMap<String, SettingValue>,
+    /// Sent, and waiting on Fleet.
+    applying: HashMap<String, SettingValue>,
+    /// Saved: the value shown as in force until the next reading says so.
+    settled: HashMap<String, SettingValue>,
+    failed: HashMap<String, String>,
+    restart: HashSet<String>,
+}
+
+/// What the page holds of the settings that change the burn: the last reading, the span it is for, and the edits on it.
+/// A reading that fails leaves the last one where it is, and none read leaves the panels undrawn.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct Changing {
+    read: Option<(Span, UsageAdjustments)>,
+    edits: Edits,
+}
+
+impl Changing {
+    /// Fleet's answer for `span`. An answer for a span the switch has left is dropped, and a refused one keeps what was read.
+    /// A reading ends the wait on a saved value: the reading holds it now.
+    pub fn arrived(&mut self, span: Span, shown: Span, answer: Result<UsageAdjustments, String>) {
+        if span != shown {
+            return;
+        }
+        if let Ok(adjustments) = answer {
+            self.read = Some((span, adjustments));
+            self.edits.settled.clear();
+        }
+    }
+
+    /// The span the reading is for.
+    pub fn span(&self) -> Option<Span> {
+        self.read.as_ref().map(|(span, _)| *span)
+    }
+
+    fn setting(&self, key: &str) -> Option<&AdjustSetting> {
+        self.read.as_ref()?.1.settings.iter().find(|one| one.key == key)
+    }
+
+    /// The keys, in the order drawn.
+    pub fn keys(&self) -> Vec<&str> {
+        self.read.as_ref().map(|(_, read)| read.settings.iter().map(|one| one.key.as_str()).collect()).unwrap_or_default()
+    }
+
+    /// The value in force, with a saved one that has not been read back yet.
+    fn now_of(&self, one: &AdjustSetting) -> SettingValue {
+        self.edits.settled.get(&one.key).cloned().unwrap_or_else(|| one.now.clone())
+    }
+
+    /// Where the dropdown stands: what was picked, else the suggestion when it is not what is in force, else what is.
+    fn chosen_of(&self, one: &AdjustSetting) -> usize {
+        let now = self.now_of(one);
+        let at = |value: &SettingValue| one.choices.iter().position(|choice| choice.value == *value);
+        self.edits
+            .chosen
+            .get(&one.key)
+            .and_then(at)
+            .or_else(|| one.suggested.as_ref().filter(|suggested| **suggested != now).and_then(at))
+            .or_else(|| at(&now))
+            .unwrap_or(0)
+    }
+
+    fn label_of(one: &AdjustSetting, value: &SettingValue) -> String {
+        one.choices.iter().find(|choice| choice.value == *value).map(|choice| choice.label.clone()).unwrap_or_else(|| match value {
+            SettingValue::Text(text) => text.clone(),
+            SettingValue::Integer(number) => number.to_string(),
+            other => format!("{other:?}"),
+        })
+    }
+
+    /// The rows of the table, with the waste's titles for what each cuts.
+    pub fn rows(&self, board: Option<&Board>) -> Vec<SettingRow> {
+        let Some((_, read)) = &self.read else { return Vec::new() };
+        read.settings
+            .iter()
+            .map(|one| {
+                let now = self.now_of(one);
+                let chosen = self.chosen_of(one);
+                let applying = self.edits.applying.get(&one.key);
+                let note = match (self.edits.failed.get(&one.key), self.edits.restart.contains(&one.key)) {
+                    (Some(why), _) => Some(Note::Failed(why.clone())),
+                    (None, true) => Some(Note::Restart),
+                    (None, false) => None,
+                };
+                SettingRow {
+                    key: one.key.clone(),
+                    label: one.label.clone(),
+                    now: Self::label_of(one, applying.unwrap_or(&now)),
+                    pending: applying.is_some(),
+                    choices: one.choices.iter().map(|choice| choice.label.clone()).collect(),
+                    chosen,
+                    cuts: title_of(board, &one.cuts),
+                    saves: one.saves_share.map(share_said).unwrap_or_else(|| "-".into()),
+                    saves_tip: one.suggested.as_ref().map(|suggested| format!("Share of the burn saved at {}", Self::label_of(one, suggested))).unwrap_or_default(),
+                    can_apply: applying.is_none() && one.choices.get(chosen).is_some_and(|choice| choice.value != now),
+                    note,
+                }
+            })
+            .collect()
+    }
+
+    /// The rows of the changes made, newest first, with the waste's titles for what each cut.
+    pub fn changes(&self, board: Option<&Board>) -> Vec<ChangeRow> {
+        let Some((_, read)) = &self.read else { return Vec::new() };
+        read.changes.iter().map(|change| change_row(change, board)).collect()
+    }
+
+    /// A pick in a setting's dropdown, by the place of its choice. It clears the reason the last try failed.
+    pub fn choose(&mut self, key: &str, at: usize) {
+        let Some(value) = self.setting(key).and_then(|one| one.choices.get(at)).map(|choice| choice.value.clone()) else { return };
+        self.edits.chosen.insert(key.to_string(), value);
+        self.edits.failed.remove(key);
+    }
+
+    /// Apply: the value the dropdown stands on, shown as pending in this frame. None where it is what is in force or one is already on its way.
+    pub fn apply(&mut self, key: &str) -> Option<SettingValue> {
+        let one = self.setting(key)?;
+        if self.edits.applying.contains_key(key) {
+            return None;
+        }
+        let value = one.choices.get(self.chosen_of(one))?.value.clone();
+        if value == self.now_of(one) {
+            return None;
+        }
+        self.edits.failed.remove(key);
+        self.edits.applying.insert(key.to_string(), value.clone());
+        Some(value)
+    }
+
+    /// Fleet took the change: the value stands as in force until the reading says so, and where it applies after a restart the row says that.
+    pub fn saved(&mut self, key: &str, restart: bool) {
+        let Some(value) = self.edits.applying.remove(key) else { return };
+        self.edits.chosen.remove(key);
+        self.edits.settled.insert(key.to_string(), value);
+        if restart {
+            self.edits.restart.insert(key.to_string());
+        }
+    }
+
+    /// Fleet did not take it: the old value is back in the row, the dropdown stays where it was, and Fleet's reason is said.
+    pub fn refused(&mut self, key: &str, why: String) {
+        if self.edits.applying.remove(key).is_some() {
+            self.edits.failed.insert(key.to_string(), why);
+        }
+    }
+
+    /// Fleet started again: what waited on it is in force.
+    pub fn restarted(&mut self) {
+        self.edits.restart.clear();
+    }
+
+    /// The labels of a setting's choices and the one in force, for the dropdown.
+    pub fn menu(&self, key: &str) -> Vec<(String, bool)> {
+        let Some(one) = self.setting(key) else { return Vec::new() };
+        let on = self.chosen_of(one);
+        one.choices.iter().enumerate().map(|(at, choice)| (choice.label.clone(), at == on)).collect()
+    }
+}
+
+fn change_row(change: &AdjustChange, board: Option<&Board>) -> ChangeRow {
+    let title = title_of(board, &change.cuts);
+    let effect = match change.since_share {
+        Some(since) => format!("{title} {} → {} of the week", share_exact(change.before_share), share_exact(since)),
+        None => format!("{title} {} before", share_exact(change.before_share)),
+    };
+    ChangeRow { said: format!("{} set to {} on {}", change.label, change.to, date_said(&change.at)), effect }
 }

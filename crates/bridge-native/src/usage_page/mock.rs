@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use ipc::{UsageWaste, WasteCause, WasteJob, WasteKind, WasteWindow};
+use ipc::{AdjustChange, AdjustChoice, AdjustSetting, SettingValue, UsageAdjustments, UsageWaste, WasteCause, WasteJob, WasteKind, WasteWindow};
 
 use super::model::Span;
 
@@ -12,13 +12,20 @@ pub const WEEK: &str = "usage-week";
 pub const LOADING: &str = "usage-loading";
 pub const EMPTY: &str = "usage-empty";
 pub const FAILED: &str = "usage-failed";
+/// The week, on a Fleet that refuses a change to a setting.
+pub const APPLY_FAILED: &str = "usage-apply-failed";
 /// What Fleet's refusal reads as on the failed scenario.
 pub const REFUSED: &str = "Fleet answered 500";
+/// What Fleet's refusal of a change reads as on the apply-failed scenario.
+pub const REFUSED_SAVE: &str = "settings.json was not written: it is read only";
 
 /// Whether a mock scenario of this name opens on the Usage page.
 pub fn is_usage(scenario: &str) -> bool {
-    matches!(scenario, WEEK | LOADING | EMPTY | FAILED)
+    matches!(scenario, WEEK | LOADING | EMPTY | FAILED | APPLY_FAILED)
 }
+
+/// The key of the setting that applies after a restart.
+pub const QUIET: &str = "timeouts.sessionQuietSeconds";
 
 const THOUSAND: u64 = 1_000;
 
@@ -166,4 +173,74 @@ pub fn empty(span: Span) -> UsageWaste {
         waste_units: 0.,
         kinds: Vec::new(),
     }
+}
+
+fn text(word: &str) -> SettingValue {
+    SettingValue::Text(word.into())
+}
+
+fn choice(value: SettingValue, label: &str) -> AdjustChoice {
+    AdjustChoice { value, label: label.into() }
+}
+
+/// The settings that change the burn, and what changing them did. `saved` are the changes made on this page since it opened: a value
+/// saved is what is in force, and where it is what was suggested nothing is left to suggest.
+pub fn adjustments(saved: &[(String, SettingValue)]) -> UsageAdjustments {
+    let mut settings = vec![
+        AdjustSetting {
+            key: "tokens.subagentCacheTtl".into(),
+            label: "Subagent cache length".into(),
+            now: text("5m"),
+            choices: vec![choice(text("5m"), "5 min"), choice(text("1h"), "1 hour")],
+            suggested: Some(text("1h")),
+            cuts: "cold_cache".into(),
+            saves_share: Some(0.055),
+        },
+        AdjustSetting {
+            key: "tokens.compactionWindow".into(),
+            label: "Compact a Job at".into(),
+            now: SettingValue::Integer(400_000),
+            choices: [150_000, 200_000, 250_000, 300_000, 400_000].map(|tokens| choice(SettingValue::Integer(tokens), &super::model::tokens_said(tokens as u64))).to_vec(),
+            suggested: Some(SettingValue::Integer(200_000)),
+            cuts: "main_context".into(),
+            saves_share: Some(0.083),
+        },
+        AdjustSetting {
+            key: QUIET.into(),
+            label: "Stop an idle Job after".into(),
+            now: SettingValue::Integer(3300),
+            choices: [(900, "15 min"), (1800, "30 min"), (3300, "55 min"), (7200, "2 hours")].map(|(seconds, label)| choice(SettingValue::Integer(seconds), label)).to_vec(),
+            suggested: None,
+            cuts: "fresh_starts".into(),
+            saves_share: None,
+        },
+    ];
+    for one in &mut settings {
+        if let Some((_, value)) = saved.iter().rev().find(|(key, _)| *key == one.key) {
+            if one.suggested.as_ref() == Some(value) {
+                one.suggested = None;
+                one.saves_share = None;
+            }
+            one.now = value.clone();
+        }
+    }
+    UsageAdjustments {
+        settings,
+        changes: vec![AdjustChange {
+            key: "tokens.subagentCacheTtl".into(),
+            label: "Subagent cache length".into(),
+            from: "5 min".into(),
+            to: "1 hour".into(),
+            at: "2026-11-17T14:20:00Z".into(),
+            cuts: "cold_cache".into(),
+            before_share: 0.123,
+            since_share: Some(0.031),
+            since_days: 1.8,
+        }],
+    }
+}
+
+/// A window that holds no burn has nothing to change.
+pub fn no_adjustments() -> UsageAdjustments {
+    UsageAdjustments { settings: Vec::new(), changes: Vec::new() }
 }

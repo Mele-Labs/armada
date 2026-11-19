@@ -1804,7 +1804,19 @@ shortcut = "Enter / Space"
 scope = "usage"
 destructive = false
 confirms = false
-notes = "Opens the panel under the list for the kind the row is on, with its fix and the Jobs it hit, and closes it again where it is already open. Esc closes the panel. Native only, 18 Nov 2026."
+notes = "Opens the panel under the list for the kind the row is on, with its fix and the Jobs it hit, and closes it again where it is already open. On a row of the table of settings that change the burn it opens the list of values the setting can take instead. Esc closes the panel. Native only, 18 Nov 2026."
+
+[actions.usage_apply]
+kind = "Action"
+tier = "Contextual"
+verb = "Apply the setting"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "usage"
+destructive = false
+confirms = false
+notes = "Sends the value the setting's list stands on, for the row the keys are on in the Usage page's table of settings that change the burn. It does nothing where the list stands on the value in force. Native only, 19 Nov 2026."
 
 [actions.usage_window]
 kind = "Action"

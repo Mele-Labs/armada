@@ -214,6 +214,7 @@ a              add from a link   (kit only)
 PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End  scroll the file   (kit only)
 j / k / ↓ / ↑  move between kinds of waste   (usage only)
 Enter / Space  open the Jobs it hit   (usage only)
+a              apply the setting   (usage only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
@@ -285,7 +286,9 @@ What stays in Kit's own screen, since it is a state of the screen and not a key:
 
 **The Usage page has a scope of its own, `usage`, in the native Bridge.**
 It has no tab and no key to reach it, as in Classic: the palette finds it by the name Usage, or by tokens, burn, spend or plan usage.
-`j`, `k` and the arrows move the row between kinds of waste, `Enter` or `Space` opens the panel of the Jobs a kind hit and shuts it where it is open, and `d`, `w` and `f` read the day, the week and the fortnight.
+`j`, `k` and the arrows move the row down the table of settings that change the burn and on down the kinds of waste.
+`Enter` or `Space` on a kind opens the panel of the Jobs it hit and shuts it where it is open; on a setting it opens the list of values it takes, and `a` sends the value the list stands on.
+`d`, `w` and `f` read the day, the week and the fortnight.
 `Esc` shuts the open panel, and with none open it goes on.
 
 **The Features tab has a scope of its own, `features`, in the native Bridge.**

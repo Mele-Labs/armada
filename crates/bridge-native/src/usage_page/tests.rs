@@ -15,7 +15,7 @@ fn kinds_are_listed_largest_first_and_each_kinds_jobs_too() {
     );
     let titles = mock::titles();
     let lines = board.lines_of("subagent_context", &titles, &[]);
-    assert_eq!(lines.iter().map(|line| (line.title.as_str(), line.units.as_str(), line.peak.as_str())).take(3).collect::<Vec<_>>(), [("Native jobs screens", "21", "870k"), ("Docs audit", "9.0", "610k"), ("Fleet speed work", "6.0", "420k")]);
+    assert_eq!(lines.iter().map(|line| (line.title.as_str(), line.share.as_str(), line.peak.as_str())).take(3).collect::<Vec<_>>(), [("Native jobs screens", "5.1%", "870k"), ("Docs audit", "2.2%", "610k"), ("Fleet speed work", "1.5%", "420k")], "21, 9 and 6 of 412");
     let units: Vec<f64> = board.kind("subagent_context").expect("the kind").jobs.iter().map(|job| job.units).collect();
     assert!(units.windows(2).all(|pair| pair[0] >= pair[1]), "largest first");
 }
@@ -32,8 +32,12 @@ fn a_kind_that_arrives_out_of_order_is_sorted_with_ties_broken_by_title() {
 }
 
 #[test]
-fn the_header_says_the_waste_and_the_whole_in_millions() {
-    assert_eq!(week().header().as_deref(), Some("131 of 412 units went to fixable waste"));
+fn the_header_says_what_share_of_the_burn_was_waste_a_person_can_fix() {
+    assert_eq!(week().header().as_deref(), Some("32% of this week's burn was waste you can fix"), "131 of 412");
+    let day = Board::new(mock::waste(Span::Day), Span::Day);
+    assert_eq!(day.header().as_deref(), Some("32% of today's burn was waste you can fix"));
+    let fortnight = Board::new(mock::waste(Span::Fortnight), Span::Fortnight);
+    assert_eq!(fortnight.header().as_deref(), Some("32% of this fortnight's burn was waste you can fix"));
 }
 
 #[test]
@@ -45,10 +49,18 @@ fn a_window_with_no_burn_has_no_header_and_no_rows() {
 }
 
 #[test]
-fn units_read_as_units_with_a_thousands_separator_from_a_hundred() {
-    for (units, said) in [(9038.2, "9,038"), (1361.6, "1,362"), (1115.8, "1,116"), (123.2, "123"), (99.6, "100"), (31.4, "31"), (9.96, "10"), (1.94, "1.9"), (4., "4.0"), (0.04, "0.0"), (0., "0"), (1_234_567.4, "1,234,567")] {
-        assert_eq!(units_said(units), said, "{units}");
+fn a_share_is_a_percent_with_a_decimal_under_ten() {
+    for (share, said) in [(0.152, "15%"), (0.318, "32%"), (0.0999, "10%"), (0.0996, "10%"), (0.0949, "9.5%"), (0.083, "8.3%"), (0.055, "5.5%"), (0.0102, "1.0%"), (0.0004, "0.0%"), (0., "0%"), (1., "100%")] {
+        assert_eq!(share_said(share), said, "{share}");
     }
+    assert_eq!((share_exact(0.123), share_exact(0.031), share_exact(0.5)), ("12.3%".to_string(), "3.1%".to_string(), "50.0%".to_string()), "a change keeps its decimal so before and since read against each other");
+}
+
+#[test]
+fn a_date_is_the_day_and_the_month() {
+    assert_eq!(date_said("2026-11-17T14:20:00Z"), "17 Nov");
+    assert_eq!(date_said("2026-01-03T00:00:00Z"), "3 Jan");
+    assert_eq!(date_said("yesterday"), "yesterday", "a stamp that cannot be read is said as it came");
 }
 
 #[test]
@@ -59,12 +71,15 @@ fn a_context_size_keeps_its_token_form() {
 }
 
 #[test]
-fn the_header_reads_in_units_on_what_fleet_really_served() {
+fn the_header_and_every_figure_share_the_windows_whole_burn_on_what_fleet_really_served() {
     let mut waste = mock::waste(Span::Week);
     waste.total_units = 9038.2;
     waste.waste_units = 1361.6;
     waste.kinds[0].units = 1115.8;
-    assert_eq!(Board::new(waste, Span::Week).header().as_deref(), Some("1,362 of 9,038 units went to fixable waste"));
+    let board = Board::new(waste, Span::Week);
+    assert_eq!(board.header().as_deref(), Some("15% of this week's burn was waste you can fix"));
+    assert_eq!(board.rows()[0].share, "12%", "1,116 of 9,038");
+    assert_eq!(board.lines_of("subagent_context", &mock::titles(), &[])[0].share, "0.2%", "21 of 9,038");
 }
 
 #[test]
@@ -100,7 +115,7 @@ fn a_figure_names_what_it_counted_in_its_tooltip_and_never_beside_it() {
     assert_eq!(rows[0].tip, "41 requests");
     assert_eq!(rows[2].tip, "41 wakes");
     assert_eq!(times_said(1, look_of("cold_cache")), "1 wake");
-    assert!(rows.iter().all(|row| !row.units.contains("request") && !row.units.contains("wake")), "the row's figure is units alone");
+    assert!(rows.iter().all(|row| row.share.ends_with('%')), "the row's figure is a share alone");
 }
 
 #[test]
@@ -111,7 +126,7 @@ fn a_job_with_no_title_shows_its_short_id_and_a_missing_peak_is_empty() {
     assert_eq!(untitled.title, "5d1e9c42");
     assert_eq!(untitled.peak, "", "Fleet recorded none");
     let titled = board.lines_of("subagent_context", &mock::titles(), &[]);
-    assert_eq!((titled[0].units.as_str(), titled[0].peak.as_str()), ("21", "870k"));
+    assert_eq!((titled[0].share.as_str(), titled[0].peak.as_str()), ("5.1%", "870k"));
 }
 
 #[test]
@@ -156,12 +171,15 @@ fn enter_opens_the_row_under_the_keys_and_again_shuts_it_and_escape_shuts_it() {
 #[test]
 fn a_new_reading_keeps_the_selection_where_its_kind_is_still_there() {
     let mut selection = Selection { cursor: Some("b".into()), opened: Some("b".into()) };
-    selection.keep(&["a", "b"]);
+    selection.keep(&["a", "b"], &["a", "b"]);
     assert_eq!((selection.cursor.as_deref(), selection.opened.as_deref()), (Some("b"), Some("b")));
-    selection.keep(&["a", "c"]);
+    selection.keep(&["a", "c"], &["a", "c"]);
     assert_eq!((selection.cursor.as_deref(), selection.opened.as_deref()), (Some("a"), None), "the cursor falls to the first row and the panel shuts");
-    selection.keep(&[]);
+    selection.keep(&[], &[]);
     assert_eq!(selection.cursor, None);
+    let mut on_setting = Selection { cursor: Some("s".into()), opened: Some("b".into()) };
+    on_setting.keep(&["s", "b"], &["b"]);
+    assert_eq!((on_setting.cursor.as_deref(), on_setting.opened.as_deref()), (Some("s"), Some("b")), "a setting's row is somewhere the keys rest, and no panel's kind");
 }
 
 #[test]
@@ -188,7 +206,7 @@ fn a_window_press_moves_the_switch_at_once_and_keeps_the_old_rows_until_the_answ
         Shown::Read { board, pending } => {
             assert!(pending, "marked pending");
             assert_eq!(board.span(), Span::Week, "the rows are still the week's");
-            assert_eq!(board.header().as_deref(), Some("131 of 412 units went to fixable waste"));
+            assert_eq!(board.header().as_deref(), Some("32% of this week's burn was waste you can fix"));
         }
         other => panic!("the old rows stay, not {other:?}"),
     }
@@ -197,7 +215,7 @@ fn a_window_press_moves_the_switch_at_once_and_keeps_the_old_rows_until_the_answ
         Shown::Read { board, pending } => {
             assert!(!pending, "the answer ends the wait");
             assert_eq!(board.span(), Span::Day);
-            assert_eq!(board.header().as_deref(), Some("26 of 82 units went to fixable waste"));
+            assert_eq!(board.header().as_deref(), Some("32% of today's burn was waste you can fix"));
         }
         other => panic!("the day's rows, not {other:?}"),
     }
@@ -241,9 +259,137 @@ fn a_failed_window_switch_is_failed_but_a_failed_refresh_keeps_its_rows() {
     assert!(matches!(held.shown(), Shown::Read { pending: false, .. }), "back on the week, the rows held are its own");
 }
 
+fn changing() -> Changing {
+    let mut changing = Changing::default();
+    changing.arrived(Span::Week, Span::Week, Ok(mock::adjustments(&[])));
+    changing
+}
+
+const CACHE: &str = "tokens.subagentCacheTtl";
+
 #[test]
-fn the_scenarios_that_open_on_the_page_are_the_four() {
-    assert!(["usage-week", "usage-loading", "usage-empty", "usage-failed"].iter().all(|name| super::is_scenario(name)));
+fn a_row_a_setting_with_its_value_in_force_its_suggestion_what_it_cuts_and_what_it_saves() {
+    let board = week();
+    let rows = changing().rows(Some(&board));
+    assert_eq!(rows.iter().map(|row| row.label.as_str()).collect::<Vec<_>>(), ["Subagent cache length", "Compact a Job at", "Stop an idle Job after"], "Fleet's order");
+    assert_eq!(
+        rows.iter().map(|row| (row.now.as_str(), row.choices[row.chosen].as_str(), row.cuts.as_str(), row.saves.as_str())).collect::<Vec<_>>(),
+        [
+            ("5 min", "1 hour", "Cold cache after a pause", "5.5%"),
+            ("400k", "200k", "Main thread ran past 300k context", "8.3%"),
+            ("55 min", "55 min", "Fresh starts and compactions", "-"),
+        ],
+        "the dropdown is preset to the suggestion, and to the value in force where there is none"
+    );
+    assert_eq!(rows[0].choices, ["5 min", "1 hour"]);
+}
+
+#[test]
+fn what_a_setting_cuts_is_spelled_from_its_id_where_the_waste_is_not_read_yet() {
+    assert_eq!(changing().rows(None)[0].cuts, "Cold cache");
+}
+
+#[test]
+fn apply_is_on_only_where_the_dropdown_stands_on_another_value_than_the_one_in_force() {
+    let mut changing = changing();
+    let can = |changing: &Changing| changing.rows(None).iter().map(|row| row.can_apply).collect::<Vec<_>>();
+    assert_eq!(can(&changing), [true, true, false], "two are preset to a suggestion, one stands on what is in force");
+    changing.choose(CACHE, 0);
+    assert_eq!(can(&changing), [false, true, false], "back on the value in force");
+    changing.choose("timeouts.sessionQuietSeconds", 0);
+    assert_eq!(can(&changing), [false, true, true]);
+    assert_eq!(changing.apply(CACHE), None, "a press with nothing to change sends nothing");
+}
+
+#[test]
+fn a_press_on_apply_shows_the_new_value_pending_at_once_and_success_leaves_it_in_force() {
+    let mut changing = changing();
+    assert_eq!(changing.apply(CACHE), Some(ipc::SettingValue::Text("1h".into())), "the value the dropdown stands on");
+    let row = &changing.rows(None)[0];
+    assert_eq!((row.now.as_str(), row.pending, row.can_apply), ("1 hour", true, false), "the new value, waiting on Fleet, and no second press");
+    assert_eq!(changing.apply(CACHE), None, "a second press while it is on its way sends nothing");
+    changing.saved(CACHE, false);
+    let row = &changing.rows(None)[0];
+    assert_eq!((row.now.as_str(), row.pending, row.note.clone()), ("1 hour", false, None), "in force until the reading says so");
+    changing.arrived(Span::Week, Span::Week, Ok(mock::adjustments(&[(CACHE.to_string(), ipc::SettingValue::Text("1h".into()))])));
+    let row = &changing.rows(None)[0];
+    assert_eq!((row.now.as_str(), row.choices[row.chosen].as_str(), row.can_apply, row.saves.as_str()), ("1 hour", "1 hour", false, "-"), "read back: nothing left to apply and nothing left to save");
+}
+
+#[test]
+fn a_refused_change_puts_the_old_value_back_and_says_why_and_a_new_pick_clears_it() {
+    let mut changing = changing();
+    changing.apply(CACHE);
+    changing.refused(CACHE, "settings.json was not written".into());
+    let row = &changing.rows(None)[0];
+    assert_eq!((row.now.as_str(), row.pending), ("5 min", false), "the value in force is back");
+    assert_eq!(row.note, Some(Note::Failed("settings.json was not written".into())));
+    assert!(row.can_apply && row.choices[row.chosen] == "1 hour", "the dropdown stays where it was, so a press tries again");
+    changing.choose(CACHE, 0);
+    assert_eq!(changing.rows(None)[0].note, None, "a new pick clears the reason");
+    changing.refused(CACHE, "late".into());
+    assert_eq!(changing.rows(None)[0].note, None, "a refusal for a change that is not on its way says nothing");
+}
+
+#[test]
+fn a_setting_that_applies_after_a_restart_says_so_until_fleet_starts_again() {
+    let mut changing = changing();
+    let quiet = "timeouts.sessionQuietSeconds";
+    changing.choose(quiet, 1);
+    assert_eq!(changing.apply(quiet), Some(ipc::SettingValue::Integer(1800)));
+    changing.saved(quiet, true);
+    assert_eq!(changing.rows(None)[2].note, Some(Note::Restart));
+    changing.arrived(Span::Week, Span::Week, Ok(mock::adjustments(&[(quiet.to_string(), ipc::SettingValue::Integer(1800))])));
+    assert_eq!(changing.rows(None)[2].note, Some(Note::Restart), "a reading does not end the wait");
+    changing.restarted();
+    assert_eq!(changing.rows(None)[2].note, None);
+}
+
+#[test]
+fn a_reading_for_a_window_the_switch_has_left_is_dropped_and_a_refused_one_keeps_the_last() {
+    let mut changing = changing();
+    let mut other = mock::adjustments(&[]);
+    other.settings.truncate(1);
+    changing.arrived(Span::Day, Span::Fortnight, Ok(other.clone()));
+    assert_eq!(changing.keys().len(), 3, "the late day changed nothing");
+    changing.arrived(Span::Fortnight, Span::Fortnight, Err("Fleet answered 404".into()));
+    assert_eq!(changing.keys().len(), 3, "a refused read leaves the rows where they are");
+    changing.arrived(Span::Fortnight, Span::Fortnight, Ok(other));
+    assert_eq!((changing.keys().len(), changing.span()), (1, Some(Span::Fortnight)));
+    assert!(Changing::default().rows(None).is_empty() && Changing::default().keys().is_empty(), "nothing read, nothing drawn");
+}
+
+#[test]
+fn a_change_says_what_was_set_when_and_what_the_waste_it_cuts_came_to_before_and_since() {
+    let board = week();
+    let rows = changing().changes(Some(&board));
+    assert_eq!(rows.len(), 1);
+    assert_eq!(rows[0].said, "Subagent cache length set to 1 hour on 17 Nov");
+    assert_eq!(rows[0].effect, "Cold cache after a pause 12.3% → 3.1% of the week");
+}
+
+#[test]
+fn a_change_a_day_has_not_passed_on_says_only_what_it_was_before() {
+    let mut adjustments = mock::adjustments(&[]);
+    adjustments.changes[0].since_share = None;
+    let mut changing = Changing::default();
+    changing.arrived(Span::Week, Span::Week, Ok(adjustments));
+    assert_eq!(changing.changes(Some(&week()))[0].effect, "Cold cache after a pause 12.3% before");
+}
+
+#[test]
+fn with_no_change_made_there_are_no_rows_to_draw() {
+    let mut adjustments = mock::adjustments(&[]);
+    adjustments.changes.clear();
+    let mut changing = Changing::default();
+    changing.arrived(Span::Week, Span::Week, Ok(adjustments));
+    assert!(changing.changes(Some(&week())).is_empty());
+    assert_eq!(changing.rows(None).len(), 3, "the settings are still there");
+}
+
+#[test]
+fn the_scenarios_that_open_on_the_page_are_the_five() {
+    assert!(["usage-week", "usage-loading", "usage-empty", "usage-failed", "usage-apply-failed"].iter().all(|name| super::is_scenario(name)));
     assert!(!super::is_scenario("jobs-many"));
     let _ = UsageScreen::mock;
 }
@@ -303,9 +449,16 @@ mod screen {
         let (screen, cx) = page(cx, "usage-week");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Usage);
-        assert!(drawn(cx, Role::Heading, "131 of 412 units went to fixable waste"));
+        assert!(drawn(cx, Role::Heading, "32% of this week's burn was waste you can fix"));
         assert!(drawn(cx, Role::Row, "Subagents ran past 300k context"));
         assert!(drawn(cx, Role::Row, "Fresh starts and compactions"));
+        for heading in ["Settings that change it", "After a change", "Waste by kind"] {
+            assert!(drawn(cx, Role::Heading, heading), "{heading}");
+        }
+        assert!(drawn(cx, Role::Row, "Subagent cache length"));
+        assert!(drawn(cx, Role::ComboBox, "Change Subagent cache length to"));
+        assert!(drawn(cx, Role::Button, "Apply Compact a Job at"));
+        assert!(drawn(cx, Role::Row, "Subagent cache length set to 1 hour on 17 Nov, Cold cache after a pause 12.3% → 3.1% of the week"));
         assert_eq!(opened(&screen, cx), None, "nothing is open until a row is");
     }
 
@@ -313,9 +466,9 @@ mod screen {
     fn enter_opens_a_kinds_jobs_and_escape_shuts_them(cx: &mut TestAppContext) {
         let (screen, cx) = page(cx, "usage-week");
         redraw(cx);
-        cx.simulate_keystrokes("enter");
+        cx.simulate_keystrokes("j j j enter");
         redraw(cx);
-        assert!(drawn(cx, Role::Table, "Jobs hit by Subagents ran past 300k context"), "the keys start on the first row");
+        assert!(drawn(cx, Role::Table, "Jobs hit by Subagents ran past 300k context"), "the keys start on the first setting, and three rows on is the first kind");
         cx.simulate_keystrokes("j space");
         redraw(cx);
         assert!(drawn(cx, Role::Table, "Jobs hit by Main thread ran past 300k context"), "j and Space move on and open the next");
@@ -332,13 +485,13 @@ mod screen {
     fn d_w_and_f_read_the_day_the_week_and_the_fortnight_and_keep_the_open_kind(cx: &mut TestAppContext) {
         let (screen, cx) = page(cx, "usage-week");
         redraw(cx);
-        cx.simulate_keystrokes("down enter d");
+        cx.simulate_keystrokes("down down down down enter d");
         redraw(cx);
-        assert!(drawn(cx, Role::Heading, "26 of 82 units went to fixable waste"), "the day's figures");
+        assert!(drawn(cx, Role::Heading, "32% of today's burn was waste you can fix"), "the day's figures");
         assert!(drawn(cx, Role::Table, "Jobs hit by Main thread ran past 300k context"), "the panel stays on its kind");
         cx.simulate_keystrokes("f");
         redraw(cx);
-        assert!(drawn(cx, Role::Heading, "249 of 783 units went to fixable waste"), "the fortnight's figures");
+        assert!(drawn(cx, Role::Heading, "32% of this fortnight's burn was waste you can fix"), "the fortnight's figures");
         assert_eq!(opened(&screen, cx).as_deref(), Some("main_context"));
     }
 
@@ -380,5 +533,62 @@ mod screen {
         cx.simulate_keystrokes("enter");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Usage, "`burn` is one of Classic's names for it");
+    }
+
+    /// The rows the page draws for the settings, as the model reads them.
+    fn rows(screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> Vec<crate::usage_page::model::SettingRow> {
+        let page: Entity<UsageScreen> = screen.read_with(cx, |screen, _| screen.usage_for_test().expect("the screen holds the page"));
+        page.read_with(cx, |page, _| page.changing.rows(page.board()))
+    }
+
+    #[gpui::test]
+    fn a_applies_the_row_the_keys_are_on_and_the_page_reads_it_back(cx: &mut TestAppContext) {
+        let (screen, cx) = page(cx, "usage-week");
+        redraw(cx);
+        assert_eq!(rows(&screen, cx)[0].now, "5 min");
+        cx.simulate_keystrokes("a");
+        redraw(cx);
+        let row = rows(&screen, cx).remove(0);
+        assert_eq!((row.now.as_str(), row.pending, row.saves.as_str()), ("1 hour", false, "-"), "taken, read again, and nothing left to save");
+        assert!(drawn(cx, Role::Label, "1 hour now"));
+    }
+
+    #[gpui::test]
+    fn enter_on_a_setting_opens_its_values_and_a_pick_moves_the_dropdown_without_sending(cx: &mut TestAppContext) {
+        let (screen, cx) = page(cx, "usage-week");
+        redraw(cx);
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        assert!(drawn(cx, Role::Menu, "Change Subagent cache length to"), "the list of values stands under the dropdown");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        let row = rows(&screen, cx).remove(0);
+        assert_eq!((row.now.as_str(), row.choices[row.chosen].as_str(), row.can_apply), ("5 min", "5 min", false), "the first value picked: the dropdown is on it and nothing was sent");
+        assert_eq!(opened(&screen, cx), None, "no kind's panel opened");
+        cx.simulate_keystrokes("a");
+        redraw(cx);
+        assert_eq!(rows(&screen, cx)[0].now, "5 min", "Apply on the value in force sends nothing");
+    }
+
+    #[gpui::test]
+    fn a_change_fleet_refuses_leaves_the_old_value_and_says_why(cx: &mut TestAppContext) {
+        let (screen, cx) = page(cx, "usage-apply-failed");
+        redraw(cx);
+        cx.simulate_keystrokes("a");
+        redraw(cx);
+        let row = rows(&screen, cx).remove(0);
+        assert_eq!((row.now.as_str(), row.pending, row.can_apply), ("5 min", false, true));
+        assert!(drawn(cx, Role::Alert, "settings.json was not written: it is read only"));
+    }
+
+    #[gpui::test]
+    fn a_setting_that_applies_at_a_restart_says_so_in_its_row(cx: &mut TestAppContext) {
+        let (screen, cx) = page(cx, "usage-week");
+        redraw(cx);
+        cx.simulate_keystrokes("j j enter down enter a");
+        redraw(cx);
+        let row = rows(&screen, cx).remove(2);
+        assert_eq!((row.now.as_str(), row.note), ("30 min", Some(crate::usage_page::model::Note::Restart)));
+        assert!(drawn(cx, Role::Status, "Applies when Fleet restarts"));
     }
 }

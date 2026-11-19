@@ -1,8 +1,9 @@
-//! The Usage page: where the burn was wasted, kind by kind, largest first. A kind opens a panel under the list with its
-//! fix and the Jobs it hit.
+//! The Usage page: how much of the burn was waste a person can fix, the settings that change it, what each change did, and where
+//! the waste was, kind by kind, largest first. A kind opens a panel under the list with its fix and the Jobs it hit.
 //!
-//! It leads with waste, over the window the switch names, read from Fleet's `GET /usage/waste` (`wire.rs`): on open, when the
-//! window changes, and every minute while the page is shown. `model.rs` works out what the page draws from the reading and
+//! It reads the window the switch names from Fleet's `GET /usage/waste` and `GET /usage/adjustments` (`wire.rs`): on open, when the
+//! window changes, after a change is saved, and every five minutes while the page is shown, which is as long as Fleet holds either.
+//! A setting is changed on the page by the Settings overlay's own save. `model.rs` works out what the page draws from the reading and
 //! nothing there touches the screen; the mock scenarios (`mock.rs`) stand in for Fleet in walks. Like Kit and Features it
 //! is a place of the Operator's screen (`operator/screen.rs`), reached by name from the palette: Classic has no tab for it.
 
@@ -17,14 +18,18 @@ mod wire;
 use std::collections::HashMap;
 use std::time::Duration;
 
-use gpui::{prelude::*, App, Context, Entity, FocusHandle, Global, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
+use gpui::{prelude::*, App, Context, DismissEvent, Entity, FocusHandle, Focusable, Global, KeyDownEvent, ListAlignment, ListState, Role, ScrollHandle, Subscription, Task, Window};
+use ipc::SettingValue;
 
+use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
-use model::{Board, Held, JobLine, Selection, Span};
+use crate::settings::overlay::AT;
+use crate::settings::view::bounds_of;
+use model::{Board, Changing, Held, JobLine, Selection, Span};
 
-/// How often a page that is shown reads Fleet again.
-const EVERY: Duration = Duration::from_secs(60);
+/// How often a page that is shown reads Fleet again: Fleet holds each reading for this long.
+const EVERY: Duration = Duration::from_secs(5 * 60);
 
 /// Set once a Usage page exists in the app, so the palette offers the row that brings it up and no other build draws one that does nothing.
 pub struct Mounted;
@@ -53,7 +58,11 @@ pub struct UsageScreen {
     keys: FocusHandle,
     source: Source,
     held: Held,
+    /// The settings that change the burn, what each change did, and what the person has done to a row.
+    changing: Changing,
     selection: Selection,
+    /// The page's scroll: its panels are the items, so the row the keys are on can be brought into view.
+    scroll: ScrollHandle,
     /// The Jobs' titles: the page's own, and those the Jobs list holds.
     titles: HashMap<String, String>,
     /// The repositories' roots, which a path in the Cause column is drawn from.
@@ -65,9 +74,16 @@ pub struct UsageScreen {
     entered: bool,
     /// The port the last read was made on, so a Fleet that came back is read again.
     read_port: Option<u16>,
-    /// The read in flight: a new read drops it.
+    /// The reads in flight: a new read drops them.
     work: Option<Task<()>>,
-    /// The minute clock, alive while the page is in front.
+    adjusting: Option<Task<()>>,
+    /// The changes on their way to Fleet, a task a setting.
+    saving: HashMap<String, Task<()>>,
+    /// The list of values a setting's dropdown opened.
+    popup: Option<(Entity<Dropdown>, Vec<Subscription>)>,
+    /// What a mock Fleet has been told to change on this page.
+    mock_saved: Vec<(String, SettingValue)>,
+    /// The five minute clock, alive while the page is in front.
     clock: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
@@ -83,7 +99,7 @@ impl UsageScreen {
 
     /// On the mock reading of the scenario last named, the week's unless it names another.
     pub fn mock(cx: &mut Context<Self>) -> Self {
-        let scenario = [mock::LOADING, mock::EMPTY, mock::FAILED].into_iter().find(|name| crate::mock::scenario_is(name)).unwrap_or(mock::WEEK);
+        let scenario = [mock::LOADING, mock::EMPTY, mock::FAILED, mock::APPLY_FAILED].into_iter().find(|name| crate::mock::scenario_is(name)).unwrap_or(mock::WEEK);
         let mut this = Self::new(Source::Mock(scenario), cx);
         this.titles = mock::titles();
         this.roots = mock::roots();
@@ -98,7 +114,9 @@ impl UsageScreen {
             keys: cx.focus_handle(),
             source,
             held: Held::new(Span::Week),
+            changing: Changing::default(),
             selection: Selection::default(),
+            scroll: ScrollHandle::new(),
             titles: HashMap::new(),
             roots: Vec::new(),
             lines: Vec::new(),
@@ -106,6 +124,10 @@ impl UsageScreen {
             entered: false,
             read_port: None,
             work: None,
+            adjusting: None,
+            saving: HashMap::new(),
+            popup: None,
+            mock_saved: Vec::new(),
             clock: None,
             _subs: Vec::new(),
         }
@@ -140,9 +162,15 @@ impl UsageScreen {
             Source::Mock(scenario) => {
                 match *scenario {
                     mock::LOADING => {}
-                    mock::EMPTY => self.held.arrived(span, Ok(mock::empty(span))),
+                    mock::EMPTY => {
+                        self.held.arrived(span, Ok(mock::empty(span)));
+                        self.changing.arrived(span, span, Ok(mock::no_adjustments()));
+                    }
                     mock::FAILED => self.held.arrived(span, Err(mock::REFUSED.into())),
-                    _ => self.held.arrived(span, Ok(mock::waste(span))),
+                    _ => {
+                        self.held.arrived(span, Ok(mock::waste(span)));
+                        self.changing.arrived(span, span, Ok(mock::adjustments(&self.mock_saved)));
+                    }
                 }
                 self.settle(cx);
             }
@@ -152,12 +180,24 @@ impl UsageScreen {
                 let Some(port) = fleet.read(cx).held().port() else {
                     self.read_port = None;
                     self.work = None;
+                    self.adjusting = None;
                     self.held.arrived(span, Err("Fleet is not connected".into()));
                     self.settle(cx);
                     return;
                 };
+                if self.read_port.is_some_and(|before| before != port) {
+                    self.changing.restarted();
+                }
                 self.read_port = Some(port);
                 let ask = wire::waste(port, span, cx);
+                let adjust = wire::adjustments(port, span, cx);
+                self.adjusting = Some(cx.spawn(async move |this, cx| {
+                    let answer = adjust.await.map_err(|why| why.said);
+                    let _ = this.update(cx, |this, cx| {
+                        this.changing.arrived(span, this.held.span(), answer);
+                        this.settle(cx);
+                    });
+                }));
                 self.work = Some(cx.spawn(async move |this, cx| {
                     let answer = ask.await.map_err(|why| why.said);
                     let _ = this.update(cx, |this, cx| {
@@ -172,9 +212,11 @@ impl UsageScreen {
 
     /// What is held changed: the selection holds only kinds that are there, and the table is made again.
     fn settle(&mut self, cx: &mut Context<Self>) {
-        let kinds: Vec<String> = self.board().map(|board| board.kinds().into_iter().map(str::to_string).collect()).unwrap_or_default();
+        let kinds = self.kinds_now();
         let kinds: Vec<&str> = kinds.iter().map(String::as_str).collect();
-        self.selection.keep(&kinds);
+        let stops = self.stops_now();
+        let stops: Vec<&str> = stops.iter().map(String::as_str).collect();
+        self.selection.keep(&stops, &kinds);
         self.lines = match (self.board(), self.selection.opened.as_deref()) {
             (Some(board), Some(kind)) => board.lines_of(kind, &self.titles, &self.roots),
             _ => Vec::new(),
@@ -202,19 +244,136 @@ impl UsageScreen {
         self.board().map(|board| board.kinds().into_iter().map(str::to_string).collect()).unwrap_or_default()
     }
 
+    /// The rows the keys move between: the settings, then the kinds. Nothing is drawn to move between until a reading is.
+    fn stops_now(&self) -> Vec<String> {
+        if self.board().is_none() {
+            return Vec::new();
+        }
+        self.changing.keys().into_iter().map(str::to_string).chain(self.kinds_now()).collect()
+    }
+
+    fn is_setting(&self, row: &str) -> bool {
+        self.board().is_some() && self.changing.keys().contains(&row)
+    }
+
     /// J and K, Down and Up.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
-        let kinds = self.kinds_now();
-        let kinds: Vec<&str> = kinds.iter().map(String::as_str).collect();
-        self.selection.step(&kinds, by);
+        let stops = self.stops_now();
+        let stops: Vec<&str> = stops.iter().map(String::as_str).collect();
+        self.selection.step(&stops, by);
+        self.reveal();
         cx.notify();
     }
 
-    /// Enter, Space or a press on a row: its panel opens, or shuts where it is open.
-    fn open(&mut self, kind: Option<String>, cx: &mut Context<Self>) {
-        let Some(kind) = kind.or_else(|| self.selection.cursor.clone()) else { return };
-        self.selection.toggle(&kind);
+    /// Scroll the panel the keys are in into view. The panels are the scroll's items: settings, changes where there are any, then the kinds.
+    fn reveal(&self) {
+        let Some(cursor) = self.selection.cursor.as_deref() else { return };
+        let has_settings = !self.changing.keys().is_empty();
+        let has_changes = !self.changing.changes(None).is_empty();
+        let ix = if self.is_setting(cursor) { 0 } else { usize::from(has_settings) + usize::from(has_changes) };
+        self.scroll.scroll_to_item(ix);
+    }
+
+    /// Enter, Space or a press on a row: a kind's panel opens, or shuts where it is open; a setting's list of values opens.
+    fn open(&mut self, row: Option<String>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = row.or_else(|| self.selection.cursor.clone()) else { return };
+        if self.is_setting(&row) {
+            self.selection.cursor = Some(row.clone());
+            self.open_menu(row, from_keys, window, cx);
+            return;
+        }
+        self.selection.toggle(&row);
         self.settle(cx);
+        if self.selection.opened.is_some() {
+            self.scroll.scroll_to_bottom();
+        }
+    }
+
+    /// A setting's values in a list under its dropdown, as the Settings overlay opens a choice. Picking one moves the dropdown to it
+    /// and nothing is sent until Apply.
+    fn open_menu(&mut self, key: String, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let rows = self.changing.rows(self.board());
+        let Some(row) = rows.iter().find(|row| row.key == key) else { return };
+        let name = view::dropdown_name(&row.label);
+        let entries = self.changing.menu(&key).into_iter().enumerate().take(AT.len()).map(|(at, (label, on))| Entry::Choice { id: AT[at], label: label.into(), on }).collect();
+        let at = bounds_of(window, cx, Role::ComboBox, &name).map(|bounds| bounds.bottom_left()).unwrap_or_default();
+        let menu = cx.new(|cx| Dropdown::new(name, entries, at, gpui::Anchor::TopLeft, from_keys, cx));
+        let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, _, cx| {
+            let Picked::Entry { id, .. } = picked;
+            if let Some(at) = AT.iter().position(|one| one == id) {
+                this.changing.choose(&key, at);
+                cx.notify();
+            }
+        });
+        let dismissed = cx.subscribe_in(&menu, window, |this, _, _: &DismissEvent, window, cx| {
+            this.popup = None;
+            window.focus(&this.keys, cx);
+            cx.notify();
+        });
+        let keys = menu.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.popup = Some((menu, vec![picked, dismissed]));
+        cx.notify();
+    }
+
+    /// A press on a setting's row, off its controls: the keys go there.
+    fn rest_on(&mut self, key: String, cx: &mut Context<Self>) {
+        self.selection.cursor = Some(key);
+        cx.notify();
+    }
+
+    /// `a` or a press on Apply: the value the dropdown stands on goes to Fleet, and the row shows it pending in this frame.
+    fn apply(&mut self, key: Option<String>, cx: &mut Context<Self>) {
+        let Some(key) = key.or_else(|| self.selection.cursor.clone()).filter(|key| self.is_setting(key)) else { return };
+        let Some(value) = self.changing.apply(&key) else { return };
+        self.selection.cursor = Some(key.clone());
+        cx.notify();
+        match &self.source {
+            Source::Mock(scenario) => {
+                let answer = if *scenario == mock::APPLY_FAILED { Err(mock::REFUSED_SAVE.to_string()) } else { Ok(key == mock::QUIET) };
+                let task = cx.spawn({
+                    let key = key.clone();
+                    async move |this, cx| {
+                        let _ = this.update(cx, |this, cx| this.applied(&key, value, answer, cx));
+                    }
+                });
+                self.saving.insert(key, task);
+            }
+            Source::Live(fleet) => {
+                let fleet = fleet.clone();
+                if fleet.read(cx).held().port().is_none() {
+                    self.changing.refused(&key, "Fleet is not connected".into());
+                    cx.notify();
+                    return;
+                }
+                let ask = wire::save(&fleet, &key, value.clone(), cx);
+                let task = cx.spawn({
+                    let key = key.clone();
+                    async move |this, cx| {
+                        let answer = ask.await.map(|list| list.settings.iter().any(|one| one.key == key && one.pending_restart)).map_err(|why| why.said);
+                        let _ = this.update(cx, |this, cx| this.applied(&key, value, answer, cx));
+                    }
+                });
+                self.saving.insert(key, task);
+            }
+        }
+    }
+
+    /// Fleet's answer to a change. Taken: the page reads the adjustments and the waste again. Refused: the old value is back and the row says why.
+    fn applied(&mut self, key: &str, value: SettingValue, answer: Result<bool, String>, cx: &mut Context<Self>) {
+        match answer {
+            Ok(restart) => {
+                self.changing.saved(key, restart);
+                if matches!(self.source, Source::Mock(_)) {
+                    self.mock_saved.push((key.to_string(), value));
+                }
+                self.read(cx);
+            }
+            Err(why) => {
+                self.changing.refused(key, why);
+                cx.notify();
+            }
+        }
     }
 
     /// Esc: the open panel shuts. False where none was open, so the key goes on.
@@ -242,10 +401,11 @@ impl UsageScreen {
         }
     }
 
-    fn on_act(&mut self, act: &Act, _window: &mut Window, cx: &mut Context<Self>) {
+    fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
         match act.id {
             "usage_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
-            "usage_open" => self.open(None, cx),
+            "usage_open" => self.open(None, true, window, cx),
+            "usage_apply" => self.apply(None, cx),
             "usage_window" => match Span::at(act.slot) {
                 Some(span) => self.pick(span, cx),
                 None => cx.propagate(),
@@ -256,7 +416,7 @@ impl UsageScreen {
 
     // ---- entering ----------------------------------------------------------------------------
 
-    /// Brought to the front: the keys go to the list, Fleet is read, and again every minute while the page is shown.
+    /// Brought to the front: the keys go to the list, Fleet is read, and again every five minutes while the page is shown.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         window.focus(&self.keys, cx);
         self.entered = true;
@@ -277,6 +437,8 @@ impl UsageScreen {
         self.entered = false;
         self.clock = None;
         self.work = None;
+        self.adjusting = None;
+        self.popup = None;
     }
 }
 
