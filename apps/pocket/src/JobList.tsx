@@ -6,12 +6,12 @@ import type { CSSProperties } from "react";
 import { ChevronDown, ChevronRight, Link as Linked, PowerOff, Unplug } from "lucide-react";
 import {
   bucketOf,
-  Button,
   sessionGlyphOf,
-  Stamp,
-  Tooltip,
   type SessionState,
-} from "@armada/components";
+} from "./kit/components/compositions/SessionFrame/SessionFrame";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Stamp } from "./kit/components/primitives/Stamp/Stamp";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
 import type { Item, Line, Mac } from "./fleet";
 import { lampOf, standingOf } from "./rowState";

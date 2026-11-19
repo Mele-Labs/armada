@@ -12,7 +12,9 @@ import {
   TriangleAlert,
   Unplug,
 } from "lucide-react";
-import { Button, Skeleton, Tooltip } from "@armada/components";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Skeleton } from "./kit/components/primitives/Skeleton/Skeleton";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
 import { Refused } from "./client";
 import { useFleet } from "./fleet";

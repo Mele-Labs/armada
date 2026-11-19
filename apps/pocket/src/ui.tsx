@@ -2,7 +2,9 @@
 
 import type { ReactNode } from "react";
 import { X } from "lucide-react";
-import { Button, Readout, Tooltip } from "@armada/components";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Readout } from "./kit/components/primitives/Readout/Readout";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
 /** A header's icon press, named by its tooltip as Bridge's are. */
 export function IconButton({

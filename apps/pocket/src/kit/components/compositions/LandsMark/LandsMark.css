@@ -1,0 +1,6 @@
+/* Where a retro item's fix lands. Grey, `WhoMark`'s reason: it says where,
+   and nothing about how bad. */
+.armada-lands-mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}
