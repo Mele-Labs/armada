@@ -107,13 +107,14 @@ pub(super) fn tools_said(tools: &ToolsMissing) -> String {
     parts.join(" ")
 }
 
-/// The act that puts one piece right, where this build can do it.
-fn piece_act(piece: ToolMissing) -> Option<&'static str> {
+/// The acts that put one piece right, where this build can do it: a label, and whether it restarts the
+/// agent. A door that will not reconnect has the restart to fall back on.
+fn piece_acts(piece: ToolMissing) -> &'static [(&'static str, bool)] {
     match piece {
-        ToolMissing::Mod => Some("Restart the agent"),
-        ToolMissing::Door => Some("Reconnect"),
+        ToolMissing::Mod => &[("Restart the agent", true)],
+        ToolMissing::Door => &[("Reconnect", false), ("Restart the agent", true)],
         // The update runs in the Job's terminal, which the native Job has no pane for yet.
-        ToolMissing::TaskTools => None,
+        ToolMissing::TaskTools => &[],
     }
 }
 
@@ -224,10 +225,10 @@ impl JobView {
             let piece = *piece;
             let running = page.is_some_and(|page| page.bands.mending.contains(piece_name(piece)));
             let error = page.and_then(|page| page.bands.said.get(&format!("tools:{}", piece_name(piece))).cloned());
-            let act = piece_act(piece).map(|act| {
+            let acts = piece_acts(piece).iter().map(|&(act, restart)| {
                 labelled(
-                    button(look, SharedString::from(format!("tools-fix:{}", piece_name(piece))), act, Tone::Secondary, false, None, !running)
-                        .on_click(cx.listener(move |this, _, window, cx| this.mend(piece, window, cx))),
+                    button(look, SharedString::from(format!("tools-fix:{}:{}", piece_name(piece), restart)), act, Tone::Secondary, false, None, !running)
+                        .on_click(cx.listener(move |this, _, window, cx| this.mend(piece, restart, window, cx))),
                     Role::Button,
                     act,
                 )
@@ -243,7 +244,7 @@ impl JobView {
                         .justify_between()
                         .gap(look.length(token::SPACE_3))
                         .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(piece_said(piece)))
-                        .children(act),
+                        .child(div().flex().items_center().gap(look.length(token::SPACE_2)).children(acts)),
                 )
                 .children(error.map(|why| refusal(look, piece_name(piece), why)))
         });
@@ -308,13 +309,13 @@ impl JobView {
     }
 
     /// Put one piece right: the agent restarts with Fleet's copy of the mod, or its door reconnects.
-    fn mend(&mut self, piece: ToolMissing, window: &mut Window, cx: &mut Context<Self>) {
+    fn mend(&mut self, piece: ToolMissing, restart: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let session_id = SessionId::carried(id.to_string());
         let (route, body): (&'static str, _) = match piece {
-            ToolMissing::Mod => ("/sessions/tools/mend", encoded(&MendSessionTools { session_id })),
-            ToolMissing::Door => ("/sessions/mcp/act", encoded(&ActOnSessionMcp { session_id, server: "armada-fleet".into(), act: McpServerAct::Reconnect })),
             ToolMissing::TaskTools => return,
+            _ if restart => ("/sessions/tools/mend", encoded(&MendSessionTools { session_id })),
+            _ => ("/sessions/mcp/act", encoded(&ActOnSessionMcp { session_id, server: "armada-fleet".into(), act: McpServerAct::Reconnect })),
         };
         let name = piece_name(piece);
         let Some(page) = self.pages.get_mut(&id) else { return };
@@ -323,10 +324,7 @@ impl JobView {
         }
         page.bands.said.remove(&format!("tools:{name}"));
         cx.notify();
-        let headline = match piece {
-            ToolMissing::Door => "The Fleet tools were not reconnected",
-            _ => "The agent was not restarted with the mod",
-        };
+        let headline = if restart { "The agent was not restarted" } else { "The Fleet tools were not reconnected" };
         self.post_then(
             route,
             body,
