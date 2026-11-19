@@ -9,6 +9,8 @@ use std::collections::BTreeMap;
 use std::sync::Arc;
 
 use adapter_traits::{CallDetail, DroneEvent};
+use base64::Engine as _;
+use sha2::Digest as _;
 use api::{HostedSessions, Refusal, SealedPage};
 use ipc::{ArtifactBy, ArtifactRef, CastPageVote, PagePress, PressPageAction, SessionId, VoteCast, VoteResult};
 use serde::Deserialize;
@@ -116,6 +118,42 @@ async fn the_pages_own_scripts_have_no_nonce_and_only_the_kits_carry_it() {
     assert!(served.html.contains("document.querySelectorAll(\"armada-action\")"), "the kit's script is inline");
     let again = page(&rig, &id, &path, None).await.expect("served again");
     assert_ne!(nonce_of(&again.policy), nonce, "a nonce per answer");
+}
+
+/// The claim for a host that draws the kit itself: **the page's own inline scripts run, each allowed by its hash, a
+/// script with an address never does, the kit's script is left out and the record stays, and every other wall of the
+/// policy is today's. No nonce is served**, since a page script that read one could load a script from anywhere.
+#[tokio::test]
+async fn with_the_host_drawing_the_kit_the_pages_inline_scripts_run_and_nothing_else_opens() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let addressed = PAGE.replace(
+        "</body>",
+        "<script src=\"https://example.com/far.js\"></script><svg><script href=\"https://example.com/svg.js\"></script></svg>\
+         <button onclick=\"window.clicked = true\">Step</button></body>",
+    );
+    let path = page_holding(&rig, &id, at, &addressed).await;
+
+    let served = rig.fleet.get_hosted_artifact_page(id.clone(), path.clone(), None).await.expect("served");
+
+    let hash = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(b"window.ran = true;"));
+    let policy = format!(
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'sha256-{hash}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
+    );
+    assert_eq!(served.policy, policy, "the page's one inline script, by its hash, and every other wall as today");
+    let script_src = policy.split(';').find(|one| one.trim().starts_with("script-src")).unwrap();
+    assert!(!script_src.contains("unsafe") && !script_src.contains("nonce"), "{script_src}");
+    assert!(served.html.contains(&format!("content=\"{policy}\"")), "the page carries it");
+    assert!(!served.html.contains("nonce="), "no nonce for a page script to read");
+    assert!(served.html.contains("<script>window.ran = true;</script>"), "the page's own script, as written");
+    let tags = script_tags(&served.html);
+    assert!(tags.contains(&"<script src=\"https://example.com/far.js\">"), "a script with an address stays, refused: {tags:?}");
+    assert!(tags.contains(&"<script href=\"https://example.com/svg.js\">"), "as does an svg script with one: {tags:?}");
+    assert!(served.html.contains("<button onclick=\"window.clicked = true\">"), "a handler stays, and the policy refuses it");
+    assert!(!served.html.contains("document.querySelectorAll(\"armada-action\")"), "the kit's script is the host's");
+    assert_eq!(record_of(&served.html).artifact, path, "the record stays");
+    let plain = page(&rig, &id, &path, None).await.expect("served without");
+    assert!(plain.policy.contains("script-src 'nonce-") && plain.html.contains("document.querySelectorAll(\"armada-action\")"), "without it, today's page");
 }
 
 #[tokio::test]

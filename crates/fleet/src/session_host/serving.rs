@@ -598,6 +598,10 @@ where
         })
     }
 
+    async fn get_hosted_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.hosted_artifact_page(id.as_str(), &artifact, revision).await
+    }
+
     async fn mend_session_tools(self: Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {
         self.tools_mended(asked).await
     }

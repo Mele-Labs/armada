@@ -59,6 +59,20 @@ struct Hosted {
 /// The name the kit's script posts to: `window.webkit.messageHandlers.armada`.
 const KIT_HANDLER: &str = "armada";
 
+/// The content world of Bridge's own the kit runs in: it shares the page's DOM and nothing else, so no script of the
+/// page's reaches the kit's handler, its `armadaHost` or its `armadaHostPress`.
+pub const KIT_WORLD: &str = "armada-kit";
+
+/// The kit's script, from the one file Fleet serves to Classic and Pocket inline.
+const KIT_SCRIPT: &str = include_str!("../../../fleet/src/session_host/page_kit.js");
+
+/// Run in the page's own world before any script of its: WebRTC reaches the network, and the page's policy does not govern it.
+const NO_PEERS: &str = r#"(() => {
+  for (const name of ["RTCPeerConnection", "webkitRTCPeerConnection", "RTCDataChannel", "RTCSessionDescription", "RTCIceCandidate"]) {
+    try { Object.defineProperty(window, name, { value: undefined, writable: false, enumerable: false, configurable: false }); } catch (_) {}
+  }
+})();"#;
+
 /// What a page tells whoever holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Nav {
@@ -81,8 +95,8 @@ pub struct Options {
     /// Whether the view paints no ground of its own, so what the page leaves transparent stays so in its
     /// picture: a sketch's mock sits on the canvas, as Classic's frame does. A live page keeps its ground.
     pub clear: bool,
-    /// Where the kit's posts go, as JSON text: a sealed page's `window.webkit.messageHandlers.armada`. `None`: the page
-    /// has no such handler.
+    /// Where the kit's posts go, as JSON text: a sealed page's `window.webkit.messageHandlers.armada` in `KIT_WORLD`, where
+    /// Bridge runs the kit's script, since Fleet serves the page without it (`host_kit`). `None`: no kit and no handler.
     pub kit: Option<async_channel::Sender<String>>,
 }
 
@@ -822,11 +836,18 @@ impl Native {
         // WebKit documents; the data store is a persistent one WebKit keeps by its identifier.
         let (view, navigation, kit, ui_delegate, site) = unsafe {
             let config = WKWebViewConfiguration::new(mtm);
-            // The kit's handler is in the page's own world, where the kit's script runs.
+            // The kit and its handler are in a world of Bridge's own, and never the page's: there a page script could post a
+            // press with no click of his. The page's world loses WebRTC before its own scripts run.
             let kit = options.kit.clone().map(|posts| {
+                let controller = config.userContentController();
+                let world = WKContentWorld::worldWithName(&NSString::from_str(KIT_WORLD), mtm);
                 let kit = KitPosts::new(posts, mtm);
-                config.userContentController().addScriptMessageHandler_name(ProtocolObject::from_ref(&*kit), &NSString::from_str(KIT_HANDLER));
-                kit
+                controller.addScriptMessageHandler_contentWorld_name(ProtocolObject::from_ref(&*kit), &world, &NSString::from_str(KIT_HANDLER));
+                let script = WKUserScript::initWithSource_injectionTime_forMainFrameOnly_inContentWorld(mtm.alloc(), &NSString::from_str(KIT_SCRIPT), WKUserScriptInjectionTime::AtDocumentEnd, true, &world);
+                controller.addUserScript(&script);
+                let peers = WKUserScript::initWithSource_injectionTime_forMainFrameOnly(mtm.alloc(), &NSString::from_str(NO_PEERS), WKUserScriptInjectionTime::AtDocumentStart, false);
+                controller.addUserScript(&peers);
+                (kit, world)
             });
             match options.store {
                 Some(id) => {
@@ -868,6 +889,10 @@ impl Native {
             }
             (view, navigation, kit, ui_delegate, messages)
         };
+        let (kit, worlds) = match kit {
+            Some((kit, world)) => (Some(kit), vec![(KIT_WORLD.to_string(), world)]),
+            None => (None, Vec::new()),
+        };
         if options.clear {
             // SAFETY: key-value coding on the live view, on the main thread; `drawsBackground` is a boolean key
             // WKWebView answers on macOS, and an `NSNumber` is the object KVC takes for a boolean.
@@ -887,7 +912,7 @@ impl Native {
         if let Some(made) = made {
             let _ = made.try_send(Request::Made);
         }
-        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui_delegate, site, gate, serial, ui, watching: RefCell::new(None), worlds: RefCell::new(Vec::new()), mtm })
+        Some(Native { view, ring, _navigation: navigation, kit, _ui: ui_delegate, site, gate, serial, ui, watching: RefCell::new(None), worlds: RefCell::new(worlds), mtm })
     }
 
     pub fn load_url(&self, url: &str) {
@@ -1141,8 +1166,8 @@ impl Native {
         }
     }
 
-    /// Runs `script` in the page's own world, where the kit's `window.armadaHost` is, and says when it has run. A script
-    /// handed to WebKit is not the page's, so the page's policy does not refuse it.
+    /// Runs `script` in the kit's world, where its `window.armadaHost` is, and says when it has run. A script handed to WebKit
+    /// is not the page's, so the page's policy does not refuse it.
     pub fn tell(&self, script: &str, done: impl FnOnce() + 'static) {
         pending_up();
         let done = RefCell::new(Some(done));
@@ -1152,9 +1177,9 @@ impl Native {
                 done();
             }
         });
-        // SAFETY: a script string and the page's world, evaluated on the main thread; the block is copied.
+        let world = self.world(KIT_WORLD);
+        // SAFETY: a script string and the kit's world, evaluated on the main thread; the block is copied.
         unsafe {
-            let world = WKContentWorld::pageWorld(self.mtm);
             self.view.evaluateJavaScript_inFrame_inContentWorld_completionHandler(&NSString::from_str(script), None, &world, Some(&block));
         }
     }
@@ -1328,9 +1353,12 @@ impl Drop for Native {
         LIVE.with(|live| live.set(live.get().saturating_sub(1)));
         self.unwatch();
         if self.kit.take().is_some() {
-            // SAFETY: the page's own content controller, on the main thread; the handler it holds is let go.
+            let world = self.world(KIT_WORLD);
+            // SAFETY: the page's own content controller, on the main thread; the handler and the scripts it holds are let go.
             unsafe {
-                self.view.configuration().userContentController().removeScriptMessageHandlerForName(&NSString::from_str(KIT_HANDLER));
+                let controller = self.view.configuration().userContentController();
+                controller.removeScriptMessageHandlerForName_contentWorld(&NSString::from_str(KIT_HANDLER), &world);
+                controller.removeAllUserScripts();
             }
         }
         if let Some(gate) = &self.gate {

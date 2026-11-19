@@ -328,6 +328,8 @@ export type GetArtifactPage = {
   /** The page's artifact `id`: its path. */
   artifact: string;
   revision?: number;
+  /** The host draws the kit itself: the page's own inline scripts run and the kit's script is left out. Native only. */
+  host_kit?: boolean;
 };
 
 /** What the kit's script on a sealed page posts to its host: to `window.webkit.messageHandlers.armada` where the host has one (Native's WKWebView), otherwise to `window.parent` (Classic's iframe). The host makes the Fleet call with the Job's `session_id`. Rust's `PageMessage<PageToHost>`. */

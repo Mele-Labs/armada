@@ -4,6 +4,11 @@
 // otherwise to window.parent.postMessage (Classic's iframe). The host answers through window.armadaHost(message), or
 // with a message event from the parent. It reaches nothing else: the host makes the Fleet call and sends the answer back.
 // docs/practices/protocol/a-pages-sealed-serving.md holds the messages both ways.
+//
+// Where the page's own scripts run too (the native Bridge, which draws this in a world of its own), only his own presses
+// count: a script can call click() or dispatch a key, and neither is trusted. The record, <armada-action> and <armada-vote>
+// are still read from the DOM, which a page script can edit: what a page says is its author's, the Job's own agent, and
+// only a post made with no press of his is kept out.
 (() => {
   "use strict";
   const record = JSON.parse(document.getElementById("armada-page-record").textContent);
@@ -11,6 +16,12 @@
   // Which way to the host is decided once, at load.
   const handler = window.webkit?.messageHandlers?.armada;
   const send = handler ? (message) => handler.postMessage(message) : (message) => window.parent.postMessage(message, "*");
+  // A walk's press, made by the host through armadaHostPress, counts as his.
+  let hostPressing = false;
+  const his = (event) => event.isTrusted === true || hostPressing;
+  const byHim = (act) => (event) => {
+    if (his(event)) act(event);
+  };
   const post = (message) => send({ armada: 1, ...message, artifact, revision });
   const said = (element, name) => (element.getAttribute(name) || "").trim();
   const make = (name, attributes = {}, text) => {
@@ -53,11 +64,11 @@
     const box = make("div", { class: "armada-words" });
     box.append(field, send);
     const submit = () => press(action, field.value.trim());
-    send.addEventListener("click", submit);
+    send.addEventListener("click", byHim(submit));
     field.addEventListener("keydown", (event) => {
       if (sendKey(event)) {
         event.preventDefault();
-        submit();
+        if (his(event)) submit();
       } else if (event.key === "Escape") {
         event.preventDefault();
         closeWords(action);
@@ -117,7 +128,7 @@
     const action = { id, label, act, element, row, button, line: null, words: null };
     // The first action with an id is the one Fleet reads.
     if (!actions.has(id)) actions.set(id, action);
-    button.addEventListener("click", () => (act === "message" ? openWords(action) : press(action)));
+    button.addEventListener("click", byHim(() => (act === "message" ? openWords(action) : press(action))));
   }
 
   // Votes.
@@ -278,7 +289,7 @@
       const one = { id: takeId, title, element: take, marks: new Map(), segments: new Map() };
       if (form === "pick") {
         one.radio = make("input", { type: "radio", name: `armada-pick-${id}`, value: takeId, "aria-label": `Pick ${title}` });
-        one.radio.addEventListener("change", () => pick(vote, takeId));
+        one.radio.addEventListener("change", byHim(() => pick(vote, takeId)));
         head.append(one.radio);
       }
       if (form === "rank") {
@@ -289,7 +300,7 @@
       if (form === "rank") {
         for (const [word, by, key] of [["Up", -1, "⌥↑"], ["Down", 1, "⌥↓"]]) {
           const button = make("button", { type: "button", class: "armada-move", title: `Move ${word.toLowerCase()} (${key})`, "aria-label": `Move ${title} ${word.toLowerCase()}` }, word);
-          button.addEventListener("click", () => move(vote, one, by));
+          button.addEventListener("click", byHim(() => move(vote, one, by)));
           head.append(button);
         }
       }
@@ -308,7 +319,7 @@
           const group = make("div", { class: "armada-segmented", role: "radiogroup", "aria-label": `${part} of ${title}` });
           const buttons = [["Keep", true], ["Drop", false]].map(([word, keep]) => {
             const button = make("button", { type: "button", role: "radio", "aria-checked": "false", "data-keep": String(keep) }, word);
-            button.addEventListener("click", () => mark(one, part, keep));
+            button.addEventListener("click", byHim(() => mark(one, part, keep)));
             return button;
           });
           group.append(...buttons);
@@ -329,7 +340,7 @@
       for (const name of ["click", "input", "change", "keydown"]) element.addEventListener(name, () => refresh(vote));
     } else {
       vote.send = make("button", { type: "button", class: "armada-send", title: "Send (⌘↵)" }, "Send");
-      vote.send.addEventListener("click", () => submit(vote));
+      vote.send.addEventListener("click", byHim(() => submit(vote)));
       foot.append(vote.send, vote.status);
     }
     element.append(list, foot);
@@ -337,7 +348,7 @@
     element.addEventListener("keydown", (event) => {
       if (!several && sendKey(event)) {
         event.preventDefault();
-        submit(vote);
+        if (his(event)) submit(vote);
         return;
       }
       if (event.key === "Escape" && vote.full) {
@@ -355,7 +366,7 @@
       if (!take) return;
       if (form === "rank" && event.altKey && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
         event.preventDefault();
-        move(vote, take, event.key === "ArrowUp" ? -1 : 1);
+        if (his(event)) move(vote, take, event.key === "ArrowUp" ? -1 : 1);
         return;
       }
       const plain = !event.metaKey && !event.ctrlKey && !event.altKey;
@@ -369,14 +380,14 @@
 
   if (several) {
     bar = make("button", { type: "button", class: "armada-send", title: "Send picks (⌘↵)" }, "Send picks");
-    bar.addEventListener("click", sendAll);
+    bar.addEventListener("click", byHim(sendAll));
     const foot = make("div", { class: "armada-vote-bar" });
     foot.append(bar);
     document.body.append(foot);
     document.addEventListener("keydown", (event) => {
       if (event.defaultPrevented || !sendKey(event) || bar.disabled) return;
       event.preventDefault();
-      sendAll();
+      if (his(event)) sendAll();
     });
     refresh();
   }
@@ -407,9 +418,25 @@
     else if (message.kind === "refused") refused(message);
   };
   window.armadaHost = hear;
-  window.addEventListener("message", (event) => {
-    if (event.source === window.parent) hear(event.data);
-  });
+  // A host with a handler answers through armadaHost alone: a top-level page is its own parent, so its script could post
+  // an answer that never came.
+  if (!handler) {
+    window.addEventListener("message", (event) => {
+      if (event.source === window.parent) hear(event.data);
+    });
+  }
+  // The host's walk presses a control as he would. Only where the host has a handler, which the native Bridge keeps out of
+  // the page's own world, so no page script reaches it.
+  if (handler) {
+    window.armadaHostPress = (element) => {
+      hostPressing = true;
+      try {
+        element.click();
+      } finally {
+        hostPressing = false;
+      }
+    };
+  }
 
   for (const one of record.presses) pressed(one);
   for (const one of record.votes) voted(one);
