@@ -64,6 +64,7 @@ mod usage_summarising;
 mod usage_adjust;
 mod usage_memo;
 mod usage_waste;
+mod usage_job_timeline;
 mod time_summarising;
 mod turn_usage_keeping;
 mod loadout_reading;
