@@ -137,6 +137,8 @@ mod tests {
         assert_eq!(words(r#"{"kind":"merge","body":{"session_id":"j","repository":"armada","number":3548}}"#), "Merge #3548");
         assert_eq!(words(r#"{"kind":"sketch_answer","body":{"session_id":"j","sketch":"sketch:Tail layout","drawn":"d","how":"approved"}}"#), "Answer: Tail layout, approved");
         assert_eq!(words(r#"{"kind":"message","body":{"session_id":"j","text":"  "}}"#), "Message", "a message of pictures alone says its kind");
+        assert_eq!(words(r#"{"kind":"artifact_archive","body":{"artifact":"/a.html","session_id":"j"}}"#), "Archive");
+        assert_eq!(words(r#"{"kind":"artifact_seen","body":{"session_id":"j","artifact":"/a.html","revision":1}}"#), "Opened");
     }
 
     #[test]

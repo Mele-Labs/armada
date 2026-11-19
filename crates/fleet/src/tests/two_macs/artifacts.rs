@@ -80,6 +80,8 @@ async fn the_artifacts_and_page_of_a_job_another_mac_holds_are_read_from_that_ma
 async fn a_vote_a_press_an_archive_and_a_restore_on_a_job_another_mac_holds_run_on_that_mac() {
     let Pair { home, work, job } = pair_over_a_shared_job(false).await;
     let path = page_kept(&work, &job).await;
+    let heard = home.every_event().await;
+    let before = heard.lock().expect("not poisoned").len();
 
     let cast = CastPageVote {
         session_id: job.clone(),
@@ -90,6 +92,12 @@ async fn a_vote_a_press_an_archive_and_a_restore_on_a_job_another_mac_holds_run_
     };
     let (status, body) = post(&home, "/sessions/artifacts/vote", encoded(&cast)).await;
     assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    // What Work publishes for the vote reaches Home's own listeners, which is what draws the Artifacts tab again.
+    let (heard, job_id) = (&heard, job.as_str().to_string());
+    until("Home hears the Job change", || async {
+        heard.lock().expect("not poisoned").iter().skip(before).any(|event| event.contains(&job_id) && event.contains("session.changed"))
+    })
+    .await;
     let voted: VoteCast = ipc::decode("the cast", body.as_bytes()).expect("a cast");
     assert_eq!(voted.result, cast.result);
     let at_work = work.rig.fleet.job_artifacts(job.as_str()).await.expect("Work's list");
