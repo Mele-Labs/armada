@@ -40,6 +40,7 @@ mod operator_elsewhere;
 mod held_children;
 mod session_after;
 mod answer_items;
+mod approval_items;
 mod asking_in_window;
 mod draft_documents;
 mod artifacts;

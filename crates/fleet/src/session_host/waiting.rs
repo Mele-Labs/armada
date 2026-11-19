@@ -58,6 +58,7 @@ use store::{KeptApproval, KeptClosed, KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
 use crate::feature_library::deciding::{Decided, ASKED_FOR_CHANGES};
+use crate::session_host::approval_items::artifact_asks_refusal;
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
@@ -76,6 +77,7 @@ const SESSION_WAITING_WALK: &str = "fleet.session_waiting_walk";
 const SESSION_WAITING_ASKED: &str = "fleet.session_waiting_asked";
 const SESSION_WAITING_MERGING: &str = "fleet.session_waiting_merging";
 const SESSION_WAITING_LOOK: &str = "fleet.session_waiting_look";
+const SESSION_WAITING_ARTIFACT_ASKS: &str = "fleet.session_waiting_artifact_asks";
 const SESSION_WAITING_MAC: &str = "fleet.session_waiting_mac";
 pub(super) const HELD_CHILD_SETTLED_BY: &str = "a held Job is settled by pressing Start on it, or ending it";
 
@@ -962,7 +964,11 @@ where
         let mut artifacts = std::collections::HashMap::new();
         for item in &set.items {
             if let Some(named) = item.artifact.as_deref().map(str::trim).filter(|named| !named.is_empty()) {
-                artifacts.insert(item.id.trim().to_string(), self.artifact_named(&id, named).await?);
+                let held = self.artifact_named(&id, named).await?;
+                if item.approves && self.artifact_asks_him(&id, &held).await {
+                    return Err(self.hosted_refusal(SESSION_WAITING_ARTIFACT_ASKS, &artifact_asks_refusal(item.id.trim(), named)));
+                }
+                artifacts.insert(item.id.trim().to_string(), held);
             }
         }
         // Boxed: this settling is large already, and an unboxed future here overflowed a test thread's stack.
