@@ -35,11 +35,18 @@ struct Offered(Vec<(WeakEntity<WebPage>, SharedString)>);
 
 impl Global for Offered {}
 
-/// A Job browser's page, which a note may be made over, and its Job, which the note goes to.
+/// A Job's page, in its browser or its walk tab, which a note may be made over, and its Job, which the note goes to.
 pub fn offer(page: &Entity<WebPage>, job: SharedString, cx: &mut App) {
     let offered = cx.default_global::<Offered>();
     offered.0.retain(|(one, _)| one.upgrade().is_some());
     offered.0.push((page.downgrade(), job));
+}
+
+/// The Job a page was offered for, if it was.
+#[cfg(test)]
+pub fn offered_for(page: &Entity<WebPage>, cx: &App) -> Option<SharedString> {
+    let offered = cx.try_global::<Offered>()?;
+    offered.0.iter().find(|(one, _)| one.upgrade().as_ref() == Some(page)).map(|(_, job)| job.clone())
 }
 
 /// The page under a point of the window, and where its viewport is drawn.

@@ -214,10 +214,13 @@ impl Kept {
         let mut inner = self.inner.lock().expect("not poisoned");
         inner.held = Some(held);
         inner.begun = Some(begun);
+        let ended = Instant::now();
         if whole {
-            inner.whole = Some(begun);
+            // From the read's end: one that outlasts `STALE_AFTER` is not due again the moment it ends,
+            // which kept the pool read without a pause (the keeper read 74 slots in over 10s, forever).
+            inner.whole = Some(ended);
         }
-        inner.ended = Some(Instant::now());
+        inner.ended = Some(ended);
         inner.changed_at_begin = marks.changed;
         inner.announced_at_begin = marks.announced;
         inner.adapter_at_begin = marks.adapter;
@@ -375,4 +378,21 @@ where
             }
         }
     })
+}
+
+#[cfg(test)]
+mod keeping {
+    use super::*;
+
+    #[tokio::test]
+    async fn a_whole_read_that_outlasts_the_stale_time_is_not_due_again_when_it_ends() {
+        let kept = Kept::default();
+        kept.keeper_started();
+        let now = Instant::now();
+        kept.answer(now, 0);
+        let begun = now.checked_sub(STALE_AFTER * 3).expect("an instant that long ago");
+        kept.kept(Arc::new(WorktreesHeld { slots: Vec::new() }), begun, true, kept.marks(0));
+        assert!(!kept.due(Instant::now() + MIN_GAP * 2, 0), "a read that took 30s is read again 2s later");
+        assert!(kept.due(Instant::now() + STALE_AFTER + MIN_GAP, 0), "and is read again once it is old");
+    }
 }

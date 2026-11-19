@@ -11,6 +11,9 @@ use tokio::sync::{Mutex, MutexGuard};
 /// Every request waits on this lock, so a holder past this is the next latency report.
 const LONG: Duration = Duration::from_millis(250);
 
+/// A wait past this is a hang in the making: the waiter says where it asked, so the hang names its own cause.
+const LONG_WAIT: Duration = Duration::from_secs(2);
+
 /// The store's `Mutex`, whose guard says on stderr (Fleet's log) where it was taken when held past [`LONG`].
 pub(crate) struct StoreLock(Mutex<Store>);
 
@@ -24,7 +27,13 @@ impl StoreLock {
     pub(crate) fn lock(&self) -> impl Future<Output = StoreGuard<'_>> + '_ {
         let at = Location::caller();
         async move {
-            StoreGuard { held: self.0.lock().await, since: Instant::now(), at }
+            let asked = Instant::now();
+            let held = self.0.lock().await;
+            let waited = asked.elapsed();
+            if waited > LONG_WAIT {
+                eprintln!("[fleet] warn: waited {}ms for the store lock, asked at {}:{}", waited.as_millis(), at.file(), at.line());
+            }
+            StoreGuard { held, since: Instant::now(), at }
         }
     }
 }

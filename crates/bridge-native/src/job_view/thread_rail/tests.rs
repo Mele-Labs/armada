@@ -206,6 +206,16 @@ fn every_bar_is_one_length_so_the_bars_line_up_whichever_ask_is_in_view(cx: &mut
 }
 
 #[gpui::test]
+fn the_room_kept_for_the_rail_leaves_the_threads_cards_centred_with_the_composer(cx: &mut TestAppContext) {
+    let (_view, cx) = job(cx, 2400.);
+    assert!(drawn(cx, Role::Region, NAME), "the rail is drawn, so the thread keeps room for it");
+    let card = bounds(cx, Role::Group, "Agent message").expect("the thread holds an agent's message");
+    let composer = bounds(cx, Role::TextInput, "Message").expect("the composer is drawn");
+    let (card, composer) = (f32::from(card.center().x), f32::from(composer.center().x));
+    assert!((card - composer).abs() <= 1., "a card in the thread stands on the composer's centre ({card} against {composer})");
+}
+
+#[gpui::test]
 fn a_thread_with_no_asks_draws_no_rail_and_no_list(cx: &mut TestAppContext) {
     let (view, cx) = job(cx, 2400.);
     assert!(drawn(cx, Role::Region, NAME));
@@ -333,7 +343,7 @@ fn the_thread_pads_by_the_rails_width_while_a_rail_is_drawn_and_not_otherwise(cx
 }
 
 #[gpui::test]
-fn a_thread_with_the_rail_is_narrower_by_exactly_its_width_and_no_card_sits_under_the_bars(cx: &mut TestAppContext) {
+fn a_thread_with_the_rail_is_narrower_by_its_width_on_each_side_and_no_card_sits_under_the_bars(cx: &mut TestAppContext) {
     // Narrow enough that the cards are as wide as the column lets them be.
     let (view, cx) = job_at(cx, 1000., 2400.);
     let card = bounds(cx, Role::Group, "Agent message").expect("a card is drawn");
@@ -346,5 +356,5 @@ fn a_thread_with_the_rail_is_narrower_by_exactly_its_width_and_no_card_sits_unde
     });
     view.update(cx, |_, cx| cx.notify());
     let bare = bounds(cx, Role::Group, "Agent message").expect("a card is drawn");
-    assert_eq!(bare.size.width - card.size.width, px(super::RAIL_WIDTH), "the column gives up the rail's width and no more");
+    assert_eq!(bare.size.width - card.size.width, px(super::RAIL_WIDTH * 2.), "the column gives up the rail's width on each side, so it keeps its centre, and no more");
 }

@@ -1,0 +1,36 @@
+/* The frame a sketch's screen is drawn in (`ScreenView`): the two `.armada-screen` rules of Bridge's screens sheet. */
+
+/* The drawn measurements. Declared on the detail block as well as the screen
+   frame, because Bridge mounts a job detail on its own — outside the gallery
+   there is no 1180px frame to inherit them from, and an unresolved
+   `var()` in `grid-template-columns` drops the whole declaration. */
+.armada-screen {
+  /* 1180px — the drawing's screen width, the same on every screen. */
+  --armada-screen-width: calc(var(--space-12) * 24 + var(--space-6) + var(--space-1));
+  /* 420px — the shell window's height, and the width of the running job's
+     right-hand column. One value, drawn twice. */
+  --armada-screen-shell: calc(var(--space-12) * 8 + var(--space-8) + var(--space-1));
+  /* 580px — half the screen, less the gutter. First launch draws two. */
+  --armada-screen-half: calc(var(--space-12) * 12 + var(--space-1));
+  /* 440px — a column on the dispatch screen. */
+  --armada-screen-card: calc(var(--space-12) * 9 + var(--space-2));
+  /* 480px — the failed job's right-hand column, wider than the running job's
+     because a check's output is machine text and wraps badly. */
+  --armada-screen-aside-wide: calc(var(--space-12) * 10);
+  /* 200px — the empty state's height. */
+  --armada-screen-empty: calc(var(--space-12) * 4 + var(--space-2));
+  /* 80px — the Claimed / Shown by / Not claimed label track. */
+  --armada-screen-label-track: calc(var(--space-12) + var(--space-8));
+}
+
+.armada-screen {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  width: var(--armada-screen-width);
+  max-width: 100%;
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  line-height: var(--leading-sm);
+  color: var(--fg-default);
+}

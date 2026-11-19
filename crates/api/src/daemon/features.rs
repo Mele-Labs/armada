@@ -19,15 +19,16 @@ pub trait Features: Send + Sync + 'static {
         project: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeatureLibrary, Refusal>> + Send;
 
-    /// `get_feature_page` — one feature whole, or with `section` that one section alone. [`Refusal::NotFound`]
-    /// (`fleet.feature_unknown`) for a slug the project does not hold, and [`Refusal::Unacceptable`]
-    /// (`fleet.feature_section_unknown`) for a section that is none of the four.
+    /// `get_feature_page` — one feature whole, or with `section` that one section alone, and with `files` the floor plan's
+    /// rooms filled with their files. [`Refusal::NotFound`] (`fleet.feature_unknown`) for a slug the project does not hold,
+    /// and [`Refusal::Unacceptable`] (`fleet.feature_section_unknown`) for a section that is none of the four.
     fn get_feature_page(
         &self,
         caller: Option<crate::Caller>,
         project: Option<String>,
         feature: String,
         section: Option<String>,
+        files: bool,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
     /// `get_glossary` — the project's terms, each with the words that should not be used for it. Placed as `list_features`
