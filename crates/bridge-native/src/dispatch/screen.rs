@@ -86,8 +86,6 @@ fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedSt
     let Some(project) = face.scoped_to() else {
         return face.chosen.and_then(|at| face.repositories.get(at)).map(|one| (None, vec![one.name.clone()]));
     };
-    // A Job started for a copy of another Mac's project is not Fleet's to start: it starts in the repository, in no project.
-    let held = face.scoped.is_some_and(|at| face.held_by(at).is_some());
     let mut names: Vec<SharedString> = Vec::new();
     for member in &project.members {
         if let Some(one) = face.repositories.get(member.repository) {
