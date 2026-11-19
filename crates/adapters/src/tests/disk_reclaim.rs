@@ -250,8 +250,6 @@ fn a_short_disk_is_reclaimed_incremental_first_then_landed_then_free_then_idle_h
             incremental("job-open"),
             incremental("job-landed"),
             incremental("free-old"),
-            incremental("main"),
-            incremental("preview"),
             incremental("held-idle"),
             incremental("free-new"),
             incremental("held-busy"),
@@ -262,6 +260,10 @@ fn a_short_disk_is_reclaimed_incremental_first_then_landed_then_free_then_idle_h
             whole("free-new"),
             // 4. Held slots idle for six hours.
             whole("held-idle"),
+            // 5. Main's and the preview's incremental caches, last (armada-nk57): the next refresh
+            //    builds from them.
+            incremental("main"),
+            incremental("preview"),
         ]
     );
 }
