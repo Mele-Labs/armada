@@ -9,6 +9,7 @@
 
 pub(crate) mod brief;
 mod changing;
+mod consulting;
 pub(crate) mod committing;
 mod filing;
 mod floor_plan;

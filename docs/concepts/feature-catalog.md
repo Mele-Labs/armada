@@ -109,6 +109,31 @@ Fleet keeps the record per Job, holder and feature, so it holds across turns and
 A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
 A Fleet that is out or slow hands nothing and the read goes on.
 
+## Docs and tickets a Job read
+
+A page shows the docs and tickets that shaped a feature's work, as two lists of links beside the Jobs and pull requests.
+A **doc** is anything a Job read from outside the code: a web page, an MCP server's answer, or a markdown or doc file in the repository, under `docs/` or outside the source folders.
+A **ticket** is an issue or tracker item, as a GitHub issue, a beads id or a Linear or Jira item, and it has its own kind of link because the page shows it in a card of its own.
+
+> **Rule.** A read becomes a link only when the same Job then writes a file the feature owns.
+> Why: a Job reads a great deal that never shaped what it built, and a page that lists all of it says nothing.
+
+The mod hears the call and its result and tells Fleet the call, what it named, and a title and a first sentence cut to about 300 characters together.
+The Job reports nothing, and Fleet decides which calls were reads of a doc or a ticket and which were not: a server's call that changes something is not one, nor is a source file, `CLAUDE.md` or a server that stays on this Mac.
+Fleet keeps each read the first time it hears it, per Job.
+When the Job writes a file a feature owns, by the rules in [Which feature owns a file](#which-feature-owns-a-file), the reads it kept so far are linked to that feature, the newest twenty.
+A read after the write is linked by the Job's next write, never by the one before it, and a read in one Job is never linked by another's write.
+A link is one per Job, feature, kind and address, so reading a page again or writing again adds nothing, and the page shows an address once, under the newest Job that read it.
+
+Fleet sees the order of the read and the write and nothing of whether the Job quoted or acted on what it read, so the order is the whole test.
+A page that was fetched and read in the same Job as an unrelated edit is linked all the same.
+
+A link carries the title and the first sentence of what was read, and where Fleet did not see the result it carries the address or the id alone.
+A link whose address no longer answers keeps what it said and reads as `gone`.
+The state is on the link; nothing checks yet.
+
+A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's writes are linked from the mod's report of them, as the files it wrote are credited to a feature.
+
 ## Holding a Job's end
 
 > **Rule.** `all_done` is refused while the Job's merged or pushed work changed files of a feature whose four sections it has not written since it started.
@@ -361,3 +386,4 @@ What the library would hold in the clear there is in [Central store](../contract
 
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
+- The check that marks a doc or ticket link `gone`.
