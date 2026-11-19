@@ -201,6 +201,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     // The feature library a Job reads before it searches and writes into before it ends.
     "get_features_of_path",
     "get_feature_brief",
+    "get_glossary",
     "write_feature_sections",
     // The Job is placed by its connection, and the new one is held for its person to start.
     "start_another_session",

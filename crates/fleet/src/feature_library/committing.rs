@@ -65,6 +65,7 @@ where
     /// `check_commit_feature`.
     pub(super) async fn commit_feature_checked(&self, check: CheckCommitFeature) -> Result<CommitFeatureChecked, Refusal> {
         let allowed = CommitFeatureChecked { allowed: true, says: String::new(), features: Vec::new() };
+        self.commit_words_flagged(&check).await;
         if !gives_message(&check.command) || !adapters::feature_commits::feature_lines_in(&check.command).is_empty() {
             return Ok(allowed);
         }

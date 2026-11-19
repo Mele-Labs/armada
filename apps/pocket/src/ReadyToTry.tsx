@@ -20,7 +20,7 @@ import type {
   JobThread,
   ReadyAnswer,
   ThreadReadyToTry,
-} from "@armada/protocol";
+} from "./wire";
 
 import { firstPicture } from "./Artifact";
 import { aspectOf, useArtifacts } from "./artifacts";

@@ -9,7 +9,7 @@ use std::path::{Path, PathBuf};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use core_model::Timestamp;
-use ipc::{BusyFeature, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
+use ipc::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
 use store::{feature_link_kind, feature_state, Store, WriteError};
 
 use super::mapping::FeatureMap;
@@ -361,7 +361,16 @@ where
             .into_iter()
             .map(|(feature, within)| BusyFeature { slug: feature.slug.clone(), title: feature.title.clone(), pulls: within.iter().map(|merge| merge.number).collect() })
             .collect();
-        Ok(ProjectOverview { project: loaded.project, what_it_is, rooms, busiest, glossary: Vec::new() })
+        let glossary = self
+            .store()
+            .lock()
+            .await
+            .glossary(&loaded.project)
+            .map_err(|why| self.ledger_fault(why))?
+            .into_iter()
+            .map(|term| GlossaryTerm { term: term.term, meaning: term.meaning })
+            .collect();
+        Ok(ProjectOverview { project: loaded.project, what_it_is, rooms, busiest, glossary })
     }
 
     /// `get_since_you_looked`.

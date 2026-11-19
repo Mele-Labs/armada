@@ -4,7 +4,7 @@
 // with the kit's own script, so its vote posts to the phone as it does on a Mac.
 
 import { readFileSync } from "node:fs";
-import type { JobArtifact, ThreadReadyToTry } from "@armada/protocol";
+import type { JobArtifact, ThreadReadyToTry } from "../wire";
 
 export const PARTS_JOB = "f2";
 export const STEP_BAR = "sketch:Step bar";

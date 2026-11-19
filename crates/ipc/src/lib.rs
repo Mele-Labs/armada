@@ -4,9 +4,13 @@
 //! a redaction decision nobody made.**
 //!
 //! `ProtocolId` is a hash `build.rs` takes of these types, the operation
-//! inventory and Bridge's mirror of them, and codegen emits the same hash for
-//! Bridge. Both outputs are checked in, so a cross-language change is a build
-//! failure rather than a runtime surprise. This is one of two crates permitted to deserialize.
+//! inventory, the route table and Bridge's mirror of them, and
+//! `apps/desktop/codegen/protocol-id.mjs` takes the same hash for Bridge.
+//! Pocket's TypeScript for the types it reads is generated from this crate by
+//! `cargo xtask verify-wire` and checked in under `apps/pocket/src/wire/`, so a
+//! change here that leaves it stale fails the gate. Bridge's own mirror in
+//! `packages/protocol` is still written by hand.
+//! This is one of two crates permitted to deserialize.
 //!
 //! **The conversion lives here rather than in Fleet.** The *decision* is
 //! Fleet's, since Fleet is the only caller, but the `impl` cannot be: neither
@@ -849,7 +853,7 @@ pub use context_breakdown::{
 pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, UsageSpent};
-pub use usage_waste::{UsageWaste, WasteJob, WasteKind, WasteWindow};
+pub use usage_waste::{UsageWaste, WasteCause, WasteJob, WasteKind, WasteWindow};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };
@@ -935,6 +939,8 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+mod glossary;
+pub use glossary::{Glossary, GlossaryEntry, GlossaryTermWrite};
 
 /// A feature's health mark and the reasons behind it.
 mod feature_health;

@@ -255,8 +255,8 @@ The reading is `.github/ci/foundations_delta.py`, and its tests run in the job f
 A pull request restores it from `main`; a push to `main` saves its own run under its own commit, which is what the next pull request restores.
 A run that names no rule is never cached.
 
-**A stale generated file fails the job and says how to fix it.** The line ran `cargo xtask verify-docs --write` and `cargo xtask verify-tokens --write` and committed the result.
-CI cannot commit onto a pull request, so it runs both, reads the tree with them applied, then fails with the two commands and the files they changed.
+**A stale generated file fails the job and says how to fix it.** The line ran `cargo xtask verify-docs --write`, `cargo xtask verify-tokens --write` and `cargo xtask verify-wire --write` and committed the result.
+CI cannot commit onto a pull request, so it runs all three, reads the tree with them applied, then fails with the three commands and the files they changed.
 The author runs them locally and pushes.
 
 **Two things differ from a checkout on a developer's machine.**
