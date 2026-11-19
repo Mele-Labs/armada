@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorPlan, FloorRoom, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorFile, FloorPlan, FloorRoom, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -199,26 +199,61 @@ pub fn page(slug: &str) -> FeaturePage {
     }
 }
 
-/// The code map of the mock's repository: twelve modules, the four the feature has files in lit, three doors and one contract.
+/// The code map of the mock's repository: twelve modules sized as Armada's are, the four the feature has files in lit, with their
+/// files as Fleet lists them on a read with `files=true`, and four doors, three of them contracts.
 fn floor_plan() -> FloorPlan {
-    let room = |module: &str, path: &str, kind: &str, lit: bool| FloorRoom { module: module.into(), path: path.into(), kind: kind.into(), lit, manifest_id: None };
+    // Each room: its module, folder, kind, whether it is lit, and its folders as (folder, bytes, files).
+    let rooms: [(&str, &str, &str, bool, &[(&str, u64, usize)]); 12] = [
+        ("desktop", "apps/desktop", "npm", true, &[("src/renderer/src", 7_400_000, 60), ("src/main", 3_900_000, 34), ("src/renderer/src/features", 1_300_000, 12), ("e2e", 2_100_000, 20), ("src/preload", 800_000, 8)]),
+        ("bridge-native", "crates/bridge-native", "cargo", true, &[("src/job_view", 4_600_000, 44), ("src", 3_100_000, 36), ("src/features", 1_900_000, 22), ("src/titlebar", 1_500_000, 18), ("src/settings", 1_400_000, 16), ("fixtures", 1_900_000, 12)]),
+        ("fleet", "crates/fleet", "cargo", true, &[("src", 4_200_000, 48), ("src/tests", 3_700_000, 40), ("src/feature_library", 1_200_000, 14), ("src/session_host", 2_300_000, 22), ("src/thread_view", 1_900_000, 16)]),
+        ("components", "packages/components", "npm", false, &[("src", 4_100_000, 40), ("src/stories", 2_300_000, 24)]),
+        ("ipc", "crates/ipc", "cargo", true, &[("src", 2_200_000, 30), ("operations", 900_000, 40)]),
+        ("store", "crates/store", "cargo", false, &[("src", 1_300_000, 20), ("src/tests", 500_000, 10), ("migrations", 260_000, 30)]),
+        ("config", "crates/config", "cargo", false, &[("src", 900_000, 12), ("presets", 420_000, 8)]),
+        ("core-model", "crates/core-model", "cargo", false, &[("src", 520_000, 10), ("domain", 220_000, 6)]),
+        ("xtask", "xtask", "cargo", false, &[("src", 627_000, 14)]),
+        ("testkit", "crates/testkit", "cargo", false, &[("src", 300_000, 8), ("fixtures", 270_000, 12)]),
+        ("tokens", "packages/tokens", "npm", false, &[("src", 300_000, 6), ("build", 137_000, 4)]),
+        ("drone", "crates/drone", "cargo", false, &[("src", 260_000, 7)]),
+    ];
+    // What the feature owns, and what a live Job is writing now.
+    let owned = ["apps/desktop/src/renderer/src/features", "crates/bridge-native/src/features", "crates/fleet/src/feature_library", "crates/ipc/src/features.rs", "crates/ipc/src/feature_pages.rs"];
+    let changing = ["crates/fleet/src/feature_library/holding.rs", "crates/bridge-native/src/features/floor.rs"];
+    let words = ["holding", "floor", "pages", "reading", "filing", "committing", "health", "glossary", "consulting", "pending", "rows", "view", "model", "wire", "tests", "mock", "shots", "keys", "layout", "card"];
+    let built = rooms.iter().map(|(module, path, kind, lit, folders)| {
+        let ext = if *kind == "npm" { "tsx" } else { "rs" };
+        let mut files = Vec::new();
+        for (folder, bytes, count) in folders.iter() {
+            let base = format!("{path}/{folder}");
+            // Sizes fall away as real files do: a few large, a long tail of small ones.
+            let shares: Vec<f64> = (0..*count).map(|at| 1. / (at as f64 + 1.).powf(0.9)).collect();
+            let whole: f64 = shares.iter().sum();
+            let mut tail = (0u64, 0u32);
+            for (at, share) in shares.iter().enumerate() {
+                let name = if *module == "ipc" && *folder == "src" && at < 2 { ["features", "feature_pages"][at].to_string() } else { format!("{}{}", words[at % words.len()], if at < words.len() { String::new() } else { format!("_{}", at / words.len()) }) };
+                let file = format!("{base}/{name}.{ext}");
+                let size = (*bytes as f64 * share / whole) as u64;
+                let lit = owned.iter().any(|own| file == *own || file.starts_with(&format!("{own}/")) || file == format!("{own}.rs"));
+                let now = changing.contains(&file.as_str());
+                // Every file the feature owns or a Job is changing stands alone, then the largest; the rest share one entry.
+                if lit || now || at < count / 3 {
+                    files.push(FloorFile { path: file, bytes: size, lit, changing: now, grouped: 0 });
+                } else {
+                    tail = (tail.0 + size, tail.1 + 1);
+                }
+            }
+            if tail.1 > 0 {
+                files.push(FloorFile { path: format!("{base}/"), bytes: tail.0, lit: false, changing: false, grouped: tail.1 });
+            }
+        }
+        files.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        FloorRoom { module: module.to_string(), path: path.to_string(), kind: kind.to_string(), lit: *lit, manifest_id: None, files }
+    });
     let door = |from: &str, to: &str, contract: bool| FloorDoor { from: from.into(), to: to.into(), contract };
     FloorPlan {
-        rooms: vec![
-            room("core-model", "crates/core-model", "cargo", false),
-            room("fleet", "crates/fleet", "cargo", true),
-            room("config", "crates/config", "cargo", false),
-            room("bridge-native", "crates/bridge-native", "cargo", true),
-            room("drone", "crates/drone", "cargo", false),
-            room("ipc", "crates/ipc", "cargo", true),
-            room("store", "crates/store", "cargo", false),
-            room("testkit", "crates/testkit", "cargo", false),
-            room("desktop", "apps/desktop", "npm", true),
-            room("tokens", "packages/tokens", "npm", false),
-            room("components", "packages/components", "npm", false),
-            room("xtask", "xtask", "cargo", false),
-        ],
-        doors: vec![door("bridge-native", "ipc", true), door("fleet", "config", false), door("fleet", "core-model", false)],
+        rooms: built.collect(),
+        doors: vec![door("bridge-native", "ipc", true), door("fleet", "store", true), door("fleet", "config", true), door("desktop", "components", false)],
     }
 }
 

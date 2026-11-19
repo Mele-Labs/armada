@@ -11,6 +11,7 @@ mod chosen;
 mod curate;
 mod curate_view;
 mod dossier;
+mod floor_map;
 mod librarian;
 mod looked;
 pub(crate) mod mock;

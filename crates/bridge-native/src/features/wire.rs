@@ -11,9 +11,10 @@ pub fn library(port: u16, project: &str, cx: &App) -> Task<Result<FeatureLibrary
     request(port, Ask::Get(format!("/features?project={}", crate::link::percent_encoded(project))), "FeatureLibrary", cx)
 }
 
-/// `GET /features/page?feature=<slug>&project=`: one feature, whole. `crates/ipc/operations/get_feature_page.toml`.
+/// `GET /features/page?feature=<slug>&project=&files=true`: one feature, whole, with each room's files for the floor plan.
+/// `crates/ipc/operations/get_feature_page.toml`.
 pub fn page(port: u16, project: &str, slug: &str, cx: &App) -> Task<Result<FeaturePage, Refused>> {
-    let path = format!("/features/page?feature={}&project={}", crate::link::percent_encoded(slug), crate::link::percent_encoded(project));
+    let path = format!("/features/page?feature={}&project={}&files=true", crate::link::percent_encoded(slug), crate::link::percent_encoded(project));
     request(port, Ask::Get(path), "FeaturePage", cx)
 }
 
