@@ -417,8 +417,8 @@ The body and its refusals are [update_mac](../../crates/ipc/operations/update_ma
 | Takes it back before then | `POST /queued/take_back`. An act the other Mac refused when its turn came stays there with its why, and the acts after it still go, until he takes it back |
 
 **Artifacts cross too.** The sketches, drafts and pages of a Job held from the other Mac are listed, and a page opened, by asking the Mac that holds it, as the thread is: this Mac keeps none.
-His press of a page's action, his vote, the revision he opened, an archive and a restore on one go to that Mac as acts, and wait in the queue while it sleeps.
-His Edit of a page and his answer to a part of an artifact stay off for a Job on the other Mac.
+His press of a page's action, his vote, his answer to a part or a take, the revision he opened, an archive and a restore on one go to that Mac as acts, and wait in the queue while it sleeps.
+His Edit of a page stays off for a Job on the other Mac.
 
 **The Mac that holds the Job answers for it.** An act on a Job in a project that is not shared is refused 404, as one on a Job that does not exist, and nothing is written there.
 An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.

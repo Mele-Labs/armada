@@ -51,6 +51,8 @@ pub enum JobAct {
     ArtifactArchive(crate::ArtifactRef),
     /// He brought an archived artifact back. Since 18 Nov 2026.
     ArtifactRestore(crate::ArtifactRef),
+    /// His answer to one asking part of an artifact. Since 18 Nov 2026.
+    ArtifactPartAnswer(crate::AnswerPart),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -126,6 +128,7 @@ impl JobAct {
             JobAct::ArtifactPress(one) => Some(&one.session_id),
             JobAct::ArtifactVote(one) => Some(&one.session_id),
             JobAct::ArtifactSeen(one) => Some(&one.session_id),
+            JobAct::ArtifactPartAnswer(one) => Some(&one.session_id),
             JobAct::ArtifactArchive(one) | JobAct::ArtifactRestore(one) => one.session_id.as_ref(),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
@@ -167,6 +170,7 @@ impl JobAct {
             JobAct::ArtifactSeen(_) => "artifact_seen",
             JobAct::ArtifactArchive(_) => "artifact_archive",
             JobAct::ArtifactRestore(_) => "artifact_restore",
+            JobAct::ArtifactPartAnswer(_) => "artifact_part_answer",
         }
     }
 }

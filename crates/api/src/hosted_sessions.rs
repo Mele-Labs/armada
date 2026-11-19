@@ -971,11 +971,14 @@ pub(crate) async fn add_part<D: HostedSessions>(
 
 /// He answers one asking part of an artifact. 200 with the artifact; 409 for a part put again since he read it; 422 for a part
 /// not open to an answer, a way it does not take, or a send back with no note.
-pub(crate) async fn answer_part<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn answer_part<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let said: ipc::AnswerPart = match ipc::decode_body("an answer to a part", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, Some(&said.session_id)).await {
+        return across(&served, mac, ipc::JobAct::ArtifactPartAnswer(said)).await;
+    }
     match served.shared().answer_part(said).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),

@@ -5,7 +5,7 @@
 //! the list once ([`hold`]) and every row, head and menu reads it, as the write-clash marks do.
 //!
 //! **Nothing is drawn until a second Mac is linked, asleep or on another build** ([`shows_chips`]). A Job on another Mac is read
-//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge, a press, a vote, an archive and a seen mark on an artifact, and the move that brings a Job here) go from
+//! here, and the acts Fleet carries to that Mac ([`crosses`]: a message, an answer, the plan, Stop, Merge, notes, an answer read, a press, a vote, an archive, a seen mark and an answer to a part on an artifact, and the move that brings a Job here) go from
 //! here; one sent while that Mac sleeps waits in `crate::waiting_sends`. Every other act on it Fleet refuses, so
 //! it is left off with [`off_sentence`], as [`refusal_to`] says for the act's route.
 
@@ -415,7 +415,7 @@ pub fn reads(path: &str) -> bool {
 /// (`docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*). A start and a dispatch cross
 /// too, but name their Mac in the body, so they are not acts on a Job held there.
 pub fn crosses(path: &str) -> bool {
-    const ROUTES: [&str; 15] = [
+    const ROUTES: [&str; 18] = [
         "/sessions/message",
         "/sessions/ask/answer",
         "/sessions/waiting/answer",
@@ -430,6 +430,9 @@ pub fn crosses(path: &str) -> bool {
         "/sessions/artifacts/seen",
         "/sessions/artifacts/archive",
         "/sessions/artifacts/restore",
+        "/sessions/artifacts/part/answer",
+        "/sessions/notes",
+        "/sessions/question/read",
         crate::move_to_mac::ROUTE,
     ];
     ROUTES.contains(&path) || (path.starts_with("/pull_requests/") && path.ends_with("/merge"))
@@ -754,11 +757,14 @@ mod tests {
             "/sessions/artifacts/seen",
             "/sessions/artifacts/archive",
             "/sessions/artifacts/restore",
+            "/sessions/artifacts/part/answer",
+            "/sessions/notes",
+            "/sessions/question/read",
             "/pull_requests/armada/3548/merge",
         ] {
             assert!(crosses(path), "{path} crosses");
         }
-        for path in ["/sessions/pause", "/sessions/snooze", "/sessions/rename", "/sessions/close", "/sessions/judge", "/sessions/waiting/dismiss", "/sessions/tune", "/sessions/start", "/sessions/dispatch", "/pull_requests/armada/3548/refresh", "/sessions/message/edit", "/sessions/artifacts/edit", "/sessions/artifacts/part/answer"] {
+        for path in ["/sessions/pause", "/sessions/snooze", "/sessions/rename", "/sessions/close", "/sessions/judge", "/sessions/waiting/dismiss", "/sessions/tune", "/sessions/start", "/sessions/dispatch", "/pull_requests/armada/3548/refresh", "/sessions/message/edit", "/sessions/artifacts/edit"] {
             assert!(!crosses(path), "{path} stays");
         }
         assert!(goes("/sessions/stop") && goes("/sessions/judge/read") && goes("/queued/take_back"));

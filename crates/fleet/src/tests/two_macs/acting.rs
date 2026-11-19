@@ -217,6 +217,7 @@ fn acts_on(job: &str, manifest: &str, project: &str) -> Vec<JobAct> {
         format!(r#"{{"kind":"artifact_seen","body":{{"session_id":"{job}","artifact":"a.html","revision":1}}}}"#),
         format!(r#"{{"kind":"artifact_archive","body":{{"session_id":"{job}","artifact":"a.html"}}}}"#),
         format!(r#"{{"kind":"artifact_restore","body":{{"session_id":"{job}","artifact":"a.html"}}}}"#),
+        format!(r#"{{"kind":"artifact_part_answer","body":{{"session_id":"{job}","artifact":"sketch:a","part":"p","drawn":"d","how":"approved"}}}}"#),
         format!(r#"{{"kind":"stop","body":{{"session_id":"{job}"}}}}"#),
         format!(r#"{{"kind":"merge","body":{{"session_id":"{job}","repository":"{manifest}","number":12}}}}"#),
         format!(r#"{{"kind":"start","body":{{"manifest_id":"{manifest}","project":"{project}"}}}}"#),

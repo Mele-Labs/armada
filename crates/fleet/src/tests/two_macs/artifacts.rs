@@ -159,3 +159,37 @@ async fn a_vote_on_a_job_whose_mac_is_asleep_waits_and_goes_when_it_wakes() {
     .await;
     assert_eq!(acts_run(&work).await.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["artifact_vote"]);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn his_answer_to_a_part_of_a_job_another_mac_holds_is_taken_on_that_mac() {
+    use api::{HostedSessions, Sessions};
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+    let scene = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
+    let drawn = format!(r#"{{"title":"Cache design","session_id":"{}","scene":{scene}}}"#, job.as_str());
+    work.rig.fleet.show_sketch(None, ipc::decode("a sketch", drawn.as_bytes()).expect("a sketch")).await.expect("drawn");
+    let part = format!(r#"{{"session_id":"{}","title":"Cache design","part":{{"id":"notes","kind":"words","text":"Keep it small."}}}}"#, job.as_str());
+    work.rig.fleet.add_part(None, ipc::decode("a part", part.as_bytes()).expect("a part")).await.expect("added");
+
+    // Home reads the artifact through the link and answers the part it reads there.
+    let (status, _, body) = get(&home, &format!("/sessions/artifacts?session_id={}", job.as_str())).await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    let artifact = listed(&body).into_iter().find(|one| one.id == "sketch:Cache design").expect("the artifact");
+    let notes = artifact.parts.iter().find(|one| one.id == "notes").expect("the words part");
+    let answer = ipc::AnswerPart {
+        session_id: job.clone(),
+        artifact: artifact.id.clone(),
+        part: "notes".into(),
+        drawn: notes.drawn.clone(),
+        how: ipc::PartHow::Approved,
+        take: None,
+        words: None,
+        notes: BTreeMap::new(),
+    };
+    let (status, body) = post(&home, "/sessions/artifacts/part/answer", encoded(&answer)).await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    let after = work.rig.fleet.job_artifacts(job.as_str()).await.expect("Work's list");
+    let kept = after.iter().find(|one| one.id == artifact.id).expect("the artifact");
+    assert_eq!(kept.parts.iter().find(|one| one.id == "notes").map(|one| one.state), Some(ipc::PartState::Approved), "kept where the Job is");
+    assert_eq!(acts_run(&work).await.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["artifact_part_answer"]);
+    assert!(acts_run(&home).await.is_empty());
+}
