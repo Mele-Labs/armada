@@ -203,7 +203,7 @@ impl KitScreen {
         let (Some(bar), Some(served)) = (titlebar::live(cx), fleet.read(cx).held().repositories.clone()) else { return Scope::default() };
         let face = &bar.read(cx).face;
         let id_of = |at: usize| served.get(at).and_then(|one| one.manifest.as_ref().map(|manifest| manifest.id.as_str().to_string()).or_else(|| one.implicit_id.as_ref().map(|id| id.as_str().to_string())));
-        if let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) {
+        if let Some(project) = face.scoped_to() {
             return Scope { name: project.name.to_string(), repositories: project.members.iter().filter_map(|member| id_of(member.repository)).collect() };
         }
         if let Some(at) = face.chosen {

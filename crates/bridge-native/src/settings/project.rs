@@ -539,7 +539,8 @@ pub fn picker(this: &SettingsOverlay, look: &Look, window: &Window, cx: &Context
 /// The menu the picker opens: Every project, then each project with a chip at its right for the Mac that holds it, then
 /// New project. **Every project has its acts beside it** where it has any, open at the one being edited and following
 /// the keys and the pointer from there: Merge with the same-named project the other Mac holds, and Delete, which a
-/// copy of another Mac's has none of, as that Mac keeps it. A row's acts carry its place, so a pick names its project.
+/// copy of another Mac's has as well: Fleet sends it to the Mac that keeps the project. A row's acts carry its place,
+/// so a pick names its project.
 pub fn picker_rows(picked: &Editing, projects: Option<&Projects>, macs: &[ipc::Mac]) -> Vec<crate::dropdown::Entry> {
     use crate::dropdown::{Entry, Row};
     let every = picked.is_none();
@@ -600,19 +601,17 @@ pub fn row_act(id: &str) -> Option<(RowAct, usize)> {
     MERGE_AT.iter().position(|one| *one == id).map(|n| (RowAct::Merge, n)).or_else(|| DELETE_AT.iter().position(|one| *one == id).map(|n| (RowAct::Delete, n)))
 }
 
-/// The acts beside the project at place `at`: Merge where a twin stands, then Delete for an own project.
+/// The acts beside the project at place `at`: Merge where a twin stands, then Delete.
 fn acts_of(one: &ipc::Project, all: &[ipc::Project], macs: &[ipc::Mac], at: usize) -> Vec<crate::dropdown::Entry> {
     use crate::dropdown::{Entry, Row};
     let mut acts = Vec::new();
     if let Some(twin) = twin_of(one, all) {
         acts.push(Entry::Row(Row::new(MERGE_AT[at], format!("Merge with {} on {}", one.name, owner_of(macs, twin))).icon("git-merge").accent()));
     }
-    if one.mac.is_none() {
-        if !acts.is_empty() {
-            acts.push(Entry::Rule);
-        }
-        acts.push(Entry::Act { id: DELETE_AT[at], label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
+    if !acts.is_empty() {
+        acts.push(Entry::Rule);
     }
+    acts.push(Entry::Act { id: DELETE_AT[at], label: format!("Delete {}", one.name).into(), icon: Some("trash"), danger: true });
     acts
 }
 
@@ -1117,11 +1116,11 @@ mod tests {
         assert_eq!(chip_and_acts(&own, at[0]), (Some("This Mac".into()), vec!["Merge with Pricing on mac-air".into(), "Delete Pricing".into()]));
         assert_eq!(chip_and_acts(&own, at[1]).0.as_deref(), Some("mac-air"), "a copy wears the Mac's name");
         assert_eq!(chip_and_acts(&own, at[2]), (Some("This Mac".into()), vec!["Delete Onboarding".into()]), "the row not edited has its own acts");
-        assert_eq!(chip_and_acts(&own, at[1]).1, ["Merge with Pricing on This Mac"], "a copy with a twin has Merge and no Delete");
+        assert_eq!(chip_and_acts(&own, at[1]).1, ["Merge with Pricing on This Mac", "Delete Pricing"], "a copy with a twin has Merge and Delete");
         let copy = picker_rows(&Some(("pricing-air".into(), "Pricing".into())), Some(&projects), &[]);
-        assert_eq!(chip_and_acts(&copy, at[1]).1, ["Merge with Pricing on This Mac"], "a copy has no Delete");
+        assert_eq!(chip_and_acts(&copy, at[1]).1, ["Merge with Pricing on This Mac", "Delete Pricing"], "a copy is deleted as his own is");
         let lone_copy = Projects { projects: vec![Project { id: "solo".into(), name: "Solo".into(), mac: Some("mac-air".into()), ..Project::default() }], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() };
-        assert!(chip_and_acts(&picker_rows(&None, Some(&lone_copy), &[]), at[0]).1.is_empty(), "a copy with no twin has no acts"); 
+        assert_eq!(chip_and_acts(&picker_rows(&None, Some(&lone_copy), &[]), at[0]).1, ["Delete Solo"], "a copy with no twin has Delete alone");
         let alone = picker_rows(&Some(("onboarding".into(), "Onboarding".into())), Some(&projects), &[]);
         assert_eq!(chip_and_acts(&alone, at[2]).1, ["Delete Onboarding"], "no twin, no Merge");
     }
