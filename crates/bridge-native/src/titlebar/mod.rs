@@ -44,7 +44,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
-pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
+pub use face::{copies_of, projects_of, repositories_of, Connection, Face, LiveLink, Member, Project, ProjectCopy, Remedy, Repository, RestartWhy, Restarting};
 pub use face::{refreshing, restarting, stage_word, Refreshing};
 pub use story::refresh_said;
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
@@ -550,14 +550,16 @@ impl TitleBar {
     /// scoped to by its id, and goes back to All where Fleet no longer lists it.
     pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
         let listed = face::projects_of(served, read);
+        let copies = face::copies_of(served, read);
         let unread = face::unread_of(read);
         let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
         let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
-        if listed == self.face.projects && scoped == self.face.scoped && unread == self.face.unread {
+        if listed == self.face.projects && scoped == self.face.scoped && copies == self.face.copies && unread == self.face.unread {
             return;
         }
         self.face.projects = listed;
         self.face.scoped = scoped;
+        self.face.copies = copies;
         self.face.unread = unread;
         cx.notify();
     }
