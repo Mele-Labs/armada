@@ -188,6 +188,9 @@ Each stretch of a Job between compactions that held such a request would be comp
 The saving is the first less the second, and where nothing was compacted in the window there is no cost to price from and no estimate.
 It counts a request past the point as cut to the point and not as restarted from a summary, and it counts one compaction a stretch however far past the point the stretch went.
 
+**Both answers are kept five minutes.** Fleet serves `get_usage_waste` and `get_usage_adjustments` from memory for 5 minutes from when a window's answer was made, and makes each on a connection that only reads, so a page that reads both every minute makes each sum once in five reads and holds up no other request.
+A change to one of the three keys drops the adjustments at once.
+
 **A change is kept when it comes into force.** `settings_changes` holds a row for each change to one of the three keys: the key, when, and the value either side as text.
 Fleet writes it where a settings.json is put in force, so a save and a hand edit are kept alike, and a save of the value already held is no change.
 A setting that applies at a restart is kept when it is saved and is in force once Fleet starts again.
