@@ -17,6 +17,13 @@
     notes = "Proposed 14 Oct 2026 for the walk `cockpit-feed-more-kinds`, tooltip `Read`. Draws in `--fg-subtle` on a muted row, so a burst sits under a turn, an ask and a pull request. A sheet read from the top down is reading, and `eye` is reserved to Review. The row opens to its files, newest first."
 
   [[icons.scroll-text.usage]]
+    means = "A kind of token waste: the same file read again, on its row of the Usage page"
+    group = "Usage"
+    size = "16px"
+    status = "Proposed"
+    notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Same file read again`. Stands in a square of the sketch teal hue at 16%, drawn in that hue: a read of lines already read. The glyph a burst of reads wears on the Cockpit's timeline."
+
+  [[icons.scroll-text.usage]]
     means = "A reviewer who commented without a verdict, on the Reviewers card"
     group = "Pull request"
     size = "16px"
@@ -29,10 +36,3 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 4 Nov 2026 for the walk `operatorFull`, for the owner to rule on. A Log is read from the newest down, as the sheet is. Tooltip and tab label: Log."
-
-[[icons.scroll-text.usage]]
-  means = "A kind of token waste: the same file read again, on its row of the Usage page"
-  group = "Usage"
-  size = "16px"
-  status = "Proposed"
-  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Same file read again`. Stands in a square of the sketch teal hue at 16%, drawn in that hue: a read of lines already read. The glyph a burst of reads wears on the Cockpit's timeline."
