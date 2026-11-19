@@ -374,7 +374,7 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
-    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed,
+    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
@@ -624,7 +624,7 @@ pub use pull_reviews::{
     ResolvePullThread, ReviewListsChanged, ReviewListsFailed, MOST_PER_LIST, REVIEW_LISTS_RATE_LIMITED,
 };
 pub use pull_review_memory::{
-    MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    IgnorePull, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullIgnored, PullInbox, PullMyReview,
     PullRequestCompare, PullRequestCompareOf, PullSeen, PullSinceMyReview, PullViewedFile, ReviewLayout, ReviewLayouts,
     SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
 };
@@ -934,6 +934,10 @@ pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
 
+/// A feature's health mark and the reasons behind it.
+mod feature_health;
+pub use feature_health::{FeatureHealth, HealthMark, HealthReason, HealthReasonKind};
 /// The project overview and Since you looked pages of the Features screen.
 mod feature_pages;
 pub use feature_pages::{BusyFeature, GlossaryTerm, LookedFeature, LookedTag, MapRoom, ProjectOverview, ReadmeSentence, SinceYouLooked};
+pub use feature_pages::{WhoCell, WhoFeature, WhoPerson, WhoPull, WhosOnWhat};

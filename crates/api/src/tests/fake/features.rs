@@ -20,6 +20,7 @@ fn row(slug: &str) -> FeatureRow {
         state: FeatureState::Seeded,
         jobs_now: Vec::new(),
         stale_since: None,
+        health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
     }
 }
 
@@ -41,7 +42,10 @@ impl Features for FakeDaemon {
             entry_points: Vec::new(),
             sections: Vec::new(),
             links: Vec::new(),
+            decisions: Vec::new(),
             files: Vec::new(),
+            docs: Vec::new(),
+            tickets: Vec::new(),
             floor_plan: None,
         })
     }
@@ -52,6 +56,10 @@ impl Features for FakeDaemon {
 
     async fn get_since_you_looked(&self, _caller: Option<crate::Caller>, project: Option<String>, _since: String) -> Result<ipc::SinceYouLooked, Refusal> {
         Ok(ipc::SinceYouLooked { project: project.unwrap_or_else(|| String::from("p1")), paragraph: String::new(), features: Vec::new() })
+    }
+
+    async fn get_whos_on_what(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::WhosOnWhat, Refusal> {
+        Ok(ipc::WhosOnWhat { project: project.unwrap_or_else(|| String::from("p1")), people: Vec::new(), features: Vec::new() })
     }
 
     async fn get_feature_brief(&self, _caller: Option<crate::Caller>, _project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
@@ -77,7 +85,7 @@ impl Features for FakeDaemon {
     }
 
     async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
-        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None })
+        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new() })
     }
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {

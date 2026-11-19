@@ -22,6 +22,7 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Pull requests and merges | Detected from the pull requests Fleet attached and the forge's merges |
 | Sketches, pages, walks and drafts | The act that made them names the feature: `feature` on `show_sketch`, `show_window` and `propose_draft`, `armada-feature` in a page's head |
 | Commits | Detected from `Feature:` trailer lines in git |
+| Decisions | Detected from what he settled in a Job, see *Decisions* |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
 A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
@@ -76,6 +77,21 @@ Fleet links the artifact to each feature the project holds, as a link of kind `s
 
 Fleet makes such a name a pending feature of the first project of the Job that holds features, and links the artifact to it, as it does a trailer's unknown slug.
 
+## Decisions
+
+A decision is something the owner settled in a Job.
+It is his answer to a question, an `AskUserQuestion` card or an item of `waiting_for` that offers options, his pick on takes, his Approve or Ask for changes on a sketch, a draft, a page or a plan, or his Looks good on a Ready to try card.
+Fleet keeps the question or the artifact's title, what he chose, his note if he gave one, the Job and the time, and `get_feature_page` serves them as `decisions`, newest first.
+No model reads anything: each place Fleet already records one of these answers files it.
+
+> **Rule.** A decision is filed under the features its artifact names, and where it names none, under the features its Job is linked to.
+> Why: a sketch made for one feature says which feature his answer shapes, and an answer to a bare question is best placed where the Job's work landed.
+
+The Job's features are read when the page is served, so a feature the Job is linked to after he answered shows the decision too.
+An artifact's features are the ones its link says, so a feature renamed or merged keeps its decisions.
+Hearing the same answer twice files it once, and an answer given in his place by the Operator or Autopilot is not filed.
+A plan's Approve settles the sketches it names, and those are filed with the plan, not again as their own.
+
 ## Stale
 
 > **Rule.** A written section is stale when a merge after it changed a file mapped to its feature, and it reads `stale since #<pr>`, the first such merge.
@@ -84,10 +100,31 @@ Fleet makes such a name a pending feature of the first project of the Job that h
 The merge of the Job's own pull request does not make that Job's sections stale, because the Job wrote them inside the work the merge carries.
 A merge is kept with the files it changed, so the mapping is read again when a page is read.
 
+## Health
+
+> **Rule.** A mark always carries its reasons, and a source Fleet does not keep is not guessed.
+> Why: a mark with no reason cannot be argued with, and a guess about a source reads as a fact about the feature.
+
+Each feature in the list and on its page reads `good`, `watch` or `poor`, with a reason for each fact behind it: a kind, one short sentence and, where there is something to open, a target.
+`good` has no reasons.
+It is worked out on each read, from what Fleet already keeps, with no model and no call to the forge.
+
+| Source | Reads as | Mark |
+|---|---|---|
+| A flaky test under a fix Job whose test map edges reach its files | `flaky test <name> reaches it` | `watch`, `poor` from three |
+| A written section stale | `<section> section stale since #<pr>` | `watch` |
+| The test map holds edges and none reaches its files | `no test reaches its files` | `watch` |
+| An open link of kind `bug` | `open bug: <title>` | `watch`, `poor` from three |
+| A Check, or a lint or type Check, whose last run in a live Job working in its files failed | `clippy failed on the last run of "<job>" in its files` | `poor` |
+
+The three and the sources are chosen, not measured.
+A source Fleet holds nothing for adds nothing: a test map never fed gives no `no test reaches its files`.
+Left out, because Fleet keeps nothing per file for them: a pull request's forge checks and main's CI state.
+
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
-It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
+It holds, in this order: name, area, what it is current as of and the stale marks; the Jobs on it now; a line for each open pull request of someone else on it (see [Who's on what](#whos-on-what)); the top five entry points; the test command; the newest three open bugs; how it runs in one line; designs as titles; debt in one line; and one line saying how to fetch a full section: `get_feature_page` with `feature` and `section`.
 When it is over the cap the last of these go first, and the head and that line always stay.
 
 ## Handing a Job its pages
@@ -108,6 +145,31 @@ A read or search that was turned away hands nothing, and neither does a search o
 Fleet keeps the record per Job, holder and feature, so it holds across turns and a restart.
 A subagent has a context of its own, so it is handed a feature's page whether or not its Job was, and then once itself: its own reads and searches are mapped the same way.
 A Fleet that is out or slow hands nothing and the read goes on.
+
+## Docs and tickets a Job read
+
+A page shows the docs and tickets that shaped a feature's work, as two lists of links beside the Jobs and pull requests.
+A **doc** is anything a Job read from outside the code: a web page, an MCP server's answer, or a markdown or doc file in the repository, under `docs/` or outside the source folders.
+A **ticket** is an issue or tracker item, as a GitHub issue, a beads id or a Linear or Jira item, and it has its own kind of link because the page shows it in a card of its own.
+
+> **Rule.** A read becomes a link only when the same Job then writes a file the feature owns.
+> Why: a Job reads a great deal that never shaped what it built, and a page that lists all of it says nothing.
+
+The mod hears the call and its result and tells Fleet the call, what it named, and a title and a first sentence cut to about 300 characters together.
+The Job reports nothing, and Fleet decides which calls were reads of a doc or a ticket and which were not: a server's call that changes something is not one, nor is a source file, `CLAUDE.md` or a server that stays on this Mac.
+Fleet keeps each read the first time it hears it, per Job.
+When the Job writes a file a feature owns, by the rules in [Which feature owns a file](#which-feature-owns-a-file), the reads it kept so far are linked to that feature, the newest twenty.
+A read after the write is linked by the Job's next write, never by the one before it, and a read in one Job is never linked by another's write.
+A link is one per Job, feature, kind and address, so reading a page again or writing again adds nothing, and the page shows an address once, under the newest Job that read it.
+
+Fleet sees the order of the read and the write and nothing of whether the Job quoted or acted on what it read, so the order is the whole test.
+A page that was fetched and read in the same Job as an unrelated edit is linked all the same.
+
+A link carries the title and the first sentence of what was read, and where Fleet did not see the result it carries the address or the id alone.
+A link whose address no longer answers keeps what it said and reads as `gone`.
+The state is on the link; nothing checks yet.
+
+A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's writes are linked from the mod's report of them, as the files it wrote are credited to a feature.
 
 ## Holding a Job's end
 
@@ -218,12 +280,42 @@ Needs you comes first, then Changed by newest merge, then New by newest added.
 Each feature carries one line, `what`, made from the titles of the pull requests merged since, newest first and at most three.
 A merge kept before titles were kept has none, and then the line is the feature's summary.
 `pulls` are those pull requests' numbers.
-`paragraph` is empty: a model's paragraph over the list comes later.
+`paragraph` is the one short paragraph the librarian's `since_you_looked` part wrote, and it is empty where none was written.
+It is served only when `since` is at or before the run that wrote it, since he may have looked after that run, and the list under it is always read live.
+The part and what it spends are under *Librarian*.
 
 > **Rule.** Fleet builds the list from merges and the catalog's own dates, and a model only ever words it.
 > Why: a list a model chose would drop a feature on a bad day, and he reads it to find what changed.
 
 A project with nothing since answers an empty `features`, and a `since` that is no time is refused with `fleet.feature_since_unreadable`.
+
+## Who's on what
+
+In a large team nobody knows who is working on what, so Fleet reads the open pull requests the Reviews tool already pulls, teammates' included, and sets them beside the owner's own Jobs.
+Whenever the Reviews lists are read, Fleet keeps each open pull request's author, title, draft mark, head commit and the paths it changes, the first 100 of them, with a mark where there are more.
+A pull request whose head is the one already kept is not read again: that is one forge read for each pull request and each new head, at the moment the lists are read anyway, and no model.
+A pull request the lists no longer name is dropped, except from a read where one of the lists did not answer.
+The files are mapped to features as any path is, by the prefixes a feature owns and the files Jobs filed under it.
+
+`get_whos_on_what` answers by feature, each with a cell for every person on it:
+
+| Part | Holds |
+|---|---|
+| `people` | The owner first, where Fleet knows his login, then everyone with a cell by login |
+| `features` | Only features with a pull request or a Job, the most people first and then by title |
+| a cell | A `login`, the open `pulls` on the feature and, in the owner's cell alone, the ids of his Jobs on it now |
+
+A feature with two or more cells is an overlap.
+Fleet does not flag it: the screen counts the cells.
+The owner is whoever Armada is signed in to the forge as, else the forge command line's account.
+His Jobs are the ones the feature's page lists as on it now.
+
+> **Rule.** A Job is told of a teammate's open pull request on a feature in the page it is handed, and the owner is not told by a notice.
+> Why: the Job can change what it does with it, and the owner has the screen to look at when he wants to.
+
+A page handed to a Job names each open pull request by someone else that changes a file of the feature, newest first and at most five: `Open elsewhere: #412 "Start card remembers the last workflow" by priya touches this feature.`
+Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
+The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
 
 ## Seeding
 
@@ -258,20 +350,35 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-No part is built yet, so a run today keeps its record and does nothing else.
+Only `since_you_looked` is built so far, and a run does nothing else but keep its record.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
 `features.librarianParts` names the parts a run does, all nine as it ships.
 `features.librarianModelShare` is how many model calls a night may spend, twenty as it ships, a number chosen and not measured.
 
-`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, and the parts that ran.
+`run_librarian` runs the enabled parts for one project, on a press of Catch up, and keeps one record of the run: when it ran, what started it, the newest merged pull request and the commit it read through, the parts that ran, the paragraph it wrote, the calls it made and the parts it left out for the share.
 `list_features` carries the project's librarian state beside its areas: the last run, the newest merged pull request it read through, and the merged pull requests since.
 Fleet reads those numbers from the merge links it already keeps and does not ask the forge.
 Bridge draws "not read since #N" from it.
 
 > **Rule.** Fleet starts no librarian run by itself while `features.librarianRuns` is `on_press`.
 > Why: the owner wants it on demand until it has been tested more, and a run Fleet started on its own would be one he did not ask for.
+
+**`since_you_looked` writes the paragraph at the top of Since you looked.**
+It takes the features new, changed or waiting on him since the last run that did the part, each with its merged pull request titles, which is the page's own list and costs no model.
+It puts them to the small model that sorts his messages in a Job (`models.dispute`), through the same call, and asks for at most three short sentences of facts, with no advice, no narration and no dashes.
+Fleet keeps the answer with the run, cut to three sentences with any dash taken out.
+A first run has no earlier run, so every feature reads as new, and the prompt names the first twenty and counts the rest.
+
+> **Rule.** Where nothing moved since the last run, the part makes no call and writes no paragraph.
+> Why: the model runs only where words must be written, and a paragraph about nothing would be words for the sake of words.
+
+**The part spends from the night's share.**
+A night is the machine's local midnight to midnight, and the share is counted in model calls for each project.
+A call that fails still counts, since it was made.
+Where the share is spent the part is left out, and the run's answer lists it in `skipped_for_share` so the librarian card can say "share spent".
+The facts then wait: the part's next run reads from the last run that did it.
 
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
@@ -287,11 +394,12 @@ A Job whose turns were read before searches were counted is in no week until its
 
 | Operation | Does |
 |---|---|
-| `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
-| `get_feature_page` | One feature whole, or with `section` that one section alone |
+| `list_features` | A project's areas and features, with who is on each now, the oldest stale merge and each one's health |
+| `get_feature_page` | One feature whole, with the decisions filed under it, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
+| `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
@@ -315,3 +423,4 @@ What the library would hold in the clear there is in [Central store](../contract
 
 - Bugs and open issues on a feature: the page reads links of kind `bug`, and nothing writes them yet.
 - Asks said in a Job sorted onto features.
+- The check that marks a doc or ticket link `gone`.

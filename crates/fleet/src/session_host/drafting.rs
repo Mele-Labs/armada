@@ -331,6 +331,10 @@ where
             _ => None,
         });
         if let Some(row) = found {
+            // A workflow proposal carries a change and is no decision about a feature.
+            if let SessionRow::Draft { title, change: None, .. } = &row {
+                self.draft_decided(session, row_id, title, how, words.as_deref()).await;
+            }
             self.row_put(session, row).await;
         }
         // A settled draft waits on nobody, so it is no longer any pull request's.

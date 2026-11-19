@@ -3,7 +3,8 @@
 //! reader asks the page what it cannot know itself, through `web::reader`: the headings for the contents, the words he
 //! selected for a note, and a scroll to a heading or to the words a note marks.
 //!
-//! A page's words are not edited here, and what moved since he last opened it is not marked: both need Fleet's side.
+//! Edit types in the page itself (`reader_page_edit.rs`). What moved since he last opened it is not marked: that needs
+//! Fleet's side.
 //! A note stands in order in the gutter, not level with its paragraph, as the page scrolls inside its own view.
 
 use gpui::{div, prelude::*, AnyElement, Context, Entity, Role, SharedString, Window};

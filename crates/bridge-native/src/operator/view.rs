@@ -94,12 +94,8 @@ pub(crate) fn press(id: impl Into<SharedString>, label: SharedString, icon: Opti
 }
 
 /// What a press does on a click, and on Enter or Space while it has the keys: the key goes no further,
-/// so the page's own Enter (Yes) is not said as well.
-pub(super) fn pressed(
-    element: Stateful<Div>,
-    cx: &Context<OperatorPageView>,
-    act: impl Fn(&mut OperatorPageView, &mut Window, &mut Context<OperatorPageView>) + 'static,
-) -> Stateful<Div> {
+/// so the page's own Enter (Yes) is not said as well. Any view's, as the card it presses on is shared.
+pub(crate) fn pressed<V: 'static>(element: Stateful<Div>, cx: &Context<V>, act: impl Fn(&mut V, &mut Window, &mut Context<V>) + 'static) -> Stateful<Div> {
     let act = std::rc::Rc::new(act);
     let by_key = act.clone();
     element.on_click(cx.listener(move |this, _, window, cx| act(this, window, cx))).on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {

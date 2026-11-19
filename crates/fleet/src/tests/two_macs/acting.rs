@@ -396,3 +396,22 @@ async fn an_answer_read_on_one_mac_is_marked_read_on_the_mac_that_holds_the_job(
     assert_eq!(ran.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["answer_read"]);
     assert!(acts_run(&home).await.is_empty());
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn notes_on_a_job_another_mac_holds_reach_its_thread_on_that_mac() {
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+    let note = |said: &str| {
+        let mut one = crate::tests::session_notes::note(&job, "Send", None).note;
+        one.said = said.to_string();
+        one
+    };
+    let notes = ipc::SendSessionNotes { session_id: job.clone(), notes: vec![note("too wide"), note("wrong colour")] };
+
+    let (status, body) = post(&home, "/sessions/notes", encoded(&notes)).await;
+    assert_eq!(status, axum::http::StatusCode::ACCEPTED, "{body}");
+    assert_eq!(said(&work, &job, "1. too wide\n2. wrong colour").await, 1, "Work's thread holds the notes");
+
+    let ran = acts_run(&work).await;
+    assert_eq!(ran.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["notes"]);
+    assert!(acts_run(&home).await.is_empty());
+}

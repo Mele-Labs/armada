@@ -80,6 +80,8 @@ impl Scope {
     }
 }
 
+mod asleep_mac;
+
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
 struct Row {
@@ -130,6 +132,8 @@ struct Row {
     moved: bool,
     /// A reply answers a question of his he has not read (`answer_unread`): a dot in his hue.
     answer: bool,
+    /// The Job runs on a Mac that cannot be reached: it stands under that Mac's fold, dimmed, and pulls at him nowhere.
+    asleep: bool,
 }
 
 /// A parent's sub-Jobs as its row knows them.
@@ -324,6 +328,8 @@ fn standing_of(job: &SessionRecord) -> (u8, u8) {
 enum Line {
     Project(SharedString),
     Job(Row),
+    /// A Mac that is asleep, as a fold over its Jobs, after every group.
+    Asleep(asleep_mac::Shelf),
 }
 
 /// The repository a Job runs in, by the id it carries: the key its repository's group is held by.
@@ -504,6 +510,14 @@ fn lines_of(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: 
 /// search still apply within it. A starter in another project is not drawn for its place, and an idea stands only
 /// where a Job of the project stands in its root.
 fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>) -> Vec<Line> {
+    lines_shelving(jobs, ideas, scope, query, order, names, project, &[])
+}
+
+/// [`lines_within`] with the Macs whose Jobs cannot be reached, asleep or on another build: a Job on one leaves its group for that Mac's fold at the foot of the
+/// list, and is left out of Needs you, since it asks nothing of him here.
+#[allow(clippy::too_many_arguments)]
+fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Unreachable]) -> Vec<Line> {
+    let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
@@ -522,7 +536,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
     ended.sort_by(|a, b| b.ended_at.as_ref().map(|at| at.as_str()).cmp(&a.ended_at.as_ref().map(|at| at.as_str())));
     let needs = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs);
     let picked: Vec<&SessionRecord> = match scope {
-        Scope::Needs => lives.iter().copied().filter(|job| needs(job) && !snoozed(job)).collect(),
+        Scope::Needs => lives.iter().copied().filter(|job| needs(job) && !snoozed(job) && asleep_on(job).is_none()).collect(),
         Scope::Active => lives.iter().copied().filter(|job| !paused(job) && !quiet(job) && !snoozed(job)).collect(),
         // A snoozed Job is paused as well, and listed under Snoozed alone.
         Scope::Paused => lives.iter().copied().filter(|job| paused(job) && !snoozed(job)).collect(),
@@ -533,13 +547,15 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
     };
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
+    // Jobs on a Mac that is asleep stand apart, under its fold.
+    let (sleeping, picked): (Vec<&SessionRecord>, Vec<&SessionRecord>) = picked.into_iter().partition(|job| asleep_on(job).is_some());
     // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
     // snoozed starter in Active or a calm one in Needs you, comes in for its place alone.
     let mut places: std::collections::HashSet<&str> = std::collections::HashSet::new();
     for job in &picked {
         let mut up = starter_of(job);
         while let Some(id) = up.filter(|id| !picked.iter().any(|one| one.id.as_str() == *id) && !places.contains(id)) {
-            let Some(starter) = lives.iter().find(|one| one.id.as_str() == id) else { break };
+            let Some(starter) = lives.iter().find(|one| one.id.as_str() == id && asleep_on(one).is_none()) else { break };
             places.insert(starter.id.as_str());
             up = starter_of(starter);
         }
@@ -581,9 +597,10 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
         }
     }
     let headed = projects.len() > 1;
+    projects.extend(asleep_mac::groups(&sleeping, asleep, names));
     let mut lines = Vec::new();
     for (key, project, held) in projects {
-        if headed {
+        if !asleep_mac::open_line(&key, asleep, &mut lines) && headed {
             lines.push(Line::Project(project.clone().into()));
         }
         for idea in waiting.iter().filter(|idea| idea_group(idea).0 == key) {
@@ -616,6 +633,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
                 moving_to: None,
                 moved: false,
                 answer: false,
+                asleep: false,
             }));
         }
         let listed = |id: &str| held.iter().any(|job| job.id.as_str() == id);
@@ -653,6 +671,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
             moving_to: crate::move_to_mac::moving_to(job).map(|id| id.to_string().into()),
             moved: crate::move_to_mac::moved(job),
             answer: job.answer_unread,
+            asleep: asleep_on(job).is_some(),
         };
         fn under<'a>(
             parent: &str,
@@ -702,7 +721,7 @@ fn fold_lines(lines: Vec<Line>, folds: &Folds) -> Vec<Line> {
         if folded {
             for line in &lines[at..at + below] {
                 let Line::Job(sub) = line else { continue };
-                let Some(mark) = sub.mark.filter(|_| !sub.place) else { continue };
+                let Some(mark) = sub.mark.filter(|_| !sub.place && !sub.asleep) else { continue };
                 let held = strip.iter_mut().find(|one| one.paused == sub.paused && (sub.paused || one.mark.state == mark.state));
                 match held {
                     Some(one) => one.titles.push(sub.title.clone()),
@@ -854,6 +873,10 @@ pub struct JobsList {
     query: String,
     /// The parents whose sub-Jobs are folded away, and the switch that folds every one.
     folds: Folds,
+    /// The Macs that are asleep, whose Jobs stand under a fold at the foot of the list.
+    asleep: Vec<crate::pairing::Unreachable>,
+    /// The folds of those Macs that are open, by Mac id. Held for the window's life; a Mac that wakes drops out.
+    asleep_open: std::collections::BTreeSet<String>,
     /// What each row draws.
     view: View,
     /// Live Jobs in the order the person placed them, by id.
@@ -1064,6 +1087,8 @@ impl JobsList {
             scope,
             query: String::new(),
             folds: if remember { Folds::load(folds_file().as_deref()) } else { Folds::default() },
+            asleep: crate::pairing::unreachable_of(crate::pairing::macs(cx)),
+            asleep_open: std::collections::BTreeSet::new(),
             view,
             order,
             remember,
@@ -1101,6 +1126,8 @@ impl JobsList {
         } else {
             cx.set_global(MockList(cx.weak_entity()));
         }
+        // A Mac that falls asleep takes its Jobs to the foot of the list, and one that wakes gives them back.
+        crate::pairing::observe(cx, |this: &mut Self, cx| this.follow_macs(cx)).detach();
         // The ideas waiting to start stand in the list as they change, from Dispatch or a row's own acts.
         cx.observe_global::<crate::queued::Queued>(|this, cx| {
             this.ideas = crate::queued::ideas(cx);
@@ -1454,7 +1481,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_within(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref())
+        lines_shelving(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep)
     }
 
     /// The title bar was scoped to a project, or back to All or a repository: the list takes the project the
@@ -1471,7 +1498,7 @@ impl JobsList {
     /// `needs` slot). With none, they stay where they are.
     pub fn to_first_needing(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let first = self.lines.iter().enumerate().find_map(|(at, line)| match line {
-            Line::Job(row) if row.mark.is_some_and(|mark| mark.group == JobGroup::Needs) => Some((at, row.id.clone())),
+            Line::Job(row) if !row.asleep && row.mark.is_some_and(|mark| mark.group == JobGroup::Needs) => Some((at, row.id.clone())),
             _ => None,
         });
         if let Some((at, id)) = first {
@@ -1490,7 +1517,7 @@ impl JobsList {
     fn rows(&self) -> impl Iterator<Item = &Row> {
         self.lines.iter().filter_map(|line| match line {
             Line::Job(row) if !row.place => Some(row),
-            Line::Job(_) | Line::Project(_) => None,
+            Line::Job(_) | Line::Project(_) | Line::Asleep(_) => None,
         })
     }
 
@@ -1515,7 +1542,7 @@ impl JobsList {
 
     /// `lines` with the parents this list has folded shut.
     fn folded(&self, lines: Vec<Line>) -> Vec<Line> {
-        fold_lines(lines, &self.folds)
+        asleep_mac::shelve_open(fold_lines(lines, &self.folds), &self.asleep_open)
     }
 
     /// Every Job another is listed under, by id: the parents a fold reaches.
@@ -1610,6 +1637,10 @@ impl JobsList {
 
     /// ← folds the focused parent and → unfolds it; on any other row the key is left for others.
     fn fold_focused(&mut self, fold: bool, cx: &mut Context<Self>) {
+        if let Some((mac, open)) = self.focused_shelf().filter(|(_, open)| *open == fold) {
+            self.set_shelf(&mac, !open, cx);
+            return;
+        }
         let held = self.focused.as_ref().and_then(|id| self.rows().find(|row| &row.id == id)).filter(|row| row.kids.as_ref().is_some_and(|kids| kids.folded != fold)).map(|row| row.id.clone());
         match held {
             Some(id) => self.set_row_fold(&id, fold, cx),
@@ -1625,15 +1656,17 @@ impl JobsList {
         self.fold_focused(false, cx);
     }
 
-    fn row_at(&self, at: usize) -> Option<&Row> {
+    /// What the keys can land on at this line: a Job, or the fold of a Mac asleep, by the id they carry.
+    fn stop_at(&self, at: usize) -> Option<SharedString> {
         match self.lines.get(at)? {
-            Line::Job(row) => Some(row),
+            Line::Job(row) => Some(row.id.clone()),
+            Line::Asleep(shelf) => Some(shelf.id()),
             Line::Project(_) => None,
         }
     }
 
     fn at_of(&self, id: &SharedString) -> Option<usize> {
-        self.lines.iter().position(|line| matches!(line, Line::Job(row) if &row.id == id))
+        (0..self.lines.len()).find(|at| self.stop_at(*at).as_ref() == Some(id))
     }
 
     fn port(&self, cx: &App) -> Option<u16> {
@@ -1665,7 +1698,7 @@ impl JobsList {
             if at < 0 || at >= self.lines.len() as isize {
                 return None;
             }
-            if let Some(id) = self.row_at(at as usize).map(|row| row.id.clone()) {
+            if let Some(id) = self.stop_at(at as usize) {
                 return Some((at as usize, id));
             }
         }
@@ -1819,6 +1852,8 @@ impl JobsList {
             // An idea's row starts it: ↵ is the press with no pointer (`QueuedRow`).
             if let Some(idea) = self.focused_idea() {
                 crate::dispatch::start_queued(idea, cx);
+            } else if let Some((mac, open)) = self.focused_shelf() {
+                self.set_shelf(&mac, !open, cx);
             } else if self.focused.is_some() {
                 self.opened = self.focused.clone();
                 self.picks += 1;
@@ -1838,9 +1873,10 @@ impl JobsList {
             }
         } else if act.is("deck_select") {
             // Space or `x` selects the row under the keys, or takes it out of the selection.
-            match self.focused.clone().filter(|id| self.selectable(id)) {
-                Some(id) => self.toggle_selected(&id, cx),
-                None => cx.propagate(),
+            match (self.focused.clone().filter(|id| self.selectable(id)), self.focused_shelf()) {
+                (Some(id), _) => self.toggle_selected(&id, cx),
+                (None, Some((mac, open))) => self.set_shelf(&mac, !open, cx),
+                (None, None) => cx.propagate(),
             }
         } else if act.is("close") && !self.selected.is_empty() {
             // Esc lets go of the selection while there is one, and otherwise means what it means everywhere.
@@ -2452,16 +2488,17 @@ impl JobsList {
         // The row stands for the earlier Job too: it is open when that one is.
         let opened = self.opened.as_ref() == Some(&row.id) || (row.earlier.is_some() && self.opened == row.earlier);
         let weight = if opened { token::WEIGHT_HEADING } else { token::WEIGHT_BODY };
-        let ink = if row.paused || row.ended || row.place { token::FG_MUTED } else { token::FG_DEFAULT };
+        let ink = if row.paused || row.ended || row.place || row.asleep { token::FG_MUTED } else { token::FG_DEFAULT };
         let lamp = match row.mark {
+            _ if row.asleep => token::BORDER_STRONG,
             Some(mark) => lamp_of(mark.lamp),
             None if row.ended => token::STATUS_COMPLETED_SUCCESS,
             None => token::BORDER_STRONG,
         };
         // Needs him, and not the Job open now: the row's tint breathes (`ListCard.css`).
         // A snoozed Job is quiet to the eye as well: its edge stays amber and nothing moves.
-        let needs = row.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs) && !opened && row.snoozed.is_none();
-        let state = row.mark.filter(|_| !row.paused).map(|mark| (glyph_of(mark.state, row.pr.as_deref()), hue_of(mark.state)));
+        let needs = row.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs) && !opened && row.snoozed.is_none() && !row.asleep;
+        let state = row.mark.filter(|_| !row.paused && !row.asleep).map(|mark| (glyph_of(mark.state, row.pr.as_deref()), hue_of(mark.state)));
         let rail = look.length(token::BORDER_WIDTH) * 2.;
         // Pocket's tree (`pocket.css`, `.pk-guide`): each level steps in by space-6.
         let step_in = look.length(token::SPACE_6);
@@ -2741,6 +2778,7 @@ impl JobsList {
             .when(selected && !opened, |strip| strip.border_color(look.color(token::ACCENT)).bg(look.color(token::ACCENT_FAINT)))
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
+            .when(row.asleep, |strip| strip.opacity(0.6))
             // Lit as hovered while the pointer is on a clash's link to this Job (`data-hover`).
             .when(!opened && lit, |strip| strip.bg(look.color(token::BG_HOVER)))
             .child(canvas(move |bounds, _, _| { store.borrow_mut().insert(kept, bounds); }, |_, _, _, _| {}).absolute().top_0().left_0().size_full())
@@ -2780,7 +2818,7 @@ impl JobsList {
                             .font_weight(FontWeight(look.number(weight)))
                             .child(row.title.clone()),
                     )
-                    .children(row.answer.then(|| {
+                    .children((row.answer && !row.asleep).then(|| {
                         let said = "An answer to your question is waiting";
                         labelled(div().id(SharedString::from(format!("answer-{}", row.id))).flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::YOU)).tooltip(tip(said.into())), Role::Image, said)
                     }))
@@ -2917,6 +2955,10 @@ impl JobsList {
             Line::Job(row) => {
                 let row = row.clone();
                 self.render_job(at, &row, cx)
+            }
+            Line::Asleep(shelf) => {
+                let shelf = shelf.clone();
+                self.render_shelf(at, &shelf, cx)
             }
         }
     }
@@ -3692,7 +3734,7 @@ mod tests {
     }
 
     fn titles(lines: &[Line]) -> Vec<String> {
-        lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.title.to_string()), Line::Project(_) => None }).collect()
+        lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.title.to_string()), _ => None }).collect()
     }
 
     #[gpui::test]
@@ -3745,7 +3787,7 @@ mod tests {
     }
 
     fn headings(lines: &[Line]) -> Vec<String> {
-        lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.to_string()), Line::Job(_) => None }).collect()
+        lines.iter().filter_map(|line| match line { Line::Project(name) => Some(name.to_string()), _ => None }).collect()
     }
 
     #[test]
@@ -3783,7 +3825,7 @@ mod tests {
         let mut blank = all[0].clone();
         blank.title = Some("  ".into());
         assert_eq!(title_of(&blank).as_ref(), UNTITLED);
-        assert!(lines.iter().all(|line| match line { Line::Job(row) => row.title != row.id, Line::Project(_) => true }));
+        assert!(lines.iter().all(|line| match line { Line::Job(row) => row.title != row.id, _ => true }));
     }
 
     #[test]
@@ -3796,7 +3838,7 @@ mod tests {
 
     /// The Jobs a list draws, by id and in order of id: a list stands its Jobs by what they need, which these do not test.
     fn ids(lines: &[Line]) -> Vec<String> {
-        let mut ids: Vec<String> = lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.id.to_string()), Line::Project(_) => None }).collect();
+        let mut ids: Vec<String> = lines.iter().filter_map(|line| match line { Line::Job(row) => Some(row.id.to_string()), _ => None }).collect();
         ids.sort();
         ids
     }
@@ -4049,7 +4091,7 @@ mod tests {
         let tree = crate::mock::jobs("jobs-tree").expect("the fixture decodes");
         let lines = lines_of(&tree, &[], Scope::Needs, "", &[], &Names::default());
         let rows: Vec<(String, usize, bool)> =
-            lines.iter().filter_map(|line| match line { Line::Job(row) => Some((row.title.to_string(), row.depth, row.place)), Line::Project(_) => None }).collect();
+            lines.iter().filter_map(|line| match line { Line::Job(row) => Some((row.title.to_string(), row.depth, row.place)), _ => None }).collect();
         assert_eq!(
             rows,
             [
@@ -4429,7 +4471,7 @@ mod tests {
             match line {
                 Line::Project(name) => heading = Some(name.to_string()),
                 Line::Job(row) if row.id.as_ref() == id => return heading,
-                Line::Job(_) => {}
+                Line::Job(_) | Line::Asleep(_) => {}
             }
         }
         None

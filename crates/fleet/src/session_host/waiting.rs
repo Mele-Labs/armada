@@ -48,7 +48,7 @@
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::{HostedSessions, Refusal};
+use api::Refusal;
 use ipc::{
     AllDone, AnswerSessionAsk, AnswerWaiting, AnswerWaitingParts, ConfirmWaiting, DismissWaiting, DoneWaiting, ReopenWaiting, CallAnswer, CallInFlight, Instant,
     QuestionAnswer, SendSessionMessage, SessionRecord, SessionRow, SessionVoice, SetWaitingFor,
@@ -57,6 +57,7 @@ use ipc::{
 use store::{KeptApproval, KeptClosed, KeptSession, KeptWaiting, Store};
 
 use crate::daemon::Fleet;
+use crate::feature_library::deciding::{Decided, ASKED_FOR_CHANGES};
 use crate::session_host::asking_in_window::WINDOW_ASK_PREFIX;
 use crate::session_host::drafting::{self, DRAFT_PREFIX, FIXED_NOT_A_DRAFT};
 use crate::session_host::handoff_answers::{self, lapsed_question, HANDOFF_PREFIX};
@@ -1372,7 +1373,7 @@ where
                         None => self.refusal_of(&said.session_id, &asked, line, words),
                     }
                 };
-                self.answer_session_ask(answer).await
+                self.session_ask_answered(answer, by == Answerer::Him).await
             }
             WaitingSource::Walk => {
                 let target = item.act.map(|act| act.target).unwrap_or_default();
@@ -1397,6 +1398,14 @@ where
                 body.push('\n');
                 body.push_str(TAKEN_OFF);
                 Arc::clone(&self).send_known(terminal.then_some(session), message(body)).await?;
+                // An item with options, or one that asks for his approval, is a decision of his, filed once it is heard.
+                if by == Answerer::Him && (!item.options.is_empty() || item.approves) {
+                    let choice = picked.as_deref().or(item.approves.then_some(ASKED_FOR_CHANGES));
+                    let at = self.now().as_str().to_string();
+                    if let Some(choice) = choice {
+                        self.owner_decision_filed(Decided { job: &id, key: format!("item:{}:{at}", item.id), artifact: "", question: &item.text, choice, note: words, at: &at }).await;
+                    }
+                }
                 // Delivered, so the item goes now: a failed send above leaves it standing.
                 if item.approves && by == Answerer::Him && picked.as_deref() == Some(APPROVE) {
                     let approval = KeptApproval { item_id: item.id.clone(), text: item.text.clone(), at: self.clock().now().as_str().to_string() };

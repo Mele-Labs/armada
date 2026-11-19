@@ -20,6 +20,17 @@ pub struct KeptSeenHead {
     pub seen_at: String,
 }
 
+/// A pull request the person ignored.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct KeptIgnore {
+    pub manifest_id: String,
+    /// As the forge names it, lowercase: `owner/name`.
+    pub repository: String,
+    pub number: u64,
+    /// RFC 3339.
+    pub ignored_at: String,
+}
+
 /// A file a person marked viewed on a pull request.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct KeptViewedFile {
@@ -54,6 +65,15 @@ fn seen(row: &Row<'_>) -> rusqlite::Result<KeptSeenHead> {
         number: row.get::<_, i64>(2)?.try_into().unwrap_or_default(),
         head: row.get(3)?,
         seen_at: row.get(4)?,
+    })
+}
+
+fn ignored(row: &Row<'_>) -> rusqlite::Result<KeptIgnore> {
+    Ok(KeptIgnore {
+        manifest_id: row.get(0)?,
+        repository: row.get(1)?,
+        number: row.get::<_, i64>(2)?.try_into().unwrap_or_default(),
+        ignored_at: row.get(3)?,
     })
 }
 
@@ -171,6 +191,42 @@ impl Store {
             .prepare("SELECT manifest_id, repository, number, head, seen_at FROM pull_request_seen")
             .map_err(unreadable)?;
         let rows = statement.query_map([], seen).map_err(unreadable)?;
+        rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
+    }
+
+    /// Keep a pull request as ignored, replacing the time of an earlier ignore.
+    pub fn keep_ignore(&mut self, kept: &KeptIgnore) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT OR REPLACE INTO pull_request_ignored (manifest_id, repository, number, ignored_at) \
+                 VALUES (?1, ?2, ?3, ?4)",
+                rusqlite::params![kept.manifest_id, kept.repository, number_of(kept.number), kept.ignored_at],
+            )
+            .map(|_| ())
+            .map_err(fault("keeping an ignore"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Forget an ignore. One not kept is not an error.
+    pub fn forget_ignore(&mut self, manifest_id: &str, repository: &str, number: u64) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "DELETE FROM pull_request_ignored WHERE manifest_id = ?1 AND repository = ?2 AND number = ?3",
+                rusqlite::params![manifest_id, repository, number_of(number)],
+            )
+            .map(|_| ())
+            .map_err(fault("forgetting an ignore"))
+            .map_err(WriteError::Database)
+    }
+
+    /// Every ignore kept, for the lists to look each row up in.
+    pub fn ignores(&self) -> Result<Vec<KeptIgnore>, WriteError> {
+        let unreadable = |why: rusqlite::Error| WriteError::Database(fault("reading ignores")(why));
+        let mut statement = self
+            .conn
+            .prepare("SELECT manifest_id, repository, number, ignored_at FROM pull_request_ignored")
+            .map_err(unreadable)?;
+        let rows = statement.query_map([], ignored).map_err(unreadable)?;
         rows.collect::<rusqlite::Result<Vec<_>>>().map_err(unreadable)
     }
 

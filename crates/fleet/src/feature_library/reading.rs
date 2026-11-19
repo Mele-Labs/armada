@@ -6,15 +6,18 @@ use std::collections::{BTreeMap, BTreeSet};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
+    FeatureAreaRow, FeatureBrief, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureRead,
     FeatureSectionKind, FeatureState, Instant, SessionId,
 };
-use store::{feature_link_kind, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
+use store::{feature_link_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
 
+use super::health::Health;
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
 use super::mapping::FeatureMap;
 use super::staleness::stale_since;
+use super::whos_on_what::elsewhere_of;
 use crate::daemon::Fleet;
+use crate::my_pulls::Mine;
 
 pub(super) const UNKNOWN: &str = "fleet.feature_unknown";
 const SECTION_UNKNOWN: &str = "fleet.feature_section_unknown";
@@ -165,6 +168,15 @@ where
         held.holding(&ipc::ManifestId::carried(&manifest).to_domain()).into_iter().map(|one| one.id().as_str().to_string()).collect()
     }
 
+    /// The repositories the project's members name, which a feature that names none is read in.
+    fn repositories_of(&self, project: &str) -> Vec<String> {
+        let held = self.projects_held();
+        let Some(project) = core_model::ScopeId::new(project).ok().and_then(|scope| held.get(&scope).cloned()) else {
+            return Vec::new();
+        };
+        project.repositories().into_iter().map(|one| one.as_str().to_string()).collect()
+    }
+
     fn feature_fault(&self, why: WriteError) -> Refusal {
         self.ledger_fault(why)
     }
@@ -189,10 +201,12 @@ where
         let loaded = Loaded::read(&store, &chosen).map_err(|why| self.feature_fault(why))?;
         let on = self.jobs_on_features(&store, &chosen)?;
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
+        let mut health = Health::new(&store, &loaded, self.repositories_of(&loaded.project));
         for feature in loaded.map.features() {
             let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
-            let row = row_of(feature, on.get(&feature.id).cloned().unwrap_or_default(), stale);
+            let jobs = on.get(&feature.id).cloned().unwrap_or_default();
+            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale);
             match areas.iter_mut().find(|area| area.slug == feature.area) {
                 Some(area) => area.features.push(row),
                 // A feature whose area was never kept is listed under its own slug rather than dropped.
@@ -206,7 +220,7 @@ where
     /// The Jobs on each feature of the project: those that filed a file under it and are live and
     /// hold a worktree slot now, the fact `list_jobs` shows as `slot`. A live Job holding none has
     /// stopped without ending, and is not at work on anything.
-    fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
+    pub(super) fn jobs_on_features(&self, store: &Store, project: &str) -> Result<BTreeMap<String, Vec<FeatureJob>>, Refusal> {
         let pairs = store.feature_job_pairs(project).map_err(|why| self.feature_fault(why))?;
         let jobs: BTreeSet<&str> = pairs.iter().map(|(_, job)| job.as_str()).collect();
         let mut live: BTreeMap<String, String> = BTreeMap::new();
@@ -252,17 +266,22 @@ where
         let on = self.jobs_on_features(&store, &loaded.project)?;
         let marked = sections_marked(&store, &loaded, &feature).map_err(|why| self.feature_fault(why))?;
         let stale = marked.iter().filter_map(|(_, since)| *since).min();
-        let (links, files) = if only.is_some() {
-            (Vec::new(), Vec::new())
+        let jobs = on.get(&feature.id).cloned().unwrap_or_default();
+        let health = Health::new(&store, &loaded, self.repositories_of(&loaded.project)).of(&feature, &marked, &jobs);
+        let (links, files, decisions) = if only.is_some() {
+            (Vec::new(), Vec::new(), Vec::new())
         } else {
             (
                 store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?,
                 store.feature_top_files(&feature.id, 20).map_err(|why| self.feature_fault(why))?,
+                store.feature_decisions(&feature.id).map_err(|why| self.feature_fault(why))?,
             )
         };
+        let docs = reads_of(&links, feature_link_kind::DOC);
+        let tickets = reads_of(&links, feature_link_kind::TICKET);
         let mut page = FeaturePage {
             project: loaded.project.clone(),
-            feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
+            feature: row_of(&feature, health, jobs, stale),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
             paths: feature.paths.clone(),
             entry_points: feature.entry_points.clone(),
@@ -272,7 +291,10 @@ where
                 .filter(|section| only.is_none_or(|kind| section.section == kind))
                 .collect(),
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
+            decisions: decisions.into_iter().map(decision_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
+            docs,
+            tickets,
             floor_plan: None,
         };
         drop(store);
@@ -285,14 +307,15 @@ where
     /// `get_feature_brief`.
     pub(super) async fn feature_briefed(&self, caller: Option<api::Caller>, project: Option<String>, slug: String) -> Result<FeatureBrief, Refusal> {
         self.feature_writes_filed().await;
+        let mine = self.owner_logins().await;
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
         let (loaded, feature) = self.feature_in(&store, &projects, &slug)?;
-        self.feature_brief_of(&store, &loaded, &feature)
+        self.feature_brief_of(&store, &loaded, &feature, &mine)
     }
 
     /// One feature's page condensed, read from `store` with the library `loaded` holds it in.
-    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature) -> Result<FeatureBrief, Refusal> {
+    pub(super) fn feature_brief_of(&self, store: &Store, loaded: &Loaded, feature: &KeptFeature, mine: &Mine) -> Result<FeatureBrief, Refusal> {
         let on = self.jobs_on_features(store, &loaded.project)?;
         let marked = sections_marked(store, loaded, feature).map_err(|why| self.feature_fault(why))?;
         let links = store.feature_links(&feature.id).map_err(|why| self.feature_fault(why))?;
@@ -316,6 +339,7 @@ where
                 .filter_map(|(section, since)| Some((FeatureSectionKind::from_name(&section.section)?.name().to_string(), (*since)?)))
                 .collect(),
             jobs_now: on.get(&feature.id).map(|jobs| jobs.iter().map(|job| job.title.clone()).collect()).unwrap_or_default(),
+            elsewhere: elsewhere_of(store, loaded, feature, mine),
             entry_points,
             test: text_of(store::feature_section::TEST),
             bugs: open_bugs(&links),
@@ -337,7 +361,7 @@ fn holds_a_slot(store: &Store, job: &str) -> bool {
         .any(|one| one.kind == "slot" && one.state == store::AttachmentState::Standing)
 }
 
-fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
+fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
     FeatureRow {
         id: feature.id.clone(),
         slug: feature.slug.clone(),
@@ -347,6 +371,7 @@ fn row_of(feature: &KeptFeature, jobs_now: Vec<FeatureJob>, stale_since: Option<
         state: state_of(&feature.state),
         jobs_now,
         stale_since,
+        health,
     }
 }
 
@@ -371,6 +396,30 @@ fn link_on_the_wire(link: KeptFeatureLink) -> Option<FeatureLink> {
         via: link.via,
         at: instant(&link.at),
     })
+}
+
+fn decision_on_the_wire(kept: KeptFeatureDecision) -> FeatureDecision {
+    FeatureDecision { question: kept.question, choice: kept.choice, note: Some(kept.note).filter(|note| !note.is_empty()), job: kept.job, at: instant(&kept.at) }
+}
+
+/// The docs or tickets of `kind` the links hold, newest first, **each once by what it was read by**: the newest read of it
+/// names the Job. A read in two Jobs is one entry.
+fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
+    let mut reads: Vec<FeatureRead> = Vec::new();
+    for link in links.iter().rev().filter(|link| link.kind == kind) {
+        if reads.iter().any(|read| read.target == link.target) {
+            continue;
+        }
+        reads.push(FeatureRead {
+            target: link.target.clone(),
+            title: Some(link.title.clone()).filter(|title| !title.is_empty()).unwrap_or_else(|| link.target.clone()),
+            gist: link.gist.clone(),
+            job: link.job.clone(),
+            at: instant(&link.at),
+            state: link.state.clone(),
+        });
+    }
+    reads
 }
 
 /// The open bugs, newest first.

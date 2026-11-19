@@ -3,7 +3,7 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 `docs/concepts/pull-review.md`, *Since you looked* and *Your review*.
-**Additive**: eight operations, eight routes, three error codes, new types, and optional fields on six existing types; no event kind.
+**Additive**: ten operations, ten routes, three error codes, new types, and optional fields on six existing types; no event kind.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
 Bridge's half is `packages/protocol/src/pull-review-memory.ts`, written by hand, field for field.
 
@@ -12,6 +12,8 @@ Bridge's half is `packages/protocol/src/pull-review-memory.ts`, written by hand,
 | Where | Side | Carries |
 | --- | --- | --- |
 | `mark_pull_request_seen` (`POST /pull_request_seen/:repository`) | Bridge writes | `MarkPullSeen` `{ number, head }`; answers `PullSeen` `{ head, at }`. Sent when he leaves the pull request or presses Mark as seen, never on open |
+| `ignore_pull_request` (`POST /pull_request_ignored/:repository`) | Bridge writes | `IgnorePull` `{ number }`; answers `PullIgnored` `{ number, at }`. Kept on his Mac, never posted to the forge |
+| `unignore_pull_request` (`POST /pull_request_ignored/:repository/unignore`) | Bridge writes | `IgnorePull` `{ number }`, answered as sent. A pull request not ignored is not an error |
 | `mark_file_viewed` (`POST /pull_request_viewed/:repository`) | Bridge writes | `MarkFileViewed` `{ number, path, commit, blob? }`; answers `PullViewedFile` with `still` true. `blob` is the file's `PullRequestFilePatch.blob` as he read it |
 | `unmark_file_viewed` (`POST /pull_request_viewed/:repository/unmark`) | Bridge writes | `UnmarkFileViewed` `{ number, path }`, answered as sent. A file not marked is not an error |
 | `get_pull_request_compare` (`GET /pull_request_compares/:repository/:number?since=&head=`) | Bridge reads | `PullRequestCompare`, tagged `outcome`: `patches` `{ since, head, files }`, each file a `PullRequestFilePatch`, or `base_gone` `{ since, head }` |
@@ -20,6 +22,7 @@ Bridge's half is `packages/protocol/src/pull-review-memory.ts`, written by hand,
 | `delete_review_layout` (`POST /review_layouts/delete`) | Bridge writes | `NamedReviewLayout` `{ name }`; answers `ReviewLayouts`. A deleted pick falls back to `Default` |
 | `pick_review_layout` (`POST /review_layouts/pick`) | Bridge writes | `NamedReviewLayout` `{ name }`; answers `ReviewLayouts`. One pick for every pull request |
 | `PullReviewRow.seen?`, `.my_review?`, `.inbox` | Fleet writes, Bridge reads | `get_review_lists`' rows: his seen head, his own latest submitted review `PullMyReview` `{ said, commit?, submitted_at? }` with `said` `approved`, `changes_requested` or `commented`, and `inbox`, one of `changed_since_you_looked`, `done`, `waiting_on_author`, `needs_first_look`, the first that holds. A row from an older Fleet reads as `needs_first_look` |
+| `PullReviewRow.ignored?` | Fleet writes, Bridge reads | True while he ignored it and it has not been asked of him since: the row's `asked_at` is not later than the `at` of his ignore. Absent is false |
 | `PullRequestPage.seen?`, `.viewed?` | Fleet writes, Bridge reads | `get_pull_request_detail`: his seen head, and each `PullViewedFile` `{ path, commit, viewed_at, still }` |
 | `PullRequestPage.my_review?`, `.since_my_review?` | Fleet writes, Bridge reads | `get_pull_request_detail` and `write_pull_request`'s answer: his latest submitted review as a `PullMyReview`, and `PullSinceMyReview` `{ commits?, replies? }`, present exactly when `my_review` is. `commits` counts those after the review's commit, absent where that commit is not among the pull request's; `replies` counts what another person said after `submitted_at`, on the review threads he wrote on or on the conversation with `@` and his login; an app's comment, which the forge marks or whose login ends `[bot]`, is none. Both absent where Fleet does not know who he is |
 | `PullRequestFilePatch.blob?` | Fleet writes, Bridge reads | The forge's blob for the file's content at the head, on `get_pull_request_patches` and the compare. `get_pull_request_file` leaves it out |

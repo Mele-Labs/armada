@@ -304,16 +304,21 @@ pub(super) struct BlockView {
     _read: Option<Subscription>,
 }
 
-/// Edit on: a box for each block, and the blocks as they were.
+/// Edit on: a box for each block of a draft, and the blocks as they were; on a page, the page he types in.
 pub(super) struct Edit {
     pub areas: Vec<Entity<TextareaState>>,
     pub original: Vec<String>,
     _typing: Vec<Subscription>,
+    pub page: Option<super::reader_page_edit::PageEdit>,
 }
 
 impl Edit {
     pub(super) fn new(areas: Vec<Entity<TextareaState>>, original: Vec<String>, typing: Vec<Subscription>) -> Self {
-        Edit { areas, original, _typing: typing }
+        Edit { areas, original, _typing: typing, page: None }
+    }
+
+    pub(super) fn page(page: super::reader_page_edit::PageEdit) -> Self {
+        Edit { areas: Vec::new(), original: Vec::new(), _typing: Vec::new(), page: Some(page) }
     }
 
     pub(super) fn words(&self, cx: &gpui::App) -> Vec<String> {
@@ -1061,6 +1066,10 @@ impl JobView {
             held.text.clear();
         }
         if kind == RowKind::Document {
+            // Edit on the page ends with what he typed kept, as the page draws the revision chosen.
+            if self.reader_of(id, name).is_some_and(|held| held.edit.is_some()) {
+                self.page_edit_end(id, name, true, false, window, cx);
+            }
             self.reader_page_revision(id, name, number, window, cx);
         }
         cx.notify();

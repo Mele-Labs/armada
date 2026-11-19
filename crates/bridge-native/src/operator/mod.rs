@@ -8,7 +8,7 @@
 //! | A card's kind chip, a feed entry's glyph, the head's pills and the words a pick is said in | `face.rs` |
 //! | The page's state, keys and presses, each answered at once | `page.rs` |
 //! | The page drawn: the main panel (head, card, strip, talk and box) and Next up and the feed in a panel beside it | `view.rs` |
-//! | The card in front, its options and footer, a card that did not settle, a picked card read only with its steps, and the card folded to a line | `card.rs` |
+//! | The card in front, its options and footer, a card that did not settle, a picked card read only with its steps, and the card folded to a line; a Job's Needs you draws the same card | `card.rs` |
 //! | Next up: the cards behind the front one, then the kept ideas, folded in the right column | `next_up.rs` |
 //! | A kept idea brought to the front, drawn as a card with Start it and Remove | `idea.rs` |
 //! | The talk under the card, the Operator's own thread with its About rows and the cards it raises, and the new-card strip | `talk.rs` |
@@ -27,7 +27,7 @@
 //! **Switch on waits on Fleet's `operator.page_changed`**, which it sends when `features.operator` changes. It draws
 //! its change at once and reads nothing itself; the walk's mock sends no event, so there it reads the page in its place.
 
-mod card;
+pub(crate) mod card;
 pub mod composer;
 pub mod face;
 mod feed;

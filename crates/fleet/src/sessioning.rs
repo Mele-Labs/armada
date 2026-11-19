@@ -239,6 +239,7 @@ where
                 }
                 if attachment.kind == "artifact" {
                     self.artifact_filed(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
+                    self.artifact_decided(&mut store, &session.id, &attachment.target, &attachment.detail, &now);
                 }
                 // A branch or pull request read from a slot the lease is another's is theirs, but a
                 // pull request the session opened itself is its own wherever it stood: the mod read
@@ -426,7 +427,10 @@ where
             SessionFact::SignedOut => signed_out = terminal,
             // For the check of who else writes these files; nothing on the ledger changes.
             SessionFact::Touched { paths, by, act } => {
-                self.session_wrote(&store, &session, &roots, &paths);
+                // What the Job read before this write is linked to the features that own the files it wrote.
+                if let Some((manifest, credited)) = self.session_wrote(&store, &session, &roots, &paths) {
+                    let _ = self.feature_reads_linked(&mut store, &id, &manifest, &credited);
+                }
                 // A hosted session is heard from its own process, which enters the same acts.
                 if terminal {
                     let file = paths.last().map(|path| self.file_named(Some(&session.cwd), path));
@@ -466,6 +470,10 @@ where
                     self.timeline().touched(Doer::of_session(&session), FileAct::Read, 1, Some(file));
                 }
                 changed |= build_heard(&mut store, &id, &Observed::Worked, &now).map_err(fault)?;
+            }
+            // A doc or ticket the session read, kept until a write of its reaches a feature.
+            SessionFact::Consulted { tool, target, title, gist } => {
+                let _ = self.feature_read_kept(&mut store, &id, &tool, &target, &title, &gist);
             }
             SessionFact::Ran { command } => {
                 if terminal {

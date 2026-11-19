@@ -32,6 +32,8 @@ fn row(number: u64, repository: &str, title: &str, author: &str, age: &str, chan
         checks,
         mine,
         reviewing: false,
+        ignored: false,
+        seen: false,
     }
 }
 
@@ -53,6 +55,7 @@ pub fn inbox() -> Inbox {
     let rows = vec![
         row(2231, "harbor/ledger-api", "Say which stage of an invoice failed", "mira", "30m", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
         row(2214, "harbor/ledger-api", "Add rate limits to the export endpoint", "mira", "2h", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
+        row(2219, "harbor/ledger-api", "Log the export batch size", "mira", "3h", false, None, &[Requested], PullReviewChecks::Passed, Verdict::NotReviewed),
         row(2198, "harbor/ledger-api", "Retry failed webhooks with backoff", "tobias", "40m", true, Some(3), &[Requested, Assigned], PullReviewChecks::Running, Verdict::Commented),
         row(2190, "harbor/ledger-api", "Split the invoice job into stages", "mira", "1d", false, None, &[Requested], PullReviewChecks::Passed, Verdict::Commented),
         row(2205, "harbor/ledger-api", "Batch the ledger sync writes", "tobias", "1d", false, None, &[Reviewing], PullReviewChecks::Passed, Verdict::NotReviewed),
@@ -61,16 +64,21 @@ pub fn inbox() -> Inbox {
         row(871, "harbor/web-shell", "Move the settings page to the new form kit", "jun", "5h", false, None, &[Team], PullReviewChecks::Running, Verdict::NotReviewed),
         row(2177, "harbor/ledger-api", "Drop the old CSV export", "jun", "4d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
         row(859, "harbor/web-shell", "Fix the focus ring on menus", "priya", "6d", false, None, &[Assigned], PullReviewChecks::Passed, Verdict::Approved),
+        row(2163, "harbor/ledger-api", "Bump the lint rules", "jun", "2d", false, None, &[Team], PullReviewChecks::Passed, Verdict::NotReviewed),
     ];
     // When each was asked of him: oldest first under Review requested, not as the list came.
-    let asked = [(2231, "2026-11-16T09:30:00Z"), (2214, "2026-11-16T09:00:00Z"), (2198, "2026-11-14T15:00:00Z"), (2190, "2026-11-12T10:00:00Z")];
+    let asked = [(2231, "2026-11-16T09:30:00Z"), (2214, "2026-11-16T09:00:00Z"), (2219, "2026-11-15T11:00:00Z"), (2198, "2026-11-14T15:00:00Z"), (2190, "2026-11-12T10:00:00Z")];
     // He ran a review in Armada on these: one asked of him, and one on no list of the forge's.
     let reviewing = [2190, 2205];
+    // He has seen one at its head, so it sits dimmed at the bottom of its group; he ignored another.
+    let (seen, ignored) = ([2219], [2163]);
     let rows = rows
         .into_iter()
         .map(|mut row| {
             row.asked_at = asked.iter().find(|(number, _)| *number == row.number).map(|(_, at)| at.to_string());
             row.reviewing = reviewing.contains(&row.number);
+            row.seen = seen.contains(&row.number);
+            row.ignored = ignored.contains(&row.number);
             row
         })
         .collect();

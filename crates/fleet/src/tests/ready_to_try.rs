@@ -11,7 +11,7 @@ use ipc::{
 };
 
 use super::build_notices::{a_rig, Rig};
-use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, checked, code, holding, step};
+use super::preview_offering::{a_job_offering, a_previewable_repository, base, branch_with, built_on_main_holding, checked, code, holding, step};
 
 const BRANCH: &str = "armada/one";
 
@@ -86,6 +86,30 @@ async fn an_offer_is_an_open_card_in_its_jobs_thread_at_the_offer() {
 }
 
 #[tokio::test]
+async fn a_card_whose_tip_is_on_main_under_the_running_build_is_in_the_build() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    assert!(!card(&rig, &session, &tip).await.in_build, "no preview runs yet");
+
+    built_on_main_holding(&rig, &tip);
+
+    let one = card(&rig, &session, &tip).await;
+    assert!(one.in_build, "the build stands on a main that holds the tip, though no list names the branch");
+}
+
+#[tokio::test]
+async fn a_new_build_moves_the_cards_of_a_job_whose_branch_is_on_the_main_it_stands_on() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    rig.fleet.build_notes_published().await;
+
+    built_on_main_holding(&rig, &tip);
+
+    let moved = rig.fleet.build_notes_published().await;
+    assert!(moved.contains(&session), "no note lists the branch, yet its card now reads in_build: {moved:?}");
+}
+
+#[tokio::test]
 async fn an_offer_carries_his_words_its_pictures_and_what_he_approved_and_a_re_offer_keeps_them() {
     let rig = a_rig();
     a_previewable_repository(&rig);
@@ -139,6 +163,31 @@ async fn an_offer_carries_his_words_its_pictures_and_what_he_approved_and_a_re_o
     offer(&rig, with(None, Some(Vec::new()), Some(""))).await.expect("cleared");
     let cleared = card(&rig, &session, &newer).await;
     assert_eq!((cleared.pictures.len(), cleared.words), (0, None), "an empty list and empty words clear them");
+}
+
+#[tokio::test]
+async fn looks_good_is_filed_once_as_a_decision_of_the_features_the_job_changed() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    let link = store::KeptFeatureLink {
+        feature_id: "feature-1".into(),
+        kind: store::feature_link_kind::JOB.into(),
+        target: session.clone(),
+        job: session.clone(),
+        title: String::new(),
+        gist: String::new(),
+        state: String::new(),
+        via: "trailer".into(),
+        at: "2026-11-18T09:00:00.000Z".into(),
+    };
+    rig.fleet.store().lock().await.put_feature_link(&link).unwrap();
+
+    answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await.expect("answered");
+    let _ = answer(&rig, &session, &tip, ReadyAnswer::LooksGood).await;
+
+    let filed = rig.fleet.store().lock().await.feature_decisions("feature-1").unwrap();
+    assert_eq!(filed.iter().map(|one| (one.question.as_str(), one.choice.as_str(), one.job.as_str())).collect::<Vec<_>>(), [("Keeps one thing", "Looks good", session.as_str())]);
 }
 
 #[tokio::test]

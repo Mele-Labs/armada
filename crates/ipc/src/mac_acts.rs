@@ -39,6 +39,8 @@ pub enum JobAct {
     MoveSettled(MoveSettled),
     /// He read the answer to a question of his in the Job. Since 17 Nov 2026.
     AnswerRead(crate::MarkAnswerRead),
+    /// His notes on a page of the Job, as one turn. Since 18 Nov 2026.
+    Notes(crate::SendSessionNotes),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -110,6 +112,7 @@ impl JobAct {
             JobAct::Move { session_id } => Some(session_id),
             JobAct::MoveSettled(one) => Some(&one.session_id),
             JobAct::AnswerRead(one) => Some(&one.session_id),
+            JobAct::Notes(one) => Some(&one.session_id),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
     }
@@ -144,6 +147,7 @@ impl JobAct {
             JobAct::Arrive(_) => "arrive",
             JobAct::MoveSettled(_) => "move_settled",
             JobAct::AnswerRead(_) => "answer_read",
+            JobAct::Notes(_) => "notes",
         }
     }
 }

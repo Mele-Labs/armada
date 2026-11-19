@@ -4,11 +4,17 @@
 //!
 //! **A press on an option, or its number, settles the card at once** with that option. An item that is no card, such as a
 //! plan, a walk or a go-ahead to file a note, draws the same card: its options are the item's, its Thens, or its one pick.
+//!
+//! **[`Card`] is drawn for any view.** A Job's Needs you draws a question the Job asks on it (`job_view/needs_card.rs`),
+//! with Discuss putting the caret in the Job's own box; it is never drawn a second way.
 
-use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString, Stateful, Window};
+use std::cell::Cell;
+use std::rc::Rc;
+
+use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FocusHandle, FontWeight, Pixels, Role, SharedString, Stateful, Window};
 use ipc::operator_page::OperatorTurnItem;
 
-use super::face;
+use super::face::{self, Kind};
 use super::page::OperatorPageView;
 use super::view::{chip, kind_chip, measured, press, pressed, round, Weight};
 use crate::labels::labelled;
@@ -37,7 +43,7 @@ pub(super) fn card_frame(id: &str, inset: bool, look: &Look) -> Stateful<Div> {
 }
 
 /// The card's head band: its kind chip and its title, with room after them for the chips that name its Jobs.
-pub(super) fn card_head(kind: face::Kind, title: SharedString, look: &Look) -> Div {
+pub(super) fn card_head(kind: Kind, title: SharedString, look: &Look) -> Div {
     div()
         .flex()
         .flex_wrap()
@@ -74,23 +80,255 @@ pub(super) fn read_block(head: &'static str, mark: &'static str, words: SharedSt
         .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).child(words))
 }
 
-/// One thing a card offers: its label, what it costs or does, whether it is the Operator's pick, and what a press does.
-struct Offer {
-    label: SharedString,
-    cost: Option<SharedString>,
-    pick: bool,
-    act: Act,
+/// What the card says it asks, under the title, where the title is not the question.
+fn asks_line(asks: SharedString, look: &Look) -> Div {
+    div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks)
 }
 
-enum Act {
-    Option(String),
-    Then(ipc::operator_page::OperatorThen),
-    Yes,
+/// The read section: on a card that came back, the line of what he picked and why, then My read.
+fn read_section(id: &str, returned: Option<SharedString>, read: Option<SharedString>, look: &Look) -> Option<Div> {
+    let danger = look.color(token::STATUS_COMPLETED_FAILED);
+    let lead = returned.map(|said| {
+        labelled(
+            div()
+                .id(SharedString::from(format!("returned-{id}")))
+                .flex()
+                .items_start()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_3))
+                .rounded(look.length(token::RADIUS_LG) * 1.25)
+                .bg(look.color(token::STATUS_COMPLETED_FAILED_BG))
+                .text_color(danger)
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph("circle-alert", look.length(token::SPACE_4), danger)))
+                .child(div().flex_1().min_w_0().child(said.clone())),
+            Role::Status,
+            said,
+        )
+    });
+    let read = read.filter(|read| !read.is_empty()).map(|read| read_block("My read", "bot", read, look));
+    (lead.is_some() || read.is_some()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).children(lead).children(read))
+}
+
+/// Fleet's refusal of his last press on the card, in red.
+fn refused_line(why: SharedString, look: &Look) -> impl IntoElement {
+    labelled(
+        div()
+            .id("operator-refused")
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .text_size(look.length(token::TEXT_SM))
+            .text_color(look.color(token::STATUS_COMPLETED_FAILED))
+            .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_FAILED)))
+            .child(div().flex_1().min_w_0().child(why.clone())),
+        Role::Alert,
+        why,
+    )
+}
+
+/// The group the option rows stand in.
+fn option_group(id: &str, rows: impl IntoIterator<Item = impl IntoElement>, look: &Look) -> Div {
+    div().mt(look.length(token::SPACE_1)).child(labelled(div().id(SharedString::from(format!("options-{id}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::Group, "Options"))
+}
+
+/// One option row, without its press: the key badge where a mark would stand, the label and its cost, My pick on the
+/// pick, and Choose at the right where the pointer or the keys are on it. `focus` is the row's kept handle, where its
+/// view keeps one; `lifted` says the keys are on it.
+#[allow(clippy::too_many_arguments)]
+fn option_row(card: &str, at: usize, label: &SharedString, cost: Option<&SharedString>, pick: bool, keyed: bool, focus: Option<&FocusHandle>, lifted: bool, look: &Look) -> Stateful<Div> {
+    let said = match (cost, pick) {
+        (Some(cost), true) => format!("My pick. {cost}"),
+        (Some(cost), false) => cost.to_string(),
+        (None, true) => "My pick".into(),
+        (None, false) => String::new(),
+    };
+    let (accent, fill) = (look.color(token::ACCENT), look.color(token::BG_HOVER));
+    let group = SharedString::from(format!("option-{card}-{at}"));
+    let choose = chip("Choose", look.color(token::TEXT_ON_ACCENT), accent, look)
+        .id(SharedString::from(format!("choose-{card}-{at}")))
+        .child(glyph("chevron-right", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))
+        .opacity(if lifted { 1. } else { 0. })
+        .group_hover(group.clone(), |style| style.opacity(1.));
+    let row = div()
+        .id(SharedString::from(format!("option-{card}-{at}")))
+        .group(group)
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_3))
+        .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_LG) * 1.25)
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(look.color(if pick { token::OPERATOR_EDGE } else { token::BORDER_DEFAULT }))
+        .bg(look.color(if pick { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
+        .text_size(look.length(token::TEXT_SM))
+        .cursor_pointer()
+        .hover(move |style| style.bg(fill).border_color(accent));
+    let row = match focus {
+        Some(handle) => row.track_focus(handle),
+        None => row.focusable(),
+    };
+    row.tab_stop(true)
+        .focus_visible(move |style| style.bg(fill).border_color(accent))
+        .when(lifted, |row| row.bg(fill).border_color(accent))
+        .when(!said.is_empty(), |row| row.tooltip(tip(said.clone())))
+        .when(keyed, |row| row.child(kbd((at + 1).to_string(), look)))
+        .child(
+            div()
+                .flex_1()
+                .min_w_0()
+                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(label.clone()))
+                .children(cost.cloned().map(|cost| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(cost))),
+        )
+        .when(pick, |row| row.child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::OPERATOR)).child("My pick")))
+        .child(choose)
+}
+
+/// What a press on the card does, on the view that draws it.
+pub(crate) type Act<V> = Rc<dyn Fn(&mut V, &mut Window, &mut Context<V>)>;
+
+/// One thing a card offers: its label, what it costs or does, whether it is the pick, and what a press does.
+pub(crate) struct Offer<V> {
+    pub label: SharedString,
+    pub cost: Option<SharedString>,
+    pub pick: bool,
+    pub act: Act<V>,
+}
+
+/// Where the card in front reports its measures, so its page knows the room it needs: how much more of what it says is
+/// drawn than the line it keeps, how much of its answers a short window scrolled away, and the bottom of its foot.
+pub(crate) struct Pinned {
+    pub said_tall: Rc<Cell<Pixels>>,
+    pub answers_hidden: Rc<Cell<Pixels>>,
+    pub foot_low: Rc<Cell<Pixels>>,
+}
+
+/// The card, as any view fills it: the Operator's page with a card it brings, a Job's Needs you with a question the Job
+/// asks. The view keeps what the card does; the card is drawn here once for both.
+pub(crate) struct Card<V> {
+    /// The item's id, which names the card's elements.
+    pub id: String,
+    pub kind: Kind,
+    pub title: SharedString,
+    /// Chips at the head's end: the Jobs a card is about, or what a question names.
+    pub names: Vec<AnyElement>,
+    /// Where the card stands among the ones behind it, at the head's end.
+    pub stepper: Option<AnyElement>,
+    /// What it asks, under the title, where the title is not the question.
+    pub asks: Option<SharedString>,
+    /// My read: the Operator's reading of the card.
+    pub read: Option<SharedString>,
+    /// A card that did not settle: what he picked and why it came back, over My read, and a red edge.
+    pub returned: Option<SharedString>,
+    pub offers: Vec<Offer<V>>,
+    /// The number keys press its options: their caps show.
+    pub keyed: bool,
+    /// Each option's kept focus handle, in order; where there are none a row takes focus as it is drawn.
+    pub focus: Vec<FocusHandle>,
+    /// The option that has the keys: it is lifted, with Choose at its right.
+    pub lifted: Option<usize>,
+    /// A press is out: the options wait for Fleet.
+    pub pending: bool,
+    /// Fleet's refusal of the last press.
+    pub refused: Option<SharedString>,
+    /// The acts at its foot, right-aligned.
+    pub foot: Vec<AnyElement>,
+    /// Drawn under the line that raised it, set in.
+    pub inset: bool,
+    /// Drawn in front: what it says scrolls in its own place and its answers and foot stay whole at its bottom edge.
+    pub pinned: Option<Pinned>,
+}
+
+impl<V: 'static> Card<V> {
+    /// The card whole.
+    pub(crate) fn draw(self, look: &Look, cx: &Context<V>) -> AnyElement {
+        let Card { id, kind, title, names, stepper, asks, read, returned, offers, keyed, focus, lifted, pending, refused, foot, inset, pinned } = self;
+        let danger = look.color(token::STATUS_COMPLETED_FAILED);
+        let back = returned.is_some();
+        let head = card_head(kind, title.clone(), look).when(back, |head| head.border_color(danger)).children(names).children(stepper);
+        let (asks, read) = (asks.map(|asks| asks_line(asks, look)), read_section(&id, returned, read, look));
+        let rows = offers.into_iter().enumerate().map(|(at, offer)| {
+            let row = option_row(&id, at, &offer.label, offer.cost.as_ref(), offer.pick, keyed, focus.get(at), lifted == Some(at), look);
+            let row = if pending {
+                row.opacity(0.5)
+            } else {
+                let act = offer.act;
+                pressed(row, cx, move |this, window, cx| act(this, window, cx))
+            };
+            labelled(row, Role::Button, option_name(&offer.label, offer.cost.as_ref()))
+        });
+        let options = option_group(&id, rows, look);
+        let refused = refused.map(|why| refused_line(why, look));
+        let foot = div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .justify_end()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_3))
+            .border_t(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .bg(look.color(token::BG_OVERLAY))
+            .children(foot);
+        let Some(Pinned { said_tall, answers_hidden, foot_low }) = pinned else {
+            let body = div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).children(asks).children(read).child(options).children(refused);
+            let card = card_frame(&id, inset, look).when(back, |card| card.border_color(danger)).child(head).child(body).child(foot);
+            return labelled(card, Role::Article, title).into_any_element();
+        };
+        // In front, a tall card scrolls what it says in its own place; its answers and its foot stay whole at its bottom edge.
+        // It keeps a line's worth in sight. The page reads how much more of it is drawn, to know the room the card needs
+        // without it.
+        let said = (asks.is_some() || read.is_some()).then(|| {
+            let least = look.length(token::SPACE_12);
+            div()
+                .id(SharedString::from(format!("card-said-{id}")))
+                .relative()
+                .flex_shrink(100.)
+                .min_h(least)
+                .overflow_y_scroll()
+                .mt(look.length(token::SPACE_4))
+                .child(div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).children(asks).children(read))
+                .child(canvas(move |bounds, _, _| said_tall.set((bounds.size.height - least).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
+        });
+        // The answers hold their room, and scroll in their place only in a window too short for them and the box.
+        // The page reads how much of them a short window scrolled away, to give it back.
+        let inner = Rc::new(Cell::new(gpui::px(0.)));
+        let whole = inner.clone();
+        let answers = div()
+            .id(SharedString::from(format!("card-answers-{id}")))
+            .relative()
+            .flex_shrink(1.)
+            .min_h_0()
+            .overflow_y_scroll()
+            .mt(look.length(if said.is_some() { token::SPACE_3 } else { token::SPACE_4 }))
+            .px(look.length(token::SPACE_4))
+            .child(div().relative().child(options).child(canvas(move |bounds, _, _| whole.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()))
+            .child(canvas(move |bounds, _, _| answers_hidden.set((inner.get() - bounds.size.height).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
+        let refused = div().flex_none().flex().flex_col().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_4)).children(refused.map(|line| div().pt(look.length(token::SPACE_3)).child(line)));
+        let card = card_frame(&id, false, look)
+            .flex_shrink(1.)
+            .min_h_0()
+            .flex()
+            .flex_col()
+            .when(back, |card| card.border_color(danger))
+            .child(head.flex_none())
+            .children(said)
+            .child(answers)
+            .child(refused)
+            .child(foot.flex_none().relative().child(canvas(move |bounds, _, _| foot_low.set(bounds.bottom()), |_, _, _, _| {}).absolute().top_0().left_0().size_full()));
+        labelled(card, Role::Article, title).into_any_element()
+    }
 }
 
 impl OperatorPageView {
     /// What the card offers, in the order to draw it.
-    fn offers(&self, turn: &OperatorTurnItem) -> Vec<Offer> {
+    fn offers(&self, turn: &OperatorTurnItem) -> Vec<Offer<Self>> {
+        let id = turn.id.clone();
         if face::chooses(turn) {
             let pick = face::pick_of(turn);
             return turn
@@ -98,12 +336,15 @@ impl OperatorPageView {
                 .options
                 .iter()
                 .enumerate()
-                .map(|(at, option)| Offer {
-                    label: option.label.clone().into(),
-                    cost: option.description.clone().filter(|said| !said.is_empty()).map(SharedString::from),
-                    // The first is the Operator's pick where it names none.
-                    pick: pick.as_ref().map_or(at == 0, |pick| pick.as_ref() == option.label),
-                    act: Act::Option(option.label.clone()),
+                .map(|(at, option)| {
+                    let (id, label) = (id.clone(), option.label.clone());
+                    Offer {
+                        label: option.label.clone().into(),
+                        cost: option.description.clone().filter(|said| !said.is_empty()).map(SharedString::from),
+                        // The first is the Operator's pick where it names none.
+                        pick: pick.as_ref().map_or(at == 0, |pick| pick.as_ref() == option.label),
+                        act: Rc::new(move |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| this.settle_option(&id, &label, cx)),
+                    }
                 })
                 .collect();
         }
@@ -113,12 +354,22 @@ impl OperatorPageView {
                 .iter()
                 .map(|offer| {
                     let to = offer.hand_to.as_ref().map(|to| to.job.as_str());
-                    Offer { label: face::then_said(offer.then, to).0, cost: Some(face::then_does(offer.then, to).into()), pick: offer.pick, act: Act::Then(offer.then) }
+                    let (id, then) = (id.clone(), offer.then);
+                    Offer {
+                        label: face::then_said(offer.then, to).0,
+                        cost: Some(face::then_does(offer.then, to).into()),
+                        pick: offer.pick,
+                        act: Rc::new(move |this: &mut Self, _: &mut Window, cx: &mut Context<Self>| this.settle_then(&id, then, cx)),
+                    }
                 })
                 .collect();
         }
         let label = face::pick_word(turn, None);
-        vec![Offer { label, cost: face::pick_sentence(turn), pick: true, act: Act::Yes }]
+        let yes: Act<Self> = Rc::new(move |this, window, cx| {
+            this.bring(&id, cx);
+            this.answer(ipc::operator_page::OperatorAnswer::Yes, window, cx)
+        });
+        vec![Offer { label, cost: face::pick_sentence(turn), pick: true, act: yes }]
     }
 
     /// The chips that name the Jobs a card is about, and its repository.
@@ -157,68 +408,30 @@ impl OperatorPageView {
         if !inset && face::answers_on_card(turn) {
             return div().flex().flex_col().gap(look.length(token::SPACE_3)).child(self.ready_body(look)).children(self.refused_line(turn, look)).into_any_element();
         }
-        let title = face::card_title(turn);
         let target = self.target().is_some_and(|target| target.id == turn.id);
-        let danger = look.color(token::STATUS_COMPLETED_FAILED);
-        let returned = face::returned(turn);
-        let head = card_head(face::kind_of(turn), title.clone(), look).when(returned, |head| head.border_color(danger)).children(self.names(turn, true, look, cx));
-        if inset {
-            let card = card_frame(&turn.id, inset, look).when(returned, |card| card.border_color(danger)).child(head).child(self.card_body(turn, target, window, look, cx)).child(self.card_foot(target, look, cx));
-            return labelled(card, Role::Article, title).into_any_element();
+        let offers = self.offers(turn);
+        let focus: Vec<FocusHandle> = (0..offers.len()).map(|at| self.option_handle(&format!("{}-{at}", turn.id), cx)).collect();
+        let lifted = focus.iter().position(|handle| handle.is_focused(window));
+        Card {
+            id: turn.id.clone(),
+            kind: face::kind_of(turn),
+            title: face::card_title(turn),
+            names: self.names(turn, true, look, cx),
+            stepper: None,
+            asks: face::asks_of(turn),
+            read: turn.read.as_ref().map(|read| SharedString::from(read.read.clone())),
+            returned: face::returned_lead(turn),
+            offers,
+            keyed: target,
+            focus,
+            lifted,
+            pending: self.pending.contains(&turn.id),
+            refused: self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| why.clone()),
+            foot: self.card_foot(target, look, cx),
+            inset,
+            pinned: (!inset).then(|| Pinned { said_tall: self.said_tall.clone(), answers_hidden: self.answers_hidden.clone(), foot_low: self.foot_low.clone() }),
         }
-        // In front, a tall card scrolls what it says in its own place; its answers and its foot stay whole at its bottom edge.
-        // It keeps a line's worth in sight. The page reads how much more of it is drawn, to know the room the card needs
-        // without it.
-        let (asks, read) = (self.asks(turn, look), self.my_read(turn, look));
-        let said = (asks.is_some() || read.is_some()).then(|| {
-            let (tall, least) = (self.said_tall.clone(), look.length(token::SPACE_12));
-            div()
-                .id(SharedString::from(format!("card-said-{}", turn.id)))
-                .relative()
-                .flex_shrink(100.)
-                .min_h(least)
-                .overflow_y_scroll()
-                .mt(look.length(token::SPACE_4))
-                .child(
-                    div().flex().flex_col().gap(look.length(token::SPACE_3)).px(look.length(token::SPACE_4)).children(asks).children(read),
-                )
-                .child(canvas(move |bounds, _, _| tall.set((bounds.size.height - least).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-        });
-        // The answers hold their room, and scroll in their place only in a window too short for them and the box.
-        // The page reads how much of them a short window scrolled away, to give it back.
-        let (inner, hidden) = (std::rc::Rc::new(std::cell::Cell::new(gpui::px(0.))), self.answers_hidden.clone());
-        let whole = inner.clone();
-        let answers = div()
-            .id(SharedString::from(format!("card-answers-{}", turn.id)))
-            .relative()
-            .flex_shrink(1.)
-            .min_h_0()
-            .overflow_y_scroll()
-            .mt(look.length(if said.is_some() { token::SPACE_3 } else { token::SPACE_4 }))
-            .px(look.length(token::SPACE_4))
-            .child(
-                div()
-                    .relative()
-                    .child(self.options(turn, target, window, look, cx))
-                    .child(canvas(move |bounds, _, _| whole.set(bounds.size.height), |_, _, _, _| {}).absolute().top_0().left_0().size_full()),
-            )
-            .child(canvas(move |bounds, _, _| hidden.set((inner.get() - bounds.size.height).max(gpui::px(0.))), |_, _, _, _| {}).absolute().top_0().left_0().size_full());
-        let refused = div().flex_none().flex().flex_col().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_4)).children(self.refused_line(turn, look).map(|line| div().pt(look.length(token::SPACE_3)).child(line)));
-        let card = card_frame(&turn.id, false, look)
-            .flex_shrink(1.)
-            .min_h_0()
-            .flex()
-            .flex_col()
-            .when(returned, |card| card.border_color(danger))
-            .child(head.flex_none())
-            .children(said)
-            .child(answers)
-            .child(refused)
-            .child({
-                let low = self.foot_low.clone();
-                self.card_foot(target, look, cx).flex_none().relative().child(canvas(move |bounds, _, _| low.set(bounds.bottom()), |_, _, _, _| {}).absolute().top_0().left_0().size_full())
-            });
-        labelled(card, Role::Article, title).into_any_element()
+        .draw(look, cx)
     }
 
     /// A card he picked, brought to the front from the feed to be read: its read, every option with his pick marked and none
@@ -232,76 +445,16 @@ impl OperatorPageView {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_4))
-            .children(self.asks(turn, look))
-            .children(self.my_read(turn, look))
+            .children(face::asks_of(turn).map(|asks| asks_line(asks, look)))
+            .children(read_section(&turn.id, face::returned_lead(turn), turn.read.as_ref().map(|read| read.read.clone().into()), look))
             .child(self.options_picked(turn, look))
             .children(self.steps_list("card", turn, look, cx).map(|steps| div().mt(look.length(token::SPACE_1)).child(steps)));
         labelled(card_frame(&turn.id, false, look).child(head).child(body), Role::Article, title).into_any_element()
     }
 
-    /// What the card says it asks, under the title, where the title is the Job's.
-    fn asks(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
-        face::asks_of(turn).map(|asks| div().text_size(look.length(token::TEXT_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(asks))
-    }
-
-    /// The read section: on a card that came back, the line of what he picked and why, then My read.
-    fn my_read(&self, turn: &OperatorTurnItem, look: &Look) -> Option<Div> {
-        let danger = look.color(token::STATUS_COMPLETED_FAILED);
-        let lead = face::returned_lead(turn).map(|said| {
-            labelled(
-                div()
-                    .id(SharedString::from(format!("returned-{}", turn.id)))
-                    .flex()
-                    .items_start()
-                    .gap(look.length(token::SPACE_2))
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_LG) * 1.25)
-                    .bg(look.color(token::STATUS_COMPLETED_FAILED_BG))
-                    .text_color(danger)
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph("circle-alert", look.length(token::SPACE_4), danger)))
-                    .child(div().flex_1().min_w_0().child(said.clone())),
-                Role::Status,
-                said,
-            )
-        });
-        let read = turn.read.as_ref().filter(|read| !read.read.is_empty()).map(|read| read_block("My read", "bot", read.read.clone().into(), look));
-        (lead.is_some() || read.is_some()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_2)).children(lead).children(read))
-    }
-
-    /// My read, the options and Fleet's refusal.
-    fn card_body(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Div {
-        div()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_3))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_4))
-            .children(self.asks(turn, look))
-            .children(self.my_read(turn, look))
-            .child(self.options(turn, keyed, window, look, cx))
-            .children(self.refused_line(turn, look))
-    }
-
     /// Fleet's refusal of his last press on the card, in red.
     fn refused_line(&self, turn: &OperatorTurnItem, look: &Look) -> Option<impl IntoElement> {
-        self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| {
-            labelled(
-                div()
-                    .id("operator-refused")
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .text_size(look.length(token::TEXT_SM))
-                    .text_color(look.color(token::STATUS_COMPLETED_FAILED))
-                    .child(glyph("circle-alert", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_FAILED)))
-                    .child(div().flex_1().min_w_0().child(why.clone())),
-                Role::Alert,
-                why.clone(),
-            )
-        })
+        self.refused.as_ref().filter(|(id, _)| *id == turn.id).map(|(_, why)| refused_line(why.clone(), look))
     }
 
     /// A Job's Ready to try, in the card's place: the Job view's own card with its answers, or its skeleton until the view
@@ -353,7 +506,7 @@ impl OperatorPageView {
                 .when(mine, |row| row.child(chip("Picked", look.color(token::TEXT_ON_ACCENT), accent, look).child(glyph("check", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))));
             labelled(row, Role::ListItem, if mine { format!("{name}, picked") } else { name })
         });
-        self.option_group(&turn.id, rows, look)
+        option_group(&turn.id, rows, look)
     }
 
     /// What the Operator did on a picked card, oldest first: a check on each step done, and a turning ring on the newest.
@@ -387,94 +540,26 @@ impl OperatorPageView {
         Some(labelled(div().id(SharedString::from(format!("{scope}-steps-{}", turn.id))).flex().flex_col().gap(look.length(token::SPACE_1)).children(lines), Role::List, "Steps"))
     }
 
-    /// Each option a full-width row: its key at the left, the label with its cost under it, My pick on the first. A hover or
-    /// the keys lift the row and show Choose at its right. A press settles the card on it.
-    fn options(&self, turn: &OperatorTurnItem, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> impl IntoElement {
-        let pending = self.pending.contains(&turn.id);
-        let rows = self.offers(turn).into_iter().enumerate().map(|(at, offer)| {
-            let id = turn.id.clone();
-            let row = self.option_row(&turn.id, at, &offer.label, offer.cost.as_ref(), offer.pick, keyed, window, look, cx);
-            let row = if pending {
-                row.opacity(0.5)
-            } else {
-                match offer.act {
-                    Act::Option(option) => pressed(row, cx, move |this, _, cx| this.settle_option(&id, &option, cx)),
-                    Act::Then(then) => pressed(row, cx, move |this, _, cx| this.settle_then(&id, then, cx)),
-                    Act::Yes => pressed(row, cx, move |this, window, cx| {
-                        this.bring(&id, cx);
-                        this.answer(ipc::operator_page::OperatorAnswer::Yes, window, cx)
-                    }),
-                }
-            };
-            labelled(row, Role::Button, option_name(&offer.label, offer.cost.as_ref()))
-        });
-        self.option_group(&turn.id, rows, look)
-    }
-
-    /// The group the option rows stand in.
+    /// The group the option rows stand in, for a card drawn on this page outside [`Card`].
     pub(super) fn option_group(&self, id: &str, rows: impl IntoIterator<Item = impl IntoElement>, look: &Look) -> Div {
-        div().mt(look.length(token::SPACE_1)).child(labelled(div().id(SharedString::from(format!("options-{id}"))).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::Group, "Options"))
+        option_group(id, rows, look)
     }
 
-    /// One option row, without its press: the key badge where a mark would stand, the label and its cost, My pick on the
-    /// Operator's pick, and Choose at the right where the pointer or the keys are on it.
+    /// One option row as [`Card`] draws it, without its press, with its focus handle kept on this page.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn option_row(&self, card: &str, at: usize, label: &SharedString, cost: Option<&SharedString>, pick: bool, keyed: bool, window: &Window, look: &Look, cx: &Context<Self>) -> Stateful<Div> {
         let handle = self.option_handle(&format!("{card}-{at}"), cx);
         let lifted = handle.is_focused(window);
-        let said = match (cost, pick) {
-            (Some(cost), true) => format!("My pick. {cost}"),
-            (Some(cost), false) => cost.to_string(),
-            (None, true) => "My pick".into(),
-            (None, false) => String::new(),
-        };
-        let (accent, fill) = (look.color(token::ACCENT), look.color(token::BG_HOVER));
-        let group = SharedString::from(format!("option-{card}-{at}"));
-        let choose = chip("Choose", look.color(token::TEXT_ON_ACCENT), accent, look)
-            .id(SharedString::from(format!("choose-{card}-{at}")))
-            .child(glyph("chevron-right", look.length(token::SPACE_3), look.color(token::TEXT_ON_ACCENT)))
-            .opacity(if lifted { 1. } else { 0. })
-            .group_hover(group.clone(), |style| style.opacity(1.));
-        div()
-            .id(SharedString::from(format!("option-{card}-{at}")))
-            .group(group)
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_3))
-            .min_h(look.length(token::H_CONTROL_LG) + look.length(token::SPACE_3))
-            .py(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_3))
-            .rounded(look.length(token::RADIUS_LG) * 1.25)
-            .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(if pick { token::OPERATOR_EDGE } else { token::BORDER_DEFAULT }))
-            .bg(look.color(if pick { token::OPERATOR_FAINT } else { token::BG_OVERLAY }))
-            .text_size(look.length(token::TEXT_SM))
-            .cursor_pointer()
-            .hover(move |style| style.bg(fill).border_color(accent))
-            .track_focus(&handle)
-            .tab_stop(true)
-            .focus_visible(move |style| style.bg(fill).border_color(accent))
-            .when(lifted, |row| row.bg(fill).border_color(accent))
-            .when(!said.is_empty(), |row| row.tooltip(tip(said.clone())))
-            .when(keyed, |row| row.child(kbd((at + 1).to_string(), look)))
-            .child(
-                div()
-                    .flex_1()
-                    .min_w_0()
-                    .child(div().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(label.clone()))
-                    .children(cost.cloned().map(|cost| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(cost))),
-            )
-            .when(pick, |row| row.child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::OPERATOR)).child("My pick")))
-            .child(choose)
+        option_row(card, at, label, cost, pick, keyed, Some(&handle), lifted, look)
     }
 
     /// The focus handle of an option row, made once and kept: the row reads whether it has the keys.
-    fn option_handle(&self, key: &str, cx: &Context<Self>) -> gpui::FocusHandle {
+    fn option_handle(&self, key: &str, cx: &Context<Self>) -> FocusHandle {
         self.option_focus.borrow_mut().entry(key.to_string()).or_insert_with(|| cx.focus_handle()).clone()
     }
 
     /// Snooze and Discuss, on the card's lightest step. Their keys show on the card the keys act on.
-    fn card_foot(&self, keyed: bool, look: &Look, cx: &Context<Self>) -> Div {
+    fn card_foot(&self, keyed: bool, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let later = labelled(
             pressed(
                 press("turn-later", "Snooze".into(), Some("clock"), keyed.then(|| "S".into()), Weight::Bare, look)
@@ -493,19 +578,7 @@ impl OperatorPageView {
             Role::Button,
             "Discuss",
         );
-        div()
-            .flex()
-            .flex_wrap()
-            .items_center()
-            .justify_end()
-            .gap(look.length(token::SPACE_2))
-            .px(look.length(token::SPACE_4))
-            .py(look.length(token::SPACE_3))
-            .border_t(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_OVERLAY))
-            .child(later)
-            .child(discuss)
+        vec![later.into_any_element(), discuss.into_any_element()]
     }
 
     /// The card in front folded to one line while the talk overflows: its title, the Operator's last act, and a chevron. A

@@ -17,6 +17,8 @@
 //!   connection it arrived on rather than by which Job was admitted first.
 mod act_failing;
 mod feature_catalog;
+mod feature_health;
+mod feature_decisions;
 mod feature_library;
 mod librarian;
 mod floor_plan;
@@ -358,3 +360,5 @@ mod pull_review_kept;
 mod pull_review_projects;
 mod pull_notice_spread;
 mod pull_review_rate_limit;
+mod whos_on_what;
+mod feature_reads;
