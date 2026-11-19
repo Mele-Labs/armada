@@ -1711,83 +1711,38 @@ button.pk-send__title {
   max-height: 70vh;
 }
 
-/* A Job's artifacts: a card a row, its lamp the state's hue as native's chip has it, its kind in a tile of the kind's hue.
-   The archived fold beneath is dimmed. */
+/* A Job's artifacts, in native's Rows look: the kind's tile beside the title, what it is for, and a line of where it stands. A
+   row is a hairline under it, and the archived below are dimmed. */
 .pk-art-body {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  padding: 0;
 }
 .pk-art-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
   margin: 0;
   padding: 0;
   list-style: none;
 }
 .pk-art-row {
-  --pk-lamp: var(--status-not-started);
-  --pk-kind: var(--kind-step);
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
-  border: var(--border-width) solid var(--border-subtle);
-  border-left: 4px solid var(--pk-lamp);
-  border-radius: var(--radius-lg);
-  background: var(--bg-sunken);
-}
-.pk-art-row[data-state="asking"] {
-  --pk-lamp: var(--status-awaiting-review);
-  background: color-mix(in srgb, var(--pk-lamp) 6%, var(--bg-sunken));
-}
-.pk-art-row[data-state="approved"] {
-  --pk-lamp: var(--status-completed-success);
-}
-.pk-art-row[data-state="sent_back"] {
-  --pk-lamp: var(--status-rejected);
-}
-.pk-art-row[data-state="withdrawn"],
-.pk-art-row[data-state="dismissed"] {
-  --pk-lamp: var(--status-killed);
-}
-.pk-art-row[data-form="draft"] {
-  --pk-kind: var(--kind-setup);
-}
-.pk-art-row[data-form="page"] {
-  --pk-kind: var(--kind-gate);
+  border-bottom: var(--border-width) solid var(--border-subtle);
 }
 .pk-art-row[data-folded] {
-  opacity: 0.6;
+  opacity: 0.5;
 }
 .pk-art-row__open {
   display: flex;
-  flex: 1;
   align-items: flex-start;
   gap: var(--space-3);
-  min-width: 0;
-  padding: 0;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
   border: 0;
   background: transparent;
   color: var(--fg-default);
   font: inherit;
   text-align: left;
 }
-.pk-art-row__kind {
-  display: flex;
-  flex: none;
-  align-items: center;
-  justify-content: center;
-  width: var(--space-8);
-  height: var(--space-8);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--pk-kind) 18%, transparent);
-  color: var(--pk-kind);
-}
-.pk-art-row--shape .pk-art-row__kind {
-  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+.pk-art-row__open:active {
+  background: var(--bg-hover);
 }
 .pk-art-row__text {
   display: flex;
@@ -1795,10 +1750,6 @@ button.pk-send__title {
   flex-direction: column;
   gap: var(--space-1);
   min-width: 0;
-}
-.pk-art-row--shape .pk-art-row__text {
-  gap: var(--space-2);
-  padding-top: var(--space-1);
 }
 .pk-art-row__title {
   overflow: hidden;
@@ -1809,29 +1760,39 @@ button.pk-send__title {
   white-space: nowrap;
 }
 .pk-art-row__for {
+  overflow: hidden;
   color: var(--fg-muted);
-  font-size: var(--text-2xs);
-  overflow-wrap: anywhere;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.pk-art-row__end {
+.pk-art-row__meta {
   display: flex;
-  flex: none;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  min-height: var(--space-8);
 }
 .pk-art-row__time {
   color: var(--fg-subtle);
   font-size: var(--text-2xs);
   white-space: nowrap;
 }
-.pk-art-row__state {
+.pk-art-row--shape {
   display: flex;
-  color: var(--pk-lamp);
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.pk-art-row__shape {
+  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+}
+.pk-art-row--shape .pk-art-row__text {
+  gap: var(--space-2);
+  padding-top: var(--space-1);
 }
 .pk-art-empty {
   margin: 0;
-  padding: var(--space-3) var(--space-1);
+  padding: var(--space-3) var(--space-4);
   color: var(--fg-muted);
   font-size: var(--text-xs);
 }
@@ -1839,12 +1800,14 @@ button.pk-send__title {
   display: flex;
   align-items: center;
   gap: var(--space-2);
+  width: 100%;
   min-height: var(--h-control-sm);
-  padding: 0 var(--space-3);
-  border: var(--border-width) solid var(--border-default);
-  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-default);
   background: var(--bg-sunken);
   color: var(--fg-muted);
   font: inherit;
   font-size: var(--text-xs);
+  text-align: left;
 }

@@ -1,145 +1,72 @@
-// A Job's artifacts listed on the phone, as native Bridge's Artifacts tab lists them (`crates/bridge-native/src/job_view/
-// artifacts_tab.rs`): one row each, newest first as Fleet serves them, with the archived folded at the foot. A row opens the
+// A Job's artifacts listed on the phone, as native Bridge's Artifacts tab lists them, in the Rows look (`crates/bridge-native/src/
+// job_view/artifacts_tab.rs`): one row each, newest first as Fleet serves them, with the archived folded at the foot. A row opens the
 // screen the artifact already has, chosen as the thread's own cards choose.
 
 import { useEffect, useState } from "react";
+import { Archive, ChevronDown, ChevronRight } from "lucide-react";
 import {
-  Archive,
-  BadgeCheck,
-  Ban,
-  BookOpen,
-  ChevronDown,
-  ChevronRight,
-  FileText,
-  Layers,
-  MessageCircleQuestion,
-  Reply,
-  ScrollText,
-  Undo2,
-  type LucideIcon,
-} from "lucide-react";
+  KindTile,
+  RevisionChip,
+  revisionSaid,
+  StateChip,
+  type Form,
+} from "./kit/components/compositions/BandCard/BandCard";
 import { Skeleton } from "./kit/components/primitives/Skeleton/Skeleton";
 import { Stamp } from "./kit/components/primitives/Stamp/Stamp";
 import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
-import type { ArtifactForm, ArtifactState, JobArtifact } from "./wire";
+import type { JobArtifact } from "./wire";
 
 import { keptAt, ofParts, useArtifacts } from "./artifacts";
 import { macOf, start, useFleet } from "./fleet";
 import { artifactPath, documentPath, go, jobPath, sketchPath } from "./router";
 import { Band, Trouble } from "./ui";
 
-/** A kind's glyph, its hue and its word, as native's tile has them: a sketch is a step's, a draft a setup's, a document a gate's. */
-const KIND: Record<
-  ArtifactForm,
-  {
-    glyph: LucideIcon;
-    said: string;
-  }
-> = {
-  sketch: {
-    glyph: Layers,
-    said: "Sketch",
-  },
-  draft: {
-    glyph: FileText,
-    said: "Draft",
-  },
-  page: {
-    glyph: ScrollText,
-    said: "Document",
-  },
+const KIND_WORD: Record<Form, string> = {
+  sketch: "sketch",
+  draft: "draft",
+  page: "page",
 };
 
-/** A state's glyph and the words its tooltip says, which are native's chip words. */
-const STATE: Record<
-  ArtifactState,
-  {
-    glyph: LucideIcon;
-    said: string;
-  }
-> = {
-  asking: {
-    glyph: MessageCircleQuestion,
-    said: "Waiting on your answer",
-  },
-  approved: {
-    glyph: BadgeCheck,
-    said: "You approved it",
-  },
-  sent_back: {
-    glyph: Reply,
-    said: "You sent it back with changes",
-  },
-  reading: {
-    glyph: BookOpen,
-    said: "Shown to you, with no answer asked",
-  },
-  withdrawn: {
-    glyph: Undo2,
-    said: "The Job took it back",
-  },
-  dismissed: {
-    glyph: Ban,
-    said: "You passed on it",
-  },
-};
-
-/** Where a row opens: the artifact's own screen where it holds parts, else its sketch or its document, else the thread that shows the draft. */
+/** Where a row opens: the artifact's own screen where it holds parts, else its sketch or its document, else the screen that reads the draft. */
 export function openPathOf(origin: string, id: string, one: JobArtifact): string {
   if (ofParts(one)) return artifactPath(origin, id, one.id);
   if (one.form === "page") return documentPath(origin, id, one.id);
   if (one.form === "sketch") return sketchPath(origin, id, one.id);
-  return jobPath(origin, id);
+  return artifactPath(origin, id, one.id);
 }
 
+/** One artifact: its kind's tile beside its title, what it is for, and a line of where it stands, its revision and when it was kept. */
 function Row({ one, folded, onOpen }: { one: JobArtifact; folded: boolean; onOpen: () => void }) {
-  const kind = KIND[one.form];
-  const state = STATE[one.state];
-  const said = [
-    folded ? "Archived" : undefined,
-    state.said,
-  ]
-    .filter((part) => part !== undefined)
-    .join(". ");
-  const tip = one.words === undefined || one.words.trim() === "" ? said : `${said}: ${one.words}`;
-  const line = one.for_line?.text;
-  const KindGlyph = kind.glyph;
-  const StateGlyph = state.glyph;
+  const last = one.revisions[one.revisions.length - 1];
+  const line = one.for_line?.text?.trim();
   return (
-    <li
-      className="pk-art-row"
-      data-form={one.form}
-      data-state={one.state}
-      data-folded={folded || undefined}
-    >
+    <li className="pk-art-row" data-folded={folded || undefined}>
       <button
         type="button"
         className="pk-art-row__open"
-        aria-label={`Open ${kind.said.toLowerCase()} ${one.title}`}
+        aria-label={`Open ${KIND_WORD[one.form]} ${one.title}`}
         onClick={onOpen}
       >
-        <Tooltip label={kind.said}>
-          <span className="pk-art-row__kind" role="img" aria-label={kind.said}>
-            <KindGlyph size={16} aria-hidden="true" />
-          </span>
-        </Tooltip>
+        <KindTile form={one.form} />
         <span className="pk-art-row__text">
           <span className="pk-art-row__title">{one.title}</span>
-          {line === undefined || line.trim() === "" ? null : (
+          {line === undefined || line === "" ? null : (
             <span className="pk-art-row__for">{line}</span>
           )}
-        </span>
-        <span className="pk-art-row__end">
-          <Tooltip label="Kept">
-            <span className="pk-art-row__time">
-              <Stamp still first="age" at={keptAt(one)} />
-            </span>
-          </Tooltip>
-          <Tooltip label={tip}>
-            <span className="pk-art-row__state" role="img" aria-label={tip}>
-              <StateGlyph size={16} aria-hidden="true" />
-            </span>
-          </Tooltip>
+          <span className="pk-art-row__meta">
+            <StateChip stand={one.state} words={one.words} />
+            {last === undefined ? null : (
+              <RevisionChip
+                number={last.number}
+                said={revisionSaid(last.number, last.by, last.at)}
+              />
+            )}
+            <Tooltip label="Kept">
+              <span className="pk-art-row__time">
+                <Stamp still first="age" at={keptAt(one)} />
+              </span>
+            </Tooltip>
+          </span>
         </span>
       </button>
     </li>
@@ -155,7 +82,7 @@ function Shapes() {
         "65%",
       ].map((width) => (
         <li key={width} className="pk-art-row pk-art-row--shape">
-          <span className="pk-art-row__kind" />
+          <span className="pk-bc__tile pk-art-row__shape" />
           <span className="pk-art-row__text">
             <Skeleton width={width} />
             <Skeleton width="35%" />

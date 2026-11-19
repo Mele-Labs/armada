@@ -21,9 +21,6 @@ import {
 import { AskCards, SessionThread } from "./kit/components/compositions/SessionThread/SessionThread";
 import { Button } from "./kit/components/primitives/Button/Button";
 import { Card, CardFooter, CardHeader, CardTitle } from "./kit/components/primitives/Card/Card";
-import { Prose } from "./kit/components/primitives/Prose/Prose";
-import { ProseCommand } from "./kit/components/primitives/Prose/SlashCommand";
-import { ProseRunner } from "./kit/components/primitives/Prose/RunnableBlock";
 import { Select } from "./kit/components/primitives/Select/Select";
 import { SessionComposer } from "./kit/components/compositions/SessionComposer/SessionComposer";
 import { SessionFrame } from "./kit/components/compositions/SessionFrame/SessionFrame";
@@ -51,6 +48,9 @@ import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from 
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { ArtifactCard } from "./Artifact";
+import { BandCard, Well } from "./kit/components/compositions/BandCard/BandCard";
+import { DraftText } from "./kit/components/compositions/SessionThread/DraftRow";
+import { PageScreen } from "./PageBody";
 import { asks, ofParts, useArtifacts } from "./artifacts";
 import { TryLine, useTryCards } from "./ReadyToTry";
 import {
@@ -68,6 +68,7 @@ import {
   askedOf,
   asksOf,
   choicesOf,
+  documentOf,
   draftsOf,
   handedOf,
   linksOf,
@@ -301,7 +302,7 @@ function OnMac({ item }: { item: WaitingItem }) {
   );
 }
 
-/** A draft the agent proposed with `propose_draft`: approved as written, or sent back with a note. */
+/** A draft the agent proposed with `propose_draft`, as the Band card draws it: approved as written, or sent back with a note. */
 function DraftCard({
   draft,
   keep,
@@ -315,62 +316,31 @@ function DraftCard({
   sendBack: (note: string) => Promise<boolean>;
   dismiss: () => Promise<boolean>;
 }) {
-  const [noting, setNoting] = useState(false);
-  const [note, setNote] = useState("");
   return (
-    <Card className="pk-card" role="group" aria-label={draft.title}>
-      <CardHeader>
-        <CardTitle>{draft.title}</CardTitle>
-      </CardHeader>
-      <div className="pk-card__text">
-        <ProseRunner.Provider value={null}>
-          <ProseCommand.Provider value={null}>
-            <Prose text={draft.text} />
-          </ProseCommand.Provider>
-        </ProseRunner.Provider>
-      </div>
-      {noting ? (
-        <Textarea
-          keep={keep}
-          rows={3}
-          autoFocus
-          aria-label="Note"
-          placeholder="Note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      ) : null}
-      <CardFooter className="pk-card__acts">
-        {noting ? (
-          <>
-            <Button variant="ghost" onClick={() => (setNote(""), setNoting(false))}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              disabled={note.trim() === ""}
-              onClick={() => void sendBack(note.trim()).then((went) => went && setNote(""))}
-            >
-              Send back
-            </Button>
-          </>
-        ) : (
-          <>
-            {draft.proposed === true ? (
-              <Button variant="ghost" onClick={() => void dismiss()}>
-                Dismiss
-              </Button>
-            ) : null}
-            <Button variant="secondary" onClick={() => setNoting(true)}>
-              Send back
-            </Button>
-            <Button variant="primary" onClick={() => void approve()}>
-              Approve
-            </Button>
-          </>
-        )}
-      </CardFooter>
-    </Card>
+    <BandCard
+      as="div"
+      facts={{
+        form: "draft",
+        title: draft.title,
+        stand: "asking",
+      }}
+      keep={keep}
+      well={
+        <Well>
+          <DraftText text={draft.text} />
+        </Well>
+      }
+      acts={{
+        approve: () => void approve(),
+        ask: (note) => void sendBack(note),
+        ...(draft.proposed === true
+          ? {
+              dismiss: () => void dismiss(),
+            }
+          : {}),
+      }}
+      asked
+    />
   );
 }
 
@@ -1114,6 +1084,34 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                       reread,
                     )
                   }
+                  onWithdrawSketch={(sketch) =>
+                    void run(() =>
+                      acts.dismissWaiting({
+                        session_id: id,
+                        item_id: sketch,
+                      }),
+                    )
+                  }
+                  onWithdrawDocument={(page) =>
+                    void run(() =>
+                      acts.dismissWaiting({
+                        session_id: id,
+                        item_id: `document:${page}`,
+                      }),
+                    )
+                  }
+                  screenOf={(page, revision) => {
+                    const held = documentOf(session, page);
+                    return (
+                      <PageScreen
+                        machine={machine}
+                        id={id}
+                        path={held?.revisions[revision - 1]}
+                        title={held?.title ?? page}
+                        keptStyles={held?.keptStyles}
+                      />
+                    );
+                  }}
                   onOpenDocument={(page) => go(documentPath(machine.origin, id, page))}
                   onAnswerDocument={(page, answer) =>
                     void run(

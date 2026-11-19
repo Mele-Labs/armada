@@ -17,9 +17,10 @@ import {
 import type { Scene } from "../SketchScene/scene";
 import type { ViewerNotesScope } from "../ViewerNotes/ViewerNotes";
 import type { SessionThreadRow } from "./SessionThread";
-import { Stamp } from "../../primitives/Stamp/Stamp";
 import { SketchScene } from "../SketchScene/SketchScene";
 import { RevisionMenu } from "../RevisionMenu/RevisionMenu";
+import { aspectOf } from "../SketchScene/aspect";
+import { BandCard, BandFold, Well, type BandFacts, type Stand } from "../BandCard/BandCard";
 
 const SETTLED = {
   approved: {
@@ -228,13 +229,12 @@ function useSketchRevision(revisions: readonly Scene[] | undefined, align: "star
 }
 
 /**
- * A sketch the agent drew, where in the thread it did: a header band over the drawing itself, shrunk (`SketchScene`'s
- * `preview`, so the frames, icons, colours and edges are the panel's), and a
- * press that opens the sketch in the panel. It plays the sketch's steps while it is pointed at or focused. **A card whose sketch was replaced is dashed and stands
- * back**, because its press opens the sketch that took its place. A sketch put to the person (`asked`) is answered under
- * it as a draft card is: Approve, and Send back with a note, then how it ended. `keep` names it for the note he types.
- * **The newest card of a sketch with revisions offers each one** at its top right, as a document does even with one; an earlier one is drawn as a
- * change to the one before it, and Approve and Send back still answer the newest.
+ * A sketch the agent drew, where in the thread it did, as the Band card native Bridge draws (`BandCard`): a header band filled
+ * with where it stands, the drawing itself in a well (`SketchScene`'s `preview`), and its answers in a footer. A press on the
+ * band or the drawing opens the sketch. Once it has a verdict it is one line. **A card whose sketch was replaced stands back as
+ * a line**, because its press opens the sketch that took its place. `keep` names it for the note he types. **The newest card of a
+ * sketch with revisions offers each one**; an earlier one is drawn as a change to the one before it, and Approve and Ask for
+ * changes still answer the newest.
  */
 export function SketchRow({
   row,
@@ -254,9 +254,6 @@ export function SketchRow({
   onAnswer?: (sketch: string, answer: SketchAnswer) => void;
   onWithdraw?: (sketch: string) => void;
 }) {
-  // The steps loop while the card is pointed at or focused, and the card is a still drawing the rest of the time.
-  const [pointed, setPointed] = useState(false);
-  const [focused, setFocused] = useState(false);
   const settled = row.settled;
   const open =
     row.asked === true &&
@@ -279,29 +276,66 @@ export function SketchRow({
           },
         }),
   });
-  const press = (
-    <button
-      type="button"
-      className="armada-session-sketch__press"
-      aria-label={`Open sketch ${row.title}`}
-      onClick={() => onOpen?.(row.sketch)}
-      onMouseEnter={() => setPointed(true)}
-      onMouseLeave={() => setPointed(false)}
-      onFocus={() => setFocused(true)}
-      onBlur={() => setFocused(false)}
-    >
-      <span className="armada-session-sketch__band">
-        <PencilRuler size={12} strokeWidth={2} aria-hidden />
-        <span className="armada-session-sketch__title">{row.title}</span>
-        {row.replaced === true ? (
-          <span className="armada-session-sketch__state">Replaced</span>
-        ) : null}
-        {row.against === undefined || shown.earlier ? null : (
-          <span className="armada-session-sketch__state">Against {row.against}</span>
-        )}
-        <Stamp still at={row.at} className="armada-session-sketch__at" />
-      </span>
-      <span className="armada-session-sketch__glass">
+  const stand: Stand =
+    settled !== undefined
+      ? settled.how === "approved"
+        ? "approved"
+        : "sent_back"
+      : row.withdrawn === true
+        ? "withdrawn"
+        : row.asked === true && row.replaced !== true
+          ? "asking"
+          : "reading";
+  const number = shown.revision ?? revisions?.length;
+  const facts: BandFacts = {
+    form: "sketch",
+    title: row.title,
+    stand,
+    words: settled?.words ?? row.facts?.words,
+    ...(row.facts?.revision === undefined
+      ? number === undefined
+        ? {}
+        : {
+            revision: {
+              number,
+              said: `r${String(number)}`,
+            },
+          }
+      : {
+          revision: {
+            ...row.facts.revision,
+            ...(number === undefined
+              ? {}
+              : {
+                  number,
+                }),
+          },
+        }),
+    yours: shown.earlier ? undefined : row.facts?.yours,
+    forLine: row.facts?.forLine,
+  };
+  if (row.replaced === true)
+    return (
+      <li className="pk-bc-row">
+        <BandFold
+          form="sketch"
+          title={row.title}
+          stand="withdrawn"
+          word="Replaced"
+          said="A later drawing took its place"
+          onOpen={() => onOpen?.(row.sketch)}
+        />
+      </li>
+    );
+  const aspect = aspectOf(shown.scene);
+  const well = (
+    <Well cut={false} sketch>
+      <div
+        className="pk-bc__sketch"
+        style={{
+          aspectRatio: String(aspect),
+        }}
+      >
         <SketchScene
           key={shown.revision}
           scene={shown.scene}
@@ -311,67 +345,43 @@ export function SketchRow({
                 against: shown.against.scene,
               })}
           preview
-          playing={pointed || focused}
         />
-      </span>
-    </button>
-  );
-  // The menu is a button of its own, so it stands over the press's band and never inside the press.
-  const revision =
-    menu === null ? null : <span className="armada-session-sketch__revision">{menu}</span>;
-  if ((row.asked !== true || row.withdrawn === true) && settled === undefined) {
-    return (
-      <li
-        className="armada-session-sketch"
-        data-replaced={row.replaced || undefined}
-        data-revisions={menu === null ? undefined : ""}
-      >
-        {press}
-        {revision}
-      </li>
-    );
-  }
-  return (
-    <li
-      className="armada-session-sketch"
-      data-replaced={row.replaced || undefined}
-      data-revisions={menu === null ? undefined : ""}
-      data-asked
-    >
-      <div
-        className="armada-session-sketch__asked"
-        role="article"
-        aria-label={`Sketch: ${row.title}`}
-        data-settled={settled?.how}
-      >
-        {press}
-        {!open && settled === undefined ? null : (
-          <div className="armada-session-sketch__answers">
-            <ApprovalAnswers
-              id={row.sketch}
-              keep={keep ?? `sketch:${row.id}`}
-              {...(settled === undefined
-                ? {}
-                : {
-                    settled,
-                  })}
-              open={open}
-              {...(onAnswer === undefined
-                ? {}
-                : {
-                    onAnswer,
-                  })}
-              {...(onWithdraw === undefined
-                ? {}
-                : {
-                    onWithdraw,
-                  })}
-            />
-          </div>
-        )}
       </div>
-      {revision}
-    </li>
+    </Well>
+  );
+  const asking = open && !shown.earlier;
+  return (
+    <BandCard
+      facts={facts}
+      keep={keep ?? `sketch:${row.id}`}
+      well={well}
+      between={menu}
+      acts={{
+        ...(onOpen === undefined
+          ? {}
+          : {
+              open: () => onOpen(row.sketch),
+            }),
+        ...(asking
+          ? {
+              approve: () =>
+                onAnswer?.(row.sketch, {
+                  choice: 0,
+                }),
+              ask: (note: string) =>
+                onAnswer?.(row.sketch, {
+                  text: note,
+                }),
+              ...(onWithdraw === undefined
+                ? {}
+                : {
+                    dismiss: () => onWithdraw(row.sketch),
+                  }),
+            }
+          : {}),
+      }}
+      asked={asking}
+    />
   );
 }
 

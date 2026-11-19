@@ -1069,10 +1069,10 @@ describe("a draft Job, and the acts on a Job", {
   it("sends a proposed draft back with the owner's note, on the same item", async () => {
     await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
     await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
-    await press(button("Send back"));
-    expect(button("Send back")!.hasAttribute("disabled")).toBe(true);
-    await typeInto(field("Note"), "Say which crate.");
-    await press(button("Send back"));
+    await press(button("Ask for changes"));
+    expect(button("Send")!.hasAttribute("disabled")).toBe(true);
+    await typeInto(field("What should change?"), "Say which crate.");
+    await press(button("Send"));
     await vi.waitFor(() =>
       expect(posted[LAPTOP]).toEqual([
         {
@@ -1222,7 +1222,7 @@ describe("a draft Job, and the acts on a Job", {
     it("puts the asking artifact and the open build at the thread's foot, and folds the answered artifact to one line", async () => {
       await open(F2);
       await vi.waitFor(() =>
-        expect(host.querySelector('[aria-label="Step bar"].pk-art-card')).toBeTruthy(),
+        expect(host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]')).toBeTruthy(),
       );
       await vi.waitFor(() =>
         expect(
@@ -1393,8 +1393,8 @@ describe("a draft Job, and the acts on a Job", {
     const F1 = `/jobs/${encodeURIComponent(STUDIO)}/f1`;
     const SLOT_POOL = "/Users/user/armada/.armada/documents/slot-pool.html";
     const PHONE_REACH = "/Users/user/armada/.armada/documents/phone-reach.html";
-    const POOL_CARD = "Document: Slot pool, Revision 1";
-    const REACH_CARD = "Document: Phone reach, Revision 2";
+    const POOL_CARD = "Page: Slot pool, Revision 1";
+    const REACH_CARD = "Page: Phone reach, Revision 2";
     const f1 = () => macs[STUDIO]!.threads["f1"]!;
     const held = (target: string) =>
       f1().session.attachments!.find((one) => one.target === target)!;
@@ -1419,14 +1419,14 @@ describe("a draft Job, and the acts on a Job", {
       await vi.waitFor(() => expect(card(POOL_CARD)).toBeTruthy());
     };
     const note = async (text: string) => {
-      await typeInto(field("Note"), text);
+      await typeInto(field("What should change?"), text);
     };
 
     describe("a document", () => {
       it("is a card in the thread for each page, at its newest revision", async () => {
         await opened();
         expect(card(REACH_CARD)).toBeTruthy();
-        expect(card("Document: Phone reach, Revision 1")).toBeNull();
+        expect(card("Page: Phone reach, Revision 1")).toBeNull();
       });
 
       it("approves from its card with the revision the ledger holds", async () => {
@@ -1446,9 +1446,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("sends back from its card with a note, on the newest revision", async () => {
         await opened();
-        await press(inCard(REACH_CARD, "Send back"));
+        await press(inCard(REACH_CARD, "Ask for changes"));
         await note("Cut the table to four columns.");
-        await press(inCard(REACH_CARD, "Send back"));
+        await press(inCard(REACH_CARD, "Send"));
         await vi.waitFor(() =>
           expect(to("/api/sessions/document/answer")).toEqual([
             {
@@ -1464,7 +1464,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("opens its page from the card", async () => {
         await opened();
-        await press(host.querySelector(`[aria-label="Open Phone reach, Revision 2"]`));
+        await press(host.querySelector(`[aria-label="Open page Phone reach"]`));
         await vi.waitFor(() =>
           expect(window.location.pathname + window.location.search).toBe(
             `${F1}/document?page=${encodeURIComponent(PHONE_REACH)}`,
@@ -1511,7 +1511,7 @@ describe("a draft Job, and the acts on a Job", {
         it("approves with the revision it read", async () => {
           await read();
           await press(
-            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+            Array.from(host.querySelectorAll(".pk-reader__acts button")).find(
               (one) => one.textContent === "Approve",
             ),
           );
@@ -1531,7 +1531,7 @@ describe("a draft Job, and the acts on a Job", {
           await read();
           held(PHONE_REACH).detail!["revision"] = "3";
           await press(
-            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+            Array.from(host.querySelectorAll(".pk-reader__acts button")).find(
               (one) => one.textContent === "Approve",
             ),
           );
@@ -1548,7 +1548,7 @@ describe("a draft Job, and the acts on a Job", {
         await vi.waitFor(() =>
           expect(text()).toContain("The Job revised this page. The new revision is shown."),
         );
-        await vi.waitFor(() => expect(card("Document: Slot pool, Revision 3")).toBeTruthy());
+        await vi.waitFor(() => expect(card("Page: Slot pool, Revision 3")).toBeTruthy());
       });
 
       it("shows Fleet's own message on a 422, and does not say it changed", async () => {
@@ -1580,9 +1580,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("sends back from its card with a note", async () => {
         await opened();
-        await press(inCard("Sketch: Phone home", "Send back"));
+        await press(inCard("Sketch: Phone home", "Ask for changes"));
         await note("Put the card first.");
-        await press(inCard("Sketch: Phone home", "Send back"));
+        await press(inCard("Sketch: Phone home", "Send"));
         await vi.waitFor(() =>
           expect(to("/api/sessions/sketch/answer")).toEqual([
             {
@@ -1640,7 +1640,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is dropped with Dismiss, which answers its item with the second choice", async () => {
         await opened();
-        await press(inGroup(NAME, "Dismiss"));
+        await press(inCard(`Draft: ${NAME}`, "Dismiss"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1650,12 +1650,12 @@ describe("a draft Job, and the acts on a Job", {
             },
           ]),
         );
-        await vi.waitFor(() => expect(group(NAME)).toBeUndefined());
+        await vi.waitFor(() => expect(card(`Draft: ${NAME}`)).toBeNull());
       });
 
       it("is approved with the first choice", async () => {
         await opened();
-        await press(inGroup(NAME, "Approve"));
+        await press(inCard(`Draft: ${NAME}`, "Approve"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1669,9 +1669,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is sent back with the owner's note", async () => {
         await opened();
-        await press(inGroup(NAME, "Send back"));
-        await typeInto(field("Note"), "Run it after Check, not before.");
-        await press(inGroup(NAME, "Send back"));
+        await press(inCard(`Draft: ${NAME}`, "Ask for changes"));
+        await typeInto(field("What should change?"), "Run it after Check, not before.");
+        await press(inCard(`Draft: ${NAME}`, "Send"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1687,14 +1687,14 @@ describe("a draft Job, and the acts on a Job", {
         f1().session.waiting_for = f1().session.waiting_for!.filter((one) => one.id !== item);
         await open(F1);
         await vi.waitFor(() => expect(text()).toContain("One change to the build workflow"));
-        expect(group(NAME)).toBeUndefined();
+        expect(card(`Draft: ${NAME}`)?.querySelector("button")).toBeNull();
       });
 
       it("is the only draft with a Dismiss: an ordinary draft has none", async () => {
         await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
         await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
         expect(button("Approve")).toBeTruthy();
-        expect(button("Send back")).toBeTruthy();
+        expect(button("Ask for changes")).toBeTruthy();
         expect(button("Dismiss")).toBeUndefined();
       });
     });

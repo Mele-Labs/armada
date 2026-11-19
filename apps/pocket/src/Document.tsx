@@ -1,142 +1,123 @@
-// A Job's document on the phone: its newest kept revision, read through the Gateway as text and drawn by the page reader Bridge
-// uses (`kit/screens/document-page`), which keeps only what its allow list names. The page is put into one element by hand
-// and its CSS adopted under that element's class; the real sketch is drawn at each `<armada-sketch>`. Bridge's notes and margin
-// are not here: the phone answers a revision with Approve or Send back.
+// A Job's document on the phone, opened in the reader (`Reader.tsx`): its words as the page reader Bridge uses draws them
+// (`kit/screens/document-page`), which keeps only what its allow list names, the revision picker choosing which kept revision is
+// read, and Approve, Ask for changes and Dismiss in the band. A note is made on words he selects and sits under their paragraph;
+// Ask for changes sends them with what he types.
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
-import { createPortal } from "react-dom";
-import { ApprovalAnswers } from "./kit/components/compositions/SessionThread/SketchRow";
-import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import { useCallback, useEffect, useState } from "react";
+import { Plus } from "lucide-react";
 import type { SketchAnswer } from "./kit/components/compositions/SessionThread/sketch-answer";
-import { PAGE_ROOT, readPage, sceneWithKept } from "./kit/screens/document-page";
+import type { BandFacts, Stand } from "./kit/components/compositions/BandCard/BandCard";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 import { documentAnswerOf } from "./kit/screens/thread-cards";
 
+import { useArtifacts } from "./artifacts";
 import { macOf, start, useFleet } from "./fleet";
-import { actsOn, attemptPage, readShown, useJob, type Shown } from "./jobState";
-import { WithKeptStyles } from "./keptStyles";
+import { actsOn, attempt, attemptPage, useJob } from "./jobState";
+import { PageBody, usePageText, type Head, type Note } from "./PageBody";
+import { Reader, type RevisionOf } from "./Reader";
 import { go, jobPath } from "./router";
 import { documentOf, sessionOfThread } from "./thread";
-import { Band, Trouble } from "./ui";
+import { WithKeptStyles } from "./keptStyles";
+import { Trouble } from "./ui";
 
-type Mount = {
-  el: HTMLElement;
-  index: number;
-  title: string;
-};
+/** What he wrote on each note, put as the words that go back: what he typed, then each note under the words it quotes. */
+const putNotes = (typed: string, notes: readonly Note[]): string =>
+  [
+    typed,
+    ...notes
+      .filter((one) => one.text.trim() !== "")
+      .map((one) => `On "${one.quote}": ${one.text.trim()}`),
+  ]
+    .filter((part) => part.trim() !== "")
+    .join("\n\n");
+
+/** One note, under the paragraph it points at: the words it quotes, and his own. */
+function NoteCard({
+  note,
+  keep,
+  onText,
+  onDrop,
+}: {
+  note: Note;
+  keep: string;
+  onText: (text: string) => void;
+  onDrop: () => void;
+}) {
+  return (
+    <div className="pk-note">
+      <blockquote className="pk-note__quote">{note.quote}</blockquote>
+      <Textarea
+        aria-label={`Your note on ${note.quote.slice(0, 40)}`}
+        rows={2}
+        keep={`${keep}:${note.id}`}
+        value={note.text}
+        onChange={(event) => onText(event.currentTarget.value)}
+      />
+      <button type="button" className="pk-bc__act" data-kind="ghost" onClick={onDrop}>
+        Remove
+      </button>
+    </div>
+  );
+}
 
 export function DocumentView({ origin, id, page }: { origin: string; id: string; page: string }) {
   useFleet();
   useEffect(() => void start(), []);
   const machine = macOf(origin)?.machine;
   const [read, reread] = useJob(machine, id);
+  const [listed] = useArtifacts(machine, id);
   const session = read.thread === undefined ? undefined : sessionOfThread(read.thread);
   const doc = session === undefined ? undefined : documentOf(session, page);
-  const newest = doc?.revisions[doc.revisions.length - 1];
-  const [shown, setShown] = useState<Shown | undefined>(undefined);
+  const artifact = listed.artifacts?.find((one) => one.id === page);
+  const [picked, setPicked] = useState<number | undefined>(undefined);
   const [says, setSays] = useState("");
-  const [mounts, setMounts] = useState<readonly Mount[]>([]);
-  const el = useRef<HTMLDivElement>(null);
-
-  // The newest revision, read again whenever the Job keeps another.
-  useEffect(() => {
-    if (machine === undefined || newest === undefined) return;
-    let gone = false;
-    void readShown(machine, id, newest).then((got) => !gone && setShown(got));
-    return () => {
-      gone = true;
-    };
-  }, [
-    machine?.origin,
-    id,
-    newest,
-  ]);
-
-  const parsed = useMemo(
-    () => (shown?.kind === "text" ? readPage(shown.text) : undefined),
-    [
-      shown,
-    ],
-  );
+  const [heads, setHeads] = useState<readonly Head[]>([]);
+  const [notes, setNotes] = useState<readonly Note[]>([]);
+  const [selected, setSelected] = useState<Pick<Note, "quote" | "block"> | undefined>(undefined);
+  const count = doc?.revisions.length ?? 0;
+  const shown = picked ?? count;
+  const text = usePageText(machine, id, doc?.revisions[shown - 1]);
   const title = doc?.title ?? page.slice(page.lastIndexOf("/") + 1);
-  const keptStyles = doc?.keptStyles;
-  const scenes = useMemo(
-    () => parsed?.sketches.map((one) => sceneWithKept(one.title, one.scene, keptStyles)) ?? [],
-    [
-      parsed,
-      keptStyles,
-    ],
-  );
+  const keep = `pocket:${origin}:${id}:document:${page}`;
 
-  // The page's CSS reaches only the page: every rule was put under the page's class when it was read.
-  useEffect(() => {
-    if (parsed === undefined) return;
-    const sheet = new CSSStyleSheet();
-    sheet.replaceSync(parsed.css);
-    document.adoptedStyleSheets = [
-      ...document.adoptedStyleSheets,
-      sheet,
-    ];
-    return () => {
-      document.adoptedStyleSheets = document.adoptedStyleSheets.filter((one) => one !== sheet);
-    };
-  }, [
-    parsed,
-  ]);
-
-  useLayoutEffect(() => {
-    const into = el.current;
-    if (into === null || parsed === undefined) return;
-    into.replaceChildren(
-      ...[
-        ...parsed.root.childNodes,
-      ].map((one) => one.cloneNode(true)),
-    );
-    // An address outside the page opens beside the app and not over it.
-    for (const link of into.querySelectorAll("a[href^='http']")) {
-      link.setAttribute("target", "_blank");
-      link.setAttribute("rel", "noopener noreferrer");
-    }
-    // A table wider than the screen scrolls inside its own box, and the page stays as wide as the screen.
-    for (const table of into.querySelectorAll("table")) {
-      if (table.closest(".armada-doc__sketch-mount") !== null) continue;
-      const box = document.createElement("div");
-      box.className = "pk-doc__scroll";
-      box.tabIndex = 0;
-      box.setAttribute("role", "region");
-      box.setAttribute("aria-label", table.querySelector("caption")?.textContent ?? "Table");
-      table.replaceWith(box);
-      box.append(table);
-    }
-    setMounts(
-      [
-        ...into.querySelectorAll<HTMLElement>(".armada-doc__sketch-mount"),
-      ].flatMap((mount) => {
-        const figure = mount.parentElement;
-        return figure === null
-          ? []
-          : [
-              {
-                el: mount,
-                index: Number(figure.dataset.sketch),
-                title: figure.dataset.title ?? "Sketch",
-              },
-            ];
-      }),
-    );
-  }, [
-    parsed,
-  ]);
-
-  // A link in the page scrolls to an address in it. Any other address is left alone.
-  const onClick = (event: MouseEvent<HTMLElement>) => {
-    const link = (event.target as Element).closest("a");
-    if (link === null) return;
-    const href = link.getAttribute("href") ?? "";
-    if (!href.startsWith("#")) return;
-    event.preventDefault();
-    el.current?.querySelector(`#${CSS.escape(href.slice(1))}`)?.scrollIntoView({
-      block: "start",
-    });
+  const revisions: readonly RevisionOf[] =
+    artifact?.revisions ??
+    (doc?.revisions ?? []).map((_, at) => ({
+      number: at + 1,
+      by: "agent" as const,
+      at: "",
+    }));
+  const last = revisions[revisions.length - 1];
+  const stand: Stand =
+    artifact !== undefined
+      ? artifact.state
+      : doc?.settled !== undefined
+        ? doc.settled.how === "approved"
+          ? "approved"
+          : "sent_back"
+        : doc?.waits === true
+          ? "asking"
+          : "reading";
+  const facts: BandFacts = {
+    form: "page",
+    title,
+    stand,
+    words: artifact?.words ?? doc?.settled?.words,
+    ...(last === undefined
+      ? {}
+      : {
+          revision: {
+            number: last.number,
+            said: `r${String(last.number)}`,
+          },
+        }),
+    ...(last?.by === "owner"
+      ? {
+          yours: `r${String(last.number)} is your edit`,
+        }
+      : {}),
+    forLine: artifact?.for_line,
   };
 
   const answer = (given: SketchAnswer) => {
@@ -148,49 +129,108 @@ export function DocumentView({ origin, id, page }: { origin: string; id: string;
       reread,
     ).then((refused) => setSays(refused ?? ""));
   };
+  const dismiss = () => {
+    if (machine === undefined) return;
+    setSays("");
+    void attempt(
+      () =>
+        actsOn(machine, reread).dismissWaiting({
+          session_id: id,
+          item_id: `document:${page}`,
+        }),
+      machine,
+    ).then((refused) => setSays(refused ?? ""));
+  };
+  const select = useCallback(
+    (now: Pick<Note, "quote" | "block"> | undefined) => setSelected(now),
+    [],
+  );
+  const addNote = () => {
+    if (selected === undefined) return;
+    setNotes((was) => [
+      ...was,
+      {
+        id: `n${String(was.length + 1)}`,
+        ...selected,
+        text: "",
+      },
+    ]);
+    window.getSelection()?.removeAllRanges();
+  };
 
   return (
-    <section className="pk-screen" aria-label={title}>
-      <Band title={title} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
-      <div className="pk-body pk-doc">
-        {shown?.kind === "refused" ? <Trouble says={shown.says} /> : null}
-        {doc === undefined && read.thread !== undefined ? (
-          <Trouble says="That Job did not write that page." />
-        ) : null}
-        {read.thread === undefined ? <Trouble says={read.error ?? ""} /> : null}
+    <Reader
+      facts={facts}
+      keep={keep}
+      onBack={() => go(jobPath(origin, id))}
+      revisions={revisions}
+      shown={shown}
+      onPick={(revision) => setPicked(revision === count ? undefined : revision)}
+      heads={heads}
+      ready={notes.some((one) => one.text.trim() !== "")}
+      {...(doc?.waits === true
+        ? {
+            acts: {
+              approve: () =>
+                answer({
+                  choice: 0,
+                }),
+              ask: (typed: string) =>
+                answer({
+                  text: putNotes(typed, notes),
+                }),
+              dismiss,
+            },
+          }
+        : {})}
+      says={says === "" ? undefined : says}
+    >
+      {text?.kind === "refused" ? <Trouble says={text.says} /> : null}
+      {doc === undefined && read.thread !== undefined ? (
+        <Trouble says="That Job did not write that page." />
+      ) : null}
+      {read.thread === undefined ? <Trouble says={read.error ?? ""} /> : null}
+      {text?.kind === "text" ? (
         <WithKeptStyles machine={machine}>
-          <div
-            ref={el}
-            className={`${PAGE_ROOT} pk-doc__page`}
-            role="article"
-            aria-label={title}
-            onClick={onClick}
+          <PageBody
+            text={text.text}
+            title={title}
+            keptStyles={doc?.keptStyles}
+            onHeads={setHeads}
+            notes={notes}
+            onSelect={select}
+            renderNote={(note) => (
+              <NoteCard
+                note={note}
+                keep={`${keep}:note`}
+                onText={(typed) =>
+                  setNotes((was) =>
+                    was.map((one) =>
+                      one.id === note.id
+                        ? {
+                            ...one,
+                            text: typed,
+                          }
+                        : one,
+                    ),
+                  )
+                }
+                onDrop={() => setNotes((was) => was.filter((one) => one.id !== note.id))}
+              />
+            )}
           />
-          {mounts.map((one) =>
-            createPortal(
-              <SketchScene scene={scenes[one.index]} title={one.title} />,
-              one.el,
-              String(one.index),
-            ),
-          )}
         </WithKeptStyles>
-        {doc === undefined || (!doc.waits && doc.settled === undefined) ? null : (
-          <div className="pk-doc__answers">
-            <ApprovalAnswers
-              id={page}
-              keep={`pocket:${origin}:${id}:document:${page}`}
-              {...(doc.settled === undefined
-                ? {}
-                : {
-                    settled: doc.settled,
-                  })}
-              open={doc.waits}
-              onAnswer={(_, given) => answer(given)}
-            />
-            <Trouble says={says} />
-          </div>
-        )}
-      </div>
-    </section>
+      ) : null}
+      {selected === undefined || doc?.waits !== true ? null : (
+        <div className="pk-note-add">
+          <Tooltip label="Add a note under this paragraph">
+            <button type="button" className="pk-bc__act" data-kind="secondary" onClick={addNote}>
+              <Plus size={14} aria-hidden="true" />
+              Add note
+            </button>
+          </Tooltip>
+        </div>
+      )}
+    </Reader>
   );
 }
