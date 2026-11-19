@@ -13,6 +13,7 @@ mod consulting;
 pub(crate) mod committing;
 pub(crate) mod deciding;
 mod filing;
+mod floor_files;
 mod floor_plan;
 mod handoff;
 mod health;
@@ -39,7 +40,7 @@ pub(crate) use pending::pending_facts;
 pub(crate) use seeding::Seed;
 pub(crate) use seeding::PROJECT as PROJECT_UNKNOWN;
 #[cfg(test)]
-pub(crate) use floor_plan::{is_contract, plan as floor_plan_of_layouts};
+pub(crate) use floor_plan::{is_contract, plan as floor_plan_of_layouts, read as read_floor};
 #[cfg(test)]
 pub(crate) use modules::read as read_modules;
 #[cfg(test)]

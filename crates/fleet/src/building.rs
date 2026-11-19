@@ -38,7 +38,7 @@ use crate::Detached;
 /// No served repository can be restarted from, or the running build came from a tree this does not offer. A 409.
 const NOT_OFFERED: &str = "fleet.build_not_offered";
 /// A restart is already under way. A 409.
-const RESTARTING: &str = "fleet.build_restarting";
+pub(crate) const RESTARTING: &str = "fleet.build_restarting";
 /// `scripts/restart-build` would not start. A 500.
 const NOT_STARTED: &str = "fleet.build_not_started";
 /// There is no kept build to revert onto, or Fleet does not run from the kept builds. A 409.
@@ -101,7 +101,7 @@ pub(crate) fn plumbing(branch: &str) -> bool {
     PLUMBING.iter().any(|prefix| branch.starts_with(prefix))
 }
 /// A `running` status older than this is a wrapper that died, not one working.
-const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
+pub(crate) const RUNNING_FOR_AT_MOST: Duration = Duration::from_secs(20 * 60);
 
 /// Why a Fleet has no build to offer.
 #[derive(Debug, PartialEq, Eq)]
@@ -164,7 +164,7 @@ pub(crate) enum NotSwapped {
 
 /// What the status file says.
 #[derive(Debug, PartialEq, Eq)]
-enum Status {
+pub(crate) enum Status {
     Running(BuildSource, Option<BuildStage>),
     /// Stopped, having failed with the build at `commit`.
     Failed { commit: String, message: String },
@@ -179,6 +179,8 @@ struct Fetched {
 #[derive(Clone, Default)]
 pub(crate) struct Building {
     fetched: Arc<Mutex<Fetched>>,
+    /// The Refresh of both Macs this Mac pressed, and the ones other Macs told it of: [`crate::refresh_claim`].
+    pub(crate) refresh: crate::refresh_claim::Claims,
 }
 
 /// The first served root that holds the wrapper: the checkout a restart runs from.
@@ -311,7 +313,7 @@ fn stage_named(word: &str) -> Option<BuildStage> {
     }
 }
 
-fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
+pub(crate) fn status_in(support: &Path, now: SystemTime) -> Option<Status> {
     let path = support.join(STATUS);
     let text = std::fs::read_to_string(&path).ok()?;
     let mut lines = text.lines();
@@ -589,6 +591,7 @@ impl Building {
             origin,
             holds,
             blocked,
+            refresh: self.refresh_shown(support, now),
         })
     }
 
@@ -596,6 +599,9 @@ impl Building {
     /// reverted to**, so a broken build never has to run its own undo; **the status is written first**,
     /// as `change` writes its own.
     pub(crate) fn revert(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildReverting, NotReverted> {
+        if self.refresh_held(now) {
+            return Err(NotReverted::Restarting(BuildSource::Preview));
+        }
         if let Some(Status::Running(build, _)) = status_in(support, now) {
             return Err(NotReverted::Restarting(build));
         }
@@ -659,6 +665,9 @@ impl Building {
     /// **Run by the build running now**, since it settles the swap and swaps back from a Fleet that
     /// does not answer; the status is written first, as `revert` writes its own.
     pub(crate) fn swap(&self, support: &Path, label: &str, now: SystemTime) -> Result<FleetBuildSwapping, NotSwapped> {
+        if self.refresh_held(now) {
+            return Err(NotSwapped::Restarting(BuildSource::Preview));
+        }
         if let Some(Status::Running(build, _)) = status_in(support, now) {
             return Err(NotSwapped::Restarting(build));
         }
@@ -760,6 +769,7 @@ where
     pub(crate) async fn fleet_build(&self) -> Result<FleetBuildReport, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
         let checkout = self.build_checkout();
+        self.refresh_forget_rebuilt().await;
         let mut report = self
             .building()
             .report(checkout.as_deref(), &support, SystemTime::now())
@@ -965,6 +975,7 @@ where
         asked: &ChangeFleetBuild,
         extra: &[String],
     ) -> Result<FleetBuildChanging, Refusal> {
+        self.refresh_unclaimed()?;
         let support = crate::runtime::support_dir(&self.host().home);
         self.building()
             .change(self.build_checkout().as_deref(), &support, asked, extra, SystemTime::now())

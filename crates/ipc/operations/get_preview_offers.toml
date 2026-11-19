@@ -6,9 +6,13 @@ description = "The branches Jobs have offered for the preview, where each one's 
 notes = """
 `GET /fleet/build/offers`, answered `PreviewOffers`. Fleet-wide, `get_fleet_build`'s reason: the preview is a fact about Fleet's build and no Job's.
 
-`offers` is every offer kept, oldest first, each `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}`. `state` is `checking`, `ready` or `failed`; `why` is the first compiler error or the conflict that failed it, and `files` the files it names. `title` is the Job's, or its id where it has none. **`in_build` is true** when the running build is the preview and its commit merges the branch at that tip, or, where the commit shows no merge, `Armada/preview-held` records it.
+`offers` is every offer kept, oldest first, each `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build, mac?}`. `state` is `checking`, `ready` or `failed`; `why` is the first compiler error or the conflict that failed it, and `files` the files it names. `title` is the Job's, or its id where it has none. **`in_build` is true** when the running build is the preview and its commit merges the branch at that tip, or, where the commit shows no merge, `Armada/preview-held` records it.
 
 **`refresh` is the one row the owner presses.** It is present when at least one `ready` offer is not `in_build` and its `id` has not been skipped, and carries `{id, branches}`. `id` is a stable hash of the ready (branch, tip) set, so skipping it hides the row until the set changes.
+
+**The ready offers of his other Macs are merged in** (since 19 Nov 2026). A paired Mac that is awake and on this build shares its ready offers once it has pushed them to origin; this Mac holds them, checks them together with its own, and lists each with `mac` set to that Mac's id, absent for this Mac's own. A branch both Macs offer is listed once, as this Mac's. Of two offers that clash, the one offered later fails, naming the files. `refresh` and the file `scripts/preview` reads take in every ready offer of both Macs.
+
+**`left_out` names each Mac whose offers are not in this answer**, `{mac, name, why}`: one that is asleep, runs another build or has not been heard from, such as "Air is asleep. Its 2 offers are left out of this refresh." It is absent when none is left out.
 
 `preview_offers.changed` carries this answer whole when an offer or the refresh moved. A Bridge that missed one reads this again on the resync that follows a `Missed`.
 

@@ -104,6 +104,9 @@ where
             Event::ProjectsChanged(projects) => {
                 return Some(Crosses(Event::ProjectsChanged(self.projects_for_other_mac(projects.clone()).sent())));
             }
+            Event::PreviewOffersChanged(offers) => {
+                return Some(Crosses(Event::PreviewOffersChanged(self.preview_offers_cut(offers.clone()))));
+            }
             Event::BugReportsChanged(reports) => {
                 return Some(Crosses(Event::BugReportsChanged(self.bug_reports_for_other_mac(reports.clone()).await.sent())));
             }
@@ -121,7 +124,6 @@ where
             | Event::MergeLinesChanged(_)
             | Event::MergeLineViewChanged(_)
             | Event::WriteClashesChanged(_)
-            | Event::PreviewOffersChanged(_)
             | Event::BuildNotesChanged(_)
             | Event::SessionAside(_)
             | Event::SessionStory(_)
@@ -272,6 +274,11 @@ where
             }
         }
         Crosses(BugReports { reports: kept })
+    }
+
+    /// This Mac's own ready offers, pushed to origin, which another Mac's preview may merge.
+    pub fn preview_offers_for_other_mac(&self, offers: ipc::PreviewOffers) -> Crosses<ipc::PreviewOffers> {
+        Crosses(self.preview_offers_cut(offers))
     }
 
     /// The projects named to another Mac: the shared ones, with their tasks. Tasks in no project and files that

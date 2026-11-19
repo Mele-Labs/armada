@@ -242,6 +242,10 @@ where
         Ok(SessionList { sessions })
     }
 
+    async fn share_preview_offers(&self) -> Result<ipc::PreviewOffers, Refusal> {
+        Ok(self.preview_offers_for_other_mac(self.preview_offers_read().await).sent())
+    }
+
     async fn share_projects(&self) -> Result<ipc::Projects, Refusal> {
         let own = api::Projects::list_projects(self).await?;
         Ok(self.projects_for_other_mac(own).sent())
@@ -376,6 +380,12 @@ where
         Ok(MacNamed { mac })
     }
 
+    async fn hold_other_mac_preview_offers(self: Arc<Self>, held: ipc::OtherMacPreviewOffers) -> Result<MacNamed, Refusal> {
+        let mac = self.mac_named(&held.mac)?;
+        self.preview_offers_held(&mac, held.offers).await?;
+        Ok(MacNamed { mac })
+    }
+
     async fn hold_other_mac_event(self: Arc<Self>, crossed: OtherMacEvent) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&crossed.mac)?;
         let job = match &crossed.event {
@@ -401,6 +411,12 @@ where
             Event::ProjectsChanged(projects) => {
                 self.copies_replaced(&mac, projects.projects.clone()).await?;
                 self.project_acts_flushing(&mac).await;
+                return Ok(MacNamed { mac });
+            }
+            // The ready offers it shares now. **Held, and never sent on to a third Mac or to Bridge as they came**:
+            // `preview_offers_held` publishes what this Mac makes of them beside its own.
+            Event::PreviewOffersChanged(offers) => {
+                self.preview_offers_held(&mac, offers.offers.clone()).await?;
                 return Ok(MacNamed { mac });
             }
             Event::SessionRow(row) => row.session_id.clone(),
@@ -431,6 +447,10 @@ where
         self.message_from_mac_delivered(mac, message).await
     }
 
+    async fn hold_refresh_claim(&self, mac: String, sent: ipc::RefreshClaimSent) -> Result<(), Refusal> {
+        self.refresh_claim_held(mac, sent).await
+    }
+
     async fn forget_other_mac(&self, named: MacNamed) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&named.mac)?;
         let before = self.sessions_held_from(&mac).await?;
@@ -438,6 +458,8 @@ where
         self.relay_removed(before.into_keys().collect());
         self.every_bug_report_relayed().await?;
         self.projects_relayed().await?;
+        // Its offers are gone with it: the file and the answer drop them now, and the sweep asks for the check.
+        self.preview_moved().await;
         Ok(MacNamed { mac })
     }
 

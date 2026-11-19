@@ -126,6 +126,9 @@ pub struct PreviewOfferRow {
     pub files: Vec<String>,
     /// The running build is the preview, and holds this branch at this tip.
     pub in_build: bool,
+    /// The Mac the offer lives on, by id. Absent is this Mac. Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mac: Option<String>,
 }
 
 /// The one Refresh row: the ready offers the running build does not hold yet.
@@ -145,6 +148,26 @@ pub struct PreviewOffers {
     /// Absent when every ready offer is in the build, or the row was skipped.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub refresh: Option<PreviewRefresh>,
+    /// The Macs whose offers this answer leaves out, and why. Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub left_out: Vec<PreviewLeftOut>,
+}
+
+/// A paired Mac whose ready offers are not in this preview's refresh, and the sentence that says why.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewLeftOut {
+    /// The Mac's id.
+    pub mac: String,
+    pub name: String,
+    pub why: String,
+}
+
+/// `PUT /other_macs/preview_offers` on Fleet: every ready offer Mac `mac` shares, replacing all this Fleet held
+/// from it. Each row is kept with `mac` set to the sender.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct OtherMacPreviewOffers {
+    pub mac: String,
+    pub offers: Vec<PreviewOfferRow>,
 }
 
 /// One Job's note in the build the owner is running: what its branch brought in, and what to look at.

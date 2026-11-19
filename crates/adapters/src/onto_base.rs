@@ -135,6 +135,36 @@ pub fn remote_head(repo: &Path, remote: &str, branch: &str) -> Option<String> {
         .map(str::to_string)
 }
 
+/// Push `tip` to `remote` as the branch `branch`, never forced, so a Mac holding the remote can merge it. The
+/// `Err` is the first line git said.
+pub fn push_branch(repo: &Path, remote: &str, branch: &str, tip: &str) -> Result<(), String> {
+    let refspec = format!("{tip}:refs/heads/{branch}");
+    let args = ["push", "--quiet", remote, &refspec];
+    let pushed = git(repo, &args).map_err(|why| why.to_string())?;
+    if pushed.status.success() {
+        return Ok(());
+    }
+    let said = String::from_utf8_lossy(&pushed.stderr);
+    Err(said.lines().map(str::trim).find(|line| !line.is_empty()).unwrap_or("git push said nothing").to_string())
+}
+
+/// Fetch `branches` from `remote`, so commits another Mac pushed are here. Best effort: what is still missing
+/// afterwards is the caller's to see.
+pub fn fetch_branches(repo: &Path, remote: &str, branches: &[String]) {
+    let mut args = vec!["fetch", "--quiet", remote];
+    args.extend(branches.iter().map(String::as_str));
+    let _ = git(repo, &args);
+}
+
+/// The files `tip` changes since it left `base`, or none where git would not say.
+pub fn files_changed(repo: &Path, base: &str, tip: &str) -> Vec<String> {
+    let range = format!("{base}...{tip}");
+    match git(repo, &["diff", "--name-only", &range]) {
+        Ok(run) if run.status.success() => String::from_utf8_lossy(&run.stdout).lines().map(str::to_string).collect(),
+        _ => Vec::new(),
+    }
+}
+
 /// The merge commit on `base`'s first-parent line that took `head` in: the
 /// first one whose second parent holds `head`. `None` where the base holds
 /// `head` by some other road, or nothing lands it there yet.

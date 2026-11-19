@@ -8,7 +8,7 @@ use std::time::Duration;
 use api::{OtherMacs, Projects};
 use ipc::{
     EditProject, ManifestId, MergeProjects, NewProject, NewProjectTask, Project, ProjectAct, ProjectHolder, ProjectMember, ProjectPlace, ProjectRow,
-    ProjectTaskState, RunCloud, RunPlace, ValuesSet,
+    ProjectTaskState, RunCloud, RunPlace, ValuesSet, WireError,
 };
 
 use super::other_mac_projects::{act, hold, listed, state_in, task_row, theirs, titles_of, Link, WORK};
@@ -283,6 +283,44 @@ async fn a_task_added_to_the_gone_project_after_the_snapshot_is_sent_to_the_kept
     // A give up for a project this Mac does not share is refused as one it does not have.
     let again = act(ProjectAct::GiveUp { gone: shop, into: THEIRS.to_string(), absorbed: Vec::new() }, None);
     assert_eq!(rig.fleet.project_act_from_mac(again).await.expect_err("gone").status(), 404);
+}
+
+#[tokio::test]
+async fn a_give_up_is_refused_while_this_mac_holds_no_copy_of_the_kept_project_and_its_project_stays() {
+    let rig = rig_placing(None);
+    let shop = own_shop(&rig).await;
+    let job = job_in(&rig, Some(&shop)).await;
+    let link = linked(&rig);
+    link.answers(200, &theirs_after());
+    // This Mac never got the copy of the project the other Mac keeps, which was given every task, so none is sent back.
+    let absorbed = row_ids(&listed(&rig).await, &shop);
+    let gave = act(ProjectAct::GiveUp { gone: shop.clone(), into: THEIRS.to_string(), absorbed }, Some(9));
+
+    let refused = rig.fleet.project_act_from_mac(gave).await.expect_err("refused");
+
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.merge_kept_not_held"));
+    let kept = rig.fleet.store().lock().await.projects().expect("reads");
+    assert_eq!(kept.projects.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), [shop.as_str()], "its project stays");
+    assert_eq!(titles_of(&listed(&rig).await, &shop), ["Mine"], "with its tasks");
+    assert_eq!(rig.fleet.project_of_job(job.as_str()).await.as_deref(), Some(shop.as_str()), "and its Jobs");
+    assert!(link.calls().is_empty(), "nothing is sent");
+}
+
+#[tokio::test]
+async fn a_merge_the_other_mac_refuses_to_give_up_takes_nothing_into_the_kept_project() {
+    let rig = rig_placing(None);
+    let shop = own_shop(&rig).await;
+    let link = linked(&rig);
+    hold(&rig, vec![work_shop(&rig)]).await;
+    let said = WireError::raised("fleet.merge_kept_not_held", "Shop is not on this Mac yet.", ipc::RunId::carried("01THEIRRUN"));
+    link.answers(422, &said);
+
+    let refused = rig.fleet.merge_projects(merge(&shop, THEIRS, &["auto_merge"])).await.expect_err("refused");
+
+    assert_eq!(refused.error().code, "fleet.merge_kept_not_held");
+    let after = listed(&rig).await;
+    assert_eq!(titles_of(&after, &shop), ["Mine"], "no task of the other project came over");
+    assert_eq!(titles_of(&after, THEIRS).len(), 4, "and the copy is still listed");
 }
 
 fn theirs_after() -> ipc::Projects {

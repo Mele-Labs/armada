@@ -1615,6 +1615,21 @@ How many tokens a hosted Job's conversation reaches before the CLI compacts it. 
 **The value lives in settings.json under `tokens.compactionWindow`** (live). Fleet hands it to each hosted Job it starts as `CLAUDE_CODE_AUTO_COMPACT_WINDOW`, so a change reaches the Jobs started after it and not a running one.
 """
 
+[settings.token-subagent-cache-ttl]
+name = "Subagent cache length"
+scope = "Machine"
+default = "5m"
+lifetime = "Live"
+merge_strategy = "REPLACE"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+How long the prompt cache of a subagent's requests is held, `5m` or `1h`. An hour weighs 2 where five minutes weighs 1.25 on every write, and a subagent that pauses for more than five minutes and less than an hour reads its cache where five minutes writes the whole context again. The Usage page's *Settings that change it* prices both from the week's own requests.
+
+**The value lives in settings.json under `tokens.subagentCacheTtl`** (live). Fleet hands it to each hosted Job it starts as `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, so a change reaches the Jobs started after it and not a running one. The Job's own thread is not touched by it.
+"""
+
 [settings.token-summary-short-cache]
 name = "Short cache for turn summaries"
 scope = "Machine"

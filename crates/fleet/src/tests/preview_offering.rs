@@ -58,7 +58,7 @@ pub(super) fn base(rig: &Rig) -> String {
     git(&root(rig), &["rev-parse", "origin/main"])
 }
 
-async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&str>) -> Result<ipc::PreviewOffered, Refusal> {
+pub(super) async fn offer(rig: &Rig, session: &str, branch: Option<&str>, about: Option<&str>) -> Result<ipc::PreviewOffered, Refusal> {
     Arc::clone(&rig.fleet)
         .offer_preview(
             None,

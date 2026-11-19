@@ -33,7 +33,7 @@ impl Features for FakeDaemon {
         })
     }
 
-    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String, _section: Option<String>) -> Result<FeaturePage, Refusal> {
+    async fn get_feature_page(&self, _caller: Option<crate::Caller>, project: Option<String>, feature: String, _section: Option<String>, _files: bool) -> Result<FeaturePage, Refusal> {
         Ok(FeaturePage {
             project: project.unwrap_or_else(|| String::from("p1")),
             feature: row(&feature),
