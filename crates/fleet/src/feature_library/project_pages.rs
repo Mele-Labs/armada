@@ -247,6 +247,36 @@ fn what_of(summary: &str, merged: &[&Merge]) -> String {
     }
 }
 
+/// What moved in a library since `since_ms`, in the order Since you looked lists it, each with the instant it last moved.
+fn looked_since(loaded: &Loaded, merges: &BTreeMap<String, Vec<Merge>>, since_ms: i64) -> Vec<((u8, Reverse<i64>, String), LookedFeature)> {
+    let mut listed: Vec<((u8, Reverse<i64>, String), LookedFeature)> = Vec::new();
+    for feature in loaded.map.features() {
+        let merged: Vec<&Merge> = merges.get(&feature.id).map(|all| all.iter().filter(|merge| merge.at > since_ms).collect()).unwrap_or_default();
+        let added = millis(&feature.added_at).unwrap_or(0);
+        let (tag, rank, moved) = if feature.state == feature_state::PENDING {
+            (LookedTag::NeedsYou, 0, added)
+        } else if added > since_ms {
+            (LookedTag::New, 2, added)
+        } else if let Some(newest) = merged.first() {
+            (LookedTag::Changed, 1, newest.at)
+        } else {
+            continue;
+        };
+        listed.push((
+            (rank, Reverse(moved), feature.slug.clone()),
+            LookedFeature {
+                tag,
+                slug: feature.slug.clone(),
+                title: feature.title.clone(),
+                what: what_of(&feature.summary, &merged),
+                pulls: merged.iter().map(|merge| merge.number).collect(),
+            },
+        ));
+    }
+    listed.sort_by(|(a, _), (b, _)| a.cmp(b));
+    listed
+}
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -340,31 +370,20 @@ where
             Refusal::Unacceptable(ipc::WireError::raised(SINCE_UNREADABLE, format!("`{since}` is not a time: give it as 2026-11-18T09:30:00Z"), self.run_id()))
         })?;
         let (loaded, merges) = self.project_library(caller, project).await?;
-        let mut listed: Vec<((u8, Reverse<i64>, String), LookedFeature)> = Vec::new();
-        for feature in loaded.map.features() {
-            let merged: Vec<&Merge> = merges.get(&feature.id).map(|all| all.iter().filter(|merge| merge.at > since_ms).collect()).unwrap_or_default();
-            let added = millis(&feature.added_at).unwrap_or(0);
-            let (tag, rank, moved) = if feature.state == feature_state::PENDING {
-                (LookedTag::NeedsYou, 0, added)
-            } else if added > since_ms {
-                (LookedTag::New, 2, added)
-            } else if let Some(newest) = merged.first() {
-                (LookedTag::Changed, 1, newest.at)
-            } else {
-                continue;
-            };
-            listed.push((
-                (rank, Reverse(moved), feature.slug.clone()),
-                LookedFeature {
-                    tag,
-                    slug: feature.slug.clone(),
-                    title: feature.title.clone(),
-                    what: what_of(&feature.summary, &merged),
-                    pulls: merged.iter().map(|merge| merge.number).collect(),
-                },
-            ));
-        }
-        listed.sort_by(|(a, _), (b, _)| a.cmp(b));
-        Ok(SinceYouLooked { project: loaded.project, paragraph: String::new(), features: listed.into_iter().map(|(_, one)| one).collect() })
+        let listed = looked_since(&loaded, &merges, since_ms);
+        // The paragraph the librarian wrote, served only to one who has not looked since the run that wrote it.
+        let paragraph = match self.store().lock().await.librarian_last_paragraph(&loaded.project) {
+            Ok(Some((ran_at, paragraph))) if millis(&ran_at).is_some_and(|ran| since_ms <= ran) => paragraph,
+            _ => String::new(),
+        };
+        Ok(SinceYouLooked { project: loaded.project, paragraph, features: listed.into_iter().map(|(_, one)| one).collect() })
+    }
+
+    /// What moved in `project`'s library after `since` (from the start where none), for the librarian's paragraph: the page's own list, with a feature
+    /// waiting on him counted only where it arrived after `since`. Empty where the project holds no library.
+    pub(super) async fn since_facts(&self, project: &str, since: Option<&str>) -> Result<Vec<LookedFeature>, Refusal> {
+        let since_ms = since.and_then(millis).unwrap_or(0);
+        let (loaded, merges) = self.project_library(None, Some(project.to_string())).await?;
+        Ok(looked_since(&loaded, &merges, since_ms).into_iter().filter(|((_, Reverse(moved), _), _)| *moved > since_ms).map(|(_, one)| one).collect())
     }
 }
