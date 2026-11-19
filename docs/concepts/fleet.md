@@ -699,7 +699,16 @@ Every compile runs at utility priority.
 Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
 
 **`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
-**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build.
+**It holds the ready offers of every Mac, not only this one's.**
+Each Mac shares its own ready offers with its paired Mac (`share_preview_offers`, held as `FromMac::PreviewOffers`), and each offer carries the Mac it lives on.
+The line a partner's offer adds is the same four fields, and `scripts/preview` merges the tip where it holds it and fetches origin for one it does not.
+An own offer is shared only once its branch is on origin: Fleet pushes the tip to `refs/heads/<branch>` when the check passes, never forced, and a push that fails keeps the offer ready here and tells the Job once.
+Where the same branch is offered on both Macs, this Mac's own wins.
+**One check runs both Macs' offers together**, ordered by when each was offered and then by branch name, so the later of two that clash fails with its files and its Job is told.
+Both Macs run the same rule and reach the same answer, which relies on their clocks being close.
+Only a Mac that is linked, awake and on this build counts.
+Any other is named in `left_out` with a sentence of why, and the Refresh line says its offers were left out.
+**`get_preview_offers` is what Bridge draws**: every offer with its state and its Mac, one Refresh row while a ready offer is not in the running build, and `left_out`.
 `in_build` is true where the running build commit's own merges hold the branch at that tip (`Armada/preview-held` where the commit shows none), or where the tip is already under the build commit, as when the branch landed on the main the build was cut from.
 Git is asked once per build commit and tip.
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.

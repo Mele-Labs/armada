@@ -1,4 +1,4 @@
-//! What his other Macs share with this one: their Job rows, their bug reports and their projects. **Each is Fleet's, opaque
+//! What his other Macs share with this one: their Job rows, their bug reports, their projects and their ready preview offers. **Each is Fleet's, opaque
 //! here**: the text the wire carried, keyed by the Mac that holds it and its id, so a Mac that is asleep still
 //! has its rows to draw after a restart.
 
@@ -21,6 +21,8 @@ pub enum FromMac {
     Sessions,
     BugReports,
     Projects,
+    /// The ready preview offers of a Mac, by branch.
+    PreviewOffers,
 }
 
 impl FromMac {
@@ -29,6 +31,7 @@ impl FromMac {
             FromMac::Sessions => "other_mac_sessions",
             FromMac::BugReports => "other_mac_bug_reports",
             FromMac::Projects => "other_mac_projects",
+            FromMac::PreviewOffers => "other_mac_preview_offers",
         }
     }
 
@@ -37,6 +40,7 @@ impl FromMac {
             FromMac::Sessions => "record",
             FromMac::BugReports => "report",
             FromMac::Projects => "project",
+            FromMac::PreviewOffers => "offer",
         }
     }
 }
@@ -91,7 +95,7 @@ impl Store {
     pub fn forget_mac(&mut self, mac: &str) -> Result<(), WriteError> {
         let doing = "forgetting what another Mac shared";
         let tx = self.conn.transaction().map_err(fault(doing)).map_err(WriteError::Database)?;
-        for list in [FromMac::Sessions, FromMac::BugReports, FromMac::Projects] {
+        for list in [FromMac::Sessions, FromMac::BugReports, FromMac::Projects, FromMac::PreviewOffers] {
             tx.execute(&format!("DELETE FROM {} WHERE mac = ?1", list.table()), [mac])
                 .map_err(fault(doing))
                 .map_err(WriteError::Database)?;

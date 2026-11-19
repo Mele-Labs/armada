@@ -106,6 +106,8 @@ pub struct Model {
     pub says: String,
     pub efforts: Vec<String>,
     pub on: bool,
+    /// Whether the Job proposer may pick it.
+    pub proposer: bool,
 }
 
 /// A Kit column: a raised panel that scrolls itself (`.armada-kit-browser__list`).
@@ -175,6 +177,14 @@ fn roster_of(list: Option<&SettingsList>) -> Option<Vec<String>> {
     }
 }
 
+/// The models the Job proposer may pick as settings.json says it: `models.proposerChoices` holds it, or holds nothing.
+fn proposer_of(list: Option<&SettingsList>) -> Option<Vec<String>> {
+    match &list?.settings.iter().find(|one| one.key == "models.proposerChoices")?.value {
+        SettingValue::List(items) => Some(items.iter().filter_map(|item| if let SettingValue::Text(text) = item { Some(text.clone()) } else { None }).collect()),
+        _ => None,
+    }
+}
+
 /// The offered models as the page draws them (`readKitModels`). Whether each is on follows settings.json once it
 /// is read, so a switch reads as switched as soon as the save is answered.
 pub fn models_of(held: Option<&Result<ModelChoices, String>>, list: Option<&SettingsList>) -> Read {
@@ -187,6 +197,7 @@ pub fn models_of(held: Option<&Result<ModelChoices, String>>, list: Option<&Sett
         return Read::NotRead(if why.is_empty() { "Fleet does not list models yet".into() } else { why.clone() });
     }
     let roster = roster_of(list);
+    let proposer = proposer_of(list);
     Read::Read(
         held.offered
             .iter()
@@ -197,6 +208,7 @@ pub fn models_of(held: Option<&Result<ModelChoices, String>>, list: Option<&Sett
                 says: one.description.clone(),
                 efforts: one.efforts.clone(),
                 on: roster.as_ref().map_or(one.on, |roster| roster.is_empty() || roster.contains(&one.name)),
+                proposer: proposer.as_ref().is_none_or(|proposer| proposer.is_empty() || proposer.contains(&one.name)),
             })
             .collect(),
     )
@@ -233,6 +245,15 @@ pub fn save_for_switch(models: &[Model], list: Option<&SettingsList>, name: &str
     Some(changes)
 }
 
+/// The save for letting the Job proposer pick one model or not: `models.proposerChoices` as the names whose flag is
+/// set after the change. `None` where it would leave the proposer none it may pick and Jobs may use.
+pub fn save_for_proposer(models: &[Model], name: &str, on: bool) -> Option<BTreeMap<String, Option<SettingValue>>> {
+    let flagged = |one: &&Model| if one.name == name { on } else { one.proposer };
+    models.iter().filter(flagged).find(|one| one.on)?;
+    let choices: Vec<SettingValue> = models.iter().filter(flagged).map(|one| SettingValue::Text(one.name.clone())).collect();
+    Some(BTreeMap::from([("models.proposerChoices".to_string(), Some(SettingValue::List(choices)))]))
+}
+
 /// The efforts a slider steps through: the harness picking, those the models on take, and any in force.
 pub fn efforts_of(models: &[Model], in_force: impl IntoIterator<Item = String>) -> Vec<String> {
     let mut steps = vec![HARNESS_DEFAULT.to_string()];
@@ -255,8 +276,8 @@ pub struct ModelsPage {
     asked: bool,
     pub picked: Option<String>,
     pub filter: Entity<InputState>,
-    /// Each model's row and switch.
-    rows: BTreeMap<String, [FocusHandle; 2]>,
+    /// Each model's row, its switch and its proposer switch.
+    rows: BTreeMap<String, [FocusHandle; 3]>,
     /// Each run's select and slider, in `RUNS` order.
     selects: Vec<FocusHandle>,
     sliders: Vec<FocusHandle>,
@@ -347,7 +368,7 @@ impl SettingsOverlay {
     pub(super) fn model_keys(&mut self, cx: &mut Context<Self>) {
         let Read::Read(models) = self.kit_models() else { return };
         for one in models {
-            self.models.rows.entry(one.name).or_insert_with(|| [cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)]);
+            self.models.rows.entry(one.name).or_insert_with(|| [cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true), cx.focus_handle().tab_stop(true)]);
         }
     }
 
@@ -370,13 +391,20 @@ impl SettingsOverlay {
             Read::Read(models) => models.iter().filter(|one| one.on).count(),
             _ => on,
         };
+        let proposers = match self.kit_models() {
+            Read::Read(models) => models.iter().filter(|one| one.on && one.proposer).count(),
+            _ => 0,
+        };
         for one in &rows {
-            let Some([row_key, switch]) = self.models.rows.get(&one.name) else { continue };
+            let Some([row_key, switch, proposer]) = self.models.rows.get(&one.name) else { continue };
             if row.as_ref().is_some_and(|row| row.name == one.name) {
                 stops.push(row_key.clone());
             }
             if !(one.on && all_on == 1) {
                 stops.push(switch.clone());
+            }
+            if one.on && !(one.proposer && proposers == 1) {
+                stops.push(proposer.clone());
             }
         }
         if let Read::Read(_) = self.kit_models() {
@@ -427,9 +455,16 @@ impl SettingsOverlay {
         self.save_changes("models.roster".into(), changes, window, cx);
     }
 
+    /// Whether the Job proposer may pick a model: `models.proposerChoices` saved.
+    pub fn switch_proposer(&mut self, name: &str, on: bool, window: &mut Window, cx: &mut Context<Self>) {
+        let Read::Read(models) = self.kit_models() else { return };
+        let Some(changes) = save_for_proposer(&models, name, on) else { return };
+        self.save_changes("models.proposerChoices".into(), changes, window, cx);
+    }
+
     fn pick_model(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.models.picked = Some(name.to_string());
-        if let Some([row, _]) = self.models.rows.get(name) {
+        if let Some([row, _, _]) = self.models.rows.get(name) {
             window.focus(row, cx);
         }
         cx.notify();
@@ -491,18 +526,20 @@ impl SettingsOverlay {
             }
             return false;
         }
-        let focused_row = self.models.rows.iter().find_map(|(name, [row, switch])| {
+        let focused_row = self.models.rows.iter().find_map(|(name, [row, switch, proposer])| {
             if row.is_focused(window) {
-                Some((name.clone(), false))
+                Some((name.clone(), 0))
             } else if switch.is_focused(window) {
-                Some((name.clone(), true))
+                Some((name.clone(), 1))
+            } else if proposer.is_focused(window) {
+                Some((name.clone(), 2))
             } else {
                 None
             }
         });
-        if let Some((name, on_switch)) = focused_row {
-            match (word, on_switch) {
-                ("up" | "down", false) => {
+        if let Some((name, at)) = focused_row {
+            match (word, at) {
+                ("up" | "down", 0) => {
                     let (rows, _) = self.filtered(cx);
                     let Some(at) = rows.iter().position(|one| one.name == name) else { return true };
                     let next = if word == "up" { at.saturating_sub(1) } else { (at + 1).min(rows.len() - 1) };
@@ -510,16 +547,20 @@ impl SettingsOverlay {
                     self.pick_model(&to, window, cx);
                     return true;
                 }
-                ("enter" | "space", false) => {
+                ("enter" | "space", 0) => {
                     self.pick_model(&name, window, cx);
                     return true;
                 }
-                ("enter" | "space", true) => {
+                ("enter" | "space", at) => {
                     let (rows, _) = self.filtered(cx);
                     if let Some(one) = rows.iter().find(|one| one.name == name) {
-                        let on = one.on;
+                        let (on, proposer) = (one.on, one.proposer);
                         if self.saving.is_none() {
-                            self.switch_model(&name, !on, window, cx);
+                            if at == 1 {
+                                self.switch_model(&name, !on, window, cx);
+                            } else if on {
+                                self.switch_proposer(&name, !proposer, window, cx);
+                            }
                         }
                     }
                     return true;
@@ -588,13 +629,24 @@ impl SettingsOverlay {
             }
             Read::Read(models) => {
                 let all_on = models.iter().filter(|one| one.on).count();
+                let proposers = models.iter().filter(|one| one.on && one.proposer).count();
                 let mut items = div().flex().flex_col();
                 for (n, one) in rows.iter().enumerate() {
-                    items = items.child(self.render_model_row(one, n > 0, row.as_ref().is_some_and(|row| row.name == one.name), one.on && all_on == 1, off, look, window, cx));
+                    items = items.child(self.render_model_row(one, n > 0, row.as_ref().is_some_and(|row| row.name == one.name), one.on && all_on == 1, !one.on || (one.proposer && proposers == 1) || off, off, look, window, cx));
                 }
                 list = list.child(labelled(items.id("models-items"), Role::List, "Models"));
-                if let Some(said) = self.refused.get("models.roster") {
-                    list = list.child(labelled(super::view::refusal(look, said.clone()).id("models-refused"), Role::Alert, said.clone()));
+                list = list.child(
+                    div()
+                        .id("models-note")
+                        .px(look.length(token::SPACE_3))
+                        .text_size(look.length(token::TEXT_XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child("A model that is off under May be used is never offered to the proposer."),
+                );
+                for key in ["models.roster", "models.proposerChoices"] {
+                    if let Some(said) = self.refused.get(key) {
+                        list = list.child(labelled(super::view::refusal(look, said.clone()).id(SharedString::from(format!("models-refused-{key}"))), Role::Alert, said.clone()));
+                    }
                 }
                 cards.extend(row.as_ref().map(|row| self.render_model_detail(row, look)));
                 cards.push(self.render_runs(models, off, look, window, cx));
@@ -617,8 +669,8 @@ impl SettingsOverlay {
     /// One model: its name and version, then the switch that lets Jobs use it at the row's end. The picked row is a wash
     /// in the accent with an edge, as the index's picked page is.
     #[allow(clippy::too_many_arguments)]
-    fn render_model_row(&self, one: &Model, ruled: bool, current: bool, last_on: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
-        let Some([row_key, switch_key]) = self.models.rows.get(&one.name).cloned() else { return div().into_any_element() };
+    fn render_model_row(&self, one: &Model, ruled: bool, current: bool, last_on: bool, proposer_blocked: bool, off: bool, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let Some([row_key, switch_key, proposer_key]) = self.models.rows.get(&one.name).cloned() else { return div().into_any_element() };
         let name = one.name.clone();
         let version = version_of(&one.resolved);
         let button = ringed(
@@ -668,6 +720,20 @@ impl SettingsOverlay {
             &switch_key,
             window,
         );
+        let (pick, proposer_on) = (one.name.clone(), one.proposer);
+        let proposer = ringed(
+            look,
+            div()
+                .id(SharedString::from(format!("model-proposer-{}", one.name)))
+                .track_focus(&proposer_key)
+                .flex_none()
+                .rounded_full()
+                .tooltip(tip("The Job proposer may pick it"))
+                .child(plain_switch(look, one.proposer, proposer_blocked))
+                .when(!proposer_blocked, |switch| switch.cursor_pointer().on_click(cx.listener(move |this, _, window, cx| this.switch_proposer(&pick, !proposer_on, window, cx)))),
+            &proposer_key,
+            window,
+        );
         div()
             .id(SharedString::from(format!("model-row-{}", one.name)))
             .relative()
@@ -684,6 +750,7 @@ impl SettingsOverlay {
             })
             .child(labelled(button, Role::Button, one.display.clone()))
             .child(labelled(switch, Role::Switch, format!("{} may be used", one.display)))
+            .child(labelled(proposer, Role::Switch, format!("{} proposer may pick", one.display)))
             .into_any_element()
     }
 
@@ -985,13 +1052,39 @@ mod tests {
 
     #[test]
     fn the_last_model_on_cannot_be_switched_off() {
-        let one = Model { name: "opus".into(), display: "Opus".into(), resolved: String::new(), says: String::new(), efforts: Vec::new(), on: true };
+        let one = Model { name: "opus".into(), display: "Opus".into(), resolved: String::new(), says: String::new(), efforts: Vec::new(), on: true, proposer: true };
         assert!(save_for_switch(&[one], None, "opus", false).is_none());
     }
 
     #[test]
+    fn the_proposer_flags_follow_its_list_and_all_are_set_where_it_holds_none() {
+        let mut list = list();
+        let flags = |list: &SettingsList| match models_of(Some(&Ok(held())), Some(list)) {
+            Read::Read(models) => models.iter().map(|one| (one.name.clone(), one.proposer)).collect::<Vec<_>>(),
+            other => panic!("read: {other:?}"),
+        };
+        assert_eq!(flags(&list), [("opus".to_string(), true), ("fable".to_string(), false), ("sonnet".to_string(), true), ("haiku".to_string(), false)]);
+        list.settings.retain(|one| one.key != "models.proposerChoices");
+        assert!(flags(&list).iter().all(|(_, set)| *set), "absent means every model");
+    }
+
+    #[test]
+    fn letting_the_proposer_pick_writes_its_list_and_never_empties_it() {
+        let list = list();
+        let Read::Read(models) = models_of(Some(&Ok(held())), Some(&list)) else { panic!("read") };
+        let names = |changes: BTreeMap<String, Option<SettingValue>>| match changes.get("models.proposerChoices").cloned().flatten() {
+            Some(SettingValue::List(items)) => items.into_iter().filter_map(|item| if let SettingValue::Text(text) = item { Some(text) } else { None }).collect::<Vec<_>>(),
+            other => panic!("list: {other:?}"),
+        };
+        assert_eq!(names(save_for_proposer(&models, "fable", true).expect("one more")), ["opus", "fable", "sonnet"]);
+        assert_eq!(names(save_for_proposer(&models, "sonnet", false).expect("opus stays")), ["opus"]);
+        let one = Model { name: "opus".into(), display: "Opus".into(), resolved: String::new(), says: String::new(), efforts: Vec::new(), on: true, proposer: true };
+        assert!(save_for_proposer(&[one], "opus", false).is_none());
+    }
+
+    #[test]
     fn the_effort_steps_lead_with_the_harness_and_keep_any_in_force() {
-        let one = Model { name: "opus".into(), display: "Opus".into(), resolved: String::new(), says: String::new(), efforts: vec!["low".into(), "high".into()], on: true };
+        let one = Model { name: "opus".into(), display: "Opus".into(), resolved: String::new(), says: String::new(), efforts: vec!["low".into(), "high".into()], on: true, proposer: true };
         assert_eq!(efforts_of(&[one], ["high".to_string(), "odd".to_string()]), [HARNESS_DEFAULT, "low", "high", "odd"]);
         assert_eq!(effort_said(HARNESS_DEFAULT), "default");
     }

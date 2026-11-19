@@ -54,6 +54,8 @@ pub struct Row {
     pub also: String,
     /// The feature this row opens, where it is the line that files the ask under one.
     pub feature: Option<String>,
+    /// His own words whole, drawn as the thread draws them: headings, lists and code as formatted, not one quoted line.
+    pub words: Option<String>,
 }
 
 /// One ask as the tab draws it.
@@ -175,6 +177,7 @@ fn shown_row(shown: &StoryShown) -> Row {
         meta: format!("{}, {}. {decision}", form_word(shown.form), day(instant(&shown.shown_at))),
         also: also(shown),
         feature: None,
+        words: None,
     }
 }
 
@@ -190,6 +193,7 @@ fn said_row(words: &AskWords) -> Row {
         meta: format!("You, {}, {what}", day(instant(&words.at))),
         also: String::new(),
         feature: None,
+        words: Some(words.words.trim().to_string()),
     }
 }
 
@@ -216,7 +220,7 @@ fn happenings(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> Vec<Happen
         let text = format!("Merged #{number}");
         out.push(Happened {
             at: instant(&built.merged_at),
-            row: Row { key: format!("built-{number}"), glyph: "git-merge", hue: Hue::Done, said: "Merged".into(), text: text.clone(), tinted: true, meta: day(instant(&built.merged_at)), also: String::new(), feature: None },
+            row: Row { key: format!("built-{number}"), glyph: "git-merge", hue: Hue::Done, said: "Merged".into(), text: text.clone(), tinted: true, meta: day(instant(&built.merged_at)), also: String::new(), feature: None, words: None },
             last: text,
         });
     }
@@ -231,7 +235,7 @@ fn happenings(story: &StoryAsk, mine: &SessionId, titles: &Titles) -> Vec<Happen
         };
         out.push(Happened {
             at: instant(&handed.at),
-            row: Row { key: format!("handed-{}", handed.at.as_str()), glyph: "arrow-right-left", hue: Hue::Handed, said: "Handed".into(), text: text.clone(), tinted: true, meta: day(instant(&handed.at)), also: String::new(), feature: None },
+            row: Row { key: format!("handed-{}", handed.at.as_str()), glyph: "arrow-right-left", hue: Hue::Handed, said: "Handed".into(), text: text.clone(), tinted: true, meta: day(instant(&handed.at)), also: String::new(), feature: None, words: None },
             last: text,
         });
     }
@@ -253,12 +257,13 @@ fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features
         meta: started,
         also: String::new(),
         feature: None,
+        words: Some(ask.first_words.trim().to_string()),
     }];
     let happened = happenings(story, mine, titles);
     let last = happened.last().map(|one| format!("Last: {}, {}", one.last, day(one.at))).unwrap_or_default();
     rows.extend(happened.into_iter().map(|one| one.row));
     if story.open {
-        rows.push(Row { key: "open".into(), glyph: "circle-dot", hue: Hue::Running, said: "Open".into(), text: "Open".into(), tinted: true, meta: String::new(), also: String::new(), feature: None });
+        rows.push(Row { key: "open".into(), glyph: "circle-dot", hue: Hue::Running, said: "Open".into(), text: "Open".into(), tinted: true, meta: String::new(), also: String::new(), feature: None, words: None });
     }
     for slug in &ask.features {
         let title = features.get(slug).cloned().unwrap_or_else(|| slug.clone());
@@ -272,6 +277,7 @@ fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features
             meta: "Feature".into(),
             also: String::new(),
             feature: Some(slug.clone()),
+            words: None,
         });
     }
     Card { ask_id: ask.ask_id.clone(), number: format!("{}.", at + 1), title: ask.title.clone(), kind: kind_word(ask.kind), last, stand: stand(ask.state), rows }

@@ -25,7 +25,7 @@ fn conversation_kept(home: &str, id: &SessionId, bytes: &[u8]) {
 
 /// Mac `other` as `mac`'s Fleet knows it. On a Mac the Gateway and Fleet share one store, so Fleet reads the
 /// names the Gateway paired; here each has its own, so the pairing is copied across.
-async fn known_to(mac: &OneMac, other: &OneMac, name: &str) {
+pub(super) async fn known_to(mac: &OneMac, other: &OneMac, name: &str) {
     let paired = store::PairedMac {
         id: other.id.clone(),
         name: name.into(),

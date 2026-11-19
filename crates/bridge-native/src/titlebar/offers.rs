@@ -89,7 +89,7 @@ impl TitleBar {
         let report = &held.report;
         let offers = self.face.offers.as_ref();
         let shown = offers.and_then(lines);
-        let left_out: &[ipc::LeftOutBranch] = if report.on == BuildSource::Preview && report.restarting.is_none() { &report.left_out } else { &[] };
+        let left_out: &[ipc::LeftOutBranch] = if report.on == BuildSource::Preview && !super::face::restarting(report) { &report.left_out } else { &[] };
         let snapshot = report.snapshot.as_ref();
         if shown.is_none() && left_out.is_empty() && snapshot.is_none() {
             return None;
@@ -193,7 +193,7 @@ impl TitleBar {
             }
         };
         let swap = (snapshot.state == SnapshotState::Ready).then(|| {
-            let off = report.swapping || report.reverting || report.restarting.is_some();
+            let off = report.swapping || report.reverting || super::face::restarting(report);
             let label = if report.swapping { "Swapping" } else { "Swap" };
             let button = Btn::new("swap-build", label, Weight::Secondary).pending(report.swapping).disabled(off).draw(look, cx).track_focus(&self.list_stops.swap).tooltip(tip("Restart Fleet on the build of the picked branches"));
             let button = if off { button } else { button.on_click(cx.listener(|this, _, _, cx| this.swap_pressed(cx))) };

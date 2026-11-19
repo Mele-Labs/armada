@@ -520,6 +520,29 @@
    "overridden_by_env": null
   },
   {
+   "key": "models.proposerChoices",
+   "group": "Agents",
+   "section": "Model",
+   "title": "Proposer choices",
+   "description": "The models the Job proposer may pick.",
+   "tip": null,
+   "kind": {
+    "kind": "text_list"
+   },
+   "default": [
+    "opus",
+    "sonnet"
+   ],
+   "value": [
+    "opus",
+    "sonnet"
+   ],
+   "saved": null,
+   "applies": "live",
+   "pending_restart": false,
+   "overridden_by_env": null
+  },
+  {
    "key": "models.default",
    "group": "Agents",
    "section": "Model",

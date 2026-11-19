@@ -868,7 +868,7 @@ fn skip_body(id: &str) -> Result<String, String> {
 
 /// A restart, revert, swap or snapshot is under way, so the build is followed.
 fn changing(report: &FleetBuildReport) -> bool {
-    report.restarting.is_some() || report.reverting || report.swapping || report.snapshot.as_ref().is_some_and(|kept| kept.state == ipc::SnapshotState::Building)
+    report.restarting.is_some() || report.refresh.is_some() || report.reverting || report.swapping || report.snapshot.as_ref().is_some_and(|kept| kept.state == ipc::SnapshotState::Building)
 }
 
 impl FleetConnection {

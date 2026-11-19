@@ -30,7 +30,7 @@ The replacement resumes the conversation and pays for it again, and the subagent
 A line that finds Fleet with nothing unfinished to send, or the Job waiting to be moved into a slot, is marked and not restarted.
 
 **Restart the agent is the person's own press, and has no once-only guard.**
-The tools band and the mark's menu offer it for the `mod` piece, and it calls `mend_session_tools`.
+The tools band and the mark's menu offer it for the `mod` piece and for the `door` piece, where Reconnect has failed or the process never had the door, and it calls `mend_session_tools`.
 Fleet fills its copy of the mod first (from the app's bundle, or a served repository where there is none), then lets the process go and starts a replacement that resumes the conversation, sending it the lines the old one had not finished.
 A Job with none has no turn to carry the restart, so Fleet tells the replacement `Fleet restarted your process with the armada mod. Nothing is asked of you.`: news, which leaves the agent's `all_done` standing, kept from any mute or rule since it answers the press.
 A Job waiting to be moved into a slot, or paused, is left as it is, because the move or the resume starts the process that loads the copy.
@@ -41,7 +41,7 @@ A copy that cannot be filled refuses the press with why and restarts nothing; a 
 **Bridge draws the mark as the `unplug` glyph**, on the Job's row in the Jobs list and in its header, with a tooltip that is the label: the CLI's version, then a sentence for each piece missing, such as `Claude Code 2.1.312. No armada mod. No task tools.`
 The row's inspect card carries the same sentence as its Tools line.
 The row's column is kept for every row while one in the list has the mark, and an ended Job draws none.
-**The open Job shows a band over its message box**, `Tools missing`, in the Needs you band's look, with the CLI's version, a line for each piece missing and its act: Restart the agent, Reconnect for the door (`act_on_session_mcp`), and Update Claude Code, which runs the update command the record names, `claude update`, in the Job's docked terminal.
+**The open Job shows a band over its message box**, `Tools missing`, in the Needs you band's look, with the CLI's version, a line for each piece missing and its act: Restart the agent, Reconnect for the door (`act_on_session_mcp`, with Restart the agent beside it), and Update Claude Code, which runs the update command the record names, `claude update`, in the Job's docked terminal.
 It stacks above the Needs you, handoff and end bands, and its dismiss is kept per Job in memory until a piece it did not cover goes missing.
 Wherever the band is not showing, dismissed or on the Job's row, the mark pulses as a needs-you row does, and pressing it opens the same acts.
 

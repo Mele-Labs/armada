@@ -2,7 +2,7 @@
 //! the line under Running, and the one sentence under Refresh. Worked out here from Fleet's report and the
 //! offers; the panel draws it.
 
-use ipc::{FleetBuildReport, PickedJob, PreviewOffers, PreviewState};
+use ipc::{FleetBuildReport, Mac, PickedJob, PreviewOffers, PreviewState};
 
 use super::face::{built_said, Build};
 
@@ -85,20 +85,32 @@ fn and_list(names: &[String]) -> String {
     }
 }
 
-/// What Refresh builds: latest main with every ready offer, each Job named once.
-pub fn refresh_said(offers: Option<&PreviewOffers>) -> String {
+/// What Refresh builds: latest main with every ready offer, each Job named once. Where offers come from more than one
+/// Mac each is named with its Mac, and the Macs Fleet left out say why, in Fleet's own sentence.
+pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
+    let ready: Vec<&ipc::PreviewOfferRow> = offers.map_or(&[][..], |offers| offers.offers.as_slice()).iter().filter(|offer| offer.state == PreviewState::Ready).collect();
+    let this = macs.iter().find(|mac| mac.this_mac);
+    let from_other = |offer: &ipc::PreviewOfferRow| offer.mac.as_deref().is_some_and(|id| this.is_none_or(|this| this.id != id));
+    let across = ready.iter().any(|offer| from_other(offer));
     let mut names: Vec<String> = Vec::new();
-    for offer in offers.map_or(&[][..], |offers| offers.offers.as_slice()).iter().filter(|offer| offer.state == PreviewState::Ready) {
+    for offer in ready {
         let name = if offer.title.trim().is_empty() { offer.branch.clone() } else { offer.title.clone() };
-        if !names.contains(&name) {
-            names.push(name);
+        let owner = if from_other(offer) { offer.mac.as_deref().and_then(|id| macs.iter().find(|mac| mac.id == id)) } else { this };
+        let said = match owner.filter(|_| across) {
+            Some(mac) => format!("{name} ({})", mac.name),
+            None => name,
+        };
+        if !names.contains(&said) {
+            names.push(said);
         }
     }
-    if names.is_empty() {
-        "Restarts Fleet on latest main.".into()
-    } else {
-        format!("Restarts Fleet on latest main with {}.", and_list(&names))
+    let on = if across { "Restarts both Macs" } else { "Restarts Fleet" };
+    let mut said = if names.is_empty() { format!("{on} on latest main.") } else { format!("{on} on latest main with {}.", and_list(&names)) };
+    for out in offers.map_or(&[][..], |offers| offers.left_out.as_slice()) {
+        said.push(' ');
+        said.push_str(&out.why);
     }
+    said
 }
 
 /// What Update to main builds.
@@ -193,8 +205,8 @@ mod tests {
     #[test]
     fn refresh_says_what_it_builds_naming_each_ready_job_once() {
         let (_, his_offers) = his();
-        assert_eq!(refresh_said(Some(&his_offers)), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
-        assert_eq!(refresh_said(None), "Restarts Fleet on latest main.");
+        assert_eq!(refresh_said(Some(&his_offers), &[]), "Restarts Fleet on latest main with Native Settings and Move a Job between Macs.");
+        assert_eq!(refresh_said(None, &[]), "Restarts Fleet on latest main.");
         let three = offers(&format!(
             r#"{{"offers":[{},{},{},{}]}}"#,
             offer("a", "A", "ready", false),
@@ -202,7 +214,35 @@ mod tests {
             offer("c", "C", "ready", false),
             offer("d", "", "ready", false),
         ));
-        assert_eq!(refresh_said(Some(&three)), "Restarts Fleet on latest main with A, C and d.");
+        assert_eq!(refresh_said(Some(&three), &[]), "Restarts Fleet on latest main with A, C and d.");
+    }
+
+    fn offer_on(branch: &str, title: &str, mac: Option<&str>) -> String {
+        let mac = mac.map_or(String::new(), |mac| format!(r#","mac":"{mac}""#));
+        format!(
+            r#"{{"branch":"{branch}","tip":"abc","session_id":"s-1","title":"{title}","about":"x","offered_at":"2026-11-14T04:00:00Z","state":"ready","in_build":false{mac}}}"#
+        )
+    }
+
+    #[test]
+    fn refresh_names_each_offers_mac_where_offers_come_from_more_than_one() {
+        let macs = crate::pairing::mock_macs(true);
+        let both = offers(&format!(r#"{{"offers":[{},{}]}}"#, offer_on("a", "A", None), offer_on("b", "B", Some("air"))));
+        assert_eq!(refresh_said(Some(&both), &macs), "Restarts both Macs on latest main with A (Studio) and B (Air).");
+        let here = offers(&format!(r#"{{"offers":[{},{}]}}"#, offer_on("a", "A", None), offer_on("b", "B", Some("studio"))));
+        assert_eq!(refresh_said(Some(&here), &macs), "Restarts Fleet on latest main with A and B.", "every offer this Mac's, so the wording is as before");
+    }
+
+    #[test]
+    fn refresh_says_which_macs_offers_were_left_out_in_fleets_own_sentence() {
+        let macs = crate::pairing::mock_macs(true);
+        let left = offers(&format!(
+            r#"{{"offers":[{}],"left_out":[{{"mac":"air","name":"Air","why":"Air is asleep, so its offers are left out."}}]}}"#,
+            offer_on("a", "A", None)
+        ));
+        assert_eq!(refresh_said(Some(&left), &macs), "Restarts Fleet on latest main with A. Air is asleep, so its offers are left out.");
+        let none = offers(r#"{"offers":[],"left_out":[{"mac":"air","name":"Air","why":"Air runs another build, so its offers are left out."}]}"#);
+        assert_eq!(refresh_said(Some(&none), &macs), "Restarts Fleet on latest main. Air runs another build, so its offers are left out.");
     }
 
     #[test]
