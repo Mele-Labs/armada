@@ -712,8 +712,7 @@ impl DispatchSheet {
 
     pub(super) fn open_model(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(from) = self.at.model.get() else { return };
-        let auto = self.face.tuning.default_model.clone().unwrap_or_else(|| "Auto".into());
-        let mut entries = vec![Entry::Choice { id: "model:", label: auto, on: self.model.is_none() }];
+        let mut entries = vec![Entry::Choice { id: "model:", label: "Auto".into(), on: self.model.is_none() }];
         for model in &self.face.tuning.models {
             entries.push(Entry::Choice { id: id_of(format!("model:{model}")), label: model.clone(), on: self.model.as_ref() == Some(model) });
         }
