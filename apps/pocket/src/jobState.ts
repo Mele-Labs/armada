@@ -20,7 +20,7 @@ import type {
   TuneSession,
 } from "./wire";
 
-import { mediaKindOf, type ShownMedia } from "@armada/components";
+import { mediaKindOf, type ShownMedia } from "./kit/components/compositions/MediaRow/MediaRow";
 
 import { call, getJson, refusal, Refused } from "./client";
 import { loadLists, onChange } from "./fleet";

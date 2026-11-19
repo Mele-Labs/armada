@@ -32,6 +32,16 @@ It still calls Fleet over HTTP rather than in process, so every phone call meets
 
 Setup is in [Set up the phone app](../journeys/set-up-the-phone-app.md).
 
+## What the app keeps in its own folder
+
+Pocket imports nothing from Bridge Classic's packages, `packages/components` and `packages/screens`.
+The components and screen modules it draws are in `apps/pocket/src/kit/`, copied from those packages and trimmed to what Pocket calls.
+`kit/components/` holds the components with their stylesheets, and `kit/screens/` holds the wire mapping, the page reader for a Job's document and the copy.
+Pocket still shares `@armada/tokens` and `@armada/brand`, which are no one surface's.
+Its wire types in `apps/pocket/src/wire/` are generated from the Rust types in `crates/ipc` ([Pocket's wire types are generated](../practices/protocol/pockets-wire-types-are-generated.md)).
+Classic can be deleted without breaking Pocket.
+A change to a Classic component does not reach Pocket's copy, and a change to the copy does not reach Classic.
+
 ## The way in
 
 **The owner brings the tunnel.** Armada runs no relay and no service of its own; whatever reaches `127.0.0.1:8443` over https is the way in, and the choices are in [Set up the phone app](../journeys/set-up-the-phone-app.md).

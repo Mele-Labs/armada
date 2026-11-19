@@ -1,13 +1,15 @@
 // A Job's document on the phone: its newest kept revision, read through the Gateway as text and drawn by the page reader Bridge
-// uses (`@armada/screens/src/document-page`), which keeps only what its allow list names. The page is put into one element by hand
+// uses (`kit/screens/document-page`), which keeps only what its allow list names. The page is put into one element by hand
 // and its CSS adopted under that element's class; the real sketch is drawn at each `<armada-sketch>`. Bridge's notes and margin
 // are not here: the phone answers a revision with Approve or Send back.
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type MouseEvent } from "react";
 import { createPortal } from "react-dom";
-import { ApprovalAnswers, SketchScene, type SketchAnswer } from "@armada/components";
-import { PAGE_ROOT, readPage, sceneWithKept } from "@armada/screens/src/document-page";
-import { documentAnswerOf } from "@armada/screens/src/thread-cards";
+import { ApprovalAnswers } from "./kit/components/compositions/SessionThread/SketchRow";
+import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import type { SketchAnswer } from "./kit/components/compositions/SessionThread/sketch-answer";
+import { PAGE_ROOT, readPage, sceneWithKept } from "./kit/screens/document-page";
+import { documentAnswerOf } from "./kit/screens/thread-cards";
 
 import { macOf, start, useFleet } from "./fleet";
 import { actsOn, attemptPage, readShown, useJob, type Shown } from "./jobState";

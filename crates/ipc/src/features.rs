@@ -202,6 +202,31 @@ pub struct FloorRoom {
     /// The repository, where the feature is not tied to one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<String>,
+    /// The files tracked in it at the checkout's `HEAD`, largest first, on a read that asks with `files=true`; empty on any
+    /// other. Lock files and binary assets are left out.
+    #[serde(default)]
+    pub files: Vec<FloorFile>,
+}
+
+/// One file of a room, or the small files of one of its folders taken together. **A plan carries about 1500**: every
+/// file the feature owns or a Job is changing stands alone, then the largest, and the rest are taken together by folder.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FloorFile {
+    /// Repository-relative. A folder, ending in `/`, where `grouped` is more than 0.
+    pub path: String,
+    /// Its size as git keeps it, or the sum of the files taken together.
+    pub bytes: u64,
+    /// The feature owns it, by the rule that lights a room.
+    pub lit: bool,
+    /// A live Job has written it.
+    pub changing: bool,
+    /// How many files this entry stands for; 0 for one file.
+    #[serde(default, skip_serializing_if = "is_zero")]
+    pub grouped: u32,
+}
+
+fn is_zero(count: &u32) -> bool {
+    *count == 0
 }
 
 /// One door of a floor plan: a lit module depends on another module of its repository.
