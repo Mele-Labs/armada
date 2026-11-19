@@ -765,7 +765,7 @@ pub use phone::{
 };
 pub use mac_acts::{ArrivingJob, CarriedConversation, DispatchOn, JobAct, JobMessage, MacAct, MoveJobToMac, MoveSettled, Queued, QueuedList, StartOn, TakeBack};
 pub use macs::{
-    ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
+    ArtifactPageShared, ClaimMacLink, MacClaimWaiting, MacClaimsWaiting, MacNamed, MacPairLink, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent, OtherMacPageOpened,
     OtherMacProjects, OtherMacSessions,
 };
 pub use show_file::{ShowFile, ShownText, ShownVideo};

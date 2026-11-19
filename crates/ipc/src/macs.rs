@@ -147,6 +147,18 @@ pub struct OtherMacPageOpened {
     pub url: String,
 }
 
+/// What `share_job_artifact_page` answers: one kept revision of a shared Job's page as `get_artifact_page` seals it. **A
+/// header does not cross the link**, so the policy that is the response's `Content-Security-Policy` rides beside the page.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ArtifactPageShared {
+    /// The revision served: the one asked, else the newest.
+    pub revision: u32,
+    /// The whole page, its policy the first child of its `<head>`.
+    pub html: String,
+    /// The same policy, for the header.
+    pub policy: String,
+}
+
 /// `POST /other_macs/event` on Fleet: one event that crossed from Mac `mac`, for this Fleet to keep and publish.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct OtherMacEvent {

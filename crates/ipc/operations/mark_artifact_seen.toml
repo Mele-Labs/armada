@@ -15,4 +15,6 @@ notes = """
 Refused with 422 and nothing kept: `fleet.artifact_revision_unknown` for a revision never kept, naming how many are (`0` is never kept), the code `get_artifact_page` refuses it with; `fleet.artifact_not_held` for an artifact the Job does not hold, naming at most 20 it does; `fleet.session_unnamed` for a Job Fleet does not know. An archived artifact is marked all the same.
 
 `agent_access` is `No`: it is what he opened.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_seen`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """
