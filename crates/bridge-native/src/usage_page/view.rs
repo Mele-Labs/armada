@@ -3,7 +3,7 @@
 
 use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Window};
 
-use super::model::{Board, JobLine, KindRow, Shown, Span};
+use super::model::{shows_causes, Board, JobLine, KindRow, Shown, Span};
 use super::UsageScreen;
 use crate::generated::actions::ActionScope;
 use crate::labels::labelled;
@@ -15,6 +15,11 @@ use crate::titlebar::parts::{glyph, mono, sans, spinner};
 /// The width of the units column and of the peak column: two steps of the largest space, so the figures line up down both panels.
 fn figure_width(look: &Look) -> Pixels {
     look.length(token::SPACE_12) * 2.
+}
+
+/// The width of the Cause column: six steps of the largest space, left-aligned, so the names line up down the table.
+fn cause_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 6.
 }
 
 /// The square a kind's glyph stands in: the hue at 16% over the ground, the glyph in the hue.
@@ -211,6 +216,7 @@ impl UsageScreen {
             .text_size(look.length(token::TEXT_2XS))
             .line_height(look.length(token::LEADING_2XS))
             .child(div().flex_1().min_w_0().text_color(look.color(token::FG_SUBTLE)).child("Job"))
+            .when(shows_causes(&kind.kind), |heads| heads.child(labelled(div().id("usage-column-Cause").flex_none().w(cause_width(look)).text_color(look.color(token::FG_SUBTLE)).child("Cause"), Role::ColumnHeader, "Cause")))
             .child(column("Units wasted"))
             .child(column("Peak context"));
         let table = labelled(
@@ -221,10 +227,20 @@ impl UsageScreen {
         Some(panel(look).id("usage-open").flex_1().min_h_0().flex().flex_col().child(head).child(heads).child(table).into_any_element())
     }
 
+    /// The Job's largest cause in its fixed column, its middle left out where it is long, the whole name in a tooltip.
+    fn render_cause(&self, id: &str, cause: String, whole: String, look: &Look) -> gpui::AnyElement {
+        let cell = div().id(SharedString::from(format!("usage-job-cause-{id}"))).flex_none().w(cause_width(look)).truncate().text_color(look.color(token::FG_MUTED)).child(SharedString::from(cause));
+        if whole.is_empty() {
+            return cell.into_any_element();
+        }
+        cell.tooltip(tip(whole)).into_any_element()
+    }
+
     fn render_job(&self, ix: usize, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let look = cx.look().clone();
         let look = &look;
-        let Some(JobLine { id, title, units, peak, tip: said }) = self.lines.get(ix).cloned() else { return div().into_any_element() };
+        let Some(JobLine { id, title, units, peak, cause, cause_tip, tip: said }) = self.lines.get(ix).cloned() else { return div().into_any_element() };
+        let with_cause = self.selection.opened.as_deref().is_some_and(shows_causes);
         let line = div()
             .id(SharedString::from(format!("usage-job-{id}")))
             .w_full()
@@ -238,6 +254,7 @@ impl UsageScreen {
             .text_color(look.color(token::FG_DEFAULT))
             .hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(title.clone())))
+            .when(with_cause, |line| line.child(self.render_cause(&id, cause, cause_tip, look)))
             .child(div().id(SharedString::from(format!("usage-job-units-{id}"))).tooltip(tip(said)).child(figure(look, units, look.color(token::FG_DEFAULT))))
             .child(figure(look, peak, look.color(token::FG_MUTED)));
         labelled(line, Role::Row, title).into_any_element()

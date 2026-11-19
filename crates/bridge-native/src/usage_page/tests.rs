@@ -11,11 +11,11 @@ fn kinds_are_listed_largest_first_and_each_kinds_jobs_too() {
     assert_eq!(
         board.kinds(),
         ["subagent_context", "main_context", "cold_cache", "repeat_reads", "big_results", "fresh_starts"],
-        "58M, 31M, 18M, 12M, 8M and 4M"
+        "58, 31, 18, 12, 8 and 4"
     );
     let titles = mock::titles();
-    let lines = board.lines_of("subagent_context", &titles);
-    assert_eq!(lines.iter().map(|line| (line.title.as_str(), line.units.as_str(), line.peak.as_str())).take(3).collect::<Vec<_>>(), [("Native jobs screens", "21M", "870k"), ("Docs audit", "9M", "610k"), ("Fleet speed work", "6M", "420k")]);
+    let lines = board.lines_of("subagent_context", &titles, &[]);
+    assert_eq!(lines.iter().map(|line| (line.title.as_str(), line.units.as_str(), line.peak.as_str())).take(3).collect::<Vec<_>>(), [("Native jobs screens", "21", "870k"), ("Docs audit", "9.0", "610k"), ("Fleet speed work", "6.0", "420k")]);
     let units: Vec<f64> = board.kind("subagent_context").expect("the kind").jobs.iter().map(|job| job.units).collect();
     assert!(units.windows(2).all(|pair| pair[0] >= pair[1]), "largest first");
 }
@@ -25,7 +25,7 @@ fn a_kind_that_arrives_out_of_order_is_sorted_with_ties_broken_by_title() {
     let mut waste = mock::waste(Span::Week);
     waste.kinds.reverse();
     let fresh = waste.kinds.iter().position(|kind| kind.kind == "fresh_starts").expect("a kind");
-    waste.kinds[fresh].units = 31_000_000.;
+    waste.kinds[fresh].units = 31.;
     waste.kinds[fresh].title = "Aardvark".into();
     let board = Board::new(waste, Span::Week);
     assert_eq!(board.kinds()[..3], ["subagent_context", "fresh_starts", "main_context"], "equal units: the title that sorts first leads");
@@ -33,7 +33,7 @@ fn a_kind_that_arrives_out_of_order_is_sorted_with_ties_broken_by_title() {
 
 #[test]
 fn the_header_says_the_waste_and_the_whole_in_millions() {
-    assert_eq!(week().header().as_deref(), Some("131M of 412M went to fixable waste"));
+    assert_eq!(week().header().as_deref(), Some("131 of 412 units went to fixable waste"));
 }
 
 #[test]
@@ -45,10 +45,53 @@ fn a_window_with_no_burn_has_no_header_and_no_rows() {
 }
 
 #[test]
-fn units_read_as_millions_thousands_and_plain_figures() {
-    for (units, said) in [(131_000_000, "131M"), (4_000_000, "4M"), (4_200_000, "4.2M"), (870_000, "870k"), (999_800, "1M"), (12_000, "12k"), (640, "640"), (0, "0")] {
+fn units_read_as_units_with_a_thousands_separator_from_a_hundred() {
+    for (units, said) in [(9038.2, "9,038"), (1361.6, "1,362"), (1115.8, "1,116"), (123.2, "123"), (99.6, "100"), (31.4, "31"), (9.96, "10"), (1.94, "1.9"), (4., "4.0"), (0.04, "0.0"), (0., "0"), (1_234_567.4, "1,234,567")] {
         assert_eq!(units_said(units), said, "{units}");
     }
+}
+
+#[test]
+fn a_context_size_keeps_its_token_form() {
+    for (tokens, said) in [(870_000, "870k"), (1_200_000, "1.2M"), (999_800, "1M"), (640, "640")] {
+        assert_eq!(tokens_said(tokens), said, "{tokens}");
+    }
+}
+
+#[test]
+fn the_header_reads_in_units_on_what_fleet_really_served() {
+    let mut waste = mock::waste(Span::Week);
+    waste.total_units = 9038.2;
+    waste.waste_units = 1361.6;
+    waste.kinds[0].units = 1115.8;
+    assert_eq!(Board::new(waste, Span::Week).header().as_deref(), Some("1,362 of 9,038 units went to fixable waste"));
+}
+
+#[test]
+fn a_cause_is_drawn_from_the_slot_folder_or_the_repository_root_and_long_ones_lose_their_middle() {
+    let root = "/Users/nickmele/Development/armada";
+    let roots = [root.to_string()];
+    let slotted = |n: u8, rest: &str| format!("{root}/.armada/slots/slot-{n}/{rest}");
+    assert_eq!(cause_said(&slotted(7, "crates/ipc/src/lib.rs"), &roots), "crates/ipc/src/lib.rs");
+    assert_eq!(cause_said(&format!("{root}/docs/practices/native-bridge.md"), &roots), "docs/practices/native-bridge.md");
+    assert_eq!(cause_said("/elsewhere/.armada/slots/slot-12/CLAUDE.md", &[]), "CLAUDE.md", "a slot folder is enough without a root");
+    assert_eq!(cause_said("mcp__armada-fleet__waiting_for", &roots), "mcp__armada-fleet__waiting_for", "a tool is as it is");
+    let long = cause_said(&slotted(3, "crates/bridge-native/src/job_view/story/model.rs"), &roots);
+    assert_eq!(long.chars().count(), 40);
+    assert!(long.contains('…') && long.ends_with("story/model.rs"), "{long}");
+}
+
+#[test]
+fn only_the_file_and_tool_kinds_carry_a_cause_column_and_it_names_the_largest_cause() {
+    let board = week();
+    let roots = mock::roots();
+    let repeat = board.lines_of("repeat_reads", &mock::titles(), &roots);
+    assert!(repeat[0].cause.ends_with("story/model.rs") && repeat[0].cause.contains('…'), "the largest Job's largest file: {}", repeat[0].cause);
+    assert!(repeat[0].cause_tip.starts_with("/Users/") && repeat[0].cause_tip.ends_with("story/model.rs"), "the tooltip holds the whole name");
+    let big = board.lines_of("big_results", &mock::titles(), &roots);
+    assert!(big.iter().any(|line| line.cause == "mcp__armada-fleet__get_job_lifecycles"));
+    assert!(board.lines_of("subagent_context", &mock::titles(), &roots).iter().all(|line| line.cause.is_empty() && line.cause_tip.is_empty()));
+    assert!(shows_causes("repeat_reads") && shows_causes("big_results") && !shows_causes("cold_cache"));
 }
 
 #[test]
@@ -63,12 +106,12 @@ fn a_figure_names_what_it_counted_in_its_tooltip_and_never_beside_it() {
 #[test]
 fn a_job_with_no_title_shows_its_short_id_and_a_missing_peak_is_empty() {
     let board = week();
-    let lines = board.lines_of("fresh_starts", &mock::titles());
+    let lines = board.lines_of("fresh_starts", &mock::titles(), &[]);
     let untitled = lines.iter().find(|line| line.id == "5d1e9c42b7a8").expect("the Job with no title");
     assert_eq!(untitled.title, "5d1e9c42");
     assert_eq!(untitled.peak, "", "Fleet recorded none");
-    let titled = board.lines_of("subagent_context", &mock::titles());
-    assert_eq!((titled[0].units.as_str(), titled[0].peak.as_str()), ("21M", "870k"));
+    let titled = board.lines_of("subagent_context", &mock::titles(), &[]);
+    assert_eq!((titled[0].units.as_str(), titled[0].peak.as_str()), ("21", "870k"));
 }
 
 #[test]
@@ -145,7 +188,7 @@ fn a_window_press_moves_the_switch_at_once_and_keeps_the_old_rows_until_the_answ
         Shown::Read { board, pending } => {
             assert!(pending, "marked pending");
             assert_eq!(board.span(), Span::Week, "the rows are still the week's");
-            assert_eq!(board.header().as_deref(), Some("131M of 412M went to fixable waste"));
+            assert_eq!(board.header().as_deref(), Some("131 of 412 units went to fixable waste"));
         }
         other => panic!("the old rows stay, not {other:?}"),
     }
@@ -154,7 +197,7 @@ fn a_window_press_moves_the_switch_at_once_and_keeps_the_old_rows_until_the_answ
         Shown::Read { board, pending } => {
             assert!(!pending, "the answer ends the wait");
             assert_eq!(board.span(), Span::Day);
-            assert_eq!(board.header().as_deref(), Some("26M of 82M went to fixable waste"));
+            assert_eq!(board.header().as_deref(), Some("26 of 82 units went to fixable waste"));
         }
         other => panic!("the day's rows, not {other:?}"),
     }
@@ -260,7 +303,7 @@ mod screen {
         let (screen, cx) = page(cx, "usage-week");
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Usage);
-        assert!(drawn(cx, Role::Heading, "131M of 412M went to fixable waste"));
+        assert!(drawn(cx, Role::Heading, "131 of 412 units went to fixable waste"));
         assert!(drawn(cx, Role::Row, "Subagents ran past 300k context"));
         assert!(drawn(cx, Role::Row, "Fresh starts and compactions"));
         assert_eq!(opened(&screen, cx), None, "nothing is open until a row is");
@@ -291,11 +334,11 @@ mod screen {
         redraw(cx);
         cx.simulate_keystrokes("down enter d");
         redraw(cx);
-        assert!(drawn(cx, Role::Heading, "26M of 82M went to fixable waste"), "the day's figures");
+        assert!(drawn(cx, Role::Heading, "26 of 82 units went to fixable waste"), "the day's figures");
         assert!(drawn(cx, Role::Table, "Jobs hit by Main thread ran past 300k context"), "the panel stays on its kind");
         cx.simulate_keystrokes("f");
         redraw(cx);
-        assert!(drawn(cx, Role::Heading, "249M of 783M went to fixable waste"), "the fortnight's figures");
+        assert!(drawn(cx, Role::Heading, "249 of 783 units went to fixable waste"), "the fortnight's figures");
         assert_eq!(opened(&screen, cx).as_deref(), Some("main_context"));
     }
 

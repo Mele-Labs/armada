@@ -14,12 +14,12 @@ const fn fresh(say: &'static str, scenario: &'static str) -> Step {
 
 const SUBAGENTS: &str = "Subagents ran past 300k context";
 
-pub static STEPS: [Step; 31] = [
+pub static STEPS: [Step; 32] = [
     step("⌘K finds the page by name", Verb::Key("cmd-k"), "dialog", "Command palette"),
     step("Typed words find Usage", Verb::Type("Usage"), "searchbox", "Search actions, jobs and settings"),
     step("Usage is a Page, found by its name", Verb::Look, "option", "Usage"),
     step("Enter opens the page on the week", Verb::Key("enter"), "region", "Usage"),
-    step("The header says how much of the burn went to waste", Verb::Look, "heading", "131M of 412M went to fixable waste"),
+    step("The header says how much of the burn went to waste", Verb::Look, "heading", "131 of 412 units went to fixable waste"),
     step("A row for each kind of waste, largest first: its glyph, its title and its units", Verb::Look, "row", SUBAGENTS),
     step("A press on a kind opens its panel under the list", Verb::PressOn("row", SUBAGENTS), "table", "Jobs hit by Subagents ran past 300k context"),
     step("The panel's head is the kind's fix", Verb::Look, "group", "Fix"),
@@ -30,6 +30,7 @@ pub static STEPS: [Step; 31] = [
     step("f reads the fortnight", Verb::Key("f"), "radio", "Fortnight"),
     step("Enter opens the kind the keys are on", Verb::Key("enter"), "table", "Jobs hit by Main thread ran past 300k context"),
     step("A Job with no title shows its short id", Verb::Look, "row", "5d1e9c42"),
+    step("A kind that names its cause adds a column: the file read again", Verb::Keys(&["down", "down", "enter"]), "table", "Jobs hit by Same file read again"),
     fresh("The page while the reading is not answered", "usage-loading"),
     step("⌘K finds the page", Verb::Key("cmd-k"), "dialog", "Command palette"),
     step("Typed words find Usage", Verb::Type("Usage"), "searchbox", "Search actions, jobs and settings"),

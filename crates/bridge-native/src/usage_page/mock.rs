@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use ipc::{UsageWaste, WasteJob, WasteKind, WasteWindow};
+use ipc::{UsageWaste, WasteCause, WasteJob, WasteKind, WasteWindow};
 
 use super::model::Span;
 
@@ -20,7 +20,6 @@ pub fn is_usage(scenario: &str) -> bool {
     matches!(scenario, WEEK | LOADING | EMPTY | FAILED)
 }
 
-const MILLION: f64 = 1_000_000.;
 const THOUSAND: u64 = 1_000;
 
 /// The Jobs the reading names, by id: the last has no title, so its short id stands.
@@ -43,19 +42,43 @@ fn id_of(n: usize) -> &'static str {
     JOBS[n - 1].0
 }
 
-/// One kind with its Jobs: `(job, units in millions, peak context in thousands)`.
-fn kind(kind: &str, title: &str, fix: &str, occurrences: u64, jobs: &[(usize, u64, Option<u64>)], scale: f64) -> WasteKind {
+/// The repositories' roots the mock paths sit under.
+pub fn roots() -> Vec<String> {
+    vec!["/Users/nickmele/Development/armada".into()]
+}
+
+const ROOT: &str = "/Users/nickmele/Development/armada";
+
+/// What a Job's share of a kind came of, for the two kinds that name it: files read again, and the tools whose results were large.
+fn causes(kind: &str, job: usize, units: f64) -> Vec<WasteCause> {
+    let named: &[(&str, f64)] = match (kind, job) {
+        ("repeat_reads", 3) => &[("/.armada/slots/slot-3/crates/bridge-native/src/job_view/story/model.rs", 0.7), ("/crates/ipc/src/lib.rs", 0.3)],
+        ("repeat_reads", 1) => &[("/docs/practices/native-bridge.md", 0.6), ("/.armada/slots/slot-1/CLAUDE.md", 0.4)],
+        ("repeat_reads", 5) => &[("/.armada/slots/slot-2/crates/ipc/src/lib.rs", 1.0)],
+        ("big_results", 4) => &[("mcp__armada-fleet__get_job_lifecycles", 0.8), ("Bash", 0.2)],
+        ("big_results", 1) => &[("Bash", 0.6), ("Read", 0.4)],
+        ("big_results", 2) => &[("Read", 1.0)],
+        _ => &[],
+    };
+    named
+        .iter()
+        .map(|(name, share)| WasteCause { name: if name.starts_with('/') { format!("{ROOT}{name}") } else { (*name).to_string() }, units: units * share })
+        .collect()
+}
+
+/// One kind with its Jobs: `(job, units, peak context in thousands)`.
+fn kind(name: &str, title: &str, fix: &str, occurrences: u64, jobs: &[(usize, u64, Option<u64>)], scale: f64) -> WasteKind {
     let jobs: Vec<WasteJob> = jobs
         .iter()
         .map(|(job, units, peak)| WasteJob {
             session_id: id_of(*job).to_string(),
-            units: (*units as f64).round() * MILLION * scale,
+            units: *units as f64 * scale,
             occurrences: ((occurrences as f64 / jobs.len() as f64) * scale).ceil() as u32,
             peak_context: peak.map(|peak| peak * THOUSAND),
-            causes: Vec::new(),
+            causes: causes(name, *job, *units as f64 * scale),
         })
         .collect();
-    WasteKind { kind: kind.into(), title: title.into(), fix: fix.into(), units: jobs.iter().map(|job| job.units).sum(), occurrences: (occurrences as f64 * scale).round() as u32, jobs }
+    WasteKind { kind: name.into(), title: title.into(), fix: fix.into(), units: jobs.iter().map(|job| job.units).sum(), occurrences: (occurrences as f64 * scale).round() as u32, jobs }
 }
 
 /// The reading for a span. The week is the example the page was approved on; a day and a fortnight are its figures scaled.
@@ -128,7 +151,7 @@ pub fn waste(span: Span) -> UsageWaste {
             .into(),
             until: "2026-11-18T09:00:00Z".into(),
         },
-        total_units: (412. * MILLION * scale).trunc(),
+        total_units: 412. * scale,
         waste_units,
         kinds,
     }

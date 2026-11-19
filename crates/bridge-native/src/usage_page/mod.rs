@@ -38,6 +38,15 @@ enum Source {
     Mock(&'static str),
 }
 
+impl Source {
+    fn fleet(&self) -> Option<Entity<FleetConnection>> {
+        match self {
+            Source::Live(fleet) => Some(fleet.clone()),
+            Source::Mock(_) => None,
+        }
+    }
+}
+
 pub struct UsageScreen {
     pub within: FocusHandle,
     /// The list takes the keys.
@@ -47,6 +56,8 @@ pub struct UsageScreen {
     selection: Selection,
     /// The Jobs' titles: the page's own, and those the Jobs list holds.
     titles: HashMap<String, String>,
+    /// The repositories' roots, which a path in the Cause column is drawn from.
+    roots: Vec<String>,
     /// The table of the open kind's Jobs, and the list that draws it.
     lines: Vec<JobLine>,
     jobs: ListState,
@@ -75,6 +86,7 @@ impl UsageScreen {
         let scenario = [mock::LOADING, mock::EMPTY, mock::FAILED].into_iter().find(|name| crate::mock::scenario_is(name)).unwrap_or(mock::WEEK);
         let mut this = Self::new(Source::Mock(scenario), cx);
         this.titles = mock::titles();
+        this.roots = mock::roots();
         this.read(cx);
         this
     }
@@ -88,6 +100,7 @@ impl UsageScreen {
             held: Held::new(Span::Week),
             selection: Selection::default(),
             titles: HashMap::new(),
+            roots: Vec::new(),
             lines: Vec::new(),
             jobs: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             entered: false,
@@ -102,10 +115,22 @@ impl UsageScreen {
 
     /// The connection came back on another port: read again if the page is in front.
     fn moved(&mut self, cx: &mut Context<Self>) {
-        let Source::Live(fleet) = &self.source else { return };
+        let Some(fleet) = self.source.fleet() else { return };
+        if self.take_roots(cx) {
+            self.settle(cx);
+        }
         if self.entered && fleet.read(cx).held().port() != self.read_port {
             self.read(cx);
         }
+    }
+
+    /// The roots of the repositories Fleet serves. True where they changed.
+    fn take_roots(&mut self, cx: &App) -> bool {
+        let Some(fleet) = self.source.fleet() else { return false };
+        let roots: Vec<String> = fleet.read(cx).held().repositories.as_deref().unwrap_or_default().iter().map(|repository| repository.root.clone()).collect();
+        let changed = roots != self.roots;
+        self.roots = roots;
+        changed
     }
 
     /// Ask for the span now held. What is drawn stays until the answer comes.
@@ -122,6 +147,8 @@ impl UsageScreen {
                 self.settle(cx);
             }
             Source::Live(fleet) => {
+                let fleet = fleet.clone();
+                self.take_roots(cx);
                 let Some(port) = fleet.read(cx).held().port() else {
                     self.read_port = None;
                     self.work = None;
@@ -149,7 +176,7 @@ impl UsageScreen {
         let kinds: Vec<&str> = kinds.iter().map(String::as_str).collect();
         self.selection.keep(&kinds);
         self.lines = match (self.board(), self.selection.opened.as_deref()) {
-            (Some(board), Some(kind)) => board.lines_of(kind, &self.titles),
+            (Some(board), Some(kind)) => board.lines_of(kind, &self.titles, &self.roots),
             _ => Vec::new(),
         };
         self.jobs.reset(self.lines.len());
