@@ -1,8 +1,10 @@
 //! The two pages of the Features screen that belong to a project, not to one feature: its overview and what changed since
 //! he last looked. Read from the library and the repository with no model. `docs/concepts/feature-catalog.md`,
-//! *Project overview* and *Since you looked*.
+//! *Project overview* and *Since you looked*. The third, *Who's on what*, reads the open pull requests beside the Jobs.
 
 use serde::{Deserialize, Serialize};
+
+use crate::SessionId;
 
 /// The first sentence of a repository's README, and the file it came from.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -86,4 +88,52 @@ pub struct SinceYouLooked {
     pub paragraph: String,
     /// Needs you first, then Changed by newest merge, then New.
     pub features: Vec<LookedFeature>,
+}
+
+/// A person on the page: a teammate with a pull request open on a feature, or the owner.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhoPerson {
+    /// As the forge writes it.
+    pub login: String,
+    /// The owner, whose own Jobs fill his cells.
+    pub me: bool,
+}
+
+/// An open pull request in a cell.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhoPull {
+    pub number: u64,
+    /// `owner/name`, since two repositories of a project can each have a pull request of one number.
+    pub repository: String,
+    pub title: String,
+    pub draft: bool,
+}
+
+/// What one person has on one feature: the pull requests open on it and, for the owner, the Jobs running on it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhoCell {
+    pub login: String,
+    /// Newest number first.
+    pub pulls: Vec<WhoPull>,
+    /// The ids of the owner's Jobs on the feature now. Always empty in a teammate's cell.
+    pub jobs: Vec<SessionId>,
+}
+
+/// A feature somebody is on, with a cell for each person on it. Two or more cells is an overlap.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhoFeature {
+    pub slug: String,
+    pub title: String,
+    /// The owner's cell first, then the others by login.
+    pub cells: Vec<WhoCell>,
+}
+
+/// `get_whos_on_what`: who has an open pull request or a running Job on which feature.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct WhosOnWhat {
+    pub project: String,
+    /// The owner first, where his login is known, then the people with a cell by login.
+    pub people: Vec<WhoPerson>,
+    /// Most people first, then by title. Only a feature with a pull request or a Job.
+    pub features: Vec<WhoFeature>,
 }

@@ -79,4 +79,9 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/usage/first_edit_searches",
     },
+    Route {
+        operation: "get_whos_on_what",
+        method: "GET",
+        path: "/features/who",
+    },
 ];

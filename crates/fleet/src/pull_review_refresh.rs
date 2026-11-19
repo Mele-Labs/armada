@@ -59,10 +59,10 @@ where
             let hold = self.review_lists_kept().held(now);
             let Some(mut lists) = self.kept_lists(key).await else {
                 if hold.is_some() {
-                    return self.review_lists_read(key).await;
+                    return self.review_lists_read_filed(key).await;
                 }
                 match self.review_lists_kept().begin(key) {
-                    Reading::Began(_reading) => return self.review_lists_read(key).await,
+                    Reading::Began(_reading) => return self.review_lists_read_filed(key).await,
                     Reading::Going(mut ended) => {
                         // Nothing to show yet, so wait on the read going rather than ask the forge twice.
                         let _ = ended.changed().await;
@@ -93,6 +93,15 @@ where
         }
     }
 
+    /// [`review_lists_read`](Self::review_lists_read), and behind it, on a task of its own, the files of each open pull
+    /// request whose head is new, for *Who's on what*. The answer does not wait on them.
+    async fn review_lists_read_filed(self: &Arc<Self>, project: Option<&str>) -> Result<PullReviewLists, Refusal> {
+        let lists = self.review_lists_read(project).await?;
+        let (fleet, kept, project) = (Arc::clone(self), lists.clone(), project.map(str::to_string));
+        tokio::spawn(async move { fleet.open_pulls_filed(project.as_deref(), &kept).await });
+        Ok(lists)
+    }
+
     /// The local overlays of a read, applied again to lists kept, so what he has seen and his inbox are current.
     async fn overlay_lists(&self, lists: &mut PullReviewLists) -> String {
         // A review he ran since the read marks its row, on whichever list holds it.
@@ -110,7 +119,7 @@ where
         let fleet = Arc::clone(self);
         let began = std::time::Instant::now();
         tokio::spawn(async move {
-            let read = fleet.review_lists_read(project.as_deref()).await;
+            let read = fleet.review_lists_read_filed(project.as_deref()).await;
             // Ended before it is told, so a Bridge that asks on the event finds no read going.
             drop(reading);
             let told = match read {

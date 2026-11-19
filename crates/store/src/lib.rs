@@ -239,6 +239,8 @@ mod test_map;
 mod timings;
 /// What Fleet saw happen, for the Cockpit's timeline.
 mod timeline;
+/// The open pull requests' authors and files, for Who's on what. `docs/concepts/feature-catalog.md`.
+mod open_pull_files;
 
 #[cfg(test)]
 mod tests;
@@ -360,6 +362,7 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.
 mod feature_reads;

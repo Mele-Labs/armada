@@ -27,6 +27,7 @@ mod serving;
 pub(crate) mod staleness;
 mod writing;
 pub(crate) mod since_paragraph;
+mod whos_on_what;
 
 pub(crate) use holding::{sections_owed_text, OWED};
 pub(crate) use reading::{features_of_note, slug_held};
