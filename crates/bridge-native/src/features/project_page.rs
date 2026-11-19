@@ -15,6 +15,7 @@ use super::who_model::{self, Stop, WhoView};
 use super::{looked, mock, who_kept, wire};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
+use crate::log::Note;
 use crate::settings::wire::Refused;
 
 /// What the page tells whoever holds it.
@@ -73,10 +74,20 @@ pub struct ProjectPageView {
     pub(super) at: Option<usize>,
     read_port: Option<u16>,
     work: Option<Task<()>>,
+    /// The page a read was sent for that has not answered: one sent again over it drops it, which the log says.
+    out: Option<ProjectPage>,
     _subs: Vec<Subscription>,
 }
 
 impl EventEmitter<ProjectPageEvent> for ProjectPageView {}
+
+impl Drop for ProjectPageView {
+    fn drop(&mut self) {
+        if let Some(page) = self.out {
+            Note::info("a project page was put away before its read answered").field("page", page.slug()).emit();
+        }
+    }
+}
 
 impl Focusable for ProjectPageView {
     fn focus_handle(&self, _: &App) -> FocusHandle {
@@ -126,6 +137,7 @@ impl ProjectPageView {
             at: None,
             read_port: None,
             work: None,
+            out: None,
             _subs: Vec::new(),
         }
     }
@@ -201,6 +213,10 @@ impl ProjectPageView {
             cx.notify();
             return;
         };
+        if let Some(was) = self.out.replace(self.which) {
+            Note::info("a project page was read again before its last read answered").field("page", was.slug()).emit();
+        }
+        Note::info("a project page was read").field("page", self.which.slug()).field("port", port.to_string()).emit();
         match self.which {
             ProjectPage::Overview => {
                 let ask = wire::overview(port, &self.project, cx);
@@ -236,7 +252,18 @@ impl ProjectPageView {
         }
     }
 
+    /// The log says how a read ended, so a page that stays on its bones leaves a trail.
+    fn answered<T>(&mut self, page: ProjectPage, answer: &Result<T, Refused>) {
+        self.out = None;
+        let said = match answer {
+            Ok(_) => "read".to_string(),
+            Err(why) => why.said.clone(),
+        };
+        Note::info("a project page read answered").field("page", page.slug()).field("answer", said).emit();
+    }
+
     fn took_overview(&mut self, answer: Result<ProjectOverview, Refused>, cx: &mut Context<Self>) {
+        self.answered(ProjectPage::Overview, &answer);
         match answer {
             Ok(read) => self.overview = Load::Read(read),
             // A read that failed keeps what was read before, where there was one.
@@ -248,6 +275,7 @@ impl ProjectPageView {
 
     /// An answer for a time he has since moved on from is not the page's.
     fn took_since(&mut self, asked: DateTime<Utc>, answer: Result<SinceYouLooked, Refused>, cx: &mut Context<Self>) {
+        self.answered(ProjectPage::Since, &answer);
         if asked != self.since_at {
             return;
         }
@@ -260,6 +288,7 @@ impl ProjectPageView {
     }
 
     fn took_who(&mut self, answer: Result<WhosOnWhat, Refused>, cx: &mut Context<Self>) {
+        self.answered(ProjectPage::Who, &answer);
         match answer {
             Ok(read) => self.who = Load::Read(read),
             Err(why) => self.failed(&why.said),
