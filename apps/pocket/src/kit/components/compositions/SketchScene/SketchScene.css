@@ -8,7 +8,7 @@
   min-width: 0;
   margin: 0;
   border: var(--border-width) solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  border-radius: calc(var(--radius-lg) * 1.75);
   background: var(--bg-sunken);
   overflow: hidden;
 }
@@ -33,25 +33,22 @@
 }
 
 .armada-scene-node {
-  --hue: var(--status-running);
+  --hue: var(--fg-muted);
+  position: relative;
   box-sizing: border-box;
   /* As wide as its words, from the box's floor to the width where they wrap. A `w` the agent gives raises the floor. */
   width: max-content;
   min-width: var(--w-sketch-box);
   max-width: var(--w-sketch-box-max);
-  border: var(--edge-active) solid var(--hue);
-  border-radius: var(--radius-md);
-  background: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
+  /* Native Bridge's card: plain raised ground in one hairline, whatever the box is. */
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: calc(var(--radius-lg) * 1.25);
+  background: var(--bg-raised);
   color: var(--fg-default);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   line-height: var(--leading-xs);
-  overflow: hidden;
   transition: opacity var(--duration-base) var(--ease);
-}
-
-.armada-scene-node[data-kind="code"] {
-  --hue: var(--status-not-started);
 }
 
 /* Code is read in the mono face, its columns kept. */
@@ -110,6 +107,10 @@
   --hue: var(--status-awaiting-review);
 }
 
+.armada-scene-node[data-change] {
+  border: calc(var(--border-width) * 1.5) solid var(--hue);
+}
+
 .armada-scene-node[data-change="removed"] .armada-scene-node__body,
 .armada-scene-node[data-change="removed"] .armada-scene-node__title {
   text-decoration: line-through;
@@ -128,16 +129,40 @@
 
 .armada-scene-node__head {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-  background: var(--hue);
-  color: var(--fg-inverse);
+  padding: var(--space-3) var(--space-4) 0;
+  font-size: var(--text-sm);
   font-weight: var(--weight-heading);
+  line-height: var(--leading-sm);
+}
+
+/* What a box is, in the small outline at its left: the box's own hue where it has one, else muted. */
+.armada-scene-node__mark {
+  flex: none;
+  margin-block: calc((var(--leading-sm) - 14px) / 2);
+  fill: none;
+  stroke: var(--fg-muted);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.armada-scene-node[data-color] .armada-scene-node__mark,
+.armada-scene-node[data-change] .armada-scene-node__mark {
+  stroke: var(--hue);
+}
+
+.armada-scene-node__mark[data-mark="decision"] {
+  stroke: var(--sketch-amber);
 }
 
 .armada-scene-node__icon {
   display: inline-flex;
+  flex: none;
+  align-items: center;
+  height: var(--leading-sm);
+  color: var(--fg-muted);
 }
 
 .armada-scene-node__title {
@@ -146,129 +171,97 @@
 }
 
 .armada-scene-node__lang {
-  opacity: 0.8;
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  font-weight: 700;
 }
 
 .armada-scene-node__body {
   margin: 0;
-  padding: var(--space-2) var(--space-3);
+  padding: var(--space-1) var(--space-4) var(--space-3);
+  color: var(--fg-muted);
   font: inherit;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
 
-/* A box in an outline of its own: its title and words centred, no band. A pill and a circle round the frame's own
-   corners; a diamond, a hexagon and a cylinder draw theirs underneath and leave the frame bare. */
-.armada-scene-node[data-shape] {
-  position: relative;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
+.armada-scene-node__head:empty + .armada-scene-node__body,
+.armada-scene-node__head + .armada-scene-node__body {
+  padding-top: var(--space-1);
 }
 
-.armada-scene-node__shaped {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-3) var(--space-4);
+.armada-scene-node:not(:has(.armada-scene-node__head)) > .armada-scene-node__body {
+  padding-top: var(--space-3);
 }
 
-.armada-scene-node__shaped .armada-scene-node__body {
-  padding: 0;
+.armada-scene-node:has(.armada-scene-node__head):not(:has(.armada-scene-node__body))
+  > .armada-scene-node__head {
+  padding-bottom: var(--space-3);
 }
 
-.armada-scene-node__name {
+/* A box's words are two lines at most; a block of code keeps every line of it, in mono. */
+.armada-scene-node[data-kind="box"] .armada-scene-node__body {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+.armada-scene-node[data-kind="code"] .armada-scene-node__body {
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+/* The step's badge: a light circle standing on the card's top right corner. */
+.armada-scene-node__step {
+  position: absolute;
+  top: calc(var(--space-2) * -0.75);
+  right: calc(var(--space-2) * -0.75);
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-weight: var(--weight-heading);
-}
-
-.armada-scene-node[data-shape="pill"] {
-  border-radius: 9999px;
-}
-
-.armada-scene-node[data-shape="pill"] .armada-scene-node__shaped {
-  padding-inline: var(--space-6);
-}
-
-/* A circle and a diamond hold a word or two: they are set at one size, which their words fit inside. */
-.armada-scene-node[data-shape="circle"] {
-  width: calc(var(--w-sketch-box) * 0.75);
-  min-width: 0;
-  aspect-ratio: 1;
+  justify-content: center;
+  box-sizing: border-box;
+  inline-size: 20px;
+  block-size: 20px;
   border-radius: 50%;
+  background: var(--fg-default);
+  color: var(--fg-inverse);
+  font-size: var(--text-2xs);
+  font-weight: 800;
+  line-height: 1;
 }
 
-.armada-scene-node[data-shape="diamond"] {
-  width: calc(var(--w-sketch-box) * 1.25);
-  min-width: 0;
-  max-width: none;
-  aspect-ratio: 5 / 3;
-}
-
-.armada-scene-node[data-shape="diamond"] .armada-scene-node__shaped {
-  padding-inline: 25%;
-}
-
-.armada-scene-node[data-shape="hexagon"] .armada-scene-node__shaped {
-  padding-inline: var(--space-8);
-}
-
-.armada-scene-node[data-shape="cylinder"] .armada-scene-node__shaped {
-  padding-block: var(--space-6) var(--space-3);
-}
-
-.armada-scene-node[data-shape="diamond"],
-.armada-scene-node[data-shape="hexagon"],
-.armada-scene-node[data-shape="cylinder"] {
-  border-color: transparent;
-  background: none;
-  overflow: visible;
-}
-
-.armada-scene-node__outline {
-  position: absolute;
-  inset: 0;
-  inline-size: 100%;
-  block-size: 100%;
-  overflow: visible;
-  fill: color-mix(in srgb, var(--hue) var(--row-tint-recent), var(--bg-raised));
-  stroke: var(--hue);
-  stroke-width: var(--edge-active);
-  vector-effect: non-scaling-stroke;
-}
-
-.armada-scene-node__outline > * {
-  vector-effect: non-scaling-stroke;
-}
-
-/* The cylinder's near rim, over its top: an edge, not a second fill. */
-.armada-scene-node__outline > path + path {
-  fill: none;
-}
-
-/* A group frames what is inside it, and a lane runs the width of a flow: neither fills. */
+/* A group frames what is inside it, and a lane runs the width of a flow: neither fills, each is named at its top left in small capitals. */
 .armada-scene-node[data-kind="group"],
 .armada-scene-node[data-kind="lane"] {
   width: auto;
   min-width: 0;
   max-width: none;
   background: transparent;
-  border-style: dashed;
 }
 
 .armada-scene-node[data-kind="group"] .armada-scene-node__head,
 .armada-scene-node[data-kind="lane"] .armada-scene-node__head {
-  inline-size: fit-content;
-  border-end-end-radius: var(--radius-md);
+  padding: var(--space-3);
+  color: var(--fg-muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.armada-scene-node[data-kind="group"] .armada-scene-node__mark,
+.armada-scene-node[data-kind="lane"] .armada-scene-node__mark {
+  display: none;
 }
 
 .armada-scene-node[data-kind="lane"] {
   border-inline: none;
+  border-block-start: none;
   border-radius: 0;
 }
 
@@ -450,7 +443,9 @@
 .armada-scene-edge__line {
   fill: none;
   stroke: var(--hue);
-  stroke-width: var(--edge-active);
+  stroke-width: 3px;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .armada-scene-edge__head {
@@ -624,4 +619,8 @@
   right: calc(-1 * var(--space-2));
   display: flex;
   gap: var(--space-1);
+}
+
+.armada-scene-node[data-mine] {
+  border-color: var(--hue);
 }

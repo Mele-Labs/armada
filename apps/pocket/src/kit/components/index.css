@@ -28,6 +28,7 @@
 @import "./primitives/Prose/Prose.css";
 @import "./screens/screens.css";
 @import "./compositions/TaskMark/TaskMark.css";
+@import "./compositions/BandCard/BandCard.css";
 @import "./compositions/SessionThread/ThreadRows.css";
 @import "./glass.css";
 @import "./file-input.css";
