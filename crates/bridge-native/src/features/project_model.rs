@@ -7,7 +7,7 @@ use ipc::{LookedTag, MapRoom, ProjectOverview, SinceYouLooked};
 use crate::look::{token, Token};
 
 /// What the glossary card says while Fleet has no term to give it.
-pub const GLOSSARY_EMPTY: &str = "No terms yet. Terms appear as Jobs add them at their end.";
+pub const GLOSSARY_EMPTY: &str = "Terms appear as Jobs add them at their end";
 
 /// What the busiest card says while no feature has merged lately.
 pub const BUSIEST_EMPTY: &str = "No feature has merged lately.";
@@ -21,6 +21,27 @@ pub enum ProjectPage {
 
 impl ProjectPage {
     pub const ALL: [ProjectPage; 2] = [ProjectPage::Overview, ProjectPage::Since];
+
+    /// Where the row sits among the places the keys step through: before the first feature, which is place 0.
+    pub fn place(self) -> isize {
+        match self {
+            ProjectPage::Overview => -2,
+            ProjectPage::Since => -1,
+        }
+    }
+
+    /// The page at `place`, where it is one of the two rows over the features.
+    pub fn at(place: isize) -> Option<ProjectPage> {
+        ProjectPage::ALL.into_iter().find(|page| page.place() == place)
+    }
+
+    /// What the row's element id is made of.
+    pub fn slug(self) -> &'static str {
+        match self {
+            ProjectPage::Overview => "overview",
+            ProjectPage::Since => "since-you-looked",
+        }
+    }
 
     /// The row's words and the page's title.
     pub fn title(self) -> &'static str {

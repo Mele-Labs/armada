@@ -491,3 +491,73 @@ pub fn shoot_librarian(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The project's Overview and Since you looked pages beside the list at 1400 wide: the Overview as the first read leaves it, with
+/// terms in the glossary, and with no README sentence; Since you looked with its paragraph, and with nothing since.
+pub fn shoot_project(dir: &Path) -> Result<(), String> {
+    use super::page::Load;
+    use super::project_model::ProjectPage;
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    let terms = || {
+        vec![
+            ipc::GlossaryTerm { term: "Job".into(), meaning: "One agent working one task in a slot, from a brief to a merged pull request.".into() },
+            ipc::GlossaryTerm { term: "Slot".into(), meaning: "A warm worktree leased to a Job and given back when it lands.".into() },
+            ipc::GlossaryTerm { term: "Story".into(), meaning: "The thread of a Job's asks and answers, read in order.".into() },
+        ]
+    };
+    let steps: [(&str, ProjectPage, u8); 5] = [
+        ("project-overview-1400", ProjectPage::Overview, 0),
+        ("project-overview-glossary-1400", ProjectPage::Overview, 1),
+        ("project-overview-no-readme-1400", ProjectPage::Overview, 2),
+        ("project-since-1400", ProjectPage::Since, 0),
+        ("project-since-nothing-1400", ProjectPage::Since, 3),
+    ];
+    for (name, which, step) in steps {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_project(which, window, cx);
+                if let Some(page) = screen.project_page.clone() {
+                    page.update(cx, |page, cx| {
+                        if let Load::Read(read) = &mut page.overview {
+                            match step {
+                                1 => read.glossary = terms(),
+                                2 => read.what_it_is = None,
+                                _ => {}
+                            }
+                        }
+                        if let (3, Load::Read(read)) = (step, &mut page.since) {
+                            read.paragraph.clear();
+                            read.features.clear();
+                        }
+                        cx.notify();
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

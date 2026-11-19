@@ -19,6 +19,10 @@ pub mod overlay;
 pub mod page;
 pub(crate) mod page_model;
 mod page_view;
+mod project_model;
+mod project_page;
+mod project_rows;
+mod project_view;
 mod projects;
 // Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
 #[allow(dead_code)]
@@ -37,6 +41,8 @@ use crate::settings::wire::Refused;
 use crate::titlebar;
 use model::{Line, Listed};
 use page::{FeaturePageEvent, FeaturePageView};
+use project_model::ProjectPage;
+use project_page::ProjectPageView;
 
 /// Where the list reads from.
 enum Source {
@@ -78,6 +84,10 @@ pub struct FeaturesScreen {
     /// Stacked: the page is the one drawn, full width, and the list is under it. Never set at a width where they sit side by side.
     showing: bool,
     page_sub: Option<Subscription>,
+    /// The project's own page beside the list in place of a feature's, and the project row the keys are on (`project_rows.rs`).
+    project_page: Option<Entity<ProjectPageView>>,
+    project_sub: Option<Subscription>,
+    on_project: Option<ProjectPage>,
     /// The project the library on screen belongs to.
     library_project: Option<String>,
     read_for: Option<Key>,
@@ -153,6 +163,9 @@ impl FeaturesScreen {
             stacked: window.viewport_size().width < gpui::px(model::STACKED_BELOW),
             showing: false,
             page_sub: None,
+            project_page: None,
+            project_sub: None,
+            on_project: None,
             library_project: None,
             read_for: None,
             entered: false,
@@ -257,6 +270,7 @@ impl FeaturesScreen {
             Ok(library) => {
                 if self.library_project.as_deref() != Some(library.project.as_str()) {
                     self.cursor = None;
+                    self.on_project = None;
                     self.close_page(cx);
                 }
                 self.library_project = Some(library.project.clone());
@@ -281,6 +295,11 @@ impl FeaturesScreen {
         if !self.cursor.as_deref().is_some_and(|slug| self.listed.find(slug).is_some()) {
             self.cursor = self.listed.shown.first().map(|one| one.row.slug.clone());
         }
+        // A feature the library no longer holds has no page to keep.
+        let gone = self.opened.as_deref().is_some_and(|slug| matches!(&self.library, Load::Read(library) if !library.areas.iter().any(|area| area.features.iter().any(|row| row.slug == slug))));
+        if gone {
+            self.close_page(cx);
+        }
         self.preview(cx);
         self.tune_page(cx);
         cx.notify();
@@ -292,8 +311,18 @@ impl FeaturesScreen {
         if self.stacked {
             return;
         }
-        let Some(slug) = self.cursor.clone().filter(|slug| self.opened.as_deref() != Some(slug.as_str())) else { return };
         let (me, handle) = (cx.entity(), self.window);
+        // On a project row its page is the one beside the list; where the library holds no feature, nothing is chosen and the Overview is.
+        let project = self.on_project.or_else(|| (self.cursor.is_none() && self.opened.is_none() && matches!(self.library, Load::Read(_))).then_some(ProjectPage::Overview));
+        if let Some(which) = project {
+            if self.project_open(cx) != Some(which) {
+                cx.defer(move |cx| {
+                    let _ = handle.update(cx, |_, window, cx| me.update(cx, |this, cx| this.open_project(which, window, cx)));
+                });
+            }
+            return;
+        }
+        let Some(slug) = self.cursor.clone().filter(|slug| self.opened.as_deref() != Some(slug.as_str())) else { return };
         cx.defer(move |cx| {
             let _ = handle.update(cx, |_, window, cx| {
                 me.update(cx, |this, cx| {
@@ -339,11 +368,22 @@ impl FeaturesScreen {
     /// J and K, Down and Up: the next or the previous feature, past the area heads.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
         let count = self.listed.shown.len() as isize;
-        if count == 0 {
+        // The two project rows come before the first feature: Overview is place -2, Since you looked -1.
+        let at = match (self.on_project, self.cursor_at()) {
+            (Some(which), _) => which.place(),
+            (None, Some(at)) => at as isize,
+            (None, None) => if by > 0 { -3 } else { count },
+        };
+        let next = (at + by).clamp(ProjectPage::Overview.place(), count - 1);
+        if let Some(which) = ProjectPage::at(next) {
+            self.on_project = Some(which);
+            self.list.scroll_to_reveal_item(0);
+            self.preview(cx);
+            cx.notify();
             return;
         }
-        let at = self.cursor_at().map_or(if by > 0 { -1 } else { count }, |at| at as isize);
-        let next = (at + by).clamp(0, count - 1) as usize;
+        self.on_project = None;
+        let next = next as usize;
         self.cursor = Some(self.listed.shown[next].row.slug.clone());
         if let Some(line) = self.listed.line_of(next) {
             // Going up to the first feature of an area shows its head too.
@@ -357,6 +397,7 @@ impl FeaturesScreen {
     /// Enter, or a press on a row: the feature's page opens beside the list, in place of the one that was open.
     fn open_at(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
         self.cursor = Some(slug.clone());
+        self.on_project = None;
         if self.opened.as_deref() != Some(slug.as_str()) {
             self.close_page(cx);
             let project = self.library_project.clone();
@@ -383,6 +424,7 @@ impl FeaturesScreen {
 
     /// What the open page takes from the list beside it: its area's hue, and the width the list leaves it.
     fn tune_page(&mut self, cx: &mut Context<Self>) {
+        self.tune_project_page(cx);
         let Some(page) = self.page.clone() else { return };
         let hue = self.opened.as_deref().and_then(|slug| self.listed.find(slug)).map(|at| self.hue_of(&self.listed.shown[at].row.area));
         let inset = self.inset(cx);
@@ -406,6 +448,11 @@ impl FeaturesScreen {
     }
 
     fn open_cursor(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(which) = self.on_project {
+            self.open_project(which, window, cx);
+            self.show_page(window, cx);
+            return;
+        }
         if let Some(slug) = self.cursor.clone() {
             self.open_at(slug, window, cx);
             self.engage_page(cx);
@@ -418,7 +465,11 @@ impl FeaturesScreen {
         if !self.stacked {
             return;
         }
-        if let Some(page) = self.page.clone() {
+        if let Some(page) = self.project_page.clone() {
+            self.showing = true;
+            page.update(cx, |page, cx| page.focus_body(window, cx));
+            cx.notify();
+        } else if let Some(page) = self.page.clone() {
             self.showing = true;
             page.update(cx, |page, cx| page.focus_rail(window, cx));
             cx.notify();
@@ -441,7 +492,7 @@ impl FeaturesScreen {
         }
         self.stacked = stacked;
         if stacked {
-            if self.page.is_some() {
+            if self.page.is_some() || self.project_page.is_some() {
                 self.back(window, cx);
             }
         } else {
@@ -465,6 +516,8 @@ impl FeaturesScreen {
             page.update(cx, |page, cx| page.leave(cx));
         }
         self.page_sub = None;
+        self.project_page = None;
+        self.project_sub = None;
         self.opened = None;
         self.showing = false;
     }
@@ -491,11 +544,15 @@ impl FeaturesScreen {
     /// Brought to the front: the keys go to the list, and Fleet is read again.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.entered = true;
-        match self.page.clone().filter(|_| self.showing) {
-            Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
-            None => self.focus_list(window, cx),
+        match (self.project_page.clone().filter(|_| self.showing), self.page.clone().filter(|_| self.showing)) {
+            (Some(page), _) => page.update(cx, |page, cx| page.focus_body(window, cx)),
+            (None, Some(page)) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
+            (None, None) => self.focus_list(window, cx),
         }
         if let Some(page) = &self.page {
+            page.update(cx, |page, cx| page.enter(cx));
+        }
+        if let Some(page) = &self.project_page {
             page.update(cx, |page, cx| page.enter(cx));
         }
         if self.bar.is_none() {
@@ -547,9 +604,10 @@ impl FeaturesScreen {
             "features_open" => self.open_cursor(window, cx),
             // Stacked, the list has no page beside it: Tab opens the row's page, as Enter does.
             "features_pane" if self.stacked && !self.showing => self.open_cursor(window, cx),
-            "features_pane" => match self.page.clone() {
-                Some(page) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
-                None => return false,
+            "features_pane" => match (self.project_page.clone(), self.page.clone()) {
+                (Some(page), _) => page.update(cx, |page, cx| page.focus_body(window, cx)),
+                (None, Some(page)) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
+                (None, None) => return false,
             },
             "features_project" => return act.digit.is_some_and(|digit| self.choose_number(digit, cx)),
             "features_catch_up" => self.catch_up(cx),
@@ -582,5 +640,7 @@ mod librarian_tests;
 mod of_path_tests;
 #[cfg(test)]
 mod page_tests;
+#[cfg(test)]
+mod project_tests;
 #[cfg(test)]
 mod tests;

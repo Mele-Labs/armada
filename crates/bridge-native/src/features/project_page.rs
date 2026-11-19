@@ -37,7 +37,7 @@ pub(super) enum Target {
 }
 
 /// What the screen knows that the page does not: the project's name, the hue of each area, and the room the list leaves it.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq)]
 pub struct Beside {
     pub name: String,
     pub areas: Vec<AreaHue>,
@@ -139,8 +139,10 @@ impl ProjectPageView {
 
     /// What the screen knows of the project: its name, the hue of each area, and the room the list leaves the page.
     pub fn set_beside(&mut self, beside: Beside, cx: &mut Context<Self>) {
-        self.beside = beside;
-        cx.notify();
+        if self.beside != beside {
+            self.beside = beside;
+            cx.notify();
+        }
     }
 
     // ---- reading -----------------------------------------------------------------------------

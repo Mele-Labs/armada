@@ -2,13 +2,12 @@
 //! (the README's sentence, the code map with a key to its hues, the busiest features and the glossary) and Since you looked
 //! (a paragraph, then a row for each feature that moved). Every value is a token.
 
-use gpui::{div, prelude::*, px, relative, AnyElement, FontWeight, HighlightStyle, IntoElement, Pixels, Render, Role, SharedString, StyledText, Window};
-use ipc::LookedTag;
+use gpui::{div, prelude::*, px, AnyElement, FontWeight, HighlightStyle, IntoElement, Pixels, Render, Role, SharedString, StyledText, Window};
 
 use super::dossier::{button, hue_square, pill, selected_shadow, tint};
 use super::page_view::{head, inner, shell};
 use super::project_model::{self, Glossary, Moved, OverviewModel, ProjectPage, Tile};
-use super::project_page::{ProjectPageView, Target};
+use super::project_page::ProjectPageView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::reviews::panel_inner_radius;
@@ -286,7 +285,7 @@ impl ProjectPageView {
             super::page::Load::Read(read) => project_model::overview(read, &self.beside.areas),
         };
         let width = (window.viewport_size().width - self.beside.inset - side(look) * 2.).max(px(0.));
-        let half = |card: AnyElement| div().flex_grow().flex_basis(relative(0.)).min_w_0().child(card);
+        let half = |card: AnyElement| div().flex_1().min_w_0().child(card);
         div()
             .w_full()
             .flex()
@@ -413,14 +412,4 @@ impl Render for ProjectPageView {
                     .child(content),
             )
     }
-}
-
-#[allow(dead_code)]
-fn _targets_are_used(page: &ProjectPageView) -> Vec<Target> {
-    page.targets()
-}
-
-#[allow(dead_code)]
-fn _tag(tag: LookedTag) -> &'static str {
-    project_model::tag_mark(tag).0
 }

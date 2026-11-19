@@ -40,6 +40,7 @@ impl FeaturesScreen {
                 self.library = Load::Read(mock::library_of(&project));
                 self.library_project = Some(project);
                 self.cursor = None;
+                self.on_project = None;
                 self.close_page(cx);
                 self.relist(cx);
             }
