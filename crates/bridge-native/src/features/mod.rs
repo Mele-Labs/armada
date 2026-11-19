@@ -5,6 +5,7 @@
 //! nothing there touches the screen. The screen is an entity with a `within` handle, a place of its own in the
 //! title bar's strip (`operator/screen.rs`).
 
+pub mod artifact_link;
 pub(crate) mod asks;
 mod chosen;
 mod curate;
@@ -416,6 +417,7 @@ impl FeaturesScreen {
                     FeaturePageEvent::Escape if this.stacked => this.back(window, cx),
                     FeaturePageEvent::Escape => this.focus_list(window, cx),
                     FeaturePageEvent::Story { session_id, ask_id } => this.open_story(session_id.clone(), ask_id.clone(), cx),
+                    FeaturePageEvent::Design { job, artifact } => artifact_link::open(job.clone(), artifact.clone(), cx),
                 }));
                 self.page = Some(page);
                 self.opened = Some(slug);

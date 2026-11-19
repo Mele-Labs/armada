@@ -251,6 +251,9 @@ impl FeaturePageView {
             this.select(section, cx);
             this.pick_row(ix, cx);
             this.focus_region(Region::Rows, window, cx);
+            if section == Section::Designs {
+                this.open_design(ix, cx);
+            }
         }));
         labelled(line, Role::ListBoxOption, row.title.clone()).into_any_element()
     }

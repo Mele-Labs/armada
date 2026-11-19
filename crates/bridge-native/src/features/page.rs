@@ -26,6 +26,8 @@ pub enum FeaturePageEvent {
     Escape,
     /// The Story of an ask: the Job to open, and the ask to put in front on its Story tab.
     Story { session_id: SessionId, ask_id: String },
+    /// A Designs row: the Job that made the artifact, and the artifact to open in it, by its id.
+    Design { job: String, artifact: String },
 }
 
 enum Source {
@@ -481,10 +483,23 @@ impl FeaturePageView {
         cx.emit(FeaturePageEvent::Story { session_id, ask_id });
     }
 
-    /// Enter on the place the keys are on: a row opens its Story, and the fold line folds or opens.
+    /// Open the artifact the Designs row on the place `at` names, in the Job that made it. The page says so and its holder opens it.
+    /// A link Fleet names no Job for has nowhere to open.
+    pub(super) fn open_design(&mut self, at: usize, cx: &mut Context<Self>) {
+        if self.section != Section::Designs {
+            return;
+        }
+        let (Some(Item::Row(row)), Body::Rows(rows), Load::Read(page)) = (self.items.get(at), &self.body, &self.page) else { return };
+        let Some(key) = rows.get(*row).map(|row| row.key.as_str()) else { return };
+        let Some(job) = page.links.iter().filter(|link| page_model::DESIGN_KINDS.contains(&link.kind) && link.target == key).find_map(|link| link.job.clone()) else { return };
+        cx.emit(FeaturePageEvent::Design { job, artifact: key.to_string() });
+    }
+
+    /// Enter on the place the keys are on: a Designs row opens its artifact, another row its Story, and the fold line folds or opens.
     fn press_row(&mut self, cx: &mut Context<Self>) {
         match self.row_at.and_then(|at| self.items.get(at).map(|item| (at, *item))) {
             Some((_, Item::Fold)) => self.toggle_fold(cx),
+            Some((at, Item::Row(_))) if self.section == Section::Designs => self.open_design(at, cx),
             Some((at, Item::Row(_))) => self.open_story(at, cx),
             None => {}
         }

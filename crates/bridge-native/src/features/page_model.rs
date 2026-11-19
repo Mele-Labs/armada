@@ -633,8 +633,11 @@ fn who(page: &FeaturePage) -> Vec<Row> {
     rows
 }
 
+/// The links the Designs card lists.
+pub(crate) const DESIGN_KINDS: [FeatureLinkKind; 4] = [FeatureLinkKind::Sketch, FeatureLinkKind::Page, FeatureLinkKind::Walk, FeatureLinkKind::Draft];
+
 fn designs(page: &FeaturePage) -> Vec<Row> {
-    links_of(page, &[FeatureLinkKind::Sketch, FeatureLinkKind::Page, FeatureLinkKind::Walk, FeatureLinkKind::Draft])
+    links_of(page, &DESIGN_KINDS)
         .into_iter()
         .map(|link| {
             let (glyph, said) = glyph_of(link.kind);
