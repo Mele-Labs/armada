@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use adapters::preview_check::{self, Compiler, Verdict, CONFLICTS};
+use adapters::preview_check::{self, Broke, Compiler, Verdict, CONFLICTS};
 use api::Refusal;
 use ipc::{
     BuildSource, Event, Instant, PreviewOfferRow, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState, SessionId,
@@ -26,6 +26,7 @@ use adapters::BuildMerges;
 
 use crate::building::{commit_in, held_by_merges, held_in, restarting_in, source_in, Held};
 use crate::daemon::Fleet;
+use crate::preview_macs::{clash_why, clashed_with, file_of, in_check_order, tips_here};
 use crate::pull_notices::short;
 use crate::repositories::Served;
 
@@ -54,6 +55,8 @@ pub(crate) struct Previewing {
     walked: Mutex<Option<(String, Option<BuildMerges>)>>,
     /// Whether each tip asked about is under the last build commit, so git is asked once per build and tip.
     reached: Mutex<(String, BTreeMap<String, bool>)>,
+    /// What this Mac holds across checks of the offers of its other Macs: `preview_macs`.
+    pub(crate) macs: crate::preview_macs::Macs,
 }
 
 impl Default for Previewing {
@@ -67,6 +70,7 @@ impl Default for Previewing {
             main_seen: Mutex::new(None),
             walked: Mutex::new(None),
             reached: Mutex::new((String::new(), BTreeMap::new())),
+            macs: crate::preview_macs::Macs::default(),
         }
     }
 }
@@ -82,6 +86,11 @@ impl Previewing {
     #[cfg(test)]
     pub(crate) fn idle(&self) -> bool {
         !self.running.load(Ordering::SeqCst) && !self.again.load(Ordering::SeqCst)
+    }
+
+    /// Whether the answer last published named a Mac left out.
+    pub(crate) fn sent_left_out(&self) -> bool {
+        self.sent.lock().expect("not poisoned").as_ref().is_some_and(|sent| !sent.left_out.is_empty())
     }
 
     fn compiler(&self) -> Arc<dyn Compiler> {
@@ -113,15 +122,6 @@ fn state_of(word: &str) -> PreviewState {
         FAILED => PreviewState::Failed,
         _ => PreviewState::Checking,
     }
-}
-
-/// `scripts/preview`'s file: a line `<branch>\t<tip>\t<session>\t<about>` a ready offer, oldest first.
-fn file_of(offers: &[KeptPreviewOffered]) -> String {
-    offers
-        .iter()
-        .filter(|one| one.state == READY)
-        .map(|one| format!("{}\t{}\t{}\t{}\n", one.branch, one.tip, one.session_id, one.about.replace(['\t', '\n'], " ")))
-        .collect()
 }
 
 /// A stable name for a set of ready (branch, tip) pairs, which a skip is kept against.
@@ -173,44 +173,81 @@ where
         });
     }
 
-    /// One check of every live offer, then what it found written, published and told. **Nothing here fails
-    /// the turn**: a check that could not run leaves the offers as they were, to be asked for again.
+    /// One check of every live offer of both Macs, then what it found written, published and told. **Nothing
+    /// here fails the turn**: a check that could not run leaves the offers as they were, to be asked for again.
     async fn preview_checked(self: &Arc<Self>) {
         self.preview_offers_swept().await;
         let Some((checkout, _)) = self.preview_place() else {
             return;
         };
         let offers = self.store().lock().await.preview_offered_all().unwrap_or_default();
-        if offers.is_empty() {
+        let partners = self.partners_read().await;
+        if offers.is_empty() && partners.offers.is_empty() {
+            self.partner_verdicts_kept(Vec::new());
+            self.preview_pushed(&checkout, Vec::new()).await;
             self.preview_moved().await;
             return;
         }
-        let tips: Vec<String> = offers.iter().map(|one| one.tip.clone()).collect();
+        let order = in_check_order(&offers, &partners);
         let compiler = self.previewing().compiler();
-        let (root, main) = (checkout.clone(), checkout);
+        let (root, main, entries) = (checkout.clone(), checkout.clone(), order.clone());
         let checked = tokio::task::spawn_blocking(move || {
             let seen = preview_check::commit_of(&main, MAIN);
-            preview_check::check(&root, MAIN, &tips, compiler.as_ref()).map(|verdicts| (verdicts, seen))
+            let here = tips_here(&root, &entries);
+            let runnable: Vec<usize> = (0..entries.len()).filter(|at| here[*at]).collect();
+            let tips: Vec<String> = runnable.iter().map(|at| entries[*at].tip.clone()).collect();
+            let verdicts = preview_check::check(&root, MAIN, &tips, compiler.as_ref())?;
+            let mut aligned: Vec<Option<Verdict>> = vec![None; entries.len()];
+            for (at, verdict) in runnable.into_iter().zip(verdicts) {
+                aligned[at] = Some(verdict);
+            }
+            // An own offer that clashed with an offer of another Mac names that Mac.
+            for at in 0..entries.len() {
+                let Some(Verdict::Failed(broke)) = &aligned[at] else { continue };
+                if entries[at].own.is_none() || !broke.why.starts_with(CONFLICTS) {
+                    continue;
+                }
+                let clashed = clashed_with(&root, &entries[..at], &broke.files);
+                if let Some(why) = clashed.and_then(|with| clash_why(&broke.files, &with)) {
+                    aligned[at] = Some(Verdict::Failed(Broke { why, files: broke.files.clone() }));
+                }
+            }
+            Ok::<_, String>((aligned, seen))
         })
         .await;
         let Ok(Ok((verdicts, seen))) = checked else {
             return;
         };
         let at = self.now().as_str().to_string();
+        let mut ready = Vec::new();
+        let mut theirs = Vec::new();
         {
             let mut store = self.store().lock().await;
-            for (offer, verdict) in offers.iter().zip(&verdicts) {
-                let _ = match verdict {
-                    Verdict::Ready => store.keep_preview_checked(&offer.session_id, &offer.branch, &offer.tip, READY, None, &[], &at),
-                    Verdict::Failed(broke) => {
-                        store.keep_preview_checked(&offer.session_id, &offer.branch, &offer.tip, FAILED, Some(&broke.why), &broke.files, &at)
-                    }
+            for (entry, verdict) in order.into_iter().zip(verdicts) {
+                let Some(verdict) = verdict else { continue };
+                let Some(session) = entry.own.as_deref() else {
+                    let (state, why, files) = match verdict {
+                        Verdict::Ready => (PreviewState::Ready, None, Vec::new()),
+                        Verdict::Failed(broke) => (PreviewState::Failed, Some(broke.why), broke.files),
+                    };
+                    theirs.push((entry, state, why, files));
+                    continue;
                 };
+                let _ = match &verdict {
+                    Verdict::Ready => store.keep_preview_checked(session, &entry.branch, &entry.tip, READY, None, &[], &at),
+                    Verdict::Failed(broke) => store.keep_preview_checked(session, &entry.branch, &entry.tip, FAILED, Some(&broke.why), &broke.files, &at),
+                };
+                if verdict == Verdict::Ready {
+                    ready.push((entry.branch, entry.tip));
+                }
             }
         }
         *self.previewing().main_seen.lock().expect("not poisoned") = seen;
+        self.partner_verdicts_kept(theirs);
+        self.preview_pushed(&checkout, ready).await;
         self.preview_moved().await;
         self.preview_offers_told().await;
+        self.preview_pushes_told().await;
     }
 
     /// Tell each Job what its offer's check found, once a (tip, state).
@@ -280,13 +317,20 @@ where
             return;
         };
         let offers = self.store().lock().await.preview_offered_all().unwrap_or_default();
-        if offers.is_empty() {
+        let partners = self.partners_read().await;
+        let shifted = self.partners_moved(&partners);
+        if offers.is_empty() && partners.offers.is_empty() && !shifted {
+            // A Mac left out, or back, is something the answer says though no offer is left to check.
+            if !partners.left_out.is_empty() || self.left_out_shown() {
+                self.preview_moved().await;
+            }
             return;
         }
         let main = tokio::task::spawn_blocking(move || preview_check::commit_of(&checkout, MAIN)).await.unwrap_or_default();
         let moved = main.is_some() && *self.previewing().main_seen.lock().expect("not poisoned") != main;
         let unfinished = offers.iter().any(|one| one.state == CHECKING);
-        if went || moved || unfinished {
+        let owed = self.pushes_owed(&offers).await;
+        if went || moved || unfinished || shifted || owed {
             self.preview_check_wanted();
         }
         self.preview_moved().await;
@@ -295,9 +339,10 @@ where
     /// The offers and the Refresh row as Bridge draws them.
     pub(crate) async fn preview_offers_read(&self) -> PreviewOffers {
         let build = self.preview_build();
+        let partners = self.partners_read().await;
         let store = self.store().lock().await;
         let kept = store.preview_offered_all().unwrap_or_default();
-        let rows: Vec<PreviewOfferRow> = kept
+        let mut rows: Vec<PreviewOfferRow> = kept
             .iter()
             .map(|one| PreviewOfferRow {
                 branch: one.branch.clone(),
@@ -313,12 +358,17 @@ where
                 mac: None,
             })
             .collect();
+        if !partners.offers.is_empty() {
+            // Both Macs' offers in the order they are checked, which is the order they merge.
+            rows.extend(partners.offers.iter().filter(|row| !kept.iter().any(|one| one.branch == row.branch)).cloned());
+            rows.sort_by(|a, b| (a.offered_at.as_str(), &a.branch).cmp(&(b.offered_at.as_str(), &b.branch)));
+        }
         let ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
         let new: Vec<String> = rows.iter().filter(|one| one.state == PreviewState::Ready && !one.in_build).map(|one| one.branch.clone()).collect();
         let id = refresh_id(&ready);
         let skipped = store.preview_refresh_skipped().ok().flatten().is_some_and(|skipped| skipped == id);
         let refresh = (!new.is_empty() && !skipped).then_some(PreviewRefresh { id, branches: new });
-        PreviewOffers { offers: rows, refresh, left_out: Vec::new() }
+        PreviewOffers { offers: rows, refresh, left_out: partners.left_out }
     }
 
     /// `skip_preview_refresh`: keep the id skipped, so the row is hidden until the ready set changes.
@@ -378,7 +428,7 @@ where
     /// it differs from what was last written or sent.
     pub(crate) async fn preview_moved(&self) {
         let kept = self.store().lock().await.preview_offered_all().unwrap_or_default();
-        let wanted = file_of(&kept);
+        let wanted = file_of(&kept, &self.partners_read().await);
         let path = crate::runtime::support_dir(&self.host().home).join(OFFERED);
         if std::fs::read_to_string(&path).ok().as_deref() != Some(wanted.as_str()) {
             let _ = written_atomically(&path, &wanted);
@@ -392,6 +442,8 @@ where
             }
             changed
         };
+        // What crosses to another Mac moves when a push finishes, though no row did.
+        let changed = self.cut_changed(&now) || changed;
         if changed {
             self.publish(Event::PreviewOffersChanged(now));
         }
