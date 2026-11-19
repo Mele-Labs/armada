@@ -435,6 +435,11 @@ fn change_failure(key: u64, change: impl FnOnce(&mut Failure), cx: &mut App) {
 }
 
 fn told(sentence: SharedString, retry: Option<Retry>, failure: Option<Failure>, cx: &mut App) -> u64 {
+    // While "Fleet is slow" stands, a request that timed out is that notice's news, not a toast of its own.
+    let slow = cx.try_global::<FleetNotices>().is_some_and(|kept| kept.0.iter().any(|notice| notice.id == crate::titlebar::SLOW_ID));
+    if slow && failure.is_none() && sentence.contains("no answer in ") {
+        return 0;
+    }
     let mut told = cx.try_global::<Told>().map(|kept| kept.0.clone()).unwrap_or_default();
     let key = told.last().map_or(1, |one| one.key + 1);
     told.push(TellOne { key, sentence, retry, failure });
@@ -1360,13 +1365,15 @@ impl Render for Toasts {
             stack = stack.children(cards);
         } else {
             let front = cards.pop();
-            // The nearest card under the front peeks least, and the farthest is painted first so the nearest sits on top.
+            // The front card sets the box; each card behind is clipped to it, shifted up by its step, so it shows
+            // a sliver above the front however tall it is. The farthest is painted first so the nearest sits on top.
             let behind: Vec<AnyElement> = cards.into_iter().rev().take(PEEK_DEPTH).collect();
+            let mut pile = div().relative().w(gpui::px(WIDTH));
             for (depth, card) in behind.into_iter().enumerate().rev() {
                 let offset = look.length(token::SPACE_2) * (depth + 1) as f32;
-                stack = stack.child(div().absolute().bottom(offset).right(offset / 2.).w(gpui::px(WIDTH)).child(card));
+                pile = pile.child(div().absolute().top(-offset).bottom_0().right(offset / 2.).w(gpui::px(WIDTH)).overflow_hidden().child(card));
             }
-            stack = stack.children(front);
+            stack = stack.child(pile.children(front));
         }
         // Deferred, so the pile paints and takes presses over the dispatch sheet's scrim, which is drawn over this
         // screen: a refused send keeps the sheet open, and its failure toast's buttons must still press. Under
@@ -1659,6 +1666,64 @@ mod failure_tests {
         for button in ["Copy debug info", "Dismiss", "Dispatch job"] {
             assert!(drawn(cx, Role::Button, button), "{button}");
         }
+    }
+
+    fn mounted(cx: &mut gpui::TestAppContext) -> &mut gpui::VisualTestContext {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+            at_rest(cx);
+        });
+        let (_, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx))
+        });
+        cx
+    }
+
+    fn told_sentences(cx: &mut gpui::VisualTestContext) -> Vec<String> {
+        cx.update(|_, cx| cx.try_global::<Told>().map(|kept| kept.0.iter().map(|one| one.sentence.to_string()).collect()).unwrap_or_default())
+    }
+
+    /// Fleet's routes hang while its stream stays up: once the one held notice stands, a request that
+    /// timed out raises no toast of its own.
+    #[gpui::test]
+    fn a_timed_out_request_raises_no_toast_while_fleet_is_slow(cx: &mut gpui::TestAppContext) {
+        let cx = mounted(cx);
+        cx.update(|_, cx| tell("Your answer did not reach Fleet: no answer in 30 seconds", cx));
+        assert_eq!(told_sentences(cx).len(), 1, "before the notice stands, the failure is told");
+        cx.update(|_, cx| {
+            at_rest(cx);
+            fleet(vec![crate::titlebar::slow_notice(true).expect("slow")], cx);
+            tell("Your answer did not reach Fleet: no answer in 30 seconds", cx);
+            tell_retry("The message did not reach Fleet: no answer in 30 seconds", std::rc::Rc::new(|_: &mut App| {}), cx);
+            tell("Fleet refused it", cx);
+        });
+        assert_eq!(told_sentences(cx), ["Fleet refused it"], "only the timeouts are held back");
+        redraw(cx);
+        assert!(drawn(cx, Role::Alert, "Toast: Fleet is slow"), "the one notice is drawn");
+    }
+
+    /// The pile: a taller card under a shorter newest one peeks out by its step only, never by its whole height.
+    #[gpui::test]
+    fn a_taller_card_under_the_newest_peeks_out_by_its_step_only(cx: &mut gpui::TestAppContext) {
+        let cx = mounted(cx);
+        let tall = "Your answer did not reach Fleet because the connection dropped while it was being sent, and the sentence runs over several lines of the card so it is much taller than the newest";
+        cx.update(|_, cx| {
+            tell(tall, cx);
+            tell("Short", cx);
+        });
+        redraw(cx);
+        let (front, behind) = cx.update(|window, cx| {
+            let book = cx.try_global::<crate::labels::LabelBook>().expect("labels");
+            let front = book.find(window.window_handle().window_id(), Role::Alert, "Toast: Short").expect("front").bounds;
+            let behind = book.find(window.window_handle().window_id(), Role::Alert, &format!("Toast: {tall}")).expect("behind").bounds;
+            (front, behind)
+        });
+        assert!(behind.size.height > front.size.height, "the card under is the taller");
+        let peek = front.origin.y - behind.origin.y;
+        assert!(peek > gpui::px(0.) && peek <= gpui::px(16.), "it peeks above the front by a step, not by {peek:?}");
     }
 }
 
