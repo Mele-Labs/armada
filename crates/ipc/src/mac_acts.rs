@@ -41,6 +41,16 @@ pub enum JobAct {
     AnswerRead(crate::MarkAnswerRead),
     /// His notes on a page of the Job, as one turn. Since 18 Nov 2026.
     Notes(crate::SendSessionNotes),
+    /// His press of a page's action. Since 18 Nov 2026.
+    ArtifactPress(crate::PressPageAction),
+    /// His vote on a page. Since 18 Nov 2026.
+    ArtifactVote(crate::CastPageVote),
+    /// He opened a revision of an artifact. Since 18 Nov 2026.
+    ArtifactSeen(crate::MarkArtifactSeen),
+    /// He folded an artifact away. `session_id` is always present on a send. Since 18 Nov 2026.
+    ArtifactArchive(crate::ArtifactRef),
+    /// He brought an archived artifact back. Since 18 Nov 2026.
+    ArtifactRestore(crate::ArtifactRef),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -113,6 +123,10 @@ impl JobAct {
             JobAct::MoveSettled(one) => Some(&one.session_id),
             JobAct::AnswerRead(one) => Some(&one.session_id),
             JobAct::Notes(one) => Some(&one.session_id),
+            JobAct::ArtifactPress(one) => Some(&one.session_id),
+            JobAct::ArtifactVote(one) => Some(&one.session_id),
+            JobAct::ArtifactSeen(one) => Some(&one.session_id),
+            JobAct::ArtifactArchive(one) | JobAct::ArtifactRestore(one) => one.session_id.as_ref(),
             JobAct::Start(_) | JobAct::Dispatch(_) | JobAct::Arrive(_) => None,
         }
     }
@@ -148,6 +162,11 @@ impl JobAct {
             JobAct::MoveSettled(_) => "move_settled",
             JobAct::AnswerRead(_) => "answer_read",
             JobAct::Notes(_) => "notes",
+            JobAct::ArtifactPress(_) => "artifact_press",
+            JobAct::ArtifactVote(_) => "artifact_vote",
+            JobAct::ArtifactSeen(_) => "artifact_seen",
+            JobAct::ArtifactArchive(_) => "artifact_archive",
+            JobAct::ArtifactRestore(_) => "artifact_restore",
         }
     }
 }

@@ -9,7 +9,7 @@ use std::future::Future;
 use std::sync::Arc;
 
 use ipc::{
-    BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
+    ArtifactPageShared, BugReports, Event, JobAct, JobArtifact, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
     OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 use ipc::{ArrivingJob, JobTerminals, ManifestSummary, MoveJobToMac, SessionRunUnderway, StartSession, TerminalFromMac, TerminalOfJob};
@@ -108,6 +108,19 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// `share_job_thread` — a shared Job's thread. [`Refusal::NotFound`] for any other, worded as for a Job
     /// that does not exist.
     fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> impl Future<Output = Result<JobThread, Refusal>> + Send;
+
+    /// `share_job_artifacts` — a shared Job's sketches, drafts and pages, as `get_job_artifacts` lists them.
+    /// [`Refusal::NotFound`] for a Job not shared, worded as for one that does not exist.
+    fn share_job_artifacts(&self, job: SessionId) -> impl Future<Output = Result<Vec<JobArtifact>, Refusal>> + Send;
+
+    /// `share_job_artifact_page` — one kept revision of a shared Job's page, sealed as `get_artifact_page` seals it.
+    /// Refused as `share_job_artifacts` is, and as `get_artifact_page` refuses what the Job does not hold.
+    fn share_job_artifact_page(
+        &self,
+        job: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<ArtifactPageShared, Refusal>> + Send;
 
     /// `share_job_page` — whether another Mac may be shown what this Mac serves on loopback port `port` for Job
     /// `job`: a page the Job showed, or a server it started that is serving. [`Refusal::NotFound`] for a Job not

@@ -69,6 +69,11 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
         JobAct::AnswerRead(_) => said("Answer read", None),
         JobAct::Notes(body) => said("Notes", body.notes.first().map(|note| first_line(&note.said))),
+        JobAct::ArtifactPress(body) => said("Press", Some(body.action.clone())),
+        JobAct::ArtifactVote(body) => said("Vote", Some(body.vote.clone())),
+        JobAct::ArtifactSeen(_) => said("Opened", None),
+        JobAct::ArtifactArchive(_) => said("Archive", None),
+        JobAct::ArtifactRestore(_) => said("Restore", None),
     }
 }
 

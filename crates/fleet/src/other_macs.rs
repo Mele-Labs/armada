@@ -323,6 +323,14 @@ where
         self.job_thread_served(read).await
     }
 
+    async fn share_job_artifacts(&self, job: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        self.job_artifacts_shared(&job).await
+    }
+
+    async fn share_job_artifact_page(&self, job: SessionId, artifact: String, revision: Option<u32>) -> Result<ipc::ArtifactPageShared, Refusal> {
+        self.job_artifact_page_shared(&job, &artifact, revision).await
+    }
+
     async fn share_job_page(&self, job: SessionId, port: u16) -> Result<(), Refusal> {
         self.job_page_shared(job, port).await
     }

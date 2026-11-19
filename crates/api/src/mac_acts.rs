@@ -81,6 +81,11 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs + Story>(se
         JobAct::DocumentAnswer(body) => through!(sessions::answer_document, &body),
         JobAct::AnswerRead(body) => through!(crate::story::mark_answer_read, &body),
         JobAct::Notes(body) => through!(hosted::send_session_notes, &body),
+        JobAct::ArtifactPress(body) => through!(hosted::press_page_action, &body),
+        JobAct::ArtifactVote(body) => through!(hosted::cast_page_vote, &body),
+        JobAct::ArtifactSeen(body) => through!(hosted::mark_artifact_seen, &body),
+        JobAct::ArtifactArchive(body) => through!(hosted::archive_artifact, &body),
+        JobAct::ArtifactRestore(body) => through!(hosted::restore_artifact, &body),
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
         JobAct::Merge { repository, number, .. } => {
             boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
