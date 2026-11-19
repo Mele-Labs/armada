@@ -359,7 +359,8 @@ impl JobView {
                 let Some(placed) = this.arranged.jobs.get_mut(&job) else { return };
                 placed.answered = true;
                 if let Some(kept) = kept.filter(|_| !placed.changed) {
-                    placed.arrangement = kept;
+                    // The thread is what a Job opens on, whichever tab of its pane was in front when it was left.
+                    placed.arrangement = tree::thread_in_front(&kept);
                     cx.notify();
                 }
                 this.offer_artifacts(&job, cx);

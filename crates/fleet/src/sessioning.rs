@@ -1576,6 +1576,19 @@ where
         self.usage_memo().adjustments(&window, self.now().epoch_millis(), make).await
     }
 
+    async fn get_job_timeline(&self, session_id: ipc::SessionId) -> Result<ipc::JobTimeline, Refusal> {
+        let id = session_id.as_str().trim();
+        let now = self.now().as_str().to_string();
+        let store = self.store().lock().await;
+        let Some(job) = store.session(id).map_err(|why| self.ledger_fault(why))? else {
+            return Err(self.ledger_unnamed("a job Fleet knows"));
+        };
+        let read = store
+            .usage_job_timeline(id, &job.started_at, job.ended_at.as_deref(), &now)
+            .map_err(|why| self.ledger_fault(why))?;
+        Ok(crate::usage_job_timeline::wire(id.to_string(), read))
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         let id = session_id.as_str().trim();
         let kept = self.job_split_read(id).await?;
