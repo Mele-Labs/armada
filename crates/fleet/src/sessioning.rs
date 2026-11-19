@@ -1540,34 +1540,40 @@ where
 
     async fn get_usage_waste(&self, window: Option<String>) -> Result<ipc::UsageWaste, Refusal> {
         let now = self.now().as_str().to_string();
-        let window = window.unwrap_or_else(|| crate::usage_waste::DEFAULT_WINDOW.to_string());
-        let store = self.store().lock().await;
-        let read = store.usage_waste(window.trim(), &now).map_err(|why| self.ledger_fault(why))?;
-        let Some(read) = read else {
-            return Err(self.ledger_unnamed("a window of day, week or fortnight"));
+        let window = window.unwrap_or_else(|| crate::usage_waste::DEFAULT_WINDOW.to_string()).trim().to_string();
+        let make = async {
+            let (id, at) = (window.clone(), now.clone());
+            let Some(read) = self.read_apart(move |store| store.usage_waste(&id, &at)).await? else {
+                return Err(self.ledger_unnamed("a window of day, week or fortnight"));
+            };
+            Ok(crate::usage_waste::wire(read))
         };
-        Ok(crate::usage_waste::wire(read))
+        self.usage_memo().waste(&window, self.now().epoch_millis(), make).await
     }
 
     async fn get_usage_adjustments(&self, window: Option<String>) -> Result<ipc::UsageAdjustments, Refusal> {
         let now = self.now().as_str().to_string();
-        let window = window.unwrap_or_else(|| crate::usage_adjust::DEFAULT_WINDOW.to_string());
-        let window = window.trim();
-        let settings = self.machine_settings().now();
-        let priced = {
-            let store = self.store().lock().await;
-            let fault = |why| self.ledger_fault(why);
-            let Some(burn) = store.burn_of(window, &now).map_err(fault)? else {
+        let window = window.unwrap_or_else(|| crate::usage_adjust::DEFAULT_WINDOW.to_string()).trim().to_string();
+        let make = async {
+            let settings = self.machine_settings().now();
+            let (id, at) = (window.clone(), now.clone());
+            let priced = self
+                .read_apart(move |store| {
+                    let Some(burn) = store.burn_of(&id, &at)? else { return Ok(None) };
+                    Ok(Some(crate::usage_adjust::Priced {
+                        burn,
+                        cache: store.subagent_cache_estimate(&id, &at)?,
+                        compaction: store.compaction_estimate(&id, &at, crate::usage_adjust::SUGGESTED_COMPACTION)?,
+                        changes: store.settings_changes_read(&at, crate::usage_adjust::cuts_of)?,
+                    }))
+                })
+                .await?;
+            let Some(priced) = priced else {
                 return Err(self.ledger_unnamed("a window of day, week or fortnight"));
             };
-            crate::usage_adjust::Priced {
-                burn,
-                cache: store.subagent_cache_estimate(window, &now).map_err(fault)?,
-                compaction: store.compaction_estimate(window, &now, crate::usage_adjust::SUGGESTED_COMPACTION).map_err(fault)?,
-                changes: store.settings_changes_read(&now, crate::usage_adjust::cuts_of).map_err(fault)?,
-            }
+            Ok(crate::usage_adjust::wire(&settings, priced))
         };
-        Ok(crate::usage_adjust::wire(&settings, priced))
+        self.usage_memo().adjustments(&window, self.now().epoch_millis(), make).await
     }
 
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {

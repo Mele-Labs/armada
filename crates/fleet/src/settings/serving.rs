@@ -115,15 +115,19 @@ where
             return;
         }
         let at = self.now().as_str().to_string();
-        let mut store = self.store().lock().await;
-        for (key, from, to) in changed {
-            if let Err(why) = store.keep_settings_change(key, &at, &from, &to) {
-                let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a change to a setting was not kept")
-                    .with_field("key", FieldValue::Str(key.to_string()))
-                    .with_field("why", FieldValue::Str(why.to_string()));
-                crate::transcript::note_aloud(&envelope);
+        {
+            let mut store = self.store().lock().await;
+            for (key, from, to) in changed {
+                if let Err(why) = store.keep_settings_change(key, &at, &from, &to) {
+                    let envelope = Envelope::new(self.now(), Level::Warn, Component::Fleet, self.run().clone(), "a change to a setting was not kept")
+                        .with_field("key", FieldValue::Str(key.to_string()))
+                        .with_field("why", FieldValue::Str(why.to_string()));
+                    crate::transcript::note_aloud(&envelope);
+                }
             }
         }
+        // After the row is kept, so an answer made from here on holds the change, and none made before it is served again.
+        self.usage_memo().adjustments_changed().await;
     }
 
     /// Put `saved` in force, clear any refusal, and say so.

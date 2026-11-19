@@ -34,5 +34,11 @@ What each row is, how a saving is priced and how a change is read are `docs/conc
 `timeouts.sessionQuietSeconds` applies at a restart: `get_settings` answers it with `pending_restart` until Fleet starts again.
 `tokens.subagentCacheTtl` and `tokens.compactionWindow` are live, and reach the Jobs Fleet starts after the save.
 
+**Fresh for five minutes, and at once after a change.** Fleet keeps each window's answer in memory and serves it for 5 minutes from when it was made, so `saves_share` and the shares of `changes` move every fifth minute and no faster.
+**A change to any of the three keys drops it**, by a save or by a hand edit of settings.json, so the page reads its own change on the next ask: `now` is the new value and `changes` holds it.
+A save of a value the key already held changes nothing and drops nothing.
+The sums are made on a connection of their own that only reads, so a read made after the five minutes does not hold up any other request.
+A refusal is not kept.
+
 **Skew.** A Fleet that predates this answers 404, and the page offers no settings panel; a Bridge that predates it never asks.
 A Fleet that predates `tokens.subagentCacheTtl` refuses a save of it as a key it does not have, 422 `fleet.unacceptable_settings`.

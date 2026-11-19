@@ -12,5 +12,7 @@ notes = """
 
 422 `fleet.session_unnamed` for a window that is none of the three. **Names and figures only.** A setting that applies at a restart is saved and answered like any other, and is in force once Fleet starts again; `get_settings` says which.
 
+**Served from memory for 5 minutes** from when each window's answer was made, and dropped at once by a change to one of the three keys, so a page that has just saved reads what it saved. The sums are made off the store's lock. `docs/practices/protocol.md`, *Settings that change the burn*.
+
 `agent_access` is `Yes`: an agent asked what would cut the week's burn reads it here. Changing a setting is `save_settings`, which is on the owner's words.
 """

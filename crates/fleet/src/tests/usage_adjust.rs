@@ -113,3 +113,58 @@ async fn a_change_is_kept_when_it_comes_into_force_and_a_save_of_the_same_value_
         ]
     );
 }
+
+#[tokio::test]
+async fn a_repeat_read_is_served_from_memory_and_a_save_of_the_cache_length_makes_the_next_adjustments_read_again() {
+    let (rig, _home) = rig_with("{}");
+    let memo = rig.fleet.usage_memo();
+    assert_eq!(memo.made(), (0, 0));
+
+    let first = rig.fleet.get_usage_adjustments(None).await.unwrap();
+    let waste = rig.fleet.get_usage_waste(None).await.unwrap();
+    assert_eq!(memo.made(), (1, 1), "each is made once");
+    assert_eq!(rig.fleet.get_usage_adjustments(None).await.unwrap(), first, "the same answer");
+    assert_eq!(rig.fleet.get_usage_waste(None).await.unwrap(), waste);
+    assert_eq!(memo.made(), (1, 1), "a second read within five minutes makes nothing");
+    rig.fleet.get_usage_adjustments(Some("day".into())).await.unwrap();
+    assert_eq!(memo.made(), (1, 2), "a window of its own is made of its own");
+    assert!(rig.fleet.get_usage_adjustments(Some("month".into())).await.is_err());
+    assert!(rig.fleet.get_usage_adjustments(Some("month".into())).await.is_err(), "a refusal is not kept");
+
+    rig.fleet
+        .save_settings(SaveSettings { changes: BTreeMap::from([("tokens.subagentCacheTtl".to_string(), Some(SettingValue::Text("1h".into())))]) })
+        .await
+        .unwrap();
+    let after = rig.fleet.get_usage_adjustments(None).await.unwrap();
+    assert_eq!(memo.made(), (1, 3), "the save dropped what the page held");
+    assert_eq!(after.changes.len(), 1, "and the page sees its change at once");
+    rig.fleet.get_usage_waste(None).await.unwrap();
+    assert_eq!(memo.made(), (1, 3), "the waste has no setting behind it, and is kept");
+
+    // A save of another key leaves both.
+    rig.fleet
+        .save_settings(SaveSettings { changes: BTreeMap::from([("tokens.summaryThinking".to_string(), Some(SettingValue::Bool(true)))]) })
+        .await
+        .unwrap();
+    rig.fleet.get_usage_adjustments(None).await.unwrap();
+    assert_eq!(memo.made(), (1, 3));
+}
+
+#[tokio::test]
+async fn an_answer_is_served_for_five_minutes_and_made_again_after() {
+    let memo = crate::usage_memo::Memo::default();
+    let made = std::sync::atomic::AtomicUsize::new(0);
+    let waste = || async {
+        made.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        Ok(ipc::UsageWaste { until: String::new(), window: ipc::WasteWindow { id: "week".into(), since: String::new(), until: String::new() }, total_units: 0.0, waste_units: 0.0, kinds: Vec::new() })
+    };
+    let at = |millis: i64| Some(millis);
+    memo.waste("week", at(1_000), waste()).await.unwrap();
+    memo.waste("week", at(1_000 + 299_999), waste()).await.unwrap();
+    assert_eq!(made.load(std::sync::atomic::Ordering::SeqCst), 1);
+    memo.waste("week", at(1_000 + 300_000), waste()).await.unwrap();
+    assert_eq!(made.load(std::sync::atomic::Ordering::SeqCst), 2, "five minutes on it is made again");
+    memo.waste("week", None, waste()).await.unwrap();
+    memo.waste("week", None, waste()).await.unwrap();
+    assert_eq!(made.load(std::sync::atomic::Ordering::SeqCst), 4, "a clock that says no time keeps nothing");
+}
