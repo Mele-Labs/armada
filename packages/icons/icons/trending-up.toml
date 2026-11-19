@@ -1,0 +1,7 @@
+[icons.trending-up]
+  means = "A line rising to the right"
+  group = "Usage"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A rise that is bad news on the page it stands on. Never a sort, which is `arrow-up-down`, and never a Job's state."
+  notes = "Proposed 19 Nov 2026 as the pair of `trending-down`, for a change after which the waste it cuts took a larger share of the burn. Draws in the awaiting review hue inside the same chip. `arrow-up` is taken by Ahead of main."

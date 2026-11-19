@@ -1,0 +1,432 @@
+/* An artifact in native Bridge's looks (14 Nov): the band fills with the state's colour, the kind has its own tile, and depth is
+   lightness steps and hairlines. The numbers are `band_card.rs`'s, with the first screen's crop scaled for a phone. */
+.pk-bc,
+.pk-bc__fold,
+.pk-bc__head,
+.pk-bc__chip,
+.pk-bc__verdict {
+  --ink: var(--status-not-started);
+}
+:is(.pk-bc__head, .pk-bc__chip, .pk-bc__verdict, .pk-bc__fold)[data-stand="asking"] {
+  --ink: var(--status-awaiting-review);
+}
+:is(.pk-bc__head, .pk-bc__chip, .pk-bc__verdict, .pk-bc__fold)[data-stand="approved"] {
+  --ink: var(--status-completed-success);
+}
+:is(.pk-bc__head, .pk-bc__chip, .pk-bc__verdict, .pk-bc__fold)[data-stand="sent_back"] {
+  --ink: var(--status-rejected);
+}
+:is(.pk-bc__head, .pk-bc__chip, .pk-bc__verdict, .pk-bc__fold)[data-stand="withdrawn"],
+:is(.pk-bc__head, .pk-bc__chip, .pk-bc__verdict, .pk-bc__fold)[data-stand="dismissed"] {
+  --ink: var(--status-killed);
+}
+
+.pk-bc-row {
+  list-style: none;
+  min-width: 0;
+}
+
+/* The card's frame: raised, a hairline, and radius-lg once and a half. */
+.pk-bc {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border: var(--border-width) solid var(--border-default);
+  border-radius: calc(var(--radius-lg) * 1.5);
+  background: var(--bg-raised);
+  box-shadow: var(--shadow-card);
+}
+.pk-bc__press {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+/* The header band: where it stands fills it at 18% over the raised surface, with a 40% hairline under it. */
+.pk-bc__head {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--space-1) + var(--border-width) * 2);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: var(--border-width) solid color-mix(in srgb, var(--ink) 40%, transparent);
+  background: color-mix(in srgb, var(--ink) 18%, var(--bg-raised));
+}
+.pk-bc__top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+.pk-bc__title {
+  flex: 1 1 8ch;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--fg-default);
+  font-size: var(--text-base);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-base);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The kind's tile: 26 px, the kind's hue at 18%, its glyph in the hue. */
+.pk-bc__tile {
+  --kind: var(--kind-step);
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: calc(var(--space-6) + var(--border-width) * 2);
+  height: calc(var(--space-6) + var(--border-width) * 2);
+  border-radius: var(--radius-md);
+  background: color-mix(in srgb, var(--kind) 18%, transparent);
+  color: var(--kind);
+}
+.pk-bc__tile[data-form="draft"] {
+  --kind: var(--kind-setup);
+}
+.pk-bc__tile[data-form="page"] {
+  --kind: var(--kind-gate);
+}
+
+.pk-bc__chip,
+.pk-bc__yours {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0 var(--space-2);
+  border-radius: 9999px;
+  font-size: var(--text-2xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-2xs);
+  white-space: nowrap;
+}
+.pk-bc__chip {
+  background: color-mix(in srgb, var(--ink) 16%, transparent);
+  color: var(--ink);
+}
+.pk-bc__yours {
+  background: color-mix(in srgb, var(--you) 16%, transparent);
+  color: var(--you);
+}
+.pk-bc__rev {
+  flex: none;
+  padding: 0 calc(var(--space-1) + var(--border-width) * 2);
+  border: var(--border-width) solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--fg-muted);
+  font-family: var(--font-mono);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.pk-bc__for {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--space-1) var(--space-2);
+  min-width: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+}
+.pk-bc__for-head {
+  color: var(--fg-default);
+  font-weight: var(--weight-medium);
+}
+.pk-bc__for-text {
+  flex: 1 1 12ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.pk-bc__link {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+.pk-bc__link > span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The first screen: sunken, a hairline edge, cut at a phone's share of 240 with a fade at its foot where it runs on. */
+.pk-bc__well-box {
+  padding: var(--space-3) var(--space-4);
+}
+.pk-bc__well {
+  position: relative;
+  overflow: hidden;
+  max-height: calc(var(--space-12) * 3.5);
+  padding: var(--space-3) var(--space-4);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+}
+.pk-bc__well[data-cut]::after {
+  content: "";
+  position: absolute;
+  inset: auto 0 0;
+  height: calc(var(--space-12) * 0.75);
+  border-radius: 0 0 calc(var(--radius-lg) - var(--border-width))
+    calc(var(--radius-lg) - var(--border-width));
+  background: linear-gradient(to bottom, transparent, var(--bg-sunken));
+  pointer-events: none;
+}
+.pk-bc__well--sketch {
+  padding: 0;
+  max-height: none;
+}
+
+.pk-bc__foot {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4);
+  border-top: var(--border-width) solid var(--border-subtle);
+}
+.pk-bc__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-bc__acts[data-end] {
+  justify-content: flex-end;
+}
+.pk-bc__rest {
+  display: flex;
+  flex: 1 1 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+.pk-bc__ask {
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-xs);
+}
+.pk-bc__says {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+/* One of the footer's buttons: native's 28 px, with the touch height a thumb needs. */
+.pk-bc__act {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(var(--h-control) + var(--space-2));
+  padding: 0 var(--space-3);
+  border: var(--border-width) solid transparent;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-medium);
+  line-height: var(--leading-xs);
+}
+.pk-bc__act[data-kind="approve"] {
+  border-color: var(--status-completed-success);
+  background: var(--status-completed-success);
+  color: var(--fg-inverse);
+}
+.pk-bc__act[data-kind="primary"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--text-on-accent);
+}
+.pk-bc__act[data-kind="secondary"] {
+  border-color: var(--border-strong);
+  background: var(--bg-overlay);
+  color: var(--fg-default);
+}
+.pk-bc__act:disabled {
+  opacity: 0.4;
+}
+
+/* A card with a verdict, in one line. */
+.pk-bc__fold {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-left: 3px solid color-mix(in srgb, var(--ink) 60%, transparent);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+}
+.pk-bc__fold-title {
+  flex: 0 1 auto;
+  max-width: 45%;
+  overflow: hidden;
+  color: var(--fg-default);
+  font-weight: var(--weight-heading);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-bc__verdict {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--ink);
+}
+.pk-bc__fold-words {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-bc__sketch {
+  width: 100%;
+  max-height: calc(var(--space-12) * 5);
+}
+.pk-bc__between {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 var(--space-4) var(--space-2);
+}
+
+.pk-bc__shapes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pk-bc__ask-box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+/* The reader: the band fills the head under the status bar, its title at text-xl, and the words follow. */
+.pk-reader__head {
+  --ink: var(--status-not-started);
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: calc(env(safe-area-inset-top) + var(--space-2)) var(--space-3) var(--space-3)
+    var(--space-4);
+  border-bottom: var(--border-width) solid color-mix(in srgb, var(--ink) 40%, transparent);
+  background: color-mix(in srgb, var(--ink) 18%, var(--bg-raised));
+}
+.pk-reader__head[data-stand="asking"] {
+  --ink: var(--status-awaiting-review);
+}
+.pk-reader__head[data-stand="approved"] {
+  --ink: var(--status-completed-success);
+}
+.pk-reader__head[data-stand="sent_back"] {
+  --ink: var(--status-rejected);
+}
+.pk-reader__head[data-stand="withdrawn"],
+.pk-reader__head[data-stand="dismissed"] {
+  --ink: var(--status-killed);
+}
+.pk-reader__top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+.pk-reader__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--fg-default);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-xl);
+  overflow-wrap: anywhere;
+}
+.pk-reader__strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-reader__acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-reader__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.pk-reader__earlier {
+  margin: 0;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+
+/* A note stands under its paragraph, the words it quotes over what he wrote. */
+.pk-note {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-left: 3px solid var(--you);
+  border-radius: var(--radius-lg);
+  background: var(--bg-sunken);
+}
+.pk-note__quote {
+  margin: 0;
+  overflow: hidden;
+  color: var(--fg-muted);
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  font-size: var(--text-xs);
+}
+.pk-note .pk-bc__act {
+  align-self: flex-end;
+}
+.pk-note-add {
+  position: sticky;
+  bottom: var(--space-3);
+  display: flex;
+  justify-content: center;
+}
+
+/* A sketch opened is as tall as its own shape asks at the screen's width, so a wide flow is not drawn small in a tall frame. */
+.pk-reader__sketch .armada-sketch {
+  block-size: clamp(
+    calc(var(--space-12) * 9),
+    calc((100vw - 2 * var(--space-4)) / var(--aspect)),
+    var(--h-workflow-run-canvas)
+  );
+}

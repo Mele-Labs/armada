@@ -401,6 +401,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
     Walk {
+        name: "usage",
+        title: "Usage: where the burn was wasted, kind by kind",
+        screen: Screen::Reviews,
+        scenario: "usage-week",
+        steps: &crate::usage_page::walk::STEPS,
+    },
+    Walk {
         name: "kit",
         title: "Kit: the setup you work with, kind by kind",
         screen: Screen::Reviews,
@@ -2225,6 +2232,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Marks,
         scenario: "jobs-handoff",
         steps: &HANDOFF,
+    },
+    Walk {
+        name: "job-tokens",
+        title: "A Job's tokens from start to finish",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &crate::job_tokens::walk::STEPS,
     },
     Walk {
         name: "strip-marks",

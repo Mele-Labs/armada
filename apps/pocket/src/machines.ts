@@ -54,6 +54,17 @@ type Kept = Machine & {
   order: number;
 };
 
+// The fixture (`pnpm fixture`) keeps its Macs in memory: a CryptoKey kept in IndexedDB makes macOS WebKit, which
+// plays Bridge's walks, ask for the "WebCrypto Master Key" in the login keychain. The fixture pairs again on each load.
+const inMemory = import.meta.env.MODE === "fixture";
+const memory: {
+  machines: Map<string, Kept>;
+  signIn: StoreSignIn | undefined;
+} = {
+  machines: new Map(),
+  signIn: undefined,
+};
+
 /**
  * A phone paired before there were several Macs kept one key and one id, for the Mac that served the
  * app. It becomes that Mac's entry, named once the Mac says its name.
@@ -99,14 +110,18 @@ async function carryOver(): Promise<Kept | undefined> {
 }
 
 export async function machines(): Promise<Machine[]> {
-  const kept = await run<Kept[]>(
-    [
-      STORE,
-    ],
-    "readonly",
-    (tx) => tx.objectStore(STORE).getAll(),
-  );
-  if (kept.length === 0) {
+  const kept = inMemory
+    ? [
+        ...memory.machines.values(),
+      ]
+    : await run<Kept[]>(
+        [
+          STORE,
+        ],
+        "readonly",
+        (tx) => tx.objectStore(STORE).getAll(),
+      );
+  if (kept.length === 0 && !inMemory) {
     const old = await carryOver();
     if (old !== undefined) kept.push(old);
   }
@@ -115,15 +130,26 @@ export async function machines(): Promise<Machine[]> {
 
 /** Keeps a Mac, or replaces the one at its origin and keeps its place. */
 export async function keepMachine(machine: Machine): Promise<void> {
-  const kept = await run<Kept[]>(
-    [
-      STORE,
-    ],
-    "readonly",
-    (tx) => tx.objectStore(STORE).getAll(),
-  );
+  const kept = inMemory
+    ? [
+        ...memory.machines.values(),
+      ]
+    : await run<Kept[]>(
+        [
+          STORE,
+        ],
+        "readonly",
+        (tx) => tx.objectStore(STORE).getAll(),
+      );
   const was = kept.find((one) => one.origin === machine.origin);
   const order = was?.order ?? kept.reduce((top, one) => Math.max(top, one.order + 1), 0);
+  if (inMemory) {
+    memory.machines.set(machine.origin, {
+      ...machine,
+      order,
+    });
+    return;
+  }
   await run(
     [
       STORE,
@@ -137,14 +163,16 @@ export async function keepMachine(machine: Machine): Promise<void> {
   );
 }
 
-export const forgetMachine = (origin: string) =>
-  run(
-    [
-      STORE,
-    ],
-    "readwrite",
-    (tx) => tx.objectStore(STORE).delete(origin),
-  );
+export const forgetMachine = async (origin: string) =>
+  inMemory
+    ? void memory.machines.delete(origin)
+    : run(
+        [
+          STORE,
+        ],
+        "readwrite",
+        (tx) => tx.objectStore(STORE).delete(origin),
+      );
 
 /**
  * The store this phone signed in to with GitHub, and the key that signs for it. It is the phone's own key for that store,
@@ -158,29 +186,35 @@ export type StoreSignIn = {
 
 const KEPT = "kept";
 
-export const storeSignIn = () =>
-  run<StoreSignIn | undefined>(
-    [
-      SIGN_IN,
-    ],
-    "readonly",
-    (tx) => tx.objectStore(SIGN_IN).get(KEPT),
-  );
+export const storeSignIn = async () =>
+  inMemory
+    ? memory.signIn
+    : run<StoreSignIn | undefined>(
+        [
+          SIGN_IN,
+        ],
+        "readonly",
+        (tx) => tx.objectStore(SIGN_IN).get(KEPT),
+      );
 
-export const keepStoreSignIn = (kept: StoreSignIn) =>
-  run(
-    [
-      SIGN_IN,
-    ],
-    "readwrite",
-    (tx) => tx.objectStore(SIGN_IN).put(kept, KEPT),
-  );
+export const keepStoreSignIn = async (kept: StoreSignIn) =>
+  inMemory
+    ? void (memory.signIn = kept)
+    : run(
+        [
+          SIGN_IN,
+        ],
+        "readwrite",
+        (tx) => tx.objectStore(SIGN_IN).put(kept, KEPT),
+      );
 
-export const forgetStoreSignIn = () =>
-  run(
-    [
-      SIGN_IN,
-    ],
-    "readwrite",
-    (tx) => tx.objectStore(SIGN_IN).delete(KEPT),
-  );
+export const forgetStoreSignIn = async () =>
+  inMemory
+    ? void (memory.signIn = undefined)
+    : run(
+        [
+          SIGN_IN,
+        ],
+        "readwrite",
+        (tx) => tx.objectStore(SIGN_IN).delete(KEPT),
+      );

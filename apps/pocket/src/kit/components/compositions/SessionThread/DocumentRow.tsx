@@ -1,22 +1,22 @@
 import type { SessionThreadRow } from "./SessionThread";
 import type { SketchAnswer } from "./sketch-answer";
-import { FileText, Maximize2 } from "lucide-react";
-import { Tooltip } from "../../primitives/Tooltip/Tooltip";
-import { Stamp } from "../../primitives/Stamp/Stamp";
-import { Button } from "../../primitives/Button/Button";
-import { ApprovalAnswers } from "./SketchRow";
+import type { ReactNode } from "react";
+import { BandCard, Well, type BandFacts, type Stand } from "../BandCard/BandCard";
 
 /**
- * A page the Job wrote as its document, where in the thread Fleet kept its newest revision: a header band naming the page and
- * its revision, with a press at its end that opens the page over the Job. **A page is for reading unless it asks**: only a
- * revision Fleet put to the person (`asked`) holds Approve and Send back under the band while it waits, and how it ended once
- * answered. It wears the sketch card's frame, so the two read as one kind of thing.
+ * A page the Job wrote as its document, where in the thread Fleet kept its newest revision, as the Band card native Bridge draws
+ * (`BandCard`): a header band filled with where it stands, the page's first screen in a well, and its answers in a footer. **A page
+ * is for reading unless it asks**: only a revision Fleet put to the person (`asked`) holds Approve and Ask for changes, and once
+ * answered it is one line saying how it ended. A press on the band or the well opens the page over the Job. `screen` is the
+ * first screen, which the host reads: the card draws none of its own.
  */
 export function DocumentRow({
   row,
   keep,
+  screen,
   onOpen,
   onAnswer,
+  onWithdraw,
 }: {
   row: Extract<
     SessionThreadRow,
@@ -25,74 +25,67 @@ export function DocumentRow({
     }
   >;
   keep?: string;
+  screen?: ReactNode;
   onOpen?: (page: string) => void;
   onAnswer?: (page: string, answer: SketchAnswer) => void;
+  onWithdraw?: (page: string) => void;
 }) {
   const settled = row.settled;
   const open = row.asked === true && settled === undefined && onAnswer !== undefined;
-  const revision = `Revision ${String(row.revision)}`;
+  const stand: Stand =
+    settled !== undefined
+      ? settled.how === "approved"
+        ? "approved"
+        : "sent_back"
+      : row.asked === true
+        ? "asking"
+        : "reading";
+  const facts: BandFacts = {
+    form: "page",
+    title: row.title,
+    stand,
+    words: settled?.words ?? row.facts?.words,
+    revision: row.facts?.revision ?? {
+      number: row.revision,
+      said: `r${String(row.revision)}`,
+    },
+    yours: row.facts?.yours,
+    forLine: row.facts?.forLine,
+  };
   return (
-    <li className="armada-session-sketch armada-session-document" data-asked>
-      <div
-        className="armada-session-sketch__asked"
-        role="article"
-        aria-label={`Document: ${row.title}, ${revision}`}
-        data-settled={settled?.how}
-      >
-        {/* The band is the card's face: pressing it anywhere opens the page, and Open at its end does the same for the keys. */}
-        <div
-          className="armada-session-sketch__band"
-          {...(onOpen === undefined
-            ? {}
-            : {
-                "data-press": "",
-                onClick: () => onOpen(row.page),
-              })}
-        >
-          <FileText size={12} strokeWidth={2} aria-hidden />
-          <span className="armada-session-sketch__title">{row.title}</span>
-          <Tooltip label={revision}>
-            <span className="armada-session-sketch__state">r{row.revision}</span>
-          </Tooltip>
-          <Stamp still at={row.at} className="armada-session-sketch__at" />
-          {onOpen === undefined ? null : (
-            <Tooltip label="Open">
-              <Button
-                className="armada-session-document__open"
-                variant="ghost"
-                size="sm"
-                iconOnly
-                aria-label={`Open ${row.title}, ${revision}`}
-                onClick={(event) => {
-                  event.stopPropagation();
-                  onOpen(row.page);
-                }}
-              >
-                <Maximize2 size={12} strokeWidth={2} aria-hidden />
-              </Button>
-            </Tooltip>
-          )}
-        </div>
-        {!open && settled === undefined ? null : (
-          <div className="armada-session-sketch__answers">
-            <ApprovalAnswers
-              id={row.page}
-              keep={keep ?? `document:${row.id}`}
-              {...(settled === undefined
+    <BandCard
+      facts={facts}
+      keep={keep ?? `document:${row.id}`}
+      {...(screen === undefined
+        ? {}
+        : {
+            well: <Well>{screen}</Well>,
+          })}
+      acts={{
+        ...(onOpen === undefined
+          ? {}
+          : {
+              open: () => onOpen(row.page),
+            }),
+        ...(open
+          ? {
+              approve: () =>
+                onAnswer?.(row.page, {
+                  choice: 0,
+                }),
+              ask: (note: string) =>
+                onAnswer?.(row.page, {
+                  text: note,
+                }),
+              ...(onWithdraw === undefined
                 ? {}
                 : {
-                    settled,
-                  })}
-              open={open}
-              {...(onAnswer === undefined
-                ? {}
-                : {
-                    onAnswer,
-                  })}
-            />
-          </div>
-        )}
-      </div>
-    </li>
+                    dismiss: () => onWithdraw(row.page),
+                  }),
+            }
+          : {}),
+      }}
+      asked={open}
+    />
   );
 }

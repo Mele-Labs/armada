@@ -2221,3 +2221,459 @@ export function partsJob(now: number): {
     ],
   };
 }
+
+/** A sketch of several shapes: a start, a decision, a store, a process, a block of code, a group and a lane, in colours and with steps. */
+const TOUR_SCENE = {
+  nodes: [
+    {
+      id: "g",
+      kind: "group",
+      x: -40,
+      y: -60,
+      w: 880,
+      h: 360,
+      title: "Slot lifecycle",
+    },
+    {
+      id: "lease",
+      kind: "box",
+      shape: "pill",
+      x: 0,
+      y: 0,
+      title: "Lease a slot",
+      body: "A Job asks for a bay",
+      color: "blue",
+      step: 1,
+    },
+    {
+      id: "free",
+      kind: "box",
+      shape: "diamond",
+      x: 300,
+      y: 0,
+      title: "Is one free?",
+      body: "Held slots do not count",
+      step: 2,
+    },
+    {
+      id: "pool",
+      kind: "box",
+      shape: "cylinder",
+      x: 600,
+      y: -20,
+      title: "Slot pool",
+      body: "Eight bays on this Mac",
+      color: "teal",
+    },
+    {
+      id: "wait",
+      kind: "box",
+      shape: "hexagon",
+      x: 300,
+      y: 180,
+      title: "Wait in line",
+      body: "Oldest request first",
+      color: "amber",
+      step: 3,
+    },
+    {
+      id: "code",
+      kind: "code",
+      x: 600,
+      y: 160,
+      lang: "toml",
+      title: "settings.toml",
+      body: "[slots]\ncount = 8",
+    },
+  ],
+  edges: [
+    {
+      id: "e1",
+      from: "lease",
+      to: "free",
+    },
+    {
+      id: "e2",
+      from: "free",
+      to: "pool",
+      label: "yes",
+      color: "green",
+    },
+    {
+      id: "e3",
+      from: "free",
+      to: "wait",
+      label: "no",
+      color: "amber",
+    },
+    {
+      id: "e4",
+      from: "wait",
+      to: "code",
+    },
+  ],
+};
+
+/**
+ * A Job that showed every kind of artifact once: a sketch waiting on him, a document he approved, a draft he sent back, a
+ * page shown for reading, and a sketch archived as stale. Added to the studio Mac by the fixture server alone, so the
+ * Artifacts screen at `/jobs/<studio>/g7/artifacts` has a list to draw and each row a screen to open.
+ */
+export const ARTIFACTS_JOB = "g7";
+
+export function artifactsJob(now: number): {
+  listed: PhoneSession;
+  thread: SessionThread;
+  artifacts: JobArtifact[];
+  shown: Record<string, string>;
+} {
+  const AUDIT = "/Users/user/armada/.armada/documents/colour-audit.html";
+  const NOTES = "/Users/user/armada/.armada/documents/colour-notes.html";
+  const TABLE = "/Users/user/armada/.armada/documents/slot-colour-table.html";
+  const TABLE_R1 = "/Users/user/.armada/kept/g7/slot-colour-table-r1.html";
+  const TABLE_R2 = "/Users/user/.armada/kept/g7/slot-colour-table-r2.html";
+  const TABLE_PAGE = (rows: number) =>
+    `<!doctype html><html><head><title>Slot colour table</title><link rel="stylesheet" href="armada-kit.css"></head><body><h1>Slot colour table</h1><p>Every colour a slot can wear, with the token that names it and where the phone shows it.</p><h2>Colours in use</h2><table><caption>Slot colours</caption><thead><tr><th>Slot</th><th>Token</th><th>Where it shows</th></tr></thead><tbody>${Array.from(
+      {
+        length: rows,
+      },
+      (_, at) =>
+        `<tr><td>slot-${String(at + 1)}</td><td>--slot-${String(at + 1)}</td><td>The row's lamp on the Jobs list</td></tr>`,
+    ).join(
+      "",
+    )}</tbody></table><h2>What changes</h2><p>The greys go, and green says a slot is free.</p><h3>Open</h3><p>Nobody has said what a held slot looks like.</p></body></html>`;
+  const AUDIT_R1 = "/Users/user/.armada/kept/g7/colour-audit-r1.html";
+  const NOTES_R1 = "/Users/user/.armada/kept/g7/colour-notes-r1.html";
+  const page = (title: string, line: string) =>
+    `<!doctype html><html><head><title>${title}</title><link rel="stylesheet" href="armada-kit.css"></head><body><h1>${title}</h1><p>${line}</p></body></html>`;
+  const revision = (number: number, minutes: number, form: "sketch" | "draft" | "page") => ({
+    number,
+    at: ago(now, minutes),
+    by: "agent" as const,
+    form,
+  });
+  const listed = phone({
+    id: ARTIFACTS_JOB,
+    title: "Retire the old slot colours",
+    repository: "armada",
+    kind: "hosted",
+    waiting: true,
+    working: false,
+    started_at: ago(now, 300),
+    waiting_since: ago(now, 12),
+    context_tokens: 120_000,
+    context_window: WINDOW,
+  });
+  const thread: SessionThread = {
+    session: record(now, ARTIFACTS_JOB, listed.title!, 300, {
+      attachments: [
+        {
+          kind: "artifact",
+          target: "sketch:Old slot colours",
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Old slot colours",
+            scene: JSON.stringify(SKETCH_SCENE),
+            settled: "approved",
+            settled_at: ago(now, 270),
+            drawn: "old-slot-colours-1",
+          },
+          since: ago(now, 280),
+          changed_at: ago(now, 270),
+        },
+        {
+          kind: "artifact",
+          target: AUDIT,
+          state: "standing",
+          detail: {
+            form: "document",
+            title: "Colour audit",
+            revisions: JSON.stringify([
+              AUDIT_R1,
+            ]),
+            revision: "1",
+            asked: "true",
+            settled: "approved",
+            settled_at: ago(now, 140),
+            kept_at: ago(now, 150),
+          },
+          since: ago(now, 150),
+          changed_at: ago(now, 140),
+        },
+        {
+          kind: "artifact",
+          target: NOTES,
+          state: "standing",
+          detail: {
+            form: "document",
+            title: "Colour notes",
+            revisions: JSON.stringify([
+              NOTES_R1,
+            ]),
+            revision: "1",
+            kept_at: ago(now, 90),
+          },
+          since: ago(now, 90),
+          changed_at: ago(now, 90),
+        },
+        {
+          kind: "artifact",
+          target: "sketch:Slot lifecycle",
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Slot lifecycle",
+            scene: JSON.stringify(TOUR_SCENE),
+            drawn: "slot-lifecycle-1",
+          },
+          since: ago(now, 80),
+          changed_at: ago(now, 80),
+        },
+        {
+          kind: "artifact",
+          target: TABLE,
+          state: "standing",
+          detail: {
+            form: "document",
+            title: "Slot colour table",
+            revisions: JSON.stringify([
+              TABLE_R1,
+              TABLE_R2,
+            ]),
+            revision: "2",
+            asked: "true",
+            kept_at: ago(now, 20),
+          },
+          since: ago(now, 70),
+          changed_at: ago(now, 20),
+        },
+        {
+          kind: "artifact",
+          target: "sketch:Slot colours v2",
+          state: "standing",
+          detail: {
+            form: "sketch",
+            title: "Slot colours v2",
+            scene: JSON.stringify(SKETCH_SCENE),
+            asked: "true",
+            drawn: "slot-colours-v2-2",
+          },
+          since: ago(now, 60),
+          changed_at: ago(now, 12),
+        },
+      ],
+      waiting_for: [
+        {
+          id: "sketch:Slot colours v2",
+          text: "Slot colours v2",
+          since: ago(now, 12),
+          source: "sketch",
+          act: {
+            kind: "message" as const,
+            target: ARTIFACTS_JOB,
+          },
+        },
+        {
+          id: `document:${TABLE}`,
+          text: "Slot colour table",
+          since: ago(now, 20),
+          source: "document",
+          act: {
+            kind: "message" as const,
+            target: ARTIFACTS_JOB,
+          },
+        },
+        {
+          id: `draft:${ARTIFACTS_JOB}-7`,
+          text: "Slot pool description",
+          since: ago(now, 8),
+          source: "draft",
+          act: {
+            kind: "answer" as const,
+            target: `draft:${ARTIFACTS_JOB}-7`,
+          },
+          options: [
+            {
+              label: "Approve",
+            },
+          ],
+        },
+      ],
+    }),
+    rows: [
+      message(`${ARTIFACTS_JOB}-1`, ago(now, 300), "you", "Retire the old slot colours."),
+      tool(
+        `${ARTIFACTS_JOB}-2`,
+        ago(now, 280),
+        `show_sketch ${JSON.stringify({
+          title: "Old slot colours",
+          scene: SKETCH_CALL_SCENE,
+        })}`,
+      ),
+      message(
+        `${ARTIFACTS_JOB}-3`,
+        ago(now, 150),
+        "agent",
+        "Every colour a slot uses, written out.",
+      ),
+      message(`${ARTIFACTS_JOB}-4`, ago(now, 90), "agent", "Notes on the greys, for reading."),
+      tool(
+        `${ARTIFACTS_JOB}-8`,
+        ago(now, 80),
+        `show_sketch ${JSON.stringify({
+          title: "Slot lifecycle",
+          scene: TOUR_SCENE,
+        })}`,
+      ),
+      {
+        kind: "draft",
+        id: `${ARTIFACTS_JOB}-5`,
+        at: ago(now, 40),
+        title: "Check before every walk",
+        text: "Adds a Checks step before Walk in the build workflow.",
+        settled: {
+          how: "sent_back",
+          words: "Say which checks.",
+          at: ago(now, 35),
+        },
+      },
+      tool(
+        `${ARTIFACTS_JOB}-6`,
+        ago(now, 12),
+        `show_sketch ${JSON.stringify({
+          title: "Slot colours v2",
+          scene: SKETCH_CALL_SCENE,
+        })}`,
+      ),
+      {
+        kind: "draft",
+        id: `${ARTIFACTS_JOB}-7`,
+        at: ago(now, 8),
+        title: "Slot pool description",
+        text: "Says how many bays a Mac holds and who may lease one.",
+      },
+    ],
+  };
+  return {
+    listed,
+    thread,
+    shown: {
+      [AUDIT_R1]: page(
+        "Colour audit",
+        "Eight slot colours are in use, and three of them are close.",
+      ),
+      [NOTES_R1]: page("Colour notes", "Grey is held, green is free, and nothing else is grey."),
+      [TABLE_R1]: TABLE_PAGE(3),
+      [TABLE_R2]: TABLE_PAGE(5),
+    },
+    artifacts: [
+      {
+        id: "sketch:Slot colours v2",
+        title: "Slot colours v2",
+        form: "sketch",
+        revisions: [
+          revision(1, 60, "sketch"),
+          revision(2, 12, "sketch"),
+        ],
+        state: "asking",
+        item: "sketch:Slot colours v2",
+        for_line: {
+          text: "Picks the five colours a slot can wear.",
+          links: [],
+        },
+      },
+      {
+        id: TABLE,
+        title: "Slot colour table",
+        form: "page",
+        revisions: [
+          revision(1, 70, "page"),
+          revision(2, 20, "page"),
+        ],
+        state: "asking",
+        item: `document:${TABLE}`,
+        for_line: {
+          text: "Lists every slot colour and the token that names it.",
+          links: [],
+        },
+      },
+      {
+        id: "sketch:Slot lifecycle",
+        title: "Slot lifecycle",
+        form: "sketch",
+        revisions: [
+          revision(1, 80, "sketch"),
+        ],
+        state: "reading",
+        for_line: {
+          text: "How a Job gets a slot, and what it does when none is free.",
+          links: [],
+        },
+      },
+      {
+        id: `draft:Slot pool description`,
+        title: "Slot pool description",
+        form: "draft",
+        revisions: [
+          revision(1, 8, "draft"),
+        ],
+        state: "asking",
+        item: `draft:${ARTIFACTS_JOB}-7`,
+        for_line: {
+          text: "Says how many bays a Mac holds.",
+          links: [],
+        },
+      },
+      {
+        id: `draft:Check before every walk`,
+        title: "Check before every walk",
+        form: "draft",
+        revisions: [
+          revision(1, 40, "draft"),
+        ],
+        state: "sent_back",
+        words: "Say which checks.",
+        for_line: {
+          text: "Adds a Checks step before Walk.",
+          links: [],
+        },
+      },
+      {
+        id: AUDIT,
+        title: "Colour audit",
+        form: "page",
+        revisions: [
+          revision(1, 150, "page"),
+        ],
+        state: "approved",
+        for_line: {
+          text: "Every colour a slot uses today.",
+          links: [],
+        },
+      },
+      {
+        id: NOTES,
+        title: "Colour notes",
+        form: "page",
+        revisions: [
+          revision(1, 90, "page"),
+        ],
+        state: "reading",
+      },
+      {
+        id: "sketch:Old slot colours",
+        title: "Old slot colours",
+        form: "sketch",
+        revisions: [
+          revision(1, 280, "sketch"),
+        ],
+        state: "approved",
+        archived: {
+          by: "owner",
+          at: ago(now, 60),
+        },
+      },
+    ],
+  };
+}
