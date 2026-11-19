@@ -481,7 +481,7 @@ Its row carries `mod`.
 | Piece | Is |
 |---|---|
 | Entry points | Mod in the right-click menu over anything in Bridge or a Job row; Create mod in the palette and on System › Mods, which opens an empty Mod Job, where he writes in the composer himself; + then Custom in a Job's panes, which starts one aimed at a tab; Make one in the console's rack, which starts one aimed at an instrument |
-| The menu | Mod in every build; Report beside it in dev builds only |
+| The menu | Mod and Report beside it, in every build |
 | Title | `Mod <name>`: the row's title, else the label, words or place pointed at |
 | In the Jobs list | A **Mods** group after the repository groups and before Other, whichever repository is picked, holding the Mod Jobs that build no tab and no instrument; a Mod Job that builds a tab has no row (*tab.js*, above), and one that builds an instrument has a row only while it waits on him and no bay can show it (*instrument.js*, above); the group is not drawn where it has none |
 | Right column | Delivery draws *Mods made*: each mod the Job scaffolded (`made_by`), with its switch |

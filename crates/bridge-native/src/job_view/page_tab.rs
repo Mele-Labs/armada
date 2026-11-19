@@ -150,6 +150,9 @@ impl PageTab {
             Ok(html) => {
                 self.html = Some(html.clone());
                 let page = cx.new(|cx| WebPage::new(None, Source::Sealed(html), cx));
+                // The annotation layer reaches only an offered page: without this a note covers the whole page and no part of it.
+                let document = crate::page_note::Document { artifact: self.page.clone(), revision: self.shown, title: self.title.clone() };
+                crate::page_note::offer_document(&page, self.job.clone(), document, cx);
                 let hearing = cx.subscribe(&page, |this, page, event: &WebPageEvent, cx| match event {
                     WebPageEvent::Posted(text) => {
                         if let Some(posted) = kit::read(text) {
@@ -520,6 +523,19 @@ impl JobView {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[gpui::test]
+    fn a_document_that_arrives_is_offered_to_the_notes_layer_for_its_job(cx: &mut gpui::TestAppContext) {
+        let tab = cx.new(|_| PageTab::new("job-1".into(), "design".into(), 2, "How a Job lands".into()));
+        tab.update(cx, |tab, cx| tab.arrived(Ok("<p>Three branches are stale now.</p>".into()), cx));
+        let page = tab.read_with(cx, |tab, _| match &tab.held {
+            Held::Ready(page) => page.clone(),
+            _ => panic!("the page is held"),
+        });
+        let (job, document) = cx.update(|cx| (crate::page_note::offered_for(&page, cx), crate::page_note::document_of(&page, cx)));
+        assert_eq!(job.as_deref(), Some("job-1"), "a note on the document goes to its own Job");
+        assert_eq!(document, Some(crate::page_note::Document { artifact: "design".into(), revision: 2, title: "How a Job lands".into() }));
+    }
 
     fn press(action: &str) -> PageToHost {
         PageToHost::Press { artifact: "design".into(), revision: 2, action: action.into(), words: None }
