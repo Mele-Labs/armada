@@ -1982,8 +1982,8 @@ impl JobsList {
         self.bounds.borrow().get(id).copied().map(under)
     }
 
-    /// The project picker for these Jobs: his projects with their repositories under the name, then No project, the
-    /// row they all stand in ticked. A Job on another Mac, which Fleet refuses, says why in a toast and opens nothing.
+    /// The project picker for these Jobs: his projects with their repositories under the name, the copies of another
+    /// Mac's projects, then No project, the row they all stand in ticked. A Job on another Mac, which Fleet refuses, says why in a toast and opens nothing.
     /// `at` is where its corner sits, or none for the window's upper middle.
     pub fn open_project_picker(&mut self, ids: Vec<SharedString>, at: Option<Point<Pixels>>, from_keys: bool, back: Option<FocusHandle>, window: &mut Window, cx: &mut Context<Self>) {
         let jobs: Vec<&SessionRecord> = ids.iter().filter_map(|id| self.record(id)).filter(|job| crate::move_to_project::movable(job)).collect();
@@ -1995,7 +1995,7 @@ impl JobsList {
             return;
         }
         let standing = crate::move_to_project::standing(jobs.iter().copied());
-        let entries = crate::move_to_project::entries(&crate::move_to_project::projects(self.fleet.is_none(), cx), &standing);
+        let entries = crate::move_to_project::entries(&crate::move_to_project::projects(self.fleet.is_none(), cx), &crate::move_to_project::copies(cx), &standing);
         let ids: Vec<SharedString> = jobs.iter().map(|job| SharedString::from(job.id.as_str().to_string())).collect();
         let (at, corner) = match at {
             Some(at) => (at, Anchor::TopLeft),
