@@ -65,7 +65,7 @@ impl Render for NewProjectSheet {
             .bg(look.color(token::SCRIM))
             .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)));
         let column = div().absolute().top(top).left((view.width - width) / 2.).child(frame);
-        labelled(div().id("new-project").absolute().inset_0().child(scrim).child(column).children(self.popup()), Role::Dialog, "New project").into_any_element()
+        labelled(div().id("new-project").absolute().inset_0().child(scrim).child(column).children(self.popup()), Role::Dialog, if self.is_editing() { "Edit project" } else { "New project" }).into_any_element()
     }
 }
 
@@ -151,7 +151,7 @@ impl NewProjectSheet {
                     .text_size(look.length(token::TEXT_SM))
                     .line_height(look.length(token::LEADING_SM))
                     .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .child("New project"),
+                    .child(if self.is_editing() { "Edit project" } else { "New project" }),
             )
             .child(kbd("Esc", look))
     }
@@ -810,7 +810,8 @@ impl NewProjectSheet {
             .when(self.at.cancel.is_focused(window), |button| button.border_color(ring))
             .on_click(cx.listener(|this, _, window, cx| this.close(window, cx)));
         let ready = self.named(cx);
-        let create = Btn::new("np-create", "Create project", Weight::Primary)
+        let verb = if self.is_editing() { "Save project" } else { "Create project" };
+        let create = Btn::new("np-create", verb, Weight::Primary)
             .pending(self.sending)
             .disabled(!ready)
             .draw(look, cx)
@@ -831,6 +832,6 @@ impl NewProjectSheet {
             .bg(look.color(token::BG_RAISED))
             .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).children(refusal))
             .child(labelled(cancel, Role::Button, "Cancel"))
-            .child(labelled(create, Role::Button, "Create project"))
+            .child(labelled(create, Role::Button, verb))
     }
 }
