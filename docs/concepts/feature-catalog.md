@@ -9,7 +9,7 @@ A Job that touches a feature is handed its page before it reads code, and writes
 
 A Job is started on "Voting on takes".
 Before it has searched the code, it holds a page of about a thousand tokens: the files to open first, the command that tests it, the bugs open on it, and which sections are stale.
-When the Job's pull request has merged, Fleet knows which features its files belong to, and `all_done` waits for the Job to say how each of them tests, runs, is observed and what debt it carries.
+When the Job has pushed, `all_done` waits for the Job to say how each feature its commits name tests, runs, is observed and what debt it carries.
 
 ## What a feature holds
 
@@ -173,12 +173,14 @@ A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's wr
 
 ## Holding a Job's end
 
-> **Rule.** `all_done` is refused while the Job's merged or pushed work changed files of a feature whose four sections it has not written since it started.
+> **Rule.** `all_done` is refused while a feature the Job's commits name in their `Feature:` line has a section the Job has not written since it started.
 > Why: only the Job that did the work knows how the feature runs now, and a page nobody rewrites goes stale in silence.
 
 The refusal is 409 `fleet.feature_sections_owed`.
 It names each feature and the sections owed, one feature to a line.
-A Job whose work changed no feature's files is never held, and neither is a Job with nothing pushed.
+A feature whose files the Job changed without naming it stays linked to the Job and is owed nothing, so a field added to a struct in thirteen files across seven features owes the one feature the commit names.
+Fleet keeps what each commit names when the commit gate lets it through, and reads the Job's `commit` links as well.
+A Job whose commits name no feature is never held, and neither is a Job with nothing pushed.
 A Job that started before a feature entered the catalog is never held for it, because approving a plan is not consent to change a Job already running.
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
