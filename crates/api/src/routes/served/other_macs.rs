@@ -15,6 +15,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/bug_reports",
     },
     Route {
+        operation: "share_preview_offers",
+        method: "GET",
+        path: "/other_mac/preview_offers",
+    },
+    Route {
         operation: "share_projects",
         method: "GET",
         path: "/other_mac/projects",
@@ -64,6 +69,11 @@ pub(super) const ROUTES: &[Route] = &[
         operation: "hold_other_mac_bug_reports",
         method: "PUT",
         path: "/other_macs/bug_reports",
+    },
+    Route {
+        operation: "hold_other_mac_preview_offers",
+        method: "PUT",
+        path: "/other_macs/preview_offers",
     },
     Route {
         operation: "hold_other_mac_event",

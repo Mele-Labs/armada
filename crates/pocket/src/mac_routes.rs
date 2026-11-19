@@ -32,7 +32,7 @@ pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
     Some((StatusCode::SERVICE_UNAVAILABLE, crate::macs::frozen_why(&link, &name)).into_response())
 }
 
-/// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/projects` and `/api/mac/thread`: Fleet's answer as it came.
+/// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/preview_offers`, `/api/mac/projects` and `/api/mac/thread`: Fleet's answer as it came.
 pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
     read_as(gateway, mac, uri, false).await
 }

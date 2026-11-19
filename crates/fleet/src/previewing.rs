@@ -310,6 +310,7 @@ where
                 why: one.why.clone(),
                 files: one.files.clone(),
                 in_build: self.build_holds(build.as_ref(), &one.branch, &one.tip),
+                mac: None,
             })
             .collect();
         let ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
@@ -317,7 +318,7 @@ where
         let id = refresh_id(&ready);
         let skipped = store.preview_refresh_skipped().ok().flatten().is_some_and(|skipped| skipped == id);
         let refresh = (!new.is_empty() && !skipped).then_some(PreviewRefresh { id, branches: new });
-        PreviewOffers { offers: rows, refresh }
+        PreviewOffers { offers: rows, refresh, left_out: Vec::new() }
     }
 
     /// `skip_preview_refresh`: keep the id skipped, so the row is hidden until the ready set changes.

@@ -242,6 +242,10 @@ where
         Ok(SessionList { sessions })
     }
 
+    async fn share_preview_offers(&self) -> Result<ipc::PreviewOffers, Refusal> {
+        Ok(self.preview_offers_for_other_mac(self.preview_offers_read().await).sent())
+    }
+
     async fn share_projects(&self) -> Result<ipc::Projects, Refusal> {
         let own = api::Projects::list_projects(self).await?;
         Ok(self.projects_for_other_mac(own).sent())
@@ -373,6 +377,12 @@ where
     async fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         self.reports_held(&mac, held.reports).await?;
+        Ok(MacNamed { mac })
+    }
+
+    async fn hold_other_mac_preview_offers(self: Arc<Self>, held: ipc::OtherMacPreviewOffers) -> Result<MacNamed, Refusal> {
+        let mac = self.mac_named(&held.mac)?;
+        self.preview_offers_held(&mac, held.offers).await?;
         Ok(MacNamed { mac })
     }
 

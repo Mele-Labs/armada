@@ -124,6 +124,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     // as another Mac's. The Gateway runs in Fleet's own process, which no Job holds.
     ("hold_other_mac_sessions", "pairs his other Macs"),
     ("hold_other_mac_bug_reports", "pairs his other Macs"),
+    ("hold_other_mac_preview_offers", "pairs his other Macs"),
     ("hold_other_mac_projects", "pairs his other Macs"),
     ("project_act_from_mac", "pairs his other Macs"),
     ("act_from_mac", "pairs his other Macs"),

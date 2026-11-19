@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use ipc::{
     BugReports, Event, JobAct, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
-    OtherMacPageOpened, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+    OtherMacPageOpened, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
 };
 use ipc::{ArrivingJob, JobTerminals, ManifestSummary, MoveJobToMac, SessionRunUnderway, StartSession, TerminalFromMac, TerminalOfJob};
 
@@ -48,6 +48,9 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `share_bug_reports` — this Mac's own reports whose Job is in a shared project.
     fn share_bug_reports(&self) -> impl Future<Output = Result<BugReports, Refusal>> + Send;
+
+    /// `share_preview_offers` — this Mac's own ready offers that are on origin, for the other Mac's preview.
+    fn share_preview_offers(&self) -> impl Future<Output = Result<ipc::PreviewOffers, Refusal>> + Send;
 
     /// `share_projects` — this Mac's own shared projects with their tasks. Never a copy held from another Mac.
     fn share_projects(&self) -> impl Future<Output = Result<Projects, Refusal>> + Send;
@@ -127,6 +130,10 @@ pub trait OtherMacs: Send + Sync + 'static {
 
     /// `hold_other_mac_bug_reports` — every report Mac `mac` shares, replacing all held from it.
     fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `hold_other_mac_preview_offers` — every ready offer Mac `mac` shares, replacing all held from it. Takes
+    /// the `Arc` because holding them asks for a check on a task of its own.
+    fn hold_other_mac_preview_offers(self: Arc<Self>, held: OtherMacPreviewOffers) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 
     /// `hold_other_mac_event` — one event that crossed from Mac `mac`. [`Refusal::Unacceptable`] for a kind
     /// that does not cross, [`Refusal::NotFound`] for one about a Job not held from that Mac.

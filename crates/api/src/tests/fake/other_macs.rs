@@ -19,6 +19,10 @@ impl OtherMacs for FakeDaemon {
         Ok(SessionList { sessions: Vec::new() })
     }
 
+    async fn share_preview_offers(&self) -> Result<ipc::PreviewOffers, Refusal> {
+        Ok(ipc::PreviewOffers { offers: Vec::new(), refresh: None, left_out: Vec::new() })
+    }
+
     async fn share_bug_reports(&self) -> Result<BugReports, Refusal> {
         Ok(BugReports { reports: Vec::new() })
     }
@@ -121,6 +125,10 @@ impl OtherMacs for FakeDaemon {
     }
 
     async fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> Result<MacNamed, Refusal> {
+        Ok(MacNamed { mac: held.mac })
+    }
+
+    async fn hold_other_mac_preview_offers(self: Arc<Self>, held: ipc::OtherMacPreviewOffers) -> Result<MacNamed, Refusal> {
         Ok(MacNamed { mac: held.mac })
     }
 

@@ -85,6 +85,7 @@ mod building;
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.
 mod previewing;
+mod preview_macs;
 /// The notes of the build the owner runs: read, marked looked at, and answered.
 mod build_noting;
 /// The hours, builds and Jobs the Usage page reads time from.
