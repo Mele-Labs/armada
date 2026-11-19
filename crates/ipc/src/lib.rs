@@ -336,6 +336,7 @@ mod usage_rules;
 mod usage_summary;
 /// What the burn was spent on, and who spent it.
 mod usage_spent;
+mod usage_waste;
 /// Where Jobs' time went: one Job's, a window's, and the hours and builds the Usage page draws.
 mod time_summary;
 /// The picture a Job last showed, which the native done card leads with.
@@ -848,6 +849,7 @@ pub use context_breakdown::{
 pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, UsageSpent};
+pub use usage_waste::{UsageWaste, WasteJob, WasteKind, WasteWindow};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };

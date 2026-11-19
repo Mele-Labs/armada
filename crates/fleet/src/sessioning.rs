@@ -1536,6 +1536,17 @@ where
         Ok(crate::usage_summarising::spent_wire(read))
     }
 
+    async fn get_usage_waste(&self, window: Option<String>) -> Result<ipc::UsageWaste, Refusal> {
+        let now = self.now().as_str().to_string();
+        let window = window.unwrap_or_else(|| crate::usage_waste::DEFAULT_WINDOW.to_string());
+        let store = self.store().lock().await;
+        let read = store.usage_waste(window.trim(), &now).map_err(|why| self.ledger_fault(why))?;
+        let Some(read) = read else {
+            return Err(self.ledger_unnamed("a window of day, week or fortnight"));
+        };
+        Ok(crate::usage_waste::wire(read))
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         let id = session_id.as_str().trim();
         let kept = self.job_split_read(id).await?;
