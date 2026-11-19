@@ -1,4 +1,4 @@
-//! A Mac that cannot be reached, in the Jobs list. Its Jobs leave their groups and stand under one fold at the
+//! A Mac whose Jobs cannot be reached, in the Jobs list: asleep, or frozen on a build that differs. Its Jobs leave their groups and stand under one fold at the
 //! foot, shut until he opens it, dimmed and with nothing that pulls at him: no needs edge, no state glyph.
 //! They stay findable, and open as any Job does.
 
@@ -15,7 +15,9 @@ pub(super) struct Shelf {
     mac: SharedString,
     name: SharedString,
     colour: ipc::MacColour,
-    since: i64,
+    why: crate::pairing::Why,
+    /// The Mac's own words for a frozen link, the fold's tooltip in place of the press it offers.
+    tip: Option<SharedString>,
     open: bool,
 }
 
@@ -28,7 +30,7 @@ impl Shelf {
 
 /// The Jobs on Macs that are asleep as groups of their own, one for each Mac and project, in the order the Macs
 /// are listed. Each group keeps its project's name, so a row still says which project it is in.
-pub(super) fn groups<'a>(sleeping: &[&'a SessionRecord], asleep: &[crate::pairing::Asleep], names: &Names) -> Vec<(String, String, Vec<&'a SessionRecord>)> {
+pub(super) fn groups<'a>(sleeping: &[&'a SessionRecord], asleep: &[crate::pairing::Unreachable], names: &Names) -> Vec<(String, String, Vec<&'a SessionRecord>)> {
     let mut out: Vec<(String, String, Vec<&'a SessionRecord>)> = Vec::new();
     for one in asleep {
         for job in sleeping.iter().filter(|job| job.mac.as_deref() == Some(one.id.as_str())) {
@@ -44,12 +46,12 @@ pub(super) fn groups<'a>(sleeping: &[&'a SessionRecord], asleep: &[crate::pairin
 }
 
 /// Where a group under a Mac's fold begins: the fold itself, once for the Mac, in place of a project's name. False for any other group.
-pub(super) fn open_line(key: &str, asleep: &[crate::pairing::Asleep], lines: &mut Vec<Line>) -> bool {
+pub(super) fn open_line(key: &str, asleep: &[crate::pairing::Unreachable], lines: &mut Vec<Line>) -> bool {
     let Some(rest) = key.strip_prefix(KEY) else { return false };
     let id = rest.split(KEY).next().unwrap_or_default();
     let stands = lines.iter().any(|line| matches!(line, Line::Asleep(shelf) if shelf.mac == id));
     if let (false, Some(one)) = (stands, asleep.iter().find(|one| one.id == id)) {
-        lines.push(Line::Asleep(Shelf { mac: one.id.clone().into(), name: one.name.clone().into(), colour: one.colour, since: one.since, open: true }));
+        lines.push(Line::Asleep(Shelf { mac: one.id.clone().into(), name: one.name.clone().into(), colour: one.colour, why: one.why, tip: one.tip.clone().map(Into::into), open: true }));
     }
     true
 }
@@ -74,7 +76,7 @@ pub(super) fn shelve_open(lines: Vec<Line>, open: &BTreeSet<String>) -> Vec<Line
 impl JobsList {
     /// The window's Macs moved: the Jobs of one that is asleep go under its fold, and a Mac awake again lets go of its fold's state.
     pub(super) fn follow_macs(&mut self, cx: &mut Context<Self>) {
-        let asleep = crate::pairing::asleep_of(crate::pairing::macs(cx));
+        let asleep = crate::pairing::unreachable_of(crate::pairing::macs(cx));
         if asleep == self.asleep {
             return;
         }
@@ -114,10 +116,10 @@ impl JobsList {
         let look = cx.look();
         let focused = self.focused.as_ref() == Some(&shelf.id());
         let after_shelf = at > 0 && matches!(self.lines[at - 1], Line::Asleep(_));
-        let said = crate::pairing::asleep_said(shelf.since);
-        let chip = crate::pairing::Chip { name: shelf.name.to_string(), colour: shelf.colour, asleep_since: Some(shelf.since) };
+        let said = shelf.why.said();
+        let chip = crate::pairing::Chip { name: shelf.name.to_string(), colour: shelf.colour, asleep_since: None };
         let mark_glyph = look.length(token::SPACE_3);
-        let tip = if shelf.open { format!("Hide the Jobs on {}", shelf.name) } else { format!("Show the Jobs on {}", shelf.name) };
+        let tip: SharedString = shelf.tip.clone().unwrap_or_else(|| if shelf.open { format!("Hide the Jobs on {}", shelf.name) } else { format!("Show the Jobs on {}", shelf.name) }.into());
         let (mac, id) = (shelf.mac.clone(), shelf.id());
         let open = shelf.open;
         let name: SharedString = format!("{}, {said}", shelf.name).into();
@@ -145,7 +147,7 @@ impl JobsList {
                             .justify_center()
                             .child(svg().path(icon_path(if open { "chevron-down" } else { "chevron-right" })).size(mark_glyph).text_color(look.color(token::FG_MUTED))),
                     )
-                    .child(crate::pairing::dot(look, SharedString::from(format!("asleep-dot-{}", shelf.mac)), &chip))
+                    .child(div().flex_none().opacity(0.5).child(crate::pairing::dot(look, SharedString::from(format!("asleep-dot-{}", shelf.mac)), &chip)))
                     .child(
                         div()
                             .flex_1()
@@ -175,8 +177,12 @@ mod tests {
         crate::mock::jobs("jobs-many").expect("the fixture decodes")
     }
 
-    fn air_asleep() -> Vec<crate::pairing::Asleep> {
-        vec![crate::pairing::Asleep { id: "air".into(), name: "Air".into(), colour: ipc::MacColour::Orange, since: 1_700_000_000 }]
+    fn air_asleep() -> Vec<crate::pairing::Unreachable> {
+        air_why(crate::pairing::Why::Asleep { since: 1_700_000_000 })
+    }
+
+    fn air_why(why: crate::pairing::Why) -> Vec<crate::pairing::Unreachable> {
+        vec![crate::pairing::Unreachable { id: "air".into(), name: "Air".into(), colour: ipc::MacColour::Orange, why, tip: None }]
     }
 
     /// The fixture with its first live Job that needs him and two quiet live ones on Air, and the id of the one that needs him.
@@ -216,6 +222,25 @@ mod tests {
         assert!(on_air.iter().all(|id| under.contains(&format!("job {id}").as_str())));
         assert!(lines[fold + 1..].iter().all(|line| matches!(line, Line::Job(row) if row.asleep)), "marked asleep, with no heading between");
         assert!(lines[..fold].iter().all(|line| !matches!(line, Line::Job(row) if row.asleep)));
+    }
+
+    #[test]
+    fn the_jobs_of_a_mac_on_another_build_fold_the_same_way_and_say_so() {
+        let (all, _, on_air) = with_three_on_air();
+        for (why, said) in [(crate::pairing::Why::OlderBuild, "On an older build"), (crate::pairing::Why::NewerBuild, "On a newer build")] {
+            let lines = lines_shelving(&all, &[], Scope::Active, "", &[], &Names::default(), None, &air_why(why));
+            let drawn = laid_out(&lines);
+            let fold = drawn.iter().position(|line| line.starts_with("asleep ")).expect("a fold for Air");
+            assert_eq!(drawn.len() - fold - 1, on_air.len(), "{drawn:?}");
+            assert!(lines[fold + 1..].iter().all(|line| matches!(line, Line::Job(row) if row.asleep)));
+            assert_eq!(why.said(), said);
+        }
+        let older = ipc::Mac { id: "air".into(), name: "Air".into(), link: Some(ipc::MacLink::OlderBuild), why: Some("Air runs an older build.".into()), ..Default::default() };
+        let found = crate::pairing::unreachable_of(&[older]);
+        assert_eq!(found.len(), 1);
+        assert_eq!(found[0].tip.as_deref(), Some("Air runs an older build."), "a frozen link's tooltip is the Mac's own words");
+        let this = ipc::Mac { id: "studio".into(), this_mac: true, link: Some(ipc::MacLink::OlderBuild), ..Default::default() };
+        assert!(crate::pairing::unreachable_of(&[this]).is_empty(), "this Mac is never one");
     }
 
     #[test]

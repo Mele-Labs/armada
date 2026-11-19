@@ -161,7 +161,7 @@ impl Notifier {
         // A Job snoozed since its news arrived, or on a Mac asleep since, is quiet: nothing of it goes out.
         let fleet = self.fleet.read(cx).held();
         let macs = crate::pairing::macs(cx);
-        self.collector.without(|job| fleet.snoozed(job) || fleet.asleep(job, macs));
+        self.collector.without(|job| fleet.snoozed(job) || fleet.unreachable(job, macs));
         let Some(told) = self.collector.close() else { return };
         if !self.fleet.read(cx).held().notifications {
             return;

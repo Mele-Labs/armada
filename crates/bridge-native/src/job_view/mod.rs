@@ -1364,10 +1364,10 @@ impl Render for JobView {
                 Some(fleet) => fleet.read(cx).thread_refused(&id),
                 None => crate::mock::thread_refused(&id).is_some(),
             };
-        // A Mac asleep gives no thread: one quiet line says so, never an error.
-        let asleep_said = self.fleet.as_ref().filter(|fleet| fleet.read(cx).thread_asleep(&id)).and_then(|_| crate::pairing::asleep_line_of(self.list.read(cx).record(&id).and_then(|job| job.mac.as_deref()), cx));
-        let body = if let Some(said) = asleep_said.filter(|_| refused) {
-            crate::pairing::quiet_line(&look, said)
+        // A Mac that cannot be reached gives no thread: one quiet line says so, never an error.
+        let unreachable = refused.then(|| crate::pairing::unreachable_line_of(self.list.read(cx).record(&id).and_then(|job| job.mac.as_deref()), cx)).flatten();
+        let body = if let Some((said, tip)) = unreachable {
+            crate::pairing::quiet_line(&look, said, tip)
         } else if refused {
             div().size_full().into_any_element()
         } else if loaded {

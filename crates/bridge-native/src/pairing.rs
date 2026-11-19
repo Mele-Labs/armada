@@ -289,29 +289,63 @@ pub struct Chip {
     pub asleep_since: Option<i64>,
 }
 
-/// A paired Mac that cannot be reached: its Jobs stop pulling at him here and stand together at the foot of the list.
+/// Why another Mac's Jobs cannot be reached: it is asleep, or its link is frozen on a build that differs. Nothing crosses
+/// either way, so what it last said is stale.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Why {
+    Asleep { since: i64 },
+    OlderBuild,
+    NewerBuild,
+}
+
+impl Why {
+    /// What the row of that Mac says at its right, and the quiet line of its Jobs.
+    pub fn said(self) -> String {
+        match self {
+            Why::Asleep { since } => asleep_said(since),
+            Why::OlderBuild => "On an older build".to_string(),
+            Why::NewerBuild => "On a newer build".to_string(),
+        }
+    }
+}
+
+/// Whether this Mac's Jobs cannot be reached, and why. **The one predicate** the list's fold, the needs jumps, the Dock
+/// count, the banners and a Job's panel ask. This Mac is never one.
+pub fn unreachable(mac: &Mac) -> Option<Why> {
+    match mac.link {
+        _ if mac.this_mac => None,
+        Some(MacLink::Asleep { since }) => Some(Why::Asleep { since }),
+        Some(MacLink::OlderBuild) => Some(Why::OlderBuild),
+        Some(MacLink::NewerBuild) => Some(Why::NewerBuild),
+        _ => None,
+    }
+}
+
+/// A paired Mac whose Jobs cannot be reached: they stop pulling at him here and stand together at the foot of the list.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Asleep {
+pub struct Unreachable {
     pub id: String,
     pub name: String,
     pub colour: MacColour,
-    pub since: i64,
+    pub why: Why,
+    /// The Mac's own `why`, the tooltip of a frozen link.
+    pub tip: Option<String>,
 }
 
-/// The Macs that are asleep, from the ones the window holds.
-pub fn asleep_of(macs: &[Mac]) -> Vec<Asleep> {
+/// The Macs whose Jobs cannot be reached, from the ones the window holds.
+pub fn unreachable_of(macs: &[Mac]) -> Vec<Unreachable> {
     macs.iter()
-        .filter(|one| !one.this_mac)
-        .filter_map(|one| match one.link {
-            Some(MacLink::Asleep { since }) => Some(Asleep { id: one.id.clone(), name: one.name.clone(), colour: one.colour, since }),
-            _ => None,
+        .filter_map(|one| {
+            let why = unreachable(one)?;
+            let tip = (!matches!(why, Why::Asleep { .. })).then(|| one.why.clone()).flatten();
+            Some(Unreachable { id: one.id.clone(), name: one.name.clone(), colour: one.colour, why, tip })
         })
         .collect()
 }
 
-/// Whether `mac`, the id a Job's record names (none is this Mac), is a Mac that is asleep.
-pub fn is_asleep(macs: &[Mac], mac: Option<&str>) -> bool {
-    mac.is_some_and(|id| macs.iter().any(|one| one.id == id && !one.this_mac && matches!(one.link, Some(MacLink::Asleep { .. }))))
+/// Whether `mac`, the id a Job's record names (none is this Mac), is a Mac whose Jobs cannot be reached.
+pub fn is_unreachable(macs: &[Mac], mac: Option<&str>) -> bool {
+    mac.is_some_and(|id| macs.iter().any(|one| one.id == id && unreachable(one).is_some()))
 }
 
 /// Call `on` whenever the window's Macs change.
@@ -409,21 +443,26 @@ pub fn asleep_said(since: i64) -> String {
     format!("Asleep since {at}")
 }
 
-/// The Mac's name and when it fell asleep, as one quiet line: "Air · Asleep since 9:12".
-pub fn asleep_line(name: &str, since: i64) -> SharedString {
-    format!("{name} \u{b7} {}", asleep_said(since)).into()
-}
-
-/// The line a Job's panel shows in place of its thread while its Mac is asleep: "Air · Asleep since 9:12". None for a Mac that is not.
-pub fn asleep_line_of(mac: Option<&str>, cx: &App) -> Option<SharedString> {
-    let chip = chip(mac, cx)?;
-    Some(format!("{} \u{b7} {}", chip.name, asleep_said(chip.asleep_since?)).into())
+/// The line a Job's panel shows in place of what it could not read while its Mac cannot be reached, and the Mac's
+/// own words for a frozen link as its tooltip: "Air · Asleep since 9:12", "Air · On an older build". None for a Mac that can be.
+pub fn unreachable_line_of(mac: Option<&str>, cx: &App) -> Option<(SharedString, Option<SharedString>)> {
+    let one = macs(cx).iter().find(|one| Some(one.id.as_str()) == mac)?;
+    let why = unreachable(one)?;
+    let tip = (!matches!(why, Why::Asleep { .. })).then(|| one.why.clone().map(SharedString::from)).flatten();
+    Some((format!("{} \u{b7} {}", one.name, why.said()).into(), tip))
 }
 
 /// One muted line in a panel's place, named for VoiceOver by what it says.
-pub fn quiet_line(look: &Look, said: SharedString) -> AnyElement {
+pub fn quiet_line(look: &Look, said: SharedString, tip: Option<SharedString>) -> AnyElement {
     labelled(
-        div().id("asleep-line").size_full().p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said.clone()),
+        div()
+            .id("asleep-line")
+            .size_full()
+            .p(look.length(token::SPACE_4))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(said.clone())
+            .when_some(tip, |line, tip| line.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(tip.clone()).build(window, cx))),
         Role::Status,
         said,
     )

@@ -513,10 +513,10 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
     lines_shelving(jobs, ideas, scope, query, order, names, project, &[])
 }
 
-/// [`lines_within`] with the Macs that are asleep: a Job on one leaves its group for that Mac's fold at the foot of the
+/// [`lines_within`] with the Macs whose Jobs cannot be reached, asleep or on another build: a Job on one leaves its group for that Mac's fold at the foot of the
 /// list, and is left out of Needs you, since it asks nothing of him here.
 #[allow(clippy::too_many_arguments)]
-fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Asleep]) -> Vec<Line> {
+fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Unreachable]) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
@@ -872,7 +872,7 @@ pub struct JobsList {
     /// The parents whose sub-Jobs are folded away, and the switch that folds every one.
     folds: Folds,
     /// The Macs that are asleep, whose Jobs stand under a fold at the foot of the list.
-    asleep: Vec<crate::pairing::Asleep>,
+    asleep: Vec<crate::pairing::Unreachable>,
     /// The folds of those Macs that are open, by Mac id. Held for the window's life; a Mac that wakes drops out.
     asleep_open: std::collections::BTreeSet<String>,
     /// What each row draws.
@@ -1077,7 +1077,7 @@ impl JobsList {
             scope,
             query: String::new(),
             folds: if remember { Folds::load(folds_file().as_deref()) } else { Folds::default() },
-            asleep: crate::pairing::asleep_of(crate::pairing::macs(cx)),
+            asleep: crate::pairing::unreachable_of(crate::pairing::macs(cx)),
             asleep_open: std::collections::BTreeSet::new(),
             view,
             order,

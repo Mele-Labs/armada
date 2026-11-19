@@ -357,17 +357,17 @@ impl Held {
         self.jobs.iter().any(|job| job.id.as_str() == session_id && job.snoozed_until.is_some())
     }
 
-    /// Whether this Job runs on a Mac that cannot be reached, among `macs`: its Jobs stop pulling at him here, as a
-    /// snoozed Job's do, and stay findable at the foot of the list.
-    pub fn asleep(&self, session_id: &str, macs: &[ipc::Mac]) -> bool {
-        self.jobs.iter().any(|job| job.id.as_str() == session_id && crate::pairing::is_asleep(macs, job.mac.as_deref()))
+    /// Whether this Job runs on a Mac that cannot be reached, among `macs`, asleep or frozen on another build: it stops
+    /// pulling at him here, as a snoozed Job's does, and stays findable at the foot of the list.
+    pub fn unreachable(&self, session_id: &str, macs: &[ipc::Mac]) -> bool {
+        self.jobs.iter().any(|job| job.id.as_str() == session_id && crate::pairing::is_unreachable(macs, job.mac.as_deref()))
     }
 
     /// The Dock count: the calls still to be opened, one for each owner, but for a snoozed Job's or one on a Mac
-    /// that is asleep. `None` until Fleet has answered.
+    /// that cannot be reached. `None` until Fleet has answered.
     pub fn dock_count(&self, macs: &[ipc::Mac]) -> Option<usize> {
         self.calls.as_ref().map(|calls| {
-            calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()) || self.asleep(job.as_str(), macs))).count()
+            calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()) || self.unreachable(job.as_str(), macs))).count()
         })
     }
 
@@ -386,10 +386,10 @@ impl Held {
         self.calls.as_ref().is_some_and(|calls| !calls.calls.iter().any(|call| call.key == key && !call.opened))
     }
 
-    /// The news folded since the last take, oldest first, but for a snoozed Job's or one on a Mac that is asleep.
+    /// The news folded since the last take, oldest first, but for a snoozed Job's or one on a Mac that cannot be reached.
     pub fn take_arrived(&mut self, macs: &[ipc::Mac]) -> Vec<CallArrival> {
         let arrived = std::mem::take(&mut self.arrived);
-        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str()) && !self.asleep(one.session_id.as_str(), macs)).collect()
+        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str()) && !self.unreachable(one.session_id.as_str(), macs)).collect()
     }
 
     /// The subagents whose own thread moved, folded since the last take, oldest first.
@@ -802,7 +802,7 @@ pub struct FleetConnection {
     /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
     /// redraw a failure causes would ask for ever.
     failed: BTreeSet<String>,
-    /// The Jobs in `failed` whose Mac was asleep when the read failed: no toast, and a read again once it wakes.
+    /// The Jobs in `failed` whose Mac could not be reached when the read failed: no toast, and a read again once it can.
     asleep_failed: BTreeSet<String>,
     /// The Jobs whose Needs you is being read now, by the `waiting_for` asked for.
     needs_reading: BTreeMap<String, Vec<WaitingItem>>,
@@ -1141,18 +1141,13 @@ impl FleetConnection {
         self.failed.contains(session)
     }
 
-    /// Whether that refusal is a Mac asleep: nothing was said in a toast, and the thread is read again when it wakes.
-    pub fn thread_asleep(&self, session: &str) -> bool {
-        self.asleep_failed.contains(session)
-    }
-
-    /// Read again the threads that failed while their Mac was asleep, for each Mac that is awake now.
+    /// Read again the threads that failed while their Mac could not be reached, for each Mac that can be now.
     pub fn retry_woken(&mut self, cx: &mut Context<Self>) {
         if self.asleep_failed.is_empty() {
             return;
         }
         let macs = crate::pairing::macs(cx);
-        let woken: Vec<String> = self.asleep_failed.iter().filter(|id| !self.held.asleep(id, macs)).cloned().collect();
+        let woken: Vec<String> = self.asleep_failed.iter().filter(|id| !self.held.unreachable(id, macs)).cloned().collect();
         for id in woken {
             self.asleep_failed.remove(&id);
             self.read_thread(&id, true, cx);
@@ -1191,8 +1186,8 @@ impl FleetConnection {
                     Err(why) => {
                         this.failed.insert(id.clone());
                         Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why.as_str()).emit();
-                        // A Mac asleep is no fault to tell him of: the Job's panel says so quietly.
-                        if this.held.asleep(&id, crate::pairing::macs(cx)) {
+                        // A Mac that cannot be reached is no fault to tell him of: the Job's panel says so quietly.
+                        if this.held.unreachable(&id, crate::pairing::macs(cx)) {
                             this.asleep_failed.insert(id.clone());
                         } else {
                             cx.defer(move |cx| crate::toasts::tell(why, cx));
@@ -1776,9 +1771,12 @@ mod tests {
         let mut held = Held::new();
         held.fold(vec![Signal::Calls(calls(&[false, false, false])), Signal::Jobs(vec![job_on("s1", "air")])]);
         let asleep = air(ipc::MacLink::Asleep { since: 5 });
-        assert!(held.asleep("s1", &asleep) && !held.asleep("s0", &asleep));
+        assert!(held.unreachable("s1", &asleep) && !held.unreachable("s0", &asleep));
         assert_eq!(held.dock_count(&asleep), Some(2), "s1 stays out of the count");
         assert_eq!(held.dock_count(&air(ipc::MacLink::Linked)), Some(3), "a Mac that is linked is counted as before");
+        for frozen in [ipc::MacLink::OlderBuild, ipc::MacLink::NewerBuild] {
+            assert_eq!(held.dock_count(&air(frozen)), Some(2), "a Mac frozen on another build is left out the same way");
+        }
     }
 
     #[test]
@@ -1792,6 +1790,10 @@ mod tests {
         let mut held = Held::new();
         fold(&mut held);
         assert_eq!(held.take_arrived(&air(ipc::MacLink::Linked)).len(), 2, "linked, both are told");
+        let mut held = Held::new();
+        fold(&mut held);
+        let news = held.take_arrived(&air(ipc::MacLink::OlderBuild));
+        assert_eq!(news.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s2"], "so is one on an older build");
     }
 
     #[test]
