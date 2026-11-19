@@ -935,6 +935,8 @@ pub use macs::{AskMacPair, FoundMac, FoundMacs, PairVouchedMac, VouchedMac, Vouc
 pub use walk_steps::{
     WalkPoint, WalkStep, WalkTarget,
 };
+mod glossary;
+pub use glossary::{Glossary, GlossaryEntry, GlossaryTermWrite};
 
 /// A feature's health mark and the reasons behind it.
 mod feature_health;

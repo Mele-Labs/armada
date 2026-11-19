@@ -366,6 +366,8 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+mod glossary;
+pub use glossary::{KeptTerm, SEED_JOB as GLOSSARY_SEED_JOB};
 pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.

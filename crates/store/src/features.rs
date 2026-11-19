@@ -41,7 +41,9 @@ pub mod link_kind {
     /// A document or ticket a Job read before it changed the feature's files.
     pub const DOC: &str = "doc";
     pub const TICKET: &str = "ticket";
-    pub const ALL: [&str; 11] = [JOB, PULL_REQUEST, MERGE, SKETCH, PAGE, WALK, DRAFT, COMMIT, BUG, DOC, TICKET];
+    /// A Job used a word the project's glossary says not to: the word is the target, the term to use is the title.
+    pub const GLOSSARY_FLAG: &str = "glossary_flag";
+    pub const ALL: [&str; 12] = [JOB, PULL_REQUEST, MERGE, SKETCH, PAGE, WALK, DRAFT, COMMIT, BUG, DOC, TICKET, GLOSSARY_FLAG];
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]

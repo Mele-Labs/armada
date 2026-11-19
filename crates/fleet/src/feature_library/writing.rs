@@ -50,8 +50,11 @@ where
         write: WriteFeatureSections,
     ) -> Result<FeatureSectionsWritten, Refusal> {
         let job = self.waiting_session(caller.clone(), write.session_id.as_ref())?;
-        if write.sections.is_empty() || write.sections.iter().any(|one| one.text.trim().is_empty()) {
+        if (write.sections.is_empty() && write.glossary.is_empty()) || write.sections.iter().any(|one| one.text.trim().is_empty()) {
             return Err(self.hosted_refusal(SECTION_EMPTY, "each section needs its text, one or more sentences"));
+        }
+        if write.glossary.iter().any(|one| one.term.trim().is_empty() || one.meaning.trim().is_empty()) {
+            return Err(self.hosted_refusal(super::glossary::BLANK, "each glossary term needs the word and what it means"));
         }
         self.feature_writes_filed().await;
         let commit = self.commit_of_job(&job).await;
@@ -90,8 +93,9 @@ where
                 written.push(one.section);
             }
         }
+        let glossary = super::glossary::terms_kept(&mut store, &feature.project, &job, &now, &write.glossary).map_err(|why| self.ledger_fault(why))?;
         let owed = super::holding::owed_by(&store, &job).map_err(|why| self.ledger_fault(why))?;
-        Ok(FeatureSectionsWritten { feature: feature.slug, written, owed: owed.into_iter().map(|(feature, sections)| FeatureOwed { feature, sections }).collect() })
+        Ok(FeatureSectionsWritten { feature: feature.slug, written, glossary, owed: owed.into_iter().map(|(feature, sections)| FeatureOwed { feature, sections }).collect() })
     }
 
     /// `upsert_features`. **Nothing is kept unless every feature names an area**, one of the call's or one already kept.
