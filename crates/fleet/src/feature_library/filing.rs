@@ -39,6 +39,7 @@ fn filed_under(store: &mut Store, loaded: &Loaded, job: &str, manifest: &str, pa
                 state: String::new(),
                 via: via.to_string(),
                 at: now.to_string(),
+                gist: String::new(),
             })?;
         }
     }
@@ -95,7 +96,7 @@ where
     /// A pull request Fleet attached to a Job, or one that merged: its files filed under the features that own them,
     /// the Job linked to those features, and the pull request linked beside it. A merge is kept with its files, which is
     /// what makes a section stale. **One forge call, and none where the project has no library.**
-    pub(crate) async fn feature_pull_filed(&self, served: &Served, number: u64, merged: Option<(&str, Option<&str>)>) {
+    pub(crate) async fn feature_pull_filed(&self, served: &Served, number: u64, merged: Option<(&str, Option<&str>, &str)>) {
         let manifest = served.manifest().id().as_str().to_string();
         let (job, projects) = {
             let store = self.store().lock().await;
@@ -125,7 +126,7 @@ where
         let paths: Vec<String> = files.into_iter().map(|file| file.path).collect();
         let now = self.now().as_str().to_string();
         let mut store = self.store().lock().await;
-        if let Some((at, commit)) = merged {
+        if let Some((at, commit, _)) = merged {
             let _ = store.keep_feature_merge(&KeptFeatureMerge {
                 manifest_id: manifest.clone(),
                 number,
@@ -136,9 +137,10 @@ where
             });
         }
         let (kind, at) = match merged {
-            Some((at, _)) => (feature_link_kind::MERGE, at),
+            Some((at, _, _)) => (feature_link_kind::MERGE, at),
             None => (feature_link_kind::PULL_REQUEST, now.as_str()),
         };
+        let title = merged.map(|(_, _, title)| title).unwrap_or_default();
         for project in projects {
             let Ok(loaded) = Loaded::read(&store, &project) else {
                 continue;
@@ -152,10 +154,11 @@ where
                     kind: kind.to_string(),
                     target: number.to_string(),
                     job: job.clone().unwrap_or_default(),
-                    title: String::new(),
+                    title: title.to_string(),
                     state: String::new(),
                     via: "detector".to_string(),
                     at: at.to_string(),
+                    gist: String::new(),
                 });
             }
         }
@@ -208,6 +211,7 @@ where
                             state: String::new(),
                             via: "trailer".to_string(),
                             at: now.to_string(),
+                            gist: String::new(),
                         });
                     }
                 }
@@ -274,6 +278,7 @@ where
             state: String::new(),
             via: "artifact".to_string(),
             at: now.to_string(),
+            gist: String::new(),
         });
     }
 }

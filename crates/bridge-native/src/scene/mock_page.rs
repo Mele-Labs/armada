@@ -350,10 +350,9 @@ impl KeptCache {
             None => crate::mock::kept_styles(hash),
             Some(port) => {
                 let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-                let (status, bytes) = runtime.block_on(crate::transport::get(port, &format!("/sessions/kept_styles?hash={hash}")))?;
-                if !(200..300).contains(&status) {
-                    return Err(format!("Fleet answered {status}: {}", String::from_utf8_lossy(&bytes)));
-                }
+                let route = format!("/sessions/kept_styles?hash={hash}");
+                let (status, bytes) = runtime.block_on(crate::transport::get(port, &route))?;
+                let bytes = crate::refusal::answered("GET", &route, None, status, bytes).map_err(|refusal| refusal.to_string())?;
                 ipc::decode::<KeptStyles>("KeptStyles", &bytes).map_err(|why| why.to_string())?
             }
         };

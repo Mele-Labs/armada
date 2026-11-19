@@ -216,7 +216,7 @@ async fn an_item_that_is_not_a_question_needs_no_options_where_he_answers_by_but
     let rig = rig_placing(None);
     let id = rig.start().await;
     save(&rig, "answer_with", "buttons").await;
-    let run = WaitingInput { act: Some(WaitingAct { kind: WaitingActKind::Run, target: "scripts/restart".into() }), ..question("restart", 0) };
+    let run = WaitingInput { act: Some(WaitingAct { kind: WaitingActKind::Run, target: "scripts/restart".into(), on: None }), ..question("restart", 0) };
     let approval = WaitingInput { approves: true, ..question("plan", 0) };
     let procedure = WaitingInput { steps: vec!["Open Settings.".into()], ..question("todo", 0) };
     rig.fleet.set_waiting(None, listing(&id, vec![run, approval, procedure])).await.expect("a run, an approval and a procedure are not questions");

@@ -235,9 +235,34 @@ pub struct FeaturePage {
     pub links: Vec<FeatureLink>,
     /// The files the most Jobs wrote, most first.
     pub files: Vec<FeatureFile>,
+    /// The documents a Job read before it changed a file of the feature, newest first, each once.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub docs: Vec<FeatureRead>,
+    /// The tickets a Job read before it changed a file of the feature, newest first, each once.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub tickets: Vec<FeatureRead>,
     /// The code map with this feature's rooms lit. Absent on a page read by `section`, and where no repository could be read.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub floor_plan: Option<FloorPlan>,
+}
+
+/// A document or ticket a Job read before it changed the feature's files. Fleet saw the order; it does not know the Job
+/// quoted or acted on it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct FeatureRead {
+    /// The address, path or id it was read by.
+    pub target: String,
+    /// The title the result held, else what it was read by.
+    pub title: String,
+    /// The result's first sentence. Empty where the result was not visible.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub gist: String,
+    /// The Job that read it.
+    pub job: String,
+    pub at: Instant,
+    /// `gone` where the address no longer answers. Empty until a check sets it.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub state: String,
 }
 
 /// `get_feature_brief`: the page condensed for an agent.

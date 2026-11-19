@@ -87,6 +87,16 @@ const claimFrom = (row: ClaimRow) => ({
 
 const nowSeconds = (): number => Math.floor(Date.now() / 1000);
 
+/** The tables a cap is checked against. */
+const COUNTED = [
+  "devices",
+  "claims",
+  "owners",
+  "runs",
+  "contenders",
+] as const;
+type Counted = (typeof COUNTED)[number];
+
 /** One account's devices, claims, owners and the runs of its repositories. A Durable Object runs one request at a time. */
 export class Account extends DurableObject<Env> {
   private readonly sql = this.ctx.storage.sql;
@@ -97,6 +107,23 @@ export class Account extends DurableObject<Env> {
   /** Whether the tables that came after enrolment, `runs` and the claims of every kind, are made. An account enrolled
    * before them has them from its first verified request. */
   private upgraded = false;
+
+  /**
+   * No holder or contender lapses before this time, in epoch seconds, so the lapse is skipped until then. A write here
+   * only moves a renewal or an ask later, so it never passes the real time. `undefined` until the object reads its
+   * alarm, which is set no later than the next lapse.
+   */
+  private lapseFloor: number | undefined;
+
+  /** When each device's verified requests of the last minute were seen, read from its nonces once. */
+  private readonly recent = new Map<string, number[]>();
+
+  /** Drops what is kept in memory about renewals and nonces, for a write made outside this class, as a test's. The next
+   * claims call or renewal lapses. */
+  forget(): void {
+    this.lapseFloor = Number.NEGATIVE_INFINITY;
+    this.recent.clear();
+  }
 
   /** Called by the Worker's enrol, which has already checked the key parses. `full` when the account has `limit` devices. */
   register(
@@ -122,7 +149,6 @@ export class Account extends DurableObject<Env> {
     this.sql.exec(`
       CREATE TABLE IF NOT EXISTS devices (id TEXT PRIMARY KEY, public_key TEXT NOT NULL, machine TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'mac', address TEXT NOT NULL DEFAULT '');
       CREATE TABLE IF NOT EXISTS nonces (device TEXT NOT NULL, nonce TEXT NOT NULL, seen INTEGER NOT NULL, PRIMARY KEY (device, nonce));
-      CREATE INDEX IF NOT EXISTS nonces_seen ON nonces (seen);
       CREATE TABLE IF NOT EXISTS owners (key TEXT PRIMARY KEY, kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, since INTEGER NOT NULL);
     `);
     this.upgrade();
@@ -138,8 +164,19 @@ export class Account extends DurableObject<Env> {
    * `contenders` holds the Jobs a held claim refused, for as long as each keeps asking and the claim stands. A table
    * made before it had `told` gets the column here, its rows told none. A `devices` table made before it had `kind` and
    * `address` gets them here, its rows Macs with no address.
+   *
+   * Nonces are indexed by device and time, in place of the time alone, so a request's cleanup and rate count read only
+   * its own device's rows of the last two minutes. One index either way, so a nonce costs the same rows written.
+   *
+   * `tallies` holds how many rows each capped table has, kept by a trigger on each insert and delete, so a cap check
+   * reads one row. The free plan counts every row a statement reads, and a `COUNT(*)` reads the whole table. A table
+   * with no tally is counted once, here.
    */
   private upgrade(): void {
+    this.sql.exec(`
+      DROP INDEX IF EXISTS nonces_seen;
+      CREATE INDEX IF NOT EXISTS nonces_device_seen ON nonces (device, seen);
+    `);
     const devices = this.sql
       .exec<{
         sql: string;
@@ -154,7 +191,10 @@ export class Account extends DurableObject<Env> {
         sql: string;
       }>("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'claims'")
       .toArray()[0];
-    if (claims && !claims.sql.includes("holder_kind")) this.sql.exec("DROP TABLE claims");
+    if (claims && !claims.sql.includes("holder_kind")) {
+      this.sql.exec("DROP TABLE claims");
+      if (this.hasTable("tallies")) this.sql.exec("DELETE FROM tallies WHERE name = 'claims'");
+    }
     const contenders = this.sql
       .exec<{
         sql: string;
@@ -168,8 +208,32 @@ export class Account extends DurableObject<Env> {
       CREATE TABLE IF NOT EXISTS holders (kind TEXT NOT NULL, id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, renewed INTEGER NOT NULL, PRIMARY KEY (kind, id, machine));
       CREATE TABLE IF NOT EXISTS runs (repo TEXT PRIMARY KEY, facts TEXT NOT NULL);
       CREATE TABLE IF NOT EXISTS contenders (repo TEXT NOT NULL, kind TEXT NOT NULL, key TEXT NOT NULL, contender_kind TEXT NOT NULL, contender_id TEXT NOT NULL, machine TEXT NOT NULL, name TEXT NOT NULL, title TEXT NOT NULL, since INTEGER NOT NULL, at INTEGER NOT NULL, told INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (repo, kind, key, contender_kind, contender_id, machine));
+      CREATE TABLE IF NOT EXISTS tallies (name TEXT PRIMARY KEY, n INTEGER NOT NULL);
     `);
+    const tallied = new Set(
+      this.sql
+        .exec<{
+          name: string;
+        }>("SELECT name FROM tallies")
+        .toArray()
+        .map((row) => row.name),
+    );
+    for (const table of COUNTED) {
+      this.sql.exec(`
+        CREATE TRIGGER IF NOT EXISTS ${table}_added AFTER INSERT ON ${table} BEGIN UPDATE tallies SET n = n + 1 WHERE name = '${table}'; END;
+        CREATE TRIGGER IF NOT EXISTS ${table}_removed AFTER DELETE ON ${table} BEGIN UPDATE tallies SET n = n - 1 WHERE name = '${table}'; END;
+      `);
+      if (!tallied.has(table))
+        this.sql.exec(`INSERT INTO tallies (name, n) SELECT ?, COUNT(*) FROM ${table}`, table);
+    }
     this.upgraded = true;
+  }
+
+  private hasTable(name: string): boolean {
+    return (
+      this.sql.exec("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", name).toArray()
+        .length > 0
+    );
   }
 
   private hasTables(): boolean {
@@ -180,11 +244,12 @@ export class Account extends DurableObject<Env> {
     return this.made;
   }
 
-  private count(table: "devices" | "claims" | "owners" | "runs" | "contenders"): number {
+  /** The rows `table` holds, from its tally. */
+  private count(table: Counted): number {
     return this.sql
       .exec<{
         n: number;
-      }>(`SELECT COUNT(*) AS n FROM ${table}`)
+      }>("SELECT n FROM tallies WHERE name = ?", table)
       .one().n;
   }
 
@@ -197,6 +262,13 @@ export class Account extends DurableObject<Env> {
     if (refused) return refused;
     // Only a verified request gets here, so a stranger still cannot make a table.
     if (!this.upgraded) this.upgrade();
+    const lapsing = url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals";
+    // An object that just woke takes its alarm, which is set no later than the next lapse, as the time nothing lapses
+    // before, rather than reading every holder and contender to find it.
+    if (lapsing && this.lapseFloor === undefined) {
+      const alarm = await this.ctx.storage.getAlarm();
+      if (alarm !== null) this.lapseFloor = Math.floor(alarm / 1000);
+    }
     // Nothing in `route` awaits, so a read and the write after it cannot be split by another request.
     const answer = this.route(
       request.method,
@@ -204,8 +276,7 @@ export class Account extends DurableObject<Env> {
       new TextDecoder().decode(body),
       request.headers.get(DEVICE_HEADER) ?? "",
     );
-    if (url.pathname.startsWith("/v1/claims") || url.pathname === "/v1/renewals")
-      await this.keepAlarm();
+    if (lapsing) await this.keepAlarm();
     return answer;
   }
 
@@ -224,6 +295,22 @@ export class Account extends DurableObject<Env> {
       cutoff,
     );
     this.sql.exec("DELETE FROM holders WHERE renewed <= ?", cutoff);
+  }
+
+  /**
+   * The lapse, only once something can have lapsed. A lapse scans the holders and contenders, so it runs about once per
+   * lapse period rather than on every call.
+   */
+  private lapseIfDue(now: number): void {
+    if (this.lapseFloor !== undefined && now < this.lapseFloor) return;
+    this.lapse(now);
+    this.lapseFloor = this.nextLapse() ?? Number.POSITIVE_INFINITY;
+  }
+
+  /** A holder renewed, or a contender asked, at `at`: it lapses no earlier than `LAPSE_SECONDS` on. */
+  private lapsesFrom(at: number): void {
+    if (this.lapseFloor !== undefined)
+      this.lapseFloor = Math.min(this.lapseFloor, at + LAPSE_SECONDS);
   }
 
   /** When the holder that renewed, or the contender that asked, longest ago lapses, or `null` with neither. */
@@ -245,15 +332,19 @@ export class Account extends DurableObject<Env> {
     if (next !== null) await this.ctx.storage.setAlarm(next * 1000);
   }
 
-  /** The lapse, for a store nobody calls. A holder left holding nothing goes too. */
+  /** The lapse, for a store nobody calls. A holder left holding nothing goes too, and so do the nonces of a device that
+   * stopped calling, which its own requests would have cleared. */
   async alarm(): Promise<void> {
     if (!this.hasTables()) return;
     if (!this.upgraded) this.upgrade();
-    this.lapse(nowSeconds());
+    const now = nowSeconds();
+    this.lapse(now);
     this.sql.exec(
       "DELETE FROM holders WHERE NOT EXISTS (SELECT 1 FROM claims WHERE holder_kind = holders.kind AND holder_id = holders.id AND claims.machine = holders.machine)",
     );
+    this.sql.exec("DELETE FROM nonces WHERE seen < ?", now - NONCE_KEEP_SECONDS);
     const next = this.nextLapse();
+    this.lapseFloor = next ?? Number.POSITIVE_INFINITY;
     if (next !== null) await this.ctx.storage.setAlarm(next * 1000);
   }
 
@@ -288,17 +379,13 @@ export class Account extends DurableObject<Env> {
 
     // Only a request that verified takes a nonce or a place in the minute, so garbage cannot fill the table
     // or use up a device's requests. The nonces of the last minute are the count.
-    this.sql.exec("DELETE FROM nonces WHERE seen < ?", now - NONCE_KEEP_SECONDS);
-    const recent = this.sql
-      .exec<{
-        n: number;
-      }>(
-        "SELECT COUNT(*) AS n FROM nonces WHERE device = ? AND seen > ?",
-        device,
-        now - RATE_WINDOW_SECONDS,
-      )
-      .one().n;
-    if (recent >= REQUESTS_PER_MINUTE) {
+    this.sql.exec(
+      "DELETE FROM nonces WHERE device = ? AND seen < ?",
+      device,
+      now - NONCE_KEEP_SECONDS,
+    );
+    const recent = this.recentOf(device, now);
+    if (recent.length >= REQUESTS_PER_MINUTE) {
       return Response.json(
         {
           error: "rate_limited",
@@ -317,7 +404,25 @@ export class Account extends DurableObject<Env> {
       nonce,
       now,
     );
-    return taken.rowsWritten === 0 ? refuse(401, "replayed_nonce") : null;
+    if (taken.rowsWritten === 0) return refuse(401, "replayed_nonce");
+    recent.push(now);
+    return null;
+  }
+
+  /** When `device`'s verified requests of the last minute were seen: its nonces, read from the table only the first time. */
+  private recentOf(device: string, now: number): number[] {
+    const since = now - RATE_WINDOW_SECONDS;
+    const kept =
+      this.recent.get(device) ??
+      this.sql
+        .exec<{
+          seen: number;
+        }>("SELECT seen FROM nonces WHERE device = ? AND seen > ?", device, since)
+        .toArray()
+        .map((row) => row.seen);
+    const within = kept.filter((seen) => seen > since);
+    this.recent.set(device, within);
+    return within;
   }
 
   private route(method: string, url: URL, text: string, caller: string): Response {
@@ -342,7 +447,7 @@ export class Account extends DurableObject<Env> {
     }
     if (area === "claims") {
       // A claim that lapsed reads as gone before its alarm has run.
-      this.lapse(nowSeconds());
+      this.lapseIfDue(nowSeconds());
       if (parts.length === 2)
         return method === "POST"
           ? this.claim(text)
@@ -426,6 +531,7 @@ export class Account extends DurableObject<Env> {
 
   private signOut(device: string): Response {
     this.sql.exec("DELETE FROM nonces WHERE device = ?", device);
+    this.recent.delete(device);
     const gone = this.sql.exec("DELETE FROM devices WHERE id = ?", device);
     return gone.rowsWritten === 0 ? refuse(404, "no_device") : reply(204);
   }
@@ -663,6 +769,7 @@ export class Account extends DurableObject<Env> {
         )
         .toArray().length > 0;
     if (!known && this.count("contenders") >= MAX_CONTENDERS) return;
+    const now = nowSeconds();
     this.sql.exec(
       `INSERT INTO contenders (repo, kind, key, contender_kind, contender_id, machine, name, title, since, at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (repo, kind, key, contender_kind, contender_id, machine) DO UPDATE SET name = excluded.name, title = excluded.title, at = excluded.at`,
@@ -675,12 +782,14 @@ export class Account extends DurableObject<Env> {
       asker.name,
       asker.title,
       asker.since,
-      nowSeconds(),
+      now,
     );
+    this.lapsesFrom(now);
   }
 
   /** The holder's row: the name and title it last sent, renewed now. */
   private putHolder(holder: ClaimHolder): void {
+    this.lapsesFrom(nowSeconds());
     this.sql.exec(
       `INSERT INTO holders (kind, id, machine, name, title, renewed) VALUES (?, ?, ?, ?, ?, ?)
        ON CONFLICT (kind, id, machine) DO UPDATE SET name = excluded.name, title = excluded.title, renewed = excluded.renewed`,
@@ -739,7 +848,7 @@ export class Account extends DurableObject<Env> {
     ]);
     const who = renewingOf(body?.holder);
     if (!who) return refuse(400, "invalid_body");
-    this.lapse(nowSeconds());
+    this.lapseIfDue(nowSeconds());
     this.sql.exec(
       "UPDATE holders SET renewed = ? WHERE kind = ? AND id = ? AND machine = ?",
       nowSeconds(),

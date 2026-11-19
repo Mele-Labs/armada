@@ -525,8 +525,8 @@ where
         Ok(page)
     }
 
-    async fn get_review_lists(&self, project: Option<String>) -> Result<PullReviewLists, Refusal> {
-        self.review_lists_read(project.as_deref()).await
+    async fn get_review_lists(self: std::sync::Arc<Self>, project: Option<String>) -> Result<PullReviewLists, Refusal> {
+        self.review_lists_answered(project).await
     }
 
     async fn list_review_tools(&self, manifest_id: ManifestId) -> Result<ipc::ReviewTools, Refusal> {
@@ -641,6 +641,14 @@ where
 
     async fn mark_file_viewed(&self, manifest_id: ManifestId, mark: ipc::MarkFileViewed) -> Result<ipc::PullViewedFile, Refusal> {
         self.file_viewed_marked(manifest_id, mark).await
+    }
+
+    async fn ignore_pull_request(&self, manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::PullIgnored, Refusal> {
+        self.pull_ignored(manifest_id, ignore).await
+    }
+
+    async fn unignore_pull_request(&self, manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::IgnorePull, Refusal> {
+        self.pull_unignored(manifest_id, ignore).await
     }
 
     async fn unmark_file_viewed(

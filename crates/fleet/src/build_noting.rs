@@ -86,7 +86,7 @@ pub(crate) fn ready_items(notes: Vec<KeptBuildNote>, session: &str, now: &str, d
         text: "Ready to try".into(),
         since,
         source: ipc::WaitingSource::ReadyToTry,
-        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Message, target: session.to_string() }),
+        act: Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Message, target: session.to_string(), on: None }),
         options: Vec::new(),
         steps: Vec::new(),
         place: None,

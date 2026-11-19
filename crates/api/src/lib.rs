@@ -123,6 +123,7 @@ mod logbook;
 /// What a person taught, and the entry and mods they keep.
 mod teaching;
 mod routes;
+mod too_large;
 mod scoped;
 /// Everything a handler is given. **Next door to the table**, which is what
 /// the gate rule reads.

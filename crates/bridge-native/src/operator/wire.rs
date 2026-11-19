@@ -11,6 +11,7 @@ use serde::de::DeserializeOwned;
 
 use super::scenes::MockFleet;
 use crate::fleet::FleetConnection;
+use crate::refusal::Refusal;
 
 /// Where the page's answers come from.
 pub enum Wire {
@@ -40,25 +41,38 @@ impl From<Failed> for String {
     }
 }
 
-fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, String>> {
-    let task = told(port, ask, what, cx);
+fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, headline: Option<&'static str>, cx: &App) -> Task<Result<T, String>> {
+    let task = told(port, ask, what, headline, cx);
     cx.background_spawn(async move { task.await.map_err(String::from) })
 }
 
-fn told<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, Failed>> {
-    cx.background_spawn(async move {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| Failed::Lost(why.to_string()))?;
+/// `ask` off the main thread. Where `headline` names a press, a refusal also raises the failure toast; the page
+/// still says why where it said it before.
+fn told<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, headline: Option<&'static str>, cx: &App) -> Task<Result<T, Failed>> {
+    let answer: Task<Result<T, (Failed, Option<Refusal>)>> = cx.background_spawn(async move {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| (Failed::Lost(why.to_string()), None))?;
+        let (method, route, size) = match &ask {
+            Ask::Get(path) => ("GET", *path, None),
+            Ask::Post(path, body) => ("POST", *path, Some(body.len())),
+            Ask::Bare(path) => ("POST", *path, None),
+        };
         let sent = match ask {
             Ask::Get(path) => runtime.block_on(crate::transport::get(port, path)),
             Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, path, body)),
             Ask::Bare(path) => runtime.block_on(crate::transport::post_bare(port, path)),
         };
-        let (status, bytes) = sent.map_err(Failed::Lost)?;
-        if !(200..300).contains(&status) {
-            return Err(Failed::Refused(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message)));
-        }
+        let (status, bytes) = sent.map_err(|why| (Failed::Lost(why), None))?;
+        let bytes = crate::refusal::answered(method, route, size, status, bytes).map_err(|refusal| (Failed::Refused(refusal.to_string()), Some(refusal)))?;
         // A 2xx that does not read is Fleet's answer lost on the way: it may have done the press.
-        ipc::decode::<T>(what, &bytes).map_err(|why| Failed::Lost(why.to_string()))
+        ipc::decode::<T>(what, &bytes).map_err(|why| (Failed::Lost(why.to_string()), None))
+    });
+    cx.spawn(async move |cx| {
+        answer.await.map_err(|(failed, refusal)| {
+            if let (Some(headline), Some(refusal)) = (headline, refusal) {
+                cx.update(|cx| crate::toasts::tell_refused(headline, refusal, cx));
+            }
+            failed
+        })
     })
 }
 
@@ -87,7 +101,7 @@ impl Wire {
         if let Wire::Mock(mock) = self {
             return Task::ready(Ok(mock.page.clone()));
         }
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/operator/page"), "OperatorPage", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/operator/page"), "OperatorPage", None, cx))
     }
 
     /// `POST /operator/page/answer`.
@@ -97,7 +111,7 @@ impl Wire {
         }
         let said = body(&press);
         match self.port(cx) {
-            Some(port) => told(port, Ask::Post("/operator/page/answer", said), "OperatorAnswered", cx),
+            Some(port) => told(port, Ask::Post("/operator/page/answer", said), "OperatorAnswered", Some("Your answer was not taken"), cx),
             None => Task::ready(Err(Failed::Lost("Fleet is not connected".into()))),
         }
     }
@@ -108,7 +122,7 @@ impl Wire {
             return Task::ready(mock.later(id, until));
         }
         let said = body(&OperatorLater { id: id.to_string(), until: until.map(ipc::Instant::carried) });
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/page/later", said), "OperatorPage", Some("The card was not put off until later"), cx))
     }
 
     /// `POST /operator/front`, which takes no body.
@@ -117,7 +131,7 @@ impl Wire {
             mock.fronted += 1;
             return Task::ready(Ok(OperatorInFront { rewriting: false }));
         }
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Bare("/operator/front"), "OperatorInFront", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Bare("/operator/front"), "OperatorInFront", None, cx))
     }
 
     /// `POST /settings/save` with `features.operator`, the switch Electron's Permissions tab saves.
@@ -132,7 +146,8 @@ impl Wire {
         let changes = [("features.operator".to_string(), Some(ipc::SettingValue::Bool(on)))].into_iter().collect();
         let said = body(&ipc::SaveSettings { changes });
         let Some(port) = self.port(cx) else { return Self::unreachable() };
-        let saved = request::<ipc::SettingsList>(port, Ask::Post("/settings/save", said), "SettingsList", cx);
+        let headline = if on { "The Operator was not turned on" } else { "The Operator was not turned off" };
+        let saved = request::<ipc::SettingsList>(port, Ask::Post("/settings/save", said), "SettingsList", Some(headline), cx);
         cx.background_spawn(async move { saved.await.map(|_| ()) })
     }
 
@@ -143,7 +158,7 @@ impl Wire {
             return None;
         }
         let said = body(&TalkToOperator { words, about });
-        Some(self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/talk", said), "OperatorSaid", cx)))
+        Some(self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/talk", said), "OperatorSaid", Some("Your words were not sent to the Operator"), cx)))
     }
 
     /// `POST /operator/acts`: what the Operator may do unasked in one project, or unset with none. The answer is every
@@ -153,7 +168,7 @@ impl Wire {
             return Task::ready(mock.set_acts(&project, acts));
         }
         let said = body(&SetOperatorActs { project, acts });
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/acts", said), "OperatorActsList", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/operator/acts", said), "OperatorActsList", Some("What the Operator may do was not saved"), cx))
     }
 
     /// `POST /sessions/dispatch`: the composer's send and a parked idea's start. The mock answers at once, and with
@@ -164,7 +179,7 @@ impl Wire {
         }
         let said = body(&job);
         let Some(port) = self.port(cx) else { return Self::unreachable() };
-        let sent = request::<JobDispatched>(port, Ask::Post("/sessions/dispatch", said), "JobDispatched", cx);
+        let sent = request::<JobDispatched>(port, Ask::Post("/sessions/dispatch", said), "JobDispatched", Some("The Job was not started"), cx);
         cx.background_spawn(async move { sent.await.map(|answer| (answer, Vec::new())) })
     }
 
@@ -173,7 +188,7 @@ impl Wire {
         if let Wire::Mock(mock) = self {
             return Task::ready(Ok(ParkedIdeas { ideas: mock.parked.clone() }));
         }
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/sessions/parked"), "ParkedIdeas", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Get("/sessions/parked"), "ParkedIdeas", None, cx))
     }
 
     /// `POST /sessions/parked/remove`: one idea goes; the answer is the ideas that are left.
@@ -182,6 +197,6 @@ impl Wire {
             return Task::ready(mock.remove_parked(&id));
         }
         let said = body(&RemoveParkedIdea { id });
-        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/sessions/parked/remove", said), "ParkedIdeas", cx))
+        self.port(cx).map_or_else(Self::unreachable, |port| request(port, Ask::Post("/sessions/parked/remove", said), "ParkedIdeas", Some("The idea was not removed"), cx))
     }
 }

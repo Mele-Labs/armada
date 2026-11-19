@@ -176,7 +176,7 @@ impl Rig {
                         approves: false,
                         id: "restart".into(),
                         text: "Restart onto the new build".into(),
-                        act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into() }),
+                        act: Some(WaitingAct { kind: WaitingActKind::Run, target: command.into(), on: None }),
                         options: Vec::new(),
                         steps: Vec::new(),
                         artifact: None,

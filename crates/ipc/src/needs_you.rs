@@ -72,6 +72,10 @@ pub struct NeedsYouRow {
     pub glyph: NeedsYouGlyph,
     pub act: NeedsYouAct,
     pub dismiss: NeedsYouDismiss,
+    /// The Mac the row's command is meant for, by name, as the item's `run` act names it. Absent where it names
+    /// none, which means this Mac. A Bridge on another Mac offers no Run for it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub on: Option<String>,
 }
 
 /// A mark and the words a tooltip names it by.

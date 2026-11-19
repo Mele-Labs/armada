@@ -9,6 +9,7 @@
 
 pub(crate) mod brief;
 mod changing;
+mod consulting;
 pub(crate) mod committing;
 mod filing;
 mod floor_plan;
@@ -20,11 +21,13 @@ pub(crate) mod mapping;
 mod measuring;
 mod modules;
 mod pending;
+mod project_pages;
 mod reading;
 mod seeding;
 mod serving;
 pub(crate) mod staleness;
 mod writing;
+pub(crate) mod since_paragraph;
 
 pub(crate) use holding::{sections_owed_text, OWED};
 pub(crate) use reading::{features_of_note, slug_held};
@@ -36,3 +39,5 @@ pub(crate) use seeding::PROJECT as PROJECT_UNKNOWN;
 pub(crate) use floor_plan::{is_contract, plan as floor_plan_of_layouts};
 #[cfg(test)]
 pub(crate) use modules::read as read_modules;
+#[cfg(test)]
+pub(crate) use project_pages::first_sentence;
