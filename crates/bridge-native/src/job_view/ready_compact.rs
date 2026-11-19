@@ -122,6 +122,12 @@ impl Page {
 }
 
 impl JobView {
+    /// Whether the thread pins the Ready to try card now: the one test `extras_of` pushes `Extra::Ready` on. Where it does, the
+    /// Needs you band leaves Fleet's Ready to try row out, since the card is already on the thread (17 Nov).
+    pub(super) fn ready_pinned_for(&self, id: &str, cx: &gpui::App) -> bool {
+        self.thread(id, cx).is_some_and(|held| asks(&held.items))
+    }
+
     /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened unfolds whole under
     /// its own row.
     pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
