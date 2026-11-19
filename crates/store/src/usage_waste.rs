@@ -16,7 +16,7 @@
 //! names. Its tokens (a fourth of its bytes) are that request's write share: the request's weighed input
 //! and writes times the part of its input and writes the result was.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 
 use rusqlite::Connection;
 
@@ -105,6 +105,7 @@ fn reading(why: rusqlite::Error) -> WriteError {
 }
 
 /// A result a request carried that is waste: a read of a file the thread already held, or one over [`BIG_RESULT_BYTES`].
+#[derive(Clone)]
 struct Flagged {
     tool: String,
     path: Option<String>,
@@ -116,20 +117,24 @@ struct Flagged {
 /// carried them. A repeat is a Read of lines of a file the same thread, since its last compaction, had read
 /// before, whose result had reached it, with no edit of the file by the thread between. A Read with no lines
 /// is the whole file. Takes the window as `?1` and `?2`.
+///
+/// **Each table is named its index.** A store with no `sqlite_stat1`, which is every store, plans these lookups by
+/// the primary key's session alone, and one session holds a third of all calls, so every repeat check read that
+/// session's calls again: 88 s for a week on a copy of a live store, 0.09 s with the indexes.
 const FLAGGED: &str = "SELECT session_id, message_id, tool, path, bytes, repeated FROM (
         SELECT c.session_id AS session_id, c.carried_by AS message_id, c.tool AS tool, c.path AS path, c.result_bytes AS bytes,
                (c.path IS NOT NULL AND EXISTS (
-                   SELECT 1 FROM session_tool_calls e
+                   SELECT 1 FROM session_tool_calls e INDEXED BY session_tool_calls_by_path
                     WHERE e.session_id = c.session_id AND e.thread = c.thread AND e.epoch = c.epoch AND e.path = c.path
                       AND e.result_bytes IS NOT NULL
                       AND COALESCE(e.from_line, 1) <= COALESCE(c.to_line, 9223372036854775807)
                       AND COALESCE(c.from_line, 1) <= COALESCE(e.to_line, 9223372036854775807)
                       AND (e.at < c.at OR (e.at = c.at AND e.tool_use_id < c.tool_use_id))
                       AND NOT EXISTS (
-                          SELECT 1 FROM session_tool_calls x
+                          SELECT 1 FROM session_tool_calls x INDEXED BY session_tool_calls_by_edit
                            WHERE x.session_id = c.session_id AND x.thread = c.thread AND x.edited = c.path
                              AND x.at > e.at AND x.at < c.at))) AS repeated
-          FROM session_turn_usage t JOIN session_tool_calls c ON c.session_id = t.session_id AND c.carried_by = t.message_id
+          FROM session_turn_usage t JOIN session_tool_calls c INDEXED BY session_tool_calls_by_carrier ON c.session_id = t.session_id AND c.carried_by = t.message_id
          WHERE t.at >= ?1 AND t.at < ?2 AND c.result_bytes > 0)
      WHERE repeated OR bytes > ";
 
@@ -138,6 +143,7 @@ fn flagged_sql() -> String {
 }
 
 /// One request, as far as the kinds read it.
+#[derive(Clone)]
 struct Request {
     session_id: String,
     subagent: bool,
@@ -226,23 +232,46 @@ fn flagged(conn: &Connection, since: &str, until: &str) -> Result<HashMap<(Strin
     Ok(by_request)
 }
 
+/// One row of a window's stream: a main or subagent request, or a compaction's own request.
+struct Row {
+    session_id: String,
+    message_id: String,
+    at: String,
+    background: bool,
+    subagent: bool,
+    spent: bool,
+    request: Request,
+}
+
+/// The Jobs whose last main-thread request before `since` was followed by a compaction, so the first main-thread
+/// request after `since` is a fresh start.
+fn compacted_before(conn: &Connection, since: &str) -> Result<HashSet<String>, WriteError> {
+    let mut statement = conn
+        .prepare(
+            "SELECT DISTINCT b.session_id FROM session_background_usage b
+              WHERE b.at < ?1
+                AND b.at >= COALESCE((SELECT max(m.at) FROM session_turn_usage m
+                                       WHERE m.session_id = b.session_id AND NOT m.subagent AND m.at < ?1), '')",
+        )
+        .map_err(reading)?;
+    let rows = statement.query_map([since], |row| row.get::<_, String>(0)).map_err(reading)?;
+    rows.collect::<Result<_, _>>().map_err(reading)
+}
+
 /// Each request that could be waste in `[since, until)`: past the context limit, with cold writes, the
 /// first main-thread one after a compaction, or one that carried a result that was waste. A compaction's
 /// own request is the fix, not the waste.
+///
+/// **The window's requests are read once, in time order a Job at a time**, and a fresh start is found by walking
+/// them: a main-thread request with shares kept is a start if a compaction came after the Job's last main-thread
+/// request before it. Requests at one instant are read together, so none of them is the start of another.
 fn requests(conn: &Connection, since: &str, until: &str) -> Result<Vec<Request>, WriteError> {
     let model = model_weight();
     let mut carried = flagged(conn, since, until)?;
+    let mut compacted = compacted_before(conn, since)?;
     let sql = format!(
-        "WITH turns AS (
-            SELECT session_id, message_id, at, model, input_tokens, cache_creation_tokens, cache_creation_1h_tokens,
-                   cache_read_tokens, output_tokens, subagent, spent_on, 0 AS background
-              FROM session_turn_usage
-            UNION ALL
-            SELECT session_id, NULL, at, model, 0, 0, 0, cache_read_tokens, output_tokens, 0, NULL, 1
-              FROM session_background_usage),
-          flagged AS ({flagged})
-        SELECT session_id, message_id, subagent, u, ctx, wt, w, r, cold, start_r, start_w, started FROM (
-            SELECT t.session_id AS session_id, t.message_id AS message_id, t.subagent AS subagent, {units} AS u,
+        "SELECT session_id, message_id, at, subagent, background, u, ctx, wt, w, r, cold, start_r, start_w, spent FROM (
+            SELECT session_id, message_id, at, subagent, 0 AS background, {units} AS u,
                    (input_tokens + cache_creation_tokens + cache_read_tokens) AS ctx,
                    (input_tokens + cache_creation_tokens) AS wt,
                    {model} * {written} / {UNIT_SCALE:?} AS w,
@@ -250,40 +279,74 @@ fn requests(conn: &Connection, since: &str, until: &str) -> Result<Vec<Request>,
                    COALESCE(json_extract(spent_on, '$.write.cold_cache'), 0) AS cold,
                    COALESCE(json_extract(spent_on, '$.read.start_up'), 0) AS start_r,
                    COALESCE(json_extract(spent_on, '$.write.start_up'), 0) AS start_w,
-                   (NOT t.subagent AND spent_on IS NOT NULL AND EXISTS (
-                       SELECT 1 FROM session_background_usage b
-                        WHERE b.session_id = t.session_id AND b.at < t.at
-                          AND NOT EXISTS (SELECT 1 FROM session_turn_usage m
-                                           WHERE m.session_id = t.session_id AND NOT m.subagent
-                                             AND m.at > b.at AND m.at < t.at))) AS started
-              FROM turns t WHERE t.at >= ?1 AND t.at < ?2 AND NOT t.background)
-          WHERE ctx > {LONG_CONTEXT} OR cold > 0 OR started
-             OR (session_id, message_id) IN (SELECT session_id, message_id FROM flagged)",
-        flagged = flagged_sql(),
+                   spent_on IS NOT NULL AS spent
+              FROM session_turn_usage WHERE at >= ?1 AND at < ?2
+            UNION ALL
+            SELECT session_id, '', at, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0
+              FROM session_background_usage WHERE at >= ?1 AND at < ?2)
+          ORDER BY session_id, at, background, message_id"
+        ,
         units = units(),
         written = written(),
     );
     let mut statement = conn.prepare(&sql).map_err(reading)?;
     let rows = statement
         .query_map([since, until], |row| {
-            let (session_id, message_id): (String, String) = (row.get(0)?, row.get(1)?);
-            Ok(Request {
-                results: carried.remove(&(session_id.clone(), message_id)).unwrap_or_default(),
-                session_id,
-                subagent: row.get(2)?,
-                burn: row.get(3)?,
-                context: row.get::<_, i64>(4)?.max(0) as u64,
-                write_tokens: row.get::<_, i64>(5)?.max(0) as u64,
-                written: row.get(6)?,
-                read: row.get(7)?,
-                cold: row.get(8)?,
-                start_read: row.get(9)?,
-                start_written: row.get(10)?,
-                first_after_compaction: row.get(11)?,
+            Ok(Row {
+                session_id: row.get(0)?,
+                message_id: row.get(1)?,
+                at: row.get(2)?,
+                subagent: row.get(3)?,
+                background: row.get(4)?,
+                spent: row.get(13)?,
+                request: Request {
+                    session_id: row.get(0)?,
+                    subagent: row.get(3)?,
+                    burn: row.get(5)?,
+                    context: row.get::<_, i64>(6)?.max(0) as u64,
+                    write_tokens: row.get::<_, i64>(7)?.max(0) as u64,
+                    written: row.get(8)?,
+                    read: row.get(9)?,
+                    cold: row.get(10)?,
+                    start_read: row.get(11)?,
+                    start_written: row.get(12)?,
+                    first_after_compaction: false,
+                    results: Vec::new(),
+                },
             })
         })
         .map_err(reading)?;
-    rows.collect::<Result<_, _>>().map_err(reading)
+    let all: Vec<Row> = rows.collect::<Result<_, _>>().map_err(reading)?;
+
+    let mut kept = Vec::new();
+    let mut at = 0;
+    while at < all.len() {
+        let session = &all[at].session_id;
+        let instant = &all[at].at;
+        let end = all[at..].iter().position(|one| one.session_id != *session || one.at != *instant).map_or(all.len(), |n| at + n);
+        let pending = compacted.contains(session);
+        for one in &all[at..end] {
+            if one.background {
+                continue;
+            }
+            let started = pending && !one.subagent && one.spent;
+            let results = carried.remove(&(one.session_id.clone(), one.message_id.clone()));
+            if one.request.context > LONG_CONTEXT || one.request.cold > 0.0 || started || results.is_some() {
+                let mut request = one.request.clone();
+                request.first_after_compaction = started;
+                request.results = results.unwrap_or_default();
+                kept.push(request);
+            }
+        }
+        if all[at..end].iter().any(|one| !one.background && !one.subagent) {
+            compacted.remove(session);
+        }
+        if all[at..end].iter().any(|one| one.background) {
+            compacted.insert(session.clone());
+        }
+        at = end;
+    }
+    Ok(kept)
 }
 
 impl Store {
