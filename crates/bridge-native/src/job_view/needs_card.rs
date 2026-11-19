@@ -1,0 +1,342 @@
+//! A question the Job asks, drawn in Needs you on the Operator's own card (`operator/card.rs`) while he answers with
+//! buttons (take A, owner, 18 Nov). One question stands in front and the others wait behind it; the stepper at the
+//! card's head brings the one before or after. A press on an option, or its number, answers at once as the band's
+//! buttons did (`answer_row`). Discuss stands where Answer in words stood: the panel folds and the caret goes in the
+//! Job's own box, which then answers the question (`dock.answering`) and sends nothing until he does.
+
+use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
+use ipc::{NeedsYouAct, NeedsYouDismiss, NeedsYouRow, WaitingSource};
+
+use super::dock::{row_options, RowBoxFor, Thing};
+use super::rows::{glyph, tip, Size};
+use super::JobView;
+use crate::labels::labelled;
+use crate::look::{token, Look};
+use crate::operator::card::{Act, Card, Offer};
+use crate::operator::face;
+use crate::operator::view::{chip, press, pressed, Weight};
+use crate::ways;
+
+/// Whether Needs you draws a row on the card: a question with options, while he answers with buttons. A handoff keeps
+/// its own card, and a question asked in pictures its stills.
+pub(super) fn on_card(row: &NeedsYouRow) -> bool {
+    ways::answers_with_buttons()
+        && matches!(row.act, NeedsYouAct::Answer { .. })
+        && !matches!(row.source, WaitingSource::Handoff | WaitingSource::ReadyToTry)
+        && !row_options(row).is_empty()
+        && row_options(row).iter().all(|option| option.picture.is_none())
+}
+
+/// The question `by` steps from `at` among `count`, held at either end.
+pub(super) fn stepped(at: usize, by: isize, count: usize) -> usize {
+    (at as isize + by).clamp(0, count.saturating_sub(1) as isize) as usize
+}
+
+impl JobView {
+    /// The questions the card holds, in Fleet's order.
+    pub(super) fn card_questions<'a>(&'a self, id: &str, cx: &'a gpui::App) -> Vec<&'a NeedsYouRow> {
+        self.things(id, cx)
+            .0
+            .into_iter()
+            .filter_map(|thing| match thing {
+                Thing::Row(row) if on_card(row) => Some(row),
+                _ => None,
+            })
+            .collect()
+    }
+
+    /// The question in front: the one stepped to while it still waits, else the first.
+    pub(super) fn front_question<'a>(&'a self, id: &str, cx: &'a gpui::App) -> Option<&'a NeedsYouRow> {
+        let questions = self.card_questions(id, cx);
+        let chosen = self.dock_of(id).and_then(|dock| dock.front.as_deref());
+        questions.iter().find(|row| Some(row.id.as_str()) == chosen).or(questions.first()).copied()
+    }
+
+    /// The stepper: the question before (`by` -1) or after (1) comes to the front.
+    pub(super) fn step_card_question(&mut self, by: isize, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let to = {
+            let questions = self.card_questions(&id, cx);
+            let front = self.front_question(&id, cx).map(|row| row.id.clone());
+            let at = questions.iter().position(|row| Some(&row.id) == front.as_ref()).unwrap_or(0);
+            questions.get(stepped(at, by, questions.len())).map(|row| row.id.clone())
+        };
+        if let Some(dock) = self.dock_mut() {
+            dock.front = to;
+        }
+        cx.notify();
+    }
+
+    /// Discuss: the panel folds and the caret is in the Job's box, which answers the question. Nothing is sent.
+    pub(super) fn discuss_question(&mut self, item: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(dock) = self.dock_mut() {
+            dock.answering = Some(item.to_string());
+            dock.open = Some(false);
+            dock.detail = None;
+            dock.choosing = None;
+        }
+        self.to_composer(window, cx);
+        cx.notify();
+    }
+
+    /// Where the card in front stands among the questions, and the way to the one before and after: drawn as the band's
+    /// own stepper is, with more than one question.
+    fn question_stepper(&self, at: usize, count: usize, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        if count < 2 {
+            return None;
+        }
+        let ink = look.color(token::FG_MUTED);
+        let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+        let step = |name: &'static str, said: &'static str, icon: &'static str, by: isize, on: bool| {
+            let key = div()
+                .id(name)
+                .flex_none()
+                .flex()
+                .items_center()
+                .justify_center()
+                .size(look.length(token::H_CONTROL_SM))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(gpui::transparent_black())
+                .tooltip(tip(said))
+                // Held at an end it keeps the keys it has, so they stay in the panel.
+                .focusable()
+                .focus_visible(move |style| style.border_color(ring))
+                .child(glyph(look, icon, Size::Small, ink));
+            let key = if on {
+                pressed(key.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).tab_stop(true), cx, move |this, _, cx| this.step_card_question(by, cx))
+            } else {
+                key.opacity(0.4)
+            };
+            labelled(key, Role::Button, said)
+        };
+        let said = format!("{} of {count}", at + 1);
+        Some(
+            div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_1))
+                .child(step("needs-card-previous", "Previous question", "chevron-up", -1, at > 0))
+                .child(labelled(div().id("needs-card-place").text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(ink).child(SharedString::from(said.clone())), Role::Status, said))
+                .child(step("needs-card-next", "Next question", "chevron-down", 1, at + 1 < count))
+                .into_any_element(),
+        )
+    }
+
+    /// The artifact the question names, as a chip at the card's head that opens it, or says it is no longer held.
+    fn question_names(&self, id: &str, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let named = self.row_artifact(id, &row.id, cx)?;
+        let title = self.artifact_of(id, &named).map_or_else(|| named.clone(), |one| one.title.clone());
+        let element = div().id(SharedString::from(format!("needs-card-artifact:{}", row.id))).flex_none();
+        if self.artifact_gone(id, &named) {
+            let chip = chip("No longer held", look.color(token::FG_MUTED), look.color(token::BG_HOVER), look);
+            return Some(labelled(element.child(chip), Role::Label, "No longer held").into_any_element());
+        }
+        let said = format!("Open {title}");
+        let chip = chip(title, look.color(token::FG_DEFAULT), look.color(token::BG_HOVER), look).child(glyph(look, "file-text", Size::Small, look.color(token::FG_MUTED)));
+        Some(
+            labelled(
+                pressed(element.cursor_pointer().tooltip(tip(said.clone())).child(chip), cx, move |this, window, cx| {
+                    this.open_named(&named, window, cx);
+                }),
+                Role::Link,
+                said,
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// The card's foot: Fleet's way of putting the question away, where it gives one, and Discuss.
+    fn question_foot(&self, row: &NeedsYouRow, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let item = row.id.clone();
+        let away = match row.dismiss {
+            NeedsYouDismiss::Plain | NeedsYouDismiss::Skip | NeedsYouDismiss::Reason => {
+                let (word, icon) = if row.dismiss == NeedsYouDismiss::Skip { ("Skip", None) } else { ("Remove", Some("x")) };
+                let reason = row.dismiss == NeedsYouDismiss::Reason;
+                let item = item.clone();
+                Some(
+                    labelled(
+                        pressed(press(format!("needs-card-away:{}", row.id), word.into(), icon, None, Weight::Bare, look).tooltip(tip(if reason { "Remove, with a reason" } else { word })), cx, move |this, window, cx| {
+                            if reason {
+                                this.open_row_box(&item, RowBoxFor::Reason, window, cx);
+                            } else {
+                                this.dismiss_row(&item, None, false, window, cx);
+                            }
+                        }),
+                        Role::Button,
+                        word,
+                    )
+                    .into_any_element(),
+                )
+            }
+            NeedsYouDismiss::None | NeedsYouDismiss::NotAQuestion => None,
+        };
+        let discuss = labelled(
+            pressed(press(format!("needs-card-discuss:{}", row.id), "Discuss".into(), Some("message-square"), None, Weight::Pick, look).tooltip(tip("Answer in your own words in the message box")), cx, move |this, window, cx| {
+                this.discuss_question(&item, window, cx)
+            }),
+            Role::Button,
+            "Discuss",
+        );
+        away.into_iter().chain([discuss.into_any_element()]).collect()
+    }
+
+    /// A question on the card. `stepper` puts where it stands among the others at its head, as the list draws the one in
+    /// front; opened whole, the panel's own head has Back.
+    pub(super) fn needs_card(&self, id: &SharedString, row: &NeedsYouRow, stepper: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let options = row_options(row);
+        let pick = ways::pick_of(options);
+        let offers = options
+            .iter()
+            .enumerate()
+            .map(|(at, option)| {
+                let item = row.id.clone();
+                let act: Act<Self> = std::rc::Rc::new(move |this, window, cx| this.answer_row(&item, at, window, cx));
+                Offer { label: ways::name_of(&option.label).to_string().into(), cost: ways::button_tip(options, at).map(SharedString::from), pick: pick == Some(at), act }
+            })
+            .collect();
+        let questions = self.card_questions(id, cx);
+        let at = questions.iter().position(|one| one.id == row.id).unwrap_or(0);
+        let misread = (stepper && row.dismiss == NeedsYouDismiss::NotAQuestion).then(|| {
+            let confirmed = self.dock_of(id).is_some_and(|dock| dock.confirmed.contains(&row.id)) || self.record(id, cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == row.id)).is_some_and(|one| one.confirmed);
+            self.thumbs(&row.id, confirmed, self.dock_focus.clone(), look, cx)
+        });
+        let card = Card {
+            id: row.id.clone(),
+            kind: face::QUESTION,
+            title: row.text.clone().into(),
+            names: self.question_names(id, row, look, cx).into_iter().chain(misread).collect(),
+            stepper: if stepper { self.question_stepper(at, questions.len(), look, cx) } else { None },
+            asks: None,
+            read: None,
+            offers,
+            keyed: self.keyed_row(id, cx).is_some_and(|(item, _)| item == row.id),
+            pending: false,
+            refused: self.dock_of(id).and_then(|dock| dock.said.get(&format!("item:{}", row.id)).cloned()),
+            foot: self.question_foot(row, look, cx),
+            inset: false,
+        }
+        .draw(look, cx);
+        match self.row_box_under(id, &row.id, look, cx) {
+            Some(reason) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(card).child(reason).into_any_element(),
+            None => card,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::super::parts_fold::{drawn, redraw};
+    use super::super::JobView;
+    use super::stepped;
+    use gpui::{prelude::*, Bounds, Focusable as _, Pixels, Role};
+
+    /// The Job that asks two questions, while he answers with buttons.
+    const JOB: &str = "mock-01";
+    const FIRST: &str = "The old /v1/sessions endpoint has no callers left. What happens to it?";
+    const SECOND: &str = "Land on a branch or a pull request?";
+
+    /// The Job on screen with its Needs you open.
+    fn opened(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("ways-buttons").expect("the fixture decodes");
+        let threads = crate::mock::threads("ways-buttons").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(1200.)));
+        list.update(cx, |list, cx| list.open(JOB.into(), cx));
+        redraw(cx);
+        view.update_in(cx, |view, window, cx| view.set_needs(true, None, window, cx));
+        fresh(cx);
+        (view, cx)
+    }
+
+    /// Draw again with the book emptied first, so a name drawn before stands in it no longer.
+    fn fresh(cx: &mut gpui::VisualTestContext) {
+        redraw(cx);
+        cx.update(|_, cx| cx.set_global(crate::labels::LabelBook::default()));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+
+    fn bounds_of(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Bounds<Pixels> {
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds))
+            .unwrap_or_else(|| panic!("{name} was not drawn"))
+    }
+
+    fn press(cx: &mut gpui::VisualTestContext, name: &str) {
+        let at = bounds_of(cx, Role::Button, name).center();
+        cx.simulate_click(at, gpui::Modifiers::none());
+        fresh(cx);
+    }
+
+    #[gpui::test]
+    fn a_question_in_needs_you_is_drawn_on_the_operators_card_one_in_front(cx: &mut gpui::TestAppContext) {
+        let (_view, cx) = opened(cx);
+        assert!(drawn(cx, Role::Article, FIRST), "the question in front is the card");
+        assert!(drawn(cx, Role::Group, "Options"), "its options, as the card draws them");
+        assert!(drawn(cx, Role::Button, "Redirect it"), "an option holds its name, the Job's mark taken off");
+        assert!(drawn(cx, Role::Button, "Discuss"));
+        assert!(!drawn(cx, Role::Button, "Answer in words"), "Discuss stands in its place");
+        assert!(!drawn(cx, Role::Article, SECOND), "the other waits behind it");
+        assert!(drawn(cx, Role::Status, "1 of 2"));
+        press(cx, "Next question");
+        assert!(drawn(cx, Role::Article, SECOND), "the stepper brings it to the front");
+        assert!(!drawn(cx, Role::Article, FIRST));
+    }
+
+    #[gpui::test]
+    fn discuss_puts_the_caret_in_the_jobs_box_and_sends_nothing(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx);
+        press(cx, "Discuss");
+        let focused = cx.update(|window, cx| view.read(cx).composer.input.read(cx).focus_handle(cx).is_focused(window));
+        assert!(focused, "the caret is in the box");
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.answering_row(JOB, cx).map(|row| row.id.as_str()), Some("agent-1"), "the box answers the question");
+            assert!(!view.needs_up(JOB, cx), "the panel folds");
+            let dock = view.dock_of(JOB).expect("the Job's panel");
+            assert!(dock.hidden.is_empty(), "nothing was answered");
+            assert!(view.composer.input.read(cx).value().is_empty(), "nothing is typed for him");
+            assert_eq!(view.card_questions(JOB, cx).len(), 2, "both questions still wait");
+        });
+        assert!(drawn(cx, Role::TextInput, "Answer in words"));
+    }
+
+    #[gpui::test]
+    fn a_press_on_an_option_answers_and_the_next_question_comes_to_the_front(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx);
+        press(cx, "Redirect it");
+        view.read_with(cx, |view, cx| {
+            assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the question is answered and goes at once");
+            assert_eq!(view.front_question(JOB, cx).map(|row| row.id.as_str()), Some("agent-2"));
+        });
+        assert!(drawn(cx, Role::Article, SECOND));
+        assert!(!drawn(cx, Role::Status, "1 of 2"), "one question alone has no stepper");
+    }
+
+    #[gpui::test]
+    fn a_number_answers_the_question_in_front(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx);
+        press(cx, "Next question");
+        view.update_in(cx, |view, window, cx| view.pick_digit(2, window, cx));
+        fresh(cx);
+        view.read_with(cx, |view, _| {
+            let dock = view.dock_of(JOB).expect("the Job's panel");
+            assert!(dock.hidden.contains("agent-2") && !dock.hidden.contains("agent-1"), "2 answers the question in front, not the first listed");
+        });
+    }
+
+    #[test]
+    fn the_stepper_holds_at_either_end() {
+        assert_eq!(stepped(0, 1, 3), 1);
+        assert_eq!(stepped(2, 1, 3), 2, "the last has none after it");
+        assert_eq!(stepped(0, -1, 3), 0, "the first has none before it");
+        assert_eq!(stepped(0, 1, 0), 0);
+    }
+}
