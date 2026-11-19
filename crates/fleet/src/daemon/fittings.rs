@@ -423,6 +423,7 @@ where
             refusal_reads: Arc::default(),
             item_vectors: Arc::default(),
             for_you_prints: Default::default(),
+            usage_memo: Default::default(),
             extract_reads: Arc::default(),
             run,
         }

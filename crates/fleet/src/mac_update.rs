@@ -7,6 +7,8 @@
 //! `preview/<this Mac>` on origin. The other Mac is sent that commit and branch and builds exactly it, merging
 //! nothing of its own.
 
+use std::time::{SystemTime, UNIX_EPOCH};
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{BuildSource, ChangeFleetBuild, FleetBuildChanging, UpdateMac, WireError};
@@ -34,6 +36,19 @@ fn a_preview_branch(text: &str) -> bool {
 /// The branch a Mac's preview is pushed to.
 pub(crate) fn preview_branch(mac: &str) -> String {
     format!("preview/{mac}")
+}
+
+/// Write down a build another Mac asked this one for: the commit, its branch, when the ask arrived and what was done
+/// with it. **A Mac that ends on an older build than the one that asked is traced from these lines**: one that was
+/// refused is here too, with Fleet's reason.
+fn partner_request_logged(wanted: &(String, String), arrived: SystemTime, outcome: &Result<FleetBuildChanging, Refusal>) {
+    let millis = i64::try_from(arrived.duration_since(UNIX_EPOCH).unwrap_or_default().as_millis()).unwrap_or(0);
+    let (commit, branch) = wanted;
+    let at = crate::clock::rfc3339_utc(millis);
+    match outcome {
+        Ok(_) => eprintln!("fleet: another Mac asked this one to build {commit} from {branch} at {at}: started"),
+        Err(refused) => eprintln!("fleet: another Mac asked this one to build {commit} from {branch} at {at}: refused, {}", refused.error().message),
+    }
 }
 
 /// What one Mac moves onto: main, or the preview, at a pushed commit where one is named.
@@ -76,15 +91,27 @@ where
             return self.updated_here(onto, None).await;
         }
         let Some(mac) = asked.mac.clone() else {
+            let arrived = SystemTime::now();
             let at = asked.commit.zip(asked.reference);
-            return self.updated_here(Onto { build: asked.build.unwrap_or(BuildSource::Main), at }, None).await;
+            let onto = Onto { build: asked.build.unwrap_or(BuildSource::Main), at };
+            let wanted = onto.at.clone();
+            let changing = self.updated_here(onto, None).await;
+            if let Some(wanted) = wanted.filter(|_| from_a_mac) {
+                partner_request_logged(&wanted, arrived, &changing);
+            }
+            return changing;
         };
         let mac = self.mac_named(&mac)?;
         if asked.this_mac_too {
             self.refresh_unclaimed()?;
         }
         if !asked.this_mac_too {
-            let onto = self.onto_this_build().await;
+            // A commit and its branch are what a Refresh just merged and pushed, and the Mac is asked to build
+            // exactly that. **Only an Update, which names none, sends the build this Mac runs.**
+            let onto = match asked.commit.zip(asked.reference) {
+                Some(at) => Onto { build: BuildSource::Preview, at: Some(at) },
+                None => self.onto_this_build().await,
+            };
             return self.other_mac_updated(&mac, onto).await;
         }
         match asked.build.unwrap_or(BuildSource::Main) {

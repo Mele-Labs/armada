@@ -93,3 +93,10 @@ fn for_you_lists_three_sections_and_its_keys_move_open_and_withdraw_a_row() {
 fn the_side_chat_opens_asks_tells_and_comes_back_after_its_split_is_shut() {
     plays("native-side-chat");
 }
+
+/// A Job's page runs its own inline script, which reaches no handler of the kit's, no peer connection, and no press: its
+/// click() and ⌘↵ on the kit's Rebase it start no Job, and the walk's own press on it does.
+#[test]
+fn a_pages_own_script_runs_and_cannot_press_for_him() {
+    plays("native-page-scripts");
+}

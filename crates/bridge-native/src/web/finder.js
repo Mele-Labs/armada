@@ -118,10 +118,12 @@
       held.scrollIntoView({ block: "center", inline: "nearest" });
       return JSON.stringify(boxOf(held));
     },
-    // A click on the held element, which the page's listeners hear as they hear a person's.
+    // A click on the held element, which the page's listeners hear as they hear a person's. Where the kit runs in this world,
+    // it presses through the kit, which hears no click a script made as his.
     press() {
       if (!held || !held.isConnected) return JSON.stringify(false);
-      held.click();
+      if (typeof globalThis.armadaHostPress === "function") globalThis.armadaHostPress(held);
+      else held.click();
       return JSON.stringify(true);
     },
     // The words of the held element selected, as a person drags over them: what a walk does before it makes a note on them.
