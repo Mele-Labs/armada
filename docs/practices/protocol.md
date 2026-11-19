@@ -18,6 +18,7 @@ WebSocket event stream, read this first.
 |---|
 | [The protocol ID](protocol/the-protocol-id.md) |
 | [DTOs, not domain types](protocol/dtos-not-domain-types.md) |
+| [Pocket's wire types are generated](protocol/pockets-wire-types-are-generated.md) |
 | [Changes that read like they break nothing](protocol/changes-that-read-like-they-break-nothing.md) |
 | [What Bridge does with the ID it reads](protocol/what-bridge-does-with-the-id-it-reads.md) |
 | [Why a mismatch is dangerous here specifically](protocol/why-a-mismatch-is-dangerous-here-specifically.md) |
