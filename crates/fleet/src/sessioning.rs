@@ -1577,16 +1577,20 @@ where
     }
 
     async fn get_job_timeline(&self, session_id: ipc::SessionId) -> Result<ipc::JobTimeline, Refusal> {
-        let id = session_id.as_str().trim();
+        let id = session_id.as_str().trim().to_string();
         let now = self.now().as_str().to_string();
-        let store = self.store().lock().await;
-        let Some(job) = store.session(id).map_err(|why| self.ledger_fault(why))? else {
+        let (job, at) = (id.clone(), now);
+        // Read off the lock and not remembered: one Job's rows are few, and a Job that runs wants its newest.
+        let read = self
+            .read_apart(move |store| {
+                let Some(kept) = store.session(&job)? else { return Ok(None) };
+                store.usage_job_timeline(&job, &kept.started_at, kept.ended_at.as_deref(), &at).map(Some)
+            })
+            .await?;
+        let Some(read) = read else {
             return Err(self.ledger_unnamed("a job Fleet knows"));
         };
-        let read = store
-            .usage_job_timeline(id, &job.started_at, job.ended_at.as_deref(), &now)
-            .map_err(|why| self.ledger_fault(why))?;
-        Ok(crate::usage_job_timeline::wire(id.to_string(), read))
+        Ok(crate::usage_job_timeline::wire(id, read))
     }
 
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
