@@ -1,6 +1,6 @@
 // Paths without a library. `/` home, `/pair` (`?code=…` from a pairing link, `?origin=…` to pair a Mac
 // again), `/dispatch`, `/operator`, and a Job at `/jobs/<Mac origin, encoded>/<id>`, with `/file?path=…` and
-// `/sketch?id=…`, `/document?page=…` and `/artifact?id=…` under it for what the Job showed, `/try?id=…` for a Ready to try card, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
+// `/sketch?id=…`, `/document?page=…` and `/artifact?id=…` under it for what the Job showed, `/artifacts` for the list of them, `/try?id=…` for a Ready to try card, and a draft Job at `/drafts/<Mac origin, encoded>/<id>`. `_` for the Mac is a push that did not say which.
 
 import { useSyncExternalStore } from "react";
 import type { ReactNode } from "react";
@@ -49,6 +49,7 @@ export function homeWhenBack(): void {
       screen === "sketch" ||
       screen === "document" ||
       screen === "artifact" ||
+      screen === "artifacts" ||
       screen === "try"
     )
       go("/", true);
@@ -105,6 +106,11 @@ export type Route =
       artifact: string;
     }
   | {
+      screen: "artifacts";
+      origin: string;
+      id: string;
+    }
+  | {
       screen: "try";
       origin: string;
       id: string;
@@ -123,6 +129,7 @@ export const documentPath = (origin: string, id: string, page: string) =>
   `${jobPath(origin, id)}/document?page=${encodeURIComponent(page)}`;
 export const artifactPath = (origin: string, id: string, artifact: string) =>
   `${jobPath(origin, id)}/artifact?id=${encodeURIComponent(artifact)}`;
+export const artifactsPath = (origin: string, id: string) => `${jobPath(origin, id)}/artifacts`;
 export const tryPath = (origin: string, id: string, card: string) =>
   `${jobPath(origin, id)}/try?id=${encodeURIComponent(card)}`;
 export const pairPath = (origin?: string) =>
@@ -158,7 +165,7 @@ export function routeOf(whole: string): Route {
       origin: decodeURIComponent(draft[1]!),
       id: decodeURIComponent(draft[2]!),
     };
-  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document|artifact|try))?$/.exec(
+  const job = /^\/jobs\/([^/]+)\/([^/]+)(?:\/(file|sketch|document|artifact|artifacts|try))?$/.exec(
     url.pathname,
   );
   if (job !== null) {
@@ -191,6 +198,12 @@ export function routeOf(whole: string): Route {
         origin: mac,
         id,
         artifact: query.get("id") ?? "",
+      };
+    if (job[3] === "artifacts" && mac !== "_")
+      return {
+        screen: "artifacts",
+        origin: mac,
+        id,
       };
     if (job[3] === "try" && mac !== "_")
       return {
