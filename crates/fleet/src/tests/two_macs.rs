@@ -19,6 +19,7 @@ use tokio::task::JoinHandle;
 use tower::ServiceExt;
 
 mod acting;
+mod artifacts;
 mod job_moves;
 mod messages;
 mod moving;
