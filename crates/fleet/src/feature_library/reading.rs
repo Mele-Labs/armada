@@ -216,6 +216,7 @@ where
         }
         let mut librarian = super::librarian::state_of(&store, &chosen).map_err(|why| self.feature_fault(why))?;
         librarian.steps = self.librarian_steps(&store, &chosen, &librarian, &tonight)?;
+        librarian.running = self.librarian_running().now(&chosen);
         Ok(FeatureLibrary { project: chosen, areas, librarian })
     }
 

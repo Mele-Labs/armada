@@ -154,4 +154,25 @@ pub struct LibrarianState {
     /// The steps a run would take now, in order, each free or model.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub steps: Vec<LibrarianStep>,
+    /// The run going now, so a Bridge that reads mid-run redraws its steps and Stop. Absent where none is.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub running: Option<LibrarianRunning>,
+}
+
+/// A run going now, as `librarian.step` has told it so far.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LibrarianRunning {
+    /// The run, by the instant it started, as `librarian.step` names it.
+    pub run: Instant,
+    /// The steps that have started or ended so far, in order. A step not yet reached is not listed.
+    pub steps: Vec<LibrarianStepNow>,
+}
+
+/// Where one step of a run going now stands: the latest `librarian.step` told of it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LibrarianStepNow {
+    pub step: String,
+    pub state: LibrarianStepState,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub said: String,
 }

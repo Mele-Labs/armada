@@ -86,7 +86,7 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
         shape::of::<LibrarianRan>(),
         "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], stopped?: boolean}"
     );
-    let state = "{last_run?: string, read_through?: number, merged_since?: [number], steps?: [{id: string, title: string, detail: string, model?: boolean}]}";
+    let state = "{last_run?: string, read_through?: number, merged_since?: [number], steps?: [{id: string, title: string, detail: string, model?: boolean}], running?: {run: string, steps: [{step: string, state: running|done|skipped|failed, said?: string}]}}";
     assert_eq!(shape::of::<LibrarianState>(), state);
     assert!(shape::of::<FeatureLibrary>().contains(&format!("librarian?: {state}")));
     assert_eq!(shape::of::<crate::StopLibrarian>(), "{project: string}");

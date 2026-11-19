@@ -4,7 +4,7 @@
 use std::collections::BTreeMap;
 use std::sync::{Mutex, PoisonError};
 
-use ipc::{LibrarianPart, LibrarianState, LibrarianStep};
+use ipc::{Instant, LibrarianPart, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepNow, LibrarianStepState};
 
 /// The first step: what merged since the last run, and the sections Jobs wrote.
 pub(super) const READ_MERGES: &str = "read_merges";
@@ -122,24 +122,34 @@ fn capitalised(line: &str) -> String {
     chars.next().map(|first| first.to_uppercase().chain(chars).collect()).unwrap_or_default()
 }
 
-/// The projects whose librarian is running now, each with whether Stop was pressed on it. In memory.
+/// The projects whose librarian is running now: each run as told so far, and whether Stop was pressed on it. In memory.
 #[derive(Default)]
-pub(crate) struct Running(Mutex<BTreeMap<String, bool>>);
+pub(crate) struct Running(Mutex<BTreeMap<String, Going>>);
+
+struct Going {
+    stop: bool,
+    now: LibrarianRunning,
+}
 
 impl Running {
-    /// Hold `project` for one run, or `None` where one is running.
-    pub(super) fn begin(&self, project: &str) -> Option<Held<'_>> {
+    /// Hold `project` for the run `run`, or `None` where one is running.
+    pub(super) fn begin(&self, project: &str, run: &Instant) -> Option<Held<'_>> {
         let mut running = self.0.lock().unwrap_or_else(PoisonError::into_inner);
         if running.contains_key(project) {
             return None;
         }
-        running.insert(project.to_string(), false);
+        running.insert(project.to_string(), Going { stop: false, now: LibrarianRunning { run: run.clone(), steps: Vec::new() } });
         Some(Held { running: self, project: project.to_string() })
     }
 
     /// Stop was pressed on `project`'s run. Whether one was running.
     pub(super) fn stop(&self, project: &str) -> bool {
-        self.0.lock().unwrap_or_else(PoisonError::into_inner).get_mut(project).map(|asked| *asked = true).is_some()
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).get_mut(project).map(|going| going.stop = true).is_some()
+    }
+
+    /// `project`'s run going now, as told so far.
+    pub(super) fn now(&self, project: &str) -> Option<LibrarianRunning> {
+        self.0.lock().unwrap_or_else(PoisonError::into_inner).get(project).map(|going| going.now.clone())
     }
 }
 
@@ -151,7 +161,18 @@ pub(super) struct Held<'a> {
 
 impl Held<'_> {
     pub(super) fn stop_asked(&self) -> bool {
-        self.running.0.lock().unwrap_or_else(PoisonError::into_inner).get(&self.project).copied().unwrap_or(false)
+        self.running.0.lock().unwrap_or_else(PoisonError::into_inner).get(&self.project).is_some_and(|going| going.stop)
+    }
+
+    /// A step moved: it replaces what was held of that step, or joins the end.
+    pub(super) fn moved(&self, step: &str, state: LibrarianStepState, said: &str) {
+        let mut running = self.running.0.lock().unwrap_or_else(PoisonError::into_inner);
+        let Some(going) = running.get_mut(&self.project) else { return };
+        let now = LibrarianStepNow { step: step.to_string(), state, said: said.to_string() };
+        match going.now.steps.iter_mut().find(|held| held.step == step) {
+            Some(held) => *held = now,
+            None => going.now.steps.push(now),
+        }
     }
 }
 

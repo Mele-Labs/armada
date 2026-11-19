@@ -394,6 +394,7 @@ A word Fleet cannot read means `on_press`.
 **The Catch up card shows a run's steps before he presses, and each as it moves.**
 `list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, a step for each model part that is on and built, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
+While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
 One run of a project goes at a time, and a press while one runs is refused.
 

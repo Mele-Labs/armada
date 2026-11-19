@@ -458,5 +458,35 @@ async fn stop_skips_the_steps_after_the_one_running_and_the_run_is_kept_as_stopp
     assert!(kept.stopped, "the record says it was stopped");
     let state = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed").librarian;
     assert_eq!((state.read_through, state.merged_since), (None, vec![3866]), "still unread");
+    assert_eq!(state.running, None, "a stopped run is no longer going");
     assert!(!rig.fleet.stop_librarian(None, StopLibrarian { project }).await.expect("answered").stopping, "the run is over");
+}
+
+#[tokio::test]
+async fn a_read_mid_run_names_the_run_going_and_its_steps_so_far_and_none_once_it_ends() {
+    let (rig, _) = rig_judged(FakeJudge::saying(WORDS).taking(Duration::from_millis(800)));
+    let (project, feature) = libraried(&rig).await;
+    merged(&rig, &feature, 3866, "2026-08-26T08:00:00.000Z").await;
+    assert_eq!(rig.fleet.list_features(None, Some(project.clone())).await.expect("listed").librarian.running, None, "nothing is going");
+    let mut watching = rig.fleet.events().subscribe();
+
+    let fleet = Arc::clone(&rig.fleet);
+    let pressing = project.clone();
+    let run = tokio::spawn(async move { fleet.run_librarian(None, RunLibrarian { project: pressing }).await });
+    loop {
+        match tokio::time::timeout(Duration::from_secs(5), watching.next()).await.expect("an event") {
+            Some(api::Next::Send(delivered)) => match delivered.event {
+                ipc::Event::LibrarianStep(moved) if moved.step == "since_you_looked" && moved.state == LibrarianStepState::Running => break,
+                _ => {}
+            },
+            other => panic!("the stream ended: {other:?}"),
+        }
+    }
+    let going = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed").librarian.running.expect("a run is going");
+    let so_far: Vec<(String, LibrarianStepState, String)> = going.steps.into_iter().map(|now| (now.step, now.state, now.said)).collect();
+    assert_eq!(so_far, [step("read_merges", LibrarianStepState::Done, "1 merge, no sections"), step("since_you_looked", LibrarianStepState::Running, "")], "read_through is not reached yet");
+
+    let ran = run.await.expect("joined").expect("ran");
+    assert_eq!(going.run, ran.ran_at, "it named the run the answer names");
+    assert_eq!(rig.fleet.list_features(None, Some(project)).await.expect("listed").librarian.running, None, "the run ended");
 }

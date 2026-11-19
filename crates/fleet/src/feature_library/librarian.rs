@@ -94,12 +94,13 @@ pub(crate) fn state_of(store: &Store, project: &str) -> Result<LibrarianState, W
     let merged: Vec<(u64, String)> =
         merges.into_iter().filter_map(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at))).filter(|(number, _)| seen.insert(*number)).collect();
     Ok(match last {
-        None => LibrarianState { last_run: None, read_through: None, merged_since: merged.into_iter().map(|(number, _)| number).collect(), steps: Vec::new() },
+        None => LibrarianState { last_run: None, read_through: None, merged_since: merged.into_iter().map(|(number, _)| number).collect(), steps: Vec::new(), running: None },
         Some(run) => LibrarianState {
             last_run: Some(Instant::carried(run.ran_at)),
             read_through: Some(run.through_pr).filter(|number| *number > 0),
             merged_since: merged.into_iter().filter(|(_, at)| at.as_str() > run.through_at.as_str()).map(|(number, _)| number).collect(),
             steps: Vec::new(),
+            running: None,
         },
     })
 }
@@ -126,7 +127,9 @@ where
         let Some(roots) = self.seed_roots(project) else {
             return Err(self.hosted_refusal(super::seeding::PROJECT, &format!("no project is named `{project}`")));
         };
-        let Some(held) = self.librarian_running().begin(project) else {
+        let at = self.now().as_str().to_string();
+        let run = Instant::carried(at.clone());
+        let Some(held) = self.librarian_running().begin(project, &run) else {
             return Err(Refusal::IllegalMove(ipc::WireError::raised(RUNNING, format!("the librarian is already running for project `{project}`"), self.run_id())));
         };
         let set = self.librarian_set();
@@ -134,7 +137,6 @@ where
             Some(root) => tokio::task::spawn_blocking(move || adapters::feature_commits::head(&root)).await.ok().flatten().unwrap_or_default(),
             None => String::new(),
         };
-        let at = self.now().as_str().to_string();
         let night = self.night_of(&at).await;
         let (state, last, spent) = {
             let store = self.store().lock().await;
@@ -144,8 +146,8 @@ where
         };
         let share = set.model_share;
         let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent);
-        let run = Instant::carried(at.clone());
         let tell = |step: &str, state: LibrarianStepState, said: String| {
+            held.moved(step, state, &said);
             self.publish(ipc::Event::LibrarianStep(LibrarianStepMoved { project: project.to_string(), run: run.clone(), step: step.to_string(), state, said }));
         };
         let failed = |step: &str, why: WriteError| {
