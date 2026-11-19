@@ -129,18 +129,18 @@ importers:
       '@armada/brand':
         specifier: workspace:*
         version: link:../../packages/brand
-      '@armada/components':
-        specifier: workspace:*
-        version: link:../../packages/components
-      '@armada/protocol':
-        specifier: workspace:*
-        version: link:../../packages/protocol
-      '@armada/screens':
-        specifier: workspace:*
-        version: link:../../packages/screens
       '@armada/tokens':
         specifier: workspace:*
         version: link:../../packages/tokens
+      '@xterm/addon-fit':
+        specifier: ^0.11.0
+        version: 0.11.0
+      '@xterm/xterm':
+        specifier: ^6.0.0
+        version: 6.0.0(patch_hash=b1fc1e2e563cca653812ee068d6a04e677ba74fd677131f3a740aa7ed892e0d0)
+      '@xyflow/react':
+        specifier: ^12.11.6
+        version: 12.11.6(@types/react-dom@19.2.5(@types/react@19.2.18))(@types/react@19.2.18)(immer@11.2.9)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       lucide-react:
         specifier: ^0.550.0
         version: 0.550.0(react@19.2.8)
@@ -150,6 +150,15 @@ importers:
       react-dom:
         specifier: ^19.2.0
         version: 19.2.8(react@19.2.8)
+      react-markdown:
+        specifier: ^10.1.0
+        version: 10.1.0(@types/react@19.2.18)(react@19.2.8)
+      remark-breaks:
+        specifier: ^4.0.0
+        version: 4.0.0
+      remark-gfm:
+        specifier: ^4.0.1
+        version: 4.0.1
     devDependencies:
       '@tailwindcss/vite':
         specifier: ^4.3.0

@@ -4,7 +4,9 @@
 
 import { useEffect, useRef, useState, type PointerEvent as ReactPointerEvent } from "react";
 import { Check, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { Button, SketchScene, type Scene } from "@armada/components";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import type { Scene } from "./kit/components/compositions/SketchScene/scene";
 
 import { IconButton } from "./ui";
 

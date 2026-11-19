@@ -1,10 +1,14 @@
 // What a row on Home says of a Job. Rows hold what the Gateway lists, not the whole Job, so this reads those fields in
 // `jobStateOf`'s order, with its words.
 
-import { bucketOf, limitHeldSaid, type SessionState } from "@armada/components";
+import {
+  bucketOf,
+  limitHeldSaid,
+  type SessionState,
+} from "./kit/components/compositions/SessionFrame/SessionFrame";
 import type { HeldOpenBy } from "./wire";
-import { repairSaid, restartSaid, stoppedSaid, waitOf } from "@armada/screens/src/session-state";
-import { startsWhenSaid } from "@armada/screens/src/session-waits";
+import { repairSaid, restartSaid, stoppedSaid, waitOf } from "./kit/screens/session-state";
+import { startsWhenSaid } from "./kit/screens/session-waits";
 
 import type { Item } from "./fleet";
 import type { PhoneHold, PhoneSession } from "./gateway";

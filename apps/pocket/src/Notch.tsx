@@ -5,7 +5,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { Bot, Box, ChevronLeft, FileText, Globe, Layers, Menu, Plus, Search } from "lucide-react";
 import { ArmadaMark } from "@armada/brand";
-import { Tooltip } from "@armada/components";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
 import { getJson } from "./client";
 import type { Mac } from "./fleet";

@@ -1,0 +1,77 @@
+/* A Session the parent follows said something: one quiet line in the thread, its event in the mark and the hue, pressable. */
+.armada-session-linked {
+  display: flex;
+}
+
+.armada-session-linked__press {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: var(--border-width) solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-sunken);
+  color: var(--fg-default);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-linked__press:hover {
+  border-color: var(--border-strong);
+  background: var(--bg-hover);
+}
+
+.armada-session-linked__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-linked[data-event="needs"] .armada-session-linked__press {
+  border-color: var(--status-awaiting-review);
+}
+
+.armada-session-linked__link,
+.armada-session-linked__event {
+  display: inline-flex;
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-session-linked[data-event="needs"] .armada-session-linked__event {
+  color: var(--status-awaiting-review);
+}
+
+.armada-session-linked[data-event="merged"] .armada-session-linked__event,
+.armada-session-linked[data-event="done"] .armada-session-linked__event {
+  color: var(--step-advanced);
+}
+
+.armada-session-linked__title {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-weight: var(--weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.armada-session-linked__at {
+  flex: none;
+  color: var(--fg-muted);
+  font-size: var(--text-2xs);
+  line-height: var(--leading-2xs);
+}
+
+.armada-session-linked__go {
+  flex: none;
+  color: var(--fg-muted);
+}
+
+.armada-session-linked__press:hover .armada-session-linked__go {
+  transform: translateX(var(--space-1));
+}

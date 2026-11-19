@@ -31,10 +31,13 @@ one), a document or a sketch to approve or send back on its own card, a card to
 open a Job started and held on its start card, and a Fleet call to dismiss. A
 walk, and a question asked in one, are a line saying to open it on the Mac. A
 document opens at its own route as its newest revision, read by the page reader
-Bridge uses (`packages/screens/src/document-page.ts`), with a wide table
+Bridge uses (`src/kit/screens/document-page.ts`), with a wide table
 scrolling inside its own box. The header's ⋯ menu holds Stop,
 Pause or Resume, Fork, model, effort and End job. In its message box and in
 Dispatch, Enter breaks the line and only the button sends.
+
+`src/kit/` holds the components and screen modules the app draws, copied from Bridge's packages and trimmed to what Pocket calls, with their stylesheets.
+`src/wire/` is generated from `crates/ipc`: edit nothing there (`docs/practices/protocol/pockets-wire-types-are-generated.md`).
 
 `src/viewport.ts` sizes the app to the visual viewport, so a screen's bottom bar
 and the message box sit above the keyboard, which iOS leaves the layout under.

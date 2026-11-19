@@ -2,8 +2,9 @@
 // than one Mac paired, each repository names its Mac.
 
 import { useEffect, useState } from "react";
-import { Button, Textarea } from "@armada/components";
-import { forgetKept } from "@armada/components/src/keep";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { forgetKept } from "./kit/components/keep";
 
 import { call, getJson, refusal } from "./client";
 import { loadLists, start, useFleet } from "./fleet";
