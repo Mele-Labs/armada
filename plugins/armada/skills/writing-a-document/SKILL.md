@@ -301,6 +301,38 @@ from shapes and text. Bridge drops `img`, so a chart is never a picture file.
 - Set figures in `--font-mono` with `font-variant-numeric: tabular-nums` so
   columns line up.
 
+## A page that moves
+
+A page may run its own inline `<script>`: toggle a diagram's states, step
+through a sequence, filter a table, switch between drawings. Everything else
+stays shut. The worked example is `examples/interactive-page.html` in this
+skill's folder. Read it, then write your own page the same way.
+
+Use it for several states of one drawing, a sequence to step through, or a
+table to filter. Do not use it for a page that only reads, or when one state
+says it all. A table and a sketch are enough for most pages.
+
+- Inline `<script>` only. A `<script src>` is refused.
+- Wire events with `addEventListener`. An `onclick="..."` attribute is refused.
+- No network: no `fetch`, XHR or WebSocket. Images are `data:` URLs or inline
+  `<svg>`. All data lives in the page.
+- No form that submits, no navigation, no new window. An in-page `#anchor` is fine.
+- Do not rely on `localStorage` or cookies.
+- Set a colour or a size from a class and a rule in `<style>`, not from a
+  `style="..."` attribute.
+- The page must read complete before any script runs. The card's small
+  picture, the PDF, the old (Classic) Bridge and the phone show it with scripts
+  off, so the first state is real HTML: tables, text and a default diagram in
+  the markup. The script only reveals other states. Hide a control that does
+  nothing without a script with `html:not(.js)`, and add `js` to
+  `document.documentElement` first thing in the script.
+- Armada's own buttons and votes (`<armada-action>`, `<armada-vote>`) are drawn
+  by Armada. A page's script cannot press or cast them.
+- The usual page rules hold: the ask within 120 words of the top when the page
+  asks, and no coloured stripe down one side of a box, card, callout, table
+  cell or node. Use a tint fill, a full hairline outline, a glyph or dot, a
+  chip, or a header band across the top.
+
 ## What Bridge drops
 
 The page is read element by element from an allow list. Dropped, without an
@@ -308,11 +340,11 @@ error:
 
 | Dropped | Instead |
 |---|---|
-| `<script>`, event handlers such as `onclick` | Nothing runs. Use a table or a sketch |
+| `<script src>`, event handler attributes such as `onclick` | An inline `<script>` and `addEventListener`. See A page that moves |
 | `style="…"` attributes | A class and a rule in `<style>` |
 | `<img>`, `<canvas>`, `<video>`, `<audio>` | An inline `<svg>`, a table, a bar, a sketch |
 | In an `<svg>`: `<script>`, `<foreignObject>`, `<use>`, `<image>`, an `<a>` with an address, gradients and filters, `style="…"` | Shapes, text and `<g>`, coloured by class |
-| `<iframe>`, `<object>`, `<embed>`, `<form>`, `<input>`, `<button>` | Words |
+| `<iframe>`, `<object>`, `<embed>`, a `<form>` that submits | Words |
 | Any `<link>` but `armada-kit.css` | `<style>` |
 | A CSS rule with `url(…)`, `@import`, `@font-face`, `@keyframes` | System fonts, no motion |
 | A link that is not `#id` or `http(s)://` | A full address |
