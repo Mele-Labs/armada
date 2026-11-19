@@ -344,6 +344,8 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | `GET /api/mac/sessions` | Fleet's `GET /other_mac/sessions`, a `SessionList` |
 | `GET /api/mac/bug_reports` | Fleet's `GET /other_mac/bug_reports`, `BugReports` |
 | `GET /api/mac/thread?session_id=&before=` | Fleet's `GET /other_mac/thread`, a `JobThread` |
+| `GET /api/mac/artifacts?session_id=` | Fleet's `GET /other_mac/artifacts`, the Job's `JobArtifact` list |
+| `GET /api/mac/artifact_page?session_id=&artifact=&revision=` | Fleet's `GET /other_mac/artifact_page`, an `ArtifactPageShared`: one revision of a page, sealed |
 | `POST /api/mac/act` | Fleet's `POST /other_mac/act`, as the Mac the signature names: an act on one of this Mac's Jobs, or a Job started here. Fleet's status and body come back as they were said |
 | `GET /api/mac/page?session_id=&port=` | Fleet's `GET /other_mac/page`: 204 where the Job is shared and shows that loopback port, else Fleet's 404 as it came |
 | `GET`, `POST` and any method of `/api/mac/page/<job>/<port>/<path>` | The page itself: Fleet's `/other_mac/page` asked again, then the request sent on to `127.0.0.1:<port>/<path>` with its query, and the page's status, type and body handed back whole. Uncompressed. A Job not shared is Fleet's 404, worded as for a Job that does not exist |
@@ -363,7 +365,7 @@ The wrong side gets 404 and never 401, so it reads as a route that is not there.
 | A drop, or 45 seconds without a line | Keeps `asleep_since`, the moment it dropped, and `why`, the failure as a sentence. Opens it again after 1 second, doubling to a minute |
 
 Pairing starts a task and forgetting stops it. Fleet keeps the rows while the Mac is asleep.
-Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…` or `/other_mac/conversation?…` path, read as `/api/mac/thread?…` or `/api/mac/conversation?…`; any other is refused.
+Fleet's `read_other_mac` reaches the other Mac only for a `/other_mac/thread?…`, `/other_mac/conversation?…`, `/other_mac/artifacts?…` or `/other_mac/artifact_page?…` path, read as the same name under `/api/mac/`; any other is refused.
 Its `send_other_mac` posts only `/other_mac/project_act`, `/other_mac/act`, `/other_mac/update` and `/other_mac/terminal`.
 Its `open_other_mac_page` asks `/api/mac/page` and, where that answers 204, opens one loopback port on this Mac for that Job and page port, which signs every request through to `/api/mac/page/<job>/<port>/<path>`.
 A Mac with `asleep_since` is answered asleep without a call, and a frozen link with its why; a page port already open answers 503 with that why while the link is frozen, as the other Mac's `/api/mac/page` routes do.
@@ -413,6 +415,10 @@ The body and its refusals are [update_mac](../../crates/ipc/operations/update_ma
 | Names the other Mac on a start or a dispatch (`mac` in the body, absent for this Mac) | The same, as a start there. The new Job's row is kept here at once with that Mac's id |
 | Acts while that Mac is asleep | The act is answered 202 with a `Queued`, kept in the queue the project edits use, and sent when the Mac next speaks, oldest first, each with its `id` |
 | Takes it back before then | `POST /queued/take_back`. An act the other Mac refused when its turn came stays there with its why, and the acts after it still go, until he takes it back |
+
+**Artifacts cross too.** The sketches, drafts and pages of a Job held from the other Mac are listed, and a page opened, by asking the Mac that holds it, as the thread is: this Mac keeps none.
+His press of a page's action, his vote, the revision he opened, an archive and a restore on one go to that Mac as acts, and wait in the queue while it sleeps.
+His Edit of a page and his answer to a part of an artifact stay off for a Job on the other Mac.
 
 **The Mac that holds the Job answers for it.** An act on a Job in a project that is not shared is refused 404, as one on a Job that does not exist, and nothing is written there.
 An act that arrives again under an `id` it ran is answered with what it answered then, and is not run again.

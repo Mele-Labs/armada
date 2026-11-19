@@ -1,7 +1,7 @@
 //! A Job's sketches, drafts and pages across his Macs. The Mac that holds a Job lists them and seals a page for the Mac
 //! that asks, through the share filter; the Mac that asks reads them through the link each time, as it reads a thread,
 //! and keeps none. His acts on them cross as `JobAct` kinds (`crate::mac_acts`).
-//! `docs/practices/protocol/his-other-macs-fleets-half.md`, *Artifacts across Macs*.
+//! `docs/practices/protocol/his-other-macs-fleets-half.md`, *Acting across Macs*.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SealedPage};
