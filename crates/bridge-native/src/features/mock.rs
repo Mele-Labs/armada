@@ -279,3 +279,59 @@ pub fn asks(slug: &str) -> FeatureAsks {
         ],
     }
 }
+
+/// How far back the mock's Since you looked page reaches before he marks it read.
+pub const SINCE_DAYS_AGO: i64 = 3;
+
+/// The project's overview as the librarian's first read leaves it: Armada's own modules over the areas of `library`, the
+/// busiest features by their merges, and no glossary, which is what Fleet serves until a Job adds a term.
+pub fn overview() -> ipc::ProjectOverview {
+    let room = |module: &str, path: &str, kind: &str, area: Option<&str>| ipc::MapRoom { module: module.into(), path: path.into(), kind: kind.into(), manifest_id: None, area: area.map(str::to_string) };
+    let (running, thread, review) = ("running-a-job", "job-thread-and-terminal", "pull-requests-and-review");
+    ipc::ProjectOverview {
+        project: PROJECT.into(),
+        what_it_is: Some(ipc::ReadmeSentence {
+            sentence: "A macOS app that dispatches coding agents as Jobs against git repositories and verifies their work before advancing them.".into(),
+            file: "README.md".into(),
+        }),
+        rooms: vec![
+            room("fleet", "crates/fleet", "cargo", Some(running)),
+            room("store", "crates/store", "cargo", Some(running)),
+            room("config", "crates/config", "cargo", Some(running)),
+            room("ipc", "crates/ipc", "cargo", Some(thread)),
+            room("bridge-native", "crates/bridge-native", "cargo", Some(thread)),
+            room("apps/desktop", "apps/desktop", "npm", Some(thread)),
+            room("components", "packages/components", "npm", Some(review)),
+            room("plugins/armada", "plugins/armada", "npm", Some(review)),
+            room("core-model", "crates/core-model", "cargo", None),
+            room("xtask", "xtask", "cargo", None),
+        ],
+        busiest: vec![
+            ipc::BusyFeature { slug: "job-list-and-live-status".into(), title: "Job list and live status".into(), pulls: vec![3863, 3862] },
+            ipc::BusyFeature { slug: "thread-and-composer".into(), title: "Thread and composer".into(), pulls: vec![3865] },
+            ipc::BusyFeature { slug: "pause-resume-stop-snooze".into(), title: "Pause, resume, stop, snooze".into(), pulls: vec![3864] },
+            ipc::BusyFeature { slug: "reviews".into(), title: "Reviews".into(), pulls: vec![3879] },
+        ],
+        glossary: Vec::new(),
+    }
+}
+
+/// What moved since `at`: the feature waiting on him whatever the time, and each merge or new feature by how long ago it was.
+pub fn since(at: chrono::DateTime<chrono::Utc>) -> ipc::SinceYouLooked {
+    let now = chrono::Utc::now();
+    // `(hours ago, tag, slug, title, what, pulls)`: Needs you first, then Changed by newest merge, then New.
+    let moved: [(i64, ipc::LookedTag, &str, &str, &str, &[u64]); 4] = [
+        (0, ipc::LookedTag::NeedsYou, "model-and-context", "Model and context", "Its Test section is older than the last merge that changed its files.", &[]),
+        (5, ipc::LookedTag::Changed, "thread-and-composer", "Thread and composer", "Ask head on two lines, Last line in full.", &[3865]),
+        (30, ipc::LookedTag::Changed, "job-list-and-live-status", "Job list and live status", "On it now counts Jobs holding a slot. Two panels with rounded corners.", &[3863, 3862]),
+        (50, ipc::LookedTag::New, "agent-notes-on-a-diff", "Agent notes on a diff", "Pending, named by a Feature line.", &[]),
+    ];
+    let features: Vec<ipc::LookedFeature> = moved
+        .into_iter()
+        .filter(|(hours, tag, ..)| *tag == ipc::LookedTag::NeedsYou || now - chrono::Duration::hours(*hours) > at)
+        .map(|(_, tag, slug, title, what, pulls)| ipc::LookedFeature { tag, slug: slug.into(), title: title.into(), what: what.into(), pulls: pulls.to_vec() })
+        .collect();
+    // The librarian's paragraph covers the merges; with none since, there is nothing for it to say.
+    let paragraph = if features.iter().any(|one| one.tag != ipc::LookedTag::NeedsYou) { "The Features screen moved to two panels and its ask cards wrap. A Job's ask head now takes two lines. One section waits on your Confirm." } else { "" };
+    ipc::SinceYouLooked { project: PROJECT.into(), paragraph: paragraph.into(), features }
+}

@@ -43,7 +43,7 @@ fn columns(count: usize) -> Vec<Vec<Card>> {
 
 /// A card (`.card`) on the page's panel, a step under the panel's ground so it reads as a card: the hairline, the card shadow, and where the keys are on it the focus colour. The one that says what
 /// runs now is tinted with the running hue (`.now`).
-fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
+pub(super) fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
     let edge = if ring {
         ring_colour(look)
     } else if running {
@@ -56,7 +56,7 @@ fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> St
 }
 
 /// A card's title (`h3`): on a ground a little under the card's own, or in the running hue for the card that says what runs.
-fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl IntoElement {
+pub(super) fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl IntoElement {
     let (ground, ink, edge) = if running {
         (tint(look, look.color(token::BG_BASE), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
     } else {
@@ -85,7 +85,7 @@ fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl
 }
 
 /// The inside of a card that holds text (`.in`).
-fn inner(look: &Look) -> Div {
+pub(super) fn inner(look: &Look) -> Div {
     div().flex().flex_col().gap(look.length(token::SPACE_3) - px(2.)).px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_3))
 }
 

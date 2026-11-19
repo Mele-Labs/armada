@@ -38,3 +38,15 @@ pub fn run_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::Lib
     let body = ipc::RunLibrarian { project: project.to_string() };
     request(port, Ask::Post("/features/librarian".into(), crate::settings::wire::body(&body)), "LibrarianRan", cx)
 }
+
+/// `GET /features/overview?project=`: a project's map, busiest features and glossary. `crates/ipc/operations/get_project_overview.toml`.
+pub fn overview(port: u16, project: &str, cx: &App) -> Task<Result<ipc::ProjectOverview, Refused>> {
+    request(port, Ask::Get(format!("/features/overview?project={}", crate::link::percent_encoded(project))), "ProjectOverview", cx)
+}
+
+/// `GET /features/since?project=&since=`: what moved since he looked, by feature. `crates/ipc/operations/get_since_you_looked.toml`.
+pub fn since(port: u16, project: &str, since: chrono::DateTime<chrono::Utc>, cx: &App) -> Task<Result<ipc::SinceYouLooked, Refused>> {
+    let at = since.to_rfc3339_opts(chrono::SecondsFormat::Secs, true);
+    let path = format!("/features/since?project={}&since={}", crate::link::percent_encoded(project), crate::link::percent_encoded(&at));
+    request(port, Ask::Get(path), "SinceYouLooked", cx)
+}
