@@ -104,7 +104,10 @@ impl OperatorScreen {
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
         let kit = cx.new(|cx| crate::kit::KitScreen::live(fleet, window, cx));
         let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
+        let usage = cx.new(|cx| crate::usage_page::UsageScreen::live(fleet, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
+        this.usage = Some(usage);
+        this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
         // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
         this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
@@ -309,6 +312,11 @@ impl OperatorScreen {
         if self.front == Front::Features {
             if let Some(features) = &self.features {
                 features.update(cx, |features, cx| features.leave(cx));
+            }
+        }
+        if self.front == Front::Usage {
+            if let Some(usage) = &self.usage {
+                usage.update(cx, |usage, cx| usage.leave(cx));
             }
         }
         self.front = to;

@@ -3,14 +3,14 @@
 
 use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Window};
 
-use super::model::{Board, JobLine, KindRow, Span};
-use super::{Load, UsageScreen};
+use super::model::{Board, JobLine, KindRow, Shown, Span};
+use super::UsageScreen;
 use crate::generated::actions::ActionScope;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::reviews::panel;
 use crate::settings::view::{bone, ring_colour, tip};
-use crate::titlebar::parts::{glyph, mono, sans};
+use crate::titlebar::parts::{glyph, mono, sans, spinner};
 
 /// The width of the units column and of the peak column: two steps of the largest space, so the figures line up down both panels.
 fn figure_width(look: &Look) -> Pixels {
@@ -28,8 +28,9 @@ fn figure(look: &Look, said: impl Into<SharedString>, ink: Hsla) -> Div {
     div().flex_none().w(figure_width(look)).flex().justify_end().font_family(mono(look)).text_color(ink).child(said.into())
 }
 
-/// The segment a window is drawn as: raised in an accent wash and ring where it is the one read.
-fn segment(look: &Look, span: Span, on: bool, cx: &mut gpui::Context<UsageScreen>) -> gpui::AnyElement {
+/// The segment a window is drawn as: raised in an accent wash and ring where it is the one read, with a spinner after its word
+/// while Fleet has not answered for it.
+fn segment(look: &Look, span: Span, on: bool, pending: bool, cx: &mut gpui::Context<UsageScreen>) -> gpui::AnyElement {
     let edge = look.length(token::BORDER_WIDTH);
     let word = span.label();
     let one = div()
@@ -48,12 +49,15 @@ fn segment(look: &Look, span: Span, on: bool, cx: &mut gpui::Context<UsageScreen
         .when(!on, |segment| segment.text_color(look.color(token::FG_MUTED)).cursor_pointer().hover(|style| style.text_color(look.color(token::FG_DEFAULT))))
         .aria_toggled(if on { gpui::Toggled::True } else { gpui::Toggled::False })
         .on_click(cx.listener(move |this, _, _, cx| this.pick(span, cx)))
-        .child(word);
+        .child(word)
+        .when(on && pending, |segment| {
+            segment.gap(look.length(token::SPACE_2)).child(spinner(SharedString::from(format!("usage-window-{}-spin", word.to_lowercase())), look.length(token::SPACE_3), look.color(token::FG_MUTED), cx))
+        });
     labelled(one, Role::RadioButton, word).into_any_element()
 }
 
 /// The window switch: a sunken track with a segment a window.
-fn switch(look: &Look, now: Span, cx: &mut gpui::Context<UsageScreen>) -> gpui::AnyElement {
+fn switch(look: &Look, now: Span, pending: bool, cx: &mut gpui::Context<UsageScreen>) -> gpui::AnyElement {
     let track = div()
         .id("usage-window")
         .flex_none()
@@ -65,7 +69,7 @@ fn switch(look: &Look, now: Span, cx: &mut gpui::Context<UsageScreen>) -> gpui::
         .border(look.length(token::BORDER_WIDTH))
         .border_color(look.color(token::BORDER_DEFAULT))
         .bg(look.color(token::BG_SUNKEN))
-        .children(Span::ALL.map(|span| segment(look, span, span == now, cx)));
+        .children(Span::ALL.map(|span| segment(look, span, span == now, pending, cx)));
     labelled(track, Role::RadioGroup, "Window").into_any_element()
 }
 
@@ -103,6 +107,26 @@ impl UsageScreen {
             );
         }
         rows
+    }
+
+    /// A read Fleet refused or could not make: the band keeps its switch, so another window can be asked, and under it Fleet's reason.
+    fn render_failed(&self, why: &str, look: &Look, cx: &mut gpui::Context<Self>) -> Div {
+        let note = labelled(
+            div()
+                .id("usage-failed")
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1))
+                .p(look.length(token::SPACE_4))
+                .text_size(look.length(token::TEXT_SM))
+                .line_height(look.length(token::LEADING_SM))
+                .text_color(look.color(token::FG_MUTED))
+                .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Not read"))
+                .child(SharedString::from(why.to_string())),
+            Role::Alert,
+            "Not read",
+        );
+        div().flex().flex_col().child(band(look).child(div().min_w_0()).child(switch(look, self.held.span(), false, cx))).child(note)
     }
 
     fn render_kind(&self, row: &KindRow, focused: bool, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
@@ -151,7 +175,7 @@ impl UsageScreen {
         labelled(line, Role::Row, row.title.clone()).into_any_element()
     }
 
-    fn render_board(&self, board: &Board, focused: bool, look: &Look, cx: &mut gpui::Context<Self>) -> Div {
+    fn render_board(&self, board: &Board, pending: bool, focused: bool, look: &Look, cx: &mut gpui::Context<Self>) -> Div {
         let header = board.header().map(|said| {
             labelled(
                 div().id("usage-header").min_w_0().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone())),
@@ -160,7 +184,7 @@ impl UsageScreen {
             )
         });
         let rows: Vec<_> = board.rows().iter().map(|row| self.render_kind(row, focused, look, cx)).collect();
-        div().flex().flex_col().child(band(look).child(div().min_w_0().children(header)).child(switch(look, board.span(), cx))).children(rows)
+        div().flex().flex_col().child(band(look).child(div().min_w_0().children(header)).child(switch(look, self.held.span(), pending, cx))).children(rows)
     }
 
     /// The panel under the list: the kind's fix as its head, then the table of the Jobs it hit.
@@ -168,10 +192,12 @@ impl UsageScreen {
         let kind = board.kind(self.selection.opened.as_deref()?)?;
         let style = super::model::look_of(&kind.kind);
         let head = band(look)
+            .id("usage-fix-head")
             .justify_start()
             .gap(look.length(token::SPACE_3))
             .child(chip(look, style.hue, style.glyph))
             .child(labelled(div().id("usage-fix").flex_1().min_w_0().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(kind.fix.clone())), Role::Heading, kind.fix.clone()));
+        let head = labelled(head, Role::Group, "Fix");
         let column = |name: &'static str| labelled(figure(look, name, look.color(token::FG_SUBTLE)).font_family(sans(look)).id(SharedString::from(format!("usage-column-{name}"))), Role::ColumnHeader, name);
         let heads = div()
             .flex_none()
@@ -222,12 +248,13 @@ impl Render for UsageScreen {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
         let focused = self.keys.is_focused(window);
-        let (kinds, open) = match &self.load {
-            Load::Reading => (
+        let (kinds, open) = match self.held.shown() {
+            Shown::Loading => (
                 div().flex().flex_col().child(band(&look).child(bone(&look, px(260.), look.length(token::LEADING_BASE) - px(4.))).child(bone(&look, px(200.), look.length(token::H_CONTROL) - px(4.)))).child(labelled(self.render_bones(&look).id("usage-loading"), Role::Image, "Loading")),
                 None,
             ),
-            Load::Read(board) => (self.render_board(board, focused, &look, cx), self.render_open(board, &look, cx)),
+            Shown::Failed(why) => (self.render_failed(why, &look, cx), None),
+            Shown::Read { board, pending } => (self.render_board(board, pending, focused, &look, cx), self.render_open(board, &look, cx)),
         };
         let body = labelled(
             div()

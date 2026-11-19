@@ -3,19 +3,24 @@
 
 use std::collections::HashMap;
 
-use super::model::{Span, UsageWaste, WasteJob, WasteKind, WasteWindow};
+use ipc::{UsageWaste, WasteJob, WasteKind, WasteWindow};
+
+use super::model::Span;
 
 /// The scenarios that open on this page.
 pub const WEEK: &str = "usage-week";
 pub const LOADING: &str = "usage-loading";
 pub const EMPTY: &str = "usage-empty";
+pub const FAILED: &str = "usage-failed";
+/// What Fleet's refusal reads as on the failed scenario.
+pub const REFUSED: &str = "Fleet answered 500";
 
 /// Whether a mock scenario of this name opens on the Usage page.
 pub fn is_usage(scenario: &str) -> bool {
-    matches!(scenario, WEEK | LOADING | EMPTY)
+    matches!(scenario, WEEK | LOADING | EMPTY | FAILED)
 }
 
-const MILLION: u64 = 1_000_000;
+const MILLION: f64 = 1_000_000.;
 const THOUSAND: u64 = 1_000;
 
 /// The Jobs the reading names, by id: the last has no title, so its short id stands.
@@ -44,12 +49,12 @@ fn kind(kind: &str, title: &str, fix: &str, occurrences: u64, jobs: &[(usize, u6
         .iter()
         .map(|(job, units, peak)| WasteJob {
             session_id: id_of(*job).to_string(),
-            units: (*units as f64 * MILLION as f64 * scale) as u64,
-            occurrences: ((occurrences as f64 / jobs.len() as f64) * scale).ceil() as u64,
+            units: (*units as f64).round() * MILLION * scale,
+            occurrences: ((occurrences as f64 / jobs.len() as f64) * scale).ceil() as u32,
             peak_context: peak.map(|peak| peak * THOUSAND),
         })
         .collect();
-    WasteKind { kind: kind.into(), title: title.into(), fix: fix.into(), units: jobs.iter().map(|job| job.units).sum(), occurrences: (occurrences as f64 * scale).round() as u64, jobs }
+    WasteKind { kind: kind.into(), title: title.into(), fix: fix.into(), units: jobs.iter().map(|job| job.units).sum(), occurrences: (occurrences as f64 * scale).round() as u32, jobs }
 }
 
 /// The reading for a span. The week is the example the page was approved on; a day and a fortnight are its figures scaled.
@@ -109,11 +114,11 @@ pub fn waste(span: Span) -> UsageWaste {
             scale,
         ),
     ];
-    let waste_units = kinds.iter().map(|kind| kind.units).sum();
+    let waste_units: f64 = kinds.iter().map(|kind| kind.units).sum();
     UsageWaste {
         until: "2026-11-18T09:00:00Z".into(),
         window: WasteWindow {
-            id: span,
+            id: span.id().into(),
             since: match span {
                 Span::Day => "2026-11-17T09:00:00Z",
                 Span::Week => "2026-11-11T09:00:00Z",
@@ -122,7 +127,7 @@ pub fn waste(span: Span) -> UsageWaste {
             .into(),
             until: "2026-11-18T09:00:00Z".into(),
         },
-        total_units: (412. * MILLION as f64 * scale) as u64,
+        total_units: (412. * MILLION * scale).trunc(),
         waste_units,
         kinds,
     }
@@ -132,9 +137,9 @@ pub fn waste(span: Span) -> UsageWaste {
 pub fn empty(span: Span) -> UsageWaste {
     UsageWaste {
         until: "2026-11-18T09:00:00Z".into(),
-        window: WasteWindow { id: span, since: "2026-11-11T09:00:00Z".into(), until: "2026-11-18T09:00:00Z".into() },
-        total_units: 0,
-        waste_units: 0,
+        window: WasteWindow { id: span.id().into(), since: "2026-11-11T09:00:00Z".into(), until: "2026-11-18T09:00:00Z".into() },
+        total_units: 0.,
+        waste_units: 0.,
         kinds: Vec::new(),
     }
 }

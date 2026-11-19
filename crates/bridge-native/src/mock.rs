@@ -83,7 +83,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Usage page on mock waste: a week with six kinds, the reading not answered yet, and a window with no burn.
-        "usage-week" | "usage-loading" | "usage-empty" => include_bytes!("../fixtures/jobs-many.json"),
+        "usage-week" | "usage-loading" | "usage-empty" | "usage-failed" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, for the thread find walk.
         "thread-find" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, the second in Armada, with Fleet's line about how its work lands in its thread.

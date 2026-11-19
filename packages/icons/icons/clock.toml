@@ -60,3 +60,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 10 Nov 2026 for the native walk `operator-page`, for the owner to rule on. Nobody acts on it until later today, which is the clock's claim. Tooltip `Later today`. `bookmark` was refused: it is reserved to deferring what a Studio node raised."
+
+[[icons.clock.usage]]
+  means = "A kind of token waste: a cold cache after a pause, on its row of the Usage page"
+  group = "Usage"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Cold cache after a pause`. Stands in a square of the sketch blue hue at 16%, drawn in that hue: a wake after the cache ran out. Nobody acted in time, which is the clock's claim."

@@ -2,7 +2,7 @@ use super::model::*;
 use super::{mock, UsageScreen};
 
 fn week() -> Board {
-    Board::new(mock::waste(Span::Week))
+    Board::new(mock::waste(Span::Week), Span::Week)
 }
 
 #[test]
@@ -16,7 +16,7 @@ fn kinds_are_listed_largest_first_and_each_kinds_jobs_too() {
     let titles = mock::titles();
     let lines = board.lines_of("subagent_context", &titles);
     assert_eq!(lines.iter().map(|line| (line.title.as_str(), line.units.as_str(), line.peak.as_str())).take(3).collect::<Vec<_>>(), [("Native jobs screens", "21M", "870k"), ("Docs audit", "9M", "610k"), ("Fleet speed work", "6M", "420k")]);
-    let units: Vec<u64> = board.kind("subagent_context").expect("the kind").jobs.iter().map(|job| job.units).collect();
+    let units: Vec<f64> = board.kind("subagent_context").expect("the kind").jobs.iter().map(|job| job.units).collect();
     assert!(units.windows(2).all(|pair| pair[0] >= pair[1]), "largest first");
 }
 
@@ -25,9 +25,9 @@ fn a_kind_that_arrives_out_of_order_is_sorted_with_ties_broken_by_title() {
     let mut waste = mock::waste(Span::Week);
     waste.kinds.reverse();
     let fresh = waste.kinds.iter().position(|kind| kind.kind == "fresh_starts").expect("a kind");
-    waste.kinds[fresh].units = 31_000_000;
+    waste.kinds[fresh].units = 31_000_000.;
     waste.kinds[fresh].title = "Aardvark".into();
-    let board = Board::new(waste);
+    let board = Board::new(waste, Span::Week);
     assert_eq!(board.kinds()[..3], ["subagent_context", "fresh_starts", "main_context"], "equal units: the title that sorts first leads");
 }
 
@@ -38,7 +38,7 @@ fn the_header_says_the_waste_and_the_whole_in_millions() {
 
 #[test]
 fn a_window_with_no_burn_has_no_header_and_no_rows() {
-    let board = Board::new(mock::empty(Span::Week));
+    let board = Board::new(mock::empty(Span::Week), Span::Week);
     assert_eq!(board.header(), None);
     assert!(board.rows().is_empty());
     assert!(board.kinds().is_empty());
@@ -129,14 +129,78 @@ fn the_window_keys_are_day_week_and_fortnight_in_that_order() {
 
 #[test]
 fn every_window_has_the_same_kinds_in_the_same_order() {
-    let order = |span| Board::new(mock::waste(span)).kinds().into_iter().map(str::to_string).collect::<Vec<_>>();
+    let order = |span| Board::new(mock::waste(span), span).kinds().into_iter().map(str::to_string).collect::<Vec<_>>();
     assert_eq!(order(Span::Day), order(Span::Week));
     assert_eq!(order(Span::Fortnight), order(Span::Week));
 }
 
 #[test]
-fn the_scenarios_that_open_on_the_page_are_the_three() {
-    assert!(["usage-week", "usage-loading", "usage-empty"].iter().all(|name| super::is_scenario(name)));
+fn a_window_press_moves_the_switch_at_once_and_keeps_the_old_rows_until_the_answer() {
+    let mut held = Held::new(Span::Week);
+    held.arrived(Span::Week, Ok(mock::waste(Span::Week)));
+    assert!(matches!(held.shown(), Shown::Read { pending: false, .. }));
+    assert!(held.pick(Span::Day), "the press is taken");
+    assert_eq!(held.span(), Span::Day, "the switch is on Day in the same frame");
+    match held.shown() {
+        Shown::Read { board, pending } => {
+            assert!(pending, "marked pending");
+            assert_eq!(board.span(), Span::Week, "the rows are still the week's");
+            assert_eq!(board.header().as_deref(), Some("131M of 412M went to fixable waste"));
+        }
+        other => panic!("the old rows stay, not {other:?}"),
+    }
+    held.arrived(Span::Day, Ok(mock::waste(Span::Day)));
+    match held.shown() {
+        Shown::Read { board, pending } => {
+            assert!(!pending, "the answer ends the wait");
+            assert_eq!(board.span(), Span::Day);
+            assert_eq!(board.header().as_deref(), Some("26M of 82M went to fixable waste"));
+        }
+        other => panic!("the day's rows, not {other:?}"),
+    }
+    assert!(!held.pick(Span::Day), "a press on the window shown asks nothing");
+}
+
+#[test]
+fn an_answer_for_a_window_the_switch_has_left_is_dropped() {
+    let mut held = Held::new(Span::Week);
+    held.arrived(Span::Week, Ok(mock::waste(Span::Week)));
+    held.pick(Span::Day);
+    held.pick(Span::Fortnight);
+    held.arrived(Span::Day, Ok(mock::waste(Span::Day)));
+    match held.shown() {
+        Shown::Read { board, pending } => assert_eq!((board.span(), pending), (Span::Week, true), "the late day changed nothing"),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_read_that_fails_shows_fleets_reason_and_a_later_answer_clears_it() {
+    let mut held = Held::new(Span::Week);
+    assert_eq!(held.shown(), Shown::Loading, "nothing asked yet is the skeleton");
+    held.arrived(Span::Week, Err("Fleet answered 500".into()));
+    assert_eq!(held.shown(), Shown::Failed("Fleet answered 500"));
+    assert!(held.failed() && held.board().is_none());
+    held.arrived(Span::Week, Ok(mock::waste(Span::Week)));
+    assert!(matches!(held.shown(), Shown::Read { pending: false, .. }), "the next read puts it right");
+}
+
+#[test]
+fn a_failed_window_switch_is_failed_but_a_failed_refresh_keeps_its_rows() {
+    let mut held = Held::new(Span::Week);
+    held.arrived(Span::Week, Ok(mock::waste(Span::Week)));
+    held.arrived(Span::Week, Err("Fleet is not connected".into()));
+    assert!(matches!(held.shown(), Shown::Read { pending: false, .. }), "the minute's read failed: the rows are still the week's");
+    held.pick(Span::Day);
+    held.arrived(Span::Day, Err("Fleet answered 500".into()));
+    assert_eq!(held.shown(), Shown::Failed("Fleet answered 500"), "rows for another window are not drawn under the Day switch");
+    assert!(held.pick(Span::Week), "the way out is any window");
+    assert!(matches!(held.shown(), Shown::Read { pending: false, .. }), "back on the week, the rows held are its own");
+}
+
+#[test]
+fn the_scenarios_that_open_on_the_page_are_the_four() {
+    assert!(["usage-week", "usage-loading", "usage-empty", "usage-failed"].iter().all(|name| super::is_scenario(name)));
     assert!(!super::is_scenario("jobs-many"));
     let _ = UsageScreen::mock;
 }
@@ -246,6 +310,16 @@ mod screen {
         assert!(drawn(cx, Role::RadioGroup, "Window"));
         assert!(!drawn(cx, Role::Heading, "0 of 0 went to fixable waste"));
         assert!(!drawn(cx, Role::Row, "Cold cache after a pause"));
+        assert!(!drawn(cx, Role::Image, "Loading"));
+    }
+
+    #[gpui::test]
+    fn a_refused_read_draws_fleets_reason_and_keeps_the_switch(cx: &mut TestAppContext) {
+        let (_, cx) = page(cx, "usage-failed");
+        redraw(cx);
+        assert!(drawn(cx, Role::Alert, "Not read"));
+        assert!(drawn(cx, Role::RadioGroup, "Window"), "another window can be asked");
+        assert!(!drawn(cx, Role::Row, "Subagents ran past 300k context"));
         assert!(!drawn(cx, Role::Image, "Loading"));
     }
 
