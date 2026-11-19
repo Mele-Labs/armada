@@ -1,6 +1,7 @@
 //! `get_artifact_page`: one kept revision of a Job's page served sealed, one HTML answer a web view opens with no
 //! network. **Only the kit's script runs**: the page's own scripts carry no nonce, so the policy refuses them, and
-//! the kit draws the page's actions and votes and hands each press and vote to the host by `postMessage`.
+//! the kit draws the page's actions and votes and hands each press and vote to the host by `postMessage`. For a host
+//! that draws the kit itself ([`hosted`]) the page's own inline scripts run instead, each allowed by its hash.
 //! `crates/ipc/operations/get_artifact_page.toml` is the contract, `docs/practices/protocol/a-pages-sealed-serving.md`
 //! the seam. A scan and not a parse, as `document_page` reads the page.
 
@@ -9,6 +10,7 @@ use api::{Refusal, SealedPage};
 use base64::Engine as _;
 use ipc::{ArtifactForm, PagePress, VoteCast};
 use serde::Serialize;
+use sha2::{Digest, Sha256};
 
 use super::archiving::ARTIFACT_NOT_HELD;
 use super::document_page::{open_tag, tag_end};
@@ -31,10 +33,18 @@ const KIT_HREF: &str = "armada-kit.css";
 /// Attributes that name an address a browser fetches or navigates to.
 const ADDRESSED: &[&str] = &["src", "href", "srcset", "poster", "action", "formaction", "data", "xlink:href", "background", "ping"];
 
+/// Attributes that give a script an address to load it from.
+const SCRIPT_ADDRESSED: &[&str] = &["src", "href", "xlink:href"];
+
 /// The page's policy, its one script source the nonce.
 pub(crate) fn policy(nonce: &str) -> String {
+    policy_allowing(&format!("'nonce-{nonce}'"))
+}
+
+/// The policy with `scripts` as its one script source; every other wall is the same.
+fn policy_allowing(scripts: &str) -> String {
     format!(
-        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'nonce-{nonce}'; connect-src 'none'; form-action 'none'; base-uri 'none'"
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src {scripts}; connect-src 'none'; form-action 'none'; base-uri 'none'"
     )
 }
 
@@ -69,32 +79,56 @@ struct PageRecord<'a> {
 /// where it was linked, every other link, `<base>` and `http-equiv` dropped, every relative address and every
 /// `nonce` the page wrote taken off its tag, and the record and the kit's script, both with `nonce`, closing the body.
 pub(crate) fn sealed(html: &str, nonce: &str, record: &str) -> String {
-    let page = rewritten(html);
+    let page = rewritten(html, None);
+    let record = format!("<script type=\"application/json\" id=\"armada-page-record\" nonce=\"{nonce}\">{}</script>", escaped(record));
+    closed(&page, &policy(nonce), &format!("{record}<script nonce=\"{nonce}\">{KIT_SCRIPT}</script>"))
+}
+
+/// `html` sealed for a host that draws the kit itself, with its policy: as [`sealed`], but each inline script the page
+/// wrote is allowed by its hash and the kit's script is left out. **No nonce anywhere**, since a page script that read
+/// one could give it to a `<script src>` of its own and fetch. The record is data, so it needs none.
+pub(crate) fn hosted(html: &str, record: &str) -> (String, String) {
+    let mut hashes = Vec::new();
+    let page = rewritten(html, Some(&mut hashes));
+    let scripts = match hashes.is_empty() {
+        true => "'none'".to_string(),
+        false => hashes.iter().map(|hash| format!("'sha256-{hash}'")).collect::<Vec<_>>().join(" "),
+    };
+    let policy = policy_allowing(&scripts);
+    let record = format!("<script type=\"application/json\" id=\"armada-page-record\">{}</script>", escaped(record));
+    (closed(&page, &policy, &record), policy)
+}
+
+/// `<` written as an escape, so no text in the record closes its script.
+fn escaped(record: &str) -> String {
+    record.replace('<', "\\u003c")
+}
+
+/// The rewritten `page` with `policy`, the tokens and the kit's look first in its `<head>`, and `scripts` closing its body.
+fn closed(page: &str, policy: &str, scripts: &str) -> String {
     let lower = page.to_ascii_lowercase();
-    let head = format!(
-        "<meta http-equiv=\"Content-Security-Policy\" content=\"{}\"><style>{}\n{KIT_LOOK}</style>",
-        policy(nonce),
-        tokens_css()
-    );
+    let head = format!("<meta http-equiv=\"Content-Security-Policy\" content=\"{policy}\"><style>{}\n{KIT_LOOK}</style>", tokens_css());
     let mut sealed = match open_tag(&lower, "head", 0).or_else(|| open_tag(&lower, "html", 0)) {
         Some((tag, after)) if lower[tag..].starts_with("<head") => format!("{}{head}{}", &page[..after], &page[after..]),
         Some((_, after)) => format!("{}<head>{head}</head>{}", &page[..after], &page[after..]),
         None => format!("<head>{head}</head>{page}"),
     };
-    // `<` written as an escape, so no text in the record closes its script.
-    let record = record.replace('<', "\\u003c");
-    let scripts = format!(
-        "<script type=\"application/json\" id=\"armada-page-record\" nonce=\"{nonce}\">{record}</script><script nonce=\"{nonce}\">{KIT_SCRIPT}</script>"
-    );
     match sealed.to_ascii_lowercase().rfind("</body") {
-        Some(at) => sealed.insert_str(at, &scripts),
-        None => sealed.push_str(&scripts),
+        Some(at) => sealed.insert_str(at, scripts),
+        None => sealed.push_str(scripts),
     }
     sealed
 }
 
-/// The page with each tag sealed. The text of a script, a style, a title and a textarea is kept as written.
-fn rewritten(html: &str) -> String {
+/// The hash a browser checks an inline script against: its text after the parser turns every CRLF and CR into LF.
+fn script_hash(text: &str) -> String {
+    let text = text.replace("\r\n", "\n").replace('\r', "\n");
+    base64::engine::general_purpose::STANDARD.encode(Sha256::digest(text.as_bytes()))
+}
+
+/// The page with each tag sealed. The text of a script, a style, a title and a textarea is kept as written. With
+/// `hashes`, the hash of each script with no address is added to it.
+fn rewritten(html: &str, mut hashes: Option<&mut Vec<String>>) -> String {
     let lower = html.to_ascii_lowercase();
     let mut out = String::with_capacity(html.len());
     let mut at = 0;
@@ -120,6 +154,11 @@ fn rewritten(html: &str) -> String {
         if ["script", "style", "title", "textarea"].contains(&name) {
             let close = lower[end..].find(&format!("</{name}")).map_or(lower.len(), |close| end + close);
             out.push_str(&html[end..close]);
+            // Judged on the tag as written: a relative `src` is gone from what is served, and still never runs.
+            let inline = || !attributes_of(&html[start..end], name_end - start).iter().any(|one| SCRIPT_ADDRESSED.contains(&one.name.as_str()));
+            if let Some(hashes) = hashes.as_deref_mut().filter(|_| name == "script" && inline()) {
+                hashes.push(script_hash(&html[end..close]));
+            }
             at = close;
         }
     }
@@ -275,6 +314,15 @@ where
     }
 
     pub(crate) async fn artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
+        self.artifact_page_as(id, artifact, revision, false).await
+    }
+
+    /// `get_artifact_page` with `host_kit`: the page for a host that draws the kit itself ([`hosted`]).
+    pub(crate) async fn hosted_artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
+        self.artifact_page_as(id, artifact, revision, true).await
+    }
+
+    async fn artifact_page_as(&self, id: &str, artifact: &str, revision: Option<u32>, host_kit: bool) -> Result<SealedPage, Refusal> {
         let id = id.trim();
         let (held, number, html) = self.page_revision(id, artifact, revision).await?;
         let (presses, votes) = {
@@ -289,6 +337,10 @@ where
         };
         // Strings, numbers and bools, which always encode.
         let record = ipc::encode(&record).unwrap_or_default();
+        if host_kit {
+            let (html, policy) = hosted(&html, &record);
+            return Ok(SealedPage { revision: number, html, policy });
+        }
         let nonce = nonce();
         Ok(SealedPage { revision: number, html: sealed(&html, &nonce, &record), policy: policy(&nonce) })
     }
@@ -296,13 +348,21 @@ where
 
 #[cfg(test)]
 mod tests {
-    use super::{sealed, KIT_SCRIPT};
+    use base64::Engine as _;
+    use sha2::Digest as _;
+
+    use super::{hosted, sealed, KIT_SCRIPT};
 
     /// The page the native Bridge's mock Fleet serves, before it is sealed: a message, a start, an answer and a refused
     /// answer, a pick and a score.
     const SOURCE: &str = include_str!("../../../bridge-native/fixtures/page-actions-source.html");
-    /// The sealed page, which the native mock reads as Fleet's answer to `get_artifact_page`.
-    const SEALED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../bridge-native/fixtures/page-actions.html");
+    /// The pages the native mock reads as Fleet's answer to `get_artifact_page` with `host_kit`, each from its source and
+    /// with the record the mock swaps: the page above, its sketches page, and a page whose own script tries to press.
+    const NATIVE: [(&str, &str, &str); 3] = [
+        (SOURCE, "page-actions.html", r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#),
+        (include_str!("../../../bridge-native/fixtures/page-sketches-source.html"), "page-sketches.html", r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#),
+        (include_str!("../../../bridge-native/fixtures/page-scripts-source.html"), "page-scripts.html", r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#),
+    ];
 
     /// A page with no style of its own reads in the app's sans and its form controls take the accent, never the
     /// browser's serif and grey radios.
@@ -315,18 +375,31 @@ mod tests {
         assert!(page.contains(":where(fieldset)"), "{page}");
     }
 
-    /// **The native mock's page is sealed by this code, never written by hand**, so a native walk drives the kit Fleet
-    /// ships. `ARMADA_WRITE_NATIVE_PAGE=1` writes it again; without it, the kit in it must be today's.
+    /// A browser hashes a script's text after turning CRLF into LF, so a page written on Windows still runs.
+    #[test]
+    fn a_hosted_scripts_hash_is_of_its_text_as_the_browser_reads_it() {
+        let (page, policy) = hosted("<body><script>a();\r\nb();</script><script type=module>\rc();</script></body>", "{}");
+        let hash = |text: &[u8]| base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(text));
+        assert!(policy.contains(&format!("script-src 'sha256-{}' 'sha256-{}';", hash(b"a();\nb();"), hash(b"\nc();"))), "{policy}");
+        assert!(!page.contains("nonce"), "{page}");
+        let (_, none) = hosted("<body><p>still</p></body>", "{}");
+        assert!(none.contains("script-src 'none';"), "{none}");
+    }
+
+    /// **The native mock's pages are sealed by this code, never written by hand**, as the native Bridge asks for them
+    /// (`host_kit`), so a native walk runs the page's scripts under the policy Fleet ships and draws the kit itself.
+    /// `ARMADA_WRITE_NATIVE_PAGE=1` writes them again; without it, each must be today's.
     #[test]
     fn the_native_mock_page_is_sealed_as_fleet_seals_it() {
-        // The record the native mock swaps for the presses and votes it kept, as Fleet's own record is written.
-        let record = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
-        let page = sealed(SOURCE, "bmF0aXZlLW1vY2stcGFnZQ==", record);
-        if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
-            std::fs::write(SEALED, &page).expect("the native mock's page is written");
+        for (source, name, record) in NATIVE {
+            let path = format!("{}/../bridge-native/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+            let (page, _) = hosted(source, record);
+            if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
+                std::fs::write(&path, &page).expect("the native mock's page is written");
+            }
+            let kept = std::fs::read_to_string(&path).expect("the native mock's page is there");
+            assert_eq!(kept, page, "{name} is not sealed as Fleet seals it today: write it again with ARMADA_WRITE_NATIVE_PAGE=1");
+            assert!(!kept.contains(KIT_SCRIPT) && kept.contains(record), "{name}: the host draws the kit, and the mock finds the record it swaps");
         }
-        let kept = std::fs::read_to_string(SEALED).expect("the native mock's page is there");
-        assert!(kept.contains(KIT_SCRIPT), "the native mock's page carries another kit: write it again with ARMADA_WRITE_NATIVE_PAGE=1");
-        assert!(kept.contains(record), "the native mock finds the record it swaps");
     }
 }

@@ -27,7 +27,7 @@ pub(super) fn wrapper_on(mac: &OneMac) -> PathBuf {
     root.join("ran")
 }
 
-async fn ran(path: &Path) -> String {
+pub(super) async fn ran(path: &Path) -> String {
     let mut text = String::new();
     until("the restart wrapper is started", || {
         let read = std::fs::read_to_string(path).unwrap_or_default();

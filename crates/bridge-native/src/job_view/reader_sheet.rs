@@ -215,17 +215,16 @@ impl JobView {
     /// The live page filling the detail, where the chosen item is a document or an artifact whose only part is a page that asks
     /// nothing: the whole of the detail between its band and its foot, which the page scrolls inside.
     pub(super) fn review_page_stage(&self, item: &Item, cx: &gpui::App) -> Option<AnyElement> {
-        let alone = match item.kind {
-            Kind::Document => true,
-            Kind::Artifact => match self.artifact_of(&item.job, artifact_in(item)?)?.parts.as_slice() {
-                [part] => matches!(part.content, ipc::PartContent::Page { .. }) && !part.asks,
-                _ => false,
-            },
-            _ => false,
-        };
+        let alone = item.kind == Kind::Document || self.page_alone(item);
         let (page, revision, _) = self.panel_pages_of(item, cx).into_iter().next().filter(|_| alone)?;
         let live = self.panel_page(&item.job, &page, revision, cx)?;
         Some(div().id(SharedString::from(format!("review-page:{}", item.key()))).relative().flex_1().min_w_0().min_h_0().child(div().absolute().inset_0().child(live)).into_any_element())
+    }
+
+    /// Whether the item is an artifact whose only part is a page that asks nothing, which the panel draws as the page alone.
+    fn page_alone(&self, item: &Item) -> bool {
+        let Some(artifact) = artifact_in(item).and_then(|artifact| self.artifact_of(&item.job, artifact)) else { return false };
+        matches!(artifact.parts.as_slice(), [part] if matches!(part.content, ipc::PartContent::Page { .. }) && !part.asks)
     }
 
     /// The parts of the chosen artifact, drawn the way its card draws them, at the detail's width.
@@ -244,6 +243,11 @@ impl JobView {
 
     /// The keys go to the chosen artifact's parts: a number picks a take, A and C answer a part, and a take put large is put back.
     pub(super) fn review_parts_focus(&mut self, item: &Item, window: &mut Window, cx: &mut Context<Self>) {
+        // A page alone draws no parts card in the panel, so the card's focus is the thread's behind it, where Esc never reaches the
+        // panel: the keys stay on the list.
+        if self.page_alone(item) {
+            return;
+        }
         if let Some(artifact) = artifact_in(item).map(str::to_string) {
             self.focus_card(&artifact, window, cx);
         }
@@ -736,6 +740,19 @@ mod tests {
         cx.simulate_keystrokes("escape");
         redraw(cx);
         assert!(!view.read_with(cx, |view, _| view.review_open()), "one Esc from the list");
+    }
+
+    #[gpui::test]
+    fn one_escape_closes_it_from_an_artifact_that_is_a_page_alone(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| part.id == PAGE), cx));
+        redraw(cx);
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        assert!(drawn(cx, Role::Region, "Page"), "the page fills the detail, and no parts card is drawn in the panel");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "one Esc closes the panel: the keys were not put on the card in the thread behind it");
     }
 
     #[gpui::test]

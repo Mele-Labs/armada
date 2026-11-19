@@ -15,6 +15,9 @@ use ipc::{SessionList, SetSessionProject, WireError};
 use super::serving::{NO_SUCH_SESSION, SESSION_COMMAND_REFUSED};
 use crate::daemon::Fleet;
 
+/// A Job moved into a copy of another Mac's project whose members do not list its repository. A 422.
+const COPY_NOT_MEMBER: &str = "fleet.project_copy_not_member";
+
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -27,7 +30,8 @@ where
 {
     /// `set_session_project`. Refused with nothing written: 422 for no Job and for a Job with no repository,
     /// 404 `fleet.no_such_session` for a Job Fleet does not host, and the refusals of a project: 404
-    /// `fleet.no_such_project`, 422 `fleet.project_unreadable`. Each Job is published as `session.changed`,
+    /// `fleet.no_such_project`, 422 `fleet.project_unreadable`. **A copy of another Mac's project takes the Jobs
+    /// where it lists their repositories**, else 422 `fleet.project_copy_not_member`. Each Job is published as `session.changed`,
     /// and the projects as `projects.changed` where the project took a repository in. **A Job that was in a
     /// shared project and is not any more** also has `projects.changed` published once, whatever the move: the
     /// other Mac reads its Jobs again on that and drops the row. `session.changed` for it is cut by the share
@@ -54,9 +58,21 @@ where
                 ids.push(id);
             }
         }
-        if let Some(project) = asked.project.as_deref() {
-            self.project_repositories(project).await?;
-            self.members_followed_published(project, repositories.into_iter().collect()).await?;
+        match asked.project.as_deref() {
+            // A copy of another Mac's project takes a Job as a merge does; its members are that Mac's to change.
+            Some(project) if !self.project_own(project) && self.copy_held(project, None).await => {
+                for repository in &repositories {
+                    if !self.copy_held(project, Some(repository.as_str())).await {
+                        let said = format!("This project is kept on your other Mac and does not list {repository}. Add it to the project there first.");
+                        return Err(Refusal::Unacceptable(WireError::raised(COPY_NOT_MEMBER, said, self.run_id())));
+                    }
+                }
+            }
+            Some(project) => {
+                self.project_repositories(project).await?;
+                self.members_followed_published(project, repositories.into_iter().collect()).await?;
+            }
+            None => {}
         }
         let mut was_shared = Vec::new();
         for id in &ids {

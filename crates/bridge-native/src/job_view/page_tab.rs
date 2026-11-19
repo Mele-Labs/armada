@@ -1,6 +1,7 @@
-//! A Job's page in its tab, under its card: the kept revision Fleet serves sealed (`get_artifact_page`), drawn in the web
-//! view. **The kit's script on it is the page's only script**: it draws the row actions and the votes, and posts each
-//! press and vote here. The Job view makes the Fleet call (`press_page_action`, `cast_page_vote`) and the answer goes back
+//! A Job's page in its tab, under its card: the kept revision Fleet serves sealed for a host that draws the kit
+//! (`get_artifact_page` with `host_kit`), drawn in the web view. **The page's own inline scripts run, and the kit's script
+//! runs apart from them** in a world of Bridge's own (`web::KIT_WORLD`): it draws the row actions and the votes, and posts
+//! each press and vote he makes here. The Job view makes the Fleet call (`press_page_action`, `cast_page_vote`) and the answer goes back
 //! to the kit, which turns the row green or shows Fleet's refusal on it. The kit's look is Fleet's, never restyled here.
 //! The messages are `crate::web::kit`'s; the seam is `docs/practices/protocol/a-pages-sealed-serving.md`.
 
@@ -12,7 +13,7 @@ use ipc::{HostToPage, PageToHost, WalkTarget};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
-use crate::web::{finder, kit, reader, web_pane, Mode, Source, Status, WebPage, WebPageEvent};
+use crate::web::{finder, kit, reader, web_pane, Mode, Source, Status, WebPage, WebPageEvent, KIT_WORLD};
 
 /// How long a walk's aim at the page waits for its target, as a web page's walk waits.
 const PATIENCE: Duration = Duration::from_secs(5);
@@ -207,7 +208,8 @@ impl PageTab {
         self._aim = Some(cx.spawn(async move |_, cx| {
             let mut waited = Duration::ZERO;
             let place = loop {
-                let (ask, viewport) = page.read_with(cx, |page, _| (page.ask(&finder::look(&target)), page.viewport()));
+                // In the kit's world, so a press reaches the kit as his (`armadaHostPress`).
+                let (ask, viewport) = page.read_with(cx, |page, _| (page.evaluate_in(KIT_WORLD, &finder::look(&target)), page.viewport()));
                 let answer = ask.recv().await.ok().flatten();
                 if let Some(place) = finder::place_of(answer.as_deref(), viewport) {
                     break Some(place);
@@ -221,7 +223,7 @@ impl PageTab {
             let found = place.is_some();
             page.update(cx, |page, cx| page.set_ring(place, cx));
             if found && press {
-                let pressed = page.read_with(cx, |page, _| page.ask(&finder::press()));
+                let pressed = page.read_with(cx, |page, _| page.evaluate_in(KIT_WORLD, &finder::press()));
                 pressed.recv().await.ok();
                 // A press moves what is on the page, so the ring would stand where the element was.
                 page.update(cx, |page, cx| page.set_ring(None, cx));
@@ -240,7 +242,11 @@ impl PageTab {
     /// once the page has run it.
     pub fn select(&mut self, cx: &mut Context<Self>) -> async_channel::Receiver<bool> {
         let (tx, rx) = async_channel::bounded(1);
-        let asked = self.ask(&finder::select(), cx);
+        // Where `aim` found it.
+        let asked = match &self.held {
+            Held::Ready(page) => page.read(cx).evaluate_in(KIT_WORLD, &finder::select()),
+            _ => self.ask("", cx),
+        };
         self._aim = Some(cx.spawn(async move |_, _| {
             let said = asked.recv().await.ok().flatten();
             let _ = tx.try_send(said.as_deref() == Some("true"));
@@ -465,7 +471,8 @@ impl JobView {
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
             return;
         }
-        let path = format!("/sessions/artifacts/page?session_id={}&artifact={}&revision={revision}", super::wire::encoded(&job), super::wire::encoded(&page));
+        // `host_kit`: the page's own scripts run, and Bridge draws the kit apart from them.
+        let path = format!("/sessions/artifacts/page?session_id={}&artifact={}&revision={revision}&host_kit=true", super::wire::encoded(&job), super::wire::encoded(&page));
         let named = page.clone();
         let done: super::wire::Done = Box::new(move |_, answer, window, cx| {
             let answer = answer.and_then(|bytes| String::from_utf8(bytes).map_err(|_| "Fleet's page is not text".to_string()));
@@ -536,7 +543,7 @@ mod tests {
         let page = crate::mock::sealed_page("design", 2, &kept.presses, &kept.votes).expect("the design page is served");
         assert!(page.contains(r#""presses":[{"revision":2,"action":"discuss-dark-mode""#), "the press rides in the record");
         assert!(page.contains(r#""take":"fade""#), "the newest cast rides in the record");
-        assert!(page.contains("window.armadaHost = hear"), "the kit Fleet sealed it with");
+        assert!(!page.contains("window.armadaHost = hear"), "Bridge draws the kit itself, so Fleet seals none in");
         assert!(crate::mock::sealed_page("notes", 1, &[], &[]).is_err(), "a page the mock never kept is refused");
     }
 

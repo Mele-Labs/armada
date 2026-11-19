@@ -65,33 +65,47 @@ pub(super) fn export_ask(title: &str, artifact: &str, revision: u32, tool: &str,
 }
 
 /// The page as one file for somebody with no Armada, as Classic's `savedPage`: the sealed page as the Job wrote it, its
-/// sketches already drawn in, with every script taken out and the policy's nonce turned to none, so nothing in it runs.
+/// sketches already drawn in. Served for a host that draws the kit (`host_kit`), it holds no kit, and its own scripts stay
+/// with the policy that allows exactly them by hash and reaches nothing; only the record goes. A page whose policy names a
+/// nonce carries the kit inline, so every script is taken out and the nonce turned to none.
 pub(super) fn web_page(sealed: &str) -> String {
-    let lower = sealed.to_ascii_lowercase();
-    let mut out = String::with_capacity(sealed.len());
+    const NONCE: &str = "script-src 'nonce-";
+    let nonced = sealed.find(NONCE);
+    let mut out = without_scripts(sealed, |tag| nonced.is_some() || tag.contains("id=\"armada-page-record\""));
+    if let Some(from) = nonced.and_then(|_| out.find(NONCE)) {
+        if let Some(end) = out[from + NONCE.len()..].find('\'') {
+            out.replace_range(from..from + NONCE.len() + end + 1, "script-src 'none'");
+        }
+    }
+    out
+}
+
+/// `html` with each script whose opening tag, lowercased, `drop` answers true for taken out whole.
+fn without_scripts(html: &str, drop: impl Fn(&str) -> bool) -> String {
+    let lower = html.to_ascii_lowercase();
+    let mut out = String::with_capacity(html.len());
     let mut at = 0;
     while let Some(found) = lower[at..].find("<script") {
         let start = at + found;
         let after = start + "<script".len();
         // `<scripted>` is not a script.
         if !lower.as_bytes().get(after).is_some_and(|byte| byte.is_ascii_whitespace() || matches!(byte, b'>' | b'/')) {
-            out.push_str(&sealed[at..after]);
+            out.push_str(&html[at..after]);
             at = after;
             continue;
         }
-        out.push_str(&sealed[at..start]);
-        at = lower[after..].find("</script").map_or(sealed.len(), |close| {
+        let end = lower[after..].find("</script").map_or(html.len(), |close| {
             let close = after + close;
-            lower[close..].find('>').map_or(sealed.len(), |end| close + end + 1)
+            lower[close..].find('>').map_or(html.len(), |end| close + end + 1)
         });
-    }
-    out.push_str(&sealed[at..]);
-    const NONCE: &str = "script-src 'nonce-";
-    if let Some(from) = out.find(NONCE) {
-        if let Some(end) = out[from + NONCE.len()..].find('\'') {
-            out.replace_range(from..from + NONCE.len() + end + 1, "script-src 'none'");
+        let tag = &lower[start..lower[start..].find('>').map_or(lower.len(), |close| start + close + 1)];
+        out.push_str(&html[at..start]);
+        if !drop(tag) {
+            out.push_str(&html[start..end]);
         }
+        at = end;
     }
+    out.push_str(&html[at..]);
     out
 }
 
@@ -299,6 +313,16 @@ mod tests {
         assert!(!lower.contains("<script ") && !lower.contains("<script>"), "{page}");
         assert!(page.contains("script-src 'none'") && !page.contains("nonce"), "{page}");
         assert!(page.contains("<scripted>kept</scripted><p>Words.</p></body>"), "{page}");
+    }
+
+    #[test]
+    fn the_web_page_of_a_hosted_page_keeps_its_own_scripts_and_their_policy_and_drops_the_record() {
+        let policy = "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src 'sha256-AAAA'; connect-src 'none'; form-action 'none'; base-uri 'none'";
+        let sealed = format!(r#"<html><head><meta http-equiv="Content-Security-Policy" content="{policy}"></head><body><p>Words.</p><script>flip()</script><script type="application/json" id="armada-page-record">{{"presses":[]}}</script></body></html>"#);
+        let page = web_page(&sealed);
+        assert!(page.contains(&format!("content=\"{policy}\"")), "the policy that allows exactly the page's scripts stays: {page}");
+        assert!(page.contains("<p>Words.</p><script>flip()</script></body>"), "{page}");
+        assert!(!page.contains("armada-page-record") && !page.contains("presses"), "{page}");
     }
 
     #[gpui::test]

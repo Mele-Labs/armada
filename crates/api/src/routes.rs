@@ -299,6 +299,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/usage/summary", get(crate::sessions::get_usage_summary::<D>))
         .route("/usage/spent", get(crate::sessions::get_usage_spent::<D>))
         .route("/usage/waste", get(crate::sessions::get_usage_waste::<D>))
+        .route("/usage/adjustments", get(crate::sessions::get_usage_adjustments::<D>))
+        .route("/usage/job_timeline", get(crate::sessions::get_job_timeline::<D>))
         .route("/usage/time", get(crate::sessions::get_usage_time::<D>))
         .route("/usage/hours", get(crate::sessions::get_usage_hours::<D>))
         .route("/sessions/time", get(crate::sessions::get_job_time::<D>))
