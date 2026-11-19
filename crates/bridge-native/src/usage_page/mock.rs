@@ -52,6 +52,7 @@ fn kind(kind: &str, title: &str, fix: &str, occurrences: u64, jobs: &[(usize, u6
             units: (*units as f64).round() * MILLION * scale,
             occurrences: ((occurrences as f64 / jobs.len() as f64) * scale).ceil() as u32,
             peak_context: peak.map(|peak| peak * THOUSAND),
+            causes: Vec::new(),
         })
         .collect();
     WasteKind { kind: kind.into(), title: title.into(), fix: fix.into(), units: jobs.iter().map(|job| job.units).sum(), occurrences: (occurrences as f64 * scale).round() as u32, jobs }
