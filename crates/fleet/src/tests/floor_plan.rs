@@ -1,17 +1,21 @@
 //! The floor plan, written before the code: **a feature's page carries the project's modules as rooms, lit where the
 //! feature owns a file, and the dependencies out of a lit room as doors, drawn as contracts where they lead to a wire or
-//! API module.** Modules come from build manifests, from top folders where a tree has none, and cost no model. Each test
-//! lays a repository out in a temp directory and reads it as Fleet does. `docs/concepts/feature-catalog.md`, *Floor plan*.
+//! API module.** Modules come from build manifests, from top folders where a tree has none, and cost no model. **Each room
+//! holds its tracked files with git's sizes**, the feature's and a live Job's alone and the rest by folder past a cap. Each
+//! test lays a repository out in a temp directory and reads it as Fleet does. `docs/concepts/feature-catalog.md`, *Floor plan*.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::process::Command;
 
 use api::{Features, Projects};
-use ipc::{AreaSeed, FeatureSeed, FloorPlan, NewProject, ProjectMember, UpsertFeatures};
+use ipc::{AreaSeed, FeatureSeed, FloorFile, FloorPlan, NewProject, ProjectMember, UpsertFeatures};
 
 use super::agent_starts::rig;
 use super::tmp::TempDir;
 use crate::feature_library::mapping::FeatureMap;
-use crate::feature_library::{floor_plan_of_layouts, is_contract, read_modules};
+use crate::clashing::Who;
+use crate::feature_library::{floor_plan_of_layouts, is_contract, read_floor, read_modules};
 
 fn put(root: &Path, path: &str, text: &str) {
     let at = root.join(path);
@@ -41,7 +45,7 @@ fn planned(root: &Path, own: &store::KeptFeature, others: Vec<store::KeptFeature
     let mut all = vec![own.clone()];
     all.extend(others);
     let map = FeatureMap::new(all, filed.iter().map(|(feature, path)| (feature.to_string(), path.to_string())));
-    floor_plan_of_layouts(&[("m1".to_string(), read_modules(root))], &map, own)
+    floor_plan_of_layouts(&[("m1".to_string(), read_modules(root))], &map, own, &BTreeMap::new(), 1500)
 }
 
 fn lit(plan: &FloorPlan) -> Vec<&str> {
@@ -276,4 +280,121 @@ async fn a_feature_page_carries_the_floor_plan_and_a_section_read_does_not() {
 
     let one = rig.fleet.get_feature_page(None, Some(project), "start".into(), Some("test".into())).await.expect("section");
     assert_eq!(one.floor_plan, None, "a section read is that section alone");
+}
+
+fn git(root: &Path, args: &[&str]) {
+    let done = Command::new("git").args(["-c", "user.name=armada", "-c", "user.email=armada@example.invalid"]).args(args).current_dir(root).output().expect("git runs");
+    assert!(done.status.success(), "{args:?}: {}", String::from_utf8_lossy(&done.stderr));
+}
+
+/// `paths` under `root` committed as its `HEAD`.
+fn committed(root: &Path, paths: &[&str]) {
+    git(root, &["init", "-q"]);
+    git(root, &[&["add", "--"][..], paths].concat());
+    git(root, &["commit", "-q", "-m", "files"]);
+}
+
+/// The plan of `own` over the repository at `root` with its files, `changing` the files a live Job wrote, at most `most` entries.
+fn planned_with_files(root: &Path, own: &store::KeptFeature, changing: &[&str], most: usize) -> FloorPlan {
+    let map = FeatureMap::new(vec![own.clone()], Vec::new());
+    let changing: BTreeMap<String, BTreeSet<String>> = [("m1".to_string(), changing.iter().map(|path| path.to_string()).collect())].into();
+    floor_plan_of_layouts(&[("m1".to_string(), read_floor(root))], &map, own, &changing, most)
+}
+
+fn files_of<'a>(plan: &'a FloorPlan, module: &str) -> &'a [FloorFile] {
+    &plan.rooms.iter().find(|room| room.module == module).unwrap_or_else(|| panic!("{module} among the rooms")).files
+}
+
+fn one(path: &str, bytes: u64) -> FloorFile {
+    FloorFile { path: path.to_string(), bytes, lit: false, changing: false, grouped: 0 }
+}
+
+#[test]
+fn a_rooms_files_are_its_tracked_files_with_gits_sizes_and_a_lock_file_or_asset_is_absent() {
+    let dir = TempDir::new();
+    let root = dir.path();
+    cargo_workspace(root);
+    put(root, "crates/app/src/lib.rs", "pub fn a() {}\n");
+    put(root, "crates/app/Cargo.lock", "# a lock file\n");
+    put(root, "crates/app/icon.png", "not really a png");
+    put(root, "crates/app/src/__snapshots__/view.txt", "a snapshot");
+    committed(root, &["crates"]);
+    put(root, "crates/app/src/lib.rs", "pub fn a() {}\npub fn b() {}\n");
+    put(root, "crates/app/src/new.rs", "not committed");
+
+    let plan = planned_with_files(root, &feature("start", &[]), &[], 1500);
+
+    let manifest = std::fs::metadata(root.join("crates/app/Cargo.toml")).expect("written").len();
+    assert_eq!(files_of(&plan, "app"), [one("crates/app/Cargo.toml", manifest), one("crates/app/src/lib.rs", 14)], "HEAD's size, not the edited file's; nothing untracked; no lock file, image or snapshot");
+    assert_eq!(files_of(&plan, "ipc").iter().map(|file| file.path.as_str()).collect::<Vec<_>>(), ["crates/ipc/Cargo.toml"]);
+}
+
+#[test]
+fn the_features_files_and_a_live_jobs_stand_alone_and_past_the_cap_the_rest_are_taken_together_by_folder() {
+    let dir = TempDir::new();
+    let root = dir.path();
+    for n in 0..10 {
+        put(root, &format!("app/a/f{n}.rs"), "0123456789");
+        put(root, &format!("app/b/g{n}.rs"), "0123456789");
+    }
+    put(root, "app/b/edit.rs", "12345");
+    put(root, "app/owned.rs", "12345");
+    put(root, "app/big.rs", &"x".repeat(1000));
+    put(root, "lib/x.rs", "0123456789");
+    committed(root, &["app", "lib"]);
+
+    let plan = planned_with_files(root, &feature("start", &["app/owned.rs"]), &["app/b/edit.rs"], 10);
+
+    let app = files_of(&plan, "app");
+    let entries = plan.rooms.iter().map(|room| room.files.len()).sum::<usize>();
+    assert!(entries <= 10, "{entries} entries past a cap of 10: {app:?}");
+    assert!(app.contains(&FloorFile { lit: true, ..one("app/owned.rs", 5) }), "the feature's own file stands alone, small as it is: {app:?}");
+    assert!(app.contains(&FloorFile { changing: true, ..one("app/b/edit.rs", 5) }), "so does the file a live Job wrote: {app:?}");
+    assert_eq!(app[0], one("app/big.rs", 1000), "the largest stands alone");
+    let groups: Vec<(&str, u64, u32)> = app.iter().filter(|file| file.grouped > 0).map(|file| (file.path.as_str(), file.bytes, file.grouped)).collect();
+    assert_eq!(groups, [("app/b/", 100, 10), ("app/a/", 70, 7)], "the rest by folder, their bytes summed: {app:?}");
+    assert_eq!(app.iter().map(|file| file.bytes).sum::<u64>(), 1000 + 200 + 10, "no byte lost");
+    assert_eq!(files_of(&plan, "lib"), [one("lib/x.rs", 10)], "a folder of one file is that file");
+}
+
+#[test]
+fn under_the_cap_every_file_stands_alone() {
+    let dir = TempDir::new();
+    let root = dir.path();
+    for n in 0..5 {
+        put(root, &format!("app/a/f{n}.rs"), "0123456789");
+    }
+    committed(root, &["app"]);
+    let plan = planned_with_files(root, &feature("f", &[]), &[], 5);
+    assert_eq!(files_of(&plan, "app").iter().filter(|file| file.grouped == 0).count(), 5);
+}
+
+#[tokio::test]
+async fn a_feature_pages_rooms_carry_their_files_and_mark_what_a_live_job_wrote() {
+    let rig = rig(None);
+    let root = rig.fleet.repositories().first().expect("served").root().to_string();
+    cargo_workspace(Path::new(&root));
+    put(Path::new(&root), "crates/app/src/lib.rs", "pub fn a() {}\n");
+    committed(Path::new(&root), &["crates"]);
+    let members = Some(vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }]);
+    let project = rig.fleet.add_project(NewProject { name: "Shop".to_string(), members, place: None, values: None }).await.expect("added").projects.last().expect("the project").id.clone();
+    let seed = FeatureSeed {
+        slug: "start".into(),
+        area: "takes".into(),
+        title: "Start".into(),
+        summary: "One line.".into(),
+        state: None,
+        paths: vec!["crates/app/src".into()],
+        entry_points: Vec::new(),
+        manifest_id: None,
+    };
+    let upsert = UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: "takes".into(), title: "Takes".into() }], features: vec![seed] };
+    rig.fleet.upsert_features(None, upsert).await.expect("kept");
+    rig.fleet.writes().wrote(&Who::Session("sess-a".into()), rig.manifest.as_str(), ["crates/ipc/Cargo.toml".to_string()], &rig.fleet.now());
+
+    let page = rig.fleet.get_feature_page(None, Some(project), "start".into(), None).await.expect("page");
+    let plan = page.floor_plan.expect("a floor plan");
+    assert!(files_of(&plan, "app").contains(&FloorFile { lit: true, ..one("crates/app/src/lib.rs", 14) }), "{plan:?}");
+    let ipc = files_of(&plan, "ipc");
+    assert!(ipc.iter().any(|file| file.path == "crates/ipc/Cargo.toml" && file.changing && !file.lit), "{ipc:?}");
 }

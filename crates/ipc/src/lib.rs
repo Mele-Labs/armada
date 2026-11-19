@@ -384,7 +384,7 @@ pub use features::{
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
-pub use features::{FloorDoor, FloorPlan, FloorRoom};
+pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
