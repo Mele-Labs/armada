@@ -21,7 +21,9 @@
 #       restart goes on; a failed merge is the run's failure.
 #   scripts/restart-build preview [--adopt] --at <sha> --ref <ref>
 #       the other Mac's side: scripts/preview --restart --at <sha> --ref <ref>, which builds
-#       exactly that commit and merges nothing
+#       exactly that commit and merges nothing. When that build ends it looks at the ref on origin
+#       again: a newer Refresh may have pushed over it while this one ran, and its own ask was
+#       turned away because this one was running, so the tip is built too (at most 5 times).
 #
 # `main` and `snapshot` take none of `--push-as`, `--tell`, `--at` and `--ref`.
 #
@@ -124,6 +126,17 @@ USAGE = ("usage: scripts/restart-build main [--adopt] | preview [--adopt] [--pus
          "| preview [--adopt] --at SHA --ref REF | snapshot")
 SUPERSEDED = 75  # scripts/preview --at: the ref moved to a newer commit, so a newer request builds
 TAKES_VALUE = ("--push-as", "--tell", "--at", "--ref")
+# A build of a pushed commit looks at its ref again when it ends, and builds a newer tip: at most this many times.
+CATCH_UP_ROUNDS = 5
+
+
+def ref_tip(root, ref):
+    """The commit `ref` is at on origin now, or None where origin does not say."""
+    done = subprocess.run(["git", "-C", root, "ls-remote", "origin", f"refs/heads/{ref}"], capture_output=True, text=True)
+    if done.returncode != 0:
+        return None
+    found = done.stdout.split()
+    return found[0] if found and re.fullmatch(r"[0-9a-f]{40}", found[0]) else None
 
 
 def parse(args):
@@ -289,6 +302,22 @@ def main():
     code = run()
     if code == SUPERSEDED and "--at" in given:
         # A newer request replaced this one: it owns the status, so this one neither fails nor clears it.
+        return 0
+    # A build takes minutes, and a newer Refresh may have pushed over the ref meanwhile, its ask turned away
+    # because this one was running: the tip is looked at again, and built if it moved.
+    at = command[command.index("--at") + 1] if "--at" in command else None
+    ref = command[command.index("--ref") + 1] if "--ref" in command else None
+    for _ in range(CATCH_UP_ROUNDS):
+        if code != 0 or at is None or ref is None:
+            break
+        tip = ref_tip(root, ref)
+        if tip is None or tip.startswith(at.lower()):
+            break
+        with open(log_path, "a") as log:
+            log.write(f"restart-build: {ref} moved from {at[:10]} to {tip[:10]} during the build; building {tip[:10]}\n")
+        command[command.index("--at") + 1] = at = tip
+        code = run()
+    if code == SUPERSEDED and at is not None:
         return 0
     with open(log_path) as f:
         log = f.read()
