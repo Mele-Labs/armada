@@ -154,6 +154,7 @@ where
                         target: word.clone(),
                         job: job.clone(),
                         title: term.clone(),
+                        gist: String::new(),
                         state: String::new(),
                         via: "commit".to_string(),
                         at: now.clone(),
