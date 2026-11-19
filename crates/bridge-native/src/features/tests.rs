@@ -88,8 +88,8 @@ fn down_and_up_move_the_row_past_the_area_heads_and_the_page_follows_the_row(cx:
     cx.simulate_keystrokes("j");
     assert_eq!(cursor(&screen, cx).as_deref(), Some("thread-and-composer"), "J is Down");
     cx.simulate_keystrokes("k k k k k k k k k k k k");
-    assert_eq!(screen.read_with(cx, |screen, _| screen.on_project), Some(super::ProjectPage::Overview), "past the first feature are the two project rows, and it stops at Overview");
-    cx.simulate_keystrokes("j j");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.on_project), Some(super::ProjectPage::Overview), "past the first feature are the three project rows, and it stops at Overview");
+    cx.simulate_keystrokes("j j j");
     assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"), "down from them is the first feature");
     cx.simulate_keystrokes("enter");
     assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.title.clone())).as_deref(), Some("Start a Job"));

@@ -1863,6 +1863,18 @@ destructive = false
 confirms = false
 notes = "Presses Catch up on the librarian card over the Features list, which runs the project's librarian now. It does nothing while the librarian is reading or has read through the last merge. Native only, 18 Nov 2026."
 
+[actions.features_who_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Change the layout of Who's on what"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "features"
+destructive = false
+confirms = false
+notes = "Cycles Who's on what through its three layouts, Grid, By feature and By person, and round again, from the page or from the list while that page is the one beside it. The choice is kept for the next start. `v` is free in the features scope; `call_open_walk` has it in the call's. Native only, 18 Nov 2026."
+
 [actions.features_story]
 kind = "Action"
 tier = "Contextual"

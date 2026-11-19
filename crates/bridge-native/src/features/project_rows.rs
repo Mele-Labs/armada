@@ -9,6 +9,7 @@ use super::project_model::ProjectPage;
 use super::project_page::{Beside, ProjectPageEvent, ProjectPageView};
 use super::project_model::AreaHue;
 use super::{FeaturesScreen, Load, Source};
+use crate::titlebar;
 use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::settings::view::ring_colour;
@@ -47,6 +48,8 @@ impl FeaturesScreen {
             if let Some(page) = page {
                 self.project_sub = Some(cx.subscribe_in(&page, window, |this, _, event: &ProjectPageEvent, window, cx| match event {
                     ProjectPageEvent::Open(slug) => this.open_from_project(slug.clone(), window, cx),
+                    ProjectPageEvent::Pull { repository, number } => this.open_pull(repository, *number, cx),
+                    ProjectPageEvent::Job(id) => this.open_job(id.clone(), cx),
                     ProjectPageEvent::Escape if this.stacked => this.back(window, cx),
                     ProjectPageEvent::Escape => this.focus_list(window, cx),
                 }));
@@ -71,6 +74,21 @@ impl FeaturesScreen {
         }
     }
 
+    /// A pull request number on Who's on what was pressed: the pull request opens in Reviews, as a link to it does.
+    fn open_pull(&mut self, repository: &str, number: u64, cx: &mut Context<Self>) {
+        if let Some((owner, name)) = repository.split_once('/') {
+            crate::deep_link::open(&crate::deep_link::PullLink { owner: owner.to_string(), name: name.to_string(), number }, cx);
+        }
+    }
+
+    /// A Job chip on Who's on what was pressed: the Job opens on the Jobs screen, as the In this build sheet opens one.
+    fn open_job(&mut self, job: String, cx: &mut Context<Self>) {
+        if let Some(sink) = cx.try_global::<titlebar::AskedSink>().cloned() {
+            (sink.0)(&titlebar::Asked::OpenJob(job), cx);
+        }
+        crate::palette::show_jobs(cx);
+    }
+
     /// What the open project page takes from the screen: the project's name, the hue the list gives each area, and the room the list leaves it.
     pub(super) fn tune_project_page(&mut self, cx: &mut Context<Self>) {
         let Some(page) = self.project_page.clone() else { return };
@@ -79,11 +97,15 @@ impl FeaturesScreen {
             Load::Read(library) => library.areas.iter().map(|area| AreaHue { slug: area.slug.clone(), title: area.title.clone(), hue: self.hue_of(&area.slug) }).collect(),
             _ => Vec::new(),
         };
-        let beside = Beside { name, areas, flush: !self.stacked, inset: self.inset(cx) };
+        let jobs = match &self.library {
+            Load::Read(library) => library.areas.iter().flat_map(|area| &area.features).flat_map(|row| &row.jobs_now).map(|job| (job.session_id.as_str().to_string(), job.title.clone())).collect(),
+            _ => Vec::new(),
+        };
+        let beside = Beside { name, areas, flush: !self.stacked, inset: self.inset(cx), jobs };
         page.update(cx, |page, cx| page.set_beside(beside, cx));
     }
 
-    /// The two rows over the areas (`.pages`): Overview, then Since you looked. Each is a stop of the keys, as a feature's row is.
+    /// The rows over the areas (`.pages`): Overview, Since you looked, then Who's on what. Each is a stop of the keys, as a feature's row is.
     pub(super) fn render_project_rows(&self, look: &Look, focused: bool, cx: &mut Context<Self>) -> AnyElement {
         let open = self.project_open(cx);
         let mut rows = div().flex().flex_col().gap(px(1.)).px(look.length(token::SPACE_2)).pb(look.length(token::SPACE_1));

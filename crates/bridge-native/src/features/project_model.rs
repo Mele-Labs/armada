@@ -1,4 +1,4 @@
-//! What the project's two pages say, worked out from Fleet's read: the code map's tiles and the key to their hues, the busiest
+//! What the project's pages say, worked out from Fleet's read: the code map's tiles and the key to their hues, the busiest
 //! features, the glossary, and the rows of Since you looked in the order Fleet served them. Nothing here touches the screen or the wire.
 
 use chrono::{DateTime, Duration, Local, Utc};
@@ -12,25 +12,30 @@ pub const GLOSSARY_EMPTY: &str = "Terms appear as Jobs add them at their end";
 /// What the busiest card says while no feature has merged lately.
 pub const BUSIEST_EMPTY: &str = "No feature has merged lately.";
 
+/// What Who's on what says under its title.
+pub const WHO_SUB: &str = "Open pull requests, mapped to features";
+
 /// The pages of the project that sit above the areas in the list.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum ProjectPage {
     Overview,
     Since,
+    Who,
 }
 
 impl ProjectPage {
-    pub const ALL: [ProjectPage; 2] = [ProjectPage::Overview, ProjectPage::Since];
+    pub const ALL: [ProjectPage; 3] = [ProjectPage::Overview, ProjectPage::Since, ProjectPage::Who];
 
     /// Where the row sits among the places the keys step through: before the first feature, which is place 0.
     pub fn place(self) -> isize {
         match self {
-            ProjectPage::Overview => -2,
-            ProjectPage::Since => -1,
+            ProjectPage::Overview => -3,
+            ProjectPage::Since => -2,
+            ProjectPage::Who => -1,
         }
     }
 
-    /// The page at `place`, where it is one of the two rows over the features.
+    /// The page at `place`, where it is one of the rows over the features.
     pub fn at(place: isize) -> Option<ProjectPage> {
         ProjectPage::ALL.into_iter().find(|page| page.place() == place)
     }
@@ -40,6 +45,7 @@ impl ProjectPage {
         match self {
             ProjectPage::Overview => "overview",
             ProjectPage::Since => "since-you-looked",
+            ProjectPage::Who => "whos-on-what",
         }
     }
 
@@ -48,6 +54,7 @@ impl ProjectPage {
         match self {
             ProjectPage::Overview => "Overview",
             ProjectPage::Since => "Since you looked",
+            ProjectPage::Who => "Who's on what",
         }
     }
 }

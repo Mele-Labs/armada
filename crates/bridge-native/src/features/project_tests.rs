@@ -144,11 +144,14 @@ fn right(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) -> (
 }
 
 #[gpui::test]
-fn the_two_rows_sit_over_the_areas_and_swap_the_right_panel(cx: &mut TestAppContext) {
+fn the_three_rows_sit_over_the_areas_and_swap_the_right_panel(cx: &mut TestAppContext) {
     let (screen, cx) = screen(cx);
-    assert!(drawn(cx, Role::ListBoxOption, "Overview") && drawn(cx, Role::ListBoxOption, "Since you looked"));
+    assert!(drawn(cx, Role::ListBoxOption, "Overview") && drawn(cx, Role::ListBoxOption, "Since you looked") && drawn(cx, Role::ListBoxOption, "Who's on what"));
     assert_eq!(right(&screen, cx), (None, Some("start-a-job".into())), "a feature's page is beside the list at first");
-    // Up from the first feature: Since you looked, then Overview, with the keys as the feature rows have them.
+    // Up from the first feature: Who's on what, Since you looked, then Overview, with the keys as the feature rows have them.
+    cx.simulate_keystrokes("k");
+    cx.run_until_parked();
+    assert_eq!(right(&screen, cx), (Some(ProjectPage::Who), None));
     cx.simulate_keystrokes("k");
     cx.run_until_parked();
     assert_eq!(right(&screen, cx), (Some(ProjectPage::Since), None));
@@ -158,15 +161,15 @@ fn the_two_rows_sit_over_the_areas_and_swap_the_right_panel(cx: &mut TestAppCont
     cx.simulate_keystrokes("k");
     cx.run_until_parked();
     assert_eq!(right(&screen, cx), (Some(ProjectPage::Overview), None), "Overview is the top");
-    cx.simulate_keystrokes("j j");
+    cx.simulate_keystrokes("j j j");
     cx.run_until_parked();
-    assert_eq!(right(&screen, cx), (None, Some("start-a-job".into())), "down from Since you looked is the first feature");
+    assert_eq!(right(&screen, cx), (None, Some("start-a-job".into())), "down from Who's on what is the first feature");
 }
 
 #[gpui::test]
 fn a_press_on_a_row_of_a_page_opens_its_feature_in_place_of_the_page(cx: &mut TestAppContext) {
     let (screen, cx) = screen(cx);
-    cx.simulate_keystrokes("k k");
+    cx.simulate_keystrokes("k k k");
     cx.run_until_parked();
     let page = screen.read_with(cx, |screen, _| screen.project_view()).expect("the Overview is open");
     page.update(cx, |page, cx| page.pick(1, cx));

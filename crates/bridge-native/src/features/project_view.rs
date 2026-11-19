@@ -1,4 +1,4 @@
-//! The project's two pages drawn from what `project_model.rs` made of Fleet's read, in the cards the feature page uses: the Overview
+//! The project's pages drawn from what `project_model.rs` made of Fleet's read, in the cards the feature page uses: the Overview
 //! (the README's sentence, the code map with a key to its hues, the busiest features and the glossary) and Since you looked
 //! (a paragraph, then a row for each feature that moved). Every value is a token.
 
@@ -35,7 +35,7 @@ fn tile_least(look: &Look) -> Pixels {
 }
 
 /// A card that has not read yet: its title and what Fleet said.
-fn not_read(look: &Look, why: &str) -> AnyElement {
+pub(super) fn not_read(look: &Look, why: &str) -> AnyElement {
     let body = div()
         .flex()
         .flex_col()
@@ -44,12 +44,12 @@ fn not_read(look: &Look, why: &str) -> AnyElement {
         .text_size(look.length(token::TEXT_SM))
         .text_color(look.color(token::FG_MUTED))
         .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Not read"))
-        .child(SharedString::from(why.to_string()));
+        .child(labelled(div().id("project-not-read-why").child(SharedString::from(why.to_string())), Role::Label, why.to_string()));
     shell(look, "project-not-read", false, false).child(body).into_any_element()
 }
 
 /// One quiet line in a card: why it holds nothing and what fills it.
-fn said_line(look: &Look, id: &'static str, said: impl Into<SharedString>) -> AnyElement {
+pub(super) fn said_line(look: &Look, id: &'static str, said: impl Into<SharedString>) -> AnyElement {
     let said: SharedString = said.into();
     labelled(
         div()
@@ -126,6 +126,11 @@ impl ProjectPageView {
             let said = SharedString::from(project_model::when_said(self.since_at));
             labelled(div().id("project-page-looked").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(said.clone()), Role::Label, said)
         });
+        let sub = (self.which == ProjectPage::Who).then(|| {
+            let said = SharedString::from(project_model::WHO_SUB);
+            labelled(div().id("project-page-sub").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(said.clone()), Role::Label, said)
+        });
+        let views = (self.which == ProjectPage::Who && matches!(&self.who, super::page::Load::Read(read) if !read.features.is_empty())).then(|| self.render_who_views(look, cx));
         let mark = (self.which == ProjectPage::Since).then(|| {
             let ringed = focused && self.at == Some(0);
             let ring = ring_colour(look);
@@ -149,11 +154,12 @@ impl ProjectPageView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .rounded_t(round)
             .bg(tint(look, look.color(token::BG_RAISED), token::ACCENT, 0.08))
-            .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().child(heading).children(when))
+            .child(div().flex().flex_col().gap(look.length(token::SPACE_1)).min_w_0().child(heading).children(when).children(sub))
             .children(mark)
+            .children(views)
     }
 
-    fn render_loading(&self, look: &Look) -> AnyElement {
+    pub(super) fn render_loading(&self, look: &Look) -> AnyElement {
         let mut cards = div().w_full().flex().flex_col().gap(look.length(token::SPACE_4));
         for at in 0..2 {
             let mut one = shell(look, SharedString::from(format!("project-card-bone-{at}")), false, false).child(
@@ -386,6 +392,7 @@ impl Render for ProjectPageView {
         let content = match self.which {
             ProjectPage::Overview => self.render_overview(&look, focused, window, cx),
             ProjectPage::Since => self.render_since(&look, focused, cx),
+            ProjectPage::Who => self.render_who(&look, focused, window, cx),
         };
         div()
             .id("project-page-view")

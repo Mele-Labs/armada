@@ -50,3 +50,8 @@ pub fn since(port: u16, project: &str, since: chrono::DateTime<chrono::Utc>, cx:
     let path = format!("/features/since?project={}&since={}", crate::link::percent_encoded(project), crate::link::percent_encoded(&at));
     request(port, Ask::Get(path), "SinceYouLooked", cx)
 }
+
+/// `GET /features/who?project=`: who has an open pull request or a running Job on which feature. `crates/ipc/operations/get_whos_on_what.toml`.
+pub fn who(port: u16, project: &str, cx: &App) -> Task<Result<ipc::WhosOnWhat, Refused>> {
+    request(port, Ask::Get(format!("/features/who?project={}", crate::link::percent_encoded(project))), "WhosOnWhat", cx)
+}

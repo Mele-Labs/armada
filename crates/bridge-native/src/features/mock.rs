@@ -337,3 +337,32 @@ pub fn since(at: chrono::DateTime<chrono::Utc>) -> ipc::SinceYouLooked {
     let paragraph = if features.iter().any(|one| one.tag != ipc::LookedTag::NeedsYou) { "The Features screen moved to two panels and its ask cards wrap. A Job's ask head now takes two lines. One section waits on your Confirm." } else { "" };
     ipc::SinceYouLooked { project: PROJECT.into(), paragraph: paragraph.into(), features }
 }
+
+/// Who is on what, as Fleet serves it: the owner first and the others by login, the features with most people first and then by
+/// title. Two features have two people on them, the owner holds Jobs where the others hold pull requests, and one pull request
+/// is a draft.
+pub fn who() -> ipc::WhosOnWhat {
+    let repository = "Mele-Labs/armada";
+    let pull = |number: u64, title: &str, draft: bool| ipc::WhoPull { number, repository: repository.into(), title: title.into(), draft };
+    let cell = |login: &str, pulls: Vec<ipc::WhoPull>, jobs: &[&str]| ipc::WhoCell { login: login.into(), pulls, jobs: jobs.iter().map(|id| SessionId::carried(*id)).collect() };
+    let feature = |slug: &str, title: &str, cells: Vec<ipc::WhoCell>| ipc::WhoFeature { slug: slug.into(), title: title.into(), cells };
+    let person = |login: &str, me: bool| ipc::WhoPerson { login: login.into(), me };
+    ipc::WhosOnWhat {
+        project: PROJECT.into(),
+        people: vec![person("you", true), person("dana", false), person("marco", false), person("priya", false)],
+        features: vec![
+            feature(
+                "pull-request-panel",
+                "Pull request panel",
+                vec![cell("dana", vec![pull(3871, "Pull request panel in two columns", false)], &[]), cell("priya", vec![pull(3868, "Pull request panel remembers its folds", false)], &[])],
+            ),
+            feature(
+                "start-a-job",
+                "Start a Job",
+                vec![cell("you", Vec::new(), &["job-start-card"]), cell("priya", vec![pull(3869, "Start card remembers the last workflow", false)], &[])],
+            ),
+            feature("job-list-and-live-status", "Job list and live status", vec![cell("you", Vec::new(), &["job-list-scroll"])]),
+            feature("reviews", "Reviews", vec![cell("marco", vec![pull(3879, "Review list keeps the last read", false), pull(3875, "Review notes on a diff", true)], &[])]),
+        ],
+    }
+}

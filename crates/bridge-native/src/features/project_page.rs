@@ -1,17 +1,18 @@
-//! A project's own pages on the Features screen: its overview, and what moved since he looked. An entity of its own, as a feature's
+//! A project's own pages on the Features screen: its overview, what moved since he looked, and who is on what. An entity of its own, as a feature's
 //! page is, so the screen fills the slot beside the list with whichever is chosen.
 //!
-//! What is read is Fleet's: `get_project_overview` or `get_since_you_looked`, off the main thread, and the page draws bones until it
+//! What is read is Fleet's: `get_project_overview`, `get_since_you_looked` or `get_whos_on_what`, off the main thread, and the page draws bones until it
 //! answers. `project_model.rs` works out what is drawn. **The time he last looked is kept on this Mac per project** (`looked.rs`),
 //! and only Mark read moves it.
 
 use chrono::{DateTime, Duration, Utc};
 use gpui::{App, Context, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, Pixels, Subscription, Task, Window};
-use ipc::{ProjectOverview, SinceYouLooked};
+use ipc::{ProjectOverview, SinceYouLooked, WhosOnWhat};
 
 use super::page::Load;
 use super::project_model::{self, AreaHue, ProjectPage};
-use super::{looked, mock, wire};
+use super::who_model::{self, Stop, WhoView};
+use super::{looked, mock, who_kept, wire};
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
 use crate::settings::wire::Refused;
@@ -20,6 +21,10 @@ use crate::settings::wire::Refused;
 pub enum ProjectPageEvent {
     /// A row was pressed: the feature to open beside the list.
     Open(String),
+    /// A pull request number was pressed: the pull request to open, by its repository and number.
+    Pull { repository: String, number: u64 },
+    /// A Job chip was pressed: the Job to open.
+    Job(String),
     /// Esc, or Tab: the keys go back to the list.
     Escape,
 }
@@ -34,6 +39,8 @@ enum Source {
 pub(super) enum Target {
     MarkRead,
     Feature(String),
+    /// A place on Who's on what, in the layout drawn.
+    Who(Stop),
 }
 
 /// What the screen knows that the page does not: the project's name, the hue of each area, and the room the list leaves it.
@@ -43,6 +50,8 @@ pub struct Beside {
     pub areas: Vec<AreaHue>,
     pub flush: bool,
     pub inset: Pixels,
+    /// The owner's Jobs the library names, as `(id, title)`, for the Job chips of Who's on what to say what they are.
+    pub jobs: Vec<(String, String)>,
 }
 
 pub struct ProjectPageView {
@@ -55,6 +64,9 @@ pub struct ProjectPageView {
     pub(super) beside: Beside,
     pub(super) overview: Load<ProjectOverview>,
     pub(super) since: Load<SinceYouLooked>,
+    pub(super) who: Load<WhosOnWhat>,
+    /// The layout Who's on what is drawn in: the one he chose last.
+    pub(super) view: WhoView,
     /// The time Since you looked compares with.
     pub(super) since_at: DateTime<Utc>,
     /// The place the keys are on, in `targets`.
@@ -77,6 +89,7 @@ impl ProjectPageView {
     /// the first time, where he has marked nothing read.
     pub fn live(fleet: &Entity<FleetConnection>, project: String, which: ProjectPage, ran: Option<DateTime<Utc>>, cx: &mut Context<Self>) -> Self {
         looked::persist(cx);
+        who_kept::persist(cx);
         let since_at = project_model::first_since(looked::before_project(&project, cx), ran, Utc::now());
         let mut this = Self::new(Source::Live(fleet.clone()), project, which, since_at, cx);
         let watch = cx.observe(fleet, |this, _, cx| {
@@ -107,6 +120,8 @@ impl ProjectPageView {
             beside: Beside::default(),
             overview: Load::Reading,
             since: Load::Reading,
+            who: Load::Reading,
+            view: who_kept::get(cx).unwrap_or(WhoView::Grid),
             since_at,
             at: None,
             read_port: None,
@@ -123,6 +138,21 @@ impl ProjectPageView {
     #[cfg(test)]
     pub fn since_at(&self) -> DateTime<Utc> {
         self.since_at
+    }
+
+    /// Stand in for Fleet's Who's on what.
+    #[cfg(test)]
+    pub fn fill_who(&mut self, who: WhosOnWhat, cx: &mut Context<Self>) {
+        self.who = Load::Read(who);
+        self.keep_at();
+        cx.notify();
+    }
+
+    /// Say Who's on what was refused.
+    #[cfg(test)]
+    pub fn refuse_who(&mut self, said: &str, cx: &mut Context<Self>) {
+        self.who = Load::Failed(said.into());
+        cx.notify();
     }
 
     /// Stand in for what Fleet served, so a test draws a state the mock never has.
@@ -159,6 +189,7 @@ impl ProjectPageView {
         let Source::Live(_) = &self.source else {
             self.overview = Load::Read(mock::overview());
             self.since = Load::Read(mock::since(self.since_at));
+            self.who = Load::Read(mock::who());
             self.keep_at();
             cx.notify();
             return;
@@ -186,6 +217,13 @@ impl ProjectPageView {
                     let _ = this.update(cx, |this, cx| this.took_since(asked, answer, cx));
                 }));
             }
+            ProjectPage::Who => {
+                let ask = wire::who(port, &self.project, cx);
+                self.work = Some(cx.spawn(async move |this, cx| {
+                    let answer = ask.await;
+                    let _ = this.update(cx, |this, cx| this.took_who(answer, cx));
+                }));
+            }
         }
     }
 
@@ -193,6 +231,7 @@ impl ProjectPageView {
         match self.which {
             ProjectPage::Overview if !matches!(self.overview, Load::Read(_)) => self.overview = Load::Failed(said.into()),
             ProjectPage::Since if !matches!(self.since, Load::Read(_)) => self.since = Load::Failed(said.into()),
+            ProjectPage::Who if !matches!(self.who, Load::Read(_)) => self.who = Load::Failed(said.into()),
             _ => {}
         }
     }
@@ -220,6 +259,15 @@ impl ProjectPageView {
         cx.notify();
     }
 
+    fn took_who(&mut self, answer: Result<WhosOnWhat, Refused>, cx: &mut Context<Self>) {
+        match answer {
+            Ok(read) => self.who = Load::Read(read),
+            Err(why) => self.failed(&why.said),
+        }
+        self.keep_at();
+        cx.notify();
+    }
+
     fn keep_at(&mut self) {
         let count = self.targets().len();
         self.at = self.at.filter(|at| *at < count);
@@ -234,6 +282,9 @@ impl ProjectPageView {
 
     /// The places the keys can be on, in the order they are drawn: Mark read, then each feature a row names.
     pub(super) fn targets(&self) -> Vec<Target> {
+        if let (ProjectPage::Who, Load::Read(read)) = (self.which, &self.who) {
+            return who_model::who(read, &self.beside.jobs).stops(self.view).into_iter().map(Target::Who).collect();
+        }
         match (self.which, &self.overview, &self.since) {
             (ProjectPage::Overview, Load::Read(read), _) => read.busiest.iter().map(|one| Target::Feature(one.slug.clone())).collect(),
             (ProjectPage::Since, _, Load::Read(read)) => std::iter::once(Target::MarkRead).chain(read.features.iter().map(|one| Target::Feature(one.slug.clone()))).collect(),
@@ -265,9 +316,31 @@ impl ProjectPageView {
     fn press(&mut self, cx: &mut Context<Self>) {
         match self.at.and_then(|at| self.targets().get(at).cloned()) {
             Some(Target::MarkRead) => self.mark_read(cx),
-            Some(Target::Feature(slug)) => cx.emit(ProjectPageEvent::Open(slug)),
+            Some(Target::Feature(slug) | Target::Who(Stop::Feature(slug))) => cx.emit(ProjectPageEvent::Open(slug)),
+            Some(Target::Who(Stop::Pull { repository, number })) => cx.emit(ProjectPageEvent::Pull { repository, number }),
+            Some(Target::Who(Stop::Job(id))) => cx.emit(ProjectPageEvent::Job(id)),
             None => {}
         }
+    }
+
+    pub fn view(&self) -> WhoView {
+        self.view
+    }
+
+    /// Draw Who's on what in `view`, and keep the choice for the next page and the next start. The keys start again at the top, as the
+    /// places they were on are not the ones the new layout draws.
+    pub fn set_view(&mut self, view: WhoView, cx: &mut Context<Self>) {
+        if self.view != view {
+            self.view = view;
+            self.at = None;
+            who_kept::set(view, cx);
+            cx.notify();
+        }
+    }
+
+    /// The key that cycles the three layouts: Grid, By feature, By person, and round.
+    pub fn cycle_view(&mut self, cx: &mut Context<Self>) {
+        self.set_view(self.view.next(), cx);
     }
 
     /// Mark read: the time he last looked is now, kept on this Mac, and the page is read again for it.
@@ -299,6 +372,8 @@ impl ProjectPageView {
             "features_move" => self.step(if act.slot % 2 == 0 { 1 } else { -1 }, cx),
             "features_open" => self.press(cx),
             "features_pane" => cx.emit(ProjectPageEvent::Escape),
+            "features_who_view" if self.which == ProjectPage::Who => self.cycle_view(cx),
+            "features_who_view" => cx.propagate(),
             _ => {}
         }
     }

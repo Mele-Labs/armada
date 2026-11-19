@@ -30,6 +30,9 @@ pub mod shots;
 pub mod story_link;
 mod view;
 pub(crate) mod wire;
+mod who_kept;
+mod who_model;
+mod who_view;
 
 use gpui::{prelude::*, AnyWindowHandle, App, Context, Entity, FocusHandle, Focusable as _, KeyDownEvent, ListAlignment, ListState, Subscription, Task, Window};
 use gpui_component::input::{InputEvent, InputState};
@@ -368,11 +371,11 @@ impl FeaturesScreen {
     /// J and K, Down and Up: the next or the previous feature, past the area heads.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
         let count = self.listed.shown.len() as isize;
-        // The two project rows come before the first feature: Overview is place -2, Since you looked -1.
+        // The project rows come before the first feature: Overview is place -3, Since you looked -2, Who's on what -1.
         let at = match (self.on_project, self.cursor_at()) {
             (Some(which), _) => which.place(),
             (None, Some(at)) => at as isize,
-            (None, None) => if by > 0 { -3 } else { count },
+            (None, None) => if by > 0 { ProjectPage::Overview.place() - 1 } else { count },
         };
         let next = (at + by).clamp(ProjectPage::Overview.place(), count - 1);
         if let Some(which) = ProjectPage::at(next) {
@@ -611,6 +614,11 @@ impl FeaturesScreen {
             },
             "features_project" => return act.digit.is_some_and(|digit| self.choose_number(digit, cx)),
             "features_catch_up" => self.catch_up(cx),
+            // The layout of Who's on what, while that page is the one beside the list.
+            "features_who_view" => match self.project_page.clone().filter(|page| page.read(cx).which() == ProjectPage::Who) {
+                Some(page) => page.update(cx, |page, cx| page.cycle_view(cx)),
+                None => return false,
+            },
             "features_filter" if self.showing => return false,
             "features_filter" => {
                 let filter = self.filter.read(cx).focus_handle(cx);
@@ -644,3 +652,5 @@ mod page_tests;
 mod project_tests;
 #[cfg(test)]
 mod tests;
+#[cfg(test)]
+mod who_tests;
