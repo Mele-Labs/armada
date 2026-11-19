@@ -94,7 +94,7 @@ fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedSt
             }
         }
     }
-    Some(((!held).then(|| project.id.clone()), names))
+    Some((Some(project.id.clone()), names))
 }
 
 /// His projects as the title bar holds them, each with its repositories, for the sheet's picker.
