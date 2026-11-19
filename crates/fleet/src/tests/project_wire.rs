@@ -351,7 +351,7 @@ async fn two_jobs_one_ended_move_into_a_project_made_later_and_each_is_published
 async fn a_job_moves_into_a_copy_of_another_macs_project_that_lists_its_repository() {
     let rig = a_rig();
     let job = rig.fleet.start_session(start(&rig, "Ship it", Vec::new())).await.expect("started");
-    let mut copy = ipc::Project { id: "p-armada-home".into(), name: "Armada".into(), shared_with_macs: true, members: vec![whole(rig.manifest())], ..Default::default() };
+    let mut copy = ipc::Project { id: "p-armada-home".into(), name: "Armada".into(), shared_with_macs: true, members: vec![whole(&rig.manifest())], ..Default::default() };
     rig.fleet.copies_replaced("mac-home", vec![copy.clone()]).await.expect("held");
 
     rig.fleet.set_session_project(move_into(&[&job.id], Some("p-armada-home"))).await.expect("moved into the copy");
