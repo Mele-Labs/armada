@@ -348,14 +348,6 @@ impl OperatorScreen {
         }
     }
 
-    /// A ready review: the pull request in Reviews, on Review comments.
-    pub fn open_review_findings(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
-        self.bring(Some(Front::Reviews), window, cx);
-        if let Some(reviews) = &self.reviews {
-            reviews.update(cx, |reviews, cx| reviews.open_asked_findings(asked, window, cx));
-        }
-    }
-
     /// What the page asks: a Job opens on the Jobs screen.
     fn opened(&mut self, opened: &Opened, window: &mut Window, cx: &mut Context<Self>) {
         let job = match opened {
@@ -397,6 +389,16 @@ pub fn link_state(cx: &App) -> Option<(Option<bool>, Option<Vec<ipc::RepositoryS
 /// The Fleet a link is linked through, where the screen has one.
 pub fn link_fleet(cx: &App) -> Option<Entity<FleetConnection>> {
     cx.try_global::<Here>()?.0.upgrade()?.read(cx).fleet.clone()
+}
+
+impl OperatorScreen {
+    /// A ready review: the pull request in Reviews, on Review comments.
+    pub fn open_review_findings(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(Front::Reviews), window, cx);
+        if let Some(reviews) = &self.reviews {
+            reviews.update(cx, |reviews, cx| reviews.open_asked_findings(asked, window, cx));
+        }
+    }
 }
 
 /// A banner's press on a ready review: [`OperatorScreen::open_review_findings`] from outside the screen.
