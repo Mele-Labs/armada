@@ -49,6 +49,23 @@ async fn kept(rig: &Rig) -> Vec<KeptOpenPull> {
     rig.fleet.store().lock().await.open_pulls_kept().expect("read")
 }
 
+/// A project holding the repository, with a catalog to map files to.
+async fn catalogued(rig: &Rig) -> String {
+    let project = a_project(rig).await;
+    rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+    project
+}
+
+#[tokio::test]
+async fn a_repository_no_catalogued_project_holds_has_no_files_read() {
+    let rig = rig(None);
+    forge_lists(&rig, vec![listed(412, "priya", "aaaa")]);
+    forge_files(&rig, &[RANKS]);
+    refreshed(&rig).await;
+    assert_eq!(files_read(&rig), 0, "nothing to map files to, so no forge read");
+    assert!(kept(&rig).await.is_empty());
+}
+
 #[tokio::test]
 async fn the_files_of_an_open_pull_request_are_kept_with_its_author_and_mapped_to_the_feature_that_owns_them() {
     let rig = rig(None);
@@ -77,6 +94,7 @@ async fn the_files_of_an_open_pull_request_are_kept_with_its_author_and_mapped_t
 #[tokio::test]
 async fn a_pull_request_with_more_than_a_hundred_files_keeps_a_hundred_and_says_there_are_more() {
     let rig = rig(None);
+    catalogued(&rig).await;
     forge_lists(&rig, vec![listed(5, "priya", "aaaa")]);
     let names: Vec<String> = (0..130).map(|n| format!("crates/pages/voting/f{n}.rs")).collect();
     forge_files(&rig, &names.iter().map(String::as_str).collect::<Vec<_>>());
@@ -89,6 +107,7 @@ async fn a_pull_request_with_more_than_a_hundred_files_keeps_a_hundred_and_says_
 #[tokio::test]
 async fn a_head_already_read_is_not_read_again_and_a_new_head_is() {
     let rig = rig(None);
+    catalogued(&rig).await;
     forge_lists(&rig, vec![listed(7, "priya", "aaaa"), listed(8, "sam", "bbbb")]);
     forge_files(&rig, &[RANKS]);
     refreshed(&rig).await;
@@ -118,6 +137,7 @@ async fn a_head_already_read_is_not_read_again_and_a_new_head_is() {
 #[tokio::test]
 async fn a_pull_request_no_list_names_any_more_is_dropped_but_not_while_a_list_is_silent() {
     let rig = rig(None);
+    catalogued(&rig).await;
     forge_lists(&rig, vec![listed(7, "priya", "aaaa"), listed(8, "sam", "bbbb")]);
     forge_files(&rig, &[RANKS]);
     refreshed(&rig).await;

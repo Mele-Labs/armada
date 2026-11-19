@@ -120,6 +120,20 @@ where
                     (before.files.clone(), before.files_capped)
                 }
                 _ => {
+                    // A repository no project with a catalog holds has nothing to map files to: no read.
+                    let held: Vec<String> = self
+                        .projects_held()
+                        .holding(&ipc::ManifestId::carried(manifest).to_domain())
+                        .into_iter()
+                        .map(|one| one.id().as_str().to_string())
+                        .collect();
+                    let catalogued = {
+                        let store = self.store().lock().await;
+                        held.iter().any(|one| store.project_has_features(one).unwrap_or(false))
+                    };
+                    if !catalogued {
+                        continue;
+                    }
                     let Ok(served) = self.served_named(Some(&row.manifest_id)) else { continue };
                     let ask = number.to_string();
                     // The forge was silent or limited: stop, and the heads not read are read at the next refresh.
