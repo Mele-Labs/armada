@@ -221,7 +221,7 @@ impl FeaturesScreen {
                     executor.timer(MOCK_READS).await;
                     match refused {
                         Some(said) => Err(Refused::said(said)),
-                        None => Ok(ipc::LibrarianRan { project, ran_at: ipc::Instant::carried(Utc::now().to_rfc3339()), ran: Vec::new(), read_through: through }),
+                        None => Ok(ipc::LibrarianRan { project, ran_at: ipc::Instant::carried(Utc::now().to_rfc3339()), ran: Vec::new(), read_through: through, skipped_for_share: Vec::new() }),
                     }
                 })
             }
