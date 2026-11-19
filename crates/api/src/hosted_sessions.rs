@@ -1009,10 +1009,11 @@ pub(crate) async fn get_artifact_page<D: HostedSessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichPage>,
 ) -> Response {
-    let asked = served
-        .daemon()
-        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision, which.host_kit)
-        .await;
+    let id = ipc::SessionId::carried(which.session_id);
+    let asked = match which.host_kit {
+        true => served.daemon().get_hosted_artifact_page(id, which.artifact, which.revision).await,
+        false => served.daemon().get_artifact_page(id, which.artifact, which.revision).await,
+    };
     match asked {
         Ok(page) => {
             let mut headers = HeaderMap::new();

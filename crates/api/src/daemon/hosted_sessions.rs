@@ -501,15 +501,13 @@ pub trait HostedSessions: Send + Sync + 'static {
     ) -> impl Future<Output = Result<ipc::ArtifactSeen, Refusal>> + Send;
 
     /// `get_artifact_page`: one kept revision of a page, the newest where `revision` is `None`, sealed: no network,
-    /// its own scripts inert, and the kit's script drawing its actions and votes. With `host_kit` the page's own
-    /// inline scripts run and the kit's script is left out, for a host that draws the kit itself. An archived page
-    /// still serves. [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
+    /// its own scripts inert, and the kit's script drawing its actions and votes. An archived page still serves.
+    /// [`Refusal::Unacceptable`] for an artifact the Job does not hold as a page, or a revision never kept.
     fn get_artifact_page(
         &self,
         id: SessionId,
         artifact: String,
         revision: Option<u32>,
-        host_kit: bool,
     ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
 
     /// `act_on_session_mcp`: reconnects, turns on or off, or signs in to one server, then reads
@@ -518,6 +516,15 @@ pub trait HostedSessions: Send + Sync + 'static {
         &self,
         asked: ipc::ActOnSessionMcp,
     ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
+
+    /// `get_artifact_page` with `?host_kit=true`: the page as [`HostedSessions::get_artifact_page`] seals it, but its
+    /// own inline scripts run and the kit's script is left out, for a host that draws the kit itself.
+    fn get_hosted_artifact_page(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
 
     /// `mend_session_tools`: fills Fleet's copy of the mod and restarts the Job's process, which
     /// resumes the conversation with the lines it had not finished. Answers once the restart is

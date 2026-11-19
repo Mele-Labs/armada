@@ -39,7 +39,7 @@ struct Record {
 }
 
 async fn page(rig: &Rig, id: &SessionId, path: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
-    rig.fleet.get_artifact_page(id.clone(), path.to_string(), revision, false).await
+    rig.fleet.get_artifact_page(id.clone(), path.to_string(), revision).await
 }
 
 /// The nonce the policy names.
@@ -134,7 +134,7 @@ async fn with_the_host_drawing_the_kit_the_pages_inline_scripts_run_and_nothing_
     );
     let path = page_holding(&rig, &id, at, &addressed).await;
 
-    let served = rig.fleet.get_artifact_page(id.clone(), path.clone(), None, true).await.expect("served");
+    let served = rig.fleet.get_hosted_artifact_page(id.clone(), path.clone(), None).await.expect("served");
 
     let hash = base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(b"window.ran = true;"));
     let policy = format!(
