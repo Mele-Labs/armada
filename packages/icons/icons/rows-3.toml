@@ -18,3 +18,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 22 Oct 2026 for the walk `teach-anything`, tooltip `Batched`. Rows stacked one under another is what the row opens to: a line for each notice. It sits beside the notice's bell and draws no count. Refused: `group`, reserved to a Cluster of Notes; `layers`, reserved to how many places a Job writes."
+
+[[icons.rows-3.usage]]
+  means = "A kind of token waste: tool results over 20 KB, on its row of the Usage page"
+  group = "Usage"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Tool results over 20 KB`. Stands in a square of the sketch green hue at 16%, drawn in that hue: a result that came back large, a block of rows."
