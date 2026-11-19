@@ -605,6 +605,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "kit",
     "usage",
     "features",
+    "tokens",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -690,6 +691,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // The Features tab holds the keys while it is the place in front, so its letters meet only the global ones.
   features: [
     "features",
+  ],
+  // A Job's Tokens tab holds the keys while it has focus, so its arrows meet only the global ones.
+  tokens: [
+    "tokens",
   ],
 };
 
