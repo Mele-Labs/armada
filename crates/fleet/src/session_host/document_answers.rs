@@ -261,6 +261,7 @@ where
         if how != DocumentHow::Approved {
             return Ok(record);
         }
+        let record = self.approved_items_settled(&id, record).await;
         // The page is the plan's evidence, so his approval of it is the plan's: the plan held behind the page (`plan_holds`)
         // is approved with it, not asked as a second card.
         let pending = {
