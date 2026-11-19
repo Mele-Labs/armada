@@ -372,6 +372,16 @@ impl Held {
     }
 }
 
+/// The key of a Job's row in the open kind's table, among the rows the keys move between.
+pub fn job_key(job: &str) -> String {
+    format!("job:{job}")
+}
+
+/// The Job a row key names, where it names one.
+pub fn job_of_key(key: &str) -> Option<&str> {
+    key.strip_prefix("job:")
+}
+
 /// Where the keys are: the row of the list, and the kind whose panel is open.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct Selection {
@@ -400,8 +410,13 @@ impl Selection {
         self.opened = if self.opened.as_deref() == Some(kind) { None } else { Some(kind.to_string()) };
     }
 
+    /// The panel shuts, and the keys go back to the kind's row where they were on one of its Jobs.
     pub fn close(&mut self) -> bool {
-        self.opened.take().is_some()
+        let closed = self.opened.take();
+        if closed.is_some() && self.cursor.as_deref().is_some_and(|cursor| job_of_key(cursor).is_some()) {
+            self.cursor = closed.clone();
+        }
+        closed.is_some()
     }
 
     /// A new reading: the cursor falls back to the first row where its row is gone, and a panel whose kind is gone shuts.

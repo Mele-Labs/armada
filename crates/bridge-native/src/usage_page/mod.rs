@@ -214,13 +214,15 @@ impl UsageScreen {
     fn settle(&mut self, cx: &mut Context<Self>) {
         let kinds = self.kinds_now();
         let kinds: Vec<&str> = kinds.iter().map(String::as_str).collect();
-        let stops = self.stops_now();
-        let stops: Vec<&str> = stops.iter().map(String::as_str).collect();
-        self.selection.keep(&stops, &kinds);
-        self.lines = match (self.board(), self.selection.opened.as_deref()) {
+        // The kind kept open is the one the panel is drawn for, so its lines come first and the keys' stops after them.
+        let opened = self.selection.opened.clone().filter(|opened| kinds.contains(&opened.as_str()));
+        self.lines = match (self.board(), opened.as_deref()) {
             (Some(board), Some(kind)) => board.lines_of(kind, &self.titles, &self.roots),
             _ => Vec::new(),
         };
+        let stops = self.stops_now();
+        let stops: Vec<&str> = stops.iter().map(String::as_str).collect();
+        self.selection.keep(&stops, &kinds);
         self.jobs.reset(self.lines.len());
         cx.notify();
     }
@@ -244,12 +246,13 @@ impl UsageScreen {
         self.board().map(|board| board.kinds().into_iter().map(str::to_string).collect()).unwrap_or_default()
     }
 
-    /// The rows the keys move between: the settings, then the kinds. Nothing is drawn to move between until a reading is.
+    /// The rows the keys move between, in the order they are drawn: the settings, the kinds, then the Jobs of the kind that is open.
+    /// Nothing is drawn to move between until a reading is.
     fn stops_now(&self) -> Vec<String> {
         if self.board().is_none() {
             return Vec::new();
         }
-        self.changing.keys().into_iter().map(str::to_string).chain(self.kinds_now()).collect()
+        self.changing.keys().into_iter().map(str::to_string).chain(self.kinds_now()).chain(self.lines.iter().map(|line| model::job_key(&line.id))).collect()
     }
 
     fn is_setting(&self, row: &str) -> bool {
@@ -268,6 +271,11 @@ impl UsageScreen {
     /// Scroll the panel the keys are in into view. The panels are the scroll's items: settings, changes where there are any, then the kinds.
     fn reveal(&self) {
         let Some(cursor) = self.selection.cursor.as_deref() else { return };
+        if let Some(ix) = self.lines.iter().position(|line| model::job_key(&line.id) == cursor) {
+            self.scroll.scroll_to_bottom();
+            self.jobs.scroll_to_reveal_item(ix);
+            return;
+        }
         let has_settings = !self.changing.keys().is_empty();
         let has_changes = !self.changing.changes(None).is_empty();
         let ix = if self.is_setting(cursor) { 0 } else { usize::from(has_settings) + usize::from(has_changes) };
@@ -277,6 +285,13 @@ impl UsageScreen {
     /// Enter, Space or a press on a row: a kind's panel opens, or shuts where it is open; a setting's list of values opens.
     fn open(&mut self, row: Option<String>, from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
         let Some(row) = row.or_else(|| self.selection.cursor.clone()) else { return };
+        // A Job's row opens that Job's Tokens tab.
+        if let Some(job) = model::job_of_key(&row) {
+            self.selection.cursor = Some(row.clone());
+            crate::job_tokens::open(job, cx);
+            cx.notify();
+            return;
+        }
         if self.is_setting(&row) {
             self.selection.cursor = Some(row.clone());
             self.open_menu(row, from_keys, window, cx);

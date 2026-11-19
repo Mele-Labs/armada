@@ -2212,6 +2212,13 @@ pub static WALKS: &[Walk] = &[
         steps: &HANDOFF,
     },
     Walk {
+        name: "job-tokens",
+        title: "A Job's tokens from start to finish",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &crate::job_tokens::walk::STEPS,
+    },
+    Walk {
         name: "strip-marks",
         title: "Merge strip and Job marks",
         screen: Screen::Marks,

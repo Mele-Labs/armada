@@ -1797,14 +1797,25 @@ notes = "Moves the row on the Usage page's list of waste kinds to the next or th
 [actions.usage_open]
 kind = "Action"
 tier = "Contextual"
-verb = "Open the Jobs it hit"
+verb = "Open the row"
 icon = ""
 icon_absent = "undecided"
 shortcut = "Enter / Space"
 scope = "usage"
 destructive = false
 confirms = false
-notes = "Opens the panel under the list for the kind the row is on, with its fix and the Jobs it hit, and closes it again where it is already open. On a row of the table of settings that change the burn it opens the list of values the setting can take instead. Esc closes the panel. Native only, 18 Nov 2026."
+notes = "Opens the panel under the list for the kind the row is on, with its fix and the Jobs it hit, and closes it again where it is already open. On a row of the table of settings that change the burn it opens the list of values the setting can take instead, and on a Job of the open panel it opens that Job's Tokens tab. Esc closes the panel. Native only, 18 Nov 2026."
+
+[actions.tokens_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move along the Job's tokens"
+icon = ""
+shortcut = "→ / ←"
+scope = "tokens"
+destructive = false
+confirms = false
+notes = "Moves the cursor of a Job's Tokens tab to the next or the previous bucket of time, held at either end, and its tooltip names that bucket. Its own row because the graph is not a list of Jobs. Native only, 19 Nov 2026."
 
 [actions.usage_apply]
 kind = "Action"

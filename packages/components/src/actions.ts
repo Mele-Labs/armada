@@ -129,6 +129,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   kit: [],
   // The Usage page's keys, in the native Bridge only: found from Settings → Keyboard.
   usage: [],
+  // A Job's Tokens tab keys, in the native Bridge only: found from Settings → Keyboard.
+  tokens: [],
   // The Features tab's keys, in the native Bridge only: found from Settings → Keyboard.
   features: [],
 };

@@ -57,6 +57,7 @@ export type ActionScope =
   | "review sheet"
   | "terminal"
   | "thread"
+  | "tokens"
   | "usage";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
@@ -2003,11 +2004,24 @@ export const ACTIONS: readonly Action[] = [
     id: "usage_open",
     kind: "Action",
     tier: "Contextual",
-    verb: "Open the Jobs it hit",
+    verb: "Open the row",
     icon: null,
     iconAbsent: "undecided",
     shortcut: "Enter / Space",
     scope: "usage",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "tokens_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move along the Job's tokens",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "→ / ←",
+    scope: "tokens",
     destructive: false,
     confirms: false,
     unbuilt: null,

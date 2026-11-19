@@ -548,7 +548,7 @@ impl UsageScreen {
             .child(column(board.span().share_head()))
             .child(column("Peak context"));
         let table = labelled(
-            div().id("usage-jobs").flex_1().min_h_0().child(list(self.jobs.clone(), cx.processor(move |this, ix: usize, _window, cx| this.render_job(ix, cx))).size_full()),
+            div().id("usage-jobs").flex_1().min_h_0().child(list(self.jobs.clone(), cx.processor(move |this, ix: usize, window, cx| this.render_job(ix, window, cx))).size_full()),
             Role::Table,
             format!("Jobs hit by {}", kind.title),
         );
@@ -564,13 +564,17 @@ impl UsageScreen {
         cell.tooltip(tip(whole)).into_any_element()
     }
 
-    fn render_job(&self, ix: usize, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+    fn render_job(&self, ix: usize, window: &mut Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let look = cx.look().clone();
         let look = &look;
         let Some(JobLine { id, title, share, peak, cause, cause_tip, tip: said }) = self.lines.get(ix).cloned() else { return div().into_any_element() };
         let with_cause = self.selection.opened.as_deref().is_some_and(shows_causes);
+        let key = super::model::job_key(&id);
+        let under_keys = self.selection.cursor.as_deref() == Some(key.as_str()) && self.keys.is_focused(window);
+        let bar = look.length(token::SPACE_1) / 2.;
         let line = div()
             .id(SharedString::from(format!("usage-job-{id}")))
+            .relative()
             .w_full()
             .flex()
             .items_center()
@@ -580,7 +584,13 @@ impl UsageScreen {
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .text_color(look.color(token::FG_DEFAULT))
-            .hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
+            .cursor_pointer()
+            .map(|line| if under_keys { line.bg(look.color(token::SURFACE_ROW_HOVER)) } else { line.hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER))) })
+            .when(under_keys, |line| line.child(div().absolute().left_0().top_0().bottom_0().w(bar * 2.).bg(ring_colour(look))))
+            .on_click(cx.listener(move |this, _, window, cx| {
+                this.open(Some(key.clone()), false, window, cx);
+                window.focus(&this.keys, cx);
+            }))
             .child(div().flex_1().min_w_0().truncate().child(SharedString::from(title.clone())))
             .when(with_cause, |line| line.child(self.render_cause(&id, cause, cause_tip, look)))
             .child(div().id(SharedString::from(format!("usage-job-share-{id}"))).tooltip(tip(said)).child(figure(look, share, look.color(token::FG_DEFAULT))))

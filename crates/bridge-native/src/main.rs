@@ -38,6 +38,7 @@ mod features;
 mod first_run;
 mod fleet;
 mod frames;
+mod job_tokens;
 mod job_view;
 mod inspect;
 mod instance;

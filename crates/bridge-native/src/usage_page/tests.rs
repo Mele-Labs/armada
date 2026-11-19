@@ -539,6 +539,33 @@ mod screen {
     }
 
     #[gpui::test]
+    fn the_keys_go_on_down_the_open_panels_jobs_and_enter_on_one_opens_its_tokens_tab(cx: &mut TestAppContext) {
+        let asked: std::rc::Rc<std::cell::RefCell<Vec<crate::titlebar::Asked>>> = Default::default();
+        let heard = asked.clone();
+        let (screen, cx) = page(cx, "usage-week");
+        cx.update(|_, cx| cx.set_global(crate::titlebar::AskedSink(std::rc::Rc::new(move |one: &crate::titlebar::Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
+        redraw(cx);
+        cx.simulate_keystrokes("j j j enter");
+        redraw(cx);
+        let page: Entity<UsageScreen> = screen.read_with(cx, |screen, _| screen.usage_for_test().expect("the screen holds the page"));
+        let kinds = page.read_with(cx, |page, _| page.kinds_now().len());
+        for _ in 0..kinds {
+            cx.simulate_keystrokes("j");
+        }
+        redraw(cx);
+        let (cursor, first) = page.read_with(cx, |page, _| (page.selection.cursor.clone(), page.lines.first().map(|line| line.id.clone())));
+        let first = first.expect("the open kind hit Jobs");
+        assert_eq!(cursor, Some(format!("job:{first}")), "past the last kind the keys are on the first Job");
+        cx.simulate_keystrokes("enter");
+        assert_eq!(asked.borrow().as_slice(), [crate::titlebar::Asked::OpenJob(first.clone())], "the Job opens as any screen opens one");
+        assert!(cx.update(|_, cx| crate::job_tokens::asks(&first, cx)), "and leaves the ask for its Tokens tab");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert_eq!(opened(&screen, cx), None, "Esc shuts the panel");
+        assert_eq!(page.read_with(cx, |page, _| page.selection.cursor.clone()).as_deref(), Some("subagent_context"), "and the keys go back to the kind's row");
+    }
+
+    #[gpui::test]
     fn d_w_and_f_read_the_day_the_week_and_the_fortnight_and_keep_the_open_kind(cx: &mut TestAppContext) {
         let (screen, cx) = page(cx, "usage-week");
         redraw(cx);
