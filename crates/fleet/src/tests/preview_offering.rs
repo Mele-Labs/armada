@@ -386,6 +386,34 @@ async fn an_offer_the_build_commit_merges_is_in_the_build_though_preview_held_na
     assert_eq!(read.refresh, None);
 }
 
+/// `tip` has landed on main, and the running preview was cut from that main: its commit stands on `tip` and
+/// holds no branch, so neither its merges nor `preview-held` name the branch. Returns the build commit.
+pub(super) fn built_on_main_holding(rig: &Rig, tip: &str) -> String {
+    git(&root(rig), &["update-ref", "refs/remotes/origin/main", tip]);
+    git(&root(rig), &["checkout", "-q", "-B", "preview", tip]);
+    git(&root(rig), &["commit", "-q", "--allow-empty", "-m", "the preview, cut from that main"]);
+    let build = git(&root(rig), &["rev-parse", "HEAD"]);
+    rig.on_file_at(&build, true);
+    fs::write(rig.support().join("preview-held"), format!("{build}\n{tip}\n")).unwrap();
+    build
+}
+
+#[tokio::test]
+async fn an_offer_whose_tip_is_on_main_under_the_build_is_in_the_build_though_the_build_names_no_branch() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, tip) = a_job_offering(&rig, "armada/one", "crates/x/one.rs", "1").await;
+    offer(&rig, &session, None, Some("One")).await.expect("offered");
+    checked(&rig).await;
+    assert!(offers(&rig).await.refresh.is_some());
+
+    built_on_main_holding(&rig, &tip);
+
+    let read = offers(&rig).await;
+    assert_eq!((read.offers[0].tip.as_str(), read.offers[0].in_build), (tip.as_str(), true), "the build stands on main, which holds the tip");
+    assert_eq!(read.refresh, None, "nothing new to refresh for");
+}
+
 #[tokio::test]
 async fn the_moved_since_the_preview_left_it_out_row_is_no_longer_raised() {
     let rig = a_rig();
