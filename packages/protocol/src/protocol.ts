@@ -1,11 +1,11 @@
 // The wire vocabulary, as TypeScript sees it.
 //
 // **These are hand-written, and that is a gap rather than a design.**
-// `crates/ipc/src/lib.rs` says a codegen step emits TypeScript from the Rust
-// DTOs and that both generated outputs are checked in, so a cross-language
-// breaking change is a build failure. That codegen does not exist yet, so the
-// shapes below are a second statement of the ones in `crates/ipc/src/` and they
-// drift the day a field moves. Nothing else in Bridge restates them.
+// Pocket's copy is generated from `crates/ipc/src` by `cargo xtask verify-wire`
+// (`docs/practices/protocol/pockets-wire-types-are-generated.md`). Bridge's has
+// no codegen, so the shapes below are a second statement of the ones in
+// `crates/ipc/src/` and they drift the day a field moves. Nothing else in
+// Bridge restates them.
 //
 // Every closed set is left as `string`. The Rust side refuses an arriving
 // spelling the registry does not have; a union spelled here would be a third
