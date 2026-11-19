@@ -64,6 +64,7 @@ mod usage_summarising;
 mod usage_adjust;
 mod usage_memo;
 mod usage_waste;
+mod usage_job_timeline;
 mod time_summarising;
 mod turn_usage_keeping;
 mod loadout_reading;
@@ -182,6 +183,7 @@ pub mod models_read;
 pub mod phone;
 /// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
 mod other_macs;
+mod other_mac_artifacts;
 mod mac_terminals;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;

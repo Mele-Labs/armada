@@ -25,3 +25,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 16 Nov 2026 for the native PR tab, on the head of the description card, tooltip `Tells the Job what to change in the description`. Shown only when a Job holds the pull request. A bubble with words in it is his words to the Job. Once sent, the button gives way to `check` with the tooltip `Sent to the Job`."
+
+[[icons.message-square-text.usage]]
+  means = "A kind of token waste: the main thread ran past 300k context, on its row of the Usage page"
+  group = "Usage"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Main thread ran past 300k context`. Stands in a square of the sketch amber hue at 16%, drawn in that hue: a request the Job's own thread made with more than 300k held. A bubble with words in it is the thread, as the note glyph above says."

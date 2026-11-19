@@ -119,6 +119,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/thread", get(mac_routes::read))
         .route("/api/mac/conversation", get(mac_routes::read_naming_mac))
         .route("/api/mac/page", get(mac_routes::read))
+        .route("/api/mac/artifacts", get(mac_routes::read))
+        .route("/api/mac/artifact_page", get(mac_routes::read))
         .route("/api/mac/terminal", post(mac_terminals::act))
         .route("/api/mac/forget", post(mac_pair_routes::forgotten))
         .route("/api/needs", get(reads::needs))

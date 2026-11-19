@@ -71,6 +71,7 @@ const SCOPES: &[&str] = &[
     "dispatch",
     "review sheet",
     "kit",
+    "usage",
     "features",
 ];
 

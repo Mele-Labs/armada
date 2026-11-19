@@ -15,4 +15,6 @@ notes = """
 Refused, with 422 and nothing written: `fleet.artifact_unnamed` for a call that places no job, `fleet.session_unnamed` for a job Fleet does not know, `fleet.artifact_not_held` for an id the job does not hold, naming at most 20 it does, and `fleet.artifact_archived_already` for one archived already.
 
 `agent_access` is `Yes`: the Job is the one that knows a newer artifact replaced an older one, and Fleet does not guess.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_archive`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """

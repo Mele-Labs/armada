@@ -53,3 +53,10 @@
   size = "14px"
   status = "Proposed"
   notes = "Proposed 29 Oct 2026 for the walk `workspaces-lanes`. Tooltip `Differs in store-api` on a node or chip, naming the levels, and `Changed for store-api` in the panel. One line becoming two: one value, and another below it."
+
+[[icons.split.usage]]
+  means = "A kind of token waste: subagents that ran past 300k context, on its row of the Usage page"
+  group = "Usage"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Subagents ran past 300k context`. Stands in a square of the sketch orange hue at 16%, drawn in that hue: a request a subagent made with more than 300k held. The glyph the subagent already wears on a Job's ledger, so the page and the ledger name it alike."

@@ -1,0 +1,7 @@
+[icons.chart-column]
+  means = "Columns of different heights standing on one baseline: an amount over time"
+  group = "View"
+  size = "16px"
+  status = "Proposed"
+  reserved = "A Job's Tokens tab, the graph of its burn from start to finish. Never a count, a progress bar, or the Dashboard's Timeline view, which is `chart-no-axes-gantt`."
+  notes = "Proposed 19 Nov 2026 for the walk `job-tokens`, which the owner approved as a graph of a Job's tokens. `chart-no-axes-column` has no baseline, and `activity` is the Now tab's."

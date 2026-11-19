@@ -203,6 +203,28 @@ A setting that applies at a restart is kept when it is saved and is in force onc
 A share is the kind's units, as `get_usage_waste` counts them over that span, over the span's whole burn.
 It is a reading beside a change and no proof of one: the week before and the days since are different weeks.
 
+## A Job's burn over time
+
+**One Job's burn, from its start to its end, is bars over time.** `get_job_timeline` answers for one Job: the burn of each bucket of time split into the main thread and subagents, a line of the main thread's context, a mark for each compaction, and a band for each pause.
+Every figure is in the units above, so `total_units` is the summary's for the Job, and a compaction's own request is burn of the main thread.
+The weighing is `crates/store/src/usage_summary.rs`'s, and the reading is `crates/store/src/usage_job_timeline.rs`.
+`docs/practices/protocol.md`, *A Job's burn over time*.
+
+| Figure | Is |
+|---|---|
+| Buckets | The span from the Job's start to its end (to now, while it runs) cut into the smallest of 1, 5, 10, 15, 30 and 60 minutes that gives at most 120. Every bucket is sent, one with no burn too |
+| Context | The main thread's input, cache writes and cache read at each request, thinned to at most 400 by keeping the largest of each equal share, so the peak is never cut |
+| Pause | A gap of more than 5 minutes between two main-thread requests, the time the cache holds a write |
+| Waited on | The last call the request before the pause made: `command` for Bash, `subagent` for Agent or Task, `other` for any other call, and `you` where the request made none, so its turn had ended |
+| Cold | The request after the pause found the cache cold, the share Spent on calls `cold_cache` and the waste of that name counts |
+| Week | `week_units` is every Job's burn over the 7 days ending where the span ends, so a page can say what share of the week the Job was |
+
+**A pause waited on what the last request called, not on what ran meanwhile.** A subagent's own requests are in the bars and not in the context line or the pauses, so a pause that waited on a subagent is the gap between two main-thread requests with the subagent's burn inside it.
+The calls of a request are in the order it made them, so the last is the one its next request waited for.
+**Cold wakes** are the main-thread requests that found the cache cold.
+**Subagent share** is the part of the Job's units subagents burned.
+Fleet gives each pause its words, `Waited on you`, `Command ran`, `Subagent ran` and `Paused`, so a page and an agent read the same ones; the page adds how long.
+
 ## A Job compacted while it waits
 
 **A trial, shipped off.** The setting *Compact a Job waiting on you* (`tokens.compactWhileWaiting`) switches it on, and is read at each sweep of quiet Jobs, about every 30 seconds.

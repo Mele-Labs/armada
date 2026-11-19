@@ -302,6 +302,7 @@ mod time_routes;
 mod subagent_cache_ttl;
 mod usage_adjust;
 mod waste_routes;
+mod job_timeline_routes;
 mod job_time;
 mod usage_following;
 mod turn_usage;
