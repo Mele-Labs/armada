@@ -296,6 +296,7 @@ mod loadout;
 mod loadout_item;
 mod turn_ingest;
 mod time_routes;
+mod waste_routes;
 mod job_time;
 mod usage_following;
 mod turn_usage;
