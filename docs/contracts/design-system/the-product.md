@@ -42,6 +42,12 @@ state-coloured header band with icon and state, a dark body, one accent per
 card. The only no's are those under Depth in Tokens: no gradients on a
 control, no glows, no grain or sheen.
 
+One more no, for the pages, sketches and mocks agents draw (19 Nov 2026: *"I hate these little edge borders"*):
+no coloured stripe on one side of a box, card, callout, table cell or diagram node.
+That is `border-left: 3px solid`, `border-top: 3px solid`, `box-shadow: inset 4px 0 0`, or a strip down a node's side in SVG.
+Use a tint fill of the hue, a full hairline outline in the hue, a coloured glyph or dot, a chip, or a header band across the whole top.
+Bridge's own leading edges in this contract (fenced blocks, blockquotes, sketch node kinds) stay.
+
 **An instrument panel still has depth.** It sits open all day, and on a quiet
 day no state is lit, so a screen whose only colour is state reads as a dead
 one. A row's kind keeps its hue and a card keeps its lift on a quiet day. Cards are glass lifted off a canvas lit in faint pools of light (see
