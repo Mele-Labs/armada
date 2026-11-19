@@ -27,6 +27,7 @@ use gpui::{
 use ipc::{CompactHow, CompactOff, CompactOffer, ContextBreakdown, ContextKind, RingBand, SessionUsage};
 
 use crate::inspect::{self, Fact, Spec, State, Width};
+use crate::job_tokens::{self, Held, Hook};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, glyph, mono, Btn, Weight};
@@ -73,17 +74,24 @@ pub struct ContextRing {
     id: SharedString,
     fill: Option<Fill>,
     on_compact: Option<OnCompact>,
+    tokens: Option<Hook>,
     opened: bool,
 }
 
 impl ContextRing {
     /// The ring of the Job `id`. The id keeps its open card and its pending Compact between frames.
     pub fn new(id: impl Into<SharedString>, fill: Option<Fill>) -> ContextRing {
-        ContextRing { id: id.into(), fill, on_compact: None, opened: false }
+        ContextRing { id: id.into(), fill, on_compact: None, tokens: None, opened: false }
     }
 
     pub fn on_compact(mut self, on_compact: OnCompact) -> ContextRing {
         self.on_compact = Some(on_compact);
+        self
+    }
+
+    /// The Job's tokens over time, drawn small in the card with a press that opens the Tokens tab.
+    pub fn tokens(mut self, hook: Hook) -> ContextRing {
+        self.tokens = Some(hook);
         self
     }
 
@@ -104,7 +112,7 @@ impl RenderOnce for ContextRing {
             figure.show_open = opened;
             figure
         });
-        figure.update(cx, |figure, cx| figure.set(self.fill, self.on_compact, window, cx));
+        figure.update(cx, |figure, cx| figure.set(self.fill, self.on_compact, self.tokens, window, cx));
         figure
     }
 }
@@ -145,6 +153,8 @@ pub struct Figure {
     id: SharedString,
     fill: Option<Fill>,
     on_compact: Option<OnCompact>,
+    tokens: Option<Hook>,
+    _tokens_watch: Option<Subscription>,
     open: Option<Open>,
     hover: Option<Hover>,
     over_card: bool,
@@ -179,6 +189,8 @@ impl Figure {
             id,
             fill: None,
             on_compact: None,
+            tokens: None,
+            _tokens_watch: None,
             open: None,
             hover: None,
             over_card: false,
@@ -195,8 +207,13 @@ impl Figure {
 
     /// The head's data for this frame. A change redraws once; a Compact that was refused, or that
     /// moved the window, ends the pending state.
-    fn set(&mut self, fill: Option<Fill>, on_compact: Option<OnCompact>, window: &mut Window, cx: &mut Context<Self>) {
+    fn set(&mut self, fill: Option<Fill>, on_compact: Option<OnCompact>, tokens: Option<Hook>, window: &mut Window, cx: &mut Context<Self>) {
         self.on_compact = on_compact;
+        // The card is drawn again as the Job's reading lands, and the reading is asked for as the card opens.
+        if self.tokens.as_ref().map(|held| held.read.entity_id()) != tokens.as_ref().map(|held| held.read.entity_id()) {
+            self._tokens_watch = tokens.as_ref().map(|hook| cx.observe(&hook.read, |_, _, cx| cx.notify()));
+        }
+        self.tokens = tokens;
         if self.fill == fill {
             return;
         }
@@ -224,7 +241,10 @@ impl Figure {
         if let Some(new) = fill.as_ref().filter(|_| std::mem::take(&mut self.show_open)) {
             match form_of(new) {
                 Form::Tip => self.hover = Some(Hover::Ring),
-                _ => self.open = Some(Open::Hover),
+                _ => {
+                    self.open = Some(Open::Hover);
+                    self.wake_tokens(cx);
+                }
             }
         }
         self.fill = fill;
@@ -252,8 +272,16 @@ impl Figure {
         cx.notify();
     }
 
+    /// The card is up: the Job's tokens are read where they are not held or are old.
+    fn wake_tokens(&self, cx: &mut Context<Self>) {
+        if let Some(hook) = &self.tokens {
+            hook.read.update(cx, |read, cx| read.wake(cx));
+        }
+    }
+
     fn pin(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.keep_keys(window, cx);
+        self.wake_tokens(cx);
         self.open = Some(Open::Pinned);
         let focus = self.popup_focus.clone();
         window.defer(cx, move |window, cx| window.focus(&focus, cx));
@@ -273,6 +301,7 @@ impl Figure {
                 if self.open.is_none() {
                     self.keep_keys(window, cx);
                     self.open = Some(Open::Hover);
+                    self.wake_tokens(cx);
                     cx.notify();
                 }
             }
@@ -539,6 +568,38 @@ impl Figure {
         labelled(body, Role::Button, "Compact").into_any_element()
     }
 
+    /// The Job's tokens over time, drawn small between the rows and Compact: the bars and the context line, and a press to open the tab.
+    fn tokens_block(&self, look: &Look, cx: &Context<Self>) -> Vec<gpui::AnyElement> {
+        let Some(hook) = &self.tokens else { return Vec::new() };
+        let tall = look.length(token::SPACE_12) * 1.5;
+        let read = hook.read.read(cx);
+        let plot = match (read.graph(), &read.held) {
+            (Some(graph), _) => labelled(div().id("context-tokens-chart").relative().w_full().h(tall).child(job_tokens::chart(graph.clone(), false, None, look, Rc::default())), Role::Image, "Tokens over time").into_any_element(),
+            (None, Held::Failed(why)) => div()
+                .id("context-tokens-failed")
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .text_color(look.color(token::STATUS_COMPLETED_FAILED))
+                .child(SharedString::from(why.clone()))
+                .into_any_element(),
+            (None, _) => labelled(div().id("context-tokens-loading").w_full().child(job_tokens::bones(look, tall)), Role::Image, "Loading").into_any_element(),
+        };
+        let open = hook.open.clone();
+        let press = labelled(
+            Btn::new("context-open-tokens", "Open Tokens tab", Weight::Secondary).draw(look, cx).on_click(cx.listener(move |this, _, window, cx| {
+                this.shut(window, cx);
+                open(window, cx);
+            })),
+            Role::Button,
+            "Open Tokens tab",
+        );
+        vec![
+            inspect::heading("Tokens over time", look).into_any_element(),
+            plot,
+            div().flex().justify_end().pt(look.length(token::SPACE_2)).child(press).into_any_element(),
+        ]
+    }
+
     /// What the last Compact was refused for, under the button.
     fn refusal_line(&self, look: &Look) -> Option<gpui::AnyElement> {
         let said = self.refusal.clone()?;
@@ -591,6 +652,7 @@ impl Figure {
             inspect::heading("MCP tools", look).into_any_element(),
             facts_of(servers).into_any_element(),
         ];
+        body.extend(self.tokens_block(look, cx));
         if let Some(offer) = fill.compact {
             body.push(
                 div()

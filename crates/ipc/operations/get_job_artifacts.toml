@@ -27,4 +27,6 @@ Only artifacts of form `sketch`, `document` and `draft` are listed; a file, an i
 **An artifact holds parts**: `JobArtifact.parts`, each with `id`, `kind` (`drawing`, `words`, `takes`, `buttons` or `page`), `asks`, `state` (`open`, `approved`, `sent_back`, `picked` or `withdrawn`), `revision`, `drawn` and `answer`. `form` stays the first part's kind read as `sketch`, `draft` or `page`. A sketch, draft or page the job showed while another artifact still asked joins it, so it is a part here and no artifact of its own.
 
 Refused: 422 `fleet.session_unnamed`, a job Fleet does not know.
+
+**A Job held from another Mac is read from that Mac's Fleet each time**, as `share_job_artifacts` answers there, and nothing of it is kept here. What that Mac refuses is passed on as it said it. Since 18 Nov 2026.
 """
