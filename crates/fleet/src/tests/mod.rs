@@ -299,6 +299,8 @@ mod loadout;
 mod loadout_item;
 mod turn_ingest;
 mod time_routes;
+mod subagent_cache_ttl;
+mod usage_adjust;
 mod waste_routes;
 mod job_timeline_routes;
 mod job_time;

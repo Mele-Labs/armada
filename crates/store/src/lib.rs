@@ -51,6 +51,7 @@ mod session_turn_usage;
 mod first_edit_searches;
 mod usage_summary;
 mod usage_spent;
+mod usage_adjust;
 mod usage_waste;
 mod usage_job_timeline;
 mod usage_rule_trips;
@@ -267,6 +268,7 @@ pub use time_summary::{BuildFigures, HourFigures, HoursRead, Medians, SlowJob, S
 pub use session_turn_usage::{KeptBackground, KeptCallCarrier, KeptCallResult, KeptOpenCall, KeptToolCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage};
 pub use first_edit_searches::KeptFirstEdit;
 pub use usage_spent::{SpentSplit, SpentWindowRead, UsageSpentRead, SPENT_BY, SPENT_ON, SPENT_WINDOWS};
+pub use usage_adjust::{CacheEstimate, ChangeRead, CompactionEstimate};
 pub use usage_waste::{UsageWasteRead, BIG_RESULT_BYTES, WasteJobRead, WasteKind, WasteKindRead};
 pub use usage_job_timeline::{BucketRead, JobTimelineRead, PauseRead, WaitedOn, MOST_CONTEXT_POINTS, PAUSE_AFTER_SECONDS};
 pub use usage_summary::{turn_units, DayUsage, Named, PriorUsage, UsageSplit, UsageSummaryRead, TOP_SESSIONS, UNIT_SCALE};
