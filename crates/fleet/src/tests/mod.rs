@@ -183,6 +183,7 @@ mod bug_reports;
 mod job_asks;
 mod share;
 mod phone_share;
+mod store_not_starved;
 mod other_macs;
 mod other_mac_projects;
 mod project_merging;
