@@ -87,6 +87,7 @@ mod reader;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
+mod reader_page_edit;
 mod reader_share;
 mod web_walk;
 pub(crate) mod rows;
