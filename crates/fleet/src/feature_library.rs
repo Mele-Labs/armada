@@ -28,6 +28,7 @@ mod seeding;
 mod serving;
 pub(crate) mod staleness;
 mod writing;
+mod glossary;
 pub(crate) mod since_paragraph;
 mod whos_on_what;
 

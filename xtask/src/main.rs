@@ -50,6 +50,7 @@ mod sentences;
 mod skill_regions;
 mod tokens;
 mod tokens_emit;
+mod wire;
 
 /// One rule's outcome. `Warn` never fails the gate; `Fail` always does.
 pub enum Finding {
@@ -91,6 +92,10 @@ fn main() -> ExitCode {
             let write = std::env::args().any(|a| a == "--write");
             verify_tokens(write)
         }
+        Some("verify-wire") => {
+            let write = std::env::args().any(|a| a == "--write");
+            verify_wire(write)
+        }
         Some("verify-roadmap") => verify_roadmap(),
         Some("verify-error-codes") => verify_error_codes(),
         Some("verify-docs") => {
@@ -99,12 +104,12 @@ fn main() -> ExitCode {
         }
         Some(other) => {
             eprintln!("xtask: unknown task `{other}`");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
             ExitCode::FAILURE
         }
         None => {
             eprintln!("xtask: no task given");
-            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-roadmap");
+            eprintln!("tasks: verify-foundations [--timings], verify-error-codes, verify-tokens [--write], verify-docs [--write], verify-wire [--write], verify-roadmap");
             ExitCode::FAILURE
         }
     }
@@ -122,6 +127,7 @@ const FOUNDATIONS: &[fn(&Path) -> Report] = &[
     rules_unsafe::unsafe_is_spoken_only_where_named,
     rules::nothing_writes_its_own_log_format,
     rules_tokens::the_tokens_generate_what_is_checked_in,
+    wire::pockets_wire_types_are_generated_from_ipc,
     rules_tokens::no_media_query_resolves_through_a_custom_property,
     rules_design::no_off_contract_design_value,
     rules_var_names::every_var_names_a_declared_property,
@@ -299,6 +305,26 @@ fn regenerate(
         println!("Run `cargo xtask {task} --write` and commit what it emits.");
         ExitCode::FAILURE
     }
+}
+
+/// Pocket's wire types, generated from `crates/ipc`. A file no type writes any more is as stale as a
+/// changed one, so `--write` removes it and a check names it.
+fn verify_wire(write: bool) -> ExitCode {
+    let root = repo_root();
+    if let Ok(outputs) = wire::outputs(&root) {
+        for rel in wire::extras(&root, &outputs) {
+            if write {
+                let _ = fs::remove_file(root.join(&rel));
+                println!("removed {rel}");
+            } else {
+                println!("STALE {rel}");
+                println!("\nverify-wire: RED — {rel} is no longer generated");
+                println!("Run `cargo xtask verify-wire --write` and commit what it emits.");
+                return ExitCode::FAILURE;
+            }
+        }
+    }
+    regenerate("verify-wire", wire::outputs, write)
 }
 
 fn verify_tokens(write: bool) -> ExitCode {

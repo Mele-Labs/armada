@@ -36,7 +36,7 @@ import {
   type DropdownMenuEntry,
 } from "@armada/components";
 import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
-import type { CallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
+import type { CallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "./wire";
 import type { Session, SessionWait, StartWhen } from "@armada/screens/src/draft/sessions";
 import {
   START_WHEN,

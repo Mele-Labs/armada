@@ -17,7 +17,7 @@ import {
   type SketchAnswer,
   type SketchSettled,
 } from "@armada/components";
-import type { ArtifactPart, HostToPage, JobArtifact, PageToHost } from "@armada/protocol";
+import type { ArtifactPart, HostToPage, JobArtifact, PageMessage, PageToHost } from "./wire";
 
 import {
   aspectOf,
@@ -358,9 +358,9 @@ function PagePart({
   useEffect(() => {
     const heard = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow) return;
-      const said = event.data as PageToHost;
+      const said = event.data as PageMessage<PageToHost>;
       if (said?.armada !== 1 || (said.kind !== "press" && said.kind !== "vote")) return;
-      void pageAct(machine, id, said, reread).then((back: HostToPage) =>
+      void pageAct(machine, id, said, reread).then((back: PageMessage<HostToPage>) =>
         frame.current?.contentWindow?.postMessage(back, "*"),
       );
     };

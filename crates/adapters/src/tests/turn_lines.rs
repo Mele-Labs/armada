@@ -268,3 +268,109 @@ fn a_message_counts_its_code_searches_up_to_its_first_edit() {
     assert_eq!(counted, [("a", 3), ("b", 1)], "the Grep after the Edit is not before it");
     std::fs::remove_dir_all(&dir).ok();
 }
+
+fn answered(at: &str, call: &str, size: usize) -> String {
+    format!(
+        r#"{{"type":"user","timestamp":"{at}","message":{{"content":[{{"type":"tool_result","tool_use_id":"{call}","content":"{}"}}]}}}}"#,
+        "k".repeat(size)
+    )
+}
+
+/// A call is its tool, a Read's path, the thread and the compactions before it. A result is its size, and the
+/// request that carried it is the first after it. A compaction starts the thread's count again, and a read in two
+/// pieces gives what one read does. No text is kept: a call and a result have no field to hold it.
+#[test]
+fn a_call_keeps_its_tool_its_reads_path_and_its_results_size_and_never_the_text() {
+    let dir = std::env::temp_dir().join(format!("turn_calls_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("agent-x.jsonl");
+    let call = |id: &str, name: &str, input: &str| format!(r#"{{"type":"tool_use","id":"{id}","name":"{name}","input":{input}}}"#);
+    let lines = [
+        told("2026-10-17T09:00:00.000Z", "hi", ""),
+        asked("a", "2026-10-17T09:00:01.000Z", 100, 0, 0, &format!("{},{}", call("t1", "Read", r#"{"file_path":"/f.rs"}"#), call("t2", "Bash", r#"{"command":"ls /secret"}"#))),
+        answered("2026-10-17T09:00:02.000Z", "t1", 30_000),
+        answered("2026-10-17T09:00:03.000Z", "t2", 7),
+        asked("b", "2026-10-17T09:00:04.000Z", 100, 0, 0, &call("t3", "Read", r#"{"file_path":"/f.rs"}"#)),
+        answered("2026-10-17T09:00:05.000Z", "t3", 100),
+        asked("c", "2026-10-17T09:00:06.000Z", 100, 0, 0, ""),
+        r#"{"type":"system","subtype":"compact_boundary","uuid":"c1","timestamp":"2026-10-17T09:20:00.000Z","compactMetadata":{"preTokens":5000}}"#.to_string(),
+        told("2026-10-17T09:20:01.000Z", "summary", r#""isCompactSummary":true,"#),
+        asked("d", "2026-10-17T09:20:02.000Z", 100, 0, 0, &call("t4", "Read", r#"{"file_path":"/f.rs"}"#)),
+        answered("2026-10-17T09:20:03.000Z", "t4", 10),
+        asked("e", "2026-10-17T09:20:04.000Z", 100, 0, 0, ""),
+    ];
+    std::fs::write(&file, lines.iter().map(|one| format!("{one}\n")).collect::<String>()).unwrap();
+
+    let whole = read_turns(&file, 0, true, u64::MAX, None, Carry::default()).unwrap();
+    let made: Vec<(&str, &str, &str, &str, u32, Option<&str>)> = whole
+        .tool_calls
+        .iter()
+        .map(|one| (one.tool_use_id.as_str(), one.message_id.as_str(), one.thread.as_str(), one.tool.as_str(), one.epoch, one.path.as_deref()))
+        .collect();
+    assert_eq!(
+        made,
+        [
+            ("t1", "a", "agent-x", "Read", 0, Some("/f.rs")),
+            ("t2", "a", "agent-x", "Bash", 0, None),
+            ("t3", "b", "agent-x", "Read", 0, Some("/f.rs")),
+            ("t4", "d", "agent-x", "Read", 1, Some("/f.rs")),
+        ],
+        "a Bash call has no path, and the read after the compaction is in the next epoch"
+    );
+    assert_eq!(whole.tool_calls[0].at, "2026-10-17T09:00:01.000Z");
+    let sizes: Vec<(&str, u64)> = whole.call_results.iter().map(|one| (one.tool_use_id.as_str(), one.bytes)).collect();
+    assert_eq!(sizes, [("t1", 30_000), ("t2", 7), ("t3", 100), ("t4", 10)]);
+    let carried: Vec<(&str, &str)> = whole.carried.iter().map(|one| (one.tool_use_id.as_str(), one.message_id.as_str())).collect();
+    assert_eq!(carried, [("t1", "b"), ("t2", "b"), ("t3", "c"), ("t4", "e")], "the first request after the result carries it");
+    let main = read_turns(&file, 0, false, u64::MAX, None, Carry::default()).unwrap();
+    assert!(main.tool_calls.iter().all(|one| one.thread.is_empty()), "the session's own thread has no name");
+
+    let cut = lines[..4].iter().map(|one| one.len() as u64 + 1).sum();
+    let head = read_turns(&file, 0, true, cut, None, Carry::default()).unwrap();
+    let tail = read_turns(&file, head.next, true, u64::MAX, head.input_at.clone(), Carry::resumed(head.carry.kept().as_deref())).unwrap();
+    assert_eq!([head.tool_calls, tail.tool_calls].concat(), whole.tool_calls);
+    assert_eq!([head.call_results, tail.call_results].concat(), whole.call_results);
+    assert_eq!([head.carried, tail.carried].concat(), whole.carried, "a result written in one read is carried in the next");
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+/// A Read keeps its file and the lines it asked for, an edit keeps the file it changed, and no other call keeps either.
+#[test]
+fn a_read_keeps_its_lines_and_an_edit_the_file_it_changed() {
+    let call = |id: &str, name: &str, input: &str| format!(r#"{{"type":"tool_use","id":"{id}","name":"{name}","input":{input}}}"#);
+    let blocks = [
+        call("t1", "Read", r#"{"file_path":"/f.rs"}"#),
+        call("t2", "Read", r#"{"file_path":"/f.rs","offset":10,"limit":5}"#),
+        call("t3", "Read", r#"{"file_path":"/f.rs","offset":10}"#),
+        call("t4", "Read", r#"{"file_path":"/f.rs","limit":20}"#),
+        call("t5", "Edit", r#"{"file_path":"/f.rs","old_string":"secret","new_string":"s"}"#),
+        call("t6", "NotebookEdit", r#"{"notebook_path":"/n.ipynb","new_source":"x"}"#),
+        call("t7", "Write", r#"{"file_path":"/w.rs","content":"text"}"#),
+        call("t8", "Grep", r#"{"pattern":"x","path":"/src"}"#),
+    ]
+    .join(",");
+    let dir = std::env::temp_dir().join(format!("turn_lines_of_{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let file = dir.join("s.jsonl");
+    std::fs::write(&file, format!("{}\n", line("a", 5, &blocks))).unwrap();
+    let done = read_turns(&file, 0, false, u64::MAX, None, Carry::default()).unwrap();
+    let kept: Vec<(&str, Option<&str>, Option<u64>, Option<u64>, Option<&str>)> = done
+        .tool_calls
+        .iter()
+        .map(|one| (one.tool_use_id.as_str(), one.path.as_deref(), one.from_line, one.to_line, one.edited.as_deref()))
+        .collect();
+    assert_eq!(
+        kept,
+        [
+            ("t1", Some("/f.rs"), None, None, None),
+            ("t2", Some("/f.rs"), Some(10), Some(14), None),
+            ("t3", Some("/f.rs"), Some(10), None, None),
+            ("t4", Some("/f.rs"), Some(1), Some(20), None),
+            ("t5", None, None, None, Some("/f.rs")),
+            ("t6", None, None, None, Some("/n.ipynb")),
+            ("t7", None, None, None, Some("/w.rs")),
+            ("t8", None, None, None, None),
+        ]
+    );
+    std::fs::remove_dir_all(&dir).ok();
+}

@@ -13,7 +13,7 @@ import type {
   SessionRow,
   SessionThread,
   TuneSession,
-} from "@armada/protocol";
+} from "../wire";
 
 import type { OperatorBody, PhoneSession, QueuedAct } from "../gateway";
 import { DESIGN_PAGE, sealedPage, SHOTS } from "./artifacts";
