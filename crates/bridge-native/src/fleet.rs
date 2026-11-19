@@ -1463,6 +1463,12 @@ impl FleetConnection {
         self.held.offers = Some(offers);
     }
 
+    /// Connected to a stand-in Fleet on `port`, as the link says it once the socket opens.
+    pub fn connect_at(&mut self, port: u16, cx: &mut Context<Self>) {
+        self.held.fold(vec![Signal::State(LinkState::Connecting { port, pid: 1 }), Signal::State(LinkState::Connected)]);
+        cx.notify();
+    }
+
     /// Threads as a read of each would hold them: a view over a connection draws these, never the mock's.
     pub fn hold_threads(&mut self, threads: impl IntoIterator<Item = JobThread>) {
         for read in threads {

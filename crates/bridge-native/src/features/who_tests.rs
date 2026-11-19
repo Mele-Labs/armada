@@ -272,3 +272,101 @@ fn a_feature_name_opens_its_page_in_place_of_who_is_on_what(cx: &mut TestAppCont
     cx.run_until_parked();
     assert_eq!(screen.read_with(cx, |screen, cx| (screen.project_open(cx), screen.opened().map(|row| row.slug.clone()))), (None, Some("reviews".into())));
 }
+
+/// What the owner's Fleet answered for Who's on what, cut to two features: one with a Job, one with a pull request.
+const SERVED_WHO: &str = r#"{"project":"01m79k6ryc001bhy186scf5bm8","people":[{"login":"NickMele","me":true}],"features":[{"slug":"annotate-and-capture","title":"Annotate and capture","cells":[{"login":"NickMele","pulls":[],"jobs":["648d9b60-fda0-4efa-8593-11fd0c3eaa5c"]}]},{"slug":"full-pool","title":"Full pool","cells":[{"login":"NickMele","pulls":[{"number":3689,"repository":"Mele-Labs/armada","title":"Carry an asked option's description","draft":false}],"jobs":[]}]}]}"#;
+
+/// A stand-in Fleet on a port of its own that answers each GET with `answer(path)`, or 404 where that is none.
+fn stand_in_fleet(answer: impl Fn(&str) -> Option<String> + Send + 'static) -> u16 {
+    use std::io::{BufRead, BufReader, Write};
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("a port");
+    let port = listener.local_addr().expect("its address").port();
+    std::thread::spawn(move || {
+        for stream in listener.incoming().flatten() {
+            let mut reader = BufReader::new(stream.try_clone().expect("the stream"));
+            let mut first = String::new();
+            if reader.read_line(&mut first).is_err() {
+                continue;
+            }
+            let mut line = String::new();
+            while reader.read_line(&mut line).is_ok_and(|read| read > 2) {
+                line.clear();
+            }
+            let path = first.split_whitespace().nth(1).unwrap_or_default().to_string();
+            let (status, body) = answer(&path).map_or(("404 Not Found", "{}".to_string()), |body| ("200 OK", body));
+            let mut stream = stream;
+            let _ = write!(stream, "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}", body.len());
+        }
+    });
+    port
+}
+
+#[gpui::test]
+fn a_live_page_draws_what_fleet_answered_for_who_is_on_what(cx: &mut TestAppContext) {
+    ready(cx);
+    let port = stand_in_fleet(|path| path.starts_with("/features/who?").then(|| SERVED_WHO.to_string()));
+    let fleet = gpui::AppContext::new(cx, |cx| crate::fleet::FleetConnection::idle(cx));
+    fleet.update(cx, |fleet, cx| fleet.connect_at(port, cx));
+    let (page, cx) = cx.add_window_view(|_, cx| ProjectPageView::live(&fleet, SERVED_PROJECT.into(), ProjectPage::Who, None, cx));
+    settle(&page, cx);
+    assert_eq!(who_read(&page, cx), Ok(vec!["Annotate and capture".to_string(), "Full pool".to_string()]));
+    assert!(drawn(cx, Role::Button, "Full pool"), "the grid is drawn, not the bones");
+}
+
+const SERVED_PROJECT: &str = "01m79k6ryc001bhy186scf5bm8";
+
+/// Park until the page's read of Who's on what has landed, with the stand-in answering on its own thread.
+fn settle(page: &gpui::Entity<ProjectPageView>, cx: &mut VisualTestContext) {
+    for _ in 0..50 {
+        cx.run_until_parked();
+        if !page.read_with(cx, |page, _| matches!(page.who, super::page::Load::Reading)) {
+            return;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+}
+
+fn who_read(page: &gpui::Entity<ProjectPageView>, cx: &mut VisualTestContext) -> Result<Vec<String>, String> {
+    page.read_with(cx, |page, _| match &page.who {
+        super::page::Load::Read(read) => Ok(read.features.iter().map(|one| one.title.clone()).collect()),
+        super::page::Load::Failed(why) => Err(format!("failed: {why}")),
+        super::page::Load::Reading => Err("still reading".into()),
+    })
+}
+
+#[gpui::test]
+fn the_live_screen_draws_who_is_on_what_once_fleet_answers(cx: &mut TestAppContext) {
+    ready(cx);
+    let mut library = mock::library();
+    library.project = SERVED_PROJECT.into();
+    let library = serde_json::to_string(&library).expect("the library");
+    let port = stand_in_fleet(move |path| {
+        if path.starts_with("/features/who?") {
+            Some(SERVED_WHO.to_string())
+        } else if path.starts_with("/features?") {
+            Some(library.clone())
+        } else {
+            None
+        }
+    });
+    let fleet = gpui::AppContext::new(cx, |cx| crate::fleet::FleetConnection::idle(cx));
+    fleet.update(cx, |fleet, cx| fleet.connect_at(port, cx));
+    let (screen, cx) = cx.add_window_view(|window, cx| FeaturesScreen::live(&fleet, Some(SERVED_PROJECT.into()), window, cx));
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.enter(window, cx)));
+    for _ in 0..50 {
+        cx.run_until_parked();
+        if screen.read_with(cx, |screen, _| screen.library_project.is_some()) {
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(20));
+    }
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.open_project(ProjectPage::Who, window, cx)));
+    // Fleet's stream moves on while the read is out, as it does every few hundred milliseconds.
+    for _ in 0..5 {
+        fleet.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+    }
+    let page = screen.read_with(cx, |screen, _| screen.project_view()).expect("Who's on what is open");
+    settle(&page, cx);
+    assert_eq!(who_read(&page, cx), Ok(vec!["Annotate and capture".to_string(), "Full pool".to_string()]));
+}
