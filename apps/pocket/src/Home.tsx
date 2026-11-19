@@ -5,7 +5,7 @@
 
 import { useRef, useState } from "react";
 import { ChevronDown, Search } from "lucide-react";
-import { bucketOf } from "@armada/components";
+import { bucketOf } from "./kit/components/compositions/SessionFrame/SessionFrame";
 
 import { actsOn } from "./jobState";
 import { homeOf, useFleet, type Item, type Line } from "./fleet";

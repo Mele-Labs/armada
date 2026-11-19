@@ -18,8 +18,8 @@ import type {
   PressPageAction,
   VoteCast,
 } from "./wire";
-import type { Scene } from "@armada/components";
-import { sceneOfWire } from "@armada/screens/src/sessions-wire";
+import type { Scene } from "./kit/components/compositions/SketchScene/scene";
+import { sceneOfWire } from "./kit/screens/sessions-wire";
 
 import { call, getJson, refusal } from "./client";
 import { loadLists, onChange } from "./fleet";
