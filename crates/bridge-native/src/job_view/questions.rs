@@ -33,6 +33,18 @@ pub(super) struct Questions {
     mock: Option<JobQuestions>,
     /// The agent's last message in each held thread, by Job, as last seen: a new one reads the questions again.
     replied: HashMap<String, Option<String>>,
+    /// Questions he has nudged the agent about, by row id, so the button says so.
+    nudged: HashSet<String>,
+}
+
+fn nudge_id_of(row: &str) -> String {
+    format!("qa-nudge:{row}")
+}
+
+/// What a nudge says to the agent: his question again, and that he still wants it answered or said again.
+fn nudge_message(words: &str, answered: bool) -> String {
+    let lead = if answered { "Bringing this question back up. Please say more or answer it again:" } else { "I haven't had an answer to this question yet. Please answer it:" };
+    format!("{lead}\n\n> {}", one_line(words))
 }
 
 impl Questions {
@@ -415,6 +427,7 @@ impl JobView {
             }
             None => div().child(small(token::STATUS_AWAITING_REVIEW).child("Not answered yet")),
         };
+        let nudges = self.nudge_buttons(page, job, one, look, cx);
         let (job, row) = (job.to_string(), one.row_id.clone());
         let card = div()
             .id(SharedString::from(format!("qa-row:{}", one.row_id)))
@@ -439,9 +452,70 @@ impl JobView {
             // His words' stripe, taking the card's inner left corner, since gpui clips to the rectangle and not the radius.
             .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
             .child(dot)
-            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(head).child(under))
+            .child(div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_1)).child(head).child(under).child(nudges))
             .on_click(cx.listener(move |this, _, window, cx| this.jump_to_answer(&job, &row, window, cx)));
         labelled(card, Role::Row, one_line(&one.words)).into_any_element()
+    }
+
+    /// Under each card: Nudge sends his question to the Job's agent again, Side chat asks it aside so the agent is not
+    /// interrupted. Both stop the press from jumping, and both take the keys as Jump does.
+    fn nudge_buttons(&self, page: &Page, job: &SharedString, one: &JobQuestion, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let small = |id: String, said: &str, tip_words: &'static str, focus: &FocusHandle| {
+            super::acts::button(look, SharedString::from(id), said, super::acts::Tone::Secondary, false, None, true)
+                .track_focus(focus)
+                .h(look.length(token::H_CONTROL_SM))
+                .px(look.length(token::SPACE_2))
+                .text_size(look.length(token::TEXT_XS))
+                .line_height(look.length(token::LEADING_XS))
+                .focus_visible(|button| button.border_color(look.color(token::ACCENT)))
+                .tooltip(tip(tip_words))
+        };
+        let sent = self.questions.nudged.contains(&one.row_id);
+        let nudge_id = format!("qa-nudge:{}", one.row_id);
+        let nudge_spot = page.keys.spot(&nudge_id, cx);
+        let side_id = format!("qa-side:{}", one.row_id);
+        let side_spot = page.keys.spot(&side_id, cx);
+        let (answered, words, row) = (one.answer.is_some(), one.words.clone(), one.row_id.clone());
+        let (nudge_job, side_words) = (job.to_string(), one.words.clone());
+        let (nudge_key, side_key) = ((nudge_job.clone(), words.clone(), row.clone()), side_words.clone());
+        let press = |this: &mut JobView, job: &str, words: &str, row: &str, answered: bool, window: &mut Window, cx: &mut Context<JobView>| {
+            let kept = row.to_string();
+            this.send_to_job(job.to_string(), nudge_message(words, answered), nudge_id_of(row), window, cx, move |this, _, cx| {
+                this.questions.nudged.insert(kept);
+                cx.notify();
+            });
+        };
+        let nudge = labelled(
+            small(nudge_id, if sent { "Nudged" } else { "Nudge" }, "Send this question to the agent again", &nudge_spot.focus)
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                        cx.stop_propagation();
+                        press(this, &nudge_key.0, &nudge_key.1, &nudge_key.2, answered, window, cx);
+                    }
+                }))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    press(this, &nudge_job, &words, &row, answered, window, cx);
+                })),
+            Role::Button,
+            "Nudge the agent about this question",
+        );
+        let side = labelled(
+            small(side_id, "Side chat", "Ask this aside, without interrupting the agent", &side_spot.focus)
+                .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                        cx.stop_propagation();
+                        this.open_side_chat(Some(side_key.clone()), window, cx);
+                    }
+                }))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    this.open_side_chat(Some(side_words.clone()), window, cx);
+                })),
+            Role::Button,
+            "Ask this question in the side chat",
+        );
+        div().flex().items_center().gap(look.length(token::SPACE_2)).child(nudge).child(side).into_any_element()
     }
 
     // ---- in the thread ---------------------------------------------------------------------
@@ -626,6 +700,13 @@ mod tests {
             asked_at: at.clone(),
             answer: answer.map(|(reply, read)| JobAnswer { reply_row: reply.into(), excerpt: "Yes.".into(), answered_at: at.clone(), read }),
         }
+    }
+
+    #[test]
+    fn a_nudge_quotes_his_question_and_says_whether_it_was_answered() {
+        assert!(nudge_message("What do\nI tell it?", false).ends_with("> What do I tell it?"));
+        assert!(nudge_message("Why?", false).starts_with("I haven't had an answer"));
+        assert!(nudge_message("Why?", true).starts_with("Bringing this question back up"));
     }
 
     #[test]

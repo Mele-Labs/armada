@@ -27,6 +27,9 @@ fn limit_of(path: &str) -> usize {
         "/sessions/dispatch" | "/sessions/message" | "/sessions/note" | "/sessions/notes" => {
             MOST_A_MESSAGE_MAY_BE
         }
+        "/other_macs/sessions" | "/other_macs/bug_reports" | "/other_macs/projects" | "/other_macs/event" => {
+            crate::other_macs::MOST_A_MAC_LIST_MAY_BE
+        }
         DOOR_PATH => 1024 * 1024,
         _ => THE_DEFAULT,
     }

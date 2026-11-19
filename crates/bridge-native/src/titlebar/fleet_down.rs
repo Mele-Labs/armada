@@ -412,6 +412,9 @@ impl TitleBar {
     pub(super) fn fleet_notices(&self) -> Vec<FleetNotice> {
         let fleet = &self.face.fleet;
         let swapping = self.face.build.as_ref().is_some_and(|held| held.report.swapping);
+        if matches!(fleet.connection, super::Connection::Connected { .. }) {
+            return slow_notice(crate::transport::slow()).into_iter().collect();
+        }
         if !matches!(fleet.connection, super::Connection::Unreachable { .. }) || !fleet.notice(swapping) {
             return Vec::new();
         }
@@ -426,3 +429,11 @@ impl TitleBar {
         }]
     }
 }
+
+/// Fleet's stream is up and its routes are not answering: one held notice, in place of a toast per request.
+pub(crate) fn slow_notice(slow: bool) -> Option<FleetNotice> {
+    slow.then(|| FleetNotice { id: SLOW_ID, headline: "Fleet is slow".into(), next: "Wait".into(), code: "slow", fault: false, act: None })
+}
+
+/// The id the toasts read to stop raising a toast for each timed-out request.
+pub(crate) const SLOW_ID: &str = "fleet-slow";

@@ -384,7 +384,7 @@ pub use features::{
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
-pub use features::{FloorDoor, FloorPlan, FloorRoom};
+pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
 pub use workflow_drafts::{DraftBy, DraftChange, PublishWorkflowDraft, PutWorkflowDraft, WorkflowDraft, WorkflowDraftDiscarded, WorkflowPublished};
@@ -410,13 +410,13 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, CheckoutBlocked, ClearBlocked, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
+    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, RefreshClaim, RefreshClaimSent, SnapshotState, UpdateMac,
 };
 pub use preview::{
     BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, NoteVerdict, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview, OfferApproved, PICTURES_AT_MOST, ThreadReadyToTry, ReadyApproved,
-    ReadyState, AnswerReadyToTry, ReadyAnswer,
+    ReadyState, AnswerReadyToTry, ReadyAnswer, OtherMacPreviewOffers, PreviewLeftOut,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,

@@ -3,7 +3,7 @@
 
 use axum::body::Bytes;
 use axum::extract::ws::{WebSocket, WebSocketUpgrade};
-use axum::extract::{Query, State};
+use axum::extract::{DefaultBodyLimit, Query, State};
 use axum::http::StatusCode;
 use axum::response::{IntoResponse, Response};
 use axum::routing::{get, post, put};
@@ -17,13 +17,20 @@ use crate::served::Served;
 use crate::sockets::{resync, send};
 use crate::stream::Next;
 
+/// The most a list handed in from another Mac may weigh: that Mac's whole list of Jobs, projects or reports, or one
+/// event, which carries a Job's row whole. **Its every attachment rides in a Job's row**, so on 19 Nov one Mac's
+/// Job list was 5 MB, past axum's 2 MB default, and nothing after it crossed.
+pub(crate) const MOST_A_MAC_LIST_MAY_BE: usize = 64 * 1024 * 1024;
+
 pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))
+        .route("/other_mac/preview_offers", get(share_preview_offers::<D>))
         .route("/other_mac/projects", get(share_projects::<D>))
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
         .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
+        .route("/other_mac/refresh_claim", post(hold_refresh_claim::<D>))
         .route("/other_mac/conversation", get(crate::mac_acts::share_job_conversation::<D>))
         .route("/sessions/move_to_mac", post(crate::mac_acts::move_job_to_mac::<D>))
         .route("/queued", get(crate::mac_acts::list_queued::<D>))
@@ -32,10 +39,11 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_mac/thread", get(share_job_thread::<D>))
         .route("/other_mac/page", get(share_job_page::<D>))
         .route("/sessions/other_mac_page", post(open_other_mac_page::<D>))
-        .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>))
-        .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>))
-        .route("/other_macs/projects", put(hold_other_mac_projects::<D>))
-        .route("/other_macs/event", post(hold_other_mac_event::<D>))
+        .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/bug_reports", put(hold_other_mac_bug_reports::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/preview_offers", put(hold_other_mac_preview_offers::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/projects", put(hold_other_mac_projects::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
+        .route("/other_macs/event", post(hold_other_mac_event::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
         .route("/other_macs/forget", post(forget_other_mac::<D>))
         .route("/other_macs/claims", put(hold_mac_claims::<D>))
         .merge(crate::mac_terminals::mounted::<D>())
@@ -55,6 +63,13 @@ async fn share_bug_reports<D: OtherMacs>(State(served): State<Served<D>>) -> Res
     }
 }
 
+async fn share_preview_offers<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().share_preview_offers().await {
+        Ok(offers) => answer(StatusCode::OK, &offers, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 async fn share_projects<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
     match served.daemon().share_projects().await {
         Ok(projects) => answer(StatusCode::OK, &projects, served.run_id()),
@@ -69,6 +84,22 @@ async fn project_act_from_mac<D: OtherMacs>(State(served): State<Served<D>>, bod
     };
     match served.daemon().project_act_from_mac(sent).await {
         Ok(projects) => answer(StatusCode::OK, &projects, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `POST /other_mac/refresh_claim`: the Refresh the Mac named in `x-armada-mac` has under way, or word it ended.
+async fn hold_refresh_claim<D: OtherMacs>(State(served): State<Served<D>>, headers: axum::http::HeaderMap, body: Bytes) -> Response {
+    let sent: ipc::RefreshClaimSent = match ipc::decode_body("a Refresh another Mac has under way", &body) {
+        Ok(sent) => sent,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let named = headers.get(crate::acting::MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    let Some(mac) = named else {
+        return undecodable("a Refresh another Mac has under way names the Mac in x-armada-mac", served.run_id());
+    };
+    match served.daemon().hold_refresh_claim(mac.to_string(), sent).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(refusal) => refused(refusal),
     }
 }
@@ -175,6 +206,17 @@ async fn hold_other_mac_bug_reports<D: OtherMacs>(State(served): State<Served<D>
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.daemon().hold_other_mac_bug_reports(held).await {
+        Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn hold_other_mac_preview_offers<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::OtherMacPreviewOffers = match ipc::decode_body("another Mac's preview offers", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().hold_other_mac_preview_offers(held).await {
         Ok(mac) => answer(StatusCode::OK, &mac, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -8,5 +8,7 @@ Carries `PreviewOffers` itself, the answer to `get_preview_offers`, for `write_c
 
 **Fleet publishes it when the answer differs from the one last sent**: an offer made, withdrawn or dropped, a check finished, the running build changed, a Refresh skipped. The first answer after Fleet starts is always sent.
 
+To another Mac it crosses cut, as `share_preview_offers` lists it: only this Mac's own ready offers that are on origin. The other Mac keeps them through `hold_other_mac_event` and does not publish them as its own.
+
 A resync does not carry it. A Bridge that missed one, or reconnects, reads `get_preview_offers` again on the resync that follows a `Missed`.
 """

@@ -31,6 +31,7 @@ fn a_build_with_nothing_to_say_carries_only_where_it_runs() {
         origin: Vec::new(),
         holds: Vec::new(),
         blocked: None,
+        refresh: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(json, r#"{"on":"main"}"#);
@@ -65,6 +66,7 @@ fn a_full_report_round_trips() {
         origin: Vec::new(),
         holds: Vec::new(),
         blocked: None,
+        refresh: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert!(json.contains(r#""on":"preview""#), "{json}");
@@ -111,6 +113,7 @@ fn the_kept_builds_cross_as_they_are_named_and_what_is_empty_leaves_no_key() {
         origin: Vec::new(),
         holds: Vec::new(),
         blocked: None,
+        refresh: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(
@@ -180,6 +183,7 @@ fn the_snapshot_crosses_as_it_is_named_and_what_is_empty_leaves_no_key() {
         origin: Vec::new(),
         holds: Vec::new(),
         blocked: None,
+        refresh: None,
     };
     let json = encode(&report).expect("a report is plain data");
     assert_eq!(
@@ -266,6 +270,7 @@ fn a_stage_crosses_as_a_snake_case_word_and_round_trips() {
             origin: Vec::new(),
             holds: Vec::new(),
             blocked: None,
+            refresh: None,
         };
         let json = encode(&report).expect("a report is plain data");
         assert!(json.contains(&format!(r#""stage":"{word}""#)), "{json}");

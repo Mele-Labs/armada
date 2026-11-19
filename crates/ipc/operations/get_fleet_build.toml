@@ -28,5 +28,7 @@ notes = """
 
 **`blocked` is a checkout whose `main` cannot fast-forward**: `{behind, files}`, present only where the checkout is on `main`, `behind` commits short of `origin/main` as last fetched, and holding untracked files (`git ls-files --others --exclude-standard`) that `origin/main` tracks, which git will not overwrite. `files` are relative to the checkout and sorted. Local refs only. `change_fleet_build`'s `clear` stashes or removes them and fast-forwards `main`. Since 16 Nov 2026.
 
+**`refresh` is a Refresh of both Macs that one of them pressed and that has not ended**: `{mac, name, stage?, at}`, the pressing Mac's id and name, where its restart has got to and when it was pressed. This Mac's own, with `mac` itself, while its wrapper works: `stage` follows the status file's third line, and it goes when the build ends, fails or its status is twenty minutes old, `failed` keeping the line as it does. Else the latest claim another Mac told this Mac of with `hold_refresh_claim`, in memory only, which lapses after twenty quiet minutes. Absent where none stands. It is additional: `restarting` and `stage` say only what this Mac's own restart is doing. Since 19 Nov 2026.
+
 No event. A build changes when a Fleet restarts, and Bridge reads this again on every connection and on a minute's interval.
 """

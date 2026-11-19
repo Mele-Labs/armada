@@ -6,7 +6,9 @@ use std::collections::HashMap;
 use std::future::Future;
 use std::time::Duration;
 
-use ipc::{BugReports, Event, OtherMacBugReports, OtherMacEvent, OtherMacProjects, OtherMacSessions, Projects, SessionList, StreamMessage};
+use ipc::{
+    BugReports, Event, OtherMacBugReports, OtherMacEvent, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, PreviewOffers, Projects, SessionList, StreamMessage,
+};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use tokio::task::JoinHandle;
@@ -176,9 +178,11 @@ impl Link<'_> {
         frozen_with(self.gateway, self.mac).is_some()
     }
 
+    /// Projects first, so a Job list this Fleet turns away cannot keep the projects from crossing.
     async fn both(&self) -> Result<(), String> {
-        self.sessions().await?;
         self.projects().await?;
+        self.sessions().await?;
+        self.preview_offers().await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })
             .await
@@ -205,6 +209,23 @@ impl Link<'_> {
         let projects: Projects = ipc::decode("a project list", &came.body)
             .map_err(|_| format!("{} sent a project list this Mac cannot read. Update Armada on both.", self.name))?;
         self.hand("PUT", "/other_macs/projects", &OtherMacProjects { mac: self.mac.to_string(), projects: projects.projects }).await
+    }
+
+    /// The other Mac's ready offers for the preview. **A Mac on a build from before they were shared answers 404**,
+    /// and the link stays up without them.
+    async fn preview_offers(&self) -> Result<(), String> {
+        let came = signed_whole(self.gateway, self.mac, self.address, "GET", "/api/mac/preview_offers", None)
+            .await
+            .map_err(|why| format!("{} could not be reached: {why}", self.name))?;
+        if came.status == 404 {
+            return Ok(());
+        }
+        if !came.ok() {
+            return Err(format!("{} answered {}: {}", self.name, came.status, came.sentence()));
+        }
+        let offers: PreviewOffers = ipc::decode("a preview offer list", &came.body)
+            .map_err(|_| format!("{} sent a preview offer list this Mac cannot read. Update Armada on both.", self.name))?;
+        self.hand("PUT", "/other_macs/preview_offers", &OtherMacPreviewOffers { mac: self.mac.to_string(), offers: offers.offers }).await
     }
 
     async fn event(&self, event: Event) -> Result<(), String> {
@@ -255,6 +276,7 @@ pub fn send_other_mac(
             "/other_mac/project_act" => "/api/mac/project_act",
             "/other_mac/act" => "/api/mac/act",
             "/other_mac/update" => "/api/mac/update",
+            "/other_mac/refresh_claim" => "/api/mac/refresh_claim",
             "/other_mac/terminal" => "/api/mac/terminal",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };
