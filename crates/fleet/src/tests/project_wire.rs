@@ -344,6 +344,27 @@ async fn two_jobs_one_ended_move_into_a_project_made_later_and_each_is_published
     assert!(projects.is_empty(), "the project held the repository already, so its members did not change");
 }
 
+/// One shared project across his Macs (19 Nov): a Job of this Mac moves into the copy of the other Mac's, as a merge
+/// moves it, and is shared with that Mac from then. The copy's members are that Mac's to change, so a Job whose
+/// repository the copy does not list is refused here.
+#[tokio::test]
+async fn a_job_moves_into_a_copy_of_another_macs_project_that_lists_its_repository() {
+    let rig = a_rig();
+    let job = rig.fleet.start_session(start(&rig, "Ship it", Vec::new())).await.expect("started");
+    let mut copy = ipc::Project { id: "p-armada-home".into(), name: "Armada".into(), shared_with_macs: true, members: vec![whole(&rig.manifest())], ..Default::default() };
+    rig.fleet.copies_replaced("mac-home", vec![copy.clone()]).await.expect("held");
+
+    rig.fleet.set_session_project(move_into(&[&job.id], Some("p-armada-home"))).await.expect("moved into the copy");
+
+    assert_eq!(project_of(&rig, &job.id).await.as_deref(), Some("p-armada-home"));
+    assert!(rig.fleet.job_shared(job.id.as_str()).await, "a Job in a copy is shared with the Mac that holds it");
+
+    copy.members = vec![whole("some-other-repository")];
+    rig.fleet.copies_replaced("mac-home", vec![copy]).await.expect("held");
+    let refused = rig.fleet.set_session_project(move_into(&[&job.id], Some("p-armada-home"))).await.expect_err("not a member there");
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.project_copy_not_member"));
+}
+
 #[tokio::test]
 async fn a_jobs_repository_the_project_does_not_hold_becomes_a_whole_member_and_projects_changed_is_published() {
     let rig = a_rig();

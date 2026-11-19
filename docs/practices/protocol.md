@@ -179,6 +179,7 @@ WebSocket event stream, read this first.
 | [What the burn was spent on](protocol/what-the-burn-was-spent-on.md) |
 | [The waste in the burn](protocol/the-waste-in-the-burn.md) |
 | [Settings that change the burn](protocol/settings-that-change-the-burn.md) |
+| [A Job's burn over time](protocol/a-jobs-burn-over-time.md) |
 | [Where a Job's time went](protocol/where-a-jobs-time-went.md) |
 | [A question kept whole: the `kept` ask state](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |

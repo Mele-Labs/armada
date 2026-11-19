@@ -49,19 +49,32 @@ pub fn standing<'a>(jobs: impl IntoIterator<Item = &'a SessionRecord>) -> Standi
     found.map_or(Standing::Mixed, Standing::In)
 }
 
+/// A copy this Mac holds of another Mac's shared project, as the picker lists it: the project with its repositories
+/// here, and the name of the Mac that holds it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Copied {
+    pub project: ProjectRepositories,
+    pub from: String,
+}
+
 /// The picker's rows: the field that finds a project, each of his projects with its repositories on a line under
-/// the name, then No project. The row every Job already stands in is ticked.
-pub fn entries(projects: &[ProjectRepositories], standing: &Standing) -> Vec<Entry> {
+/// the name, then the copies of another Mac's projects with that Mac named on the line, then No project. The row
+/// every Job already stands in is ticked.
+pub fn entries(projects: &[ProjectRepositories], copies: &[Copied], standing: &Standing) -> Vec<Entry> {
     let ticked = |project: Option<&str>| matches!(standing, Standing::In(held) if held.as_deref() == project);
     let mut entries = vec![Entry::Search { label: "Find a project", to_rule: false }];
-    for (project, repositories) in projects {
+    let own = projects.iter().map(|one| (one, None));
+    let away = copies.iter().map(|one| (&one.project, Some(one.from.as_str())));
+    for ((project, repositories), from) in own.chain(away) {
         let row = Row::new(id_of(format!("project:{}", project.id)), project.name.clone()).icon("layers").ticked(ticked(Some(project.id.as_ref())));
-        let row = if repositories.is_empty() {
-            row
-        } else {
-            row.under(repositories.iter().map(SharedString::as_ref).collect::<Vec<&str>>().join(", "))
-        };
-        entries.push(Entry::Row(row));
+        let mut under = repositories.iter().map(SharedString::as_ref).collect::<Vec<&str>>().join(", ");
+        if let Some(mac) = from {
+            if !under.is_empty() {
+                under.push_str(" · ");
+            }
+            under.push_str(&format!("from {mac}"));
+        }
+        entries.push(Entry::Row(if under.is_empty() { row } else { row.under(under) }));
     }
     entries.push(Entry::Row(Row::new(NONE, "No project").icon("git-branch").ticked(ticked(None))));
     entries
@@ -73,7 +86,7 @@ pub fn project_of(row: &str) -> Option<Option<String>> {
     Some((!id.is_empty()).then(|| id.to_string()))
 }
 
-/// His projects as the title bar holds them, each with its repositories. Mock data has the bar's scene when a
+/// His own projects as the title bar holds them, each with its repositories. Mock data has the bar's scene when a
 /// walk draws one, else the mock's own projects.
 pub fn projects(mock: bool, cx: &App) -> Vec<ProjectRepositories> {
     if let Some(bar) = crate::titlebar::live(cx) {
@@ -86,6 +99,26 @@ pub fn projects(mock: bool, cx: &App) -> Vec<ProjectRepositories> {
     let served = crate::mock::repositories();
     let repositories = crate::titlebar::repositories_of(&served, &[]);
     projects_of(&crate::titlebar::projects_of(&served, &crate::mock::projects()), &repositories)
+}
+
+/// The copies of another Mac's projects the title bar holds, each with the name of the Mac that holds it. A Mac the
+/// list does not know is said as another Mac.
+pub fn copies(cx: &App) -> Vec<Copied> {
+    let Some(bar) = crate::titlebar::live(cx) else {
+        return Vec::new();
+    };
+    let face = &bar.read(cx).face;
+    copied(&face.copies, &face.repositories, crate::pairing::macs(cx))
+}
+
+/// [`copies`] from what it reads.
+fn copied(copies: &[crate::titlebar::ProjectCopy], repositories: &[crate::titlebar::Repository], macs: &[ipc::Mac]) -> Vec<Copied> {
+    let projects: Vec<crate::titlebar::Project> = copies.iter().map(|one| one.project.clone()).collect();
+    projects_of(&projects, repositories)
+        .into_iter()
+        .zip(copies)
+        .map(|(project, one)| Copied { project, from: crate::job_view::name_of(macs, &one.mac, false) })
+        .collect()
 }
 
 /// What is posted to `/sessions/project`: `SetSessionProject`, with none for the project that takes the Jobs out.
@@ -160,7 +193,7 @@ mod tests {
 
     #[test]
     fn the_picker_finds_projects_lists_each_with_its_repositories_and_ends_on_no_project() {
-        let entries = entries(&held(), &Standing::Mixed);
+        let entries = entries(&held(), &[], &Standing::Mixed);
         assert!(matches!(entries.first(), Some(Entry::Search { label: "Find a project", .. })));
         assert_eq!(
             rows(&entries),
@@ -176,9 +209,61 @@ mod tests {
         assert_eq!(glyphs, vec![Some("layers"), Some("layers"), Some("layers"), Some("git-branch")]);
     }
 
+    fn copy(id: &str, name: &str, mac: &str, members: Vec<crate::titlebar::Member>) -> crate::titlebar::ProjectCopy {
+        crate::titlebar::ProjectCopy {
+            mac: mac.to_string().into(),
+            project: crate::titlebar::Project { id: id.to_string().into(), name: name.to_string().into(), members, tracker: None, kept: None, look: None },
+        }
+    }
+
+    fn macs() -> Vec<ipc::Mac> {
+        let mac = |id: &str, name: &str, this_mac: bool| ipc::Mac { id: id.into(), name: name.into(), this_mac, ..Default::default() };
+        vec![mac("mac-here", "Studio", true), mac("mac-pro", "Nicks-MacBook-Pro-2026", false)]
+    }
+
+    #[test]
+    fn a_copy_is_listed_after_his_own_projects_with_its_mac_named_and_ticks_for_a_job_in_it() {
+        let served = crate::mock::repositories();
+        let repositories = crate::titlebar::repositories_of(&served, &[]);
+        let copies = vec![
+            copy("armada-pro", "Armada", "mac-pro", vec![crate::titlebar::Member { repository: 0, folder: None }]),
+            copy("lost", "Lost", "mac-gone", Vec::new()),
+        ];
+        let copies = copied(&copies, &repositories, &macs());
+        assert_eq!(copies[0].from, "Nicks-MacBook-Pro-2026");
+        assert_eq!(copies[1].from, "another Mac", "a Mac the list does not know");
+        let entries = entries(&held(), &copies, &Standing::In(Some("armada-pro".into())));
+        let listed = rows(&entries);
+        let first = &repositories[0].name;
+        assert_eq!(
+            listed[3..],
+            [
+                ("project:armada-pro", "Armada".into(), Some(format!("{first} · from Nicks-MacBook-Pro-2026")), Some(true)),
+                ("project:lost", "Lost".into(), Some("from another Mac".into()), Some(false)),
+                ("project:", "No project".into(), None, Some(false)),
+            ],
+            "copies follow his own, a copy with no repository here is still listed, and No project stays last"
+        );
+        let glyphs: Vec<Option<&str>> = entries.iter().filter_map(|entry| match entry { Entry::Row(row) => Some(row.icon), _ => None }).collect();
+        assert_eq!(glyphs[3], Some("layers"));
+    }
+
+    #[test]
+    fn the_switcher_still_leaves_a_copy_out() {
+        let served = crate::mock::repositories();
+        let mut read = crate::mock::projects();
+        let mut other = read.projects[0].clone();
+        (other.id, other.mac) = ("armada-pro".to_string(), Some("mac-pro".to_string()));
+        read.projects.push(other);
+        let switcher: Vec<String> = crate::titlebar::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
+        assert!(!switcher.contains(&"armada-pro".to_string()), "the switcher cannot scope the window to a copy");
+        let copies: Vec<String> = crate::titlebar::copies_of(&served, &read).iter().map(|one| one.project.id.to_string()).collect();
+        assert_eq!(copies, vec!["armada-pro".to_string()]);
+    }
+
     #[test]
     fn the_row_every_job_stands_in_is_ticked() {
-        let ticked = |standing: Standing| rows(&entries(&held(), &standing)).into_iter().filter(|row| row.3 == Some(true)).map(|row| row.0).collect::<Vec<_>>();
+        let ticked = |standing: Standing| rows(&entries(&held(), &[], &standing)).into_iter().filter(|row| row.3 == Some(true)).map(|row| row.0).collect::<Vec<_>>();
         assert_eq!(ticked(Standing::In(Some("storefront".into()))), vec!["project:storefront"]);
         assert_eq!(ticked(Standing::In(None)), vec!["project:"], "Jobs in no project tick No project");
         assert!(ticked(Standing::Mixed).is_empty());

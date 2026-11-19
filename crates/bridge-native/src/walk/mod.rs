@@ -401,6 +401,13 @@ static EDGE: [Step; total(EDGE_PARTS)] = joined(EDGE_PARTS);
 /// Every walk this build can play, by name.
 pub static WALKS: &[Walk] = &[
     Walk {
+        name: "usage",
+        title: "Usage: where the burn was wasted, kind by kind",
+        screen: Screen::Reviews,
+        scenario: "usage-week",
+        steps: &crate::usage_page::walk::STEPS,
+    },
+    Walk {
         name: "kit",
         title: "Kit: the setup you work with, kind by kind",
         screen: Screen::Reviews,
@@ -1009,6 +1016,28 @@ pub static WALKS: &[Walk] = &[
             in_page("What was pressed stands: Discuss is green", "status", "Sent to the Job: Discuss", None, false),
             in_page("and the score is drawn as it was cast", "radio", "Drop", Some(("radiogroup", "author of Compact row")), false),
             step("The toast opens the Job the page started", Verb::PressOn("button", "Stale branch design started Retry webhooks on a 503"), "row", "Thread: Retry webhooks on a 503"),
+        ],
+    },
+    Walk {
+        name: "native-page-scripts",
+        title: "A Job's page runs its own script, which cannot press for him",
+        screen: Screen::JobsInApp,
+        scenario: "page-scripts",
+        steps: &[
+            press_on("A Job that owes you a page whose own script tries to press Rebase it", "row", "Quiet the write-clash notices", "button", "Needs you"),
+            press_on("The page opens in its own tab, and its script runs", "button", "Needs you", "region", "Page"),
+            in_page("The page's own script ran", "status", "The page's own script ran", None, false),
+            in_page("It finds no handler of the kit's in its world, so its post goes nowhere", "status", "found no handler", None, false),
+            in_page("It has no peer connection to reach the network with", "status", "has no peer connection", None, false),
+            in_page("It pressed Rebase it with click() and with ⌘↵", "status", "pressed Rebase it", None, false),
+            step("A second goes by", Verb::Later(1000), "region", "Page"),
+            // A toast waits while he reads the page alone (`toasts::reading`), so the page is left before looking for one.
+            step("Esc puts the page away", Verb::Key("escape"), "button", "Needs you"),
+            step("and no Job started: nothing the page did reached Fleet", Verb::Absent("button", "Stale branch design started Retry webhooks on a 503"), "button", "Needs you"),
+            press_on("Open again, its script runs again", "button", "Needs you", "region", "Page"),
+            in_page("His own press on Rebase it does", "button", "Rebase it", None, true),
+            in_page("Fleet's answer reaches the kit: the row says the Job it started", "status", "started Job", None, false),
+            step("and once the page is put away, a toast says it too", Verb::Key("escape"), "button", "Stale branch design started Retry webhooks on a 503"),
         ],
     },
     Walk {
@@ -2203,6 +2232,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Marks,
         scenario: "jobs-handoff",
         steps: &HANDOFF,
+    },
+    Walk {
+        name: "job-tokens",
+        title: "A Job's tokens from start to finish",
+        screen: Screen::Marks,
+        scenario: "jobs-many",
+        steps: &crate::job_tokens::walk::STEPS,
     },
     Walk {
         name: "strip-marks",

@@ -343,3 +343,70 @@ async fn a_thread_of_a_job_held_from_another_mac_is_read_through_the_link() {
     Arc::clone(&rig.fleet).get_job_thread(read(&mine)).await.expect("this Mac's own thread");
     assert_eq!(link.asked.lock().expect("not poisoned").len(), 2, "this Mac's own Job is read here");
 }
+
+#[tokio::test]
+async fn the_artifacts_of_a_job_held_from_another_mac_are_read_through_the_link() {
+    let rig = rig_placing(None);
+    let mine = job_in(&rig, None).await;
+    let scene = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
+    let drawn = format!(r#"{{"title":"Request flow","session_id":"{}","scene":{scene}}}"#, mine.as_str());
+    rig.fleet.show_sketch(None, ipc::decode("a sketch to show", drawn.as_bytes()).expect("a sketch")).await.expect("drawn");
+    let kept = rig.fleet.get_job_artifacts(mine.clone()).await.expect("this Mac's own list");
+    assert_eq!(kept.len(), 1);
+    let template = record_of(&rig, &mine).await;
+    hold(&rig, vec![theirs(&template, "01WORKA", "Fix the sync")]).await;
+    let link = Arc::new(Link { asked: Mutex::new(Vec::new()), answer: Mutex::new((200, ipc::encode(&kept).expect("encodes").into_bytes())) });
+    rig.fleet.switching_phone_with(Arc::clone(&link) as Arc<dyn PhoneSwitch>);
+    let held = SessionId::carried("01WORKA");
+
+    let listed = rig.fleet.get_job_artifacts(held.clone()).await.expect("read through the link");
+    assert_eq!(listed, kept, "what Work lists is what Bridge is given");
+
+    let page = ipc::ArtifactPageShared { revision: 2, html: "<html>sealed</html>".into(), policy: "default-src 'none'".into() };
+    *link.answer.lock().expect("not poisoned") = (200, ipc::encode(&page).expect("encodes").into_bytes());
+    let sealed = rig.fleet.get_artifact_page(held.clone(), "/doc/lease.html".into(), Some(2)).await.expect("the page, through the link");
+    assert_eq!((sealed.revision, sealed.html.as_str(), sealed.policy.as_str()), (2, "<html>sealed</html>", "default-src 'none'"));
+    let asked = link.asked.lock().expect("not poisoned").clone();
+    assert_eq!(
+        asked,
+        [
+            (WORK.to_string(), "/other_mac/artifacts?session_id=01WORKA".to_string()),
+            (WORK.to_string(), "/other_mac/artifact_page?session_id=01WORKA&artifact=%2Fdoc%2Flease.html&revision=2".to_string()),
+        ]
+    );
+
+    let theirs = WireError::raised("fleet.artifact_not_held", "this job holds no artifact `/doc/lease.html`.", ipc::RunId::carried("01THEIRRUN"));
+    *link.answer.lock().expect("not poisoned") = (422, ipc::encode(&theirs).expect("encodes").into_bytes());
+    let refused = rig.fleet.get_artifact_page(held, "/doc/lease.html".into(), None).await.expect_err("refused there");
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.artifact_not_held"), "what Work refuses is passed on");
+
+    assert_eq!(rig.fleet.get_job_artifacts(mine).await.expect("own"), kept);
+    assert_eq!(link.asked.lock().expect("not poisoned").len(), 3, "this Mac's own Job is read here");
+}
+
+#[tokio::test]
+async fn a_jobs_artifacts_go_out_only_for_a_shared_job_and_are_refused_as_for_no_job() {
+    let rig = rig_placing(None);
+    let shop = project(&rig, "Shop").await;
+    project(&rig, "Yard").await;
+    let in_shop = job_in(&rig, Some(&shop)).await;
+    let in_none = job_in(&rig, None).await;
+    let nobody = SessionId::carried("01NOSUCHJOB0000000000000000");
+    let missing = rig.fleet.share_job_artifacts(nobody.clone()).await.expect_err("no such Job");
+    let missing_page = rig.fleet.share_job_artifact_page(nobody.clone(), "/a.html".into(), None).await.expect_err("no such Job");
+    assert_eq!((missing.status(), missing.error().code.as_str()), (404, "fleet.no_such_session"));
+
+    for job in [&in_shop, &in_none] {
+        let refused = rig.fleet.share_job_artifacts(job.clone()).await.expect_err("not shared");
+        assert_eq!(said(&refused, job.as_str()), said(&missing, nobody.as_str()), "refused as a Job that does not exist");
+        let refused = rig.fleet.share_job_artifact_page(job.clone(), "/a.html".into(), None).await.expect_err("not shared");
+        assert_eq!(said(&refused, job.as_str()), said(&missing_page, nobody.as_str()));
+    }
+
+    shared(&rig, &shop, true).await;
+    assert!(rig.fleet.share_job_artifacts(in_shop.clone()).await.expect("a shared Job's list").is_empty());
+    let refused = rig.fleet.share_job_artifact_page(in_shop, "/a.html".into(), None).await.expect_err("it holds no such page");
+    assert_eq!((refused.status(), refused.error().code.as_str()), (422, "fleet.artifact_not_held"), "past the share filter, the page's own refusal");
+    let refused = rig.fleet.share_job_artifacts(in_none.clone()).await.expect_err("still none");
+    assert_eq!(said(&refused, in_none.as_str()), said(&missing, nobody.as_str()));
+}

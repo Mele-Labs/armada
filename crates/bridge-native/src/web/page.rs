@@ -379,7 +379,7 @@ impl WebPage {
         match (&self.native, &source) {
             (Some(native), Source::Url(url)) => native.load_url(url),
             (Some(native), Source::File(path)) => native.load_file(path),
-            (Some(native), Source::Sealed(html)) => native.load_html(html),
+            (Some(native), Source::Sealed(html)) => native.load_html(&no_prefetch(html)),
             (None, _) => {}
         }
         self.status = if self.native.is_some() { Status::Loading } else { Status::Absent };
@@ -439,8 +439,8 @@ impl WebPage {
         rx
     }
 
-    /// Runs `script` in the page's own world, as the host answers the kit (`window.armadaHost`). The channel closes once it
-    /// has run, or at once where there is no page yet.
+    /// Runs `script` in the kit's world, as the host answers the kit (`window.armadaHost`). The channel closes once it has
+    /// run, or at once where there is no page yet.
     pub fn tell(&self, script: &str) -> async_channel::Receiver<()> {
         let (tx, rx) = async_channel::bounded(1);
         if let Some(native) = &self.native {
@@ -594,6 +594,18 @@ impl WebPage {
     }
 }
 
+/// `html` with DNS prefetching off, first in its head: a link's host is looked up before anyone follows it, and the page's
+/// policy does not govern the lookup.
+fn no_prefetch(html: &str) -> String {
+    const OFF: &str = "<meta http-equiv=\"x-dns-prefetch-control\" content=\"off\">";
+    let lower = html.to_ascii_lowercase();
+    let head = lower.match_indices("<head").find(|(at, _)| lower.as_bytes().get(at + 5).is_some_and(|byte| byte.is_ascii_whitespace() || *byte == b'>'));
+    match head.and_then(|(at, _)| lower[at..].find('>').map(|end| at + end + 1)) {
+        Some(after) => format!("{}{OFF}{}", &html[..after], &html[after..]),
+        None => format!("{OFF}{html}"),
+    }
+}
+
 /// Whether a clip takes more than a point off the element's bounds.
 fn clipped(bounds: Bounds<Pixels>, visible: Bounds<Pixels>) -> bool {
     bounds.size.width - visible.size.width > px(1.) || bounds.size.height - visible.size.height > px(1.)
@@ -697,7 +709,14 @@ pub fn web_pane(page: &Entity<WebPage>) -> impl IntoElement + Styled {
 mod tests {
     use gpui::{bounds, point, px, size};
 
-    use super::clipped;
+    use super::{clipped, no_prefetch};
+
+    #[test]
+    fn a_sealed_page_turns_dns_prefetching_off_first_in_its_head() {
+        let off = "<meta http-equiv=\"x-dns-prefetch-control\" content=\"off\">";
+        assert_eq!(no_prefetch("<!doctype html><html><HEAD lang=en><meta charset=utf-8></head><header>x</header></html>"), format!("<!doctype html><html><HEAD lang=en>{off}<meta charset=utf-8></head><header>x</header></html>"));
+        assert_eq!(no_prefetch("<header>no head</header>"), format!("{off}<header>no head</header>"), "a <header> is not the head");
+    }
 
     #[test]
     fn a_page_a_scrolling_parent_cuts_is_clipped_and_one_it_shows_whole_is_not() {

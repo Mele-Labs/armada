@@ -270,6 +270,11 @@ const ROUTES: &[Route] = &[
         path: "/usage/adjustments",
     },
     Route {
+        operation: "get_job_timeline",
+        method: "GET",
+        path: "/usage/job_timeline",
+    },
+    Route {
         operation: "get_usage_time",
         method: "GET",
         path: "/usage/time",

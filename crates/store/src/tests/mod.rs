@@ -59,6 +59,7 @@ mod usage_summary;
 mod usage_spent;
 mod usage_adjust;
 mod usage_waste;
+mod usage_job_timeline;
 mod session_plan;
 mod session_focus;
 mod session_gates;

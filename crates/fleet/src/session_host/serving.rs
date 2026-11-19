@@ -539,6 +539,10 @@ where
     }
 
     async fn get_job_artifacts(&self, id: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        // A Job held from another Mac keeps its artifacts there; they are read from that Mac's Fleet each time, as its thread is.
+        if let Some(mac) = self.mac_holding(id.as_str()).await {
+            return self.artifacts_from_other_mac(&mac, &id).await;
+        }
         // A failure here leaves the mocks as they were; `job_artifacts` says what is wrong with the Job.
         self.old_mocks_styled(id.as_str()).await.ok();
         self.job_artifacts(id.as_str()).await
@@ -586,6 +590,9 @@ where
     }
 
     async fn get_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        if let Some(mac) = self.mac_holding(id.as_str()).await {
+            return self.artifact_page_from_other_mac(&mac, &id, &artifact, revision).await;
+        }
         self.artifact_page(id.as_str(), &artifact, revision).await
     }
 
@@ -596,6 +603,10 @@ where
             servers: super::mcp_servers::on_wire(acted.servers),
             sign_in: acted.sign_in.map(|sign_in| ipc::McpSignIn { url: sign_in.url, callback_expected: sign_in.callback_expected }),
         })
+    }
+
+    async fn get_hosted_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<api::SealedPage, Refusal> {
+        self.hosted_artifact_page(id.as_str(), &artifact, revision).await
     }
 
     async fn mend_session_tools(self: Arc<Self>, asked: ipc::MendSessionTools) -> Result<SessionRecord, Refusal> {

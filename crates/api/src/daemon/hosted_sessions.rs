@@ -517,6 +517,15 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::ActOnSessionMcp,
     ) -> impl Future<Output = Result<ipc::SessionMcpActed, Refusal>> + Send;
 
+    /// `get_artifact_page` with `?host_kit=true`: the page as [`HostedSessions::get_artifact_page`] seals it, but its
+    /// own inline scripts run and the kit's script is left out, for a host that draws the kit itself.
+    fn get_hosted_artifact_page(
+        &self,
+        id: SessionId,
+        artifact: String,
+        revision: Option<u32>,
+    ) -> impl Future<Output = Result<SealedPage, Refusal>> + Send;
+
     /// `mend_session_tools`: fills Fleet's copy of the mod and restarts the Job's process, which
     /// resumes the conversation with the lines it had not finished. Answers once the restart is
     /// under way.

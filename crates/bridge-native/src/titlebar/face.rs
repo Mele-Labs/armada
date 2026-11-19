@@ -799,25 +799,43 @@ fn place_of(place: &ProjectPlace) -> RunsPlace {
 /// repository for is left out of its project. **A copy of another Mac's project is left out**: Fleet answers a
 /// project-scoped read only for a project it keeps itself, so scoping the window to a copy ends in `fleet.no_such_project`.
 pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
+    read.projects.iter().filter(|one| one.unread.is_none() && one.mac.is_none()).map(|one| project_of(served, one)).collect()
+}
+
+/// A copy of another Mac's shared project, with the id of the Mac that holds it. Only the move picker lists these:
+/// the switcher cannot scope the window to one.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ProjectCopy {
+    pub mac: SharedString,
+    pub project: Project,
+}
+
+/// The copies this Mac holds of another Mac's projects, in Fleet's order. A copy whose members map to no repository
+/// served here is kept, with no members.
+pub fn copies_of(served: &[RepositorySummary], read: &Projects) -> Vec<ProjectCopy> {
     read.projects
         .iter()
-        .filter(|one| one.unread.is_none() && one.mac.is_none())
-        .map(|one| Project {
-            id: one.id.clone().into(),
-            name: one.name.clone().into(),
-            members: one
-                .members
-                .iter()
-                .filter_map(|member| {
-                    let repository = served.iter().position(|each| manifest_of(each) == Some(&member.manifest_id))?;
-                    Some(Member { repository, folder: member.folder.clone().map(SharedString::from) })
-                })
-                .collect(),
-            tracker: None,
-            kept: Some(place_of(&one.place)),
-            look: None,
-        })
+        .filter(|one| one.unread.is_none())
+        .filter_map(|one| Some(ProjectCopy { mac: one.mac.clone()?.into(), project: project_of(served, one) }))
         .collect()
+}
+
+fn project_of(served: &[RepositorySummary], one: &ipc::Project) -> Project {
+    Project {
+        id: one.id.clone().into(),
+        name: one.name.clone().into(),
+        members: one
+            .members
+            .iter()
+            .filter_map(|member| {
+                let repository = served.iter().position(|each| manifest_of(each) == Some(&member.manifest_id))?;
+                Some(Member { repository, folder: member.folder.clone().map(SharedString::from) })
+            })
+            .collect(),
+        tracker: None,
+        kept: Some(place_of(&one.place)),
+        look: None,
+    }
 }
 
 /// A project of this Mac's whose file Fleet could not read: listed dimmed with Fleet's reason, and never a pick.
@@ -889,6 +907,8 @@ pub struct Face {
     /// The projects, and the one the window is scoped to, if any.
     pub projects: Vec<Project>,
     pub scoped: Option<usize>,
+    /// Copies of another Mac's projects, which the move picker lists and the switcher does not.
+    pub copies: Vec<ProjectCopy>,
     /// This Mac's projects whose file Fleet could not read, drawn dimmed under the projects.
     pub unread: Vec<Unread>,
     /// Whether a profile is the active one: the menu's account entry says Account, else Sign in.
@@ -919,6 +939,7 @@ impl Face {
             chosen: None,
             projects: Vec::new(),
             scoped: None,
+            copies: Vec::new(),
             unread: Vec::new(),
             signed_in: false,
             downshift: None,
