@@ -5,7 +5,8 @@
 //! figures, and a stream it cannot read yields none rather than a guess.
 //!
 //! **Names and counts only.** A tool is its name; a shell command is read for its label
-//! ([`classify_bash`]) and dropped.
+//! ([`classify_bash`]) and dropped. A Read's file path is the one input kept, and a tool's result is
+//! its size in bytes ([`ToolCall`], [`CallResult`]).
 //!
 //! **One message is several lines.** The CLI writes a message once for each content block as it
 //! streams, under one id, so a read joins the lines of an id: the figures of the line with the most
@@ -24,6 +25,7 @@
 
 mod bash_use;
 mod spent;
+mod tool_calls;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -36,6 +38,7 @@ use serde::Deserialize;
 
 pub use bash_use::{classify_bash, is_code_search};
 pub use spent::{BackgroundTurn, Carry, Part, Shares, IMAGE_TOKENS};
+pub use tool_calls::{CallResult, ToolCall, ToolCarried};
 
 use spent::{said, tokens, Measured};
 
@@ -224,6 +227,12 @@ pub struct TurnRead {
     pub carry: Carry,
     /// One for each turn, in the same order.
     pub searches: Vec<TurnSearches>,
+    /// Every call of the read's messages.
+    pub tool_calls: Vec<ToolCall>,
+    /// The size of every result the read reached, whether its call is in this read or an earlier one.
+    pub call_results: Vec<CallResult>,
+    /// The requests that first carried the results the read reached, or whose results it carried.
+    pub carried: Vec<ToolCarried>,
 }
 
 /// Read the whole lines of `file` from `offset` on, up to about `budget` bytes, into turns.
@@ -250,6 +259,8 @@ pub fn read_turns(
     let mut carry = if from == 0 { Carry::default() } else { carry };
     let mut background = Vec::new();
     let mut results: Vec<ToolResult> = Vec::new();
+    let thread = if subagent { file.file_stem().and_then(|stem| stem.to_str()).unwrap_or_default().to_string() } else { String::new() };
+    let (mut tool_calls, mut call_results, mut carried) = (Vec::new(), Vec::new(), Vec::new());
     while next - from < budget {
         raw.clear();
         let read = reader.read_until(b'\n', &mut raw)?;
@@ -303,6 +314,7 @@ pub fn read_turns(
                             if let Some(id) = block.tool_use_id {
                                 let part = carry.answered(&id);
                                 carry.wrote(part, size);
+                                call_results.push(CallResult { tool_use_id: id.clone(), bytes: block.content.as_ref().map_or(0, |one| one.bytes) });
                                 results.push(ToolResult { tool_use_id: id, at: stamp.clone() });
                             }
                         } else if line.compact_summary {
@@ -323,10 +335,14 @@ pub fn read_turns(
         let usage = message.usage.unwrap_or_default();
         let (cache_write, cache_read) =
             (usage.cache_creation_input_tokens.unwrap_or(0), usage.cache_read_input_tokens.unwrap_or(0));
-        let shares = (!at.contains_key(&id) && carry.is_request(&id)).then(|| {
+        let is_request = !at.contains_key(&id) && carry.is_request(&id);
+        let shares = is_request.then(|| {
             let context = usage.input_tokens.unwrap_or(0) + cache_write + cache_read;
             carry.request(&id, &stamp, &model, cache_write, cache_read, context)
         });
+        if is_request {
+            carried.extend(carry.carried_by(&id));
+        }
         let slot = *at.entry(id.clone()).or_insert_with(|| {
             joined.push(Joined {
                 searched: Searched::default(),
@@ -385,6 +401,16 @@ pub fn read_turns(
                     }
                 }
                 if let Some(call) = &block.id {
+                    let path = if name == "Read" { block.input.as_ref().and_then(|input| input.path.clone()) } else { None };
+                    tool_calls.push(ToolCall {
+                        tool_use_id: call.clone(),
+                        message_id: one.turn.message_id.clone(),
+                        at: stamp.clone(),
+                        thread: thread.clone(),
+                        epoch: carry.epoch(),
+                        tool: name.clone(),
+                        path,
+                    });
                     let reads = READING.contains(&name.as_str()) || label == Some(BashUse::ReadSearch);
                     carry.called(call.clone(), if reads { Part::Reads } else { Part::OtherResults });
                 }
@@ -439,6 +465,9 @@ pub fn read_turns(
         spent,
         background,
         carry,
+        tool_calls,
+        call_results,
+        carried,
     })
 }
 

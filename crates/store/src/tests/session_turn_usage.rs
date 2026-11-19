@@ -2,7 +2,7 @@
 //! changes nothing, and a read by session and time window returns the model, the four token fields
 //! and the names of the tools the turn called.
 
-use crate::session_turn_usage::{KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnTimes, KeptTurnUsage};
+use crate::session_turn_usage::{KeptCallCarrier, KeptCallResult, KeptOpenCall, KeptReading, KeptToolCall, KeptToolResult, KeptTurnSearches, KeptTurnTimes, KeptTurnUsage};
 use crate::tests::{open, TempDir};
 
 fn at(minute: u32) -> String {
@@ -154,4 +154,79 @@ fn the_searches_before_a_first_edit_are_summed_by_week_and_a_turn_without_a_figu
     let four = store.first_edits(now, 4).unwrap();
     assert_eq!(four.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s4", "s1", "s2"]);
     assert_eq!((four[0].week.as_str(), four[0].searches), ("2026-09-28", 7));
+}
+
+fn call(id: &str, message: &str, tool: &str, path: Option<&str>) -> KeptToolCall {
+    KeptToolCall {
+        tool_use_id: id.into(),
+        message_id: message.into(),
+        at: at(1),
+        thread: String::new(),
+        epoch: 0,
+        tool: tool.into(),
+        path: path.map(str::to_string),
+    }
+}
+
+type CallRow = (String, String, String, Option<String>, Option<i64>, Option<String>);
+
+fn call_rows(store: &crate::Store, session: &str) -> Vec<CallRow> {
+    let mut statement = store
+        .conn
+        .prepare("SELECT tool_use_id, message_id, tool, path, result_bytes, carried_by FROM session_tool_calls WHERE session_id = ?1 ORDER BY tool_use_id")
+        .unwrap();
+    let rows = statement.query_map([session], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?, row.get(4)?, row.get(5)?)));
+    rows.unwrap().map(Result::unwrap).collect()
+}
+
+/// A call is its tool, a Read's path and its result's size, and the table has no column that could hold text.
+#[test]
+fn a_call_keeps_its_tool_a_reads_path_and_its_results_size_and_no_text() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let columns: Vec<String> = store
+        .conn
+        .prepare("SELECT name FROM pragma_table_info('session_tool_calls') ORDER BY cid")
+        .unwrap()
+        .query_map([], |row| row.get(0))
+        .unwrap()
+        .map(Result::unwrap)
+        .collect();
+    assert_eq!(
+        columns,
+        ["session_id", "tool_use_id", "message_id", "at", "thread", "epoch", "tool", "path", "result_bytes", "carried_by"],
+        "a session, a call, a tool, a path, a size and who carried it"
+    );
+
+    let calls = KeptReading {
+        calls: vec![call("t1", "m1", "Read", Some("/a/f.rs")), call("t2", "m1", "Bash", None)],
+        call_results: vec![KeptCallResult { tool_use_id: "t1".into(), bytes: 30_000 }],
+        carriers: vec![KeptCallCarrier { tool_use_id: "t1".into(), message_id: "m2".into() }],
+        ..Default::default()
+    };
+    store.keep_turns_read("s1", &[], &calls, "/s1.jsonl", 10).unwrap();
+    let expected = |bytes: Option<i64>, carried: Option<&str>| -> Vec<CallRow> {
+        vec![
+            ("t1".into(), "m1".into(), "Read".into(), Some("/a/f.rs".into()), bytes, carried.map(str::to_string)),
+            ("t2".into(), "m1".into(), "Bash".into(), None, None, None),
+        ]
+    };
+    assert_eq!(call_rows(&store, "s1"), expected(Some(30_000), Some("m2")));
+
+    // Read again from the top, the calls come with no result in sight: the size and the carrier stay.
+    let again = KeptReading { calls: calls.calls.clone(), ..Default::default() };
+    store.keep_turns_read("s1", &[], &again, "/s1.jsonl", 20).unwrap();
+    assert_eq!(call_rows(&store, "s1"), expected(Some(30_000), Some("m2")), "a call heard again keeps its size and carrier");
+    assert!(call_rows(&store, "s2").is_empty());
+}
+
+#[test]
+fn a_transcript_read_before_calls_were_kept_is_marked_so_it_is_read_again_once() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    store.conn.execute("INSERT INTO transcript_offsets (path, read_to, carried, searched) VALUES ('/old.jsonl', 5, '{}', 1)", []).unwrap();
+    assert!(!store.transcript_tooled("/old.jsonl").unwrap());
+    assert!(!store.transcript_tooled("/never.jsonl").unwrap());
+    store.keep_turns_read("s1", &[], &Default::default(), "/old.jsonl", 9).unwrap();
+    assert!(store.transcript_tooled("/old.jsonl").unwrap());
 }
