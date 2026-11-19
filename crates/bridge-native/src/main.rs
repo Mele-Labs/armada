@@ -63,6 +63,7 @@ mod mock_parts;
 mod move_to_mac;
 mod move_to_project;
 mod new_project;
+mod project_members;
 mod notify;
 mod operator;
 mod pairing;

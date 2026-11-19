@@ -32,6 +32,7 @@ pub struct DispatchScreen {
     sheet: Entity<DispatchSheet>,
     /// The New project sheet, which the title bar's switcher opens over the window.
     new_project: Entity<crate::new_project::NewProjectSheet>,
+    members: Entity<crate::project_members::MembersSheet>,
     /// The In this build sheet: it opens on its own for a preview build with notes, and from the switcher.
     build_notes: Entity<crate::build_notes::BuildNotesSheet>,
     /// The presets' menu and the Custom sheet, which every door to Snooze asks for.
@@ -240,6 +241,20 @@ pub fn open_new_project(cx: &mut App) {
     reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
 }
 
+/// The switcher's Members: the sheet of the project's repositories opens over the window.
+pub fn open_project_members(at: usize, cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        let Some(bar) = titlebar::live(cx) else { return };
+        let face = &bar.read(cx).face;
+        let Some(project) = face.projects.get(at) else { return };
+        let held: Vec<_> = project.members.iter().filter_map(|one| Some((face.repositories.get(one.repository)?.name.clone(), one.folder.as_ref().map(ToString::to_string)))).collect();
+        let (id, name) = (project.id.to_string(), project.name.clone());
+        let served: Vec<_> = this.served_now(cx).into_iter().map(|one| (one.id.as_str().to_string(), one.name)).collect();
+        let rows = crate::project_members::rows_of(&held, &served);
+        this.members.update(cx, |sheet, cx| sheet.show(id, name, rows, window, cx));
+    });
+}
+
 /// The switcher's In this build: the sheet of the running build's notes opens again.
 pub fn open_build_notes(cx: &mut App) {
     reach(cx, |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show(window, cx)));
@@ -318,6 +333,11 @@ impl DispatchScreen {
             None => crate::new_project::wire::Wire::Mock(Box::new(crate::new_project::wire::Mock::new())),
         };
         let new_project = cx.new(|cx| crate::new_project::NewProjectSheet::new(wire, window, cx));
+        let wire = match jobs.read(cx).list.read(cx).fleet() {
+            Some(fleet) => crate::new_project::wire::Wire::Live(fleet),
+            None => crate::new_project::wire::Wire::Mock(Box::new(crate::new_project::wire::Mock::new())),
+        };
+        let members = cx.new(|cx| crate::project_members::MembersSheet::new(wire, cx));
         let fleet = jobs.read(cx).list.read(cx).fleet();
         let build_notes = cx.new(|cx| crate::build_notes::BuildNotesSheet::new(fleet, window, cx));
         let list = jobs.read(cx).list.clone();
@@ -350,7 +370,7 @@ impl DispatchScreen {
                 (behind.0)(asked, cx);
             }
         })));
-        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, build_notes, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
+        DispatchScreen { under: jobs.clone().into(), jobs, sheet, new_project, members, build_notes, snooze, layer, kept_in: None, served: Vec::new(), models: None, models_asked: false, wait_read: None, read_task: None, wait_task: None, within: cx.focus_handle(), area, _subs: subs }
     }
 
     /// The sheet over another screen that holds the Jobs screen it reads, as the Operator's page does.
@@ -1080,6 +1100,7 @@ impl Render for DispatchScreen {
             .children(sheet)
             // Drawn always: it draws nothing while shut, so its own opening and closing need no redraw here.
             .child(self.new_project.clone())
+            .child(self.members.clone())
             .child(self.build_notes.clone())
             .child(self.snooze.clone())
             // Over every overlay the screen draws, Settings among them, so a note can be made on it.

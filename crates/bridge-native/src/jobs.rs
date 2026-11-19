@@ -3298,6 +3298,10 @@ impl JobsScreen {
                 crate::dispatch::screen::open_new_project(cx);
                 return;
             }
+            if let crate::titlebar::Asked::ProjectMembers(at) = asked {
+                crate::dispatch::screen::open_project_members(*at, cx);
+                return;
+            }
             if *asked != crate::titlebar::Asked::Palette {
                 return;
             }

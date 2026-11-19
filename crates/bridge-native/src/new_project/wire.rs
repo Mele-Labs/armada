@@ -206,6 +206,19 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", Some("The project was not shared"), cx))
     }
 
+    /// `POST /projects/project/:id/edit` with `members` alone: the list replaces the project's whole list.
+    pub fn set_members(&mut self, id: &str, members: Vec<ipc::ProjectMember>, cx: &App) -> Task<Result<Projects, String>> {
+        if let Wire::Mock(mock) = self {
+            if let Some(one) = mock.projects.projects.iter_mut().find(|one| one.id == id) {
+                one.members = members;
+            }
+            return Task::ready(Ok(mock.projects.clone()));
+        }
+        let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(id));
+        let said = body(&EditProject { members: Some(members), ..EditProject::default() });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", Some("The members were not saved"), cx))
+    }
+
     // -- the folder search, and what Fleet does not serve yet ---------------------------------------------
 
     /// `GET /manifest/files?folders=true`: every folder of a repository whose path fuzzy-matches `query`, in
