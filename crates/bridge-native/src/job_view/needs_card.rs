@@ -244,11 +244,33 @@ mod tests {
 
     /// The Job on screen with its Needs you open.
     fn opened(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
+        opened_with(cx, |_| {})
+    }
+
+    /// The question the owner met: the pick first, and no option saying what it costs, as Fleet keeps an agent's labels,
+    /// with Fleet's walk waiting beside it.
+    const PICK: &str = "File it and fix it now";
+    fn labels_only(jobs: &mut [ipc::SessionRecord]) {
+        let job = jobs.iter_mut().find(|job| job.id.as_str() == JOB).expect("the Job");
+        let question = job.waiting_for.iter_mut().find(|one| one.id == "agent-1").expect("the first question");
+        question.options = ["File it and fix it now (Recommended)", "Fix it now", "File it for later"].into_iter().map(|label| ipc::WaitingOption { label: label.into(), description: None, picture: None }).collect();
+        let mut walk = question.clone();
+        walk.id = "walk:http://127.0.0.1:47811/".into();
+        walk.text = "http://127.0.0.1:47811/".into();
+        walk.source = ipc::WaitingSource::Walk;
+        walk.options = Vec::new();
+        walk.act = Some(ipc::WaitingAct { kind: ipc::WaitingActKind::Walk, target: walk.text.clone(), on: None });
+        job.waiting_for.push(walk);
+    }
+
+    /// The Job on screen with its Needs you open, its records changed first by `change`.
+    fn opened_with(cx: &mut gpui::TestAppContext, change: impl FnOnce(&mut [ipc::SessionRecord])) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
         cx.update(|cx| {
             gpui_component::init(cx);
             crate::look::init(cx);
         });
-        let jobs = crate::mock::jobs("ways-buttons").expect("the fixture decodes");
+        let mut jobs = crate::mock::jobs("ways-buttons").expect("the fixture decodes");
+        change(&mut jobs);
         let threads = crate::mock::threads("ways-buttons").expect("the threads decode");
         let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
         let (view, cx) = cx.add_window_view({
@@ -323,6 +345,29 @@ mod tests {
         });
         assert!(drawn(cx, Role::Article, SECOND));
         assert!(!drawn(cx, Role::Status, "1 of 2"), "one question alone has no stepper");
+    }
+
+    #[gpui::test]
+    fn the_jobs_pick_answers_when_pressed(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_with(cx, labels_only);
+        press(cx, PICK);
+        view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the pick's answer goes out"));
+    }
+
+    /// The pointer rests on the Job's pick long enough for its tooltip, then presses it, as a person does.
+    #[gpui::test]
+    fn the_jobs_pick_answers_when_pressed_after_the_pointer_rests_on_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_with(cx, labels_only);
+        let at = bounds_of(cx, Role::Button, PICK).center();
+        cx.simulate_mouse_move(at, None, gpui::Modifiers::none());
+        fresh(cx);
+        cx.executor().advance_clock(std::time::Duration::from_millis(800));
+        fresh(cx);
+        cx.simulate_mouse_down(at, gpui::MouseButton::Left, gpui::Modifiers::none());
+        fresh(cx);
+        cx.simulate_mouse_up(at, gpui::MouseButton::Left, gpui::Modifiers::none());
+        fresh(cx);
+        view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the pick's answer goes out"));
     }
 
     #[gpui::test]

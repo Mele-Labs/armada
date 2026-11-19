@@ -1671,6 +1671,26 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_click_on_the_operators_pick_settles_the_card_with_it(cx: &mut TestAppContext) {
+        let (page, cx) = open(cx);
+        let (label, name) = page.read_with(cx, |page, _| {
+            let turn = page.open_item().expect("a card in front");
+            let pick = face::pick_of(turn).map(|pick| pick.to_string()).unwrap_or_else(|| turn.item.options[0].label.clone());
+            let option = turn.item.options.iter().find(|one| one.label == pick).expect("the pick is an option");
+            let cost = option.description.clone().filter(|said| !said.is_empty()).map(SharedString::from);
+            (pick.clone(), super::super::card::option_name(&pick.into(), cost.as_ref()))
+        });
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let at = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, &name).map(|drawn| drawn.bounds)).unwrap_or_else(|| panic!("{name} is drawn"));
+        cx.simulate_click(at.center(), gpui::Modifiers::none());
+        cx.run_until_parked();
+        page.update(cx, |page, _| {
+            let pressed = page.mock_fleet().expect("the walk's Fleet").pressed.clone();
+            assert_eq!(pressed.first().and_then(|one| one.option.as_deref()), Some(label.as_str()), "the pick's press goes out with the pick");
+        });
+    }
+
+    #[gpui::test]
     fn a_number_settles_the_option_in_that_place_and_yes_takes_the_operators_pick(cx: &mut TestAppContext) {
         let (page, cx) = open(cx);
         page.update(cx, |page, cx| page.digit(3, cx));
