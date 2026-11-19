@@ -50,9 +50,9 @@ async fn a_suggestion_is_made_only_where_the_priced_change_saves_something_and_t
     let (rig, _home) = rig_with(r#"{"tokens.compactionWindow": 275000}"#);
     let settings = rig.fleet.machine_settings().now();
     let cache = Some(CacheEstimate { saved: 0.3, extra: 0.1, rewrites: 4 });
-    let compaction = Some(CompactionEstimate { past: 0.5, stretches: 2, each: 0.1 });
+    let cutting = Some(CompactionEstimate { past: 0.5, stretches: 2, each: 0.1 });
 
-    let read = wire(&settings, priced(cache, compaction));
+    let read = wire(&settings, priced(cache, cutting));
     let ttl = row(&read, "tokens.subagentCacheTtl");
     assert_eq!(ttl.suggested, Some(SettingValue::Text("1h".into())));
     assert!((ttl.saves_share.unwrap() - 0.1).abs() < 1e-9, "0.3 less 0.1, of 2.0: {:?}", ttl.saves_share);
@@ -71,7 +71,7 @@ async fn a_suggestion_is_made_only_where_the_priced_change_saves_something_and_t
 
     // Already at the hour, or at or under the suggested point: nothing to suggest.
     let (rig, _home) = rig_with(r#"{"tokens.subagentCacheTtl": "1h", "tokens.compactionWindow": 200000}"#);
-    let there = wire(&rig.fleet.machine_settings().now(), priced(cache, compaction));
+    let there = wire(&rig.fleet.machine_settings().now(), priced(cache, cutting));
     assert!(there.settings.iter().all(|one| one.suggested.is_none()), "{there:?}");
 }
 

@@ -144,7 +144,8 @@ fn a_change_reads_the_waste_it_cuts_before_it_and_since_once_a_day_has_passed() 
     let compaction = &read[0];
     assert!((compaction.since_days - 0.125).abs() < 1e-6, "{}", compaction.since_days);
     assert_eq!(compaction.since_share, None, "less than a day is nothing to read");
-    close(compaction.before_share, 0.0);
+    // None of it is cold, and the warm turns hold 400k each, so a quarter of each is past 300k: 0.5 of the 3.0 burned.
+    close(compaction.before_share, 0.5 / 3.0);
 }
 
 #[test]

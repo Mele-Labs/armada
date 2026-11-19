@@ -152,6 +152,54 @@ The rows come from the same transcript read as the turns: the size is the result
 A transcript read before this was kept is read again from the top once, as one read before searches were counted was, so a week of old turns gains its rows.
 A Job that ran before that, with its transcript gone, has none, and has no repeat reads or big results.
 
+## Settings that change it
+
+**The Usage page leads with the settings that cut the waste above, each changed on the page.** `get_usage_adjustments` answers a row for each: the setting, what it is now, the values to change it to, the kind of waste it cuts and, where Fleet can price it, the value to change to and the share of the window's burn that would save.
+The page changes a row with `save_settings`, the same route Settings uses, so a change is a key and a value and nothing else.
+`docs/practices/protocol.md`, *Settings that change the burn*.
+
+| Setting | Key | Cuts | Choices | Saving |
+|---|---|---|---|---|
+| Subagent cache length | `tokens.subagentCacheTtl` | `cold_cache` | 5 min (`5m`, ships) or 1 hour (`1h`) | Priced |
+| Compact a Job at | `tokens.compactionWindow` | `main_context` | 150k, 200k, 250k (ships), 300k, 400k, and what is set | Priced, suggested at 200k |
+| Stop an idle Job after | `timeouts.sessionQuietSeconds` | `fresh_starts` | 5, 10 (ships), 30 and 55 min, and what is set | None |
+
+**Subagent cache length is handed to each Job at its start.** Fleet passes `tokens.subagentCacheTtl` to every hosted Job it starts as `CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL`, so a change reaches the Jobs started after it and not a running one.
+It was measured on a live run of one subagent: with the variable at `1h`, the subagent's requests wrote `ephemeral_1h_input_tokens` (21,746 on its first request, then 10,416) and no five-minute writes.
+Without it, the same subagent wrote `ephemeral_5m_input_tokens` (13,429) and no hour's.
+The main thread's own writes were an hour's in both runs, so the setting is the subagents' alone.
+Claude Code has no variable that sets where a subagent compacts, so there is no row for it: a subagent compacts where the Job does, at `tokens.compactionWindow`.
+
+**A saving is priced from the window's own requests, never from a Job's plan.** Each is a share of the window's whole burn, `get_usage_summary`'s units over the same span, and a setting gets one only where its estimate is above zero and it is not already set there.
+Where it cannot be priced the row has no `suggested` and no `saves_share`, and the page shows a dash.
+
+**Subagent cache, priced both ways.** Each subagent request in the window is read once.
+- **A cold rewrite under the hour is a read.** A request Spent on gave its writes as `cold_cache`, whose thread's request before it was more than five and less than 60 minutes earlier, would have found the hour's cache warm.
+  Its input and writes, weighed as now, are replaced by the same tokens at the cache-read weight, 0.1.
+- **Every other write costs more.** The five-minute writes of every request that is not such a rewrite are weighed 2 where they were weighed 1.25, which is 0.75 more a token, times the model's weight.
+- **The saving is the first less the second**, and it is suggested only above zero and only where the setting is `5m`.
+
+The thread of a request is the one its tool calls name, as the repeat reads find it, and the request before it in the thread is the latest one before it in time, including one up to an hour before the window starts.
+A cold request that made no call, which is a subagent's last, has no known thread, so its gap is not known: it is counted as not saved, which keeps the figure low.
+A rewrite counts all of its input and writes as read, and it keeps none as new, so a request that wrote a large new part is priced as saving more than it would have.
+
+**Compaction, priced as the units past the point less the compactions it adds.** Each main-thread request in the window with a context past the suggested point, 200k, gives its burn times the context past the point over its context, the way `main_context` counts past 300k.
+Each stretch of a Job between compactions that held such a request would be compacted once more, and a compaction costs what the window's cost on average: the compaction's own request, and the start after it as `fresh_starts` counts it.
+The saving is the first less the second, and where nothing was compacted in the window there is no cost to price from and no estimate.
+It counts a request past the point as cut to the point and not as restarted from a summary, and it counts one compaction a stretch however far past the point the stretch went.
+
+**A change is kept when it comes into force.** `settings_changes` holds a row for each change to one of the three keys: the key, when, and the value either side as text.
+Fleet writes it where a settings.json is put in force, so a save and a hand edit are kept alike, and a save of the value already held is no change.
+A setting that applies at a restart is kept when it is saved and is in force once Fleet starts again.
+
+**After a change, the page reads the waste it cuts.** For each change of the last thirty days, newest first and no more than six, `get_usage_adjustments` answers:
+- `before_share`, the kind's share of the burn over the seven days before the change.
+- `since_share`, the same share from the change to now, and only once a day has passed.
+- `since_days`, the days from the change to now, so the page can say how much "since" there is.
+
+A share is the kind's units, as `get_usage_waste` counts them over that span, over the span's whole burn.
+It is a reading beside a change and no proof of one: the week before and the days since are different weeks.
+
 ## A Job compacted while it waits
 
 **A trial, shipped off.** The setting *Compact a Job waiting on you* (`tokens.compactWhileWaiting`) switches it on, and is read at each sweep of quiet Jobs, about every 30 seconds.

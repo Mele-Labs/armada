@@ -2,7 +2,7 @@
 //! where nothing is saved, and what a save changed it to for the Jobs started after the save.
 //! `docs/concepts/session/where-the-tokens-went.md`, *Settings that change it*.
 
-use super::session_host::{rig_fitted, Rig};
+use super::session_host::{eventually, rig_fitted, Rig};
 use super::tmp::TempDir;
 
 /// A rig whose settings.json holds `contents`.
@@ -20,7 +20,9 @@ pub(super) fn rig_with(contents: &str) -> (Rig, TempDir) {
 /// A rig whose settings.json holds `contents`, and the first process a Job started on it got.
 async fn started_with(contents: &str) -> (Rig, crate::session_host::Start, TempDir) {
     let (rig, home) = rig_with(contents);
-    rig.start().await;
+    let id = rig.start().await;
+    rig.send(&id, "go").await;
+    eventually(|| async { !rig.stand_in.starts().is_empty() }).await;
     let start = rig.stand_in.starts().into_iter().next().expect("a process started");
     (rig, start, home)
 }
