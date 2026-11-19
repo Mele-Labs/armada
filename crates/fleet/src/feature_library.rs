@@ -22,6 +22,7 @@ pub(crate) mod librarian;
 pub(crate) mod mapping;
 mod measuring;
 mod modules;
+mod of_job;
 mod pending;
 mod project_pages;
 mod reading;

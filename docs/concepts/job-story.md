@@ -100,6 +100,10 @@ Each ask shows how it started, its revisions, what he was shown and decided, wha
 Fleet records no message an artifact answers, so the time is the one fact there is.
 What came before any ask of the Job is listed apart.
 
+**Rule.** `features` lists the features the Job is on, most touched first, for the head of its Story tab.
+Each counts the files the Job wrote under it, the Job's commits that named it in a `Feature:` line, and the Job's asks filed under it.
+A Job on no feature has none, and the tab draws no section.
+
 **Rule.** `lead` is one line an ask, open ones first, for the done card to draw beside the Job's own summary.
 The summary stays on the record, and the record gains no field.
 
