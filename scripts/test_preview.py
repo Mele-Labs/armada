@@ -2017,6 +2017,38 @@ class RestartBuild(unittest.TestCase):
             self.assertNotEqual(self.build(which, *args), 0, (which, args))
         self.assertEqual(self.runs(), [])
 
+    def with_origin_holding(self, ref):
+        """A bare origin whose `ref` is at a first commit, and a second commit that exists there too. Returns
+        (origin path, first, second)."""
+        origin = os.path.join(self.dir, "origin.git")
+        subprocess.run(["git", "init", "-q", "--bare", origin], check=True, capture_output=True)
+        git = lambda *a: subprocess.run(["git", "-C", self.root, *a], check=True, capture_output=True, text=True).stdout.strip()
+        first = git("rev-parse", "HEAD")
+        git("commit", "-q", "--allow-empty", "-m", "newer")
+        second = git("rev-parse", "HEAD")
+        git("remote", "add", "origin", origin)
+        git("push", "-q", "origin", f"{second}:refs/heads/other", f"{first}:refs/heads/{ref}")
+        return origin, first, second
+
+    def test_an_at_build_whose_ref_moved_on_during_the_build_builds_the_new_tip_when_it_ends(self):
+        ref = "preview/mac-a"
+        origin, first, second = self.with_origin_holding(ref)
+        moved = os.path.join(self.dir, "moved")
+        # The first build takes long enough for the other Mac's next Refresh to push over the ref.
+        script = (f'if [ ! -e "{moved}" ]; then touch "{moved}"; '
+                  f'git --git-dir "{origin}" update-ref refs/heads/{ref} {second}; fi')
+        self.assertEqual(self.build("preview", "--at", first, "--ref", ref, "--adopt", script=script), 0)
+        self.assertEqual(self.runs(), [f"--restart --at {first} --ref {ref} --adopt", f"--restart --at {second} --ref {ref} --adopt"])
+        self.assertIsNone(self.status())
+        with open(os.path.join(self.home, "Library", "Logs", "Armada", "restart-build.log")) as f:
+            self.assertIn(f"restart-build: {ref} moved from {first[:10]} to {second[:10]} during the build; building {second[:10]}", f.read())
+
+    def test_an_at_build_whose_ref_stayed_is_built_once(self):
+        ref = "preview/mac-a"
+        _, first, _ = self.with_origin_holding(ref)
+        self.assertEqual(self.build("preview", "--at", first, "--ref", ref), 0)
+        self.assertEqual(self.runs(), [f"--restart --at {first} --ref {ref}"])
+
     def test_an_unknown_build_is_refused(self):
         self.assertNotEqual(self.build("feature"), 0)
         self.assertEqual(self.runs(), [])
