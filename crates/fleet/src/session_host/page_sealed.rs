@@ -314,15 +314,15 @@ where
     }
 
     pub(crate) async fn artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
-        self.page_served(id, artifact, revision, false).await
+        self.artifact_page_as(id, artifact, revision, false).await
     }
 
     /// `get_artifact_page` with `host_kit`: the page for a host that draws the kit itself ([`hosted`]).
     pub(crate) async fn hosted_artifact_page(&self, id: &str, artifact: &str, revision: Option<u32>) -> Result<SealedPage, Refusal> {
-        self.page_served(id, artifact, revision, true).await
+        self.artifact_page_as(id, artifact, revision, true).await
     }
 
-    async fn page_served(&self, id: &str, artifact: &str, revision: Option<u32>, host_kit: bool) -> Result<SealedPage, Refusal> {
+    async fn artifact_page_as(&self, id: &str, artifact: &str, revision: Option<u32>, host_kit: bool) -> Result<SealedPage, Refusal> {
         let id = id.trim();
         let (held, number, html) = self.page_revision(id, artifact, revision).await?;
         let (presses, votes) = {
