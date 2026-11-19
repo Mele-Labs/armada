@@ -1093,6 +1093,14 @@ pub(crate) async fn get_usage_adjustments<D: Sessions>(State(served): State<Serv
     }
 }
 
+/// `?session_id=` on `get_job_timeline`.
+pub(crate) async fn get_job_timeline<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
+    match served.daemon().get_job_timeline(ipc::SessionId::carried(which.session_id)).await {
+        Ok(timeline) => answer(StatusCode::OK, &timeline, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_job_time`.
 pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
     match served.daemon().get_job_time(ipc::SessionId::carried(which.session_id)).await {

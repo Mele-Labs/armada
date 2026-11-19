@@ -23,4 +23,6 @@ Refused with 422: `fleet.page_action_unknown` for a revision not kept, an artifa
 **A buttons part is pressed as a page's action is.** `artifact` may be an artifact of parts, `sketch:<title>`, with the action's id as `action` and the part's `revision` as `revision`; a button acts at once and settles nothing. A buttons part takes no `close`. A revision that is not the part's now is a 409, `fleet.part_redrawn`.
 
 `agent_access` is `No`: it is his press.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_press`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """

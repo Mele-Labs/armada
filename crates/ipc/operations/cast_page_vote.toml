@@ -26,4 +26,6 @@ Refused with 422: `fleet.page_vote_unknown` for a revision not kept, an artifact
 **A takes part is voted on as a page's vote is.** `artifact` may be an artifact of parts, `sketch:<title>`, with the takes part's id as `vote` and the part's `revision` as `revision`; a revision that is not the part's now is a 409, `fleet.part_redrawn`. A pick settles the part `picked`, and the artifact settles once every ask on it is answered.
 
 `agent_access` is `No`: it is his vote.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_vote`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """

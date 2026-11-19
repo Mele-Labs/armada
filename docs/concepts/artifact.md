@@ -374,8 +374,10 @@ Fleet's half is `get_artifact_page` (`crates/ipc/operations/get_artifact_page.to
 **Rule.** Every sealed page has a calm default under its own CSS, in `page_kit.css`, all of it `:where()` so a page's rules and `armada-kit.css` win.
 Body text is the muted foreground and headings the default, blocks keep a roomy vertical rhythm, depth is a surface step (base, raised, sunken) edged by a hairline and never a bright fill, a table's header row is quiet, and colour is for state and for the ask's block, which is an accent hairline and a faint wash.
 
-**Rule.** The page fetches nothing and runs none of its own scripts.
+**Rule.** The page fetches nothing, and runs none of its own scripts but on the native Bridge.
 Its policy allows inline style, `data:` images and one script source, a nonce fresh for each answer, and only the kit's script carries it.
+On the native Bridge the page's own inline scripts run inside the box, each allowed by its hash, so a button that steps through a diagram works, and the host draws the kit itself.
+A script with an address, an `on*=` handler, a fetch, a form and a link out are still refused.
 `armada-kit.css` is inlined where it was linked, and every relative address is taken off its tag.
 
 **Rule.** The kit's script draws each action as a labelled button in a column on the right of its row, and each vote as its takes side by side.

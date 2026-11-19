@@ -10,7 +10,7 @@ use axum::http::StatusCode;
 use ipc::{BuildSource, BuildStage, FleetBuildReport, MacLink, RefreshClaim, UpdateMac};
 
 use super::job_moves::known_to;
-use super::updating::{post, post_as, wrapper_on};
+use super::updating::{post, post_as, ran, wrapper_on};
 use super::{until, OneMac, Ticking};
 
 struct Pair {
@@ -136,4 +136,33 @@ async fn a_second_press_on_either_mac_is_refused_while_a_claim_stands_but_the_pr
     let (status, answered) = post_as(&pair.air, "mac", "/macs/update", ipc::encode(&told).expect("encodes")).await;
     assert_eq!(status, StatusCode::ACCEPTED, "{answered}");
     tokio::time::sleep(Duration::from_millis(100)).await;
+}
+
+/// Studio's kept build `current`: a preview built at `commit`, as Studio runs it before a Refresh.
+fn running_preview_at(mac: &OneMac, commit: &str) {
+    let support = crate::runtime::support_dir(&mac.rig.fleet.host().home);
+    let kept = support.join(crate::kept_builds::BUILDS).join("old");
+    std::fs::create_dir_all(&kept).expect("a kept build");
+    std::fs::write(kept.join("build.toml"), format!("built_at = \"2026-11-19T120000Z\"\ncommit = \"{commit}\"\nsource = \"preview\"\n")).expect("its record");
+    std::os::unix::fs::symlink("old", support.join(crate::kept_builds::BUILDS).join(crate::kept_builds::CURRENT)).expect("current");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn air_is_told_the_commit_studio_just_pushed_and_not_the_build_studio_runs_now() {
+    let pair = paired_pair().await;
+    // Studio runs an older preview. Its Refresh merged and pushed a newer commit, and tells Fleet to ask Air to build that.
+    let (running, pushed) = ("753774a929d1", "0ad37a3f00c2");
+    running_preview_at(&pair.studio, running);
+    let reference = format!("preview/{}", pair.studio.id);
+    let tell = UpdateMac {
+        mac: Some(pair.air.id.clone()),
+        build: Some(BuildSource::Preview),
+        commit: Some(pushed.into()),
+        reference: Some(reference.clone()),
+        ..UpdateMac::default()
+    };
+    let (status, answered) = post(&pair.studio, "/macs/update", ipc::encode(&tell).expect("encodes")).await;
+    assert_eq!(status, StatusCode::ACCEPTED, "{answered}");
+    let started = ran(&wrapper_on(&pair.air)).await;
+    assert_eq!(started, format!("preview --adopt --at {pushed} --ref {reference}"), "Air builds the pushed commit, not Studio's running build {running}");
 }

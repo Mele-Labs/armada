@@ -138,6 +138,7 @@ mod view_tabs;
 #[path = "../job_browser/mod.rs"]
 mod job_browser;
 mod loadout_tab;
+mod tokens_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
@@ -1334,6 +1335,7 @@ impl Render for JobView {
         self.sync_browsers(&id, window, cx);
         self.sync_artifacts(&id, window, cx);
         self.sync_for_you(&id, window, cx);
+        self.sync_tokens_link(&id, window, cx);
         self.sync_questions(&id, window, cx);
         self.tend_parts(&id, window, cx);
         self.follow_reading(cx);

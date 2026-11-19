@@ -49,6 +49,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("judge", "Judge", "scale"),
     ("artifacts", "Artifacts", "shapes"),
     ("loadout", "Loadout", "layers"),
+    ("tokens", "Tokens", "chart-column"),
 ];
 
 /// Done or Open switched off in Settings › Layout: neither drawn nor offered by +. Open is the registry's `next`.

@@ -15,4 +15,6 @@ notes = """
 **Only the revision he read is answered.** A `drawn` that is not the part's now is a 409, `fleet.part_redrawn`. Refused with 422 and nothing written or sent: `fleet.part_unknown` for a part the artifact does not hold, naming the ids it does; `fleet.part_not_open` for one answered already, withdrawn, not asked, or buttons; `fleet.part_answer_empty` for `sent_back` with no note or a pick naming no take; `fleet.part_how` for `picked` on anything but takes, or any other how on takes; the page's `fleet.page_archived` for an archived artifact.
 
 `agent_access` is `No`: it is the person's answer.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_part_answer`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """

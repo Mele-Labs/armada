@@ -33,7 +33,7 @@
 #   scope       - where the binding is offered: anywhere | list |
 #                 list and detail | open studio | dashboard | deck | review | call |
 #                 logbook | issues | report | plan | thread | dispatch |
-#                 review sheet | kit | features
+#                 review sheet | kit | usage | features
 #   destructive - whether it ends or overrules a record
 #   confirms    - whether it takes a confirmation. Destructive implies it
 #   unbuilt     - the issue that builds the act, on a row Bridge cannot answer
@@ -463,7 +463,7 @@ shortcut = "P"
 scope = "list"
 destructive = false
 confirms = false
-notes = "Moves the Jobs under the keys into one of his projects, or out to none: the row's own Job, or every Job selected where the row is among them. Opens the project picker, whose rows are his projects with their repositories under the name, and No project last; the project every Job stands in is ticked. Fleet's `set_session_project` writes it for live and ended Jobs alike, and the Jobs list regroups on the `session.changed` it publishes. Native only. Shifted because Pause (`p`) is the Jobs list's own bare key and carries no row. No glyph: `layers` means how many places a Job writes, so a project is not its meaning. A Job on another Mac is left off, with why, because Fleet answers it 404. The palette answers it as the row's own act, with ⌥⌘P, and as a command for the open Job. Taken 15 Nov 2026."
+notes = "Moves the Jobs under the keys into one of his projects, or out to none: the row's own Job, or every Job selected where the row is among them. Opens the project picker, whose rows are his projects with their repositories under the name, then the copies of his other Mac's shared projects with that Mac named on the line, and No project last; a copy takes a Job only where it lists the Job's repository (`fleet.project_copy_not_member`); the project every Job stands in is ticked. Fleet's `set_session_project` writes it for live and ended Jobs alike, and the Jobs list regroups on the `session.changed` it publishes. Native only. Shifted because Pause (`p`) is the Jobs list's own bare key and carries no row. No glyph: `layers` means how many places a Job writes, so a project is not its meaning. A Job on another Mac is left off, with why, because Fleet answers it 404. The palette answers it as the row's own act, with ⌥⌘P, and as a command for the open Job. Taken 15 Nov 2026."
 
 [actions.deck_select]
 kind = "Action"
@@ -1792,6 +1792,66 @@ scope = "kit"
 destructive = false
 confirms = false
 notes = "Scrolls Kit's read pane by a page or to either end, while the keys are on that pane and nowhere else. The first four go down and up by a page and the last two to the top and the bottom. Native only, 16 Nov 2026."
+
+# ------------------------------------------------------------------- usage
+
+[actions.usage_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move between kinds of waste"
+icon = ""
+shortcut = "j / k / ↓ / ↑"
+scope = "usage"
+destructive = false
+confirms = false
+notes = "Moves the row on the Usage page's list of waste kinds to the next or the previous kind, largest first. Its own row because the Usage page is not a list of Jobs, and `move_focus`'s scope is. Native only, 18 Nov 2026."
+
+[actions.usage_open]
+kind = "Action"
+tier = "Contextual"
+verb = "Open the row"
+icon = ""
+icon_absent = "undecided"
+shortcut = "Enter / Space"
+scope = "usage"
+destructive = false
+confirms = false
+notes = "Opens the panel under the list for the kind the row is on, with its fix and the Jobs it hit, and closes it again where it is already open. On a row of the table of settings that change the burn it opens the list of values the setting can take instead, and on a Job of the open panel it opens that Job's Tokens tab. Esc closes the panel. Native only, 18 Nov 2026."
+
+[actions.tokens_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move along the Job's tokens"
+icon = ""
+shortcut = "→ / ←"
+scope = "tokens"
+destructive = false
+confirms = false
+notes = "Moves the cursor of a Job's Tokens tab to the next or the previous bucket of time, held at either end, and its tooltip names that bucket. Its own row because the graph is not a list of Jobs. Native only, 19 Nov 2026."
+
+[actions.usage_apply]
+kind = "Action"
+tier = "Contextual"
+verb = "Apply the setting"
+icon = ""
+icon_absent = "undecided"
+shortcut = "a"
+scope = "usage"
+destructive = false
+confirms = false
+notes = "Sends the value the setting's list stands on, for the row the keys are on in the Usage page's table of settings that change the burn. It does nothing where the list stands on the value in force. Native only, 19 Nov 2026."
+
+[actions.usage_window]
+kind = "Action"
+tier = "Contextual"
+verb = "Pick the window"
+icon = ""
+icon_absent = "undecided"
+shortcut = "d / w / f"
+scope = "usage"
+destructive = false
+confirms = false
+notes = "Sets the window the Usage page reads to a day, a week or a fortnight, in that order: one key a window. Native only, 18 Nov 2026."
 
 # ---------------------------------------------------------------- features
 

@@ -84,7 +84,7 @@ pub fn now() -> chrono::DateTime<chrono::Local> {
 
 /// The Job titles the walk's cards name their Jobs by.
 pub fn titles() -> std::collections::HashMap<String, String> {
-    crate::mock::jobs("jobs-many").unwrap_or_default().into_iter().filter_map(|job| job.title.map(|title| (job.id.as_str().to_string(), title))).collect()
+    crate::mock::jobs_of("jobs-many").unwrap_or_default().into_iter().filter_map(|job| job.title.map(|title| (job.id.as_str().to_string(), title))).collect()
 }
 
 fn row(id: &str, at: &str, from: &str, text: &str) -> ipc::ThreadItem {
@@ -338,7 +338,7 @@ impl MockFleet {
         self.dispatched.push(job.clone());
         if starts {
             let id = format!("composer-{}", self.taken);
-            let record = crate::mock::jobs("jobs-many").ok().and_then(|jobs| jobs.into_iter().next()).map(|mut record| {
+            let record = crate::mock::jobs_of("jobs-many").ok().and_then(|jobs| jobs.into_iter().next()).map(|mut record| {
                 record.id = ipc::SessionId::carried(id.clone());
                 record.title = Some(title.clone());
                 record

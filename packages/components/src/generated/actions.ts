@@ -56,7 +56,9 @@ export type ActionScope =
   | "review"
   | "review sheet"
   | "terminal"
-  | "thread";
+  | "thread"
+  | "tokens"
+  | "usage";
 
 /** Why an act's glyph column is empty. `null` where it is not. */
 export type IconAbsence = "undecided" | "by design";
@@ -1994,6 +1996,71 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "PageDown / PageUp / ⌥↓ / ⌥↑ / Home / End",
     scope: "kit",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "usage_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move between kinds of waste",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "j / k / ↓ / ↑",
+    scope: "usage",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "usage_open",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Open the row",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "Enter / Space",
+    scope: "usage",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "tokens_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move along the Job's tokens",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "→ / ←",
+    scope: "tokens",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "usage_apply",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Apply the setting",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "a",
+    scope: "usage",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "usage_window",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Pick the window",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "d / w / f",
+    scope: "usage",
     destructive: false,
     confirms: false,
     unbuilt: null,

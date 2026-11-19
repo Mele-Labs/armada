@@ -842,6 +842,9 @@ pub trait Sessions: Send + Sync + 'static {
     /// last `window` (`day`, `week` or `fortnight`; `week` where left out), and the changes made. [`Refusal::Unacceptable`]
     /// for any other window.
     fn get_usage_adjustments(&self, window: Option<String>) -> impl Future<Output = Result<ipc::UsageAdjustments, Refusal>> + Send;
+    /// `get_job_timeline` — one Job's burn over its life: bars by bucket of time, its context, its compactions
+    /// and the pauses between its requests. [`Refusal::Unacceptable`] for a session Fleet does not know.
+    fn get_job_timeline(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::JobTimeline, Refusal>> + Send;
 
     /// `get_job_time` — where one Job's time went, with the usual of its workflow. The answer carries no
     /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.

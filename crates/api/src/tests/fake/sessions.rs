@@ -1035,6 +1035,25 @@ impl Sessions for FakeDaemon {
         Ok(ipc::UsageAdjustments { settings: vec![setting], changes: Vec::new() })
     }
 
+    async fn get_job_timeline(&self, session_id: ipc::SessionId) -> Result<ipc::JobTimeline, Refusal> {
+        // The session the route read comes back as the timeline's, so a route test can see what reached the daemon.
+        Ok(ipc::JobTimeline {
+            session_id: session_id.as_str().to_string(),
+            started: String::new(),
+            ended: None,
+            bucket_seconds: 60,
+            total_units: 0.0,
+            week_units: 0.0,
+            buckets: Vec::new(),
+            context: Vec::new(),
+            compactions: Vec::new(),
+            pauses: Vec::new(),
+            peak_context: 0,
+            cold_wakes: 0,
+            subagent_share: 0.0,
+        })
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         Ok(ipc::JobTime { session_id: session_id.as_str().to_string(), time: None })
     }
