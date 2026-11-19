@@ -4,7 +4,6 @@
 
 use gpui::{div, prelude::*, px, AnyElement, Div, FontWeight, Role, SharedString, Window};
 
-use super::dossier::selected_shadow;
 use super::page::Load;
 use super::page_view::{inner, shell};
 use super::project_page::ProjectPageView;
@@ -108,6 +107,8 @@ impl ProjectPageView {
             .h(look.length(token::H_BADGE))
             .px(look.length(token::SPACE_2))
             .rounded(look.length(token::RADIUS_SM))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(if under_keys { ring } else { gpui::transparent_black() })
             .bg(ground)
             .text_color(ink)
             .font_family(mono(look))
@@ -115,7 +116,7 @@ impl ProjectPageView {
             .line_height(look.length(token::LEADING_2XS))
             .whitespace_nowrap()
             .cursor_pointer()
-            .map(|chip| if under_keys { chip.shadow(selected_shadow(look, Some(ring))) } else { chip.hover(|style| style.opacity(0.8)) })
+            .when(!under_keys, |chip| chip.hover(|style| style.opacity(0.8)))
             .when_some(said, |chip, said| chip.tooltip(tip(said)))
             .on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx)))
             .child(SharedString::from(words));
@@ -141,12 +142,15 @@ impl ProjectPageView {
             .id(SharedString::from(format!("who-stop-{at}")))
             .min_w_0()
             .rounded(look.length(token::RADIUS_SM))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(if under_keys { ring } else { gpui::transparent_black() })
+            .when(under_keys, |name| name.bg(look.color(token::BG_HOVER)))
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
             .text_color(ink)
             .cursor_pointer()
-            .map(|name| if under_keys { name.shadow(selected_shadow(look, Some(ring))) } else { name.hover(|style| style.underline()) })
+            .when(!under_keys, |name| name.hover(|style| style.underline()))
             .when_some(shared.map(str::to_string), |name, people| name.tooltip(tip(people)))
             .on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx)))
             .child(SharedString::from(title.to_string()));
@@ -204,8 +208,8 @@ impl ProjectPageView {
         if owner {
             key = key.child(part(sample(look.color(token::STATUS_COMPLETED_SUCCESS).opacity(0.16), look.color(token::STATUS_COMPLETED_SUCCESS), "Job"), "yours"));
         }
-        key = key.child(part(sample(look.color(token::STATUS_RUNNING).opacity(0.16), look.color(token::STATUS_RUNNING), "#0"), "open"));
-        key = key.child(part(sample(look.color(token::BG_HOVER), look.color(token::FG_MUTED), "#0"), "draft"));
+        key = key.child(part(sample(look.color(token::STATUS_RUNNING).opacity(0.16), look.color(token::STATUS_RUNNING), "#412"), "open"));
+        key = key.child(part(sample(look.color(token::BG_HOVER), look.color(token::FG_MUTED), "#412"), "draft"));
         key.child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::STATUS_AWAITING_REVIEW)).child("more than one person"))
     }
 

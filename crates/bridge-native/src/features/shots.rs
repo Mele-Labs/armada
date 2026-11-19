@@ -561,3 +561,64 @@ pub fn shoot_project(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// Who's on what beside the list at 1400 wide, in each of its three layouts, with the keys on a pull request, and with nothing to say.
+pub fn shoot_who(dir: &Path) -> Result<(), String> {
+    use super::page::Load;
+    use super::project_model::ProjectPage;
+    use super::who_model::WhoView;
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    // `(name, layout, keys on the page at this place, nothing to say)`.
+    let steps: [(&str, WhoView, Option<usize>, bool); 5] = [
+        ("who-grid-1400", WhoView::Grid, None, false),
+        ("who-grid-keys-1400", WhoView::Grid, Some(2), false),
+        ("who-by-feature-1400", WhoView::ByFeature, None, false),
+        ("who-by-person-1400", WhoView::ByPerson, None, false),
+        ("who-empty-1400", WhoView::Grid, None, true),
+    ];
+    for (name, view, at, empty) in steps {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_project(ProjectPage::Who, window, cx);
+                if let Some(page) = screen.project_page.clone() {
+                    page.update(cx, |page, cx| {
+                        page.set_view(view, cx);
+                        if empty {
+                            page.who = Load::Read(ipc::WhosOnWhat { project: super::mock::PROJECT.into(), people: Vec::new(), features: Vec::new() });
+                        }
+                        if at.is_some() {
+                            page.focus_body(window, cx);
+                        }
+                        page.at = at;
+                        cx.notify();
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}
