@@ -72,6 +72,10 @@ where
         self.feature_paged(caller, project, feature, section).await
     }
 
+    async fn get_glossary(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::Glossary, Refusal> {
+        self.glossary_read(caller, project).await
+    }
+
     async fn get_project_overview(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
         self.project_overview_read(caller, project).await
     }

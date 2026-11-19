@@ -50,6 +50,10 @@ impl Features for FakeDaemon {
         })
     }
 
+    async fn get_glossary(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::Glossary, Refusal> {
+        Ok(ipc::Glossary { project: project.unwrap_or_default(), terms: Vec::new() })
+    }
+
     async fn get_project_overview(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::ProjectOverview, Refusal> {
         Ok(ipc::ProjectOverview { project: project.unwrap_or_else(|| String::from("p1")), what_it_is: None, rooms: Vec::new(), busiest: Vec::new(), glossary: Vec::new() })
     }
@@ -77,7 +81,7 @@ impl Features for FakeDaemon {
     }
 
     async fn write_feature_sections(&self, _caller: Option<crate::Caller>, write: WriteFeatureSections) -> Result<FeatureSectionsWritten, Refusal> {
-        Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], owed: Vec::new() })
+        Ok(FeatureSectionsWritten { feature: write.feature, written: vec![FeatureSectionKind::Test], glossary: Vec::new(), owed: Vec::new() })
     }
 
     async fn upsert_features(&self, _caller: Option<crate::Caller>, upsert: UpsertFeatures) -> Result<FeaturesUpserted, Refusal> {
