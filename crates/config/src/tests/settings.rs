@@ -642,10 +642,10 @@ fn a_value_under_the_new_name_stands_over_the_old_key() {
 }
 
 #[test]
-fn the_disk_floors_ship_at_a_hundred_to_reclaim_at_and_thirty_to_hold_at() {
+fn the_disk_floors_ship_at_sixty_to_reclaim_at_and_thirty_to_hold_at() {
     let reclaim = entry("limits.diskReclaimFloorGib").expect("a setting");
     assert_eq!(reclaim.title, "Disk to start reclaiming at");
-    assert!(matches!(reclaim.shipped, Shipped::Integer(100)));
+    assert!(matches!(reclaim.shipped, Shipped::Integer(60)));
     assert!(matches!(reclaim.kind, Kind::Integer { min: 0, max: 500, .. }));
     assert!(matches!(reclaim.applies, s::Applies::Live));
 

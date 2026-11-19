@@ -99,7 +99,7 @@ pub(super) const LIMITS: &[Entry] = &[
         title: "Disk to start reclaiming at",
         description: "The gibibytes free on a repository's volume under which Fleet drops old build output, oldest first, until there are twenty more. Zero never reclaims.",
         kind: Kind::Integer { min: 0, max: 500, unit: "GiB" },
-        shipped: Shipped::Integer(100),
+        shipped: Shipped::Integer(60),
         applies: Applies::Live,
         row: Some("disk-reclaim-floor"),
         env: None,

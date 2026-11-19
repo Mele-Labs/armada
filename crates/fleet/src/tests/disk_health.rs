@@ -72,7 +72,7 @@ async fn health_carries_the_disk_with_both_floors_and_the_free_bytes_the_machine
 
     assert_eq!(disk.free_bytes, 25 * GIB);
     assert_eq!(disk.hold_floor_bytes, rig.fleet.headroom().disk_floor().count());
-    assert_eq!(disk.reclaim_floor_bytes, 100 * GIB, "limits.diskReclaimFloorGib as shipped");
+    assert_eq!(disk.reclaim_floor_bytes, 60 * GIB, "limits.diskReclaimFloorGib as shipped");
     assert_eq!((disk.last_pass, disk.next_to_drop), (None, Vec::new()), "no look has run");
 
     free.store(7, Ordering::SeqCst);

@@ -146,11 +146,20 @@ pub fn sweep_repository(
     held: &[std::path::PathBuf],
 ) -> Vec<(std::path::PathBuf, Trimmed)> {
     let held: Vec<_> = held.iter().filter_map(|checkout| checkout.canonicalize().ok()).collect();
+    // **Main and the preview drop only stale files, however large**: every refresh builds on
+    // them, and the ceiling removed the preview's whole each hour (armada-nk57).
+    let warm: Vec<_> = [root.to_path_buf(), root.join(".armada/preview")]
+        .iter()
+        .filter_map(|checkout| checkout.canonicalize().ok())
+        .collect();
     every_checkout(root)
         .into_iter()
         .filter(|checkout| !held.contains(checkout))
-        .flat_map(|checkout| build_folders_in(&checkout))
-        .map(|target| {
+        .flat_map(|checkout| {
+            let trim = if warm.contains(&checkout) { Trim { ceiling_bytes: u64::MAX, ..trim } } else { trim };
+            build_folders_in(&checkout).into_iter().map(move |target| (target, trim))
+        })
+        .map(|(target, trim)| {
             let done = trim_target(&target, trim, now);
             (target, done)
         })
