@@ -115,6 +115,7 @@ pub mod onto_base;
 /// Which files a person's commits changed. `docs/concepts/pull-review.md`.
 mod history;
 mod outside;
+mod consulting;
 mod pull_reading;
 mod pull_request_comments;
 mod pull_request_detail;
@@ -192,7 +193,7 @@ mod tests;
 
 pub use annotations::annotation_places;
 pub use build_standing::{
-    branch_in_build, branch_tip, build_made_of, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade,
+    branch_in_build, branch_tip, build_made_of, build_merges, fetch_branch, fetch_main, fetch_origin, fetch_pull_head, load_under, on_main, origin_branches, position_against_main, BranchInBuild, BuildMade, BuildMerges,
 };
 pub use main_blocked::{delete_files, main_blocked, pull_main, stash_files, MainBlocked};
 pub use ci_workflows::ActionsWorkflows;
@@ -212,6 +213,7 @@ pub use models_offered::HarnessModel;
 pub use hosted_session::{check_line, reads_only, CheckLine, HostedLaunch, HostedRefused, HOSTED_HARNESS, MOD_INSTALLED_MANIFEST, MOD_MANIFEST, SESSION_RULES};
 pub use issue_lookup::IssueLookup;
 pub use outside::command_reach;
+pub use consulting::{consulted, Consulted, ConsultedKind};
 pub use issue_tracker::IssueTracker;
 pub use test_map_for::{collector_for, Feeder};
 pub use test_map_static::TypeScriptImports;

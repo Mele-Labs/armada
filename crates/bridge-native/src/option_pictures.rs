@@ -47,7 +47,7 @@ fn read(source: &StillAt) -> Result<Vec<u8>, String> {
     };
     let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
     let (status, bytes) = runtime.block_on(crate::transport::get(port, &source.image))?;
-    if (200..300).contains(&status) { Ok(bytes) } else { Err(format!("Fleet answered {status}")) }
+    crate::refusal::answered("GET", &source.image, None, status, bytes).map_err(|refusal| refusal.to_string())
 }
 
 /// What the asker may pass: a PNG or a JPEG, told by its first bytes.

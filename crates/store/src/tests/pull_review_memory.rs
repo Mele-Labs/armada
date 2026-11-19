@@ -1,7 +1,7 @@
 //! What the person remembers of a pull request between visits, kept across a restart.
 
 use crate::tests::{open, TempDir};
-use crate::{KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+use crate::{KeptIgnore, KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 
 fn seen(number: u64, head: &str, at: &str) -> KeptSeenHead {
     KeptSeenHead {
@@ -37,6 +37,29 @@ fn a_seen_head_is_kept_per_pull_request_and_a_later_look_replaces_it() {
     assert_eq!((kept.head.as_str(), kept.seen_at.as_str()), ("bbb", "2026-11-13T10:00:00Z"));
     assert_eq!(store.seen_head("harbour", "example-org/harbour", 43).unwrap(), None);
     assert_eq!(store.seen_heads().unwrap().len(), 2);
+}
+
+#[test]
+fn an_ignore_is_kept_per_pull_request_and_forgetting_it_is_not_an_error_twice() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let ignore = |number: u64, at: &str| KeptIgnore {
+        manifest_id: "harbour".to_string(),
+        repository: "example-org/harbour".to_string(),
+        number,
+        ignored_at: at.to_string(),
+    };
+    store.keep_ignore(&ignore(41, "2026-11-13T09:00:00Z")).unwrap();
+    store.keep_ignore(&ignore(42, "2026-11-13T09:01:00Z")).unwrap();
+    store.keep_ignore(&ignore(41, "2026-11-14T09:00:00Z")).unwrap();
+
+    let kept = store.ignores().unwrap();
+    assert_eq!(kept.len(), 2);
+    assert_eq!(kept.iter().find(|it| it.number == 41).map(|it| it.ignored_at.as_str()), Some("2026-11-14T09:00:00Z"));
+
+    store.forget_ignore("harbour", "example-org/harbour", 41).unwrap();
+    store.forget_ignore("harbour", "example-org/harbour", 41).unwrap();
+    assert_eq!(store.ignores().unwrap().iter().map(|it| it.number).collect::<Vec<_>>(), [42]);
 }
 
 #[test]

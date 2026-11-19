@@ -351,7 +351,7 @@ pub use review_runs::{KeptReviewRun, RunPull};
 pub use practice_catalogue::KeptPractices;
 pub use walk_places::{HeldReviewWalk, KeptWalkPlace};
 pub use pull_request_notes::KeptPullRequestNote;
-pub use pull_review_memory::{KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
+pub use pull_review_memory::{KeptIgnore, KeptPullOpened, KeptReviewLayout, KeptReviewRequest, KeptSeenHead, KeptViewedFile, KeptWrittenReview};
 pub use session_retro::{KeptRestart, KeptSessionLesson, KeptSessionRetro};
 pub use attachment_versions::KeptAttachmentVersion;
 pub use session_ledger::{
@@ -362,3 +362,7 @@ pub use slot_rescues::{KeptRescue, RescueState, RescueVerdict};
 pub use slot_strandings::KeptStranding;
 pub use studio::{StudioError, Unreadable, UnreadableContent};
 pub use timeline::{KeptTimeline, TimelineEntry, TimelineWindow};
+
+/// What a Job read before it changed a feature's files.
+mod feature_reads;
+pub use feature_reads::KeptJobRead;

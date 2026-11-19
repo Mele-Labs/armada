@@ -43,6 +43,8 @@ impl Features for FakeDaemon {
             links: Vec::new(),
             decisions: Vec::new(),
             files: Vec::new(),
+            docs: Vec::new(),
+            tickets: Vec::new(),
             floor_plan: None,
         })
     }
@@ -78,7 +80,7 @@ impl Features for FakeDaemon {
     }
 
     async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
-        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None })
+        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new() })
     }
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {

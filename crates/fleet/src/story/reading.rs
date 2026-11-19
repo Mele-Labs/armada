@@ -119,7 +119,7 @@ where
     }
 
     /// `question` put once to the model, through the Judge's client and the proposer's budget. Whatever goes wrong is words for the log.
-    pub(super) async fn story_asked(&self, question: &str) -> Result<String, String> {
+    pub(crate) async fn story_asked(&self, question: &str) -> Result<String, String> {
         let proposing = self.proposing().map_err(|why| format!("{why:?}"))?;
         let named = self.machine_settings().now().get(keys::MODELS_DISPUTE);
         let model = Model::named_at(&named, None).unwrap_or_else(|_| proposing.model.clone());

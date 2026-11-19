@@ -185,6 +185,26 @@ fn the_ask_in_view_follows_the_scroll_top_of_the_thread(cx: &mut TestAppContext)
     assert_eq!(in_view(&view, cx), model::in_view(&entries, 0));
 }
 
+/// The rail's width with the thread scrolled so item `item` is at its top, and which ask that puts in view.
+fn rail_wide_at(view: &Entity<JobView>, cx: &mut VisualTestContext, item: usize) -> (f32, Option<usize>) {
+    view.read_with(cx, |view, _| view.pages.get(JOB).expect("drawn").list.scroll_to(gpui::ListOffset { item_ix: item, offset_in_item: px(0.) }));
+    let wide = f32::from(bounds(cx, Role::Region, NAME).expect("the rail is drawn").size.width);
+    (wide, in_view(view, cx))
+}
+
+#[gpui::test]
+fn every_bar_is_one_length_so_the_bars_line_up_whichever_ask_is_in_view(cx: &mut TestAppContext) {
+    let (view, cx) = job(cx, 500.);
+    let (_, entries) = scroll(&view, cx);
+    let (none, at_top) = rail_wide_at(&view, cx, 0);
+    assert_eq!(at_top, None, "the thread starts before its first ask");
+    for (at, entry) in entries.iter().enumerate() {
+        let (wide, now) = rail_wide_at(&view, cx, *entry);
+        assert_eq!(now, Some(at));
+        assert_eq!(wide, none, "the bar of ask {at} in view is no longer than the rest, so both edges of the bars line up");
+    }
+}
+
 #[gpui::test]
 fn a_thread_with_no_asks_draws_no_rail_and_no_list(cx: &mut TestAppContext) {
     let (view, cx) = job(cx, 2400.);

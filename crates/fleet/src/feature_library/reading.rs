@@ -6,7 +6,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    FeatureAreaRow, FeatureBrief, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection,
+    FeatureAreaRow, FeatureBrief, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureRead,
     FeatureSectionKind, FeatureState, Instant, SessionId,
 };
 use store::{feature_link_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
@@ -261,6 +261,8 @@ where
                 store.feature_decisions(&feature.id).map_err(|why| self.feature_fault(why))?,
             )
         };
+        let docs = reads_of(&links, feature_link_kind::DOC);
+        let tickets = reads_of(&links, feature_link_kind::TICKET);
         let mut page = FeaturePage {
             project: loaded.project.clone(),
             feature: row_of(&feature, on.get(&feature.id).cloned().unwrap_or_default(), stale),
@@ -275,6 +277,8 @@ where
             links: links.into_iter().filter_map(link_on_the_wire).collect(),
             decisions: decisions.into_iter().map(decision_on_the_wire).collect(),
             files: files.into_iter().map(|(path, jobs)| FeatureFile { path, jobs }).collect(),
+            docs,
+            tickets,
             floor_plan: None,
         };
         drop(store);
@@ -377,6 +381,26 @@ fn link_on_the_wire(link: KeptFeatureLink) -> Option<FeatureLink> {
 
 fn decision_on_the_wire(kept: KeptFeatureDecision) -> FeatureDecision {
     FeatureDecision { question: kept.question, choice: kept.choice, note: Some(kept.note).filter(|note| !note.is_empty()), job: kept.job, at: instant(&kept.at) }
+}
+
+/// The docs or tickets of `kind` the links hold, newest first, **each once by what it was read by**: the newest read of it
+/// names the Job. A read in two Jobs is one entry.
+fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
+    let mut reads: Vec<FeatureRead> = Vec::new();
+    for link in links.iter().rev().filter(|link| link.kind == kind) {
+        if reads.iter().any(|read| read.target == link.target) {
+            continue;
+        }
+        reads.push(FeatureRead {
+            target: link.target.clone(),
+            title: Some(link.title.clone()).filter(|title| !title.is_empty()).unwrap_or_else(|| link.target.clone()),
+            gist: link.gist.clone(),
+            job: link.job.clone(),
+            at: instant(&link.at),
+            state: link.state.clone(),
+        });
+    }
+    reads
 }
 
 /// The open bugs, newest first.

@@ -11,6 +11,8 @@ use gpui::{Bounds, Pixels};
 use ipc::{DispatchJob, DispatchMessage, DispatchThen, JobDispatched, ManifestId, NoteCrop, NoteElement, NotePlace, NoteState, SendSessionMessage, SendSessionMessageBody, SendSessionNotes, SessionId, SessionNote, SessionUpload, StartSession};
 use serde_json::Value;
 
+use crate::refusal::Failed;
+
 /// One note as the send needs it: its file as it reads, and where its picture is.
 pub struct Outgoing {
     pub key: String,
@@ -143,28 +145,30 @@ fn note_of(out: &Outgoing, ink: Ink) -> SessionNote {
     }
 }
 
-fn post(port: u16, path: &str, body: Result<String, ipc::Unencodable>) -> Result<Vec<u8>, String> {
+/// One POST of the send; a refusal keeps its route, what was sent and how many pictures went with it.
+fn post(port: u16, path: &str, body: Result<String, ipc::Unencodable>, pictures: usize) -> Result<Vec<u8>, Failed> {
     let body = body.map_err(|why| format!("{why:?}"))?;
-    let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-    let (status, bytes) = runtime.block_on(crate::transport::post(port, path, body))?;
-    if (200..300).contains(&status) {
-        Ok(bytes)
-    } else {
-        Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
+    match crate::refusal::post(port, path, body) {
+        Err(Failed::Refused(refusal)) => Err(Failed::Refused(refusal.pictures(pictures))),
+        answer => answer,
     }
 }
 
+fn pictured(notes: &[Outgoing]) -> usize {
+    notes.iter().filter(|out| !matches!(out.picture, Picture::None)).count()
+}
+
 /// The notes into Job `session`'s thread: the ones on a spot as one turn, then each one on the window.
-pub fn deliver(port: u16, session: &str, notes: Vec<Outgoing>, ink: Ink) -> Result<(), String> {
+pub fn deliver(port: u16, session: &str, notes: Vec<Outgoing>, ink: Ink) -> Result<(), Failed> {
     let (window, spots): (Vec<Outgoing>, Vec<Outgoing>) = notes.into_iter().partition(|note| note.window);
     if !spots.is_empty() {
         let notes = spots.iter().map(|out| note_of(out, ink)).collect();
-        post(port, "/sessions/notes", ipc::encode(&SendSessionNotes { session_id: SessionId::carried(session.to_string()), notes }))?;
+        post(port, "/sessions/notes", ipc::encode(&SendSessionNotes { session_id: SessionId::carried(session.to_string()), notes }), pictured(&spots))?;
     }
     for out in &window {
         let attachments = picture_of(out, ink).map(|data| SessionUpload { name: format!("annotation-{}.png", out.key), media_type: "image/png".into(), data }).into_iter().collect();
         let message = SendSessionMessage { session_id: SessionId::carried(session.to_string()), text: window_text(&out.raw, &out.key), attachments, mentions: Vec::new(), sketches: Vec::new() };
-        post(port, "/sessions/message", ipc::encode(&SendSessionMessageBody { message, aim: None }))?;
+        post(port, "/sessions/message", ipc::encode(&SendSessionMessageBody { message, aim: None }), pictured(std::slice::from_ref(out)))?;
     }
     Ok(())
 }
@@ -180,7 +184,8 @@ pub enum Dispatched {
 /// A new Job on `manifest` with the notes' words as its request, as one dispatch: the notes go in `then`, a turn of
 /// notes for the ones on a spot and a message for each on the window, so nothing is lost whoever starts the Job.
 /// The Job's id and its title as Fleet named it, else the words' first line cut to 60 characters, as Classic's.
-pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgoing>, ink: Ink) -> Result<Dispatched, String> {
+pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgoing>, ink: Ink) -> Result<Dispatched, Failed> {
+    let pictures = pictured(&notes);
     let (window, spots): (Vec<Outgoing>, Vec<Outgoing>) = notes.into_iter().partition(|note| note.window);
     let mut then = Vec::new();
     if !spots.is_empty() {
@@ -205,7 +210,7 @@ pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgo
         project: None,
         on_your_words: None,
     };
-    let bytes = post(port, "/sessions/dispatch", ipc::encode(&DispatchJob { start, kind: None, then }))?;
+    let bytes = post(port, "/sessions/dispatch", ipc::encode(&DispatchJob { start, kind: None, then }), pictures)?;
     let done = ipc::decode::<JobDispatched>("JobDispatched", &bytes).map_err(|why| why.to_string())?;
     let first_line: String = words.lines().next().unwrap_or_default().chars().take(60).collect();
     match done {
@@ -215,7 +220,7 @@ pub fn dispatch(port: u16, manifest: ManifestId, words: String, notes: Vec<Outgo
         }
         JobDispatched { operator, parked, .. } => match operator.or(parked) {
             Some(id) => Ok(Dispatched::Kept { id, title: first_line }),
-            None => Err("Fleet answered the dispatch with nothing in it".to_string()),
+            None => Err(Failed::from("Fleet answered the dispatch with nothing in it".to_string())),
         },
     }
 }

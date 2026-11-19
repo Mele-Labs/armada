@@ -643,6 +643,14 @@ where
         self.file_viewed_marked(manifest_id, mark).await
     }
 
+    async fn ignore_pull_request(&self, manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::PullIgnored, Refusal> {
+        self.pull_ignored(manifest_id, ignore).await
+    }
+
+    async fn unignore_pull_request(&self, manifest_id: ManifestId, ignore: ipc::IgnorePull) -> Result<ipc::IgnorePull, Refusal> {
+        self.pull_unignored(manifest_id, ignore).await
+    }
+
     async fn unmark_file_viewed(
         &self,
         manifest_id: ManifestId,

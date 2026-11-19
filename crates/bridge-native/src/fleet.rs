@@ -1427,6 +1427,11 @@ impl FleetConnection {
         self.held.calls = Some(calls);
     }
 
+    /// The preview offers, as a read of them would hold them.
+    pub fn hold_offers(&mut self, offers: ipc::PreviewOffers) {
+        self.held.offers = Some(offers);
+    }
+
     /// Threads as a read of each would hold them: a view over a connection draws these, never the mock's.
     pub fn hold_threads(&mut self, threads: impl IntoIterator<Item = JobThread>) {
         for read in threads {

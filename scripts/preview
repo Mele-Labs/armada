@@ -82,6 +82,8 @@ OLD_MIGRATIONS = "crates/store/src/migrations.rs"
 # is what a Mac pushes its merged preview to for another Mac to build.
 NEVER = ("main", "preview")
 PUSHED = "preview/"
+# Exit code of `--at` when the ref has moved to a newer commit: scripts/restart-build reads it.
+SUPERSEDED = 75
 # What `git clean` keeps: the build directories, the Bridge, native Bridge and
 # phone app build stamps `scripts/restart` compares sources against, the test
 # list Fleet's build script writes (a recompile of Fleet when it goes), and the
@@ -415,6 +417,11 @@ def land_at(root, sha, ref):
     if git(root, "cat-file", "-e", commit, check=False).returncode != 0 and ref:
         git(root, "fetch", "--quiet", "origin", ref, check=False)
     if git(root, "cat-file", "-e", commit, check=False).returncode != 0:
+        tip = git(root, "rev-parse", "--verify", "--quiet", "FETCH_HEAD^{commit}", check=False).stdout.strip() if ref else ""
+        if tip and not tip.startswith(sha.lower()):
+            # A newer Refresh force-pushed over the ref: its own request builds the newer commit.
+            print(f"preview: superseded: {sha[:10]} was replaced by {tip[:10]} on {ref}; building nothing", flush=True)
+            sys.exit(SUPERSEDED)
         sys.exit(f"preview: the commit {sha[:10]} is not in this repository"
                  + (f" and `origin {ref}` did not bring it" if ref else " and no --ref says where to fetch it"))
     full = out(root, "rev-parse", commit)
@@ -428,7 +435,26 @@ def land_at(root, sha, ref):
         f.write(text)
     sys.stdout.write(text)
     sys.stdout.flush()
-    return wt, stands
+    rows, tips = merged_into(root, stands, full)
+    return wt, stands, rows, tips
+
+
+MERGED_INTO_PREVIEW = re.compile(r"^Merge branch '(.+)' into preview$")
+
+
+def merged_into(root, stands, full):
+    """The rows and tips of the branches the Mac that built `full` merged into it, read from its own
+    merge commits, so `preview-held` names them here too and each Job's card says it is in the build."""
+    log = out(root, "log", "--first-parent", "--reverse", "--format=%P%x09%s", f"{stands}..{full}")
+    rows, tips = [], {}
+    for line in log.splitlines():
+        parents, _, subject = line.partition("\t")
+        found = MERGED_INTO_PREVIEW.match(subject)
+        parents = parents.split()
+        if found and len(parents) == 2:
+            rows.append((found.group(1), "merged", None))
+            tips[found.group(1)] = parents[1]
+    return rows, tips
 
 
 def merge_tree(wt, cur, branch):
@@ -799,8 +825,7 @@ def main():
         pull_main(root, args.dry_run)
 
     if args.at:
-        wt, base = land_at(root, args.at, args.ref)
-        rows, tips = [], {}
+        wt, base, rows, tips = land_at(root, args.at, args.ref)
     else:
         wt, base, rows, tips = merge_pass(root, only, skip, every=args.all)
     if args.push_as is not None and not args.restart:

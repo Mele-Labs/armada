@@ -85,6 +85,7 @@ impl ReviewsScreen {
         let heads = heads_of(&lists);
         if let Some(live) = self.live.as_mut() {
             live.inbox_said = None;
+            live.act_said = None;
             live.inbox_banner = map::kept_banner(&lists);
             live.banner_limited = live.inbox_banner.is_some();
             live.fetched_at = Some(lists.fetched_at.clone()).filter(|at| !at.is_empty());
@@ -247,6 +248,7 @@ mod tests {
             my_review: None,
             inbox: ipc::PullInbox::NeedsFirstLook,
             reviewing: false,
+            ignored: false,
         }
     }
 

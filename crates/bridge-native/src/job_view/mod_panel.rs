@@ -12,6 +12,7 @@ use super::rows::{glyph, tip, Size};
 use crate::fleet::FleetConnection;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook};
+use crate::refusal::Failed;
 
 /// What the panel asks of the surface that hosts it.
 #[derive(Clone, Debug, PartialEq)]
@@ -89,7 +90,10 @@ impl ModPanel {
                 let _ = this.update(cx, |this, cx| {
                     this.switched = None;
                     cx.notify();
-                    cx.defer(move |cx| crate::toasts::tell(why, cx));
+                    cx.defer(move |cx| match why {
+                        Failed::Refused(refusal) => crate::toasts::tell_refused("The mod was not switched", refusal, cx),
+                        Failed::Unanswered(why) => crate::toasts::tell(why, cx),
+                    });
                 });
             }
         })
@@ -105,10 +109,10 @@ impl ModPanel {
         let words = super::mods_made::change_words(&title, kind);
         let sent = posted(port, "/mods/session", ipc::encode(&start), cx);
         cx.spawn(async move |this, cx| {
-            let started = sent.await.and_then(|bytes| ipc::decode::<ipc::ModSessionStarted>("ModSessionStarted", &bytes).map_err(|why| why.to_string()));
+            let started = sent.await.and_then(|bytes| ipc::decode::<ipc::ModSessionStarted>("ModSessionStarted", &bytes).map_err(|why| Failed::from(why.to_string())));
             let _ = this.update(cx, |this, cx| match started {
                 Ok(started) => this.open_job(started.session_id.as_str().to_string(), Some(words), cx),
-                Err(why) => cx.defer(move |cx| crate::toasts::tell(format!("Mod Job not started: {why}"), cx)),
+                Err(why) => cx.defer(move |cx| why.tell("Mod Job not started", cx)),
             });
         })
         .detach();
@@ -126,17 +130,11 @@ impl ModPanel {
     }
 }
 
-/// A POST to Fleet off the main thread: its answer's bytes, or Fleet's why.
-fn posted(port: u16, path: &'static str, body: Result<String, ipc::Unencodable>, cx: &App) -> Task<Result<Vec<u8>, String>> {
+/// A POST to Fleet off the main thread: its answer's bytes, or Fleet's refusal kept whole.
+fn posted(port: u16, path: &'static str, body: Result<String, ipc::Unencodable>, cx: &App) -> Task<Result<Vec<u8>, Failed>> {
     cx.background_spawn(async move {
         let body = body.map_err(|why| format!("{why:?}"))?;
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-        let (status, bytes) = runtime.block_on(crate::transport::post(port, path, body))?;
-        if (200..300).contains(&status) {
-            Ok(bytes)
-        } else {
-            Err(ipc::decode::<ipc::WireError>("WireError", &bytes).map_or_else(|_| format!("Fleet answered {status}"), |error| error.message))
-        }
+        crate::refusal::post(port, path, body)
     })
 }
 

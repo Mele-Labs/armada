@@ -71,6 +71,7 @@ mod paste_link;
 mod pasteboard;
 mod point;
 mod queued;
+mod refusal;
 mod restart_fleet;
 mod room;
 mod revert;

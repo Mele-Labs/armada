@@ -46,6 +46,8 @@ export type PullReviewRow = {
   inbox?: PullInbox;
   /** He ran a review tool on it in Armada, at any head. On a row of any list. Absent is false. */
   reviewing?: boolean;
+  /** He ignored it and it has not been asked of him since. Absent is false. */
+  ignored?: boolean;
 };
 
 /** `get_review_lists`: read when the Reviews tab opens and on Refresh, never polled. At most `MOST_PER_LIST` a list. */

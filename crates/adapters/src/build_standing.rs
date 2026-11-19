@@ -110,6 +110,35 @@ pub fn build_made_of(root: &str, commit: &str) -> Option<BuildMade> {
     None
 }
 
+/// What the first-parent merges of a preview build say it holds: the main commit under it, and each branch
+/// merged with the tip it was merged at, oldest merge first.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BuildMerges {
+    pub main_commit: String,
+    pub merges: Vec<(String, String)>,
+}
+
+/// The branches `scripts/preview` merged into the build at `commit`, each at the second parent of its
+/// merge. **`None`** where git cannot say or the walk finds no merge: the build is not a preview, or
+/// holds nothing.
+pub fn build_merges(root: &str, commit: &str) -> Option<BuildMerges> {
+    let named = format!("{commit}^{{commit}}");
+    commits(root, &["rev-parse", "--verify", "--quiet", &named])?.pop()?;
+    let walk = commits(root, &["log", "--first-parent", "--format=%H\t%P\t%s", "-n", "400", commit])?;
+    let mut merges = Vec::new();
+    for line in &walk {
+        let mut fields = line.splitn(3, '\t');
+        let (hash, parents, subject) = (fields.next()?, fields.next()?, fields.next().unwrap_or_default());
+        let Some(branch) = merged_into_preview(subject) else {
+            merges.reverse();
+            return (!merges.is_empty()).then(|| BuildMerges { main_commit: hash.to_string(), merges });
+        };
+        let tip = parents.split_whitespace().nth(1)?;
+        merges.push((branch.to_string(), tip.to_string()));
+    }
+    None
+}
+
 /// The commit `refs/heads/<branch>` names in `root`, or `None` where there is no such branch.
 pub fn branch_tip(root: &str, branch: &str) -> Option<String> {
     commits(root, &["rev-parse", "--verify", "--quiet", &format!("refs/heads/{branch}^{{commit}}")])?.pop()

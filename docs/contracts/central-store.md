@@ -34,6 +34,7 @@ Why: Bridge holds one connection, to Fleet.
 | Owner | key hash | holder |
 | Runs | repository hash | the repository's facts, as JSON |
 | Nonce | device id and nonce | when seen |
+| Tally | the name of a table with a limit | how many rows it holds, kept by a trigger on each insert and delete |
 
 ## Rows
 
@@ -114,6 +115,10 @@ An alarm on the account's object drops the lapsed holders and their claims, and 
 Why: a Mac that stops, sleeps or loses its network must not hold work forever.
 A Mac asleep that long takes its claims again when it wakes.
 
+**Rule.** A claims route or a renewal drops lapsed rows only once the earliest renewal or ask can have lapsed, and otherwise reads no holder or contender to find out.
+The object keeps that time in memory, and an object that has just woken takes its alarm's time, which is never later.
+Why: dropping lapsed rows reads every holder and contender, and on every call it spent the free plan's 5,000,000 rows read in a day ([Cost](#cost)).
+
 **Rule.** `POST /renewals` renews every claim of one holder (kind, id and machine) in one call, and answers how many it still holds.
 `0` is a holder whose claims lapsed, and it claims them again.
 Why: a renewal writes one `holders` row, however many claims the Job holds, because the free plan counts rows written ([Cost](#cost)).
@@ -173,6 +178,7 @@ The path and query are exactly as sent, and an empty body hashes as the empty st
 
 **Rule.** A nonce is kept for two minutes per device. A request that repeats one is refused, whatever its signature.
 Why: the Worker holds the replay set, so no process map is needed on either side.
+A device's request clears that device's old nonces, through an index on device and time, and the alarm clears those of a device that stopped calling.
 
 **Rule.** A nonce is recorded only after the signature verifies.
 Why: an unsigned flood cannot fill the table.
@@ -315,6 +321,10 @@ Why: the owner chose to try the limit and go without it, 14 Nov 2026, since Clou
 
 **Rule.** A request counts toward a device's minute only once its signature verifies, and the nonces of the last minute are the count.
 Why: a stranger who knows a device id must not be able to use up that device's requests, and no second table is needed.
+The object reads a device's nonces of the last minute once, then keeps their times in memory.
+
+**Rule.** A limit is checked against the table's tally, never by counting the table.
+Why: a `COUNT(*)` reads every row, and the free plan counts each one ([Cost](#cost)).
 
 **Rule.** A table that is full refuses a new row with `413` and a name, never drops one silently, and still answers for a row it has.
 A claim that exists answers `409` with its holder, and a pull request owner or a repository's runs that exist are updated.
@@ -339,6 +349,10 @@ Why: an account that enrolled before the columns existed never enrols again, and
 Why: those rows name no person or title and nothing renews them, so the lapse would drop them anyway; the Mac that held one claims it again.
 The October store was never deployed, so no live account holds one, and `apps/store/test/store.test.ts` opens a store built on it.
 
+**Rule.** An account made before `tallies` gets the table, its triggers and one count of each table with a limit from the first verified request, and its nonce index on time alone becomes one on device and time.
+Why: an account that enrolled before them never enrols again, and that one count is the last time the store reads a whole table to check a limit.
+`apps/store/test/reads.test.ts` opens a store built before them.
+
 ## Cost
 
 The store runs on the Workers Free plan, read from Cloudflare's pricing and limits pages on 13 Nov 2026 (`developers.cloudflare.com/workers/platform/pricing/`, `/durable-objects/platform/pricing/` and the two `limits/` pages).
@@ -348,14 +362,18 @@ Each daily allowance is per Cloudflare account and resets at 00:00 UTC.
 |---|---|---|
 | Worker requests | 100,000 | One per call |
 | Durable Object requests | 100,000 | One per call that reaches the account's object, and one per alarm |
-| SQLite rows written | 100,000 | About 4 per call for its nonce, kept and deleted with its index, 1 more for a renewal, about 3 more for a claim won and about 1 more for a `409` |
-| SQLite rows read | 5,000,000 | A few per call |
+| SQLite rows written | 100,000 | About 4 per call for its nonce, kept and deleted with its index, 1 more for a renewal, about 4 more for a claim won and about 2 more for a new contender, each counting its tally, and 1 more for a `409` already kept |
+| SQLite rows read | 5,000,000 | Fewer than 10 per claim or renewal, whatever the account holds, and every holder and contender once each time something lapses |
 | SQLite storage | 5 GB in all | Well under 1 MB at the limits above |
 | CPU per request | 10 ms | Signature check and one or two statements |
 
 At 10 live Jobs renewing every 5 minutes, 2,880 renewals a day spend about 2,880 of each request allowance and about 14,400 rows written.
 A renewal that wrote each claim instead would spend about two rows per claim, so ten Jobs holding twenty files each would come to about 115,000, over the allowance.
 The 2,880 is arithmetic, not a measurement of a day of Jobs.
+
+Rows read spent the allowance first, on 18 Nov 2026: Cloudflare warned at 90% of 5,000,000.
+Each claims call and renewal counted the claims table and scanned the holders and contenders, about 5,200 rows a call at 2,000 claims each with a contender.
+`apps/store/test/reads.test.ts` measures the rows a call reads now.
 
 A Worker over its daily requests answers Cloudflare's error 1027, and a Durable Object over an allowance fails the operation with an error.
 Fleet reads either as the store not answering ([Failure](#failure)).
