@@ -20,6 +20,7 @@ fn row(slug: &str) -> FeatureRow {
         state: FeatureState::Seeded,
         jobs_now: Vec::new(),
         stale_since: None,
+        health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
     }
 }
 
@@ -41,6 +42,7 @@ impl Features for FakeDaemon {
             entry_points: Vec::new(),
             sections: Vec::new(),
             links: Vec::new(),
+            decisions: Vec::new(),
             files: Vec::new(),
             docs: Vec::new(),
             tickets: Vec::new(),

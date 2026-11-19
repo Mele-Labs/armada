@@ -60,6 +60,7 @@ mod bug_reports;
 mod job_asks;
 /// A project's feature library: areas, features, what Jobs wrote about them and what Fleet saw.
 mod feature_changes;
+mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
 mod librarian_runs;
@@ -269,6 +270,7 @@ pub use usage_rule_trips::KeptTrip;
 pub use waiting_compactions::{KeptCompaction, NextRequest};
 pub use fleet_disputes::{KeptDispute, KeptNotice};
 pub use bug_reports::{KeptBugFix, KeptBugReport};
+pub use feature_decisions::KeptFeatureDecision;
 pub use features::{
     feature_state, link_kind as feature_link_kind, section as feature_section, KeptArea, KeptFeature, KeptFeatureFile, KeptFeatureLink,
     KeptFeatureMerge, KeptSection,

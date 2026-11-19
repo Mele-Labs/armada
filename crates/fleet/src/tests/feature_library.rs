@@ -17,7 +17,7 @@ use crate::feature_library::mapping::{owns, FeatureMap, How};
 use crate::feature_library::staleness::stale_since;
 
 pub(super) const VOTING: &str = "voting-on-takes";
-const SOMEWHERE: &str = "crates/pages/voting";
+pub(super) const SOMEWHERE: &str = "crates/pages/voting";
 
 fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
     store::KeptFeature {
@@ -248,7 +248,7 @@ pub(super) async fn held_slot(rig: &Rig, id: &SessionId, slot: &str) {
     rig.fleet.store().lock().await.attach(&row, false).expect("attached");
 }
 
-fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> WriteFeatureSections {
+pub(super) fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectionKind]) -> WriteFeatureSections {
     WriteFeatureSections {
         feature: feature.to_string(),
         sections: sections.iter().map(|section| FeatureSectionText { section: *section, text: format!("The {} text.", section.name()) }).collect(),

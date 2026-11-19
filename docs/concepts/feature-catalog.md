@@ -22,6 +22,7 @@ When the Job's pull request has merged, Fleet knows which features its files bel
 | Pull requests and merges | Detected from the pull requests Fleet attached and the forge's merges |
 | Sketches, pages, walks and drafts | The act that made them names the feature: `feature` on `show_sketch`, `show_window` and `propose_draft`, `armada-feature` in a page's head |
 | Commits | Detected from `Feature:` trailer lines in git |
+| Decisions | Detected from what he settled in a Job, see *Decisions* |
 | How to test it, how it runs, how to observe it, tech debt | Written by the Job that did the work |
 
 A Job is on a feature now only while it is live and holds a worktree slot, the same fact the Jobs list shows as its `slot`.
@@ -76,6 +77,21 @@ Fleet links the artifact to each feature the project holds, as a link of kind `s
 
 Fleet makes such a name a pending feature of the first project of the Job that holds features, and links the artifact to it, as it does a trailer's unknown slug.
 
+## Decisions
+
+A decision is something the owner settled in a Job.
+It is his answer to a question, an `AskUserQuestion` card or an item of `waiting_for` that offers options, his pick on takes, his Approve or Ask for changes on a sketch, a draft, a page or a plan, or his Looks good on a Ready to try card.
+Fleet keeps the question or the artifact's title, what he chose, his note if he gave one, the Job and the time, and `get_feature_page` serves them as `decisions`, newest first.
+No model reads anything: each place Fleet already records one of these answers files it.
+
+> **Rule.** A decision is filed under the features its artifact names, and where it names none, under the features its Job is linked to.
+> Why: a sketch made for one feature says which feature his answer shapes, and an answer to a bare question is best placed where the Job's work landed.
+
+The Job's features are read when the page is served, so a feature the Job is linked to after he answered shows the decision too.
+An artifact's features are the ones its link says, so a feature renamed or merged keeps its decisions.
+Hearing the same answer twice files it once, and an answer given in his place by the Operator or Autopilot is not filed.
+A plan's Approve settles the sketches it names, and those are filed with the plan, not again as their own.
+
 ## Stale
 
 > **Rule.** A written section is stale when a merge after it changed a file mapped to its feature, and it reads `stale since #<pr>`, the first such merge.
@@ -83,6 +99,27 @@ Fleet makes such a name a pending feature of the first project of the Job that h
 
 The merge of the Job's own pull request does not make that Job's sections stale, because the Job wrote them inside the work the merge carries.
 A merge is kept with the files it changed, so the mapping is read again when a page is read.
+
+## Health
+
+> **Rule.** A mark always carries its reasons, and a source Fleet does not keep is not guessed.
+> Why: a mark with no reason cannot be argued with, and a guess about a source reads as a fact about the feature.
+
+Each feature in the list and on its page reads `good`, `watch` or `poor`, with a reason for each fact behind it: a kind, one short sentence and, where there is something to open, a target.
+`good` has no reasons.
+It is worked out on each read, from what Fleet already keeps, with no model and no call to the forge.
+
+| Source | Reads as | Mark |
+|---|---|---|
+| A flaky test under a fix Job whose test map edges reach its files | `flaky test <name> reaches it` | `watch`, `poor` from three |
+| A written section stale | `<section> section stale since #<pr>` | `watch` |
+| The test map holds edges and none reaches its files | `no test reaches its files` | `watch` |
+| An open link of kind `bug` | `open bug: <title>` | `watch`, `poor` from three |
+| A Check, or a lint or type Check, whose last run in a live Job working in its files failed | `clippy failed on the last run of "<job>" in its files` | `poor` |
+
+The three and the sources are chosen, not measured.
+A source Fleet holds nothing for adds nothing: a test map never fed gives no `no test reaches its files`.
+Left out, because Fleet keeps nothing per file for them: a pull request's forge checks and main's CI state.
 
 ## The page condensed
 
@@ -379,8 +416,8 @@ A Job whose turns were read before searches were counted is in no week until its
 
 | Operation | Does |
 |---|---|
-| `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
-| `get_feature_page` | One feature whole, or with `section` that one section alone |
+| `list_features` | A project's areas and features, with who is on each now, the oldest stale merge and each one's health |
+| `get_feature_page` | One feature whole, with the decisions filed under it, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |

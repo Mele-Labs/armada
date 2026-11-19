@@ -22,9 +22,9 @@ use super::process::{Heard, Start};
 use super::rows::{mention_line, new_id, UserLine};
 use super::uploads::ATTACHMENT_REFUSED;
 use crate::daemon::Fleet;
-use crate::asks::NotAnswerable;
 use crate::repositories::Served;
 
+mod ask_answered;
 mod batching;
 mod conditions;
 mod living;
@@ -234,54 +234,7 @@ where
     }
 
     async fn answer_session_ask(&self, said: AnswerSessionAsk) -> Result<SessionRecord, Refusal> {
-        let id = said.session_id.as_str().to_string();
-        let terminal = self.terminal_session(&id).await?.is_some();
-        if terminal {
-            self.terminal_ask_standing(&id).await;
-        } else {
-            self.session_and_hosting(&id).await?;
-        }
-        let held = self
-            .hosts()
-            .of(&id)
-            .state()
-            .asked
-            .as_ref()
-            .is_some_and(|asked| asked.call == said.call);
-        if !held {
-            return Err(self.ask_not_waiting());
-        }
-        let said_answer = said.answer;
-        self.hosts().of(&id).state().answered_via = api::via();
-        let waiting = self
-            .hosts()
-            .asks()
-            .answer(&said)
-            .map_err(|why| match why {
-                NotAnswerable::Incomplete => Refusal::Unacceptable(WireError::raised(
-                    SESSION_ANSWER_INCOMPLETE,
-                    "that ask has questions, and each needs an answer",
-                    self.run_id(),
-                )),
-                NotAnswerable::NotAFolderAbove => Refusal::Unacceptable(WireError::raised(
-                    SESSION_ANSWER_NOT_A_FOLDER,
-                    "an always answer names the folder it is for: the path asked about or one above it",
-                    self.run_id(),
-                )),
-                NotAnswerable::NotItsKind => Refusal::Unacceptable(WireError::raised(
-                    SESSION_ANSWER_NOT_ITS_KIND,
-                    "a like this answer names the ask's own program and script, or its program alone",
-                    self.run_id(),
-                )),
-                _ => self.ask_not_waiting(),
-            })?;
-        if terminal {
-            self.terminal_ask_answered(&id, &waiting, &crate::asks::Said::of(&said))
-                .await?;
-        }
-        let record = self.published_hosted(&id).await?;
-        self.session_answered(&record, crate::timeline::card_answer_says(said_answer));
-        Ok(record)
+        self.session_ask_answered(said, true).await
     }
 
     async fn answer_waiting(

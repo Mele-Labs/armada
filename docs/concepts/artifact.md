@@ -19,7 +19,7 @@ The owner approved the design on 13 Nov 2026.
 | Drafts kept as artifacts keyed by title, with revisions | Built |
 | Archive and restore, by the agent or by him | Built in Fleet; native draws the fold later |
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
-| His Edit of a page's or a draft's words, kept as his revision | Built in Fleet; native draws the toggle later |
+| His Edit of a page's or a draft's words, kept as his revision | Built in Fleet and in native's reader, for drafts and pages |
 | A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
 | Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
 | A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
@@ -27,7 +27,7 @@ The owner approved the design on 13 Nov 2026.
 | A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
 | Notes that point at words, and the revision he last saw, `mark_artifact_seen` | Built in Fleet; native draws them later |
 | Parts: `add_part`, `answer_part`, `JobArtifact.parts`, one open artifact per Job | Built in Fleet; native draws the parts later |
-| A page revision's own HTML, `get_artifact_page_source`, for native's Edit | Built in Fleet; native's reader calls it later |
+| A page revision's own HTML, `get_artifact_page_source`, for native's Edit | Built in Fleet; native's reader calls it on Save |
 | A node's `state` in a sketch's scene | Built in Fleet; native draws it later, Classic does not |
 | A page that buries its ask is kept for reading and not put to him | Built in Fleet |
 | A calm house style under every sealed page's own CSS | Built in Fleet |
@@ -204,6 +204,8 @@ Fleet's half is `save_artifact_edit` (`crates/ipc/operations/save_artifact_edit.
 **Rule.** An Edit reaches words only: text, headings, lists and table cells.
 A page he saves holds the same elements with the same attributes in the same order as the revision he edited, or it is refused naming the first element that differs.
 A sketch or a mock takes notes, not edits.
+Native's reader makes each block of a page's words editable where it stands in the page and sends the revision's own HTML, read with `get_artifact_page_source`, with only his words written into it.
+The kit's actions and votes and the page's sketches are never editable.
 
 **Rule.** Only the newest revision takes an Edit, and the refusal names the newest.
 An archived artifact, a settled draft and one the Job no longer holds take none.

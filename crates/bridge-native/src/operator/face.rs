@@ -74,6 +74,9 @@ pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) 
     }
 }
 
+/// A question: an Operator card's chip, and a Job's own question as Needs you draws it on the same card.
+pub const QUESTION: Kind = kind("Question", "message-circle-question-mark", REVIEW);
+
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
     if let Some(card) = &turn.card {
         return card_kind(card.kind);
@@ -94,8 +97,8 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
         (WaitingSource::Draft, _) => kind("Draft", "file-pen-line", REVIEW),
         (WaitingSource::ReadyToTry, _) => kind("Try", "bell-ring", REVIEW),
         (WaitingSource::Permission, _) => kind("Permission", "shield", REVIEW),
-        (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => kind("Question", "message-circle-question-mark", REVIEW),
-        _ if !item.options.is_empty() => kind("Question", "message-circle-question-mark", REVIEW),
+        (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => QUESTION,
+        _ if !item.options.is_empty() => QUESTION,
         (_, Some(WaitingActKind::Run)) => kind("Command", "terminal", REVIEW),
         (_, Some(WaitingActKind::Message)) => kind("Message", "square-pen", REVIEW),
         _ => kind("Needs you", "bell-ring", REVIEW),
