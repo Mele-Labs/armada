@@ -3,7 +3,8 @@
 //!
 //! **Units**, weighed as `get_usage_summary` weighs them. No unit is in two kinds, so the kinds add up to
 //! `waste_units`, which is no more than `total_units`. `title` and `fix` are Fleet's sentences, so a page
-//! and an agent read the same words. **Names and counts only**: a Job is its id.
+//! and an agent read the same words. **Names and counts only**: a Job is its id, and the one input named is the
+//! file a Read touched, in `causes`.
 
 use serde::{Deserialize, Serialize};
 
@@ -24,9 +25,20 @@ pub struct WasteJob {
     /// The most context one of the counted requests held, for the two context kinds.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub peak_context: Option<u64>,
+    /// The three largest causes, largest first: files for `repeat_reads`, tools for `big_results`. Absent
+    /// for every other kind.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub causes: Vec<WasteCause>,
 }
 
-/// One kind of waste: `subagent_context`, `main_context`, `cold_cache` or `fresh_starts`.
+/// A file or a tool that a Job's share of a kind came of, and what it cost.
+#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+pub struct WasteCause {
+    pub name: String,
+    pub units: f64,
+}
+
+/// One kind of waste: `subagent_context`, `main_context`, `cold_cache`, `fresh_starts`, `repeat_reads` or `big_results`.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct WasteKind {
     pub kind: String,

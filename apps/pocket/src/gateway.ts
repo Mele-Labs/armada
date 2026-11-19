@@ -1,8 +1,8 @@
 // What the Phone Gateway sends the phone (crates/pocket/src/phone_sessions.rs, live.rs).
 // Hand-mirrored: the Gateway trims Fleet's Session to an allowlist, so this is not
-// `@armada/protocol`'s SessionRecord and nothing here is generated.
+// `SessionRecord` in `./wire`, and nothing here is generated.
 
-import type { SessionState } from "@armada/components";
+import type { SessionState } from "./kit/components/compositions/SessionFrame/SessionFrame";
 
 /**
  * One `data:` line of GET /api/live. `resync` means read the lists again. `operator` is what the Operator did with
@@ -167,10 +167,10 @@ export type AnswerBody = {
 };
 
 /** GET /api/plan_usage: Fleet's `PlanUsage` as it is. */
-export type { PlanUsage as PlanUsageBody } from "@armada/protocol";
+export type { PlanUsage as PlanUsageBody } from "./wire";
 
 /** GET /api/models: Fleet's `ModelChoices` as it is. */
-export type { ModelChoices as ModelsBody } from "@armada/protocol";
+export type { ModelChoices as ModelsBody } from "./wire";
 
 /**
  * The Job acts, each forwarded to Fleet unchanged and answered with the `SessionRecord`:

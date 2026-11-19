@@ -95,8 +95,12 @@ the owner's corrections on top of it.
   thing is and what state it is in: state hue on frames and edges, a coloured
   glyph for each row's kind and state, chips with fill, header bands with
   weight. Depth by lightness steps, hairlines and shadow. The only no's are
-  gradients on a control, glows, grain and sheen. Never write "restraint",
-  "flat" or "monochrome" into a brief. The bar is in
+  gradients on a control, glows, grain and sheen. In what an agent draws
+  there is one more: a coloured stripe on one side of a box, card, callout,
+  table cell or diagram node (19 Nov: "I hate these little edge borders").
+  Use a tint fill, a full hairline outline in the hue, a coloured glyph or
+  dot, a chip, or a header band across the whole top. Never write
+  "restraint", "flat" or "monochrome" into a brief. The bar is in
   `docs/contracts/design-system/the-product.md`.
 - **When an agent's report says it skipped a step a doc requires**, send it
   back before relaying the report (7 Oct).

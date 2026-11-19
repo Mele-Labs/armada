@@ -18,6 +18,8 @@
       // The sources are parsed one line at a time by `xtask/src/tokens.rs`.
       "!packages/tokens",
       "!packages/components/src/generated",
+      // Generated from `crates/ipc` by `cargo xtask verify-wire`, and compared byte for byte.
+      "!apps/pocket/src/wire",
       // Read by its hand-written shape in `xtask/src/skill_regions.rs`.
       "!packages/shell/layout-registry.json",
       // Compiled into Fleet, and a test pins the CSS text.
@@ -50,6 +52,19 @@
       "allowTrailingCommas": true
     }
   },
+  // Pocket's stylesheet tells Tailwind not to scan its `kit/` (`@source not`), a directive Biome reads only when asked.
+  "overrides": [
+    {
+      "includes": [
+        "apps/pocket/src/styles.css"
+      ],
+      "css": {
+        "parser": {
+          "tailwindDirectives": true
+        }
+      }
+    }
+  ],
   "linter": {
     "enabled": false
   },

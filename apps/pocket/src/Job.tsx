@@ -17,37 +17,31 @@ import {
   Square,
   SquareTerminal,
 } from "lucide-react";
-import {
-  AskCards,
-  Button,
-  Card,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-  Prose,
-  ProseCommand,
-  ProseRunner,
-  Select,
-  SessionComposer,
-  SessionFrame,
-  SessionThread,
-  Textarea,
-  Tooltip,
-  type DropdownMenuEntry,
-} from "@armada/components";
-import { tokensSaid } from "@armada/components/src/compositions/SessionFrame/ContextFigure";
-import type { CallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "@armada/protocol";
-import type { Session, SessionWait, StartWhen } from "@armada/screens/src/draft/sessions";
+import { AskCards, SessionThread } from "./kit/components/compositions/SessionThread/SessionThread";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Card, CardFooter, CardHeader, CardTitle } from "./kit/components/primitives/Card/Card";
+import { Prose } from "./kit/components/primitives/Prose/Prose";
+import { ProseCommand } from "./kit/components/primitives/Prose/SlashCommand";
+import { ProseRunner } from "./kit/components/primitives/Prose/RunnableBlock";
+import { Select } from "./kit/components/primitives/Select/Select";
+import { SessionComposer } from "./kit/components/compositions/SessionComposer/SessionComposer";
+import { SessionFrame } from "./kit/components/compositions/SessionFrame/SessionFrame";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
+import type { DropdownMenuEntry } from "./kit/components/primitives/DropdownMenu/DropdownMenu";
+import { tokensSaid } from "./kit/components/compositions/SessionFrame/ContextFigure";
+import type { CallAnswer, QuestionAnswer, StartCondition, WaitingItem } from "./wire";
+import type { Session, SessionWait, StartWhen } from "./kit/screens/draft/sessions";
 import {
   START_WHEN,
   conditionOfWhen,
   planPartsOf,
   startsFrom,
   startsWhenSaid,
-} from "@armada/screens/src/session-waits";
-import { jobStateOf } from "@armada/screens/src/session-state";
-import { lapsedAnswerText } from "@armada/screens/src/sessions-wire";
-import { documentAnswerOf, sketchAnswerOf } from "@armada/screens/src/thread-cards";
+} from "./kit/screens/session-waits";
+import { jobStateOf } from "./kit/screens/session-state";
+import { lapsedAnswerText } from "./kit/screens/sessions-wire";
+import { documentAnswerOf, sketchAnswerOf } from "./kit/screens/thread-cards";
 
 import { getJson } from "./client";
 import { holderOf, macOf, start, useFleet } from "./fleet";

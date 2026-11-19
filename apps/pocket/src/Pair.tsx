@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { Button } from "@armada/components";
+import { Button } from "./kit/components/primitives/Button/Button";
 
 import { refusal } from "./client";
 import { macOf, useFleet } from "./fleet";

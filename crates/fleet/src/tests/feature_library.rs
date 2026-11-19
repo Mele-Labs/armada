@@ -19,7 +19,7 @@ use crate::feature_library::staleness::stale_since;
 pub(super) const VOTING: &str = "voting-on-takes";
 pub(super) const SOMEWHERE: &str = "crates/pages/voting";
 
-fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
+pub(super) fn feature(id: &str, slug: &str, paths: &[&str]) -> store::KeptFeature {
     store::KeptFeature {
         id: id.to_string(),
         project: "p1".to_string(),
@@ -211,13 +211,19 @@ pub(super) fn seeded(project: &str) -> UpsertFeatures {
     }
 }
 
+/// The Job's commit named `slugs` in its `Feature:` line, and Fleet's commit gate let it through.
+pub(super) async fn named(rig: &Rig, id: &SessionId, slugs: &str) {
+    let command = format!("git commit -m \"Work\" -m \"Feature: {slugs}\"");
+    assert!(rig.fleet.check_commit_feature(commit_of(id, &command, &[])).await.expect("asked").allowed);
+}
+
 /// The Job wrote `path` in the rig's repository, and Fleet filed it.
 pub(super) async fn wrote(rig: &Rig, id: &SessionId, path: &str) {
     rig.fleet.writes().wrote(&Who::Session(id.as_str().to_string()), rig.manifest.as_str(), [path.to_string()], &rig.fleet.now());
     rig.fleet.feature_writes_filed().await;
 }
 
-async fn pushed(rig: &Rig, id: &SessionId, pull: &str) {
+pub(super) async fn pushed(rig: &Rig, id: &SessionId, pull: &str) {
     let now = rig.fleet.now().as_str().to_string();
     let row = KeptAttachment {
         holder: Holder::session(id.as_str()),
@@ -258,7 +264,7 @@ pub(super) fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectio
     }
 }
 
-fn refused(result: Result<ipc::SessionRecord, api::Refusal>) -> (String, String) {
+pub(super) fn refused(result: Result<ipc::SessionRecord, api::Refusal>) -> (String, String) {
     match result.expect_err("refused") {
         api::Refusal::IllegalMove(why) | api::Refusal::Unacceptable(why) => (why.code.to_string(), why.message),
         other => panic!("{other:?}"),
@@ -272,6 +278,7 @@ async fn all_done_is_held_while_pushed_work_changed_a_feature_whose_sections_are
     rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    named(&rig, &id, VOTING).await;
     pushed(&rig, &id, "812").await;
 
     let (code, said) = refused(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await);
@@ -310,6 +317,7 @@ async fn work_that_was_never_pushed_holds_nothing_even_where_it_changed_a_featur
     rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(&rig, &project).await;
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+    named(&rig, &id, VOTING).await;
     assert!(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await.is_ok());
 }
 
@@ -330,6 +338,7 @@ async fn a_job_is_held_only_for_features_that_were_in_the_catalog_when_it_starte
     }
     wrote(&rig, &id, "crates/early/a.rs").await;
     wrote(&rig, &id, "crates/late/b.rs").await;
+    named(&rig, &id, "early-feature, late-feature").await;
     pushed(&rig, &id, "814").await;
 
     let (code, said) = refused(rig.fleet.all_done(caller(), AllDone { session_id: Some(id.clone()), summary: None }).await);
@@ -399,7 +408,7 @@ async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_
             files: vec!["crates/pages/voting/other.rs".into()],
         })
         .expect("kept");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None, false).await.expect("the page");
     assert_eq!(page.sections.len(), 1);
     assert_eq!(page.sections[0].stale_since, Some(900));
     assert_eq!(page.feature.stale_since, Some(900));
@@ -522,7 +531,7 @@ async fn nothing_is_handed_to_a_job_fleet_does_not_know_a_project_with_no_librar
 
 // What follows holds a commit to naming its feature, for the Jobs started after the catalog was seeded.
 
-fn commit_of(id: &SessionId, command: &str, files: &[&str]) -> ipc::CheckCommitFeature {
+pub(super) fn commit_of(id: &SessionId, command: &str, files: &[&str]) -> ipc::CheckCommitFeature {
     ipc::CheckCommitFeature { session_id: id.clone(), command: command.to_string(), files: files.iter().map(|one| one.to_string()).collect() }
 }
 
@@ -655,24 +664,24 @@ async fn a_page_asked_for_one_section_holds_that_section_alone() {
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &FeatureSectionKind::ALL)).await.expect("written");
 
-    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None, false).await.expect("the page");
     assert_eq!(whole.sections.len(), 4);
     assert!(!whole.files.is_empty(), "the whole page keeps its files");
 
     for asked in ["debt", " Debt "] {
-        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string())).await.expect("the page");
+        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string()), false).await.expect("the page");
         assert_eq!(page.sections.iter().map(|one| (one.section, one.text.as_str())).collect::<Vec<_>>(), [(FeatureSectionKind::Debt, "The debt text.")]);
         assert!(page.links.is_empty() && page.files.is_empty(), "a section is asked for alone");
         assert_eq!(page.feature.slug, VOTING);
     }
-    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into())).await.expect("the page");
+    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into()), false).await.expect("the page");
     assert_eq!(blank.sections.len(), 4, "a blank section is none");
 
-    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into())).await.expect_err("refused");
+    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into()), false).await.expect_err("refused");
     let api::Refusal::Unacceptable(why) = refused else { panic!("{refused:?}") };
     assert_eq!(why.code, "fleet.feature_section_unknown");
     assert!(why.message.contains("`tests`") && why.message.contains("test, runs, observe or debt"), "{}", why.message);
 
-    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into())).await.expect("the page");
+    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into()), false).await.expect("the page");
     assert_eq!(observe.sections.len(), 1);
 }

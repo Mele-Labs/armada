@@ -2,8 +2,11 @@
 // node carries. A hash is only known to the Mac that kept it, so each Mac reads and remembers its own.
 
 import type { ReactNode } from "react";
-import { MockStylesContext, type ResolveMockStyles } from "@armada/components";
-import { createKeptStyles } from "@armada/screens/src/kept-styles";
+import {
+  MockStylesContext,
+  type ResolveMockStyles,
+} from "./kit/components/compositions/SketchScene/MockView";
+import { createKeptStyles } from "./kit/screens/kept-styles";
 
 import { readKept } from "./jobState";
 import type { Machine } from "./machines";

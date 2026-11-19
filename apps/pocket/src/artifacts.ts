@@ -11,14 +11,15 @@ import type {
   HostToPage,
   JobArtifact,
   MarkArtifactSeen,
+  PageMessage,
   PagePress,
   PageToHost,
   PartAction,
   PressPageAction,
   VoteCast,
-} from "@armada/protocol";
-import type { Scene } from "@armada/components";
-import { sceneOfWire } from "@armada/screens/src/sessions-wire";
+} from "./wire";
+import type { Scene } from "./kit/components/compositions/SketchScene/scene";
+import { sceneOfWire } from "./kit/screens/sessions-wire";
 
 import { call, getJson, refusal } from "./client";
 import { loadLists, onChange } from "./fleet";
@@ -261,9 +262,9 @@ export function partActs(machine: Machine, id: string, artifact: JobArtifact, re
 export async function pageAct(
   machine: Machine,
   id: string,
-  said: PageToHost,
+  said: PageMessage<PageToHost>,
   reread: () => void,
-): Promise<HostToPage> {
+): Promise<PageMessage<HostToPage>> {
   try {
     if (said.kind === "press") {
       const body: PressPageAction = {

@@ -11,7 +11,7 @@ import type {
   SessionThread,
   ThreadReadyToTry,
   WaitingSource,
-} from "@armada/protocol";
+} from "../wire";
 
 import { PARTS_JOB, partsArtifacts, STEP_BAR, SLOT_COLOURS, TRY_CARD, tryCard } from "./artifacts";
 
@@ -66,6 +66,9 @@ const MODELS: ModelChoices = {
   ],
   default: "opus",
   session: "opus",
+  read: {
+    what: "read",
+  },
   offered: [
     {
       name: "opus",
@@ -100,11 +103,13 @@ const usageAt = (now: number, minutes: number, five: number, week: number): Plan
     {
       kind: "five_hour",
       percent_used: five,
+      band: "normal",
       resets_at: new Date(now + 3 * 3_600_000).toISOString(),
     },
     {
       kind: "seven_day",
       percent_used: week,
+      band: "normal",
       resets_at: new Date(now + 2 * 86_400_000).toISOString(),
     },
   ],

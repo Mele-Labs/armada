@@ -719,13 +719,14 @@ jobs:
         run: |
           cargo xtask verify-docs --write
           cargo xtask verify-tokens --write
+          cargo xtask verify-wire --write
           changed=$(git status --porcelain)
           if [ -n "$changed" ]; then
             echo "stale=true" >> "$GITHUB_OUTPUT"
             {
               echo "### foundations: generated files are stale"
               echo
-              echo "Run \`cargo xtask verify-docs --write\` and \`cargo xtask verify-tokens --write\`, then commit what they change:"
+              echo "Run \`cargo xtask verify-docs --write\`, \`cargo xtask verify-tokens --write\` and \`cargo xtask verify-wire --write\`, then commit what they change:"
               echo
               echo '```'
               echo "$changed"
@@ -785,7 +786,7 @@ jobs:
       - name: Fail on stale generated files
         if: always() && steps.generated.outputs.stale == 'true'
         run: |
-          echo "::error::generated files are stale: run cargo xtask verify-docs --write and cargo xtask verify-tokens --write, then commit"
+          echo "::error::generated files are stale: run cargo xtask verify-docs --write, cargo xtask verify-tokens --write and cargo xtask verify-wire --write, then commit"
           exit 1
 
   # After a merge to main, once a day: measures which tests reach which files,

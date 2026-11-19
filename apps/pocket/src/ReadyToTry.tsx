@@ -6,21 +6,21 @@
 
 import { useEffect, useState } from "react";
 import { BadgeCheck, Clock, Reply } from "lucide-react";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { CardFooter } from "./kit/components/primitives/Card/Card";
 import {
-  Button,
-  CardFooter,
   DropdownMenu,
-  SketchScene,
-  Textarea,
   type DropdownMenuEntry,
-} from "@armada/components";
+} from "./kit/components/primitives/DropdownMenu/DropdownMenu";
+import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
 import type {
   AnswerReadyToTry,
   JobArtifact,
   JobThread,
   ReadyAnswer,
   ThreadReadyToTry,
-} from "@armada/protocol";
+} from "./wire";
 
 import { firstPicture } from "./Artifact";
 import { aspectOf, useArtifacts } from "./artifacts";

@@ -363,3 +363,4 @@ mod pull_review_rate_limit;
 mod glossary;
 mod whos_on_what;
 mod feature_reads;
+mod feature_named;

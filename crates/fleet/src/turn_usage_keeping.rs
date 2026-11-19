@@ -3,7 +3,7 @@
 
 use ipc::{BashUse, SessionTurnUsage, TurnUsage};
 use adapters::turn_lines::{Part, TurnRead};
-use store::{KeptBackground, KeptOpenCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
+use store::{KeptBackground, KeptCallCarrier, KeptCallResult, KeptOpenCall, KeptToolCall, KeptReading, KeptToolResult, KeptTurnSearches, KeptTurnSpent, KeptTurnTimes, KeptTurnUsage, Store, WriteError};
 
 /// A turn as the store keeps it.
 pub(crate) fn kept_form(turn: &TurnUsage) -> KeptTurnUsage {
@@ -64,6 +64,24 @@ pub(crate) fn reading_kept(read: &TurnRead) -> KeptReading {
             .collect(),
         carried: read.carry.kept(),
         searched: read.searches.iter().map(|one| KeptTurnSearches { message_id: one.message_id.clone(), searches: one.searches }).collect(),
+        calls: read
+            .tool_calls
+            .iter()
+            .map(|one| KeptToolCall {
+                tool_use_id: one.tool_use_id.clone(),
+                message_id: one.message_id.clone(),
+                at: one.at.clone(),
+                thread: one.thread.clone(),
+                epoch: one.epoch,
+                tool: one.tool.clone(),
+                path: one.path.clone(),
+                from_line: one.from_line,
+                to_line: one.to_line,
+                edited: one.edited.clone(),
+            })
+            .collect(),
+        call_results: read.call_results.iter().map(|one| KeptCallResult { tool_use_id: one.tool_use_id.clone(), bytes: one.bytes }).collect(),
+        carriers: read.carried.iter().map(|one| KeptCallCarrier { tool_use_id: one.tool_use_id.clone(), message_id: one.message_id.clone() }).collect(),
     }
 }
 

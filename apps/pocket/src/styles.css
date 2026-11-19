@@ -1,11 +1,13 @@
 /* The tokens, the theme and the components' own stylesheets, in the order Bridge's renderer takes them. */
 @import "@armada/tokens/tokens.css";
 @import "tailwindcss";
+/* The kit is Bridge's own CSS and is not scanned for utility classes, as it was not when it lived in a package. */
+@source not "./kit";
 @import "@armada/tokens/tokens.theme.css";
 @import "@armada/tokens/base.css";
-/* Bridge's look, applied under `data-look="new"`, which `@armada/components/src/look` sets. */
+/* Bridge's look, applied under `data-look="new"`, which `./kit/components/look` sets. */
 @import "@armada/tokens/takes.css";
-@import "@armada/components/src/index.css";
+@import "./kit/components/index.css";
 
 html,
 body,

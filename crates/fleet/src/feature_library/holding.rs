@@ -1,22 +1,25 @@
-//! Holding a Job's end. **`all_done` is refused while the Job's merged or pushed work changed files of a feature whose
-//! sections it has not written since it started**, and the refusal names the features and sections owed. A Job that
-//! changed no feature's files is never held, and neither is one with nothing pushed.
+//! Holding a Job's end. **`all_done` is refused while the Job has pushed work and its commits named a feature in a `Feature:`
+//! line whose sections it has not written since it started**, and the refusal names the features and sections owed. A
+//! feature whose files it changed without naming it is owed nothing. A Job whose commits named none is never held, and
+//! neither is one with nothing pushed.
 
 use std::collections::BTreeSet;
 
 use ipc::FeatureSectionKind;
-use store::{Holder, SessionState, Store, WriteError};
+use store::{feature_link_kind, Holder, SessionState, Store, WriteError};
 
 /// The code of the refusal.
 pub(crate) const OWED: &str = "fleet.feature_sections_owed";
 
-/// For each feature the Job filed files under, the sections it has not written since it started, in a page's order.
+/// For each feature the Job's commits named, the sections it has not written since it started, in a page's order.
 /// A feature the Job wrote every section of is not listed.
 pub(super) fn owed_by(store: &Store, job: &str) -> Result<Vec<(String, Vec<FeatureSectionKind>)>, WriteError> {
     let Some(session) = store.session(job)? else {
         return Ok(Vec::new());
     };
-    let features: BTreeSet<String> = store.feature_files_of_job(job)?.into_iter().map(|file| file.feature_id).collect();
+    // Only what its commits name: files it changed under another feature link the Job there but owe nothing.
+    let mut features: BTreeSet<String> = store.feature_ids_named_by_job(job)?.into_iter().collect();
+    features.extend(store.feature_links_of_job(job, feature_link_kind::COMMIT)?.into_iter().map(|link| link.feature_id));
     let mut owed = Vec::new();
     for id in features {
         let Some(feature) = store.feature_by_id(&id)? else {
@@ -63,7 +66,7 @@ pub(crate) fn sections_owed_text(store: &Store, job: &str) -> Result<Option<Stri
         .map(|(feature, sections)| format!("{feature}: {}", sections.iter().map(|one| one.name()).collect::<Vec<_>>().join(", ")))
         .collect();
     Ok(Some(format!(
-        "Feature sections owed. Your merged or pushed work changed files of these features:\n\n{}\n\nWrite each with write_feature_sections: the test, runs, observe and debt text of one feature in one call. Rewrite a section that is still true as it stands.",
+        "Feature sections owed, because your commits named these features:\n\n{}\n\nWrite each with write_feature_sections: the test, runs, observe and debt text of one feature in one call. Rewrite a section that is still true as it stands.",
         lines.join("\n")
     )))
 }

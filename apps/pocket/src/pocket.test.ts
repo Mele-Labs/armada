@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import type { SessionRow, WaitingItem } from "@armada/protocol";
+import type { SessionRow, WaitingItem } from "./wire";
 import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
@@ -23,8 +23,8 @@ import {
   takesWords,
   withEarlier,
 } from "./thread";
-import { jobStateOf } from "@armada/screens/src/session-state";
-import { sketchAnswerOf, documentAnswerOf } from "@armada/screens/src/thread-cards";
+import { jobStateOf } from "./kit/screens/session-state";
+import { sketchAnswerOf, documentAnswerOf } from "./kit/screens/thread-cards";
 import { Refused } from "./client";
 import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";

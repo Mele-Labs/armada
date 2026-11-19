@@ -5,9 +5,12 @@
 
 import { useEffect, useState } from "react";
 import { Quote, Repeat } from "lucide-react";
-import { Button, Radio, RadioGroup, Textarea, Tooltip } from "@armada/components";
-import { forgetKept, readKept } from "@armada/components/src/keep";
-import type { DeliveryChoice, SessionThread as WireThread } from "@armada/protocol";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Radio, RadioGroup } from "./kit/components/primitives/Radio/Radio";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
+import { forgetKept, readKept } from "./kit/components/keep";
+import type { DeliveryChoice, SessionThread as WireThread } from "./wire";
 
 import { macOf, start, useFleet } from "./fleet";
 import { actsOn, attempt, useJob } from "./jobState";

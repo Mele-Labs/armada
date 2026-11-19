@@ -184,6 +184,10 @@ and win. Use the kit's variables, not hex values.
 | `--status-completed-success`, `--status-completed-failed`, `--status-awaiting-review`, `--status-running` | Good, bad, caution, in flight |
 | `--space-1` to `--space-12`, `--text-xs` to `--text-2xl`, `--font-mono` | Spacing, type size, figures |
 
+Never mark a box, card, callout, table cell or diagram node with a coloured stripe on one side (`border-left: 3px solid`, `box-shadow: inset 4px 0 0`).
+The owner, 19 Nov 2026: "I hate these little edge borders."
+Use a tint fill of the hue, a full hairline outline in the hue, a coloured glyph or dot, a chip, or a header band across the whole top.
+
 ## Sketches
 
 `<armada-sketch>` draws a live sketch. The person plays its steps, and notes a

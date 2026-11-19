@@ -6,18 +6,18 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { BadgeCheck, Check, MessageSquare, Reply } from "lucide-react";
-import {
-  ApprovalAnswers,
-  Button,
-  CardFooter,
-  Prose,
-  SketchScene,
-  Textarea,
-  Tooltip,
-  type SketchAnswer,
-  type SketchSettled,
-} from "@armada/components";
-import type { ArtifactPart, HostToPage, JobArtifact, PageToHost } from "@armada/protocol";
+import { ApprovalAnswers } from "./kit/components/compositions/SessionThread/SketchRow";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { CardFooter } from "./kit/components/primitives/Card/Card";
+import { Prose } from "./kit/components/primitives/Prose/Prose";
+import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
+import type {
+  SketchAnswer,
+  SketchSettled,
+} from "./kit/components/compositions/SessionThread/sketch-answer";
+import type { ArtifactPart, HostToPage, JobArtifact, PageMessage, PageToHost } from "./wire";
 
 import {
   aspectOf,
@@ -358,9 +358,9 @@ function PagePart({
   useEffect(() => {
     const heard = (event: MessageEvent) => {
       if (event.source !== frame.current?.contentWindow) return;
-      const said = event.data as PageToHost;
+      const said = event.data as PageMessage<PageToHost>;
       if (said?.armada !== 1 || (said.kind !== "press" && said.kind !== "vote")) return;
-      void pageAct(machine, id, said, reread).then((back: HostToPage) =>
+      void pageAct(machine, id, said, reread).then((back: PageMessage<HostToPage>) =>
         frame.current?.contentWindow?.postMessage(back, "*"),
       );
     };

@@ -193,6 +193,12 @@ Measure the cause before proposing a patch to the symptom.
 > and Jobs that watch their own landings and pick up what turned `main` red.
 > Not built.
 
+> **Agents do not stripe one side of a box.**
+> `2026-11-19-no-edge-strips-in-agent-drawings.md` — *"I hate these little edge
+> borders."* Pages, sketches and mocks an agent draws use a tint fill, a full
+> hairline outline, a glyph or dot, a chip or a header band. Bridge's own
+> leading edges stay.
+
 ## Writing options for him
 
 `asking-a-person` owns the shape. What this file adds is what his answers say
