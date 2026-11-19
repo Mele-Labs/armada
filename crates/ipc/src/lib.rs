@@ -849,7 +849,7 @@ pub use context_breakdown::{
 pub use turn_usage::{BashUse, SessionTurnUsage, TurnUsage};
 pub use usage_rules::{UsageRule, UsageRuleLimit, UsageRuleTrip, UsageRules};
 pub use usage_spent::{SpentBy, SpentJob, SpentOn, SpentSplit, SpentWindow, UsageSpent};
-pub use usage_waste::{UsageWaste, WasteJob, WasteKind, WasteWindow};
+pub use usage_waste::{UsageWaste, WasteCause, WasteJob, WasteKind, WasteWindow};
 pub use usage_summary::{
     DayUnits, NamedUnits, PriorUsage, RestUsage, SessionUsageSummary, TokenUnits, UsageBreakdown, UsageSummary,
 };

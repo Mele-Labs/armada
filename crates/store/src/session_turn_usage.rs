@@ -95,6 +95,47 @@ pub struct KeptReading {
     pub carried: Option<String>,
     /// One for each turn the read gave: the code searches it ran before its first edit.
     pub searched: Vec<KeptTurnSearches>,
+    /// Every call of the read's messages.
+    pub calls: Vec<KeptToolCall>,
+    /// The size of each result the read reached.
+    pub call_results: Vec<KeptCallResult>,
+    /// The request that first carried each result the read reached.
+    pub carriers: Vec<KeptCallCarrier>,
+}
+
+/// A tool call. **Kept apart from [`KeptTurnUsage`]**, as the times are. A Read's `path` and lines and the file
+/// an edit changed are the inputs kept, and no result is kept but its size ([`KeptCallResult`]).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptToolCall {
+    pub tool_use_id: String,
+    pub message_id: String,
+    pub at: String,
+    /// Empty for the session's own thread, a subagent's file name for a subagent's.
+    pub thread: String,
+    /// The compactions the thread had had.
+    pub epoch: u32,
+    pub tool: String,
+    pub path: Option<String>,
+    /// The lines a Read asked for, first and last, one-based: both absent for the whole file, and `to_line` absent
+    /// for from a line to the end.
+    pub from_line: Option<u64>,
+    pub to_line: Option<u64>,
+    /// The file an edit changed.
+    pub edited: Option<String>,
+}
+
+/// The size of a call's result, in bytes.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptCallResult {
+    pub tool_use_id: String,
+    pub bytes: u64,
+}
+
+/// The request that first carried a call's result.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct KeptCallCarrier {
+    pub tool_use_id: String,
+    pub message_id: String,
 }
 
 /// The code searches one turn ran before its first Edit or Write, or all of them where it made none. **Kept apart from
@@ -291,6 +332,45 @@ impl Store {
             )
             .map_err(keeping)?;
         }
+        // Calls first, then their results and carriers, which may be of a call an earlier read kept. A call
+        // heard again keeps the size and carrier it has.
+        for call in &learnt.calls {
+            kept.execute(
+                "INSERT INTO session_tool_calls (session_id, tool_use_id, message_id, at, thread, epoch, tool, path, from_line, to_line, edited)
+                 VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)
+                 ON CONFLICT (session_id, tool_use_id) DO UPDATE SET message_id = excluded.message_id, at = excluded.at,
+                     thread = excluded.thread, epoch = excluded.epoch, tool = excluded.tool, path = excluded.path,
+                     from_line = excluded.from_line, to_line = excluded.to_line, edited = excluded.edited",
+                params![
+                    session_id,
+                    call.tool_use_id,
+                    call.message_id,
+                    call.at,
+                    call.thread,
+                    call.epoch,
+                    call.tool,
+                    call.path,
+                    call.from_line.map(|one| one as i64),
+                    call.to_line.map(|one| one as i64),
+                    call.edited,
+                ],
+            )
+            .map_err(keeping)?;
+        }
+        for one in &learnt.call_results {
+            kept.execute(
+                "UPDATE session_tool_calls SET result_bytes = ?3 WHERE session_id = ?1 AND tool_use_id = ?2",
+                params![session_id, one.tool_use_id, one.bytes as i64],
+            )
+            .map_err(keeping)?;
+        }
+        for one in &learnt.carriers {
+            kept.execute(
+                "UPDATE session_tool_calls SET carried_by = ?3 WHERE session_id = ?1 AND tool_use_id = ?2",
+                params![session_id, one.tool_use_id, one.message_id],
+            )
+            .map_err(keeping)?;
+        }
         for one in &learnt.background {
             kept.execute(
                 "INSERT INTO session_background_usage (session_id, id, at, model, cache_read_tokens, output_tokens)
@@ -309,9 +389,9 @@ impl Store {
             .map_err(keeping)?;
         }
         kept.execute(
-            "INSERT INTO transcript_offsets (path, read_to, input_at, carried, searched) VALUES (?1, ?2, ?3, ?4, 1)
+            "INSERT INTO transcript_offsets (path, read_to, input_at, carried, searched, tooled) VALUES (?1, ?2, ?3, ?4, 1, 1)
              ON CONFLICT (path) DO UPDATE SET read_to = excluded.read_to, input_at = excluded.input_at,
-                 carried = excluded.carried, searched = 1",
+                 carried = excluded.carried, searched = 1, tooled = 1",
             params![path, read_to as i64, learnt.input_at, learnt.carried],
         )
         .map_err(keeping)?;
@@ -344,6 +424,15 @@ impl Store {
             .query_row("SELECT searched FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get::<_, i64>(0))
             .optional()
             .map(|found| found.is_some_and(|searched| searched != 0))
+            .map_err(reading)
+    }
+
+    /// Whether the transcript at `path` was last read by a build that keeps its tool calls.
+    pub fn transcript_tooled(&self, path: &str) -> Result<bool, WriteError> {
+        self.conn
+            .query_row("SELECT tooled FROM transcript_offsets WHERE path = ?1", params![path], |row| row.get::<_, i64>(0))
+            .optional()
+            .map(|found| found.is_some_and(|tooled| tooled != 0))
             .map_err(reading)
     }
 

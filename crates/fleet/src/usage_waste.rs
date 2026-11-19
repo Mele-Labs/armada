@@ -25,6 +25,14 @@ fn words(kind: WasteKind) -> (&'static str, &'static str) {
             "Fresh starts and compactions",
             "Trim what every start loads, such as instructions and tool lists, because each compaction writes them again.",
         ),
+        WasteKind::RepeatReads => (
+            "Same file read again",
+            "Read a file once and work from that read, because a second read adds the whole file to the context again.",
+        ),
+        WasteKind::BigResults => (
+            "Tool results over 20 KB",
+            "Read by line range, narrow a search and trim a command's output, because a result stays in the context for every request after it.",
+        ),
     }
 }
 
@@ -48,6 +56,7 @@ pub(crate) fn wire(read: UsageWasteRead) -> ipc::UsageWaste {
                         units: job.units,
                         occurrences: job.occurrences,
                         peak_context: job.peak_context,
+                        causes: job.causes.into_iter().map(|(name, units)| ipc::WasteCause { name, units }).collect(),
                     })
                     .collect(),
             }
