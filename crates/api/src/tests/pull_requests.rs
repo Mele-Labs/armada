@@ -59,3 +59,39 @@ async fn one_commits_files_are_a_get_by_repository_number_and_commit_in_the_patc
     let file = &patches.files[0];
     assert_eq!((file.manifest_id.as_str(), file.number, file.path.as_str()), ("armada", 7, "3f9c1d2.rs"));
 }
+
+async fn post_json(app: &Router, uri: &str, body: &str) -> (StatusCode, Vec<u8>) {
+    let response = app
+        .clone()
+        .oneshot(
+            Request::builder()
+                .method("POST")
+                .uri(uri)
+                .header("content-type", "application/json")
+                .body(Body::from(body.to_string()))
+                .expect("a well-formed request"),
+        )
+        .await
+        .expect("the router answers");
+    let status = response.status();
+    let body = response.into_body().collect().await.expect("a body").to_bytes().to_vec();
+    (status, body)
+}
+
+#[tokio::test]
+async fn ignoring_a_pull_request_answers_when_and_stopping_answers_the_body_as_sent() {
+    let app = wired();
+    let (status, body) = post_json(&app, "/pull_request_ignored/armada", r#"{"number":7}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let ignored: ipc::PullIgnored = ipc::decode("an ignore", &body).expect("the ignored shape");
+    assert_eq!(ignored.number, 7);
+    assert!(!ignored.at.is_empty());
+
+    let (status, body) = post_json(&app, "/pull_request_ignored/armada/unignore", r#"{"number":7}"#).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&body));
+    let echoed: ipc::IgnorePull = ipc::decode("an unignore", &body).expect("the body as sent");
+    assert_eq!(echoed.number, 7);
+
+    let (status, _) = post_json(&app, "/pull_request_ignored/armada", r#"{"number":"seven"}"#).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "a body that does not decode is a 400");
+}

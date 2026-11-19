@@ -262,6 +262,7 @@ mod pull_registry;
 mod pull_request_panel;
 mod pull_review_kept;
 mod pull_review_lists;
+mod pull_review_refresh;
 mod pull_review_memory;
 /// His latest review of a pull request and what came since: the page's *Your review* bar.
 mod your_review;

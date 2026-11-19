@@ -13,10 +13,11 @@ use serde::de::{DeserializeOwned, IgnoredAny};
 
 use super::model::{self, Critique, Verdict};
 use super::ReviewsScreen;
-use crate::fleet::{FleetConnection, ReviewRunsMoved};
+use crate::fleet::{FleetConnection, ReviewListsMoved, ReviewRunsMoved};
 use crate::job_view::pane_tree::Arrangement;
 use crate::job_view::wire::encoded;
 
+mod kept;
 pub(super) mod map;
 
 pub(super) use map::Find;
@@ -36,6 +37,8 @@ pub(super) struct Row {
     /// Where it is on the forge.
     pub address: String,
     pub draft: bool,
+    /// The head the lists read, whole: what Mark as seen in the inbox keeps.
+    pub head: String,
 }
 
 /// One pull request as Fleet last answered for it.
@@ -57,6 +60,12 @@ pub(super) struct Live {
     pub inbox_said: Option<String>,
     /// Over rows kept from an earlier read, while the forge is rate-limiting us.
     pub inbox_banner: Option<String>,
+    /// Why Fleet refused the last act on a row of the inbox, until the next act or read.
+    act_said: Option<String>,
+    /// The banner is the forge's rate limit, so the inbox reads again by itself when it lifts.
+    banner_limited: bool,
+    /// When the lists on screen were read, as Fleet said it, for the age in the header.
+    fetched_at: Option<String>,
     /// Why a review was refused, by pull request, until he sends again.
     pub write_said: HashMap<u64, String>,
     pub writing: bool,
@@ -122,18 +131,22 @@ impl ReviewsScreen {
         this.sent_findings = HashMap::new();
         this.review_tools = Vec::new();
         let moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewRunsMoved, window, cx| this.runs_moved(moved, window, cx));
+        let lists_moved = cx.subscribe_in(fleet, window, |this, _, moved: &ReviewListsMoved, window, cx| this.lists_moved(moved, window, cx));
         this.live = Some(Live {
             fleet: fleet.clone(),
             pulls: HashMap::new(),
             tools: HashMap::new(),
             inbox_said: None,
             inbox_banner: None,
+            act_said: None,
+            banner_limited: false,
+            fetched_at: None,
             write_said: HashMap::new(),
             writing: false,
             chained: HashSet::new(),
             layouts_read: false,
             tasks: HashMap::new(),
-            _subs: vec![moved],
+            _subs: vec![moved, lists_moved],
         });
         this
     }
@@ -204,41 +217,19 @@ impl ReviewsScreen {
 
     // ---- The inbox ---------------------------------------------------------------------------------
 
-    /// Refresh: the forge's four lists again, and the page in front with them.
+    /// Refresh: the forge's lists again, and the page in front with them where its head moved. Fleet answers the
+    /// lists it kept at once, with `refreshing`, and tells the fresh ones as `review_lists.changed` (`kept`).
     pub(super) fn live_refresh(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.inbox.refreshing = true;
         if !self.live.as_ref().is_some_and(|live| live.layouts_read) {
             self.live_read_layouts(cx);
         }
         self.call("lists".into(), Verb::Get, "/review_lists".into(), None, "PullReviewLists", window, cx, |this, answer: Result<PullReviewLists, String>, window, cx| {
-            this.inbox.refreshing = false;
-            this.refreshed = true;
             match answer {
-                Ok(lists) => {
-                    this.me = lists.me.clone();
-                    let (mut rows, found) = map::inbox_of(&lists);
-                    if let Some(live) = this.live.as_mut() {
-                        live.inbox_said = None;
-                        live.inbox_banner = map::kept_banner(&lists);
-                        for (number, row) in found {
-                            match live.pulls.get_mut(&number) {
-                                Some(pull) => pull.row = row,
-                                None => {
-                                    live.pulls.insert(number, Pull { row, facts: map::Facts::default(), notes: Vec::new(), finds: map::Finds::default() });
-                                }
-                            }
-                        }
-                    }
-                    // A review he started here marks its row even where the lists were read before Fleet kept the run.
-                    for row in rows.iter_mut() {
-                        row.reviewing |= this.ran_here.contains(&row.number);
-                    }
-                    this.inbox.rows = rows;
-                    if let Some(number) = this.open {
-                        this.live_read(number, window, cx);
-                    }
-                }
+                Ok(lists) => this.take_lists(lists, window, cx),
                 Err(why) => {
+                    this.inbox.refreshing = false;
+                    this.refreshed = true;
                     if let Some(live) = this.live.as_mut() {
                         live.inbox_said = Some(why);
                     }
@@ -253,7 +244,7 @@ impl ReviewsScreen {
     /// While the forge is rate-limiting us the inbox reads again by itself: Fleet asks nothing until the hold lifts, so asking is cheap.
     fn read_again_when_limit_lifts(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(live) = self.live.as_ref() else { return };
-        let limited = live.inbox_banner.is_some() || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));
+        let limited = live.banner_limited || live.inbox_said.as_deref().is_some_and(|said| said.ends_with(map::RATE_LIMIT_LIFTS));
         if !limited {
             return;
         }
@@ -292,6 +283,7 @@ impl ReviewsScreen {
                 holder: None,
                 address: asked.address.clone(),
                 draft: false,
+                head: String::new(),
             },
             facts: map::Facts::default(),
             notes: Vec::new(),
@@ -615,6 +607,61 @@ impl ReviewsScreen {
                 pull.facts.seen = Some(seen.head);
             }
         });
+    }
+
+    /// Mark as seen in the inbox: at the row's own head, so a row never opened is marked too.
+    pub(super) fn live_mark_seen(&mut self, number: u64, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::MarkPullSeen { number, head: pull.row.head.clone() }).ok();
+        let route = format!("/pull_request_seen/{}", encoded(&pull.row.manifest));
+        self.set_act_said(None);
+        self.call_quiet(format!("row-seen:{number}"), Verb::Post, route, body, "PullSeen", cx, move |this, answer: Result<ipc::PullSeen, String>, cx| {
+            if let Err(why) = answer {
+                this.row_refused(number, format!("Mark as seen on #{number} was refused. {why}"), |row| row.seen = false, cx);
+            }
+        });
+    }
+
+    /// Ignore, or Stop ignoring, in the inbox.
+    pub(super) fn live_ignore(&mut self, number: u64, ignored: bool, cx: &mut Context<Self>) {
+        let Some(pull) = self.live.as_ref().and_then(|live| live.pulls.get(&number)) else { return };
+        let body = ipc::encode(&ipc::IgnorePull { number }).ok();
+        let manifest = encoded(&pull.row.manifest);
+        self.set_act_said(None);
+        let key = format!("ignore:{number}");
+        if ignored {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}"), body, "PullIgnored", cx, move |this, answer: Result<ipc::PullIgnored, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Ignore on #{number} was refused. {why}"), |row| row.ignored = false, cx);
+                }
+            });
+        } else {
+            self.call_quiet(key, Verb::Post, format!("/pull_request_ignored/{manifest}/unignore"), body, "IgnorePull", cx, move |this, answer: Result<ipc::IgnorePull, String>, cx| {
+                if let Err(why) = answer {
+                    this.row_refused(number, format!("Stop ignoring on #{number} was refused. {why}"), |row| row.ignored = true, cx);
+                }
+            });
+        }
+    }
+
+    /// An act on a row Fleet refused: the row goes back as it was, and the inbox says why.
+    fn row_refused(&mut self, number: u64, said: String, put_back: impl FnOnce(&mut model::InboxRow), cx: &mut Context<Self>) {
+        if let Some(row) = self.inbox.rows.iter_mut().find(|row| row.number == number) {
+            put_back(row);
+        }
+        self.set_act_said(Some(said));
+        cx.notify();
+    }
+
+    fn set_act_said(&mut self, said: Option<String>) {
+        if let Some(live) = self.live.as_mut() {
+            live.act_said = said;
+        }
+    }
+
+    /// Why Fleet refused the last act on a row of the inbox.
+    pub(super) fn live_act_said(&self) -> Option<String> {
+        self.live.as_ref()?.act_said.clone()
     }
 
     /// Send: the verdict, the summary and every draft as one review at the commit he read; `bare`

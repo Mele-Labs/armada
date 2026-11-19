@@ -73,7 +73,7 @@ mod tests {
             text: text.to_string(),
             since: Instant::carried("2026-10-19T00:00:00Z"),
             source,
-            act: act.map(|(kind, target)| WaitingAct { kind, target: target.to_string() }),
+            act: act.map(|(kind, target)| WaitingAct { kind, target: target.to_string(), on: None }),
             options: Vec::new(),
             steps: Vec::new(),
             place: None,

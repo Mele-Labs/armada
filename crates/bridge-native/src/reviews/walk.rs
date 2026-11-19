@@ -1,5 +1,5 @@
 //! The `reviews` walk: the figure beside Reviews of what was asked of him, back to a pull request he reviewed, what changed since he looked, a review
-//! of just that, a new pull request read by change set, and the page's panes arranged and kept as a layout.
+//! of just that, a new pull request read by change set, the page's panes arranged and kept as a layout, and a row's menu: seen, ignored and back.
 
 use crate::walk::{Step, Target, Verb};
 
@@ -13,12 +13,13 @@ const INVOICE: &str = "#2190 Split the invoice job into stages";
 const SUMMARY: &str = "Tobias now adds up to 250 ms of jitter to each retry wait and caps retries at five. Each retry is logged with its attempt.";
 const SUMMARY_INVOICE: &str = "Mira now names the failing stage in the invoice job's log. Nothing else changed.";
 const STAGE: &str = "#2231 Say which stage of an invoice failed";
+const RATE: &str = "#2214 Add rate limits to the export endpoint";
 const BLOCKER: &str = "Blocker: The backfill locks invoices for minutes";
 const RISK: &str = "Risk: Strict clients may reject the new field";
 const KEPT: &str = "Kept by Armada for every PR that touches migrations/ in ledger-api. Read from docs/migrations.md on Tuesday, and read again when that doc changes.";
 const HOW_IT_WORKS: &str = "How it works: The migration adds a stage column that may be empty, then copies each invoice's last failed stage from the job log in one update. The down migration drops the column.";
 
-pub static STEPS: [Step; 72] = [
+pub static STEPS: [Step; 80] = [
     step("Beside Reviews in the strip: the reviews asked of you by name that you have not opened", Verb::Hover, "status", "2 reviews asked of you, not opened"),
     step("Reviews in the strip. The pull request open last time opens at once, as you left it", Verb::PressOn("tab", "Reviews"), "heading", INVOICE),
     step("The inbox reads the forge again, and keeps the last one drawn meanwhile", Verb::Look, "status", "Refreshing"),
@@ -91,4 +92,12 @@ pub static STEPS: [Step; 72] = [
     step("Your draft from an earlier visit waits in its own box", Verb::Hover, "article", "Draft comment on src/jobs/invoice.rs:41"),
     step("What went with Tuesday's review, folded", Verb::Hover, "button", "Sent with your review on Tuesday"),
     step("The last review says what it read in words; the commits are in its tooltip", Verb::Hover, "heading", "Suggestions on Mira's changes up to your review"),
+    step("A right press on a row offers Mark as seen and Ignore", Verb::RightOpen("row", RATE), "menuitem", "Mark as seen"),
+    step("Mark as seen: the row dims and drops to the bottom of its group", Verb::PressOn("menuitem", "Mark as seen"), "row", RATE),
+    step("Its mark says so in a tooltip. A new commit brings the row back", Verb::Hover, "img", "Seen at the latest commit"),
+    step("The menu key or ⇧F10 opens the same menu under the row you are on. Mark as seen is gone", Verb::Key("shift-f10"), "menuitem", "Ignore"),
+    step("Ignore: the row goes to Ignored, after Done and folded", Verb::PressOn("menuitem", "Ignore"), "button", "Ignored"),
+    step("Open Ignored. Fleet brings a row back when you are asked to review it again", Verb::PressOn("button", "Ignored"), "row", RATE),
+    step("On an ignored row the menu offers Stop ignoring", Verb::RightOpen("row", RATE), "menuitem", "Stop ignoring"),
+    step("Stop ignoring: it goes back to Review requested, still seen", Verb::PressOn("menuitem", "Stop ignoring"), "row", RATE),
 ];

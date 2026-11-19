@@ -72,6 +72,8 @@ pub(super) struct PullRequests {
     pub(super) review_lists: Vec<(ReviewList, Vec<ListedPull>)>,
     /// Review list reads that answer only alongside the others.
     pub(super) review_lists_together: Option<Arc<Together>>,
+    /// Held shut by `hold_review_lists`: every list read waits for it.
+    pub(super) review_lists_held: Option<Arc<super::Hold>>,
     /// Why a list nobody scripted is silent. Absent is a plain silence.
     pub(super) review_lists_failure: Option<ListFailure>,
     /// The forge's reply to resolving or reopening a review thread.
@@ -104,6 +106,7 @@ impl Default for PullRequests {
             written: Ok(()),
             review_lists: Vec::new(),
             review_lists_together: None,
+            review_lists_held: None,
             review_lists_failure: None,
             thread_resolved: Ok(()),
             follows_writes: true,
@@ -300,6 +303,10 @@ impl FakeVcs {
                 login: ask.login.to_string(),
                 repositories: ask.repositories.to_vec(),
             });
+        let held = self.pull_requests.lock().expect("not poisoned").review_lists_held.clone();
+        if let Some(held) = held {
+            held.pass();
+        }
         let together = self.pull_requests.lock().expect("not poisoned").review_lists_together.clone();
         let silent = || ListFailure::Other("Nothing was scripted for it.".to_string());
         if together.is_some_and(|together| !together.arrive()) {

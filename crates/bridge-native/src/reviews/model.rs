@@ -15,10 +15,11 @@ pub enum Group {
     Yours,
     Team,
     Done,
+    Ignored,
 }
 
 impl Group {
-    pub const ALL: [Group; 6] = [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done];
+    pub const ALL: [Group; 7] = [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done, Group::Ignored];
 
     pub fn said(self) -> &'static str {
         match self {
@@ -28,6 +29,7 @@ impl Group {
             Group::Yours => "Yours",
             Group::Team => "Asked of your team",
             Group::Done => "Done",
+            Group::Ignored => "Ignored",
         }
     }
 
@@ -39,12 +41,13 @@ impl Group {
             Group::Yours => "user",
             Group::Team => "users",
             Group::Done => "circle-check",
+            Group::Ignored => "eye-off",
         }
     }
 
     /// The groups drawn folded until he opens them.
     pub fn starts_folded(self) -> bool {
-        matches!(self, Group::Team | Group::Done)
+        matches!(self, Group::Team | Group::Done | Group::Ignored)
     }
 }
 
@@ -68,7 +71,8 @@ pub fn group_of(lists: &[PullReviewList], mine: Verdict, changed: bool, reviewin
 }
 
 /// The rows in the order the inbox draws them: group by group, each in the order it came, but
-/// **Review requested from you has the one he has waited on longest first**.
+/// **Review requested from you has the one he has waited on longest first**. In every group the
+/// rows he has seen at their head go after the rest, each part keeping that order.
 pub fn in_order(rows: &[InboxRow]) -> Vec<&InboxRow> {
     let instant = |at: &str| chrono::DateTime::parse_from_rfc3339(at).ok();
     // A time that is missing or does not read goes after every one that does.
@@ -84,6 +88,8 @@ pub fn in_order(rows: &[InboxRow]) -> Vec<&InboxRow> {
             if *group == Group::Requested {
                 rows.sort_by_key(|row| waited(row));
             }
+            // A stable sort, so each part keeps the order above.
+            rows.sort_by_key(|row| row.seen);
             rows
         })
         .collect()
@@ -114,10 +120,18 @@ pub struct InboxRow {
     pub mine: Verdict,
     /// He ran a review tool on it in Armada, at any head: the row's bot mark.
     pub reviewing: bool,
+    /// He ignored it, and it has not been asked of him since.
+    pub ignored: bool,
+    /// He has seen it at its head: drawn dimmed, after the rows he has not.
+    pub seen: bool,
 }
 
 impl InboxRow {
+    /// Ignored wins over every group: Fleet clears it once he is asked to review it again.
     pub fn group(&self) -> Group {
+        if self.ignored {
+            return Group::Ignored;
+        }
         group_of(&self.lists, self.mine, self.changed, self.reviewing)
     }
 
@@ -1058,6 +1072,8 @@ mod group_tests {
             checks: PullReviewChecks::Passed,
             mine: Verdict::NotReviewed,
             reviewing: false,
+            ignored: false,
+            seen: false,
         }
     }
 
@@ -1092,9 +1108,39 @@ mod group_tests {
     }
 
     #[test]
-    fn team_and_done_start_folded() {
+    fn team_done_and_ignored_start_folded() {
         let folded: Vec<Group> = Group::ALL.into_iter().filter(|group| group.starts_folded()).collect();
-        assert_eq!(folded, [Group::Team, Group::Done]);
-        assert_eq!(Group::ALL, [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done]);
+        assert_eq!(folded, [Group::Team, Group::Done, Group::Ignored]);
+        assert_eq!(Group::ALL, [Group::Reviewing, Group::Requested, Group::LookAgain, Group::Yours, Group::Team, Group::Done, Group::Ignored]);
+    }
+
+    #[test]
+    fn an_ignored_pull_request_is_ignored_whatever_else_would_take_it() {
+        let lists: [&[PullReviewList]; 6] = [&[Reviewing], &[Requested], &[Assigned], &[Mine], &[Team], &[]];
+        for lists in lists {
+            for mine in [Verdict::NotReviewed, Verdict::Commented, Verdict::Approved] {
+                for (changed, reviewing) in [(false, false), (true, false), (false, true), (true, true)] {
+                    let row = InboxRow { mine, changed, reviewing, ignored: true, ..row(1, lists, "2026-11-16T12:00:00Z", None) };
+                    assert_eq!(row.group(), Group::Ignored, "{lists:?} {mine:?} changed {changed} reviewing {reviewing}");
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn seen_rows_go_to_the_bottom_of_their_group_in_the_order_they_had() {
+        let seen = |row: InboxRow| InboxRow { seen: true, ..row };
+        let rows = [
+            seen(row(1, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-10T09:00:00Z"))),
+            row(2, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-16T09:00:00Z")),
+            seen(row(3, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-12T09:00:00Z"))),
+            row(4, &[Requested], "2026-11-16T12:00:00Z", Some("2026-11-14T09:00:00Z")),
+            seen(row(10, &[Mine], "2026-11-01T00:00:00Z", None)),
+            row(11, &[Mine], "2026-11-01T00:00:00Z", None),
+            seen(row(12, &[Mine], "2026-11-01T00:00:00Z", None)),
+            row(13, &[Mine], "2026-11-01T00:00:00Z", None),
+        ];
+        // Requested keeps the longest wait first within each part; Yours keeps the order it came.
+        assert_eq!(numbers(&rows), [4, 2, 1, 3, 11, 13, 10, 12]);
     }
 }

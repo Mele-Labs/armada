@@ -6,6 +6,7 @@ use std::collections::BTreeMap;
 use gpui::{App, AppContext as _, Task};
 use ipc::{KitInventory, KitPieceInstalled, KitPieceRemoved, KitServers, KitSourceFound, SettingValue, SettingsList};
 
+use crate::refusal::Refusal;
 use crate::settings::wire::{body, request, scoped, Ask, Refused};
 
 /// `GET /kit/inventory`.
@@ -94,22 +95,29 @@ pub fn file(port: u16, kind: ipc::KitFileKind, name: &str, plugin: Option<&str>,
 /// `POST /kit/file/save`. A save over a file that moved is a 409 carrying `on_disk`, so this reads the error itself.
 pub fn save_file(port: u16, ask: ipc::SaveKitFile, cx: &App) -> Task<Result<ipc::KitFile, Saved>> {
     let said = body(&ask);
-    cx.background_spawn(async move {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| Saved::said(why.to_string()))?;
-        let (status, bytes) = runtime.block_on(crate::transport::post(port, "/kit/file/save", said)).map_err(Saved::said)?;
+    let answer = cx.background_spawn(async move {
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| (Saved::said(why.to_string()), None))?;
+        let sent = said.len();
+        let (status, bytes) = runtime.block_on(crate::transport::post(port, "/kit/file/save", said)).map_err(|why| (Saved::said(why), None))?;
         if !(200..300).contains(&status) {
-            return Err(match ipc::decode::<ipc::WireError>("WireError", &bytes) {
-                Ok(error) => {
-                    let on_disk = match error.fields.get("on_disk") {
-                        Some(ipc::WireValue::Str(text)) => Some(text.clone()),
-                        _ => None,
-                    };
-                    Saved { said: error.message, code: Some(error.code), on_disk }
-                }
-                Err(_) => Saved::said(format!("Fleet answered {status}")),
+            let refusal = Refusal::read("POST", "/kit/file/save", status, &bytes).sent(sent);
+            // `on_disk` rides in the error's fields, which a Refusal does not keep.
+            let on_disk = ipc::decode::<ipc::WireError>("WireError", &bytes).ok().and_then(|error| match error.fields.get("on_disk") {
+                Some(ipc::WireValue::Str(text)) => Some(text.clone()),
+                _ => None,
             });
+            return Err((Saved { said: refusal.to_string(), code: refusal.code.clone(), on_disk }, Some(refusal)));
         }
-        ipc::decode::<ipc::KitFile>("KitFile", &bytes).map_err(|why| Saved::said(why.to_string()))
+        ipc::decode::<ipc::KitFile>("KitFile", &bytes).map_err(|why| (Saved::said(why.to_string()), None))
+    });
+    cx.spawn(async move |cx| match answer.await {
+        Ok(file) => Ok(file),
+        Err((saved, refusal)) => {
+            if let Some(refusal) = refusal {
+                cx.update(|cx| crate::toasts::tell_refused("The file was not saved", refusal, cx));
+            }
+            Err(saved)
+        }
     })
 }
 

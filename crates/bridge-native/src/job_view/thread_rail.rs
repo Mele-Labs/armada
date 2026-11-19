@@ -1,5 +1,5 @@
 //! The contents rail on a Job's thread: thin bars down its right edge, one for each ask said in the thread, in the order their
-//! first words come, coloured by kind. The ask in view is drawn longer and fully lit. Hovering the bars opens a list beside
+//! first words come, coloured by kind, all one length. The ask in view is fully lit and ringed. Hovering the bars opens a list beside
 //! them that names each ask with its kind and where it stands; pressing a bar or a row scrolls the thread to where the ask
 //! started. A thread with no asks draws neither.
 //!
@@ -33,8 +33,8 @@ mod tests;
 
 /// The rail's measures, from the approved mock (`rail.css`), where no token holds them.
 const BAR_H: f32 = 3.;
-const BAR_W: f32 = 16.;
-const BAR_NOW_W: f32 = 26.;
+/// Every bar is this long, the one in view too, so the bars line up on both edges; the one in view shows by colour alone.
+const BAR_W: f32 = 20.;
 const BAR_RADIUS: f32 = 2.;
 const BAR_GAP: f32 = 11.;
 /// How lit a bar is while its ask is not the one in view.
@@ -46,8 +46,8 @@ const ROW_Y: f32 = 6.;
 /// The dot's drop, which sets it level with the first line of the title.
 const DOT_DROP: f32 = 6.;
 const MARK_EDGE: f32 = 2.;
-/// What the rail takes of the thread's width: its edge, a side, the longest bar, a side.
-const RAIL_WIDTH: f32 = RAIL_EDGE + RAIL_SIDE + BAR_NOW_W + RAIL_SIDE;
+/// What the rail takes of the thread's width: its edge, a side, a bar, a side.
+const RAIL_WIDTH: f32 = RAIL_EDGE + RAIL_SIDE + BAR_W + RAIL_SIDE;
 
 /// What the rail remembers: whether the pointer is on it, where the keys are in the list, and the list's own focus.
 struct Rail {
@@ -145,7 +145,7 @@ impl JobView {
             let lit = ink(look, model::hue(mark.kind));
             let bar = div()
                 .h(px(BAR_H))
-                .w(px(if here { BAR_NOW_W } else { BAR_W }))
+                .w(px(BAR_W))
                 .rounded(px(BAR_RADIUS))
                 .bg(if here { lit } else { lit.opacity(BAR_REST) })
                 .when(here, |bar| bar.shadow(vec![edge(look.color(token::BORDER_HIGHLIGHT), px(0.), look.length(token::BORDER_WIDTH), false)]));

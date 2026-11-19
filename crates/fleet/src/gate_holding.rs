@@ -94,7 +94,7 @@ pub(crate) fn item_of(plan: &KeptPlan, held: &[KeptAttachment], session: &str, n
         text: format!("\"{}\" {waits_on}", group.title),
         since: Instant::carried(&hold.since),
         source: WaitingSource::Gate,
-        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: session.to_string() }),
+        act: Some(WaitingAct { kind: WaitingActKind::Answer, target: session.to_string(), on: None }),
         options: vec![
             option("Approve", "Count this group as done. The Job ends if nothing else is open."),
             option("Skip this group", "Close this group as skipped. The Job ends if nothing else is open."),
