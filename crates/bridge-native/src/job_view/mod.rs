@@ -982,6 +982,9 @@ impl JobView {
         }
         self.quick_follow(cx);
         self.read_workflow_changes(cx);
+        if let Some(fleet) = self.fleet.clone() {
+            fleet.update(cx, |fleet, cx| fleet.retry_woken(cx));
+        }
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {
@@ -1361,7 +1364,11 @@ impl Render for JobView {
                 Some(fleet) => fleet.read(cx).thread_refused(&id),
                 None => crate::mock::thread_refused(&id).is_some(),
             };
-        let body = if refused {
+        // A Mac asleep gives no thread: one quiet line says so, never an error.
+        let asleep_said = self.fleet.as_ref().filter(|fleet| fleet.read(cx).thread_asleep(&id)).and_then(|_| crate::pairing::asleep_line_of(self.list.read(cx).record(&id).and_then(|job| job.mac.as_deref()), cx));
+        let body = if let Some(said) = asleep_said.filter(|_| refused) {
+            crate::pairing::quiet_line(&look, said)
+        } else if refused {
             div().size_full().into_any_element()
         } else if loaded {
             let state = self.pages[&id].list.clone();

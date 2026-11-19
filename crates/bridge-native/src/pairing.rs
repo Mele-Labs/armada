@@ -289,6 +289,36 @@ pub struct Chip {
     pub asleep_since: Option<i64>,
 }
 
+/// A paired Mac that cannot be reached: its Jobs stop pulling at him here and stand together at the foot of the list.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Asleep {
+    pub id: String,
+    pub name: String,
+    pub colour: MacColour,
+    pub since: i64,
+}
+
+/// The Macs that are asleep, from the ones the window holds.
+pub fn asleep_of(macs: &[Mac]) -> Vec<Asleep> {
+    macs.iter()
+        .filter(|one| !one.this_mac)
+        .filter_map(|one| match one.link {
+            Some(MacLink::Asleep { since }) => Some(Asleep { id: one.id.clone(), name: one.name.clone(), colour: one.colour, since }),
+            _ => None,
+        })
+        .collect()
+}
+
+/// Whether `mac`, the id a Job's record names (none is this Mac), is a Mac that is asleep.
+pub fn is_asleep(macs: &[Mac], mac: Option<&str>) -> bool {
+    mac.is_some_and(|id| macs.iter().any(|one| one.id == id && !one.this_mac && matches!(one.link, Some(MacLink::Asleep { .. }))))
+}
+
+/// Call `on` whenever the window's Macs change.
+pub fn observe<V: 'static>(cx: &mut gpui::Context<V>, on: impl Fn(&mut V, &mut gpui::Context<V>) + 'static) -> gpui::Subscription {
+    cx.observe_global::<Held>(on)
+}
+
 /// The chip for a Job on `mac`, where `None` is this Mac. No chip while one Mac is listed, and none for a
 /// Mac the list does not hold.
 pub fn chip_of(macs: &[Mac], mac: Option<&str>) -> Option<Chip> {
@@ -377,6 +407,27 @@ pub fn asleep_said(since: i64) -> String {
     use chrono::{Local, TimeZone};
     let at = Local.timestamp_opt(since, 0).single().map(crate::settings::time::clock).unwrap_or_default();
     format!("Asleep since {at}")
+}
+
+/// The Mac's name and when it fell asleep, as one quiet line: "Air · Asleep since 9:12".
+pub fn asleep_line(name: &str, since: i64) -> SharedString {
+    format!("{name} \u{b7} {}", asleep_said(since)).into()
+}
+
+/// The line a Job's panel shows in place of its thread while its Mac is asleep: "Air · Asleep since 9:12". None for a Mac that is not.
+pub fn asleep_line_of(mac: Option<&str>, cx: &App) -> Option<SharedString> {
+    let chip = chip(mac, cx)?;
+    Some(format!("{} \u{b7} {}", chip.name, asleep_said(chip.asleep_since?)).into())
+}
+
+/// One muted line in a panel's place, named for VoiceOver by what it says.
+pub fn quiet_line(look: &Look, said: SharedString) -> AnyElement {
+    labelled(
+        div().id("asleep-line").size_full().p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said.clone()),
+        Role::Status,
+        said,
+    )
+    .into_any_element()
 }
 
 /// The chip as a row and a head draw it: the Mac's name in its colour on a wash of it. A Mac that fell asleep is

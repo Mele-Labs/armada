@@ -357,10 +357,18 @@ impl Held {
         self.jobs.iter().any(|job| job.id.as_str() == session_id && job.snoozed_until.is_some())
     }
 
-    /// The Dock count: the calls still to be opened, one for each owner, but for a snoozed Job's. `None` until
-    /// Fleet has answered.
-    pub fn dock_count(&self) -> Option<usize> {
-        self.calls.as_ref().map(|calls| calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()))).count())
+    /// Whether this Job runs on a Mac that cannot be reached, among `macs`: its Jobs stop pulling at him here, as a
+    /// snoozed Job's do, and stay findable at the foot of the list.
+    pub fn asleep(&self, session_id: &str, macs: &[ipc::Mac]) -> bool {
+        self.jobs.iter().any(|job| job.id.as_str() == session_id && crate::pairing::is_asleep(macs, job.mac.as_deref()))
+    }
+
+    /// The Dock count: the calls still to be opened, one for each owner, but for a snoozed Job's or one on a Mac
+    /// that is asleep. `None` until Fleet has answered.
+    pub fn dock_count(&self, macs: &[ipc::Mac]) -> Option<usize> {
+        self.calls.as_ref().map(|calls| {
+            calls.unopened().into_iter().filter(|call| !call.session_id.as_ref().is_some_and(|job| self.snoozed(job.as_str()) || self.asleep(job.as_str(), macs))).count()
+        })
     }
 
     /// The pull requests asked of him by name that he has not opened: the figure beside Reviews. Zero until Fleet answers.
@@ -378,10 +386,10 @@ impl Held {
         self.calls.as_ref().is_some_and(|calls| !calls.calls.iter().any(|call| call.key == key && !call.opened))
     }
 
-    /// The news folded since the last take, oldest first, but for a snoozed Job's.
-    pub fn take_arrived(&mut self) -> Vec<CallArrival> {
+    /// The news folded since the last take, oldest first, but for a snoozed Job's or one on a Mac that is asleep.
+    pub fn take_arrived(&mut self, macs: &[ipc::Mac]) -> Vec<CallArrival> {
         let arrived = std::mem::take(&mut self.arrived);
-        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str())).collect()
+        arrived.into_iter().filter(|one| !self.snoozed(one.session_id.as_str()) && !self.asleep(one.session_id.as_str(), macs)).collect()
     }
 
     /// The subagents whose own thread moved, folded since the last take, oldest first.
@@ -794,6 +802,8 @@ pub struct FleetConnection {
     /// The Jobs whose last read failed: not asked again until a view asks with `retry`, or the
     /// redraw a failure causes would ask for ever.
     failed: BTreeSet<String>,
+    /// The Jobs in `failed` whose Mac was asleep when the read failed: no toast, and a read again once it wakes.
+    asleep_failed: BTreeSet<String>,
     /// The Jobs whose Needs you is being read now, by the `waiting_for` asked for.
     needs_reading: BTreeMap<String, Vec<WaitingItem>>,
     /// The Jobs whose last Needs you read failed, by the `waiting_for` asked for: not asked again until
@@ -1131,10 +1141,29 @@ impl FleetConnection {
         self.failed.contains(session)
     }
 
+    /// Whether that refusal is a Mac asleep: nothing was said in a toast, and the thread is read again when it wakes.
+    pub fn thread_asleep(&self, session: &str) -> bool {
+        self.asleep_failed.contains(session)
+    }
+
+    /// Read again the threads that failed while their Mac was asleep, for each Mac that is awake now.
+    pub fn retry_woken(&mut self, cx: &mut Context<Self>) {
+        if self.asleep_failed.is_empty() {
+            return;
+        }
+        let macs = crate::pairing::macs(cx);
+        let woken: Vec<String> = self.asleep_failed.iter().filter(|id| !self.held.asleep(id, macs)).cloned().collect();
+        for id in woken {
+            self.asleep_failed.remove(&id);
+            self.read_thread(&id, true, cx);
+        }
+    }
+
     pub fn read_thread(&mut self, session: &str, retry: bool, cx: &mut Context<Self>) {
         let Some(port) = self.held.port() else { return };
         if retry {
             self.failed.remove(session);
+            self.asleep_failed.remove(session);
         } else if self.failed.contains(session) {
             return;
         }
@@ -1162,7 +1191,12 @@ impl FleetConnection {
                     Err(why) => {
                         this.failed.insert(id.clone());
                         Note::warn("a Job's thread could not be read").field("job", id.as_str()).field("why", why.as_str()).emit();
-                        cx.defer(move |cx| crate::toasts::tell(why, cx));
+                        // A Mac asleep is no fault to tell him of: the Job's panel says so quietly.
+                        if this.held.asleep(&id, crate::pairing::macs(cx)) {
+                            this.asleep_failed.insert(id.clone());
+                        } else {
+                            cx.defer(move |cx| crate::toasts::tell(why, cx));
+                        }
                     }
                 }
                 cx.notify();
@@ -1339,7 +1373,7 @@ impl FleetConnection {
                     let for_you = this.held.take_for_you_moved();
                     let story = this.held.take_story_moved();
                     let asides = this.held.take_asides_moved();
-                    let arrived = this.held.take_arrived();
+                    let arrived = this.held.take_arrived(crate::pairing::macs(cx));
                     let shells = this.held.take_shells();
                     let browser = this.held.take_browser();
                     let dispatched = this.held.take_dispatched();
@@ -1396,6 +1430,7 @@ impl FleetConnection {
             reading: BTreeSet::new(),
             earlier: BTreeSet::new(),
             failed: BTreeSet::new(),
+            asleep_failed: BTreeSet::new(),
             needs_reading: BTreeMap::new(),
             needs_failed: BTreeMap::new(),
             following: None,
@@ -1414,6 +1449,7 @@ impl FleetConnection {
             reading: BTreeSet::new(),
             earlier: BTreeSet::new(),
             failed: BTreeSet::new(),
+            asleep_failed: BTreeSet::new(),
             needs_reading: BTreeMap::new(),
             needs_failed: BTreeMap::new(),
             following: None,
@@ -1691,11 +1727,11 @@ mod tests {
     #[test]
     fn the_dock_count_waits_for_fleet_and_then_counts_the_unopened_once_for_each_owner() {
         let mut held = Held::new();
-        assert_eq!(held.dock_count(), None, "nothing is badged before Fleet has answered");
+        assert_eq!(held.dock_count(&[]), None, "nothing is badged before Fleet has answered");
         held.fold(vec![Signal::Calls(ipc::StandingCalls::default())]);
-        assert_eq!(held.dock_count(), Some(0), "an empty answer is a count of none");
+        assert_eq!(held.dock_count(&[]), Some(0), "an empty answer is a count of none");
         held.fold(vec![Signal::Calls(calls(&[false, true, false]))]);
-        assert_eq!(held.dock_count(), Some(2));
+        assert_eq!(held.dock_count(&[]), Some(2));
     }
 
     fn snoozed_job(id: &str) -> SessionRecord {
@@ -1710,9 +1746,9 @@ mod tests {
         let mut held = Held::new();
         held.fold(vec![Signal::Calls(calls(&[false, false, false])), Signal::Jobs(vec![snoozed_job("s1")])]);
         assert!(held.snoozed("s1") && !held.snoozed("s0"));
-        assert_eq!(held.dock_count(), Some(2), "s1 stays out of the count");
+        assert_eq!(held.dock_count(&[]), Some(2), "s1 stays out of the count");
         held.jobs[0].snoozed_until = None;
-        assert_eq!(held.dock_count(), Some(3), "woken, it is counted again");
+        assert_eq!(held.dock_count(&[]), Some(3), "woken, it is counted again");
     }
 
     #[test]
@@ -1720,8 +1756,42 @@ mod tests {
         let mut held = Held::new();
         let arrival = |job: &str| format!(r#"{{"session_id":"{job}","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}}"#);
         held.fold(vec![Signal::Jobs(vec![snoozed_job("s1")]), changed("[]", &format!("[{},{}]", arrival("s1"), arrival("s2")))]);
-        let news = held.take_arrived();
+        let news = held.take_arrived(&[]);
         assert_eq!(news.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s2"]);
+    }
+
+    fn job_on(id: &str, mac: &str) -> SessionRecord {
+        let mut job = crate::mock::jobs("jobs-many").expect("the fixture decodes").remove(0);
+        job.id = ipc::SessionId::carried(id);
+        job.mac = Some(mac.to_string());
+        job
+    }
+
+    fn air(link: ipc::MacLink) -> Vec<ipc::Mac> {
+        vec![ipc::Mac { id: "air".into(), name: "Air".into(), link: Some(link), ..Default::default() }]
+    }
+
+    #[test]
+    fn a_job_on_a_mac_asleep_is_not_counted_on_the_dock_and_the_rest_still_are() {
+        let mut held = Held::new();
+        held.fold(vec![Signal::Calls(calls(&[false, false, false])), Signal::Jobs(vec![job_on("s1", "air")])]);
+        let asleep = air(ipc::MacLink::Asleep { since: 5 });
+        assert!(held.asleep("s1", &asleep) && !held.asleep("s0", &asleep));
+        assert_eq!(held.dock_count(&asleep), Some(2), "s1 stays out of the count");
+        assert_eq!(held.dock_count(&air(ipc::MacLink::Linked)), Some(3), "a Mac that is linked is counted as before");
+    }
+
+    #[test]
+    fn a_job_on_a_mac_asleeps_news_is_not_handed_over() {
+        let arrival = |job: &str| format!(r#"{{"session_id":"{job}","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}}"#);
+        let fold = |held: &mut Held| held.fold(vec![Signal::Jobs(vec![job_on("s1", "air")]), changed("[]", &format!("[{},{}]", arrival("s1"), arrival("s2")))]);
+        let mut held = Held::new();
+        fold(&mut held);
+        let news = held.take_arrived(&air(ipc::MacLink::Asleep { since: 5 }));
+        assert_eq!(news.iter().map(|one| one.session_id.as_str()).collect::<Vec<_>>(), ["s2"]);
+        let mut held = Held::new();
+        fold(&mut held);
+        assert_eq!(held.take_arrived(&air(ipc::MacLink::Linked)).len(), 2, "linked, both are told");
     }
 
     #[test]
@@ -1783,13 +1853,13 @@ mod tests {
         let mut held = Held::new();
         let arrival = r#"{"session_id":"s0","title":"Fix it","text":"Pick a slot","tone":"blocked","kind":"needs"}"#;
         held.fold(vec![changed("[]", &format!("[{arrival}]"))]);
-        assert_eq!(held.dock_count(), Some(0));
-        let news = held.take_arrived();
+        assert_eq!(held.dock_count(&[]), Some(0));
+        let news = held.take_arrived(&[]);
         assert_eq!(news.len(), 1);
         assert_eq!(news[0].title, "Fix it");
-        assert!(held.take_arrived().is_empty(), "news is told once");
+        assert!(held.take_arrived(&[]).is_empty(), "news is told once");
         held.fold(vec![changed("[]", "[]")]);
-        assert!(held.take_arrived().is_empty());
+        assert!(held.take_arrived(&[]).is_empty());
     }
 
     #[test]
@@ -1882,7 +1952,7 @@ mod tests {
     fn a_read_of_calls_carries_no_news() {
         let mut held = Held::new();
         held.fold(vec![Signal::Calls(calls(&[false]))]);
-        assert!(held.take_arrived().is_empty());
+        assert!(held.take_arrived(&[]).is_empty());
     }
 
     #[test]
