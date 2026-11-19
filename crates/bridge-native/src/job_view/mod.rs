@@ -33,6 +33,7 @@ mod deck;
 mod delivery_line;
 mod draft_doc;
 mod dock;
+mod needs_card;
 mod done;
 mod now;
 mod open;
@@ -86,6 +87,7 @@ mod reader;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
+mod reader_page_edit;
 mod reader_share;
 mod web_walk;
 pub(crate) mod rows;
@@ -982,6 +984,9 @@ impl JobView {
         }
         self.quick_follow(cx);
         self.read_workflow_changes(cx);
+        if let Some(fleet) = self.fleet.clone() {
+            fleet.update(cx, |fleet, cx| fleet.retry_woken(cx));
+        }
         // A Fleet that was not there when the Job opened is asked again once it is.
         if let (Some(id), Some(fleet)) = (self.shown.clone(), self.fleet.clone()) {
             if self.thread(&id, cx).is_none() {
@@ -1361,7 +1366,11 @@ impl Render for JobView {
                 Some(fleet) => fleet.read(cx).thread_refused(&id),
                 None => crate::mock::thread_refused(&id).is_some(),
             };
-        let body = if refused {
+        // A Mac that cannot be reached gives no thread: one quiet line says so, never an error.
+        let unreachable = refused.then(|| crate::pairing::unreachable_line_of(self.list.read(cx).record(&id).and_then(|job| job.mac.as_deref()), cx)).flatten();
+        let body = if let Some((said, tip)) = unreachable {
+            crate::pairing::quiet_line(&look, said, tip)
+        } else if refused {
             div().size_full().into_any_element()
         } else if loaded {
             let state = self.pages[&id].list.clone();

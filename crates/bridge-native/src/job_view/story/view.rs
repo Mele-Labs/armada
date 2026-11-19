@@ -258,6 +258,13 @@ impl StoryTab {
     }
 
     fn render_body(&self, look: &Look, cx: &mut gpui::Context<Self>) -> AnyElement {
+        // A Job on a Mac that cannot be reached is not read, and no error says so: the Mac's state does, quietly.
+        if matches!(self.story, Load::Failed(_)) {
+            let mac = self.fleet().and_then(|fleet| fleet.read(cx).held().jobs.iter().find(|one| one.id.as_str() == self.job).and_then(|one| one.mac.clone()));
+            if let Some((said, tip)) = crate::pairing::unreachable_line_of(mac.as_deref(), cx) {
+                return crate::pairing::quiet_line(look, said, tip);
+            }
+        }
         match &self.story {
             Load::Reading => self.render_bones(look),
             Load::Failed(why) => div()

@@ -1009,6 +1009,13 @@ impl Sessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.session_unnamed", "a fake sums nothing", crate::tests::shapes::run_id())))
     }
 
+    async fn get_usage_waste(&self, window: Option<String>) -> Result<ipc::UsageWaste, Refusal> {
+        // The window the route read comes back as the window's id, so a route test can see what reached the daemon.
+        let id = window.unwrap_or_default();
+        let window = ipc::WasteWindow { id, since: String::new(), until: String::new() };
+        Ok(ipc::UsageWaste { until: String::new(), window, total_units: 0.0, waste_units: 0.0, kinds: Vec::new() })
+    }
+
     async fn get_job_time(&self, session_id: ipc::SessionId) -> Result<ipc::JobTime, Refusal> {
         Ok(ipc::JobTime { session_id: session_id.as_str().to_string(), time: None })
     }

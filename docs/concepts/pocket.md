@@ -425,6 +425,7 @@ The Fleet half is [His other Macs, Fleet's half](../practices/protocol/his-other
 | A Job writes to a Job the other Mac holds | The receiver's thread draws it From the sender, naming its Mac, and the receiver wakes as for a Job on its own Mac. The sender's thread draws the call To the receiver, whose row names its Mac. A Mac asleep keeps it in the queue above, with take-back |
 | Either Job is in a project that is not shared | Nothing crosses. The writer is refused as for an address no Job has, and learns nothing of the other Mac's projects |
 | A shared Job on the other Mac needs him | It sounds, posts its notification, joins Needs you and counts on the Dock, with its Mac named, as a Job of this Mac does |
+| That Mac is asleep, or frozen on a build that differs | Its Jobs are quiet: no sound, notification, Needs you or Dock count. Native's Jobs list folds them under one row per Mac at its foot, saying `Asleep since 2:31`, `On an older build` or `On a newer build`, and a Job's panels draw that line in place of its thread. They go back to their places when the link opens |
 | The Macs first link, or a Mac wakes with nothing changed | Nothing rings. What already waited stands in Needs you |
 
 ## Macs nearby

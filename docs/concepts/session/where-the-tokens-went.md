@@ -84,6 +84,34 @@ A Job that never makes another turn is never measured.
 **`get_usage_rules` lists them.** For the rule it returns whether the rule is on, its limit, and the trips in a window of time, newest first.
 `docs/practices/protocol.md`, *The usage rules*.
 
+## Waste
+
+**Fleet names the burn it can already measure as avoidable, with what it cost, the Jobs it hit and a fix.** `get_usage_waste` answers for the last day, week or fortnight, and the Usage page leads with it: how many units of the window's whole went to waste, then a row for each kind, each opening to its Jobs.
+Every figure is in the units above, so `total_units` is the summary's for the same span and `waste_units` is the kinds added up.
+`title` and `fix` are Fleet's own sentences, so the page and an agent read the same words.
+`docs/practices/protocol.md`, *The waste in the burn*.
+
+| Kind | Waste is | Counted as |
+|---|---|---|
+| `cold_cache` | The cache writes of a turn that found the cache cold, as Spent on's `cold_cache` | The turn's input and cache writes, weighed, times the share it kept as `cold_cache`. One occurrence for each cold turn |
+| `fresh_starts` | What the first main-thread request after a compaction held as `start_up` | The turn's cache read times its `start_up` read share, plus its input and writes times its `start_up` write share. One occurrence for each such start |
+| `main_context` | The part of a main-thread request past 300k tokens of context | What is left of the request's burn, times (context less 300k) over context. One occurrence for each such request |
+| `subagent_context` | The same, for a subagent's request | The same |
+
+**A request's burn is handed out once, in that order.** The cold cache takes its part first, a fresh start takes its start-up part of what is left, and the context kinds take their fraction of what is still left.
+So a request is in as many kinds as it earned, and no unit is in two: the kinds add up to at most the burn of the requests they read.
+The 300k is one constant, `LONG_CONTEXT` in `crates/store/src/usage_summary.rs`, the figure the Context rule tells a Job at.
+A request at exactly 300k is under it.
+
+**A fresh start is not every request with a `start_up` share.** Each request reads the start-up again from the cache, so the share alone is on every turn.
+A start is the first main-thread request after a compaction, which the Job's own first request never is, and a subagent's request is never one: it starts its own thread and does not restart the Job's.
+A compaction's own request is background, the fix and not the waste, and is in no kind.
+A request with no shares kept, heard only from the mod or kept before shares existed, has no cold part and no start-up part, and counts for the context kinds alone.
+
+**A kind with nothing is left out, and the kinds are largest first.** Each kind lists the thirty Jobs it hit most, largest first, with their units and occurrences.
+The two context kinds also carry the most context one of a Job's counted requests held, as `peak_context`.
+`repeat_reads` and `big_results` are not read yet; a kind is a variant in `crates/store/src/usage_waste.rs` and the words Fleet gives it in `crates/fleet/src/usage_waste.rs`.
+
 ## A Job compacted while it waits
 
 **A trial, shipped off.** The setting *Compact a Job waiting on you* (`tokens.compactWhileWaiting`) switches it on, and is read at each sweep of quiet Jobs, about every 30 seconds.

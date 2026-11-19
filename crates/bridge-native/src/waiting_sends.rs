@@ -68,6 +68,7 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::Move { .. } => said("Bring here", None),
         JobAct::Arrive(_) | JobAct::MoveSettled(_) => said("Move", None),
         JobAct::AnswerRead(_) => said("Answer read", None),
+        JobAct::Notes(body) => said("Notes", body.notes.first().map(|note| first_line(&note.said))),
     }
 }
 
@@ -87,6 +88,7 @@ pub fn act_of(path: &str, body: &str) -> Option<JobAct> {
     let bytes = body.as_bytes();
     Some(match path {
         "/sessions/message" => JobAct::Message(ipc::decode("SendSessionMessageBody", bytes).ok()?),
+        "/sessions/notes" => JobAct::Notes(ipc::decode("SendSessionNotes", bytes).ok()?),
         "/sessions/ask/answer" => JobAct::AskAnswer(ipc::decode("AnswerSessionAsk", bytes).ok()?),
         "/sessions/waiting/answer" => JobAct::WaitingAnswer(ipc::decode("AnswerWaiting", bytes).ok()?),
         "/sessions/waiting/answer_parts" => JobAct::WaitingAnswerParts(ipc::decode("AnswerWaitingParts", bytes).ok()?),

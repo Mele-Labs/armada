@@ -5,7 +5,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::{ids::Instant, SessionId};
+use crate::{ids::Instant, GlossaryTermWrite, SessionId};
 
 /// Whether a feature was named by seeding, confirmed since, or is waiting on his word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -63,10 +63,12 @@ pub enum FeatureLinkKind {
     Draft,
     Commit,
     Bug,
+    /// A Job used a word the project's glossary says not to. The target is the word and the title the term to use.
+    GlossaryFlag,
 }
 
 impl FeatureLinkKind {
-    pub const ALL: [FeatureLinkKind; 9] = [
+    pub const ALL: [FeatureLinkKind; 10] = [
         FeatureLinkKind::Job,
         FeatureLinkKind::PullRequest,
         FeatureLinkKind::Merge,
@@ -76,6 +78,7 @@ impl FeatureLinkKind {
         FeatureLinkKind::Draft,
         FeatureLinkKind::Commit,
         FeatureLinkKind::Bug,
+        FeatureLinkKind::GlossaryFlag,
     ];
 
     pub const fn name(self) -> &'static str {
@@ -89,6 +92,7 @@ impl FeatureLinkKind {
             FeatureLinkKind::Draft => "draft",
             FeatureLinkKind::Commit => "commit",
             FeatureLinkKind::Bug => "bug",
+            FeatureLinkKind::GlossaryFlag => "glossary_flag",
         }
     }
 
@@ -121,6 +125,8 @@ pub struct FeatureRow {
     /// The oldest merge a written section is stale since: a pull request's number. Absent where none is stale.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale_since: Option<u64>,
+    /// How it stands and why, read from what Fleet keeps.
+    pub health: crate::feature_health::FeatureHealth,
 }
 
 /// An area and its features, in their order.
@@ -303,7 +309,12 @@ pub struct FeatureSectionText {
 pub struct WriteFeatureSections {
     /// The feature's slug.
     pub feature: String,
+    /// May be empty where `glossary` is not.
+    #[serde(default)]
     pub sections: Vec<FeatureSectionText>,
+    /// Terms this Job introduced, kept in the project's glossary. A term the project holds is replaced, whatever its case.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub glossary: Vec<GlossaryTermWrite>,
     /// The project's id. **Read only where the Job's repository is in more than one project and the slug is in
     /// each.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -325,6 +336,9 @@ pub struct FeatureOwed {
 pub struct FeatureSectionsWritten {
     pub feature: String,
     pub written: Vec<FeatureSectionKind>,
+    /// The terms kept, as written.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub glossary: Vec<String>,
     /// What this Job still owes after the write, across features. Empty where nothing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owed: Vec<FeatureOwed>,

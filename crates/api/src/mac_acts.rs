@@ -80,6 +80,7 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs + Story>(se
         JobAct::SketchAnswer(body) => through!(sessions::answer_sketch, &body),
         JobAct::DocumentAnswer(body) => through!(sessions::answer_document, &body),
         JobAct::AnswerRead(body) => through!(crate::story::mark_answer_read, &body),
+        JobAct::Notes(body) => through!(hosted::send_session_notes, &body),
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
         JobAct::Merge { repository, number, .. } => {
             boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
