@@ -99,6 +99,7 @@ fn with_models(mut list: SettingsList) -> SettingsList {
     for one in &mut list.settings {
         match one.key.as_str() {
             "models.roster" => one.value = SettingValue::List(["opus", "fable", "sonnet"].map(text).to_vec()),
+            "models.proposerChoices" => one.value = SettingValue::List(["opus", "sonnet"].map(text).to_vec()),
             "models.default" => one.value = text("sonnet"),
             "effort.default" => one.value = text("high"),
             _ => {}

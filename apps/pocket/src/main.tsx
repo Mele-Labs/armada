@@ -3,7 +3,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 
 import "./styles.css";
-import "@armada/components/src/look";
+import "./kit/components/look";
 import "./pocket.css";
 import { Root } from "./App";
 import { fitToVisibleScreen } from "./viewport";

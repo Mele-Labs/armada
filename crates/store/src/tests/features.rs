@@ -125,3 +125,14 @@ fn merges_are_kept_once_and_read_after_a_moment_oldest_first() {
     assert_eq!(store.feature_merge_newest("m1").unwrap(), Some((9, "2026-11-16T12:00:00.000Z".to_string())));
     assert!(store.feature_merge_newest("m2").unwrap().is_none());
 }
+
+#[test]
+fn a_feature_a_job_named_is_kept_once_with_its_first_naming() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    assert!(store.keep_feature_job_named("f-1", "s-1", "2026-11-18T10:00:00.000Z").unwrap());
+    assert!(!store.keep_feature_job_named("f-1", "s-1", "2026-11-18T11:00:00.000Z").unwrap(), "a repeat is not a new naming");
+    assert!(store.keep_feature_job_named("f-2", "s-1", "2026-11-18T12:00:00.000Z").unwrap());
+    assert_eq!(store.feature_ids_named_by_job("s-1").unwrap(), ["f-1", "f-2"]);
+    assert!(store.feature_ids_named_by_job("s-2").unwrap().is_empty());
+}

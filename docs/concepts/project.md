@@ -165,6 +165,10 @@ The request names the project to keep and the project that goes, and either may 
 
 The merge ends with one project on each Mac: the kept one, its own on one Mac and a copy on the other.
 
+> **Rule (19 Nov).** A Mac gives its project up only while it holds the copy of the kept one; otherwise it refuses, `fleet.merge_kept_not_held`, and changes nothing.
+> Pressed on the Mac that keeps the project, the give-up is sent first, and a refusal leaves both projects as they were.
+> Why: on 19 Nov a merge deleted the other Mac's project while that Mac had no copy of the kept one, so the project vanished there and its Jobs stopped being shared.
+
 Sync never ticks a task: a copy is only what the holding Mac says, and a tick crosses only as his own.
 The Operator's call is handed the open tasks of every project, the copies' among them, and only reads them.
 The phone passes the same filter: it sees a Job in a shared project, or one held from another Mac, and nothing of any other (`docs/concepts/pocket.md`, *What the phone sees*).

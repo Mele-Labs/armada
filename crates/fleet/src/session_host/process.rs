@@ -59,6 +59,9 @@ pub struct Start {
     /// Tokens at which the process compacts its conversation: `tokens.compactionWindow` as it
     /// stood when the process started.
     pub compaction_window: i64,
+    /// How long a subagent's prompt cache is held, `5m` or `1h`: `tokens.subagentCacheTtl` as it
+    /// stood when the process started.
+    pub subagent_cache_ttl: String,
     /// The skills the process is started without, never a repository's own nor Armada's.
     pub skills_off: Vec<String>,
     /// Whether the process is asked for its thinking summaries: `harness.thinkingSummaries` as it
@@ -327,7 +330,7 @@ impl Processes for ProcessHost {
             true => hosted,
             false => hosted.without_connectors(),
         };
-        let hosted = hosted.compacting_at(start.compaction_window).without_skills(&start.skills_off);
+        let hosted = hosted.compacting_at(start.compaction_window).caching_subagents_for(&start.subagent_cache_ttl).without_skills(&start.skills_off);
         let hosted = match start.thinking_summaries {
             true => hosted.summarising_thinking(),
             false => hosted,

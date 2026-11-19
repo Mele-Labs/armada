@@ -1,5 +1,5 @@
 //! What a hosted Job is started with to cost fewer tokens, asserted on the rendering: the compaction
-//! window, the skills hidden from the model, and the connectors in both directions.
+//! window, a subagent's cache length, the skills hidden from the model, and the connectors in both directions.
 
 use adapter_traits::{Environment, Launch, McpConfig};
 use ipc::SessionMode;
@@ -45,6 +45,15 @@ fn a_launch_tells_the_cli_when_to_compact_and_holds_the_value_to_the_range_it_re
     assert_eq!(env_of(&launching().compacting_at(250_000), name).as_deref(), Some("250000"));
     assert_eq!(env_of(&launching().compacting_at(5), name).as_deref(), Some("100000"));
     assert_eq!(env_of(&launching().compacting_at(9_000_000), name).as_deref(), Some("1000000"));
+}
+
+#[test]
+fn a_launch_tells_the_cli_how_long_to_hold_a_subagents_cache_and_ignores_any_other_word() {
+    let name = "CLAUDE_CODE_SUBAGENT_PROMPT_CACHE_TTL";
+    assert_eq!(env_of(&launching(), name), None, "nothing set leaves the CLI's own");
+    assert_eq!(env_of(&launching().caching_subagents_for("1h"), name).as_deref(), Some("1h"));
+    assert_eq!(env_of(&launching().caching_subagents_for("5m"), name).as_deref(), Some("5m"));
+    assert_eq!(env_of(&launching().caching_subagents_for("2h"), name), None, "a word the CLI does not read is not passed");
 }
 
 #[test]

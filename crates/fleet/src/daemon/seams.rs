@@ -257,9 +257,11 @@ where
                 // call carry neither.
                 &[],
             )?,
-            // The same list `list_models` serves, so what the proposer may pick and what a
-            // picker offers cannot disagree.
-            choices: self.models_now().models,
+            // What `list_models` serves, narrowed to `models.proposerChoices`.
+            choices: crate::models_read::proposer_choices(
+                self.models_now().models,
+                &self.machine_settings().now().get(config::settings::MODELS_PROPOSER_CHOICES),
+            ),
         })
     }
 
@@ -374,6 +376,9 @@ where
         for told in for_you {
             self.events.publish(told);
         }
+    }
+    pub(crate) fn usage_memo(&self) -> &crate::usage_memo::Memo {
+        &self.usage_memo
     }
     /// The last print of each Job's For you, so `session.for_you` goes only where it moved.
     pub(crate) fn for_you_prints(&self) -> &std::sync::Mutex<std::collections::HashMap<String, u64>> {

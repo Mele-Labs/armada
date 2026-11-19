@@ -1,0 +1,42 @@
+/* Where a moved Session went, or came from: one quiet line in the thread, pressable. */
+.armada-session-moved {
+  display: flex;
+}
+
+.armada-session-moved__press {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-raised);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-align: start;
+  cursor: pointer;
+}
+
+.armada-session-moved__press:hover {
+  color: var(--fg-default);
+}
+
+.armada-session-moved__press:focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: var(--focus-ring-offset);
+}
+
+.armada-session-moved__press > svg {
+  flex: none;
+}
+
+.armada-session-moved__repository {
+  min-width: 0;
+  overflow: hidden;
+  font-family: var(--font-mono);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

@@ -10,6 +10,7 @@ pub const MODELS_SESSION: Words = Words("models.session");
 pub const MODELS_REVIEW: Words = Words("models.review");
 pub const MODELS_JUDGE: Words = Words("models.judge");
 pub const MODELS_PROPOSER: Words = Words("models.proposer");
+pub const MODELS_PROPOSER_CHOICES: List = List("models.proposerChoices");
 pub const MODELS_RETRO: Words = Words("models.retro");
 pub const MODELS_SECOND_OPINION: Words = Words("models.secondOpinion");
 pub const MODELS_DISPUTE: Words = Words("models.dispute");
@@ -120,6 +121,20 @@ pub(super) const MODEL: &[Entry] = &[
         applies: Applies::Live,
         row: Some("job-proposer-model"),
         env: Some("ARMADA_PROPOSER_MODEL"),
+        tip: None,
+    },
+    // A subset of the roster: the proposer's pick is a dial deciding every later cost, so it
+    // is held to the tiers worth that. The roster still holds the rest for Jobs and subagents.
+    Entry {
+        key: MODELS_PROPOSER_CHOICES.0,
+        section: Section::Model,
+        title: "Models the proposer may pick",
+        description: "The models the Job proposer may choose from when it proposes a Job. Models off the roster are never offered. Other Jobs and subagents still use the whole roster.",
+        kind: Kind::TextList,
+        shipped: Shipped::TextList(&["opus", "sonnet"]),
+        applies: Applies::Live,
+        row: None,
+        env: None,
         tip: None,
     },
     // The cheapest: one short read of a few replies, made for every notice nobody disputed.

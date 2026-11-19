@@ -18,7 +18,12 @@ import {
   Sparkles,
   TriangleAlert,
 } from "lucide-react";
-import { Badge, Button, Select, Stamp, Textarea, Toast } from "@armada/components";
+import { Badge } from "./kit/components/primitives/Badge/Badge";
+import { Button } from "./kit/components/primitives/Button/Button";
+import { Select } from "./kit/components/primitives/Select/Select";
+import { Stamp } from "./kit/components/primitives/Stamp/Stamp";
+import { Textarea } from "./kit/components/primitives/Textarea/Textarea";
+import { Toast } from "./kit/components/primitives/Toast/Toast";
 
 import { getJson } from "./client";
 import { start, useFleet } from "./fleet";

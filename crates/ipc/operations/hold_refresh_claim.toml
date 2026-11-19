@@ -1,0 +1,12 @@
+[operations.hold_refresh_claim]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "The Refresh another Mac pressed and has under way, or word that it ended, so this Mac shows it running too"
+notes = """
+`POST /other_mac/refresh_claim`, body `RefreshClaimSent { claim }`, `claim` a `RefreshClaim { mac, name, stage?, at }` or `null`, answered 204. The Mac that pressed the Refresh sends it through the link as it accepts the press, again whenever its restart's `stage` moves, and with `null` when the restart ends or fails. The sending Mac's id is the `x-armada-mac` header, set by the Gateway from the signature, and is the key the claim is kept under; `claim.mac` is ignored for it.
+
+**Held in memory only, one per sending Mac.** `get_fleet_build` shows the latest of them in `refresh` where this Mac has none of its own. A claim lapses twenty minutes after the Mac last said anything of it, as a restart's own `running` status does, and goes at once when that Mac's build, as its last hello said it, is no longer the one it had when it sent the claim. A Fleet that restarts holds none, so the Mac that restarts onto the build clears it by itself. While one stands, `change_fleet_build`, `update_mac`, `revert_fleet_build` and `swap_fleet_build` are refused 409 `fleet.build_restarting` ("restarting onto preview") as while a restart is under way, except an `update_mac` another Mac sends, which is how the build the claim announces reaches this Mac.
+
+The Gateway sends it as `/api/mac/refresh_claim` and hands it to its Fleet as from a Mac. A link that is frozen, or a Mac that cannot be reached, does not carry it, and the sending Mac does not mind: a claim that did not cross is a claim not shown. A body this build cannot read is 422. Called on the port from inside a Job, around the door, it is a 403 `api.the_persons_own`.
+"""

@@ -266,10 +266,11 @@ where
                 };
                 let hosting = &resumed;
                 self.mod_filled_for_launch().await;
-                let (compaction_window, connectors, skills_off, thinking_summaries) = {
+                let (compaction_window, subagent_cache_ttl, connectors, skills_off, thinking_summaries) = {
                     let now = self.machine_settings().now();
                     (
                         now.get(keys::COMPACTION_WINDOW),
+                        now.get(keys::SUBAGENT_CACHE_TTL),
                         token_use::connectors_on(
                             now.get(keys::CONNECTORS_OFF),
                             &hosting.manifest_id,
@@ -320,6 +321,7 @@ where
                     readable: vec![self.uploads_of(id).to_string_lossy().into_owned()],
                     connectors,
                     compaction_window,
+                    subagent_cache_ttl,
                     skills_off,
                     thinking_summaries,
                     operator: hosting.operator,

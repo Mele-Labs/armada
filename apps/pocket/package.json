@@ -13,13 +13,16 @@
   },
   "dependencies": {
     "@armada/brand": "workspace:*",
-    "@armada/components": "workspace:*",
-    "@armada/protocol": "workspace:*",
-    "@armada/screens": "workspace:*",
     "@armada/tokens": "workspace:*",
+    "@xterm/addon-fit": "^0.11.0",
+    "@xterm/xterm": "^6.0.0",
+    "@xyflow/react": "^12.11.6",
     "lucide-react": "^0.550.0",
     "react": "^19.2.0",
-    "react-dom": "^19.2.0"
+    "react-dom": "^19.2.0",
+    "react-markdown": "^10.1.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.0",

@@ -1,0 +1,6 @@
+/* Whose way a retro item got in. Grey, never a status hue: the mark says who,
+   and nothing about how bad it was. */
+.armada-who-mark {
+  display: inline-flex;
+  color: var(--fg-muted);
+}

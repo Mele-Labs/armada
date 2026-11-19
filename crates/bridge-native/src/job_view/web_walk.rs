@@ -9,7 +9,9 @@
 //! A page a Job serves and has not shown as a walk (its dev server) takes the same tab with its name and Reload alone.
 //! A Job held on another Mac is drawn from the address Fleet answered on this one (`web_pages.rs`).
 //!
-//! Left out, as Classic has more here: popups, site permissions, the burn and annotation layer, held notes,
+//! The page is offered to the annotation layer (`page_note::offer`), so a note is made over it as over a Job browser's.
+//!
+//! Left out, as Classic has more here: popups, site permissions, the burn, held notes,
 //! local-network prompts, takes, and acts other than a press (type, key, select, paste, drag), which ring their
 //! target and go on.
 
@@ -160,6 +162,8 @@ impl WebWalkTab {
         let Shown { job, url, here, title, steps, live, manifest } = shown;
         let source = source_of(&here);
         let page = cx.new(|cx| WebPage::new(manifest.as_deref(), source, cx));
+        // The annotation layer reaches only an offered page: without this a walk's page keeps every press and takes no note.
+        crate::page_note::offer(&page, job.clone(), cx);
         let watch = cx.subscribe(&page, |this, _, _: &WebPageEvent, cx| {
             this.start(cx);
             cx.notify();
@@ -520,5 +524,12 @@ mod tests {
     fn a_local_file_is_loaded_as_a_file_and_anything_else_as_an_address() {
         assert!(matches!(source_of("file:///tmp/walk/page.html?x=1"), Source::File(path) if path == "/tmp/walk/page.html"));
         assert!(matches!(source_of("https://example.com/a"), Source::Url(url) if url == "https://example.com/a"));
+    }
+
+    #[gpui::test]
+    fn a_walks_page_is_offered_to_the_annotation_layer_for_its_job(cx: &mut gpui::TestAppContext) {
+        let (tab, _, cx) = drawn(false, cx);
+        let job = cx.update(|_, cx| crate::page_note::offered_for(&tab.read(cx).page, cx));
+        assert_eq!(job.as_deref(), Some("mock-01"), "a walk's page takes notes, which go to its Job");
     }
 }

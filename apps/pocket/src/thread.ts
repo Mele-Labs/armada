@@ -1,5 +1,5 @@
 // A Job's thread as the phone draws it: Fleet's `SessionThread` (from `/api/sessions/one`) read with
-// Bridge's own wire mapping (`@armada/screens`), then laid on `SessionThread`'s rows the way Bridge's
+// Bridge's own wire mapping (`kit/screens/sessions-wire`), then laid on `SessionThread`'s rows the way Bridge's
 // `session-thread-rows.ts` does, with one difference: a walk window is a row saying it opens on the Mac.
 
 import { AppWindow } from "lucide-react";
@@ -7,10 +7,10 @@ import type {
   AskOffer,
   AskedQuestion,
   PlanApproval,
-  Scene,
   SessionThreadRow,
-  SketchSettled,
-} from "@armada/components";
+} from "./kit/components/compositions/SessionThread/SessionThread";
+import type { Scene } from "./kit/components/compositions/SketchScene/scene";
+import type { SketchSettled } from "./kit/components/compositions/SessionThread/sketch-answer";
 import type {
   JobArtifact,
   SessionThread as WireThread,
@@ -18,21 +18,16 @@ import type {
   WaitingOption,
   WaitingSource,
 } from "./wire";
-import { offeredOf, reachOfferedOf } from "@armada/screens/src/copy";
+import { offeredOf, reachOfferedOf } from "./kit/screens/copy";
 import {
   opensPullRequests,
   planAsked,
   type Session,
   type SessionAttachment,
   type SessionSketch,
-} from "@armada/screens/src/draft/sessions";
-import {
-  fileCallOf,
-  keptFrom,
-  sessionOfRecord,
-  sketchCallOf,
-} from "@armada/screens/src/sessions-wire";
-import { withDocuments } from "@armada/screens/src/thread-cards";
+} from "./kit/screens/draft/sessions";
+import { fileCallOf, keptFrom, sessionOfRecord, sketchCallOf } from "./kit/screens/sessions-wire";
+import { withDocuments } from "./kit/screens/thread-cards";
 
 import { asks, foldedSaid, keptAt, ofParts } from "./artifacts";
 
@@ -43,13 +38,7 @@ const NOTHING_BESIDE = {
 };
 
 export const sessionOfThread = (wire: WireThread): Session =>
-  // `sessionOfRecord` still reads the hand-written record and rows, which narrow `on_your_words` and `queued` to
-  // `true`; the Rust fields are a `bool` left out when false.
-  sessionOfRecord(
-    wire.session as Parameters<typeof sessionOfRecord>[0],
-    wire.rows as Parameters<typeof sessionOfRecord>[1],
-    NOTHING_BESIDE,
-  );
+  sessionOfRecord(wire.session, wire.rows, NOTHING_BESIDE);
 
 /** The Job a hand off linked to this one: `replaces` the Job it took the place of, `replaced_by` the one that took its place. */
 export const handedOf = (

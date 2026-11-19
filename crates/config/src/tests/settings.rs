@@ -206,6 +206,7 @@ fn every_handle_names_an_entry_of_its_kind() {
     }
     for key in [
         s::LIBRARIAN_RUNS,
+        s::SUBAGENT_CACHE_TTL,
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
@@ -245,7 +246,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER, s::LIBRARIAN_PARTS] {
+    for key in [s::HARNESS_DRONE_PATH, s::MODELS_ROSTER, s::MODELS_PROPOSER_CHOICES, s::LIBRARIAN_PARTS] {
         assert_eq!(kinds(key.name()), Kind::TextList, "{}", key.name());
     }
     for key in [
@@ -268,7 +269,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 12 + 17 + 28 + 3 + 21 + s::prompt_keys().count();
+    let handles = 21 + 12 + 17 + 29 + 4 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -654,4 +655,10 @@ fn the_disk_floors_ship_at_a_hundred_to_reclaim_at_and_thirty_to_hold_at() {
         matches!(hold.shipped, Shipped::Integer(held) if held < 100),
         "the hold floor stays under the reclaim floor, or Fleet would hold before it reclaimed"
     );
+}
+
+#[test]
+fn the_proposer_ships_offered_opus_and_sonnet_only() {
+    let shipped = Resolved::default().get(s::MODELS_PROPOSER_CHOICES);
+    assert_eq!(shipped, ["opus", "sonnet"]);
 }

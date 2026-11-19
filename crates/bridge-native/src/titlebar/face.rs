@@ -13,8 +13,8 @@
 use chrono::{DateTime, Utc};
 use gpui::SharedString;
 use ipc::{
-    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
-    RepositorySummary, RunCloud, RunPlace,
+    BuildPosition, BuildSource, BuildStage, FleetBuildReport, Instant, Mac, ManifestId, ModelDownshift, ProjectPlace, Projects, ProtocolId,
+    RefreshClaim, RepositorySummary, RunCloud, RunPlace,
 };
 
 use crate::link::LinkState;
@@ -235,6 +235,53 @@ pub fn stage_word(stage: BuildStage) -> &'static str {
     }
 }
 
+/// A Refresh of the preview under way, whichever Mac pressed it: this Mac's own restart, or the claim of a Refresh of both Macs
+/// that Fleet holds. **The one reading** the title bar's Refresh keys, the Ready to try card and the dock's key share.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Refreshing {
+    /// The stage it has got to, or Refreshing where none is said.
+    pub word: &'static str,
+    /// The claim Fleet holds, which names the Mac that pressed.
+    pub claim: Option<RefreshClaim>,
+}
+
+/// The Refresh under way as `report` says it: a restart onto the preview here, or a claim. None where neither stands.
+pub fn refreshing(report: &FleetBuildReport) -> Option<Refreshing> {
+    let here = (report.restarting == Some(BuildSource::Preview)).then_some(report.stage);
+    if here.is_none() && report.refresh.is_none() {
+        return None;
+    }
+    let stage = here.flatten().or_else(|| report.refresh.as_ref().and_then(|claim| claim.stage));
+    Some(Refreshing { word: stage.map_or("Refreshing", stage_word), claim: report.refresh.clone() })
+}
+
+/// The build is restarting: here, or by a Refresh of both Macs another Mac claimed.
+pub fn restarting(report: &FleetBuildReport) -> bool {
+    report.restarting.is_some() || report.refresh.is_some()
+}
+
+impl Refreshing {
+    /// The Mac that pressed it, where it is not this one. None where this Mac pressed it or the Macs are not listed.
+    pub fn started_on(&self, macs: &[Mac]) -> Option<&str> {
+        let claim = self.claim.as_ref()?;
+        let this = macs.iter().find(|mac| mac.this_mac)?;
+        (claim.mac != this.id).then_some(claim.name.as_str())
+    }
+
+    /// "Started on Air", where another Mac pressed it.
+    pub fn started_said(&self, macs: &[Mac]) -> Option<String> {
+        self.started_on(macs).map(|name| format!("Started on {name}"))
+    }
+
+    /// What hover says: the stage, and the Mac that started it where it is another.
+    pub fn tip(&self, macs: &[Mac]) -> String {
+        match self.started_said(macs) {
+            Some(started) => format!("{}. {started}", self.word),
+            None => self.word.to_string(),
+        }
+    }
+}
+
 fn commits(count: u32) -> String {
     if count == 1 {
         "1 commit".into()
@@ -281,8 +328,9 @@ pub enum Position {
 
 impl Build {
     pub fn restart(&self) -> Restart {
-        let target = self.report.restarting.unwrap_or(self.report.on);
-        let working = self.report.restarting.is_some();
+        let claimed = self.report.restarting.is_none() && self.report.refresh.is_some();
+        let target = if claimed { BuildSource::Preview } else { self.report.restarting.unwrap_or(self.report.on) };
+        let working = restarting(&self.report);
         let idle_on_main = self.report.on == BuildSource::Main && !working && self.aligned;
         let busy = working || self.report.reverting || self.report.swapping;
         let (label, tip) = match (target, working) {
@@ -297,6 +345,9 @@ impl Build {
     pub fn position(&self) -> Position {
         if let Some(target) = self.report.restarting {
             return Position::Restarting { target, stage: self.report.stage };
+        }
+        if let Some(claim) = &self.report.refresh {
+            return Position::Restarting { target: BuildSource::Preview, stage: claim.stage };
         }
         match self.report.position {
             None => Position::Unknown,

@@ -90,12 +90,14 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
     let app = Router::new()
         .route("/other_mac/sessions", get(sessions))
         .route("/other_mac/bug_reports", get(|| async { r#"{"reports":[]}"# }))
+        .route("/other_mac/preview_offers", get(|| async { r#"{"offers":[]}"# }))
         .route("/other_mac/thread", get(thread))
         .route("/other_mac/artifacts", get(thread))
         .route("/other_mac/artifact_page", get(thread))
         .route("/other_mac/events", get(events))
         .route("/other_macs/sessions", put(keep))
         .route("/other_macs/bug_reports", put(keep))
+        .route("/other_macs/preview_offers", put(keep))
         .route("/other_macs/event", post(keep))
         .route("/other_macs/forget", post(keep))
         .route("/other_macs/claims", put(keep))
@@ -444,6 +446,7 @@ async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_he
         ("GET", "/api/mac/live"),
         ("POST", "/api/mac/act"),
         ("POST", "/api/mac/project_act"),
+        ("POST", "/api/mac/refresh_claim"),
         ("POST", "/api/mac/terminal"),
         ("GET", "/api/mac/terminal/observe"),
     ];

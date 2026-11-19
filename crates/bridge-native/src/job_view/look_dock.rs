@@ -518,6 +518,17 @@ impl JobView {
             Role::Button,
             "Copy",
         );
+        // He ran it himself, here or on another Mac: Done closes it, as a To do row's Done does.
+        let done = (row.source == ipc::WaitingSource::Agent).then(|| {
+            let item = row.id.clone();
+            labelled(
+                button(look, "look-done", "Done", Tone::Secondary, false, None, true)
+                    .tooltip(tip("You ran it: close this and tell the Job"))
+                    .on_click(cx.listener(move |this, _, window, cx| this.done_row(&item, None, window, cx))),
+                Role::Button,
+                "Done",
+            )
+        });
         let well_text = command.to_string();
         let ran = mark.as_ref().map(|mark| {
             let (icon, said) = mark.look();
@@ -528,7 +539,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_3))
-            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).children(on).child(copy).children(run))
+            .child(div().flex().items_center().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(self.look_title(&row.text, look))).children(ran).children(on).child(copy).children(done).children(run))
             .children((!steps.is_empty()).then(|| {
                 labelled(div().id("look-steps").w_full().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).children(chips), Role::List, "Steps")
             }))
