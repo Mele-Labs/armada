@@ -4,7 +4,8 @@ import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
-import { everyState, fixtureMacs } from "./fixture/wire";
+import { PARTS_JOB, STEP_BAR } from "./fixture/artifacts";
+import { artifactsJob, ARTIFACTS_JOB, everyState, fixtureMacs, partsJob } from "./fixture/wire";
 import { rowStateOf } from "./rowState";
 import {
   approvalOf,
@@ -30,6 +31,7 @@ import { attemptPage, withNewest } from "./jobState";
 import { fit, followScreen } from "./viewport";
 import type { PhoneSession } from "./gateway";
 import { codeFromInput, linkOf, linkTrouble, waitForConfirm } from "./pairing";
+import { openPathOf } from "./ArtifactsList";
 import { routeOf } from "./router";
 import { bytesOf } from "./push";
 import { SseParser } from "./sse";
@@ -293,6 +295,62 @@ describe("routeOf", () => {
     });
     expect(routeOf("/nowhere")).toEqual({
       screen: "home",
+    });
+  });
+});
+
+describe("a Job's artifacts screen", () => {
+  const mac = encodeURIComponent("https://studio.tail0.ts.net");
+
+  it("is the route /jobs/<Mac>/<id>/artifacts, for a Mac the push named", () => {
+    expect(routeOf(`/jobs/${mac}/g7/artifacts`)).toEqual({
+      screen: "artifacts",
+      origin: "https://studio.tail0.ts.net",
+      id: "g7",
+    });
+    // `_` is a push that did not say which Mac, which has no list to open.
+    expect(routeOf("/jobs/_/g7/artifacts")).toEqual({
+      screen: "job",
+      origin: undefined,
+      id: "g7",
+    });
+  });
+
+  describe("openPathOf", () => {
+    const origin = "https://studio.tail0.ts.net";
+    const showed = artifactsJob(Date.now()).artifacts;
+    const of = (id: string) => showed.find((one) => one.id === id)!;
+    const at = (path: string) => `/jobs/${mac}/${ARTIFACTS_JOB}${path}`;
+
+    it("opens a sketch on its sketch screen, and a page on its document", () => {
+      expect(openPathOf(origin, ARTIFACTS_JOB, of("sketch:Slot lifecycle"))).toBe(
+        at(`/sketch?id=${encodeURIComponent("sketch:Slot lifecycle")}`),
+      );
+      const table = "/Users/user/armada/.armada/documents/slot-colour-table.html";
+      expect(openPathOf(origin, ARTIFACTS_JOB, of(table))).toBe(
+        at(`/document?page=${encodeURIComponent(table)}`),
+      );
+    });
+
+    it("opens a draft with no parts on the screen that reads it", () => {
+      expect(openPathOf(origin, ARTIFACTS_JOB, of("draft:Slot pool description"))).toBe(
+        at(`/artifact?id=${encodeURIComponent("draft:Slot pool description")}`),
+      );
+    });
+
+    it("opens an artifact that holds parts on its artifact screen, whatever its form", () => {
+      const grown = partsJob(Date.now()).artifacts.find((one) => one.id === STEP_BAR)!;
+      expect(openPathOf(origin, PARTS_JOB, grown)).toBe(
+        `/jobs/${mac}/${PARTS_JOB}/artifact?id=${encodeURIComponent(STEP_BAR)}`,
+      );
+      // A page that holds parts leaves the document screen, which reads one page only.
+      const page = {
+        ...of("/Users/user/armada/.armada/documents/colour-audit.html"),
+        parts: grown.parts!,
+      };
+      expect(openPathOf(origin, ARTIFACTS_JOB, page)).toBe(
+        at(`/artifact?id=${encodeURIComponent(page.id)}`),
+      );
     });
   });
 });
