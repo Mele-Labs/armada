@@ -69,7 +69,11 @@ beforeEach(() => {
 afterEach(() => {
   delete host.webkit;
   delete host.armadaHost;
-  delete (Event.prototype as { isTrusted?: boolean }).isTrusted;
+  delete (
+    Event.prototype as {
+      isTrusted?: boolean;
+    }
+  ).isTrusted;
   vi.restoreAllMocks();
 });
 
