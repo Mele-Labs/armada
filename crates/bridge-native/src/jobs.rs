@@ -518,6 +518,8 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
 #[allow(clippy::too_many_arguments)]
 fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Unreachable]) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
+    // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
+    let project = project.map(|id| names.same.get(id).map_or(id, String::as_str));
     let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
@@ -3847,6 +3849,30 @@ mod tests {
         let mut ledger = all[0].clone();
         ledger.hosted.as_mut().expect("hosted").project = Some("theirs".into());
         assert_eq!(group_of(&ledger, &lone), ("project:theirs".to_string(), "Kiavi only".to_string()));
+    }
+
+    #[test]
+    fn scoped_to_a_copy_the_list_draws_the_jobs_in_it_and_those_in_this_macs_project_of_its_name() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let mut projects = crate::mock::projects();
+        let own = projects.projects.iter().find(|one| one.id == "armada").expect("Armada is this Mac's").clone();
+        projects.projects.push(ipc::Project { id: "theirs".into(), mac: Some("kiavi".into()), ..own.clone() });
+        let names = Names::of(&crate::mock::repositories(), Some(&projects));
+        let here = all.iter().find(|job| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some("armada")).expect("a Job in Armada").clone();
+        let mut there = here.clone();
+        there.id = ipc::SessionId::carried("kiavi-01".to_string());
+        there.mac = Some("kiavi".into());
+        there.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        let listed = ids(&lines_within(&[here.clone(), there], &[], Scope::All, "", &[], &names, Some("theirs")));
+        assert!(listed.contains(&"kiavi-01".to_string()) && listed.contains(&here.id.as_str().to_string()), "the other Mac's Job and his own, in one project: {listed:?}");
+        // A copy with no project of its name here: the Jobs in it alone.
+        let mut alone = crate::mock::projects();
+        alone.projects.push(ipc::Project { id: "theirs".into(), name: "Kiavi only".into(), mac: Some("kiavi".into()), ..own });
+        let lone = Names::of(&crate::mock::repositories(), Some(&alone));
+        let mut inside = all[0].clone();
+        inside.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        let listed = ids(&lines_within(&[inside.clone(), all[1].clone()], &[], Scope::All, "", &[], &lone, Some("theirs")));
+        assert_eq!(listed, vec![inside.id.as_str().to_string()]);
     }
 
     #[test]

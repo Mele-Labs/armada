@@ -83,9 +83,11 @@ pub(crate) fn scope(cx: &App) -> Option<(Option<SharedString>, Vec<SharedString>
 
 /// [`scope`] of a bar's face.
 fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedString>)> {
-    let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) else {
+    let Some(project) = face.scoped_to() else {
         return face.chosen.and_then(|at| face.repositories.get(at)).map(|one| (None, vec![one.name.clone()]));
     };
+    // A Job started for a copy of another Mac's project is not Fleet's to start: it starts in the repository, in no project.
+    let held = face.scoped.is_some_and(|at| face.held_by(at).is_some());
     let mut names: Vec<SharedString> = Vec::new();
     for member in &project.members {
         if let Some(one) = face.repositories.get(member.repository) {
@@ -94,7 +96,7 @@ fn scope_of(face: &titlebar::Face) -> Option<(Option<SharedString>, Vec<SharedSt
             }
         }
     }
-    Some((Some(project.id.clone()), names))
+    Some(((!held).then(|| project.id.clone()), names))
 }
 
 /// His projects as the title bar holds them, each with its repositories, for the sheet's picker.
@@ -124,7 +126,7 @@ fn here_name(cx: &App) -> Option<SharedString> {
     let bar = titlebar::live(cx);
     let named = bar.and_then(|bar| {
         let face = &bar.read(cx).face;
-        match face.scoped.and_then(|at| face.projects.get(at)) {
+        match face.scoped_to() {
             Some(project) => Some(project.name.clone()),
             None => face.chosen.and_then(|at| face.repositories.get(at)).map(|one| one.name.clone()),
         }

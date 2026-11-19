@@ -206,7 +206,7 @@ impl SettingsScreen {
                         let this = me.read(cx);
                         this.job_shown.as_deref().and_then(|job| this.wire.project_of_job(job, cx))
                     }
-                    Some(Some(at)) => match titlebar::live(cx).and_then(|bar| bar.read(cx).face.projects.get(at).map(|one| (one.id.to_string(), one.name.to_string()))) {
+                    Some(Some(at)) => match titlebar::live(cx).and_then(|bar| bar.read(cx).face.project_at(at).map(|one| (one.id.to_string(), one.name.to_string()))) {
                         Some(project) => Some(project),
                         None => return,
                     },
