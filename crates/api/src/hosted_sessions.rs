@@ -1373,15 +1373,25 @@ pub(crate) struct Which {
     session_id: String,
 }
 
+/// `?session_id=` on `get_session`, and `?last=` and `?before=` where the reader wants a window of it. `before` with no
+/// `last` is not read.
+#[derive(Deserialize)]
+pub(crate) struct WhichSession {
+    session_id: String,
+    last: Option<usize>,
+    before: Option<String>,
+}
+
 pub(crate) async fn get_session<D: HostedSessions>(
     State(served): State<Served<D>>,
-    Query(which): Query<Which>,
+    Query(which): Query<WhichSession>,
 ) -> Response {
-    match served
-        .shared()
-        .get_session(ipc::SessionId::carried(which.session_id))
-        .await
-    {
+    let id = ipc::SessionId::carried(which.session_id);
+    let read = match which.last {
+        Some(last) => served.shared().get_session_window(id, ipc::SessionWindow { last, before: which.before }).await,
+        None => served.shared().get_session(id).await,
+    };
+    match read {
         Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),
         Err(refusal) => refused(refusal),
     }

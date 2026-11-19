@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use ipc::{
     ArtifactPageShared, BugReports, Event, JobAct, JobArtifact, JobMessage, JobThread, JobThreadRead, MacAct, MacClaimsWaiting, MacNamed, OpenOtherMacPage, OtherMacBugReports, OtherMacEvent,
-    OtherMacPageOpened, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, TakeBack,
+    OtherMacPageOpened, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, ProjectActFromMac, Projects, QueuedList, SessionId, SessionList, SessionThread, SessionWindow, TakeBack,
 };
 use ipc::{ArrivingJob, JobTerminals, ManifestSummary, MoveJobToMac, SessionRunUnderway, StartSession, TerminalFromMac, TerminalOfJob};
 
@@ -111,6 +111,10 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// `share_job_thread` — a shared Job's thread. [`Refusal::NotFound`] for any other, worded as for a Job
     /// that does not exist.
     fn share_job_thread(self: Arc<Self>, read: JobThreadRead) -> impl Future<Output = Result<JobThread, Refusal>> + Send;
+
+    /// `share_job_session` — a shared Job's row and thread, as `get_session` answers, cut to `window` where there is one.
+    /// [`Refusal::NotFound`] for a Job not shared, worded as for one that does not exist.
+    fn share_job_session(self: Arc<Self>, job: SessionId, window: Option<SessionWindow>) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
 
     /// `share_job_artifacts` — a shared Job's sketches, drafts and pages, as `get_job_artifacts` lists them.
     /// [`Refusal::NotFound`] for a Job not shared, worded as for one that does not exist.

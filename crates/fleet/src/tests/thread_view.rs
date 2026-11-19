@@ -24,7 +24,7 @@ pub(super) fn record(fields: &str) -> SessionRecord {
 }
 
 pub(super) fn thread(rows: Vec<SessionRow>) -> SessionThread {
-    SessionThread { session: record(""), rows }
+    SessionThread { session: record(""), rows, older: false }
 }
 
 pub(super) fn tool(id: &str, minute: u32, text: &str) -> SessionRow {
@@ -449,7 +449,7 @@ fn the_open_ask_is_hosted_first_and_named_by_the_whole_command_else_detail_else_
         format!(r#""hosted":{{"turn":{{"state":"idle"}},"mode":"auto","running":true,"asked":{asked}}}"#)
     };
     let command = |fields: String| {
-        let one = SessionThread { session: record(&fields), rows: Vec::new() };
+        let one = SessionThread { session: record(&fields), rows: Vec::new(), older: false };
         folded(&one, &[], &Revisions::new()).0.asked.map(|asked| asked.command)
     };
     assert_eq!(command(hosted(call("ls", "ls -la"))).as_deref(), Some("ls -la"));
@@ -463,11 +463,11 @@ fn the_open_ask_is_hosted_first_and_named_by_the_whole_command_else_detail_else_
 #[test]
 fn an_open_call_is_the_last_row_while_a_turn_runs() {
     let rows = vec![agent("a", 1, "x"), tool("t1", 2, "Bash cargo check")];
-    let running = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: rows.clone() };
+    let running = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: rows.clone(), older: false };
     let open = folded(&running, &[], &Revisions::new()).0.open_call.expect("an open call");
     assert_eq!((open.text.as_str(), open.since), ("Bash cargo check", at(2)));
     assert!(folded(&thread(rows), &[], &Revisions::new()).0.open_call.is_none(), "no turn runs");
-    let spoke = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: vec![tool("t", 1, "Bash ls"), agent("a", 2, "x")] };
+    let spoke = SessionThread { session: record(r#""turn_since":"2026-11-03T10:00:00.000Z""#), rows: vec![tool("t", 1, "Bash ls"), agent("a", 2, "x")], older: false };
     assert!(folded(&spoke, &[], &Revisions::new()).0.open_call.is_none(), "the last row is not a tool row");
 }
 
@@ -531,7 +531,7 @@ fn fleets_words_are_acts_that_are_over_and_nothing_the_agent_said_is() {
 #[test]
 fn a_running_repair_is_read_off_fleets_notes_and_a_coming_nudge_off_the_record() {
     let rows = vec![fleet("r1", 1, "Repair: a command hung", None), agent("r2", 2, "Still going.")];
-    let one = SessionThread { session: record(r#""stop_told_by":"2026-11-03T10:01:00.000Z""#), rows };
+    let one = SessionThread { session: record(r#""stop_told_by":"2026-11-03T10:01:00.000Z""#), rows, older: false };
     let acts = folded(&one, &[], &Revisions::new()).0.fleet_acts;
     assert_eq!(acts.iter().map(|act| (act.state, act.said.as_str())).collect::<Vec<_>>(), [
         (FleetActState::UnderWay, "Repairing: a command hung"),

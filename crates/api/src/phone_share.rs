@@ -68,6 +68,11 @@ const ACTS: &[&str] = &[
     "/sessions/waiting/dismiss",
     "/sessions/change_waiting",
     "/sessions/start_waiting",
+    "/sessions/artifacts/part/answer",
+    "/sessions/artifacts/press",
+    "/sessions/artifacts/vote",
+    "/sessions/artifacts/seen",
+    "/sessions/ready_to_try/answer",
 ];
 
 fn ruling(method: &Method, path: &str) -> Option<Ruling> {
@@ -86,7 +91,8 @@ fn ruling(method: &Method, path: &str) -> Option<Ruling> {
         "/sessions" if get => Some(Ruling::Jobs),
         "/manifests" if get => Some(Ruling::Manifests),
         "/projects" if get => Some(Ruling::Projects),
-        "/sessions/one" | "/sessions/shown" | "/sessions/terminal/list" if get => Some(Ruling::JobInQuery),
+        "/sessions/one" | "/sessions/thread" | "/sessions/shown" | "/sessions/terminal/list" | "/sessions/repository_file" if get => Some(Ruling::JobInQuery),
+        "/sessions/artifacts" | "/sessions/artifacts/page" if get => Some(Ruling::JobInQuery),
         "/sessions/run/write" if post => Some(Ruling::RunInBody),
         "/sessions/run/:run_id/observe" if get => Some(Ruling::RunInPath),
         "/sessions/start" if post => Some(Ruling::Start),
