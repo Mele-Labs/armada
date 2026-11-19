@@ -324,7 +324,7 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", mark.artifact), run_id())))
     }
 
-    async fn get_artifact_page(&self, _id: SessionId, artifact: String, _revision: Option<u32>) -> Result<crate::SealedPage, Refusal> {
+    async fn get_artifact_page(&self, _id: SessionId, artifact: String, _revision: Option<u32>, _host_kit: bool) -> Result<crate::SealedPage, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
     }
 

@@ -3,12 +3,14 @@
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
 Since 14 Nov 2026. One kept revision of a Job's page as one HTML answer a client with a web view opens with no network. `docs/concepts/artifact.md`, *A page served sealed*.
-**Additive only**: one operation, one route and one refusal code. No event kind, no body and no field on an existing type.
+**Additive only**: one operation, one route and one refusal code.
+No event kind, no body and no field on an existing type.
+`host_kit`, added on 19 Nov 2026, is an optional query field that is `false` where it is left out.
 Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand: the query and the messages both ways. Classic does not call it, and native and Pocket host the page later.
 
 | Where | Side | Carries |
 | --- | --- | --- |
-| `get_artifact_page` (`GET /sessions/artifacts/page?session_id=&artifact=&revision=`, `agent_access = "Bridge only"`) | Bridge reads | `artifact` is the page's path, its `JobArtifact` id. `revision` is a kept revision's number, the newest where it is left out |
+| `get_artifact_page` (`GET /sessions/artifacts/page?session_id=&artifact=&revision=&host_kit=`, `agent_access = "Bridge only"`) | Bridge reads | `artifact` is the page's path, its `JobArtifact` id. `revision` is a kept revision's number, the newest where it is left out. `host_kit=true` asks for the page a host draws the kit on itself, `false` where it is left out |
 | Its answer | Fleet writes, Bridge reads | 200, the page itself as `text/html; charset=utf-8`, with `X-Content-Type-Options: nosniff` and the page's policy again as `Content-Security-Policy`. No JSON around it |
 | Refusals | Fleet | 422 `fleet.artifact_not_held` for an artifact the Job does not hold, or one that is a sketch or a draft; `fleet.artifact_revision_unknown` for a revision never kept, or one whose file is gone; `fleet.session_unnamed` |
 
@@ -28,12 +30,19 @@ The kept revision, `r<n>.html`, changed in these places only:
 | Any other `<link>`, any `<base>`, any `<meta http-equiv>` | Dropped |
 | A relative `src`, `href`, `srcset`, `poster`, `action`, `formaction`, `data`, `xlink:href`, `background` or `ping` | Taken off its tag. Relative is no scheme and not a `#` fragment. An `http`, `https`, `mailto` or `data:` address stays, and the policy refuses any fetch of it but a `data:` image |
 | A `nonce` the page wrote | Taken off its tag |
-| The page's own `<script>`s | **Kept, with no nonce, so the policy refuses them.** This is what sealed means |
-| The end of the `<body>` | Two scripts with the nonce: the record, then the kit's script |
+| The page's own `<script>`s | **Kept, with no nonce, so the policy refuses them.** With `host_kit`, see below |
+| The end of the `<body>` | Two scripts with the nonce: the record, then the kit's script. With `host_kit`, the record alone, with no nonce |
 
 `<n>` is 16 random bytes in base64, fresh for each answer.
 The tokens are the base theme's, the dark one Bridge ships, and a mod's theme is not applied.
-A page's own scripts carry nothing a page needs: the page rules say nothing runs, and the one `<script>` they use is a sketch's `<script type="application/json">` scene, which is data and is kept as written.
+Without `host_kit` a page's own scripts never run, and a sketch's `<script type="application/json">` scene is data and is kept as written.
+
+**With `host_kit`, the page's own inline scripts run inside the box.** The native Bridge asks for it, and every other client gets the page above.
+The policy's script source is the `'sha256-<hash>'` of each page `<script>` with no `src`, `href` or `xlink:href`, its text hashed as the browser reads it, or `'none'` where there is none.
+Its every other wall is the same, so the page still fetches nothing, submits nothing and goes nowhere. A script with an address is kept and refused, as is every `on*=` handler.
+**No nonce is served on this path.** A page script can read a nonce off any tag and hand it to a `<script src>` of its own, which the policy would then fetch.
+A hash allows only the text it was made of.
+The kit's script is left out: the host draws the kit itself in a content world the page cannot reach. The record stays.
 An `<armada-sketch>` is not drawn on a sealed page.
 
 **The record** is `<script type="application/json" id="armada-page-record" nonce="<n>">` holding `{ artifact, revision, presses, votes }`: each `PagePress` made on this revision or an earlier one whose action is still on it, and the newest `VoteCast` per vote cast on this revision or an earlier one where that vote is still on it in the same form with the takes the cast names.
@@ -42,7 +51,7 @@ A press or a vote on a later revision is not in it, nor one whose action or vote
 Why: on 15 Nov 2026 the owner's votes read as never cast once the Job revised other sections of the page.
 Every `<` in it is written `<`, so no text in it closes its script.
 
-**The kit's script**, `crates/fleet/src/session_host/page_kit.js`, is the one script that runs.
+**The kit's script**, `crates/fleet/src/session_host/page_kit.js`, is the one script that runs without `host_kit`.
 It draws each `<armada-action>` as a labelled button and each `<armada-vote>` as a vote, draws the record, and reaches nothing but the two channels below.
 Its look, `page_kit.css` beside it, is the one the owner approved on 14 Nov 2026.
 The same file opens with the house style, a calm default for every page under its own CSS: `:where()` rules only, so the page's own style and `armada-kit.css` win.

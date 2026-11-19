@@ -992,12 +992,15 @@ pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<S
     }
 }
 
-/// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
+/// `?session_id=`, `?artifact=`, `?revision=` and `?host_kit=` on `get_artifact_page`.
 #[derive(Deserialize)]
 pub(crate) struct WhichPage {
     session_id: String,
     artifact: String,
     revision: Option<u32>,
+    /// The host draws the kit itself, so the page's own inline scripts run and the kit's script is left out.
+    #[serde(default)]
+    host_kit: bool,
 }
 
 /// One kept revision of a page, sealed. 200 with the page as `text/html`, its policy sent again as the header, as
@@ -1008,7 +1011,7 @@ pub(crate) async fn get_artifact_page<D: HostedSessions>(
 ) -> Response {
     let asked = served
         .daemon()
-        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision)
+        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision, which.host_kit)
         .await;
     match asked {
         Ok(page) => {
