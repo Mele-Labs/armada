@@ -272,9 +272,9 @@ where
         let read = named.as_ref().and_then(|scope| self.projects_held().get(scope).cloned());
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         if read.is_none() && !kept.projects.iter().any(|one| one.id == id) {
-            // A copy of another Mac's project takes a Job as a move into it does, in a repository it lists.
-            if self.copy_held(id, None).await {
-                return match self.copy_held(id, Some(repository)).await {
+            // A copy of another Mac's project takes a Job as a move into it does, in a repository it lists as shown.
+            if let Some(copy) = self.project_copies().await?.into_iter().find(|one| one.id == id) {
+                return match copy.members.iter().any(|one| one.manifest_id.as_str() == repository) {
                     true => Ok(id.to_string()),
                     false => Err(self.copy_not_member(repository)),
                 };

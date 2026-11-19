@@ -15,7 +15,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Projects, Refusal};
 use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
-    EditProject, EditedTaskFields, Event, JobAct, MacAct, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState,
+    EditProject, EditedTaskFields, Event, JobAct, ManifestId, MacAct, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectMember, ProjectRow, ProjectTask, ProjectTaskState,
     WireError,
 };
 use store::{Edited, FromMac, KeptQueuedAct};
@@ -363,6 +363,22 @@ where
             self.values_read(values)?;
         }
         Ok(())
+    }
+
+    /// Mac `mac`'s copy of `project` made to list `repository`, where it lists none of it: the copy's members and the
+    /// repository, whole, sent to that Mac as an edit, and shown on the copy at once where it sleeps.
+    pub(crate) async fn copy_member_followed(&self, mac: &str, project: &str, repository: &str) -> Result<(), Refusal> {
+        let copies = self.project_copies().await?;
+        let Some(copy) = copies.into_iter().find(|one| one.mac.as_deref() == Some(mac) && one.id == project) else {
+            return Ok(());
+        };
+        if copy.members.iter().any(|one| one.manifest_id.as_str() == repository) {
+            return Ok(());
+        }
+        let mut members = copy.members;
+        members.push(ProjectMember { manifest_id: ManifestId::carried(repository), folder: None });
+        let edit = EditProject { members: Some(members), ..EditProject::default() };
+        self.act_on_copy(mac, ProjectAct::EditProject { project: project.to_string(), edit }).await.map(drop)
     }
 
     /// `set_project_workflow` on Mac `mac`'s copy of `project`: **the copy's values as shown**, with `workflow` on or
