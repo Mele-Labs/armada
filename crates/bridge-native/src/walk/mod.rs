@@ -27,6 +27,7 @@ pub mod strip_marks;
 pub mod run_commands;
 pub mod terminal;
 pub mod title_bar;
+pub mod toasts;
 pub mod window;
 
 /// What a step does when it is reached, before its target is ringed.
@@ -2351,6 +2352,13 @@ pub static WALKS: &[Walk] = &[
             step("The Gateway refused it, and its sentence stands on the card. Confirm and Decline press again", Verb::Open("button", "Decline"), "alert", "Work's ask ran out. Ask again from Work's Settings."),
             step("Confirm pairs the two Macs, and the card leaves the page", Verb::Gone, "button", "Confirm"),
         ],
+    },
+    Walk {
+        name: "toasts",
+        title: "Failure toasts and the Fleet is slow notice",
+        screen: Screen::App,
+        scenario: "jobs-many",
+        steps: &toasts::STEPS,
     },
     Walk {
         name: "native-toasts",

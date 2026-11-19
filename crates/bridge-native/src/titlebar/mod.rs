@@ -18,6 +18,7 @@ mod figure;
 mod disk;
 mod face;
 mod fleet_down;
+pub(crate) use fleet_down::{slow_notice, SLOW_ID};
 mod crash_layer;
 mod link_layer;
 mod link_panel;
