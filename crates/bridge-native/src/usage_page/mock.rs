@@ -226,17 +226,30 @@ pub fn adjustments(saved: &[(String, SettingValue)]) -> UsageAdjustments {
     }
     UsageAdjustments {
         settings,
-        changes: vec![AdjustChange {
-            key: "tokens.subagentCacheTtl".into(),
-            label: "Subagent cache length".into(),
-            from: "5 min".into(),
-            to: "1 hour".into(),
-            at: "2026-11-17T14:20:00Z".into(),
-            cuts: "cold_cache".into(),
-            before_share: 0.123,
-            since_share: Some(0.031),
-            since_days: 1.8,
-        }],
+        changes: vec![
+            AdjustChange {
+                key: "tokens.compactionWindow".into(),
+                label: "Compact a Job at".into(),
+                from: "400k".into(),
+                to: "250k".into(),
+                at: "2026-11-18T08:00:00Z".into(),
+                cuts: "main_context".into(),
+                before_share: 0.075,
+                since_share: None,
+                since_days: 0.1,
+            },
+            AdjustChange {
+                key: "tokens.subagentCacheTtl".into(),
+                label: "Subagent cache length".into(),
+                from: "5 min".into(),
+                to: "1 hour".into(),
+                at: "2026-11-17T14:20:00Z".into(),
+                cuts: "cold_cache".into(),
+                before_share: 0.123,
+                since_share: Some(0.031),
+                since_days: 1.8,
+            },
+        ],
     }
 }
 

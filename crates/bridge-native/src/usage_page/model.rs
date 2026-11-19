@@ -109,15 +109,21 @@ pub fn share_exact(share: f64) -> String {
     format!("{:.1}%", (share * 100.).max(0.))
 }
 
-/// `2026-11-17T14:20:00Z` as `17 Nov`. A stamp this cannot read is said as it came.
-pub fn date_said(at: &str) -> String {
-    const MONTHS: [&str; 12] = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-    let mut parts = at.get(..10).unwrap_or(at).split('-');
-    let (_, month, day) = (parts.next(), parts.next(), parts.next());
-    match (month.and_then(|month| month.parse::<usize>().ok()).filter(|month| (1..=12).contains(month)), day.and_then(|day| day.parse::<u32>().ok())) {
-        (Some(month), Some(day)) => format!("{day} {}", MONTHS[month - 1]),
-        _ => at.to_string(),
-    }
+/// A stamp as a day and a month in `zone`, `days` later: `2026-11-17T23:20:00Z` is `18 Nov` in Berlin. A stamp this cannot read is said as it came.
+pub fn date_in<Z: chrono::TimeZone>(at: &str, days: u64, zone: &Z) -> String
+where
+    Z::Offset: std::fmt::Display,
+{
+    chrono::DateTime::parse_from_rfc3339(at)
+        .ok()
+        .and_then(|stamp| stamp.with_timezone(zone).checked_add_days(chrono::Days::new(days)))
+        .map(|day| day.format("%-d %b").to_string())
+        .unwrap_or_else(|| at.to_string())
+}
+
+/// The day a stamp falls on in this Mac's zone, `days` later.
+pub fn date_said(at: &str, days: u64) -> String {
+    date_in(at, days, &chrono::Local)
 }
 
 /// A context size, which is tokens and not units: `870k`, `1.2M`.
@@ -450,13 +456,46 @@ pub struct SettingRow {
     pub note: Option<Note>,
 }
 
-/// One row of the changes already made.
+/// Which way the waste a change cuts moved.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Moved {
+    Down,
+    Up,
+    Same,
+}
+
+impl Moved {
+    /// The chip's registry glyph, ink and wash: the passed hue for a fall, the awaiting review hue for a rise, and a quiet chip with no glyph for neither.
+    pub fn mark(self) -> (Option<&'static str>, Token, Token) {
+        match self {
+            Moved::Down => (Some("trending-down"), token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG),
+            Moved::Up => (Some("trending-up"), token::STATUS_AWAITING_REVIEW, token::STATUS_AWAITING_REVIEW_BG),
+            Moved::Same => (None, token::FG_MUTED, token::BG_SUNKEN),
+        }
+    }
+}
+
+/// What a change came to once a day had passed, or when it will.
+#[derive(Clone, Debug, PartialEq)]
+pub enum After {
+    /// The share since the change, and the difference from before it in a chip.
+    Since { share: String, moved: Moved, chip: String, tip: String },
+    /// A day has not passed: `Ready 20 Nov`.
+    Ready { said: String, tip: String },
+}
+
+/// One row of the changes already made: what was changed and when, the waste it cuts before, and the same after.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ChangeRow {
-    /// `Subagent cache length set to 1 hour on 17 Nov`.
-    pub said: String,
-    /// `Cold cache after a pause 12.3% → 3.1% of the week`, or `... 12.3% before` before a day has passed.
-    pub effect: String,
+    /// `Compact a Job at: 400k → 200k`.
+    pub change: String,
+    /// The day it came into force, in this Mac's zone: `19 Nov`.
+    pub date: String,
+    /// `12.3% of your burn`: the share of the week before the change.
+    pub before: String,
+    /// The title of the waste kind the setting cuts.
+    pub kind: String,
+    pub after: After,
 }
 
 /// What the person did on the settings rows and has not been read back yet.
@@ -566,8 +605,16 @@ impl Changing {
 
     /// The rows of the changes made, newest first, with the waste's titles for what each cut.
     pub fn changes(&self, board: Option<&Board>) -> Vec<ChangeRow> {
+        self.changes_in(board, &chrono::Local)
+    }
+
+    /// As [`Self::changes`], with the days read in `zone`.
+    pub fn changes_in<Z: chrono::TimeZone>(&self, board: Option<&Board>, zone: &Z) -> Vec<ChangeRow>
+    where
+        Z::Offset: std::fmt::Display,
+    {
         let Some((_, read)) = &self.read else { return Vec::new() };
-        read.changes.iter().map(|change| change_row(change, board)).collect()
+        read.changes.iter().map(|change| change_row(change, board, zone)).collect()
     }
 
     /// A pick in a setting's dropdown, by the place of its choice. It clears the reason the last try failed.
@@ -622,11 +669,26 @@ impl Changing {
     }
 }
 
-fn change_row(change: &AdjustChange, board: Option<&Board>) -> ChangeRow {
-    let title = title_of(board, &change.cuts);
-    let effect = match change.since_share {
-        Some(since) => format!("{title} {} → {} of the week", share_exact(change.before_share), share_exact(since)),
-        None => format!("{title} {} before", share_exact(change.before_share)),
+fn change_row<Z: chrono::TimeZone>(change: &AdjustChange, board: Option<&Board>, zone: &Z) -> ChangeRow
+where
+    Z::Offset: std::fmt::Display,
+{
+    let kind = title_of(board, &change.cuts);
+    let before = share_exact(change.before_share);
+    let after = match change.since_share {
+        Some(since) => {
+            let now = share_exact(since);
+            // The difference of the figures as drawn, so the chip agrees with them.
+            let points = (since * 1000.).round() / 10. - (change.before_share * 1000.).round() / 10.;
+            let moved = if points < -0.04 { Moved::Down } else if points > 0.04 { Moved::Up } else { Moved::Same };
+            let chip = match moved {
+                Moved::Down => format!("down {:.1} points", -points),
+                Moved::Up => format!("up {:.1} points", points),
+                Moved::Same => "no change".to_string(),
+            };
+            After::Since { share: now.clone(), moved, chip, tip: format!("{kind}: {before} of your burn in the week before, {now} since") }
+        }
+        None => After::Ready { said: format!("Ready {}", date_in(&change.at, 1, zone)), tip: "After a day, this compares the waste's share since the change with the week before".into() },
     };
-    ChangeRow { said: format!("{} set to {} on {}", change.label, change.to, date_said(&change.at)), effect }
+    ChangeRow { change: format!("{}: {} → {}", change.label, change.from, change.to), date: date_in(&change.at, 0, zone), before: format!("{before} of your burn"), kind, after }
 }

@@ -2,9 +2,9 @@
 //! the panel of what each change did, the list of kinds, and under it, where a kind is open, a panel with the kind's fix and the table
 //! of the Jobs it hit. Every value is a token.
 
-use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Window};
+use gpui::{div, list, prelude::*, px, Div, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Stateful, Window};
 
-use super::model::{shows_causes, Board, ChangeRow, JobLine, KindRow, Note, SettingRow, Shown, Span};
+use super::model::{shows_causes, After, Board, ChangeRow, JobLine, Moved, KindRow, Note, SettingRow, Shown, Span};
 use super::UsageScreen;
 use crate::generated::actions::ActionScope;
 use crate::labels::labelled;
@@ -36,6 +36,21 @@ fn cuts_width(look: &Look) -> Pixels {
 /// The width of the column the Apply button stands in.
 fn apply_width(look: &Look) -> Pixels {
     look.length(token::SPACE_12) * 2.
+}
+
+/// The width of the Before column of the changes table: a share and the waste's title under it.
+fn before_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 4.
+}
+
+/// The width of the chip that says how far the waste moved.
+fn chip_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 2.5
+}
+
+/// The width of the After column: the share since, then the chip, in fixed places so the shares line up down it.
+fn after_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 1.25 + look.length(token::SPACE_3) + chip_width(look)
 }
 
 /// The name of a setting's dropdown, as VoiceOver reads it and as the list under it is found by.
@@ -395,33 +410,105 @@ impl UsageScreen {
         labelled(whole, Role::Row, row.label.clone()).into_any_element()
     }
 
-    /// What each change did: the change, and the share of the burn the waste it cuts took before and since. Nothing where none was made.
+    /// What each change did, as a table of the change, the waste it cuts before, and the same after. Nothing where none was made.
     fn render_changes(&self, board: &Board, look: &Look) -> Option<gpui::AnyElement> {
         let rows = self.changing.changes(Some(board));
         if rows.is_empty() {
             return None;
         }
-        let lines: Vec<_> = rows
-            .iter()
-            .enumerate()
-            .map(|(at, ChangeRow { said, effect })| {
-                let line = div()
-                    .id(SharedString::from(format!("usage-change-{at}")))
-                    .w_full()
+        let head = |name: &'static str, cell: Div| labelled(cell.id(SharedString::from(format!("usage-change-column-{name}"))).text_color(look.color(token::FG_SUBTLE)).child(name), Role::ColumnHeader, name);
+        let heads = div()
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .h(look.length(token::H_ROW_HEADER))
+            .px(look.length(token::SPACE_4))
+            .border_b(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .text_size(look.length(token::TEXT_2XS))
+            .line_height(look.length(token::LEADING_2XS))
+            .child(head("Change", div().flex_1().min_w_0()))
+            .child(head("Before", div().flex_none().w(before_width(look)).flex().justify_end()))
+            .child(head("After", div().flex_none().w(after_width(look)).flex().justify_end()));
+        let lines: Vec<_> = rows.iter().enumerate().map(|(at, row)| self.render_change(at, row, look)).collect();
+        let table = labelled(div().id("usage-changes-table").flex().flex_col().children(lines), Role::Table, "After a change");
+        Some(panel(look).id("usage-changes").flex_none().flex().flex_col().child(self.render_title("usage-changes-title", "After a change", look)).child(heads).child(table).into_any_element())
+    }
+
+    /// A figure over its caption, right-aligned in a fixed column, in the page's own font.
+    fn stacked(&self, look: &Look, id: String, figure: gpui::AnyElement, caption: String, width: Pixels) -> Stateful<Div> {
+        div()
+            .id(SharedString::from(id))
+            .flex_none()
+            .w(width)
+            .flex()
+            .flex_col()
+            .items_end()
+            .child(figure)
+            .child(div().max_w_full().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(caption)))
+    }
+
+    fn render_change(&self, at: usize, row: &ChangeRow, look: &Look) -> gpui::AnyElement {
+        let said = |text: String, ink: Hsla| div().text_color(ink).child(SharedString::from(text)).into_any_element();
+        let change = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(div().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.change.clone())))
+            .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(row.date.clone())));
+        let before = self.stacked(look, format!("usage-change-before-{at}"), said(row.before.clone(), look.color(token::FG_DEFAULT)), row.kind.clone(), before_width(look));
+        let after = match &row.after {
+            After::Since { share, moved, chip, tip: why } => {
+                let (glyph_name, ink, wash) = moved.mark();
+                let (ink, wash) = (look.color(ink), look.color(wash));
+                let mark = div()
+                    .id(SharedString::from(format!("usage-change-chip-{at}")))
+                    .flex_none()
                     .flex()
                     .items_center()
-                    .justify_between()
-                    .gap(look.length(token::SPACE_4))
-                    .h(look.length(token::H_ROW_UNIT))
-                    .px(look.length(token::SPACE_4))
-                    .text_size(look.length(token::TEXT_SM))
-                    .line_height(look.length(token::LEADING_SM))
-                    .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone())))
-                    .child(div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(effect.clone())));
-                labelled(line, Role::Row, format!("{said}, {effect}")).into_any_element()
-            })
-            .collect();
-        Some(panel(look).id("usage-changes").flex_none().flex().flex_col().child(self.render_title("usage-changes-title", "After a change", look)).children(lines).into_any_element())
+                    .gap(look.length(token::SPACE_1))
+                    .px(look.length(token::SPACE_2))
+                    .rounded_full()
+                    .bg(wash)
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_2XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .text_color(ink)
+                    .tooltip(tip(why.clone()))
+                    .children(glyph_name.map(|name| glyph(name, look.length(token::SPACE_3), ink)))
+                    .child(SharedString::from(chip.clone()));
+                let mark = labelled(mark, Role::Status, chip.clone());
+                div()
+                    .flex_none()
+                    .w(after_width(look))
+                    .flex()
+                    .items_center()
+                    .justify_end()
+                    .gap(look.length(token::SPACE_3))
+                    .child(labelled(div().id(SharedString::from(format!("usage-change-after-{at}"))).flex_none().w(look.length(token::SPACE_12) * 1.25).flex().justify_end().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(share.clone())), Role::Label, format!("{share} since")))
+                    .child(div().flex_none().w(chip_width(look)).flex().justify_start().child(mark))
+            }
+            After::Ready { said: ready, tip: why } => div().flex_none().w(after_width(look)).flex().justify_end().child(
+                div().id(SharedString::from(format!("usage-change-ready-{at}"))).text_color(look.color(token::FG_MUTED)).tooltip(tip(why.clone())).child(SharedString::from(ready.clone())),
+            ),
+        };
+        let line = div()
+            .id(SharedString::from(format!("usage-change-{at}")))
+            .w_full()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .min_h(look.length(token::H_ROW_UNIT) + look.length(token::SPACE_2))
+            .py(look.length(token::SPACE_1))
+            .px(look.length(token::SPACE_4))
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .child(change)
+            .child(before)
+            .child(after);
+        labelled(line, Role::Row, format!("{}, {}", row.change, row.date)).into_any_element()
     }
 
     /// The list of kinds of waste, each a share of the window's burn.

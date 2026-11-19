@@ -56,11 +56,19 @@ fn a_share_is_a_percent_with_a_decimal_under_ten() {
     assert_eq!((share_exact(0.123), share_exact(0.031), share_exact(0.5)), ("12.3%".to_string(), "3.1%".to_string(), "50.0%".to_string()), "a change keeps its decimal so before and since read against each other");
 }
 
+fn east(hours: i32) -> chrono::FixedOffset {
+    chrono::FixedOffset::east_opt(hours * 3600).expect("an offset")
+}
+
 #[test]
-fn a_date_is_the_day_and_the_month() {
-    assert_eq!(date_said("2026-11-17T14:20:00Z"), "17 Nov");
-    assert_eq!(date_said("2026-01-03T00:00:00Z"), "3 Jan");
-    assert_eq!(date_said("yesterday"), "yesterday", "a stamp that cannot be read is said as it came");
+fn a_date_is_the_day_and_the_month_in_the_macs_own_zone() {
+    assert_eq!(date_in("2026-11-17T14:20:00Z", 0, &east(0)), "17 Nov");
+    assert_eq!(date_in("2026-11-17T23:20:00Z", 0, &east(1)), "18 Nov", "late in the evening in UTC is the next day east of it");
+    assert_eq!(date_in("2026-11-18T03:00:00Z", 0, &east(-5)), "17 Nov", "and the day before west of it");
+    assert_eq!(date_in("2026-01-03T00:00:00Z", 0, &east(0)), "3 Jan");
+    assert_eq!(date_in("2026-11-30T22:00:00Z", 1, &east(0)), "1 Dec", "a day later crosses the month");
+    assert_eq!(date_in("2026-11-18T03:00:00Z", 1, &east(-5)), "18 Nov", "a day later is counted in the Mac's zone");
+    assert_eq!(date_in("yesterday", 0, &east(0)), "yesterday", "a stamp that cannot be read is said as it came");
 }
 
 #[test]
@@ -359,22 +367,65 @@ fn a_reading_for_a_window_the_switch_has_left_is_dropped_and_a_refused_one_keeps
     assert!(Changing::default().rows(None).is_empty() && Changing::default().keys().is_empty(), "nothing read, nothing drawn");
 }
 
-#[test]
-fn a_change_says_what_was_set_when_and_what_the_waste_it_cuts_came_to_before_and_since() {
-    let board = week();
-    let rows = changing().changes(Some(&board));
-    assert_eq!(rows.len(), 1);
-    assert_eq!(rows[0].said, "Subagent cache length set to 1 hour on 17 Nov");
-    assert_eq!(rows[0].effect, "Cold cache after a pause 12.3% → 3.1% of the week");
+fn changes(zone: &chrono::FixedOffset) -> Vec<ChangeRow> {
+    changing().changes_in(Some(&week()), zone)
 }
 
 #[test]
-fn a_change_a_day_has_not_passed_on_says_only_what_it_was_before() {
+fn a_change_with_a_share_since_says_what_was_changed_the_share_before_and_after_and_how_far_it_moved() {
+    let row = changes(&east(0)).remove(1);
+    assert_eq!((row.change.as_str(), row.date.as_str()), ("Subagent cache length: 5 min → 1 hour", "17 Nov"));
+    assert_eq!((row.before.as_str(), row.kind.as_str()), ("12.3% of your burn", "Cold cache after a pause"));
+    assert_eq!(
+        row.after,
+        After::Since {
+            share: "3.1%".into(),
+            moved: Moved::Down,
+            chip: "down 9.2 points".into(),
+            tip: "Cold cache after a pause: 12.3% of your burn in the week before, 3.1% since".into()
+        }
+    );
+}
+
+#[test]
+fn the_chip_is_the_passed_hue_with_a_falling_glyph_for_a_fall_and_the_warning_hue_with_a_rising_one_for_a_rise() {
+    use crate::look::token;
+    assert_eq!(Moved::Down.mark(), (Some("trending-down"), token::STATUS_COMPLETED_SUCCESS, token::STATUS_COMPLETED_SUCCESS_BG));
+    assert_eq!(Moved::Up.mark(), (Some("trending-up"), token::STATUS_AWAITING_REVIEW, token::STATUS_AWAITING_REVIEW_BG));
+    assert_eq!(Moved::Same.mark().0, None, "no change has no glyph");
+}
+
+#[test]
+fn a_change_the_waste_grew_after_says_up_in_the_warning_direction() {
     let mut adjustments = mock::adjustments(&[]);
-    adjustments.changes[0].since_share = None;
+    adjustments.changes[1].since_share = Some(0.143);
     let mut changing = Changing::default();
     changing.arrived(Span::Week, Span::Week, Ok(adjustments));
-    assert_eq!(changing.changes(Some(&week()))[0].effect, "Cold cache after a pause 12.3% before");
+    match changing.changes_in(Some(&week()), &east(0)).remove(1).after {
+        After::Since { moved, chip, .. } => assert_eq!((moved, chip.as_str()), (Moved::Up, "up 2.0 points")),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_change_the_waste_did_not_move_after_says_no_change() {
+    let mut adjustments = mock::adjustments(&[]);
+    adjustments.changes[1].since_share = Some(0.123);
+    let mut changing = Changing::default();
+    changing.arrived(Span::Week, Span::Week, Ok(adjustments));
+    match changing.changes_in(Some(&week()), &east(0)).remove(1).after {
+        After::Since { moved, chip, .. } => assert_eq!((moved, chip.as_str()), (Moved::Same, "no change")),
+        other => panic!("{other:?}"),
+    }
+}
+
+#[test]
+fn a_change_a_day_has_not_passed_on_says_when_it_will_be_ready_a_day_after_it_in_the_macs_zone() {
+    let row = changes(&east(0)).remove(0);
+    assert_eq!((row.change.as_str(), row.date.as_str(), row.before.as_str(), row.kind.as_str()), ("Compact a Job at: 400k → 250k", "18 Nov", "7.5% of your burn", "Main thread ran past 300k context"));
+    assert_eq!(row.after, After::Ready { said: "Ready 19 Nov".into(), tip: "After a day, this compares the waste's share since the change with the week before".into() });
+    let west = changes(&east(-9)).remove(0);
+    assert_eq!((west.date.as_str(), west.after), ("17 Nov", After::Ready { said: "Ready 18 Nov".into(), tip: "After a day, this compares the waste's share since the change with the week before".into() }), "08:00 in UTC is the evening before at UTC-9");
 }
 
 #[test]
@@ -458,7 +509,13 @@ mod screen {
         assert!(drawn(cx, Role::Row, "Subagent cache length"));
         assert!(drawn(cx, Role::ComboBox, "Change Subagent cache length to"));
         assert!(drawn(cx, Role::Button, "Apply Compact a Job at"));
-        assert!(drawn(cx, Role::Row, "Subagent cache length set to 1 hour on 17 Nov, Cold cache after a pause 12.3% → 3.1% of the week"));
+        for column in ["Change", "Before", "After"] {
+            assert!(drawn(cx, Role::ColumnHeader, column), "{column}");
+        }
+        assert!(drawn(cx, Role::Row, &format!("Compact a Job at: 400k → 250k, {}", crate::usage_page::model::date_said("2026-11-18T08:00:00Z", 0))));
+        assert!(drawn(cx, Role::Row, &format!("Subagent cache length: 5 min → 1 hour, {}", crate::usage_page::model::date_said("2026-11-17T14:20:00Z", 0))));
+        assert!(drawn(cx, Role::Status, "down 9.2 points"), "the chip of the change that has a share since");
+
         assert_eq!(opened(&screen, cx), None, "nothing is open until a row is");
     }
 
