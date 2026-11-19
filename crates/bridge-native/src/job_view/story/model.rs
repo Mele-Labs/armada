@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
-use ipc::{ArtifactForm, ArtifactState, AskKind, AskState, AskWords, JobStory, MessageKind, SessionId, StoryAsk, StoryShown, VoteResult};
+use ipc::{ArtifactForm, ArtifactState, AskKind, AskState, AskWords, JobFeature, JobStory, MessageKind, SessionId, StoryAsk, StoryShown, VoteResult};
 
 use crate::features::page_model::{day, has_job, instant, job_title, Hue, Titles};
 
@@ -72,8 +72,21 @@ pub struct Card {
     pub rows: Vec<Row>,
 }
 
+/// A feature the Job is on, as the section above the asks lists it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct FeatureLine {
+    pub slug: String,
+    pub title: String,
+    /// The slug of its area, which gives its hue.
+    pub area: String,
+    /// How the Job touched it: `wrote 12 files · named in 9 commits`.
+    pub how: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Default)]
 pub struct Built {
+    /// The features the Job is on, in the order Fleet gave them. The section is drawn only where this is not empty.
+    pub features: Vec<FeatureLine>,
     pub cards: Vec<Card>,
     /// What he was shown before any ask, unnumbered, under a heading the view draws only where this is not empty.
     pub before: Vec<Row>,
@@ -283,9 +296,22 @@ fn card(at: usize, story: &StoryAsk, mine: &SessionId, titles: &Titles, features
     Card { ask_id: ask.ask_id.clone(), number: format!("{}.", at + 1), title: ask.title.clone(), kind: kind_word(ask.kind), last, stand: stand(ask.state), rows }
 }
 
+fn counted(count: u32, one: &str, many: &str) -> String {
+    format!("{count} {}", if count == 1 { one } else { many })
+}
+
+/// How the Job touched a feature, each way it did joined by a dot: a way with nothing in it is left out.
+pub fn how_touched(feature: &JobFeature) -> String {
+    let wrote = (feature.files_written > 0).then(|| format!("wrote {}", counted(feature.files_written, "file", "files")));
+    let named = (feature.commits_named > 0).then(|| format!("named in {}", counted(feature.commits_named, "commit", "commits")));
+    let filed = (feature.asks > 0).then(|| format!("{} filed", counted(feature.asks, "ask", "asks")));
+    [wrote, named, filed].into_iter().flatten().collect::<Vec<_>>().join(" · ")
+}
+
 /// The tab's cards, in the order Fleet gave the asks, numbered in it.
 pub fn build(story: &JobStory, titles: &Titles, features: &Features) -> Built {
     Built {
+        features: story.features.iter().map(|one| FeatureLine { slug: one.slug.clone(), title: one.title.clone(), area: one.area.clone(), how: how_touched(one) }).collect(),
         cards: story.asks.iter().enumerate().map(|(at, ask)| card(at, ask, &story.session_id, titles, features)).collect(),
         before: story.shown_otherwise.iter().map(shown_row).collect(),
     }

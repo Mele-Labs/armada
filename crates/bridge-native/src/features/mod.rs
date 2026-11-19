@@ -8,7 +8,7 @@
 pub(crate) mod asks;
 mod curate;
 mod curate_view;
-mod dossier;
+pub(crate) mod dossier;
 mod looked;
 pub(crate) mod mock;
 mod model;

@@ -1,5 +1,5 @@
-//! The Story tab drawn from what `model.rs` made of Fleet's read: asks as raised cards, each a head line that unfolds to
-//! its rows. Every value is a token.
+//! The Story tab drawn from what `model.rs` made of Fleet's read: the features the Job is on as one bordered list, then
+//! asks as raised cards, each a head line that unfolds to its rows. Every value is a token.
 
 use gpui::{div, list, prelude::*, px, AnyElement, Div, FontWeight, Hsla, IntoElement, Render, Role, SharedString, Window};
 use gpui_component::text::TextView;
@@ -7,6 +7,7 @@ use gpui_component::text::TextView;
 use super::model::{Card, Row};
 use super::{Load, Region, StoryTab};
 use crate::features::asks::hue_token;
+use crate::features::dossier::{hue_among, hue_square};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 use crate::settings::view::{bone, ring_colour, tip};
@@ -232,8 +233,73 @@ impl StoryTab {
             .into_any_element()
     }
 
+    /// The features the Job is on (`.sec`): a heading, then a row each with its area's square, its title and how the Job
+    /// touched it. A row opens its feature.
+    fn render_features(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let focused = self.focus.is_focused(window);
+        let heading = "Features this Job is on";
+        let mut section = div()
+            .id("story-features")
+            .w_full()
+            .flex()
+            .flex_col()
+            .bg(look.color(token::BG_RAISED))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            .rounded(look.length(token::RADIUS_LG))
+            .overflow_hidden()
+            .text_size(look.length(token::TEXT_SM))
+            .line_height(look.length(token::LEADING_SM))
+            .child(labelled(
+                div()
+                    .id("story-features-heading")
+                    .px(look.length(token::SPACE_4))
+                    .py(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                    .child(heading),
+                Role::Heading,
+                heading,
+            ));
+        for (at, line) in self.built.features.iter().enumerate() {
+            let on = focused && self.region == Region::Features && self.feature_at == at;
+            let slug = line.slug.clone();
+            let row = div()
+                .id(SharedString::from(format!("story-feature-{}", line.slug)))
+                .w_full()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_4))
+                .py(look.length(token::SPACE_2) - px(2.))
+                .when(at > 0, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)))
+                .cursor_pointer()
+                .when(on, |row| row.bg(look.color(token::ACCENT).opacity(0.12)))
+                .when(!on, |row| row.hover(|style| style.bg(look.color(token::BG_HOVER))))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    this.region = Region::Features;
+                    this.feature_at = at;
+                    window.focus(&this.focus, cx);
+                    this.open_feature(slug.clone(), window, cx);
+                }))
+                .child(hue_square(look, hue_among(self.areas.iter().map(String::as_str), &line.area), look.length(token::SPACE_2)))
+                .child(div().flex_1().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).child(SharedString::from(line.title.clone())))
+                .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(line.how.clone())));
+            section = section.child(labelled(row, Role::Link, format!("{}, {}", line.title, line.how)));
+        }
+        section.into_any_element()
+    }
+
     fn render_item(&self, ix: usize, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
-        let inner = if ix < self.built.cards.len() { self.render_card(ix, look, window, cx) } else { self.render_before(look, cx) };
+        let head = self.head();
+        let inner = if ix < head {
+            self.render_features(look, window, cx)
+        } else if ix - head < self.built.cards.len() {
+            self.render_card(ix - head, look, window, cx)
+        } else {
+            self.render_before(look, cx)
+        };
         div().w_full().px(look.length(token::SPACE_6)).pt(if ix == 0 { look.length(token::SPACE_4) } else { px(0.) }).pb(look.length(token::SPACE_4)).child(inner).into_any_element()
     }
 
