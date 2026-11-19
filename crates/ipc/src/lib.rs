@@ -410,13 +410,13 @@ pub use amending::{
 pub use building::{
     BuildPosition, BuildSource, BuildStage, BuildSwitcher, RestartAct, ChangeFleetBuild, CheckoutBlocked, ClearBlocked, FleetBuildChanging, FleetBuildKept,
     FleetBuildReport, FleetBuildReverting, FleetBuildSnapshotting, FleetBuildSwapping, KeptBuildPrevious,
-    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, SnapshotState, UpdateMac,
+    HeldBranch, KeptBuildRunning, KeptSnapshot, LeftOutBranch, OriginBranch, PickFleetBuildJob, PickedJob, RefreshClaim, RefreshClaimSent, SnapshotState, UpdateMac,
 };
 pub use preview::{
     BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, NoteVerdict, SendBuildNoteFeedback, PreviewStep,
     OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview, OfferApproved, PICTURES_AT_MOST, ThreadReadyToTry, ReadyApproved,
-    ReadyState, AnswerReadyToTry, ReadyAnswer,
+    ReadyState, AnswerReadyToTry, ReadyAnswer, OtherMacPreviewOffers, PreviewLeftOut,
 };
 pub use capturing::{
     CaptureBounds, CaptureElement, CaptureFrame, CaptureServed, CaptureStudioNote,

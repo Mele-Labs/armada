@@ -16,7 +16,7 @@ const OTHER_WIRE: &str = "0000000000000000";
 
 /// A stand-in `scripts/restart-build` in a repository `mac`'s Fleet serves, which writes its arguments to the
 /// answer's file, as a restart would be started.
-fn wrapper_on(mac: &OneMac) -> PathBuf {
+pub(super) fn wrapper_on(mac: &OneMac) -> PathBuf {
     let roots = mac.rig.fleet.ledger_roots();
     let root = PathBuf::from(&roots.first().expect("a served repository").1);
     let scripts = root.join("scripts");
@@ -39,13 +39,13 @@ async fn ran(path: &Path) -> String {
     text.trim().to_string()
 }
 
-async fn post(mac: &OneMac, path: &str, body: String) -> (StatusCode, String) {
+pub(super) async fn post(mac: &OneMac, path: &str, body: String) -> (StatusCode, String) {
     post_as(mac, "bridge", path, body).await
 }
 
 /// `body` posted to `mac`'s Fleet as the caller `caller` names: `bridge`, or `mac` as a Gateway hands on a call
 /// another Mac made.
-async fn post_as(mac: &OneMac, caller: &str, path: &str, body: String) -> (StatusCode, String) {
+pub(super) async fn post_as(mac: &OneMac, caller: &str, path: &str, body: String) -> (StatusCode, String) {
     use tower::ServiceExt;
     let request = axum::http::Request::post(path)
         .header("content-type", "application/json")

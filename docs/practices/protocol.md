@@ -1207,7 +1207,9 @@ Since 13 Nov 2026. `crates/fleet/src/previewing.rs`, `crates/ipc/src/preview.rs`
 | Where | Side | Carries |
 | --- | --- | --- |
 | `offer_preview`, `withdraw_preview` | The Job writes | `POST /sessions/offer_preview` and `/sessions/withdraw_preview`, `agent_access = "Yes"`, placed by the connection as `defer_later` is. Answered `PreviewOffered { branch, tip, state }` and `PreviewWithdrawn { branch }` |
-| `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build}` and `refresh` is `{id, branches}` |
+| `get_preview_offers` | Bridge reads | `GET /fleet/build/offers`, `PreviewOffers { offers, refresh?, left_out? }`. A row is `{branch, tip, session_id, title, about, offered_at, state, why?, files?, in_build, mac?}`, `mac` the id of the Mac the offer lives on and absent for this Mac's own, and `refresh` is `{id, branches}`. `left_out` is `[{mac, name, why}]`, the Macs whose ready offers are left out of the refresh, absent when none is. The ready offers of every paired Mac that is awake and on this build are in `offers` and `refresh` |
+| `share_preview_offers` | the Gateway calls | `GET /other_mac/preview_offers`, `PreviewOffers`, cut to this Mac's own ready offers that are on origin; `preview_offers.changed` crosses cut the same way |
+| `hold_other_mac_preview_offers` | the Gateway calls | `PUT /other_macs/preview_offers`, `OtherMacPreviewOffers { mac, offers }`, replacing all held from it, then a check of both Macs' offers. Answers `MacNamed` |
 | `skip_preview_refresh` | Bridge writes | `POST /fleet/build/offers/skip`, `SkipPreviewRefresh { id }`, `Bridge only` |
 | `preview_offers.changed` | Fleet writes, Bridge reads | `PreviewOffers`, whole, published when the answer differs from the last one sent, as `write_clashes.changed` is |
 | `get_build_notes` | Bridge reads | `GET /fleet/build/notes`, `BuildNotes { commit?, notes }`. A note is `{branch, tip, session_id, title, about, look?, steps?, job_ended, looked_at, verdict?}`, `verdict` `good` or `needs_work`, and a step is `{say, act?}` |

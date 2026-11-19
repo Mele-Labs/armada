@@ -69,6 +69,7 @@ mod started_jobs;
 mod step_waits;
 mod documents;
 mod building;
+mod refresh_claim;
 mod build_blocked;
 mod build_holds;
 mod title_bar_views;
