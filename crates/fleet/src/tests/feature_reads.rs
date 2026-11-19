@@ -44,7 +44,7 @@ async fn a_job(rig: &Rig) -> (String, SessionId) {
 }
 
 async fn page(rig: &Rig, project: &str, slug: &str) -> FeaturePage {
-    rig.fleet.get_feature_page(None, Some(project.to_string()), slug.to_string(), None).await.expect("the page")
+    rig.fleet.get_feature_page(None, Some(project.to_string()), slug.to_string(), None, false).await.expect("the page")
 }
 
 #[tokio::test]

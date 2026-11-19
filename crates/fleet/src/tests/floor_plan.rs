@@ -273,12 +273,12 @@ async fn a_feature_page_carries_the_floor_plan_and_a_section_read_does_not() {
     };
     rig.fleet.upsert_features(None, upsert).await.expect("kept");
 
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), "start".into(), None).await.expect("page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), "start".into(), None, false).await.expect("page");
     let plan = page.floor_plan.expect("a floor plan");
     assert_eq!(plan.rooms.iter().filter(|room| room.lit).map(|room| room.module.as_str()).collect::<Vec<_>>(), ["app"]);
     assert!(plan.doors.iter().any(|door| door.from == "app" && door.to == "ipc" && door.contract));
 
-    let one = rig.fleet.get_feature_page(None, Some(project), "start".into(), Some("test".into())).await.expect("section");
+    let one = rig.fleet.get_feature_page(None, Some(project), "start".into(), Some("test".into()), false).await.expect("section");
     assert_eq!(one.floor_plan, None, "a section read is that section alone");
 }
 
@@ -369,8 +369,8 @@ fn under_the_cap_every_file_stands_alone() {
     assert_eq!(files_of(&plan, "app").iter().filter(|file| file.grouped == 0).count(), 5);
 }
 
-#[tokio::test]
-async fn a_feature_pages_rooms_carry_their_files_and_mark_what_a_live_job_wrote() {
+/// The floor plan of a page read with `files` or without, over a committed workspace where a live Job wrote `crates/ipc/Cargo.toml`.
+async fn page_plan(files: bool) -> FloorPlan {
     let rig = rig(None);
     let root = rig.fleet.repositories().first().expect("served").root().to_string();
     cargo_workspace(Path::new(&root));
@@ -391,10 +391,20 @@ async fn a_feature_pages_rooms_carry_their_files_and_mark_what_a_live_job_wrote(
     let upsert = UpsertFeatures { project: project.clone(), areas: vec![AreaSeed { slug: "takes".into(), title: "Takes".into() }], features: vec![seed] };
     rig.fleet.upsert_features(None, upsert).await.expect("kept");
     rig.fleet.writes().wrote(&Who::Session("sess-a".into()), rig.manifest.as_str(), ["crates/ipc/Cargo.toml".to_string()], &rig.fleet.now());
+    rig.fleet.get_feature_page(None, Some(project), "start".into(), None, files).await.expect("page").floor_plan.expect("a floor plan")
+}
 
-    let page = rig.fleet.get_feature_page(None, Some(project), "start".into(), None).await.expect("page");
-    let plan = page.floor_plan.expect("a floor plan");
+#[tokio::test]
+async fn a_feature_pages_rooms_carry_their_files_and_mark_what_a_live_job_wrote() {
+    let plan = page_plan(true).await;
     assert!(files_of(&plan, "app").contains(&FloorFile { lit: true, ..one("crates/app/src/lib.rs", 14) }), "{plan:?}");
     let ipc = files_of(&plan, "ipc");
     assert!(ipc.iter().any(|file| file.path == "crates/ipc/Cargo.toml" && file.changing && !file.lit), "{ipc:?}");
+}
+
+#[tokio::test]
+async fn a_page_read_without_files_has_rooms_and_no_files() {
+    let plan = page_plan(false).await;
+    assert_eq!(plan.rooms.iter().map(|room| room.module.as_str()).collect::<Vec<_>>(), ["app", "core-model", "ipc"]);
+    assert!(plan.rooms.iter().all(|room| room.files.is_empty()), "an agent's read stays small: {plan:?}");
 }

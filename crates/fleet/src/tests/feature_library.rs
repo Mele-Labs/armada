@@ -408,7 +408,7 @@ async fn the_list_shows_who_is_on_a_feature_and_what_a_written_section_reads_as_
             files: vec!["crates/pages/voting/other.rs".into()],
         })
         .expect("kept");
-    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None, false).await.expect("the page");
     assert_eq!(page.sections.len(), 1);
     assert_eq!(page.sections[0].stale_since, Some(900));
     assert_eq!(page.feature.stale_since, Some(900));
@@ -664,24 +664,24 @@ async fn a_page_asked_for_one_section_holds_that_section_alone() {
     wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
     rig.fleet.write_feature_sections(caller(), write_all(&id, VOTING, &FeatureSectionKind::ALL)).await.expect("written");
 
-    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None).await.expect("the page");
+    let whole = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), None, false).await.expect("the page");
     assert_eq!(whole.sections.len(), 4);
     assert!(!whole.files.is_empty(), "the whole page keeps its files");
 
     for asked in ["debt", " Debt "] {
-        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string())).await.expect("the page");
+        let page = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some(asked.to_string()), false).await.expect("the page");
         assert_eq!(page.sections.iter().map(|one| (one.section, one.text.as_str())).collect::<Vec<_>>(), [(FeatureSectionKind::Debt, "The debt text.")]);
         assert!(page.links.is_empty() && page.files.is_empty(), "a section is asked for alone");
         assert_eq!(page.feature.slug, VOTING);
     }
-    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into())).await.expect("the page");
+    let blank = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("  ".into()), false).await.expect("the page");
     assert_eq!(blank.sections.len(), 4, "a blank section is none");
 
-    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into())).await.expect_err("refused");
+    let refused = rig.fleet.get_feature_page(None, Some(project.clone()), VOTING.to_string(), Some("tests".into()), false).await.expect_err("refused");
     let api::Refusal::Unacceptable(why) = refused else { panic!("{refused:?}") };
     assert_eq!(why.code, "fleet.feature_section_unknown");
     assert!(why.message.contains("`tests`") && why.message.contains("test, runs, observe or debt"), "{}", why.message);
 
-    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into())).await.expect("the page");
+    let observe = rig.fleet.get_feature_page(None, Some(project), VOTING.to_string(), Some("observe".into()), false).await.expect("the page");
     assert_eq!(observe.sections.len(), 1);
 }

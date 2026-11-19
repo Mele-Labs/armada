@@ -98,9 +98,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The floor plan of `feature`, read off the main thread with the files live Jobs wrote. `None` where Fleet does not
-    /// hold the project or none of its repositories reads.
-    pub(super) async fn floor_plan_of(&self, loaded: &Loaded, feature: &KeptFeature) -> Option<FloorPlan> {
+    /// The floor plan of `feature`, read off the main thread. **With `files` its rooms hold their files**, marked with what
+    /// live Jobs wrote; without, git is not asked. `None` where Fleet does not hold the project or none of its repositories
+    /// reads.
+    pub(super) async fn floor_plan_of(&self, loaded: &Loaded, feature: &KeptFeature, files: bool) -> Option<FloorPlan> {
         let held = self.projects_held();
         let project = held.running().find(|one| one.id().as_str() == loaded.project)?;
         let repositories: Vec<(String, PathBuf)> = self
@@ -111,12 +112,13 @@ where
             .map(|one| (one.manifest().id().as_str().to_string(), PathBuf::from(one.root())))
             .collect();
         let mut changing: BTreeMap<String, BTreeSet<String>> = BTreeMap::new();
-        for (_, manifest, paths) in self.writes().holders() {
+        for (_, manifest, paths) in self.writes().holders().into_iter().filter(|_| files) {
             changing.entry(manifest).or_default().extend(paths);
         }
         let (map, feature) = (loaded.map.clone(), feature.clone());
         let plan = tokio::task::spawn_blocking(move || {
-            let layouts: Vec<(String, Layout)> = repositories.into_iter().map(|(manifest, root)| (manifest, read(&root))).collect();
+            let layout = |root: &Path| if files { read(root) } else { modules::read(root) };
+            let layouts: Vec<(String, Layout)> = repositories.into_iter().map(|(manifest, root)| (manifest, layout(&root))).collect();
             plan(&layouts, &map, &feature, &changing, MOST_FILES)
         });
         Some(plan.await.ok()?).filter(|plan| !plan.rooms.is_empty())

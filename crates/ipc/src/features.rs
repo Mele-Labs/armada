@@ -202,7 +202,8 @@ pub struct FloorRoom {
     /// The repository, where the feature is not tied to one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub manifest_id: Option<String>,
-    /// The files tracked in it at the checkout's `HEAD`, largest first. Lock files and binary assets are left out.
+    /// The files tracked in it at the checkout's `HEAD`, largest first, on a read that asks with `files=true`; empty on any
+    /// other. Lock files and binary assets are left out.
     #[serde(default)]
     pub files: Vec<FloorFile>,
 }

@@ -240,7 +240,8 @@ In Armada that is the `ipc` crate.
 > **Rule.** A project declares no contracts, Fleet reads them off the names and files above.
 > Why: a list a person keeps of the contracts is the second record that goes stale, and a name or a `.proto` file already says it.
 
-Each room holds its files, with each file's size in bytes as git keeps it at the checkout's `HEAD`, so Fleet opens no file to size it.
+When Bridge asks for them, each room holds its files, with each file's size in bytes as git keeps it at the checkout's `HEAD`, so Fleet opens no file to size it.
+An agent's read of the page has rooms without files, so it stays small and costs no git read.
 A file the feature owns is lit by the same rule as a room, and a file a live Job has written is marked as changing.
 Lock files, images, fonts and test snapshots are left out.
 A plan carries about 1,500 files: the feature's files and the ones being changed stay single, then the largest, and the rest are counted together by folder with their sizes added up.

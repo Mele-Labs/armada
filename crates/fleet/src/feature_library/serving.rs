@@ -68,8 +68,8 @@ where
         self.features_listed(caller, project).await
     }
 
-    async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String, section: Option<String>) -> Result<FeaturePage, Refusal> {
-        self.feature_paged(caller, project, feature, section).await
+    async fn get_feature_page(&self, caller: Option<api::Caller>, project: Option<String>, feature: String, section: Option<String>, files: bool) -> Result<FeaturePage, Refusal> {
+        self.feature_paged(caller, project, feature, section, files).await
     }
 
     async fn get_glossary(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<ipc::Glossary, Refusal> {
