@@ -181,6 +181,21 @@ fn kit_entries() -> Vec<Entry> {
         .collect()
 }
 
+/// The Usage page, found by name as Classic's palette finds it: it has no tab and no key. Offered only where the app holds one.
+fn usage_entry(cx: &App) -> Option<Entry> {
+    crate::usage_page::offered(cx).then(|| Entry {
+        id: "nav:usage".into(),
+        section: Section::Navigation,
+        label: "Usage".into(),
+        icon: None,
+        shortcut: None,
+        aliases: ["tokens", "burn", "spend", "plan usage"].map(String::from).to_vec(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
 /// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
 /// has no row for them. Root Jobs only reads On while the switch is.
 fn fold_commands(list: &JobsList) -> Vec<Entry> {
@@ -717,6 +732,7 @@ impl Palette {
         // New Side Job only where a Side Job can be started.
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(kit_entries());
+        entries.extend(usage_entry(cx));
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
         entries.extend(move_project_command(list, cx));
@@ -1032,6 +1048,14 @@ impl Palette {
                         list.open_project_picker(vec![id], at, true, back, window, cx);
                     }
                 });
+            }
+            ("run", None) if entry.id == "nav:usage" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+                    (sink.0)(&crate::titlebar::Asked::Place("usage"), cx);
+                }
             }
             ("run", None) if entry.id.starts_with("nav:kit:") => {
                 self.memory.used(&entry.id);

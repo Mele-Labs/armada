@@ -1373,7 +1373,12 @@ impl JobView {
             fill.refused = self.compact_refused.get(id.as_ref()).cloned();
             let me = cx.entity().downgrade();
             let job_id = id.clone();
-            crate::context_ring::ContextRing::new(id.clone(), Some(fill)).on_compact(Rc::new(move |how, window, cx| {
+            let ring = crate::context_ring::ContextRing::new(id.clone(), Some(fill));
+            let ring = match self.tokens_hook(id, cx) {
+                Some(hook) => ring.tokens(hook),
+                None => ring,
+            };
+            ring.on_compact(Rc::new(move |how, window, cx| {
                 let Some(me) = me.upgrade() else { return };
                 let job_id = job_id.clone();
                 me.update(cx, |this, cx| {

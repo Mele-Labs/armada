@@ -38,6 +38,7 @@ mod features;
 mod first_run;
 mod fleet;
 mod frames;
+mod job_tokens;
 mod job_view;
 mod inspect;
 mod instance;
@@ -89,6 +90,7 @@ mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
+mod usage_page;
 mod voice;
 mod waiting_sends;
 mod web;
@@ -356,6 +358,13 @@ fn main() -> ExitCode {
                         let jobs = cx.new(|cx| JobsList::mock(&records, cx));
                         let focus = jobs.read(cx).focus_handle().clone();
                     window.focus(&focus, cx);
+                        // The Usage page's scenarios open on the page itself, inside the Operator's screen that holds it.
+                        if usage_page::is_scenario(&scenario) {
+                            titlebar::scenes::begin(cx);
+                            let screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
+                            let held = cx.new(|cx| operator::OperatorScreen::mock_usage(screen, window, cx));
+                            return cx.new(|_| Shell { screen: held.into(), _fleet: None });
+                        }
                         let screen = cx.new(|cx| JobsScreen::new(jobs, Some(threads), window, cx)).into();
                         cx.new(|_| Shell { screen, _fleet: None })
                     })
