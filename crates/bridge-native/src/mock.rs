@@ -1427,7 +1427,7 @@ pub fn needs_you(job: &str, items: &[WaitingItem], away: &dyn Fn(&str) -> bool) 
         .map(|item| {
             let act = mock_act(item, job);
             let (section, dismiss) = mock_place(item, &act);
-            let row = NeedsYouRow { id: item.id.clone(), source: item.source, text: item.text.clone(), since: item.since.clone(), glyph: mock_glyph(item, &act), act, dismiss };
+            let row = NeedsYouRow { id: item.id.clone(), source: item.source, text: item.text.clone(), since: item.since.clone(), glyph: mock_glyph(item, &act), act, dismiss, on: item.act.as_ref().and_then(|act| act.on.clone()) };
             (section, row)
         })
         .collect();
@@ -1517,6 +1517,7 @@ pub fn sketch_answered(head: &mut ipc::ThreadHead, items: &mut Vec<ipc::ThreadIt
 fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
     let named = |prefix: &str| item.id.strip_prefix(prefix).unwrap_or(&item.id).to_string();
     let command = item.act.as_ref().filter(|act| act.kind == WaitingActKind::Run).map(|act| act.target.clone());
+    let named_mac = item.act.as_ref().is_some_and(|act| act.on.is_some());
     let pressed = match item.source {
         WaitingSource::Plan => NeedsYouAct::OpenPlan,
         WaitingSource::Sketch => NeedsYouAct::OpenSketch { title: named("sketch:") },
@@ -1525,7 +1526,7 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
         // Fleet's handoff card takes no words.
         _ if !item.options.is_empty() => NeedsYouAct::Answer { options: item.options.clone(), other: item.source != WaitingSource::Handoff },
         // A restart is the band's key even where the agent gave steps, as Classic's `restartOf` reads it.
-        _ if !item.steps.is_empty() && command.as_deref().and_then(mock_restart).is_none() => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
+        _ if !item.steps.is_empty() && (named_mac || command.as_deref().and_then(mock_restart).is_none()) => NeedsYouAct::Steps { steps: item.steps.clone(), command: command.clone() },
         _ => {
             let words = matches!(item.source, WaitingSource::Agent | WaitingSource::Replied);
             match &item.act {
@@ -1536,7 +1537,7 @@ fn mock_act(item: &WaitingItem, job: &str) -> NeedsYouAct {
                     WaitingActKind::Answer if words => NeedsYouAct::Reply,
                     WaitingActKind::Answer => NeedsYouAct::Answer { options: Vec::new(), other: false },
                     WaitingActKind::ApprovePr => NeedsYouAct::ApprovePr { target: act.target.clone() },
-                    WaitingActKind::Run => match mock_restart(&act.target) {
+                    WaitingActKind::Run => match mock_restart(&act.target).filter(|_| act.on.is_none()) {
                         Some((label, build, adopt)) => NeedsYouAct::Restart { label: label.into(), build, adopt, command: act.target.clone() },
                         None => NeedsYouAct::Run { command: act.target.clone() },
                     },

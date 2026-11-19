@@ -122,6 +122,7 @@ def one_line(log):
 
 USAGE = ("usage: scripts/restart-build main [--adopt] | preview [--adopt] [--push-as NAME [--tell MAC]] "
          "| preview [--adopt] --at SHA --ref REF | snapshot")
+SUPERSEDED = 75  # scripts/preview --at: the ref moved to a newer commit, so a newer request builds
 TAKES_VALUE = ("--push-as", "--tell", "--at", "--ref")
 
 
@@ -286,6 +287,9 @@ def main():
                 log.write(f"restart-build: not telling {given['--tell']}: {ref} was not pushed\n")
         command[2:2] = ["--at", sha, "--ref", ref]
     code = run()
+    if code == SUPERSEDED and "--at" in given:
+        # A newer request replaced this one: it owns the status, so this one neither fails nor clears it.
+        return 0
     with open(log_path) as f:
         log = f.read()
     cache = os.path.join(tree, INCREMENTAL_DIR)

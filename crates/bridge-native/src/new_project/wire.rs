@@ -12,6 +12,7 @@ use ipc::{EditProject, ForgeRepositories, ModelChoices, NewProject, Projects, Re
 use serde::de::DeserializeOwned;
 
 use crate::fleet::FleetConnection;
+use crate::refusal::{Failed, Refusal};
 
 /// How long a clone may take before Bridge stops waiting: past Fleet's own ten minutes, so Fleet's answer
 /// arrives first (`clone_repository.toml`).
@@ -54,7 +55,7 @@ fn asked<T: DeserializeOwned + Send + 'static, U: Send + 'static>(port: u16, pat
         let Ok((status, bytes)) = runtime.block_on(crate::transport::get(port, &path)) else { return Asked::Down };
         match status {
             200..=299 => ipc::decode::<T>(what, &bytes).map_or(Asked::Down, |found| Asked::Found(then(found))),
-            422 => ipc::decode::<ipc::WireError>("WireError", &bytes).map_or(Asked::Down, |error| Asked::Refused(error.message)),
+            422 => Refusal::read("GET", path.as_str(), status, &bytes).said.map_or(Asked::Down, Asked::Refused),
             _ => Asked::Down,
         }
     })
@@ -81,21 +82,30 @@ enum Ask {
     Waiting(String, String, Duration),
 }
 
-fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, cx: &App) -> Task<Result<T, String>> {
-    cx.background_spawn(async move {
+/// `ask` off the main thread. Where `headline` names a press, a refusal also raises the failure toast; the sheet
+/// still says why on its own line.
+fn request<T: DeserializeOwned + Send + 'static>(port: u16, ask: Ask, what: &'static str, headline: Option<&'static str>, cx: &App) -> Task<Result<T, String>> {
+    let answer: Task<Result<T, Failed>> = cx.background_spawn(async move {
         let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
+        let (method, route, sent) = match &ask {
+            Ask::Get(path) => ("GET", path.clone(), None),
+            Ask::Post(path, body) | Ask::Waiting(path, body, _) => ("POST", path.clone(), Some(body.len())),
+        };
         let (status, bytes) = match ask {
             Ask::Get(path) => runtime.block_on(crate::transport::get(port, &path)),
             Ask::Post(path, body) => runtime.block_on(crate::transport::post(port, &path, body)),
             Ask::Waiting(path, body, patience) => runtime.block_on(crate::transport::post_waiting(port, &path, body, patience)),
         }?;
-        if !(200..300).contains(&status) {
-            return Err(match ipc::decode::<ipc::WireError>("WireError", &bytes) {
-                Ok(error) => error.message,
-                Err(_) => format!("Fleet answered {status}"),
-            });
-        }
-        ipc::decode::<T>(what, &bytes).map_err(|why| why.to_string())
+        let bytes = crate::refusal::answered(method, &route, sent, status, bytes)?;
+        ipc::decode::<T>(what, &bytes).map_err(|why| Failed::from(why.to_string()))
+    });
+    cx.spawn(async move |cx| {
+        answer.await.map_err(|failed| {
+            if let (Some(headline), Failed::Refused(refusal)) = (headline, &failed) {
+                cx.update(|cx| crate::toasts::tell_refused(headline, refusal.clone(), cx));
+            }
+            failed.to_string()
+        })
     })
 }
 
@@ -128,7 +138,7 @@ impl Wire {
         if let Wire::Mock(mock) = self {
             return Task::ready(Ok(mock.areas.clone()));
         }
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/repository_areas".into()), "RepositoryAreas", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/repository_areas".into()), "RepositoryAreas", None, cx))
     }
 
     /// `GET /projects/values` for no project: what every project uses.
@@ -136,7 +146,7 @@ impl Wire {
         if let Wire::Mock(mock) = self {
             return Task::ready(Ok(mock.values.clone()));
         }
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/projects/values".into()), "ResolvedValues", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/projects/values".into()), "ResolvedValues", None, cx))
     }
 
     /// `GET /models`: the models a review may run on.
@@ -145,7 +155,7 @@ impl Wire {
             return Task::ready(Ok(mock.models.clone()));
         }
         let Some(port) = self.port(cx) else { return unreachable() };
-        let read: Task<Result<ModelChoices, String>> = request(port, Ask::Get("/models".into()), "ModelChoices", cx);
+        let read: Task<Result<ModelChoices, String>> = request(port, Ask::Get("/models".into()), "ModelChoices", None, cx);
         cx.background_spawn(async move { read.await.map(|choices| choices.models) })
     }
 
@@ -155,7 +165,7 @@ impl Wire {
             return Task::ready(mock.served_new(&url, &parent));
         }
         let said = body(&ipc::CloneRepository { url, parent });
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Waiting("/repositories/clone".into(), said, CLONE_PATIENCE), "RepositorySummary", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Waiting("/repositories/clone".into(), said, CLONE_PATIENCE), "RepositorySummary", Some("The repository was not cloned"), cx))
     }
 
     /// `POST /repositories/link`: the repository a pull request link names, read through without adding it. Fleet
@@ -165,7 +175,7 @@ impl Wire {
             return Task::ready(Err(format!("The walk's Fleet serves no {owner}/{name}")));
         }
         let said = body(&ipc::LinkRepository { owner, name });
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/repositories/link".into(), said), "RepositorySummary", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/repositories/link".into(), said), "RepositorySummary", None, cx))
     }
 
     /// `POST /repositories/create`: a new folder under `parent`, started as a git repository.
@@ -174,7 +184,7 @@ impl Wire {
             return Task::ready(mock.served_new(&name, &parent));
         }
         let said = body(&ipc::CreateProject { parent, name });
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Waiting("/repositories/create".into(), said, CLONE_PATIENCE), "RepositorySummary", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Waiting("/repositories/create".into(), said, CLONE_PATIENCE), "RepositorySummary", Some("The repository was not made"), cx))
     }
 
     /// `POST /projects`. Fleet answers with every project, the new one last.
@@ -183,7 +193,7 @@ impl Wire {
             return Task::ready(Ok(mock.added(project)));
         }
         let said = body(&project);
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/projects".into(), said), "Projects", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/projects".into(), said), "Projects", Some("The project was not made"), cx))
     }
 
     /// `POST /projects/project/:id/edit` with sharing turned on: `add_project` takes no sharing.
@@ -193,7 +203,7 @@ impl Wire {
         }
         let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(id));
         let said = body(&EditProject { shared_with_macs: Some(true), ..EditProject::default() });
-        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", cx))
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", Some("The project was not shared"), cx))
     }
 
     // -- the folder search, and what Fleet does not serve yet ---------------------------------------------

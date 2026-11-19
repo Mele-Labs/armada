@@ -17,6 +17,16 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/page",
     },
     Route {
+        operation: "get_project_overview",
+        method: "GET",
+        path: "/features/overview",
+    },
+    Route {
+        operation: "get_since_you_looked",
+        method: "GET",
+        path: "/features/since",
+    },
+    Route {
         operation: "get_feature_brief",
         method: "GET",
         path: "/features/brief",

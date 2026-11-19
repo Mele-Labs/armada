@@ -108,7 +108,7 @@ where
                     text: format!("Where does {} open in {}?", file.name, ask.repository),
                     since: Instant::carried(ask.asked_at.as_str()),
                     source: WaitingSource::WordsAddress,
-                    act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id }),
+                    act: Some(WaitingAct { kind: WaitingActKind::Answer, target: id, on: None }),
                     options,
                     steps: Vec::new(),
                     place: None,

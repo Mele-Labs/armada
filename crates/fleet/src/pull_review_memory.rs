@@ -8,11 +8,11 @@ use std::collections::HashMap;
 use adapter_traits::{AgentHarness, ComparedPatches, Delivery, LatestReview, LatestReviewSaid, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
-    ManifestId, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullInbox, PullMyReview,
+    IgnorePull, ManifestId, MarkFileViewed, MarkPullSeen, MyReviewSaid, NamedReviewLayout, PullIgnored, PullInbox, PullMyReview,
     PullRequestCompare, PullRequestCompareOf, PullRequestPage, PullReviewRow, PullSeen, PullViewedFile, ReviewLayout,
     ReviewLayouts, SaveReviewLayout, UnmarkFileViewed, DEFAULT_REVIEW_LAYOUT,
 };
-use store::{KeptReviewLayout, KeptSeenHead, KeptViewedFile};
+use store::{KeptIgnore, KeptReviewLayout, KeptSeenHead, KeptViewedFile};
 
 use crate::daemon::Fleet;
 use crate::pull_request_panel::file_patch_of;
@@ -42,6 +42,14 @@ pub(crate) fn inbox_of(seen: Option<&PullSeen>, head: &str, mine: Option<&PullMy
         Some(MyReviewSaid::Commented | MyReviewSaid::ChangesRequested) => PullInbox::WaitingOnAuthor,
         None => PullInbox::NeedsFirstLook,
     }
+}
+
+/// Whether a row is ignored: he kept an ignore, and he has not been asked of it since. `asked_at`
+/// later than `ignored_at` lifts it; one absent or unreadable does not.
+pub(crate) fn ignored_of(ignored_at: Option<&str>, asked_at: Option<&str>) -> bool {
+    let Some(ignored_at) = ignored_at else { return false };
+    let millis = |at: &str| core_model::Timestamp::from_rfc3339(at.to_string()).epoch_millis();
+    !matches!((millis(ignored_at), asked_at.and_then(millis)), (Some(ignored), Some(asked)) if asked > ignored)
 }
 
 /// His latest review as the wire carries it.
@@ -113,8 +121,14 @@ where
             .iter()
             .map(|it| ((it.manifest_id.as_str(), it.repository.to_lowercase(), it.number), it))
             .collect();
+        let ignores = self.store().lock().await.ignores().unwrap_or_default();
+        let ignores: HashMap<(&str, String, u64), &KeptIgnore> = ignores
+            .iter()
+            .map(|it| ((it.manifest_id.as_str(), it.repository.to_lowercase(), it.number), it))
+            .collect();
         for row in rows {
             let key = (row.manifest_id.as_str(), row.repository.to_lowercase(), row.number);
+            row.ignored = ignored_of(ignores.get(&key).map(|it| it.ignored_at.as_str()), row.asked_at.as_deref());
             row.seen = seen.get(&key).map(|it| seen_of((*it).clone()));
             row.inbox = inbox_of(row.seen.as_ref(), &row.head, row.my_review.as_ref());
         }
@@ -172,6 +186,30 @@ where
         self.store().lock().await.keep_seen_head(&kept).map_err(|why| self.memory_unkept(why))?;
         self.calls_review_opened(&kept.manifest_id, kept.number);
         Ok(seen_of(kept))
+    }
+
+    /// Keep a pull request as ignored from now, on this Mac only.
+    pub(crate) async fn pull_ignored(&self, manifest_id: ManifestId, ignore: IgnorePull) -> Result<PullIgnored, Refusal> {
+        let (_, repository) = self.remembered_repository(&manifest_id).await?;
+        let kept = KeptIgnore {
+            manifest_id: manifest_id.as_str().to_string(),
+            repository,
+            number: ignore.number,
+            ignored_at: self.clock().now().as_str().to_string(),
+        };
+        self.store().lock().await.keep_ignore(&kept).map_err(|why| self.memory_unkept(why))?;
+        Ok(PullIgnored { number: kept.number, at: kept.ignored_at })
+    }
+
+    /// Stop ignoring a pull request. One not ignored is not an error.
+    pub(crate) async fn pull_unignored(&self, manifest_id: ManifestId, ignore: IgnorePull) -> Result<IgnorePull, Refusal> {
+        let (_, repository) = self.remembered_repository(&manifest_id).await?;
+        self.store()
+            .lock()
+            .await
+            .forget_ignore(manifest_id.as_str(), &repository, ignore.number)
+            .map_err(|why| self.memory_unkept(why))?;
+        Ok(ignore)
     }
 
     /// Keep a file as viewed at a commit, with the forge's blob for it there where Bridge has it.

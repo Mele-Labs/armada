@@ -108,7 +108,7 @@ pub(crate) async fn get_review_lists<D: PullRequestPanel>(
     State(served): State<Served<D>>,
     Query(scope): Query<InProject>,
 ) -> Response {
-    match served.daemon().get_review_lists(scope.project).await {
+    match served.shared().get_review_lists(scope.project).await {
         Ok(lists) => answer(StatusCode::OK, &lists, served.run_id()),
         Err(refusal) => refused(refusal),
     }

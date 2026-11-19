@@ -20,6 +20,8 @@ use crate::served::Served;
 pub(crate) fn mounted<D: PullRequestPanel>() -> Router<Served<D>> {
     Router::new()
         .route("/pull_request_seen/:repository", post(mark_pull_request_seen::<D>))
+        .route("/pull_request_ignored/:repository", post(ignore_pull_request::<D>))
+        .route("/pull_request_ignored/:repository/unignore", post(unignore_pull_request::<D>))
         .route("/pull_request_viewed/:repository", post(mark_file_viewed::<D>))
         .route("/pull_request_viewed/:repository/unmark", post(unmark_file_viewed::<D>))
         .route(
@@ -51,6 +53,36 @@ pub(crate) async fn mark_pull_request_seen<D: PullRequestPanel>(
     };
     match served.daemon().mark_pull_request_seen(ManifestId::carried(repository), mark).await {
         Ok(seen) => answer(StatusCode::OK, &seen, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn ignore_pull_request<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let ignore = match body_of("a pull request to ignore", &body, served.run_id()) {
+        Ok(ignore) => ignore,
+        Err(said) => return said,
+    };
+    match served.daemon().ignore_pull_request(ManifestId::carried(repository), ignore).await {
+        Ok(ignored) => answer(StatusCode::OK, &ignored, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn unignore_pull_request<D: PullRequestPanel>(
+    State(served): State<Served<D>>,
+    Path(repository): Path<String>,
+    body: Bytes,
+) -> Response {
+    let ignore = match body_of("a pull request to stop ignoring", &body, served.run_id()) {
+        Ok(ignore) => ignore,
+        Err(said) => return said,
+    };
+    match served.daemon().unignore_pull_request(ManifestId::carried(repository), ignore).await {
+        Ok(unignored) => answer(StatusCode::OK, &unignored, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

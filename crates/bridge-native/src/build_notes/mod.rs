@@ -19,6 +19,7 @@ use crate::fleet::FleetConnection;
 use crate::keymap::{self, Act, Slot};
 use crate::log::Note;
 use crate::look::{token, Token};
+use crate::refusal::Failed;
 
 /// What a note's box says while empty.
 const PLACEHOLDER: &str = "Feedback for this Job";
@@ -504,7 +505,7 @@ impl BuildNotesSheet {
         self.marked.insert(key.clone(), given);
         cx.notify();
         let body = encoded(&ipc::MarkBuildNoteLookedAt { branch: note.branch, tip: note.tip, verdict: Some(given) });
-        let task: Task<Result<BuildNotes, String>> = post(port, MARK_LOOKED, body, "BuildNotes", cx);
+        let task: Task<Result<BuildNotes, Failed>> = post(port, MARK_LOOKED, body, "BuildNotes", cx);
         cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| match answer {
@@ -513,8 +514,11 @@ impl BuildNotesSheet {
                     if this.marked.get(&key) == Some(&given) {
                         this.marked.remove(&key);
                     }
-                    Note::warn("Fleet refused the mark").field("route", MARK_LOOKED).field("why", why.as_str()).emit();
-                    crate::toasts::tell(why, cx);
+                    Note::warn("Fleet refused the mark").field("route", MARK_LOOKED).field("why", why.to_string()).emit();
+                    cx.defer(move |cx| match why {
+                        Failed::Refused(refusal) => crate::toasts::tell_refused("The build note was not marked", refusal, cx),
+                        Failed::Unanswered(why) => crate::toasts::tell(why, cx),
+                    });
                     cx.notify();
                 }
             });
@@ -539,7 +543,7 @@ impl BuildNotesSheet {
         cx.notify();
         let key = NoteKey::of(&note);
         let body = encoded(&ipc::SendBuildNoteFeedback { branch: note.branch.clone(), tip: note.tip.clone(), words });
-        let task: Task<Result<BuildNoteFeedbackSent, String>> = post(port, SEND_FEEDBACK, body, "BuildNoteFeedbackSent", cx);
+        let task: Task<Result<BuildNoteFeedbackSent, Failed>> = post(port, SEND_FEEDBACK, body, "BuildNoteFeedbackSent", cx);
         self.work = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -553,9 +557,11 @@ impl BuildNotesSheet {
                         crate::toasts::job_started(sent.session_id.as_str(), sent_said(&note.title, &sent), cx);
                     }
                     Err(why) => {
-                        Note::warn("Fleet refused the feedback").field("route", SEND_FEEDBACK).field("why", why.as_str()).emit();
+                        Note::warn("Fleet refused the feedback").field("route", SEND_FEEDBACK).field("why", why.to_string()).emit();
+                        let told = why.clone();
+                        cx.defer(move |cx| told.tell_refusal("The feedback was not sent", cx));
                         if this.chosen.as_ref() == Some(&key) {
-                            this.refused = Some(why.into());
+                            this.refused = Some(why.to_string().into());
                         }
                     }
                 }
@@ -578,18 +584,11 @@ fn encoded(value: &impl serde::Serialize) -> String {
     ipc::encode(value).unwrap_or_default()
 }
 
-/// `POST path` off the main thread: the answer as `what` reads it, or Fleet's own sentence for a refusal.
-fn post<T: DeserializeOwned + Send + 'static>(port: u16, path: &'static str, body: String, what: &'static str, cx: &App) -> Task<Result<T, String>> {
+/// `POST path` off the main thread: the answer as `what` reads it, or Fleet's refusal kept whole.
+fn post<T: DeserializeOwned + Send + 'static>(port: u16, path: &'static str, body: String, what: &'static str, cx: &App) -> Task<Result<T, Failed>> {
     cx.background_spawn(async move {
-        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())?;
-        let (status, bytes) = runtime.block_on(crate::transport::post(port, path, body))?;
-        if !(200..300).contains(&status) {
-            return Err(match ipc::decode::<ipc::WireError>("WireError", &bytes) {
-                Ok(error) => error.message,
-                Err(_) => format!("Fleet answered {status}"),
-            });
-        }
-        ipc::decode::<T>(what, &bytes).map_err(|why| why.to_string())
+        let bytes = crate::refusal::post(port, path, body)?;
+        ipc::decode::<T>(what, &bytes).map_err(|why| Failed::from(why.to_string()))
     })
 }
 

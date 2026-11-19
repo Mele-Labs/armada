@@ -16,6 +16,7 @@ import type { AllWriteClashes } from "./clashes";
 import type { CallsChanged } from "./standing-calls";
 import type { ForYouChanged } from "./for-you";
 import type { ReviewRun } from "./review-runs";
+import type { ReviewListsChanged } from "./pull-reviews";
 import type { ReviewWalk } from "./review-walks";
 import type { ModList } from "./mods";
 import type { SettingsList } from "./settings";
@@ -103,6 +104,10 @@ export type Event =
       kind: "review_run.changed";
       run: ReviewRun;
     }
+  /** The read behind kept Reviews lists ended: the fresh lists whole, or why none. Not replayed; `get_review_lists` answers the kept lists again. */
+  | ({
+      kind: "review_lists.changed";
+    } & ReviewListsChanged)
   /** A held walk moved: checking out, starting, ready, failed or closed, whole. Not replayed. */
   | {
       kind: "review_walk.changed";

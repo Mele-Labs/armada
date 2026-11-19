@@ -15,6 +15,7 @@ fn item(id: &str, approves: bool) -> KeptWaiting {
         steps: Vec::new(),
         approves,
         artifact: String::new(),
+        act_on: String::new(),
     }
 }
 
@@ -40,6 +41,7 @@ fn an_item_asking_for_his_approval_keeps_the_mark_open_closed_and_reopened() {
         closed_at: "2026-11-10T10:00:00.000Z".into(),
         approves: true,
         artifact: String::new(),
+        act_on: String::new(),
     };
     store.keep_closed_waiting("s1", &closed).unwrap();
     drop(store);

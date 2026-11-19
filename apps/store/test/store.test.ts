@@ -31,9 +31,11 @@ const answered = async (answer: Response) => (await answer.json()) as Answered;
 
 /** Sets when each holder last renewed, as though that many seconds had passed since. */
 async function renewedAgo(account: number, ago: Record<string, number>) {
-  await runInDurableObject(accountObject(account), (_instance, state) => {
+  await runInDurableObject(accountObject(account), (instance, state) => {
     for (const [id, seconds] of Object.entries(ago))
       state.storage.sql.exec("UPDATE holders SET renewed = ? WHERE id = ?", now() - seconds, id);
+    // Moving a renewal earlier is a write the object never makes, so it is told.
+    instance.forget();
   });
 }
 
@@ -268,13 +270,14 @@ async function contendersLeft(account: number): Promise<string[]> {
 
 /** Sets when each contender last asked, as though that many seconds had passed since. */
 async function askedAgo(account: number, ago: Record<string, number>) {
-  await runInDurableObject(accountObject(account), (_instance, state) => {
+  await runInDurableObject(accountObject(account), (instance, state) => {
     for (const [id, seconds] of Object.entries(ago))
       state.storage.sql.exec(
         "UPDATE contenders SET at = ? WHERE contender_id = ?",
         now() - seconds,
         id,
       );
+    instance.forget();
   });
 }
 
