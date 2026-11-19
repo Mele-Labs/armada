@@ -1,0 +1,18 @@
+[operations.get_usage_adjustments]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The settings that change the token burn, each with what a change would save over the last day, week or fortnight, and the changes already made with the waste before and since"
+notes = """
+`GET /usage/adjustments?window=`. `UsageAdjustments` for the last `day`, `week` or `fortnight` up to now; `window` defaults to `week`. Answers `settings` and `changes`.
+
+`settings` is a row for each setting the Usage page changes in place: `{ key, label, now, choices, suggested?, cuts, saves_share? }`. `key` is the settings.json path. **`now`, `suggested` and each choice's `value` are what `save_settings` takes for the key**, a word or a number, so a change is `POST /settings/save` with `{ "changes": { key: value } }` and nothing else. A `label` is a person's words: `5 min`, `1 hour`, `250k`. `cuts` is the id of the waste kind it cuts, as `get_usage_waste` names it: `tokens.subagentCacheTtl` cuts `cold_cache`, `tokens.compactionWindow` cuts `main_context`, and `timeouts.sessionQuietSeconds` cuts `fresh_starts`. `saves_share` is the share, 0 to 1, of the window's whole burn a change to `suggested` would save, priced from the window's own requests; it and `suggested` are absent where Fleet cannot say, as for `timeouts.sessionQuietSeconds`, which it does not estimate.
+
+`changes` is the changes to those keys that came into force in the last thirty days, newest first and no more than six: `{ key, label, from, to, at, cuts, before_share, since_share?, since_days }`. `from` and `to` are labels. `before_share` is the `cuts` kind's share of the burn over the seven days before `at`, `since_share` the same share from `at` to now, absent until a day has passed, and `since_days` the days from `at` to now. A key saved to the value it already held is no change. A change made by a hand edit of settings.json is kept as a save is.
+
+422 `fleet.session_unnamed` for a window that is none of the three. **Names and figures only.** A setting that applies at a restart is saved and answered like any other, and is in force once Fleet starts again; `get_settings` says which.
+
+**Served from memory for 5 minutes** from when each window's answer was made, and dropped at once by a change to one of the three keys, so a page that has just saved reads what it saved. The sums are made off the store's lock. `docs/practices/protocol.md`, *Settings that change the burn*.
+
+`agent_access` is `Yes`: an agent asked what would cut the week's burn reads it here. Changing a setting is `save_settings`, which is on the owner's words.
+"""

@@ -28,6 +28,10 @@ What each kind is, how its cost is counted and the order a request's burn is han
 | `causes` | The Job's three largest causes, largest first: `{ name, units }`. For `repeat_reads` a `name` is a file path as the Read named it, and for `big_results` a tool's name, such as `mcp__armada-fleet__waiting_for`. Absent for every other kind, and `units` adds up, before the cut, to the Job's `units` |
 | `jobs` | The thirty Jobs the kind hit most, largest first: `{ session_id, units, occurrences, peak_context?, causes? }`. `peak_context` is the most context one counted request held, and is carried by the two context kinds only. `causes` is carried by `repeat_reads` and `big_results` only |
 
+**Fresh for five minutes.** Fleet keeps each window's answer in memory and serves it for 5 minutes from when it was made, so a read inside that time is the same answer, with the same `until`, and a client that asks every minute sees it move every fifth.
+The sums are made on a connection of their own that only reads, so a read made after the five minutes does not hold up any other request.
+A refusal is not kept. Nothing drops the answer before its five minutes are out.
+
 **Skew.** A Fleet that predates this answers 404, and the page offers no Waste view; a Bridge that predates it never asks.
 
 **The kinds this adds.** `repeat_reads`, "Same file read again": a Read of lines of a file the same thread already read (the lines overlap, where no lines is the whole file), with no compaction and no edit of the file by that thread between, costed as the repeat result's tokens (bytes over 4) out of the input and writes of the request that carried it, and again as the same tokens read from the cache by each later request of the thread until its next compaction.

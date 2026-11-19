@@ -74,8 +74,10 @@ pub fn preview_offers() -> ipc::PreviewOffers {
             why: None,
             files: Vec::new(),
             in_build: false,
+            mac: None,
         }],
         refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")] }),
+        left_out: Vec::new(),
     }
 }
 
@@ -140,6 +142,7 @@ pub fn fleet_build() -> ipc::FleetBuildReport {
         origin: Vec::new(),
         holds: Vec::new(),
         blocked: None,
+        refresh: None,
     }
 }
 

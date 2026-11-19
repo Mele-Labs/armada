@@ -133,7 +133,7 @@ pub(super) const NOT_IN_PREVIEW: &str = "Not in your preview yet";
 pub(super) const NOT_IN_PREVIEW_TIP: &str = "The running preview does not hold this build yet";
 
 /// What a build says while Fleet is still merging and compiling its offer: Refresh preview cannot take it yet.
-pub(super) const CHECKING_FOR_PREVIEW: &str = "Checking for your preview";
+pub(super) const CHECKING_FOR_PREVIEW: &str = "Checking that the build will work";
 
 /// What a build says once Fleet's check failed its offer.
 pub(super) const OFF_PREVIEW_LIST: &str = "Off the preview list";
@@ -444,11 +444,10 @@ impl JobView {
         }
     }
 
-    /// The stage of a preview rebuild under way, whichever Refresh preview started it: Fleet's one build report says so, so every
-    /// key and card reads the same. `None` while no rebuild runs.
-    pub(super) fn preview_refreshing(&self, cx: &App) -> Option<&'static str> {
-        let build = self.fleet.as_ref()?.read(cx).held().build.as_ref()?;
-        (build.restarting == Some(ipc::BuildSource::Preview)).then(|| build.stage.map_or("Refreshing", crate::titlebar::stage_word))
+    /// The preview rebuild under way, whichever Refresh preview started it, on this Mac or another: Fleet's one build report says
+    /// so, so every key and card reads the same. `None` while no rebuild runs.
+    pub(super) fn preview_refreshing(&self, cx: &App) -> Option<crate::titlebar::Refreshing> {
+        crate::titlebar::refreshing(self.fleet.as_ref()?.read(cx).held().build.as_ref()?)
     }
 
     /// Where a build stands against the preview, read against the offers Fleet last listed.
@@ -460,7 +459,13 @@ impl JobView {
     /// builds. Off, with why, while no build here is ready for it, so a press never rebuilds without the branch.
     fn refresh_strip(&self, key: &str, keys: RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
         let offers = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().offers.as_ref());
-        let line: SharedString = if keys.ready { crate::titlebar::refresh_said(offers).into() } else { keys.why.clone() };
+        let macs = crate::pairing::macs(cx);
+        let started = self.preview_refreshing(cx).and_then(|now| now.started_said(macs));
+        let line: SharedString = match started {
+            Some(started) => started.into(),
+            None if keys.ready => crate::titlebar::refresh_said(offers, macs).into(),
+            None => keys.why.clone(),
+        };
         div()
             .id(SharedString::from(format!("ready-refresh:{key}")))
             .flex()
@@ -489,7 +494,8 @@ impl JobView {
     /// press here or anywhere else, it reads Refreshing with its stage and takes no press.
     fn refresh_preview_keys(&self, key: &str, keys: &RefreshKeys, look: &Look, cx: &Context<Self>) -> AnyElement {
         use crate::titlebar::parts::{Btn, Weight};
-        if let Some(stage) = self.preview_refreshing(cx) {
+        if let Some(now) = self.preview_refreshing(cx) {
+            let stage = now.tip(crate::pairing::macs(cx));
             let ink = look.color(token::FG_MUTED);
             return labelled(
                 act(look, format!("refresh-preview:{key}"), "Refreshing", Kind::Secondary, "", true)

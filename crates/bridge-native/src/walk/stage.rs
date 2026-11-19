@@ -662,6 +662,7 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             crate::toasts::refused_too_large(cx);
             Ok(())
         }
+        Verb::Answer(name) if name.starts_with("toasts-") => super::toasts::scene(&name["toasts-".len()..], cx).map_err(Missed),
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
                 // A name the page does not know is the dispatch screen's, where the whole app is in the walk.

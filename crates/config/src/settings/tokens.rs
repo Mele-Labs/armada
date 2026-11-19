@@ -2,9 +2,12 @@
 //! for, and which of the person's skills and connectors a repository's Jobs start without.
 //! Each is read when a Job starts, so a change reaches the Jobs started after it.
 
-use super::{Applies, Entry, Flag, Integer, Json, Kind, Section, Shipped};
+use super::{Applies, Entry, Flag, Integer, Json, Kind, Options, Section, Shipped, Words};
 
 pub const COMPACTION_WINDOW: Integer = Integer("tokens.compactionWindow");
+/// How long a subagent's prompt cache is held: `5m` or `1h`. `docs/concepts/session/where-the-tokens-went.md`, *Settings that change it*.
+pub const SUBAGENT_CACHE_TTL: Words = Words("tokens.subagentCacheTtl");
+pub const SUBAGENT_CACHE_TTLS: &[&str] = &["5m", "1h"];
 pub const SUMMARY_SHORT_CACHE: Flag = Flag("tokens.summaryShortCache");
 pub const SUMMARY_THINKING: Flag = Flag("tokens.summaryThinking");
 /// A trial, shipped off. `docs/concepts/session/where-the-tokens-went.md`, *A Job compacted while it waits*.
@@ -26,6 +29,18 @@ pub(super) const TOKENS: &[Entry] = &[
         shipped: Shipped::Integer(250_000),
         applies: Applies::Live,
         row: Some("token-compaction-window"),
+        env: None,
+        tip: None,
+    },
+    Entry {
+        key: SUBAGENT_CACHE_TTL.0,
+        section: Section::TokenUse,
+        title: "Subagent cache length",
+        description: "How long a subagent's prompt cache is held. An hour costs more to write and survives a pause between a subagent's requests, where five minutes writes the whole context again after one.",
+        kind: Kind::Choice(Options::Fixed(SUBAGENT_CACHE_TTLS)),
+        shipped: Shipped::Text("5m"),
+        applies: Applies::Live,
+        row: Some("token-subagent-cache-ttl"),
         env: None,
         tip: None,
     },

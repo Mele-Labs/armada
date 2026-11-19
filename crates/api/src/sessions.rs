@@ -1086,6 +1086,13 @@ pub(crate) async fn get_usage_waste<D: Sessions>(State(served): State<Served<D>>
     }
 }
 
+pub(crate) async fn get_usage_adjustments<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WasteWindow>) -> Response {
+    match served.daemon().get_usage_adjustments(which.window).await {
+        Ok(adjustments) => answer(StatusCode::OK, &adjustments, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// `?session_id=` on `get_job_time`.
 pub(crate) async fn get_job_time<D: Sessions>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
     match served.daemon().get_job_time(ipc::SessionId::carried(which.session_id)).await {

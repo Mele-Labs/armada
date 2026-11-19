@@ -80,6 +80,9 @@ where
             return self.updated_here(Onto { build: asked.build.unwrap_or(BuildSource::Main), at }, None).await;
         };
         let mac = self.mac_named(&mac)?;
+        if asked.this_mac_too {
+            self.refresh_unclaimed()?;
+        }
         if !asked.this_mac_too {
             let onto = self.onto_this_build().await;
             return self.other_mac_updated(&mac, onto).await;
@@ -102,7 +105,11 @@ where
             BuildSource::Preview => self.push_as().await.map(|me| vec![String::from("--push-as"), me]).unwrap_or_default(),
             BuildSource::Main => Vec::new(),
         };
-        self.change_fleet_build_now(asked, &extra).await
+        let changing = self.change_fleet_build_now(asked, &extra).await?;
+        if !extra.is_empty() {
+            self.refresh_pressed(None).await;
+        }
+        Ok(changing)
     }
 
     /// This Mac's id, where another Mac is linked to share a preview with.
@@ -116,6 +123,8 @@ where
     /// preview it merges.
     async fn updated_here(&self, onto: Onto, tell: Option<&str>) -> Result<FleetBuildChanging, Refusal> {
         let mut extra = Vec::new();
+        // A press, and not a build another Mac asked for: the claim is the pressing Mac's.
+        let pressed = onto.build == BuildSource::Preview && onto.at.is_none() && !api::via().is_some_and(|via| via.as_wire() == api::MAC);
         match (&onto.build, onto.at) {
             (BuildSource::Preview, Some((commit, branch))) => extra.extend([String::from("--at"), commit, String::from("--ref"), branch]),
             (BuildSource::Preview, None) => {
@@ -132,7 +141,11 @@ where
             }
             (BuildSource::Main, _) => {}
         }
-        self.change_fleet_build_now(&ChangeFleetBuild { build: onto.build, adopt: true, clear: None }, &extra).await
+        let changing = self.change_fleet_build_now(&ChangeFleetBuild { build: onto.build, adopt: true, clear: None }, &extra).await?;
+        if pressed && !extra.is_empty() {
+            self.refresh_pressed(tell).await;
+        }
+        Ok(changing)
     }
 
     /// The build this Mac runs, as another Mac would build it: main, or this Mac's pushed preview.

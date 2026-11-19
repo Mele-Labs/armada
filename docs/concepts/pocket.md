@@ -408,11 +408,19 @@ The other Mac is asked over the link, the one call a frozen link carries.
 |---|---|
 | Update on an `older_build` row | The other Mac, onto this Mac's build: main, or this Mac's preview at its pushed commit |
 | Update on a `newer_build` row | This Mac, onto the build the other Mac last said it runs |
-| Refresh preview, this Mac and the other | Both. This Mac merges its preview, pushes the commit to `preview/<this Mac>` on origin, asks the other Mac to build exactly that commit, and restarts onto it |
+| Refresh preview, this Mac and the other | Both. This Mac merges the ready offers of both Macs, pushes the commit to `preview/<this Mac>` on origin, asks the other Mac to build exactly that commit, and restarts onto it |
 | Restart onto main, this Mac and the other | Both, each fetching main for itself |
 
 **A preview is pushed so both Macs build the same commit.** A preview refresh on a Mac with another linked pushes its merged commit to `preview/<this Mac>`, and the other Mac fetches that branch and builds the commit, merging nothing of its own.
 The `ci` workflow runs on pull requests and `main` alone, so a push there starts nothing.
+
+**A Refresh takes every Mac's ready offers.** Each Mac shares its ready offers with the other over the link, and only once their branches are on origin: Fleet pushes an offered branch when its check passes, since the other Mac merges a tip it holds or fetches it.
+The Mac he presses on checks both Macs' offers together before the press, so the later offered of two that clash fails with its files and its Job is told, and each Mac reaches the same answer.
+A Mac asleep, frozen, on another build or never heard from has its offers left out, and the Refresh line and the Refresh row say so by name.
+
+**A Refresh is claimed, so both Macs show it running.** The pressing Mac tells the other as the restart moves through its stages, and each Mac's Refresh keys, switcher and Ready to try cards read Refreshing with the stage and the Mac that started it, and take no second press.
+The claim is held in memory, ends with the build, and lapses after twenty quiet minutes.
+While Fleet is merging and compiling an offer, the card reads *Checking that the build will work*.
 The body and its refusals are [update_mac](../../crates/ipc/operations/update_mac.toml).
 
 **Acting across Macs.** The phone's routes cover what the phone does. A Mac can also message, answer, approve a plan, stop and merge a Job the other Mac holds, and start a Job there.

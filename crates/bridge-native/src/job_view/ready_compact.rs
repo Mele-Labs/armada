@@ -487,6 +487,26 @@ mod tests {
         assert!(refresh_in(cx, "Ready to try") && !drawn(cx, Role::Status, "Refreshing"), "Fleet back on the new build, the key is Refresh preview again");
     }
 
+    const CLAIMED: &str = r#"{"on":"preview","refresh":{"mac":"air","name":"Air","stage":"building_fleet","at":"2026-11-19T09:00:00Z"}}"#;
+
+    #[gpui::test]
+    fn a_refresh_another_mac_started_reads_refreshing_on_the_card_and_takes_no_press_until_it_is_cleared(cx: &mut gpui::TestAppContext) {
+        let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
+        cx.update(|_, cx| crate::pairing::hold(crate::pairing::mock_macs(true), cx));
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview"}"#), cx));
+        redraw(cx);
+        assert!(key_in(cx, "Refresh both Macs", "Ready to try"), "with no claim the card offers Refresh both Macs");
+        // The claim alone: this Mac has no restart under way, so only the claim says the other Mac pressed.
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(CLAIMED), cx));
+        redraw(cx);
+        assert!(!key_in(cx, "Refresh both Macs", "Ready to try"), "no second press while another Mac's Refresh stands");
+        assert!(drawn(cx, Role::Status, "Refreshing"), "the card's key reads Refreshing");
+        assert!(drawn(cx, Role::Status, "Started on Air"), "and names the Mac that started it");
+        fleet.update(cx, |fleet, cx| fleet.build_said(build_report(r#"{"on":"preview"}"#), cx));
+        redraw(cx);
+        assert!(key_in(cx, "Refresh both Macs", "Ready to try") && !drawn(cx, Role::Status, "Refreshing"), "claim cleared, the key is Refresh both Macs again");
+    }
+
     #[gpui::test]
     fn a_rebuild_onto_main_leaves_refresh_preview_as_it_is(cx: &mut gpui::TestAppContext) {
         let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
@@ -843,9 +863,13 @@ mod tests {
 
     /// Whether a Refresh preview button is drawn inside the labelled element whose name starts with `inside`.
     fn refresh_in(cx: &mut gpui::VisualTestContext, inside: &str) -> bool {
+        key_in(cx, "Refresh preview", inside)
+    }
+
+    fn key_in(cx: &mut gpui::VisualTestContext, key: &str, inside: &str) -> bool {
         cx.update(|window, cx| {
             let id = window.window_handle().window_id();
-            cx.global::<crate::labels::LabelBook>().drawn(id).iter().any(|one| one.role == Role::Button && one.name == "Refresh preview" && one.path.iter().any(|name| name.starts_with(inside)))
+            cx.global::<crate::labels::LabelBook>().drawn(id).iter().any(|one| one.role == Role::Button && one.name == key && one.path.iter().any(|name| name.starts_with(inside)))
         })
     }
 
@@ -935,7 +959,7 @@ mod tests {
     fn a_build_fleet_is_still_checking_says_so_and_its_refresh_is_off(cx: &mut gpui::TestAppContext) {
         let (fleet, cx) = on_screen_over_fleet(cx, "tool-edit");
         offers_held(&fleet, offers_of(SHOT, "checking", None), cx);
-        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Checking for your preview")), "its row says Fleet is still checking it");
+        assert!(drawn(cx, Role::Button, &format!("{SHOT}, Checking that the build will work")), "its row says Fleet is still checking it");
         assert!(!drawn(cx, Role::Button, &format!("{SHOT}, Not in your preview yet")), "not a word that sends him to Refresh");
         assert!(refresh_in(cx, "Ready to try"), "Refresh stands where he looks for it");
         assert!(drawn(cx, Role::Status, CHECKING_TIP), "off, and under it why");

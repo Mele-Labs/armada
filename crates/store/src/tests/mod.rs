@@ -57,6 +57,7 @@ mod bug_reports;
 mod other_macs;
 mod usage_summary;
 mod usage_spent;
+mod usage_adjust;
 mod usage_waste;
 mod session_plan;
 mod session_focus;

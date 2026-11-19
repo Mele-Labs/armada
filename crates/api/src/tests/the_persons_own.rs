@@ -112,6 +112,7 @@ fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
     vec![
         ("PUT", "/other_macs/sessions", r#"{"mac":"mac-work","sessions":[]}"#.to_string()),
         ("PUT", "/other_macs/bug_reports", r#"{"mac":"mac-work","reports":[]}"#.to_string()),
+        ("PUT", "/other_macs/preview_offers", r#"{"mac":"mac-work","offers":[]}"#.to_string()),
         ("POST", "/other_macs/event", ipc::encode(&event).expect("encodes")),
         ("POST", "/other_macs/forget", r#"{"mac":"mac-work"}"#.to_string()),
         ("PUT", "/other_macs/claims", r#"{"claims":[]}"#.to_string()),
