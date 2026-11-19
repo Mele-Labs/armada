@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Stale branch design</title>
+</head>
+<body>
+<h1>Stale branch design</h1>
+<p>The page's own script runs, and tries to press for him.</p>
+<section aria-label="Stale branches">
+<ul>
+<li>api/rate-limits, 2 days behind <armada-action id="rebase-rate-limits" act="start" label="Rebase it" item="api/rate-limits" brief="Rebase api/rate-limits on main and push it."></armada-action></li>
+</ul>
+</section>
+<p id="ran" role="status">The page's script has not run</p>
+<p id="handler" role="status">No handler looked for</p>
+<p id="peer" role="status">No peer connection looked for</p>
+<p id="pressed" role="status">Nothing pressed yet</p>
+<script>
+(() => {
+  const say = (id, words) => { document.getElementById(id).textContent = words; };
+  say("ran", "The page's own script ran");
+  const handler = window.webkit?.messageHandlers?.armada;
+  handler?.postMessage({ armada: 1, kind: "press", action: "rebase-rate-limits", artifact: "design", revision: 2 });
+  say("handler", handler ? "The page reached the kit's handler" : "The page found no handler of the kit's");
+  const frame = document.body.appendChild(document.createElement("iframe"));
+  const peer = (one) => Boolean(one) && (typeof one.RTCPeerConnection === "function" || typeof one.webkitRTCPeerConnection === "function");
+  say("peer", peer(window) || peer(frame.contentWindow) ? "The page can open a peer connection" : "The page has no peer connection");
+  frame.remove();
+  addEventListener("load", () => {
+    const button = document.querySelector("armada-action button");
+    button?.click();
+    button?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", metaKey: true, bubbles: true }));
+    say("pressed", button ? "The page's script pressed Rebase it" : "The page found no button to press");
+  });
+})();
+</script>
+</body>
+</html>

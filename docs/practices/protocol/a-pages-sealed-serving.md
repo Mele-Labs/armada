@@ -43,6 +43,9 @@ Its every other wall is the same, so the page still fetches nothing, submits not
 **No nonce is served on this path.** A page script can read a nonce off any tag and hand it to a `<script src>` of its own, which the policy would then fetch.
 A hash allows only the text it was made of.
 The kit's script is left out: the host draws the kit itself in a content world the page cannot reach. The record stays.
+The native Bridge runs `page_kit.js` in its `armada-kit` world, with the kit's handler and its answers in that world alone.
+The kit counts only his own presses (`event.isTrusted`), so a page script's `click()` or key presses nothing; a walk's press reaches it through `armadaHostPress`, which only that world holds.
+Bridge also takes WebRTC out of the page's world before its scripts run, and turns DNS prefetching off, since the policy governs neither.
 An `<armada-sketch>` is not drawn on a sealed page.
 
 **The record** is `<script type="application/json" id="armada-page-record" nonce="<n>">` holding `{ artifact, revision, presses, votes }`: each `PagePress` made on this revision or an earlier one whose action is still on it, and the newest `VoteCast` per vote cast on this revision or an earlier one where that vote is still on it in the same form with the takes the cast names.

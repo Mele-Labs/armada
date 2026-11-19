@@ -347,8 +347,13 @@ mod tests {
     /// The page the native Bridge's mock Fleet serves, before it is sealed: a message, a start, an answer and a refused
     /// answer, a pick and a score.
     const SOURCE: &str = include_str!("../../../bridge-native/fixtures/page-actions-source.html");
-    /// The sealed page, which the native mock reads as Fleet's answer to `get_artifact_page`.
-    const SEALED: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../bridge-native/fixtures/page-actions.html");
+    /// The pages the native mock reads as Fleet's answer to `get_artifact_page` with `host_kit`, each from its source and
+    /// with the record the mock swaps: the page above, its sketches page, and a page whose own script tries to press.
+    const NATIVE: [(&str, &str, &str); 3] = [
+        (SOURCE, "page-actions.html", r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#),
+        (include_str!("../../../bridge-native/fixtures/page-sketches-source.html"), "page-sketches.html", r#"{"artifact":"marks","revision":1,"presses":[],"votes":[]}"#),
+        (include_str!("../../../bridge-native/fixtures/page-scripts-source.html"), "page-scripts.html", r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#),
+    ];
 
     /// A page with no style of its own reads in the app's sans and its form controls take the accent, never the
     /// browser's serif and grey radios.
@@ -372,18 +377,20 @@ mod tests {
         assert!(none.contains("script-src 'none';"), "{none}");
     }
 
-    /// **The native mock's page is sealed by this code, never written by hand**, so a native walk drives the kit Fleet
-    /// ships. `ARMADA_WRITE_NATIVE_PAGE=1` writes it again; without it, the kit in it must be today's.
+    /// **The native mock's pages are sealed by this code, never written by hand**, as the native Bridge asks for them
+    /// (`host_kit`), so a native walk runs the page's scripts under the policy Fleet ships and draws the kit itself.
+    /// `ARMADA_WRITE_NATIVE_PAGE=1` writes them again; without it, each must be today's.
     #[test]
     fn the_native_mock_page_is_sealed_as_fleet_seals_it() {
-        // The record the native mock swaps for the presses and votes it kept, as Fleet's own record is written.
-        let record = r#"{"artifact":"design","revision":2,"presses":[],"votes":[]}"#;
-        let page = sealed(SOURCE, "bmF0aXZlLW1vY2stcGFnZQ==", record);
-        if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
-            std::fs::write(SEALED, &page).expect("the native mock's page is written");
+        for (source, name, record) in NATIVE {
+            let path = format!("{}/../bridge-native/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
+            let (page, _) = hosted(source, record);
+            if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
+                std::fs::write(&path, &page).expect("the native mock's page is written");
+            }
+            let kept = std::fs::read_to_string(&path).expect("the native mock's page is there");
+            assert_eq!(kept, page, "{name} is not sealed as Fleet seals it today: write it again with ARMADA_WRITE_NATIVE_PAGE=1");
+            assert!(!kept.contains(KIT_SCRIPT) && kept.contains(record), "{name}: the host draws the kit, and the mock finds the record it swaps");
         }
-        let kept = std::fs::read_to_string(SEALED).expect("the native mock's page is there");
-        assert!(kept.contains(KIT_SCRIPT), "the native mock's page carries another kit: write it again with ARMADA_WRITE_NATIVE_PAGE=1");
-        assert!(kept.contains(record), "the native mock finds the record it swaps");
     }
 }
