@@ -30,6 +30,14 @@ pub trait Features: Send + Sync + 'static {
         section: Option<String>,
     ) -> impl Future<Output = Result<ipc::FeaturePage, Refusal>> + Send;
 
+    /// `get_glossary` — the project's terms, each with the words that should not be used for it. Placed as `list_features`
+    /// is.
+    fn get_glossary(
+        &self,
+        caller: Option<crate::Caller>,
+        project: Option<String>,
+    ) -> impl Future<Output = Result<ipc::Glossary, Refusal>> + Send;
+
     /// `get_project_overview` — the project's README sentence, code map, busiest features and glossary.
     fn get_project_overview(
         &self,

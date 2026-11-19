@@ -18,7 +18,7 @@ import type {
   StartSessionRun,
   StartWaitingNow,
   TuneSession,
-} from "@armada/protocol";
+} from "./wire";
 
 import { mediaKindOf, type ShownMedia } from "@armada/components";
 

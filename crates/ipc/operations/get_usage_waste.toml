@@ -1,0 +1,10 @@
+[operations.get_usage_waste]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "The token waste Fleet can name over the last day, week or fortnight, by kind, with its cost, the Jobs it hit and a fix"
+notes = """
+`GET /usage/waste?window=`. `UsageWaste` for the last `day`, `week` or `fortnight` up to now; `window` defaults to `week`. Answers `until`, `window` (`{ id, since, until }`), `total_units` (the window's whole burn, as `get_usage_summary` weighs it), `waste_units` (the kinds added up) and `kinds`, largest first, left out where a kind found nothing. A kind is `{ kind, title, fix, units, occurrences, jobs }`: `kind` is `subagent_context`, `main_context`, `cold_cache`, `fresh_starts`, `repeat_reads` or `big_results`, `title` and `fix` are Fleet's sentences, and `jobs` are the thirty Jobs it hit most, largest first, each `{ session_id, units, occurrences, peak_context?, causes? }`. `peak_context` is carried by the two context kinds only, and `causes`, the Job's three largest `{ name, units }`, by `repeat_reads` (files) and `big_results` (tools: for example `mcp__armada-fleet__waiting_for`). **No unit is in two kinds**: a request's burn goes first to its cold cache writes, then to what a fresh start held as start-up, then to the results it carried that were waste (a file read again, then a result past 20 KB), then, of what is left, to the part of its context past 300k. 422 `fleet.session_unnamed` for a window that is none of the three. **Names and counts only**, and the file a Read touched.
+
+`agent_access` is `Yes`: an agent asked what wasted the week's tokens reads it here. The Usage page's Waste view reads the same answer.
+"""

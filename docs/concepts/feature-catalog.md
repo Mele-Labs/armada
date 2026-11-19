@@ -9,7 +9,7 @@ A Job that touches a feature is handed its page before it reads code, and writes
 
 A Job is started on "Voting on takes".
 Before it has searched the code, it holds a page of about a thousand tokens: the files to open first, the command that tests it, the bugs open on it, and which sections are stale.
-When the Job's pull request has merged, Fleet knows which features its files belong to, and `all_done` waits for the Job to say how each of them tests, runs, is observed and what debt it carries.
+When the Job has pushed, `all_done` waits for the Job to say how each feature its commits name tests, runs, is observed and what debt it carries.
 
 ## What a feature holds
 
@@ -173,12 +173,14 @@ A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's wr
 
 ## Holding a Job's end
 
-> **Rule.** `all_done` is refused while the Job's merged or pushed work changed files of a feature whose four sections it has not written since it started.
+> **Rule.** `all_done` is refused while a feature the Job's commits name in their `Feature:` line has a section the Job has not written since it started.
 > Why: only the Job that did the work knows how the feature runs now, and a page nobody rewrites goes stale in silence.
 
 The refusal is 409 `fleet.feature_sections_owed`.
 It names each feature and the sections owed, one feature to a line.
-A Job whose work changed no feature's files is never held, and neither is a Job with nothing pushed.
+A feature whose files the Job changed without naming it stays linked to the Job and is owed nothing, so a field added to a struct in thirteen files across seven features owes the one feature the commit names.
+Fleet keeps what each commit names when the commit gate lets it through, and reads the Job's `commit` links as well.
+A Job whose commits name no feature is never held, and neither is a Job with nothing pushed.
 A Job that started before a feature entered the catalog is never held for it, because approving a plan is not consent to change a Job already running.
 The person's End job is never held.
 A Job rewrites a section that is still true by writing it again as it stands.
@@ -261,7 +263,7 @@ A room no feature owns a file in has no area.
 The busiest features are the five with the most merges in the last 14 days, most first, each with its pull requests' numbers, newest first.
 A feature with no merge in the window is not listed.
 Both numbers are chosen, not measured.
-The glossary is a list of `term` and `meaning`, and is empty until it is built.
+The glossary is a list of `term` and `meaning`, read from the project's glossary (*Glossary*).
 
 ## Since you looked
 
@@ -383,6 +385,28 @@ The facts then wait: the part's next run reads from the last run that did it.
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
 
+## Glossary
+
+Each project has a glossary of its terms: the word, what it means, and the words that mean the same and should not be used.
+The librarian keeps it and Jobs fill most of it.
+A Job that introduces a word gives it as `glossary`, `{term, meaning, not}`, in the `write_feature_sections` call it makes before it ends, and no Job is ever asked for one.
+A term is unique per project without regard to case, so a later write of `take` replaces `Take`.
+`get_glossary` reads a project's terms, and each carries the Job that wrote it.
+Nothing here reads a model: the librarian's `glossary` part, not built yet, is where a model fills the gaps Jobs leave.
+
+Armada's own glossary is seeded from the lexicon and the retired terms in [Voice and copy](../contracts/design-system/voice-copy.md), with the same rule as the catalog: kept once per project, and only where a repository of the project holds the seed's marker paths.
+Only a word that means one thing in this repository is listed as one not to use, so `server`, `session`, `run`, `step` and `agent` are left out.
+A term a Job wrote before the seed was kept stays as the Job wrote it.
+
+A commit a Job is about to make is read for the `not` words of its project's glossary, in the commit's own words and not in the paths given to `git add`.
+Each word found is filed as a `glossary_flag` link on every feature the Job is on, naming the word as its target, the term to use as its title and the Job.
+The flag is kept once for a word and a Job, and it shows among the feature's links.
+
+> **Rule.** A word used against the glossary is a flag on the feature, never a refusal.
+> Why: the Job may be quoting the word, or the glossary may be the one that is wrong, and a refused commit would teach Jobs to avoid the word rather than say what they mean.
+
+Sections, pull request descriptions and other text Jobs write are not read yet.
+
 ## How it is judged
 
 Jobs on Armada should search the code less before their first edit.
@@ -403,7 +427,8 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
-| `write_feature_sections` | The calling Job writes sections of a feature |
+| `write_feature_sections` | The calling Job writes sections of a feature, and the glossary terms it introduced |
+| `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |

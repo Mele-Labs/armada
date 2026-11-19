@@ -93,6 +93,7 @@ export * from "./turn-usage";
 export * from "./usage-rules";
 export * from "./usage-summary";
 export * from "./usage-spent";
+export * from "./usage-waste";
 export * from "./time-summary";
 export * from "./session-activity";
 export * from "./session-build";

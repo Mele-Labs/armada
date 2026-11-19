@@ -1,0 +1,12 @@
+[operations.get_glossary]
+kind = "query"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Read a project's glossary: each term, what it means and the words that mean the same and should not be used. Read it before you name something new, and before you write a commit message"
+notes = """
+`GET /features/glossary?project=`, answered with `Glossary`: `project` and `terms`, each `{term, meaning, not?, job, at}`, in alphabetical order of the term. `not` is the words that mean the same and should not be used. `job` is the Job that wrote it, or `seed` where Fleet's own seed did. Left out, `project` is the one the calling Job works in.
+
+Terms are written by `write_feature_sections` with `glossary`; a term is unique per project without regard to case, and a later write replaces it. Fleet flags a Job that uses a `not` word in a commit message, on the features the Job is on; it never refuses the commit.
+
+`agent_access` is `Yes`.
+"""

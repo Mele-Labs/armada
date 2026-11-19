@@ -18,6 +18,7 @@ WebSocket event stream, read this first.
 |---|
 | [The protocol ID](protocol/the-protocol-id.md) |
 | [DTOs, not domain types](protocol/dtos-not-domain-types.md) |
+| [Pocket's wire types are generated](protocol/pockets-wire-types-are-generated.md) |
 | [Changes that read like they break nothing](protocol/changes-that-read-like-they-break-nothing.md) |
 | [What Bridge does with the ID it reads](protocol/what-bridge-does-with-the-id-it-reads.md) |
 | [Why a mismatch is dangerous here specifically](protocol/why-a-mismatch-is-dangerous-here-specifically.md) |
@@ -176,6 +177,7 @@ WebSocket event stream, read this first.
 | [The usage summary](protocol/the-usage-summary.md) |
 | [The usage rules](protocol/the-usage-rules.md) |
 | [What the burn was spent on](protocol/what-the-burn-was-spent-on.md) |
+| [The waste in the burn](protocol/the-waste-in-the-burn.md) |
 | [Where a Job's time went](protocol/where-a-jobs-time-went.md) |
 | [A question kept whole: the `kept` ask state](protocol/a-question-refused-for-a-walk-is-kept-whole.md) |
 | [Sessions are called Jobs: four tools listed under new names](protocol/sessions-are-called-jobs-four-tools-listed-under-new-names.md) |

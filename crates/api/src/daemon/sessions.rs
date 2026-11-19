@@ -834,6 +834,10 @@ pub trait Sessions: Send + Sync + 'static {
     /// left out) was spent on, and who spent it. [`Refusal::Unacceptable`] for an end that is not a time.
     fn get_usage_spent(&self, until: Option<String>) -> impl Future<Output = Result<ipc::UsageSpent, Refusal>> + Send;
 
+    /// `get_usage_waste` — the token waste Fleet can name over the last `window` (`day`, `week` or
+    /// `fortnight`; `week` where left out), by kind. [`Refusal::Unacceptable`] for any other window.
+    fn get_usage_waste(&self, window: Option<String>) -> impl Future<Output = Result<ipc::UsageWaste, Refusal>> + Send;
+
     /// `get_job_time` — where one Job's time went, with the usual of its workflow. The answer carries no
     /// time where none is kept for it. [`Refusal::Unacceptable`] for a session Fleet does not know.
     fn get_job_time(&self, session_id: ipc::SessionId) -> impl Future<Output = Result<ipc::JobTime, Refusal>> + Send;

@@ -12,6 +12,8 @@ use std::fmt;
 use serde::de::{self, Deserializer, MapAccess, SeqAccess, Visitor};
 use serde::{Deserialize, Serialize};
 
+use super::tool_calls::ToolCarried;
+
 /// What an image block is taken to cost, whatever its bytes.
 pub const IMAGE_TOKENS: u64 = 1_600;
 /// A request this long after the one before, whose cache write is larger than its cache read, found
@@ -120,6 +122,12 @@ pub struct Carry {
     /// The calls still waiting on a result, and the part each result is.
     calls: BTreeMap<String, Part>,
     compaction: Option<Compaction>,
+    /// The compactions the thread has had.
+    #[serde(default)]
+    epoch: u32,
+    /// The calls whose results were written after the last request, for the next request to carry.
+    #[serde(default)]
+    awaiting: Vec<String>,
 }
 
 impl Carry {
@@ -146,9 +154,20 @@ impl Carry {
         self.calls.insert(id, result);
     }
 
-    /// The part a call's result is, the call forgotten.
+    /// The part a call's result is, the call forgotten. The result waits for the next request to carry it.
     pub(super) fn answered(&mut self, id: &str) -> Part {
+        self.awaiting.push(id.to_string());
         self.calls.remove(id).unwrap_or(Part::OtherResults)
+    }
+
+    /// The compactions the thread has had.
+    pub(super) fn epoch(&self) -> u32 {
+        self.epoch
+    }
+
+    /// The results written since the last request, which request `id` is the first to carry.
+    pub(super) fn carried_by(&mut self, id: &str) -> Vec<ToolCarried> {
+        std::mem::take(&mut self.awaiting).into_iter().map(|tool_use_id| ToolCarried { tool_use_id, message_id: id.to_string() }).collect()
     }
 
     /// A new request, `context` its input, cache writes and cache read: how its input is shared.
@@ -186,6 +205,8 @@ impl Carry {
         self.fresh = Parts::default();
         self.started = false;
         self.calls.clear();
+        self.awaiting.clear();
+        self.epoch += 1;
         self.compaction = Some(Compaction { id, at, read });
     }
 
@@ -241,12 +262,19 @@ pub(super) fn tokens(bytes: u64) -> u64 {
 }
 
 /// Any JSON value, measured as it is decoded: the bytes of its text, an image at
-/// [`IMAGE_TOKENS`], and of a map the `type` and `command` it names at the top.
+/// [`IMAGE_TOKENS`], and of a map the `type`, `command`, `file_path`, `offset` and `limit` it names at the top.
 #[derive(Debug, Default)]
 pub(super) struct Measured {
     pub bytes: u64,
     pub kind: Option<String>,
     pub command: Option<String>,
+    /// Of a map, the `file_path` (or a notebook's `notebook_path`) it names at the top.
+    pub path: Option<String>,
+    /// Of a map, the `offset` and the `limit` it names at the top, where they are whole numbers.
+    pub offset: Option<u64>,
+    pub limit: Option<u64>,
+    /// Of a whole number, its value.
+    pub number: Option<u64>,
     /// A string that is a reminder the CLI wrote into the thread.
     pub reminder: bool,
 }
@@ -276,12 +304,12 @@ impl<'de> Visitor<'de> for Measuring {
         Ok(Measured { bytes: 4, ..Measured::default() })
     }
 
-    fn visit_i64<E: de::Error>(self, _: i64) -> Result<Measured, E> {
-        Ok(Measured { bytes: 4, ..Measured::default() })
+    fn visit_i64<E: de::Error>(self, one: i64) -> Result<Measured, E> {
+        Ok(Measured { bytes: 4, number: u64::try_from(one).ok(), ..Measured::default() })
     }
 
-    fn visit_u64<E: de::Error>(self, _: u64) -> Result<Measured, E> {
-        Ok(Measured { bytes: 4, ..Measured::default() })
+    fn visit_u64<E: de::Error>(self, one: u64) -> Result<Measured, E> {
+        Ok(Measured { bytes: 4, number: Some(one), ..Measured::default() })
     }
 
     fn visit_f64<E: de::Error>(self, _: f64) -> Result<Measured, E> {
@@ -309,13 +337,23 @@ impl<'de> Visitor<'de> for Measuring {
                     map.next_value::<de::IgnoredAny>()?;
                     measured.bytes += IMAGE_TOKENS * 4;
                 }
-                "type" | "command" => {
+                "offset" | "limit" => {
+                    let one = map.next_value::<Measured>()?;
+                    measured.bytes += one.bytes;
+                    if key == "offset" {
+                        measured.offset = one.number;
+                    } else {
+                        measured.limit = one.number;
+                    }
+                }
+                "type" | "command" | "file_path" | "notebook_path" => {
                     let Named(value, text) = map.next_value::<Named>()?;
                     measured.bytes += value.bytes;
-                    if key == "type" {
-                        measured.kind = text;
-                    } else {
-                        measured.command = text;
+                    match key.as_str() {
+                        "type" => measured.kind = text,
+                        "command" => measured.command = text,
+                        // A notebook names its file as `notebook_path`; nothing names both.
+                        _ => measured.path = text,
                     }
                 }
                 _ => measured.bytes += map.next_value::<Measured>()?.bytes,

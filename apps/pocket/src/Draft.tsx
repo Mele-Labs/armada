@@ -7,7 +7,7 @@ import { useEffect, useState } from "react";
 import { Quote, Repeat } from "lucide-react";
 import { Button, Radio, RadioGroup, Textarea, Tooltip } from "@armada/components";
 import { forgetKept, readKept } from "@armada/components/src/keep";
-import type { DeliveryChoice, SessionThread as WireThread } from "@armada/protocol";
+import type { DeliveryChoice, SessionThread as WireThread } from "./wire";
 
 import { macOf, start, useFleet } from "./fleet";
 import { actsOn, attempt, useJob } from "./jobState";

@@ -29,7 +29,7 @@ pub const UNIT_SCALE: f64 = 1_000_000.0;
 pub const TOP_SESSIONS: usize = 30;
 /// A turn's context counts as above this many tokens in the first bucket, and [`LONG_CONTEXT`] in the second.
 const WIDE_CONTEXT: u64 = 200_000;
-const LONG_CONTEXT: u64 = 300_000;
+pub(crate) const LONG_CONTEXT: u64 = 300_000;
 /// The window when the caller names no start.
 pub(crate) const DEFAULT_DAYS: u32 = 7;
 pub(crate) const STAMP: &str = "'%Y-%m-%dT%H:%M:%fZ'";

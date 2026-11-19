@@ -17,7 +17,7 @@ import type {
   WaitingItem,
   WaitingOption,
   WaitingSource,
-} from "@armada/protocol";
+} from "./wire";
 import { offeredOf, reachOfferedOf } from "@armada/screens/src/copy";
 import {
   opensPullRequests,
@@ -43,7 +43,13 @@ const NOTHING_BESIDE = {
 };
 
 export const sessionOfThread = (wire: WireThread): Session =>
-  sessionOfRecord(wire.session, wire.rows, NOTHING_BESIDE);
+  // `sessionOfRecord` still reads the hand-written record and rows, which narrow `on_your_words` and `queued` to
+  // `true`; the Rust fields are a `bool` left out when false.
+  sessionOfRecord(
+    wire.session as Parameters<typeof sessionOfRecord>[0],
+    wire.rows as Parameters<typeof sessionOfRecord>[1],
+    NOTHING_BESIDE,
+  );
 
 /** The Job a hand off linked to this one: `replaces` the Job it took the place of, `replaced_by` the one that took its place. */
 export const handedOf = (

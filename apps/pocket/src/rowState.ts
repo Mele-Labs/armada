@@ -2,7 +2,7 @@
 // `jobStateOf`'s order, with its words.
 
 import { bucketOf, limitHeldSaid, type SessionState } from "@armada/components";
-import type { HeldOpenBy } from "@armada/protocol";
+import type { HeldOpenBy } from "./wire";
 import { repairSaid, restartSaid, stoppedSaid, waitOf } from "@armada/screens/src/session-state";
 import { startsWhenSaid } from "@armada/screens/src/session-waits";
 

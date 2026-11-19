@@ -9,7 +9,7 @@ use std::collections::BTreeMap;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{CheckCommitFeature, CommitFeatureChecked};
-use store::SessionState;
+use store::{SessionState, Store};
 
 use super::reading::Loaded;
 use crate::daemon::Fleet;
@@ -65,10 +65,17 @@ where
     /// `check_commit_feature`.
     pub(super) async fn commit_feature_checked(&self, check: CheckCommitFeature) -> Result<CommitFeatureChecked, Refusal> {
         let allowed = CommitFeatureChecked { allowed: true, says: String::new(), features: Vec::new() };
-        if !gives_message(&check.command) || !adapters::feature_commits::feature_lines_in(&check.command).is_empty() {
+        self.commit_words_flagged(&check).await;
+        if !gives_message(&check.command) {
             return Ok(allowed);
         }
         let job = check.session_id.as_str().trim().to_string();
+        let named = adapters::feature_commits::feature_lines_in(&check.command);
+        if !named.is_empty() {
+            let mut store = self.store().lock().await;
+            self.naming_kept(&mut store, &job, &named);
+            return Ok(allowed);
+        }
         let store = self.store().lock().await;
         let Some(session) = store.session(&job).map_err(|why| self.ledger_fault(why))? else {
             return Ok(allowed);
@@ -102,5 +109,27 @@ where
         owning.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
         let features: Vec<String> = owning.into_iter().map(|(slug, _)| slug).collect();
         Ok(CommitFeatureChecked { allowed: false, says: refusal(&features), features })
+    }
+
+    /// The features a commit the gate let through named, kept against the Job: **what the Job owes sections for**. A slug the
+    /// library lacks is a pending feature, as a trailer's is. A repeat keeps the first naming.
+    fn naming_kept(&self, store: &mut Store, job: &str, slugs: &[String]) {
+        let Ok(Some(session)) = store.session(job) else {
+            return;
+        };
+        if session.state == SessionState::Ended {
+            return;
+        }
+        let now = self.now().as_str().to_string();
+        for project in self.projects_of_job_in(store, job) {
+            let Ok(loaded) = Loaded::read(store, &project) else {
+                continue;
+            };
+            for slug in slugs {
+                if let Some(feature) = self.feature_or_pending(store, &loaded, slug, &now) {
+                    let _ = store.keep_feature_job_named(&feature.id, job, &now);
+                }
+            }
+        }
     }
 }

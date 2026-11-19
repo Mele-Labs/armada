@@ -1,5 +1,5 @@
 import { readdirSync, readFileSync } from "node:fs";
-import type { SessionRow, WaitingItem } from "@armada/protocol";
+import type { SessionRow, WaitingItem } from "./wire";
 import { describe, expect, it, vi } from "vitest";
 
 import { homeOf, type Mac } from "./fleet";
