@@ -33,6 +33,7 @@ mod deck;
 mod delivery_line;
 mod draft_doc;
 mod dock;
+mod needs_card;
 mod done;
 mod now;
 mod open;
