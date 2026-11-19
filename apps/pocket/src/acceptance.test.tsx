@@ -2352,6 +2352,74 @@ describe("a Job's artifacts on the phone", {
       vi.restoreAllMocks();
     });
 
+    describe("a draft with no parts", () => {
+      const DRAFT = `${G7}/artifact?id=${encodeURIComponent(POOL)}`;
+      const SENT_BACK = `${G7}/artifact?id=${encodeURIComponent("draft:Check before every walk")}`;
+      const draft = async (path: string, words: string) => {
+        await open(path);
+        await vi.waitFor(() => expect(text()).toContain(words));
+      };
+
+      it("shows its text under a band that carries its state, with Approve and Ask for changes and no Dismiss", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds and who may lease one.");
+        const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+        await vi.waitFor(() => expect(head.dataset["stand"]).toBe("asking"));
+        expect(head.querySelector(".pk-bc__tile")?.getAttribute("aria-label")).toBe("Draft");
+        expect(
+          Array.from(head.querySelectorAll(".pk-reader__acts button")).map((one) =>
+            one.textContent?.trim(),
+          ),
+        ).toEqual([
+          "Approve",
+          "Ask for changes",
+        ]);
+      });
+
+      it("approves from the band, as its thread card does", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds");
+        await vi.waitFor(() => expect(inBand("Approve")).toBeTruthy());
+        await press(inBand("Approve"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/answer")).toEqual([
+            {
+              session_id: ARTIFACTS_JOB,
+              item_id: `draft:${ARTIFACTS_JOB}-7`,
+              choice: 0,
+            },
+          ]),
+        );
+      });
+
+      it("sends back from the band with the note he typed", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds");
+        await vi.waitFor(() => expect(inBand("Ask for changes")).toBeTruthy());
+        await press(inBand("Ask for changes"));
+        await typeInto(field("What should change?"), "Say who may lease one.");
+        await press(
+          Array.from(host.querySelectorAll(".pk-bc__ask-box button")).find(
+            (one) => one.textContent?.trim() === "Send",
+          ),
+        );
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/answer")).toEqual([
+            {
+              session_id: ARTIFACTS_JOB,
+              item_id: `draft:${ARTIFACTS_JOB}-7`,
+              text: "Say who may lease one.",
+            },
+          ]),
+        );
+      });
+
+      it("shows a draft he sent back with its text, its verdict and no answers", async () => {
+        await draft(SENT_BACK, "Adds a Checks step before Walk in the build workflow.");
+        const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+        await vi.waitFor(() => expect(head.dataset["stand"]).toBe("sent_back"));
+        expect(head.querySelector(".pk-bc__chip")?.textContent).toBe("Sent back");
+        expect(head.querySelector(".pk-reader__acts")).toBeNull();
+      });
+    });
+
     it("draws no Contents for a page with one heading", async () => {
       await open(`${G7}/document?page=${encodeURIComponent(AUDIT)}`);
       await vi.waitFor(() => expect(text()).toContain("Eight slot colours are in use"));
