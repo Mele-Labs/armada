@@ -699,7 +699,9 @@ Every compile runs at utility priority.
 Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
 
 **`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
-**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build (`in_build` reads the running build commit's own merges, and `Armada/preview-held` where the commit shows none).
+**`get_preview_offers` is what Bridge draws**: every offer with its state, and one Refresh row while a ready offer is not in the running build.
+`in_build` is true where the running build commit's own merges hold the branch at that tip (`Armada/preview-held` where the commit shows none), or where the tip is already under the build commit, as when the branch landed on the main the build was cut from.
+Git is asked once per build commit and tip.
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.
 `preview_offers.changed` carries the answer whole.
 

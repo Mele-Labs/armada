@@ -56,6 +56,10 @@ impl Features for FakeDaemon {
         Ok(ipc::SinceYouLooked { project: project.unwrap_or_else(|| String::from("p1")), paragraph: String::new(), features: Vec::new() })
     }
 
+    async fn get_whos_on_what(&self, _caller: Option<crate::Caller>, project: Option<String>) -> Result<ipc::WhosOnWhat, Refusal> {
+        Ok(ipc::WhosOnWhat { project: project.unwrap_or_else(|| String::from("p1")), people: Vec::new(), features: Vec::new() })
+    }
+
     async fn get_feature_brief(&self, _caller: Option<crate::Caller>, _project: Option<String>, feature: String) -> Result<FeatureBrief, Refusal> {
         Ok(FeatureBrief { feature, text: String::from("Voting on takes"), tokens: 4 })
     }

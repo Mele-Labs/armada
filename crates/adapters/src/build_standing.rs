@@ -72,6 +72,12 @@ pub fn branch_in_build(root: &str, build: &str, branch: &str) -> Option<BranchIn
     })
 }
 
+/// Whether `tip` is `build` itself or a commit under it, so a branch that reached the build through `main`
+/// counts as in it. False where git cannot say: a commit this repository does not hold.
+pub fn tip_under_build(root: &str, build: &str, tip: &str) -> bool {
+    read_in(root, "git", &["merge-base", "--is-ancestor", tip, build]).is_ok_and(|run| run.status.success())
+}
+
 /// What git can say of a build after the fact, when nothing recorded it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct BuildMade {
