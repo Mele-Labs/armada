@@ -198,6 +198,8 @@ pub struct Layer {
     pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
+    /// The session of the Operator while one runs: the picker's first choice, and none while it does not.
+    pub operator: Option<SharedString>,
     menu: Option<Menu>,
     split_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Where the card's and the All notes header's Send to job are drawn, so the picker opens beside them.
@@ -241,6 +243,7 @@ impl Layer {
             sending_session: None,
             opened: None,
             targets,
+            operator: None,
             menu: None,
             split_at: Rc::default(),
             card_at: Rc::default(),
@@ -561,7 +564,7 @@ impl Layer {
         // The saved note stays open on Send to job, so the send is all keys: Enter opens the live Jobs, ⌥1–9
         // or Enter picks one, Esc closes. With no Job live the keys wait on Start job.
         self.open_note(id, window, cx);
-        let start = if self.targets.is_empty() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
+        let start = if self.no_target() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
         window.defer(cx, move |window, cx| window.focus(&start, cx));
     }
 
@@ -586,6 +589,19 @@ impl Layer {
         self.paste = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
+    }
+
+    /// The Operator's session while one runs, as Fleet says it now.
+    pub fn set_operator(&mut self, session: Option<SharedString>, cx: &mut Context<Self>) {
+        if self.operator != session {
+            self.operator = session;
+            cx.notify();
+        }
+    }
+
+    /// Nowhere to send a note: no Job is live and no Operator runs.
+    pub(crate) fn no_target(&self) -> bool {
+        self.targets.is_empty() && self.operator.is_none()
     }
 
     /// The live Jobs the picker lists, as Fleet says them now.
@@ -647,7 +663,8 @@ impl Layer {
         for id in ids {
             self.changed(id, cx);
         }
-        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming("Sent to Job ", title, "", false) });
+        let lead = if self.operator.as_ref() == Some(&session) { "Sent to " } else { "Sent to Job " };
+        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming(lead, title, "", false) });
         cx.notify();
     }
 
@@ -736,23 +753,21 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        // Searchable by typing, and the first nine take ⌥1–9, as Classic's picker and the dispatch chips.
-        let entries: Vec<Entry> = std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
-            .chain(self.targets.iter().enumerate().map(|(at, job)| Entry::Item {
-                id: id_of(format!("job:{}", job.id)),
-                label: job.title.clone(),
-                icon: Some("square-terminal"),
-                danger: false,
-                key: (at < 9).then(|| format!("⌥{}", at + 1).into()),
-                off: None,
-            }))
-            .collect();
-        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, true, cx));
+        let entries = picker_entries(self.operator.is_some(), &self.targets);
+        let operator = self.operator.is_some();
+        let dropdown = cx.new(|cx| {
+            let menu = Dropdown::new("Send to a Job", entries, at, corner, true, cx);
+            if operator { menu.tip(OPERATOR_ROW, OPERATOR_TIP) } else { menu }
+        });
         let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             let ids = this.menu.take().map(|menu| menu.ids).unwrap_or_default();
             this.refocus(window, cx);
-            let job = id.strip_prefix("job:").and_then(|id| this.targets.iter().find(|one| one.id == id)).cloned();
+            let job = if *id == OPERATOR_ROW {
+                this.operator.clone().map(|session| Offered { id: session, title: OPERATOR_TITLE.into() })
+            } else {
+                id.strip_prefix("job:").and_then(|id| this.targets.iter().find(|one| one.id == id)).cloned()
+            };
             if job.is_some() {
                 this.send(ids, job, cx);
             }
@@ -829,6 +844,29 @@ impl Layer {
             window.focus(&focus, cx);
         }
     }
+}
+
+/// The picker's row for the Operator's session, and what it is called where the notes say where they went.
+const OPERATOR_ROW: &str = "operator";
+const OPERATOR_TITLE: &str = "Operator";
+const OPERATOR_TIP: &str = "Sends these notes to the Operator's thread";
+
+/// The picker's rows after its search: the Operator first while its session runs, then the live Jobs, the
+/// first nine rows taking ⌥1–9 as Classic's picker and the dispatch chips do.
+fn picker_entries(operator: bool, targets: &[Offered]) -> Vec<Entry> {
+    let keyed = |at: usize| (at < 9).then(|| SharedString::from(format!("⌥{}", at + 1)));
+    let first = usize::from(operator);
+    std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
+        .chain(operator.then(|| Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None }))
+        .chain(targets.iter().enumerate().map(|(at, job)| Entry::Item {
+            id: id_of(format!("job:{}", job.id)),
+            label: job.title.clone(),
+            icon: Some("square-terminal"),
+            danger: false,
+            key: keyed(first + at),
+            off: None,
+        }))
+        .collect()
 }
 
 /// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
@@ -1104,7 +1142,7 @@ impl Render for Layer {
                                 "note",
                                 "Send to job",
                                 off,
-                                self.targets.is_empty(),
+                                self.no_target(),
                                 None,
                                 self.own_job(&[id]).map(|job| job.title),
                                 Rc::clone(&self.card_at),
@@ -1167,7 +1205,7 @@ impl Layer {
                 "annotate",
                 "Send to job",
                 false,
-                self.targets.is_empty(),
+                self.no_target(),
                 pending.clone(),
                 self.own_job(&self.sendable_here()).map(|job| job.title),
                 Rc::clone(&self.split_at),
@@ -1298,6 +1336,38 @@ mod tests {
 
     fn none(_: &Path) -> bool {
         false
+    }
+
+    fn jobs() -> Vec<Offered> {
+        vec![Offered { id: "s-1".into(), title: "Fix the merge line".into() }, Offered { id: "s-2".into(), title: "Audit the docs index".into() }]
+    }
+
+    fn labels(entries: &[Entry]) -> Vec<(String, Option<String>)> {
+        entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Entry::Item { label, key, .. } => Some((label.to_string(), key.as_ref().map(|key| key.to_string()))),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[test]
+    fn the_operator_is_the_pickers_first_row_while_its_session_runs() {
+        let entries = picker_entries(true, &jobs());
+        assert!(matches!(entries[0], Entry::Search { .. }));
+        assert!(matches!(&entries[1], Entry::Item { id: "operator", icon: Some("bot"), .. }));
+        assert_eq!(
+            labels(&entries),
+            vec![("Operator".into(), Some("⌥1".into())), ("Fix the merge line".into(), Some("⌥2".into())), ("Audit the docs index".into(), Some("⌥3".into()))]
+        );
+    }
+
+    #[test]
+    fn no_operator_row_is_offered_when_none_runs() {
+        let entries = picker_entries(false, &jobs());
+        assert_eq!(labels(&entries), vec![("Fix the merge line".into(), Some("⌥1".into())), ("Audit the docs index".into(), Some("⌥2".into()))]);
+        assert!(!entries.iter().any(|entry| matches!(entry, Entry::Item { id: "operator", .. })));
     }
 
     #[test]

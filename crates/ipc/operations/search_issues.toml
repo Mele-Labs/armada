@@ -1,7 +1,7 @@
 [operations.search_issues]
 kind = "command"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Operator"
 description = "Run one query, written in a repository's tracker's own language, and list the issues it matches"
 notes = """
 `POST /issue_queries/:repository/search`, `repository` a manifest id, body `SearchIssues`: `query`. `docs/concepts/tracker.md`, *Saved queries*. Answers `IssueList` as `list_issues` does: `manifest_id`, `fetched_at`, `issues` newest edit first and at most a hundred, each a `TrackedIssue` with its `state`, `author`, `fields` and `holders`. `stale` is never set.

@@ -799,6 +799,22 @@ impl DispatchScreen {
             let targets = targets_of(list.read(cx).records());
             watched.update(cx, |layer, cx| layer.set_targets(targets, cx));
         }));
+        // The Operator's session is not in that list, so it is read from the jobs Fleet holds, where it is kept
+        // with its own flag: the picker offers it first while one runs.
+        if let Some(fleet) = list.read(cx).fleet() {
+            let operator_of = |fleet: &Entity<crate::fleet::FleetConnection>, cx: &App| -> Option<SharedString> {
+                let held = fleet.read(cx).held();
+                let running = held.jobs.iter().find(|record| record.operator && record.state == ipc::SessionState::Live && record.hosted.is_some());
+                running.map(|record| record.id.as_str().to_string().into())
+            };
+            let operator = operator_of(&fleet, cx);
+            layer.update(cx, |layer, cx| layer.set_operator(operator, cx));
+            let watched = layer.clone();
+            self._subs.push(cx.observe(&fleet, move |_, fleet, cx| {
+                let operator = operator_of(&fleet, cx);
+                watched.update(cx, |layer, cx| layer.set_operator(operator, cx));
+            }));
+        }
         self._subs.push(cx.subscribe_in(&layer, window, |this, layer, asked: &annotate::Asked, window, cx| this.send_notes(layer.clone(), asked, window, cx)));
     }
 
@@ -855,11 +871,15 @@ impl DispatchScreen {
             let answer = task.await;
             let _ = cx.update(|_, cx| match answer {
                 Ok(Sent::Into { session, title }) => {
+                    // The Operator's session is no Job in the list: he stays where he was, the bar says it was sent.
+                    let operator = layer.read(cx).operator.as_ref().is_some_and(|operator| **operator == *session);
                     layer.update(cx, |layer, cx| {
                         layer.sending_to(session.clone().into());
                         layer.sent(&title, false, cx);
                     });
-                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                    if !operator {
+                        list.update(cx, |list, cx| list.open(session.into(), cx));
+                    }
                 }
                 Ok(Sent::Started { session, title }) => {
                     layer.update(cx, |layer, cx| {
@@ -1041,6 +1061,11 @@ impl DispatchScreen {
                 crate::queued::remove(&idea.id, cx);
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.hold_started(&idea, cx));
+            }
+            "layer-operator" => {
+                // The Operator's session starts: the picker's first row comes.
+                let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
+                layer.update(cx, |layer, cx| layer.set_operator(Some("mock-operator".into()), cx));
             }
             "layer-sent" | "layer-started" | "layer-refused" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;

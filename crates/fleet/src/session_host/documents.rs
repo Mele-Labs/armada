@@ -136,7 +136,8 @@ where
                 },
             })
             .await;
-        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path), votes_that_will_not_count(html, path), buried]
+        let closes = self.closes_on(id, html).await;
+        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path, &closes), votes_that_will_not_count(html, path), buried]
             .into_iter()
             .flatten()
             .reduce(|told, more| format!("{told} {more}"));

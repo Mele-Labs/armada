@@ -154,6 +154,8 @@ pub struct Dropdown {
     query: String,
     /// A menu opened at a point: what was pressed there, for Mod and Report.
     pointed: Option<Option<crate::labels::Drawn>>,
+    /// What an item says in its tooltip while it can be picked, by the item's id.
+    tips: Vec<(&'static str, SharedString)>,
 }
 
 impl EventEmitter<Picked> for Dropdown {}
@@ -174,11 +176,17 @@ impl Dropdown {
     /// A menu at `at` named `name`; `cursor_first` puts the keys on its first entry, as a menu
     /// opened from the keyboard does.
     pub fn new(name: impl Into<SharedString>, entries: Vec<Entry>, at: Point<Pixels>, corner: Anchor, cursor_first: bool, cx: &mut Context<Self>) -> Self {
-        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None };
+        let mut this = Dropdown { entries, at, corner, cursor: None, name: name.into(), focus: cx.focus_handle(), query: String::new(), pointed: None, tips: Vec::new() };
         if cursor_first {
             this.cursor = this.first();
         }
         this
+    }
+
+    /// The item `id` says `words` in its tooltip.
+    pub fn tip(mut self, id: &'static str, words: impl Into<SharedString>) -> Self {
+        self.tips.push((id, words.into()));
+        self
     }
 
     /// A menu opened at a point: Mod and Report follow its own entries, aimed at what is drawn under `at`.
@@ -565,6 +573,7 @@ impl Dropdown {
                     on_ink
                 };
                 let role = if ticked.is_some() { Role::MenuItemCheckBox } else { Role::MenuItem };
+                let tip = self.tips.iter().find(|(tipped, _)| *tipped == id).map(|(_, words)| words.clone());
                 labelled(
                     div()
                         .id(id)
@@ -592,7 +601,7 @@ impl Dropdown {
                                 mark.child(svg().path(icon_path("check")).size(glyph).text_color(look.color(token::ACCENT)))
                             }))
                         })
-                        .when_some(off, |row, why| {
+                        .when_some(off.or(tip), |row, why| {
                             row.tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(why.clone()).build(window, cx))
                         })
                         .on_click(cx.listener(move |this, _, _, cx| this.pick(at, cx))),

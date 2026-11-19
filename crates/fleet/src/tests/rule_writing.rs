@@ -321,7 +321,7 @@ fn sources() -> Vec<(String, String)> {
 }
 
 #[test]
-fn only_a_rules_act_reaches_the_trackers_writes() {
+fn only_a_rule_or_his_press_reaches_the_trackers_writes() {
     let calling = |needle: &str| -> Vec<String> {
         let mut named: Vec<String> = sources()
             .into_iter()
@@ -335,4 +335,5 @@ fn only_a_rules_act_reaches_the_trackers_writes() {
     assert_eq!(calling(".request_reviewers("), ["lifecycles/writing.rs"], "the one place Fleet asks a forge to request reviewers");
     assert_eq!(calling("rule_tracker_written("), ["lifecycles/acting.rs", "lifecycles/writing.rs"], "done by the worker that does a rule's acts, and by nothing else");
     assert_eq!(calling("rule_forge_written("), ["lifecycles/acting.rs", "lifecycles/writing.rs"]);
+    assert_eq!(calling("issues_closed_on_his_press("), ["lifecycles/writing.rs", "session_host/page_actions.rs"], "his press of a page's close button, and nothing else");
 }

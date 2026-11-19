@@ -357,6 +357,7 @@ mod start_default_project;
 mod autopilot_reviewing;
 mod operator_ends;
 mod operator_page_head;
+mod operator_pages;
 mod operator_errors;
 mod operator_order;
 mod operator_session;

@@ -52,3 +52,32 @@ fn the_page_keeps_what_it_was_told() {
     store.keep_operator_page(&KeptPage { top: Some("e".into()), ..page.clone() }).expect("kept");
     assert_eq!(store.operator_page().expect("read").top.as_deref(), Some("e"));
 }
+
+#[test]
+fn a_picked_card_keeps_its_steps_comes_back_once_and_may_be_picked_anew() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let a = store.add_operator_turn(&turn("", "card:1")).expect("kept").expect("new");
+    let kept = store.operator_turn_item(a).expect("read").expect("kept");
+    assert_eq!((kept.picked, kept.picked_at, kept.steps, kept.returned_at), (None, None, None, None), "a row as it was raised reads as not picked");
+    assert!(!store.step_operator_turn(a, "2026-11-14T09:00:00.000Z", "Started").expect("read"), "no step on a card not picked");
+
+    assert!(store.pick_operator_turn(a, "Start it", "2026-11-14T09:00:00.000Z").expect("picked"));
+    assert!(!store.pick_operator_turn(a, "Wait", "2026-11-14T09:01:00.000Z").expect("read"), "picked once while it is worked on");
+    assert!(store.step_operator_turn(a, "2026-11-14T09:02:00.000Z", "Started a Job").expect("step"));
+    assert!(store.step_operator_turn(a, "2026-11-14T09:03:00.000Z", "Opened #12").expect("step"));
+    let kept = store.operator_turn_item(a).expect("read").expect("kept");
+    assert_eq!(kept.picked.as_deref(), Some("Start it"));
+    let steps: serde_json::Value = serde_json::from_str(kept.steps.as_deref().expect("steps")).expect("JSON");
+    assert_eq!(steps, serde_json::json!([{ "at": "2026-11-14T09:02:00.000Z", "said": "Started a Job" }, { "at": "2026-11-14T09:03:00.000Z", "said": "Opened #12" }]));
+
+    assert_eq!(store.operator_turn_picked_by("2026-11-14T08:59:00.000Z").expect("read").len(), 0, "picked after then");
+    assert_eq!(store.operator_turn_picked_by("2026-11-14T09:15:00.000Z").expect("read").len(), 1);
+    assert!(store.return_operator_turn(a, "No slot is free", "2026-11-14T09:04:00.000Z").expect("returned"));
+    assert!(!store.return_operator_turn(a, "Again", "2026-11-14T09:05:00.000Z").expect("read"), "returned once");
+    assert_eq!(store.operator_turn_picked_by("2026-11-14T09:15:00.000Z").expect("read").len(), 0, "a returned card is not worked on");
+
+    assert!(store.pick_operator_turn(a, "Wait", "2026-11-14T09:06:00.000Z").expect("picked anew"));
+    let kept = store.operator_turn_item(a).expect("read").expect("kept");
+    assert_eq!((kept.picked.as_deref(), kept.returned_why, kept.steps), (Some("Wait"), None, None));
+}

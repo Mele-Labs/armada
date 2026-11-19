@@ -1628,6 +1628,7 @@ impl JobView {
                         PressDid::Sent => format!("Sent to the Job: {}", action.label),
                         PressDid::Started { .. } => format!("{}: started a Job", action.label),
                         PressDid::Answered { .. } => format!("{}: answered its ask", action.label),
+                        PressDid::Closed { .. } => format!("{}: closed in its tracker", action.label),
                     })
                 });
                 let (artifact, owner, pressed) = (c.id.to_string(), part.clone(), action.clone());
@@ -1656,6 +1657,7 @@ impl JobView {
                             ipc::PageAct::Message => "Sends it to the Job",
                             ipc::PageAct::Start => "Starts a Job",
                             ipc::PageAct::Answer => "Answers the Job's ask",
+                            ipc::PageAct::Close => "Closes the issues it lists in its tracker",
                         }))
                         .child(SharedString::from(action.label.clone()))
                         .on_key_down(|event: &KeyDownEvent, _, cx| presses_on_enter(event, cx))
