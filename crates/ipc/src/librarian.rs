@@ -80,6 +80,63 @@ pub struct LibrarianRan {
     /// The parts the run left out because the night's share of model calls was spent. Absent where none was.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub skipped_for_share: Vec<LibrarianPart>,
+    /// Stop was pressed before the run ended, so the steps after the one running then were skipped. Absent where it was not.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stopped: bool,
+}
+
+/// One step a run takes, as the Catch up card lists it before a press. Only steps a run does: no step for what a page
+/// reads live.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LibrarianStep {
+    /// `read_merges`, a model part's name such as `since_you_looked`, or `read_through`. `librarian.step` names it.
+    pub id: String,
+    pub title: String,
+    /// One line on what it will read or spend now.
+    pub detail: String,
+    /// Whether it spends a model call from the night's share. Free where not.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub model: bool,
+}
+
+/// Where one step of a run stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum LibrarianStepState {
+    Running,
+    Done,
+    Skipped,
+    Failed,
+}
+
+/// `librarian.step`: one step of a run started or ended.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LibrarianStepMoved {
+    pub project: String,
+    /// The run, by the instant it started, which `LibrarianRan.ran_at` repeats.
+    pub run: Instant,
+    /// The step's `id`.
+    pub step: String,
+    pub state: LibrarianStepState,
+    /// One line of what it did, or why it was skipped or failed. Absent while it runs.
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub said: String,
+}
+
+/// `stop_librarian`: the project's running run stops before its next step.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StopLibrarian {
+    /// A project's id.
+    pub project: String,
+}
+
+/// What `stop_librarian` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct LibrarianStopping {
+    pub project: String,
+    /// A run was going and will stop before its next step. False where none was.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub stopping: bool,
 }
 
 /// Where a project's librarian stands, on `list_features`.
@@ -94,4 +151,7 @@ pub struct LibrarianState {
     /// The merged pull requests since that run, oldest first. Every merge Fleet kept for the project's features where it never ran.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub merged_since: Vec<u64>,
+    /// The steps a run would take now, in order, each free or model.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub steps: Vec<LibrarianStep>,
 }

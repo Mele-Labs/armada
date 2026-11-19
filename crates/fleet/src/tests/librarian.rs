@@ -3,9 +3,10 @@
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use std::time::Duration;
 
 use api::{Features, Projects, Settings};
-use ipc::{AreaSeed, FeatureSeed, LibrarianPart, NewProject, ProjectMember, RunLibrarian, SaveSettings, SettingValue, SinceYouLooked, UpsertFeatures};
+use ipc::{AreaSeed, FeatureSeed, LibrarianPart, LibrarianStepState, NewProject, ProjectMember, RunLibrarian, SaveSettings, SettingValue, SinceYouLooked, StopLibrarian, UpsertFeatures};
 use store::{feature_link_kind, KeptFeatureLink};
 
 use testkit::FakeJudge;
@@ -174,7 +175,11 @@ const WORDS: &str = "Voting on takes changed with two merged pull requests. One 
 
 /// A rig whose small model answers `answer`, and the model that was asked.
 fn rig_saying(answer: &str) -> (Rig, Arc<FakeJudge>) {
-    let judge = Arc::new(FakeJudge::saying(answer));
+    rig_judged(FakeJudge::saying(answer))
+}
+
+fn rig_judged(judge: FakeJudge) -> (Rig, Arc<FakeJudge>) {
+    let judge = Arc::new(judge);
     let planted = Arc::clone(&judge);
     let rig = rig_fitted(move |fittings| {
         fittings.peers = Placing::nothing();
@@ -267,4 +272,191 @@ fn the_answer_is_kept_as_three_sentences_at_most_with_no_dash_and_an_empty_one_i
     assert_eq!(kept, "One feature is new. Two changed, both in votes. A third waits on you!");
     assert!(!kept.contains(['\u{2014}', '\u{2013}']));
     assert_eq!(paragraph_of("  \n "), None);
+}
+
+// The steps a run takes, listed before a press and told as each one moves. The sketch "Catch up shows its steps".
+
+/// The steps the listing names now: `(id, model, detail)`.
+async fn steps_listed(rig: &Rig, project: &str) -> Vec<(String, bool, String)> {
+    let state = rig.fleet.list_features(None, Some(project.to_string())).await.expect("listed").librarian;
+    state.steps.into_iter().map(|step| (step.id, step.model, step.detail)).collect()
+}
+
+/// What `librarian.step` told since the last drain: `(step, state, said)`, each checked against `project`.
+async fn steps_told(watching: &mut api::Subscription, project: &str) -> Vec<(String, LibrarianStepState, String)> {
+    let mut told = Vec::new();
+    while let Ok(Some(api::Next::Send(delivered))) = tokio::time::timeout(Duration::from_millis(300), watching.next()).await {
+        if let ipc::Event::LibrarianStep(moved) = delivered.event {
+            assert_eq!(moved.project, project);
+            told.push((moved.step, moved.state, moved.said));
+        }
+    }
+    told
+}
+
+fn step(id: &str, state: LibrarianStepState, said: &str) -> (String, LibrarianStepState, String) {
+    (id.to_string(), state, said.to_string())
+}
+
+/// A section a Job wrote of the feature at `at`.
+async fn section_written(rig: &Rig, feature: &str, at: &str) {
+    let kept = store::KeptSection { feature_id: feature.to_string(), section: "test".into(), text: "Run it.".into(), job: "j1".into(), written_at: at.to_string(), at_commit: String::new() };
+    rig.fleet.store().lock().await.put_feature_section(&kept).expect("kept");
+}
+
+#[tokio::test]
+async fn the_listing_names_the_steps_a_run_would_take_each_free_or_model_with_the_merges_since_and_the_calls_left() {
+    let (rig, _) = rig_saying(WORDS);
+    let (project, feature) = libraried(&rig).await;
+    for number in [3862, 3863, 3864] {
+        merged(&rig, &feature, number, &format!("2026-08-26T0{}:00:00.000Z", number - 3860)).await;
+    }
+    assert_eq!(
+        steps_listed(&rig, &project).await,
+        [
+            ("read_merges".to_string(), false, "Pull requests #3862, #3863 and #3864, and the sections their Jobs wrote".to_string()),
+            ("since_you_looked".to_string(), true, "One model call, skipped if nothing is new. 20 of 20 calls left tonight".to_string()),
+            ("read_through".to_string(), false, "Read through #3864".to_string()),
+        ]
+    );
+
+    pressed(&rig, &project).await;
+    let after = steps_listed(&rig, &project).await;
+    assert_eq!(after[0].2, "Nothing merged since #3864", "the run read them");
+    assert!(after[1].2.ends_with("19 of 20 calls left tonight"), "{}", after[1].2);
+
+    set(&rig, "features.librarianModelShare", SettingValue::Integer(1)).await;
+    assert_eq!(steps_listed(&rig, &project).await[1].2, "Skipped: tonight's 1 call is spent");
+
+    // A part with no work behind it has no step, and neither has what a page reads live.
+    set(&rig, "features.librarianParts", SettingValue::List(["links", "health"].map(|one| SettingValue::Text(one.into())).to_vec())).await;
+    let ids: Vec<String> = steps_listed(&rig, &project).await.into_iter().map(|(id, _, _)| id).collect();
+    assert_eq!(ids, ["read_merges", "read_through"]);
+}
+
+#[tokio::test]
+async fn a_never_run_project_with_nothing_merged_says_so_in_its_steps() {
+    let (rig, _) = rig_saying(WORDS);
+    let (project, _) = libraried(&rig).await;
+    let listed = steps_listed(&rig, &project).await;
+    assert_eq!((listed[0].2.as_str(), listed[2].2.as_str()), ("Nothing merged yet", "Nothing merged to read through"));
+}
+
+#[tokio::test]
+async fn a_press_tells_each_step_running_then_done_in_order_with_a_line_of_what_it_did() {
+    let (rig, _) = rig_saying(WORDS);
+    let (project, feature) = libraried(&rig).await;
+    merged(&rig, &feature, 3866, "2026-08-26T08:00:00.000Z").await;
+    section_written(&rig, &feature, "2026-08-26T09:00:00.000Z").await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    let ran = pressed(&rig, &project).await;
+    assert!(!ran.stopped);
+    assert_eq!(
+        steps_told(&mut watching, &project).await,
+        [
+            step("read_merges", LibrarianStepState::Running, ""),
+            step("read_merges", LibrarianStepState::Done, "1 merge, 1 section"),
+            step("since_you_looked", LibrarianStepState::Running, ""),
+            step("since_you_looked", LibrarianStepState::Done, "Wrote 2 sentences, 1 of 20 calls tonight"),
+            step("read_through", LibrarianStepState::Running, ""),
+            step("read_through", LibrarianStepState::Done, "Read through #3866"),
+        ]
+    );
+}
+
+#[tokio::test]
+async fn every_step_of_one_run_names_the_run_the_answer_names() {
+    let (rig, _) = rig_saying(WORDS);
+    let (project, _) = libraried(&rig).await;
+    let mut watching = rig.fleet.events().subscribe();
+    let ran = pressed(&rig, &project).await;
+    let mut runs = Vec::new();
+    while let Ok(Some(api::Next::Send(delivered))) = tokio::time::timeout(Duration::from_millis(300), watching.next()).await {
+        if let ipc::Event::LibrarianStep(moved) = delivered.event {
+            runs.push(moved.run);
+        }
+    }
+    assert_eq!(runs.len(), 6);
+    assert!(runs.iter().all(|run| *run == ran.ran_at), "{runs:?}");
+}
+
+#[tokio::test]
+async fn nothing_new_since_the_last_run_skips_the_model_step_and_says_so() {
+    let (rig, judge) = rig_saying(WORDS);
+    let (project, _) = libraried(&rig).await;
+    pressed(&rig, &project).await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    pressed(&rig, &project).await;
+    assert_eq!(judge.asked().len(), 1, "the second press asked nothing");
+    let told = steps_told(&mut watching, &project).await;
+    assert_eq!(told[0..4], [
+        step("read_merges", LibrarianStepState::Running, ""),
+        step("read_merges", LibrarianStepState::Done, "No merges, no sections"),
+        step("since_you_looked", LibrarianStepState::Running, ""),
+        step("since_you_looked", LibrarianStepState::Skipped, "Nothing new since the last run, so no call"),
+    ]);
+    assert_eq!(told[5], step("read_through", LibrarianStepState::Done, "Nothing merged to read through"));
+}
+
+#[tokio::test]
+async fn a_spent_share_skips_the_model_step_and_says_so() {
+    let (rig, judge) = rig_saying(WORDS);
+    let (project, feature) = libraried(&rig).await;
+    set(&rig, "features.librarianModelShare", SettingValue::Integer(1)).await;
+    pressed(&rig, &project).await;
+    merged(&rig, &feature, 3866, "2026-08-26T23:00:00.000Z").await;
+    let mut watching = rig.fleet.events().subscribe();
+
+    pressed(&rig, &project).await;
+    assert_eq!(judge.asked().len(), 1);
+    let told = steps_told(&mut watching, &project).await;
+    assert_eq!(told[3], step("since_you_looked", LibrarianStepState::Skipped, "Tonight's 1 call is spent"));
+    assert_eq!(told[5], step("read_through", LibrarianStepState::Done, "Read through #3866"), "the free steps still ran");
+}
+
+#[tokio::test]
+async fn stop_skips_the_steps_after_the_one_running_and_the_run_is_kept_as_stopped() {
+    let (rig, judge) = rig_judged(FakeJudge::saying(WORDS).taking(Duration::from_millis(800)));
+    let (project, feature) = libraried(&rig).await;
+    merged(&rig, &feature, 3866, "2026-08-26T08:00:00.000Z").await;
+    let stopped = rig.fleet.stop_librarian(None, StopLibrarian { project: project.clone() }).await.expect("answered");
+    assert!(!stopped.stopping, "no run was going");
+    let mut watching = rig.fleet.events().subscribe();
+
+    let fleet = Arc::clone(&rig.fleet);
+    let pressing = project.clone();
+    let run = tokio::spawn(async move { fleet.run_librarian(None, RunLibrarian { project: pressing }).await });
+    loop {
+        match tokio::time::timeout(Duration::from_secs(5), watching.next()).await.expect("an event") {
+            Some(api::Next::Send(delivered)) => match delivered.event {
+                ipc::Event::LibrarianStep(moved) if moved.step == "since_you_looked" && moved.state == LibrarianStepState::Running => break,
+                _ => {}
+            },
+            other => panic!("the stream ended: {other:?}"),
+        }
+    }
+    let again = rig.fleet.run_librarian(None, RunLibrarian { project: project.clone() }).await.expect_err("one run at a time");
+    assert_eq!(again.error().code, "fleet.librarian_running");
+    let a_job = rig.fleet.stop_librarian(a_job(), StopLibrarian { project: project.clone() }).await.expect_err("a Job's agent does not press");
+    assert_eq!(a_job.error().code, "fleet.not_the_operator");
+    assert!(rig.fleet.stop_librarian(None, StopLibrarian { project: project.clone() }).await.expect("answered").stopping);
+
+    let ran = run.await.expect("joined").expect("ran");
+    assert!(ran.stopped);
+    assert_eq!((ran.ran, ran.read_through), (vec![LibrarianPart::SinceYouLooked], None), "the step running ended as it would have, and nothing was read through");
+    assert_eq!(judge.asked().len(), 1);
+    assert_eq!(
+        steps_told(&mut watching, &project).await,
+        [
+            step("since_you_looked", LibrarianStepState::Done, "Wrote 2 sentences, 1 of 20 calls tonight"),
+            step("read_through", LibrarianStepState::Skipped, "Stopped"),
+        ]
+    );
+    let kept = rig.fleet.store().lock().await.librarian_last_run(&project).expect("read").expect("kept");
+    assert!(kept.stopped, "the record says it was stopped");
+    let state = rig.fleet.list_features(None, Some(project.clone())).await.expect("listed").librarian;
+    assert_eq!((state.read_through, state.merged_since), (None, vec![3866]), "still unread");
+    assert!(!rig.fleet.stop_librarian(None, StopLibrarian { project }).await.expect("answered").stopping, "the run is over");
 }

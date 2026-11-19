@@ -89,7 +89,11 @@ impl Features for FakeDaemon {
     }
 
     async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
-        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new() })
+        Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new(), stopped: false })
+    }
+
+    async fn stop_librarian(&self, _caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {
+        Ok(ipc::LibrarianStopping { project: stop.project, stopping: false })
     }
 
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {

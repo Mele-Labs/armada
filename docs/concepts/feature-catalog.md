@@ -391,6 +391,12 @@ The facts then wait: the part's next run reads from the last run that did it.
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
 
+**The Catch up card shows a run's steps before he presses, and each as it moves.**
+`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, a step for each model part that is on and built, then `read_through`.
+A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
+`stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
+One run of a project goes at a time, and a press while one runs is refused.
+
 ## Glossary
 
 Each project has a glossary of its terms: the word, what it means, and the words that mean the same and should not be used.
@@ -438,6 +444,8 @@ A Job whose turns were read before searches were counted is in no week until its
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
+| `stop_librarian` | The owner's Stop, or the Operator, stops a project's running librarian run before its next step |
+| `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |
 | `get_first_edit_searches` | The weekly figure above |
