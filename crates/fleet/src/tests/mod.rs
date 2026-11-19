@@ -18,6 +18,7 @@
 mod act_failing;
 mod feature_catalog;
 mod feature_health;
+mod proposer_choices;
 mod feature_decisions;
 mod feature_library;
 mod librarian;

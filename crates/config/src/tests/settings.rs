@@ -655,3 +655,9 @@ fn the_disk_floors_ship_at_a_hundred_to_reclaim_at_and_thirty_to_hold_at() {
         "the hold floor stays under the reclaim floor, or Fleet would hold before it reclaimed"
     );
 }
+
+#[test]
+fn the_proposer_ships_offered_opus_and_sonnet_only() {
+    let shipped = Resolved::default().get(s::MODELS_PROPOSER_CHOICES);
+    assert_eq!(shipped, ["opus", "sonnet"]);
+}

@@ -145,3 +145,10 @@ where
         self.models_now().models
     }
 }
+
+/// The models the proposer may pick: `held` kept to the ones `allowed` names. A narrowing that
+/// leaves nothing is no narrowing, so the proposer is never left with no model to name.
+pub(crate) fn proposer_choices(held: Vec<String>, allowed: &[String]) -> Vec<String> {
+    let narrowed: Vec<String> = held.iter().filter(|name| allowed.contains(name)).cloned().collect();
+    if narrowed.is_empty() { held } else { narrowed }
+}
