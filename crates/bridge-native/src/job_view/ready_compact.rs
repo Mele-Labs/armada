@@ -128,8 +128,8 @@ impl JobView {
         self.thread(id, cx).is_some_and(|held| asks(&held.items))
     }
 
-    /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened is drawn whole under
-    /// the rows, in place.
+    /// The Job's one compact card: the green band and a row for each build still to answer. The build he opened unfolds whole under
+    /// its own row.
     pub(super) fn ready_compact(&self, all: &[Build], ix: usize, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         let listed: Vec<&Build> = all.iter().filter(|build| build.standing.asks()).collect();
         let standing = if listed.iter().any(|build| build.standing == Standing::Open) { Standing::Open } else { Standing::Later };
@@ -154,12 +154,15 @@ impl JobView {
         // The Refresh keys stand while any listed build is outside the preview, and take a press only once one is ready for it.
         let refresh = previews.iter().filter(|preview| **preview != Preview::In).min_by_key(near).map(|preview| RefreshKeys { ready: preview.refreshes(), why: preview.tip() });
         let head = newest.map(|card| self.ready_head("thread", standing, word, &card.at, None, pending_tip, refresh, now, look, cx));
+        let picked = page.cards.ready_pick.as_deref();
+        let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
         let rows: Vec<AnyElement> = listed
             .iter()
             .zip(previews)
             .enumerate()
             .map(|(at, (build, preview))| {
                 let card = build.card;
+                let open = picked == Some(card.id.as_str());
                 let spot = page.keys.spot(&format!("ready-row:{}", card.id), cx);
                 let waits = pending(build.standing, &preview);
                 let ink = look.color(if waits { token::STATUS_AWAITING_REVIEW } else { build.standing.ink() });
@@ -184,6 +187,7 @@ impl JobView {
                     .border_color(gpui::transparent_black())
                     .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
                     .cursor_pointer()
+                    .when(open, |row| row.bg(look.color(token::SURFACE_ROW_SELECTED)))
                     .hover(|style| style.bg(look.color(token::SURFACE_ROW_HOVER)))
                     .child(dot)
                     .child(
@@ -207,6 +211,7 @@ impl JobView {
                             .text_color(if build.standing == Standing::Open { ink } else { look.color(token::FG_MUTED) })
                             .child(SharedString::from(word)),
                     )
+                    .child(glyph(look, if open { "chevron-down" } else { "chevron-right" }, Size::Small, look.color(token::FG_MUTED)))
                     .on_click(cx.listener(move |this, _, _, cx| this.ready_open(&opened, &pressed, cx)))
                     .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                         if event.keystroke.modifiers.modified() {
@@ -233,14 +238,12 @@ impl JobView {
                             _ => {}
                         }
                     }));
-                labelled(row, Role::Button, said).into_any_element()
+                // The build he opened reads right under its own row, as the row unfolding, not at the card's foot.
+                let detail = open.then(|| self.ready_detail_inside(card, ix, wide, page, now, look, cx));
+                div().flex().flex_col().child(labelled(row, Role::Button, said)).children(detail).into_any_element()
             })
             .collect();
         let ink = look.color(standing.ink());
-        let open = page.cards.ready_pick.as_deref().and_then(|id| listed.iter().find(|build| build.card.id == id));
-        let wide = f32::from(self.pane.unwrap_or(gpui::px(720.)) - look.length(token::SPACE_4) * 2.);
-        // The open build reads under the rows inside the one card; a second card with its own head said the same head twice.
-        let detail = open.map(|build| self.ready_detail_inside(build.card, ix, wide, page, now, look, cx));
         // While the preview rebuilds, from a Refresh preview pressed anywhere, the whole card breathes in the running hue.
         let refreshing = self.preview_refreshing(cx).is_some();
         let wash = look.color(token::STATUS_RUNNING);
@@ -251,7 +254,6 @@ impl JobView {
                 .border_color(if refreshing { wash.opacity(0.6) } else { ink.opacity(0.45) })
                 .children(head)
                 .child(div().flex().flex_col().py(look.length(token::SPACE_1)).children(rows))
-                .children(detail)
                 .when(refreshing, |card| {
                     card.child(div().absolute().inset_0().with_animation(
                         "ready-refreshing",
@@ -265,7 +267,7 @@ impl JobView {
         div().id("ready-column").flex().flex_col().child(group).into_any_element()
     }
 
-    /// A press on a build's row: it opens in place under the rows and the thread follows its tail to the card at its end; a press
+    /// A press on a build's row: it unfolds under that row and the thread follows its tail to the card at its end; a press
     /// on the open one shuts it again.
     pub(super) fn ready_open(&mut self, job: &str, id: &str, cx: &mut Context<Self>) {
         let Some(page) = self.pages.get_mut(job) else { return };

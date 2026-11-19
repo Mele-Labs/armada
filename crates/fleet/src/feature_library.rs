@@ -15,6 +15,7 @@ pub(crate) mod deciding;
 mod filing;
 mod floor_plan;
 mod handoff;
+mod health;
 mod holding;
 pub(crate) mod librarian;
 pub(crate) mod mapping;

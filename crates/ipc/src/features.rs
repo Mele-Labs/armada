@@ -121,6 +121,8 @@ pub struct FeatureRow {
     /// The oldest merge a written section is stale since: a pull request's number. Absent where none is stale.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub stale_since: Option<u64>,
+    /// How it stands and why, read from what Fleet keeps.
+    pub health: crate::feature_health::FeatureHealth,
 }
 
 /// An area and its features, in their order.

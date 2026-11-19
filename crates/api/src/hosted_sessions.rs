@@ -207,8 +207,9 @@ pub(crate) async fn send_session_note<D: HostedSessions>(
     }
 }
 
-/// **202**, as one note is: the notes are taken as one turn, with each note's lines.
-pub(crate) async fn send_session_notes<D: HostedSessions>(
+/// **202**, as one note is: the notes are taken as one turn, with each note's lines. **Passed on to
+/// the Mac that holds the Job**, as a message is.
+pub(crate) async fn send_session_notes<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -216,6 +217,9 @@ pub(crate) async fn send_session_notes<D: HostedSessions>(
         Ok(notes) => notes,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(notes.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::Notes(notes)).await;
+    }
     match served.shared().send_session_notes(notes).await {
         Ok(sent) => answer(StatusCode::ACCEPTED, &sent, served.run_id()),
         Err(refusal) => refused(refusal),

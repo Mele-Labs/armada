@@ -100,6 +100,27 @@ A plan's Approve settles the sketches it names, and those are filed with the pla
 The merge of the Job's own pull request does not make that Job's sections stale, because the Job wrote them inside the work the merge carries.
 A merge is kept with the files it changed, so the mapping is read again when a page is read.
 
+## Health
+
+> **Rule.** A mark always carries its reasons, and a source Fleet does not keep is not guessed.
+> Why: a mark with no reason cannot be argued with, and a guess about a source reads as a fact about the feature.
+
+Each feature in the list and on its page reads `good`, `watch` or `poor`, with a reason for each fact behind it: a kind, one short sentence and, where there is something to open, a target.
+`good` has no reasons.
+It is worked out on each read, from what Fleet already keeps, with no model and no call to the forge.
+
+| Source | Reads as | Mark |
+|---|---|---|
+| A flaky test under a fix Job whose test map edges reach its files | `flaky test <name> reaches it` | `watch`, `poor` from three |
+| A written section stale | `<section> section stale since #<pr>` | `watch` |
+| The test map holds edges and none reaches its files | `no test reaches its files` | `watch` |
+| An open link of kind `bug` | `open bug: <title>` | `watch`, `poor` from three |
+| A Check, or a lint or type Check, whose last run in a live Job working in its files failed | `clippy failed on the last run of "<job>" in its files` | `poor` |
+
+The three and the sources are chosen, not measured.
+A source Fleet holds nothing for adds nothing: a test map never fed gives no `no test reaches its files`.
+Left out, because Fleet keeps nothing per file for them: a pull request's forge checks and main's CI state.
+
 ## The page condensed
 
 A condensed page is text for an agent, about 1,000 tokens, counted as characters over four.
@@ -373,7 +394,7 @@ A Job whose turns were read before searches were counted is in no week until its
 
 | Operation | Does |
 |---|---|
-| `list_features` | A project's areas and features, with who is on each now and the oldest stale merge |
+| `list_features` | A project's areas and features, with who is on each now, the oldest stale merge and each one's health |
 | `get_feature_page` | One feature whole, with the decisions filed under it, or with `section` that one section alone |
 | `get_feature_brief` | One feature condensed |
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |

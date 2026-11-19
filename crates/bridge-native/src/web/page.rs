@@ -280,6 +280,13 @@ impl WebPage {
         }
     }
 
+    /// The keys go to the page, so what he types reaches it.
+    pub fn take_keys(&self) {
+        if let Some(native) = &self.native {
+            native.take_keys();
+        }
+    }
+
     /// Runs `body` as an async function's body in the content world named `world`, awaiting what it returns. The answer is its
     /// string, `None` where it returned none, or the page's words for a throw. A page not made answers an error at once.
     pub fn call_async(&self, world: &str, body: &str) -> async_channel::Receiver<Result<Option<String>, String>> {

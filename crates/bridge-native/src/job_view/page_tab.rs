@@ -86,6 +86,20 @@ impl PageTab {
         self.html.as_deref()
     }
 
+    /// The keys go to the page, where it is up, so what he types reaches it.
+    pub fn take_keys(&self, cx: &gpui::App) {
+        if let Held::Ready(page) = &self.held {
+            page.read(cx).take_keys();
+        }
+    }
+
+    /// The keys, if the page holds them, go back to Bridge.
+    pub fn release_keys(&self, cx: &gpui::App) {
+        if let Held::Ready(page) = &self.held {
+            page.read(cx).release_keys();
+        }
+    }
+
     /// The headings the page holds, once it has loaded.
     pub fn heads(&self) -> &[reader::Head] {
         &self.heads
@@ -306,11 +320,13 @@ impl Render for PageTab {
     }
 }
 
-/// What the mock Fleet kept on one page: each press, and the newest cast of each vote.
+/// What the mock Fleet kept on one page: each press, the newest cast of each vote, and his Edits.
 #[derive(Clone, Default)]
 pub struct Kept {
     pub presses: Vec<ipc::PagePress>,
     pub votes: Vec<ipc::VoteCast>,
+    /// The pages he saved with Edit, each the revision after the one before.
+    pub his: Vec<String>,
 }
 
 impl Kept {
@@ -445,7 +461,7 @@ impl JobView {
         };
         if self.fleet.is_none() {
             let kept = self.row_tabs.get(&job).and_then(|tabs| tabs.mock_kept.get(&page)).cloned().unwrap_or_default();
-            let answer = crate::mock::sealed_page(&page, revision, &kept.presses, &kept.votes).map(|html| super::page_sketches::drawn(&html, &page, window, cx));
+            let answer = crate::mock::sealed_revision(&page, revision, &kept.his, &kept.presses, &kept.votes).map(|html| super::page_sketches::drawn(&html, &page, window, cx));
             tab.update(cx, |tab, cx| tab.arrived(answer, cx));
             return;
         }
