@@ -1,8 +1,8 @@
 //! Edit on a draft: its words become a box for each block, which he types in. A block he changed is marked in his
 //! colour, the header fills with it, and Save keeps the words as the next revision, his (`save_artifact_edit`).
 //!
-//! What he typed is kept as he types it (`drafts.rs`), so Edit left half done is there when he comes back. A page's
-//! words are inside its web view and are not edited here (`reader_page.rs`).
+//! What he typed is kept as he types it (`drafts.rs`), so Edit left half done is there when he comes back. A page's words
+//! are typed in place inside its web view (`reader_page_edit.rs`).
 
 use gpui::{AppContext as _, Context, SharedString, Window};
 use gpui_component::input::{InputEvent, TextareaState};
@@ -33,6 +33,10 @@ pub(super) fn unchanged(words: &[String], original: &[String]) -> bool {
 impl JobView {
     /// Edit on or off, Save and Discard.
     pub(super) fn reader_edit_act(&mut self, id: &SharedString, name: &str, act: RAct, subject: &Subject, window: &mut Window, cx: &mut Context<Self>) {
+        if subject.form == ipc::ArtifactForm::Page {
+            self.page_edit_act(id, name, act, subject, window, cx);
+            return;
+        }
         let editing = self.reader_of(id, name).is_some_and(|held| held.edit.is_some());
         match act {
             RAct::Edit if !editing && !subject.closed => self.reader_edit_start(id, name, subject, window, cx),
@@ -85,7 +89,11 @@ impl JobView {
     }
 
     /// Esc in the edit: the boxes close and his words stay kept, so the next Edit opens them as he left them.
-    pub(super) fn reader_edit_leave(&mut self, id: &SharedString, name: &str, cx: &mut Context<Self>) {
+    pub(super) fn reader_edit_leave(&mut self, id: &SharedString, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.reader_of(id, name).and_then(|held| held.edit.as_ref()).is_some_and(|edit| edit.page.is_some()) {
+            self.page_edit_end(id, name, true, true, window, cx);
+            return;
+        }
         if let Some(held) = self.reader_mut(id, name) {
             held.edit = None;
             held.saving = false;

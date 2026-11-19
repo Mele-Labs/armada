@@ -983,6 +983,13 @@ impl Native {
         give_keys_back(&self.view);
     }
 
+    /// The keys go to the page, as a press in it gives them, so what he types reaches it: Edit puts the caret in its words.
+    pub fn take_keys(&self) {
+        if let Some(window) = self.view.window() {
+            window.makeFirstResponder(Some(&self.view));
+        }
+    }
+
     /// The page's content rule list, from JSON: compiled by WebKit, and put in place of the one before it (`None`: no list). **The first
     /// answer opens the page's gate**, and the load it held goes out then. A compile that failed leaves the page without a list, and
     /// goes on: a page that cannot load is worse than one that is not guarded from the local network.
