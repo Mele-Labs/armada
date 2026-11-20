@@ -179,6 +179,11 @@ impl MacsPage {
         }
     }
 
+    /// The Macs the Gateway listed, as last read.
+    pub(super) fn list(&self) -> Option<&Vec<Mac>> {
+        self.macs.as_ref()?.as_ref().ok()
+    }
+
     /// Another Mac is on the list: paired, or a pairing waiting on a Confirm.
     fn others(&self) -> bool {
         matches!(&self.macs, Some(Ok(macs)) if macs.iter().any(|mac| !mac.this_mac))
@@ -265,7 +270,7 @@ fn clock_of(at: i64) -> String {
 }
 
 /// Time left on a link, as Classic's `timeLeft` writes it: `4:32`.
-fn time_left(seconds: i64) -> String {
+pub(super) fn time_left(seconds: i64) -> String {
     let whole = seconds.max(0);
     format!("{}:{:02}", whole / 60, whole % 60)
 }
@@ -406,7 +411,7 @@ fn link_mark(look: &Look, link: &MacLink, why: Option<&str>) -> (&'static str, H
 
 impl SettingsOverlay {
     fn macs_shown(&self, cx: &App) -> bool {
-        self.open && self.shown(cx).is_some_and(|one| one.body == Body::Macs)
+        self.open && self.shown(cx).is_some_and(|one| one.body == Body::Account)
     }
 
     /// Ask the Gateway once each time Settings opens, while the page is drawn.
@@ -1988,7 +1993,7 @@ mod tests {
         cx.update(|_, cx| overlay.update(cx, |this, cx| {
             this.macs_keys(cx);
             this.open = true;
-            this.picked = "bridge:macs";
+            this.picked = "fleet:account";
             cx.notify();
         }));
         cx.run_until_parked();
@@ -2153,7 +2158,7 @@ mod tests {
         assert_eq!(refused(&overlay, "update:mac-mini", cx), None);
         cx.update(|_, cx| overlay.update(cx, |this, _| {
             this.open = true;
-            this.picked = "bridge:macs";
+            this.picked = "fleet:account";
         }));
         for _ in 0..2 {
             cx.executor().advance_clock(LIST_EVERY);
@@ -2297,7 +2302,7 @@ mod tests {
         let (overlay, cx) = opened(cx);
         cx.update(|_, cx| overlay.update(cx, |this, _| {
             this.open = true;
-            this.picked = "bridge:macs";
+            this.picked = "fleet:account";
         }));
         assert!(links(&overlay, cx).iter().all(|(id, _)| id != "mac-office"));
         cx.update(|_, cx| overlay.update(cx, |this, _| {
@@ -2498,7 +2503,7 @@ mod tests {
         cx.update(|window, cx| {
             overlay.update(cx, |this, _| {
                 this.open = true;
-                this.picked = "bridge:macs";
+                this.picked = "fleet:account";
             });
             window.refresh();
         });

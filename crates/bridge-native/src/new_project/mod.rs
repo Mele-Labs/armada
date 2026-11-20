@@ -164,6 +164,8 @@ pub struct Boxes {
     pub clone: Entity<InputState>,
     pub new: Entity<InputState>,
     pub synced: Entity<InputState>,
+    /// His description of a tracker to build, where the tracker is Custom.
+    pub tracker: Entity<InputState>,
 }
 
 pub struct NewProjectSheet {
@@ -185,6 +187,8 @@ pub struct NewProjectSheet {
     pub inherited: Option<HashMap<Key, String>>,
     pub picked: HashMap<Key, String>,
     pub models: Vec<String>,
+    /// The layout mods he can pick, as (their `layout.json`, name).
+    pub layouts: Vec<(String, String)>,
     pub share: bool,
     /// The line of the repositories list the keys are on.
     pub active: usize,
@@ -218,6 +222,7 @@ impl NewProjectSheet {
             clone: field("", window, cx),
             new: field("my-app", window, cx),
             synced: field("", window, cx),
+            tracker: field("Describe the tracker: what it is, and where its issues live", window, cx),
         };
         let mut subs = Vec::new();
         for (state, keep) in [(&boxes.name, KEEP_NAME), (&boxes.clone, KEEP_CLONE), (&boxes.new, KEEP_NEW), (&boxes.synced, KEEP_SYNCED)] {
@@ -297,6 +302,7 @@ impl NewProjectSheet {
             inherited: None,
             picked: HashMap::new(),
             models: Vec::new(),
+            layouts: Vec::new(),
             share: false,
             active: 0,
             refused: None,
@@ -430,7 +436,20 @@ impl NewProjectSheet {
         let areas = self.wire.areas(cx);
         let values = self.wire.values(cx);
         let models = self.wire.models(cx);
+        let layouts: Vec<_> = self.wire.layout_mods(cx).into_iter().map(|name| (self.wire.layout_text(&name, cx), name)).collect();
         self.reads = vec![
+            cx.spawn(async move |this, cx| {
+                let mut found = Vec::new();
+                for (text, name) in layouts {
+                    if let Some(text) = text.await {
+                        found.push((text, name));
+                    }
+                }
+                let _ = this.update(cx, |this, cx| {
+                    this.layouts = found;
+                    cx.notify();
+                });
+            }),
             cx.spawn(async move |this, cx| {
                 let answer = areas.await;
                 let _ = this.update(cx, |this, cx| {
@@ -916,7 +935,7 @@ impl NewProjectSheet {
         let entries = match menu {
             Menu::Setting(key) => {
                 let now = self.shown(key).map(|(word, _)| word).unwrap_or_default();
-                key.options(&self.models)
+                key.options(&self.models, &self.layouts)
                     .into_iter()
                     .map(|(word, label)| Entry::Choice { id: crate::titlebar::id_of(format!("word:{word}")), label: label.into(), on: word == now })
                     .collect()
@@ -969,7 +988,7 @@ impl NewProjectSheet {
     }
 
     pub fn open_setting(&mut self, key: Key, window: &mut Window, cx: &mut Context<Self>) {
-        if self.inherited.is_none() || key.options(&self.models).is_empty() {
+        if self.inherited.is_none() || key.options(&self.models, &self.layouts).is_empty() {
             return;
         }
         self.open_menu(Menu::Setting(key), key.label(), gpui::Role::Button, window, cx);
@@ -999,10 +1018,23 @@ impl NewProjectSheet {
         if self.sending || !self.named(cx) {
             return;
         }
+        if self.tracker_words(cx).is_some_and(|words| words.is_empty()) {
+            return self.refuse("Describe the tracker to build".into(), cx);
+        }
         self.sending = true;
         self.refused = None;
         self.next(window, cx);
         cx.notify();
+    }
+
+    /// His description of the tracker to build, where the settings pick Custom.
+    fn tracker_words(&self, cx: &App) -> Option<String> {
+        (self.custom && self.picked.get(&Key::Tracker).map(String::as_str) == Some(values::CUSTOM)).then(|| self.boxes.tracker.read(cx).value().trim().to_string())
+    }
+
+    /// The brief of the Job that builds a tracker mod for `project` from his words.
+    fn tracker_brief(project: &str, words: &str) -> String {
+        format!("Build a tracker mod for the project \"{project}\". Its issues live somewhere Armada has no tracker for. This is how he describes it:\n\n{words}")
     }
 
     /// The next request of a Create. A repository cloned or made is served and picked whole, and its field
@@ -1111,6 +1143,7 @@ impl NewProjectSheet {
         let inherited = self.inherited.clone().unwrap_or_default();
         let project = create_body(name.clone(), members, (self.place != Place::Mac).then_some(place), self.custom, &self.picked, &inherited);
         let share = self.custom && self.share;
+        let brief = self.tracker_words(cx).map(|words| Self::tracker_brief(&name, &words));
         let task = self.wire.add_project(project, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
@@ -1121,6 +1154,11 @@ impl NewProjectSheet {
                     return;
                 }
             };
+            if let Some(brief) = brief {
+                if let Ok(start) = this.update(cx, |this, cx| this.wire.start_tracker_job(brief, cx)) {
+                    let _ = start.await;
+                }
+            }
             // Fleet puts a new project at the end of his list.
             let Some(id) = projects.projects.iter().rev().find(|one| one.name == name).map(|one| one.id.clone()) else { return };
             let projects = if share {
@@ -1141,11 +1179,25 @@ impl NewProjectSheet {
     fn edit(&mut self, (id, was, original): (String, ProjectPlace, Option<ipc::ValuesSet>), name: String, place: ProjectPlace, window: &mut Window, cx: &mut Context<Self>) {
         let place = if self.place == Place::Cloud && matches!(was.cloud, Some(RunCloud::Bucket(_))) { was } else { place };
         let inherited = self.inherited.clone().unwrap_or_default();
-        let values = edit_values(original, self.custom.then(|| values::values_of(&self.picked, &inherited)).flatten());
+        let brief = self.tracker_words(cx).map(|words| Self::tracker_brief(&name, &words));
+        // Custom is a request for a mod, not a provider: the tracker stays as it was until the mod exists.
+        let mut picked = self.picked.clone();
+        if brief.is_some() {
+            match original.as_ref().and_then(|set| set.tracker.as_ref()).and_then(|block| block.get("provider")) {
+                Some(was) => picked.insert(Key::Tracker, was.clone()),
+                None => picked.remove(&Key::Tracker),
+            };
+        }
+        let values = edit_values(original, self.custom.then(|| values::values_of(&picked, &inherited)).flatten());
         let edit = ipc::EditProject { name: Some(name), members: Some(self.members()), place: Some(place), values: Some(values), shared_with_macs: self.custom.then_some(self.share) };
         let task = self.wire.edit_project(&id, edit, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
+            if let (Ok(_), Some(brief)) = (&answer, brief) {
+                if let Ok(start) = this.update(cx, |this, cx| this.wire.start_tracker_job(brief, cx)) {
+                    let _ = start.await;
+                }
+            }
             let _ = this.update_in(cx, |this, window, cx| match answer {
                 Ok(projects) => {
                     let served = this.wire.repositories(cx).unwrap_or_default();
@@ -1668,5 +1720,11 @@ mod tests {
         assert_eq!(sent.workflows_off, ["bug"]);
         let tracker = sent.tracker.expect("tracker");
         assert_eq!((tracker.get("provider").map(String::as_str), tracker.get("team").map(String::as_str)), (Some("jira"), Some("ENG")));
+    }
+
+    #[test]
+    fn the_tracker_job_brief_names_the_project_and_his_words() {
+        let brief = NewProjectSheet::tracker_brief("Pocket", "Jira Cloud, project ABC");
+        assert!(brief.contains("\"Pocket\"") && brief.contains("Jira Cloud, project ABC"), "{brief}");
     }
 }
