@@ -296,9 +296,11 @@ impl JobView {
         let pressed = self.pages.get(id).and_then(|page| page.side.needs_chip);
         let held = self.needs_held(id, cx);
         let chip = standing(pressed, held)?;
+        // With the panel up, a question is the card in front of the thread; the band does not draw it a second time.
+        let up = self.needs_up(id, cx);
         let rows: Vec<AnyElement> = listed(
             chip,
-            || self.things(id, cx).0.iter().map(|thing: &Thing| self.thing_row(id, thing, look, cx)).chain(self.for_you_beyond_row_views(id, look, cx)).collect(),
+            || self.things(id, cx).0.iter().filter(|thing| !(up && matches!(thing, Thing::Row(row) if super::needs_card::on_card(row)))).map(|thing: &Thing| self.thing_row(id, thing, look, cx)).chain(self.for_you_beyond_row_views(id, look, cx)).collect(),
             || self.closed_rows(id, look, cx),
             || self.deferred_rows(id, true, look, cx),
         );

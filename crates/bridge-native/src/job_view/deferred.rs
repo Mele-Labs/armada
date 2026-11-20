@@ -89,10 +89,9 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .border(edge)
-                    .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)))
+                    .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55)))
                     .rounded(look.length(token::RADIUS_MD))
-                    .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.06)))
-                    .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
+                    .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.10)))
                     .child(toggle)
                     .children(list),
                 Role::Group,
@@ -271,5 +270,14 @@ mod tests {
         assert!(!card.contains(".absolute()"), "nothing is laid along the card's edge");
         assert!(!card.contains("border_l("), "no border on one side");
         assert!(card.contains(".border(edge)") && card.contains("hue.opacity("), "a full outline and a tint, both in the hue");
+    }
+
+    /// The Spine's Deferred block is a tint and a full outline in the hue too, with nothing laid along its edge.
+    #[test]
+    fn the_spines_deferred_block_has_no_stripe_on_one_side() {
+        let source = include_str!("deferred.rs");
+        let block = &source[source.find(".id(\"later-block\")").expect("the block")..source.find("\"Deferred\",\n            )").expect("its end")];
+        assert!(!block.contains(".absolute()") && !block.contains("rounded_l(") && !block.contains("border_l("), "nothing is laid along the block's edge");
+        assert!(block.contains(".border(edge)") && block.contains("hue.opacity("), "a full outline and a tint, both in the hue");
     }
 }

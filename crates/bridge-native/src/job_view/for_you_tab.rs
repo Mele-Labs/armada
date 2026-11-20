@@ -1,5 +1,5 @@
-//! The For you tab, in the look the owner approved on 15 Nov 2026: three sections, each a card per row with a stripe in
-//! the section's hue. Waiting on you lists what the Job owes him, numbered, in the order Fleet gives; Being built the
+//! The For you tab, in the look the owner approved on 15 Nov 2026 less its stripe, which he ruled out on 19 Nov: three sections,
+//! each a card per row, tinted and outlined in the section's hue. Waiting on you lists what the Job owes him, numbered, in the order Fleet gives; Being built the
 //! Jobs it started, drawn in the state their row in the Jobs list has; Landing on green its own pull requests still open.
 //! Fleet's `get_for_you` is the whole list, read again where `session.for_you` says it moved. **Nothing here sorts it.**
 //!
@@ -62,7 +62,7 @@ impl Part {
         }
     }
 
-    /// The hue of its stripes and its head: the warning hue for what waits on him, the running hue, the success hue.
+    /// The hue of its cards' tint and outline, and its head: the warning hue for what waits on him, the running hue, the success hue.
     fn hue(self) -> Token {
         match self {
             Part::Waiting => token::STATUS_AWAITING_REVIEW,
@@ -487,7 +487,7 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(labelled(eyebrow(look, part.word()).id(SharedString::from(format!("for-you-head:{}", part.word()))).px(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(hue), Role::Heading, part.word()))
+                    .child(labelled(eyebrow(look, part.word()).id(SharedString::from(format!("for-you-head:{}", part.word()))).px(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH)).text_color(hue), Role::Heading, part.word()))
                     .children(cards),
                 Role::Group,
                 part.word(),
@@ -511,12 +511,11 @@ impl JobView {
         )
     }
 
-    /// The card every row is: filled, edged in its section's hue, with the stripe taking the card's inner left corner,
-    /// since gpui clips to the rectangle and not to the radius.
+    /// The card every row is: a tint of its section's hue, with a full hairline outline in the hue and no stripe down one side.
     fn for_you_card(&self, key: &str, spot: &Spot, on: bool, hue: Hsla, look: &Look) -> gpui::Stateful<gpui::Div> {
         let edge = look.length(token::BORDER_WIDTH);
         let fill = look.color(token::BG_HOVER);
-        let tinted = fill.blend(hue.opacity(0.12));
+        let tinted = fill.blend(hue.opacity(0.16));
         div()
             .id(SharedString::from(format!("for-you-row:{key}")))
             .track_focus(&spot.focus)
@@ -526,18 +525,16 @@ impl JobView {
             .items_start()
             .gap(look.length(token::SPACE_3))
             .py(look.length(token::SPACE_2))
-            .pl(look.length(token::SPACE_3) + edge * 2.)
-            .pr(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_3))
             .border(edge)
-            .border_color(if on { look.color(token::ACCENT) } else { look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)) })
+            .border_color(if on { look.color(token::ACCENT) } else { look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55)) })
             .rounded(look.length(token::RADIUS_MD))
-            .bg(if on { tinted } else { fill })
+            .bg(if on { tinted } else { fill.blend(hue.opacity(0.08)) })
             .hover(move |style| style.bg(tinted))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
     }
 
     /// A row's title, and under it the muted line where there is one.
@@ -737,6 +734,15 @@ mod tests {
             view.for_you_beyond_row_views(&SharedString::from(JOB), &look, cx).len()
         });
         assert_eq!(drawn, ids.len(), "one row each");
+    }
+
+    /// A For you card is a tint and a full outline in its section's hue, and nothing is laid along one edge of it.
+    #[test]
+    fn a_for_you_card_has_no_stripe_down_one_side() {
+        let source = include_str!("for_you_tab.rs");
+        let card = &source[source.find("fn for_you_card(").expect("the card")..source.find("fn for_you_words(").expect("its end")];
+        assert!(!card.contains(".absolute()") && !card.contains("rounded_l(") && !card.contains("border_l("), "nothing is laid along the card's edge");
+        assert!(card.contains(".border(edge)") && card.contains("hue.opacity("), "a full outline and a tint, both in the hue");
     }
 
     #[gpui::test]
