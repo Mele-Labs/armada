@@ -211,8 +211,8 @@ impl JobView {
         }
     }
 
-    /// The live page filling the detail, where the chosen item is a document or an artifact whose only part is a page that asks
-    /// nothing: the whole of the detail between its band and its foot, which the page scrolls inside.
+    /// The live page filling the detail, where the chosen item is a document or an artifact whose only part is a page: the whole
+    /// of the detail between its head and its answer bar, edge to edge, which the page scrolls inside.
     pub(super) fn review_page_stage(&self, item: &Item, cx: &gpui::App) -> Option<AnyElement> {
         let alone = item.kind == Kind::Document || self.page_alone(item);
         let (page, revision, _) = self.panel_pages_of(item, cx).into_iter().next().filter(|_| alone)?;
@@ -220,10 +220,11 @@ impl JobView {
         Some(div().id(SharedString::from(format!("review-page:{}", item.key()))).relative().flex_1().min_w_0().min_h_0().child(div().absolute().inset_0().child(live)).into_any_element())
     }
 
-    /// Whether the item is an artifact whose only part is a page that asks nothing, which the panel draws as the page alone.
+    /// Whether the item is an artifact whose only part is a page, which the panel draws as the page alone: the answer bar
+    /// answers a page that asks, so no caption or chip stands over it.
     fn page_alone(&self, item: &Item) -> bool {
         let Some(artifact) = artifact_in(item).and_then(|artifact| self.artifact_of(&item.job, artifact)) else { return false };
-        matches!(artifact.parts.as_slice(), [part] if matches!(part.content, ipc::PartContent::Page { .. }) && !part.asks)
+        matches!(artifact.parts.as_slice(), [part] if matches!(part.content, ipc::PartContent::Page { .. }))
     }
 
     /// The parts of the chosen artifact, drawn the way its card draws them, at the detail's width.

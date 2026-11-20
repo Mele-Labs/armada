@@ -143,6 +143,18 @@
               "links": []
             }
           }
+        },
+        {
+          "kind": "document",
+          "id": "document:feature-guide:r1",
+          "at": "2026-11-19T08:50:00Z",
+          "page": "feature-guide",
+          "title": "Feature pages",
+          "revision": 1,
+          "asked": true,
+          "for_line": {
+            "text": "How a feature page is laid out, for the Jobs that write them."
+          }
         }
       ]
     }

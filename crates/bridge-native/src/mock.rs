@@ -399,7 +399,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
 }
 
 /// How long each ask of `review-asks` has waited, in minutes before the run, so its row reads as it was written.
-const REVIEW_ASK_AGES: [(&str, i64); 6] = [("agent-place", 4), ("plan:1", 12), ("agent-stale", 30), ("try:mock-01", 60), ("draft:dra-401", 18), ("agent-tests", 41)];
+const REVIEW_ASK_AGES: [(&str, i64); 7] =
+    [("agent-place", 4), ("plan:1", 12), ("agent-stale", 30), ("try:mock-01", 60), ("draft:dra-401", 18), ("agent-tests", 41), ("document:feature-guide", 9)];
 
 fn review_asks_ages(sessions: &mut [SessionRecord]) {
     for one in sessions.iter_mut() {
@@ -1007,6 +1008,10 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
         let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
         let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
         return Ok(SKETCHED_PAGE.replacen(SKETCHED_RECORD, &record, 1));
+    }
+    // The review-asks walk's long page: a guide with a table of decisions and a drawing.
+    if page == "feature-guide" && revision == 1 {
+        return Ok(include_str!("../fixtures/feature-guide.html").to_string());
     }
     if page != "design" || !(1..=2).contains(&revision) {
         return Err(format!("revision {revision} of `{page}` is not kept"));

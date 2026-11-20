@@ -369,6 +369,12 @@
               "description": "The page names a test only while it is red."
             }
           ]
+        },
+        {
+          "id": "document:feature-guide",
+          "text": "Approve the guide to feature pages",
+          "since": "2026-11-19T09:00:00Z",
+          "source": "document"
         }
       ]
     },

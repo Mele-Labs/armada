@@ -1159,7 +1159,15 @@ impl JobView {
                 self.review_parts_dismiss(&item, window, cx);
                 self.review_after(&item.key(), window, cx);
             }
-            Kind::Build => {}
+            // A build is dismissed by the Ready to try row that waits on him for it, as on Needs you.
+            Kind::Build => {
+                if row.verdict.is_some() {
+                    return;
+                }
+                let Some(waiting) = self.record(&item.job, cx).and_then(|record| record.waiting_for.iter().find(|one| one.source == WaitingSource::ReadyToTry).map(|one| one.id.clone())) else { return };
+                let body = ipc::encode(&ipc::DismissWaiting { session_id: SessionId::carried(item.job.clone()), item_id: waiting, reason: None, misread: false });
+                self.review_waiting(&item, Verdict::Dismissed, "/sessions/waiting/dismiss", body, window, cx);
+            }
             Kind::Question => {
                 if row.verdict.is_some() {
                     return;
@@ -1422,9 +1430,7 @@ impl JobView {
                 if self.review_offers_second(&item, ask, cx) {
                     stops.push(focus.changes.clone());
                 }
-                if ask != Ask::Build {
-                    stops.push(focus.dismiss.clone());
-                }
+                stops.push(focus.dismiss.clone());
             }
         }
         let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
@@ -1489,9 +1495,7 @@ impl JobView {
         if self.review_offers_second(&item, ask, cx) {
             entries.push(Entry::Act { id: "changes", label: ask.second().into(), icon: Some("pencil"), danger: false });
         }
-        if ask != Ask::Build {
-            entries.push(Entry::Act { id: "dismiss", label: "Dismiss".into(), icon: Some("x"), danger: false });
-        }
+        entries.push(Entry::Act { id: "dismiss", label: "Dismiss".into(), icon: Some("x"), danger: false });
         let back = Some(self.review_focus.list.clone());
         self.open_pop_back(
             "Ask",
@@ -1956,7 +1960,7 @@ impl JobView {
                 row.child(self.review_button(look, "review-approve", label.into(), Tone::Primary, Some("\u{2318}\u{21b5}"), None, &focus.approve, ready, Self::review_primary, cx))
                     .when(second, |row| row.child(self.review_button(look, "review-changes", ask.second().into(), Tone::Secondary, None, Some("C"), &focus.changes, true, Self::review_open_changes, cx)))
                     .child(div().flex_1())
-                    .when(ask != Ask::Build, |row| row.child(self.review_button(look, "review-dismiss", "Dismiss".into(), Tone::Ghost, None, Some("D"), &focus.dismiss, true, Self::review_dismiss, cx))),
+                    .child(self.review_button(look, "review-dismiss", "Dismiss".into(), Tone::Ghost, None, Some("D"), &focus.dismiss, true, Self::review_dismiss, cx)),
             )
         };
         Some(labelled(bar, Role::Toolbar, "Answer").into_any_element())
@@ -1977,7 +1981,11 @@ impl JobView {
             Kind::Plan => {
                 let card = held.head.plan.as_ref();
                 match card.and_then(|card| self.record(job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version).map(|plan| (card, plan))) {
-                    Some((card, plan)) => div().w_full().max_w(super::reader_sheet::measure(look)).child(self.plan_body(SHEET, &card.id, plan, false, &[], page, look, cx)).into_any_element(),
+                    // A plan being revised keeps the card's body, which marks what changed; else the sheet's own reading.
+                    Some((card, plan)) if plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty()) => {
+                        div().w_full().child(self.plan_body(SHEET, &card.id, plan, false, &[], page, look, cx)).into_any_element()
+                    }
+                    Some((card, plan)) => self.review_plan(&card.id, plan, page, look, cx),
                     None => self.review_skeleton(look),
                 }
             }
@@ -1992,32 +2000,11 @@ impl JobView {
                 ),
                 None => self.review_skeleton(look),
             },
-            // The page itself is a web page, drawn by the embedded browser; the sheet holds its frame.
-            Kind::Document => labelled(
-                div()
-                    .id(SharedString::from(format!("review-page:{}", item.key())))
-                    .w_full()
-                    .min_h(look.length(token::H_ROW_UNIT) * 8.)
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::BG_SUNKEN)),
-                Role::Region,
-                "Page",
-            )
-            .into_any_element(),
+            // The page itself is a web page that fills the body once it has loaded (`review_page_stage`); till then, its skeleton.
+            Kind::Document => self.review_skeleton(look),
             Kind::Draft => match draft_row(&held.items, item.id.strip_prefix("draft:").unwrap_or(&item.id)) {
-                Some(SessionRow::Draft { id, text, .. }) => div()
-                    .w_full()
-                    .max_w(super::reader_sheet::measure(look))
-                    .p(look.length(token::SPACE_6))
-                    .rounded(look.length(token::RADIUS_LG))
-                    .border(look.length(token::BORDER_WIDTH))
-                    .border_color(look.color(token::BORDER_SUBTLE))
-                    .bg(look.color(token::SURFACE_CARD))
-                    .shadow(look.shadows(token::SHADOW_CARD))
-                    .child(self.prose(format!("review-draft:{id}"), text, look, cx))
-                    .into_any_element(),
+                // The draft is the body itself, edge to edge between the head and the bar, as a page is.
+                Some(SessionRow::Draft { id, text, .. }) => div().w_full().child(self.prose(format!("review-draft:{id}"), text, look, cx)).into_any_element(),
                 _ => self.review_skeleton(look),
             },
         }
@@ -2031,7 +2018,6 @@ impl JobView {
                 .id("review-operator")
                 .mt(look.length(token::SPACE_2))
                 .w_full()
-                .max_w(super::reader_sheet::measure(look))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_1))
@@ -2060,6 +2046,59 @@ impl JobView {
             "Operator",
         )
         .into_any_element()
+    }
+
+    /// A plan as the sheet reads it: its summary, then each group straight under it, its title, its tasks' marks and what it
+    /// gives. Where a group's work lands and who does it are the thread card's to show.
+    fn review_plan(&self, key: &str, plan: &ipc::SessionPlan, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let groups = plan.groups.iter().map(|group| {
+            let marks = group.tasks.iter().map(|task| {
+                let (icon, ink, said) = super::plan::task_look(task.state);
+                div().id(SharedString::from(format!("review-task:{}", task.id))).flex_none().child(glyph(look, icon, Size::Small, look.color(ink))).tooltip(tip(said))
+            });
+            let gives = group.gives.clone().filter(|gives| !gives.trim().is_empty() && gives.trim() != group.title.trim());
+            labelled(
+                div()
+                    .id(SharedString::from(format!("review-group:{}", group.id)))
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_3))
+                            .child(
+                                div()
+                                    .flex_1()
+                                    .min_w_0()
+                                    .text_size(look.length(token::TEXT_SM))
+                                    .line_height(look.length(token::LEADING_SM))
+                                    .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                    .text_color(look.color(token::FG_DEFAULT))
+                                    .child(SharedString::from(group.title.clone())),
+                            )
+                            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(marks)),
+                    )
+                    .children(gives.map(|gives| {
+                        div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(gives))
+                    }))
+                    .children(self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx)),
+                Role::ListItem,
+                group.title.clone(),
+            )
+        });
+        div()
+            .w_full()
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_4))
+            .children(Some(plan.summary.trim()).filter(|summary| !summary.is_empty()).map(|summary| {
+                div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(summary.to_string()))
+            }))
+            .children(self.plan_sketches(key, plan, None, page, look, cx))
+            .child(labelled(div().id("review-plan-groups").flex().flex_col().gap(look.length(token::SPACE_4)).children(groups), Role::List, "Groups"))
+            .into_any_element()
     }
 
     /// A question's options as rows to choose among, each with what choosing it means, and its number for the key.
@@ -2135,7 +2174,7 @@ impl JobView {
                 .into_any_element()
             })
             .collect();
-        labelled(div().id(SharedString::from(format!("review-options:{key}"))).w_full().max_w(super::reader_sheet::measure(look)).flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, item.name.clone()).into_any_element()
+        labelled(div().id(SharedString::from(format!("review-options:{key}"))).w_full().flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::RadioGroup, item.name.clone()).into_any_element()
     }
 
     /// A build to try: where to look and the steps that try it, then what it holds.
@@ -2221,7 +2260,6 @@ impl JobView {
             div()
                 .id(SharedString::from(format!("review-build:{}", card.id)))
                 .w_full()
-                .max_w(super::reader_sheet::measure(look))
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_4))
