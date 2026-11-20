@@ -144,6 +144,49 @@ async fn another_macs_rows_are_listed_with_their_mac_and_go_when_left_out_or_for
     assert!(ids(&listed).contains(&mine.as_str()));
 }
 
+fn started_on_work(rig: &Rig, row: &SessionRecord) -> (ipc::JobAct, api::ActAnswered) {
+    let start = ipc::StartSession {
+        project: None,
+        manifest_id: rig.manifest.clone(),
+        title: row.title.clone(),
+        model: None,
+        effort: None,
+        mode: None,
+        root: None,
+        fork: None,
+        request: None,
+        after: None,
+        held: false,
+        project_rows: Vec::new(),
+        on_your_words: None,
+    };
+    (ipc::JobAct::Start(start), api::ActAnswered { status: 200, body: ipc::encode(row).expect("encodes").into_bytes() })
+}
+
+/// The link reads Work's list, then hands it here. A start answered between the two must not be undone by that list.
+#[tokio::test]
+async fn a_job_started_on_another_mac_outlasts_the_one_list_read_before_the_start_and_no_more() {
+    let rig = rig_placing(None);
+    let mine = job_in(&rig, None).await;
+    let template = record_of(&rig, &mine).await;
+    let listed = || async { ids(&rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions).iter().map(|id| id.to_string()).collect::<Vec<_>>() };
+
+    let (start, answered) = started_on_work(&rig, &theirs(&template, "01WORKS", "Tape the box"));
+    rig.fleet.act_answered(WORK, &start, answered).await;
+    hold(&rig, Vec::new()).await;
+    assert!(listed().await.contains(&"01WORKS".to_string()), "the list read before the start leaves the new row standing");
+    hold(&rig, Vec::new()).await;
+    assert!(!listed().await.contains(&"01WORKS".to_string()), "a list read after it is Work's word, and drops it");
+
+    // Once Work has spoken of the Job, the next list is read after the start, so it holds the row no longer.
+    let (start, answered) = started_on_work(&rig, &theirs(&template, "01WORKT", "Seal the box"));
+    rig.fleet.act_answered(WORK, &start, answered).await;
+    let changed = Event::SessionChanged(theirs(&template, "01WORKT", "Seal the box"));
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: changed }).await.expect("kept");
+    hold(&rig, Vec::new()).await;
+    assert!(!listed().await.contains(&"01WORKT".to_string()));
+}
+
 #[tokio::test]
 async fn what_another_mac_shared_never_goes_back_out() {
     let rig = rig_placing(None);
