@@ -96,6 +96,8 @@ export type ProjectStore = {
   deployed?: string;
   /** True where it was deployed without the rate limit on joins, because Cloudflare refused it on the account's plan. Absent while false. */
   joins_unlimited?: boolean;
+  /** The login that joins it and that the project's repositories claim as, by the profile's numeric account id. Absent is none picked: its Jobs send nothing. */
+  account_id?: number;
 };
 
 export type Project = {

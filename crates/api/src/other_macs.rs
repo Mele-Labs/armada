@@ -31,6 +31,9 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/other_mac/project_act", post(project_act_from_mac::<D>))
         .route("/other_mac/act", post(crate::mac_acts::act_from_mac::<D>))
         .route("/other_mac/refresh_claim", post(hold_refresh_claim::<D>))
+        .route("/other_mac/kit", get(share_kit::<D>))
+        .route("/other_mac/kit_settle", post(kit_settle_from_mac::<D>))
+        .route("/other_macs/kit", put(hold_other_mac_kit::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
         .route("/other_mac/conversation", get(crate::mac_acts::share_job_conversation::<D>))
         .route("/sessions/move_to_mac", post(crate::mac_acts::move_job_to_mac::<D>))
         .route("/queued", get(crate::mac_acts::list_queued::<D>))
@@ -102,6 +105,41 @@ async fn hold_refresh_claim<D: OtherMacs>(State(served): State<Served<D>>, heade
         return undecodable("a Refresh another Mac has under way names the Mac in x-armada-mac", served.run_id());
     };
     match served.daemon().hold_refresh_claim(mac.to_string(), sent).await {
+        Ok(()) => StatusCode::NO_CONTENT.into_response(),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn share_kit<D: OtherMacs>(State(served): State<Served<D>>, headers: axum::http::HeaderMap) -> Response {
+    let asking = headers.get(crate::acting::MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    match served.daemon().share_kit(asking.map(str::to_string)).await {
+        Ok(offer) => answer(StatusCode::OK, &offer, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn hold_other_mac_kit<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::OtherMacKit = match ipc::decode_body("another Mac's Kit", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().hold_other_mac_kit(held).await {
+        Ok(named) => answer(StatusCode::OK, &named, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `POST /other_mac/kit_settle`: a Kit clash the Mac named in `x-armada-mac` settled.
+async fn kit_settle_from_mac<D: OtherMacs>(State(served): State<Served<D>>, headers: axum::http::HeaderMap, body: Bytes) -> Response {
+    let settled: ipc::KitSettled = match ipc::decode_body("a Kit clash another Mac settled", &body) {
+        Ok(settled) => settled,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    let named = headers.get(crate::acting::MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    let Some(mac) = named else {
+        return undecodable("a Kit clash another Mac settled names the Mac in x-armada-mac", served.run_id());
+    };
+    match served.daemon().kit_settle_from_mac(mac.to_string(), settled).await {
         Ok(()) => StatusCode::NO_CONTENT.into_response(),
         Err(refusal) => refused(refusal),
     }

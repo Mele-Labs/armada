@@ -120,14 +120,25 @@ impl TunePicker {
         match event.keystroke.key.as_str() {
             "down" => {
                 let next = (self.row_at() + 1).min(self.rows().len() - 1);
+                if next != self.row_at() {
+                    crate::ui_sounds::moved();
+                }
                 self.pick_model(next, cx);
             }
             "up" => {
                 let next = self.row_at().saturating_sub(1);
+                if next != self.row_at() {
+                    crate::ui_sounds::moved();
+                }
                 self.pick_model(next, cx);
             }
-            "right" => self.slide(1, cx),
-            "left" => self.slide(-1, cx),
+            "right" | "left" => {
+                let was = self.effort.clone();
+                self.slide(if event.keystroke.key == "right" { 1 } else { -1 }, cx);
+                if self.effort != was {
+                    crate::ui_sounds::moved();
+                }
+            }
             "enter" | "escape" => cx.emit(DismissEvent),
             _ => return,
         }

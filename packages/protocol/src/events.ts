@@ -246,6 +246,10 @@ export type Event =
   | ({
       kind: "timeline.appended";
     } & TimelineAppended)
+  /** This Mac's Kit, or how it stands against a linked Mac, changed: read `get_kit_link` again. Carries nothing else. */
+  | {
+      kind: "kit.changed";
+    }
   /** The Operator's board is not what it was: read `operator_page` again. Carries nothing else. */
   | {
       kind: "operator.board_changed";

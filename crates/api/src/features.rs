@@ -145,6 +145,18 @@ pub(crate) async fn upsert_features<D: Features>(State(served): State<Served<D>>
     }
 }
 
+/// The owner or the Operator answers a proposal to retire a feature. **Placed as `upsert_features` is.**
+pub(crate) async fn answer_retire<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let retiring: ipc::AnswerRetire = match ipc::decode_body("an answer to a proposal to retire a feature", &body) {
+        Ok(retiring) => retiring,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().answer_retire(crate::acting::asking(), retiring).await {
+        Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
 pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {

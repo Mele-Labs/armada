@@ -461,8 +461,9 @@ Keeps your live local Claude environment in step with your Kit's Skills, MCP and
 
 **An edit made in Kit writes into `~/.claude`, and crosses to his other Macs from there**, [Over the Mac link](#over-the-mac-link).
 You never have to trigger it, and non-conflicting items merge silently.
-**Not built.** Nothing yet writes a Kit edit into a person's own Claude configuration.
-The one write there is [Add to this machine](#the-shared-home-retired), which the person presses for a row from the shared home.
+**Built in Fleet.** Kit's editor saves into the person's Claude folder, and the next exchange offers the file from there.
+A change made in `~/.claude` outside Armada is read at the next exchange: when Kit is read, when a linked Mac's Kit arrives, or when a kind is switched.
+Nothing watches the folder.
 
 **A same-named conflict with config Claude already has outside Armada surfaces for you to resolve**, rather than being silently overwritten. That is the one time you are involved.
 
@@ -482,7 +483,8 @@ Two mechanisms, both carried over from the v1 prototype:
 **Kit keeps his linked Macs' setups the same over the Mac link, the link shared projects cross, with no GitHub repository and no Sync press.**
 The link is [Project](project.md), *Sharing with his other Macs*.
 An edit on one Mac crosses to the other where the kind is switched on.
-**Not built.**
+**Built in Fleet**, 19 Nov 2026, for any number of linked Macs; the wire is [the protocol page](../practices/protocol/kit-over-the-mac-link.md).
+**Not built in Bridge.** Neither Classic nor native draws it yet.
 
 **Each kind is switched on per Mac, and every kind is off until it is switched on.**
 One switch on a kind both sends this Mac's items of it and takes the other Mac's.
@@ -514,6 +516,13 @@ The refusal names the host and never the value.
 A clash is an item both Macs changed while they were unlinked.
 Kit shows the two side by side in the item's detail, with *Keep this Mac's* and *Keep <other Mac>'s*, and the pick settles it on both Macs.
 Until then each Mac keeps its own.
+A pick made while the other Mac is asleep waits, and is sent when the link opens, oldest first.
+
+**A change on one side crosses by itself.** Each Mac keeps, for every item and every linked Mac, what the two last agreed on.
+An item that moved on one side only since then is taken by the other, and one that moved on both is a clash.
+Keeping a side records the other side as agreed, on both Macs.
+
+**A deletion does not cross.** An item taken away on one Mac reads as only on the other Mac, and is not brought back.
 
 **Each synced item has one scope.** **Not built:** an item is switched on or off, and no item carries a scope.
 
@@ -529,7 +538,8 @@ Until then each Mac keeps its own.
 ### The shared home, retired
 
 **The repository `<gh login>/armada-home`, a private repository on the person's own GitHub account that every machine signed in to it read and wrote, is retired: Fleet no longer reads or writes it, and nothing deletes it.**
-**Not built.** Fleet still makes, reads and writes it, and the rest of this section is what it does until Kit crosses over the Mac link.
+Since 19 Nov 2026 Classic's page reads no home and every kind off, and each of its acts refuses, naming the link.
+The rest of this section is what the home did until then.
 Signing in, the identity and the profiles a machine joins are [Account](account.md); Armada holds no account of its own.
 It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
 What it carries and refuses is [Over the Mac link](#over-the-mac-link)'s table, kept unchanged.
@@ -591,7 +601,7 @@ Mods are a list of their own, and the Theme rows carry the same marks.
 Fleet pushes no event for it, so it is read once that profile is signed in and again after every act and every kind switched in What syncs.
 Sync turns while it runs, and a refused act is a failure toast in Fleet's words, as any refused press is; so is each row a Sync left on this machine.
 A mod only the home has is listed under the kind its `mod.toml` names, which the home's row carries.
-**Not built.** Per-item scopes, [Over the Mac link](#over-the-mac-link).
+**Not built.** Per-item scopes.
 The marks use Proposed glyphs, `packages/icons/icons/house.toml` for the home and `packages/icons/icons/laptop.toml` for this machine among them.
 
 ### Upgrade

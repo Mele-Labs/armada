@@ -1359,6 +1359,9 @@ impl JobView {
         let keys: Vec<String> = self.review_shown(review, cx).iter().map(Item::key).collect();
         let here = review.at.as_ref().and_then(|at| keys.iter().position(|key| key == at));
         if let Some(to) = step_to(keys.len(), here, key) {
+            if matches!(key, "up" | "down") && Some(to) != here {
+                crate::ui_sounds::moved();
+            }
             self.review_choose(&keys[to], window, cx);
         }
     }

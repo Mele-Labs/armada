@@ -403,6 +403,9 @@ fn arrows(body: &FocusHandle, event: &KeyDownEvent, window: &mut Window, cx: &mu
             }
             break;
         }
+        if !whole {
+            crate::ui_sounds::moved();
+        }
     }
     true
 }

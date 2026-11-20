@@ -1,0 +1,10 @@
+[operations.get_kit_link]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read each Kit kind's switch on this Mac and each row as it stands against every linked Mac"
+notes = """
+`GET /kit/link`, answered with `KitLink { kinds, items, macs, rows, unreadable }`. `kinds` is one `{ kind, on }` for every `HomeKind` in order, **off until he switches it on**, kept in this Mac's store and never sent. `items` are the items switched on by themselves while their kind is off. `macs` is every linked Mac, `{ mac, name, crossed_at?, kinds, items }`: when its Kit last crossed here and what it has switched on, as it last said. `rows` is every row of each kind switched on here and each item on by itself, kind by kind in `HomeKind`'s order: `KitLinkRow { kind, name, repository?, says?, source?, key_here?, mod_kind?, refused?, against }`. `refused` says why this Mac's version stays here (it carries a credential, naming the host and never the value, or a mod is not valid here). `against` is one `KitAgainst { mac, mark, here?, there? }` for each linked Mac that crosses the row's kind or the item: `mark` is `same`, `differs`, `new_here`, `only_there` or `clash`, and a row that differs or clashes carries both versions, each a `KitSide { mac_name, text, changed_at? }`, `changed_at` when that Mac first read the version.
+
+Reading it reads this Mac's Kit again, from the harness's home, the mods folder and Kit's home, so a change made outside Armada is noticed here; where this Mac's offer changed, `kit.changed` follows and the linked Macs read it again. It reaches no other Mac. `agent_access` is `No`: his own setup across his Macs.
+"""

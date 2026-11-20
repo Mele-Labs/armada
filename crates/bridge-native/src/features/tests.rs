@@ -87,8 +87,10 @@ fn down_and_up_move_the_row_past_the_area_heads_and_the_page_follows_the_row(cx:
     assert_eq!(cursor(&screen, cx).as_deref(), Some("model-and-context"));
     cx.simulate_keystrokes("j");
     assert_eq!(cursor(&screen, cx).as_deref(), Some("thread-and-composer"), "J is Down");
-    cx.simulate_keystrokes("k k k k k k k k k k");
-    assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"), "it stops at the first");
+    cx.simulate_keystrokes("k k k k k k k k k k k k");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.on_project), Some(super::ProjectPage::Overview), "past the first feature are the three project rows, and it stops at Overview");
+    cx.simulate_keystrokes("j j j");
+    assert_eq!(cursor(&screen, cx).as_deref(), Some("start-a-job"), "down from them is the first feature");
     cx.simulate_keystrokes("enter");
     assert_eq!(screen.read_with(cx, |screen, _| screen.opened().map(|row| row.title.clone())).as_deref(), Some("Start a Job"));
     // Moving the row moves the page with it.
@@ -341,7 +343,7 @@ fn at_820_enter_opens_the_page_full_width_with_a_back_row_and_escape_returns_to_
 #[gpui::test]
 fn at_820_a_press_on_a_row_or_on_back_opens_and_closes_the_page(cx: &mut TestAppContext) {
     let (screen, cx) = open_wide(cx, 820.);
-    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::ListBoxOption, "Job list and live status").map(|one| one.bounds)).expect("the row is drawn");
+    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == gpui::Role::ListBoxOption && one.name == "Job list and live status").map(|one| one.bounds)).expect("the row is drawn");
     cx.simulate_click(row.center(), gpui::Modifiers::default());
     redraw(cx);
     assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"));

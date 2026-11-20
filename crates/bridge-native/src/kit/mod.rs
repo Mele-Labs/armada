@@ -336,7 +336,11 @@ impl KitScreen {
         match self.pane {
             Pane::Rail => {
                 let at = KINDS.iter().position(|kind| *kind == self.kind).unwrap_or(0) as isize;
-                self.select_kind(KINDS[(at + by).clamp(0, KINDS.len() as isize - 1) as usize], cx);
+                let to = KINDS[(at + by).clamp(0, KINDS.len() as isize - 1) as usize];
+                if to != self.kind {
+                    crate::ui_sounds::moved();
+                }
+                self.select_kind(to, cx);
             }
             Pane::List => {
                 let count = self.listed.shown.len() as isize;
@@ -346,6 +350,9 @@ impl KitScreen {
                 let at = self.picked_at().map_or(if by > 0 { -1 } else { count }, |at| at as isize);
                 let next = (at + by).clamp(0, count - 1) as usize;
                 let id = self.listed.shown[next].row.id.clone();
+                if self.picked_at() != Some(next) {
+                    crate::ui_sounds::moved();
+                }
                 self.pick(id, cx);
             }
             Pane::Detail => self.scroll_file(file::Scroll::Lines(by), cx),

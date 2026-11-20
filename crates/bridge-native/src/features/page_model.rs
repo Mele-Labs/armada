@@ -241,6 +241,30 @@ pub enum Body {
     Written(Option<Written>),
 }
 
+// ---- the floor plan --------------------------------------------------------------------------
+
+/// What the floor plan card holds.
+#[derive(Clone, Debug, PartialEq)]
+pub enum Floor {
+    /// The plan read, laid out by the card at the width it is drawn at.
+    Plan(std::rc::Rc<super::floor_map::Laid>),
+    /// No rooms to draw: the line that says why.
+    Empty(&'static str),
+}
+
+/// Why the card is empty, and what fills it.
+pub const NO_PLAN: &str = "No code map. It draws when the full page is read from a repository Fleet can open.";
+pub const NO_ROOMS: &str = "No modules found. They draw from the repository's package manifests and folders.";
+
+/// The code map with the feature's rooms lit: every module, lit or not.
+pub fn floor(page: &FeaturePage) -> Floor {
+    let Some(plan) = &page.floor_plan else { return Floor::Empty(NO_PLAN) };
+    if plan.rooms.is_empty() {
+        return Floor::Empty(NO_ROOMS);
+    }
+    Floor::Plan(std::rc::Rc::new(super::floor_map::Laid::new(plan.clone())))
+}
+
 // ---- the fold --------------------------------------------------------------------------------
 
 /// How many of an ask section's rows show before the rest fold under one line.
@@ -555,8 +579,11 @@ fn who(page: &FeaturePage) -> Vec<Row> {
     rows
 }
 
+/// The links the Designs card lists.
+pub(crate) const DESIGN_KINDS: [FeatureLinkKind; 4] = [FeatureLinkKind::Sketch, FeatureLinkKind::Page, FeatureLinkKind::Walk, FeatureLinkKind::Draft];
+
 fn designs(page: &FeaturePage) -> Vec<Row> {
-    links_of(page, &[FeatureLinkKind::Sketch, FeatureLinkKind::Page, FeatureLinkKind::Walk, FeatureLinkKind::Draft])
+    links_of(page, &DESIGN_KINDS)
         .into_iter()
         .map(|link| {
             let (glyph, said) = glyph_of(link.kind);

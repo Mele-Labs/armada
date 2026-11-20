@@ -423,9 +423,21 @@ impl SettingsOverlay {
         match (key.key.as_str(), on) {
             ("escape", _) => self.cancel_merge(window, cx),
             ("tab", _) => go(if held.shift { -1 } else { 1 }, window, cx),
-            ("left" | "right", Some(Stop::Value(n))) => self.choose_value(n, key.key == "right", cx),
-            ("up" | "left", _) => go(-1, window, cx),
-            ("down" | "right", _) => go(1, window, cx),
+            ("left" | "right", Some(Stop::Value(n))) => {
+                let was = self.scope.merging.as_ref().map(|asking| asking.from_gone.clone());
+                self.choose_value(n, key.key == "right", cx);
+                if was != self.scope.merging.as_ref().map(|asking| asking.from_gone.clone()) {
+                    crate::ui_sounds::moved();
+                }
+            }
+            ("up" | "left", _) => {
+                crate::ui_sounds::moved();
+                go(-1, window, cx)
+            }
+            ("down" | "right", _) => {
+                crate::ui_sounds::moved();
+                go(1, window, cx)
+            }
             ("enter" | "space", Some(stop)) => self.press_stop(stop, window, cx),
             _ => {}
         }

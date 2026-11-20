@@ -21,6 +21,8 @@ fn row(slug: &str) -> FeatureRow {
         jobs_now: Vec::new(),
         stale_since: None,
         health: ipc::FeatureHealth { mark: ipc::HealthMark::Good, reasons: Vec::new() },
+        retire: None,
+        planned: false,
     }
 }
 
@@ -90,6 +92,10 @@ impl Features for FakeDaemon {
 
     async fn run_librarian(&self, _caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> Result<ipc::LibrarianRan, Refusal> {
         Ok(ipc::LibrarianRan { project: run.project, ran_at: ipc::Instant::carried("2026-11-18T09:00:00.000Z"), ran: Vec::new(), read_through: None, skipped_for_share: Vec::new(), stopped: false })
+    }
+
+    async fn answer_retire(&self, _caller: Option<crate::Caller>, answer: ipc::AnswerRetire) -> Result<ipc::RetireAnswered, Refusal> {
+        Ok(ipc::RetireAnswered { project: answer.project, slug: answer.slug, retired: answer.retire })
     }
 
     async fn stop_librarian(&self, _caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {

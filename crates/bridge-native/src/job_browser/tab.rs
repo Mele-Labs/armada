@@ -229,12 +229,18 @@ impl BrowserTab {
     pub(super) fn step_scope(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
         let at = Scope::ALL.iter().position(|one| *one == self.site.scope).unwrap_or(0) as isize;
         let next = Scope::ALL[(at + by).rem_euclid(Scope::ALL.len() as isize) as usize];
+        if next != self.site.scope {
+            crate::ui_sounds::moved();
+        }
         self.set_scope(next, window, cx);
     }
 
     /// An arrow in a row's group of segments.
     pub(super) fn step_choice(&mut self, permission: Permission, by: isize, window: &mut Window, cx: &mut Context<Self>) {
         let next = stepped(self.site_value(permission), by);
+        if next != self.site_value(permission) {
+            crate::ui_sounds::moved();
+        }
         self.press_choice(permission, next, window, cx);
     }
 

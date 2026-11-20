@@ -29,8 +29,9 @@ fn open_with(cx: &mut TestAppContext, library: ipc::FeatureLibrary) -> (gpui::En
     (screen, cx)
 }
 
+/// The librarian's card lists its steps, which push the pending row's editor past this window; these tests are not about it, so it lists none.
 fn open(cx: &mut TestAppContext) -> (gpui::Entity<FeaturesScreen>, &mut VisualTestContext) {
-    open_with(cx, mock::library())
+    open_with(cx, ipc::FeatureLibrary { librarian: Default::default(), ..mock::library() })
 }
 
 fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
@@ -38,7 +39,8 @@ fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
 }
 
 fn press(cx: &mut VisualTestContext, role: Role, name: &str) {
-    let at = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|one| one.bounds.center())).unwrap_or_else(|| panic!("{name} is not drawn"));
+    // The book keeps every frame the test drew, so the newest is the one that is on screen.
+    let at = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds.center())).unwrap_or_else(|| panic!("{name} is not drawn"));
     cx.simulate_click(at, Modifiers::none());
     cx.run_until_parked();
 }

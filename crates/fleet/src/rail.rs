@@ -96,9 +96,15 @@ impl RailStep {
         self.lifecycle_ends().next().is_some()
     }
 
-    /// The step lists what ends it and no anchor places it, so it holds the Job until one comes.
+    /// The step lists what ends it, or its `gate` is a fact the rail reads ([`Facts::gate_met`]), and no anchor
+    /// places it, so it holds the Job until one comes.
     pub(crate) fn holds(&self) -> bool {
-        !self.ends_on.is_empty() && !(self.records_plan || self.walks || self.follows_plan || self.delivers)
+        (!self.ends_on.is_empty() || self.gate_holds()) && !(self.records_plan || self.walks || self.follows_plan || self.delivers)
+    }
+
+    /// The step's `gate` is one whose fact the rail reads, and so ends it. The other gates are `rail_ends`'s to say only.
+    fn gate_holds(&self) -> bool {
+        matches!(self.gate, StepGate::DocumentApproved | StepGate::SketchApproved | StepGate::JobsEnded | StepGate::ChecksGreen)
     }
 
     /// The step ends on his Approve, as a `you_approved` gate does, and holds the Job until then.
@@ -181,6 +187,10 @@ pub(crate) struct Extra {
     pub sketch_approved: bool,
     /// The person approved the newest revision of a document the Job wrote, read off the kept page.
     pub document_approved: bool,
+    /// Every Job this Job started since its plan was recorded is done, and it started one: what a `jobs_ended` gate reads.
+    pub jobs_ended: bool,
+    /// Fleet's own Checks passed at the pushed commit: a closed `checks_green` gate.
+    pub checks_green: bool,
     /// The person approved a draft the Job proposed, as written or with his own text.
     pub draft_approved: bool,
     /// The person picked an option the Job's question gave a preview.
@@ -236,6 +246,10 @@ pub(crate) struct Facts {
     pub pushed_since_walk: bool,
     pub sketch_approved: bool,
     pub document_approved: bool,
+    /// [`Extra::jobs_ended`].
+    pub jobs_ended: bool,
+    /// [`Extra::checks_green`].
+    pub checks_green: bool,
     pub draft_approved: bool,
     pub idea_picked: bool,
     pub plan_expects_walk: bool,
@@ -291,6 +305,8 @@ impl Facts {
             pushed_since_walk: extra.pushed_since_walk,
             sketch_approved: extra.sketch_approved,
             document_approved: extra.document_approved,
+            jobs_ended: extra.jobs_ended,
+            checks_green: extra.checks_green,
             draft_approved: extra.draft_approved,
             idea_picked: extra.idea_picked,
             plan_expects_walk: extra.plan_expects_walk,
@@ -352,6 +368,22 @@ impl Facts {
         ends.iter().any(|end| self.ended(at, end))
     }
 
+    /// Whether the fact a step's `gate` names holds. Only the four gates [`RailStep::holds`] reads; the rest are false.
+    fn gate_met(&self, gate: StepGate) -> bool {
+        match gate {
+            StepGate::DocumentApproved => self.document_approved,
+            StepGate::SketchApproved => self.sketch_approved,
+            StepGate::JobsEnded => self.jobs_ended,
+            StepGate::ChecksGreen => self.checks_green,
+            _ => false,
+        }
+    }
+
+    /// Whether the holding step at `at` has ended: one of its listed ends holds, or its `gate`'s fact does.
+    fn step_ended(&self, at: usize, step: &RailStep) -> bool {
+        self.any_ended(at, &step.ends_on) || (step.gate_holds() && self.gate_met(step.gate))
+    }
+
     fn has(&self, fit: Fit) -> bool {
         match fit {
             Fit::Edited => self.edited,
@@ -407,10 +439,10 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.landed;
     }
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return facts.plan_recorded || facts.any_ended(at, &step.ends_on);
+        return facts.plan_recorded || facts.step_ended(at, step);
     }
     // A step that lists its ends holds the Job until one comes.
-    !step.holds() || facts.any_ended(at, &step.ends_on)
+    !step.holds() || facts.step_ended(at, step)
 }
 
 /// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
@@ -454,7 +486,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     let before = |earlier: usize| (0..earlier).all(|one| passed(steps, one, facts));
     if recorder(steps).is_some_and(|recording| at < recording) {
-        return !facts.added_behind(at) && !facts.any_ended(at, &step.ends_on) && !facts.plan_recorded && before(at);
+        return !facts.added_behind(at) && !facts.step_ended(at, step) && !facts.plan_recorded && before(at);
     }
     // **A step that waits on a lifecycle is entered once the Job holds one**, and left when its end
     // comes. The step after it is entered at that moment, whatever fact would have entered it: the
@@ -463,7 +495,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         return facts.lifecycle_held.has(at) && !facts.any_ended(at, &step.ends_on) && before(at);
     }
     if step.holds() {
-        return !facts.any_ended(at, &step.ends_on) && before(at);
+        return !facts.step_ended(at, step) && before(at);
     }
     let after_a_wait = at > 0 && steps[at - 1].holds() && before(at);
     // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
@@ -487,9 +519,10 @@ pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
         let over = |at: usize| facts.skipped.has(at) || (steps[at].has_lifecycle_end() && facts.any_ended(at, &steps[at].ends_on));
         return (delivering + 1..steps.len()).find(|at| !over(*at));
     }
-    // The last step waited on a lifecycle and its end has come: nothing follows it.
+    // The last step held the Job (on a lifecycle, or on its gate's fact) and its end has come: nothing follows it.
     let last = steps.len() - 1;
-    if steps[last].has_lifecycle_end() && (0..=last).all(|at| passed(steps, at, facts)) && facts.any_ended(last, &steps[last].ends_on) {
+    let held_last = steps[last].has_lifecycle_end() || (steps[last].gate_holds() && steps[last].holds());
+    if held_last && (0..=last).all(|at| passed(steps, at, facts)) && facts.step_ended(last, &steps[last]) {
         return None;
     }
     Some((0..steps.len()).rev().find(|at| entered(steps, *at, facts)).unwrap_or_else(|| standing(steps, facts)))

@@ -26,6 +26,8 @@ pub enum FeaturePageEvent {
     Escape,
     /// The Story of an ask: the Job to open, and the ask to put in front on its Story tab.
     Story { session_id: SessionId, ask_id: String },
+    /// A Designs row: the Job that made the artifact, and the artifact to open in it, by its id.
+    Design { job: String, artifact: String },
 }
 
 enum Source {
@@ -61,6 +63,9 @@ pub struct FeaturePageView {
     pub(super) start: FocusHandle,
     /// The command well the keys are on, among those of the open card.
     pub(super) well_at: usize,
+    /// The floor plan, laid out again only when the plan read differs from the one it was laid out for.
+    pub(super) floor: page_model::Floor,
+    floor_of: Option<Option<ipc::FloorPlan>>,
     source: Source,
     project: String,
     slug: String,
@@ -151,6 +156,8 @@ impl FeaturePageView {
             well: cx.focus_handle(),
             start: cx.focus_handle(),
             well_at: 0,
+            floor: page_model::Floor::Empty(page_model::NO_PLAN),
+            floor_of: None,
             source,
             project,
             slug,
@@ -300,6 +307,10 @@ impl FeaturePageView {
     /// The rail's lines and the open section's body, from what is held now.
     pub(super) fn rebuild(&mut self, cx: &mut Context<Self>) {
         if let Load::Read(page) = &self.page {
+            if self.floor_of.as_ref() != Some(&page.floor_plan) {
+                self.floor = page_model::floor(page);
+                self.floor_of = Some(page.floor_plan.clone());
+            }
             self.entries = page_model::entries(page, self.asks_read());
             let asks = match &self.asks {
                 Load::Read(read) => Some(&read.asks[..]),
@@ -405,6 +416,9 @@ impl FeaturePageView {
         let order: Vec<Section> = Section::NAV.into_iter().filter(|one| self.present(*one) || *one == self.section).collect();
         let at = order.iter().position(|one| *one == self.section).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, order.len() as isize - 1) as usize;
+        if order[next] != self.section {
+            crate::ui_sounds::moved();
+        }
         self.select(order[next], cx);
     }
 
@@ -421,7 +435,11 @@ impl FeaturePageView {
 
     fn step_chip(&mut self, by: isize, cx: &mut Context<Self>) {
         let at = Chip::ALL.iter().position(|one| *one == self.chip_at).unwrap_or(0) as isize;
+        let was = self.chip_at;
         self.chip_at = Chip::ALL[(at + by).clamp(0, Chip::ALL.len() as isize - 1) as usize];
+        if self.chip_at != was {
+            crate::ui_sounds::moved();
+        }
         cx.notify();
     }
 
@@ -432,6 +450,9 @@ impl FeaturePageView {
         }
         let at = self.row_at.map_or(if by > 0 { -1 } else { count }, |at| at as isize);
         let next = (at + by).clamp(0, count - 1) as usize;
+        if self.row_at != Some(next) {
+            crate::ui_sounds::moved();
+        }
         self.row_at = Some(next);
         self.list.scroll_to_reveal_item(next);
         cx.notify();
@@ -460,10 +481,23 @@ impl FeaturePageView {
         cx.emit(FeaturePageEvent::Story { session_id, ask_id });
     }
 
-    /// Enter on the place the keys are on: a row opens its Story, and the fold line folds or opens.
+    /// Open the artifact the Designs row on the place `at` names, in the Job that made it. The page says so and its holder opens it.
+    /// A link Fleet names no Job for has nowhere to open.
+    pub(super) fn open_design(&mut self, at: usize, cx: &mut Context<Self>) {
+        if self.section != Section::Designs {
+            return;
+        }
+        let (Some(Item::Row(row)), Body::Rows(rows), Load::Read(page)) = (self.items.get(at), &self.body, &self.page) else { return };
+        let Some(key) = rows.get(*row).map(|row| row.key.as_str()) else { return };
+        let Some(job) = page.links.iter().filter(|link| page_model::DESIGN_KINDS.contains(&link.kind) && link.target == key).find_map(|link| link.job.clone()) else { return };
+        cx.emit(FeaturePageEvent::Design { job, artifact: key.to_string() });
+    }
+
+    /// Enter on the place the keys are on: a Designs row opens its artifact, another row its Story, and the fold line folds or opens.
     fn press_row(&mut self, cx: &mut Context<Self>) {
         match self.row_at.and_then(|at| self.items.get(at).map(|item| (at, *item))) {
             Some((_, Item::Fold)) => self.toggle_fold(cx),
+            Some((at, Item::Row(_))) if self.section == Section::Designs => self.open_design(at, cx),
             Some((at, Item::Row(_))) => self.open_story(at, cx),
             None => {}
         }
@@ -566,9 +600,9 @@ impl FeaturePageView {
     }
 
     /// The registry's `features` acts, pressed while the keys are on the page. All of them stop here except
-    /// the filter, which is the list's: a page is never opened again by the list's own Enter.
+    /// the filter, the project chips and the librarian's Catch up, which are the list's: a page is never opened again by the list's own Enter.
     pub(super) fn on_act(&mut self, act: &Act, window: &mut Window, cx: &mut Context<Self>) {
-        if !act.id.starts_with("features_") || act.id == "features_filter" {
+        if !act.id.starts_with("features_") || ["features_filter", "features_project", "features_catch_up"].contains(&act.id) {
             cx.propagate();
             return;
         }
@@ -581,7 +615,11 @@ impl FeaturePageView {
                     Region::Rows => self.step_row(by, cx),
                     Region::Well => {
                         let last = self.wells().len().saturating_sub(1);
+                        let was = self.well_at;
                         self.well_at = (self.well_at as isize + by).clamp(0, last as isize) as usize;
+                        if self.well_at != was {
+                            crate::ui_sounds::moved();
+                        }
                         cx.notify();
                     }
                     Region::Chips | Region::Start => {}

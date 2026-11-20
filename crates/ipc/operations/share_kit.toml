@@ -1,0 +1,8 @@
+[operations.share_kit]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's Kit, for this Mac's Phone Gateway to send his other Macs: only what is switched on, and nothing secret"
+notes = """
+`GET /other_mac/kit`, answered with `KitOffer { kinds, items, pieces }`: the kinds this Mac has on, the items on by themselves, and each piece of them as `KitPiece { kind, name, repository?, files, says?, source?, hash, changed_at? }`. `hash` is the hash of the piece's canonical text, which a last-agreed marker records. **A piece that carries a credential is left out**, and stays on this Mac marked with why; a server crosses as its name and host. A kind switched off sends nothing. A Mac on a build from before this route answers 404, and the link stays up without its Kit.
+"""

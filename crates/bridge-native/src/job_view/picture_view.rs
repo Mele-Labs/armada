@@ -138,6 +138,9 @@ impl JobView {
         if let Some(viewing) = self.pictures.viewing.as_mut() {
             if let What::Take { at: now, .. } = &mut viewing.what {
                 *now = stepped(at, by, takes.len());
+                if *now != at {
+                    crate::ui_sounds::moved();
+                }
             }
             viewing.zoom.fit();
         }
