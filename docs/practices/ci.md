@@ -45,7 +45,7 @@ It saved no time that was measured: the third-party crates compile beside the lo
 
 **A pull request the queue dropped runs again, on its own run, the Checks the queue failed.** Without it, a fix for that failure read green on a pull request that never ran the Check, and its first real answer came after another wait in the queue.
 The plan reads the newest queue run for the pull request that passed or failed, from its branch `gh-readonly-queue/main/pr-<n>-…`; a cancelled one says nothing.
-When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`, `desktop_unit` is `apps/desktop/unit:desktop_test`) and `plan.py --rerun` keeps them past `--quick`.
+When that run failed, its failed jobs are turned back into Check keys (`test 2/4` is `test`, `desktop_unit 1/2` is `apps/desktop/unit:desktop_test`) and `plan.py --rerun` keeps them past `--quick`.
 A grouped job (`node checks`, `components`, `surface tests 1/2`) does not say which of its keys failed, so its name stands for every key `plan.py` puts in that group, and the run keeps the ones the pull request's own plan names.
 The job summary names each one.
 They run on every push until the queue runs the pull request again.
@@ -198,7 +198,7 @@ requires for the Checks below. `desktop_test` is to be added.
 | `xtask_test` of `apps/desktop` | `ubuntu-latest`, job `xtask_test` | `cargo nextest run -p xtask --test-threads $WIDTH`, direct, since the plan's `armada` is not built there. Runs the xtask tests that read `apps/` and `packages/` | rust-cache, cargo-nextest |
 | `format` | `ubuntu-latest` | `pnpm format:check`, on every change | node_modules |
 | `foundations` | `ubuntu-latest` | `cargo xtask verify-foundations`, on the candidate and on `main`'s tip, read as a delta | rust-cache, `main`'s reading per commit |
-| `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, job `desktop_unit` | `vitest run --maxWorkers=$WIDTH --project 'desktop*'`, direct. `armada check` runs the same from the manifest | node_modules, Playwright |
+| `desktop_test` of `apps/desktop/unit` | `ubuntu-latest`, jobs `desktop_unit 1/2` and `2/2` | `vitest run --maxWorkers=$WIDTH --project 'desktop*' --shard=N/2`, direct. Two shards keep one Chromium page under 300 files (armada-uxuk). `armada check` runs the same from the manifest | node_modules, Playwright |
 
 **No compiler cache.** rust-cache keeps the third-party crates, and every Rust job compiles Armada's own crates again (`CARGO_INCREMENTAL=0`).
 A whole `test` compile is 278 seconds, 212 of them `fleet`'s test harness, which sccache cannot cache; sccache and a nextest archive shared by the shards were measured and not taken (`docs/spikes/ci-test-compile.md`).
