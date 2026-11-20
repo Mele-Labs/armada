@@ -748,7 +748,7 @@ impl NewProjectSheet {
             }))
             .when(inherited, |pick| pick.tooltip(tip("What every project uses")))
             .map(|pick| match &shown {
-                Some((word, _)) => pick.child(key.said(word, &self.models)),
+                Some((word, _)) => pick.child(key.said(word, &self.models, &self.layouts)),
                 None => pick.child(bone(look, look.length(token::SPACE_12))),
             })
             .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_SUBTLE)));
@@ -759,7 +759,12 @@ impl NewProjectSheet {
                 format!("{} set for this project", key.label()),
             )
         });
-        Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label())).into_any_element()
+        let row = Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label()));
+        if key == Key::Tracker && shown.as_ref().is_some_and(|(word, _)| word == values::CUSTOM) {
+            let describe = field(look, self.boxes.tracker.focus_handle(cx).is_focused(window)).h_auto().min_h(look.length(token::H_CONTROL) * 2.).child(text_box(&self.boxes.tracker));
+            return div().flex().flex_col().gap(look.length(token::SPACE_2)).child(row).child(labelled(describe.id("np-tracker-describe"), Role::TextInput, "Describe the tracker to build")).into_any_element();
+        }
+        row.into_any_element()
     }
 
     fn share_row(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
