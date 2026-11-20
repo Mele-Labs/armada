@@ -194,6 +194,7 @@ WebSocket event stream, read this first.
 | [Kit's Add and Remove: a plugin or a skill](protocol/kit-add-and-remove-a-plugin-or-a-skill.md) |
 | [A Kit piece's file: `get_kit_file`, `save_kit_file`, `open_kit_piece`](protocol/a-kit-pieces-file-read-saved-and-opened.md) |
 | [The shared home: Kit's rows against it, three acts, and what syncs](protocol/the-shared-home.md) |
+| [Kit over the Mac link: each kind's switch, each row against every linked Mac, and a clash settled](protocol/kit-over-the-mac-link.md) |
 | [A Mod Job: `start_mod_session`, `mod` and `made_by`](protocol/a-mod-job.md) |
 | [A Job is judged on demand: `ask_judge`, `send_judge_note`, `dismiss_judge_note`, `mark_judge_read`](protocol/a-job-is-judged-on-demand.md) |
 | [An aside to a Job: `ask_aside`, `list_asides`, `tell_aside`, `session.aside`](protocol/an-aside-to-a-job.md) |

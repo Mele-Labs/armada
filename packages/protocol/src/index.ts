@@ -18,6 +18,7 @@ export * from "./commanding";
 export * from "./committing";
 export * from "./sharing";
 export * from "./shared-home";
+export * from "./kit-link";
 export * from "./connection";
 export * from "./drift";
 export * from "./editing";

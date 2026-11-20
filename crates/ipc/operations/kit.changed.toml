@@ -1,0 +1,8 @@
+[operations."kit.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "This Mac's Kit, or how it stands against a linked Mac, changed"
+notes = """
+Carries `KitChanged {}`, nothing. Bridge reads `get_kit_link` again. It crosses to every linked Mac, whose Gateway reads `share_kit` again and hands it in as `hold_other_mac_kit`. Published when this Mac's offer or a row's mark moves, never for a read that changed nothing, so two Macs do not tell each other forever.
+"""

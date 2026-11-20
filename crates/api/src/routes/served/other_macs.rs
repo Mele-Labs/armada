@@ -101,6 +101,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/project_act",
     },
     Route {
+        operation: "share_kit",
+        method: "GET",
+        path: "/other_mac/kit",
+    },
+    Route {
+        operation: "hold_other_mac_kit",
+        method: "PUT",
+        path: "/other_macs/kit",
+    },
+    Route {
+        operation: "kit_settle_from_mac",
+        method: "POST",
+        path: "/other_mac/kit_settle",
+    },
+    Route {
         operation: "hold_refresh_claim",
         method: "POST",
         path: "/other_mac/refresh_claim",

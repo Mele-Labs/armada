@@ -92,6 +92,8 @@ mod workflow_versions;
 /// What this Mac syncs with the shared home.
 mod home_kinds;
 mod home_repositories;
+/// What crosses to his other Macs' Kits, and what each last agreed.
+mod kit_link;
 /// How the person chose to land work, per repository and kind of work.
 mod delivery_picks;
 mod word_asks;
@@ -312,6 +314,7 @@ pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
 pub use request_runs::{KeptRequestRun, NewRun, RunsAsked, StatusWanted, RUNS_KEPT};
 pub use home_kinds::KeptHomeItem;
+pub use kit_link::KeptKitOffer;
 pub use home_repositories::KeptHomeRepository;
 pub use lifecycle_instances::{KeptInstance, KeptMove, KeptRead};
 pub use job_copies::{KeptCopy, KeptPiece, PieceKind};
