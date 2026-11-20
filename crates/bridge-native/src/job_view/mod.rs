@@ -90,6 +90,7 @@ mod reader_edit;
 mod reader_page;
 mod reader_page_edit;
 mod reader_share;
+mod reader_talk;
 mod web_walk;
 pub(crate) mod rows;
 mod row_views;

@@ -1270,6 +1270,12 @@ impl JobView {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
+                // The mocks of planning on a page: a note sent from a page reads as a card.
+                if crate::mock::scenario_is("planning-side") || crate::mock::scenario_is("planning-margin") {
+                    if let Some(card) = super::reader_talk::sent_card(look, id, text) {
+                        return Some(card);
+                    }
+                }
                 self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),

@@ -44,6 +44,14 @@ impl JobView {
         let view = div().id(SharedString::from(format!("reader-page:{name}"))).flex_1().min_w_0().min_h_0().relative().children(page);
         let pins: Vec<AnyElement> = held.notes.iter().enumerate().map(|(place, note)| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx)).collect();
         let add = (!subject.closed).then(|| self.reader_add_button(id, name, look, cx));
+        // The mock of the talk in the margin, for the owner to judge.
+        if crate::mock::scenario_is("planning-margin") {
+            return div().flex_1().min_h_0().min_w_0().flex().child(view).child(super::reader_talk::margin(look)).into_any_element();
+        }
+        // The mock of the page beside the thread: a newer revision waits behind a strip, so the page never moves under him.
+        if crate::mock::scenario_is("planning-side") {
+            return div().flex_1().min_h_0().min_w_0().flex().flex_col().child(super::reader_talk::newer_strip(look)).child(view).into_any_element();
+        }
         // Notes off: no margin and nothing under the page, so the page takes the width.
         if !held.notes_on {
             return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();

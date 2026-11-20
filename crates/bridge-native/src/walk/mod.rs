@@ -1796,6 +1796,28 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "planning-margin",
+        title: "Planning on a page: the talk in its margin",
+        screen: Screen::Jobs,
+        scenario: "planning-margin",
+        steps: &[
+            press_on("A Job planning quiet hours with him", "row", "Plan quiet hours", "article", "Document: Quiet hours for notices, Revision 2"),
+            step("Open reads the page in a tab of its own", Verb::OpenIn("Document: Quiet hours for notices, Revision 2", "Open"), "region", "Reader: Quiet hours for notices"),
+            step("The talk stands in the margin, a thread beside each passage", Verb::Look, "region", "Reader: Quiet hours for notices"),
+        ],
+    },
+    Walk {
+        name: "planning-side",
+        title: "Planning on a page: the page beside the thread",
+        screen: Screen::Jobs,
+        scenario: "planning-side",
+        steps: &[
+            press_on("A Job planning quiet hours with him", "row", "Plan quiet hours", "article", "Document: Quiet hours for notices, Revision 2"),
+            step("Open reads the page beside the thread", Verb::OpenIn("Document: Quiet hours for notices, Revision 2", "Open"), "region", "Reader: Quiet hours for notices"),
+            step("The page keeps his place while the thread goes on", Verb::Look, "region", "Reader: Quiet hours for notices"),
+        ],
+    },
+    Walk {
         name: "native-page-panel-keys",
         title: "A page read in the review panel: one Esc shuts the panel, whether or not he pressed in the page",
         screen: Screen::Jobs,
