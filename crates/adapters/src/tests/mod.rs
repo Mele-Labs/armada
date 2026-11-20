@@ -55,6 +55,7 @@ mod jira_published;
 mod judge;
 mod kit_pieces;
 mod keeping_current;
+mod pull_events;
 mod landing;
 mod leasing;
 mod loadout_item;
