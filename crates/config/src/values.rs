@@ -20,7 +20,7 @@ use crate::error::{Fault, LoadError, Refusal};
 use crate::settings::{SHIPPED_THEME, SPACINGS};
 use crate::yaml::{self, Table};
 
-const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery", "workflows_off"];
+const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery", "workflows_off", "review_on_new_pr"];
 /// Kit's keys: a tracker and the workflows switched off are a Project's, so Kit's block refuses it as it does any key it has no word for.
 const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts", "delivery"];
 const LOOK: &[&str] = &["layout", "theme", "density"];
@@ -49,7 +49,7 @@ const AUTO_MERGES_LEGAL: &[&str] = &["never", "checks-pass", "always"];
 
 /// The `values:` block at `key`, refusing every fault with its key. **A key not set is not held**,
 /// and a refused one reads as not set, since a file with any refusal does not load. **`tracker` is read
-/// only where `with_tracker`**, which is a Project's file and not Kit's, and so is `workflows_off`.
+/// only where `with_tracker`**, which is a Project's file and not Kit's, and so are `workflows_off` and `review_on_new_pr`.
 pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut Vec<Refusal>) -> Values {
     let Some(mut table) = Table::open(key, root, out) else { return Values::default() };
     let pr_mode = table
@@ -85,6 +85,13 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
             .unwrap_or_default(),
         None => Vec::new(),
     };
+    let review_on_new_pr = match with_tracker.then(|| table.optional("review_on_new_pr")).flatten() {
+        Some(Value::Sequence(items)) if items.is_empty() => Vec::new(),
+        Some(value) => yaml::list(&table.at("review_on_new_pr"), value, out)
+            .map(|items| items.into_iter().filter_map(|(at, item)| yaml::text(&at, item, out)).map(|id| id.trim().to_string()).collect())
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
     table.close(if with_tracker { KEYS } else { KIT_KEYS }, out);
     Values {
         pr_mode,
@@ -96,6 +103,7 @@ pub(crate) fn read_block(key: &str, root: &Value, with_tracker: bool, out: &mut 
         agent_starts,
         delivery,
         workflows_off,
+        review_on_new_pr,
     }
 }
 
@@ -185,6 +193,9 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
     if !values.workflows_off.is_empty() {
         block.insert(text("workflows_off"), Value::Sequence(values.workflows_off.iter().map(|id| text(id)).collect()));
     }
+    if !values.review_on_new_pr.is_empty() {
+        block.insert(text("review_on_new_pr"), Value::Sequence(values.review_on_new_pr.iter().map(|id| text(id)).collect()));
+    }
     (!block.is_empty()).then_some(Value::Mapping(block))
 }
 
@@ -233,6 +244,7 @@ pub fn shipped_values() -> Values {
         agent_starts: Some(AgentStarts::AtOnce),
         delivery: None,
         workflows_off: Vec::new(),
+        review_on_new_pr: Vec::new(),
     }
 }
 

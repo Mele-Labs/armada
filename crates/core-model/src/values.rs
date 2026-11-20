@@ -33,6 +33,9 @@ pub struct Values {
     /// Project's layer sets one**: the Machine's and each repository's are `workflows.off` in settings.json. Off wins,
     /// so a Project can add to them and never take one away.
     pub workflows_off: alloc::vec::Vec<String>,
+    /// The review tools, by id, Fleet offers to run when a pull request it has not seen opens in one of the Project's
+    /// repositories. **Only a Project's layer sets one.** Empty offers nothing.
+    pub review_on_new_pr: alloc::vec::Vec<String>,
 }
 
 /// How a Job's work lands, as a Project or Kit sets it. `Ask` is the person saying the question is theirs to put each time.

@@ -54,6 +54,7 @@ mod usage_rule_trips;
 mod waiting_compactions;
 mod fleet_disputes;
 mod bug_reports;
+mod review_offered;
 mod other_macs;
 mod usage_summary;
 mod usage_spent;

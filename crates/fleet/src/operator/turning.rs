@@ -114,6 +114,13 @@ where
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
+        if let Some((manifest, number)) = super::reviewing::parts_of(id) {
+            return match doing.pick {
+                super::reviewing::RUN => self.review_run_pressed(manifest, number).await.map(|()| Done::default()).map_err(Fault::NotDone),
+                super::reviewing::NOT_NOW => Ok(Done::default()),
+                other => Err(Fault::NotOffered(format!("{other} is not a pick this item offers"))),
+            };
+        }
         if let Some(manifest) = id.strip_prefix(super::disking::DISK_HOLD) {
             return match doing.pick {
                 super::disking::DROP_THEM => self.disk_dropped(manifest).await.map(|()| Done::default()).map_err(Fault::NotDone),

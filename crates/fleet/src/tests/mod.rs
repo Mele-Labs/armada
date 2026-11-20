@@ -32,6 +32,7 @@ mod judge;
 mod sending_checkout;
 mod sweeping;
 mod disk_health;
+mod review_on_new_pr;
 mod agent_starts;
 mod asides;
 mod agent_starts_at_once;
