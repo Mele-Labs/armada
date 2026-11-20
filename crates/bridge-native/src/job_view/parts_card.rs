@@ -1880,9 +1880,23 @@ impl JobView {
             )
         });
         let held = format!("part:{}:{key}:{at}:{}:sheet", c.job, take.scene.as_deref().map_or(0, str::len));
-        let inner = (wide - look.length(token::SPACE_3) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.));
+        let inner = (wide - look.length(token::SPACE_3) * 2. - look.length(token::SPACE_2) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.));
         let picture = take.scene.as_deref().and_then(|text| self.scene_column(&held, text, inner / 1.6, look, false));
-        let well = picture.map(|picture| div().m(look.length(token::SPACE_3)).mb_0().p(look.length(token::SPACE_2)).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::SURFACE_WELL)).child(picture));
+        // Every well is one height, the picture centred in it, so the takes stand level whatever their shapes.
+        let well = picture.map(|picture| {
+            div()
+                .m(look.length(token::SPACE_3))
+                .mb_0()
+                .p(look.length(token::SPACE_2))
+                .h(inner / 1.6 + look.length(token::SPACE_2) * 2.)
+                .flex()
+                .items_center()
+                .justify_center()
+                .overflow_hidden()
+                .rounded(look.length(token::RADIUS_MD))
+                .bg(look.color(token::SURFACE_WELL))
+                .child(picture)
+        });
         let head = div()
             .flex()
             .items_start()

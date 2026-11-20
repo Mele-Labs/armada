@@ -2827,6 +2827,7 @@ pub static WALKS: &[Walk] = &[
             step("The note is typed", Verb::Type("Put it in the sidebar under Jobs, at the same size."), "textbox", "Ask for changes"),
             step("Esc shuts the box and keeps the words", Verb::Key("escape"), "button", "Ask for changes"),
             step("A press on the plan chooses it", Verb::Press, "listitem", "Approve the plan for the feature library"),
+            step("Details opens its groups and tasks", Verb::Open("button", "Details"), "button", "Show less"),
             step("A press on the question chooses it", Verb::Press, "listitem", "Which features count as stale?"),
             step("A press on an option chooses it", Verb::Open("radio", "Pages out of date"), "radio", "Chosen: Pages out of date"),
             step("A press on the build chooses it", Verb::Press, "listitem", "Try the Features screen"),

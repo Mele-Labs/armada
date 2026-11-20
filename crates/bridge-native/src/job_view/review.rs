@@ -634,9 +634,12 @@ impl JobView {
                 }
                 _ => waiting.iter().find(|one| one.id == item.id),
             };
-            if let Some(text) = row.map(|one| one.text.trim()).filter(|text| !text.is_empty()) {
+            let Some(row) = row else { continue };
+            if let Some(text) = Some(row.text.trim()).filter(|text| !text.is_empty()) {
                 item.name = text.to_string();
             }
+            // The ask has waited since it was put to him, not since the thing it asks about was made.
+            item.since = row.since.as_str().to_string();
         }
     }
 
@@ -1870,10 +1873,11 @@ impl JobView {
             .into_any_element()
     }
 
-    /// The one line under the question that says what it is about: the card's For line, a plan's summary, or what a build holds.
+    /// The one line under the question that says what it is about: the card's For line, or what a build holds. A plan has none.
     fn review_background(&self, item: &Item, cx: &gpui::App) -> Option<String> {
         let line = match item.kind {
-            Kind::Plan => self.record(&item.job, cx).and_then(|record| record.plan.as_ref()).map(|plan| plan.summary.lines().next().unwrap_or_default().to_string()),
+            // A plan's body opens on its summary, so a line above it would say it twice.
+            Kind::Plan => None,
             Kind::Build => self.build_card(item, cx).map(|card| card.about),
             _ => item.for_line.clone(),
         };
