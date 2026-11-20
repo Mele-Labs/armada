@@ -133,7 +133,9 @@ pub(crate) fn step_ids(steps: &[RailStep]) -> Vec<String> {
     steps.iter().map(|step| step.id.clone()).collect()
 }
 
-/// The workflow's steps as the rail reads them.
+/// The workflow's steps as the rail reads them. **A step gated `plan_approved` records the plan, and one gated
+/// `walk_approved` walks**, as if it said so: the shipped workflows state their steps by gate alone, and a step the
+/// rail read no anchor on was never entered (33 Jobs stood on their first step to the merge, 9–13 Nov 2026).
 pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
     workflow
         .steps()
@@ -143,12 +145,12 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             label: step.label().to_string(),
             about: step.about().map(str::to_string),
             instructions: step.instructions().map(str::to_string),
-            records_plan: step.records_plan(),
+            records_plan: step.records_plan() || step.gate() == StepGate::PlanApproved,
             plan_unasked: step.plan_unasked(),
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
-            walks: step.walks(),
+            walks: step.walks() || step.gate() == StepGate::WalkApproved,
             ends_on: ends_on_of(step),
             gate: step.gate(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
@@ -476,11 +478,11 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     if step.delivers {
         // A step that lists its ends holds the Job past the push, as a walk holds a refine step; once
-        // one comes the delivering step after it is entered, push or not.
+        // one comes the delivering step after it is entered, push or not. So once a walk just before it is passed.
         let held = |earlier: usize| steps[earlier].holds() && !passed(steps, earlier, facts);
         let after_a_hold = at > 0
             && !steps[at - 1].has_lifecycle_end()
-            && steps[at - 1].holds()
+            && (steps[at - 1].holds() || steps[at - 1].walks)
             && (0..at).all(|one| passed(steps, one, facts));
         return after_a_hold || (pushed_past_walks(steps, at, facts) && !(0..at).any(held));
     }
