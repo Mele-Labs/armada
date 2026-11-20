@@ -729,6 +729,9 @@ impl SettingsOverlay {
                     "up" | "down" => {
                         let next = if word == "up" { n.saturating_sub(1) } else { (n + 1).min(steps.len() - 1) };
                         if let Some(next) = self.workflows.detail.key(&format!("card:{key}/{}", steps[next].id)).cloned() {
+                            if !next.is_focused(window) {
+                                crate::ui_sounds::moved();
+                            }
                             window.focus(&next, cx);
                             cx.notify();
                         }

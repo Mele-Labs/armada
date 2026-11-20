@@ -263,7 +263,11 @@ impl UsageScreen {
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
         let stops = self.stops_now();
         let stops: Vec<&str> = stops.iter().map(String::as_str).collect();
+        let was = self.selection.cursor.clone();
         self.selection.step(&stops, by);
+        if self.selection.cursor != was {
+            crate::ui_sounds::moved();
+        }
         self.reveal();
         cx.notify();
     }

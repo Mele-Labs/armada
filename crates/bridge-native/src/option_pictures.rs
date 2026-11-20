@@ -117,6 +117,9 @@ fn enlarge(ring: Vec<Shown>, at: usize, window: &mut Window, cx: &mut App) {
 fn step_to(by: isize, window: &mut Window, cx: &mut App) {
     let Some(open) = cx.try_global::<Enlarged>() else { return };
     let next = (open.at as isize + by).rem_euclid(open.ring.len().max(1) as isize) as usize;
+    if next != open.at {
+        crate::ui_sounds::moved();
+    }
     cx.global_mut::<Enlarged>().at = next;
     window.refresh();
 }

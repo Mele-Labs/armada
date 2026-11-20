@@ -299,7 +299,11 @@ impl JobView {
             "left" | "right" => {
                 let by = if key.key == "left" { -1 } else { 1 };
                 if let Some(open) = self.dock_mut().and_then(|dock| dock.choosing.as_mut()) {
+                    let was = open.lit;
                     open.lit = step_lit(open.lit, by, count);
+                    if open.lit != was {
+                        crate::ui_sounds::moved();
+                    }
                 }
                 cx.notify();
             }

@@ -357,6 +357,7 @@ impl BuildNotesSheet {
     fn select(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let key = self.notes().get(at).map(NoteKey::of);
         if key != self.chosen {
+            crate::ui_sounds::moved();
             self.choose(key, window, cx);
         }
     }

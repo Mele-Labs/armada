@@ -816,7 +816,11 @@ impl Palette {
         let Some(open) = self.open.as_mut() else { return };
         if let Some(panel) = open.panel.as_mut() {
             let shown = panel_acts(panel, cx).len().max(1);
+            let was = panel.cursor;
             panel.cursor = (panel.cursor as isize + by).clamp(0, shown as isize - 1) as usize;
+            if panel.cursor != was {
+                crate::ui_sounds::moved();
+            }
             cx.notify();
             return;
         }
@@ -828,6 +832,7 @@ impl Palette {
                 open.sends = false;
                 open.cursor = *rows.last().unwrap_or(&0);
                 open.state.scroll_to_reveal_item(open.cursor);
+                crate::ui_sounds::moved();
                 cx.notify();
             }
             return;
@@ -838,10 +843,15 @@ impl Palette {
         let here = rows.iter().position(|at| *at == open.cursor).unwrap_or(0) as isize;
         if offered && here + by >= rows.len() as isize {
             open.sends = true;
+            crate::ui_sounds::moved();
             cx.notify();
             return;
         }
+        let was = open.cursor;
         open.cursor = rows[(here + by).clamp(0, rows.len() as isize - 1) as usize];
+        if open.cursor != was {
+            crate::ui_sounds::moved();
+        }
         open.state.scroll_to_reveal_item(open.cursor);
         cx.notify();
     }

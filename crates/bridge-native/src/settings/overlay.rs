@@ -512,6 +512,9 @@ impl SettingsOverlay {
         let Some(now) = self.shown(cx) else { return };
         let at = visible.iter().position(|one| one.id == now.id).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, visible.len() as isize - 1) as usize;
+        if self.picked != visible[next].id {
+            crate::ui_sounds::moved();
+        }
         self.picked = visible[next].id;
         // The entries scroll by part, as they are drawn: the picked one's part comes into view.
         let parts = super::view::side_parts(&visible);
@@ -1210,6 +1213,7 @@ impl SettingsOverlay {
                 if let Some(handle) = self.scope.cells.get(&to) {
                     window.focus(handle, cx);
                 }
+                crate::ui_sounds::moved();
                 cx.notify();
             }
             _ => return false,
@@ -1231,6 +1235,7 @@ impl SettingsOverlay {
         let to = if key == "left" { at.checked_sub(1) } else { Some(at + 1).filter(|to| *to < options.len()) };
         match to {
             Some(to) => {
+                crate::ui_sounds::moved();
                 self.chose(&Picking::Setting(name), to, window, cx);
                 true
             }
