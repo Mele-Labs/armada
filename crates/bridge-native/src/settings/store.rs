@@ -548,7 +548,7 @@ impl SettingsOverlay {
                 None => said.into_any_element(),
             };
             let row = Row { id: id.into(), title: title.into(), tip: None, chips: Vec::new(), says: vec![said], changed: false, glyph: Some((glyph, hue)), control };
-            let drawn = split_row(look, spread, row, rows.is_empty()).when_some(edge, |row, edge| row.child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::BORDER_WIDTH) * 3.).bg(edge)));
+            let drawn = split_row(look, spread, row, rows.is_empty()).when_some(edge, |row, edge| row.border_1().border_color(edge).bg(Hsla { a: 0.1, ..edge }));
             rows.push(labelled(drawn, Role::Row, title).into_any_element());
         };
 
