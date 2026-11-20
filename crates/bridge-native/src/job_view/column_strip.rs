@@ -149,6 +149,36 @@ pub(super) fn strip_of(name: &str, steps: &[String], at: Option<usize>, visits: 
     Strip { flow: name.to_string(), place, time, step_time: on_step.map(|(span, _)| span), pips, waits: waits.to_vec(), stalled: None }
 }
 
+/// An amber box in the strip: a mark that names the state, the words, and the acts under them.
+fn amber_box(look: &Look, id: String, said: &'static str, words: String, acts: Vec<AnyElement>, name: String) -> AnyElement {
+    let amber = look.color(token::STATUS_AWAITING_REVIEW);
+    labelled(
+        div()
+            .id(SharedString::from(id.clone()))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_2))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(amber)
+            .bg(look.color(token::BG_RAISED).blend(amber.opacity(0.10)))
+            .child(div().id(SharedString::from(format!("{id}-mark"))).flex_none().tooltip(tip(said)).child(glyph(look, "triangle-alert", Size::Small, amber)))
+            .child(
+                div()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(words)))
+                    .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(acts)),
+            ),
+        Role::Group,
+        name,
+    )
+    .into_any_element()
+}
+
 impl Strip {
     /// Fleet's reading of the step laid over the strip: a step done that work ahead passed is amber, and the step under way
     /// is amber with its cause where it stands past its usual time. A Job Fleet sent no reading of is left as it is.
@@ -288,7 +318,7 @@ impl JobView {
         });
         let stalled = strip.stalled.as_ref().map(|stalled| self.stalled_box(id, stalled, look, cx));
         labelled(
-            band_frame(look, SharedString::from(format!("band-strip:{id}"))).child(head).children(cells).children(waits).children(stalled),
+            band_frame(look, SharedString::from(format!("band-strip:{id}"))).child(head).children(cells).children(waits).children(stalled).children(self.moved_past_box(id, strip, look, cx)),
             Role::Group,
             "Progress strip",
         )
@@ -298,7 +328,6 @@ impl JobView {
     /// Why the step is not moving, in an amber box, with the two acts that move it: Ask the Job puts a question about the step
     /// in the message box and sends nothing, and Skip passes the step to the next.
     fn stalled_box(&self, id: &SharedString, stalled: &Stalled, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let amber = look.color(token::STATUS_AWAITING_REVIEW);
         let (name, step) = (stalled.name.clone(), stalled.step);
         let ask = labelled(
             pressed(press(format!("strip-stalled-ask:{id}"), "Ask the Job".into(), None, None, Weight::Plain, look), cx, move |this, window, cx| this.ask_about_step(&name, window, cx)),
@@ -309,31 +338,49 @@ impl JobView {
             let words = format!("Skip to {next}");
             labelled(pressed(press(format!("strip-stalled-skip:{id}"), words.clone().into(), None, None, Weight::Plain, look), cx, move |this, window, cx| this.skip_step(step, true, window, cx)), Role::Button, words)
         });
-        labelled(
-            div()
-                .id(SharedString::from(format!("strip-stalled:{id}")))
-                .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_2))
-                .p(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(amber)
-                .bg(look.color(token::BG_RAISED).blend(amber.opacity(0.10)))
-                .child(div().id(SharedString::from(format!("strip-stalled-mark:{id}"))).flex_none().tooltip(tip("Not moving")).child(glyph(look, "triangle-alert", Size::Small, amber)))
-                .child(
-                    div()
-                        .min_w_0()
-                        .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_2))
-                        .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(stalled.cause.clone())))
-                        .child(div().flex().flex_wrap().gap(look.length(token::SPACE_2)).child(ask).children(skip)),
-                ),
-            Role::Group,
-            format!("{} is not moving: {}", stalled.name, stalled.cause),
-        )
-        .into_any_element()
+        amber_box(look, format!("strip-stalled:{id}"), "Not moving", stalled.cause.clone(), vec![ask.into_any_element()].into_iter().chain(skip.map(IntoElement::into_any_element)).collect(), format!("{} is not moving: {}", stalled.name, stalled.cause))
+    }
+
+    /// Work ahead of the step passed one without his Approve: the strip says which, with the acts that put it right. Approve goes to
+    /// the item that waits on it in Needs you, and Stop stops the Job. Nothing is drawn while no step was passed that way.
+    fn moved_past_box(&self, id: &SharedString, strip: &Strip, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let names: Vec<&str> = strip.pips.iter().filter(|pip| pip.state == PipState::Unapproved).map(|pip| pip.name.as_str()).collect();
+        if names.is_empty() {
+            return None;
+        }
+        let words = format!("Moved past {} without your Approve", names.join(", "));
+        let approve = self.approve_item(id, cx).map(|(item, said)| {
+            labelled(pressed(press(format!("strip-moved-approve:{id}"), said.into(), None, None, Weight::Plain, look), cx, move |this, window, cx| this.go_to_approve(&item, window, cx)), Role::Button, said)
+        });
+        let stop = (self.working(id, cx) && !self.closed(id, cx))
+            .then(|| labelled(pressed(press(format!("strip-moved-stop:{id}"), "Stop the Job".into(), None, None, Weight::Plain, look), cx, |this, window, cx| this.head_act("stop", window, cx)), Role::Button, "Stop the Job"));
+        let acts = approve.map(IntoElement::into_any_element).into_iter().chain(stop.map(IntoElement::into_any_element)).collect();
+        Some(amber_box(look, format!("strip-moved:{id}"), "Passed without your Approve", words.clone(), acts, words))
+    }
+
+    /// The item in Needs you whose Approve the passed step waits on, with what the act reads: the plan's, else an agent's that asks
+    /// for his Approve.
+    fn approve_item(&self, id: &str, cx: &gpui::App) -> Option<(String, &'static str)> {
+        let job = self.record(id, cx)?;
+        job.waiting_for.iter().find_map(|item| match item.source {
+            ipc::WaitingSource::Plan => Some((item.id.clone(), "Approve the plan now")),
+            ipc::WaitingSource::Agent if item.approves => Some((item.id.clone(), "Approve now")),
+            _ => None,
+        })
+    }
+
+    /// Press the item in Needs you as its own row is pressed: a plan opens, a card with its Approve opens whole.
+    fn go_to_approve(&mut self, item: &str, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let act = self.things(&job, cx).0.iter().find_map(|thing| match thing {
+            super::dock::Thing::Row(row) if row.id == item => Some(row.act.clone()),
+            _ => None,
+        });
+        let key = format!("item:{item}");
+        match act {
+            Some(act) => self.press_row(&key, item, &act, window, cx),
+            None => self.set_needs(true, Some(key), window, cx),
+        }
     }
 
     /// Ask the Job: a question about the step goes in the message box after what he had typed, and the caret with it. Nothing is sent.
@@ -636,6 +683,32 @@ pub(super) mod tests {
             let focused = cx.update(|window, cx| view.read(cx).composer.input.read(cx).focus_handle(cx).is_focused(window));
             assert!(focused, "the caret is in the box");
             view.read_with(cx, |view, cx| assert_eq!(view.composer.input.read(cx).value().as_ref(), "What is Find the cause waiting on?", "the question is typed for him, and nothing is sent"));
+        }
+
+        /// The Job that worked ahead of its plan: the strip names the step passed without his Approve, with the two acts of the page's
+        /// Work ahead state, and the Job that passed nothing draws neither.
+        #[gpui::test]
+        fn a_job_that_moved_past_a_step_says_so_and_offers_the_approve_and_a_stop(cx: &mut gpui::TestAppContext) {
+            let (view, cx) = opened(cx, "mock-17");
+            assert!(drawn(cx, Role::Group, "Moved past Propose without your Approve"));
+            assert!(drawn(cx, Role::Button, "Approve the plan now"));
+            assert!(drawn(cx, Role::Button, "Stop the Job"));
+            press(cx, "Stop the Job");
+            view.read_with(cx, |view, _| assert!(view.head.stopped("mock-17"), "the Job's own Stop act ran"));
+            let (_, cx) = opened(cx, JOB);
+            assert!(!drawn(cx, Role::Group, "Moved past Propose without your Approve"));
+            assert!(!drawn(cx, Role::Button, "Stop the Job"));
+        }
+
+        /// The Approve goes to the item in Needs you that waits on it, as a press on its row does; with no row for it, it opens the item.
+        #[gpui::test]
+        fn the_approve_of_a_passed_step_goes_to_the_item_that_waits_on_it(cx: &mut gpui::TestAppContext) {
+            let (view, cx) = opened(cx, "mock-17");
+            view.read_with(cx, |view, cx| assert_eq!(view.approve_item("mock-17", cx), Some(("plan:1".to_string(), "Approve the plan now"))));
+            press(cx, "Approve the plan now");
+            view.read_with(cx, |view, _| assert_eq!(view.dock_of("mock-17").and_then(|dock| dock.detail.clone()).as_deref(), Some("item:plan:1"), "the plan item stands open in Needs you"));
+            view.update_in(cx, |view, window, cx| view.go_to_approve("not-a-row", window, cx));
+            view.read_with(cx, |view, _| assert_eq!(view.dock_of("mock-17").and_then(|dock| dock.detail.clone()).as_deref(), Some("item:not-a-row"), "with no row for it, the item is opened by its id"));
         }
 
         #[gpui::test]

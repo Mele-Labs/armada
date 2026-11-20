@@ -1473,7 +1473,15 @@
           "changed_at": "2026-11-09T09:00:00Z"
         }
       ],
-      "standing": "working"
+      "standing": "working",
+      "waiting_for": [
+        {
+          "id": "plan:1",
+          "text": "Plan: Pane keys",
+          "since": "2026-11-09T08:30:00Z",
+          "source": "plan"
+        }
+      ]
     },
     {
       "id": "mock-18",
