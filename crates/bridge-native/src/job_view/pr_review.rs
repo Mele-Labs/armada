@@ -510,6 +510,7 @@ impl JobView {
             .flex()
             .flex_col()
             .gap(look.length(token::SPACE_4))
+            .child(section("Review tools", self.pull_tools(panel, look, cx)))
             .child(head)
             .children(heard.map(|heard| section("Heard since you looked", heard)))
             .children(commits.map(|commits| {
