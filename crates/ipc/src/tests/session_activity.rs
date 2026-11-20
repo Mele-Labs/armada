@@ -35,6 +35,7 @@ pub(super) fn row(activity: Option<SessionActivity>) -> SessionRecord {
         so_far: None,
         held_until: None,
         snoozed_until: None,
+        prioritised: false,
         context_breakdown: None,
         loadout_summary: None,
         on_your_words: false,

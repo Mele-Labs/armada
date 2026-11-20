@@ -690,6 +690,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::snooze_session::<D>),
         )
         .route(
+            "/sessions/prioritise",
+            post(crate::hosted_sessions::prioritise_session::<D>),
+        )
+        .route(
             "/sessions/auto_land",
             post(crate::hosted_sessions::set_session_auto_land::<D>),
         )

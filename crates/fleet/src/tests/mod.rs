@@ -136,6 +136,7 @@ mod notice_mutes;
 mod notice_rules;
 mod session_import;
 mod session_limit;
+mod session_priority;
 mod session_snooze;
 /// A snooze pauses a hosted Job, and its end resumes the Job the snooze paused.
 mod session_snooze_pause;

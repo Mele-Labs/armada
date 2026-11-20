@@ -163,6 +163,7 @@ pub(super) fn session_wire(session: &KeptSession, held: &[KeptAttachment]) -> Se
         standing: None,
         held_until: None,
         snoozed_until: None,
+        prioritised: false,
         context_breakdown: None,
         loadout_summary: None,
         on_your_words: false,
