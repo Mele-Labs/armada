@@ -10,7 +10,7 @@ pub mod entries;
 pub(crate) mod gateway;
 mod keyboard;
 pub(crate) mod limits;
-mod rows;
+pub(crate) mod rows;
 mod sign_in_app;
 mod store;
 pub mod layout;

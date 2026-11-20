@@ -591,7 +591,11 @@ impl LanesEditor {
                 "escape" => self.close_menu(window, cx),
                 "up" | "down" if menu.typed.is_none() => {
                     if let Some(menu) = self.sentence.as_mut().and_then(|sentence| sentence.menu.as_mut()) {
+                        let was = menu.at;
                         menu.at = if word == "down" { (menu.at + 1) % count.max(1) } else { (menu.at + count.max(1) - 1) % count.max(1) };
+                        if menu.at != was {
+                            crate::ui_sounds::moved();
+                        }
                     }
                     cx.notify();
                 }

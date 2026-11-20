@@ -563,6 +563,9 @@ impl super::FeaturesScreen {
         let Some(sheet) = &self.curate.sheet else { return false };
         let Some(at) = sheet.rows.iter().position(|row| row.is_focused(window)) else { return false };
         let to = (at as isize + by).clamp(0, sheet.rows.len() as isize - 1) as usize;
+        if to != at {
+            crate::ui_sounds::moved();
+        }
         window.focus(&sheet.rows[to].clone(), cx);
         true
     }

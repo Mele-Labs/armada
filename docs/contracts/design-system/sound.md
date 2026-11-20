@@ -50,6 +50,10 @@ under a notification tone.
 | **Move** | The keyboard moves the selection in a list, a rail or a grid |
 | **Press** | A button, a switch or a tab is pressed |
 
+The native Bridge plays both from the same samples, through `NSSound`.
+Press plays on a left press whose innermost labelled element is a button, a switch, a tab or a checkbox.
+Move plays from each list's own key handler, and only when its selection changed.
+
 Typing never plays, and nothing else makes a sound: a job that lands, a Check
 that passes and a panel that opens are silent. A run of moves faster than the
 ear can part plays once.

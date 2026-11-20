@@ -80,6 +80,19 @@ pub fn stamp(project: &str, slug: &str, at: DateTime<Utc>, cx: &mut App) {
     .detach();
 }
 
+/// The slug the project's own look is kept under, beside the features': a `~` starts no feature's slug.
+const PROJECT_LOOK: &str = "~since-you-looked";
+
+/// When he last marked the project's Since you looked page read, where he ever did.
+pub fn before_project(project: &str, cx: &App) -> Option<DateTime<Utc>> {
+    before(project, PROJECT_LOOK, cx)
+}
+
+/// He marked the project's Since you looked page read at `at`.
+pub fn stamp_project(project: &str, at: DateTime<Utc>, cx: &mut App) {
+    stamp(project, PROJECT_LOOK, at, cx);
+}
+
 /// Forget what is held, in memory only.
 #[cfg(test)]
 pub fn forget_all(cx: &mut App) {

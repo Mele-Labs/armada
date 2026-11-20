@@ -14,6 +14,7 @@ use api::Refusal;
 use config::settings::{self as keys, Resolved};
 use ipc::{Instant, LibrarianPart, LibrarianRan, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 
+use super::doc_drift;
 use super::librarian_steps as steps;
 use super::since_paragraph::Since;
 use store::{feature_link_kind, librarian_run_by, KeptLibrarianRun, Store, WriteError};
@@ -76,8 +77,8 @@ impl Librarian {
     }
 }
 
-/// The parts that have work behind them.
-const BUILT: &[LibrarianPart] = &[LibrarianPart::SinceYouLooked];
+/// The parts that have work behind them. Drift's is its free half: the model half is not built.
+const BUILT: &[LibrarianPart] = &[LibrarianPart::Drift, LibrarianPart::SinceYouLooked];
 
 const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
 
@@ -133,19 +134,20 @@ where
             return Err(Refusal::IllegalMove(ipc::WireError::raised(RUNNING, format!("the librarian is already running for project `{project}`"), self.run_id())));
         };
         let set = self.librarian_set();
-        let commit = match roots.into_iter().next() {
+        let commit = match roots.first().cloned() {
             Some(root) => tokio::task::spawn_blocking(move || adapters::feature_commits::head(&root)).await.ok().flatten().unwrap_or_default(),
             None => String::new(),
         };
         let night = self.night_of(&at).await;
-        let (state, last, spent) = {
+        let (state, last, spent, docs) = {
             let store = self.store().lock().await;
             let state = state_of(&store, project).map_err(|why| self.ledger_fault(why))?;
             let last = store.librarian_last_run(project).map_err(|why| self.ledger_fault(why))?;
-            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?)
+            let docs = doc_drift::linked_docs(&store, project).map_err(|why| self.ledger_fault(why))?;
+            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?, docs)
         };
         let share = set.model_share;
-        let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent);
+        let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent, docs.len());
         let tell = |step: &str, state: LibrarianStepState, said: String| {
             held.moved(step, state, &said);
             self.publish(ipc::Event::LibrarianStep(LibrarianStepMoved { project: project.to_string(), run: run.clone(), step: step.to_string(), state, said }));
@@ -179,6 +181,13 @@ where
                     let newest = self.store().lock().await.project_links(project, feature_link_kind::MERGE).map_err(|why| failed(&step.id, why))?;
                     through = newest.first().and_then(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at.clone())));
                     read_through = true;
+                }
+                steps::CHECK_DRIFT => {
+                    let (inspected, checking) = (roots.clone(), docs.clone());
+                    let found = tokio::task::spawn_blocking(move || doc_drift::check_docs(&inspected, &checking)).await.unwrap_or_default();
+                    let flagged = doc_drift::keep_checked(&mut *self.store().lock().await, project, &at, found).map_err(|why| failed(&step.id, why))?;
+                    ran.push(LibrarianPart::Drift);
+                    tell(&step.id, LibrarianStepState::Done, steps::drift_said(flagged));
                 }
                 name => {
                     let Some(part) = LibrarianPart::from_name(name) else { continue };
@@ -239,7 +248,8 @@ where
     pub(super) fn librarian_steps(&self, store: &Store, project: &str, state: &LibrarianState, night: &str) -> Result<Vec<LibrarianStep>, Refusal> {
         let set = self.librarian_set();
         let spent = store.librarian_model_calls(project, night).map_err(|why| self.ledger_fault(why))?;
-        Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent))
+        let docs = doc_drift::linked_docs(store, project).map_err(|why| self.ledger_fault(why))?;
+        Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent, docs.len()))
     }
 
     /// The night it is now, which a night's share of model calls is counted by.

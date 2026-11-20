@@ -91,6 +91,7 @@ mod terminal;
 mod titlebar;
 mod toasts;
 mod transport;
+mod ui_sounds;
 mod usage_page;
 mod voice;
 mod waiting_sends;
@@ -234,7 +235,15 @@ impl Render for Shell {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // What a library widget inherits; gpui's own text colour is black.
         let text = cx.look().color(look::token::FG_DEFAULT);
-        label_root(div().size_full().text_color(text).child(self.screen.clone()).children(option_pictures::over(window, cx)))
+        // A press anywhere in the window is heard here first, so a control that stops it still clicks.
+        label_root(
+            div()
+                .size_full()
+                .text_color(text)
+                .capture_any_mouse_down(ui_sounds::pressed)
+                .child(self.screen.clone())
+                .children(option_pictures::over(window, cx)),
+        )
     }
 }
 
