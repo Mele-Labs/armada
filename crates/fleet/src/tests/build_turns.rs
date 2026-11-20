@@ -8,12 +8,23 @@ use std::time::{Duration, Instant};
 use crate::build_turns::{self, Contender, Signal, Turns, LISTING, TURN};
 use crate::tests::tmp::TempDir;
 
-/// `sleep` by a link named `rustc`, so the process table names a compiler. A link, because macOS
-/// kills a plain copy of a system program at its start (`Killed: 9`).
+/// This test binary by a link named `rustc`, run as [`a_stand_in_compiler`], so the process table
+/// names a compiler. A link, because macOS kills a plain copy of a program at its start
+/// (`Killed: 9`). Not `/bin/sleep`: on Ubuntu 26.04 that is a multi-call binary that reads its
+/// name and refuses `rustc`.
 fn stand_in(dir: &Path) -> PathBuf {
     let rustc = dir.join("rustc");
-    std::os::unix::fs::symlink("/bin/sleep", &rustc).expect("sleep links");
+    let this = std::env::current_exe().expect("the test binary");
+    std::os::unix::fs::symlink(this, &rustc).expect("the test binary links");
     rustc
+}
+
+/// The compiler [`stand_in`] names: sleeps until it is killed. Ignored, so a run of the suite
+/// never starts it on its own.
+#[test]
+#[ignore = "started by the build-turn tests as their stand-in compiler, never on its own"]
+fn a_stand_in_compiler() {
+    std::thread::sleep(Duration::from_secs(120));
 }
 
 /// A Job's agent: a shell whose child is a compiler, as an agent's Bash call is.
@@ -26,7 +37,10 @@ impl Job {
     fn building(rustc: &Path) -> Job {
         let shell = Command::new("/bin/sh")
             .arg("-c")
-            .arg(format!("'{}' 120; :", rustc.display()))
+            .arg(format!(
+                "'{}' tests::build_turns::a_stand_in_compiler --exact --ignored >/dev/null 2>&1; :",
+                rustc.display()
+            ))
             .spawn()
             .expect("the shell starts");
         let root = shell.id();
