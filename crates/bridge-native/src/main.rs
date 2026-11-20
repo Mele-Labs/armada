@@ -34,6 +34,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod api_client;
 mod features;
 mod first_run;
 mod fleet;
@@ -338,6 +339,7 @@ fn main() -> ExitCode {
             Mode::Help | Mode::Walks => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
+                    ui_sounds::allow();
                     let fleet = cx.new(FleetConnection::new);
                     terminal::shells::hold_live(&fleet, cx);
                     titlebar::offer_crash(&fleet, cx);

@@ -436,17 +436,23 @@ fn decision_on_the_wire(kept: KeptFeatureDecision) -> FeatureDecision {
 }
 
 /// The docs or tickets of `kind` the links hold, newest first, **each once by what it was read by**: the newest read of it
-/// names the Job. A read in two Jobs is one entry.
+/// names the Job, and the gist is a Job's where any of them wrote one. A read in two Jobs is one entry.
 fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
     let mut reads: Vec<FeatureRead> = Vec::new();
     for link in links.iter().rev().filter(|link| link.kind == kind) {
-        if reads.iter().any(|read| read.target == link.target) {
+        if let Some(held) = reads.iter_mut().find(|read| read.target == link.target) {
+            // A gist a Job wrote wins over the newest read's first sentence.
+            if !held.gist_by_job && link.gist_by == store::feature_gist_by::JOB {
+                held.gist = link.gist.clone();
+                held.gist_by_job = true;
+            }
             continue;
         }
         reads.push(FeatureRead {
             target: link.target.clone(),
             title: Some(link.title.clone()).filter(|title| !title.is_empty()).unwrap_or_else(|| link.target.clone()),
             gist: link.gist.clone(),
+            gist_by_job: link.gist_by == store::feature_gist_by::JOB,
             job: link.job.clone(),
             at: instant(&link.at),
             state: link.state.clone(),

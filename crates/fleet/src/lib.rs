@@ -72,6 +72,7 @@ mod loadout_reading;
 mod rail;
 /// What ends each step of a workflow, derived from its anchor, for the workflow's page.
 mod rail_ends;
+mod step_stalls;
 mod rail_lifecycle;
 /// Where the rail meets the store.
 mod rail_keeping;

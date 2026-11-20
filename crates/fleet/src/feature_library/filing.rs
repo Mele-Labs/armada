@@ -40,6 +40,7 @@ fn filed_under(store: &mut Store, loaded: &Loaded, job: &str, manifest: &str, pa
                 via: via.to_string(),
                 at: now.to_string(),
                 gist: String::new(),
+                gist_by: String::new(),
             })?;
         }
     }
@@ -159,6 +160,7 @@ where
                     via: "detector".to_string(),
                     at: at.to_string(),
                     gist: String::new(),
+                    gist_by: String::new(),
                 });
             }
         }
@@ -212,6 +214,7 @@ where
                             via: "trailer".to_string(),
                             at: now.to_string(),
                             gist: String::new(),
+                            gist_by: String::new(),
                         });
                     }
                 }
@@ -279,6 +282,7 @@ where
             via: "artifact".to_string(),
             at: now.to_string(),
             gist: String::new(),
+            gist_by: String::new(),
         });
     }
 }

@@ -23,6 +23,8 @@ pub struct KeptJobRead {
     pub target: String,
     pub title: String,
     pub gist: String,
+    /// [`crate::feature_gist_by`]: empty for the result's first sentence.
+    pub gist_by: String,
     pub at: String,
 }
 
@@ -43,13 +45,33 @@ impl Store {
         let doing = "reading what a Job read";
         let mut statement = self
             .conn
-            .prepare("SELECT job, kind, target, title, gist, at FROM feature_job_reads WHERE job = ?1 ORDER BY at, kind, target")
+            .prepare("SELECT job, kind, target, title, gist, at, gist_by FROM feature_job_reads WHERE job = ?1 ORDER BY at, kind, target")
             .map_err(failed(doing))?;
         let rows = statement
             .query_map([job], |row| {
-                Ok(KeptJobRead { job: row.get(0)?, kind: row.get(1)?, target: row.get(2)?, title: row.get(3)?, gist: row.get(4)?, at: row.get(5)? })
+                Ok(KeptJobRead { job: row.get(0)?, kind: row.get(1)?, target: row.get(2)?, title: row.get(3)?, gist: row.get(4)?, at: row.get(5)?, gist_by: row.get(6)? })
             })
             .map_err(failed(doing))?;
         rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
+    /// Keep `gist` as what `job` says of the doc or ticket it read by `target`, on every read link of the Job and on the
+    /// read itself, so a link made later carries it. **A first sentence heard later does not replace it**: links and reads
+    /// are only ever added, never rewritten, by a read. How many links it was kept on; none where the Job never linked it.
+    pub fn keep_feature_job_gist(&mut self, job: &str, target: &str, gist: &str) -> Result<usize, WriteError> {
+        let by = crate::feature_gist_by::JOB;
+        let linked = self
+            .conn
+            .execute(
+                "UPDATE feature_links SET gist = ?1, gist_by = ?2 WHERE job = ?3 AND target = ?4 AND via = 'read' AND kind IN ('doc', 'ticket')",
+                params![gist, by, job, target],
+            )
+            .map_err(failed("keeping a Job's gist of what it read"))?;
+        if linked > 0 {
+            self.conn
+                .execute("UPDATE feature_job_reads SET gist = ?1, gist_by = ?2 WHERE job = ?3 AND target = ?4", params![gist, by, job, target])
+                .map_err(failed("keeping a Job's gist of what it read"))?;
+        }
+        Ok(linked)
     }
 }

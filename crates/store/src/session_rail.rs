@@ -144,6 +144,28 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(reading)
     }
 
+    /// Every visit to a step that a Job on `workflow` has left, as the step's id with when the visit began and when the next
+    /// began: the time a Job stayed on a step. **The step a Job is on, and the last step of one that ended, have no next
+    /// begin, so are not here.** A rail kept as indexes names no step and is left out.
+    pub fn workflow_step_dwells(&self, workflow: &str) -> Result<Vec<(String, String, String)>, WriteError> {
+        let mut query = self
+            .conn
+            .prepare(
+                "SELECT r.visits FROM session_rail r JOIN hosted_sessions h ON h.session_id = r.session_id
+                 WHERE h.workflow = ?1 AND r.by_id = 1 AND r.visits != ''",
+            )
+            .map_err(reading)?;
+        let kept: Vec<String> = query.query_map([workflow], |row| row.get(0)).map_err(reading)?.collect::<Result<_, _>>().map_err(reading)?;
+        let mut dwells = Vec::new();
+        for text in kept {
+            let visits: Vec<(String, String)> = serde_json::from_str(&text).unwrap_or_default();
+            for pair in visits.windows(2) {
+                dwells.push((pair[0].0.clone(), pair[0].1.clone(), pair[1].1.clone()));
+            }
+        }
+        Ok(dwells)
+    }
+
     /// How the Session was started, where it has begun.
     pub fn session_started(&self, session_id: &str) -> Result<Option<KeptStarted>, WriteError> {
         self.conn

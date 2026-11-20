@@ -363,3 +363,39 @@ fn a_rows_waiting_on_line_is_left_out_when_absent_and_read_back_when_there() {
     assert_eq!(read.workflow_waiting_on, record.workflow_waiting_on, "in the order the step lists them");
     assert!(include_str!("../../../../packages/protocol/src/sessions.ts").contains("workflow_waiting_on?: string[];"));
 }
+
+/// What the column draws for the step: left out when there is nothing, named field by field when there is, and spelled
+/// the same in the TypeScript mirror.
+#[test]
+fn a_rows_strip_is_left_out_when_absent_and_names_the_tabs_usual_time_stall_and_passed_steps_when_there() {
+    use super::session_activity::row;
+    use crate::{Instant, SessionRecord, StepStalled, WorkflowStrip};
+
+    let mut record = row(None);
+    assert!(!encode(&record).expect("encodes").contains("workflow_strip"));
+    record.workflow_strip = Some(WorkflowStrip {
+        tabs: vec!["plan".into(), "qa".into(), "now".into()],
+        usual_secs: Some(1320),
+        ends_when: vec!["you approve the plan".into()],
+        stalled: Some(StepStalled { since: Instant::carried("2026-11-20T10:22:00.000Z"), cause: "Waiting on you.".into() }),
+        passed_unapproved: vec![0],
+    });
+    let bytes = encode(&record).expect("encodes");
+    for part in [
+        r#""tabs":["plan","qa","now"]"#,
+        r#""usual_secs":1320"#,
+        r#""ends_when":["you approve the plan"]"#,
+        r#""stalled":{"since":"2026-11-20T10:22:00.000Z","cause":"Waiting on you."}"#,
+        r#""passed_unapproved":[0]"#,
+    ] {
+        assert!(bytes.contains(part), "{part}: {bytes}");
+    }
+    let read: SessionRecord = decode("a row", bytes.as_bytes()).expect("reads back");
+    assert_eq!(read.workflow_strip, record.workflow_strip);
+    let bare = encode(&SessionRecord { workflow_strip: Some(WorkflowStrip { tabs: vec!["now".into()], ..WorkflowStrip::default() }), ..row(None) }).expect("encodes");
+    assert!(bare.contains(r#""workflow_strip":{"tabs":["now"]}"#), "an unset part leaves its key out: {bare}");
+    let ts = include_str!("../../../../packages/protocol/src/sessions.ts");
+    for part in ["workflow_strip?: WorkflowStrip;", "usual_secs?: number;", "passed_unapproved?: number[];", "stalled?: StepStalled;"] {
+        assert!(ts.contains(part), "{part}");
+    }
+}

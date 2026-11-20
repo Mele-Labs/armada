@@ -1829,6 +1829,32 @@ destructive = false
 confirms = false
 notes = "Moves the cursor of a Job's Tokens tab to the next or the previous bucket of time, held at either end, and its tooltip names that bucket. Its own row because the graph is not a list of Jobs. Native only, 19 Nov 2026."
 
+# ------------------------------------------------------------------ api client
+
+[actions.api_client_environment]
+kind = "Action"
+tier = "Contextual"
+verb = "Next environment"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘E"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Cycles the environment of a Job's API Client tab: none, then each environment in the order Fleet lists them, then none again. The environment fills each `{{name}}` of the address, the headers and the body. Its scope is the tab, so the key means this only while the keys are inside it. The Send chord is `send_message`'s, which the tab's request line also answers while it has the keys, and `⌘L` and `⌘N` stay the Layout menu's and Dispatch's. Native only, 20 Nov 2026."
+
+[actions.api_client_part]
+kind = "Action"
+tier = "Contextual"
+verb = "Headers or Body"
+icon = ""
+icon_absent = "undecided"
+shortcut = "[ / ]"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Switches the open request of a Job's API Client tab to its Headers with `[` and to its Body with `]`, as Classic's tab keys do. A bare key, so it stands down while a text box has the keys. Native only, 20 Nov 2026."
+
 [actions.usage_apply]
 kind = "Action"
 tier = "Contextual"

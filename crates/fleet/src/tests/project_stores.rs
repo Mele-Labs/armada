@@ -235,3 +235,80 @@ async fn joining_a_projects_store_enrols_the_login_it_picks_and_its_repositories
     let folders: Vec<PathBuf> = rig.reaching.opened.lock().expect("opened").iter().map(|(_, folder)| folder.clone()).collect();
     assert!(folders.last().is_some_and(|folder| folder.starts_with(rig._home.path().join(crate::profiles::DIRECTORY).join(HUBOT.to_string()))), "{folders:?}");
 }
+
+impl Rig {
+    /// A profile of this Mac signed in as `account` and enrolled at the store at `address`, as one was before a project picked a login.
+    fn enrolled(&self, account: u64, address: &str) {
+        let profiles = crate::profiles::Profiles::in_machine_directory(self._home.path());
+        if profiles.list().expect("listed").iter().all(|one| one.account_id != account) {
+            let signed = adapter_traits::SignedInAs { id: account, login: format!("login-{account}") };
+            profiles.join(&signed, crate::profiles::Orgs::Read(Vec::new()), "2026-10-14T09:00:00.000Z").expect("a profile");
+        }
+        let address = core_model::StoreAddress::new(address).expect("an address");
+        let directory = crate::project_store::store_directory(&profiles.directory_of(account), &address);
+        std::fs::create_dir_all(&directory).expect("its folder");
+        adapters::remember_device(&directory, "device-1").expect("its device");
+    }
+
+    /// The login `project`'s file names for its store, read from the file again.
+    async fn login_in_file(&self, project: &str) -> Option<u64> {
+        let read = self.fleet.projects_reload().await;
+        read.get(&core_model::ScopeId::new(project).expect("an id")).and_then(|one| one.store()).and_then(|store| store.account_id)
+    }
+}
+
+#[tokio::test]
+async fn a_store_with_no_login_takes_the_one_profile_enrolled_at_it_and_its_repositories_claim_as_it() {
+    let rig = rig().await;
+    let project = rig.project(&rig.first, None).await;
+    rig.store_as(&project, Some(ONE), None).await;
+    assert!(rig.claim(&rig.first, "aaa").await.is_none(), "a file from before a login was picked sends nothing");
+    rig.enrolled(OCTOCAT, ONE);
+
+    assert_eq!(rig.login_in_file(&project).await, Some(OCTOCAT), "the enrolled profile is written into the file");
+    assert!(rig.claim(&rig.first, "aaa").await.is_some(), "the repository claims as it");
+    let state = api::Projects::get_project_store(&rig.fleet, project.clone()).await.expect("read");
+    assert!(state.joined_here && state.macs_unread.is_none(), "{state:?}");
+
+    rig.store_as(&project, Some(ONE), None).await;
+    assert_eq!(rig.login_in_file(&project).await, Some(OCTOCAT), "named again with none, it is carried again and keeps the one login");
+}
+
+#[tokio::test]
+async fn two_profiles_enrolled_at_a_store_leave_the_project_with_no_login() {
+    let rig = rig().await;
+    let project = rig.project(&rig.first, None).await;
+    rig.store_as(&project, Some(ONE), None).await;
+    rig.enrolled(OCTOCAT, ONE);
+    rig.enrolled(HUBOT, ONE);
+
+    assert_eq!(rig.login_in_file(&project).await, None, "nothing says which was meant");
+    assert!(rig.claim(&rig.first, "aaa").await.is_none());
+    let state = api::Projects::get_project_store(&rig.fleet, project).await.expect("read");
+    assert_eq!(state.macs_unread.as_deref(), Some("No login is picked for this store."));
+}
+
+#[tokio::test]
+async fn a_profile_enrolled_at_another_store_is_not_carried_into_this_one() {
+    let rig = rig().await;
+    let project = rig.project(&rig.first, None).await;
+    rig.store_as(&project, Some(ONE), None).await;
+    rig.enrolled(OCTOCAT, TWO);
+
+    assert_eq!(rig.login_in_file(&project).await, None);
+}
+
+#[tokio::test]
+async fn a_copy_of_another_macs_project_is_not_written() {
+    let rig = rig().await;
+    rig.enrolled(OCTOCAT, ONE);
+    let store = ipc::ProjectStore { address: ONE.into(), team: None, worker: None, deployed: None, joins_unlimited: false, account_id: None };
+    let copy = ipc::Project { id: "p-notes".into(), name: "Notes".into(), store: Some(store), shared_with_macs: true, ..Default::default() };
+    rig.fleet.copies_replaced("mac-work", vec![copy]).await.expect("held");
+
+    rig.fleet.projects_reload().await;
+
+    assert!(!rig.fleet.kit_folder().join("projects").join("p-notes.yml").exists(), "the copy has no file here");
+    let state = api::Projects::get_project_store(&rig.fleet, "p-notes".into()).await.expect("read");
+    assert_eq!(state.store.and_then(|store| store.account_id), None, "its login stays the Mac's that keeps it");
+}
