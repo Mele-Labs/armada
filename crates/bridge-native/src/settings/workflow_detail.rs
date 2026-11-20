@@ -43,6 +43,8 @@ pub struct Step {
     /// Each thing that ends it where any one of several does, drawn as a list in place of `ends`.
     pub ends_any: Vec<String>,
     pub passed_over: Option<String>,
+    /// What the editor warns of the step as written, in Fleet's words: a step in the middle that nothing Fleet observes ends.
+    pub warning: Option<String>,
     pub words: String,
 }
 
@@ -73,6 +75,7 @@ pub fn step_of(one: &ipc::StepReading) -> Step {
         ends: one.ends_when.clone().unwrap_or_default(),
         ends_any: one.ends_any.clone(),
         passed_over: one.passed_over_when.clone(),
+        warning: one.warning.clone(),
         words: one.instructions.clone().unwrap_or_default(),
     }
 }
@@ -1007,6 +1010,9 @@ impl SettingsOverlay {
         } else if let Some(passed) = &step.passed_over {
             facts = facts.child(fact(look, "Passed over when", div().child(SharedString::from(passed.clone())).into_any_element()));
         }
+        if let Some(warning) = &step.warning {
+            facts = facts.child(warning_line(look, &at, warning));
+        }
         let words: AnyElement = match (armada.filter(|_| differs && !changed), detail.words.get(&at).filter(|_| editable)) {
             (Some(armada), _) => compared(look, &at, &armada.words, &step.words),
             (None, Some(words)) => labelled(
@@ -1144,6 +1150,33 @@ pub(super) fn sunken_button(look: &Look, id: SharedString, said: &'static str, o
         .child(said)
 }
 
+/// What the editor warns of a step as written: Fleet's words on an amber line, with the warning glyph.
+fn warning_line(look: &Look, at: &str, warning: &str) -> AnyElement {
+    let amber = look.color(token::NOTICE_CAUTION);
+    labelled(
+        div()
+            .id(SharedString::from(format!("workflow-warning-{at}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .text_color(amber)
+            .child(
+                div()
+                    .id(SharedString::from(format!("workflow-warning-mark-{at}")))
+                    .flex_none()
+                    .h(look.length(token::LEADING_SM))
+                    .flex()
+                    .items_center()
+                    .tooltip(tip("Warning"))
+                    .child(svg().flex_none().path(icon_path("triangle-alert")).size(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(amber)),
+            )
+            .child(div().min_w_0().child(SharedString::from(warning.to_string()))),
+        Role::Alert,
+        warning.to_string(),
+    )
+    .into_any_element()
+}
+
 /// One fact of a card: its name in the narrow column, and what it says beside it, or under it where the card is
 /// too narrow to hold both.
 #[allow(dead_code)] // The inspector draws the step cards next.
@@ -1238,8 +1271,45 @@ mod tests {
     }
 
     #[test]
+    fn a_step_reads_the_warning_fleet_gave_it_and_a_step_with_none_has_none() {
+        let reading = |warning: Option<&str>| ipc::StepReading {
+            id: ipc::StepId::carried("review"),
+            label: "Review".into(),
+            instructions: None,
+            ends_when: None,
+            ends_any: Vec::new(),
+            passed_over_when: None,
+            warning: warning.map(String::from),
+        };
+        let said = "Nothing ends this step that Fleet can see, so the Job passes through it at once. Give it a `gate` or an `ends_on`.";
+        assert_eq!(step_of(&reading(Some(said))).warning.as_deref(), Some(said));
+        assert_eq!(step_of(&reading(None)).warning, None, "an empty slot stays empty");
+    }
+
+    struct Probe(&'static str);
+
+    impl gpui::Render for Probe {
+        fn render(&mut self, _: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+            warning_line(&cx.look(), "feature/review", self.0)
+        }
+    }
+
+    #[gpui::test]
+    fn a_warning_is_one_alert_line_with_its_glyph_and_fleets_words(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let said = "Nothing ends this step that Fleet can see, so the Job passes through it at once.";
+        let (_, cx) = cx.add_window_view(|_, _| Probe(said));
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        let drawn = cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().any(|one| one.role == Role::Alert && one.name == said));
+        assert!(drawn, "the warning is read as an alert by its words");
+    }
+
+    #[test]
     fn a_step_differs_on_its_words_or_what_ends_it() {
-        let step = Step { id: "fix".into(), label: "Fix".into(), glyph: glyph_of("fix"), ends: "it is pushed".into(), ends_any: Vec::new(), passed_over: None, words: "Fix it.".into() };
+        let step = Step { id: "fix".into(), label: "Fix".into(), glyph: glyph_of("fix"), ends: "it is pushed".into(), ends_any: Vec::new(), passed_over: None, warning: None, words: "Fix it.".into() };
         assert!(!differs(&step, &step.clone()));
         assert!(differs(&Step { words: "Fix it now.".into(), ..step.clone() }, &step));
         assert!(differs(&Step { passed_over: Some("nothing would be seen".into()), ..step.clone() }, &step));

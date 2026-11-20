@@ -298,9 +298,11 @@ fn place_said(source: &str) -> &'static str {
 /// A definition step by step, with what ends each as Fleet's rail reads it.
 fn readings(id: &str, tree: &Json) -> Vec<StepReading> {
     let Some(Json::List(steps)) = tree.get("steps") else { return Vec::new() };
+    let last = steps.len().saturating_sub(1);
     steps
         .iter()
-        .map(|one| {
+        .enumerate()
+        .map(|(at, one)| {
             let step = one.get("id").and_then(Json::text).unwrap_or_default();
             let ends = ENDS.iter().find(|(key, ..)| *key == format!("{id}/{step}")).or_else(|| ENDS.iter().find(|(key, ..)| *key == step));
             StepReading {
@@ -310,7 +312,8 @@ fn readings(id: &str, tree: &Json) -> Vec<StepReading> {
                 ends_when: ends.map(|(_, said, ..)| said.to_string()),
                 ends_any: ends.map(|(_, _, any, _)| any.iter().map(|one| one.to_string()).collect()).unwrap_or_default(),
                 passed_over_when: ends.and_then(|(.., passed)| passed.map(String::from)),
-                warning: None,
+                // As Fleet warns: a step in the middle that nothing Fleet observes ends.
+                warning: (at < last && ends.is_none()).then(|| "Nothing ends this step that Fleet can see, so the Job passes through it at once. Give it a `gate` or an `ends_on`.".to_string()),
             }
         })
         .collect()
