@@ -38,6 +38,7 @@ mod features;
 mod first_run;
 mod fleet;
 mod frames;
+mod history;
 mod job_tokens;
 mod job_view;
 mod inspect;
@@ -217,6 +218,7 @@ pub fn init_app(cx: &mut App) {
     merge_strip::bind(cx);
     annotate::bind(cx);
     dispatch::screen::bind(cx);
+    history::bind(cx);
     terminal::init(cx);
     keymap::install(&keymap::Rebinding::default(), cx);
     menu::install(cx);
@@ -225,7 +227,7 @@ pub fn init_app(cx: &mut App) {
 /// The window's root on a live Fleet or on mock data.
 struct Shell {
     screen: gpui::AnyView,
-    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>)>,
+    _fleet: Option<(Entity<FleetConnection>, Entity<LookController>, Entity<KeymapController>, Entity<MenuController>, Entity<Notifier>, Entity<history::Keeper>)>,
 }
 
 impl Render for Shell {
@@ -340,16 +342,19 @@ fn main() -> ExitCode {
                     window.focus(&focus, cx);
                     let notifier = cx.new(|cx| Notifier::new(&fleet, &jobs, window.window_handle(), cx));
                     let jobs_screen = cx.new(|cx| JobsScreen::new(jobs, None, window, cx));
-                    let operator: gpui::AnyView = cx.new(|cx| operator::OperatorScreen::live(jobs_screen.clone(), &fleet, window, cx)).into();
+                    let operator = cx.new(|cx| operator::OperatorScreen::live(jobs_screen.clone(), &fleet, window, cx));
                     // The sheet over the Operator's page: ⌘N and `n` open it, and its Start goes to this Fleet.
-                    let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx).over(operator));
+                    let screen = cx.new(|cx| dispatch::DispatchScreen::new(jobs_screen, &[], window, cx).over(operator.clone().into()));
                     screen.update(cx, |screen, cx| screen.live_notes(window, cx));
                     // Settings over all of it: the title bar's Settings, the macOS menu's and ⌘, open it.
                     let screen = cx.new(|cx| settings::SettingsScreen::live(screen.into(), &fleet, window, cx));
                     // While he has not said how he works with Jobs, the first-run screen is over all of it.
                     let settings = screen.read(cx).overlay.clone();
+                    // ⌘[ and ⌘] go back and forward through the places he has been, Settings among them.
+                    let window_handle = window.window_handle();
+                    let history = cx.new(|cx| history::Keeper::new(operator, settings.clone(), window_handle, cx));
                     let screen = cx.new(|cx| first_run::FirstRunScreen::new(screen.into(), settings, Some(&fleet), cx));
-                    cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier)) })
+                    cx.new(|_| Shell { screen: screen.into(), _fleet: Some((fleet, look, keys, menu, notifier, history)) })
                 })
                 .map(|_| ()),
             Mode::Mock(scenario) => match mock::jobs(&scenario).and_then(|records| Ok((records, mock::threads(&scenario)?))) {
