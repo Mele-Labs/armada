@@ -172,7 +172,9 @@ impl JobView {
             Box::new(move |this, answer, _, cx| {
                 let read = answer.and_then(|bytes| ipc::decode::<ReviewRun>("ReviewRun", &bytes).map_err(|why| why.to_string()));
                 match read {
-                    Ok(run) => this.land_pull_run(run),
+                    Ok(run) => {
+                        this.land_pull_run(run);
+                    }
                     Err(why) => {
                         if let Some(panel) = this.pull_panel_mut().filter(|panel| panel.pull.number == number) {
                             panel.tools.said = Some(why);
