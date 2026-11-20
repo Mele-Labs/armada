@@ -24,6 +24,9 @@ pub const NOT_A_MEMBER: &str = "acme/platform";
 /// What the store is told of a team it refuses, in the store's words.
 const NOT_A_MEMBER_SAID: &str = "GitHub says you are not a member of acme/platform.";
 
+/// What Fleet says of a store whose project picks no login (`NO_LOGIN` in `crates/fleet/src/project_store.rs`).
+pub const NO_LOGIN: &str = "No login is picked for this store.";
+
 /// What Cloudflare refused every sign-in with.
 const NEEDS_TOKEN_SAID: &str = "Cloudflare refused every sign-in this Mac has.";
 
@@ -69,9 +72,16 @@ impl MockStores {
     /// Cloudflare sign-in a deploy could use.
     pub fn new() -> MockStores {
         let mut states = BTreeMap::new();
-        states.insert("armada".into(), state("armada", Some(deployed_store(None)), StoreDeploy::Ready));
+        let own = ProjectStore { account_id: Some(super::mock_account::PERSONAL), ..deployed_store(None) };
+        states.insert("armada".into(), state("armada", Some(own), StoreDeploy::Ready));
         states.insert("storefront".into(), state("storefront", None, StoreDeploy::TryTunnel));
-        states.insert("ledger".into(), state("ledger", None, StoreDeploy::TryTunnel));
+        // Ledger joined acme's store by its address and picks no login, so it sends nothing and says why.
+        let team = ProjectStore { address: "https://armada-store-acme.acme.workers.dev".into(), team: Some("acme".into()), worker: None, deployed: None, joins_unlimited: false, account_id: None };
+        let mut ledger = state("ledger", Some(team), StoreDeploy::TryTunnel);
+        ledger.macs.clear();
+        ledger.joined_here = false;
+        ledger.macs_unread = Some(NO_LOGIN.into());
+        states.insert("ledger".into(), ledger);
         MockStores { states, calls: Vec::new(), deploy_refusal: None }
     }
 
@@ -95,7 +105,11 @@ impl MockStores {
         if join.team.as_deref() == Some(NOT_A_MEMBER) {
             return Err(Refused { key: None, said: NOT_A_MEMBER_SAID.into(), code: Some("fleet.store_not_a_member".into()) });
         }
-        held.store = Some(ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false, account_id: join.account_id });
+        // An absent login keeps the one the project picked.
+        let account_id = join.account_id.or(held.store.as_ref().and_then(|store| store.account_id));
+        let deployed = held.store.as_ref().filter(|store| store.address == join.address).and_then(|store| store.deployed.clone());
+        let worker = held.store.as_ref().filter(|store| store.address == join.address).and_then(|store| store.worker.clone());
+        held.store = Some(ProjectStore { address: join.address, team: join.team, worker, deployed, joins_unlimited: false, account_id });
         held.macs = MACS.map(String::from).to_vec();
         held.macs_unread = None;
         held.joined_here = true;
