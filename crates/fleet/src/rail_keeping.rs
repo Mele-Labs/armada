@@ -2,11 +2,12 @@
 //! holds. `docs/concepts/session.md`, *The rail*. The rules are `rail`'s.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Ulid, WorkflowId};
+use core_model::{StepGate, Ulid, WorkflowId};
 use ipc::{AskedQuestion, DraftHow, Instant, QuestionAnswer, SessionRow, SessionVoice, WaitingSource};
-use store::{Holder, KeptSession, Store, WriteError};
+use store::{Holder, KeptSession, Store, WriteError, CHECKS_GREEN};
 
 use crate::daemon::Fleet;
+use crate::gate_keeping::{jobs_have_ended, started_of};
 use crate::rail::{self, Extra, Facts, RailStep};
 use crate::rail_ends::{self, Waiter};
 use crate::rail_lifecycle::{self, Held, StepBits};
@@ -81,7 +82,19 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
             Some(approved) => store.session_work(&session.id, approved.as_str())?.first_push.is_some(),
             None => false,
         };
+        // Read only where a step is gated on it: the first walks the Jobs this one started, the second the gates kept.
+        let jobs_ended = match &plan {
+            Some(plan) if steps.iter().any(|step| step.gate == StepGate::JobsEnded) => {
+                let held = store.attachments_of(&Holder::session(&session.id))?;
+                jobs_have_ended(plan, &rows, &started_of(store, &held))
+            }
+            _ => false,
+        };
+        let checks_green = steps.iter().any(|step| step.gate == StepGate::ChecksGreen)
+            && store.session_gates(&session.id)?.iter().any(|gate| gate.gate == CHECKS_GREEN);
         Extra {
+            jobs_ended,
+            checks_green,
             walk_approved: walk_approved.is_some(),
             pushed_since_walk,
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
