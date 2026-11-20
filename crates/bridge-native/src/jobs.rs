@@ -1095,6 +1095,11 @@ struct Open {
     _dismissed: Subscription,
 }
 
+/// The open Job was left for the Cockpit's page: by Esc, by a second press on its row, or by the Cockpit's own place.
+pub struct Left;
+
+impl gpui::EventEmitter<Left> for JobsList {}
+
 pub struct JobsList {
     jobs: Vec<SessionRecord>,
     /// The Operator's own session, which is never a row: the Operator's page opens it as a Job's view does.
@@ -1124,6 +1129,11 @@ pub struct JobsList {
     resume: Option<String>,
     /// Counts each pick of a Job, the open one again too, so the view puts the keys in its box.
     picks: u64,
+    /// The Cockpit draws the Operator's page where no Job is open, so a Job can be left and has a home to leave to.
+    cockpit: bool,
+    /// The Job the page opened without a pick, for a card it draws from the Job view: it is open but is no Job the person opened.
+    /// Held with the picks as they stood, so a pick of that very row since is a real open.
+    lent: Option<(SharedString, u64)>,
     /// The Jobs a walk's stand-in for Fleet started: their threads are empty, as Fleet answers for a Job with nothing in it.
     made: Vec<String>,
     focus: FocusHandle,
@@ -1338,6 +1348,8 @@ impl JobsList {
             opened: None,
             resume: if remember { crate::job_view::place_kept_open() } else { None },
             picks: 0,
+            cockpit: false,
+            lent: None,
             operator: None,
             made: Vec::new(),
             focus: cx.focus_handle(),
@@ -1587,6 +1599,38 @@ impl JobsList {
         self.operator.as_ref()
     }
 
+    /// The Cockpit has the Operator's page for a home: the Job area draws it where no Job is open.
+    pub fn set_cockpit(&mut self, on: bool) {
+        self.cockpit = on;
+    }
+
+    /// Whether the Cockpit draws its page and no Job: none is open, or the open one is only lent to the page for a card.
+    pub fn at_home(&self) -> bool {
+        self.cockpit
+            && match &self.opened {
+                None => true,
+                Some(open) => self.lent.as_ref().is_some_and(|(lent, picks)| lent == open && *picks == self.picks),
+            }
+    }
+
+    /// Whether Esc and a second press on the open row have a Job to leave.
+    pub fn closable(&self) -> bool {
+        self.cockpit && self.opened.is_some() && !self.at_home()
+    }
+
+    /// Leave the open Job for the Cockpit's page. Says so to whoever follows the list, which puts the keys and the page's cards right.
+    pub fn close_job(&mut self, cx: &mut Context<Self>) -> bool {
+        if !self.closable() {
+            return false;
+        }
+        self.opened = None;
+        self.card = None;
+        self.lent = None;
+        cx.emit(Left);
+        cx.notify();
+        true
+    }
+
     /// The Operator's session is shut again: the Job that was open before it is open once more.
     pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
         self.open_quietly(was, cx);
@@ -1597,7 +1641,17 @@ impl JobsList {
         self.opened = id.clone();
         self.focused = id;
         self.card = None;
+        // The Review panel opens the Job it was lent, quietly again: that stays a loan.
+        if self.lent.as_ref().map(|(lent, _)| lent) != self.opened.as_ref() {
+            self.lent = None;
+        }
         cx.notify();
+    }
+
+    /// A Job opens quietly and is lent: in the Cockpit the page stays in front of it.
+    pub fn lend(&mut self, id: SharedString, cx: &mut Context<Self>) {
+        self.open_quietly(Some(id.clone()), cx);
+        self.lent = Some((id, self.picks));
     }
 
     /// A test's stand-in for a Fleet read that changes one record.
@@ -3117,6 +3171,11 @@ impl JobsList {
                             this.toggle_selected(&pressed, cx);
                         } else if keys.shift {
                             this.select_range(&pressed, cx);
+                        } else if this.closable() && this.opened.as_ref() == Some(&pressed) {
+                            // The Cockpit: the open Job's row pressed again puts the Operator back.
+                            this.clear_selection(cx);
+                            this.anchor = Some(pressed.clone());
+                            this.close_job(cx);
                         } else {
                             // A plain press lets go of the selection, opens the Job, and is where a ⇧-click ranges from.
                             this.clear_selection(cx);
@@ -3497,6 +3556,8 @@ pub struct JobsScreen {
     /// The open Job is drawn from gpui's cache (`job_area`): what it wrote when last drawn whole, and its count of draws.
     kept: Rc<RefCell<crate::labels::KeptView>>,
     drawn: Rc<std::cell::Cell<u64>>,
+    /// The Cockpit's home: the Operator's page, drawn on the right while no Job is open.
+    home: Option<Entity<crate::operator::page::OperatorPageView>>,
     _drawn_with: Subscription,
 }
 
@@ -3635,7 +3696,7 @@ impl JobsScreen {
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, _drawn_with: drawn_with }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -3650,6 +3711,61 @@ impl JobsScreen {
             return self.view.clone().into_any_element();
         }
         crate::labels::kept(self.view.clone().cached(gpui::StyleRefinement::default().size_full()), self.kept.clone(), self.drawn.clone()).into_any_element()
+    }
+
+    /// The Operator's page becomes the right side while no Job is open: this screen is the Cockpit.
+    pub(crate) fn set_home(&mut self, page: Entity<crate::operator::page::OperatorPageView>, cx: &mut Context<Self>) {
+        self.home = Some(page);
+        self.list.update(cx, |list, _| list.set_cockpit(true));
+        cx.notify();
+    }
+
+    /// Leave the open Job for the Operator's page, with the keys on the page. False where no Job is open or there is no page to go to.
+    pub(crate) fn leave_job(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if !self.list.update(cx, |list, cx| list.close_job(cx)) {
+            return false;
+        }
+        if let Some(home) = &self.home {
+            let keys = home.read(cx).focus.clone();
+            window.focus(&keys, cx);
+        }
+        true
+    }
+
+    /// ⌘J: on the page the caret goes to the Operator's box; with a Job open it is that Job's chat, as ever.
+    pub(crate) fn operator_key(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.home.clone().filter(|_| self.list.read(cx).at_home()) {
+            Some(home) => home.update(cx, |page, cx| page.focus_box(window, cx)),
+            None => {
+                let act = Act { id: "operator", slot: 0, digit: None };
+                self.view.update(cx, |view, cx| view.side_chat_act(&act, window, cx));
+            }
+        }
+    }
+
+    /// Esc, where nothing in a Job's view, a menu or a text box took it, leaves the Job.
+    fn leave_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let key = &event.keystroke;
+        if key.key != "escape" || key.modifiers.modified() {
+            return false;
+        }
+        if window.context_stack().iter().any(|context| context.contains(crate::keymap::TEXT_BOX)) {
+            return false;
+        }
+        self.leave_job(window, cx)
+    }
+
+    /// The right side where no Job is open: the page, with the Job view under it unseen where a card or the Review panel needs it.
+    fn home_area(&self, page: Entity<crate::operator::page::OperatorPageView>, cx: &App) -> gpui::AnyElement {
+        let hosts = self.list.read(cx).opened.is_some() || self.view.read(cx).review_up();
+        div()
+            .size_full()
+            .relative()
+            .flex()
+            .flex_col()
+            .children(hosts.then(|| div().absolute().size_full().invisible().child(self.view.clone())))
+            .child(div().flex_1().min_h_0().child(page))
+            .into_any_element()
     }
 
     /// The palette, for the screen this one sits in to draw while another place is in front.
@@ -3729,6 +3845,9 @@ impl JobsScreen {
             self.view.update(cx, |view, cx| view.to_composer(window, cx));
         } else if self.palette.read(cx).is_open() {
             cx.propagate();
+        } else if act.is("operator") && self.home.is_some() && self.list.read(cx).at_home() {
+            // ⌘J on the Cockpit with no Job open puts the caret in the Operator's box.
+            self.operator_key(window, cx);
         } else if self.view.update(cx, |view, cx| view.side_chat_act(act, window, cx)) {
             // ⌘J with a Job open is that Job's side chat; with none it is the Operator's, as the registry has it.
         } else if self.view.update(cx, |view, cx| view.pane_act(act, window, cx)) {
@@ -3943,6 +4062,7 @@ impl Render for JobsScreen {
             // A chord the person gave a palette row runs that row from anywhere on the screen; Tab reaches every tab stop.
             .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
                 if this.palette.update(cx, |palette, cx| palette.hotkey(&event.keystroke, window, cx))
+                    || this.leave_key(event, window, cx)
                     || this.list.update(cx, |list, cx| list.pause_key(event, window, cx))
                     || this.list.update(cx, |list, cx| list.snooze_key(event, window, cx))
                     || this.list.update(cx, |list, cx| list.select_key(event, window, cx))
@@ -3987,7 +4107,10 @@ impl Render for JobsScreen {
                                 .h_full()
                                 .flex_1()
                                 .min_w_0()
-                                .child(self.job_area(window, cx)),
+                                .child(match self.home.clone().filter(|_| self.list.read(cx).at_home()) {
+                                    Some(page) => self.home_area(page, cx),
+                                    None => self.job_area(window, cx),
+                                }),
                         ),
                 )
                 // A layout that hides the merge line's panel hides this queue, its one counterpart (`Deck.tsx`).
@@ -5123,5 +5246,147 @@ mod tests {
         assert_eq!(parse_deck("all\nmock-02").0, Scope::Active);
         assert_eq!(parse_deck(""), (Scope::Active, Group::State, Vec::new()));
         assert_eq!(parse_deck("active\ngroup=no-such-group").1, Group::State, "a group this build does not know opens by state");
+    }
+
+    // -- the Cockpit: a Job left for the Operator's page -------------------------------------------------------
+
+    /// Counts the Jobs the list says were left.
+    struct Leaves(usize);
+
+    #[gpui::test]
+    fn a_job_can_be_left_in_the_cockpit_and_a_lent_one_is_no_job_the_person_opened(cx: &mut gpui::TestAppContext) {
+        let all = jobs();
+        let (first, second) = (all[0].id.as_str().to_string(), all[1].id.as_str().to_string());
+        let list = cx.new(|cx| JobsList::mock(&all, cx));
+        let left = cx.new(|_| Leaves(0));
+        let counted = left.clone();
+        let _subscription = cx.update(|cx| cx.subscribe(&list, move |_, _: &Left, cx| counted.update(cx, |left, _| left.0 += 1)));
+        list.update(cx, |list, cx| {
+            assert!(list.open_job(&first, cx));
+            assert!(!list.closable() && !list.at_home(), "outside the Cockpit there is no home to leave to");
+            list.set_cockpit(true);
+            assert!(list.closable() && !list.at_home());
+            list.open_quietly(None, cx);
+            assert!(list.at_home(), "no Job open is the page's");
+            list.lend(second.clone().into(), cx);
+            assert!(list.at_home() && !list.closable(), "a Job lent to the page for a card leaves the page in front");
+            list.open_job(&second, cx);
+            assert!(!list.at_home() && list.closable(), "a pick of the very row lent is a real open");
+        });
+        assert!(list.update(cx, |list, cx| list.close_job(cx)));
+        cx.run_until_parked();
+        list.read_with(cx, |list, _| assert!(list.opened.is_none() && list.at_home()));
+        assert_eq!(left.read_with(cx, |left, _| left.0), 1, "it is said once");
+        assert!(!list.update(cx, |list, cx| list.close_job(cx)), "with none open there is nothing to leave");
+    }
+
+    /// The Jobs screen as the Cockpit has it: the Operator's page at the right until a Job is opened.
+    fn cockpit(cx: &mut gpui::TestAppContext) -> (Entity<JobsScreen>, &mut gpui::VisualTestContext) {
+        cx.update(crate::init_app);
+        let (screen, cx) = cx.add_window_view(|window, cx| {
+            let list = cx.new(|cx| JobsList::mock(&jobs(), cx));
+            let page = cx.new(|cx| crate::operator::page::OperatorPageView::mock(window, cx));
+            let mut screen = JobsScreen::new(list, None, window, cx);
+            screen.set_home(page, cx);
+            screen
+        });
+        redraw(cx);
+        (screen, cx)
+    }
+
+    fn redraw(cx: &mut gpui::VisualTestContext) {
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    const FIRST: &str = "Fix the merge line freshness chip";
+
+    fn row_at(cx: &mut gpui::VisualTestContext, title: &str) -> gpui::Point<gpui::Pixels> {
+        let book = cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), Role::Row, title)).map(|one| one.bounds));
+        book.unwrap_or_else(|| panic!("the row {title} is drawn")).center()
+    }
+
+    fn at_home(screen: &Entity<JobsScreen>, cx: &mut gpui::VisualTestContext) -> bool {
+        screen.read_with(cx, |screen, cx| screen.list.read(cx).at_home())
+    }
+
+    #[gpui::test]
+    fn a_row_pressed_opens_its_job_over_the_page_and_pressed_again_brings_the_page_back(cx: &mut gpui::TestAppContext) {
+        let (screen, cx) = cockpit(cx);
+        assert!(at_home(&screen, cx), "no Job is open: the page is at the right");
+        let at = row_at(cx, FIRST);
+        cx.simulate_click(at, gpui::Modifiers::default());
+        redraw(cx);
+        assert!(!at_home(&screen, cx), "a press opens the Job over the whole right side");
+        assert_eq!(screen.read_with(cx, |screen, cx| screen.list.read(cx).opened_id()).as_deref(), Some("mock-01"));
+        let at = row_at(cx, FIRST);
+        cx.simulate_click(at, gpui::Modifiers::default());
+        redraw(cx);
+        assert!(at_home(&screen, cx), "the same row again puts the Operator back");
+        let list = screen.read_with(cx, |screen, _| screen.list.clone());
+        assert!(list.read_with(cx, |list, _| list.opened.is_none()));
+    }
+
+    #[gpui::test]
+    fn escape_leaves_an_open_job_for_the_page_and_the_page_has_the_keys(cx: &mut gpui::TestAppContext) {
+        let (screen, cx) = cockpit(cx);
+        let at = row_at(cx, FIRST);
+        cx.simulate_click(at, gpui::Modifiers::default());
+        redraw(cx);
+        assert!(!at_home(&screen, cx));
+        // The keys are in the Job's box, which gives them to the list first, as it does in any Job.
+        let mut presses = 0;
+        while !at_home(&screen, cx) && presses < 3 {
+            cx.simulate_keystrokes("escape");
+            redraw(cx);
+            presses += 1;
+        }
+        assert_eq!(presses, 2, "Esc puts the box's keys on the list and Esc again leaves");
+        let keys = screen.read_with(cx, |screen, cx| screen.home.as_ref().expect("a home").read(cx).focus.clone());
+        assert!(cx.update(|window, _| keys.is_focused(window)), "the keys are on the page");
+    }
+
+    #[gpui::test]
+    fn escape_shuts_a_rows_menu_before_it_leaves_the_job(cx: &mut gpui::TestAppContext) {
+        let (screen, cx) = cockpit(cx);
+        let at = row_at(cx, FIRST);
+        cx.simulate_click(at, gpui::Modifiers::default());
+        redraw(cx);
+        let list = screen.read_with(cx, |screen, _| screen.list.clone());
+        let keys = list.read_with(cx, |list, _| list.focus_handle().clone());
+        cx.update(|window, cx| window.focus(&keys, cx));
+        let at = row_at(cx, FIRST);
+        cx.simulate_mouse_down(at, gpui::MouseButton::Right, gpui::Modifiers::default());
+        cx.simulate_mouse_up(at, gpui::MouseButton::Right, gpui::Modifiers::default());
+        redraw(cx);
+        assert!(list.read_with(cx, |list, _| list.menu.is_some()), "a right press opens the row's menu");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(list.read_with(cx, |list, _| list.menu.is_none()), "Esc shuts the menu");
+        assert!(!at_home(&screen, cx), "and the Job stays open");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(at_home(&screen, cx), "Esc again leaves it");
+    }
+
+    #[gpui::test]
+    fn escape_in_the_search_box_goes_to_the_rows_and_leaves_the_job_for_the_next_one(cx: &mut gpui::TestAppContext) {
+        let (screen, cx) = cockpit(cx);
+        let at = row_at(cx, FIRST);
+        cx.simulate_click(at, gpui::Modifiers::default());
+        redraw(cx);
+        let list = screen.read_with(cx, |screen, _| screen.list.clone());
+        cx.update(|window, cx| list.update(cx, |list, cx| list.to_search(window, cx)));
+        redraw(cx);
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!at_home(&screen, cx), "the search box took the Esc: the Job stays open");
+        let keys = list.read_with(cx, |list, _| list.focus_handle().clone());
+        assert!(cx.update(|window, _| keys.is_focused(window)), "the rows have the keys");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(at_home(&screen, cx));
     }
 }
