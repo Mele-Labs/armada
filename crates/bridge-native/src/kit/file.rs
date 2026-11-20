@@ -47,7 +47,8 @@ fn keep_key(id: &str) -> String {
 impl KitScreen {
     /// The file of the piece picked, read once while Kit is in front.
     pub(super) fn want_file(&mut self, cx: &mut Context<Self>) {
-        let Some(row) = self.picked().filter(|one| one.gone.is_none()).map(|one| one.row.clone()) else { return };
+        // A row only on a linked Mac has no file here.
+        let Some(row) = self.picked().filter(|one| one.gone.is_none() && one.row.elsewhere.is_none()).map(|one| one.row.clone()) else { return };
         let Some(kind) = row.kind.file() else { return };
         if self.files.contains_key(&row.id) {
             return;

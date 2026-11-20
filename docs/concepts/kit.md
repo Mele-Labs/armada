@@ -484,12 +484,20 @@ Two mechanisms, both carried over from the v1 prototype:
 The link is [Project](project.md), *Sharing with his other Macs*.
 An edit on one Mac crosses to the other where the kind is switched on.
 **Built in Fleet**, 19 Nov 2026, for any number of linked Macs; the wire is [the protocol page](../practices/protocol/kit-over-the-mac-link.md).
-**Not built in Bridge.** Neither Classic nor native draws it yet.
+**Drawn in native Kit**, 20 Nov 2026: a bar naming the Mac it crosses to, a switch on each kind in the rail, a mark and a switch on each row, and a clash side by side in the item's detail.
+Classic does not draw it.
 
 **Each kind is switched on per Mac, and every kind is off until it is switched on.**
 One switch on a kind both sends this Mac's items of it and takes the other Mac's.
 The kinds are Mods, Skills, Plugins, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
 The choice is kept on each Mac, and a Mac with a kind off neither sends nor takes it.
+
+**An item can cross by itself while its kind is off.**
+A kind switched on crosses every item of it, the ones added later too.
+Each row carries its own switch: on while its kind is off, the item crosses alone; off while its kind is on, the kind goes off and every other item of it goes on by itself, so the rest keep crossing.
+A kind that is off with some of its items crossing shows its switch half on, with *Some cross*, and pressing it switches the kind on.
+Pressed while on, it switches the kind and every item of it off.
+A row Fleet refuses shows its switch off and unpressable, with Fleet's reason.
 
 **Each row is marked how it stands against the other Mac:** the same, differs, new here, or only on the other Mac.
 A server also carries whether its key is here, and a server whose key is not on this Mac is marked as needing one; no key crosses, so adding it here is the person's.
@@ -532,8 +540,7 @@ Keeping a side records the other side as agreed, on both Macs.
 | Repo | One named repository |
 | Private | This machine only, and it never leaves |
 
-**In native Kit** a bar across the top names the Mac it crosses to, what differs and when it last crossed, and a switch sits on each kind in the rail.
-**Not built.**
+**In native Kit** a bar across the top names the Mac it crosses to, what differs and when it last crossed, a switch sits on each kind in the rail, and each row carries its own.
 
 ### The shared home, retired
 

@@ -415,6 +415,13 @@ pub static WALKS: &[Walk] = &[
         steps: &crate::kit::walk::STEPS,
     },
     Walk {
+        name: "kit-sync",
+        title: "Kit over the Mac link: what crosses to your other Macs, and a clash",
+        screen: Screen::Reviews,
+        scenario: "kit-sync",
+        steps: &crate::kit::walk::SYNC_STEPS,
+    },
+    Walk {
         name: "reviews",
         title: "Reviews: what changed since you looked, on free panes",
         screen: Screen::Reviews,

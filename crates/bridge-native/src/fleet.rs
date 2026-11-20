@@ -199,6 +199,8 @@ pub struct Held {
     watches_spoken: BTreeSet<String>,
     /// Moves on each `operator.page_changed` and each gap in the stream: the Operator's page reads again.
     pub operator_page_moved: u64,
+    /// Moves on each `kit.changed` and each gap in the stream: Kit reads its link again.
+    pub kit_moved: u64,
     /// The workflow changes a proposed workflow's card was read for, by change id. Absent until read,
     /// and where Fleet lists none by that id.
     pub workflow_changes: BTreeMap<i64, WorkflowChange>,
@@ -260,6 +262,7 @@ impl Held {
             watches_asked: BTreeSet::new(),
             watches_spoken: BTreeSet::new(),
             operator_page_moved: 0,
+            kit_moved: 0,
             workflow_changes: BTreeMap::new(),
         }
     }
@@ -302,6 +305,7 @@ impl Held {
     fn all_stale(&mut self) {
         self.threads.values_mut().for_each(|held| held.stale = true);
         self.operator_page_moved += 1;
+        self.kit_moved += 1;
         self.review_runs_lost = true;
         self.review_lists_lost = true;
         // A gap may have lost a `watches.changed`: each Job's watches are read again when a view next asks.
@@ -601,6 +605,7 @@ impl Held {
                     // A row arrives whole and replaces the one held, never patches it.
                     match delivered.event {
                         Event::OperatorPageChanged(_) => self.operator_page_moved += 1,
+                        Event::KitChanged(_) => self.kit_moved += 1,
                         Event::OperatorDispatched(done) => self.dispatched.push(done),
                         Event::ReviewRunChanged { run } => self.review_runs.push(run),
                         Event::ReviewListsChanged(changed) => self.review_lists_changed(changed),
@@ -1687,6 +1692,16 @@ mod tests {
         let event = crate::frames::decode(wire).expect("an event");
         held.fold(vec![Signal::Stream(event)]);
         assert_eq!(held.offers.as_ref().and_then(|held| held.refresh.as_ref()), None);
+    }
+
+    #[test]
+    fn a_batch_of_kit_changed_moves_kits_count_once_for_each_and_a_gap_moves_it_too() {
+        let mut held = Held::new();
+        let event = |cursor: u64| crate::frames::decode(&format!(r#"{{"message":"event","cursor":{cursor},"event":{{"kind":"kit.changed"}}}}"#)).expect("an event");
+        held.fold(vec![Signal::Stream(event(1)), Signal::Stream(event(2))]);
+        assert_eq!(held.kit_moved, 2);
+        held.all_stale();
+        assert_eq!(held.kit_moved, 3, "a gap may have lost one, so Kit reads its link again");
     }
 
     #[test]
