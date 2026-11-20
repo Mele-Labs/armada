@@ -74,7 +74,7 @@ impl Key {
     }
 
     /// Its words and how each reads, in the order the menu offers them. `models` is what a review may run on.
-    pub fn options(self, models: &[String]) -> Vec<(String, String)> {
+    pub fn options(self, models: &[String], layouts: &[(String, String)]) -> Vec<(String, String)> {
         let fixed = |pairs: &[(&str, &str)]| pairs.iter().map(|(word, label)| (word.to_string(), label.to_string())).collect();
         match self {
             Key::Delivery => std::iter::once((ASK.to_string(), "Ask".to_string()))
@@ -86,20 +86,27 @@ impl Key {
             Key::Plans | Key::PullRequests => fixed(&[("off", "Off"), ("review", "Review"), ("review_and_approve", "Review and approve")]),
             Key::Walks => fixed(&[("off", "Off"), ("review", "Review")]),
             Key::ReviewModel => models.iter().map(|model| (model.clone(), model.clone())).collect(),
-            Key::Tracker => fixed(&[("", "GitHub Issues"), ("linear", "Linear"), ("beads", "Beads")]),
+            Key::Tracker => fixed(&[("", "None"), ("github", "GitHub Issues"), ("linear", "Linear"), ("beads", "Beads"), (CUSTOM, "Custom")]),
             Key::Theme => std::iter::once((String::new(), "Armada".to_string()))
                 .chain(crate::look::catalogue().iter().map(|one| (one.id.clone(), one.title.clone())))
                 .collect(),
-            Key::Layout => fixed(&[("", "Default")]),
+            Key::Layout => std::iter::once((String::new(), "Default".to_string())).chain(layouts.iter().cloned()).collect(),
             Key::Density => fixed(&[("compact", "Compact"), ("default", "Default"), ("roomy", "Roomy")]),
         }
     }
 
     /// How `word` reads: the option's label, else the word itself.
-    pub fn said(self, word: &str, models: &[String]) -> String {
-        self.options(models).into_iter().find(|(one, _)| one == word).map_or_else(|| word.to_string(), |(_, label)| label)
+    pub fn said(self, word: &str, models: &[String], layouts: &[(String, String)]) -> String {
+        let unlisted = if self == Key::Layout { CUSTOM_LAYOUT.to_string() } else { word.to_string() };
+        self.options(models, layouts).into_iter().find(|(one, _)| one == word).map_or(unlisted, |(_, label)| label)
     }
 }
+
+/// The tracker word that means "a tracker Armada is asked to build": never sent as a provider.
+pub const CUSTOM: &str = "custom";
+
+/// How a project's stored layout reads when no layout mod's text matches it.
+pub const CUSTOM_LAYOUT: &str = "Custom layout";
 
 /// The word Fleet's delivery question keeps for a choice (`session_delivery.rs`, snake case).
 pub fn delivery_word(choice: DeliveryChoice) -> &'static str {
@@ -174,7 +181,7 @@ pub fn values_of(picked: &HashMap<Key, String>, inherited: &HashMap<Key, String>
         review_model: changed(Key::ReviewModel),
         agent_starts: changed(Key::AgentStarts),
         delivery: changed(Key::Delivery),
-        tracker: changed(Key::Tracker).filter(|word| !word.is_empty()).map(|word| [("provider".to_string(), word)].into_iter().collect()),
+        tracker: changed(Key::Tracker).filter(|word| !word.is_empty() && word != CUSTOM).map(|word| [("provider".to_string(), word)].into_iter().collect()),
         ..ValuesSet::default()
     };
     let look = LookSet {
@@ -225,7 +232,7 @@ mod tests {
 
     #[test]
     fn delivery_reads_as_the_question_names_it() {
-        let options = Key::Delivery.options(&[]);
+        let options = Key::Delivery.options(&[], &[]);
         assert_eq!(options.iter().map(|(_, label)| label.as_str()).collect::<Vec<_>>(), ["Ask", "Auto land", "Open PR only", "Keep local"]);
         assert_eq!(delivery_said("auto_land"), Some("Auto land"));
         assert_eq!(every_project().get(&Key::Delivery).map(String::as_str), Some(ASK), "no layer sets it: the project asks");
@@ -244,5 +251,30 @@ mod tests {
         assert_eq!(values_of(&pick("open_pr"), &inherited), None, "what every project uses is not sent");
         assert_eq!(values_of(&pick("keep_local"), &inherited).and_then(|set| set.delivery).as_deref(), Some("keep_local"));
         assert_eq!(values_of(&pick(ASK), &inherited).and_then(|set| set.delivery).as_deref(), Some(ASK), "Ask is a word Fleet keeps: it turns learning off");
+    }
+
+    #[test]
+    fn tracker_offers_none_and_custom_and_custom_is_never_a_provider() {
+        let labels: Vec<String> = Key::Tracker.options(&[], &[]).into_iter().map(|(_, label)| label).collect();
+        assert_eq!(labels, ["None", "GitHub Issues", "Linear", "Beads", "Custom"]);
+        let inherited = every_project();
+        let picked: HashMap<Key, String> = [(Key::Tracker, CUSTOM.to_string())].into_iter().collect();
+        assert_eq!(values_of(&picked, &inherited), None, "Custom names no provider until its mod exists");
+        let none: HashMap<Key, String> = [(Key::Tracker, String::new())].into_iter().collect();
+        assert_eq!(values_of(&none, &inherited), None, "None states no tracker block");
+        assert_eq!(Key::Tracker.said("", &[], &[]), "None");
+    }
+
+    #[test]
+    fn layout_lists_named_layouts_and_reads_an_unlisted_one_as_custom() {
+        let named = vec![(r#"{"version":1}"#.to_string(), "quiet".to_string())];
+        let labels: Vec<String> = Key::Layout.options(&[], &named).into_iter().map(|(_, label)| label).collect();
+        assert_eq!(labels, ["Default", "quiet"]);
+        assert_eq!(Key::Layout.said(r#"{"version":1}"#, &[], &named), "quiet");
+        let raw = r#"{"rail":{"hidden":["studios"]},"version":1}"#;
+        assert_eq!(Key::Layout.said(raw, &[], &named), "Custom layout", "never raw JSON");
+        let picked: HashMap<Key, String> = [(Key::Layout, raw.to_string())].into_iter().collect();
+        let kept = values_of(&picked, &every_project()).and_then(|set| set.look).and_then(|look| look.layout);
+        assert_eq!(kept.as_deref(), Some(raw), "kept as it was");
     }
 }

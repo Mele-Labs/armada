@@ -159,6 +159,34 @@ impl Wire {
         cx.background_spawn(async move { read.await.map(|choices| choices.models) })
     }
 
+    /// The layout mods that are valid, by name; the mock has none.
+    pub fn layout_mods(&self, cx: &App) -> Vec<String> {
+        match self {
+            Wire::Live(fleet) => fleet.read(cx).held().mods.iter().flatten().filter(|row| row.kind == Some(ipc::ModKind::Layout) && row.valid).map(|row| row.name.clone()).collect(),
+            Wire::Mock(_) => Vec::new(),
+        }
+    }
+
+    /// `GET /mods/validate?name=`: the `layout.json` Fleet checked for a layout mod, `None` where it did not pass.
+    pub fn layout_text(&self, name: &str, cx: &App) -> Task<Option<String>> {
+        let Some(port) = self.port(cx) else { return Task::ready(None) };
+        let path = format!("/mods/validate?name={}", crate::link::percent_encoded(name));
+        let read: Task<Result<ipc::ModChecked, String>> = request(port, Ask::Get(path), "ModChecked", None, cx);
+        cx.background_spawn(async move { read.await.ok().and_then(|checked| checked.layout) })
+    }
+
+    /// `POST /mods/session` aimed at a tracker, his words as the Job's first message: a Job that builds the tracker mod.
+    pub fn start_tracker_job(&mut self, said: String, cx: &App) -> Task<Result<ipc::ModSessionStarted, String>> {
+        let Some(port) = self.port(cx) else {
+            return match self {
+                Wire::Mock(_) => Task::ready(Ok(ipc::ModSessionStarted { session_id: ipc::SessionId::carried("mock"), title: "Build a tracker".into(), send_failed: None })),
+                Wire::Live(_) => unreachable(),
+            };
+        };
+        let sent = body(&ipc::StartModSession { title: None, model: None, effort: None, aim: Some(ipc::ModAim::Tracker), note: None, said: Some(said), from_job: None, from_tab: None });
+        request(port, Ask::Post("/mods/session".into(), sent), "ModSessionStarted", Some("The tracker Job was not started"), cx)
+    }
+
     /// `POST /repositories/clone`.
     pub fn clone_repository(&mut self, url: String, parent: String, cx: &App) -> Task<Result<RepositorySummary, String>> {
         if let Wire::Mock(mock) = self {
