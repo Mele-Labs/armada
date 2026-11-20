@@ -366,6 +366,7 @@ impl StoryTab {
 
     /// Up and Down: the features the Job is on come before the first ask, so the keys go from one part to the other.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
+        let was = (self.region, self.feature_at, self.cursor, self.link_at);
         match self.region {
             Region::Features => {
                 let next = self.feature_at as isize + by;
@@ -395,6 +396,9 @@ impl StoryTab {
                 let count = self.feature_rows().len() as isize;
                 self.link_at = (self.link_at as isize + by).clamp(0, (count - 1).max(0)) as usize;
             }
+        }
+        if was != (self.region, self.feature_at, self.cursor, self.link_at) {
+            crate::ui_sounds::moved();
         }
         cx.notify();
     }

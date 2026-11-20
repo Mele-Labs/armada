@@ -585,8 +585,13 @@ impl DispatchSheet {
         if let Some(menu) = &mut self.menu {
             let len = menu.rows.len().max(1);
             match key {
-                "down" => menu.active = (menu.active + 1) % len,
-                "up" => menu.active = (menu.active + len - 1) % len,
+                "down" | "up" => {
+                    let was = menu.active;
+                    menu.active = if key == "down" { (menu.active + 1) % len } else { (menu.active + len - 1) % len };
+                    if menu.active != was {
+                        crate::ui_sounds::moved();
+                    }
+                }
                 "enter" | "tab" if plain => {
                     let at = menu.active;
                     self.choose_row(at, window, cx);
@@ -790,8 +795,18 @@ impl DispatchSheet {
             let others = self.wait.as_ref().map_or(0, |wait| wait.others.len()).max(1);
             match (key, self.wait_menu) {
                 ("down" | "up" | "space" | "enter", None) => self.wait_menu = Some(0),
-                ("down", Some(at)) => self.wait_menu = Some((at + 1) % others),
-                ("up", Some(at)) => self.wait_menu = Some((at + others - 1) % others),
+                ("down", Some(at)) => {
+                    self.wait_menu = Some((at + 1) % others);
+                    if others > 1 {
+                        crate::ui_sounds::moved();
+                    }
+                }
+                ("up", Some(at)) => {
+                    self.wait_menu = Some((at + others - 1) % others);
+                    if others > 1 {
+                        crate::ui_sounds::moved();
+                    }
+                }
                 ("space" | "enter", Some(at)) => self.wait_on(at, cx),
                 _ => return,
             }

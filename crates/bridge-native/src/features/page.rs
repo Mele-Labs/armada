@@ -405,6 +405,9 @@ impl FeaturePageView {
         let order: Vec<Section> = Section::NAV.into_iter().filter(|one| self.present(*one) || *one == self.section).collect();
         let at = order.iter().position(|one| *one == self.section).unwrap_or(0) as isize;
         let next = (at + by).clamp(0, order.len() as isize - 1) as usize;
+        if order[next] != self.section {
+            crate::ui_sounds::moved();
+        }
         self.select(order[next], cx);
     }
 
@@ -421,7 +424,11 @@ impl FeaturePageView {
 
     fn step_chip(&mut self, by: isize, cx: &mut Context<Self>) {
         let at = Chip::ALL.iter().position(|one| *one == self.chip_at).unwrap_or(0) as isize;
+        let was = self.chip_at;
         self.chip_at = Chip::ALL[(at + by).clamp(0, Chip::ALL.len() as isize - 1) as usize];
+        if self.chip_at != was {
+            crate::ui_sounds::moved();
+        }
         cx.notify();
     }
 
@@ -432,6 +439,9 @@ impl FeaturePageView {
         }
         let at = self.row_at.map_or(if by > 0 { -1 } else { count }, |at| at as isize);
         let next = (at + by).clamp(0, count - 1) as usize;
+        if self.row_at != Some(next) {
+            crate::ui_sounds::moved();
+        }
         self.row_at = Some(next);
         self.list.scroll_to_reveal_item(next);
         cx.notify();
@@ -581,7 +591,11 @@ impl FeaturePageView {
                     Region::Rows => self.step_row(by, cx),
                     Region::Well => {
                         let last = self.wells().len().saturating_sub(1);
+                        let was = self.well_at;
                         self.well_at = (self.well_at as isize + by).clamp(0, last as isize) as usize;
+                        if self.well_at != was {
+                            crate::ui_sounds::moved();
+                        }
                         cx.notify();
                     }
                     Region::Chips | Region::Start => {}

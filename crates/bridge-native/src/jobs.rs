@@ -1684,9 +1684,13 @@ impl JobsList {
                 // Keys that only move the keys let go of the row a ⇧-click would have ranged from.
                 self.anchor = None;
                 self.scroll.scroll_to_item(at);
+                crate::ui_sounds::moved();
                 cx.notify();
             }
-            None if by < 0 && self.focused.as_ref().is_some_and(|id| self.at_of(id).is_some()) => self.to_search(window, cx),
+            None if by < 0 && self.focused.as_ref().is_some_and(|id| self.at_of(id).is_some()) => {
+                crate::ui_sounds::moved();
+                self.to_search(window, cx)
+            }
             None => {}
         }
     }
@@ -1782,6 +1786,7 @@ impl JobsList {
         self.anchor.get_or_insert(from);
         self.focused = Some(next);
         self.scroll.scroll_to_item(at);
+        crate::ui_sounds::moved();
         cx.notify();
     }
 

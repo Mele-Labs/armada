@@ -232,6 +232,9 @@ impl JobView {
                                 let to = if key == "down" { (at + 1).min(ids.len() - 1) } else { at.saturating_sub(1) };
                                 let spot = this.pages.get(&neighbours).and_then(|page| page.keys.spot_of(&format!("ready-row:{}", ids[to])));
                                 if let Some(spot) = spot {
+                                    if to != at {
+                                        crate::ui_sounds::moved();
+                                    }
                                     window.focus(&spot.focus, cx);
                                 }
                             }

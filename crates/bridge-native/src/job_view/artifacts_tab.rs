@@ -570,8 +570,13 @@ impl JobView {
                 let modifiers = event.keystroke.modifiers;
                 let on = this.artifacts.cursor.get(&job).cloned();
                 match (event.keystroke.key.as_str(), modifiers.shift, modifiers.modified()) {
-                    ("j", false, false) | ("down", false, false) => this.artifacts_cursor(&job, step(&keyed, on.as_deref(), 1), cx),
-                    ("k", false, false) | ("up", false, false) => this.artifacts_cursor(&job, step(&keyed, on.as_deref(), -1), cx),
+                    ("j" | "down" | "k" | "up", false, false) => {
+                        let to = step(&keyed, on.as_deref(), if matches!(event.keystroke.key.as_str(), "j" | "down") { 1 } else { -1 });
+                        if to.is_some() && to != on {
+                            crate::ui_sounds::moved();
+                        }
+                        this.artifacts_cursor(&job, to, cx)
+                    }
                     ("enter", false, false) => {
                         let Some(on) = on else { return };
                         this.open_artifact(&job, &on, window, cx);
