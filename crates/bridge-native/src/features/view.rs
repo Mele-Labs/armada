@@ -6,7 +6,7 @@
 use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
 use gpui_component::input::Input;
 
-use super::dossier::{area_hue, hue_square, selected_shadow};
+use super::dossier::{hue_square, selected_shadow};
 use super::model::{Line, Shown};
 use super::{FeaturesScreen, Load};
 use crate::reviews::panel;
@@ -79,12 +79,9 @@ impl FeaturesScreen {
 
     /// The hue of the area `slug`: its place among the areas the library keeps, and the Operator's for the pending group.
     pub(super) fn hue_of(&self, slug: &str) -> Token {
-        if slug == super::curate::PENDING_AREA {
-            return token::OPERATOR;
-        }
         match &self.library {
-            Load::Read(library) => library.areas.iter().filter(|area| area.slug != super::curate::PENDING_AREA).position(|area| area.slug == slug).map_or_else(|| super::dossier::hue_of_name(slug), area_hue),
-            _ => super::dossier::hue_of_name(slug),
+            Load::Read(library) => super::dossier::hue_among(library.areas.iter().map(|area| area.slug.as_str()), slug),
+            _ => super::dossier::hue_among([], slug),
         }
     }
 

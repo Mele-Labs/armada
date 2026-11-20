@@ -820,7 +820,9 @@ where
     }
 
     async fn edit_project(&self, project: String, edit: EditProject) -> Result<ipc::Projects, Refusal> {
-        self.project_not_held(&project).await?;
+        if let Some(mac) = self.copy_of_project(Some(&project)).await? {
+            return self.act_on_copy(&mac, ProjectAct::EditProject { project, edit }).await;
+        }
         {
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
@@ -875,7 +877,9 @@ where
         if workflow.is_empty() {
             return Err(self.blank("a workflow is switched by its id"));
         }
-        self.project_not_held(&project).await?;
+        if let Some(mac) = self.copy_of_project(Some(&project)).await? {
+            return self.workflow_set_on_copy(&mac, project, workflow, set.on).await;
+        }
         {
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;
@@ -895,7 +899,9 @@ where
     }
 
     async fn delete_project(&self, project: String) -> Result<ipc::Projects, Refusal> {
-        self.project_not_held(&project).await?;
+        if let Some(mac) = self.copy_of_project(Some(&project)).await? {
+            return self.act_on_copy(&mac, ProjectAct::DeleteProject { project }).await;
+        }
         {
             let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
             self.project_in(&kept, &project)?;

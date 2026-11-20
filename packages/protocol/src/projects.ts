@@ -115,7 +115,7 @@ export type Project = {
   shared_with_macs?: boolean;
   /** The claims store its Jobs' claims go to. Absent is none, and a project with none sends nothing. `GET /projects/project/:project/store` says which Macs are signed in and whether a deploy or a join can run now. */
   store?: ProjectStore;
-  /** The other Mac that holds this project, where this is a read copy of it. Absent for this Mac's own. A task act on a copy is sent to that Mac; what a copy refuses is `fleet.other_mac_project_held`. */
+  /** The other Mac that holds this project, where this is a read copy of it. Absent for this Mac's own. An edit of a copy, of the project or a task, is sent to that Mac; what a copy refuses (its place, its store, a Job link) is `fleet.other_mac_project_held`. */
   mac?: string;
 };
 

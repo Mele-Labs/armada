@@ -138,6 +138,21 @@ fn the_done_cards_lead_is_a_line_an_ask_each_with_its_asks_state() {
     assert!(model::lead(&story).is_empty());
 }
 
+#[test]
+fn the_features_the_job_is_on_keep_fleets_order_and_say_only_the_ways_it_touched_each() {
+    let lines: Vec<(String, String)> = built().features.iter().map(|line| (line.title.clone(), line.how.clone())).collect();
+    assert_eq!(
+        lines,
+        [
+            ("Start a Job".to_string(), "wrote 12 files · named in 9 commits · 3 asks filed".to_string()),
+            ("Thread and composer".to_string(), "named in 3 commits".to_string()),
+            ("Reviews".to_string(), "1 ask filed".to_string()),
+        ]
+    );
+    let one = ipc::JobFeature { slug: "a".into(), title: "A".into(), area: "x".into(), files_written: 1, commits_named: 1, asks: 0 };
+    assert_eq!(model::how_touched(&one), "wrote 1 file · named in 1 commit");
+}
+
 // ---- the tab ---------------------------------------------------------------------------------
 
 fn ready(cx: &mut TestAppContext) {
@@ -189,8 +204,8 @@ fn the_first_open_ask_is_unfolded_and_one_at_a_time_enter_folds_and_unfolds_wher
     assert_eq!(tab.read_with(cx, |tab, _| tab.cursor), Some(1));
     tab.update(cx, |tab, cx| tab.rebuild(cx));
     assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-3"), "reading the story again keeps what he unfolded");
-    cx.simulate_keystrokes("k k enter");
-    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-1"), "k at the first stays, and Enter unfolds it");
+    cx.simulate_keystrokes("k enter");
+    assert_eq!(unfolded(&tab, cx).as_deref(), Some("ask-1"), "Enter unfolds the first");
 }
 
 #[gpui::test]
@@ -308,14 +323,14 @@ fn the_tab_draws_a_role_and_a_name_for_every_head_and_row(cx: &mut TestAppContex
 #[gpui::test]
 fn the_group_of_what_he_was_shown_before_any_ask_has_a_place_only_where_there_is_one(cx: &mut TestAppContext) {
     let (tab, cx) = open(cx);
-    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 4, "three asks and the group");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 5, "the features, three asks and the group");
     tab.update(cx, |tab, cx| {
         if let super::Load::Read(story) = &mut tab.story {
             story.shown_otherwise.clear();
         }
         tab.rebuild(cx);
     });
-    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 3, "no group where nothing was shown before any ask");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 4, "no group where nothing was shown before any ask");
 }
 
 #[gpui::test]
@@ -330,7 +345,7 @@ fn the_tab_draws_bones_while_it_reads_and_nothing_for_a_job_with_no_asks(cx: &mu
     assert!(drawn(cx, Role::Image, "Loading"));
     assert_eq!(tab.read_with(cx, |tab, _| tab.places()), 0, "no card is built while it reads");
     tab.update(cx, |tab, cx| {
-        tab.story = super::Load::Read(ipc::JobStory { session_id: SessionId::carried(JOB), asks: Vec::new(), shown_otherwise: Vec::new(), lead: Vec::new() });
+        tab.story = super::Load::Read(ipc::JobStory { session_id: SessionId::carried(JOB), asks: Vec::new(), shown_otherwise: Vec::new(), lead: Vec::new(), features: Vec::new() });
         tab.rebuild(cx);
     });
     cx.run_until_parked();
@@ -572,4 +587,69 @@ fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_fro
     assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front");
     assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "the tab took the request");
     assert!(drawn(cx, Role::Button, "3. Votes show as never cast"), "the tab is drawn in the pane");
+}
+
+// ---- the features the Job is on ------------------------------------------------------------
+
+#[gpui::test]
+fn the_features_the_job_is_on_head_the_tab_a_row_each_in_fleets_order_above_the_asks(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    for _ in 0..2 {
+        tab.update(cx, |_, cx| cx.notify());
+        cx.run_until_parked();
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+    }
+    let bounds = |cx: &mut VisualTestContext, role: Role, name: &str| {
+        cx.update(|window, cx| {
+            cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == role && one.name == name).map(|one| one.bounds)
+        })
+    };
+    let heading = bounds(cx, Role::Heading, "Features this Job is on").expect("the section is drawn");
+    let rows: Vec<gpui::Bounds<gpui::Pixels>> = ["Start a Job, wrote 12 files · named in 9 commits · 3 asks filed", "Thread and composer, named in 3 commits", "Reviews, 1 ask filed"]
+        .into_iter()
+        .map(|name| bounds(cx, Role::Link, name).unwrap_or_else(|| panic!("{name} is drawn")))
+        .collect();
+    let first_ask = bounds(cx, Role::Button, "1. Feature catalog").expect("the first ask is drawn");
+    assert!(heading.bottom() <= rows[0].top() && rows[0].bottom() <= rows[1].top() && rows[1].bottom() <= rows[2].top(), "heading, then each row in order: {heading:?} {rows:?}");
+    assert!(rows[2].bottom() <= first_ask.top(), "the section is above the asks: {rows:?} {first_ask:?}");
+}
+
+#[gpui::test]
+fn a_job_on_no_feature_draws_no_section(cx: &mut TestAppContext) {
+    ready(cx);
+    // Read with no features from the first frame, so the label book holds nothing an earlier frame drew.
+    let (tab, cx) = cx.add_window_view(|window, cx| {
+        let mut tab = StoryTab::mock(JOB.into(), false, window, cx);
+        if let super::Load::Read(story) = &mut tab.story {
+            story.features.clear();
+        }
+        tab.rebuild(cx);
+        tab
+    });
+    cx.update(|window, cx| {
+        let focus = tab.read(cx).focus.clone();
+        window.focus(&focus, cx)
+    });
+    cx.run_until_parked();
+    assert_eq!(tab.read_with(cx, |tab, _| (tab.head(), tab.places())), (0, 4), "three asks and the group, and no place for the section");
+    assert!(!drawn(cx, Role::Heading, "Features this Job is on"), "an empty slot stays empty");
+    cx.simulate_keystrokes("k");
+    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.cursor)), (Region::Asks, Some(0)), "Up at the first ask stays there");
+}
+
+#[gpui::test]
+fn up_from_the_first_ask_reaches_the_features_and_enter_on_one_opens_its_page_over_the_tab(cx: &mut TestAppContext) {
+    let (tab, cx) = open(cx);
+    cx.simulate_keystrokes("k");
+    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.feature_at)), (Region::Features, 2), "Up from the first ask is the last feature");
+    cx.simulate_keystrokes("k k k");
+    assert_eq!(tab.read_with(cx, |tab, _| tab.feature_at), 0, "it stops at the first");
+    cx.simulate_keystrokes("j j j");
+    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.cursor)), (Region::Asks, Some(0)), "Down from the last feature is the first ask");
+    cx.simulate_keystrokes("k k k enter");
+    let overlay = tab.read_with(cx, |tab, _| tab.overlay().cloned()).expect("the feature opened over the tab");
+    assert_eq!(overlay.read_with(cx, |overlay, _| overlay.titles().map(|(title, from)| (title.to_string(), from.to_string()))), Some(("Start a Job".to_string(), "Story of Feature Catalog".to_string())));
+    cx.simulate_keystrokes("escape");
+    assert!(tab.read_with(cx, |tab, _| tab.overlay().is_none()));
+    assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.feature_at)), (Region::Features, 0), "the keys come back to the row");
 }

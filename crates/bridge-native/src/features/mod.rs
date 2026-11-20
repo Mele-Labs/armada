@@ -35,6 +35,9 @@ use crate::titlebar;
 use model::{Line, Listed};
 use page::{FeaturePageEvent, FeaturePageView};
 
+/// The area colours the list draws, for a Job's Story tab to draw the same.
+pub(crate) use dossier::{hue_among, hue_square};
+
 /// Where the list reads from.
 enum Source {
     Live(Entity<FleetConnection>),

@@ -249,16 +249,21 @@ mod tests {
     }
 
     #[test]
-    fn the_switcher_still_leaves_a_copy_out() {
+    fn a_copy_is_in_the_copies_the_switcher_lists_after_his_own_and_not_among_his_own() {
         let served = crate::mock::repositories();
         let mut read = crate::mock::projects();
         let mut other = read.projects[0].clone();
         (other.id, other.mac) = ("armada-pro".to_string(), Some("mac-pro".to_string()));
         read.projects.push(other);
-        let switcher: Vec<String> = crate::titlebar::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
-        assert!(!switcher.contains(&"armada-pro".to_string()), "the switcher cannot scope the window to a copy");
-        let copies: Vec<String> = crate::titlebar::copies_of(&served, &read).iter().map(|one| one.project.id.to_string()).collect();
-        assert_eq!(copies, vec!["armada-pro".to_string()]);
+        let own: Vec<String> = crate::titlebar::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
+        assert!(!own.contains(&"armada-pro".to_string()), "his own projects are the ones this Mac keeps");
+        let copies = crate::titlebar::copies_of(&served, &read);
+        let ids: Vec<String> = copies.iter().map(|one| one.project.id.to_string()).collect();
+        assert_eq!(ids, vec!["armada-pro".to_string()]);
+        let mut face = crate::titlebar::scenes::rest();
+        face.copies = copies;
+        let listed: Vec<(usize, String, Option<String>)> = face.listed().map(|(at, one, mac)| (at, one.id.to_string(), mac.map(|mac| mac.to_string()))).collect();
+        assert_eq!(listed.last(), Some(&(face.projects.len(), "armada-pro".to_string(), Some("mac-pro".to_string()))), "the switcher lists it after his own");
     }
 
     #[test]
