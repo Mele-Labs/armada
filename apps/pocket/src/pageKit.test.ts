@@ -54,13 +54,26 @@ function load() {
 
 const sent = () => document.querySelector(".armada-sent")?.textContent;
 
+/** Whether an event is his own: happy-dom carries no `isTrusted`, so every event here is his unless a test says not. */
+let trusted = true;
+
 beforeEach(() => {
+  trusted = true;
+  Object.defineProperty(Event.prototype, "isTrusted", {
+    get: () => trusted,
+    configurable: true,
+  });
   vi.spyOn(window.parent, "postMessage").mockImplementation(() => {});
 });
 
 afterEach(() => {
   delete host.webkit;
   delete host.armadaHost;
+  delete (
+    Event.prototype as {
+      isTrusted?: boolean;
+    }
+  ).isTrusted;
   vi.restoreAllMocks();
 });
 
@@ -84,6 +97,21 @@ describe("the kit's way to its host", () => {
       revision: 2,
     });
     expect(window.parent.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("posts nothing for a press a page's own script makes", () => {
+    const handler = vi.fn();
+    host.webkit = {
+      messageHandlers: {
+        armada: {
+          postMessage: handler,
+        },
+      },
+    };
+    load();
+    trusted = false;
+    document.querySelector<HTMLButtonElement>("armada-action button")?.click();
+    expect(handler).not.toHaveBeenCalled();
   });
 
   it("posts a press to the parent, with target origin *, where there is no webkit handler", () => {

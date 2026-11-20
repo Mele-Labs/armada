@@ -328,6 +328,10 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{artifact}`"), run_id())))
     }
 
+    async fn get_hosted_artifact_page(&self, id: SessionId, artifact: String, revision: Option<u32>) -> Result<crate::SealedPage, Refusal> {
+        self.get_artifact_page(id, artifact, revision).await
+    }
+
     async fn act_on_session_mcp(&self, asked: ipc::ActOnSessionMcp) -> Result<ipc::SessionMcpActed, Refusal> {
         let sign_in = (asked.act == ipc::McpServerAct::SignIn).then(|| ipc::McpSignIn {
             url: format!("https://{}.example/authorize", asked.server),
@@ -496,6 +500,10 @@ impl HostedSessions for FakeDaemon {
     }
 
     async fn get_session(self: Arc<Self>, _id: SessionId) -> Result<SessionThread, Refusal> {
+        Err(nothing_hosted())
+    }
+
+    async fn get_session_window(self: Arc<Self>, _id: SessionId, _window: ipc::SessionWindow) -> Result<SessionThread, Refusal> {
         Err(nothing_hosted())
     }
 

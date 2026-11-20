@@ -652,6 +652,10 @@ where
         };
         self.told_as_him(id, body).await?;
         self.draft_settled(id, &row, settled, words).await?;
+        if how == PartHow::Approved {
+            let record = self.published_hosted(id).await?;
+            self.approved_items_settled(id, record).await;
+        }
         Ok(())
     }
 
@@ -678,6 +682,11 @@ where
         let state = if how == PartHow::Approved { PartState::Approved } else { PartState::SentBack };
         let answer = PartAnswer { words, at: Some(self.instant()), ..PartAnswer::default() };
         self.stored_part_settled(id, &artifact.id, &part.id, &part.drawn, state, answer).await?;
+        if how == PartHow::Approved {
+            let record = self.published_hosted(id).await?;
+            self.approved_items_settled(id, record).await;
+            return Ok(());
+        }
         self.published_hosted(id).await?;
         Ok(())
     }

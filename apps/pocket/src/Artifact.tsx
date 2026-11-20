@@ -38,7 +38,17 @@ import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { Pictures, type Picture } from "./Pictures";
 import { artifactPath, go, jobPath } from "./router";
-import { Band, Trouble } from "./ui";
+import { Trouble } from "./ui";
+import {
+  BandCard,
+  revisionSaid,
+  Well,
+  type BandFacts,
+} from "./kit/components/compositions/BandCard/BandCard";
+import { DraftText } from "./kit/components/compositions/SessionThread/DraftRow";
+import { Reader } from "./Reader";
+import { actsOn, attempt, useJob } from "./jobState";
+import { draftsOf, sessionOfThread } from "./thread";
 
 const KIND: Record<ArtifactPart["kind"], string> = {
   drawing: "Drawing",
@@ -575,74 +585,162 @@ export function ArtifactView({
   ]);
   const title = artifact?.title ?? wanted.replace(/^(sketch|draft):/, "");
   const keep = `pocket:${origin}:${id}:artifact:${wanted}`;
+  // A draft that holds no parts is its text, which the Job's thread keeps as the row that proposed it.
+  const bare = artifact?.form === "draft" && partsOf(artifact).length === 0;
+  const [thread, rereadJob] = useJob(bare ? machine : undefined, id);
+  const session = thread.thread === undefined ? undefined : sessionOfThread(thread.thread);
+  const draft =
+    !bare || session === undefined
+      ? undefined
+      : [
+          ...session.rows,
+        ]
+          .reverse()
+          .find((row) => row.kind === "draft" && row.title === artifact?.title);
+  // Its answers, while the Mac holds it as an item waiting on him: the same ones the thread's card gives.
+  const open =
+    session === undefined || draft?.kind !== "draft"
+      ? undefined
+      : draftsOf(session).find((one) => one.id === draft.id);
+  const [says, setSays] = useState("");
+  const answer = (
+    body:
+      | {
+          choice: number;
+        }
+      | {
+          text: string;
+        },
+  ) => {
+    if (machine === undefined || open === undefined) return;
+    setSays("");
+    void attempt(
+      () =>
+        actsOn(machine, rereadJob).answerWaiting({
+          session_id: id,
+          item_id: `draft:${open.id}`,
+          ...body,
+        }),
+      machine,
+    ).then((refused) => setSays(refused ?? ""));
+  };
+  const last = artifact?.revisions[artifact.revisions.length - 1];
+  const facts: BandFacts = {
+    form: artifact?.form ?? "page",
+    title,
+    stand: artifact?.state ?? "reading",
+    words: artifact?.words,
+    ...(last === undefined
+      ? {}
+      : {
+          revision: {
+            number: last.number,
+            said: revisionSaid(last.number, last.by, last.at),
+          },
+        }),
+    ...(last?.by === "owner"
+      ? {
+          yours: `r${String(last.number)} is your edit`,
+        }
+      : {}),
+    forLine: artifact?.for_line,
+  };
   return (
-    <section className="pk-screen pk-art" aria-label={title}>
-      <Band title={title} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
-      <div className="pk-body pk-art__body">
-        {read.error === undefined || read.artifacts !== undefined ? null : (
-          <Trouble says={read.error} />
-        )}
-        {read.artifacts !== undefined && artifact === undefined ? (
-          <Trouble says="That Job holds no such artifact." />
-        ) : null}
-        {artifact?.for_line?.text === undefined ? null : (
-          <p className="pk-art__for">{artifact.for_line.text}</p>
-        )}
-        {machine === undefined || artifact === undefined || acts === undefined ? null : (
-          <WithKeptStyles machine={machine}>
-            {partsOf(artifact).map((part) => (
-              <PartBlock
-                key={`${part.id} ${part.drawn}`}
-                machine={machine}
-                id={id}
-                artifact={artifact}
-                part={part}
-                keep={`${keep}:${part.id}`}
-                acts={acts}
-                onOpen={setOpened}
-                chosen={chosen[part.id]}
-                onChoose={(take) =>
-                  setChosen((was) => ({
-                    ...was,
-                    [part.id]: take,
-                  }))
-                }
-                reread={reread}
-              />
-            ))}
-            {opened === undefined ? null : (
-              <Pictures
-                pictures={opened.pictures}
-                at={opened.at}
-                onAt={(at) =>
-                  setOpened({
-                    ...opened,
-                    at,
-                  })
-                }
-                {...(opened.part === undefined
-                  ? {}
-                  : {
-                      ...(chosen[opened.part] === undefined
-                        ? {}
-                        : {
-                            picked: chosen[opened.part],
-                          }),
-                      onPick: (take: string) => {
-                        setChosen((was) => ({
-                          ...was,
-                          [opened.part!]: take,
-                        }));
-                        setOpened(undefined);
-                      },
-                    })}
-                onClose={() => setOpened(undefined)}
-              />
-            )}
-          </WithKeptStyles>
-        )}
-      </div>
-    </section>
+    <Reader
+      facts={facts}
+      keep={keep}
+      onBack={() => go(jobPath(origin, id))}
+      {...(artifact === undefined
+        ? {}
+        : {
+            revisions: artifact.revisions,
+            shown: newest,
+          })}
+      {...(open === undefined
+        ? {}
+        : {
+            acts: {
+              approve: () =>
+                answer({
+                  choice: 0,
+                }),
+              ask: (text: string) =>
+                answer({
+                  text,
+                }),
+              ...(open.proposed === true
+                ? {
+                    dismiss: () =>
+                      answer({
+                        choice: 1,
+                      }),
+                  }
+                : {}),
+            },
+          })}
+      says={says === "" ? undefined : says}
+    >
+      {read.error === undefined || read.artifacts !== undefined ? null : (
+        <Trouble says={read.error} />
+      )}
+      {read.artifacts !== undefined && artifact === undefined ? (
+        <Trouble says="That Job holds no such artifact." />
+      ) : null}
+      {draft?.kind === "draft" ? <DraftText text={draft.text} /> : null}
+      {machine === undefined || artifact === undefined || acts === undefined ? null : (
+        <WithKeptStyles machine={machine}>
+          {partsOf(artifact).map((part) => (
+            <PartBlock
+              key={`${part.id} ${part.drawn}`}
+              machine={machine}
+              id={id}
+              artifact={artifact}
+              part={part}
+              keep={`${keep}:${part.id}`}
+              acts={acts}
+              onOpen={setOpened}
+              chosen={chosen[part.id]}
+              onChoose={(take) =>
+                setChosen((was) => ({
+                  ...was,
+                  [part.id]: take,
+                }))
+              }
+              reread={reread}
+            />
+          ))}
+          {opened === undefined ? null : (
+            <Pictures
+              pictures={opened.pictures}
+              at={opened.at}
+              onAt={(at) =>
+                setOpened({
+                  ...opened,
+                  at,
+                })
+              }
+              {...(opened.part === undefined
+                ? {}
+                : {
+                    ...(chosen[opened.part] === undefined
+                      ? {}
+                      : {
+                          picked: chosen[opened.part],
+                        }),
+                    onPick: (take: string) => {
+                      setChosen((was) => ({
+                        ...was,
+                        [opened.part!]: take,
+                      }));
+                      setOpened(undefined);
+                    },
+                  })}
+              onClose={() => setOpened(undefined)}
+            />
+          )}
+        </WithKeptStyles>
+      )}
+    </Reader>
   );
 }
 
@@ -672,22 +770,7 @@ export function firstPicture(artifact: JobArtifact): Picture | undefined {
   return undefined;
 }
 
-/** What still asks, in the words the card's foot uses: `the words and the takes`. */
-function askedOf(artifact: JobArtifact): string | undefined {
-  const kinds = [
-    ...new Set(
-      partsOf(artifact)
-        .filter(opensAsk)
-        .map((part) => `the ${KIND[part.kind].toLowerCase()}`),
-    ),
-  ];
-  if (kinds.length === 0) return undefined;
-  return kinds.length === 1
-    ? kinds[0]
-    : `${kinds.slice(0, -1).join(", ")} and ${kinds[kinds.length - 1]!}`;
-}
-
-/** The card of an artifact that asks, at the foot of the thread: its title, what it is for, its first picture, and Review. */
+/** The card of an artifact that asks, at the foot of the thread, as the Band card draws it: its title and what it is for in the band, its first picture in the well, and Open, which its parts are answered from. */
 export function ArtifactCard({
   machine,
   id,
@@ -699,41 +782,53 @@ export function ArtifactCard({
 }) {
   const picture = firstPicture(artifact);
   const open = () => go(artifactPath(machine.origin, id, artifact.id));
-  const still = askedOf(artifact);
+  const last = artifact.revisions[artifact.revisions.length - 1];
+  const asking = asks(artifact);
+  const facts: BandFacts = {
+    form: artifact.form,
+    title: artifact.title,
+    stand: asking ? "asking" : artifact.state,
+    words: artifact.words,
+    ...(last === undefined
+      ? {}
+      : {
+          revision: {
+            number: last.number,
+            said: revisionSaid(last.number, last.by, last.at),
+          },
+        }),
+    ...(last?.by === "owner"
+      ? {
+          yours: `r${String(last.number)} is your edit`,
+        }
+      : {}),
+    forLine: artifact.for_line,
+  };
   return (
-    <article className="pk-art-card" aria-label={artifact.title}>
-      <header className="pk-art-card__band">
-        <span className="pk-art-card__chip">{asks(artifact) ? "Asking" : "Shown"}</span>
-        <span className="pk-art-card__title">{artifact.title}</span>
-      </header>
-      {artifact.for_line?.text === undefined ? null : (
-        <p className="pk-art-card__for">{artifact.for_line.text}</p>
-      )}
-      {picture === undefined ? null : (
-        <button
-          type="button"
-          className="pk-art__picture pk-art-card__picture"
-          aria-label={`Review ${artifact.title}`}
-          style={
-            "scene" in picture
-              ? {
-                  aspectRatio: String(aspectOf(picture.scene)),
-                }
-              : undefined
-          }
-          onClick={open}
-        >
-          {"scene" in picture ? (
-            <SketchScene scene={picture.scene} title={picture.title} preview />
-          ) : null}
-        </button>
-      )}
-      <CardFooter className="pk-art-card__foot">
-        {still === undefined ? null : <span className="pk-art-card__still">Answer {still}</span>}
-        <Button size="sm" variant="primary" onClick={open}>
-          Review
-        </Button>
-      </CardFooter>
-    </article>
+    <BandCard
+      as="div"
+      facts={facts}
+      keep={`pocket:${machine.origin}:${id}:artifact:${artifact.id}:card`}
+      {...(picture === undefined || !("scene" in picture)
+        ? {}
+        : {
+            well: (
+              <Well cut={false} sketch>
+                <div
+                  className="pk-bc__sketch"
+                  style={{
+                    aspectRatio: String(aspectOf(picture.scene)),
+                  }}
+                >
+                  <SketchScene scene={picture.scene} title={picture.title} preview />
+                </div>
+              </Well>
+            ),
+          })}
+      acts={{
+        open,
+      }}
+      asked={asking}
+    />
   );
 }

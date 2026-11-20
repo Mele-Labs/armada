@@ -28,9 +28,9 @@
 use std::fmt;
 use std::path::Path;
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OpenFlags};
 
-use crate::error::{fault, OpenError};
+use crate::error::{fault, OpenError, WriteError};
 use crate::migrations::{
     ensure_applied_table, Migration, LEGACY_COUNT, MIGRATIONS, SCHEMA_VERSION_KEY,
 };
@@ -81,6 +81,17 @@ impl Store {
         store.migrate(list)?;
         store.no_dangling_references()?;
         Ok(store)
+    }
+
+    /// A connection that only reads, on the file at `path`, for a long read to make without holding the one
+    /// the rest of Fleet writes through. **No integrity check and no migration**: the file is open already, in
+    /// WAL, and a reader there sees what has been committed and never waits on a writer.
+    pub fn open_reading(path: &Path) -> Result<Store, WriteError> {
+        let shown = path.display().to_string();
+        let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
+        let conn = Connection::open_with_flags(path, flags).map_err(fault("opening the database to read")).map_err(WriteError::Database)?;
+        conn.busy_timeout(std::time::Duration::from_secs(5)).map_err(fault("opening the database to read")).map_err(WriteError::Database)?;
+        Ok(Store { conn, path: shown, unknown_migrations: Vec::new() })
     }
 
     /// Migrations the file had applied that this build does not list, all

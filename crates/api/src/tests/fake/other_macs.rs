@@ -14,6 +14,10 @@ use crate::{ActAnswered, ActBegun, ActTurn, OtherMacs, Refusal};
 /// The Studio whose deletion the fake's share filter holds back.
 pub const THE_PRIVATE_STUDIO: &str = "01PRIVATE";
 
+fn no_such_job(job: &SessionId) -> Refusal {
+    Refusal::NotFound(ipc::WireError::raised("fleet.no_such_session", format!("No Job Fleet holds is named {}.", job.as_str()), super::shapes::run_id()))
+}
+
 impl OtherMacs for FakeDaemon {
     async fn share_sessions(&self) -> Result<SessionList, Refusal> {
         Ok(SessionList { sessions: Vec::new() })
@@ -102,6 +106,18 @@ impl OtherMacs for FakeDaemon {
             format!("No Job Fleet holds is named {}.", read.session_id.as_str()),
             super::shapes::run_id(),
         )))
+    }
+
+    async fn share_job_session(self: Arc<Self>, job: SessionId, _window: Option<ipc::SessionWindow>) -> Result<ipc::SessionThread, Refusal> {
+        Err(no_such_job(&job))
+    }
+
+    async fn share_job_artifacts(&self, job: SessionId) -> Result<Vec<ipc::JobArtifact>, Refusal> {
+        Err(no_such_job(&job))
+    }
+
+    async fn share_job_artifact_page(&self, job: SessionId, _artifact: String, _revision: Option<u32>) -> Result<ipc::ArtifactPageShared, Refusal> {
+        Err(no_such_job(&job))
     }
 
     async fn share_job_page(&self, job: SessionId, _port: u16) -> Result<(), Refusal> {

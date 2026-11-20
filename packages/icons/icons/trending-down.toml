@@ -1,0 +1,7 @@
+[icons.trending-down]
+  means = "A line falling to the right"
+  group = "Usage"
+  size = "12px"
+  status = "Proposed"
+  reserved = "A drop that is good news on the page it stands on. Never a sort, which is `arrow-up-down`, and never a Job's state."
+  notes = "Proposed 19 Nov 2026 for the native Usage page's After a change table. Draws in the passed hue inside a chip that says how many points the waste a change cuts has fallen, tooltip `Cold cache after a pause: 12.3% of your burn in the week before, 3.1% since`. `arrow-down` is taken by Behind main."

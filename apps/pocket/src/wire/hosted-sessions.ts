@@ -828,4 +828,9 @@ export type SessionRow =
 export type SessionThread = {
   session: SessionRecord;
   rows: SessionRow[];
+  /**
+   * Rows stand before the first of `rows`, which a read with [`SessionWindow::before`] reaches. Only a read
+   * with `last` sets it.
+   */
+  older?: boolean;
 };

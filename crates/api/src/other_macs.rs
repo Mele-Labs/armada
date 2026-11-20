@@ -37,6 +37,9 @@ pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullR
         .route("/queued/take_back", post(crate::mac_acts::take_back_queued::<D>))
         .route("/other_mac/events", get(share_events::<D>))
         .route("/other_mac/thread", get(share_job_thread::<D>))
+        .route("/other_mac/session", get(share_job_session::<D>))
+        .route("/other_mac/artifacts", get(share_job_artifacts::<D>))
+        .route("/other_mac/artifact_page", get(share_job_artifact_page::<D>))
         .route("/other_mac/page", get(share_job_page::<D>))
         .route("/sessions/other_mac_page", post(open_other_mac_page::<D>))
         .route("/other_macs/sessions", put(hold_other_mac_sessions::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
@@ -149,6 +152,51 @@ async fn share_job_thread<D: OtherMacs>(State(served): State<Served<D>>, Query(w
     };
     match served.shared().share_job_thread(read).await {
         Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, `?last=` and `?before=` on `share_job_session`, as on `get_session`.
+#[derive(Deserialize)]
+struct WhichSession {
+    session_id: String,
+    last: Option<usize>,
+    before: Option<String>,
+}
+
+async fn share_job_session<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichSession>) -> Response {
+    let window = which.last.map(|last| ipc::SessionWindow { last, before: which.before });
+    match served.shared().share_job_session(ipc::SessionId::carried(which.session_id), window).await {
+        Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=` on `share_job_artifacts`.
+#[derive(Deserialize)]
+struct WhichArtifacts {
+    session_id: String,
+}
+
+async fn share_job_artifacts<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichArtifacts>) -> Response {
+    match served.daemon().share_job_artifacts(ipc::SessionId::carried(which.session_id)).await {
+        Ok(artifacts) => answer(StatusCode::OK, &artifacts, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// `?session_id=`, `?artifact=` and `?revision=` on `share_job_artifact_page`, as on `get_artifact_page`.
+#[derive(Deserialize)]
+struct WhichArtifactPage {
+    session_id: String,
+    artifact: String,
+    revision: Option<u32>,
+}
+
+async fn share_job_artifact_page<D: OtherMacs>(State(served): State<Served<D>>, Query(which): Query<WhichArtifactPage>) -> Response {
+    let asked = served.daemon().share_job_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision).await;
+    match asked {
+        Ok(page) => answer(StatusCode::OK, &page, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }

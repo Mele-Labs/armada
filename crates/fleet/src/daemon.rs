@@ -93,6 +93,8 @@ pub struct Fleet<H, V, W> {
     session_runs: crate::session_running::SessionRuns,
     /// Session Checks that are running, and a stop asked of one — `crate::session_check_live`.
     session_check_live: crate::session_check_live::SessionCheckLive,
+    /// The projects whose librarian is running, and a Stop pressed on one. In memory — `crate::feature_library::librarian_steps`.
+    librarian_running: crate::feature_library::librarian_steps::Running,
     /// The addresses a session signs in with, until Bridge opens its window. A secret, never written down — `crate::window_sign_in`.
     window_sign_ins: crate::window_sign_in::SignIns,
     /// The Job browser's calls held for Bridge. Never written down — `crate::job_browser`.
@@ -211,6 +213,8 @@ pub struct Fleet<H, V, W> {
     refusal_reads: Arc<crate::session_host::asks_model::Reads>,
     /// The model's vectors of Sessions' waiting items, for folding ones that are one ask — `crate::session_host::dedup`.
     item_vectors: Arc<crate::session_host::dedup::Vectors>,
+    /// The Usage page's waste and adjustments, kept five minutes — `crate::usage_memo`. Held in memory only.
+    usage_memo: crate::usage_memo::Memo,
     /// The last print of each Job's For you — `crate::session_host::for_you`. Held in memory only.
     for_you_prints: std::sync::Mutex<std::collections::HashMap<String, u64>>,
     /// The model's reads of each sentence of a reply's close — `crate::session_host::extracting`.

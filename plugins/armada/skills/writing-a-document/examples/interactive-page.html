@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>How a Job lands</title>
+<style>
+:root {
+  --bg: #f4f5f8; --surface: #ffffff; --sunk: #eceef3; --raised: #ffffff;
+  --ink: #161a22; --muted: #4a5263; --line: #d7dbe3; --stroke: #a3abba;
+  --accent: #3b6fe0; --accent-soft: #e3ebfc; --on-accent: #ffffff;
+  --k-you: #c2410c; --k-app: #3b6fe0; --k-daemon: #7c3aed; --k-agent: #0f8a7e;
+  --k-store: #2f8a43; --k-ext: #64748b;
+  --ok: #2f8a43; --run: #3b6fe0; --wait: #b7791f; --bad: #c2334a;
+  --shadow: 0 1px 2px rgba(20,24,34,.06), 0 4px 14px rgba(20,24,34,.06);
+  --f-body: -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif;
+  --f-mono: ui-monospace, "SF Mono", Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0f1218; --surface: #161a22; --sunk: #1d222c; --raised: #1f2430;
+    --ink: #e6e9ef; --muted: #98a1b2; --line: #2b3240; --stroke: #566074;
+    --accent: #7aa2ff; --accent-soft: #1d2a47; --on-accent: #0f1218;
+    --k-you: #fb923c; --k-app: #7aa2ff; --k-daemon: #b794f6; --k-agent: #4fd1c5;
+    --k-store: #68d391; --k-ext: #a0aec0;
+    --ok: #68d391; --run: #7aa2ff; --wait: #f6c05c; --bad: #ff8a9b;
+    --shadow: 0 1px 2px rgba(0,0,0,.4), 0 6px 18px rgba(0,0,0,.35);
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.55 var(--f-body); }
+.wrap { max-width: 1180px; margin: 0 auto; padding: 0 20px; }
+h1, h2, h3 { margin: 0; line-height: 1.15; }
+h1 { font-size: 40px; font-weight: 750; letter-spacing: -.01em; }
+h2 { font-size: 25px; font-weight: 700; }
+h3 { font-size: 16px; font-weight: 600; }
+p { margin: 0; }
+code { font-family: var(--f-mono); font-size: .88em; background: var(--sunk); padding: 1px 5px; border-radius: 4px; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.eyebrow { font-family: var(--f-mono); font-size: 11.5px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.eyebrow.tint { color: var(--c); }
+.hint { font-size: 13.5px; color: var(--muted); }
+.contents { display: contents; }
+
+/* Colour classes: a part's colour is set on the element, read as --c. */
+.k-you { --c: var(--k-you); } .k-app { --c: var(--k-app); } .k-daemon { --c: var(--k-daemon); }
+.k-agent { --c: var(--k-agent); } .k-store { --c: var(--k-store); } .k-ext { --c: var(--k-ext); }
+.s-ok { --c: var(--ok); } .s-run { --c: var(--run); } .s-wait { --c: var(--wait); } .s-bad { --c: var(--bad); }
+
+/* Without scripts the controls do nothing, so they stay hidden. */
+html:not(.js) .ctl { display: none; }
+
+header.top { padding: 34px 0 20px; display: grid; gap: 12px; }
+.lede { max-width: 74ch; color: var(--muted); font-size: 16.5px; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.chip { display: inline-flex; align-items: center; gap: 6px; border-radius: 999px; padding: 3px 11px; font-size: 13px; font-weight: 500;
+  background: color-mix(in srgb, var(--c, var(--muted)) 13%, var(--surface)); color: var(--c, var(--ink));
+  border: 1px solid color-mix(in srgb, var(--c, var(--muted)) 35%, transparent); }
+.dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+nav.secnav { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--bg) 88%, transparent); border-bottom: 1px solid var(--line); }
+nav.secnav .wrap { display: flex; gap: 4px; overflow-x: auto; padding: 8px 20px; }
+nav.secnav a { white-space: nowrap; text-decoration: none; color: var(--muted); font-size: 13.5px; padding: 5px 11px; border-radius: 6px; }
+nav.secnav a:hover { color: var(--ink); background: var(--sunk); }
+nav.secnav a.on { color: var(--ink); background: var(--surface); box-shadow: inset 0 0 0 1px var(--line), var(--shadow); font-weight: 600; }
+
+section.sec { padding: 42px 0 6px; scroll-margin-top: 54px; }
+.sec-head { display: grid; gap: 6px; margin-bottom: 16px; max-width: 78ch; }
+.sec-head p { color: var(--muted); }
+
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+.band { padding: 10px 14px; background: var(--sunk); border-bottom: 1px solid var(--line); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.band .lbl { font-size: 12.5px; color: var(--muted); margin-right: 2px; }
+.seg { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 4px 11px; font-size: 13.5px; cursor: pointer; }
+.seg:hover { border-color: var(--stroke); }
+.seg[aria-pressed="true"] { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.spacer { flex: 1; }
+.split { display: grid; grid-template-columns: minmax(0,1fr) 320px; }
+.split > aside { border-left: 1px solid var(--line); background: var(--raised); }
+@media (max-width: 900px) { .split { grid-template-columns: 1fr; } .split > aside { border-left: 0; border-top: 1px solid var(--line); } }
+.canvas { padding: 10px; overflow-x: auto; }
+.canvas svg { display: block; width: 100%; min-width: 760px; height: auto; }
+html:not(.js) .canvas { display: none; }
+.detail { padding: 16px 18px; display: grid; gap: 10px; align-content: start; position: sticky; top: 56px; }
+.kind { font-family: var(--f-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; font-weight: 600; color: var(--c, var(--accent)); }
+.kind.mute { color: var(--muted); }
+.detail ul { margin: 0; padding-left: 18px; display: grid; gap: 4px; }
+.files { display: flex; flex-wrap: wrap; gap: 4px; }
+.files code { font-size: 11.5px; }
+.legend { display: flex; flex-wrap: wrap; gap: 14px; padding: 8px 14px; border-top: 1px solid var(--line); font-size: 12.5px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; color: var(--c); }
+.legend b { color: var(--muted); font-weight: 400; }
+.legend i { width: 12px; height: 12px; border-radius: 3px; border: 2px solid currentColor; }
+
+/* map */
+.n { cursor: pointer; }
+.n rect.box { fill: var(--surface); stroke-width: 1.8; transition: opacity .2s, fill .15s; }
+.n text { fill: var(--ink); font-size: 14.5px; font-weight: 600; pointer-events: none; }
+.n text.sub { fill: var(--muted); font-size: 11.5px; font-weight: 400; font-family: var(--f-mono); }
+.n:hover rect.box { stroke-width: 3; }
+.n.sel rect.box { stroke-width: 3.4; fill: var(--accent-soft); }
+.e { cursor: pointer; }
+.e path { fill: none; stroke: var(--stroke); stroke-width: 1.7; transition: stroke .2s, opacity .2s; }
+.e path.hit { stroke: transparent; stroke-width: 14; }
+.e text { fill: var(--muted); font-size: 12px; font-family: var(--f-mono); paint-order: stroke; stroke: var(--surface); stroke-width: 5px; stroke-linejoin: round; }
+.e.hot path.line { stroke: var(--accent); stroke-width: 2.8; stroke-dasharray: 7 5; animation: flow 1s linear infinite; }
+.e.hot text { fill: var(--ink); font-weight: 600; }
+svg.dim .e:not(.hot) { opacity: .3; }
+svg.dim .n:not(.hot):not(.sel) rect.box { opacity: .45; }
+@keyframes flow { to { stroke-dashoffset: -24; } }
+@media (prefers-reduced-motion: reduce) { .e path.line, .msg.now line { animation: none !important; } }
+
+/* sequence */
+.btn { border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 5px 12px; cursor: pointer; font-size: 13.5px; }
+.btn:hover { border-color: var(--stroke); }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.btn:disabled { opacity: .45; cursor: default; }
+.stepcount { font-family: var(--f-mono); font-size: 12.5px; color: var(--muted); min-width: 60px; text-align: center; }
+.life text.lane { fill: var(--ink); font-size: 13.5px; font-weight: 700; }
+.msg { cursor: pointer; }
+.msg line { stroke: var(--stroke); stroke-width: 1.6; }
+.msg text { fill: var(--muted); font-size: 12.5px; font-family: var(--f-mono); }
+.msg.past line { stroke: color-mix(in srgb, var(--accent) 45%, var(--stroke)); }
+.msg.past text { fill: var(--ink); }
+.msg.now line { stroke: var(--accent); stroke-width: 3; stroke-dasharray: 7 5; animation: flow 1s linear infinite; }
+.msg.now text { fill: var(--accent); font-weight: 700; }
+.msg.fut { opacity: .28; }
+.steplist { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+.steplist li { padding: 6px 8px; border-radius: 6px; cursor: pointer; font-size: 13.5px; display: flex; gap: 8px; }
+.steplist li b { font-family: var(--f-mono); color: var(--muted); font-weight: 500; min-width: 18px; }
+.steplist li:hover { background: var(--sunk); }
+.steplist li.on { background: var(--accent-soft); color: var(--ink); font-weight: 600; }
+
+/* lifecycle */
+.st { cursor: pointer; }
+.st rect { fill: var(--surface); stroke-width: 2; }
+.st text { fill: var(--ink); font-size: 13.5px; font-weight: 600; pointer-events: none; }
+.st:hover rect { stroke-width: 3; }
+.st.sel rect { stroke-width: 3.6; fill: var(--accent-soft); }
+.tr path { fill: none; stroke: var(--stroke); stroke-width: 1.6; }
+.tr.out path { stroke: var(--accent); stroke-width: 2.6; }
+.tr.in path { stroke: color-mix(in srgb, var(--accent) 45%, var(--stroke)); stroke-width: 2; }
+svg.pick .st:not(.sel):not(.near) rect { opacity: .45; }
+.badge { display: inline-block; justify-self: start; font-size: 12px; font-weight: 600; border-radius: 999px; padding: 1px 9px; background: color-mix(in srgb, var(--c) 15%, var(--surface)); color: var(--c); border: 1px solid color-mix(in srgb, var(--c) 35%, transparent); }
+
+/* cards and tables */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 12px; }
+.card { padding: 16px 18px; display: grid; gap: 6px; align-content: start; }
+.card .tag { display: inline-flex; align-items: center; gap: 6px; font-family: var(--f-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--c); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-family: var(--f-mono); font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); font-weight: 500; background: var(--sunk); }
+td.part { font-weight: 600; white-space: nowrap; }
+td.part i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--c); margin-right: 8px; }
+.gloss { display: grid; grid-template-columns: 140px minmax(0,1fr); margin: 0; }
+.gloss dt, .gloss dd { margin: 0; padding: 9px 14px; border-bottom: 1px solid var(--line); }
+.gloss dt { font-weight: 600; }
+.primer { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 14px; }
+@media (max-width: 900px) { .primer { grid-template-columns: 1fr; } }
+.plain { margin: 0; padding-left: 18px; display: grid; gap: 5px; }
+.filebar input { flex: 1; min-width: 180px; border: 1px solid var(--line); background: var(--surface); border-radius: 7px; padding: 6px 10px; font: inherit; color: inherit; }
+.delta { font-family: var(--f-mono); font-size: 12.5px; white-space: nowrap; }
+.delta .a { color: var(--ok); } .delta .d { color: var(--bad); }
+td.path code { background: none; padding: 0; }
+footer { padding: 40px 0 60px; color: var(--muted); font-size: 13.5px; }
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+  <span class="eyebrow">Armada · example document</span>
+  <h1>How a Job lands</h1>
+  <p class="lede">A Job is one piece of work an agent does in its own copy of the repository. This page follows one from your request to a merge on main: which part does what, what you are asked and when, and what checks the work before it lands. The diagrams are clickable.</p>
+  <div class="chips">
+    <span class="chip s-run"><span class="dot"></span>Example Job</span>
+    <span class="chip">10 parts</span>
+    <span class="chip">4 routes</span>
+    <span class="chip s-ok">Checks <b>green</b></span>
+  </div>
+</header>
+
+<nav class="secnav" aria-label="Sections"><div class="wrap" id="secnav">
+  <a href="#start">Start here</a>
+  <a href="#map">System map</a>
+  <a href="#flows">Step through a flow</a>
+  <a href="#lifecycle">Job lifecycle</a>
+  <a href="#rules">Rules</a>
+  <a href="#files">Files</a>
+</div></nav>
+
+<main class="wrap">
+
+<section class="sec" id="start">
+  <div class="sec-head">
+    <span class="eyebrow">0 · Before the diagrams</span>
+    <h2>Start here</h2>
+    <p>Who does what, and the words the rest of the page uses.</p>
+  </div>
+  <div class="panel">
+    <table>
+      <thead><tr><th>Part</th><th>Does</th><th>Never does</th></tr></thead>
+      <tbody>
+        <tr><td class="part k-you"><i></i>You</td><td>Ask, approve, answer</td><td class="hint">Merge by hand</td></tr>
+        <tr><td class="part k-app"><i></i>Bridge</td><td>Shows Jobs and asks you things</td><td class="hint">Keep state of its own</td></tr>
+        <tr><td class="part k-daemon"><i></i>Fleet</td><td>Runs Jobs, slots, Checks and gates</td><td class="hint">Write code</td></tr>
+        <tr><td class="part k-agent"><i></i>Drone</td><td>Plans and writes the change</td><td class="hint">Touch another Job's slot</td></tr>
+        <tr><td class="part k-ext"><i></i>GitHub</td><td>Pull request, CI, merge queue</td><td class="hint">Merge on red</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="primer">
+    <div class="panel">
+      <div class="band"><span class="eyebrow">Armada in eight words</span></div>
+      <dl class="gloss">
+        <dt>Job</dt><dd>One piece of work, with its own thread, plan and slot.</dd>
+        <dt>Drone</dt><dd>The coding agent working a Job.</dd>
+        <dt>Slot</dt><dd>A worktree leased to one Job.</dd>
+        <dt>Gate</dt><dd>A fact that ends a stage, such as your Approve.</dd>
+        <dt>Walk</dt><dd>A screen change you click through before it lands.</dd>
+        <dt>Sketch</dt><dd>A drawing a Job shows you.</dd>
+        <dt>Document</dt><dd>A page a Job writes for you to read.</dd>
+        <dt>Check</dt><dd>A named test or lint that Fleet runs.</dd>
+      </dl>
+    </div>
+    <div class="panel card k-you">
+      <span class="eyebrow tint">What you do</span>
+      <ul class="plain">
+        <li>Say what you want in a Job's thread.</li>
+        <li>Approve the plan, and walk any screen it changes.</li>
+        <li>Answer questions as they come up in Needs you.</li>
+        <li>Nothing else. Armada merges once CI is green.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="map">
+  <div class="sec-head">
+    <span class="eyebrow">1 · Where everything sits</span>
+    <h2>System map</h2>
+    <p>Click a box or an arrow to read about it. Pick a route to light the path it takes.</p>
+  </div>
+  <div class="panel">
+    <div class="band ctl" id="routeBar">
+      <span class="lbl">Route</span>
+      <button class="seg" data-route="" aria-pressed="true">None</button>
+      <button class="seg" data-route="start" aria-pressed="false">A Job starts</button>
+      <button class="seg" data-route="ask" aria-pressed="false">You answer a question</button>
+      <button class="seg" data-route="checks" aria-pressed="false">Checks run</button>
+      <button class="seg" data-route="land" aria-pressed="false">It lands</button>
+    </div>
+    <div class="split">
+      <div class="canvas"><svg id="mapSvg" viewBox="0 0 860 520" role="img" aria-label="System map: you, Bridge, Fleet, Drone, slot, Checks, pull request, CI, merge queue and main"></svg></div>
+      <aside><div class="detail" id="mapDetail">
+        <span class="kind k-daemon">Daemon</span><h3>Fleet</h3>
+        <ul><li>Runs Jobs and leases slots</li><li>Holds plans, gates and waits</li><li>Runs Checks and watches CI</li></ul>
+        <p class="hint">From: Bridge</p><p class="hint">To: Drone</p>
+        <div class="files"><code>crates/fleet</code><code>crates/ipc</code></div>
+        <p class="hint">The map joins ten parts. You ask Bridge, Bridge talks to Fleet, Fleet starts the Drone in a slot. The Drone runs Checks, pushes to a pull request, CI runs, and the merge queue lands it on main.</p>
+      </div></aside>
+    </div>
+    <div class="legend">
+      <span class="k-you"><i></i><b>You</b></span><span class="k-app"><i></i><b>App</b></span><span class="k-daemon"><i></i><b>Daemon</b></span>
+      <span class="k-agent"><i></i><b>Agent</b></span><span class="k-store"><i></i><b>Store</b></span><span class="k-ext"><i></i><b>Outside</b></span>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="flows">
+  <div class="sec-head">
+    <span class="eyebrow">2 · One message at a time</span>
+    <h2>Step through a flow</h2>
+    <p>Pick a flow, then press Next, or use the arrow keys. The lit arrow is the step on the right.</p>
+  </div>
+  <div class="panel">
+    <div class="band ctl">
+      <span class="lbl">Flow</span>
+      <span class="contents" id="flowBar"></span>
+      <span class="spacer"></span>
+      <button class="btn" id="prevBtn">Back</button>
+      <span class="stepcount" id="stepCount">1 / 6</span>
+      <button class="btn" id="nextBtn">Next</button>
+      <button class="btn primary" id="playBtn">Play</button>
+    </div>
+    <div class="split">
+      <div class="canvas"><svg id="seqSvg" viewBox="0 0 820 400" role="img" aria-label="Sequence of messages between you, Bridge, Fleet, Drone and GitHub"></svg></div>
+      <aside><div class="detail">
+        <span class="kind" id="stepKind">Drone → Fleet</span><h3 id="stepTitle">A question, step by step</h3><p id="stepNote">The Drone hits a choice that is yours, and asks through Fleet with options.</p>
+        <ol class="steplist" id="stepList">
+          <li class="on"><b>1</b>asks</li>
+          <li><b>2</b>needs you</li>
+          <li><b>3</b>shows</li>
+          <li><b>4</b>picks</li>
+          <li><b>5</b>answer</li>
+          <li><b>6</b>resumes</li>
+        </ol>
+      </div></aside>
+    </div>
+  </div>
+</section>
+
+<section class="sec" id="lifecycle">
+  <div class="sec-head">
+    <span class="eyebrow">3 · Where a Job stands</span>
+    <h2>Job lifecycle</h2>
+    <p>Click a stage to see what it means, who moves it on, and where it can go next.</p>
+  </div>
+  <div class="panel split">
+    <div class="canvas"><svg id="smSvg" viewBox="0 0 820 330" role="img" aria-label="Job lifecycle: propose, walk, build, pull request, merge queue, done, needs you and stopped"></svg></div>
+    <aside><div class="detail" id="smDetail">
+      <span class="badge s-wait">Propose</span><p>The Job reads the request and asks what is unclear. It records a plan.</p>
+      <p class="hint">Moves it on: <b>You</b> · gate: Plan approved</p>
+      <span class="kind">Goes to</span>
+      <ul><li>Walk <span class="hint">on plan approved</span></li><li>Build <span class="hint">on nothing to see</span></li><li>Stopped <span class="hint">on dropped</span></li></ul>
+      <p class="hint">Later stages: Walk, Build, Pull request, Merge queue, Done. Needs you can come from any stage.</p>
+    </div></aside>
+  </div>
+</section>
+
+<section class="sec" id="rules">
+  <div class="sec-head">
+    <span class="eyebrow">4 · What holds the work back</span>
+    <h2>Rules</h2>
+    <p>Each one stops a Job at a point, until something is true.</p>
+  </div>
+  <div class="cards">
+    <div class="panel card k-you"><span class="tag"><span class="dot"></span>You</span><h3>Plan first</h3><p class="hint">Nothing is built until you approve the plan.</p></div>
+    <div class="panel card k-you"><span class="tag"><span class="dot"></span>You</span><h3>Walk what you see</h3><p class="hint">A screen change waits until you walk it and approve it.</p></div>
+    <div class="panel card k-store"><span class="tag"><span class="dot"></span>Store</span><h3>Own copy</h3><p class="hint">Each Job works in its own slot, so two agents never touch one tree.</p></div>
+    <div class="panel card k-daemon"><span class="tag"><span class="dot"></span>Daemon</span><h3>Checks before a pull request</h3><p class="hint">Fleet refuses to open one until the format and type checks pass.</p></div>
+    <div class="panel card k-ext"><span class="tag"><span class="dot"></span>Outside</span><h3>Green CI to merge</h3><p class="hint">The merge queue lands it only on a green run.</p></div>
+    <div class="panel card k-agent"><span class="tag"><span class="dot"></span>Agent</span><h3>Never idle</h3><p class="hint">A Job either works, waits on you by name, or says it is done.</p></div>
+  </div>
+</section>
+
+<section class="sec" id="files">
+  <div class="sec-head">
+    <span class="eyebrow">5 · Example</span>
+    <h2>Files</h2>
+    <p>The files such a change might touch. Counts are invented.</p>
+  </div>
+  <div class="panel">
+    <div class="band filebar ctl">
+      <input id="fileFilter" type="search" placeholder="Filter paths" aria-label="Filter paths">
+      <span class="contents" id="areaBar"></span>
+    </div>
+    <table><thead><tr><th>Path</th><th>Part</th><th>Change</th></tr></thead><tbody id="fileBody">
+      <tr><td class="path"><code>apps/desktop/src/renderer/src/session-view/DocumentPage.tsx</code></td><td class="part k-app"><i></i>Bridge</td><td class="delta"><span class="a">+120</span> <span class="d">−34</span></td></tr>
+      <tr><td class="path"><code>apps/desktop/src/renderer/src/session-view/DocumentFrame.tsx</code></td><td class="part k-app"><i></i>Bridge</td><td class="delta"><span class="a">+210</span> <span class="d">−0</span></td></tr>
+      <tr><td class="path"><code>apps/desktop/src/main/document-protocol.ts</code></td><td class="part k-app"><i></i>Bridge</td><td class="delta"><span class="a">+88</span> <span class="d">−6</span></td></tr>
+      <tr><td class="path"><code>crates/bridge-native/src/web/render.rs</code></td><td class="part k-app"><i></i>Bridge</td><td class="delta"><span class="a">+40</span> <span class="d">−12</span></td></tr>
+      <tr><td class="path"><code>crates/fleet/src/session_host/page_kit.js</code></td><td class="part k-daemon"><i></i>Fleet</td><td class="delta"><span class="a">+26</span> <span class="d">−4</span></td></tr>
+      <tr><td class="path"><code>crates/fleet/src/session_host/pages.rs</code></td><td class="part k-daemon"><i></i>Fleet</td><td class="delta"><span class="a">+64</span> <span class="d">−18</span></td></tr>
+      <tr><td class="path"><code>crates/ipc/src/document.rs</code></td><td class="part k-daemon"><i></i>Fleet</td><td class="delta"><span class="a">+22</span> <span class="d">−3</span></td></tr>
+      <tr><td class="path"><code>plugins/armada/skills/writing-a-document/SKILL.md</code></td><td class="part k-agent"><i></i>Agent</td><td class="delta"><span class="a">+46</span> <span class="d">−15</span></td></tr>
+      <tr><td class="path"><code>docs/concepts/document.md</code></td><td class="part k-store"><i></i>Docs</td><td class="delta"><span class="a">+30</span> <span class="d">−11</span></td></tr>
+      <tr><td class="path"><code>docs/contracts/security.md</code></td><td class="part k-store"><i></i>Docs</td><td class="delta"><span class="a">+18</span> <span class="d">−0</span></td></tr>
+    </tbody></table>
+  </div>
+</section>
+
+</main>
+<footer class="wrap">An example Armada document. Content describes Armada; numbers are illustrative.</footer>
+
+<script>
+document.documentElement.classList.add("js");
+
+const KIND = {
+  you: { name: "You" }, app: { name: "App" }, daemon: { name: "Daemon" },
+  agent: { name: "Agent" }, store: { name: "Store" }, ext: { name: "Outside" }
+};
+const NODES = [
+  { id: "you", x: 20, y: 30, k: "you", t: "You", s: "the owner", does: ["Asks for work in a thread", "Approves plans and walks", "Answers questions"], files: [] },
+  { id: "bridge", x: 230, y: 30, k: "app", t: "Bridge", s: "the app", does: ["Shows every Job and what it needs from you", "Draws sketches, documents and walks", "Sends your answers to Fleet"], files: ["apps/desktop", "crates/bridge-native"] },
+  { id: "fleet", x: 460, y: 30, k: "daemon", t: "Fleet", s: "the daemon", does: ["Runs Jobs and leases slots", "Holds plans, gates and waits", "Runs Checks and watches CI"], files: ["crates/fleet", "crates/ipc"] },
+  { id: "drone", x: 460, y: 190, k: "agent", t: "Drone", s: "agent on a Job", does: ["Reads, plans and writes code", "Asks you through Fleet", "Pushes the branch"], files: ["plugins/armada"] },
+  { id: "slot", x: 230, y: 190, k: "store", t: "Slot", s: "own worktree", does: ["One copy of the repository per Job", "Given back when the Job ends"], files: [".armada/slots"] },
+  { id: "checks", x: 690, y: 190, k: "daemon", t: "Checks", s: "armada check", does: ["Format, types and tests", "Must pass before a pull request"], files: ["crates/config"] },
+  { id: "pr", x: 20, y: 360, k: "ext", t: "Pull request", s: "GitHub", does: ["Holds the branch for review", "Fleet tells the Job about comments"], files: [] },
+  { id: "ci", x: 230, y: 360, k: "ext", t: "CI", s: "GitHub Actions", does: ["Runs the full suite on every push", "Green is the only way in"], files: [".github/workflows"] },
+  { id: "queue", x: 460, y: 360, k: "ext", t: "Merge queue", s: "GitHub", does: ["Tests the branch on top of main", "Merges in order"], files: [] },
+  { id: "main", x: 690, y: 360, k: "store", t: "main", s: "branch", does: ["Where finished work lives"], files: [] }
+];
+const W = 150, H = 66;
+const EDGES = [
+  { id: "e1", a: "you", b: "bridge", l: "asks", r: ["start", "ask"], about: "You type in a Job's thread, or answer a question in Needs you." },
+  { id: "e2", a: "bridge", b: "fleet", l: "wire", r: ["start", "ask"], about: "Bridge and Fleet talk over one local connection. Bridge holds no state of its own." },
+  { id: "e3", a: "fleet", b: "drone", l: "starts", r: ["start", "ask"], about: "Fleet starts the agent in the Job's slot and passes on your answers." },
+  { id: "e4", a: "drone", b: "slot", l: "edits", r: ["start"], about: "The agent edits files only inside its own slot." },
+  { id: "e5", a: "drone", b: "checks", l: "runs", r: ["checks"], about: "The agent runs Checks through Fleet, which queues them when the Mac is busy." },
+  { id: "e6", a: "slot", b: "pr", l: "push", r: ["land"], about: "The branch is pushed and a pull request opened." },
+  { id: "e7", a: "pr", b: "ci", l: "push", r: ["checks", "land"], about: "Every push runs CI." },
+  { id: "e8", a: "ci", b: "queue", l: "green", r: ["land"], about: "On green, auto merge puts it in the queue." },
+  { id: "e9", a: "queue", b: "main", l: "merge", r: ["land"], about: "The queue merges it to main and Fleet tells the Job." }
+];
+const $ = (s, el = document) => el.querySelector(s);
+const NS = "http://www.w3.org/2000/svg";
+const mk = (tag, attrs = {}, parent) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (parent) parent.appendChild(e); return e; };
+const col = k => `var(--k-${k})`;
+const byId = id => NODES.find(n => n.id === id);
+const markerIn = (svg, id, color) => {
+  const m = mk("marker", { id, viewBox: "0 0 10 10", refX: 9, refY: 5, markerWidth: 7, markerHeight: 7, orient: "auto-start-reverse" }, svg);
+  mk("path", { d: "M0,0 L10,5 L0,10 z", fill: color }, m);
+};
+
+/* map */
+const svg = $("#mapSvg");
+const center = n => ({ x: n.x + W / 2, y: n.y + H / 2 });
+function port(n, toward) {
+  const c = center(n), t = center(toward), dx = t.x - c.x, dy = t.y - c.y;
+  if (Math.abs(dx) * H > Math.abs(dy) * W) return { x: c.x + Math.sign(dx) * W / 2, y: c.y };
+  return { x: c.x, y: c.y + Math.sign(dy) * H / 2 };
+}
+const defs = mk("defs", {}, svg);
+markerIn(defs, "ar-stroke", "var(--stroke)");
+markerIn(defs, "ar-accent", "var(--accent)");
+const edgeEls = {}, nodeEls = {};
+EDGES.forEach(e => {
+  const A = byId(e.a), B = byId(e.b), p = port(A, B), q = port(B, A);
+  const d = `M${p.x},${p.y} L${q.x},${q.y}`;
+  const g = mk("g", { class: "e", tabindex: 0 }, svg);
+  mk("path", { class: "hit", d }, g);
+  const line = mk("path", { class: "line", d, "marker-end": "url(#ar-stroke)" }, g);
+  const tx = mk("text", { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 - 6, "text-anchor": "middle" }, g); tx.textContent = e.l;
+  g.addEventListener("click", () => showEdge(e));
+  edgeEls[e.id] = { g, line };
+});
+NODES.forEach(n => {
+  const g = mk("g", { class: "n", tabindex: 0, role: "button", "aria-label": n.t }, svg);
+  mk("rect", { class: "box", x: n.x, y: n.y, width: W, height: H, rx: 9, stroke: col(n.k) }, g);
+  const t = mk("text", { x: n.x + 18, y: n.y + 29 }, g); t.textContent = n.t;
+  const s = mk("text", { class: "sub", x: n.x + 18, y: n.y + 48 }, g); s.textContent = n.s;
+  g.addEventListener("click", () => showNode(n));
+  g.addEventListener("keydown", ev => { if (ev.key === "Enter") showNode(n); });
+  nodeEls[n.id] = g;
+});
+function clearSel() { Object.values(nodeEls).forEach(g => g.classList.remove("sel")); }
+function showNode(n) {
+  clearSel(); nodeEls[n.id].classList.add("sel");
+  const ins = EDGES.filter(e => e.b === n.id).map(e => byId(e.a).t);
+  const outs = EDGES.filter(e => e.a === n.id).map(e => byId(e.b).t);
+  $("#mapDetail").innerHTML = `<span class="kind k-${n.k}">${KIND[n.k].name}</span><h3>${n.t}</h3>
+    <ul>${n.does.map(d => `<li>${d}</li>`).join("")}</ul>
+    ${ins.length ? `<p class="hint">From: ${ins.join(", ")}</p>` : ""}${outs.length ? `<p class="hint">To: ${outs.join(", ")}</p>` : ""}
+    ${n.files.length ? `<div class="files">${n.files.map(f => `<code>${f}</code>`).join("")}</div>` : ""}`;
+}
+function showEdge(e) {
+  clearSel();
+  $("#mapDetail").innerHTML = `<span class="kind">Link</span>
+    <h3>${byId(e.a).t} → ${byId(e.b).t}</h3><p>${e.about}</p>
+    ${e.r.length ? `<p class="hint">On routes: ${e.r.map(r => ROUTES[r]).join(", ")}</p>` : ""}`;
+}
+const ROUTES = { start: "A Job starts", ask: "You answer a question", checks: "Checks run", land: "It lands" };
+const ROUTE_NOTE = {
+  start: "You ask in a thread. Bridge passes it to Fleet, which leases a slot and starts the Drone there.",
+  ask: "The Drone asks through Fleet. Bridge puts it in Needs you, and your answer goes back the same way.",
+  checks: "The Drone runs Checks through Fleet before it opens a pull request. CI runs them all again on the push.",
+  land: "The branch is pushed, CI runs, and on green the merge queue lands it on main."
+};
+document.querySelectorAll("#routeBar .seg[data-route]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("#routeBar .seg[data-route]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  setRoute(b.dataset.route);
+}));
+function setRoute(r) {
+  svg.classList.toggle("dim", !!r);
+  Object.values(nodeEls).forEach(g => g.classList.remove("hot"));
+  EDGES.forEach(e => {
+    const on = !!r && e.r.includes(r);
+    edgeEls[e.id].g.classList.toggle("hot", on);
+    edgeEls[e.id].line.setAttribute("marker-end", `url(#ar-${on ? "accent" : "stroke"})`);
+    if (on) { nodeEls[e.a].classList.add("hot"); nodeEls[e.b].classList.add("hot"); }
+  });
+  if (r) { clearSel(); $("#mapDetail").innerHTML = `<span class="kind">Route</span><h3>${ROUTES[r]}</h3><p>${ROUTE_NOTE[r]}</p><p class="hint">Click a lit box for detail.</p>`; }
+  else showNode(byId("fleet"));
+}
+showNode(byId("fleet"));
+
+/* sequence */
+const LANES = [["you", "You"], ["bridge", "Bridge"], ["fleet", "Fleet"], ["drone", "Drone"], ["gh", "GitHub"]];
+const FLOWS = {
+  ask: { name: "A question", steps: [
+    ["drone", "fleet", "asks", "The Drone hits a choice that is yours, and asks through Fleet with options."],
+    ["fleet", "bridge", "needs you", "Fleet adds it to the Job's Needs you list. Bridge shows it on the Job's row."],
+    ["bridge", "you", "shows", "You see the question with each option and what it costs."],
+    ["you", "bridge", "picks", "You pick an option, or write your own."],
+    ["bridge", "fleet", "answer", "Bridge sends the answer. Fleet clears the item."],
+    ["fleet", "drone", "resumes", "The Drone carries on with your answer."]
+  ]},
+  land: { name: "Landing", steps: [
+    ["drone", "fleet", "checks", "The Drone runs the Checks the pull request needs."],
+    ["fleet", "drone", "green", "Fleet reports them green."],
+    ["drone", "gh", "pull request", "The Drone pushes and opens the pull request."],
+    ["gh", "fleet", "CI green", "CI passes. Fleet sees it without being asked."],
+    ["fleet", "gh", "auto merge", "The pull request joins the merge queue."],
+    ["gh", "fleet", "merged", "It merges to main."],
+    ["fleet", "bridge", "done card", "The Job shows as done, with its result picture."]
+  ]},
+  walk: { name: "A walk", steps: [
+    ["drone", "fleet", "show page", "The Drone builds the screen as a mock and asks Fleet to show it."],
+    ["fleet", "bridge", "opens tab", "A tab opens on the Job. Nothing takes focus."],
+    ["you", "bridge", "clicks through", "You click through the screen, step by step."],
+    ["bridge", "fleet", "approve", "You press Approve, or leave a note on a part."],
+    ["fleet", "drone", "gate closes", "The walk gate closes and the Drone wires it for real."]
+  ]}
+};
+let flow = "ask", step = 0, timer = null;
+const seq = $("#seqSvg"), laneX = i => 80 + i * 165, laneIdx = id => LANES.findIndex(l => l[0] === id);
+$("#flowBar").innerHTML = Object.entries(FLOWS).map(([k, f]) => `<button class="seg" data-flow="${k}" aria-pressed="${k === flow}">${f.name}</button>`).join("");
+document.querySelectorAll("[data-flow]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-flow]").forEach(x => x.setAttribute("aria-pressed", x === b));
+  flow = b.dataset.flow; step = 0; stop(); drawSeq();
+}));
+function drawSeq() {
+  const steps = FLOWS[flow].steps, h = 90 + steps.length * 44;
+  seq.setAttribute("viewBox", `0 0 820 ${h}`); seq.innerHTML = "";
+  const d = mk("defs", {}, seq);
+  markerIn(d, "sq-stroke", "var(--stroke)");
+  markerIn(d, "sq-accent", "var(--accent)");
+  LANES.forEach(([id, name], i) => {
+    const g = mk("g", { class: "life" }, seq), k = id === "gh" ? "ext" : byId(id).k;
+    mk("rect", { x: laneX(i) - 55, y: 14, width: 110, height: 32, rx: 7, fill: `color-mix(in srgb, ${col(k)} 14%, var(--surface))`, stroke: col(k), "stroke-width": 1.6 }, g);
+    const t = mk("text", { class: "lane", x: laneX(i), y: 35, "text-anchor": "middle" }, g); t.textContent = name;
+    mk("line", { x1: laneX(i), y1: 46, x2: laneX(i), y2: h - 10, stroke: "var(--line)", "stroke-width": 1.5, "stroke-dasharray": "3 4" }, g);
+  });
+  steps.forEach(([a, b, l], i) => {
+    const y = 78 + i * 44, x1 = laneX(laneIdx(a)), x2 = laneX(laneIdx(b)), dir = Math.sign(x2 - x1);
+    const st = i < step ? "past" : i === step ? "now" : "fut";
+    const g = mk("g", { class: "msg " + st }, seq);
+    mk("line", { x1: x1 + dir * 4, y1: y, x2: x2 - dir * 6, y2: y, "marker-end": `url(#sq-${st === "now" ? "accent" : "stroke"})` }, g);
+    const t = mk("text", { x: (x1 + x2) / 2, y: y - 7, "text-anchor": "middle" }, g); t.textContent = `${i + 1}. ${l}`;
+    g.addEventListener("click", () => { step = i; stop(); drawSeq(); });
+  });
+  const s = steps[step];
+  $("#stepKind").textContent = `${LANES[laneIdx(s[0])][1]} → ${LANES[laneIdx(s[1])][1]}`;
+  $("#stepTitle").textContent = s[2][0].toUpperCase() + s[2].slice(1);
+  $("#stepNote").textContent = s[3];
+  $("#stepCount").textContent = `${step + 1} / ${steps.length}`;
+  $("#stepList").innerHTML = steps.map((x, i) => `<li data-i="${i}" class="${i === step ? "on" : ""}"><b>${i + 1}</b>${x[2]}</li>`).join("");
+  $("#stepList").querySelectorAll("li").forEach(li => li.addEventListener("click", () => { step = +li.dataset.i; stop(); drawSeq(); }));
+  $("#prevBtn").disabled = step === 0; $("#nextBtn").disabled = step === steps.length - 1;
+}
+function go(dx) { const n = FLOWS[flow].steps.length; step = Math.max(0, Math.min(n - 1, step + dx)); drawSeq(); }
+function stop() { clearInterval(timer); timer = null; $("#playBtn").textContent = "Play"; }
+$("#prevBtn").addEventListener("click", () => { stop(); go(-1); });
+$("#nextBtn").addEventListener("click", () => { stop(); go(1); });
+$("#playBtn").addEventListener("click", () => {
+  if (timer) return stop();
+  if (step === FLOWS[flow].steps.length - 1) step = 0;
+  $("#playBtn").textContent = "Pause"; drawSeq();
+  timer = setInterval(() => { if (step >= FLOWS[flow].steps.length - 1) return stop(); go(1); }, 1400);
+});
+document.addEventListener("keydown", ev => {
+  const r = $("#flows").getBoundingClientRect();
+  if (r.top > innerHeight * .6 || r.bottom < innerHeight * .3) return;
+  if (ev.key === "ArrowRight") { stop(); go(1); }
+  if (ev.key === "ArrowLeft") { stop(); go(-1); }
+});
+drawSeq();
+
+/* lifecycle */
+const STATES = [
+  { id: "propose", x: 20, y: 40, t: "Propose", c: "wait", who: "You", m: "The Job reads the request and asks what is unclear. It records a plan.", gate: "Plan approved" },
+  { id: "walk", x: 220, y: 40, t: "Walk", c: "wait", who: "You", m: "Each part you would see is shown as a mock you click through.", gate: "Walk approved" },
+  { id: "build", x: 420, y: 40, t: "Build", c: "run", who: "Drone", m: "The Drone wires it for real and writes the tests.", gate: "Checks green" },
+  { id: "review", x: 620, y: 40, t: "Pull request", c: "run", who: "CI", m: "The branch is pushed and CI runs.", gate: "CI green" },
+  { id: "queue", x: 620, y: 170, t: "Merge queue", c: "run", who: "GitHub", m: "It waits its turn and is tested on top of main.", gate: "Merged" },
+  { id: "done", x: 420, y: 170, t: "Done", c: "ok", who: "Nobody", m: "Merged on main. The slot is given back.", gate: "" },
+  { id: "needs", x: 220, y: 170, t: "Needs you", c: "wait", who: "You", m: "The Job waits on an answer it names. It can come from any stage.", gate: "You answer" },
+  { id: "stopped", x: 20, y: 170, t: "Stopped", c: "bad", who: "You", m: "Ended without landing, or stalled with nothing named.", gate: "" }
+];
+const MOVES = [
+  ["propose", "walk", "plan approved"], ["walk", "build", "walk approved"], ["propose", "build", "nothing to see"],
+  ["build", "review", "push"], ["review", "build", "CI red"], ["review", "queue", "CI green"], ["queue", "done", "merged"],
+  ["queue", "build", "conflict"], ["build", "needs", "asks"], ["needs", "build", "answered"], ["propose", "stopped", "dropped"]
+];
+const SW = 150, SH = 52, sm = $("#smSvg"), stEl = {}, trEl = [];
+markerIn(mk("defs", {}, sm), "sm-ar", "var(--stroke)");
+const sById = id => STATES.find(s => s.id === id);
+const sPort = (a, b) => { const ca = { x: a.x + SW / 2, y: a.y + SH / 2 }, cb = { x: b.x + SW / 2, y: b.y + SH / 2 }, dx = cb.x - ca.x, dy = cb.y - ca.y;
+  return Math.abs(dx) * SH > Math.abs(dy) * SW ? { x: ca.x + Math.sign(dx) * SW / 2, y: ca.y } : { x: ca.x, y: ca.y + Math.sign(dy) * SH / 2 }; };
+const seen = {};
+MOVES.forEach(([a, b, l]) => {
+  const A = sById(a), B = sById(b), key = [a, b].sort().join();
+  const off = seen[key] ? 10 : 0; seen[key] = true;
+  let p = sPort(A, B), q = sPort(B, A);
+  if (off) { const flat = p.y === q.y; p = { x: p.x + (flat ? 0 : off), y: p.y + (flat ? off : 0) }; q = { x: q.x + (flat ? 0 : off), y: q.y + (flat ? off : 0) }; }
+  const far = Math.abs(p.x - q.x) > 250;
+  const d = far ? `M${p.x},${p.y} C${p.x},${p.y + 100} ${q.x},${q.y + 100} ${q.x},${q.y}` : `M${p.x},${p.y} L${q.x},${q.y}`;
+  const g = mk("g", { class: "tr" }, sm);
+  mk("path", { d, "marker-end": "url(#sm-ar)" }, g);
+  const t = mk("text", { x: (p.x + q.x) / 2, y: far ? Math.max(p.y, q.y) + 80 : (p.y + q.y) / 2 - 6, "text-anchor": "middle", fill: "var(--muted)", "font-size": 11.5, "font-family": "var(--f-mono)", "paint-order": "stroke", stroke: "var(--surface)", "stroke-width": 4 }, g);
+  t.textContent = l; trEl.push({ g, a, b });
+});
+STATES.forEach(s => {
+  const g = mk("g", { class: "st", tabindex: 0, role: "button", "aria-label": s.t }, sm);
+  mk("rect", { x: s.x, y: s.y, width: SW, height: SH, rx: 26, stroke: `var(--${s.c})` }, g);
+  mk("circle", { cx: s.x + 22, cy: s.y + SH / 2, r: 5, fill: `var(--${s.c})` }, g);
+  const t = mk("text", { x: s.x + 36, y: s.y + SH / 2 + 5 }, g); t.textContent = s.t;
+  g.addEventListener("click", () => pickState(s));
+  g.addEventListener("keydown", ev => { if (ev.key === "Enter") pickState(s); });
+  stEl[s.id] = g;
+});
+function pickState(s) {
+  sm.classList.add("pick");
+  Object.values(stEl).forEach(g => g.classList.remove("sel", "near")); stEl[s.id].classList.add("sel");
+  trEl.forEach(t => {
+    t.g.classList.toggle("out", t.a === s.id); t.g.classList.toggle("in", t.b === s.id);
+    if (t.a === s.id) stEl[t.b].classList.add("near");
+    if (t.b === s.id) stEl[t.a].classList.add("near");
+  });
+  const outs = MOVES.filter(m => m[0] === s.id), ins = MOVES.filter(m => m[1] === s.id);
+  $("#smDetail").innerHTML = `<span class="badge s-${s.c}">${s.t}</span><p>${s.m}</p>
+    <p class="hint">Moves it on: <b>${s.who}</b>${s.gate ? ` · gate: ${s.gate}` : ""}</p>
+    ${outs.length ? `<span class="kind">Goes to</span><ul>${outs.map(m => `<li>${sById(m[1]).t} <span class="hint">on ${m[2]}</span></li>`).join("")}</ul>` : `<p class="hint">Nothing leaves this stage.</p>`}
+    ${ins.length ? `<span class="kind mute">Comes from</span><ul>${ins.map(m => `<li>${sById(m[0]).t} <span class="hint">on ${m[2]}</span></li>`).join("")}</ul>` : ""}`;
+}
+pickState(STATES[0]);
+
+/* files */
+const FILES = [
+  ["apps/desktop/src/renderer/src/session-view/DocumentPage.tsx", "app", 120, 34],
+  ["apps/desktop/src/renderer/src/session-view/DocumentFrame.tsx", "app", 210, 0],
+  ["apps/desktop/src/main/document-protocol.ts", "app", 88, 6],
+  ["crates/bridge-native/src/web/render.rs", "app", 40, 12],
+  ["crates/fleet/src/session_host/page_kit.js", "daemon", 26, 4],
+  ["crates/fleet/src/session_host/pages.rs", "daemon", 64, 18],
+  ["crates/ipc/src/document.rs", "daemon", 22, 3],
+  ["plugins/armada/skills/writing-a-document/SKILL.md", "agent", 46, 15],
+  ["docs/concepts/document.md", "store", 30, 11],
+  ["docs/contracts/security.md", "store", 18, 0]
+];
+const AREAS = { app: "Bridge", daemon: "Fleet", agent: "Agent", store: "Docs" };
+let area = "", query = "";
+$("#areaBar").innerHTML = `<button class="seg" data-area="" aria-pressed="true">All</button>` +
+  Object.entries(AREAS).map(([k, n]) => `<button class="seg" data-area="${k}" aria-pressed="false">${n}</button>`).join("");
+document.querySelectorAll("[data-area]").forEach(b => b.addEventListener("click", () => {
+  document.querySelectorAll("[data-area]").forEach(x => x.setAttribute("aria-pressed", x === b)); area = b.dataset.area; drawFiles();
+}));
+$("#fileFilter").addEventListener("input", ev => { query = ev.target.value.toLowerCase(); drawFiles(); });
+function drawFiles() {
+  const rows = FILES.filter(([p, k]) => (!area || k === area) && p.toLowerCase().includes(query));
+  $("#fileBody").innerHTML = rows.length
+    ? rows.map(([p, k, a, d]) => `<tr><td class="path"><code>${p}</code></td><td class="part k-${k}"><i></i>${AREAS[k]}</td><td class="delta"><span class="a">+${a}</span> <span class="d">−${d}</span></td></tr>`).join("")
+    : `<tr><td colspan="3" class="hint">No path matches.</td></tr>`;
+}
+drawFiles();
+
+/* sticky nav highlight */
+const links = [...document.querySelectorAll("#secnav a")];
+const obs = new IntersectionObserver(es => es.forEach(e => { if (e.isIntersecting) links.forEach(a => a.classList.toggle("on", a.getAttribute("href") === "#" + e.target.id)); }), { rootMargin: "-45% 0px -50% 0px" });
+document.querySelectorAll("section.sec").forEach(s => obs.observe(s));
+</script>
+</body>
+</html>

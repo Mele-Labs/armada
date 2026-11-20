@@ -19,12 +19,14 @@ use tokio::task::JoinHandle;
 use tower::ServiceExt;
 
 mod acting;
+mod artifacts;
 mod job_moves;
 mod messages;
 mod moving;
 mod pages;
 mod pairing_calls;
 mod refreshing;
+mod session;
 mod terminals;
 mod updating;
 

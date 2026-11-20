@@ -206,6 +206,7 @@ fn every_handle_names_an_entry_of_its_kind() {
     }
     for key in [
         s::LIBRARIAN_RUNS,
+        s::SUBAGENT_CACHE_TTL,
         s::HARNESS_AGENT,
         s::HARNESS_BINARY_PATH,
         s::MODELS_DEFAULT,
@@ -268,7 +269,7 @@ fn every_handle_names_an_entry_of_its_kind() {
             key.name()
         );
     }
-    let handles = 21 + 12 + 17 + 28 + 4 + 21 + s::prompt_keys().count();
+    let handles = 21 + 12 + 17 + 29 + 4 + 21 + s::prompt_keys().count();
     assert_eq!(
         entries().count(),
         handles,
@@ -641,10 +642,10 @@ fn a_value_under_the_new_name_stands_over_the_old_key() {
 }
 
 #[test]
-fn the_disk_floors_ship_at_a_hundred_to_reclaim_at_and_thirty_to_hold_at() {
+fn the_disk_floors_ship_at_sixty_to_reclaim_at_and_thirty_to_hold_at() {
     let reclaim = entry("limits.diskReclaimFloorGib").expect("a setting");
     assert_eq!(reclaim.title, "Disk to start reclaiming at");
-    assert!(matches!(reclaim.shipped, Shipped::Integer(100)));
+    assert!(matches!(reclaim.shipped, Shipped::Integer(60)));
     assert!(matches!(reclaim.kind, Kind::Integer { min: 0, max: 500, .. }));
     assert!(matches!(reclaim.applies, s::Applies::Live));
 

@@ -19,15 +19,15 @@ const ASK: &str = r#"{"tool_name":"AskUserQuestion","tool_use_id":"toolu_1","inp
   {"question":"Which size?","header":"Size","multiSelect":false,
    "options":[{"label":"S","description":"Small"},{"label":"L","description":"Large"}]}]}}"#;
 
-struct Pair {
-    home: OneMac,
-    work: OneMac,
-    job: SessionId,
+pub(super) struct Pair {
+    pub(super) home: OneMac,
+    pub(super) work: OneMac,
+    pub(super) job: SessionId,
 }
 
 /// Home and Work paired, and a Job of Work's in a shared project that Home lists. With `pull`, the Job owns pull
 /// request 12 of its repository, which Home reads off the row.
-async fn pair_over_a_shared_job(pull: bool) -> Pair {
+pub(super) async fn pair_over_a_shared_job(pull: bool) -> Pair {
     let clock = Arc::new(Ticking::from_nine());
     let (home, work) = (OneMac::new("Home", "01HMAC", &clock).await, OneMac::new("Work", "01WMAC", &clock).await);
     let shop = project(&work.rig, "Shop").await;
@@ -58,7 +58,7 @@ async fn pair_over_a_shared_job(pull: bool) -> Pair {
     Pair { home, work, job }
 }
 
-async fn post(mac: &OneMac, path: &str, body: String) -> (axum::http::StatusCode, String) {
+pub(super) async fn post(mac: &OneMac, path: &str, body: String) -> (axum::http::StatusCode, String) {
     use tower::ServiceExt;
     let request = axum::http::Request::post(path)
         .header("content-type", "application/json")
@@ -71,7 +71,7 @@ async fn post(mac: &OneMac, path: &str, body: String) -> (axum::http::StatusCode
     (status, String::from_utf8_lossy(&body).to_string())
 }
 
-fn encoded<T: serde::Serialize>(value: &T) -> String {
+pub(super) fn encoded<T: serde::Serialize>(value: &T) -> String {
     ipc::encode(value).expect("encodes")
 }
 
@@ -86,7 +86,7 @@ async fn said(mac: &OneMac, job: &SessionId, text: &str) -> usize {
     rows.iter().filter(|row| matches!(row, SessionRow::Message { from: SessionVoice::You, text: said, .. } if said == text)).count()
 }
 
-async fn acts_run(mac: &OneMac) -> Vec<store::KeptActRun> {
+pub(super) async fn acts_run(mac: &OneMac) -> Vec<store::KeptActRun> {
     mac.rig.fleet.store().lock().await.acts_run().expect("reads")
 }
 
@@ -100,7 +100,7 @@ async fn queued(mac: &OneMac) -> QueuedList {
     ipc::decode("the queue", &body).expect("a queue")
 }
 
-async fn asleep(home: &OneMac, work: &OneMac) {
+pub(super) async fn asleep(home: &OneMac, work: &OneMac) {
     until("Work shows asleep on Home", || async { matches!(home.mac(&work.id).await.and_then(|mac| mac.link), Some(MacLink::Asleep { .. })) }).await;
 }
 
@@ -212,6 +212,12 @@ fn acts_on(job: &str, manifest: &str, project: &str) -> Vec<JobAct> {
         format!(r#"{{"kind":"plan_changes","body":{{"session_id":"{job}","version":1,"marks":[]}}}}"#),
         format!(r#"{{"kind":"sketch_answer","body":{{"session_id":"{job}","sketch":"s","drawn":"d","how":"approved"}}}}"#),
         format!(r#"{{"kind":"document_answer","body":{{"session_id":"{job}","document":"d","revision":"1","how":"approved"}}}}"#),
+        format!(r#"{{"kind":"artifact_press","body":{{"session_id":"{job}","artifact":"a.html","revision":1,"action":"x"}}}}"#),
+        format!(r#"{{"kind":"artifact_vote","body":{{"session_id":"{job}","artifact":"a.html","revision":1,"vote":"v","result":{{"form":"pick","take":"t"}}}}}}"#),
+        format!(r#"{{"kind":"artifact_seen","body":{{"session_id":"{job}","artifact":"a.html","revision":1}}}}"#),
+        format!(r#"{{"kind":"artifact_archive","body":{{"session_id":"{job}","artifact":"a.html"}}}}"#),
+        format!(r#"{{"kind":"artifact_restore","body":{{"session_id":"{job}","artifact":"a.html"}}}}"#),
+        format!(r#"{{"kind":"artifact_part_answer","body":{{"session_id":"{job}","artifact":"sketch:a","part":"p","drawn":"d","how":"approved"}}}}"#),
         format!(r#"{{"kind":"stop","body":{{"session_id":"{job}"}}}}"#),
         format!(r#"{{"kind":"merge","body":{{"session_id":"{job}","repository":"{manifest}","number":12}}}}"#),
         format!(r#"{{"kind":"start","body":{{"manifest_id":"{manifest}","project":"{project}"}}}}"#),

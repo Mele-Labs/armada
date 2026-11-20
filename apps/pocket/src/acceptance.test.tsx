@@ -11,7 +11,14 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { answer, type Posted } from "./fixture/gateway";
 import { PARTS_JOB, STEP_BAR, TRY_CARD } from "./fixture/artifacts";
-import { everyState, fixtureMacs, partsJob, type FixtureMac } from "./fixture/wire";
+import {
+  ARTIFACTS_JOB,
+  artifactsJob,
+  everyState,
+  fixtureMacs,
+  partsJob,
+  type FixtureMac,
+} from "./fixture/wire";
 import { signedMessage } from "./signing";
 
 const STUDIO = "https://studio.tail0.ts.net";
@@ -1069,10 +1076,10 @@ describe("a draft Job, and the acts on a Job", {
   it("sends a proposed draft back with the owner's note, on the same item", async () => {
     await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
     await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
-    await press(button("Send back"));
-    expect(button("Send back")!.hasAttribute("disabled")).toBe(true);
-    await typeInto(field("Note"), "Say which crate.");
-    await press(button("Send back"));
+    await press(button("Ask for changes"));
+    expect(button("Send")!.hasAttribute("disabled")).toBe(true);
+    await typeInto(field("What should change?"), "Say which crate.");
+    await press(button("Send"));
     await vi.waitFor(() =>
       expect(posted[LAPTOP]).toEqual([
         {
@@ -1222,7 +1229,7 @@ describe("a draft Job, and the acts on a Job", {
     it("puts the asking artifact and the open build at the thread's foot, and folds the answered artifact to one line", async () => {
       await open(F2);
       await vi.waitFor(() =>
-        expect(host.querySelector('[aria-label="Step bar"].pk-art-card')).toBeTruthy(),
+        expect(host.querySelector('[role="article"][aria-label^="Sketch: Step bar"]')).toBeTruthy(),
       );
       await vi.waitFor(() =>
         expect(
@@ -1393,8 +1400,8 @@ describe("a draft Job, and the acts on a Job", {
     const F1 = `/jobs/${encodeURIComponent(STUDIO)}/f1`;
     const SLOT_POOL = "/Users/user/armada/.armada/documents/slot-pool.html";
     const PHONE_REACH = "/Users/user/armada/.armada/documents/phone-reach.html";
-    const POOL_CARD = "Document: Slot pool, Revision 1";
-    const REACH_CARD = "Document: Phone reach, Revision 2";
+    const POOL_CARD = "Page: Slot pool, Revision 1";
+    const REACH_CARD = "Page: Phone reach, Revision 2";
     const f1 = () => macs[STUDIO]!.threads["f1"]!;
     const held = (target: string) =>
       f1().session.attachments!.find((one) => one.target === target)!;
@@ -1419,14 +1426,14 @@ describe("a draft Job, and the acts on a Job", {
       await vi.waitFor(() => expect(card(POOL_CARD)).toBeTruthy());
     };
     const note = async (text: string) => {
-      await typeInto(field("Note"), text);
+      await typeInto(field("What should change?"), text);
     };
 
     describe("a document", () => {
       it("is a card in the thread for each page, at its newest revision", async () => {
         await opened();
         expect(card(REACH_CARD)).toBeTruthy();
-        expect(card("Document: Phone reach, Revision 1")).toBeNull();
+        expect(card("Page: Phone reach, Revision 1")).toBeNull();
       });
 
       it("approves from its card with the revision the ledger holds", async () => {
@@ -1446,9 +1453,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("sends back from its card with a note, on the newest revision", async () => {
         await opened();
-        await press(inCard(REACH_CARD, "Send back"));
+        await press(inCard(REACH_CARD, "Ask for changes"));
         await note("Cut the table to four columns.");
-        await press(inCard(REACH_CARD, "Send back"));
+        await press(inCard(REACH_CARD, "Send"));
         await vi.waitFor(() =>
           expect(to("/api/sessions/document/answer")).toEqual([
             {
@@ -1464,7 +1471,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("opens its page from the card", async () => {
         await opened();
-        await press(host.querySelector(`[aria-label="Open Phone reach, Revision 2"]`));
+        await press(host.querySelector(`[aria-label="Open page Phone reach"]`));
         await vi.waitFor(() =>
           expect(window.location.pathname + window.location.search).toBe(
             `${F1}/document?page=${encodeURIComponent(PHONE_REACH)}`,
@@ -1511,7 +1518,7 @@ describe("a draft Job, and the acts on a Job", {
         it("approves with the revision it read", async () => {
           await read();
           await press(
-            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+            Array.from(host.querySelectorAll(".pk-reader__acts button")).find(
               (one) => one.textContent === "Approve",
             ),
           );
@@ -1531,7 +1538,7 @@ describe("a draft Job, and the acts on a Job", {
           await read();
           held(PHONE_REACH).detail!["revision"] = "3";
           await press(
-            Array.from(host.querySelectorAll(".pk-doc__answers button")).find(
+            Array.from(host.querySelectorAll(".pk-reader__acts button")).find(
               (one) => one.textContent === "Approve",
             ),
           );
@@ -1548,7 +1555,7 @@ describe("a draft Job, and the acts on a Job", {
         await vi.waitFor(() =>
           expect(text()).toContain("The Job revised this page. The new revision is shown."),
         );
-        await vi.waitFor(() => expect(card("Document: Slot pool, Revision 3")).toBeTruthy());
+        await vi.waitFor(() => expect(card("Page: Slot pool, Revision 3")).toBeTruthy());
       });
 
       it("shows Fleet's own message on a 422, and does not say it changed", async () => {
@@ -1580,9 +1587,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("sends back from its card with a note", async () => {
         await opened();
-        await press(inCard("Sketch: Phone home", "Send back"));
+        await press(inCard("Sketch: Phone home", "Ask for changes"));
         await note("Put the card first.");
-        await press(inCard("Sketch: Phone home", "Send back"));
+        await press(inCard("Sketch: Phone home", "Send"));
         await vi.waitFor(() =>
           expect(to("/api/sessions/sketch/answer")).toEqual([
             {
@@ -1640,7 +1647,7 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is dropped with Dismiss, which answers its item with the second choice", async () => {
         await opened();
-        await press(inGroup(NAME, "Dismiss"));
+        await press(inCard(`Draft: ${NAME}`, "Dismiss"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1650,12 +1657,12 @@ describe("a draft Job, and the acts on a Job", {
             },
           ]),
         );
-        await vi.waitFor(() => expect(group(NAME)).toBeUndefined());
+        await vi.waitFor(() => expect(card(`Draft: ${NAME}`)).toBeNull());
       });
 
       it("is approved with the first choice", async () => {
         await opened();
-        await press(inGroup(NAME, "Approve"));
+        await press(inCard(`Draft: ${NAME}`, "Approve"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1669,9 +1676,9 @@ describe("a draft Job, and the acts on a Job", {
 
       it("is sent back with the owner's note", async () => {
         await opened();
-        await press(inGroup(NAME, "Send back"));
-        await typeInto(field("Note"), "Run it after Check, not before.");
-        await press(inGroup(NAME, "Send back"));
+        await press(inCard(`Draft: ${NAME}`, "Ask for changes"));
+        await typeInto(field("What should change?"), "Run it after Check, not before.");
+        await press(inCard(`Draft: ${NAME}`, "Send"));
         await vi.waitFor(() =>
           expect(answers()).toEqual([
             {
@@ -1687,14 +1694,14 @@ describe("a draft Job, and the acts on a Job", {
         f1().session.waiting_for = f1().session.waiting_for!.filter((one) => one.id !== item);
         await open(F1);
         await vi.waitFor(() => expect(text()).toContain("One change to the build workflow"));
-        expect(group(NAME)).toBeUndefined();
+        expect(card(`Draft: ${NAME}`)?.querySelector("button")).toBeNull();
       });
 
       it("is the only draft with a Dismiss: an ordinary draft has none", async () => {
         await open(`/jobs/${encodeURIComponent(LAPTOP)}/b3`);
         await vi.waitFor(() => expect(text()).toContain("Push payload carries the Job id"));
         expect(button("Approve")).toBeTruthy();
-        expect(button("Send back")).toBeTruthy();
+        expect(button("Ask for changes")).toBeTruthy();
         expect(button("Dismiss")).toBeUndefined();
       });
     });
@@ -1795,6 +1802,628 @@ describe("a draft Job, and the acts on a Job", {
           ]),
         );
       });
+    });
+  });
+});
+
+describe("a Job's artifacts on the phone", {
+  timeout: 30_000,
+}, () => {
+  const G7 = `/jobs/${encodeURIComponent(STUDIO)}/${ARTIFACTS_JOB}`;
+  const LIST = `${G7}/artifacts`;
+  const TABLE = "/Users/user/armada/.armada/documents/slot-colour-table.html";
+  const AUDIT = "/Users/user/armada/.armada/documents/colour-audit.html";
+  const POOL = "draft:Slot pool description";
+  const here = () => window.location.pathname + window.location.search;
+  const to = (path: string) =>
+    posted[STUDIO]!.filter((one) => one.path === path).map((one) => one.body);
+  const tip = (inside: Element | null | undefined) =>
+    inside?.closest(".armada-tooltip")?.querySelector(".armada-tooltip__label")?.textContent;
+  const field = (label: string) =>
+    host.querySelector<HTMLTextAreaElement>(`textarea[aria-label="${label}"]`);
+  const typeInto = async (element: HTMLTextAreaElement | null, value: string) => {
+    expect(element).toBeTruthy();
+    await act(async () => {
+      Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value")!.set!.call(
+        element,
+        value,
+      );
+      element!.dispatchEvent(
+        new Event("input", {
+          bubbles: true,
+        }),
+      );
+    });
+  };
+  const listed = (section: string) =>
+    Array.from(host.querySelectorAll(`ul[aria-label="${section}"] > li`)).map(
+      (one) => one.querySelector(".pk-art-row__open")?.getAttribute("aria-label") ?? null,
+    );
+  const row = (label: string) =>
+    host.querySelector(`.pk-art-row__open[aria-label="${label}"]`)!.closest("li")!;
+  const card = (name: string) =>
+    host.querySelector<HTMLElement>(`[role="article"][aria-label^="${name}"]`);
+  const inCard = (name: string, label: string) =>
+    Array.from(card(name)?.querySelectorAll("button") ?? []).find(
+      (one) => one.textContent?.trim() === label,
+    );
+  const inBand = (label: string) =>
+    Array.from(host.querySelectorAll(".pk-reader__acts button")).find(
+      (one) => one.textContent?.trim() === label,
+    );
+  const menuItems = () =>
+    Array.from(document.body.querySelectorAll('[role="menuitem"]')).map((one) =>
+      one.textContent?.trim(),
+    );
+  const studio = () => macs[STUDIO]!;
+  const listing = () => host.querySelector('section[aria-label="Artifacts"]');
+
+  beforeEach(() => {
+    // Added as the fixture server adds it: the Jobs the other tests count stay as they are.
+    const showed = artifactsJob(NOW);
+    studio().live.push(showed.listed);
+    studio().needs.push(showed.listed);
+    studio().threads[ARTIFACTS_JOB] = showed.thread;
+    studio().shown[ARTIFACTS_JOB] = showed.shown;
+    studio().artifacts = {
+      ...studio().artifacts,
+      [ARTIFACTS_JOB]: showed.artifacts,
+    };
+  });
+
+  describe("the list", () => {
+    it("lists the live artifacts in the order Fleet serves them, and folds the archived under a word with no count", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      expect(listed("Artifacts")).toEqual([
+        "Open sketch Slot colours v2",
+        "Open page Slot colour table",
+        "Open sketch Slot lifecycle",
+        "Open draft Slot pool description",
+        "Open draft Check before every walk",
+        "Open page Colour audit",
+        "Open page Colour notes",
+      ]);
+      const fold = button("Archived")!;
+      expect(fold.textContent?.trim()).toBe("Archived");
+      expect(fold.getAttribute("aria-expanded")).toBe("false");
+      expect(host.querySelector('ul[aria-label="Archived"]')).toBeNull();
+      expect(text()).not.toContain("Old slot colours");
+    });
+
+    it("unfolds the archived rows dimmed, below the live ones, and folds them away again", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(button("Archived")).toBeTruthy());
+      await press(button("Archived"));
+      expect(button("Archived")!.getAttribute("aria-expanded")).toBe("true");
+      expect(listed("Archived")).toEqual([
+        "Open sketch Old slot colours",
+      ]);
+      expect(row("Open sketch Old slot colours").dataset["folded"]).toBe("true");
+      expect(row("Open sketch Slot colours v2").dataset["folded"]).toBeUndefined();
+      await press(button("Archived"));
+      expect(host.querySelector('ul[aria-label="Archived"]')).toBeNull();
+    });
+
+    it("draws each row's kind tile, state chip with its tooltip, revision and what it is for", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      const asking = row("Open sketch Slot colours v2");
+      expect(asking.querySelector(".pk-bc__tile")?.getAttribute("aria-label")).toBe("Sketch");
+      expect(asking.querySelector(".pk-bc__chip")?.textContent).toBe("Asking");
+      expect(tip(asking.querySelector(".pk-bc__chip"))).toBe("Waiting on your answer");
+      expect(asking.querySelector(".pk-bc__rev")?.textContent).toBe("r2");
+      expect(tip(asking.querySelector(".pk-bc__rev"))).toMatch(/^r2 by the Job, /);
+      expect(asking.querySelector(".pk-art-row__for")?.textContent).toBe(
+        "Picks the five colours a slot can wear.",
+      );
+      expect(tip(asking.querySelector(".pk-art-row__time"))).toBe("Kept");
+      expect(
+        row("Open page Slot colour table")
+          .querySelector(".pk-bc__tile")
+          ?.getAttribute("aria-label"),
+      ).toBe("Page");
+      const sent = row("Open draft Check before every walk");
+      expect(sent.querySelector(".pk-bc__tile")?.getAttribute("aria-label")).toBe("Draft");
+      expect(sent.querySelector(".pk-bc__chip")?.textContent).toBe("Sent back");
+      // His own words on the verdict stand in for the sentence.
+      expect(tip(sent.querySelector(".pk-bc__chip"))).toBe("Say which checks.");
+      const approved = row("Open page Colour audit");
+      expect(approved.querySelector(".pk-bc__chip")?.textContent).toBe("Approved");
+      expect(tip(approved.querySelector(".pk-bc__chip"))).toBe("You approved it");
+      const read = row("Open page Colour notes");
+      expect(read.querySelector(".pk-bc__chip")?.textContent).toBe("Reading");
+      expect(tip(read.querySelector(".pk-bc__chip"))).toBe("Shown to you, with no answer asked");
+      expect(read.querySelector(".pk-art-row__for")).toBeNull();
+    });
+
+    it("draws skeleton rows while Fleet is read, and the rows in their place", async () => {
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const served = globalThis.fetch;
+      vi.stubGlobal("fetch", async (url: string, init?: unknown) => {
+        if (String(url).includes("/api/sessions/artifacts?")) await gate;
+        return served(url, init as never);
+      });
+      await open(LIST);
+      await vi.waitFor(() => expect(host.querySelector('[aria-label="Loading"]')).toBeTruthy());
+      expect(host.querySelectorAll('[aria-label="Loading"] li.pk-art-row--shape')).toHaveLength(3);
+      expect(text()).not.toContain("This Job has shown nothing yet");
+      expect(listed("Artifacts")).toEqual([]);
+      release();
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      expect(host.querySelector('[aria-label="Loading"]')).toBeNull();
+    });
+
+    it("says This Job has shown nothing yet where it showed nothing, with no Archived fold", async () => {
+      studio().artifacts![ARTIFACTS_JOB] = [];
+      await open(LIST);
+      await vi.waitFor(() => expect(text()).toContain("This Job has shown nothing yet"));
+      expect(button("Archived")).toBeUndefined();
+      expect(host.querySelector('[aria-label="Loading"]')).toBeNull();
+    });
+
+    it("opens a sketch on its sketch screen, a page on its document, and a draft on the reader that holds its text", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      await press(host.querySelector('[aria-label="Open sketch Slot colours v2"]'));
+      expect(here()).toBe(`${G7}/sketch?id=${encodeURIComponent("sketch:Slot colours v2")}`);
+      await vi.waitFor(() =>
+        expect(host.querySelector('section.pk-reader[aria-label="Slot colours v2"]')).toBeTruthy(),
+      );
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      await press(host.querySelector('[aria-label="Open page Slot colour table"]'));
+      expect(here()).toBe(`${G7}/document?page=${encodeURIComponent(TABLE)}`);
+      await vi.waitFor(() =>
+        expect(
+          host.querySelector('section.pk-reader[aria-label="Slot colour table"]'),
+        ).toBeTruthy(),
+      );
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      await press(host.querySelector('[aria-label="Open draft Slot pool description"]'));
+      expect(here()).toBe(`${G7}/artifact?id=${encodeURIComponent(POOL)}`);
+      await vi.waitFor(() =>
+        expect(
+          host.querySelector('section.pk-reader[aria-label="Slot pool description"]'),
+        ).toBeTruthy(),
+      );
+      await vi.waitFor(() =>
+        expect(text()).toContain("Says how many bays a Mac holds and who may lease one."),
+      );
+    });
+
+    it("opens an archived row too", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(button("Archived")).toBeTruthy());
+      await press(button("Archived"));
+      await press(host.querySelector('[aria-label="Open sketch Old slot colours"]'));
+      expect(here()).toBe(`${G7}/sketch?id=${encodeURIComponent("sketch:Old slot colours")}`);
+    });
+
+    it("goes back to the Job from its band", async () => {
+      await open(LIST);
+      await vi.waitFor(() => expect(listed("Artifacts")).toHaveLength(7));
+      expect(listing()).toBeTruthy();
+      await press(button("Back to the Job"));
+      expect(here()).toBe(G7);
+    });
+  });
+
+  describe("the Job's menu", () => {
+    const menu = async () => {
+      await open(G7);
+      await vi.waitFor(() => expect(button("More")).toBeTruthy());
+      await press(button("More"));
+    };
+    const attachments = () => studio().threads[ARTIFACTS_JOB]!.session.attachments!;
+
+    it("offers Artifacts where the Job showed one, and opens the list from it", async () => {
+      await menu();
+      expect(menuItems()).toContain("Artifacts");
+      await press(
+        Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+          (one) => one.textContent?.trim() === "Artifacts",
+        ),
+      );
+      expect(here()).toBe(LIST);
+    });
+
+    const held = (kind: string, form: string) => ({
+      kind,
+      target: `held:${form}`,
+      state: "standing" as const,
+      detail: {
+        form,
+        title: "Held",
+      },
+      since: new Date(NOW).toISOString(),
+      changed_at: new Date(NOW).toISOString(),
+    });
+
+    it("offers it for a Job whose only artifact is a draft, or a page", async () => {
+      for (const form of [
+        "draft",
+        "page",
+      ]) {
+        attachments().splice(0, attachments().length, held("artifact", form));
+        await menu();
+        expect(menuItems()).toContain("Artifacts");
+        await act(async () => root?.unmount());
+      }
+    });
+
+    it("offers none to a Job whose attachments hold no sketch, document, draft or page", async () => {
+      attachments().splice(
+        0,
+        attachments().length,
+        held("artifact", "picture"),
+        held("file", "sketch"),
+      );
+      await menu();
+      expect(menuItems()).toContain("Pause");
+      expect(menuItems()).not.toContain("Artifacts");
+    });
+
+    it("offers none to a Job with no attachments", async () => {
+      attachments().splice(0, attachments().length);
+      await menu();
+      expect(menuItems()).not.toContain("Artifacts");
+    });
+  });
+
+  describe("the thread's card", () => {
+    const opened = async () => {
+      await open(G7);
+      await vi.waitFor(() => expect(card("Sketch: Slot colours v2")).toBeTruthy());
+    };
+
+    it("carries where it stands in its header, a chip in the state's band", async () => {
+      await opened();
+      for (const name of [
+        "Sketch: Slot colours v2",
+        "Page: Slot colour table",
+        "Draft: Slot pool description",
+      ]) {
+        const head = card(name)!.querySelector<HTMLElement>(".pk-bc__head")!;
+        expect(head.dataset["stand"]).toBe("asking");
+        expect(head.querySelector(".pk-bc__chip")?.textContent).toBe("Asking");
+        expect(head.querySelector(".pk-bc__rev, .pk-bc__title")).toBeTruthy();
+      }
+      // The artifact list is read after the thread, and the revision joins the band when it arrives.
+      await vi.waitFor(() =>
+        expect(card("Sketch: Slot colours v2")!.getAttribute("aria-label")).toBe(
+          "Sketch: Slot colours v2, Revision 2",
+        ),
+      );
+      expect(card("Sketch: Slot colours v2")!.querySelector(".pk-bc__rev")?.textContent).toBe("r2");
+      // Reading, so shown with no answer asked, and so no answers in its foot.
+      expect(
+        card("Page: Colour notes")!.querySelector(".pk-bc__head")!.getAttribute("data-stand"),
+      ).toBe("reading");
+      expect(inCard("Page: Colour notes", "Approve")).toBeUndefined();
+    });
+
+    it("folds a card with a verdict to one line: its kind, title, verdict and the start of his words", async () => {
+      await opened();
+      const folds = Array.from(host.querySelectorAll(".pk-bc__fold"));
+      const fold = (title: string) => folds.find((one) => one.textContent?.includes(title))!;
+      expect(card("Sketch: Old slot colours")).toBeNull();
+      expect(card("Page: Colour audit")).toBeNull();
+      expect(card("Draft: Check before every walk")).toBeNull();
+      expect(fold("Old slot colours").getAttribute("data-stand")).toBe("approved");
+      expect(fold("Old slot colours").querySelector(".pk-bc__verdict")?.textContent).toBe(
+        "Approved",
+      );
+      expect(fold("Colour audit").getAttribute("data-stand")).toBe("approved");
+      const sent = fold("Check before every walk");
+      expect(sent.getAttribute("data-stand")).toBe("sent_back");
+      expect(sent.querySelector(".pk-bc__verdict")?.textContent).toBe("Sent back");
+      expect(sent.querySelector(".pk-bc__fold-words")?.textContent).toBe("Say which checks.");
+      expect(sent.querySelector("button, textarea")).toBeNull();
+    });
+
+    it("approves a draft's card as written", async () => {
+      await opened();
+      await press(inCard("Draft: Slot pool description", "Approve"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/answer")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: `draft:${ARTIFACTS_JOB}-7`,
+            choice: 0,
+          },
+        ]),
+      );
+    });
+
+    it("sends a draft back with a note, and not before one is typed", async () => {
+      await opened();
+      await press(inCard("Draft: Slot pool description", "Ask for changes"));
+      expect((inCard("Draft: Slot pool description", "Send") as HTMLButtonElement).disabled).toBe(
+        true,
+      );
+      await typeInto(field("What should change?"), "Say who may lease one.");
+      await press(inCard("Draft: Slot pool description", "Send"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/answer")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: `draft:${ARTIFACTS_JOB}-7`,
+            text: "Say who may lease one.",
+          },
+        ]),
+      );
+    });
+
+    it("dismisses a sketch's card and a page's card by the item each waits as", async () => {
+      await opened();
+      await press(inCard("Sketch: Slot colours v2", "Dismiss"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/dismiss")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: "sketch:Slot colours v2",
+          },
+        ]),
+      );
+      await press(inCard("Page: Slot colour table", "Dismiss"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/dismiss")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: "sketch:Slot colours v2",
+          },
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: `document:${TABLE}`,
+          },
+        ]),
+      );
+    });
+
+    it("keeps what he typed in the note box through leaving the Job and coming back, and forgets it on Cancel", async () => {
+      await opened();
+      await press(inCard("Sketch: Slot colours v2", "Ask for changes"));
+      await typeInto(field("What should change?"), "Fewer colours, please.");
+      await act(async () => root?.unmount());
+      await opened();
+      expect(field("What should change?")?.value).toBe("Fewer colours, please.");
+      await press(inCard("Sketch: Slot colours v2", "Cancel"));
+      expect(field("What should change?")).toBeNull();
+      await act(async () => root?.unmount());
+      await opened();
+      expect(field("What should change?")).toBeNull();
+      expect(inCard("Sketch: Slot colours v2", "Ask for changes")).toBeTruthy();
+    });
+
+    it("sends a sketch back with the note, which settles it to a line and forgets the note", async () => {
+      const kept = () =>
+        Array.from(
+          {
+            length: window.localStorage.length,
+          },
+          (_, at) => window.localStorage.key(at),
+        ).filter(
+          (one) =>
+            one?.startsWith("armada:kept:") && one.includes(` ${ARTIFACTS_JOB}:${ARTIFACTS_JOB}-`),
+        );
+      await opened();
+      await press(inCard("Sketch: Slot colours v2", "Ask for changes"));
+      await typeInto(field("What should change?"), "Fewer colours, please.");
+      expect(kept()).toHaveLength(1);
+      await press(inCard("Sketch: Slot colours v2", "Send"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/sketch/answer")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            sketch: "sketch:Slot colours v2",
+            drawn: "slot-colours-v2-2",
+            how: "sent_back",
+            words: "Fewer colours, please.",
+          },
+        ]),
+      );
+      await vi.waitFor(() => expect(card("Sketch: Slot colours v2")).toBeNull());
+      expect(field("What should change?")).toBeNull();
+      expect(kept()).toEqual([]);
+    });
+  });
+
+  describe("the Fold reader", () => {
+    const PAGE = `${G7}/document?page=${encodeURIComponent(TABLE)}`;
+    const read = async (path = PAGE) => {
+      await open(path);
+      await vi.waitFor(() => expect(host.querySelector(".pk-reader__body table")).toBeTruthy());
+    };
+
+    it("carries the state in its band, with Approve, Ask for changes and Dismiss while it asks", async () => {
+      await read();
+      const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+      expect(head.dataset["stand"]).toBe("asking");
+      expect(head.querySelector(".pk-bc__chip")?.textContent).toBe("Asking");
+      expect(
+        Array.from(head.querySelectorAll(".pk-reader__acts button")).map((one) =>
+          one.textContent?.trim(),
+        ),
+      ).toEqual([
+        "Approve",
+        "Ask for changes",
+        "Dismiss",
+      ]);
+    });
+
+    it("sends a page back with the note he typed, on the newest revision", async () => {
+      await read();
+      await press(inBand("Ask for changes"));
+      await typeInto(field("What should change?"), "Add a column for the hue.");
+      await press(
+        Array.from(host.querySelectorAll(".pk-bc__ask-box button")).find(
+          (one) => one.textContent?.trim() === "Send",
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/document/answer")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            document: `document:${TABLE}`,
+            revision: "2",
+            how: "sent_back",
+            words: "Add a column for the hue.",
+          },
+        ]),
+      );
+    });
+
+    it("dismisses a page and a sketch by the item each waits as", async () => {
+      await read();
+      await press(inBand("Dismiss"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/dismiss")).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: `document:${TABLE}`,
+          },
+        ]),
+      );
+      await act(async () => root?.unmount());
+      await open(`${G7}/sketch?id=${encodeURIComponent("sketch:Slot colours v2")}`);
+      await vi.waitFor(() => expect(inBand("Dismiss")).toBeTruthy());
+      await press(inBand("Dismiss"));
+      await vi.waitFor(() =>
+        expect(to("/api/sessions/waiting/dismiss").slice(1)).toEqual([
+          {
+            session_id: ARTIFACTS_JOB,
+            item_id: "sketch:Slot colours v2",
+          },
+        ]),
+      );
+    });
+
+    it("offers no answers once the page has a verdict, and says it in its chip", async () => {
+      await open(`${G7}/document?page=${encodeURIComponent(AUDIT)}`);
+      await vi.waitFor(() => expect(text()).toContain("Eight slot colours are in use"));
+      const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+      expect(head.dataset["stand"]).toBe("approved");
+      expect(head.querySelector(".pk-bc__chip")?.textContent).toBe("Approved");
+      expect(head.querySelector(".pk-reader__acts")).toBeNull();
+    });
+
+    it("keeps the answers off an earlier revision, which is for reading", async () => {
+      await read();
+      await press(button("Revision 2"));
+      await press(
+        Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((one) =>
+          one.textContent?.startsWith("Revision 1"),
+        ),
+      );
+      await vi.waitFor(() =>
+        expect(host.querySelector(".pk-reader__earlier")?.textContent).toBe(
+          "Revision 1 is for reading. Revision 2 is the one you answer.",
+        ),
+      );
+      expect(host.querySelector(".pk-reader__acts")).toBeNull();
+    });
+
+    it("offers a Contents menu of the page's headings, and scrolls to the one chosen", async () => {
+      const scrolled: string[] = [];
+      vi.spyOn(Element.prototype, "scrollIntoView").mockImplementation(function (this: Element) {
+        scrolled.push(this.textContent ?? "");
+      });
+      await read();
+      await press(button("Contents"));
+      expect(menuItems()).toEqual([
+        "Slot colour table",
+        "Colours in use",
+        "What changes",
+        "Open",
+      ]);
+      await press(
+        Array.from(document.body.querySelectorAll('[role="menuitem"]')).find(
+          (one) => one.textContent?.trim() === "What changes",
+        ),
+      );
+      expect(scrolled).toEqual([
+        "What changes",
+      ]);
+      vi.restoreAllMocks();
+    });
+
+    describe("a draft with no parts", () => {
+      const DRAFT = `${G7}/artifact?id=${encodeURIComponent(POOL)}`;
+      const SENT_BACK = `${G7}/artifact?id=${encodeURIComponent("draft:Check before every walk")}`;
+      const draft = async (path: string, words: string) => {
+        await open(path);
+        await vi.waitFor(() => expect(text()).toContain(words));
+      };
+
+      it("shows its text under a band that carries its state, with Approve and Ask for changes and no Dismiss", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds and who may lease one.");
+        const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+        await vi.waitFor(() => expect(head.dataset["stand"]).toBe("asking"));
+        expect(head.querySelector(".pk-bc__tile")?.getAttribute("aria-label")).toBe("Draft");
+        expect(
+          Array.from(head.querySelectorAll(".pk-reader__acts button")).map((one) =>
+            one.textContent?.trim(),
+          ),
+        ).toEqual([
+          "Approve",
+          "Ask for changes",
+        ]);
+      });
+
+      it("approves from the band, as its thread card does", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds");
+        await vi.waitFor(() => expect(inBand("Approve")).toBeTruthy());
+        await press(inBand("Approve"));
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/answer")).toEqual([
+            {
+              session_id: ARTIFACTS_JOB,
+              item_id: `draft:${ARTIFACTS_JOB}-7`,
+              choice: 0,
+            },
+          ]),
+        );
+      });
+
+      it("sends back from the band with the note he typed", async () => {
+        await draft(DRAFT, "Says how many bays a Mac holds");
+        await vi.waitFor(() => expect(inBand("Ask for changes")).toBeTruthy());
+        await press(inBand("Ask for changes"));
+        await typeInto(field("What should change?"), "Say who may lease one.");
+        await press(
+          Array.from(host.querySelectorAll(".pk-bc__ask-box button")).find(
+            (one) => one.textContent?.trim() === "Send",
+          ),
+        );
+        await vi.waitFor(() =>
+          expect(to("/api/sessions/waiting/answer")).toEqual([
+            {
+              session_id: ARTIFACTS_JOB,
+              item_id: `draft:${ARTIFACTS_JOB}-7`,
+              text: "Say who may lease one.",
+            },
+          ]),
+        );
+      });
+
+      it("shows a draft he sent back with its text, its verdict and no answers", async () => {
+        await draft(SENT_BACK, "Adds a Checks step before Walk in the build workflow.");
+        const head = host.querySelector<HTMLElement>(".pk-reader__head")!;
+        await vi.waitFor(() => expect(head.dataset["stand"]).toBe("sent_back"));
+        expect(head.querySelector(".pk-bc__chip")?.textContent).toBe("Sent back");
+        expect(head.querySelector(".pk-reader__acts")).toBeNull();
+      });
+    });
+
+    it("draws no Contents for a page with one heading", async () => {
+      await open(`${G7}/document?page=${encodeURIComponent(AUDIT)}`);
+      await vi.waitFor(() => expect(text()).toContain("Eight slot colours are in use"));
+      expect(button("Contents")).toBeUndefined();
     });
   });
 });

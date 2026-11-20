@@ -1,0 +1,8 @@
+[operations.share_job_session]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A shared Job's row and thread, for another Mac opening it through the link"
+notes = """
+`GET /other_mac/session?session_id=&last=&before=`, answered as `get_session` answers, with a `SessionThread`. With `last` the thread is cut here to the newest `last` rows, or the `last` before the row `before`, and `older` says more stand before them. **The cut is made on this Mac so that only the window crosses a link whose body stops at 1 MiB.** A Job in an unshared project, in none, or held from another Mac is refused 404 `fleet.no_such_session`, worded exactly as for a Job that does not exist. Since 19 Nov 2026.
+"""

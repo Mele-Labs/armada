@@ -9,4 +9,6 @@ notes = """
 **It lifts only what the archive wrote**: the archive's mark, and the dismissal of the Needs you item where the archive put it there. An item answered meanwhile stays answered, so nothing settled is asked again. Nothing is sent to the Job, whoever restores it.
 
 Refused, with 422 and nothing written: `fleet.artifact_unnamed`, `fleet.session_unnamed` and `fleet.artifact_not_held` as `archive_artifact` refuses them, and `fleet.artifact_not_archived` for one not archived.
+
+**A Job held from another Mac is acted on there**: the call is passed on as the act `artifact_restore`, queued while that Mac sleeps, and what it answers is passed back. Not passed on for a call through a Job's own door. Since 18 Nov 2026.
 """

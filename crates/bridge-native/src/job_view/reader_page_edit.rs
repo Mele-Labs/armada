@@ -317,7 +317,7 @@ mod tests {
     }
 
     #[test]
-    fn the_mock_serves_his_saved_page_as_the_next_revision_with_the_kit_on_it() {
+    fn the_mock_serves_his_saved_page_as_the_next_revision_with_its_record() {
         let was = editing::words_of(PAGE);
         let mut now = was.clone();
         let at = was.iter().position(|one| one == "Behind main").expect("a table heading");
@@ -326,7 +326,7 @@ mod tests {
         let his = vec![html.clone()];
         assert_eq!(crate::mock::page_source("design", 3, &his), Ok(html));
         let sealed = crate::mock::sealed_revision("design", 3, &his, &[], &[]).expect("revision 3 is his");
-        assert!(sealed.contains("<th>Days behind</th>") && sealed.contains(r#""revision":3"#) && sealed.contains("window.armadaHost = hear"), "his words, sealed with the kit");
+        assert!(sealed.contains("<th>Days behind</th>") && sealed.contains(r#""revision":3"#) && sealed.contains("id=\"armada-page-record\""), "his words, sealed with the record");
         assert!(crate::mock::sealed_revision("design", 4, &his, &[], &[]).is_err());
     }
 }

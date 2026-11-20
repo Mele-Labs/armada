@@ -105,6 +105,10 @@ pub trait Features: Send + Sync + 'static {
     /// project Fleet does not hold (`fleet.feature_project`).
     fn run_librarian(&self, caller: Option<crate::Caller>, run: ipc::RunLibrarian) -> impl Future<Output = Result<ipc::LibrarianRan, Refusal>> + Send;
 
+    /// `stop_librarian` — the project's running librarian run stops before its next step, on a press of Stop. Answers whether
+    /// one was running. Refused as `run_librarian` is.
+    fn stop_librarian(&self, caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> impl Future<Output = Result<ipc::LibrarianStopping, Refusal>> + Send;
+
     /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).

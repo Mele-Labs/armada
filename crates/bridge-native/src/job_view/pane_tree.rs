@@ -27,7 +27,7 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 pub(crate) const JOB_TAB_KINDS: &[&str] = &[
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "story", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
     "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "custom", "draft", "walk", "document", "subagent", "artifact",
-    "loadout", "loadout_item",
+    "loadout", "loadout_item", "tokens",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
 pub(crate) const PR_TAB_KINDS: [&str; 8] = ["pr-overview", "pr-files", "pr-checks", "pr-commits", "pr-review", "pr-tool", "pr-comments", "pr-ask"];
@@ -544,6 +544,15 @@ pub(crate) fn activate<'a>(arrangement: &'a Arrangement, tab_id: &str) -> Out<'a
     next.focus = pane.id.clone();
     next.root = edit_pane(&arrangement.root, &pane.id, &|one| one.active = Some(tab_id.to_string()));
     Cow::Owned(next)
+}
+
+/// The thread's tab in front of its pane, and the focus where it was: how a kept arrangement is shown when a Job is opened,
+/// whatever tab was in front when it was last left.
+pub(crate) fn thread_in_front(arrangement: &Arrangement) -> Arrangement {
+    let Some((pane, tab)) = holder_of(arrangement, "thread").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "thread").map(|tab| (pane.id.clone(), tab.id.clone()))) else { return arrangement.clone() };
+    let mut next = arrangement.clone();
+    next.root = edit_pane(&arrangement.root, &pane, &|one| one.active = Some(tab.clone()));
+    next
 }
 
 /// A tab already open shows another page, and comes to the front (Classic's `showPage`).
@@ -1195,6 +1204,16 @@ mod tests {
             let next = close_tab(&arrangement, &tab_of_kind(&arrangement, "thread").id);
             assert_eq!(kinds_of(&next), vec![Vec::<&str>::new()]);
             assert!(unchanged(&close_pane(&arrangement, &arrangement.focus)));
+        }
+
+        #[test]
+        fn a_kept_arrangement_opens_with_the_thread_in_front_and_the_focus_where_it_was() {
+            let arrangement = build(&Shape::split(Dir::Row, 0.5, Shape::pane(&["thread", "story", "terminal"]), Shape::pane(&["now"])), Some("terminal"), &[]);
+            let kept = Arrangement { focus: pane_at(&arrangement, 1).id.clone(), ..arrangement };
+            assert_eq!(pane_at(&kept, 0).active.as_ref(), Some(&tab_of_kind(&kept, "terminal").id));
+            let opened = thread_in_front(&kept);
+            assert_eq!(pane_at(&opened, 0).active.as_ref(), Some(&tab_of_kind(&opened, "thread").id));
+            assert_eq!(opened.focus, kept.focus);
         }
 
         #[test]

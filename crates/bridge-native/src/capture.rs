@@ -950,6 +950,7 @@ mod tests {
             said: "fast.com › button · Google Search".into(),
             address: "https://fast.com/".into(),
             job: "job-1".into(),
+            document: None,
             read: Read {
                 rect: Rect { x: 10., y: 20., width: 50., height: 30. },
                 words: Words { role: "button".into(), name: "Google Search".into(), tag: "input".into() },

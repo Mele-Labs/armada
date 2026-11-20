@@ -94,6 +94,8 @@ export * from "./usage-rules";
 export * from "./usage-summary";
 export * from "./usage-spent";
 export * from "./usage-waste";
+export * from "./usage-adjust";
+export * from "./usage-job-timeline";
 export * from "./time-summary";
 export * from "./session-activity";
 export * from "./session-build";

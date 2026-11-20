@@ -7,7 +7,7 @@ use crate::{UsageWasteRead, WasteKind};
 
 const NOW: &str = "2026-10-17T12:00:00.000Z";
 
-fn turn(id: &str, at: &str, tokens: [u64; 3], subagent: bool) -> KeptTurnUsage {
+pub(super) fn turn(id: &str, at: &str, tokens: [u64; 3], subagent: bool) -> KeptTurnUsage {
     KeptTurnUsage {
         message_id: id.into(),
         at: at.into(),
@@ -23,7 +23,7 @@ fn turn(id: &str, at: &str, tokens: [u64; 3], subagent: bool) -> KeptTurnUsage {
     }
 }
 
-fn close(a: f64, b: f64) {
+pub(super) fn close(a: f64, b: f64) {
     assert!((a - b).abs() < 1e-9, "{a} is not {b}");
 }
 
@@ -32,7 +32,7 @@ fn shares(pairs: &[(&str, f64)]) -> Vec<(String, f64)> {
 }
 
 /// Keeps `turn` for `job`, its shares by `read` and `write`.
-fn keep(store: &mut crate::Store, job: &str, turn: KeptTurnUsage, read: &[(&str, f64)], write: &[(&str, f64)]) {
+pub(super) fn keep(store: &mut crate::Store, job: &str, turn: KeptTurnUsage, read: &[(&str, f64)], write: &[(&str, f64)]) {
     let reading = KeptReading {
         spent: vec![KeptTurnSpent { message_id: turn.message_id.clone(), cache_creation_1h_tokens: 0, shares: Some((shares(read), shares(write))) }],
         ..Default::default()
@@ -41,7 +41,7 @@ fn keep(store: &mut crate::Store, job: &str, turn: KeptTurnUsage, read: &[(&str,
 }
 
 /// A compaction of `job` at `at`: its own request, which the transcript does not hold.
-fn compact(store: &mut crate::Store, job: &str, at: &str) {
+pub(super) fn compact(store: &mut crate::Store, job: &str, at: &str) {
     let reading = KeptReading {
         background: vec![KeptBackground {
             id: format!("compaction-{at}"),

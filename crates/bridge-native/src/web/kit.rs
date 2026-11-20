@@ -2,7 +2,7 @@
 //! handed back for the kit to draw. Pure, so it is read without a page. The messages and their channels are
 //! `docs/practices/protocol/a-pages-sealed-serving.md`; the types are `ipc`'s (`PageToHost`, `HostToPage`).
 
-use ipc::{CastPageVote, HostToPage, PageMessage, PagePress, PageToHost, PressPageAction, SessionId, VoteCast};
+use ipc::{CastPageVote, HostToPage, Instant, PageAct, PageMessage, PagePress, PageToHost, PressDid, PressPageAction, SessionId, VoteCast};
 
 /// The route a press goes to (`press_page_action`).
 pub const PRESS: &str = "/sessions/artifacts/press";
@@ -27,11 +27,26 @@ pub fn call(job: &str, posted: &PageToHost) -> (&'static str, Result<String, ipc
 /// sentence. `answer` is the body Fleet answered, or its sentence and code where it refused.
 pub fn reply(posted: &PageToHost, answer: Result<&[u8], (String, Option<String>)>) -> HostToPage {
     let read = match (posted, answer) {
-        (PageToHost::Press { .. }, Ok(bytes)) => ipc::decode::<PagePress>("PagePress", bytes).map(|press| HostToPage::Pressed { press }).ok(),
-        (PageToHost::Vote { .. }, Ok(bytes)) => ipc::decode::<VoteCast>("VoteCast", bytes).map(|cast| HostToPage::Voted { cast }).ok(),
+        (PageToHost::Press { .. }, Ok(bytes)) => ipc::decode::<PagePress>("PagePress", bytes).map(|press| HostToPage::Pressed { press }).ok().or_else(|| queued(posted, bytes)),
+        (PageToHost::Vote { .. }, Ok(bytes)) => ipc::decode::<VoteCast>("VoteCast", bytes).map(|cast| HostToPage::Voted { cast }).ok().or_else(|| queued(posted, bytes)),
         (_, Err((message, code))) => return refused(posted, code.unwrap_or_default(), message),
     };
     read.unwrap_or_else(|| refused(posted, String::new(), "Fleet's answer could not be read".into()))
+}
+
+/// A press or a vote on a Job another Mac holds, kept by Fleet while that Mac sleeps: it answers 202 with the `Queued`, not the
+/// press or the cast. The page reads it as sent, as it reads any act that waits, and Fleet sends it when the Mac wakes.
+fn queued(posted: &PageToHost, bytes: &[u8]) -> Option<HostToPage> {
+    let waiting = ipc::decode::<ipc::Queued>("Queued", bytes).ok()?;
+    let at = Instant::carried(chrono::DateTime::from_timestamp_millis(waiting.since)?.to_rfc3339_opts(chrono::SecondsFormat::Secs, true));
+    Some(match posted {
+        PageToHost::Press { revision, action, .. } => {
+            HostToPage::Pressed { press: PagePress { revision: *revision, action: action.clone(), item: None, act: PageAct::Message, at, did: PressDid::Sent } }
+        }
+        PageToHost::Vote { revision, vote, result, .. } => {
+            HostToPage::Voted { cast: VoteCast { revision: *revision, vote: vote.clone(), form: result.form(), result: result.clone(), at } }
+        }
+    })
 }
 
 fn refused(posted: &PageToHost, code: String, message: String) -> HostToPage {
@@ -108,6 +123,18 @@ mod tests {
         assert_eq!(started(&answer).map(SessionId::as_str), Some("mock-12"));
         let cast = br#"{"revision":2,"vote":"row-parts","form":"score","result":{"form":"score","marks":[{"take":"compact","part":"age","keep":true}]},"at":"2026-11-14T09:00:00Z"}"#;
         assert!(matches!(reply(&score(), Ok(cast)), HostToPage::Voted { cast } if cast.vote == "row-parts"));
+    }
+
+    #[test]
+    fn a_press_or_vote_kept_for_a_sleeping_mac_goes_back_as_sent_and_not_as_a_refusal() {
+        let waiting = |act: &str| format!(r#"{{"id":"01Q","mac":"01WMAC","act":{act},"since":1763500000000}}"#);
+        let press = waiting(r#"{"kind":"artifact_press","body":{"session_id":"j","artifact":"design","revision":2,"action":"rebase-rate-limits"}}"#);
+        let answer = reply(&press_with("rebase-rate-limits"), Ok(press.as_bytes()));
+        assert!(matches!(&answer, HostToPage::Pressed { press } if press.action == "rebase-rate-limits" && press.did == PressDid::Sent), "{answer:?}");
+        let vote = waiting(r#"{"kind":"artifact_vote","body":{"session_id":"j","artifact":"design","revision":2,"vote":"row-parts","result":{"form":"score","marks":[]}}}"#);
+        let answer = reply(&score(), Ok(vote.as_bytes()));
+        assert!(matches!(&answer, HostToPage::Voted { cast } if cast.vote == "row-parts" && cast.form == VoteForm::Score && cast.revision == 2), "{answer:?}");
+        assert!(matches!(reply(&score(), Ok(b"{}")), HostToPage::Refused { .. }), "an answer that is neither stays a refusal");
     }
 
     #[test]

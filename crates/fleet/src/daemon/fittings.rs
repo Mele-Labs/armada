@@ -376,6 +376,7 @@ where
             sessions,
             session_runs: Default::default(),
             session_check_live: Default::default(),
+            librarian_running: Default::default(),
             window_sign_ins: Default::default(),
             job_browser: Default::default(),
             scouts,
@@ -423,6 +424,7 @@ where
             refusal_reads: Arc::default(),
             item_vectors: Arc::default(),
             for_you_prints: Default::default(),
+            usage_memo: Default::default(),
             extract_reads: Arc::default(),
             run,
         }
@@ -454,6 +456,10 @@ where
 
     pub(crate) fn session_check_live(&self) -> &crate::session_check_live::SessionCheckLive {
         &self.session_check_live
+    }
+
+    pub(crate) fn librarian_running(&self) -> &crate::feature_library::librarian_steps::Running {
+        &self.librarian_running
     }
 
     pub(crate) fn session_runs(&self) -> &crate::session_running::SessionRuns {

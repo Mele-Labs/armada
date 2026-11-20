@@ -136,9 +136,12 @@ The copy is listed beside that Mac's own projects with the Mac it is from, and t
 A task edited, added, ticked, linked, moved within the project or removed on the copy is sent through the link to the holding Mac, which makes the change with its own code, and the copy is what that Mac answers.
 An edit on the holding Mac reaches the copy the same way.
 
-> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task or moved into it, and a task's repository.
+> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task, and a task's repository.
 > A merge keeps this rule: each Mac changes only what it holds, and the other Mac's part crosses as an act.
 > Why: the file is on that Mac, and a Job of the other Mac is not this Mac's to link until acts cross between Macs.
+
+> **Rule (19 Nov).** A Job of this Mac moves into a copy where the copy lists the Job's repository, and is shared with the holding Mac from then; otherwise the move is refused, `fleet.project_copy_not_member`, and the copy's members are not touched.
+> Why: he chose one shared project across his Macs, with Jobs from either Mac in it, and a merge already moves Jobs into a copy this way.
 
 > **Rule (13 Nov).** An edit made on a copy while the holding Mac is asleep shows on the copy at once and is sent when that Mac wakes, oldest first.
 > Where both Macs changed the same field of one task during the sleep (title, notes, state or place), the later edit wins on both, and he is never asked.

@@ -170,8 +170,8 @@ struct Request {
 }
 
 /// What each kind takes of one request, in [`WasteKind::ALL`] order.
-struct Taken {
-    units: [f64; 6],
+pub(crate) struct Taken {
+    pub(crate) units: [f64; 6],
     occurrences: [u32; 6],
     /// Of the result kinds, what each file or tool took of the request's own writes.
     causes: Vec<(WasteKind, String, f64)>,
@@ -277,15 +277,15 @@ struct Row {
 }
 
 /// A request that took part of a kind, with what it took.
-struct Counted {
+pub(crate) struct Counted {
     session_id: String,
     context: u64,
-    taken: Taken,
+    pub(crate) taken: Taken,
 }
 
 /// The requests the kinds took from, and what reading results again took, by file or tool.
-struct Walk {
-    counted: Vec<Counted>,
+pub(crate) struct Walk {
+    pub(crate) counted: Vec<Counted>,
     /// A Job, a kind and a file or tool, with the units later requests spent reading what it put in the context.
     again: Vec<(WasteKind, String, String, f64)>,
 }
@@ -359,7 +359,7 @@ fn compacted_before(conn: &Connection, since: &str) -> Result<HashSet<String>, W
 
 /// The thread and compactions of each subagent request that made a call in the window. A subagent's requests are
 /// not otherwise told apart, and one that made no call (its last, as a rule) is left out.
-fn subagent_threads(conn: &Connection, since: &str, until: &str) -> Result<HashMap<(String, String), (String, i64)>, WriteError> {
+pub(crate) fn subagent_threads(conn: &Connection, since: &str, until: &str) -> Result<HashMap<(String, String), (String, i64)>, WriteError> {
     let mut statement = conn
         .prepare("SELECT DISTINCT session_id, message_id, thread, epoch FROM session_tool_calls WHERE thread <> '' AND at >= ?1 AND at < ?2")
         .map_err(reading)?;
@@ -377,7 +377,7 @@ fn subagent_threads(conn: &Connection, since: &str, until: &str) -> Result<HashM
 /// them: a main-thread request with shares kept is a start if a compaction came after the Job's last main-thread
 /// request before it. Requests at one instant are read together, so none of them is the start of another.
 /// The same walk holds the waste results of each thread's context, and a compaction empties the main thread's.
-fn requests(conn: &Connection, since: &str, until: &str) -> Result<Walk, WriteError> {
+pub(crate) fn requests(conn: &Connection, since: &str, until: &str) -> Result<Walk, WriteError> {
     let model = model_weight();
     let mut carried = flagged(conn, since, until)?;
     let compacted = compacted_before(conn, since)?;

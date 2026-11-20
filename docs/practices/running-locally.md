@@ -1310,7 +1310,8 @@ armada disk reclaim --help   # what it does; exits 0 on a build that has the ver
 
 **It removes build output only**: the `target` folders Cargo tagged with `CACHEDIR.TAG`, in the order Fleet's own pass drops them.
 Incremental caches go first, then whole folders of checkouts the base already has, then free slots, then held slots unbuilt for six hours.
-The main checkout's and the preview's folders lose only their incremental caches.
+The main checkout's and the preview's incremental caches go last, and their folders never go whole: every refresh builds on them.
+Fleet's hourly trim keeps them warm too, dropping only their stale files however large they grow.
 A folder a build holds is skipped, and nothing else is touched.
 
 **It needs no Fleet.**
@@ -1320,6 +1321,7 @@ It does nothing while free space is at or over the floor, and a floor of 0 is of
 
 **You run it when a build would fail for lack of disk and Fleet cannot do it for you**, as when the Fleet running is older than the reclaim.
 `scripts/restart` runs it before it builds, with the armada already installed, and goes on whether it worked or not: an armada without the verb answers `--help` with a failure and is skipped.
+The restart says *Dropped build output from a short disk* only when the pass printed something.
 
 **It prints a line for each folder removed whole and one for the pass**, as Fleet's log does.
 It prints nothing where free space was over the floor, and exits 0 either way.

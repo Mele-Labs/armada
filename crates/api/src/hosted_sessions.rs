@@ -859,14 +859,26 @@ pub(crate) async fn get_job_artifacts<D: HostedSessions>(
     }
 }
 
+/// The Mac that holds the Job an artifact act names, where the act is the person's: **an agent's call through the door
+/// is never passed on**, so a Job cannot fold away or open an artifact on another Mac as him.
+async fn held_artifact_mac<D: OtherMacs>(served: &Served<D>, job: Option<&ipc::SessionId>) -> Option<String> {
+    if crate::acting::asking().is_some() {
+        return None;
+    }
+    served.daemon().mac_holding_job(job?.as_str()).await
+}
+
 /// The agent or the person archives a stale artifact. 200 with the artifact; 422 for an id the Job does not hold, one
 /// archived already, or a call that places no Job. **Who pressed it is read off the door it came through**: a person's
 /// own press is his, and every other caller is the agent.
-pub(crate) async fn archive_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn archive_artifact<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let archive: ipc::ArtifactRef = match ipc::decode_body("an artifact to archive", &body) {
         Ok(archive) => archive,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, archive.session_id.as_ref()).await {
+        return across(&served, mac, ipc::JobAct::ArtifactArchive(archive)).await;
+    }
     let pressed = [crate::acting::BRIDGE, crate::acting::PHONE, crate::acting::MAC];
     let by = match crate::acting::via().is_some_and(|via| pressed.contains(&via.as_wire())) {
         true => ipc::ArtifactBy::Owner,
@@ -880,11 +892,14 @@ pub(crate) async fn archive_artifact<D: HostedSessions>(State(served): State<Ser
 
 /// An archived artifact is brought back. 200 with the artifact; 422 for an id the Job does not hold, one not archived, or a
 /// call that places no Job.
-pub(crate) async fn restore_artifact<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn restore_artifact<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let restore: ipc::ArtifactRef = match ipc::decode_body("an artifact to restore", &body) {
         Ok(restore) => restore,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, restore.session_id.as_ref()).await {
+        return across(&served, mac, ipc::JobAct::ArtifactRestore(restore)).await;
+    }
     match served.daemon().restore_artifact(crate::acting::asking(), restore).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -906,11 +921,14 @@ pub(crate) async fn save_artifact_edit<D: HostedSessions>(State(served): State<S
 
 /// His press of a page's action. 200 with the press; 422 for an action the revision does not hold, an act off the
 /// list, an ask no longer open, or a page archived or not held.
-pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn press_page_action<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let press: ipc::PressPageAction = match ipc::decode_body("a press of a page's action", &body) {
         Ok(press) => press,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, Some(&press.session_id)).await {
+        return across(&served, mac, ipc::JobAct::ArtifactPress(press)).await;
+    }
     match served.shared().press_page_action(press).await {
         Ok(pressed) => answer(StatusCode::OK, &pressed, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -919,11 +937,14 @@ pub(crate) async fn press_page_action<D: HostedSessions>(State(served): State<Se
 
 /// His vote on a page's vote. 200 with the cast; 422 for a vote the revision does not hold, a result of another
 /// form, a take or part the vote does not hold, or a page archived or not held.
-pub(crate) async fn cast_page_vote<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn cast_page_vote<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let cast: ipc::CastPageVote = match ipc::decode_body("a vote on a page", &body) {
         Ok(cast) => cast,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, Some(&cast.session_id)).await {
+        return across(&served, mac, ipc::JobAct::ArtifactVote(cast)).await;
+    }
     match served.shared().cast_page_vote(cast).await {
         Ok(cast) => answer(StatusCode::OK, &cast, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -950,11 +971,14 @@ pub(crate) async fn add_part<D: HostedSessions>(
 
 /// He answers one asking part of an artifact. 200 with the artifact; 409 for a part put again since he read it; 422 for a part
 /// not open to an answer, a way it does not take, or a send back with no note.
-pub(crate) async fn answer_part<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn answer_part<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let said: ipc::AnswerPart = match ipc::decode_body("an answer to a part", &body) {
         Ok(said) => said,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, Some(&said.session_id)).await {
+        return across(&served, mac, ipc::JobAct::ArtifactPartAnswer(said)).await;
+    }
     match served.shared().answer_part(said).await {
         Ok(artifact) => answer(StatusCode::OK, &artifact, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -981,23 +1005,29 @@ pub(crate) async fn get_artifact_page_source<D: HostedSessions>(
 
 /// He opened a revision of an artifact. 200 with the newest he has opened, an older revision included; 422 for a
 /// revision never kept or an artifact not held.
-pub(crate) async fn mark_artifact_seen<D: HostedSessions>(State(served): State<Served<D>>, body: Bytes) -> Response {
+pub(crate) async fn mark_artifact_seen<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let mark: ipc::MarkArtifactSeen = match ipc::decode_body("an artifact he opened", &body) {
         Ok(mark) => mark,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = held_artifact_mac(&served, Some(&mark.session_id)).await {
+        return across(&served, mac, ipc::JobAct::ArtifactSeen(mark)).await;
+    }
     match served.shared().mark_artifact_seen(mark).await {
         Ok(seen) => answer(StatusCode::OK, &seen, served.run_id()),
         Err(refusal) => refused(refusal),
     }
 }
 
-/// `?session_id=`, `?artifact=` and `?revision=` on `get_artifact_page`.
+/// `?session_id=`, `?artifact=`, `?revision=` and `?host_kit=` on `get_artifact_page`.
 #[derive(Deserialize)]
 pub(crate) struct WhichPage {
     session_id: String,
     artifact: String,
     revision: Option<u32>,
+    /// The host draws the kit itself, so the page's own inline scripts run and the kit's script is left out.
+    #[serde(default)]
+    host_kit: bool,
 }
 
 /// One kept revision of a page, sealed. 200 with the page as `text/html`, its policy sent again as the header, as
@@ -1006,10 +1036,11 @@ pub(crate) async fn get_artifact_page<D: HostedSessions>(
     State(served): State<Served<D>>,
     Query(which): Query<WhichPage>,
 ) -> Response {
-    let asked = served
-        .daemon()
-        .get_artifact_page(ipc::SessionId::carried(which.session_id), which.artifact, which.revision)
-        .await;
+    let id = ipc::SessionId::carried(which.session_id);
+    let asked = match which.host_kit {
+        true => served.daemon().get_hosted_artifact_page(id, which.artifact, which.revision).await,
+        false => served.daemon().get_artifact_page(id, which.artifact, which.revision).await,
+    };
     match asked {
         Ok(page) => {
             let mut headers = HeaderMap::new();
@@ -1342,15 +1373,25 @@ pub(crate) struct Which {
     session_id: String,
 }
 
+/// `?session_id=` on `get_session`, and `?last=` and `?before=` where the reader wants a window of it. `before` with no
+/// `last` is not read.
+#[derive(Deserialize)]
+pub(crate) struct WhichSession {
+    session_id: String,
+    last: Option<usize>,
+    before: Option<String>,
+}
+
 pub(crate) async fn get_session<D: HostedSessions>(
     State(served): State<Served<D>>,
-    Query(which): Query<Which>,
+    Query(which): Query<WhichSession>,
 ) -> Response {
-    match served
-        .shared()
-        .get_session(ipc::SessionId::carried(which.session_id))
-        .await
-    {
+    let id = ipc::SessionId::carried(which.session_id);
+    let read = match which.last {
+        Some(last) => served.shared().get_session_window(id, ipc::SessionWindow { last, before: which.before }).await,
+        None => served.shared().get_session(id).await,
+    };
+    match read {
         Ok(thread) => answer(StatusCode::OK, &thread, served.run_id()),
         Err(refusal) => refused(refusal),
     }

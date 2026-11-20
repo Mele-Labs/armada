@@ -1,22 +1,36 @@
 // What a Job showed, opened from its thread: a file read from the Mac (`/api/sessions/shown`), and a
 // sketch drawn from the Job's own record, which already carries its scene.
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type CSSProperties } from "react";
 import {
   mediaKindOf,
   ShownVideo,
   type ShownMedia,
 } from "./kit/components/compositions/MediaRow/MediaRow";
 import { Prose } from "./kit/components/primitives/Prose/Prose";
+import { aspectOf } from "./kit/components/compositions/SketchScene/aspect";
 import { SketchScene } from "./kit/components/compositions/SketchScene/SketchScene";
 import { ZoomablePicture } from "./kit/components/primitives/Enlargeable/ZoomablePicture";
 
 import { macOf, start, useFleet } from "./fleet";
-import { readShown, readShownMedia, useJob, type Shown } from "./jobState";
+import {
+  actsOn,
+  attempt,
+  attemptPage,
+  readShown,
+  readShownMedia,
+  useJob,
+  type Shown,
+} from "./jobState";
 import { go, jobPath } from "./router";
 import { sessionOfThread, sketchOf } from "./thread";
 import { WithKeptStyles } from "./keptStyles";
 import { Band, Trouble } from "./ui";
+import { revisionSaid, type BandFacts } from "./kit/components/compositions/BandCard/BandCard";
+import type { SketchAnswer } from "./kit/components/compositions/SessionThread/sketch-answer";
+import { sketchAnswerOf } from "./kit/screens/thread-cards";
+import { useArtifacts } from "./artifacts";
+import { Reader } from "./Reader";
 
 const nameOf = (path: string) => path.slice(path.lastIndexOf("/") + 1);
 
@@ -81,22 +95,93 @@ export function SketchView({ origin, id, sketch }: { origin: string; id: string;
   useFleet();
   useEffect(() => void start(), []);
   const machine = macOf(origin)?.machine;
-  const [read] = useJob(machine, id);
-  const drawn =
-    read.thread === undefined ? undefined : sketchOf(sessionOfThread(read.thread), sketch);
+  const [read, reread] = useJob(machine, id);
+  const [listed] = useArtifacts(machine, id);
+  const [says, setSays] = useState("");
+  const session = read.thread === undefined ? undefined : sessionOfThread(read.thread);
+  const drawn = session === undefined ? undefined : sketchOf(session, sketch);
+  const artifact = listed.artifacts?.find((one) => one.id === sketch);
   const title = drawn?.title ?? sketch.replace(/^sketch:/, "");
+  const last = artifact?.revisions[artifact.revisions.length - 1];
+  const facts: BandFacts = {
+    form: "sketch",
+    title,
+    stand: artifact?.state ?? "reading",
+    words: artifact?.words,
+    ...(last === undefined
+      ? {}
+      : {
+          revision: {
+            number: last.number,
+            said: revisionSaid(last.number, last.by, last.at),
+          },
+        }),
+    ...(last?.by === "owner"
+      ? {
+          yours: `r${String(last.number)} is your edit`,
+        }
+      : {}),
+    forLine: artifact?.for_line,
+  };
+  const answer = (given: SketchAnswer) => {
+    if (machine === undefined || session === undefined) return;
+    setSays("");
+    void attemptPage(
+      () => actsOn(machine, reread).answerSketch(sketchAnswerOf(session, sketch, given)),
+      machine,
+      reread,
+    ).then((refused) => setSays(refused ?? ""));
+  };
+  const dismiss = () => {
+    if (machine === undefined) return;
+    setSays("");
+    void attempt(
+      () =>
+        actsOn(machine, reread).dismissWaiting({
+          session_id: id,
+          item_id: artifact?.item ?? sketch,
+        }),
+      machine,
+    ).then((refused) => setSays(refused ?? ""));
+  };
   return (
-    <section className="pk-screen" aria-label={title}>
-      <Band title={title} onBack={() => go(jobPath(origin, id))} back="Back to the Job" />
-      <div className="pk-body pk-shown">
-        {drawn === undefined ? (
-          <Trouble
-            says={
-              read.error ?? (read.thread === undefined ? "" : "That Job did not show that sketch.")
+    <Reader
+      facts={facts}
+      keep={`pocket:${origin}:${id}:sketch:${sketch}`}
+      onBack={() => go(jobPath(origin, id))}
+      {...(artifact?.state === "asking"
+        ? {
+            acts: {
+              approve: () =>
+                answer({
+                  choice: 0,
+                }),
+              ask: (note: string) =>
+                answer({
+                  text: note,
+                }),
+              dismiss,
+            },
+          }
+        : {})}
+      says={says === "" ? undefined : says}
+    >
+      {drawn === undefined ? (
+        <Trouble
+          says={
+            read.error ?? (read.thread === undefined ? "" : "That Job did not show that sketch.")
+          }
+        />
+      ) : (
+        <WithKeptStyles machine={machine}>
+          <div
+            className="pk-reader__sketch"
+            style={
+              {
+                "--aspect": aspectOf(drawn.scene),
+              } as CSSProperties
             }
-          />
-        ) : (
-          <WithKeptStyles machine={machine}>
+          >
             <SketchScene
               scene={drawn.scene}
               {...(drawn.against === undefined
@@ -106,9 +191,9 @@ export function SketchView({ origin, id, sketch }: { origin: string; id: string;
                   })}
               title={drawn.title}
             />
-          </WithKeptStyles>
-        )}
-      </div>
-    </section>
+          </div>
+        </WithKeptStyles>
+      )}
+    </Reader>
   );
 }

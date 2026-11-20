@@ -11,6 +11,7 @@
 //! The Job slot in the end region is empty and takes no room until the Jobs screens fill it with
 //! the open Job's Layout control and view icons ([`TitleBar::fill_job_slot`]).
 
+mod builds_differ;
 #[cfg(test)]
 mod centred;
 #[cfg(test)]
@@ -44,7 +45,7 @@ use gpui::{
 };
 use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
-pub use face::{projects_of, repositories_of, Connection, Face, LiveLink, Project, Remedy, Repository, RestartWhy, Restarting};
+pub use face::{copies_of, projects_of, repositories_of, Connection, Face, LiveLink, Member, Project, ProjectCopy, Remedy, Repository, RestartWhy, Restarting};
 pub use face::{refreshing, restarting, stage_word, Refreshing};
 pub use story::refresh_said;
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
@@ -232,6 +233,9 @@ pub struct TitleBar {
     before: Option<Face>,
     /// The Fleet states last handed to the toasts.
     notices_sent: Vec<crate::toasts::FleetNotice>,
+    /// Whether the two Macs run different builds, and since when: held as a toast once it has stood.
+    builds_differ: builds_differ::Differing,
+    _builds_differ_tick: Option<Task<()>>,
     /// A window width the bar draws at in place of the window's own: a walk's way of narrowing it.
     pub width: Option<Pixels>,
     _asked: Subscription,
@@ -377,6 +381,8 @@ impl TitleBar {
             at,
             before: None,
             notices_sent: Vec::new(),
+            builds_differ: builds_differ::Differing::default(),
+            _builds_differ_tick: None,
             width: None,
             _asked: asked,
             swap_since: None,
@@ -550,14 +556,16 @@ impl TitleBar {
     /// scoped to by its id, and goes back to All where Fleet no longer lists it.
     pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
         let listed = face::projects_of(served, read);
+        let copies = face::copies_of(served, read);
         let unread = face::unread_of(read);
         let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
         let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
-        if listed == self.face.projects && scoped == self.face.scoped && unread == self.face.unread {
+        if listed == self.face.projects && scoped == self.face.scoped && copies == self.face.copies && unread == self.face.unread {
             return;
         }
         self.face.projects = listed;
         self.face.scoped = scoped;
+        self.face.copies = copies;
         self.face.unread = unread;
         cx.notify();
     }
@@ -845,6 +853,20 @@ impl TitleBar {
     fn restart_onto(&mut self, build: BuildSource, clear: Option<ClearBlocked>, cx: &mut Context<Self>) {
         self.mark_restarting(build, cx);
         cx.emit(Asked::ChangeBuild { build, clear });
+    }
+
+    /// The held toast for two Macs on different builds, where there is one. Asks to be drawn again when the
+    /// difference will have stood long enough, since nothing else would draw the bar then.
+    fn builds_differ_notice(&mut self, cx: &mut Context<Self>) -> Option<crate::toasts::FleetNotice> {
+        let (on, restarting) = self.face.build.as_ref().map(|held| (held.report.on, face::restarting(&held.report)))?;
+        let (notice, wait) = self.builds_differ.read(crate::pairing::macs(cx), on, restarting, std::time::Instant::now());
+        self._builds_differ_tick = wait.map(|wait| {
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(wait).await;
+                let _ = this.update(cx, |_, cx| cx.notify());
+            })
+        });
+        notice
     }
 
     /// Refresh both Macs: this bar reads the restart the same way, and the wiring posts `/macs/update`.
@@ -1590,7 +1612,8 @@ fn glyph_mark(side: Pixels, ink: gpui::Hsla) -> gpui::Svg {
 impl Render for TitleBar {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         // Fleet's states go to the toasts when they change; the bar draws no band for them.
-        let notices = self.fleet_notices();
+        let mut notices = self.fleet_notices();
+        notices.extend(self.builds_differ_notice(cx));
         if notices != self.notices_sent {
             self.notices_sent = notices.clone();
             cx.defer(move |cx| crate::toasts::fleet(notices, cx));

@@ -1,0 +1,12 @@
+[operations.stop_librarian]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Stop a project's running librarian run before its next step. Give the project's id"
+notes = """
+`POST /features/librarian/stop`, body `StopLibrarian`: `project`. Answered with `LibrarianStopping`: `project`, and `stopping` where a run was going. Absent where none was, which is no refusal: a press of Stop that lands as the run ends is not an error.
+
+**A run stops between steps, never inside one.** The step running when Stop is pressed ends as it would have, so a model call already made is spent and kept. Every step after it is published as `librarian.step` `skipped`, said `Stopped`. The run still keeps its record, marked stopped, and `run_librarian` answers with `stopped`. A run stopped before its `read_through` step leaves the catalog read through where the run before left it.
+
+**Refused** as `run_librarian` is: a project Fleet does not hold, 422 `fleet.feature_project`; a Job's agent, 422 `fleet.not_the_operator`.
+"""

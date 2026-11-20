@@ -12,8 +12,9 @@
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use config::settings::{self as keys, Resolved};
-use ipc::{Instant, LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+use ipc::{Instant, LibrarianPart, LibrarianRan, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 
+use super::librarian_steps as steps;
 use super::since_paragraph::Since;
 use store::{feature_link_kind, librarian_run_by, KeptLibrarianRun, Store, WriteError};
 
@@ -80,6 +81,9 @@ const BUILT: &[LibrarianPart] = &[LibrarianPart::SinceYouLooked];
 
 const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
 
+/// A press while the project's librarian is running.
+const RUNNING: &str = "fleet.librarian_running";
+
 /// Where `project`'s librarian stands: its last run, and the merges Fleet kept for its features since.
 pub(crate) fn state_of(store: &Store, project: &str) -> Result<LibrarianState, WriteError> {
     let last = store.librarian_last_run(project)?;
@@ -90,11 +94,13 @@ pub(crate) fn state_of(store: &Store, project: &str) -> Result<LibrarianState, W
     let merged: Vec<(u64, String)> =
         merges.into_iter().filter_map(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at))).filter(|(number, _)| seen.insert(*number)).collect();
     Ok(match last {
-        None => LibrarianState { last_run: None, read_through: None, merged_since: merged.into_iter().map(|(number, _)| number).collect() },
+        None => LibrarianState { last_run: None, read_through: None, merged_since: merged.into_iter().map(|(number, _)| number).collect(), steps: Vec::new(), running: None },
         Some(run) => LibrarianState {
             last_run: Some(Instant::carried(run.ran_at)),
             read_through: Some(run.through_pr).filter(|number| *number > 0),
             merged_since: merged.into_iter().filter(|(_, at)| at.as_str() > run.through_at.as_str()).map(|(number, _)| number).collect(),
+            steps: Vec::new(),
+            running: None,
         },
     })
 }
@@ -115,65 +121,140 @@ where
         self.librarian_ran(run.project.trim(), librarian_run_by::PRESS).await
     }
 
-    /// One run for `project`, started by `by`, and its record.
+    /// One run for `project`, started by `by`, and its record. **Each step is told on the stream as it moves**, and a
+    /// press of Stop skips the steps after the one running. One run of a project goes at a time.
     async fn librarian_ran(&self, project: &str, by: &str) -> Result<LibrarianRan, Refusal> {
         let Some(roots) = self.seed_roots(project) else {
             return Err(self.hosted_refusal(super::seeding::PROJECT, &format!("no project is named `{project}`")));
         };
-        let enabled = self.librarian_set().parts;
+        let at = self.now().as_str().to_string();
+        let run = Instant::carried(at.clone());
+        let Some(held) = self.librarian_running().begin(project, &run) else {
+            return Err(Refusal::IllegalMove(ipc::WireError::raised(RUNNING, format!("the librarian is already running for project `{project}`"), self.run_id())));
+        };
+        let set = self.librarian_set();
         let commit = match roots.into_iter().next() {
             Some(root) => tokio::task::spawn_blocking(move || adapters::feature_commits::head(&root)).await.ok().flatten().unwrap_or_default(),
             None => String::new(),
         };
-        let at = self.now().as_str().to_string();
         let night = self.night_of(&at).await;
+        let (state, last, spent) = {
+            let store = self.store().lock().await;
+            let state = state_of(&store, project).map_err(|why| self.ledger_fault(why))?;
+            let last = store.librarian_last_run(project).map_err(|why| self.ledger_fault(why))?;
+            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?)
+        };
+        let share = set.model_share;
+        let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent);
+        let tell = |step: &str, state: LibrarianStepState, said: String| {
+            held.moved(step, state, &said);
+            self.publish(ipc::Event::LibrarianStep(LibrarianStepMoved { project: project.to_string(), run: run.clone(), step: step.to_string(), state, said }));
+        };
+        let failed = |step: &str, why: WriteError| {
+            tell(step, LibrarianStepState::Failed, "The store could not be read".to_string());
+            self.ledger_fault(why)
+        };
         let mut ran: Vec<LibrarianPart> = Vec::new();
         let mut skipped: Vec<LibrarianPart> = Vec::new();
         let mut paragraph = String::new();
         let mut calls: u32 = 0;
-        let share = self.librarian_set().model_share;
-        for part in enabled.into_iter().filter(|part| BUILT.contains(part)) {
-            let (since, spent) = {
-                let store = self.store().lock().await;
-                (
-                    store.librarian_last_ran_part(project, part.name()).map_err(|why| self.ledger_fault(why))?,
-                    store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?,
-                )
-            };
-            let calls_left = share.saturating_sub(spent.saturating_add(calls));
-            match part {
-                LibrarianPart::SinceYouLooked => match self.since_paragraph(project, since.as_deref(), calls_left).await {
-                    Since::NoFacts => ran.push(part),
-                    Since::ShareSpent => skipped.push(part),
-                    Since::Wrote(words) => {
-                        calls += 1;
-                        paragraph = words;
-                        ran.push(part);
+        let mut stopped = false;
+        // Where the run read through: the run before's, until its own `read_through` step reads the newest merge.
+        let mut through = last.as_ref().filter(|run| run.through_pr > 0).map(|run| (run.through_pr, run.through_at.clone()));
+        let mut read_through = false;
+        for step in &steps {
+            stopped = stopped || held.stop_asked();
+            if stopped {
+                tell(&step.id, LibrarianStepState::Skipped, steps::STOPPED.to_string());
+                continue;
+            }
+            tell(&step.id, LibrarianStepState::Running, String::new());
+            match step.id.as_str() {
+                steps::READ_MERGES => {
+                    let since = last.as_ref().map_or("", |run| run.ran_at.as_str());
+                    let sections = self.store().lock().await.sections_written_since(project, since).map_err(|why| failed(&step.id, why))?;
+                    tell(&step.id, LibrarianStepState::Done, steps::merges_said(state.merged_since.len(), sections));
+                }
+                steps::READ_THROUGH => {
+                    let newest = self.store().lock().await.project_links(project, feature_link_kind::MERGE).map_err(|why| failed(&step.id, why))?;
+                    through = newest.first().and_then(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at.clone())));
+                    read_through = true;
+                }
+                name => {
+                    let Some(part) = LibrarianPart::from_name(name) else { continue };
+                    let since = self.store().lock().await.librarian_last_ran_part(project, name).map_err(|why| failed(&step.id, why))?;
+                    let calls_left = share.saturating_sub(spent.saturating_add(calls));
+                    if part == LibrarianPart::SinceYouLooked {
+                        let (state, said) = match self.since_paragraph(project, since.as_deref(), calls_left).await {
+                            Since::NoFacts => {
+                                ran.push(part);
+                                (LibrarianStepState::Skipped, steps::NOTHING_NEW.to_string())
+                            }
+                            Since::ShareSpent => {
+                                skipped.push(part);
+                                (LibrarianStepState::Skipped, steps::share_spent_said(share))
+                            }
+                            Since::Wrote(words) => {
+                                calls += 1;
+                                let said = steps::wrote_said(&words, spent + calls, share);
+                                paragraph = words;
+                                ran.push(part);
+                                (LibrarianStepState::Done, said)
+                            }
+                            Since::Failed => {
+                                calls += 1;
+                                (LibrarianStepState::Failed, steps::failed_said(spent + calls, share))
+                            }
+                        };
+                        tell(&step.id, state, said);
                     }
-                    Since::Failed => calls += 1,
-                },
-                _ => {}
+                }
             }
         }
-        let mut store = self.store().lock().await;
-        let newest = store.project_links(project, feature_link_kind::MERGE).map_err(|why| self.ledger_fault(why))?;
-        let through = newest.first().and_then(|link| link.target.parse::<u64>().ok().map(|number| (number, link.at.clone())));
-        store
-            .keep_librarian_run(&KeptLibrarianRun {
-                project: project.to_string(),
-                ran_at: at.clone(),
-                by: by.to_string(),
-                through_pr: through.as_ref().map_or(0, |(number, _)| *number),
-                through_at: through.as_ref().map(|(_, at)| at.clone()).unwrap_or_default(),
-                at_commit: commit,
-                parts: ran.iter().map(|part| part.name().to_string()).collect(),
-                paragraph,
-                night,
-                model_calls: calls,
-                skipped: skipped.iter().map(|part| part.name().to_string()).collect(),
-            })
-            .map_err(|why| self.ledger_fault(why))?;
-        Ok(LibrarianRan { project: project.to_string(), ran_at: Instant::carried(at), ran, read_through: through.map(|(number, _)| number), skipped_for_share: skipped })
+        let kept = self.store().lock().await.keep_librarian_run(&KeptLibrarianRun {
+            project: project.to_string(),
+            ran_at: at.clone(),
+            by: by.to_string(),
+            through_pr: through.as_ref().map_or(0, |(number, _)| *number),
+            through_at: through.as_ref().map(|(_, at)| at.clone()).unwrap_or_default(),
+            at_commit: commit,
+            parts: ran.iter().map(|part| part.name().to_string()).collect(),
+            paragraph,
+            night,
+            model_calls: calls,
+            skipped: skipped.iter().map(|part| part.name().to_string()).collect(),
+            stopped,
+        });
+        if read_through {
+            kept.map_err(|why| failed(steps::READ_THROUGH, why))?;
+            tell(steps::READ_THROUGH, LibrarianStepState::Done, steps::through_said(through.as_ref().map(|(number, _)| *number)));
+        } else {
+            kept.map_err(|why| self.ledger_fault(why))?;
+        }
+        let read_through = through.filter(|_| read_through).map(|(number, _)| number);
+        Ok(LibrarianRan { project: project.to_string(), ran_at: run, ran, read_through, skipped_for_share: skipped, stopped })
+    }
+
+    /// The steps a run of `project` would take now, for the listing. `night` is [`Fleet::librarian_night`]'s.
+    pub(super) fn librarian_steps(&self, store: &Store, project: &str, state: &LibrarianState, night: &str) -> Result<Vec<LibrarianStep>, Refusal> {
+        let set = self.librarian_set();
+        let spent = store.librarian_model_calls(project, night).map_err(|why| self.ledger_fault(why))?;
+        Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent))
+    }
+
+    /// The night it is now, which a night's share of model calls is counted by.
+    pub(super) async fn librarian_night(&self) -> String {
+        self.night_of(self.now().as_str()).await
+    }
+
+    /// `stop_librarian`: the project's running run stops before its next step.
+    pub(super) fn librarian_stop_pressed(&self, caller: Option<api::Caller>, stop: StopLibrarian) -> Result<LibrarianStopping, Refusal> {
+        self.owner_or_operator_called(caller)?;
+        let project = stop.project.trim();
+        if self.seed_roots(project).is_none() {
+            return Err(self.hosted_refusal(super::seeding::PROJECT, &format!("no project is named `{project}`")));
+        }
+        Ok(LibrarianStopping { project: project.to_string(), stopping: self.librarian_running().stop(project) })
     }
 
     /// The night `at` falls in, as this machine's local date: `2026-11-18`. A night is local midnight to midnight.

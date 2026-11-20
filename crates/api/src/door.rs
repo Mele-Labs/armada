@@ -74,6 +74,8 @@ const QUERIES: &[(&str, &[&str])] = &[
     ("get_job_time", &["session_id"]),
     ("get_usage_time", &["since", "until", "slowest"]),
     ("get_usage_waste", &["window"]),
+    ("get_usage_adjustments", &["window"]),
+    ("get_job_timeline", &["session_id"]),
     ("get_workflow", &["workflow_id", "source"]),
     ("get_workflow_steps", &["workflow_id", "source"]),
     ("list_workflow_changes", &["workflow_id", "source"]),

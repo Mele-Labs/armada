@@ -235,6 +235,7 @@ pub fn rest() -> Face {
         chosen: None,
         projects: face::projects_of(&served, &crate::mock::projects()),
         scoped: Some(0),
+        copies: face::copies_of(&served, &crate::mock::projects()),
         unread: face::unread_of(&crate::mock::projects()),
         signed_in: true,
         downshift: None,

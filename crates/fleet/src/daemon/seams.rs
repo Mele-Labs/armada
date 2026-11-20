@@ -377,6 +377,9 @@ where
             self.events.publish(told);
         }
     }
+    pub(crate) fn usage_memo(&self) -> &crate::usage_memo::Memo {
+        &self.usage_memo
+    }
     /// The last print of each Job's For you, so `session.for_you` goes only where it moved.
     pub(crate) fn for_you_prints(&self) -> &std::sync::Mutex<std::collections::HashMap<String, u64>> {
         &self.for_you_prints
