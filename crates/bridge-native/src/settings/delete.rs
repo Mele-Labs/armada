@@ -1,5 +1,6 @@
 //! Deleting a project from the picker: the confirm that names the project and its tasks, and `POST
-//! /projects/project/:id/delete` once it is pressed. A project a copy of another Mac's has no Delete, so none is asked here.
+//! /projects/project/:id/delete` once it is pressed. A copy of another Mac's is deleted as his own is: Fleet sends it to
+//! the Mac that keeps the project.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Keystroke, MouseButton, Role, SharedString, Window};
 
@@ -24,9 +25,6 @@ impl SettingsOverlay {
     /// The picker's Delete on project `id`, the row it was pressed beside: ask first, the keys on Cancel.
     pub fn ask_delete(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = self.scope.projects.as_ref().and_then(|all| all.projects.iter().find(|one| one.id == id)) else { return };
-        if one.mac.is_some() {
-            return;
-        }
         self.scope.deleting = Some(Deleting { id: one.id.clone(), name: one.name.clone(), tasks: one.rows.len(), refused: None, sending: false });
         let cancel = self.scope.cancel_stop.clone();
         window.defer(cx, move |window, cx| window.focus(&cancel, cx));
@@ -262,25 +260,26 @@ mod tests {
     }
 
     #[gpui::test]
-    fn every_project_and_a_copy_from_another_mac_have_no_delete(cx: &mut TestAppContext) {
+    fn every_project_has_no_delete_and_a_copy_from_another_mac_has_one(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);
         assert!(deletes(&overlay, "Every project", cx).is_empty(), "Every project has no Delete");
         editing(&overlay, "pricing", "Pricing", cx);
-        assert!(deletes(&overlay, "Pricing", cx).is_empty(), "Pricing is Armada's copy of another Mac's");
+        assert_eq!(deletes(&overlay, "Pricing", cx), ["Delete Pricing"], "Pricing is Armada's copy of another Mac's, and is deleted as his own is");
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete("pricing", window, cx)));
-        overlay.read_with(cx, |this, _| assert!(this.scope.deleting.is_none(), "a copy is never asked about"));
+        overlay.read_with(cx, |this, _| assert_eq!(this.scope.deleting.as_ref().map(|asking| asking.name.as_str()), Some("Pricing"), "the confirm is asked of a copy"));
     }
 
     #[gpui::test]
-    fn fleet_refusing_a_copy_is_said_in_its_words_and_the_confirm_stays(cx: &mut TestAppContext) {
+    fn deleting_a_copy_goes_as_deleting_his_own_does(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx);
-        overlay.update(cx, |this, _| this.scope.deleting = Some(Deleting { id: "pricing".into(), name: "Pricing".into(), tasks: 3, refused: None, sending: false }));
+        editing(&overlay, "pricing", "Pricing", cx);
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.ask_delete("pricing", window, cx)));
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.confirm_delete(window, cx)));
         cx.run_until_parked();
         overlay.read_with(cx, |this, _| {
-            let asking = this.scope.deleting.as_ref().expect("the confirm stays");
-            assert_eq!(asking.refused.as_deref(), Some("This project is held on another Mac, which keeps it"));
-            assert!(!asking.sending);
+            assert_eq!(this.scope.project, None, "the picker falls back to Every project");
+            assert!(this.scope.deleting.is_none());
+            assert!(this.scope.projects.as_ref().is_some_and(|all| all.projects.iter().all(|one| one.id != "pricing")), "Fleet's answer no longer lists it");
         });
     }
 
