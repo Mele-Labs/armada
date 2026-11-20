@@ -39,6 +39,32 @@ The step after one is entered when it ends, whatever fact would have entered it,
 **A step gated `document_approved`, `sketch_approved`, `jobs_ended` or `checks_green`, with no anchor, holds the Job until that fact** (20 Nov 2026), as a step listing an end does.
 Before this, such a step was never entered, and orchestrate and refactor Jobs stood on Plan throughout.
 
+**Work ahead of a step that waits on his Approve moves the Job on and flags the step** (20 Nov 2026, the owner's answer on *The Job's right column, by workflow step*).
+A push, a pull request or a merge is work for a later step, so where a later step delivers, a step that waits on his Approve of a plan, a page, a sketch, a draft or an item he was never given is passed, and the Job stands where the work is.
+The passed step is listed in `workflow_strip.passed_unapproved`, and the column draws it `passed without your Approve` until he gives the Approve.
+**A walk is not passed this way**: a push never passes a walk, so a Job whose plan expects one stands on it with the plan flagged.
+A workflow with no delivering step passes nothing, since its push belongs to no step.
+Before this, Propose stood from the plan to the merge on 41 Jobs that held a pull request.
+
+**The last step that lists nothing ends when the Job does** (20 Nov 2026).
+It is entered once every step before it is passed, and its end reads `the Job ends`.
+A step in the middle that nothing Fleet observes ends passes at once, so the Job never stands on it: the workflows page warns of it (`StepReading.warning`), and the load still accepts the definition.
+
+**The column follows the step** (20 Nov 2026).
+Each step lists the tabs it opens in `tabs`, the front one first, as ids of the native Bridge's zones and `now` and `walks` beside them (`core_model::STEP_TABS`); a step lists none until a workflow says.
+`workflow_strip` on the Job's row carries them with the step's usual time (`usual_secs`), what ends it (`ends_when`) and whether it is stalled; the time on the step is the last of `workflow_visits` for `workflow_step`.
+**The usual time is measured**: the 90th percentile of how long Jobs on the workflow stayed on the step before the next began, from the visits the rail kept, and absent below five (`crate::step_stalls`).
+
+**A step past its usual time with no move is stalled, and the Job is told once** (20 Nov 2026).
+The row carries `workflow_strip.stalled`, when it went past and the cause, which says what the step waits on and whose it is.
+Fleet tells the Job once for each visit to the step, as a `rail_nudge`, at a quiet moment: its turn is over and nothing waits on him.
+**This is the one word Fleet sends about the step**, which the owner asked for beside the rule below, and it repeats nothing: a step the Job leaves and enters again draws a new one.
+
+**His press is the fact, and the agent's word is not** (20 Nov 2026).
+A step that ends on his Approve of an item (`gate: you_approved`) is told to raise one `waiting_for` item with `approves: true` when it thinks the step is done, and not to say so in the thread.
+The step ends when he presses Approve on it.
+A Looks good on a Ready to try card closes the same gate.
+
 **A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
 A ticket, pull request, deploy or running Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
 **An unread instance, and one in a status no state lists, holds nothing**: a tracker that declares no words (Jira, a tracker mod) leaves the built-in Ticket lifecycle listing none but `closed`, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.
@@ -75,7 +101,7 @@ A workflow saved under a running Job, with a step added, dropped or moved, chang
 
 **Every move is entered on the timeline** as `session.step`, `says` `step: <old> → <new>`, a step by its label, `start` before the first and `done` past the last.
 
-**Fleet tells the agent nothing of the step it is on** (5 Nov 2026, `.claude/decisions/2026-11-05-fleet-stops-guessing.md`).
+**Fleet tells the agent nothing of the step it is on, but for one word** (5 Nov 2026, `.claude/decisions/2026-11-05-fleet-stops-guessing.md`; the word is the stalled-step nudge above, 20 Nov 2026).
 Entering a step sends no `instructions`, a step skipped draws no nudge, and a turn that ends on a step draws no word about it.
 The rail only reads the step and enters each move on the timeline.
 The one thing a person's press sends is a fact: a step he skipped, undid or moved the Job past is told once, and a Job that has not run carries the skips with its first turn.

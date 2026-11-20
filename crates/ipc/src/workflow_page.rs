@@ -37,6 +37,11 @@ pub struct StepReading {
     /// When the step is passed over instead of walked. Absent on a step that is always done.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub passed_over_when: Option<String>,
+    /// Why the step as written cannot be placed or ended, said for the editor to show: a step in the middle
+    /// of the workflow that nothing Fleet observes ends passes at once. **Absent where there is nothing to
+    /// say.** It warns and never refuses: the definition loads. Since 20 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub warning: Option<String>,
 }
 
 /// The body of `delete_workflow_copy` and `reset_workflow_copy`: the copy, by id and place.

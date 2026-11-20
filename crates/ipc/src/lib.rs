@@ -85,6 +85,7 @@ pub mod job_cli;
 mod drift;
 /// What the Workflows page reads beside a definition's text, and its acts on a copy.
 mod workflow_page;
+mod workflow_strip;
 /// A Job's own copy of its workflow, lifecycles and rules, and what was changed in it.
 mod job_copy;
 /// A change to a workflow an agent drafts for the owner to approve.
@@ -448,6 +449,7 @@ pub use workflow_changes::{
 pub use workflow_page::{
     StepReading, WorkflowCopy, WorkflowCopyDeleted, WorkflowSteps,
 };
+pub use workflow_strip::{StepStalled, WorkflowStrip};
 pub use drift::{
     Declaration, Drift, ManifestDrift, PackageScripts, Unfollowed,
 };

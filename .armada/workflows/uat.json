@@ -23,6 +23,7 @@
     {
       "id": "review",
       "label": "Set up, run and report",
+      "tabs": ["artifacts", "now"],
       "about": "Sets up the test environment, runs every scenario it can and asks you about the blocked ones meanwhile, then shows you the results as a page. Ends when you approve the results.",
       "instructions": "Pick the test environment with the person: the sites, the test accounts, the log source, and the scripts and commands this Job may run. Check each is reachable and say which is not.\nMark every scenario runnable, blocked with the reason, or needs the person. Run the runnable ones one at a time, keeping evidence for every step: what was done, what was seen, and where it was read from. Put the blocked ones to the person while the rest run, and run each as he settles it.\nRecord every change made to the environment, and how it was restored, as it happens.\nWrite the results to one page in .armada/documents/: scenario by scenario with its evidence, and the changes made to the environment in the same place. Wait for the person to approve it, and answer each note by changing the page.",
       "gate": "document_approved",
@@ -33,6 +34,7 @@
     {
       "id": "writeback",
       "label": "Write back",
+      "tabs": ["now", "artifacts"],
       "about": "Writes the approved results to the scenario sheet, and the Job ends.",
       "instructions": "Write the approved results to the scenario sheet, say what was written, and end the Job. Open no pull request and make no branch.",
       "phase": "delivery",

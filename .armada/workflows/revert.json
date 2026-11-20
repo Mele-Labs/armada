@@ -17,6 +17,7 @@
     {
       "id": "plan",
       "label": "Plan the revert",
+      "tabs": ["plan", "qa", "now"],
       "about": "Asks whether you want to see a plan first. If you do, says what the revert takes out, including later work built on it, and ends when you approve it. Otherwise left out.",
       "instructions": "Before anything else, ask the person whether he wants a plan before this revert.\nIf yes: find the change, and say what the revert takes out, including any later work built on it that would conflict. Record it with record_plan and wait for his approval.\nIf no: leave this group out of the plan.",
       "gate": "plan_approved",
@@ -27,6 +28,7 @@
     {
       "id": "handoff",
       "label": "Revert and deliver",
+      "tabs": ["pulls", "checks", "now"],
       "about": "Takes the named change back out and nothing else, runs the checks, and delivers it the way you chose. Ends at the merge.",
       "instructions": "Revert the named change with git revert, and nothing else with it. Resolve a conflict with later work by keeping the later work and taking out only what the named change added; say what you kept.\nRun the checks locally. A test that is also red on main is not this Job's to fix: say so and carry on.\nPush the branch and open the pull request. Deliver by the delivery the person chose, and do not ask again. Auto land: merge it on a green ci. Open PR: leave it open; the Job stays until it merges. Keep local: push nothing, and record this group's gate as none.",
       "gate": "merged",
