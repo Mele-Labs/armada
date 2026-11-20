@@ -315,7 +315,7 @@ fn source_of(name: &str) -> Option<WaitingSource> {
     ipc::decode("a waiting source", format!("\"{name}\"").as_bytes()).ok()
 }
 
-fn offer_label(offer: &CallAnswer) -> &'static str {
+pub(super) fn offer_label(offer: &CallAnswer) -> &'static str {
     match offer {
         CallAnswer::AllowOnce => "Allow once",
         CallAnswer::AllowAndRemember => "Allow and remember",
@@ -348,90 +348,6 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
     }
 }
 
-/// The item id of question `at` of the card `call`: the first keeps `ask:<call>`, and each after it is `#<at>`.
-pub(crate) fn ask_item_id(call: &str, at: usize) -> String {
-    match at {
-        0 => format!("ask:{call}"),
-        at => format!("ask:{call}#{at}"),
-    }
-}
-
-/// Which question of its card an `ask:` item is, read back off its id.
-pub(crate) fn ask_item_at(id: &str) -> usize {
-    id.rsplit_once('#').and_then(|(_, at)| at.parse().ok()).unwrap_or(0)
-}
-
-/// The open card as items. **Each question is its own item** with its own choices, a pick of several among
-/// them, so the sheet answers each like any other; one he has answered already is not listed. A card that asks
-/// nothing is the one permission item.
-fn card_items(asked: &CallInFlight, picked: &[QuestionAnswer]) -> Vec<WaitingItem> {
-    let act = Some(WaitingAct {
-        kind: WaitingActKind::Answer,
-        target: asked.call.clone(),
-        on: None,
-    });
-    if !asked.questions.is_empty() {
-        return asked
-            .questions
-            .iter()
-            .enumerate()
-            .filter(|(_, one)| !picked.iter().any(|done| done.question == one.question))
-            .map(|(at, one)| WaitingItem {
-                approves: false,
-                id: ask_item_id(&asked.call, at),
-                text: one.question.clone(),
-                since: asked.asked_at.clone(),
-                source: WaitingSource::AskCard,
-                act: act.clone(),
-                options: one
-                    .options
-                    .iter()
-                    .map(|choice| WaitingOption {
-                        label: choice.label.clone(),
-                        description: Some(choice.description.clone()).filter(|said| !said.trim().is_empty()),
-                        picture: None,
-                    })
-                    .collect(),
-                steps: Vec::new(),
-                place: None,
-                confirmed: false,
-                holders: Vec::new(),
-                creating_since: None,
-                create_refused: None,
-                operator_read: None,
-                artifact: None,
-            })
-            .collect();
-    }
-    vec![    WaitingItem {
-        approves: false,
-        id: format!("perm:{}", asked.call),
-        text: format!("{} {}", asked.tool, asked.detail)
-            .trim()
-            .to_string(),
-        since: asked.asked_at.clone(),
-        source: WaitingSource::Permission,
-        act,
-        options: asked
-            .offers
-            .iter()
-            .map(|one| WaitingOption {
-                label: offer_label(one).to_string(),
-                description: None,
-                picture: None,
-            })
-            .collect(),
-        steps: Vec::new(),
-        place: None,
-        confirmed: false,
-        holders: Vec::new(),
-        creating_since: None,
-        create_refused: None,
-        operator_read: None,
-        artifact: None,
-    }]
-}
-
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
 /// and so is one with a `walk` act (`walk_asks.rs`), kept before `waiting_for` refused it.
@@ -445,7 +361,7 @@ pub(crate) fn merged(
     if ended {
         return Vec::new();
     }
-    let mut derived: Vec<WaitingItem> = asked.map(|(card, picked)| card_items(card, picked)).unwrap_or_default();
+    let mut derived: Vec<WaitingItem> = asked.map(|(card, picked)| super::ask_cards::card_items(card, picked)).unwrap_or_default();
     derived.extend(windows.iter().map(|one| WaitingItem {
         approves: false,
         id: format!("walk:{}", one.url),
@@ -570,12 +486,7 @@ where
         attachments: &[ipc::Attachment],
     ) -> Waited {
         let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready, offered } = reads;
-        let (asked, picked) = {
-            let host = self.hosts().of(&session.id);
-            let state = host.state();
-            let picked = state.ask_picks.as_ref().filter(|(call, _)| state.asked.as_ref().is_some_and(|card| card.call == *call)).map(|(_, picks)| picks.clone());
-            (state.asked.clone(), picked.unwrap_or_default())
-        };
+        let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
@@ -1400,30 +1311,11 @@ where
                     self.hosted_refusal(SESSION_WAITING_UNHELD, why)
                 })?;
                 let answer = if item.source == WaitingSource::AskCard {
-                    let several = asked.questions.len() > 1;
-                    match (picked.as_deref().or(words), asked.questions.get(ask_item_at(&item.id))) {
-                        // One question of several: his pick is kept, with his words as an entry of their own, and
-                        // the call is answered once every question has one.
-                        (Some(chosen), Some(question)) if several => {
-                            let chosen = match (picked.as_deref(), words) {
-                                (Some(pick), Some(words)) => vec![pick.to_string(), words.to_string()],
-                                _ => vec![chosen.to_string()],
-                            };
-                            let answers = {
-                                let host = self.hosts().of(&id);
-                                let mut state = host.state();
-                                let mut picks = state.ask_picks.take().filter(|(call, _)| *call == asked.call).map(|(_, picks)| picks).unwrap_or_default();
-                                picks.retain(|one| one.question != question.question);
-                                picks.push(QuestionAnswer { question: question.question.clone(), chosen });
-                                let whole = asked.questions.iter().all(|one| picks.iter().any(|done| done.question == one.question));
-                                if !whole {
-                                    state.ask_picks = Some((asked.call.clone(), picks));
-                                    None
-                                } else {
-                                    Some(asked.questions.iter().filter_map(|one| picks.iter().find(|done| done.question == one.question).cloned()).collect())
-                                }
-                            };
-                            let Some(answers) = answers else {
+                    let at = super::ask_cards::ask_item_at(&item.id);
+                    match (picked.as_deref().or(words), asked.questions.get(at)) {
+                        // One question of several: his pick is held, and the call is answered once every one has one.
+                        (Some(_), Some(_)) if asked.questions.len() > 1 => {
+                            let Some(answers) = self.card_picked(&id, &asked, at, picked.as_deref(), words) else {
                                 keep_answer(Arc::clone(&self), id.clone()).await;
                                 return self.published_hosted(&id).await;
                             };
