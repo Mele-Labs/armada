@@ -2106,5 +2106,107 @@ class BridgeLaunch(unittest.TestCase):
         self.assertEqual(self.launch("true"), 1)
 
 
+# `scripts/prune-build` against a made-up cargo profile directory: what the build named stays,
+# what it superseded goes, and input naming no unit drops nothing.
+PRUNE_SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "prune-build")
+UNIT_LIVE, UNIT_OLD, UNIT_DEP = "1111111111111111", "2222222222222222", "3333333333333333"
+UNIT_APP, UNIT_OLD_APP = "4444444444444444", "5555555555555555"
+
+
+def made(path, age=0):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("x")
+    when = time.time() - age
+    os.utime(path, (when, when))
+
+
+class PruneBuild(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.profile = os.path.join(self.tmp.name, "release")
+        p = self.profile
+        made(f"{p}/.cargo-lock")
+        for h in (UNIT_LIVE, UNIT_OLD):
+            made(f"{p}/deps/libipc-{h}.rlib")
+            made(f"{p}/deps/ipc-{h}.d")
+            made(f"{p}/.fingerprint/ipc-{h}/lib-ipc")
+        made(f"{p}/deps/libserde-{UNIT_DEP}.rlib")
+        made(f"{p}/build/ipc-{UNIT_LIVE}/out/protocol_id.rs")
+        made(f"{p}/build/ipc-{UNIT_OLD}/out/protocol_id.rs")
+        made(f"{p}/deps/app-{UNIT_APP}")
+        made(f"{p}/.fingerprint/app-{UNIT_APP}/bin-app")
+        made(f"{p}/deps/app-{UNIT_OLD_APP}")
+        made(f"{p}/.fingerprint/app-{UNIT_OLD_APP}/bin-app", age=3600)
+        made(f"{p}/app")
+        # ipc's cache now and a superseded one; the app's cache with an older session beside it.
+        made(f"{p}/incremental/ipc-aaaa/s-new-x-svh/dep-graph.bin")
+        made(f"{p}/incremental/ipc-bbbb/s-old-x-svh/dep-graph.bin", age=3600)
+        os.utime(f"{p}/incremental/ipc-bbbb", (time.time() - 3600,) * 2)
+        made(f"{p}/incremental/app-cccc/s-older-y-svh/dep-graph.bin", age=600)
+        made(f"{p}/incremental/app-cccc/s-older-y.lock", age=600)
+        os.utime(f"{p}/incremental/app-cccc/s-older-y-svh", (time.time() - 600,) * 2)
+        made(f"{p}/incremental/app-cccc/s-newer-z-svh/dep-graph.bin")
+        made(f"{p}/incremental/app-cccc/s-newer-z.lock")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_with(self, messages):
+        units = os.path.join(self.tmp.name, "units.json")
+        with open(units, "w") as f:
+            f.write("".join(json.dumps(m) + "\n" for m in messages))
+        subprocess.run([PRUNE_SCRIPT, self.profile, units], check=True, capture_output=True)
+
+    def exists(self, rel):
+        return os.path.lexists(os.path.join(self.profile, rel))
+
+    def messages(self):
+        p = self.profile
+        return [
+            {"reason": "compiler-artifact", "package_id": "registry+https://github.com/rust-lang/crates.io-index#serde@1.0.0",
+             "target": {"kind": ["lib"], "name": "serde"}, "filenames": [f"{p}/deps/libserde-{UNIT_DEP}.rlib"], "fresh": True},
+            {"reason": "compiler-artifact", "package_id": "path+file:///repo/crates/ipc#0.0.0",
+             "target": {"kind": ["lib"], "name": "ipc"}, "filenames": [f"{p}/deps/libipc-{UNIT_LIVE}.rlib"], "fresh": True},
+            {"reason": "build-script-executed", "package_id": "path+file:///repo/crates/ipc#0.0.0",
+             "out_dir": f"{p}/build/ipc-{UNIT_LIVE}/out"},
+            {"reason": "compiler-artifact", "package_id": "path+file:///repo/crates/app#0.0.0",
+             "target": {"kind": ["bin"], "name": "app"}, "filenames": [f"{p}/app"], "executable": f"{p}/app", "fresh": False},
+            {"reason": "build-finished", "success": True},
+        ]
+
+    def test_what_the_build_named_stays(self):
+        self.run_with(self.messages())
+        for rel in (f"deps/libipc-{UNIT_LIVE}.rlib", f"deps/ipc-{UNIT_LIVE}.d", f".fingerprint/ipc-{UNIT_LIVE}/lib-ipc",
+                    f"deps/libserde-{UNIT_DEP}.rlib", f"build/ipc-{UNIT_LIVE}/out/protocol_id.rs", "app",
+                    f"deps/app-{UNIT_APP}", f".fingerprint/app-{UNIT_APP}/bin-app",
+                    "incremental/ipc-aaaa/s-new-x-svh", "incremental/app-cccc/s-newer-z-svh",
+                    "incremental/app-cccc/s-newer-z.lock"):
+            self.assertTrue(self.exists(rel), rel)
+
+    def test_what_it_superseded_goes(self):
+        self.run_with(self.messages())
+        for rel in (f"deps/libipc-{UNIT_OLD}.rlib", f"deps/ipc-{UNIT_OLD}.d", f".fingerprint/ipc-{UNIT_OLD}",
+                    f"build/ipc-{UNIT_OLD}", f"deps/app-{UNIT_OLD_APP}", f".fingerprint/app-{UNIT_OLD_APP}",
+                    "incremental/ipc-bbbb", "incremental/app-cccc/s-older-y-svh",
+                    "incremental/app-cccc/s-older-y.lock"):
+            self.assertFalse(self.exists(rel), rel)
+
+    def test_a_build_into_another_folder_drops_nothing(self):
+        other = [dict(m) for m in self.messages()]
+        for m in other:
+            m["filenames"] = [f.replace(self.profile, "/elsewhere/release") for f in m.get("filenames", [])]
+            m.pop("executable", None)
+            m.pop("out_dir", None)
+        self.run_with(other)
+        self.assertTrue(self.exists(f"deps/libipc-{UNIT_LIVE}.rlib"))
+        self.assertTrue(self.exists(f"deps/libipc-{UNIT_OLD}.rlib"))
+
+    def test_input_naming_no_unit_drops_nothing(self):
+        self.run_with([])
+        self.assertTrue(self.exists(f"deps/libipc-{UNIT_OLD}.rlib"))
+        self.assertTrue(self.exists("incremental/ipc-bbbb"))
+
+
 if __name__ == "__main__":
     unittest.main()

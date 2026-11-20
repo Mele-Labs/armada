@@ -1,0 +1,186 @@
+#!/usr/bin/env python3
+#
+# Drop what the build just made superseded, from one cargo profile directory:
+#
+#   cargo build ... --message-format=json-render-diagnostics >units.json
+#   scripts/prune-build <target>/<profile> units.json
+#   scripts/prune-build --dry-run <target>/<profile> units.json   prints what would go
+#
+# **Cargo never deletes an artifact it has stopped using.** Each time a crate's
+# dependencies, features or flags change it gets a new hash, and the files under
+# the old hash stay: on 19 Nov 2026 the preview's native app held six
+# incremental caches for itself, one per week-old hash, 8.4 GB of 17. Rustc also
+# keeps the session before the newest in every incremental cache it writes, and
+# only ever reads the newest. Together that was 16 GB of the preview's 29.
+#
+# **What lives is what cargo said this build used**: every unit's
+# `compiler-artifact` line names its files, fresh ones too, and each name carries
+# the unit's hash. A file in `deps/`, `build/` or `.fingerprint/` whose hash is
+# not among them goes. Incremental caches are named by another hash, so there a
+# crate keeps its newest caches, as many as this build has units of that name
+# (a library and a binary of one crate are two), and each keeps its newest
+# session. A unit wrongly dropped is compiled again, nothing worse: cargo reads a
+# missing fingerprint as stale.
+#
+# Run after a build that succeeded, never during one: it takes the profile
+# directory's `.cargo-lock` first, as cargo does, and does nothing where another
+# build holds it. Input with no units, such as a stub's or a failed build's, or from a
+# build into another folder, drops nothing. Prints what it freed, or nothing.
+
+import fcntl
+import json
+import os
+import re
+import shutil
+import sys
+from collections import Counter, defaultdict
+
+HASH = re.compile(r"-([0-9a-f]{16})(?=[.-]|$)")
+
+
+def unit_hash(name):
+    found = HASH.search(name)
+    return found.group(1) if found else None
+
+
+def live_units(lines):
+    """The unit hashes this build used, how many path units of each crate name, and the units
+    whose files cargo named only by their copy at the top, with no hash."""
+    hashes, local, uplifted = set(), Counter(), []
+    for line in lines:
+        if not line.startswith("{"):
+            continue
+        try:
+            msg = json.loads(line)
+        except ValueError:
+            continue
+        reason = msg.get("reason")
+        paths = []
+        if reason == "compiler-artifact":
+            paths = list(msg.get("filenames") or []) + [msg.get("executable") or ""]
+            if msg.get("package_id", "").startswith("path+file://"):
+                kinds = msg.get("target", {}).get("kind", [])
+                name = "build_script_build" if "custom-build" in kinds else msg["target"]["name"].replace("-", "_")
+                local[name] += 1
+        elif reason == "build-script-executed":
+            paths = [msg.get("out_dir") or ""]
+        named = False
+        for path in paths:
+            for part in path.split(os.sep):
+                found = unit_hash(part)
+                if found:
+                    hashes.add(found)
+                    named = True
+        if reason == "compiler-artifact" and not named:
+            kinds = msg.get("target", {}).get("kind", [])
+            uplifted.append(("bin" if "bin" in kinds else "lib", msg["target"]["name"]))
+    return hashes, local, uplifted
+
+
+def uplifted_hashes(fingerprints, uplifted):
+    """**The hash of a unit cargo named only by its uplifted copy**, such as the app's own binary:
+    the fingerprint folder holding `<kind>-<name>` that was written last. Older ones are what
+    the build superseded."""
+    found = set()
+    entries = os.listdir(fingerprints) if os.path.isdir(fingerprints) else []
+    for kind, name in uplifted:
+        marker = f"{kind}-{name}"
+        held = [e for e in entries if os.path.exists(os.path.join(fingerprints, e, marker))]
+        if held:
+            newest = max(held, key=lambda e: os.path.getmtime(os.path.join(fingerprints, e, marker)))
+            found.add(unit_hash(newest))
+    return found
+
+
+DRY_RUN = False
+
+
+def remove(path):
+    if DRY_RUN:
+        if os.path.lexists(path):
+            print(f"would drop {path}")
+        return
+    if os.path.isdir(path) and not os.path.islink(path):
+        shutil.rmtree(path, ignore_errors=True)
+    else:
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+
+
+def prune_hashed(directory, live):
+    for entry in os.listdir(directory) if os.path.isdir(directory) else []:
+        found = unit_hash(entry)
+        if found and found not in live:
+            remove(os.path.join(directory, entry))
+
+
+def sessions(cache):
+    """A cache's finished sessions, oldest first. One still `-working` is left alone."""
+    names = [n for n in os.listdir(cache) if n.startswith("s-") and not n.endswith(".lock") and not n.endswith("-working")]
+    return sorted(names, key=lambda n: os.path.getmtime(os.path.join(cache, n)))
+
+
+def prune_incremental(directory, local):
+    if not os.path.isdir(directory):
+        return
+    caches = defaultdict(list)
+    for entry in os.listdir(directory):
+        caches[entry.rsplit("-", 1)[0]].append(entry)
+    for name, entries in caches.items():
+        entries.sort(key=lambda e: os.path.getmtime(os.path.join(directory, e)))
+        keep = local.get(name, 0)
+        for entry in entries[: len(entries) - keep]:
+            remove(os.path.join(directory, entry))
+        for entry in entries[len(entries) - keep :] if keep else []:
+            cache = os.path.join(directory, entry)
+            for old in sessions(cache)[:-1]:
+                remove(os.path.join(cache, old))
+                remove(os.path.join(cache, old.rsplit("-", 1)[0] + ".lock"))
+
+
+def free_bytes(path):
+    """Free space on the volume: what a removal gave back, hard links and clones counted right."""
+    st = os.statvfs(path)
+    return st.f_bavail * st.f_frsize
+
+
+def main(argv):
+    global DRY_RUN
+    if len(argv) == 4 and argv[1] == "--dry-run":
+        DRY_RUN = True
+        argv = argv[:1] + argv[2:]
+    if len(argv) != 3:
+        print("usage: prune-build [--dry-run] <target>/<profile> <cargo json messages>", file=sys.stderr)
+        return 2
+    profile, messages = argv[1], argv[2]
+    if not os.path.isdir(profile):
+        return 0
+    with open(messages, encoding="utf-8", errors="replace") as f:
+        text = f.read()
+    # **Messages from a build into another folder name none of this one's files**, and would drop it whole.
+    if os.path.realpath(profile) not in text and os.path.abspath(profile) not in text:
+        return 0
+    live, local, uplifted = live_units(text.splitlines())
+    if not live:
+        return 0
+    live |= uplifted_hashes(os.path.join(profile, ".fingerprint"), uplifted)
+    lock_path = os.path.join(profile, ".cargo-lock")
+    with open(lock_path, "a") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except OSError:
+            return 0
+        before = free_bytes(profile)
+        for directory in ("deps", "build", ".fingerprint"):
+            prune_hashed(os.path.join(profile, directory), live)
+        prune_incremental(os.path.join(profile, "incremental"), local)
+        freed = free_bytes(profile) - before
+    if freed > 1e8:
+        print(f"Dropped {freed / 1e9:.1f} GB of superseded build output from {profile}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv))

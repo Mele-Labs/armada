@@ -235,10 +235,15 @@ outlive the job that asked for it.
 **It builds and opens the native Bridge too.**
 `cargo build --release --manifest-path crates/bridge-native/Cargo.toml` runs when `crates/bridge-native/`, `crates/ipc/`, `crates/core-model/`, `packages/tokens/` or the root `Cargo.toml` moved since the last build, or the last build was for another protocol.
 The root `Cargo.toml` is watched because `ipc` and `core-model` take their lints and edition from it.
-That one command runs with `CARGO_PROFILE_RELEASE_INCREMENTAL=true`, so a native change rebuilds in seconds.
+That one command runs with `CARGO_PROFILE_RELEASE_INCREMENTAL=true`: a one-line native change rebuilt in 2m20s with it and 6m51s without, on 20 Nov 2026 with the Mac at a load of 50.
 The app CI ships is built with plain `--release`, and `crates/bridge-native/Cargo.toml` has no profile for it.
 The stamp sits beside the binary, as `.armada-restart-stamp` in the build's `target/release/`, and holds the protocol the build was made for.
 A build that fails stops the restart before Fleet is stopped.
+
+**Each of the two cargo builds drops what it superseded**, through `scripts/prune-build`.
+Cargo keeps every old hash's output and rustc an older session in every incremental cache, so on 19 Nov 2026 the preview's two build folders held 29 GB, 16 of it never read again.
+Cargo's JSON names every unit the build used, fresh ones too; files under any other hash go, and each crate keeps its newest cache and that cache's newest session.
+A unit dropped by mistake is compiled again, nothing worse.
 It is kept as `Armada.app` in the kept build, and has a launchd job of its own, `com.armada.fleet.native`, beside Bridge's.
 The job runs `builds/current/bridge-launch` on the app's binary, so launchd reopens it when it stops without a quit.
 The app writes `Armada/bridge-native-quit` when it quits after its window opened (`crates/bridge-native/src/main.rs`), and `bridge-launch` reads that as a quit the person meant.
