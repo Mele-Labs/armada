@@ -550,8 +550,10 @@ fn a_findings_comment_is_one_or_two_plain_sentences_and_no_longer() {
         other => panic!("two sentences are a comment: {other:?}"),
     }
     assert!(read("findings", &with("Version 1.2 of `a.b` drops this... Bump it"), &dir, None).is_ok(), "a dot inside a word ends nothing");
-    let three = read("findings", &with("It wraps. It is wrong. Fix it."), &dir, None).unwrap_err();
-    assert!(three.contains("3 sentences"), "{three}");
+    match read("findings", &with("It wraps. It is wrong. Fix it."), &dir, None) {
+        Ok(ReviewResult::Findings { findings }) => assert_eq!(findings[0].comment, "It wraps. It is wrong.", "a third sentence is cut, not refused"),
+        other => panic!("three sentences are kept cut to two: {other:?}"),
+    }
     let blank = read("findings", &r#"{"findings":[{"title":"t","body":"b","severity":"low","at":{"path":"a.rs","side":"right","start":1,"end":1}}]}"#, &dir, None).unwrap_err();
     assert!(blank.contains("comment"), "{blank}");
 }
