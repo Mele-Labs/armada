@@ -148,6 +148,12 @@ impl WebPage {
                 }
             }
         });
+        cx.on_release(|page: &mut WebPage, cx| {
+            if let Some(picture) = page.picture.take() {
+                super::render::let_go(picture, cx);
+            }
+        })
+        .detach();
         WebPage {
             native: None,
             waiting: Some((manifest.map(str::to_string), source, events, kit)),
@@ -339,7 +345,9 @@ impl WebPage {
         self.pins += 1;
         // A picture of what the page showed before is not the page now: the live view stays until a fresh one is in.
         if self.pins == 1 && !self.held {
-            self.picture = None;
+            if let Some(old) = self.picture.take() {
+                super::render::let_go(old, cx);
+            }
         }
         cx.notify();
     }
@@ -477,7 +485,9 @@ impl WebPage {
                     page.take_picture(cx);
                 }
                 if let Some(picture) = picture {
-                    page.picture = Some(picture);
+                    if let Some(old) = page.picture.replace(picture) {
+                        super::render::let_go(old, cx);
+                    }
                     cx.emit(WebPageEvent::Pictured);
                     cx.notify();
                 }
