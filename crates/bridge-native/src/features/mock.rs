@@ -150,6 +150,28 @@ pub fn library() -> FeatureLibrary {
     }
 }
 
+/// The library with the Jobs on its features named: `(feature slug, Job id)`, for a walk or a test whose Jobs list holds those Jobs, so
+/// a chip on a feature joins the Job's record. No feature has a Job but those named.
+pub fn library_on(on: &[(&str, &str)]) -> FeatureLibrary {
+    let mut library = library();
+    for row in library.areas.iter_mut().flat_map(|area| area.features.iter_mut()) {
+        row.jobs_now = on.iter().filter(|(slug, _)| *slug == row.slug).map(|(_, id)| FeatureJob { session_id: SessionId::carried(*id), title: String::new() }).collect();
+    }
+    library
+}
+
+/// The Cockpit's floor on the walk's Jobs: two Working, two Needs you, one Ready to try and one Waiting on ci, on six features.
+pub fn floor_library() -> FeatureLibrary {
+    library_on(&[
+        ("start-a-job", "mock-02"),
+        ("job-list-and-live-status", "mock-03"),
+        ("job-list-and-live-status", "mock-01"),
+        ("terminal-jobs", "mock-14"),
+        ("reviews", "mock-04"),
+        ("pull-request-panel", "mock-07"),
+    ])
+}
+
 /// The library with `more` features added to the first area, for the areas past eight: the mock's own has four there.
 pub fn library_with(more: usize) -> FeatureLibrary {
     let mut library = library();

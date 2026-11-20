@@ -60,6 +60,8 @@ pub struct OperatorScreen {
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
     features: Option<Entity<crate::features::FeaturesScreen>>,
+    /// The Cockpit's floor plan, in the page's place while the Operator is off.
+    floor: Option<Entity<crate::features::floor_home::Floor>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
@@ -175,6 +177,11 @@ impl OperatorScreen {
 
     /// On the walk's Fleet as the live window is: the Cockpit in front, with Reviews, Kit and Features in the strip.
     pub fn mock_cockpit(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        Self::mock_cockpit_holding(jobs, crate::features::mock::floor_library(), window, cx)
+    }
+
+    /// As [`Self::mock_cockpit`], with the feature library the Cockpit's floor draws given.
+    pub fn mock_cockpit_holding(jobs: Entity<JobsScreen>, library: ipc::FeatureLibrary, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let usage = cx.new(crate::usage_page::UsageScreen::mock);
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| {
@@ -183,7 +190,7 @@ impl OperatorScreen {
             reviews
         });
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::mock(window, cx));
+        let features = cx.new(|cx| crate::features::FeaturesScreen::mock_holding(library, window, cx));
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
@@ -310,7 +317,12 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let floor = features.clone().filter(|_| cockpit).map(|features| {
+            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), features, list.clone(), cx));
+            jobs.update(cx, |jobs, cx| jobs.set_floor(floor.clone(), cx));
+            floor
+        });
+        let mut this = OperatorScreen { jobs, page, front, cockpit, within: cx.focus_handle(), reviews, kit, features, floor, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if matches!(front, Front::Operator | Front::Cockpit) {
@@ -417,6 +429,10 @@ impl OperatorScreen {
                 let keys = if self.jobs.read(cx).list.read(cx).at_home() { self.page.read(cx).focus.clone() } else { self.jobs.read(cx).list.read(cx).focus_handle().clone() };
                 window.focus(&keys, cx);
                 self.page.update(cx, |page, cx| page.in_front(cx));
+                // Features may have been in front and left: the floor reads the library again where it stands in the page's place.
+                if let Some(floor) = &self.floor {
+                    floor.update(cx, |floor, cx| floor.follow(cx));
+                }
             }
             Front::Jobs => {
                 let keys = self.jobs.read(cx).list.read(cx).focus_handle().clone();

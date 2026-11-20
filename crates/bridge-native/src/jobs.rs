@@ -95,7 +95,7 @@ const SHOWS: [(Scope, &str, &str); 6] = [
 /// How the list is grouped, chosen in the view menu's Group part and kept between runs.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum Group {
-    /// Headed by the state a Job stands in: Needs you, Working, Waiting on ci, Ready to try.
+    /// Headed by the state a Job stands in: Needs you, Ready to try, Working, Waiting on ci.
     #[default]
     State,
     /// Headed by the project, as the list was before the view button.
@@ -390,14 +390,15 @@ fn standing_of(job: &SessionRecord) -> (u8, u8) {
     (group, loud)
 }
 
-/// Where a Job stands, as By state heads it. The first four are the approved page's groups, in its order; a Job that fits
-/// none of them goes to the group after, and ideas saved for later stand last.
+/// Where a Job stands, as By state heads it. The first four are the groups he reads first, in his order: Needs you, Ready to
+/// try right under it, then Working and Waiting on ci; a Job that fits none of them goes to the group after, and ideas saved
+/// for later stand last. The order is the derive's, so a variant moves a group by where it is written.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 enum Stand {
     Needs,
+    Ready,
     Working,
     Ci,
-    Ready,
     /// Held for a slot, a limit or another Job, or stopped: nothing runs and nothing asks him.
     Held,
     /// Alive and quiet: its turn ended with nothing for him.
@@ -463,6 +464,17 @@ fn stand_in(job: &SessionRecord) -> Stand {
         JobGroup::Held => Stand::Held,
         JobGroup::Done => Stand::Idle,
     }
+}
+
+/// Where a Job stands as By state words it, and the hue its group wears: what a chip for the Job elsewhere is drawn in.
+pub(crate) fn stand_of(job: &SessionRecord) -> (&'static str, crate::look::Token) {
+    let stand = stand_in(job);
+    (stand.words(), stand.hue())
+}
+
+/// The groups By state leads with, in their order, each with its hue: the key to the colours a Job's chip wears elsewhere.
+pub(crate) fn legend() -> [(&'static str, crate::look::Token); 4] {
+    [Stand::Needs, Stand::Ready, Stand::Working, Stand::Ci].map(|stand| (stand.words(), stand.hue()))
 }
 
 /// A group's heading: its words, how many Jobs stand under it, and, by state, which state.
@@ -3565,6 +3577,8 @@ pub struct JobsScreen {
     drawn: Rc<std::cell::Cell<u64>>,
     /// The Cockpit's home: the Operator's page, drawn on the right while no Job is open.
     home: Option<Entity<crate::operator::page::OperatorPageView>>,
+    /// The floor plan that stands in the page's place while the Operator is off, and the redraw it asks for when that changes.
+    floor: Option<(Entity<crate::features::floor_home::Floor>, Subscription)>,
     _drawn_with: Subscription,
 }
 
@@ -3703,7 +3717,7 @@ impl JobsScreen {
             view,
             left,
             handle: cx.focus_handle(),
-            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, _drawn_with: drawn_with }
+            within: cx.focus_handle(), remember, palette, kept: Rc::default(), drawn, home: None, floor: None, _drawn_with: drawn_with }
     }
 
     pub fn within(&self) -> &FocusHandle {
@@ -3724,6 +3738,13 @@ impl JobsScreen {
     pub(crate) fn set_home(&mut self, page: Entity<crate::operator::page::OperatorPageView>, cx: &mut Context<Self>) {
         self.home = Some(page);
         self.list.update(cx, |list, _| list.set_cockpit(true));
+        cx.notify();
+    }
+
+    /// The floor plan stands where the page does while the Operator is off.
+    pub(crate) fn set_floor(&mut self, floor: Entity<crate::features::floor_home::Floor>, cx: &mut Context<Self>) {
+        let sub = cx.subscribe(&floor, |_, _, _: &crate::features::floor_home::Moved, cx| cx.notify());
+        self.floor = Some((floor, sub));
         cx.notify();
     }
 
@@ -3771,7 +3792,10 @@ impl JobsScreen {
             .flex()
             .flex_col()
             .children(hosts.then(|| div().absolute().size_full().invisible().child(self.view.clone())))
-            .child(div().flex_1().min_h_0().child(page))
+            .child(match self.floor.as_ref().filter(|(floor, _)| floor.read(cx).is_up(cx)) {
+                Some((floor, _)) => div().flex_1().min_h_0().child(floor.clone()),
+                None => div().flex_1().min_h_0().child(page),
+            })
             .into_any_element()
     }
 
@@ -5118,16 +5142,16 @@ mod tests {
     }
 
     #[test]
-    fn by_state_heads_the_four_states_in_the_approved_order_with_their_counts_and_the_rest_after() {
+    fn by_state_heads_needs_you_then_ready_to_try_then_working_then_ci_with_their_counts_and_the_rest_after() {
         let lines = grouped(&standing_jobs(), Group::State, &[]);
-        assert_eq!(headings(&lines), ["Needs you", "Working", "Waiting on ci", "Ready to try", "Held", "Idle"]);
+        assert_eq!(headings(&lines), ["Needs you", "Ready to try", "Working", "Waiting on ci", "Held", "Idle"]);
         assert_eq!(
             layout(&lines),
             [
                 "Needs you (3)", "mock-07", "mock-01", "mock-10",
+                "Ready to try (1)", "mock-14",
                 "Working (4)", "mock-02", "mock-03", "mock-09", "mock-13",
                 "Waiting on ci (1)", "mock-04",
-                "Ready to try (1)", "mock-14",
                 "Held (2)", "mock-06", "mock-11",
                 "Idle (1)", "mock-08",
             ]

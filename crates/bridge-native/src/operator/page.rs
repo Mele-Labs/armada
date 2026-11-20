@@ -1298,6 +1298,21 @@ impl OperatorPageView {
 
     // -- the Operator's own session ----------------------------------------------------------------
 
+    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place.
+    pub fn is_off(&self) -> bool {
+        self.page.as_ref().is_some_and(|page| !page.on)
+    }
+
+    /// A switch is in flight, and which way it goes.
+    pub fn switching(&self) -> Option<bool> {
+        self.switching.then_some(!self.switching_off)
+    }
+
+    /// Why Fleet refused the last Switch on, where it did.
+    pub fn switch_refused(&self) -> Option<&str> {
+        self.switch_refused.as_deref()
+    }
+
     /// The Operator's session, where Fleet holds one.
     pub fn session_id(&self) -> Option<SessionId> {
         self.session.as_ref().map(|session| session.id.clone())
