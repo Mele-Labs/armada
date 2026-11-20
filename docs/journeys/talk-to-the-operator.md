@@ -10,7 +10,7 @@
 
 ## Flow
 
-A card is in front → you press an option, or press Discuss and talk → the card settles or the Operator puts up a new one → the next card in Waiting comes forward.
+A card is in front → you press an option, or press Discuss and talk → the card settles or the Operator puts up a new one → the next card in Next up comes forward.
 
 | You do | What you see |
 |---|---|
@@ -19,13 +19,14 @@ A card is in front → you press an option, or press Discuss and talk → the ca
 | Press Discuss (`/`) | The composer under the card takes focus, with a tag naming the card. The card stays in sight |
 | Send in the composer | The card folds to one line and the talk runs below it |
 | Keep talking | The Operator answers in the talk, may revise the card, and ends by settling it or putting up a new card |
-| Press Discuss later (`L`) | The card goes back until its time and is hidden until then |
-| Press Waiting in the head | The list of the cards queued behind opens. Pressing one brings it to the front |
+| Press Snooze (`S`) | The card goes back until its time and is hidden until then |
+| Open Next up on the right | The cards queued behind, then the ideas the Operator kept. Pressing one brings it to the front |
 | Read the feed on the right | What happened since you last looked: what the Operator dispatched, merges, Jobs ended, and what Jobs asked or told it |
 
-**A thought for work already running goes in the composer too.**
-Say it where you talk to the Operator, and it sends the words to the Job they belong to.
-Work you ask for is started as a Job, or the Operator does it.
+**A question or a thought goes in the composer too.**
+With no tag and no kind chip picked, a send is a talk to the Operator about no card, and it answers in the talk.
+A thought for work already running goes to the Job it belongs to.
+Pick Idea, Feature or Bug to make the send work: it is started as a Job, or the Operator does it.
 
 **With no session running, nothing hears you.**
 The composer and a press on a card are refused with `fleet.operator_session_not_running`, and the card stands. A dispatch starts as you asked.

@@ -133,6 +133,27 @@ async fn a_hosted_session_with_no_manifest_is_offered_its_terminals() {
     assert!(!listed.contains(&named("rename_terminal")), "{listed}");
 }
 
+/// **The Operator reads a repository's issues and writes none**, for the backlog report it writes
+/// on a page. A session that is not the Operator's is offered none of them.
+#[tokio::test]
+async fn the_operator_is_offered_the_issue_reads_and_another_session_is_not() {
+    let (daemon, app) = hosting_a_session();
+    let another = posted(&app, SESSION, LISTING).await;
+    *daemon.session_is_the_operator.lock().expect("not poisoned") = true;
+
+    let operator = posted(&app, SESSION, LISTING).await;
+
+    for tool in ["list_issues", "get_issue", "search_issues"] {
+        assert!(operator.contains(&named(tool)), "`{tool}` is offered to the Operator: {operator}");
+        assert!(!another.contains(&named(tool)), "`{tool}` is the Operator's alone: {another}");
+    }
+    for tool in ["claim_issue", "link_task_issue", "save_issue_query"] {
+        assert!(!operator.contains(&named(tool)), "`{tool}` writes, and is not offered: {operator}");
+    }
+    let listed = posted(&app, SESSION, &calling("list_issues", r#"{"repository":"armada"}"#)).await;
+    assert!(!listed.contains("\"isError\":true"), "{listed}");
+}
+
 /// What `--permission-prompt-tool` sends, answered by the daemon rather than
 /// refused as a tool that is not there.
 #[tokio::test]

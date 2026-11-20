@@ -3,8 +3,9 @@
 //! **Its own trait, beside a read-only [`Tracker`](crate::Tracker), and answered only by
 //! [`Trackers::writer`](crate::Trackers::writer).** A caller holding the reader cannot write, which
 //! is what `the_tracker_trait_has_no_write_method` holds. The 17 Oct rule that Fleet writes nothing
-//! on the owner's behalf stands for anything unasked: the one door here is a rule he saved, done at
-//! once where he set it to act and on his press where he set it to ask.
+//! on the owner's behalf stands for anything unasked: the doors here are a rule he saved, done at
+//! once where he set it to act and on his press where he set it to ask, and his press of a page's
+//! `close` button.
 //!
 //! **What a tracker can do is asked before anything is planned**, with [`TrackerWrites::can`], which
 //! runs nothing: an act the tracker cannot make is never put in front of the owner to press.

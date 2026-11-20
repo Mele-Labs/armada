@@ -15,7 +15,7 @@ use ipc::operator_page::{
     OperatorUrgency,
 };
 use ipc::operator_talk::OperatorOrderForm;
-use ipc::{Instant, MainCiState, OperatorRead, SessionId, SlotHolding};
+use ipc::{Instant, MainCiState, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, OperatorRead, SessionId, SlotHolding};
 use store::KeptTurn;
 
 use super::feed::merged_since;
@@ -58,16 +58,23 @@ where
             Some(at) => at,
             None => crate::clock::rfc3339_utc(crate::clock::local_day_began(now.epoch_millis().unwrap_or(0) - DAY).await),
         };
-        let (turn, digest, kept, feed) = {
+        let (turn, working, digest, kept, feed) = {
             let store = self.store().lock().await;
             let kept = store.operator_page().map_err(|why| self.ledger_fault(why))?;
             let rows = if on { store.operator_turn_open().map_err(|why| self.ledger_fault(why))? } else { Vec::new() };
+            // A card he picked is worked on, off the front, until it is settled or comes back first in Your turn.
+            let (mut picked, mut rows): (Vec<KeptTurn>, Vec<KeptTurn>) = rows.into_iter().partition(|row| row.picked_at.is_some() && row.returned_at.is_none());
+            rows.sort_by_key(|row| row.returned_at.is_none());
+            picked.sort_by(|a, b| b.picked_at.cmp(&a.picked_at).then(b.n.cmp(&a.n)));
             let resting = self.resting_jobs(&store);
             // A card put Later stays off the page until its time, and a resting Job's items stay off while it rests.
             let turn: Vec<OperatorTurnItem> =
                 rows.iter().filter(|row| !resting.contains(&row.session)).filter_map(|row| self.turn_item(&store, row, now.as_str())).collect();
+            // A card being worked on is never left out, so it is read with no Later.
+            let working: Vec<OperatorTurnItem> =
+                picked.into_iter().filter_map(|row| self.turn_item(&store, &KeptTurn { later_until: None, ..row }, now.as_str())).collect();
             let feed = if on { super::feed::feed_read(&store, &since) } else { Vec::new() };
-            (grouped(turn), self.digest_read(&store, &since), kept, feed)
+            (grouped(turn), working, self.digest_read(&store, &since), kept, feed)
         };
         let acts = self.operator_acts_listed().await.map(|list| list.projects).unwrap_or_default();
         let session_id = if on { self.operator_session_id().await.map(|id| SessionId::carried(&id)) } else { None };
@@ -79,6 +86,7 @@ where
             looked_at: kept.looked_at.as_deref().map(Instant::carried),
             on_it: None,
             turn,
+            working,
             digest,
             mains: self.mains_read().await,
             slots: self.slots_read().await,
@@ -160,7 +168,7 @@ where
             follows: None,
             conflict: ask.as_ref().and_then(crate::session_host::job_asks::card_conflict),
             held: ask.as_ref().and_then(crate::session_host::job_asks::card_held),
-            card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()),
+            card: row.card.as_deref().and_then(|text| ipc::decode::<ipc::OperatorCard>("a card", text.as_bytes()).ok()).map(|card| card_picked(card, row)),
         };
         Some(shown)
     }
@@ -205,6 +213,14 @@ where
         let path = self.journal_dir().join(&name);
         path.is_file().then(|| OperatorLogFile { week: name.trim_end_matches(".md").to_string(), path: path.to_string_lossy().to_string() })
     }
+}
+
+/// `card` with what its row keeps of his press: the pick, the Operator's steps and why it came back.
+fn card_picked(card: ipc::OperatorCard, row: &KeptTurn) -> ipc::OperatorCard {
+    let picked = row.picked.clone().zip(row.picked_at.as_deref()).map(|(option, at)| OperatorCardPicked { option, at: Instant::carried(at) });
+    let steps = row.steps.as_deref().and_then(|text| ipc::decode::<Vec<OperatorCardStep>>("a card's steps", text.as_bytes()).ok()).unwrap_or_default();
+    let returned = row.returned_why.clone().zip(row.returned_at.as_deref()).map(|(why, at)| OperatorCardReturned { why, at: Instant::carried(at) });
+    ipc::OperatorCard { picked, steps, returned, ..card }
 }
 
 /// Your turn with each Job's asks together. **Where a Job has two or more waiting they share its id as

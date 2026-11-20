@@ -104,7 +104,7 @@ pub(crate) fn sketches_in(html: &str) -> Vec<PageSketch> {
 }
 
 /// One `<armada-action>` of a page, in the order the page holds them, its attributes trimmed and nothing checked.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub(crate) struct PageAction {
     pub id: String,
     pub act: String,
@@ -114,6 +114,8 @@ pub(crate) struct PageAction {
     pub repository: String,
     pub ask: String,
     pub option: String,
+    /// `close`: the issues it closes, as the tracker writes them, in the order the page lists them.
+    pub issues: Vec<String>,
     /// The text of the `<tr>`, else the `<li>`, it sits in, cut to [`MOST_ROW_CHARS`] characters. Empty where it
     /// sits in neither.
     pub row: String,
@@ -139,6 +141,7 @@ pub(crate) fn actions_in(html: &str) -> Vec<PageAction> {
             repository: said("repository"),
             ask: said("ask"),
             option: said("option"),
+            issues: said("issues").split(|one: char| one.is_whitespace() || one == ',').filter(|one| !one.is_empty()).map(str::to_string).collect(),
             row: row.chars().take(MOST_ROW_CHARS).collect(),
         });
         from = end;

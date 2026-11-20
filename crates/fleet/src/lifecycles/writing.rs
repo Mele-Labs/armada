@@ -1,11 +1,12 @@
 //! The writes a saved rule makes to a tracker and a forge: whether this Job's repository can make
 //! each, and making it.
 //!
-//! **The one door.** A rule the owner saved counts as his say, so its planned act is the only thing
-//! that may write to his tracker or forge on his behalf, and it does so at once under Acts and on his
-//! Do it under Asks. Nothing else in Fleet reaches `Trackers::writer` or `request_reviewers`, which
-//! `only_a_rules_act_reaches_the_trackers_writes` holds by name. Doing it is [`super::acting`]'s;
-//! asking is `session_host::rule_asks`'s.
+//! **Two doors.** A rule the owner saved counts as his say, so its planned act may write to his tracker
+//! or forge on his behalf, at once under Acts and on his Do it under Asks. His own press of a page's
+//! `close` button closes the issues it lists. Nothing else in Fleet reaches `Trackers::writer` or
+//! `request_reviewers`, which `only_a_rule_or_his_press_reaches_the_trackers_writes` holds by name.
+//! Doing a rule's act is [`super::acting`]'s; asking is `session_host::rule_asks`'s; the press is
+//! `session_host::page_actions`'.
 //!
 //! **Asked before it is planned.** [`Writes::carries`] is pure, so an act the repository's tracker or
 //! forge cannot make is kept as not carried, with the reason in a sentence, and raises nothing: the
@@ -114,11 +115,21 @@ pub(crate) fn tracker_write(write: &TrackerWrite, on: Option<(&str, &str)>, life
                 .map(Resolved::Move)
                 .ok_or_else(|| format!("The ticket lifecycle names no tracker word for {}", state.label().as_str()))
         }
-        // The word for closed, where the lifecycle gives one: the first of an end state that lists any.
-        TrackerWrite::Close => Ok(Resolved::Close(tickets.and_then(|lifecycle| {
-            lifecycle.ends().iter().filter_map(|end| lifecycle.state(end)).find_map(first_word)
-        }))),
+        TrackerWrite::Close => Ok(Resolved::Close(closed_word(lifecycles))),
     }
+}
+
+/// The word for closed, where the ticket lifecycle gives one: the first of an end state that lists any.
+fn closed_word(lifecycles: &[Lifecycle]) -> Option<String> {
+    let tickets = lifecycles.iter().find(|one| one.id().as_str() == TICKET)?;
+    tickets.ends().iter().filter_map(|end| tickets.state(end)).find_map(first_word)
+}
+
+/// What his press of a page's `close` button did: each issue closed, and each the tracker refused with its sentence.
+#[derive(Debug, Default)]
+pub(crate) struct IssuesClosed {
+    pub closed: Vec<String>,
+    pub failed: Vec<(String, String)>,
 }
 
 /// The number of the pull request `on` names. **Only a plain number**: a key that names another
@@ -199,6 +210,37 @@ where
     pub(crate) fn writes_for_job(&self, store: &Store, session: &str) -> Writes {
         let manifest = store.session(session).ok().flatten().and_then(|one| one.manifest_id);
         self.writes_in(manifest.as_deref(), crate::job_tracking::job_project(store, session).as_deref())
+    }
+
+    /// Whether the tracker of a Job in the repository `manifest` and `project` closes an issue, and why not.
+    /// Runs nothing, so a page's close button is named as one that will not run when the page is kept.
+    pub(crate) fn closes_in(&self, manifest: &str, project: Option<&str>) -> Result<(), String> {
+        let served = self.repositories().serving(manifest).ok_or_else(|| String::from("it names no repository this Fleet serves"))?;
+        let status = closed_word(&self.lifecycles_that_apply(manifest));
+        self.trackers().writer(&self.choice_in(&served, project)).can(&IssueWrite::Close { status: status.as_deref() })
+    }
+
+    /// Close each of `issues` in the tracker of the repository `manifest` and `project`, **only on his press** of a
+    /// page's `close` button, with the word for closed a saved rule's close writes. `Err` where it closes none.
+    pub(crate) async fn issues_closed_on_his_press(&self, manifest: &str, project: Option<&str>, issues: &[String]) -> Result<IssuesClosed, String> {
+        let served = self.repositories().serving(manifest).ok_or_else(|| String::from("it names no repository this Fleet serves"))?;
+        let status = closed_word(&self.lifecycles_that_apply(manifest));
+        let (root, tracker) = (served.root().to_string(), self.trackers().writer(&self.choice_in(&served, project)));
+        tracker.can(&IssueWrite::Close { status: status.as_deref() })?;
+        let issues = issues.to_vec();
+        tokio::task::spawn_blocking(move || {
+            let close = IssueWrite::Close { status: status.as_deref() };
+            let mut done = IssuesClosed::default();
+            for reference in issues {
+                match tracker.write(&root, &reference, &close) {
+                    Ok(()) => done.closed.push(reference),
+                    Err(not) => done.failed.push((reference, not.said)),
+                }
+            }
+            done
+        })
+        .await
+        .map_err(|why| why.to_string())
     }
 
     /// Whether the repository the Job of `row` is in still carries `act`, and why not. Asked before

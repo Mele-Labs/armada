@@ -772,6 +772,11 @@ const ROUTES: &[Route] = &[
         path: "/operator/cards/settle",
     },
     Route {
+        operation: "report_card",
+        method: "POST",
+        path: "/operator/cards/report",
+    },
+    Route {
         operation: "list_operator_acts",
         method: "GET",
         path: "/operator/acts",
