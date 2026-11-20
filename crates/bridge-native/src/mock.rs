@@ -113,6 +113,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
         // Three Jobs asking: a plan and a sketch, a sketch and a document, and a draft.
         "review-grouped" => include_bytes!("../fixtures/review-grouped.json"),
+        // Build the Features screen asking four things of four kinds, and Write the feature pages a draft and a question.
+        "review-asks" => include_bytes!("../fixtures/review-asks.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
@@ -376,6 +378,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    if scenario == "review-asks" {
+        review_asks_ages(&mut sessions);
+    }
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
@@ -391,6 +396,19 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// How long each ask of `review-asks` has waited, in minutes before the run, so its row reads as it was written.
+const REVIEW_ASK_AGES: [(&str, i64); 6] = [("agent-place", 4), ("plan:1", 12), ("agent-stale", 30), ("try:mock-01", 60), ("draft:dra-401", 18), ("agent-tests", 41)];
+
+fn review_asks_ages(sessions: &mut [SessionRecord]) {
+    for one in sessions.iter_mut() {
+        for item in &mut one.waiting_for {
+            if let Some((_, minutes)) = REVIEW_ASK_AGES.iter().find(|(id, _)| *id == item.id) {
+                item.since = crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(*minutes));
+            }
+        }
+    }
 }
 
 /// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
@@ -617,6 +635,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
         "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
+        "review-asks" => include_bytes!("../fixtures/review-asks-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
@@ -730,6 +749,16 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     // alone and with no picture. Another holds the ones settled, one line each, beside one put off.
     if scenario == "ready-to-try" {
         ready_cards(&mut all)?;
+    }
+    // The build to try was offered as long ago as its ask has waited.
+    if scenario == "review-asks" {
+        if let Some(thread) = all.get_mut("mock-01") {
+            for item in &mut thread.items {
+                if let ipc::ThreadItem::ReadyToTry(card) = item {
+                    card.offered_at = crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(60));
+                }
+            }
+        }
     }
     if scenario == "thread-jump" {
         if let Some(thread) = all.get_mut("tool-edit") {

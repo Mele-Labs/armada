@@ -19,6 +19,8 @@ use ipc::{AnswerPart, ArtifactPart, ArtifactState, DismissWaiting, JobArtifact, 
 use super::acts::{refusal, Answer, Mode};
 use super::artifacts_tab::{Picture, PictureKey};
 use super::band_card::{band, foot_box, frame, ghost, most, revision_said, shapes, well, Act, Do, Foot, Head, Stand};
+use super::reader_sheet::artifact_in;
+use super::review::{Ask, Item};
 use super::rows::{glyph, tip, Size};
 use super::sketch_card::{act, mixed, Kind};
 use super::{Extra, JobView, Page};
@@ -1738,6 +1740,193 @@ impl JobView {
             format!("Open page {path}"),
         )
         .into_any_element()
+    }
+}
+
+// ---- the review sheet's ask ------------------------------------------------------------------------------------
+
+impl JobView {
+    /// The vote the review sheet answers for an artifact ask: its first takes part still asking for a pick, by key. None for an
+    /// ask that is no artifact, or one of a Job other than the shown one, whose parts state the sheet cannot reach.
+    pub(super) fn sheet_vote(&self, item: &Item) -> Option<String> {
+        let artifact = artifact_in(item)?;
+        if self.shown.as_deref() != Some(item.job.as_str()) {
+            return None;
+        }
+        let page = self.pages.get(item.job.as_str())?;
+        let held = self.artifact_of(&item.job, artifact)?;
+        held.parts.iter().find(|part| is_pick(&effective(part, &part_key(artifact, &part.id), &page.cards.parts))).map(|part| part_key(artifact, &part.id))
+    }
+
+    /// What an artifact ask reads as on the sheet: a vote where any part is takes, else a drawing, a page or words.
+    pub(super) fn artifact_ask(&self, item: &Item) -> Ask {
+        let Some(held) = artifact_in(item).and_then(|artifact| self.artifact_of(&item.job, artifact)) else { return Ask::Draft };
+        let any = |is: fn(&PartContent) -> bool| held.parts.iter().any(|part| is(&part.content));
+        if any(|content| matches!(content, PartContent::Takes { .. })) {
+            Ask::Takes
+        } else if any(|content| matches!(content, PartContent::Drawing { .. })) {
+            Ask::Drawing
+        } else if any(|content| matches!(content, PartContent::Page { .. })) {
+            Ask::Page
+        } else {
+            Ask::Draft
+        }
+    }
+
+    /// The sheet's answer to an artifact ask: every part still asking approved, and each vote sent with the take chosen; or, with
+    /// `words`, every part still asking sent back with them. False where nothing was sent: a vote with no take chosen holds the
+    /// whole answer back.
+    pub(super) fn sheet_answer_parts(&mut self, item: &Item, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(artifact) = artifact_in(item).map(str::to_string) else { return false };
+        if self.shown.as_deref() != Some(item.job.as_str()) {
+            return false;
+        }
+        let (Some(held), Some(page)) = (self.artifact_of(&item.job, &artifact), self.pages.get(item.job.as_str())) else { return false };
+        let asking: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(&artifact, &part.id), &page.cards.parts)).filter(ArtifactPart::is_open_ask).collect();
+        if asking.is_empty() {
+            return false;
+        }
+        match words {
+            Some(words) => {
+                for part in &asking {
+                    self.answer_part(&artifact, part, PartHow::SentBack, None, Some(words.clone()), window, cx);
+                }
+            }
+            None => {
+                let unchosen = asking.iter().any(|part| is_pick(part) && self.takes_of_key(&part_key(&artifact, &part.id)).is_none_or(|(_, _, chosen)| chosen.is_none()));
+                if unchosen {
+                    return false;
+                }
+                for part in &asking {
+                    if is_pick(part) {
+                        self.send_pick(&part_key(&artifact, &part.id), window, cx);
+                    } else if is_words_like(part) {
+                        self.answer_part(&artifact, part, PartHow::Approved, None, None, window, cx);
+                    }
+                }
+            }
+        }
+        true
+    }
+
+    /// The takes of an artifact ask for the review sheet: cards side by side, the Job's pick first, each its picture over a radio
+    /// and its title. A press anywhere on a card chooses it; the bar's answer sends it. Fleet's sentence stands under them where
+    /// it refused the last answer.
+    pub(super) fn sheet_takes(&self, item: &Item, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let artifact = artifact_in(item)?;
+        let job = self.shown.clone().filter(|job| job.as_ref() == item.job)?;
+        let page = self.pages.get(&job)?;
+        let held = self.artifact_of(&job, artifact)?;
+        let part = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).find(is_takes)?;
+        let PartContent::Takes { takes, form, .. } = &part.content else { return None };
+        let key = part_key(artifact, &part.id);
+        let c = Ctx { ix: super::acts::SHEET, id: artifact, job: job.clone(), page, look, tab: false, sheet: true, words: None, takes: Some(part.id.clone()), several: false };
+        let open = part.is_open_ask() && *form == VoteForm::Pick;
+        let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
+        let chosen = if open { c.state().chosen.get(&key).copied().filter(|at| *at < takes.len()) } else { picked };
+        // The Job's pick stands first; the rest keep the order the Job gave them.
+        let mut order: Vec<usize> = (0..takes.len()).collect();
+        order.sort_by_key(|at| !pick_mark(&takes[*at].title).1);
+        let across = takes.len().clamp(1, ACROSS);
+        let gap = look.length(token::SPACE_4);
+        let wide = (self.part_room(&c) - gap * (across as f32 - 1.)) / across as f32;
+        let rows: Vec<AnyElement> = order
+            .chunks(across)
+            .map(|chunk| {
+                let cards: Vec<AnyElement> = chunk.iter().map(|at| self.sheet_take(&c, &key, *at, &takes[*at], chosen == Some(*at), open, wide, cx)).collect();
+                let fill = (0..across - chunk.len()).map(|_| div().flex_1().min_w_0().into_any_element());
+                div().flex().items_start().gap(gap).children(cards).children(fill).into_any_element()
+            })
+            .collect();
+        let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
+        Some(labelled(div().id(SharedString::from(format!("sheet-takes:{key}"))).w_full().flex().flex_col().gap(gap).children(rows).children(said), Role::RadioGroup, item.name.clone()).into_any_element())
+    }
+
+    /// One take on the sheet: its picture in a well, then its radio, its title wrapped whole and, on the Job's pick, a chip.
+    #[allow(clippy::too_many_arguments)]
+    fn sheet_take(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, on: bool, open: bool, wide: gpui::Pixels, cx: &Context<Self>) -> AnyElement {
+        let look = c.look;
+        let (title, marked) = pick_mark(&take.title);
+        let name = if on { format!("Chosen: {title}") } else { format!("Pick {title}") };
+        let radio = div()
+            .flex_none()
+            .mt(px(2.))
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(look.length(token::SPACE_4))
+            .rounded_full()
+            .border(look.length(token::BORDER_WIDTH) * 2.)
+            .border_color(look.color(if on { token::ACCENT } else { token::BORDER_STRONG }))
+            .when(on, |radio| radio.child(div().size(look.length(token::SPACE_2)).rounded_full().bg(look.color(token::ACCENT))));
+        let chip = marked.then(|| {
+            labelled(
+                div()
+                    .id(SharedString::from(format!("sheet-take-pick:{key}:{at}")))
+                    .flex_none()
+                    .px(look.length(token::SPACE_2))
+                    .rounded_full()
+                    .bg(look.color(token::ACCENT).opacity(0.14))
+                    .text_size(look.length(token::TEXT_2XS))
+                    .line_height(look.length(token::LEADING_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::ACCENT))
+                    .tooltip(tip("The take the Job would pick"))
+                    .child("Job's pick"),
+                Role::Status,
+                "Job's pick",
+            )
+        });
+        let held = format!("part:{}:{key}:{at}:{}:sheet", c.job, take.scene.as_deref().map_or(0, str::len));
+        let inner = (wide - look.length(token::SPACE_3) * 2. - look.length(token::BORDER_WIDTH) * 2.).max(px(1.));
+        let picture = take.scene.as_deref().and_then(|text| self.scene_column(&held, text, inner / 1.6, look, false));
+        let well = picture.map(|picture| div().m(look.length(token::SPACE_3)).mb_0().p(look.length(token::SPACE_2)).rounded(look.length(token::RADIUS_MD)).bg(look.color(token::SURFACE_WELL)).child(picture));
+        let head = div()
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_3))
+            .child(radio)
+            .child(
+                div()
+                    .flex_1()
+                    .min_w_0()
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(SharedString::from(title.to_string())),
+            )
+            .children(chip);
+        let (press_key, key_key) = (key.to_string(), key.to_string());
+        let card = div()
+            .id(SharedString::from(format!("sheet-take:{key}:{at}")))
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .rounded(look.length(token::RADIUS_LG))
+            .bg(look.color(token::SURFACE_CARD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(if on { token::ACCENT } else { token::BORDER_SUBTLE }))
+            .when(on, |card| card.shadow(look.shadows(token::SHADOW_CARD)))
+            .children(well)
+            .child(head)
+            .when(open, |card| {
+                card.cursor_pointer()
+                    .hover(|style| style.border_color(look.color(if on { token::ACCENT } else { token::BORDER_STRONG })))
+                    .tab_index(0)
+                    .focus_visible(|style| style.border_color(look.color(token::ACCENT)))
+                    .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
+                        if !event.keystroke.modifiers.modified() && matches!(event.keystroke.key.as_str(), "enter" | "space") {
+                            cx.stop_propagation();
+                            this.choose_take(&key_key, at, cx);
+                        }
+                    }))
+                    .on_click(cx.listener(move |this, _, _, cx| this.choose_take(&press_key, at, cx)))
+            });
+        labelled(card, Role::RadioButton, name).into_any_element()
     }
 }
 

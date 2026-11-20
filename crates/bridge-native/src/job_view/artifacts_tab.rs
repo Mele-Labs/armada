@@ -346,7 +346,7 @@ impl JobView {
     fn read_artifacts(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         if self.fleet.is_none() {
             let mut rows = self.thread(id, cx).map(|held| mock_artifacts(&held.items)).unwrap_or_default();
-            if id.as_ref() == crate::mock_parts::JOB {
+            if id.as_ref() == crate::mock_parts::holder() {
                 if let Some(initial) = crate::mock_parts::initial() {
                     if self.artifacts.mock_parts.is_empty() {
                         self.artifacts.mock_parts = initial;

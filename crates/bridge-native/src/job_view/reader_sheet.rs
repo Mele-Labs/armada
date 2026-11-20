@@ -9,11 +9,10 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use gpui::{div, prelude::*, AnyElement, Context, MouseButton, Pixels, SharedString, Window};
+use gpui::{div, prelude::*, AnyElement, Context, Pixels, SharedString, Window};
 
 use super::band_card::Stand;
 use super::picture_view::What;
-use super::rows::{glyph, tip, Size as GlyphSize};
 use super::zoomer::{self, Zoomer};
 use crate::labels::labelled;
 use crate::scene::{Clock, Fit, Lens};
@@ -301,47 +300,17 @@ impl JobView {
         });
         let readout = stage.map(|stage| zoom.readout(stage));
         let lens = Lens { zoom: zoom.scale, pan: (zoom.pan.x, zoom.pan.y) };
-        let larger = self.larger(look, staged.enlarge, cx);
         Some(
             labelled(
                 zoomer::bind(div().id("review-stage").relative().flex_1().min_h_0().w_full().overflow_hidden().bg(look.color(token::BG_BASE)), cx, |_, _, _, _| {})
                     .child(zoom.probe())
                     .child(div().absolute().inset_0().child(crate::scene::view(SharedString::from(staged.held), staged.scene, Fit::Reading, Clock::default(), lens)))
-                    .child(larger)
                     .children(readout.map(|readout| zoomer::corner(look, readout, |this: &mut JobView, _, cx| zoomer::refit(this, cx), cx))),
                 gpui::Role::Group,
                 "Drawing",
             )
             .into_any_element(),
         )
-    }
-
-    /// The button at the drawing's top right that reads it over the whole app, as F does.
-    fn larger(&self, look: &Look, enlarge: Enlarge, cx: &Context<Self>) -> AnyElement {
-        labelled(
-            div()
-                .id("stage-larger")
-                .absolute()
-                .top(look.length(token::SPACE_3))
-                .right(look.length(token::SPACE_3))
-                .size(look.length(token::H_CONTROL))
-                .flex()
-                .items_center()
-                .justify_center()
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_OVERLAY))
-                .cursor_pointer()
-                .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .tooltip(tip("See it larger, F"))
-                .child(glyph(look, "maximize-2", GlyphSize::Small, look.color(token::FG_DEFAULT)))
-                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                .on_click(cx.listener(move |this, _, window, cx| this.enlarge_stage(&enlarge, window, cx))),
-            gpui::Role::Button,
-            "See larger",
-        )
-        .into_any_element()
     }
 
     /// The drawing part the panel zooms in place within an artifact of several parts: its first. The detail has one zoomer, so
@@ -379,7 +348,6 @@ impl JobView {
                 zoomer::bind(div().id(SharedString::from(format!("drawing:{key}"))).relative().w_full().h(high).overflow_hidden(), cx, |_, _, _, _| {})
                     .child(zoom.probe())
                     .child(div().absolute().inset_0().child(crate::scene::view(SharedString::from(held.to_string()), scene, Fit::Column, Clock::default(), lens)))
-                    .child(self.larger(look, Enlarge::Drawing(key.to_string()), cx))
                     .children(readout.map(|readout| zoomer::corner(look, readout, |this: &mut JobView, _, cx| zoomer::refit(this, cx), cx))),
                 gpui::Role::Group,
                 "Drawing",
