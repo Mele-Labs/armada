@@ -400,6 +400,9 @@ impl FeaturesScreen {
             (None, None) => if by > 0 { ProjectPage::Overview.place() - 1 } else { count },
         };
         let next = (at + by).clamp(ProjectPage::Overview.place(), count - 1);
+        if next != at {
+            crate::ui_sounds::moved();
+        }
         if let Some(which) = ProjectPage::at(next) {
             self.on_project = Some(which);
             self.list.scroll_to_reveal_item(0);

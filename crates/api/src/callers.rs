@@ -94,6 +94,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("change_slot_pool", "changes the slot pool"),
     ("upsert_features", "keeps the feature catalog"),
     ("change_feature", "keeps the feature catalog"),
+    ("answer_retire", "keeps the feature catalog"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),

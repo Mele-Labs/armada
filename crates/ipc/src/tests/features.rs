@@ -91,6 +91,11 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     assert!(shape::of::<FeatureLibrary>().contains(&format!("librarian?: {state}")));
     assert_eq!(shape::of::<crate::StopLibrarian>(), "{project: string}");
     assert_eq!(shape::of::<crate::LibrarianStopping>(), "{project: string, stopping?: boolean}");
+    assert_eq!(shape::of::<crate::AnswerRetire>(), "{project: string, slug: string, retire: boolean}");
+    assert_eq!(shape::of::<crate::RetireAnswered>(), "{project: string, slug: string, retired?: boolean}");
+    assert_eq!(shape::of::<crate::RetireProposal>(), "{why: code_gone|unused, evidence: string}");
+    let row = shape::of::<crate::FeatureRow>();
+    assert!(row.contains("retire?: {why: code_gone|unused, evidence: string}, planned?: boolean}"), "{row}");
     assert_eq!(shape::of::<crate::LibrarianStepMoved>(), "{project: string, run: string, step: string, state: running|done|skipped|failed, said?: string}");
     assert_eq!(LibrarianPart::ALL.len(), 9);
     for part in LibrarianPart::ALL {

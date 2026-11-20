@@ -14,7 +14,7 @@ notes = """
 
 **`links` are oldest first.** A `FeatureLink` is `kind` (`job`, `pull_request`, `merge`, `sketch`, `page`, `walk`, `draft`, `commit` or `bug`), `target`, `title`, `state`, `job`, `via` and `at`.
 
-**`docs` and `tickets` are what a Job read before it changed a file of the feature**, newest first, each once, and empty where none: a `FeatureRead` is `target` (an address, a path or an id), `title`, `gist` (the result's first sentence, empty where Fleet did not see the result), `job`, `at` and `state` (`gone` once a check finds the address dead; empty until then) and `drifted` (the names a document gives that the code had when it was last changed and no longer has, from the librarian's drift part; absent where none). Fleet saw the order of the read and the write, not that the Job used what it read. They are not in `links`, and a section read leaves them out with the rest.
+**`docs` and `tickets` are what a Job read before it changed a file of the feature**, newest first, each once, and empty where none: a `FeatureRead` is `target` (an address, a path or an id), `title`, `gist` (the result's first sentence, empty where Fleet did not see the result), `job`, `at` and `state` (`gone` once a check finds the address dead, or finds a document that is a file of the repository no longer at HEAD; empty until then) and `drifted` (the names a document gives that the code had when it was last changed and no longer has, from the librarian's drift part; absent where none). Fleet saw the order of the read and the write, not that the Job used what it read. They are not in `links`, and a section read leaves them out with the rest.
 
 404 `fleet.feature_unknown` where the project has no feature by that slug.
 
