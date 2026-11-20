@@ -184,6 +184,7 @@ pub mod phone;
 /// His other Macs: what this Mac shares with them through its Phone Gateway, and what it keeps of theirs.
 mod other_macs;
 mod other_mac_artifacts;
+mod other_mac_session;
 mod mac_terminals;
 /// The Judge's four operations Fleet serves: the one read-only call, the readings kept, and the person's acts.
 mod judge_serving;
@@ -260,6 +261,7 @@ mod feature_library;
 /// Whose pull requests Fleet watches: the signed-in account's and the forge command line's.
 mod my_pulls;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
+pub mod pull_hearing;
 mod pull_owners;
 /// Which Session or Job claimed a pull request, kept in the central store for the other machines.
 mod pull_registry;

@@ -45,6 +45,9 @@ const CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
 const REQUEST_TIMEOUT: Duration = Duration::from_secs(30);
 /// A download read as it arrives, a job's log, may run longer than a call to the API.
 const DOWNLOAD_TIMEOUT: Duration = Duration::from_secs(120);
+/// How long one stream is read before it is cut and opened again: the blocking client has no timeout
+/// for a silence, only for a whole request, and a reconnect costs one read of the pull request.
+const STREAM_FOR: Duration = Duration::from_secs(600);
 /// Enough idle HTTP/1.1 connections for Fleet's blocking pool; over HTTP/2 one is used.
 const IDLE_PER_HOST: usize = 8;
 const IDLE_FOR: Duration = Duration::from_secs(90);
@@ -359,6 +362,42 @@ impl GitHubApi {
             return Err(ApiFailure::Refused { status, said: String::new(), limit: None });
         }
         Ok(Box::new(response))
+    }
+
+    /// A server-sent stream opened at `url`, read as it arrives. **Only an address inside the API's
+    /// own**: the stream carries the token, and an address a reply named could be anywhere. Not
+    /// counted as a call, and it ends after [`STREAM_FOR`] whatever it is saying, so a connection that
+    /// went silent without closing holds a thread for that long and no longer.
+    pub(crate) fn stream_from(&self, url: &str) -> Result<Response, ApiFailure> {
+        if !url.starts_with(&format!("{}/", self.inner.base)) {
+            return Err(ApiFailure::Malformed("GitHub named a stream outside its own address.".to_string()));
+        }
+        if let Some(seconds) = self.held_for() {
+            return Err(ApiFailure::HeldBack { seconds });
+        }
+        let opened = apart(|| {
+            let client = self.client()?;
+            let mut response = None;
+            for fresh in [false, true] {
+                let sent = client
+                    .get(url)
+                    .header(AUTHORIZATION, self.bearer(fresh)?)
+                    .header(ACCEPT, "text/event-stream")
+                    .timeout(STREAM_FOR)
+                    .send()
+                    .map_err(|why| ApiFailure::Unreachable(why.without_url().to_string()))?;
+                let unauthorized = sent.status().as_u16() == 401;
+                response = Some(sent);
+                if !unauthorized {
+                    break;
+                }
+            }
+            response.ok_or_else(|| ApiFailure::Unreachable("The stream was not asked for.".to_string()))
+        })?;
+        match opened.status().as_u16() {
+            ..=399 => Ok(opened),
+            _ => answer_of(opened).and(Err(ApiFailure::Malformed("The stream refused with no failure.".to_string()))),
+        }
     }
 
     /// The pages of a list, following `Link: rel="next"`, at most `most_pages` of them; a list

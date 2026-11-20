@@ -169,6 +169,18 @@ pub(crate) async fn run_librarian<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+/// The owner or the Operator presses Stop on a running Catch up. **Placed as `run_librarian` is.**
+pub(crate) async fn stop_librarian<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let stop: ipc::StopLibrarian = match ipc::decode_body("a project whose librarian to stop", &body) {
+        Ok(stop) => stop,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().stop_librarian(crate::acting::asking(), stop).await {
+        Ok(stopping) => answer(StatusCode::OK, &stopping, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The mod's hook asks which pages a Job is owed. **The Job is named in the body**: the hook runs in the harness's process,
 /// not on the agent's connection.
 pub(crate) async fn hand_over_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {

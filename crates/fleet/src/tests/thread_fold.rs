@@ -23,7 +23,7 @@ fn window_ask(id: &str, minute: u32) -> SessionRow {
 }
 
 fn with(fields: &str, rows: Vec<SessionRow>) -> SessionThread {
-    SessionThread { session: record(fields), rows }
+    SessionThread { session: record(fields), rows, older: false }
 }
 
 const ASKED: &str = r#""hosted":{"turn":{"state":"idle"},"mode":"auto","running":true,"asked":{"call":"c","manifest_id":"armada","asked_at":"2026-11-03T10:00:00.000Z","tool":"Bash","detail":"ls","truncated":false,"rule":"r","offers":[],"holding_for_seconds":60}}"#;

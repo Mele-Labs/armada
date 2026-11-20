@@ -45,6 +45,22 @@ pub struct Made {
 
 impl EventEmitter<Made> for NewProjectSheet {}
 
+/// Fleet saved an edit of a project: the title bar reads the new list.
+#[derive(Clone, Debug)]
+pub struct Edited {
+    pub served: Vec<RepositorySummary>,
+    pub projects: Projects,
+}
+
+impl EventEmitter<Edited> for NewProjectSheet {}
+
+/// What an edit starts from, kept so Save sends back what the sheet cannot show.
+struct Original {
+    id: String,
+    place: ProjectPlace,
+    values: Option<ipc::ValuesSet>,
+}
+
 /// One repository the sheet lists, as Fleet serves it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Served {
@@ -174,6 +190,8 @@ pub struct NewProjectSheet {
     pub active: usize,
     pub refused: Option<SharedString>,
     pub sending: bool,
+    /// Set where the sheet edits a project: the same sheet, filled from it, saved with `edit_project`.
+    editing: Option<Original>,
     popup: Option<Popup>,
     keys_were: Option<FocusHandle>,
     intercept: Option<Subscription>,
@@ -203,7 +221,10 @@ impl NewProjectSheet {
         for (state, keep) in [(&boxes.name, KEEP_NAME), (&boxes.clone, KEEP_CLONE), (&boxes.new, KEEP_NEW), (&boxes.synced, KEEP_SYNCED)] {
             subs.push(cx.subscribe_in(state, window, move |this, state, event: &InputEvent, _, cx| {
                 if matches!(event, InputEvent::Change) {
-                    crate::drafts::keep(keep, state.read(cx).value().as_ref(), cx);
+                    // An edit's words are the project's, not a draft of a new one.
+                    if this.editing.is_none() {
+                        crate::drafts::keep(keep, state.read(cx).value().as_ref(), cx);
+                    }
                     this.refused = None;
                     cx.notify();
                 }
@@ -271,6 +292,7 @@ impl NewProjectSheet {
             active: 0,
             refused: None,
             sending: false,
+            editing: None,
             popup: None,
             keys_were: None,
             intercept: None,
@@ -288,6 +310,11 @@ impl NewProjectSheet {
         self.open
     }
 
+    /// Whether the sheet edits a project, and says Save project.
+    pub fn is_editing(&self) -> bool {
+        self.editing.is_some()
+    }
+
     // -- opening and closing ----------------------------------------------------------------------------
 
     /// Open on what was typed last time, the keys in Name; what Fleet serves is read again.
@@ -295,6 +322,42 @@ impl NewProjectSheet {
         if self.open {
             return;
         }
+        self.begin(window, cx);
+        self.drafts_back(window, cx);
+        self.start(window, cx);
+    }
+
+    /// Open on `project`, filled from it: its name, members, place and values, as Fleet holds them. `false` where
+    /// Fleet holds no such project, or its file could not be read.
+    pub fn show_edit(&mut self, project: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.open {
+            return false;
+        }
+        let Some(one) = self.wire.project(project, cx).filter(|one| one.unread.is_none()) else { return false };
+        self.editing = Some(Original { id: one.id.clone(), place: one.place.clone(), values: one.values.clone() });
+        self.begin(window, cx);
+        self.boxes.name.update(cx, |field, cx| field.set_value(one.name.clone(), window, cx));
+        for field in [&self.boxes.clone, &self.boxes.new] {
+            field.update(cx, |field, cx| field.set_value("", window, cx));
+        }
+        self.clone_open = false;
+        self.new_open = false;
+        self.picks = picks_of(&one.members);
+        self.place = match one.place.place {
+            RunPlace::Synced => Place::Synced,
+            RunPlace::Cloud => Place::Cloud,
+            RunPlace::ThisMac | RunPlace::Repository => Place::Mac,
+        };
+        let folder = one.place.synced_folder.as_deref().map(tilde).unwrap_or_default();
+        self.boxes.synced.update(cx, |field, cx| field.set_value(folder, window, cx));
+        self.custom = one.values.is_some();
+        self.picked = one.values.as_ref().map(values::picked_of).unwrap_or_default();
+        self.share = one.shared_with_macs;
+        self.start(window, cx);
+        true
+    }
+
+    fn begin(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.keys_were = window.focused(cx);
         self.open = true;
         let me = cx.entity().downgrade();
@@ -307,12 +370,18 @@ impl NewProjectSheet {
                 }
             });
         }));
+    }
+
+    fn drafts_back(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         for (state, keep) in [(&self.boxes.name, KEEP_NAME), (&self.boxes.clone, KEEP_CLONE), (&self.boxes.new, KEEP_NEW), (&self.boxes.synced, KEEP_SYNCED)] {
             let words = crate::drafts::kept(keep, cx).unwrap_or_default();
             state.update(cx, |state, cx| state.set_value(words, window, cx));
         }
         self.clone_open |= !self.boxes.clone.read(cx).value().is_empty();
         self.new_open |= !self.boxes.new.read(cx).value().is_empty();
+    }
+
+    fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.read(cx);
         self.want_forge(cx);
         let name = self.boxes.name.clone();
@@ -328,6 +397,14 @@ impl NewProjectSheet {
         self.open = false;
         self.intercept = None;
         self.popup = None;
+        if self.editing.take().is_some() {
+            self.picks.clear();
+            self.picked.clear();
+            self.custom = false;
+            self.share = false;
+            self.place = Place::Mac;
+            self.opened = None;
+        }
         if let Some(keys) = self.keys_were.take() {
             window.focus(&keys, cx);
         }
@@ -947,6 +1024,9 @@ impl NewProjectSheet {
                 ProjectPlace { place: RunPlace::Synced, synced_folder: Some(untilde(&folder)), cloud: None }
             }
         };
+        if let Some(original) = self.editing.as_ref().map(|one| (one.id.clone(), one.place.clone(), one.values.clone())) {
+            return self.edit(original, name, place, window, cx);
+        }
         let members = self.members();
         let first = members.first().map(|member| member.manifest_id.as_str().to_string());
         let inherited = self.inherited.clone().unwrap_or_default();
@@ -974,6 +1054,28 @@ impl NewProjectSheet {
                 projects
             };
             let _ = this.update_in(cx, |this, window, cx| this.made(id, name, first, projects, window, cx));
+        }));
+    }
+
+    /// Save an edit: `edit_project` with every field the sheet shows. A bucket the sheet cannot name stays as it
+    /// was, and so do the values it has no control for (the workflows switched off, a tracker's other keys).
+    fn edit(&mut self, (id, was, original): (String, ProjectPlace, Option<ipc::ValuesSet>), name: String, place: ProjectPlace, window: &mut Window, cx: &mut Context<Self>) {
+        let place = if self.place == Place::Cloud && matches!(was.cloud, Some(RunCloud::Bucket(_))) { was } else { place };
+        let inherited = self.inherited.clone().unwrap_or_default();
+        let values = edit_values(original, self.custom.then(|| values::values_of(&self.picked, &inherited)).flatten());
+        let edit = ipc::EditProject { name: Some(name), members: Some(self.members()), place: Some(place), values: Some(values), shared_with_macs: self.custom.then_some(self.share) };
+        let task = self.wire.edit_project(&id, edit, cx);
+        self.act = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update_in(cx, |this, window, cx| match answer {
+                Ok(projects) => {
+                    let served = this.wire.repositories(cx).unwrap_or_default();
+                    this.sending = false;
+                    this.close(window, cx);
+                    cx.emit(Edited { served, projects });
+                }
+                Err(why) => this.refuse(why.into(), cx),
+            });
         }));
     }
 
@@ -1017,6 +1119,32 @@ impl NewProjectSheet {
         self.refused = Some(why);
         cx.notify();
     }
+}
+
+/// What a project's members tick: each repository whole, or the folders of it that are members.
+fn picks_of(members: &[ProjectMember]) -> HashMap<String, Pick> {
+    let mut picks: HashMap<String, Pick> = HashMap::new();
+    for member in members {
+        let pick = picks.entry(member.manifest_id.as_str().to_string()).or_default();
+        match &member.folder {
+            Some(folder) => pick.folders.push(folder.clone().into()),
+            None => pick.whole = true,
+        }
+    }
+    picks
+}
+
+/// The block an edit sends: what the sheet set, over the keys of the project's own block it has no control for.
+fn edit_values(original: Option<ipc::ValuesSet>, set: Option<ipc::ValuesSet>) -> ipc::ValuesSet {
+    let mut set = set.unwrap_or_default();
+    let Some(original) = original else { return set };
+    set.workflows_off = original.workflows_off;
+    if let (Some(kept), Some(now)) = (original.tracker, set.tracker.as_mut()) {
+        for (key, word) in kept {
+            now.entry(key).or_insert(word);
+        }
+    }
+    set
 }
 
 /// A served repository as the list names it: its Manifest's repository, else its folder's name.
@@ -1352,5 +1480,55 @@ mod tests {
             let whole = lines.iter().position(|line| matches!(line, Line::Whole(_))).expect("opened");
             assert_eq!(sheet.active, whole + 1, "the refusal is no line to land on");
         });
+    }
+
+    #[gpui::test]
+    fn editing_a_project_opens_the_sheet_filled_from_it(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(sheet.show_edit("storefront", window, cx));
+            assert!(sheet.is_editing());
+            assert_eq!(sheet.boxes.name.read(cx).value().as_ref(), "Storefront");
+            let web = sheet.picks.get("sample-web").expect("a member");
+            assert_eq!((web.whole, web.folders.clone()), (false, vec![SharedString::from("web/checkout")]));
+            assert!(sheet.picks.contains_key("sample-api") && !sheet.picks.contains_key("armada"));
+            assert_eq!(sheet.place, Place::Mac);
+            assert!(!sheet.show_edit("ledger", window, cx), "a project whose file did not read is not edited");
+        });
+    }
+
+    #[gpui::test]
+    fn save_edits_the_project_through_edit_project_and_cancel_leaves_the_sheet_new(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        let edited = cx.update(|_, cx| cx.new(|_| Vec::<Edited>::new()));
+        let seen = edited.clone();
+        let _sub = cx.update(|_, cx| cx.subscribe(&sheet, move |_, edit: &Edited, cx| seen.update(cx, |all, _| all.push(edit.clone()))));
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.show_edit("storefront", window, cx);
+            sheet.boxes.name.update(cx, |field, cx| field.set_value("Shop", window, cx));
+            sheet.tick_whole(sheet.served.as_ref().and_then(|all| all.iter().position(|one| one.id == "armada")).expect("served"), cx);
+            sheet.create(window, cx);
+        });
+        cx.run_until_parked();
+        let all = edited.read_with(cx, |all, _| all.clone());
+        let one = all[0].projects.projects.iter().find(|one| one.id == "storefront").expect("kept");
+        assert_eq!(one.name, "Shop");
+        assert_eq!(one.members.len(), 3, "the two folders and the repository added");
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(!sheet.is_open(), "Save closes the sheet");
+            sheet.show_edit("armada", window, cx);
+            sheet.close(window, cx);
+            assert!(!sheet.is_editing() && sheet.picks.is_empty(), "Cancel leaves nothing of the edit for New project");
+        });
+    }
+
+    #[test]
+    fn an_edit_keeps_the_values_the_sheet_has_no_control_for() {
+        let original = ipc::ValuesSet { workflows_off: vec!["bug".into()], tracker: Some([("provider".to_string(), "linear".to_string()), ("team".to_string(), "ENG".to_string())].into_iter().collect()), ..ipc::ValuesSet::default() };
+        let set = ipc::ValuesSet { tracker: Some([("provider".to_string(), "jira".to_string())].into_iter().collect()), ..ipc::ValuesSet::default() };
+        let sent = edit_values(Some(original), Some(set));
+        assert_eq!(sent.workflows_off, ["bug"]);
+        let tracker = sent.tracker.expect("tracker");
+        assert_eq!((tracker.get("provider").map(String::as_str), tracker.get("team").map(String::as_str)), (Some("jira"), Some("ENG")));
     }
 }

@@ -190,6 +190,7 @@ where
     /// `list_features`.
     pub(super) async fn features_listed(&self, caller: Option<api::Caller>, project: Option<String>) -> Result<FeatureLibrary, Refusal> {
         self.feature_writes_filed().await;
+        let tonight = self.librarian_night().await;
         let store = self.store().lock().await;
         let projects = self.projects_asked(&store, caller, project.as_deref())?;
         // A Job in several projects reads the first that has a library.
@@ -215,7 +216,9 @@ where
                 None => areas.push(FeatureAreaRow { slug: feature.area.clone(), title: feature.area.clone(), features: vec![row] }),
             }
         }
-        let librarian = super::librarian::state_of(&store, &chosen).map_err(|why| self.feature_fault(why))?;
+        let mut librarian = super::librarian::state_of(&store, &chosen).map_err(|why| self.feature_fault(why))?;
+        librarian.steps = self.librarian_steps(&store, &chosen, &librarian, &tonight)?;
+        librarian.running = self.librarian_running().now(&chosen);
         Ok(FeatureLibrary { project: chosen, areas, librarian })
     }
 

@@ -186,6 +186,36 @@ fn a_sweep_trims_the_main_checkout_and_a_job_worktree_and_leaves_a_building_one(
     assert!(!agent.join("target/debug/deps/old-1.rlib").exists());
 }
 
+/// armada-nk57: the hourly sweep removed the preview's build output whole for being over the
+/// ceiling, so every refresh after it rebuilt from scratch. The preview and the main checkout keep
+/// their builds and incremental caches however large; only their stale files go.
+#[test]
+fn a_sweep_keeps_the_preview_and_main_builds_warm_however_large() {
+    use crate::leasing::sweep_repository;
+
+    let repo = a_repository();
+    let root = repo.root();
+    let preview = root.join(".armada/preview");
+    for checkout in [root, preview.as_path()] {
+        for target in ["target", "crates/bridge-native/target"] {
+            built(&checkout.join(target).join("installed/deps/big-1.rlib"), 2_000_000, 1);
+            built(&checkout.join(target).join("installed/incremental/s/dep-graph.bin"), 2_000_000, 1);
+            built(&checkout.join(target).join("installed/deps/old-1.rlib"), 10, 30);
+        }
+    }
+
+    sweep_repository(root, trim(), SystemTime::now(), &[]);
+
+    for checkout in [root, preview.as_path()] {
+        for target in ["target", "crates/bridge-native/target"] {
+            let target = checkout.join(target);
+            assert!(target.join("installed/deps/big-1.rlib").exists(), "{} kept its build", target.display());
+            assert!(target.join("installed/incremental/s/dep-graph.bin").exists(), "{} kept its incremental cache", target.display());
+            assert!(!target.join("installed/deps/old-1.rlib").exists(), "{} lost its stale files", target.display());
+        }
+    }
+}
+
 #[test]
 fn a_sweep_leaves_the_target_of_a_checkout_it_was_told_a_person_holds() {
     use crate::leasing::sweep_repository;

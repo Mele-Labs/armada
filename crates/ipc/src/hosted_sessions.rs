@@ -1094,6 +1094,31 @@ impl SessionRow {
 pub struct SessionThread {
     pub session: SessionRecord,
     pub rows: Vec<SessionRow>,
+    /// Rows stand before the first of `rows`, which a read with [`SessionWindow::before`] reaches. Only a read
+    /// with `last` sets it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub older: bool,
+}
+
+/// `?last=` and `?before=` on `get_session`: the newest `last` rows, or the `last` before the row `before`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SessionWindow {
+    pub last: usize,
+    /// The id of a row the reader holds. **Absent, or a row the thread does not hold, is the end of the thread.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub before: Option<String>,
+}
+
+impl SessionThread {
+    /// The rows `window` names, and whether any stand before them.
+    pub fn windowed(mut self, window: &SessionWindow) -> Self {
+        let end = window.before.as_deref().and_then(|id| self.rows.iter().position(|row| row.id() == id)).unwrap_or(self.rows.len());
+        let start = end.saturating_sub(window.last);
+        self.rows.truncate(end);
+        self.rows.drain(..start);
+        self.older |= start > 0;
+        self
+    }
 }
 
 /// `get_session_subagent`: one subagent's own thread, as it stands.

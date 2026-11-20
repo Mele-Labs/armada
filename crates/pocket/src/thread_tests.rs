@@ -47,6 +47,8 @@ pub(crate) async fn stub_fleet(seen: Seen) -> u16 {
                     // Fleet is sent the whole query, `last` and `before` too, and answers the whole thread.
                     long if long.starts_with("session_id=long") => (StatusCode::OK, thread_of(5)),
                     wide if wide.starts_with("session_id=wide") => (StatusCode::OK, thread_of(300)),
+                    // A Job held from another Mac: Fleet answers the window, cut where it is held, and says more stand before it.
+                    held if held.starts_with("session_id=held") => (StatusCode::OK, thread_of(3).replacen(r#""rows":"#, r#""older":true,"rows":"#, 1)),
                     _ => (StatusCode::NOT_FOUND, r#"{"code":"fleet.no_session","message":"No such job."}"#.to_string()),
                 }
             }),
@@ -262,6 +264,15 @@ async fn the_phone_opens_a_long_thread_on_its_newest_rows_and_is_told_older_ones
 
     let seen = seen.lock().unwrap();
     assert_eq!(seen[0], ("/sessions/one".into(), "phone".into(), "session_id=long&last=2".into()), "Fleet was asked as the phone asked");
+}
+
+#[tokio::test]
+async fn a_window_cut_where_a_job_is_held_still_tells_the_phone_older_rows_stand() {
+    let phone = phone_on(stub_fleet(Seen::default()).await).await;
+    let (status, body) = send(&phone, Method::GET, "/api/sessions/one?session_id=held&last=3&before=r9", "").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(ids(&body), strings(&["r1", "r2", "r3"]), "the rows Fleet sent, all of them");
+    assert!(body.contains(r#""older":true"#), "the three are not the start of the Job: {body}");
 }
 
 #[tokio::test]

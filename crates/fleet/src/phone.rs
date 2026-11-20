@@ -105,6 +105,9 @@ pub(crate) struct PhoneHeld {
     switch: OnceLock<Arc<dyn PhoneSwitch>>,
     /// The Macs whose queued edits are being sent now, so one task sends them and not two.
     pub(crate) flushing: std::sync::Mutex<std::collections::BTreeSet<String>>,
+    /// Each Job's row, by (Mac, Job), kept from that Mac's answer to a start until that Mac next speaks of it. A Job
+    /// list it read before the start may still be on its way, and that list leaves the Job out. `crate::mac_acts`.
+    pub(crate) started_there: std::sync::Mutex<std::collections::BTreeMap<(String, String), ipc::SessionRecord>>,
     /// One act from another Mac runs at a time, so an id is run once. `crate::mac_acts`.
     pub(crate) acts: Arc<tokio::sync::Mutex<()>>,
     /// The terminals of Jobs held from another Mac that this Mac has opened. `crate::mac_terminals`.

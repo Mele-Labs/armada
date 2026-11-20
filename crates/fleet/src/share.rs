@@ -154,6 +154,7 @@ where
             | Event::JobLifecyclesChanged(_)
             | Event::KeepDraftsChanged(_)
             | Event::TimelineAppended(_)
+            | Event::LibrarianStep(_)
             | Event::QueuedChanged(_)
             | Event::ActFailed(_) => return None,
         };

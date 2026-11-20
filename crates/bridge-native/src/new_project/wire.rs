@@ -206,6 +206,43 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", Some("The project was not shared"), cx))
     }
 
+    /// `POST /projects/project/:id/edit`: what `edit` carries replaces the project's, the rest stays. Fleet answers
+    /// with every project.
+    pub fn edit_project(&mut self, id: &str, edit: EditProject, cx: &App) -> Task<Result<Projects, String>> {
+        if let Wire::Mock(mock) = self {
+            if let Some(one) = mock.projects.projects.iter_mut().find(|one| one.id == id) {
+                if let Some(name) = edit.name {
+                    one.name = name;
+                }
+                if let Some(members) = edit.members {
+                    one.members = members;
+                }
+                if let Some(place) = edit.place {
+                    one.place = place;
+                }
+                if let Some(values) = edit.values {
+                    one.values = (values != ipc::ValuesSet::default()).then_some(values);
+                }
+                if let Some(shared) = edit.shared_with_macs {
+                    one.shared_with_macs = shared;
+                }
+            }
+            return Task::ready(Ok(mock.projects.clone()));
+        }
+        let path = format!("/projects/project/{}/edit", crate::link::percent_encoded(id));
+        let said = body(&edit);
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post(path, said), "Projects", Some("The project was not saved"), cx))
+    }
+
+    /// A project as Fleet last said, whole.
+    pub fn project(&self, id: &str, cx: &App) -> Option<ipc::Project> {
+        let all = match self {
+            Wire::Live(fleet) => fleet.read(cx).held().projects.clone()?,
+            Wire::Mock(mock) => mock.projects.clone(),
+        };
+        all.projects.into_iter().find(|one| one.id == id)
+    }
+
     // -- the folder search, and what Fleet does not serve yet ---------------------------------------------
 
     /// `GET /manifest/files?folders=true`: every folder of a repository whose path fuzzy-matches `query`, in

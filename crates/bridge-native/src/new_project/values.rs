@@ -136,6 +136,33 @@ pub fn inherited(values: &ResolvedValues) -> HashMap<Key, String> {
     all
 }
 
+/// The words a project's own block sets, as the sheet's pickers hold them: the reverse of [`values_of`].
+pub fn picked_of(set: &ValuesSet) -> HashMap<Key, String> {
+    let mut all = HashMap::new();
+    let mut put = |key: Key, word: Option<String>| {
+        if let Some(word) = word {
+            all.insert(key, word);
+        }
+    };
+    put(Key::PrMode, set.pr_mode.map(|mode| mode.as_wire().to_string()));
+    put(Key::AutoMerge, set.auto_merge.clone());
+    put(Key::ReviewModel, set.review_model.clone());
+    put(Key::AgentStarts, set.agent_starts.clone());
+    put(Key::Delivery, set.delivery.clone());
+    put(Key::Tracker, set.tracker.as_ref().and_then(|block| block.get("provider").cloned()));
+    if let Some(look) = &set.look {
+        put(Key::Theme, look.theme.clone());
+        put(Key::Layout, look.layout.clone());
+        put(Key::Density, look.density.clone());
+    }
+    if let Some(reviews) = &set.reviews {
+        put(Key::Plans, reviews.plans.clone());
+        put(Key::PullRequests, reviews.pull_requests.clone());
+        put(Key::Walks, reviews.walks.clone());
+    }
+    all
+}
+
 /// The block `NewProject.values` carries: only the keys `picked` changes from `inherited`, `None` where it
 /// changes none. Reviews go as all three where one changed, as a layer that sets them must.
 pub fn values_of(picked: &HashMap<Key, String>, inherited: &HashMap<Key, String>) -> Option<ValuesSet> {

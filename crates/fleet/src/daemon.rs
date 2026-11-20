@@ -93,6 +93,8 @@ pub struct Fleet<H, V, W> {
     session_runs: crate::session_running::SessionRuns,
     /// Session Checks that are running, and a stop asked of one — `crate::session_check_live`.
     session_check_live: crate::session_check_live::SessionCheckLive,
+    /// The projects whose librarian is running, and a Stop pressed on one. In memory — `crate::feature_library::librarian_steps`.
+    librarian_running: crate::feature_library::librarian_steps::Running,
     /// The addresses a session signs in with, until Bridge opens its window. A secret, never written down — `crate::window_sign_in`.
     window_sign_ins: crate::window_sign_in::SignIns,
     /// The Job browser's calls held for Bridge. Never written down — `crate::job_browser`.

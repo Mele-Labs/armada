@@ -232,12 +232,25 @@ where
         }
     }
 
-    /// The row a start made on Mac `mac` kept at once, so it is drawn before that Mac's stream says it.
+    /// The row a start made on Mac `mac` kept at once, so it is drawn before that Mac's stream says it. **Marked
+    /// under the store's lock**, so a list replace either runs first or sees the mark.
     async fn row_held(&self, mac: &str, mut record: SessionRecord) -> SessionRecord {
         record.mac = Some(mac.to_string());
         if let Ok(body) = self.encoded(&record) {
-            let kept = self.store().lock().await.keep_from_mac(FromMac::Sessions, mac, record.id.as_str(), &body);
-            if kept.is_ok() {
+            let mut store = self.store().lock().await;
+            // Held already, that Mac has spoken of it, and every list still to come was read after the start.
+            let spoken = store
+                .held_from_macs(FromMac::Sessions)
+                .is_ok_and(|held| held.iter().any(|one| one.mac == mac && one.id == record.id.as_str()));
+            if store.keep_from_mac(FromMac::Sessions, mac, record.id.as_str(), &body).is_ok() {
+                if !spoken {
+                    self.phone_held()
+                        .started_there
+                        .lock()
+                        .unwrap_or_else(std::sync::PoisonError::into_inner)
+                        .insert((mac.to_string(), record.id.as_str().to_string()), record.clone());
+                }
+                drop(store);
                 self.events().relay(Event::SessionChanged(record.clone()));
             }
         }

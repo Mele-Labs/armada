@@ -11,7 +11,15 @@ import tailwindcss from "@tailwindcss/vite";
 import { answer, type Posted } from "./src/fixture/gateway";
 import { pairing, STORE_AT } from "./src/fixture/store";
 import { PARTS_JOB } from "./src/fixture/artifacts";
-import { everyState, fixtureMacs, mediaJob, partsJob, type FixtureMac } from "./src/fixture/wire";
+import {
+  ARTIFACTS_JOB,
+  artifactsJob,
+  everyState,
+  fixtureMacs,
+  mediaJob,
+  partsJob,
+  type FixtureMac,
+} from "./src/fixture/wire";
 
 const read = (request: IncomingMessage): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -161,8 +169,15 @@ function fixtureGateway(): Plugin {
   macs["studio"]!.live.unshift(parts.listed);
   macs["studio"]!.needs.unshift(parts.listed);
   macs["studio"]!.threads[PARTS_JOB] = parts.thread;
+  // The Job that showed a sketch, a document and a draft, one archived: the Artifacts screen's list.
+  const showed = artifactsJob(now);
+  macs["studio"]!.live.push(showed.listed);
+  macs["studio"]!.needs.push(showed.listed);
+  macs["studio"]!.threads[ARTIFACTS_JOB] = showed.thread;
+  macs["studio"]!.shown[ARTIFACTS_JOB] = showed.shown;
   macs["studio"]!.artifacts = {
     [PARTS_JOB]: parts.artifacts,
+    [ARTIFACTS_JOB]: showed.artifacts,
   };
   macs["studio"]!.tries = {
     [PARTS_JOB]: parts.tries,

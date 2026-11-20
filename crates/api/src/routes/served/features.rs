@@ -63,6 +63,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/librarian",
     },
     Route {
+        operation: "stop_librarian",
+        method: "POST",
+        path: "/features/librarian/stop",
+    },
+    Route {
         operation: "change_feature",
         method: "POST",
         path: "/features/change",

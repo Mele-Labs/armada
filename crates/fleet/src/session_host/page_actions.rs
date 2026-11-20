@@ -1,10 +1,11 @@
 //! A page's actions: buttons the agent declares with `<armada-action>`, and `press_page_action`, his press of one.
 //! **Read off the kept revision he pressed, never off a call.** Fleet keeps the list of acts a page may run, start,
-//! answer and message, and refuses anything off it: anything that lands, merges, deletes or stops goes to the Job
-//! as a message. `crates/ipc/operations/press_page_action.toml` is the contract, `docs/concepts/artifact.md`,
-//! *Page actions*, the rules.
+//! answer, message and close, and refuses anything off it: anything that lands, merges, deletes or stops goes to the
+//! Job as a message. Close writes to a tracker, so only his press runs it and the agent has no call that does.
+//! `crates/ipc/operations/press_page_action.toml` is the contract, `docs/concepts/artifact.md`, *Page actions*, the
+//! rules.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -23,16 +24,17 @@ use crate::daemon::Fleet;
 const PAGE_ACTION_UNKNOWN: &str = "fleet.page_action_unknown";
 const PAGE_ACT_REFUSED: &str = "fleet.page_act_refused";
 const PAGE_ASK_NOT_OPEN: &str = "fleet.page_ask_not_open";
+const PAGE_CLOSE_REFUSED: &str = "fleet.page_close_refused";
 /// An archived page takes no press and no vote.
 pub(super) const PAGE_ARCHIVED: &str = "fleet.page_archived";
 /// Why an act off the list is refused, at the press.
-const OFF_THE_LIST: &str = "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message";
+const OFF_THE_LIST: &str = "a page runs start, answer, message and close only. Anything that lands, merges, deletes or stops goes to the Job as a message";
 /// The most action ids a refusal names.
 const MOST_NAMED: usize = 20;
 
-/// The one line that tells a Job which actions of its page will not run, or `None` where all will. The page is
-/// never refused.
-pub(crate) fn actions_that_will_not_run(html: &str, path: &str) -> Option<String> {
+/// The one line that tells a Job which actions of its page will not run, or `None` where all will. `closes` says,
+/// for each repository a close button names, whether its tracker closes an issue. The page is never refused.
+pub(crate) fn actions_that_will_not_run(html: &str, path: &str, closes: &BTreeMap<String, Result<(), String>>) -> Option<String> {
     let mut seen = BTreeSet::new();
     let failing: Vec<String> = actions_in(html)
         .iter()
@@ -43,12 +45,16 @@ pub(crate) fn actions_that_will_not_run(html: &str, path: &str) -> Option<String
             } else if !seen.insert(action.id.clone()) {
                 format!("its id \"{}\" is an earlier action's too", action.id)
             } else if action.act.is_empty() {
-                "it has no act. A page runs start, answer and message".to_string()
+                "it has no act. A page runs start, answer, message and close".to_string()
             } else if PageAct::named(&action.act).is_none() {
                 format!(
-                    "act \"{}\" is not one a page runs. A page runs start, answer and message only, and anything that lands, merges, deletes or stops is a message button whose label says what the Job will do",
+                    "act \"{}\" is not one a page runs. A page runs start, answer, message and close only, and anything that lands, merges, deletes or stops is a message button whose label says what the Job will do",
                     action.act
                 )
+            } else if PageAct::named(&action.act) == Some(PageAct::Close) && action.issues.is_empty() {
+                "it lists no issues. A close button lists the issues it closes in `issues`".to_string()
+            } else if let Some(Err(why)) = closes.get(&action.repository).filter(|_| PageAct::named(&action.act) == Some(PageAct::Close)) {
+                why.clone()
             } else {
                 return None;
             };
@@ -76,6 +82,38 @@ fn pressed_told(action: &PageAction, title: &str, words: Option<&str>) -> String
     let mut lines = vec![format!("He pressed \"{}\"{} in \"{title}\".", action.label, on_item(&action.item))];
     lines.extend([action.row.as_str(), words.unwrap_or_default()].into_iter().filter(|one| !one.is_empty()).map(str::to_string));
     lines.join("\n")
+}
+
+/// `a`, `a and b`, `a, b and c`.
+fn listed(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+/// What the Job is sent for a `close` press: what he pressed, what the tracker closed and what it refused, then his
+/// words.
+fn closed_told(action: &PageAction, title: &str, done: &crate::lifecycles::writing::IssuesClosed, words: Option<&str>) -> String {
+    let mut said = vec![format!("He pressed \"{}\"{} in \"{title}\".", action.label, on_item(&action.item))];
+    if !done.closed.is_empty() {
+        said.push(format!("Closed {}.", listed(&done.closed)));
+    }
+    said.extend(done.failed.iter().map(|(issue, why)| format!("{issue} was not closed: {}.", why.trim_end_matches('.'))));
+    let mut lines = vec![said.join(" ")];
+    lines.extend(words.map(str::to_string));
+    lines.join("\n")
+}
+
+/// The repository a `start` or `close` action acts in, and its project: the page's Job's own where it names none.
+fn acted_in(action: &PageAction, hosting: Option<&store::KeptHosting>) -> (String, Option<String>) {
+    match hosting {
+        Some(hosting) if action.repository.is_empty() || action.repository == hosting.manifest_id => {
+            (hosting.manifest_id.clone(), hosting.project.clone())
+        }
+        _ => (action.repository.clone(), None),
+    }
 }
 
 /// The brief a `start` press starts a Job on: the action's brief, where it came from, then his words.
@@ -138,6 +176,12 @@ where
                 let item = self.ask_answered(&id, &action, words).await?;
                 PressDid::Answered { item }
             }
+            PageAct::Close => {
+                let done = self.issues_closed_from_page(&id, &action).await?;
+                // The issues are closed whatever this send does, so the press is kept either way.
+                let _ = self.told_as_him(&id, closed_told(&action, &artifact.title, &done, words)).await;
+                PressDid::Closed { issues: done.closed }
+            }
         };
         let item = Some(action.item.clone()).filter(|item| !item.is_empty());
         let at = self.instant();
@@ -145,6 +189,7 @@ where
             PressDid::Sent => ("sent", None),
             PressDid::Started { job } => ("started", Some(job.as_str().to_string())),
             PressDid::Answered { item } => ("answered", Some(item.clone())),
+            PressDid::Closed { issues } => ("closed", Some(issues.join(" "))),
         };
         let kept = KeptPress {
             artifact: artifact.id.clone(),
@@ -199,6 +244,7 @@ where
             repository: said(&button.repository),
             ask: said(&button.ask),
             option: said(&button.option),
+            issues: Vec::new(),
             row: String::new(),
         })
     }
@@ -229,10 +275,7 @@ where
     async fn started_from_page(self: Arc<Self>, id: &str, action: &PageAction, title: &str, words: Option<&str>) -> Result<SessionId, Refusal> {
         let (_, hosting) = self.session_and_hosting(id).await?;
         let own = action.repository.is_empty() || action.repository == hosting.manifest_id;
-        let manifest_id = match own {
-            true => hosting.manifest_id.clone(),
-            false => action.repository.clone(),
-        };
+        let (manifest_id, _) = acted_in(action, Some(&hosting));
         let brief = started_brief(action, title, words);
         let start = StartSession {
             manifest_id: ManifestId::carried(&manifest_id),
@@ -253,6 +296,35 @@ where
         let then = vec![DispatchThen::Message(DispatchMessage { text: brief, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() })];
         let record = self.dispatch_started(DispatchJob { start, kind: None, then }).await?;
         Ok(record.id)
+    }
+
+    /// The issues a `close` action lists, closed in its repository's tracker. Refused where it closes none.
+    async fn issues_closed_from_page(&self, id: &str, action: &PageAction) -> Result<crate::lifecycles::writing::IssuesClosed, Refusal> {
+        let refused = |why: &str| self.hosted_refusal(PAGE_CLOSE_REFUSED, &format!("\"{}\" closes nothing: {why}", action.label));
+        if action.issues.is_empty() {
+            return Err(refused("it lists no issues"));
+        }
+        let hosting = self.session_and_hosting(id).await.ok().map(|(_, hosting)| hosting);
+        let (manifest, project) = acted_in(action, hosting.as_ref());
+        self.issues_closed_on_his_press(&manifest, project.as_deref(), &action.issues).await.map_err(|why| refused(&why))
+    }
+
+    /// For each repository a close button on `html` names, whether its tracker closes an issue.
+    pub(super) async fn closes_on(&self, id: &str, html: &str) -> BTreeMap<String, Result<(), String>> {
+        let named: BTreeSet<String> =
+            actions_in(html).into_iter().filter(|one| PageAct::named(&one.act) == Some(PageAct::Close)).map(|one| one.repository).collect();
+        if named.is_empty() {
+            return BTreeMap::new();
+        }
+        let hosting = self.session_and_hosting(id).await.ok().map(|(_, hosting)| hosting);
+        named
+            .into_iter()
+            .map(|repository| {
+                let probe = PageAction { repository: repository.clone(), ..PageAction::default() };
+                let (manifest, project) = acted_in(&probe, hosting.as_ref());
+                (repository, self.closes_in(&manifest, project.as_deref()))
+            })
+            .collect()
     }
 
     /// The Job's ask the action names, answered with its option as his own pick answers it. The ask's id.
@@ -302,6 +374,7 @@ pub(crate) fn presses_of(kept: &[KeptPress], artifact: &str) -> Vec<PagePress> {
                 ("sent", _) => PressDid::Sent,
                 ("started", Some(job)) => PressDid::Started { job: SessionId::carried(&job) },
                 ("answered", Some(item)) => PressDid::Answered { item },
+                ("closed", issues) => PressDid::Closed { issues: issues.unwrap_or_default().split_whitespace().map(str::to_string).collect() },
                 _ => return None,
             };
             Some(PagePress {
