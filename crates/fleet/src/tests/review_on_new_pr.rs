@@ -10,7 +10,6 @@ use api::PullRequestPanel;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorTurnItem};
 
 use super::operator_sources::on;
-use super::projects_kept::file;
 use super::session_host::{rig_quiet_after, Rig};
 use crate::tests::tmp::TempDir;
 
