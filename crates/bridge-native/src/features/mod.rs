@@ -329,6 +329,9 @@ impl FeaturesScreen {
         }
         let at = self.cursor_at().map_or(if by > 0 { -1 } else { count }, |at| at as isize);
         let next = (at + by).clamp(0, count - 1) as usize;
+        if self.cursor_at() != Some(next) {
+            crate::ui_sounds::moved();
+        }
         self.cursor = Some(self.listed.shown[next].row.slug.clone());
         if let Some(line) = self.listed.line_of(next) {
             // Going up to the first feature of an area shows its head too.

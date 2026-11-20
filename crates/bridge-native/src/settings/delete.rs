@@ -97,6 +97,9 @@ impl SettingsOverlay {
             "tab" | "left" | "right" | "up" | "down" => {
                 // Two stops: any move goes to the other.
                 let to = if cancel.is_focused(window) { &delete } else { &cancel };
+                if key.key != "tab" {
+                    crate::ui_sounds::moved();
+                }
                 window.focus(to, cx);
                 cx.notify();
             }

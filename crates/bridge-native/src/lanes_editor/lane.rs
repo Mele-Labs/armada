@@ -337,8 +337,14 @@ impl LanesEditor {
         }
         let count = KINDS.len();
         match key.key.as_str() {
-            "down" => menu.at = (menu.at + 1) % count,
-            "up" => menu.at = (menu.at + count - 1) % count,
+            "down" => {
+                menu.at = (menu.at + 1) % count;
+                crate::ui_sounds::moved();
+            }
+            "up" => {
+                menu.at = (menu.at + count - 1) % count;
+                crate::ui_sounds::moved();
+            }
             "enter" | "space" => {
                 let kind = KINDS[menu.at].kind;
                 self.pick_kind(kind, window, cx);

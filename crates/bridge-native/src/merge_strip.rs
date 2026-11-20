@@ -474,6 +474,7 @@ impl MergeStrip {
             return;
         }
         self.row = (self.row as isize + by).rem_euclid(count as isize) as usize;
+        crate::ui_sounds::moved();
         cx.notify();
     }
 

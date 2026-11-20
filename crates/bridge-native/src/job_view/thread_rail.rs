@@ -350,6 +350,9 @@ impl JobView {
         match key.key.as_str() {
             "up" | "down" => {
                 let to = model::step(at, marks.len(), key.key == "down");
+                if to != at {
+                    crate::ui_sounds::moved();
+                }
                 rail.cursor = Some(to);
                 rail.scroll.scroll_to_item(to);
                 cx.notify();

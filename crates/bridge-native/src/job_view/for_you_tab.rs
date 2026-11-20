@@ -240,7 +240,10 @@ impl JobView {
                 let Some(Some(read)) = self.for_you.read.get(job) else { return false };
                 let keys: Vec<String> = rows(read).iter().map(Rowed::key).collect();
                 let to = step(&keys, on.as_ref().map(Rowed::key).as_deref(), if key == "down" { 1 } else { -1 });
-                if let Some(spot) = to.and_then(|to| self.for_you_spot(job, &to)) {
+                if let Some(spot) = to.as_ref().and_then(|to| self.for_you_spot(job, to)) {
+                    if to.as_deref() != on.as_ref().map(Rowed::key).as_deref() {
+                        crate::ui_sounds::moved();
+                    }
                     window.focus(&spot.focus, cx);
                 }
                 true
