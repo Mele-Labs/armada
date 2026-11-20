@@ -236,3 +236,14 @@ fn each_job_held_is_named_while_held_so_it_is_told_both_ways() {
     turns.look(false, &jobs, both, |_| false, |_, _| false, start + TURN * 2, TURN);
     assert!(turns.jobs_held().is_empty(), "under the limit every Job is told its builds run");
 }
+
+#[test]
+fn short_memory_holds_builds_and_keeps_holding_for_a_turn_after_it_eases() {
+    let mut turns = Turns::default();
+    let start = Instant::now();
+    assert!(!turns.loaded(false, Some(1), start), "normal pressure and a low load hold nothing");
+    assert!(turns.loaded(false, Some(2), start), "warn pressure holds builds");
+    assert!(turns.loaded(false, Some(1), start + TURN / 2), "eased within a turn: still held, or every build would start at once");
+    assert!(!turns.loaded(false, Some(1), start + TURN + Duration::from_secs(1)), "eased for a turn: let go");
+    assert!(turns.loaded(true, None, start + TURN * 2), "the load alone still holds");
+}

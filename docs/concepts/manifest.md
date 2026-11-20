@@ -480,7 +480,7 @@ Rules that follow:
 
 ### Builds take turns on a loaded machine
 
-**While the fifteen-minute load is 24 or more, one Job's builds run and every other Job's wait stopped, in turns.**
+**While the fifteen-minute load is 24 or more, or memory is short, one Job's builds run and every other Job's wait stopped, in turns.**
 The owner's ask of 20 Nov 2026: that one Job keeps going rather than every Job standing still.
 That afternoon three code-editor background checks, two native-app builds an agent ran itself and a Check's test build ran at once on 12 cores, outside both the pool and the Check slots; the load stayed over 28 for an hour, one build ran for 1h39m, and a Check spent its fifteen minutes compiling three times over.
 
@@ -491,6 +491,8 @@ Rules:
 - **A Check's builds are never held.** Checks already run one at a time on a loaded machine, and a held Check would spend its budget waiting, so its fifteen minutes count only while it runs. A build outside every Job, such as a person's own, is not Fleet's to stop.
 - **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each. A Job whose builds have ended gives its turn up at once to the next after it.
   One Job at a time is prioritised, from its row's menu in Bridge (`prioritise_session`), and a second press clears it.
+- **Memory is short at a `kern.memorystatus_vm_pressure_level` of 2 (warn) or more**, and stays short for five minutes after it eases, so the builds a hold let swap out do not all start again at once.
+  Measured 20 Nov 2026 on a 32 GB Mac: each compile of the Fleet crate took 3 to 4 GB, swap stayed near full long after the pressure went, and `memory_pressure` said 30% free while the Mac thrashed.
 - **Fleet looks every five seconds**, so a compiler a held build starts is held within that.
 - **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops. A Fleet that ended without letting go continues every stopped compiler of a Job at its first look.
 - **A Job is told when its builds are paused and when they run again** (`builds_held`), so its agent waits on a build that went quiet rather than starting it again.

@@ -7,18 +7,17 @@ use std::time::Instant;
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::leasing::Holder;
 
-use crate::build_turns::{send, Contender, LISTING, TURN};
+use crate::build_turns::{memory_pressure, send, Contender, LISTING, TURN};
 use crate::daemon::Fleet;
 
 /// What a Job whose builds run again is told.
 const RESUMED: &str = "Your builds run again, from where they stopped.";
 
 /// What a Job whose builds were just held is told: why, for how long, and what not to do.
-fn held_said(leader: Option<&str>, load: Option<f64>) -> String {
-    let load = load.map_or_else(String::new, |load| format!(" (the fifteen-minute load is {load:.0})"));
+fn held_said(leader: Option<&str>, why: &str) -> String {
     let leader = leader.map_or_else(String::new, |job| format!(" while job {job}'s builds run"));
     format!(
-        "Your builds are paused because the machine is loaded{load}, and run again on their turn{leader}. \
+        "Your builds are paused because {why}, and run again on their turn{leader}. \
          A paused build keeps everything it has done and goes on from where it stopped, so do not start it again. \
          Run a long build in the background, so a pause does not reach your tool's time limit."
     )
@@ -54,8 +53,8 @@ where
             .collect();
         let fleet = Arc::clone(self);
         let looked = tokio::task::spawn_blocking(move || {
-            let load = checks_runner::fifteen_minute_load();
-            let loaded = load.is_some_and(|load| load >= f64::from(checks_runner::LOAD_LIMIT));
+            let load = checks_runner::fifteen_minute_load().filter(|load| *load >= f64::from(checks_runner::LOAD_LIMIT));
+            let pressure = memory_pressure();
             let Some(listing) = std::process::Command::new("ps")
                 .args(LISTING)
                 .output()
@@ -69,35 +68,38 @@ where
             let mut turns = fleet.build_turns().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
             let was = turns.leader().map(str::to_string);
             let held_before = turns.jobs_held();
+            let now = Instant::now();
+            let loaded = turns.loaded(load.is_some(), pressure, now);
+            let why = match load {
+                Some(load) => format!("the fifteen-minute load is {load:.0}, at or over {}", checks_runner::LOAD_LIMIT),
+                None => "memory is short".to_string(),
+            };
             let signals = turns.look(
                 loaded,
                 &contenders,
                 &listing,
                 |pid| peers.carries(pid, checks_runner::HELD_ENV, "1"),
                 |pid, job| peers.carries(pid, Holder::SESSION_ENV, job),
-                Instant::now(),
+                now,
                 TURN,
             );
             send(&signals);
-            let now = turns.leader().map(str::to_string);
-            if was != now {
-                match (now, load) {
-                    (Some(job), Some(load)) => eprintln!(
-                        "builds take turns: the fifteen-minute load is {load:.0}, at or over {}, so job {job}'s builds run and the other Jobs' wait",
-                        checks_runner::LOAD_LIMIT
-                    ),
-                    _ => eprintln!("builds take turns no more: every Job's builds run"),
+            let leader = turns.leader().map(str::to_string);
+            if was != leader {
+                match &leader {
+                    Some(job) => eprintln!("builds take turns: {why}, so job {job}'s builds run and the other Jobs' wait"),
+                    None => eprintln!("builds take turns no more: every Job's builds run"),
                 }
             }
-            Some((held_before, turns.jobs_held(), now, load))
+            Some((held_before, turns.jobs_held(), leader, why))
         })
         .await;
-        let Ok(Some((before, after, leader, load))) = looked else {
+        let Ok(Some((before, after, leader, why))) = looked else {
             return;
         };
         // Told so its agent waits on a build that went quiet, rather than starting it again.
         for job in after.difference(&before) {
-            let text = held_said(leader.as_deref(), load);
+            let text = held_said(leader.as_deref(), &why);
             let _ = self.told_by_fleet(job, &text, ipc::Notice::BuildsHeld).await;
         }
         for job in before.difference(&after) {
