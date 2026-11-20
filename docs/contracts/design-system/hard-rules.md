@@ -38,8 +38,8 @@
    **Kind takes hue as freely as state does.** Colour says what a thing is
    as well as what state it is in, so a glance tells kinds apart (the
    owner, 9 Nov 2026). Rows of several kinds declare a hue for each in a
-   kind file of their own, as `tokens/tools.css` and `tokens/kinds.css`
-   do, aliasing no status.
+   kind file of their own, as `tokens/tools.css`, `tokens/kinds.css` and
+   `tokens/ask-tools.css` do, aliasing no status.
    **Outside status and accent, these hue families exist.** `--operator` marks
    the Operator's own chrome and nothing else. `--you` marks the owner's own
    messages in a Session thread and nothing else. The **tool families** in
@@ -48,8 +48,10 @@
    see Tool families under Tokens. The **node kinds** in
    `tokens/kinds.css` say what a node on the approval canvas is, on that
    canvas alone, for the same reason in a file of their own — see Node
-   kinds under Tokens. Depth's light and glass never take a
-   status hue.
+   kinds under Tokens. The **ask tools** in `tokens/ask-tools.css` say
+   which of Armada's tools a message asks the agent for, on its chip and
+   nowhere else — see Ask tools under Tokens. Depth's light and glass
+   never take a status hue.
 4. **Dark is primary.** Design dark first. Light exists but is secondary. Light is `packages/tokens/src/light.css`; every other theme is described in `docs/concepts/themes.md`.
 5. **Icons: lucide-react only.** A row's kind and its state each draw a
    glyph in their own hue, so rows tell apart at a glance. An icon that

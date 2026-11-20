@@ -1,0 +1,7 @@
+[icons.chart-network]
+  means = "Points joined by lines, standing on two axes: boxes and how they connect"
+  group = "Ask tools"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Diagram, the Armada tool a message asks the agent for: its row in the list the message box's + opens and its chip in the words. Never a chart of figures, and never the Overview's canvas or a Job's workflow."
+  notes = "Proposed 19 Nov 2026 for the message box's Ask the agent for list, for the owner to rule on. A Diagram asks for boxes and arrows, a flow or a map, and this is nodes and their edges. Refused: `workflow`, the Workflows surface's, which its reservation keeps from any graph or canvas; `network`, the Now panel's Canvas toggle only; `waypoints`, the graph view toggle and a Job's Workflow view; `share-2`, which reads as Share."

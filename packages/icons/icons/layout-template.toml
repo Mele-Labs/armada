@@ -1,0 +1,7 @@
+[icons.layout-template]
+  means = "A screen laid out as blocks: a header across, a tall panel and two short ones"
+  group = "Ask tools"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Sketch, the Armada tool a message asks the agent for: its row in the list the message box's + opens and its chip in the words. Never a layout mod or the panes' Layout control, which are `panels-top-left`, and never a Bridge surface."
+  notes = "Proposed 19 Nov 2026 for the message box's Ask the agent for list, for the owner to rule on. A Sketch asks for a screen drawn as a mock, and this glyph is a screen drawn as boxes. Refused: `pencil`, reserved to the sketch pad's pen, a line he draws with the pointer; `pencil-ruler`, the box's own Draw sketch button; `panels-top-left`, a layout mod's; `app-window`, a retro item fixed in Armada itself."

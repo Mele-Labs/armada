@@ -25,15 +25,15 @@ struct Tool {
     hue: Token,
 }
 
-/// The tools in the order the list draws them. The hues are the soft ones that carry no status.
+/// The tools in the order the list draws them, each in its own hue from `tokens/ask-tools.css`.
 const TOOLS: [Tool; 7] = [
-    Tool { id: "sketch", name: "Sketch", says: "a screen drawn as a mock", glyph: "pencil", hue: token::KIND_STEP },
-    Tool { id: "diagram", name: "Diagram", says: "boxes and arrows: a flow or a map", glyph: "workflow", hue: token::TOOL_LOOK },
-    Tool { id: "takes", name: "Takes", says: "options side by side; you pick one", glyph: "scale", hue: token::TOOL_RUN },
-    Tool { id: "document", name: "Document", says: "a page you read and approve", glyph: "file-text", hue: token::KIND_SETUP },
-    Tool { id: "browser", name: "Browser", says: "open a page in this Job", glyph: "globe", hue: token::KIND_SETUP },
-    Tool { id: "terminal", name: "Terminal", says: "a command you can watch run", glyph: "terminal", hue: token::KIND_DELIVERY },
-    Tool { id: "features", name: "Features", says: "the project's feature catalog", glyph: "library", hue: token::TOOL_CHANGE },
+    Tool { id: "sketch", name: "Sketch", says: "a screen drawn as a mock", glyph: "layout-template", hue: token::ASK_SKETCH },
+    Tool { id: "diagram", name: "Diagram", says: "boxes and arrows: a flow or a map", glyph: "chart-network", hue: token::ASK_DIAGRAM },
+    Tool { id: "takes", name: "Takes", says: "options side by side; you pick one", glyph: "columns-2", hue: token::ASK_TAKES },
+    Tool { id: "document", name: "Document", says: "a page you read and approve", glyph: "file-text", hue: token::ASK_DOCUMENT },
+    Tool { id: "browser", name: "Browser", says: "open a page in this Job", glyph: "globe", hue: token::ASK_BROWSER },
+    Tool { id: "terminal", name: "Terminal", says: "a command you can watch run", glyph: "monitor-play", hue: token::ASK_TERMINAL },
+    Tool { id: "features", name: "Features", says: "the project's feature catalog", glyph: "blocks", hue: token::ASK_FEATURES },
 ];
 
 /// The key the registry gives `ask_for_tool`, for the button's tooltip.
@@ -119,6 +119,15 @@ mod tests {
         assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None]);
         assert_eq!(rows[2].says, "options side by side; you pick one");
         assert_eq!(rows[2].pick, Pick::Tag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
+    }
+
+    #[test]
+    fn each_tool_has_a_hue_and_a_glyph_no_other_tool_has() {
+        let glyphs: Vec<&str> = TOOLS.iter().map(|tool| tool.glyph).collect();
+        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks"]);
+        let hues: std::collections::BTreeSet<&str> = TOOLS.iter().map(|tool| tool.hue.0).collect();
+        assert_eq!(hues.len(), TOOLS.len(), "no two tools share a hue");
+        assert!(hues.iter().all(|hue| hue.starts_with("--ask-")), "every hue is an ask tool's own, none a status's");
     }
 
     #[test]

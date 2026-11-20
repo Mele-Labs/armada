@@ -49,6 +49,7 @@ const SOURCES: &[(&str, Source)] = &[
     ("status.css", Source::Tokens),
     ("tools.css", Source::Tokens),
     ("kinds.css", Source::Tokens),
+    ("ask-tools.css", Source::Tokens),
     ("typography.css", Source::Tokens),
     ("spacing.css", Source::Tokens),
     ("motion.css", Source::Tokens),
@@ -233,6 +234,8 @@ pub const THEME: &[(&str, Slot)] = &[
     ("--tool-", Slot::NsFull("color")),
     // What a node on the approval canvas IS, from kinds.css. A tint or an edge, never a status.
     ("--kind-", Slot::NsFull("color")),
+    // Which of Armada's tools a message asks for, from ask-tools.css. A tint or a glyph, never a status.
+    ("--ask-", Slot::NsFull("color")),
     ("--verdict-", Slot::NsFull("color")),
     ("--run-", Slot::NsFull("color")),
     // A worktree slot's bay, aliased in status.css below Job level.
