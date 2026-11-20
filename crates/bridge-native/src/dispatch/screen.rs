@@ -240,6 +240,15 @@ pub fn open_new_project(cx: &mut App) {
     reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
 }
 
+/// The switcher's Members: the New project sheet opens on the project, filled in, to edit.
+pub fn open_project_members(at: usize, cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        let Some(bar) = titlebar::live(cx) else { return };
+        let Some(id) = bar.read(cx).face.projects.get(at).map(|project| project.id.to_string()) else { return };
+        this.new_project.update(cx, |sheet, cx| sheet.show_edit(&id, window, cx));
+    });
+}
+
 /// The switcher's In this build: the sheet of the running build's notes opens again.
 pub fn open_build_notes(cx: &mut App) {
     reach(cx, |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show(window, cx)));
@@ -325,6 +334,11 @@ impl DispatchScreen {
         let mut subs = vec![
             cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx)),
             cx.subscribe_in(&new_project, window, |this, _, made: &crate::new_project::Made, window, cx| this.project_made(made, window, cx)),
+            cx.subscribe(&new_project, |_, _, edited: &crate::new_project::Edited, cx| {
+                if let Some(bar) = titlebar::live(cx) {
+                    bar.update(cx, |bar, cx| bar.set_projects(&edited.served, &edited.projects, cx));
+                }
+            }),
         ];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));

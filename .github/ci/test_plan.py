@@ -158,7 +158,7 @@ class Planning(unittest.TestCase):
         self.assertEqual(plan(KEYS + ["test"])["compile"], [])
 
     def test_a_shard_and_the_unit_job_name_their_check(self):
-        self.assertEqual(rerun_keys(["test 4/4", "desktop_unit", "apps/desktop:xtask_test"]),
+        self.assertEqual(rerun_keys(["test 4/4", "desktop_unit 2/2", "apps/desktop:xtask_test"]),
                          {"test", "apps/desktop/unit:desktop_test", "apps/desktop:xtask_test"})
 
 

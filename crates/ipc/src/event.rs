@@ -281,6 +281,9 @@ pub enum Event {
     // One entry Fleet just kept for the timeline. Since 23.82.
     #[serde(rename = "timeline.appended")]
     TimelineAppended(TimelineAppended),
+    // One step of a project's librarian run started or ended. `docs/concepts/feature-catalog.md`, *Librarian*.
+    #[serde(rename = "librarian.step")]
+    LibrarianStep(crate::LibrarianStepMoved),
     // A background act failed after its request was answered, so the refusal rides the stream.
     #[serde(rename = "act.failed")]
     ActFailed(ActFailed),

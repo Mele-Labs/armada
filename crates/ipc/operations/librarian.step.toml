@@ -1,0 +1,14 @@
+[operations."librarian.step"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "One step of a project's librarian run started or ended: running, done, skipped or failed, with a line of what it did"
+notes = """
+Carries `LibrarianStepMoved`: `project`, `run` (the instant the run started, which `LibrarianRan.ran_at` repeats), `step` (the id of one of `FeatureLibrary.librarian.steps`), `state` and `said`.
+
+**Every step of a run is told in order: `running` as it starts, then one of `done`, `skipped` or `failed` as it ends.** A step skipped before it starts is told `skipped` alone. `said` is one line: what a step did (`3 merges, 5 sections`, `Wrote 2 sentences, 1 of 20 calls tonight`, `Read through #3864`), or why it was skipped (`Nothing new since the last run, so no call`, `Tonight's 20 calls are spent`, `Stopped`). Absent while a step runs.
+
+The steps are `read_merges`, then one for each model part that is on and built (`since_you_looked`), then `read_through`. A run Fleet started under `features.librarianRuns` tells its steps as a press's does.
+
+A step is small and a run has a handful, so this adds nothing the stream's drop-oldest backlog could not hold. Not replayed on a resync: a client that reconnects reads `list_features` again, which carries the run's record once it has ended.
+"""

@@ -361,6 +361,17 @@ impl Store {
         Ok(kept)
     }
 
+    /// How many sections of `project`'s features were written after `since`, an RFC3339 instant. Every one where it is empty.
+    pub fn sections_written_since(&self, project: &str, since: &str) -> Result<u64, WriteError> {
+        self.conn
+            .query_row(
+                "SELECT COUNT(*) FROM feature_sections s JOIN features f ON f.id = s.feature_id WHERE f.project = ?1 AND s.written_at > ?2",
+                [project, since],
+                |row| row.get(0),
+            )
+            .map_err(failed("counting the sections written in a project"))
+    }
+
     /// Keep a link. **A link already held is left as it was**, so its first sighting stays its date; a state
     /// that moved (a bug closed) is [`Store::move_feature_link`]'s. Whether a row was added.
     pub fn put_feature_link(&mut self, link: &KeptFeatureLink) -> Result<bool, WriteError> {
