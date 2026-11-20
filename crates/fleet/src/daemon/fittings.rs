@@ -409,6 +409,7 @@ where
             project_files: Default::default(),
             notice_batches: Default::default(),
             usage_following: Default::default(),
+            step_times: Default::default(),
             rehearsals: crate::rehearsing::Rehearsals::default(),
             watches: crate::watches::Watches::default(),
             servers: crate::servers::Servers::default(),

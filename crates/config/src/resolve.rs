@@ -383,6 +383,7 @@ fn resolve_step(
     .asking_delivery(step.asks_delivery())
     .walking_the_work(step.walks())
     .ending_on(step.ends_on().to_vec())
+    .opening(step.tabs().to_vec())
 }
 
 /// What a step's work stays out of where nothing above it said.

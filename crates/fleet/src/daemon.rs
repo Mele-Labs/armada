@@ -170,6 +170,8 @@ pub struct Fleet<H, V, W> {
     notice_batches: crate::session_host::NoticeBatches,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.
     usage_following: crate::usage_rules::Following,
+    /// How long each workflow step usually takes, and which Jobs are drawn amber. Never written down — `crate::step_stalls`.
+    step_times: crate::step_stalls::StepTimes,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,

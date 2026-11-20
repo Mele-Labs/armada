@@ -131,6 +131,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   usage: [],
   // A Job's Tokens tab keys, in the native Bridge only: found from Settings → Keyboard.
   tokens: [],
+  // A Job's API Client tab keys, in the native Bridge only: found from Settings → Keyboard.
+  "api client": [],
   // The Features tab's keys, in the native Bridge only: found from Settings → Keyboard.
   features: [],
 };

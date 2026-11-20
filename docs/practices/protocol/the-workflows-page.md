@@ -8,7 +8,7 @@ Bridge's half is `packages/protocol/src/setup.ts`, written by hand, field for fi
 
 | Operation | Route | Side | Carries |
 | --- | --- | --- | --- |
-| `get_workflow_steps` | `GET /workflows/steps?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowSteps`: the id, the place and `steps`, each a `StepReading`: `id`, `label`, `instructions?`, `ends_when?`, `ends_any?`, `passed_over_when?` |
+| `get_workflow_steps` | `GET /workflows/steps?workflow_id=&source=&manifest_id=` | Fleet answers | `WorkflowSteps`: the id, the place and `steps`, each a `StepReading`: `id`, `label`, `instructions?`, `ends_when?`, `ends_any?`, `passed_over_when?`, `warning?` |
 | `delete_workflow_copy` | `POST /workflows/delete?manifest_id=` | Bridge sends `WorkflowCopy` (`workflow_id`, `source`, `file?`) | `WorkflowCopyDeleted`: the id, the place, the file and `runs_from?` |
 | `reset_workflow_copy` | `POST /workflows/reset?manifest_id=` | Bridge sends `WorkflowCopy` | `WorkflowSaved`, since a reset is a save |
 
@@ -17,6 +17,8 @@ The steps are read from the parsed file and resolved against the repository's Ch
 One a more specific place replaced is resolved on the read, since the catalogue never does.
 `ends_when` and `passed_over_when` are `rail_ends`' reading of the rules the rail places a Job by, so the page does not restate them.
 `ends_any`, since 28 Oct 2026, is every end of a step, in order, as the page says them, where any one of several ends it; left out where empty.
+`warning`, since 20 Nov 2026, is what the editor warns of a step as written, and is left out where there is nothing to say: a step in the middle that nothing Fleet observes ends passes at once.
+It warns and never refuses, so the definition loads; it is the only place the workflows page carries a warning.
 Fleet kept the Jobs it nudged off a step until 5 Nov 2026 (`nudges?`, `mark_not_a_drift`); both are gone, and the `workflow_nudges` table is left unread.
 
 **Refusals**, all 422 but the last:

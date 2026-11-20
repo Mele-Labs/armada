@@ -280,6 +280,12 @@ export type SessionRecord = {
    */
   workflow_waiting_on?: string[];
   /**
+   * The step the Job is on as the column draws it: its tabs, usual time, what ends it, whether it is stalled, and the steps passed without
+   * the Approve they wait on. Absent for a Job that follows no workflow, one that has ended, and one whose workflow did not resolve.
+   * Since 20 Nov 2026.
+   */
+  workflow_strip?: WorkflowStrip;
+  /**
    * The Job's own copy of its workflow, once it changed a step of it (`change_session_steps`): what the rail and the lanes read
    * in place of the repository's, and the steps a publish pinned the Job to. Absent for a Job with neither. Since 30 Oct 2026.
    */
@@ -350,6 +356,26 @@ export type SessionStarted = {
     id: string;
     title: string;
   };
+};
+
+/** What the Job's right column and strip draw for the workflow step the Job is on. The time on the step is the last of `workflow_visits` for `workflow_step`. */
+export type WorkflowStrip = {
+  /** The tabs the step opens, the front one first, as ids of the native Bridge's zones (`now` and `walks` beside them). Absent where the step lists none. */
+  tabs?: string[];
+  /** The step's 9-in-10 time in seconds: the 90th percentile of how long Jobs on this workflow stayed on this step. Absent where fewer than five visits are known. */
+  usual_secs?: number;
+  /** What ends the step, to the person, any one of them. Absent where nothing Fleet observes does. */
+  ends_when?: string[];
+  /** The step has stood past `usual_secs` with no move. Absent otherwise. */
+  stalled?: StepStalled;
+  /** The steps the rail moved past on work that belongs to a later step, though the Approve they wait on was never given, by the index `workflow_step` uses. Absent where none is. */
+  passed_unapproved?: number[];
+};
+
+/** A step that stands past its usual time. `since` is when it went past; `cause` says what the step waits on and whose it is. */
+export type StepStalled = {
+  since: string;
+  cause: string;
 };
 
 /** The time a workflow step began. `step` is its index in the workflow. */
