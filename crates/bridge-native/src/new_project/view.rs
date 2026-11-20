@@ -446,7 +446,7 @@ impl NewProjectSheet {
     fn parent_field(&self, clone: bool, window: &Window, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
         let handle = if clone { &self.at.clone_parent } else { &self.at.new_parent };
-        let parent = if clone { &self.clone_parent } else { &self.new_parent };
+        let parent = if clone { self.clone_into() } else { self.new_into() };
         let name = if clone { "Folder to clone into" } else { "Folder to make it in" };
         labelled(
             field(look, handle.is_focused(window))
@@ -804,6 +804,7 @@ impl NewProjectSheet {
         let look = cx.look();
         let ring = look.color(token::ACCENT);
         let refusal = self.refused.clone().map(|why| labelled(div().id("np-refused").text_color(look.color(token::ERROR)).child(why.clone()), Role::Alert, why));
+        let making = self.making.map(|said| labelled(div().id("np-making").text_color(look.color(token::FG_MUTED)).child(said), Role::Status, said));
         let cancel = Btn::new("np-cancel", "Cancel", Weight::Secondary)
             .draw(look, cx)
             .track_focus(&self.at.cancel)
@@ -830,7 +831,7 @@ impl NewProjectSheet {
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_RAISED))
-            .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).children(refusal))
+            .child(div().flex_1().min_w_0().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).children(making).children(refusal))
             .child(labelled(cancel, Role::Button, "Cancel"))
             .child(labelled(create, Role::Button, verb))
     }
