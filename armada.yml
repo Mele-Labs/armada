@@ -327,7 +327,8 @@ checks:
     # `scripts/running-bridge` against a throwaway repository, a
     # stub `armada` and a stub Fleet. Git and Python only: no build, no real
     # Fleet, and `HOME` is a scratch directory. A failure means the preview
-    # merges the wrong branches or a restart refuses or adopts wrongly.
+    # merges the wrong branches or a restart refuses or adopts wrongly, or
+    # `scripts/prune-build` drops build output a build still uses.
     run: python3 -m unittest scripts/test_preview.py scripts/test_restart_detach.py
     when:
       - ".github/**"
@@ -339,6 +340,7 @@ checks:
       - "scripts/test_restart_detach.py"
       - "scripts/armada-electron"
       - "scripts/test_preview.py"
+      - "scripts/prune-build"
       - "armada.yml"
 
   sync_mod_test:

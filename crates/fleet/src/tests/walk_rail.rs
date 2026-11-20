@@ -164,7 +164,7 @@ fn what_ends_each_step_is_read_off_its_anchor() {
         said(&[Some("you approve the plan"), Some("you approve every walk"), Some("it is pushed"), Some("it is merged")])
     );
     let loose = [fitted("Build", Fit::Edited), step("Free text")];
-    assert_eq!(ends(&loose), said(&[None, None]));
+    assert_eq!(ends(&loose), said(&[None, Some("the Job ends")]), "a last step that lists nothing ends with the Job, a middle one says nothing");
     assert_eq!(ends_when(&feature(), 9), None, "no such step");
     assert_eq!(passed_over_when(&walk()), Some("nothing would be seen"));
     assert_eq!(passed_over_when(&step("Refine")), None);
@@ -358,7 +358,9 @@ fn a_step_ending_on_a_draft_approved_holds_the_job_and_his_approve_moves_it_on()
     let steps = vec![RailStep { ends_on: vec![StepEnd::DraftApproved], ..step("Draft") }, delivers("Land")];
     assert_eq!(at(&steps, Facts::default()), Some(0));
     assert_eq!(at(&steps, Facts { draft_approved: true, ..Facts::default() }), Some(1), "his Approve passes the step");
-    assert_eq!(at(&steps, Facts { pushed: true, ..Facts::default() }), Some(0), "a push is no Approve");
+    let pushed = Facts { pushed: true, ..Facts::default() };
+    assert_eq!(at(&steps, pushed), Some(1), "work ahead of the draft moves the Job on to the step that delivers it");
+    assert_eq!(rail::passed_unapproved(&steps, &pushed, Some(1)), vec![0], "and the draft is flagged as passed without his Approve");
     assert_eq!(ends_when(&steps, 0).as_deref(), Some("you approve a draft"));
 }
 

@@ -227,5 +227,15 @@ fn step_reading(steps: &[RailStep], at: usize) -> StepReading {
         ends_when: ends_when(steps, at),
         ends_any: ends_any(steps, at),
         passed_over_when: passed_over_when(step).map(str::to_string),
+        warning: warning_of(steps, at),
     }
+}
+
+/// What the editor warns of a step as written. **A step in the middle that nothing Fleet observes ends passes at once**, so
+/// the Job never stands on it: it needs a `gate`, an `ends_on`, or a step after it that Fleet can see begin.
+pub(crate) fn warning_of(steps: &[RailStep], at: usize) -> Option<String> {
+    let middle = at + 1 < steps.len();
+    (middle && crate::rail_ends::ends_of(steps, at).is_empty()).then(|| {
+        "Nothing ends this step that Fleet can see, so the Job passes through it at once. Give it a `gate` or an `ends_on`.".to_string()
+    })
 }

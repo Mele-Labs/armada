@@ -6,7 +6,7 @@ use std::sync::Arc;
 
 use api::HostedSessions;
 use ipc::{
-    AnswerSessionAsk, ApprovePlan, CallAnswer, JobAct, MacAct, MacLink, Queued, QueuedList, SendSessionMessage, SendSessionMessageBody, SessionId,
+    AnswerSessionAsk, ApprovePlan, CallAnswer, CloseSession, JobAct, MacAct, MacLink, Queued, QueuedList, SendSessionMessage, SendSessionMessageBody, SessionId,
     SessionRecord, SessionRow, SessionVoice, StartOn, StartSession, StopSession, TakeBack,
 };
 
@@ -90,7 +90,7 @@ pub(super) async fn acts_run(mac: &OneMac) -> Vec<store::KeptActRun> {
     mac.rig.fleet.store().lock().await.acts_run().expect("reads")
 }
 
-async fn queued(mac: &OneMac) -> QueuedList {
+pub(super) async fn queued(mac: &OneMac) -> QueuedList {
     let (status, body) = {
         use tower::ServiceExt;
         let answer = mac.fleet.clone().oneshot(axum::http::Request::get("/queued").body(axum::body::Body::empty()).expect("a request")).await.expect("answered");
@@ -166,6 +166,41 @@ async fn from_one_mac_a_message_an_answer_an_approval_a_merge_and_a_stop_run_on_
     assert_eq!(kinds, ["message", "ask_answer", "plan_approve", "merge", "stop"]);
     assert!(ran.iter().all(|one| one.mac == home.id && one.via == "mac"), "{ran:?}");
     assert!(acts_run(&home).await.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn end_job_from_one_mac_ends_the_job_on_the_mac_that_holds_it() {
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+
+    let (status, body) = post(&home, "/sessions/close", encoded(&CloseSession { session_id: job.clone() })).await;
+    assert_eq!(status, axum::http::StatusCode::OK, "{body}");
+    let ended = Arc::clone(&work.rig.fleet).get_session(job.clone()).await.expect("read").session;
+    assert!(ended.ended_at.is_some(), "Work ended its Job: {ended:?}");
+
+    let ran = acts_run(&work).await;
+    assert_eq!(ran.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["close"]);
+    assert!(acts_run(&home).await.is_empty());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 4)]
+async fn end_job_for_a_sleeping_mac_waits_and_ends_the_job_when_it_wakes() {
+    let Pair { home, work, job } = pair_over_a_shared_job(false).await;
+    let mut work = work;
+    work.stop().await;
+    asleep(&home, &work).await;
+
+    let (status, body) = post(&home, "/sessions/close", encoded(&CloseSession { session_id: job.clone() })).await;
+    assert_eq!(status, axum::http::StatusCode::ACCEPTED, "{body}");
+    let kept: Queued = ipc::decode("a queued act", body.as_bytes()).expect("the Queued");
+    assert_eq!(kept.mac, work.id);
+
+    work.restart();
+    let (fleet, id) = (Arc::clone(&work.rig.fleet), job.clone());
+    until("Work ended its Job once it woke", || async {
+        Arc::clone(&fleet).get_session(id.clone()).await.is_ok_and(|read| read.session.ended_at.is_some())
+    })
+    .await;
+    until("and the End left Home's queue", || async { queued(&home).await.queued.is_empty() }).await;
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]

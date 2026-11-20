@@ -82,6 +82,7 @@ async fn link_aged(rig: &Rig, feature: &str, kind: &str, target: &str, gist: &st
         job: "j1".to_string(),
         title: String::new(),
         gist: gist.to_string(),
+        gist_by: String::new(),
         state: String::new(),
         via: "read".to_string(),
         at,

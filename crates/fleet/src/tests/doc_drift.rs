@@ -66,6 +66,7 @@ async fn linked(rig: &Rig, feature: &str, kind: &str, target: &str) {
         job: "j1".to_string(),
         title: String::new(),
         gist: String::new(),
+        gist_by: String::new(),
         state: String::new(),
         via: "read".to_string(),
         at: "2026-11-19T08:00:00.000Z".to_string(),

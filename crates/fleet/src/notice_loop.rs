@@ -70,6 +70,7 @@ where
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
         let mut stops_swept: Option<tokio::time::Instant> = None;
+        let mut steps_read: Option<tokio::time::Instant> = None;
         let mut alive = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
@@ -124,6 +125,11 @@ where
                 fleet.stops_swept().await;
             }
             fleet.stops_told().await;
+            // A step a Job has stood on past its usual time, drawn amber and told once.
+            if steps_read.is_none_or(|at| at.elapsed() >= crate::step_stalls::EVERY) {
+                steps_read = Some(tokio::time::Instant::now());
+                fleet.steps_stalled_told().await;
+            }
             // A Later that ran out puts its item back, which the page is told of.
             fleet.laters_run_out().await;
             // A Ready to try card whose reminder came, back in its Job's thread.

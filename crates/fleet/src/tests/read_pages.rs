@@ -40,10 +40,11 @@ async fn a_reading_page_waits_as_one_read_item_naming_its_artifact_and_a_page_th
     let items = read_items(&record_of(&rig, &id).await);
     assert_eq!(items.len(), 1, "{items:?}");
     let item = &items[0];
-    assert_eq!(item.id, format!("read:{path}"));
+    let home = rig.fleet.page_home(id.as_str(), &path);
+    assert_eq!(item.id, format!("read:{home}"));
     assert_eq!(item.text, "Read: Status");
     assert_eq!(item.source, WaitingSource::Document);
-    assert_eq!(item.artifact.as_deref(), Some(path.as_str()));
+    assert_eq!(item.artifact.as_deref(), Some(home.as_str()));
     assert!(item.options.is_empty() && !item.approves, "{item:?}");
 
     // A second revision while it is open refreshes the one item.
@@ -57,7 +58,7 @@ async fn a_reading_page_waits_as_one_read_item_naming_its_artifact_and_a_page_th
     written(&rig, &id, at, &asks, marked, "toolu_3", 1).await;
     let record = record_of(&rig, &id).await;
     assert!(super::documents::waits_on(&record, &asks), "{:?}", record.waiting_for);
-    assert!(read_items(&record).iter().all(|one| one.artifact.as_deref() != Some(asks.as_str())), "{:?}", record.waiting_for);
+    assert!(read_items(&record).iter().all(|one| one.artifact.as_deref() != Some(rig.fleet.page_home(id.as_str(), &asks).as_str())), "{:?}", record.waiting_for);
 }
 
 #[tokio::test]

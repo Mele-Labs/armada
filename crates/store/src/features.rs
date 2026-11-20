@@ -98,8 +98,16 @@ pub struct KeptFeatureLink {
     pub state: String,
     pub via: String,
     pub at: String,
-    /// What a doc or ticket says, as its first sentence. Empty for every other kind.
+    /// What a doc or ticket says, as its first sentence or as the Job that read it wrote it. Empty for every other kind.
     pub gist: String,
+    /// [`gist_by`] says who wrote `gist`: empty for the result's first sentence.
+    pub gist_by: String,
+}
+
+/// Who wrote a link's gist, as `feature_links.gist_by` holds it.
+pub mod gist_by {
+    /// The Job that read the doc wrote it at its end.
+    pub const JOB: &str = "job";
 }
 
 /// A file a Job wrote while its work was filed under a feature.
@@ -138,7 +146,7 @@ fn json(lines: &[String]) -> String {
 
 const FEATURE: &str = "id, project, area, slug, title, summary, state, manifest_id, entry_points, position, added_at";
 const SECTION: &str = "feature_id, section, text, job, written_at, at_commit";
-const LINK: &str = "feature_id, kind, target, job, title, state, via, at, gist";
+const LINK: &str = "feature_id, kind, target, job, title, state, via, at, gist, gist_by";
 
 fn feature_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptFeature> {
     Ok(KeptFeature {
@@ -168,6 +176,7 @@ fn link_row(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptFeatureLink> {
         via: row.get(6)?,
         at: row.get(7)?,
         gist: row.get(8)?,
+        gist_by: row.get(9)?,
     })
 }
 
@@ -377,8 +386,8 @@ impl Store {
     pub fn put_feature_link(&mut self, link: &KeptFeatureLink) -> Result<bool, WriteError> {
         self.conn
             .execute(
-                &format!("INSERT OR IGNORE INTO feature_links ({LINK}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)"),
-                params![link.feature_id, link.kind, link.target, link.job, link.title, link.state, link.via, link.at, link.gist],
+                &format!("INSERT OR IGNORE INTO feature_links ({LINK}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10)"),
+                params![link.feature_id, link.kind, link.target, link.job, link.title, link.state, link.via, link.at, link.gist, link.gist_by],
             )
             .map(|added| added > 0)
             .map_err(failed("keeping a feature's link"))

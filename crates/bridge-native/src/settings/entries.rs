@@ -61,8 +61,10 @@ pub enum Body {
     Time,
     /// How he takes a Job's work in and how he answers it: two rows of cards, each way's options under its row (`ways.rs`).
     Ways,
-    /// This Mac, its Cloudflare tunnel, and the Macs and phones that reach it, off the Phone Gateway (`macs.rs`).
-    Macs,
+    /// Whether a project's Jobs reach his other Macs, and where a copy's file is kept (`project.rs`).
+    Shared,
+    /// Who he is on the forge, his devices off the Phone Gateway (`macs.rs`), and what signing in turns on (`account.rs`).
+    Account,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
     Mods(Option<ipc::ModKind>),
 }
@@ -138,6 +140,7 @@ pub const SECTIONS: &[Section] = &[
     Section { id: "words", label: "Words", palette: "Words mods", words: &["Words", "mods", "teach", "taught", "jira", "links", "keys", "switch"] },
     Section { id: "trackers", label: "Tracker", palette: "Tracker mods", words: &["Tracker", "mods", "issue tracker", "tried", "valid", "stale", "try", "switch", "promote"] },
     Section { id: "fleet-mods", label: "Fleet", palette: "Fleet mods", words: &["Fleet", "mods", "teach", "taught", "notices", "batch", "quiet", "switch"] },
+    Section { id: "shared", label: "Other Macs", palette: "Share with your other Macs", words: &["Other Macs", "share", "shared", "your other Macs", "project"] },
     Section { id: "macs", label: "Macs", palette: "Macs", words: &["Macs", "mac", "this mac", "tunnel", "cloudflare", "devices", "phones", "unpair", "address"] },
     Section { id: "layout", label: "Layout", palette: "Layout", words: &["Layout", "tabs", "panels", "rail", "hide", "order", "reset"] },
     Section { id: "time", label: "Time", palette: "Time", words: &["Time", "clock", "24-hour", "12-hour", "seconds", "date", "timestamp", "stamp", "format"] },
@@ -160,6 +163,7 @@ pub const ENTRIES: &[Entry] = &[
     page("values:starting-jobs", "Starting Jobs", Group::Project, Body::Values(super::project::Page::StartingJobs), "play", SUCCESS),
     page("values:look", "Look", Group::Project, Body::Values(super::project::Page::Look), "layers", REVIEW),
     page("project:claims-store", "Claims store", Group::Project, Body::Store, "database", DELIVERY),
+    page("project:shared", "Other Macs", Group::Project, Body::Shared, "globe", RUNNING),
     page("kit:workflows", "Workflows", Group::Kit, Body::Workflows, "git-branch", DELIVERY),
     page("kit:models", "Models", Group::Kit, Body::Models, "bot", ESCALATED),
     page("kit:prompts", "Prompts", Group::Kit, Body::Schema(&["prompts"]), "message-square", REVIEW),
@@ -170,7 +174,7 @@ pub const ENTRIES: &[Entry] = &[
     page("fleet:plan", "Plan", Group::Fleet, Body::Schema(&["plan"]), "calendar", REVIEW),
     page("fleet:token-use", "Token use", Group::Fleet, Body::Schema(&["token-use"]), "zap", RUNNING),
     page("fleet:machine", "Machine", Group::Fleet, Body::Schema(&["machine"]), "laptop", SUCCESS),
-    page("fleet:account", "Account", Group::Fleet, Body::Schema(&["account"]), "lock", SUCCESS),
+    page("fleet:account", "Account", Group::Fleet, Body::Account, "lock", SUCCESS),
     page("fleet:features", "Features", Group::Fleet, Body::Features, "toggle-left", RUNNING),
     page("fleet:repository", "Repository", Group::Fleet, Body::Repository, "plug", ESCALATED),
     page("bridge:all", "All", Group::Mods, Body::Mods(None), "puzzle", ESCALATED),
@@ -186,11 +190,13 @@ pub const ENTRIES: &[Entry] = &[
     page("bridge:editor", "Editor", Group::Bridge, Body::Schema(&["editor"]), "file-pen-line", SUCCESS),
     page("bridge:terminal", "Terminal", Group::Bridge, Body::Schema(&["terminal"]), "square-terminal", FAILED),
     page("bridge:links", "Links", Group::Bridge, Body::Schema(&["links"]), "external-link", RUNNING),
-    page("bridge:macs", "Macs", Group::Bridge, Body::Macs, "globe", RUNNING),
 ];
 
 /// This Mac's parts, in order: the first drawn under This Mac itself, Mods and Bridge each under its own name.
 pub const MAC_PARTS: [(Option<&str>, &[Group]); 3] = [(None, &[Group::Kit, Group::Fleet]), (Some("Mods"), &[Group::Mods]), (Some("Bridge"), &[Group::Bridge])];
+
+/// Settings › This Mac › Account, which the title bar's Account row opens.
+pub const ACCOUNT: &str = "fleet:account";
 
 /// ⌘, opens the entry last used, else Limits, as Classic's Settings surface does (`entryForSurface`).
 pub const FIRST: &str = "fleet:limits";
@@ -247,7 +253,8 @@ pub(super) fn words_of(entry: &Entry, list: Option<&SettingsList>) -> String {
         Body::Mods(Some(ipc::ModKind::Tracker)) => &["trackers"],
         Body::Mods(Some(ipc::ModKind::Words)) => &["words"],
         Body::Mods(Some(_)) => &["fleet-mods"],
-        Body::Macs => &["macs"],
+        Body::Shared => &["shared"],
+        Body::Account => &["account", "macs"],
         Body::Store => &["claims-store"],
         Body::Layout => &["layout"],
         Body::Time => &["time"],
@@ -330,7 +337,7 @@ mod tests {
     #[test]
     fn the_projects_pages_are_those_a_project_layer_sets_and_this_mac_holds_the_rest_in_order() {
         let ids = |side_of: Side| ENTRIES.iter().filter(|one| side(one) == side_of).map(|one| one.id).collect::<Vec<_>>();
-        assert_eq!(ids(Side::Project), ["values:pull-requests", "values:starting-jobs", "values:look", "project:claims-store", "kit:workflows", "bridge:macs"]);
+        assert_eq!(ids(Side::Project), ["values:pull-requests", "values:starting-jobs", "values:look", "project:claims-store", "project:shared", "kit:workflows"]);
         let mac = ids(Side::Mac);
         assert_eq!(
             mac,

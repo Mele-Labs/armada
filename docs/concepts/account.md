@@ -67,8 +67,9 @@ It no longer names Kit's home: Kit crosses over the Mac link, and the repository
 **Rule.** A repository's override is kept per repository on this Mac and names a profile by its account id.
 It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile.
 
-**Not built.** Fleet binds each repository to a profile by matching its owner to the login or one of the organisations read at sign-in, and a repository no profile matches waits unbound until chosen once.
-That binding is what `get_accounts` and `set_repository_profile` carry today, and the project's pick and the per-repository override replace it.
+A project's pick is `set_project_store` with `account_id`, and a repository's override is `set_repository_profile`.
+Matching a repository's owner to a login or an organisation binds nothing, and `get_accounts` sends `unmatched` empty.
+A project file written before the login was named takes the one profile here already enrolled at its store, [A store per project](../contracts/central-store.md#a-store-per-project).
 
 ## What syncs
 

@@ -107,3 +107,25 @@ fn how_a_session_started_is_kept_once_and_a_later_start_does_not_rewrite_it() {
     drop(store);
     assert_eq!(open(&dir).session_started("s1").unwrap(), Some(first));
 }
+
+#[test]
+fn the_time_jobs_stayed_on_a_step_is_each_visit_that_a_next_one_ended_on_that_workflow_only() {
+    let dir = TempDir::new();
+    let mut store = open(&dir);
+    let steps = ids(&["propose", "walk", "deliver"]);
+    let mut on = |id: &str, workflow: &str| {
+        let hosting = crate::KeptHosting { workflow: Some(workflow.into()), ..super::session_ledger::hosting(id, "m", false) };
+        store.keep_hosting(&hosting).unwrap();
+    };
+    on("a", "feature");
+    on("b", "bug");
+    let visits = vec![(0, "t0".to_string()), (1, "t1".to_string()), (2, "t2".to_string())];
+    store.keep_session_rail("a", &KeptRail { visits: visits.clone(), ..KeptRail::default() }, &steps).unwrap();
+    store.keep_session_rail("b", &KeptRail { visits, ..KeptRail::default() }, &steps).unwrap();
+    assert_eq!(
+        store.workflow_step_dwells("feature").unwrap(),
+        vec![("propose".into(), "t0".into(), "t1".into()), ("walk".into(), "t1".into(), "t2".into())],
+        "the step it is on has no next visit, so no dwell"
+    );
+    assert!(store.workflow_step_dwells("refactor").unwrap().is_empty());
+}
