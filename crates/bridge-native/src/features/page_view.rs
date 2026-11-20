@@ -30,14 +30,15 @@ fn side(look: &Look) -> Pixels {
 }
 
 /// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs and asks, how it is tested and runs
-/// and its designs, then its code and what is stale or owed.
+/// and its designs, then its code and what is stale or owed. In two or three columns the floor plan is not among them: it spans
+/// the page under them, so the right column does not carry it.
 fn columns(count: usize) -> Vec<Vec<Card>> {
     use Card::{Asks, Floor, Who};
     use Section::{Code, Debt, Designs, Observe, Runs, Test};
     let s = Card::Section;
     match count {
-        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), Floor, s(Observe), s(Debt)]],
-        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), Floor, s(Observe), s(Debt)]],
+        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), s(Observe), s(Debt)]],
+        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), s(Observe), s(Debt)]],
         _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), Floor, s(Observe), s(Debt)]],
     }
 }
@@ -586,14 +587,14 @@ impl FeaturePageView {
 
     /// The code map as a card: every module a plot sized by its bytes, its files pills inside sized by theirs, the contracts the
     /// feature crosses as dashed doors, and the key under it. With nothing to draw it says why and what fills it.
-    fn render_floor(&self, look: &Look) -> AnyElement {
+    fn render_floor(&self, look: &Look, wide: bool) -> AnyElement {
         let map = match (&self.page, &self.floor) {
             (Load::Read(_), Floor::Plan(map)) => map.clone(),
             (Load::Read(_), Floor::Empty(said)) => return empty_card_saying(look, "floor", "Floor plan", said),
             _ => return empty_card_saying(look, "floor", "Floor plan", super::page_model::NO_PLAN),
         };
         let pad = look.length(token::SPACE_3) + px(2.);
-        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).px(pad).py(look.length(token::SPACE_3)).child(floor_drawing(look, map)).child(floor_key(look));
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).px(pad).py(look.length(token::SPACE_3)).child(floor_drawing(look, map, wide)).child(floor_key(look));
         let card = shell(look, "feature-card-floor", false, false).child(head(look, "floor", "Floor plan", false, true)).child(body);
         labelled(card, Role::Region, "Floor plan").into_any_element()
     }
@@ -602,7 +603,7 @@ impl FeaturePageView {
         match card {
             Card::Who => self.render_who(look, window, cx),
             Card::Asks => self.render_asks(look, window, cx),
-            Card::Floor => self.render_floor(look),
+            Card::Floor => self.render_floor(look, false),
             Card::Section(Section::Designs) => self.render_designs(look, window, cx),
             Card::Section(section) => match self.cards.get(&section) {
                 Some(Body::Code(code)) if self.present(section) => self.render_code(code, look, window),
@@ -626,7 +627,10 @@ impl FeaturePageView {
             }
             grid = grid.child(column);
         }
-        grid.into_any_element()
+        if count == 1 {
+            return grid.into_any_element();
+        }
+        div().w_full().flex().flex_col().gap(gap).child(grid).child(self.render_floor(look, true)).into_any_element()
     }
 
     fn render_loading(&self, look: &Look) -> AnyElement {
@@ -727,7 +731,8 @@ fn shaped_within(window: &mut Window, text: &str, font: &gpui::Font, size: Pixel
 
 /// The plots, pills, doors, names and door chips painted as quads, paths and shaped lines at the card's width, the mock's shape
 /// kept: about 1500 rects a frame, laid out again only when the width moves.
-fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>) -> AnyElement {
+/// Across the page (`wide`) it keeps the mock's height and takes the width; in a column it keeps the mock's shape.
+fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>, wide: bool) -> AnyElement {
     let inks = floor_inks(look);
     // The names keep the mock's size, the smallest the tokens hold, whatever the width.
     let words_size = look.length(token::TEXT_SWITCH);
@@ -790,7 +795,7 @@ fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>) -> AnyElement {
     .absolute()
     .size_full();
     labelled(
-        div().id("feature-floor-map").relative().w_full().aspect_ratio(WIDTH / HEIGHT).rounded(look.length(token::RADIUS_MD)).overflow_hidden().bg(look.color(token::BG_SUNKEN)).child(paint),
+        div().id("feature-floor-map").relative().w_full().map(|map| if wide { map.h(px(HEIGHT)) } else { map.aspect_ratio(WIDTH / HEIGHT) }).rounded(look.length(token::RADIUS_MD)).overflow_hidden().bg(look.color(token::BG_SUNKEN)).child(paint),
         Role::Image,
         said,
     )
