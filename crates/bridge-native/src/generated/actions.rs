@@ -2391,6 +2391,20 @@ pub const ACTIONS: &[Act] = &[
         unbuilt: None,
         in_palette: true,
     },
+    Act {
+        id: "ask_for_tool",
+        kind: ActionKind::Action,
+        tier: ActionTier::Global,
+        verb: "Ask the agent for a tool",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "⌘/",
+        scope: ActionScope::Thread,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
 ];
 
 /// One act, by the id an implementation binds to. `None` for an id this build has never heard of.

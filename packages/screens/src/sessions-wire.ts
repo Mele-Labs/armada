@@ -976,16 +976,22 @@ export function trailOfRecord(record: SessionRecord): SessionTrail {
   };
 }
 
-const tagOf = (tag: WireTag): SessionTag => ({
-  kind: tag.kind,
-  id: tag.id,
-  title: tag.title,
-  ...(tag.url === undefined
-    ? {}
-    : {
-        url: tag.url,
-      }),
-});
+// One of Armada's tools gets no chip here, only the native Bridge draws one: its words stay as typed.
+const tagOf = (tag: WireTag): SessionTag[] =>
+  tag.kind === "tool"
+    ? []
+    : [
+        {
+          kind: tag.kind,
+          id: tag.id,
+          title: tag.title,
+          ...(tag.url === undefined
+            ? {}
+            : {
+                url: tag.url,
+              }),
+        },
+      ];
 
 function askOf(ask: CallInFlight): SessionAsk {
   return {
@@ -1127,7 +1133,7 @@ export function rowsOfThread(
           ...(row.tags === undefined || row.tags.length === 0
             ? {}
             : {
-                tags: row.tags.map(tagOf),
+                tags: row.tags.flatMap(tagOf),
               }),
           ...(isNotice(row.notice)
             ? {
@@ -1160,7 +1166,7 @@ export function rowsOfThread(
           ...(row.tags === undefined || row.tags.length === 0
             ? {}
             : {
-                tags: row.tags.map(tagOf),
+                tags: row.tags.flatMap(tagOf),
               }),
         });
         break;

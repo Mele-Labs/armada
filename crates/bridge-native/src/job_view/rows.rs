@@ -1524,6 +1524,7 @@ pub(super) fn tag_kind(kind: TagKind) -> &'static str {
         TagKind::Issue => "Issue",
         TagKind::Report => "Reported bug",
         TagKind::Terminal => "Terminal",
+        TagKind::Tool => "Tool",
     }
 }
 
@@ -1555,7 +1556,7 @@ fn tag_extensions(tags: &[SessionTag], look: &Look) -> MarkdownExtensions {
         std::hash::Hash::hash(&(&tag.id, &tag.title, tag_kind(tag.kind)), &mut hash);
     }
     let revision = std::hash::Hasher::finish(&hash) | 1;
-    MarkdownExtensions::default().plugin(TagPlugin { tags: tags.to_vec(), paint: TagPaint::of(look) }).parser_revision(revision)
+    MarkdownExtensions::default().plugin(TagPlugin { tags: tags.to_vec(), paint: TagPaint::of(look), tools: super::ask_tools::painted(look) }).parser_revision(revision)
 }
 
 /// The look an `InlineTag` chip is drawn with, read once so the plugin holds no `Look`.
@@ -1599,6 +1600,8 @@ impl TagPaint {
 struct TagPlugin {
     tags: Vec<SessionTag>,
     paint: TagPaint,
+    /// Each of Armada's tools by id, with its glyph and hue: a tool's chip is tinted in it.
+    tools: Vec<(&'static str, &'static str, Hsla)>,
 }
 
 impl MarkdownPlugin for TagPlugin {
@@ -1618,6 +1621,12 @@ impl MarkdownPlugin for TagPlugin {
         let paint = self.paint;
         let link = tag.kind == TagKind::Session;
         let ink = if link { paint.accent } else { paint.ink };
+        let tool = (tag.kind == TagKind::Tool).then(|| self.tools.iter().find(|(id, ..)| *id == tag.id)).flatten();
+        let glyph = tool.map_or(tag_glyph(tag.kind), |(_, glyph, _)| *glyph);
+        let (edge, fill, glyph_ink) = match tool {
+            Some((_, _, hue)) => (hue.opacity(0.6), hue.opacity(0.16), *hue),
+            None => (paint.border, paint.fill, if link { ink } else { paint.glyph }),
+        };
         let chip = div()
             .id(SharedString::from(format!("tag:{}:{}", tag_kind(tag.kind), tag.id)))
             .flex()
@@ -1626,15 +1635,15 @@ impl MarkdownPlugin for TagPlugin {
             .px(paint.pad)
             .rounded(paint.radius)
             .border(paint.rule)
-            .border_color(paint.border)
-            .bg(paint.fill)
+            .border_color(edge)
+            .bg(fill)
             .text_size(paint.size)
             .line_height(paint.leading)
             .text_color(ink)
             .text_decoration_0()
             .text_decoration_color(gpui::transparent_black())
             .whitespace_nowrap()
-            .child(svg().path(icon_path(tag_glyph(tag.kind))).flex_none().size(paint.icon).text_color(if link { ink } else { paint.glyph }))
+            .child(svg().path(icon_path(glyph)).flex_none().size(paint.icon).text_color(glyph_ink))
             .child(tag.title.clone());
         let chip = if link {
             labelled(chip.cursor_pointer().tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title))), Role::Link, tag.title.clone()).into_any_element()
@@ -1654,6 +1663,7 @@ fn tag_glyph(kind: TagKind) -> &'static str {
         TagKind::Issue => "ticket",
         TagKind::Report => "bug",
         TagKind::Terminal => "terminal",
+        TagKind::Tool => "wrench",
     }
 }
 

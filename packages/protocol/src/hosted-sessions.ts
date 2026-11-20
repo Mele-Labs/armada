@@ -112,12 +112,19 @@ export type StartSession = {
   project?: string;
 };
 
-export type TagKind = "session" | "pull_request" | "branch" | "issue" | "report" | "terminal";
+export type TagKind =
+  | "session"
+  | "pull_request"
+  | "branch"
+  | "issue"
+  | "report"
+  | "terminal"
+  | "tool";
 
 /** What a message names with `@`. Fleet writes the line that tells the agent. */
 export type SessionTag = {
   kind: TagKind;
-  /** A session's id, a pull request's or an issue's number, a branch's name, a reported bug's id, or a terminal's (`t2`), whose `title` is its name. */
+  /** A session's id, a pull request's or an issue's number, a branch's name, a reported bug's id, a terminal's (`t2`), whose `title` is its name, or one of Armada's tools (`takes`), whose `title` is its name. */
   id: string;
   /** An issue's or a pull request's reads `#2214 The title`. */
   title: string;
