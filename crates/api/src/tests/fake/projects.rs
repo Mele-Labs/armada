@@ -159,7 +159,7 @@ impl Projects for FakeDaemon {
 
     async fn set_project_store(&self, project: String, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
         held(&project)?;
-        let store = set.store.map(|join| ipc::ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false });
+        let store = set.store.map(|join| ipc::ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false, account_id: join.account_id });
         Ok(store_state(&project, store))
     }
 
@@ -174,6 +174,7 @@ impl Projects for FakeDaemon {
             worker: Some("armada-store".to_string()),
             deployed: Some("2026-11-14T10:00:00.000Z".to_string()),
             joins_unlimited: false,
+            account_id: None,
         };
         Ok(ipc::StoreDeployed::Deployed { state: store_state(&project, Some(store)), join_said: None })
     }

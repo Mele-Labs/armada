@@ -2,8 +2,6 @@
 //! machine's name, runs the blocking work off the async workers, keeps a
 //! registered sign-in app's client id, and spells a refusal on the wire.
 
-use std::sync::Arc;
-
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Accounts, Refusal};
 use config::settings as keys;
@@ -74,19 +72,17 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// Run `work` where blocking is allowed, with the repositories Fleet serves
-    /// and the forge address of each. The forge and the store are blocking
-    /// clients, which panic if used or dropped on an async worker, and a
-    /// repository's address is read off its checkout.
+    /// Run `work` where blocking is allowed, with the repositories Fleet serves.
+    /// The forge and the store are blocking clients, which panic if used or
+    /// dropped on an async worker.
     async fn signing<T: Send + 'static>(
         &self,
         work: impl FnOnce(SigningIn, Vec<Repo>) -> Result<T, Refused> + Send + 'static,
     ) -> Result<T, Refusal> {
         let signing = self.signing_in().clone();
         let roots: Vec<String> = self.repositories().every().iter().map(|one| one.root().to_string()).collect();
-        let reaching = Arc::clone(self.reaching());
         match tokio::task::spawn_blocking(move || {
-            let repositories = roots.iter().map(|root| Repo::new(root, reaching.slug(root))).collect();
+            let repositories = roots.iter().map(|root| Repo::new(root)).collect();
             work(signing, repositories)
         })
         .await

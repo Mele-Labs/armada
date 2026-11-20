@@ -1,7 +1,8 @@
 //! A store per project: two projects in one Fleet, each naming its own store, send each repository's
 //! claims to its own project's store; a project that names none makes no call, a store taken out of a
 //! project takes what was still to be sent with it, and two projects naming different stores for one
-//! repository make none. `docs/contracts/central-store.md`, *A store per project*.
+//! repository make none. The login a project picks is the one that joins its store, and a project that
+//! picks none makes no call. `docs/contracts/central-store.md`, *A store per project*.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -52,10 +53,12 @@ struct Rig {
 }
 
 const ONE: &str = "https://one.test";
+const OCTOCAT: u64 = 583_231;
+const HUBOT: u64 = 9_919;
 const TWO: &str = "https://two.test";
 
-/// One Fleet serving two repositories, signed in as one profile that both are bound to, and two
-/// stores to reach. No project names either yet.
+/// One Fleet serving two repositories under `mele-labs`, signed in as octocat, whose organisation that
+/// is, and two stores to reach. No project names either yet.
 async fn rig() -> Rig {
     let home = TempDir::new();
     let (one, two) = (Arc::new(FakeStore::new()), Arc::new(FakeStore::new()));
@@ -65,7 +68,7 @@ async fn rig() -> Rig {
     fittings.reaching = Arc::clone(&reaching) as Arc<dyn Reaching>;
     crate::profiles::Profiles::in_machine_directory(home.path())
         .join(
-            &adapter_traits::SignedInAs { id: 583_231, login: "octocat".into() },
+            &adapter_traits::SignedInAs { id: OCTOCAT, login: "octocat".into() },
             crate::profiles::Orgs::Read(vec!["mele-labs".into()]),
             "2026-10-14T09:00:00.000Z",
         )
@@ -98,8 +101,14 @@ impl Rig {
         id
     }
 
+    /// Name the store at `address` as `project`'s with octocat as its login, or name none.
     async fn store(&self, project: &str, address: Option<&str>) {
-        let store = address.map(|address| core_model::ProjectStore::joined(core_model::StoreAddress::new(address).expect("an address"), None));
+        self.store_as(project, address, Some(OCTOCAT)).await;
+    }
+
+    async fn store_as(&self, project: &str, address: Option<&str>, login: Option<u64>) {
+        let joined = |address| core_model::ProjectStore::joined(core_model::StoreAddress::new(address).expect("an address"), None);
+        let store = address.map(|address| core_model::ProjectStore { account_id: login, ..joined(address) });
         self.fleet.project_store_written(project, store).await.expect("its store named");
     }
 
@@ -183,4 +192,46 @@ async fn one_profile_keeps_a_device_folder_for_each_store() {
     assert_ne!(folders[0], folders[1], "two stores, two devices");
     assert_eq!(folders[0].parent(), folders[1].parent(), "both under the profile's `stores` folder");
     assert!(folders[0].parent().is_some_and(|stores| stores.ends_with("stores")), "{folders:?}");
+}
+
+#[tokio::test]
+async fn a_project_store_with_no_login_picked_makes_no_call_and_its_state_says_so() {
+    let rig = rig().await;
+    let project = rig.project(&rig.first, None).await;
+    rig.store_as(&project, Some(ONE), None).await;
+
+    assert!(rig.claim(&rig.first, "aaa").await.is_none(), "no login, no call, though octocat's organisation owns it");
+    assert!(rig.opened().is_empty(), "no store was opened");
+    let state = api::Projects::get_project_store(&rig.fleet, project).await.expect("read");
+    assert_eq!(state.macs_unread.as_deref(), Some("No login is picked for this store."));
+    assert!(!state.joined_here);
+    assert_eq!(state.join, ipc::StoreJoin::Ready, "octocat is here to be picked");
+}
+
+#[tokio::test]
+async fn joining_a_projects_store_enrols_the_login_it_picks_and_its_repositories_claim_as_it() {
+    let rig = rig().await;
+    crate::profiles::Profiles::in_machine_directory(rig._home.path())
+        .join(&adapter_traits::SignedInAs { id: HUBOT, login: "hubot".into() }, crate::profiles::Orgs::Read(Vec::new()), "2026-10-14T09:00:00.000Z")
+        .expect("a second profile");
+    let project = rig.project(&rig.first, None).await;
+    let enrolled = |account: u64| {
+        let profile = rig._home.path().join(crate::profiles::DIRECTORY).join(account.to_string());
+        let address = core_model::StoreAddress::new(ONE).expect("an address");
+        matches!(adapters::device_id(&crate::project_store::store_directory(&profile, &address)), Ok(Some(_)))
+    };
+
+    let join = ipc::JoinStore { address: ONE.into(), team: None, account_id: Some(HUBOT) };
+    let state = api::Projects::set_project_store(&rig.fleet, project.clone(), ipc::SetProjectStore { store: Some(join) }).await.expect("joined");
+    assert_eq!(state.store.as_ref().and_then(|store| store.account_id), Some(HUBOT), "the project's file names the login");
+    assert!(state.joined_here);
+    assert!(enrolled(HUBOT) && !enrolled(OCTOCAT), "joined as the login picked, not the repository owner's");
+
+    let again = ipc::JoinStore { address: ONE.into(), team: None, account_id: None };
+    let state = api::Projects::set_project_store(&rig.fleet, project, ipc::SetProjectStore { store: Some(again) }).await.expect("joined");
+    assert_eq!(state.store.and_then(|store| store.account_id), Some(HUBOT), "absent keeps the login picked");
+
+    rig.claim(&rig.first, "aaa").await.expect("claimed");
+    let folders: Vec<PathBuf> = rig.reaching.opened.lock().expect("opened").iter().map(|(_, folder)| folder.clone()).collect();
+    assert!(folders.last().is_some_and(|folder| folder.starts_with(rig._home.path().join(crate::profiles::DIRECTORY).join(HUBOT.to_string()))), "{folders:?}");
 }
