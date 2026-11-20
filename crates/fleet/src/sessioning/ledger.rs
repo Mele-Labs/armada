@@ -174,7 +174,12 @@ where
                     .as_deref()
                     .and_then(|workflow| self.steps_with(&hosting.manifest_id, workflow, own.as_ref()))
                     .unwrap_or_default();
-                crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some(), steps).map_err(fault)?
+                let mut rail = crate::rail_keeping::rail_read(store, session, hosting.workflow.is_some(), steps).map_err(fault)?;
+                // How long its steps usually take is measured only for a Job that stands on one.
+                if let (Some(workflow), false) = (hosting.workflow.as_deref(), rail.steps.is_empty()) {
+                    rail.usual = self.step_times().usual(store, workflow, self.now().epoch_millis().unwrap_or(0));
+                }
+                rail
             }
             None => Default::default(),
         };

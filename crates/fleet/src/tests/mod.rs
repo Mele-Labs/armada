@@ -225,6 +225,7 @@ mod delivery_gate;
 mod delivery_setting;
 mod start_card;
 mod session_rail;
+mod step_stalls;
 mod rail_by_id;
 mod one_proposal;
 mod step_ends;

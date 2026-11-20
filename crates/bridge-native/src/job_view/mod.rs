@@ -125,6 +125,7 @@ mod pr_panel;
 mod pr_review;
 mod report_brief;
 mod side;
+mod step_tabs;
 mod side_chat;
 mod spine;
 pub(crate) mod story;

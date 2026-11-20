@@ -195,6 +195,9 @@ where
     pub(crate) fn usage_following(&self) -> &crate::usage_rules::Following {
         &self.usage_following
     }
+    pub(crate) fn step_times(&self) -> &crate::step_stalls::StepTimes {
+        &self.step_times
+    }
 
     pub(crate) fn behind_told(&self) -> &crate::behind_bay::BehindTold {
         &self.behind_told
