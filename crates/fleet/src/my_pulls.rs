@@ -1,16 +1,12 @@
 //! Whose pull requests Fleet watches. `docs/concepts/fleet.md`, *Whose pull requests Fleet reads*.
 //!
-//! **Mine is the author's login being one of two**: the account Armada is signed in as for the
-//! repository (`SigningIn::login_for`) or the one the forge's command line is signed in as on
-//! this machine. Case does not matter. **Where neither is known every pull request is mine**, and
-//! so is one whose forge named no author, because a rule that cannot be read must not go quiet.
-
-use std::sync::Arc;
+//! **Mine is the author's login being one of two**: the account the repository claims as
+//! (`SigningIn::profile_for`) or the one the forge's command line is signed in as on this machine.
+//! Case does not matter. **Where neither is known every pull request is mine**, and so is one whose forge named no author, because a rule that cannot be read must not go quiet.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 
 use crate::daemon::Fleet;
-use crate::repository_profiles::Repo;
 
 /// The logins that are the person's. `None` is none known.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -64,11 +60,8 @@ where
 {
     /// Who the repository at `root`'s pull requests are mine by.
     pub(crate) async fn mine_in(&self, root: &str) -> Mine {
-        let (reaching, signing, at) = (Arc::clone(self.reaching()), self.signing_in().clone(), root.to_string());
-        let signed = tokio::task::spawn_blocking(move || {
-            let slug = reaching.slug(&at);
-            signing.login_for(&Repo::new(&at, slug))
-        })
+        let (project, signing, at) = (self.project_login_of_root(root), self.signing_in().clone(), root.to_string());
+        let signed = tokio::task::spawn_blocking(move || signing.profile_for(&at, project).map(|bound| bound.login))
         .await
         .ok()
         .flatten();

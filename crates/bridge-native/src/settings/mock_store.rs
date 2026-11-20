@@ -61,7 +61,7 @@ fn state(project: &str, store: Option<ProjectStore>, deploy: StoreDeploy) -> Pro
 
 fn deployed_store(team: Option<&str>) -> ProjectStore {
     let worker = team.map_or_else(|| "armada-store".to_string(), |team| format!("armada-store-{}", team.replace('/', "-")));
-    ProjectStore { address: format!("https://{worker}.mele.workers.dev"), team: team.map(String::from), worker: Some(worker), deployed: Some(DEPLOYED.into()), joins_unlimited: false }
+    ProjectStore { address: format!("https://{worker}.mele.workers.dev"), team: team.map(String::from), worker: Some(worker), deployed: Some(DEPLOYED.into()), joins_unlimited: false, account_id: None }
 }
 
 impl MockStores {
@@ -95,7 +95,7 @@ impl MockStores {
         if join.team.as_deref() == Some(NOT_A_MEMBER) {
             return Err(Refused { key: None, said: NOT_A_MEMBER_SAID.into(), code: Some("fleet.store_not_a_member".into()) });
         }
-        held.store = Some(ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false });
+        held.store = Some(ProjectStore { address: join.address, team: join.team, worker: None, deployed: None, joins_unlimited: false, account_id: join.account_id });
         held.macs = MACS.map(String::from).to_vec();
         held.macs_unread = None;
         held.joined_here = true;

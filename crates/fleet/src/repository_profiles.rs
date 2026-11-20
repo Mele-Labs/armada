@@ -1,24 +1,20 @@
-//! Which profile a repository claims and syncs as. `docs/concepts/account.md`.
+//! Which profile a repository claims as. `docs/concepts/account.md`.
 //!
-//! **A repository is bound to one profile; the machine is not.** The repository's
-//! owner, the first part of its forge slug `owner/name`, is matched to a profile
-//! when it equals that profile's login or one of its organisations, which sign-in
-//! read and kept. Exactly one match binds it. None, or several, leave it unbound
-//! until a person chooses.
+//! **A project picks the login that joins its store** (`store.account_id` in its file), and a
+//! repository claims as it. A project that picks none sends nothing. **A repository may override
+//! it**: a choice kept per repository root in `repository-profiles.json` in the machine directory
+//! wins over the project's login, and may be "None": the repository then claims nothing. A
+//! repository's owner binds nothing.
 //!
-//! A choice is kept per repository root in `repository-profiles.json` in the
-//! machine directory, wins over a match, and may be "None": the repository then
-//! claims and syncs nothing. **A choice names a profile by id and outlives it**:
-//! signed out of that profile, the repository has no store, and is not handed to
-//! another profile that happens to match.
+//! **A choice names a profile by id and outlives it**: signed out of that profile, the repository has
+//! no store, and is not handed to the project's login.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use ipc::BoundHow;
 use serde::{Deserialize, Serialize};
 
-use crate::profiles::{write_beside, Joined};
+use crate::profiles::write_beside;
 
 /// The choices, in the machine directory.
 pub const FILE: &str = "repository-profiles.json";
@@ -29,21 +25,14 @@ pub struct Repo {
     pub root: String,
     /// The folder's own name.
     pub name: String,
-    /// `owner/name` on its forge, lowercase. `None` where it has no remote.
-    pub slug: Option<String>,
 }
 
 impl Repo {
-    pub fn new(root: &str, slug: Option<String>) -> Repo {
+    pub fn new(root: &str) -> Repo {
         let name = Path::new(root)
             .file_name()
             .map_or_else(|| root.to_string(), |name| name.to_string_lossy().into_owned());
-        Repo { root: root.to_string(), name, slug }
-    }
-
-    fn owner(&self) -> Option<String> {
-        let owner = self.slug.as_deref()?.split('/').next()?.trim().to_lowercase();
-        (!owner.is_empty()).then_some(owner)
+        Repo { root: root.to_string(), name }
     }
 }
 
@@ -102,40 +91,13 @@ impl Choices {
     }
 }
 
-/// Where a repository stands.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Binding {
-    Bound { account_id: u64, how: BoundHow },
-    Unbound {
-        /// The profiles its owner matched.
-        candidates: Vec<u64>,
-        /// A person chose "None".
-        none_chosen: bool,
-    },
-}
-
-/// The profiles whose login or organisations are the repository's owner.
-fn matching(joined: &[Joined], repo: &Repo) -> Vec<u64> {
-    let Some(owner) = repo.owner() else { return Vec::new() };
-    joined
-        .iter()
-        .filter(|one| one.login.to_lowercase() == owner || one.orgs.iter().any(|org| org.to_lowercase() == owner))
-        .map(|one| one.account_id)
-        .collect()
-}
-
-/// Where `repo` stands among `joined`, given the choice made for it.
-pub fn binding(joined: &[Joined], choice: Option<&Choice>, repo: &Repo) -> Binding {
-    let candidates = matching(joined, repo);
-    match choice.map(|choice| choice.account_id) {
-        Some(Some(id)) if joined.iter().any(|one| one.account_id == id) => {
-            Binding::Bound { account_id: id, how: BoundHow::Chosen }
-        }
-        Some(Some(_)) => Binding::Unbound { candidates, none_chosen: false },
-        Some(None) => Binding::Unbound { candidates, none_chosen: true },
-        None => match candidates[..] {
-            [only] => Binding::Bound { account_id: only, how: BoundHow::Matched },
-            _ => Binding::Unbound { candidates, none_chosen: false },
-        },
+/// The account a repository claims as: **its own choice where it has one**, "None" included, else the
+/// login its project picked. `None` claims nothing, and so does any repository whose project picked no
+/// login: there is nothing to override.
+pub fn claims_as(choice: Option<&Choice>, project: Option<u64>) -> Option<u64> {
+    let project = project?;
+    match choice {
+        Some(choice) => choice.account_id,
+        None => Some(project),
     }
 }

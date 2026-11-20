@@ -1,12 +1,12 @@
 //! The account a machine is signed in to, on the wire: the profiles it has
-//! joined, which repositories each is bound to, the sign-in in flight, and the
-//! acts on them. `docs/concepts/account.md`.
+//! joined, which repositories override their project's login with each, the
+//! sign-in in flight, and the acts on them. `docs/concepts/account.md`.
 //!
 //! **Shaped for what Bridge's Account draws**: a profile, a flow that is idle,
 //! showing a code, or setting up row by row. A profile is keyed by the forge's
 //! numeric account id and also carries its login, which is what a chip draws.
-//! **A repository is bound to one profile, not the machine to one**: there is no
-//! active profile.
+//! **A project picks the login that joins its store, not the machine**: there is
+//! no active profile. A repository may override it.
 
 use serde::{Deserialize, Serialize};
 
@@ -23,7 +23,7 @@ pub struct Profile {
     pub chosen: bool,
     /// Where its shared home is.
     pub home: ProfileHome,
-    /// The repositories whose claims and syncing go to this profile's store view.
+    /// The repositories a person chose this profile for, over their project's login.
     pub repositories: Vec<BoundRepository>,
 }
 
@@ -42,9 +42,10 @@ pub struct ProfileHome {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BoundHow {
-    /// Its owner is the profile's login or one of its organisations, and no other profile's.
+    /// Its owner was the profile's login or one of its organisations. **No longer sent**: an owner binds
+    /// nothing since 19 Nov 2026.
     Matched,
-    /// A person chose it, which wins over a match.
+    /// A person chose it, which wins over the project's login.
     Chosen,
 }
 
@@ -58,7 +59,8 @@ pub struct BoundRepository {
     pub how: BoundHow,
 }
 
-/// A repository bound to no profile, so it claims and syncs nothing.
+/// A repository bound to no profile. **No longer sent** since 19 Nov 2026: a repository with no choice of
+/// its own claims as its project's login.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct UnmatchedRepository {
     pub root: String,
@@ -144,7 +146,7 @@ pub enum AccountFlow {
 pub struct Accounts {
     /// In the order they were joined. Empty is signed out.
     pub profiles: Vec<Profile>,
-    /// Every served repository that is bound to no profile.
+    /// Always empty since 19 Nov 2026, kept so an older Bridge still reads the answer.
     pub unmatched: Vec<UnmatchedRepository>,
     pub flow: AccountFlow,
 }
@@ -177,12 +179,12 @@ pub struct SignInAppRegistration {
     pub url: String,
 }
 
-/// `set_repository_profile`: which profile a repository is bound to.
+/// `set_repository_profile`: which profile a repository claims as, over its project's login.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SetRepositoryProfile {
     /// A served repository's root.
     pub root: String,
-    /// `null` is "None": the repository claims and syncs nothing. **The key must be
+    /// `null` is "None": the repository claims nothing. **The key must be
     /// there**, so a body that forgot it is a mistake and not a choice of none.
     #[serde(deserialize_with = "stated")]
     pub account_id: Option<u64>,

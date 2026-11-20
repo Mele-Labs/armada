@@ -1,6 +1,6 @@
 // The account on the wire, mirrored by hand from `crates/ipc/src/accounts.rs`.
 
-/** How a repository came to be bound to its profile: its owner matched, or a person chose. */
+/** How a repository came to be bound to its profile: a person chose. `matched` is no longer sent since 19 Nov 2026: an owner binds nothing. */
 export type BoundHow = "matched" | "chosen";
 
 /** A repository bound to a profile. `root` names it in `set_repository_profile`; `name` is the folder's own. */
@@ -27,11 +27,11 @@ export type Profile = {
   chosen: boolean;
   /** Where its shared home is. */
   home: ProfileHome;
-  /** The repositories whose claims and syncing go to this profile's store view. */
+  /** The repositories a person chose this profile for, over their project's login. */
   repositories: BoundRepository[];
 };
 
-/** A repository bound to no profile, so it claims and syncs nothing. `candidates` are the profiles its owner matched: none, or two where an organisation is shared. */
+/** A repository bound to no profile. No longer sent since 19 Nov 2026: a repository with no choice of its own claims as its project's login. */
 export type UnmatchedRepository = {
   root: string;
   name: string;
@@ -78,7 +78,7 @@ export type AccountFlow =
       steps: SetUpSteps;
     };
 
-/** `GET /accounts`, and what every act on the account answers with. Profiles are in the order they were joined; `unmatched` is every served repository bound to none. */
+/** `GET /accounts`, and what every act on the account answers with. Profiles are in the order they were joined; `unmatched` is always empty since 19 Nov 2026. */
 export type Accounts = {
   profiles: Profile[];
   unmatched: UnmatchedRepository[];
@@ -97,7 +97,7 @@ export type SignedOut = {
   said?: string;
 };
 
-/** `POST /accounts/set_repository_profile`: which profile a repository is bound to. `account_id: null` is "None": the repository claims and syncs nothing. */
+/** `POST /accounts/set_repository_profile`: which profile a repository claims as, over its project's login. `account_id: null` is "None": the repository claims nothing. */
 export type SetRepositoryProfile = {
   root: string;
   account_id: number | null;

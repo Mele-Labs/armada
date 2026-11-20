@@ -4,10 +4,10 @@
 //!
 //! **Every call is a blocking round trip**, so it is built, made and dropped on
 //! one blocking thread ([`Fleet::at_the_store`]). Where the repository's switch
-//! is off, the repository is bound to no profile or to one the machine is signed
-//! out of, or no project holding it names a store, the call is
-//! never made: [`Fleet::at_the_store`] answers `Ok(None)` and the take goes on
-//! locally as it did before the store.
+//! is off, it claims as no login or as one the machine is signed out of, or no
+//! project holding it names a store, the call is never made:
+//! [`Fleet::at_the_store`] answers `Ok(None)` and the take goes on locally as it
+//! did before the store.
 //!
 //! **The store sees two hashes.** The repository's `owner/name` and the commit
 //! main went red at, each as a sha256 in hex, so a name never leaves the
@@ -16,9 +16,10 @@
 //! repository's login, this machine's name and the Session's title.
 //!
 //! **The holder is shared with the owner registry**, `crate::pull_registry`:
-//! one gate (the switch, its project's store, and a profile the repository is bound
-//! to), one blocking thread, one place a name becomes a hash. **The profile is the
-//! repository's own** (`SigningIn::profile_for`), never one the machine acts as.
+//! one gate (the switch, its project's store, and the login it claims as), one
+//! blocking thread, one place a name becomes a hash. **The profile is the
+//! repository's override, else its project's login** (`SigningIn::profile_for`),
+//! never one the machine acts as.
 
 use std::path::Path;
 use std::sync::Arc;
@@ -34,7 +35,6 @@ use store::MainCi;
 
 use crate::daemon::Fleet;
 use crate::main_fix::MainNotFixable;
-use crate::repository_profiles::Repo;
 use crate::signing_in::this_machine;
 
 /// How long a call to the store may take. A take waits on it, so it is short.
@@ -172,7 +172,7 @@ where
 
     /// Run `work` against the store for `root`. **The gate every call passes**:
     /// the repository's switch is on, a project holding it names a store
-    /// ([`Fleet::store_of_root`]) and the repository is bound to a profile this
+    /// ([`Fleet::store_of_root`]) and the repository claims as a profile this
     /// machine is signed in to and enrolled with that store; otherwise `Ok(None)`
     /// and nothing was asked. **The store is opened as that profile**, so each
     /// repository claims in its own account's view.
@@ -196,21 +196,19 @@ where
         if !switched_on {
             return Ok(None);
         }
-        let Some(address) = self.store_of_root(root) else { return Ok(None) };
+        let Some((address, project_login)) = self.store_of_root(root) else { return Ok(None) };
         let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
         let root = root.to_string();
         tokio::task::spawn_blocking(move || {
             let Some(slug) = reaching.slug(&root) else { return Ok(None) };
-            let repo = Repo::new(&root, Some(slug.clone()));
-            let Some(bound) = signing.profile_for(&repo) else { return Ok(None) };
+            let Some(bound) = signing.profile_for(&root, project_login) else { return Ok(None) };
             let directory = crate::project_store::store_directory(&bound.directory, &address);
             let Some(store) = reaching.open(address.as_str(), &directory).map_err(StoreError::Refused)? else {
                 return Ok(None);
             };
-            let login = signing.login_for(&repo).unwrap_or_default();
-            work(Opened { store, slug, machine: this_machine(&configured), login }).map(Some)
+            work(Opened { store, slug, machine: this_machine(&configured), login: bound.login }).map(Some)
         })
         .await
         .unwrap_or_else(|why| Err(StoreError::Refused(format!("the call to the store was abandoned: {why}"))))

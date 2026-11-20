@@ -15,11 +15,11 @@ pub struct ProjectStoreState {
     pub store: Option<ProjectStore>,
     /// The names of the Macs signed in to it, oldest first, as the store answered. Empty with no store.
     pub macs: Vec<String>,
-    /// Why the Macs could not be read, where they could not: the store did not answer, or this Mac has
-    /// not joined it and cannot ask.
+    /// Why the Macs could not be read, where they could not: the store did not answer, no login is picked
+    /// for it, or this Mac has not joined it and cannot ask.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub macs_unread: Option<String>,
-    /// Whether this Mac has joined it, as the profile its repositories are bound to.
+    /// Whether this Mac has joined it, as the login the project picked.
     pub joined_here: bool,
     /// Whether Deploy can run now.
     pub deploy: StoreDeploy,
@@ -47,10 +47,10 @@ pub enum StoreDeploy {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum StoreJoin {
-    /// A repository of the project is bound to a profile this Mac is signed in to. `gh`'s token for its
-    /// login is read when the join runs.
+    /// This Mac is signed in to a profile that can be picked to join as. `gh`'s token for its login is
+    /// read when the join runs.
     Ready,
-    /// No repository of the project is bound to a profile on this Mac, so there is no one to join as.
+    /// This Mac is signed in to no profile, so there is no one to join as.
     NoProfile,
 }
 
@@ -69,6 +69,10 @@ pub struct JoinStore {
     /// `org` or `org/team`, for a team's store.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub team: Option<String>,
+    /// The login to join as and that the project's repositories claim as, by the profile's numeric account
+    /// id. **Absent keeps the one the project picked.** Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<u64>,
 }
 
 /// `deploy_project_store`: deploy the project's store to his own Cloudflare account, or redeploy it.
