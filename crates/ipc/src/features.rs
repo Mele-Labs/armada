@@ -253,6 +253,10 @@ fn is_zero(count: &u32) -> bool {
     *count == 0
 }
 
+fn none_kept(count: &usize) -> bool {
+    *count == 0
+}
+
 /// One door of a floor plan: a lit module depends on another module of its repository.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FloorDoor {
@@ -328,6 +332,9 @@ pub struct FeatureRead {
     /// The result's first sentence. Empty where the result was not visible.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub gist: String,
+    /// Whether the Job that read it wrote `gist` at its end, in place of the result's first sentence.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub gist_by_job: bool,
     /// The Job that read it.
     pub job: String,
     pub at: Instant,
@@ -368,6 +375,9 @@ pub struct WriteFeatureSections {
     /// Terms this Job introduced, kept in the project's glossary. A term the project holds is replaced, whatever its case.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub glossary: Vec<GlossaryTermWrite>,
+    /// What this Job says of a doc or ticket it read, one line each. Replaces the first sentence kept for it.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub gists: Vec<DocGist>,
     /// The project's id. **Read only where the Job's repository is in more than one project and the slug is in
     /// each.**
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -377,11 +387,23 @@ pub struct WriteFeatureSections {
     pub session_id: Option<SessionId>,
 }
 
+/// One doc or ticket's gist, in the Job's own words: what it says that bears on the features the Job changed.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct DocGist {
+    /// The address, path or id the Job read it by, as the owed answer names it.
+    pub target: String,
+    pub gist: String,
+}
+
 /// What a feature still owes this Job before it ends.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeatureOwed {
     pub feature: String,
     pub sections: Vec<FeatureSectionKind>,
+    /// The docs and tickets this Job read that are linked under the feature and have no gist of its own, at most eight
+    /// across features. A gist is welcome and never required.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub docs: Vec<String>,
 }
 
 /// What `write_feature_sections` did.
@@ -392,6 +414,9 @@ pub struct FeatureSectionsWritten {
     /// The terms kept, as written.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub glossary: Vec<String>,
+    /// How many gists were kept.
+    #[serde(default, skip_serializing_if = "none_kept")]
+    pub gists: usize,
     /// What this Job still owes after the write, across features. Empty where nothing.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub owed: Vec<FeatureOwed>,

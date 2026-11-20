@@ -78,6 +78,7 @@ fn a_link_keeps_its_first_sighting_and_a_job_is_asked_for_its_own() {
         via: "detector".into(),
         at: at.into(),
         gist: String::new(),
+        gist_by: String::new(),
     };
     assert!(store.put_feature_link(&link("2026-11-16T10:00:00.000Z")).unwrap());
     assert!(!store.put_feature_link(&link("2026-11-16T12:00:00.000Z")).unwrap(), "seen again is not a new link");

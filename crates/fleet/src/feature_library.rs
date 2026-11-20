@@ -35,6 +35,7 @@ pub(crate) mod staleness;
 pub(crate) mod upkeep;
 mod writing;
 mod glossary;
+mod gisting;
 pub(crate) mod since_paragraph;
 mod whos_on_what;
 
