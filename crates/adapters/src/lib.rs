@@ -116,6 +116,7 @@ pub mod onto_base;
 mod history;
 mod outside;
 mod consulting;
+mod pull_events;
 mod pull_reading;
 mod pull_request_comments;
 mod pull_request_detail;
@@ -205,6 +206,7 @@ pub use error::{CommitWorkError, CreateWorktreeError, ReadWorkProductError};
 pub use existing_setup::{has_own_skill, ExistingSetup, Home};
 pub use forge_address::{issues_linked_in, linked_in, links_in, pull_linked_in, remote_of, ForgeAddress};
 pub use store_worker::{CLOUDFLARE_TOKEN_PAGE, STORE_WORKER};
+pub use pull_events::ApiPullEvents;
 pub use github_api::{
     forge_token_as, Answer, ApiFailure, GitHubApi, GitHubRepository, NotGitHub, Paged, RateLimit, GITHUB_HOST,
 };
