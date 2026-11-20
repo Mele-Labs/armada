@@ -85,6 +85,7 @@ async fn a_commit_link_names_a_feature_too() {
             via: "trailer".into(),
             at: rig.fleet.now().as_str().into(),
             gist: String::new(),
+            gist_by: String::new(),
         };
         store.put_feature_link(&link).expect("linked");
     }

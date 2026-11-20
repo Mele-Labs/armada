@@ -177,6 +177,7 @@ async fn looks_good_is_filed_once_as_a_decision_of_the_features_the_job_changed(
         job: session.clone(),
         title: String::new(),
         gist: String::new(),
+        gist_by: String::new(),
         state: String::new(),
         via: "trailer".into(),
         at: "2026-11-18T09:00:00.000Z".into(),
