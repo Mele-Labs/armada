@@ -778,7 +778,7 @@ pub fn repositories_of(served: &[RepositorySummary], held: &[Repository]) -> Vec
 }
 
 /// Where Fleet keeps a project's file, as a place the pane can phrase.
-fn place_of(place: &ProjectPlace) -> RunsPlace {
+pub fn place_of(place: &ProjectPlace) -> RunsPlace {
     let (kind, detail) = match place.place {
         RunPlace::ThisMac => (RunsPlaceKind::Mac, None),
         RunPlace::Repository => (RunsPlaceKind::Repository, None),
@@ -794,16 +794,16 @@ fn place_of(place: &ProjectPlace) -> RunsPlace {
     RunsPlace { kind, detail: detail.map(SharedString::from) }
 }
 
-/// The projects the switcher lists, in the order Fleet keeps them. A project whose file would not read
+/// This Mac's own projects, in the order Fleet keeps them. A project whose file would not read
 /// has no members to draw and is left out, as the Workspaces page leaves it. A member Fleet serves no
-/// repository for is left out of its project. **A copy of another Mac's project is left out**: Fleet answers a
-/// project-scoped read only for a project it keeps itself, so scoping the window to a copy ends in `fleet.no_such_project`.
+/// repository for is left out of its project. **A copy of another Mac's project is not here**: [`copies_of`] lists
+/// those, and the switcher draws them after these.
 pub fn projects_of(served: &[RepositorySummary], read: &Projects) -> Vec<Project> {
     read.projects.iter().filter(|one| one.unread.is_none() && one.mac.is_none()).map(|one| project_of(served, one)).collect()
 }
 
-/// A copy of another Mac's shared project, with the id of the Mac that holds it. Only the move picker lists these:
-/// the switcher cannot scope the window to one.
+/// A copy of another Mac's shared project, with the id of the Mac that holds it. The switcher and the move picker list
+/// these after his own projects, and the window can be scoped to one: Fleet answers a project-scoped read for a copy.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProjectCopy {
     pub mac: SharedString,
@@ -818,6 +818,12 @@ pub fn copies_of(served: &[RepositorySummary], read: &Projects) -> Vec<ProjectCo
         .filter(|one| one.unread.is_none())
         .filter_map(|one| Some(ProjectCopy { mac: one.mac.clone()?.into(), project: project_of(served, one) }))
         .collect()
+}
+
+/// What the line under a copy says of the Mac that holds it, as the move picker says it: `from` and the Mac's name, or
+/// another Mac where the list does not know it.
+pub fn from_said(macs: &[Mac], id: &str) -> String {
+    format!("from {}", crate::job_view::name_of(macs, id, false))
 }
 
 fn project_of(served: &[RepositorySummary], one: &ipc::Project) -> Project {
@@ -904,10 +910,11 @@ pub struct Face {
     /// The repositories the picker lists, and the one chosen; none chosen is All.
     pub repositories: Vec<Repository>,
     pub chosen: Option<usize>,
-    /// The projects, and the one the window is scoped to, if any.
+    /// His own projects, and the one the window is scoped to, if any. `scoped` counts his own projects first and
+    /// then the copies: past the last of his own it names a copy (see [`Face::project_at`]).
     pub projects: Vec<Project>,
     pub scoped: Option<usize>,
-    /// Copies of another Mac's projects, which the move picker lists and the switcher does not.
+    /// Copies of another Mac's projects, listed after his own.
     pub copies: Vec<ProjectCopy>,
     /// This Mac's projects whose file Fleet could not read, drawn dimmed under the projects.
     pub unread: Vec<Unread>,
@@ -970,7 +977,7 @@ impl Face {
     /// The switcher's trigger: the project and, muted, the repositories it draws on; else the
     /// repository chosen, else `All`, or the reason none is listed.
     pub fn chosen_said(&self) -> (SharedString, Option<SharedString>) {
-        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+        if let Some(one) = self.scoped_to() {
             return (one.name.clone(), self.members_said(one));
         }
         match self.chosen.and_then(|at| self.repositories.get(at)) {
@@ -982,7 +989,30 @@ impl Face {
 
     /// Fleet's id of the project the window is scoped to, which the Jobs list filters by. None on All and on one repository.
     pub fn scoped_project(&self) -> Option<&str> {
-        self.scoped.and_then(|at| self.projects.get(at)).map(|one| one.id.as_ref())
+        self.scoped_to().map(|one| one.id.as_ref())
+    }
+
+    /// The project at a place in the switcher's order: his own, then the copies of another Mac's.
+    pub fn project_at(&self, at: usize) -> Option<&Project> {
+        self.projects.get(at).or_else(|| self.copies.get(at.checked_sub(self.projects.len())?).map(|one| &one.project))
+    }
+
+    /// The id of the Mac that holds the project at `at`, where it is a copy of that Mac's.
+    pub fn held_by(&self, at: usize) -> Option<&SharedString> {
+        self.copies.get(at.checked_sub(self.projects.len())?).map(|one| &one.mac)
+    }
+
+    /// The projects the switcher lists, his own and then the copies, each with its place in that order and the id of
+    /// the Mac that holds it where it is a copy.
+    pub fn listed(&self) -> impl Iterator<Item = (usize, &Project, Option<&SharedString>)> {
+        let own = self.projects.iter().map(|one| (one, None));
+        let away = self.copies.iter().map(|one| (&one.project, Some(&one.mac)));
+        own.chain(away).enumerate().map(|(at, (project, mac))| (at, project, mac))
+    }
+
+    /// The project the window is scoped to, his own or a copy.
+    pub fn scoped_to(&self) -> Option<&Project> {
+        self.scoped.and_then(|at| self.project_at(at))
     }
 
     /// The repositories a project draws on, each once, in the order its members name them.
@@ -1000,12 +1030,12 @@ impl Face {
 
     /// The repositories in no project, by place.
     pub fn lone(&self) -> Vec<usize> {
-        (0..self.repositories.len()).filter(|&at| !self.projects.iter().any(|one| one.members.iter().any(|member| member.repository == at))).collect()
+        (0..self.repositories.len()).filter(|&at| !self.listed().any(|(_, one, _)| one.members.iter().any(|member| member.repository == at))).collect()
     }
 
     /// What the Settings button beside the trigger names: the project, else the repository, else nothing.
     pub fn settings_said(&self) -> SharedString {
-        if let Some(one) = self.scoped.and_then(|at| self.projects.get(at)) {
+        if let Some(one) = self.scoped_to() {
             return format!("Settings for {}", one.name).into();
         }
         match self.chosen.and_then(|at| self.repositories.get(at)) {

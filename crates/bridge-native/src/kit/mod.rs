@@ -203,7 +203,7 @@ impl KitScreen {
         let (Some(bar), Some(served)) = (titlebar::live(cx), fleet.read(cx).held().repositories.clone()) else { return Scope::default() };
         let face = &bar.read(cx).face;
         let id_of = |at: usize| served.get(at).and_then(|one| one.manifest.as_ref().map(|manifest| manifest.id.as_str().to_string()).or_else(|| one.implicit_id.as_ref().map(|id| id.as_str().to_string())));
-        if let Some(project) = face.scoped.and_then(|at| face.projects.get(at)) {
+        if let Some(project) = face.scoped_to() {
             return Scope { name: project.name.to_string(), repositories: project.members.iter().filter_map(|member| id_of(member.repository)).collect() };
         }
         if let Some(at) = face.chosen {
@@ -336,7 +336,11 @@ impl KitScreen {
         match self.pane {
             Pane::Rail => {
                 let at = KINDS.iter().position(|kind| *kind == self.kind).unwrap_or(0) as isize;
-                self.select_kind(KINDS[(at + by).clamp(0, KINDS.len() as isize - 1) as usize], cx);
+                let to = KINDS[(at + by).clamp(0, KINDS.len() as isize - 1) as usize];
+                if to != self.kind {
+                    crate::ui_sounds::moved();
+                }
+                self.select_kind(to, cx);
             }
             Pane::List => {
                 let count = self.listed.shown.len() as isize;
@@ -346,6 +350,9 @@ impl KitScreen {
                 let at = self.picked_at().map_or(if by > 0 { -1 } else { count }, |at| at as isize);
                 let next = (at + by).clamp(0, count - 1) as usize;
                 let id = self.listed.shown[next].row.id.clone();
+                if self.picked_at() != Some(next) {
+                    crate::ui_sounds::moved();
+                }
                 self.pick(id, cx);
             }
             Pane::Detail => self.scroll_file(file::Scroll::Lines(by), cx),

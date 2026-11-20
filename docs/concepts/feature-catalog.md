@@ -358,7 +358,7 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked` is built so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, the free part of `drift`, `retire` and `links` are built so far, and a run does nothing else but keep its record.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
@@ -382,6 +382,34 @@ A first run has no earlier run, so every feature reads as new, and the prompt na
 > **Rule.** Where nothing moved since the last run, the part makes no call and writes no paragraph.
 > Why: the model runs only where words must be written, and a paragraph about nothing would be words for the sake of words.
 
+**`drift` flags a document that names what the code no longer has.**
+Its free part reads the documents linked to the project's features that are files of its repository, up to two hundred a run, and costs no model.
+From each it takes the names written in backticks outside fenced blocks, up to forty: a `snake_case` or `CamelCase` word, a `name()`, `Type::name` or `module::Type`, and an endpoint such as `GET /features/page`.
+It asks git whether each name was in the code, outside markdown, when the document was last changed, and whether it is now, with one search at each commit for the whole document.
+Fleet keeps the names that were there and are gone, and the page's `docs` carry them as `drifted`; a document whose check finds none loses its flag.
+
+> **Rule.** A name has drifted only where the code had it when the document was last changed and does not have it now.
+> Why: a name the document invented, or one it never had right, was never the code's to lose, and flagging it would teach him to ignore the flag.
+
+The model's part of `drift` is not built.
+
+**`retire` and `links` share one free step that reads features and linked docs against the code.**
+It costs no model and asks git once for the files at `HEAD`, and once for each feature for the newest commit that touched its paths.
+A feature whose paths match no file at `HEAD` and never did is **planned**: the code is not written yet, and the mark clears at its first file.
+A feature whose paths matched files once and match none now carries a **Retire proposal**, with the last commit that touched them as evidence: "Its paths match no file since abc1234, 14 May".
+A feature that has files carries one too where nothing has changed them for 180 days, and no Job has written a file of it or been linked to it in that time: "No change to its files since abc1234, 2 May; no Job on it since 3 Apr".
+The 180 days are chosen, not measured.
+A linked doc that is a file of the repository and is not at `HEAD`, nor on disk, is marked `gone` and keeps its gist; an address or a ticket never is.
+Pending features and features with no paths are not read, and where git cannot be read the step marks nothing and leaves what it marked.
+`list_features` carries `retire` and `planned` on a feature, and `get_feature_page` carries `state` `gone` on a doc.
+`answer_retire` is his answer: Retire takes the feature out of the catalog and leaves its links, Keep holds the proposal.
+
+> **Rule.** Retire is only proposed, never done by Fleet.
+> Why: retiring hides a feature, and only the owner knows it is truly gone.
+
+> **Rule.** A Keep holds until the evidence changes.
+> Why: a proposal he answered should not return on every Catch up.
+
 **The part spends from the night's share.**
 A night is the machine's local midnight to midnight, and the share is counted in model calls for each project.
 A call that fails still counts, since it was made.
@@ -392,7 +420,7 @@ The facts then wait: the part's next run reads from the last run that did it.
 A word Fleet cannot read means `on_press`.
 
 **The Catch up card shows a run's steps before he presses, and each as it moves.**
-`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, a step for each model part that is on and built, then `read_through`.
+`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
@@ -446,6 +474,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `stop_librarian` | The owner's Stop, or the Operator, stops a project's running librarian run before its next step |
+| `answer_retire` | The owner's Retire or Keep for a feature the librarian proposed to retire |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |

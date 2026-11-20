@@ -124,6 +124,7 @@ impl Seen {
             if key == "left" {
                 self.end = None;
                 self.ask = placement.items.get(from).map(|rect| ask(*rect));
+                crate::ui_sounds::moved();
             }
             return;
         }
@@ -131,8 +132,10 @@ impl Seen {
             Some((Some(to), rect)) => {
                 self.ask = Some(ask(rect));
                 self.current = Some(to);
+                crate::ui_sounds::moved();
             }
             Some((None, rect)) => {
+                crate::ui_sounds::moved();
                 // The last step stays beside the box where the frame holds both, so the box clears the heads by a column.
                 self.ask = Some(Ask { rects: std::iter::once(rect).chain(placement.items.get(from).copied()).collect(), ..ask(rect) });
                 self.end = lanes.iter().find(|lane| lane.nodes.iter().any(|node| node.id == from)).map(|lane| lane.id.clone());

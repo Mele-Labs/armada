@@ -2,7 +2,7 @@
 //! `docs/concepts/project.md`, *Sharing with his other Macs*.
 //!
 //! **The Mac that holds a project stays its authority.** What arrives is only what that Mac says, kept as it
-//! was said and shown with its `mac`; a task act on a copy is sent to that Mac, which runs it with its own code
+//! was said and shown with its `mac`; an act on a copy, of a task or the project itself, is sent to that Mac, which runs it with its own code
 //! and answers its projects, and the answer is the copy. **Nothing here ticks a task**: a copy is replaced by
 //! what the holder says, and a tick travels only as the person's own `tick_project_task`.
 //!
@@ -15,7 +15,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Projects, Refusal};
 use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
-    EditedTaskFields, Event, JobAct, MacAct, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState,
+    EditProject, EditedTaskFields, Event, JobAct, ManifestId, MacAct, MoveProjectRow, Project, ProjectAct, ProjectActFromMac, ProjectMember, ProjectRow, ProjectTask, ProjectTaskState,
     WireError,
 };
 use store::{Edited, FromMac, KeptQueuedAct};
@@ -41,6 +41,8 @@ struct Queued {
 enum Waiting {
     Project(ProjectAct),
     Job { id: String, act: JobAct },
+    /// A Kit clash settled here, `crate::kit_link`'s.
+    Kit(ipc::KitSettled),
 }
 
 /// The answer from the other Mac to a sent act.
@@ -64,8 +66,9 @@ fn parent_of(row: &ProjectRow) -> Option<&str> {
     }
 }
 
-/// `act` shown on `project`, a copy of one that Mac holds: **a title, notes, a tick, a removal and a task added
-/// show at once**; a link and a move show when the Mac has them. An add shows under the id it will be kept under.
+/// `act` shown on `project`, a copy of one that Mac holds: **a title, notes, a tick, a removal, a task added and an
+/// edit of the project itself show at once**; a link and a move show when the Mac has them. An add shows under the id
+/// it will be kept under.
 fn overlaid(project: &mut Project, act: &ProjectAct) {
     match act {
         ProjectAct::AddProjectTask { task, id: Some(id) } if task.project.as_deref() == Some(project.id.as_str()) => {
@@ -133,6 +136,21 @@ fn overlaid(project: &mut Project, act: &ProjectAct) {
         ProjectAct::RemoveProjectRow { row } => {
             project.rows.retain(|one| row_id(one) != row && parent_of(one) != Some(row.as_str()));
         }
+        // A copy never carries a place, so an edit shows whole.
+        ProjectAct::EditProject { project: id, edit } if *id == project.id => {
+            if let Some(name) = edit.name.as_deref().map(str::trim) {
+                project.name = name.to_string();
+            }
+            if let Some(members) = &edit.members {
+                project.members.clone_from(members);
+            }
+            if let Some(values) = &edit.values {
+                project.values = Some(values.clone()).filter(|one| *one != ipc::ValuesSet::default());
+            }
+            if let Some(on) = edit.shared_with_macs {
+                project.shared_with_macs = on;
+            }
+        }
         // A merge shows at once: the kept project has the gone one's tasks, a held one open, as the holder will keep them.
         ProjectAct::Absorb { kept, gone, .. } if *kept == project.id => {
             for row in &gone.rows {
@@ -157,6 +175,7 @@ fn waiting_of(kept: KeptQueuedAct) -> Option<Queued> {
     let act = match kept.kind.as_str() {
         "project" => Waiting::Project(ipc::decode("an edit queued for another Mac", kept.act.as_bytes()).ok()?),
         "job" => Waiting::Job { id: kept.id, act: ipc::decode("an act queued for another Mac", kept.act.as_bytes()).ok()? },
+        "kit" => Waiting::Kit(ipc::decode("a settled Kit clash queued for another Mac", kept.act.as_bytes()).ok()?),
         _ => return None,
     };
     Some(Queued { seq: kept.seq, mac: kept.mac, at: kept.at, act })
@@ -214,7 +233,8 @@ where
     }
 
     /// The copies, with what he edited on each while its Mac could not be reached shown on it. **A copy a queued
-    /// `GiveUp` takes away is not listed**, and the kept one shows the tasks of the project a queued `Absorb` takes in.
+    /// `GiveUp` or delete takes away is not listed**, and the kept one shows the tasks of the project a queued `Absorb`
+    /// takes in.
     pub(crate) async fn project_copies(&self) -> Result<Vec<Project>, Refusal> {
         let mut copies = self.copies_held().await?;
         if copies.is_empty() {
@@ -227,7 +247,7 @@ where
             for project in copies.iter_mut().filter(|one| one.mac.as_deref() == Some(queued.mac.as_str())) {
                 overlaid(project, act);
             }
-            if let ProjectAct::GiveUp { gone, .. } = act {
+            if let ProjectAct::GiveUp { gone, .. } | ProjectAct::DeleteProject { project: gone } = act {
                 copies.retain(|one| !(one.mac.as_deref() == Some(queued.mac.as_str()) && one.id == *gone));
             }
         }
@@ -308,12 +328,73 @@ where
         }
     }
 
-    /// `project` is not a copy: its name, members, values, place, share switch and deletion are only the holder's.
-    pub(crate) async fn project_not_held(&self, project: &str) -> Result<(), Refusal> {
+    /// `project` is not a copy: **its claims store is only the holder's**, since a join and a deploy run with the
+    /// sign-in of the Mac that makes them, and name the store in the file that Mac keeps.
+    pub(crate) async fn store_not_held(&self, project: &str) -> Result<(), Refusal> {
         match self.copy_of_project(Some(project)).await? {
-            Some(mac) => Err(self.copy_refused(&mac)),
+            Some(mac) => Err(Refusal::IllegalMove(WireError::raised(
+                PROJECT_HELD,
+                format!("Only Mac {mac} can set this project's store, since the join and the deploy run there with its sign-in."),
+                self.run_id(),
+            ))),
             None => Ok(()),
         }
+    }
+
+    /// An edit of a copy that moves its file: **refused whole**, since only the Mac that keeps the file chooses where.
+    fn copy_place_refused(&self, mac: &str) -> Refusal {
+        Refusal::IllegalMove(WireError::raised(
+            PROJECT_HELD,
+            format!("Only Mac {mac} can choose where this project's file is kept, since that Mac writes it."),
+            self.run_id(),
+        ))
+    }
+
+    /// What an edit of a copy needs before it is sent: no place, a name that is not blank, and members and values
+    /// this Mac reads as the holder will.
+    fn copy_edit_checked(&self, mac: &str, edit: &EditProject) -> Result<(), Refusal> {
+        if edit.place.is_some() {
+            return Err(self.copy_place_refused(mac));
+        }
+        if edit.name.as_deref().is_some_and(|name| name.trim().is_empty()) {
+            return Err(self.blank("a project needs a name"));
+        }
+        if let Some(members) = &edit.members {
+            self.members_read(members)?;
+        }
+        if let Some(values) = &edit.values {
+            self.values_read(values)?;
+        }
+        Ok(())
+    }
+
+    /// Mac `mac`'s copy of `project` made to list `repository`, where it lists none of it: the copy's members and the
+    /// repository, whole, sent to that Mac as an edit, and shown on the copy at once where it sleeps.
+    pub(crate) async fn copy_member_followed(&self, mac: &str, project: &str, repository: &str) -> Result<(), Refusal> {
+        let copies = self.project_copies().await?;
+        let Some(copy) = copies.into_iter().find(|one| one.mac.as_deref() == Some(mac) && one.id == project) else {
+            return Ok(());
+        };
+        if copy.members.iter().any(|one| one.manifest_id.as_str() == repository) {
+            return Ok(());
+        }
+        let mut members = copy.members;
+        members.push(ProjectMember { manifest_id: ManifestId::carried(repository), folder: None });
+        let edit = EditProject { members: Some(members), ..EditProject::default() };
+        self.act_on_copy(mac, ProjectAct::EditProject { project: project.to_string(), edit }).await.map(drop)
+    }
+
+    /// `set_project_workflow` on Mac `mac`'s copy of `project`: **the copy's values as shown**, with `workflow` on or
+    /// off, sent as an edit of the whole values block.
+    pub(crate) async fn workflow_set_on_copy(&self, mac: &str, project: String, workflow: &str, on: bool) -> Result<ipc::Projects, Refusal> {
+        let copies = self.project_copies().await?;
+        let shown = copies.into_iter().find(|one| one.mac.as_deref() == Some(mac) && one.id == project);
+        let mut values = shown.and_then(|one| one.values).unwrap_or_default();
+        values.workflows_off.retain(|one| one != workflow);
+        if !on {
+            values.workflows_off.push(workflow.to_string());
+        }
+        self.act_on_copy(mac, ProjectAct::EditProject { project, edit: EditProject { values: Some(values), ..EditProject::default() } }).await
     }
 
     /// Where a move of `row` goes: the Mac that holds it where `row` is on a copy, and none where it is this
@@ -345,7 +426,8 @@ where
     }
 
     /// What `act` needs of the copy of Mac `mac`'s projects, so a refusal does not wait on a Mac that sleeps: the
-    /// row is there, a task where it must be, and a title is not blank. The Mac answers the rest.
+    /// row is there, a task where it must be, a title or a name is not blank, and an edit moves no file. The Mac
+    /// answers the rest.
     async fn copy_act_checked(&self, mac: &str, act: &ProjectAct) -> Result<(), Refusal> {
         let copies = self.project_copies().await?;
         let rows: Vec<&ProjectRow> =
@@ -380,7 +462,8 @@ where
             | ProjectAct::LinkTaskPull { row, .. }
             | ProjectAct::UnlinkTaskPull { row, .. } => task_row(row).map(drop),
             ProjectAct::RemoveProjectRow { row } | ProjectAct::MoveProjectRow { row, .. } => find(row).map(drop).ok_or_else(|| missing(row)),
-            ProjectAct::LinkProjectIssue { .. } | ProjectAct::Absorb { .. } | ProjectAct::GiveUp { .. } => Ok(()),
+            ProjectAct::EditProject { edit, .. } => self.copy_edit_checked(mac, edit),
+            ProjectAct::LinkProjectIssue { .. } | ProjectAct::Absorb { .. } | ProjectAct::GiveUp { .. } | ProjectAct::DeleteProject { .. } => Ok(()),
         }
     }
 
@@ -533,6 +616,11 @@ where
                         Flushed::Sent => {}
                         Flushed::Kept => continue,
                         Flushed::Stopped => break,
+                    }
+                }
+                Waiting::Kit(settled) => {
+                    if matches!(self.kit_settle_sent(&mac, &settled).await, crate::kit_link::SettleSent::Unreachable) {
+                        break;
                     }
                 }
             }

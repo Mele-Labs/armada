@@ -262,6 +262,24 @@ pub struct JobStory {
     /// One line an ask, open ones first, for the done card to lead with beside the Job's own summary.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub lead: Vec<String>,
+    /// The features the Job is on, most touched first. Empty for a Job on none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub features: Vec<JobFeature>,
+}
+
+/// A feature a Job is on, and how it touched it. A count is zero where that way never touched it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct JobFeature {
+    pub slug: String,
+    pub title: String,
+    /// The slug of the area it is in, which gives the hue the Features list draws it in.
+    pub area: String,
+    /// The files the Job wrote under it.
+    pub files_written: u32,
+    /// The commits of the Job that named it in a `Feature:` line.
+    pub commits_named: u32,
+    /// The Job's asks filed under it.
+    pub asks: u32,
 }
 
 /// The reply of the Job's that answers a question of his.

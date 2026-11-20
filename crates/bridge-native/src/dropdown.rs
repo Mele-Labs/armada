@@ -279,6 +279,9 @@ impl Dropdown {
             None => ids.len() - 1,
             Some(at) => (at as isize + by).clamp(0, ids.len() as isize - 1) as usize,
         };
+        if self.cursor != Some(ids[next]) {
+            crate::ui_sounds::moved();
+        }
         self.cursor = Some(ids[next]);
         self.follow(ids[next]);
     }

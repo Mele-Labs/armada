@@ -573,3 +573,91 @@ mod answered {
         assert!(rig.fleet.list_job_questions(id.clone()).await.expect("listed").questions[0].answer.is_none());
     }
 }
+
+/// The features a Job is on, read from the files it wrote, the commits that named them and its asks filed under them.
+mod features_of_a_job {
+    use api::{Features, Story};
+    use ipc::SessionId;
+    use store::{feature_link_kind, KeptAsk, KeptFeatureLink};
+
+    use super::super::agent_starts::{rig, Rig};
+    use super::super::feature_library::{a_project, an_agent_for, feature, named, seeded, wrote, VOTING};
+
+    const ACTIONS: &str = "page-actions";
+
+    async fn commit_linked(rig: &Rig, id: &SessionId, slug: &str, project: &str, sha: &str) {
+        let mut store = rig.fleet.store().lock().await;
+        let feature = store.feature_named(project, slug).unwrap().expect("held");
+        let link = KeptFeatureLink {
+            feature_id: feature.id,
+            kind: feature_link_kind::COMMIT.into(),
+            target: sha.into(),
+            job: id.as_str().into(),
+            title: String::new(),
+            state: String::new(),
+            via: "trailer".into(),
+            at: rig.fleet.now().as_str().into(),
+            gist: String::new(),
+        };
+        store.put_feature_link(&link).expect("linked");
+    }
+
+    async fn ask_filed(rig: &Rig, id: &SessionId, ask: &str, slugs: &[&str]) {
+        let mut store = rig.fleet.store().lock().await;
+        let now = rig.fleet.now().as_str().to_string();
+        let kept = KeptAsk {
+            ask_id: ask.into(),
+            session_id: id.as_str().into(),
+            manifest_id: None,
+            project: None,
+            kind: "bug".into(),
+            title: format!("Ask {ask}"),
+            state: "building".into(),
+            building: Some(id.as_str().into()),
+            opened_at: now.clone(),
+            state_at: now,
+        };
+        store.keep_ask(&kept).expect("kept");
+        store.keep_ask_features(ask, &slugs.iter().map(|slug| slug.to_string()).collect::<Vec<_>>()).expect("filed");
+    }
+
+    #[tokio::test]
+    async fn each_feature_counts_the_files_written_the_commits_that_named_it_and_the_asks_filed_most_touched_first() {
+        let rig = rig(None);
+        let project = a_project(&rig).await;
+        rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+        {
+            let mut store = rig.fleet.store().lock().await;
+            let ripple = store::KeptFeature { project: project.clone(), title: "Ripple".into(), ..feature("f-ripple", "ripple", &["crates/ripple"]) };
+            store.put_feature(&ripple).expect("kept");
+        }
+        let id = an_agent_for(&rig, &project).await;
+        wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+        wrote(&rig, &id, "crates/pages/voting/tally.rs").await;
+        wrote(&rig, &id, "crates/pages/voting/ranks.rs").await;
+        named(&rig, &id, VOTING).await;
+        for sha in ["a1", "b2", "c3", "a1"] {
+            commit_linked(&rig, &id, ACTIONS, &project, sha).await;
+        }
+        ask_filed(&rig, &id, "ask-1", &[ACTIONS, "ripple"]).await;
+        ask_filed(&rig, &id, "ask-2", &["not-a-feature"]).await;
+
+        let story = rig.fleet.get_job_story(id.clone()).await.expect("story");
+        let said: Vec<(&str, u32, u32, u32)> = story.features.iter().map(|one| (one.slug.as_str(), one.files_written, one.commits_named, one.asks)).collect();
+        assert_eq!(said, [(ACTIONS, 0, 3, 1), (VOTING, 2, 1, 0), ("ripple", 0, 0, 1)], "most touched first, a file and a commit once each");
+        assert_eq!((story.features[2].title.as_str(), story.features[2].area.as_str()), ("Ripple", "takes"));
+    }
+
+    #[tokio::test]
+    async fn a_job_on_no_feature_has_none_and_the_wire_carries_no_field() {
+        let rig = rig(None);
+        let project = a_project(&rig).await;
+        rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
+        let id = an_agent_for(&rig, &project).await;
+        wrote(&rig, &id, "README.md").await;
+
+        let story = rig.fleet.get_job_story(id.clone()).await.expect("story");
+        assert!(story.features.is_empty(), "{:?}", story.features);
+        assert!(!ipc::encode(&story).unwrap().contains("\"features\""));
+    }
+}

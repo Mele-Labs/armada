@@ -1,0 +1,8 @@
+[operations.hold_other_mac_kit]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "What another Mac's Kit offers, handed in by this Mac's Phone Gateway, taken where it changed there only"
+notes = """
+`PUT /other_macs/kit`, body `OtherMacKit { mac, kit }`, answered with `MacNamed`. Kept in place of what that Mac last offered. Then, for each kind switched on here and each item on by itself that the other Mac also crosses: an item the other Mac has that this Mac never agreed on is written here; one changed there only since the two last agreed is written over this Mac's; one changed on both is held as a clash and neither side moves; one changed here only is left for the other Mac to take. Writes go to the harness's home for skills, sub agents, commands, global instructions and memory, `~/.armada` for workflows and the allowlist, the mods folder for mods, and the harness's own install for plugins. A server is never written: its key does not cross. Nothing is deleted. Acts queued for that Mac are sent first. `kit.changed` follows where anything here moved. 422 `fleet.other_mac_unnamed` for a blank `mac`. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""

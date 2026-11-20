@@ -578,12 +578,9 @@ impl MockFleet {
     }
 
     /// The edit with `shared_with_macs` alone. A project whose file was not read cannot be written.
-    /// `delete_project`: the project goes, and a copy of another Mac's is refused as Fleet refuses it.
+    /// `delete_project`: the project goes. A copy of another Mac's goes too, as Fleet sends the act to the Mac that keeps it.
     pub fn delete_project(&mut self, project: &str) -> Result<Projects, Refused> {
         let at = self.projects.projects.iter().position(|one| one.id == project).ok_or_else(|| Refused::said(format!("there is no project {project}")))?;
-        if self.projects.projects[at].mac.is_some() {
-            return Err(Refused { key: None, said: "This project is held on another Mac, which keeps it".into(), code: Some("fleet.other_mac_project_held".into()) });
-        }
         self.projects.projects.remove(at);
         Ok(self.projects.clone())
     }

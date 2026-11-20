@@ -6,6 +6,10 @@
 //! a call is made and never kept beside it. A repository in two projects that name two different
 //! stores also makes none: nothing says which the person meant, so it is said on the log and no claim
 //! leaves for either.
+//!
+//! **Who joins it is the login the project picks** (`store.account_id`), and each repository claims as
+//! that login unless it overrides it (`crate::repository_profiles`). A project that picks none sends
+//! nothing. Projects naming one store with two different logins pick none between them.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -19,7 +23,6 @@ use sha2::{Digest, Sha256};
 
 use crate::daemon::Fleet;
 use crate::red_claim::Reaching;
-use crate::repository_profiles::Repo;
 use crate::signing_in::{Bound, SigningIn, this_machine};
 use crate::store_deploy::{Deployed, worker_name};
 
@@ -33,7 +36,8 @@ const STORE_REFUSED: &str = "fleet.store_refused";
 const STORE_NO_WORKERS_DEV: &str = "fleet.store_no_workers_dev";
 const STORE_CLOUDFLARE_REFUSED: &str = "fleet.store_cloudflare_refused";
 const STORE_CLOUDFLARE_UNREACHABLE: &str = "fleet.store_cloudflare_unreachable";
-const NO_PROFILE: &str = "No repository of this project is bound to a profile on this Mac.";
+const NO_LOGIN: &str = "No login is picked for this store.";
+const LOGIN_NOT_HERE: &str = "This Mac is not signed in as the login picked for this store.";
 
 /// A project's store as the wire carries it.
 pub(crate) fn store_on_the_wire(store: &ProjectStore) -> ipc::ProjectStore {
@@ -43,6 +47,7 @@ pub(crate) fn store_on_the_wire(store: &ProjectStore) -> ipc::ProjectStore {
         worker: store.worker.as_ref().map(|worker| worker.as_str().to_string()),
         deployed: store.deployed.as_ref().map(|at| at.as_str().to_string()),
         joins_unlimited: store.joins_unlimited,
+        account_id: store.account_id,
     }
 }
 
@@ -65,36 +70,35 @@ pub struct JoinedStore {
     pub directory: PathBuf,
 }
 
-/// The profiles the repositories at `roots` are bound to, each once, in the order of `roots`: **who this
-/// Mac joins as**, since each repository's claims go as its own profile. Blocking, as reading a
-/// repository's name may run `git`.
-fn bound_profiles(reaching: &dyn Reaching, signing: &SigningIn, roots: &[String]) -> Vec<Bound> {
-    let mut bound: Vec<Bound> = Vec::new();
-    for root in roots {
-        let Some(slug) = reaching.slug(root) else { continue };
-        if let Some(profile) = signing.profile_for(&Repo::new(root, Some(slug))) {
-            if !bound.iter().any(|one| one.account_id == profile.account_id) {
-                bound.push(profile);
-            }
+/// **Who this Mac joins as**: the project's `login` first, then each login a repository at `roots`
+/// overrides it with, each once, since each repository's claims go as its own profile. Why none, where
+/// the project picked no login or this Mac is not signed in to it. Reads files only.
+fn bound_profiles(signing: &SigningIn, roots: &[String], login: Option<u64>) -> Result<Vec<Bound>, &'static str> {
+    let own = signing.profile(login.ok_or(NO_LOGIN)?).ok_or(LOGIN_NOT_HERE)?;
+    let mut bound = vec![own];
+    for profile in roots.iter().filter_map(|root| signing.profile_for(root, login)) {
+        if !bound.iter().any(|one| one.account_id == profile.account_id) {
+            bound.push(profile);
         }
     }
-    bound
+    Ok(bound)
 }
 
 /// Why this Mac could not join a store.
 enum Joining {
-    NoProfile,
+    NoLogin(&'static str),
     Store(StoreError),
 }
 
 /// What the store setting reads, off the async threads: who this Mac is to the store, and its Macs.
 fn state_read(reaching: &dyn Reaching, signing: &SigningIn, roots: &[String], store: Option<&ProjectStore>) -> (bool, Vec<String>, Option<String>, bool) {
-    let bound = bound_profiles(reaching, signing, roots);
-    let can_join = !bound.is_empty();
+    // Any profile here can be picked to join as.
+    let can_join = signing.joined().is_ok_and(|joined| !joined.is_empty());
     let Some(store) = store else { return (false, Vec::new(), None, can_join) };
-    if bound.is_empty() {
-        return (false, Vec::new(), Some(NO_PROFILE.to_string()), can_join);
-    }
+    let bound = match bound_profiles(signing, roots, store.account_id) {
+        Ok(bound) => bound,
+        Err(said) => return (false, Vec::new(), Some(said.to_string()), can_join),
+    };
     // The Macs are asked as the first profile that joined; one that has not joined cannot ask.
     let joined = bound
         .iter()
@@ -118,7 +122,9 @@ fn state_read(reaching: &dyn Reaching, signing: &SigningIn, roots: &[String], st
 pub(crate) enum StoreOf {
     /// No project holds it, or none that does names a store.
     None,
-    One(StoreAddress),
+    /// The store, and the login the projects naming it picked. `None` where none picked one, or two
+    /// picked different logins.
+    One(StoreAddress, Option<u64>),
     /// Two projects holding it name different stores.
     Differs,
 }
@@ -126,14 +132,22 @@ pub(crate) enum StoreOf {
 /// The store of the repository `manifest` from the projects in `projects`.
 pub(crate) fn store_of<'p>(projects: impl Iterator<Item = &'p core_model::Project>, manifest: &core_model::ManifestId) -> StoreOf {
     let mut found: Option<&StoreAddress> = None;
+    let mut logins: Vec<u64> = Vec::new();
     for project in projects.filter(|project| project.holds(manifest)) {
         let Some(store) = project.store() else { continue };
         match found {
             Some(already) if already != &store.address => return StoreOf::Differs,
             _ => found = Some(&store.address),
         }
+        if let Some(login) = store.account_id.filter(|login| !logins.contains(login)) {
+            logins.push(login);
+        }
     }
-    found.map_or(StoreOf::None, |address| StoreOf::One(address.clone()))
+    let login = match logins[..] {
+        [only] => Some(only),
+        _ => None,
+    };
+    found.map_or(StoreOf::None, |address| StoreOf::One(address.clone(), login))
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -146,18 +160,34 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The store the repository at `root` calls, from the projects that hold it **as Fleet holds them
-    /// now**. `None` makes no call.
-    pub(crate) fn store_of_root(&self, root: &str) -> Option<StoreAddress> {
-        let manifest = core_model::ManifestId::carried(core_model::Ulid::carried(self.manifest_id_at(root)?));
-        let held = self.projects_held();
-        match store_of(held.running(), &manifest) {
-            StoreOf::One(address) => Some(address),
+    /// What the projects holding the repository at `root` **as Fleet holds them now** say of its store.
+    fn store_of_held(&self, root: &str) -> (Option<core_model::ManifestId>, StoreOf) {
+        let Some(manifest) = self.manifest_id_at(root) else { return (None, StoreOf::None) };
+        let manifest = core_model::ManifestId::carried(core_model::Ulid::carried(manifest));
+        let of = store_of(self.projects_held().running(), &manifest);
+        (Some(manifest), of)
+    }
+
+    /// The login the projects holding the repository at `root` picked for the store it calls, for
+    /// [`SigningIn::profile_for`]. Not said on the log: [`Self::store_of_root`] says it for every call.
+    pub(crate) fn project_login_of_root(&self, root: &str) -> Option<u64> {
+        match self.store_of_held(root).1 {
+            StoreOf::One(_, login) => login,
+            StoreOf::None | StoreOf::Differs => None,
+        }
+    }
+
+    /// The store the repository at `root` calls and the login its projects picked for it, from the
+    /// projects that hold it **as Fleet holds them now**. `None` makes no call.
+    pub(crate) fn store_of_root(&self, root: &str) -> Option<(StoreAddress, Option<u64>)> {
+        let (manifest, of) = self.store_of_held(root);
+        match of {
+            StoreOf::One(address, login) => Some((address, login)),
             StoreOf::None => None,
             StoreOf::Differs => {
                 self.values_warned(
                     "a repository's claims were not sent",
-                    Some(manifest.as_str()),
+                    manifest.as_ref().map(core_model::ManifestId::as_str),
                     "two projects that hold it name different stores",
                 );
                 None
@@ -188,7 +218,7 @@ where
     /// Name `store` as project `project`'s, or none, in its file, and answer the projects as every
     /// write does. **Nothing is called here**: a join or a deploy reaches the store first.
     pub(crate) async fn project_store_written(&self, project: &str, store: Option<ProjectStore>) -> Result<ipc::Projects, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let named = held.clone().with_store(store);
         if named != held {
@@ -203,9 +233,9 @@ where
         served.iter().filter(|one| project.holds(one.manifest().id())).map(|one| one.root().to_string()).collect()
     }
 
-    /// Everything the store setting of `project` shows.
+    /// Everything the store setting of `project` shows, a copy of another Mac's included.
     pub(crate) async fn project_store_state(&self, project: &str) -> Result<ipc::ProjectStoreState, Refusal> {
-        let held = self.project_read(project)?;
+        let held = self.project_held(project).await?;
         let roots = self.project_roots(&held);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
@@ -229,22 +259,24 @@ where
         })
     }
 
-    /// Join the store `set` names and name it as `project`'s, or name none. **Nothing is written unless
-    /// the join worked.**
+    /// Join the store `set` names as the login it picks, or the one the project picked, and name both as
+    /// `project`'s, or name none. **Nothing is written unless the join worked.**
     pub(crate) async fn project_store_set(&self, project: &str, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let named = match set.store {
             None => None,
             Some(join) => {
                 let address = StoreAddress::new(&join.address).map_err(|why| self.store_malformed(&why))?;
                 let team = join.team.as_deref().map(StoreTeam::new).transpose().map_err(|why| self.store_malformed(&why))?;
-                self.store_joined(&held, &address).await?;
-                Some(match held.store() {
+                let login = join.account_id.or_else(|| held.store().and_then(|kept| kept.account_id));
+                self.store_joined(&held, &address, login).await?;
+                let store = match held.store() {
                     // The same store as before keeps what its deploy wrote.
                     Some(kept) if kept.address == address && kept.team == team => kept.clone(),
                     _ => ProjectStore::joined(address, team),
-                })
+                };
+                Some(ProjectStore { account_id: login, ..store })
             }
         };
         self.project_store_written(project, named).await?;
@@ -254,7 +286,7 @@ where
     /// Put `project`'s store up on his Cloudflare account, name it in the project's file, and join this
     /// Mac to it. **Nothing is changed where Cloudflare refuses every sign-in.**
     pub(crate) async fn project_store_deployed(&self, project: &str, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let team = deploy.team.as_deref().map(StoreTeam::new).transpose().map_err(|why| self.store_malformed(&why))?;
         let name = worker_name(team.as_ref());
@@ -273,25 +305,24 @@ where
         let address = StoreAddress::new(&up.address).map_err(|why| {
             Refusal::Unacceptable(self.project_refusal(STORE_CLOUDFLARE_REFUSED, format!("Cloudflare answered an address Fleet cannot use: {why}")))
         })?;
-        let store = ProjectStore { address: address.clone(), team, worker: Some(name), deployed: Some(self.now()), joins_unlimited: !up.limited };
+        // A redeploy keeps the login the project picked.
+        let login = held.store().and_then(|kept| kept.account_id);
+        let store =
+            ProjectStore { address: address.clone(), team, worker: Some(name), deployed: Some(self.now()), joins_unlimited: !up.limited, account_id: login };
         self.project_store_written(project, Some(store)).await?;
-        let join_said = self.store_joined(&held, &address).await.err().map(|refused| refused.error().message.clone());
+        let join_said = self.store_joined(&held, &address, login).await.err().map(|refused| refused.error().message.clone());
         Ok(ipc::StoreDeployed::Deployed { state: self.project_store_state(project).await?, join_said })
     }
 
-    /// Join this Mac to the store at `address` as each profile a repository of `held` is bound to. **Stops at
-    /// the first refusal**; a profile already joined is left as it is.
-    async fn store_joined(&self, held: &core_model::Project, address: &StoreAddress) -> Result<(), Refusal> {
+    /// Join this Mac to the store at `address` as `login`, the project's, and each login a repository of
+    /// `held` overrides it with. **Stops at the first refusal**; a profile already joined is left as it is.
+    async fn store_joined(&self, held: &core_model::Project, address: &StoreAddress, login: Option<u64>) -> Result<(), Refusal> {
         let roots = self.project_roots(held);
-        let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
         let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let address = address.clone();
         let joined = tokio::task::spawn_blocking(move || {
-            let bound = bound_profiles(reaching.as_ref(), &signing, &roots);
-            if bound.is_empty() {
-                return Err(Joining::NoProfile);
-            }
+            let bound = bound_profiles(&signing, &roots, login).map_err(Joining::NoLogin)?;
             let machine = this_machine(&configured);
             bound.iter().try_for_each(|profile| signing.join_store(profile.account_id, &address, &machine).map(drop).map_err(Joining::Store))
         })
@@ -313,7 +344,7 @@ where
     fn join_refusal(&self, why: Joining) -> Refusal {
         let error = |code: &'static str, said: String| -> WireError { self.project_refusal(code, said) };
         match why {
-            Joining::NoProfile => Refusal::Unacceptable(error(STORE_NO_PROFILE, NO_PROFILE.to_string())),
+            Joining::NoLogin(said) => Refusal::Unacceptable(error(STORE_NO_PROFILE, said.to_string())),
             Joining::Store(StoreError::Unreachable(said)) => Refusal::Fault(error(STORE_UNREACHABLE, format!("The store did not answer: {said}"))),
             Joining::Store(StoreError::Refused(said)) => {
                 let code = if said.contains("gh is not signed in") || said.contains("gh could not be started") {

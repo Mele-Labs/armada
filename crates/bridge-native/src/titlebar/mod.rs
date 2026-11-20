@@ -45,13 +45,14 @@ use gpui::{
 };
 use ipc::{BuildSource, ClearBlocked, ModelDownshift};
 
-pub use face::{copies_of, projects_of, repositories_of, Connection, Face, LiveLink, Member, Project, ProjectCopy, Remedy, Repository, RestartWhy, Restarting};
+pub use face::{copies_of, place_of, projects_of, repositories_of, Connection, Face, LiveLink, Member, Project, ProjectCopy, Remedy, Repository, RestartWhy, Restarting};
 pub use face::{refreshing, restarting, stage_word, Refreshing};
 pub use story::refresh_said;
 pub use crash_layer::{offer_crash, CrashStandIn, Offer as CrashOffer, Pressed as CrashPressed};
 pub use link_layer::StandIn;
 /// The Operator's page adds its place to the strip and reads the week's ring.
 pub use face::Place;
+pub use face::RunsPlaceKind;
 
 use crate::assets::MARK;
 use crate::dropdown::{Dropdown, Entry, Picked, Row};
@@ -553,13 +554,19 @@ impl TitleBar {
     }
 
     /// The projects Fleet serves, by the repositories it serves. The window stays on the project it is
-    /// scoped to by its id, and goes back to All where Fleet no longer lists it.
+    /// scoped to by its id, his own or a copy of another Mac's, and goes back to All where Fleet no longer lists it.
     pub fn set_projects(&mut self, served: &[ipc::RepositorySummary], read: &ipc::Projects, cx: &mut Context<Self>) {
         let listed = face::projects_of(served, read);
         let copies = face::copies_of(served, read);
         let unread = face::unread_of(read);
-        let here = self.face.scoped.and_then(|at| self.face.projects.get(at)).map(|one| one.id.clone());
-        let scoped = here.and_then(|id| listed.iter().position(|one| one.id == id));
+        let here = self.face.scoped.and_then(|at| self.face.project_at(at).map(|one| (self.face.held_by(at).is_some(), one.id.clone())));
+        let scoped = here.and_then(|(copy, id)| {
+            if copy {
+                copies.iter().position(|one| one.project.id == id).map(|at| listed.len() + at)
+            } else {
+                listed.iter().position(|one| one.id == id)
+            }
+        });
         if listed == self.face.projects && scoped == self.face.scoped && copies == self.face.copies && unread == self.face.unread {
             return;
         }
@@ -1143,12 +1150,16 @@ impl TitleBar {
 
     /// The switcher's rows inside the menu of a narrow window: All, each project over its
     /// repositories, then those in no project, those not set up with their detail.
-    fn repository_entries(&self) -> Vec<Entry> {
+    fn repository_entries(&self, macs: &[ipc::Mac]) -> Vec<Entry> {
         let face = &self.face;
         let mut entries = vec![Entry::Search { label: "Find a project", to_rule: true }];
         entries.push(Entry::Row(Row::new("all", "All").icon("globe").ticked(face.chosen.is_none() && face.scoped.is_none())));
-        for (p, project) in face.projects.iter().enumerate() {
-            entries.push(Entry::Row(Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p))));
+        for (p, project, mac) in face.listed() {
+            let row = Row::new(id_of(format!("project-{}", p + 1)), project.name.clone()).icon("layers").ticked(face.scoped == Some(p));
+            entries.push(Entry::Row(match mac {
+                Some(mac) => row.under(face::from_said(macs, mac)),
+                None => row,
+            }));
         }
         for (u, one) in face.unread.iter().enumerate() {
             entries.push(Entry::Row(Row::new(id_of(format!("unread-{}", u + 1)), one.name.clone()).icon("layers").under(one.said.clone()).off(one.said.clone())));
@@ -1165,7 +1176,7 @@ impl TitleBar {
 
     /// The menu's rows: the account (Sign in until a profile is the active one), Settings and
     /// Doctor, and below a width of 900px everything the row above carries.
-    fn menu_entries(&self, narrow: bool) -> Vec<Entry> {
+    fn menu_entries(&self, narrow: bool, macs: &[ipc::Mac]) -> Vec<Entry> {
         let signed_in = self.face.signed_in;
         let account = Row::new("account", if signed_in { "Account" } else { "Sign in" }).icon("user-check");
         let settings_key = act("open_settings").map(|row| row.shortcut).unwrap_or_default();
@@ -1176,7 +1187,7 @@ impl TitleBar {
         ];
         if narrow {
             entries.push(Entry::Rule);
-            entries.extend(self.repository_entries());
+            entries.extend(self.repository_entries(macs));
             entries.push(Entry::Rule);
             entries.push(Entry::Row(Row::new("scoped-settings", self.face.settings_said()).icon("sliders-horizontal")));
             let key = |id: &str| act(id).map(|row| row.shortcut).unwrap_or_default();
@@ -1598,7 +1609,7 @@ impl TitleBar {
         }
         let Some(from) = self.at.menu.get() else { return };
         let narrow = self.narrow(window);
-        let entries = self.menu_entries(narrow);
+        let entries = self.menu_entries(narrow, crate::pairing::macs(cx));
         self.keys_were = Some(self.menu_focus.clone());
         self.open_menu(MenuKind::Account, entries, "Menu", from, true, window, cx);
     }

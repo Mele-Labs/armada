@@ -218,6 +218,7 @@ The parity check takes each row here as chosen.
 ## Macs found
 
 **Settings › Macs lists the Macs it finds beside the ones it has paired, with a Pair on each.**
+**Not built:** the page moves to Settings › This Mac › Account, under Your devices, [Account](account.md), *In native Bridge*.
 The page has two lists, PAIRED and FOUND, each under a small uppercase muted heading.
 FOUND lists the Macs the Gateway finds on his Cloudflare account and on this network that are not paired.
 A found row has the Mac's colour dot, its name, one chip and Pair.

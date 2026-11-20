@@ -11,9 +11,9 @@ export type ProjectStoreState = {
   store?: ProjectStore;
   /** The names of the Macs signed in to it, oldest first, as the store answered. Empty with no store. */
   macs: string[];
-  /** Why the Macs could not be read, where they could not. */
+  /** Why the Macs could not be read, where they could not: the store did not answer, no login is picked for it, or this Mac has not joined it. */
   macs_unread?: string;
-  /** Whether this Mac has joined it, as the profile its repositories are bound to. */
+  /** Whether this Mac has joined it, as the login the project picked. */
   joined_here: boolean;
   /** Whether Deploy can run now. */
   deploy: StoreDeploy;
@@ -26,7 +26,7 @@ export type ProjectStoreState = {
 /** `ready`: a pasted token is kept. `try_tunnel`: the tunnel's sign-in is tried first and may be refused. `needs_token`: this Mac has no Cloudflare sign-in. */
 export type StoreDeploy = "ready" | "try_tunnel" | "needs_token";
 
-/** `ready`: a repository of the project is bound to a profile here. `no_profile`: none is, so there is no one to join as. */
+/** `ready`: this Mac is signed in to a profile that can be picked to join as. `no_profile`: it is signed in to none. */
 export type StoreJoin = "ready" | "no_profile";
 
 /** `POST /projects/project/:project/store`: the store a project's claims go to, joined by its address, or none. */
@@ -39,6 +39,8 @@ export type JoinStore = {
   address: string;
   /** `org` or `org/team`, for a team's store. */
   team?: string;
+  /** The login to join as and that the project's repositories claim as, by the profile's numeric account id. Absent keeps the one the project picked. */
+  account_id?: number;
 };
 
 /** `POST /projects/project/:project/store/deploy`: deploy the project's store to his own Cloudflare account, or redeploy it. */

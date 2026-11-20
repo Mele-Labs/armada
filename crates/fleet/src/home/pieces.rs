@@ -1,10 +1,9 @@
-//! Each kind's pieces on each side, in one form: a name and its files, relative to where the
-//! kind is kept. Reading either side gives the same shape, so comparing them is comparing maps.
+//! Each kind's pieces on this Mac, in one form: a name and its files, relative to where the kind is kept. Every
+//! Mac reads the same shape, so comparing two Macs' pieces is comparing maps, and a piece from another Mac is put
+//! here by the same paths.
 //!
-//! Inside the home every kind has a folder of its own named for its wire word: `mods/<name>/…`,
-//! `skills/<name>/…`, `sub_agents/<name>.md`, `commands/<name>.md`, `global_instructions/<file>`,
-//! `workflows/<file>`, `memory/<repository>/<note>.md`, `plugins/<name>.toml`,
-//! `mcp_servers/<name>.toml`, and the allowlist as one file, `allowlist`, a line a command.
+//! A plugin and a server are a record of their own, `<name>.toml`, holding a plugin's name, marketplace and
+//! source and a server's name and host.
 
 use std::collections::BTreeMap;
 
@@ -21,11 +20,10 @@ const MOST_BYTES: usize = 512 * 1024;
 const MOST_DEPTH: usize = 3;
 /// Kit's allowlist, inside Kit's home: `crate::kit_allowlist`'s file.
 const ALLOWLIST_HERE: &str = crate::kit_allowlist::FILE;
-const ALLOWLIST_HOME: &str = "allowlist";
 const WORKFLOWS_HERE: &str = "workflows";
 const RECORD: &str = ".toml";
 
-/// One piece, on either side.
+/// One piece, here or as another Mac sent it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct Piece {
     pub(crate) name: String,
@@ -38,7 +36,7 @@ pub(crate) struct Piece {
     pub(crate) source: Option<String>,
 }
 
-/// One side of one kind.
+/// One kind on this Mac.
 #[derive(Default)]
 pub(crate) struct Side {
     pub(crate) pieces: Vec<Piece>,
@@ -69,7 +67,7 @@ fn join(dir: &str, rest: &str) -> String {
 }
 
 /// A name that may be a path segment: from the other machine, so never trusted to be one.
-fn plain(name: &str) -> bool {
+pub(crate) fn plain(name: &str) -> bool {
     !name.is_empty() && !name.starts_with('.') && !name.contains('/') && !name.contains('\\')
 }
 
@@ -105,23 +103,6 @@ fn here_spot<'a>(places: &Places<'a>, kind: HomeKind) -> Option<Spot<'a>> {
         HomeKind::Workflows => Some(Spot { folder: places.kit, dir: WORKFLOWS_HERE.to_string(), shape: Shape::Files(None) }),
         _ => None,
     }
-}
-
-/// Where the same kind is kept in the home. The global instructions keep this machine's file name.
-fn home_spot<'a>(places: &Places<'a>, kind: HomeKind) -> Option<Spot<'a>> {
-    let folder = places.home.files();
-    let dir = kind.as_wire().to_string();
-    let shape = match kind {
-        HomeKind::Mods | HomeKind::Skills => Shape::Folders,
-        HomeKind::SubAgents | HomeKind::Commands => Shape::Files(Some(".md".to_string())),
-        HomeKind::Workflows => Shape::Files(None),
-        HomeKind::GlobalInstructions => match harness_spot(places, HarnessPiece::GlobalInstructions).shape {
-            Shape::One(file) => Shape::One(file),
-            _ => return None,
-        },
-        _ => return None,
-    };
-    Some(Spot { folder, dir, shape })
 }
 
 fn text_of(folder: &dyn KeptFolder, path: &str) -> Result<Option<String>, String> {
@@ -209,7 +190,7 @@ fn described(text: &str) -> Option<String> {
     })
 }
 
-/// A plugin as the home keeps it.
+/// A plugin as it crosses.
 #[derive(Serialize, Deserialize)]
 struct PluginKept {
     name: String,
@@ -218,7 +199,7 @@ struct PluginKept {
     source: Option<String>,
 }
 
-/// A server as the home keeps it: **a name and a host, and nothing a server could be started with.**
+/// A server as it crosses: **a name and a host, and nothing a server could be started with.**
 #[derive(Serialize, Deserialize)]
 struct ServerKept {
     name: String,
@@ -282,13 +263,6 @@ fn read_lines(folder: &dyn KeptFolder, path: &str, side: &mut Side) {
     }
 }
 
-fn read_records(spot: Spot<'_>, kind: HomeKind, side: &mut Side) {
-    let mut read = Side::default();
-    read_spot(&spot, kind, &mut read);
-    side.unreadable.extend(read.unreadable);
-    side.pieces.extend(read.pieces.into_iter().map(|piece| Piece { says: None, ..piece }));
-}
-
 /// A note in a memory folder, but the folder's index.
 fn read_memory(places: &Places<'_>, dir: String, repository: &str, side: &mut Side, folder: &dyn KeptFolder) {
     let index = places.harness.memory_index();
@@ -321,31 +295,6 @@ pub(crate) fn here(places: &Places<'_>, kind: HomeKind) -> Side {
         }
         _ => {
             if let Some(spot) = here_spot(places, kind) {
-                read_spot(&spot, kind, &mut side);
-            }
-        }
-    }
-    side
-}
-
-/// Every piece of `kind` in the home's copy here.
-pub(crate) fn home(places: &Places<'_>, kind: HomeKind) -> Side {
-    let mut side = Side::default();
-    let folder = places.home.files();
-    match kind {
-        HomeKind::Allowlist => read_lines(folder, ALLOWLIST_HOME, &mut side),
-        HomeKind::McpServers | HomeKind::Plugins => {
-            let spot = Spot { folder, dir: kind.as_wire().to_string(), shape: Shape::Files(Some(RECORD.to_string())) };
-            read_records(spot, kind, &mut side);
-        }
-        HomeKind::Memory => {
-            let Ok(entries) = folder.entries(kind.as_wire()) else { return side };
-            for entry in entries.into_iter().filter(|entry| entry.is_dir && plain(&entry.name)) {
-                read_memory(places, join(kind.as_wire(), &entry.name), &entry.name, &mut side, folder);
-            }
-        }
-        _ => {
-            if let Some(spot) = home_spot(places, kind) {
                 read_spot(&spot, kind, &mut side);
             }
         }
@@ -419,11 +368,11 @@ pub(crate) fn put_here(places: &Places<'_>, kind: HomeKind, piece: &Piece, repla
     match kind {
         HomeKind::Allowlist => append_line(places.kit, ALLOWLIST_HERE, piece).map(|_| ()),
         HomeKind::McpServers => Err(cannot(
-            "The home carries a server's name and host and never its key, so it is added here in Kit, with its key",
+            "A server crosses as its name and host and never its key, so it is added here in Kit, with its key",
         )),
         HomeKind::Plugins => {
-            let text = piece.files.values().next().ok_or_else(|| cannot("the home's record of it is empty"))?;
-            let kept: PluginKept = toml::from_str(text).map_err(|why| cannot(format!("the home's record of it would not read: {why}")))?;
+            let text = piece.files.values().next().ok_or_else(|| cannot("the record of it that crossed is empty"))?;
+            let kept: PluginKept = toml::from_str(text).map_err(|why| cannot(format!("the record of it that crossed would not read: {why}")))?;
             let plugin = PluginRecord { name: kept.name, marketplace: kept.marketplace, source: kept.source };
             places.harness.install(&plugin).map_err(cannot)
         }
@@ -435,23 +384,6 @@ pub(crate) fn put_here(places: &Places<'_>, kind: HomeKind, piece: &Piece, repla
         _ => {
             let spot = here_spot(places, kind).ok_or_else(|| cannot("this kind has no place on this machine"))?;
             put_files(spot.folder, &spot.dir, piece, replacing).map(|_| ())
-        }
-    }
-}
-
-/// Put `piece` in the home's copy here, and the paths it touched, to publish.
-pub(crate) fn put_home(places: &Places<'_>, kind: HomeKind, piece: &Piece, replacing: Option<&Piece>) -> Result<Vec<String>, Refused> {
-    let folder = places.home.files();
-    match kind {
-        HomeKind::Allowlist => append_line(folder, ALLOWLIST_HOME, piece),
-        HomeKind::McpServers | HomeKind::Plugins => put_files(folder, kind.as_wire(), piece, replacing),
-        HomeKind::Memory => {
-            let repository = piece.repository.as_deref().filter(|name| plain(name)).ok_or_else(|| cannot("a memory note names no repository"))?;
-            put_files(folder, &join(kind.as_wire(), repository), piece, replacing)
-        }
-        _ => {
-            let spot = home_spot(places, kind).ok_or_else(|| cannot("this kind has no place in the home"))?;
-            put_files(folder, &spot.dir, piece, replacing)
         }
     }
 }

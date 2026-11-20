@@ -105,12 +105,15 @@ pub struct ProjectStore {
     pub deployed: Option<Timestamp>,
     /// Deployed without the rate limit on joins, because Cloudflare refused it on the account's plan.
     pub joins_unlimited: bool,
+    /// The login that joins it and that its repositories claim as, by the profile's numeric account id, which is
+    /// the same on every Mac. **None sends nothing.**
+    pub account_id: Option<u64>,
 }
 
 impl ProjectStore {
     /// A store joined by its address, personal or a team's.
     pub fn joined(address: StoreAddress, team: Option<StoreTeam>) -> ProjectStore {
-        ProjectStore { address, team, worker: None, deployed: None, joins_unlimited: false }
+        ProjectStore { address, team, worker: None, deployed: None, joins_unlimited: false, account_id: None }
     }
 }
 

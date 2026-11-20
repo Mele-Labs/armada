@@ -6,7 +6,7 @@
 use gpui::{div, list, prelude::*, px, Div, FontWeight, IntoElement, Pixels, Render, Role, SharedString, Window};
 use gpui_component::input::Input;
 
-use super::dossier::{area_hue, hue_square, selected_shadow};
+use super::dossier::{hue_square, selected_shadow};
 use super::model::{Line, Shown};
 use super::{FeaturesScreen, Load};
 use crate::reviews::panel;
@@ -79,12 +79,9 @@ impl FeaturesScreen {
 
     /// The hue of the area `slug`: its place among the areas the library keeps, and the Operator's for the pending group.
     pub(super) fn hue_of(&self, slug: &str) -> Token {
-        if slug == super::curate::PENDING_AREA {
-            return token::OPERATOR;
-        }
         match &self.library {
-            Load::Read(library) => library.areas.iter().filter(|area| area.slug != super::curate::PENDING_AREA).position(|area| area.slug == slug).map_or_else(|| super::dossier::hue_of_name(slug), area_hue),
-            _ => super::dossier::hue_of_name(slug),
+            Load::Read(library) => super::dossier::hue_among(library.areas.iter().map(|area| area.slug.as_str()), slug),
+            _ => super::dossier::hue_among([], slug),
         }
     }
 
@@ -140,7 +137,7 @@ impl FeaturesScreen {
     fn render_feature(&self, shown: &Shown, focused: bool, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let slug = shown.row.slug.clone();
         let opened = self.opened.as_deref() == Some(slug.as_str());
-        let under_keys = self.cursor.as_deref() == Some(slug.as_str());
+        let under_keys = self.on_project.is_none() && self.cursor.as_deref() == Some(slug.as_str());
         let press = slug.clone();
         let pending = super::curate::is_pending(&shown.row);
         let main = if pending {
@@ -246,7 +243,10 @@ impl FeaturesScreen {
             .h_full()
             .flex()
             .flex_col()
+            .children(self.render_chips(look, cx))
             .child(self.render_find(look))
+            .children(self.render_librarian(look, cx))
+            .child(self.render_project_rows(look, self.list_focus.is_focused(window), cx))
             .child(div().flex_1().min_h_0().child(body))
     }
 
@@ -268,7 +268,7 @@ impl FeaturesScreen {
 
     /// The right of the list. A feature's page is drawn here once one is open.
     fn render_page_slot(&self, look: &Look, cx: &mut gpui::Context<Self>) -> impl IntoElement {
-        labelled(panel(look).id("feature-page").flex_1().min_w_0().h_full().flex().flex_col().children(self.stacked.then(|| self.render_back(look, cx))).child(div().flex_1().min_h_0().children(self.page.clone())), Role::Region, "Feature page")
+        labelled(panel(look).id("feature-page").flex_1().min_w_0().h_full().flex().flex_col().children(self.stacked.then(|| self.render_back(look, cx))).child(div().flex_1().min_h_0().children(self.project_page.clone().map(gpui::IntoElement::into_any_element).or_else(|| self.page.clone().map(gpui::IntoElement::into_any_element)))), Role::Region, "Feature page")
     }
 }
 

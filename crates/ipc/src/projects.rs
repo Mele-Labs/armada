@@ -55,8 +55,8 @@ pub struct Project {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub store: Option<ProjectStore>,
     /// The id of the other Mac that holds this project, where this is a read copy of it. **Absent for this
-    /// Mac's own projects.** A task act on a copy is sent to that Mac, which keeps the project; what a copy
-    /// refuses is `fleet.other_mac_project_held`.
+    /// Mac's own projects.** An edit of a copy, of the project or a task, is sent to that Mac, which keeps the
+    /// project; what a copy refuses (its place, its store, a Job link) is `fleet.other_mac_project_held`.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub mac: Option<String>,
 }
@@ -80,6 +80,10 @@ pub struct ProjectStore {
     /// account's plan. Absent while false.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub joins_unlimited: bool,
+    /// The login that joins it and that the project's repositories claim as, by the profile's numeric account
+    /// id. **Absent is none picked: its Jobs send nothing.** Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<u64>,
 }
 
 /// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.
@@ -328,7 +332,7 @@ pub struct LinkTaskPull {
     pub number: u64,
 }
 
-/// An act on a task of a project another Mac holds, sent to that Mac to be run there with its normal code.
+/// An act on a project another Mac holds, or on one of its tasks, sent to that Mac to be run there with its normal code.
 /// **One variant for each act a copy may make**; the rest a copy refuses. Tagged by `kind`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case")]
@@ -370,6 +374,10 @@ pub enum ProjectAct {
     /// A merge, on the Mac that holds the project that goes: its Jobs move into `into`, every row not in `absorbed`
     /// is sent to the Mac that holds `into`, and the project, its file and its tasks are deleted.
     GiveUp { gone: String, into: String, absorbed: Vec<String> },
+    /// The project's own name, members, values or share switch, as `edit_project` takes them. **Never `place`**: where
+    /// the file is kept is only the holding Mac's to choose, and a copy refuses an edit that carries one.
+    EditProject { project: String, edit: EditProject },
+    DeleteProject { project: String },
 }
 
 /// `merge_projects`: two projects of one name, one this Mac's own and one a copy of another Mac's, made one. `kept`

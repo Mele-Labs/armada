@@ -156,6 +156,56 @@ fn draft_key(project: &str, field: &str) -> String {
 }
 
 impl SettingsOverlay {
+    // ---- held on another Mac --------------------------------------------------------------------
+
+    /// The name of the Mac that keeps the project picked, where it is a copy of that Mac's project. **Its place and its
+    /// store are changed on that Mac alone**; everything else of the project is edited here as for his own.
+    pub(super) fn kept_by(&self, cx: &gpui::App) -> Option<SharedString> {
+        let (id, _) = self.scope.project.as_ref()?;
+        let mac = self.scope.projects.as_ref()?.projects.iter().find(|one| one.id == *id)?.mac.as_deref()?;
+        Some(crate::job_view::name_of(crate::pairing::macs(cx), mac, false).into())
+    }
+
+    /// Whether a press changes the store, which a copy leaves to the Mac that keeps the project.
+    fn changes_store(press: &str) -> bool {
+        matches!(press, "use-none" | "deploy" | "deploy-again" | "join")
+    }
+
+    /// What the tooltip of a control the keeping Mac holds says.
+    fn held_tip(mac: &str, of: &str) -> String {
+        format!("Kept on {mac}. Only {mac} can change {of}.")
+    }
+
+    /// For a copy: where its file is kept, which is the other Mac's folder or bucket, as a row that cannot be pressed.
+    /// None for his own project.
+    pub(super) fn kept_card(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        let mac = self.kept_by(cx)?;
+        let (id, _) = self.scope.project.as_ref()?;
+        let place = crate::titlebar::place_of(&self.scope.projects.as_ref()?.projects.iter().find(|one| one.id == *id)?.place);
+        let said = match place.kind {
+            crate::titlebar::RunsPlaceKind::Mac => format!("On {mac}"),
+            _ => {
+                let phrase = place.phrase();
+                let mut chars = phrase.chars();
+                chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+            }
+        };
+        let title = "Where its file is kept";
+        let chip = pill(look, "kept-place", Some("lock"), &said, look.color(token::FG_MUTED), look.color(token::BG_SUNKEN), Some(&Self::held_tip(&mac, "where it is kept")));
+        let row = Row {
+            id: "kept-row-place".into(),
+            title: title.into(),
+            tip: None,
+            chips: Vec::new(),
+            says: vec![says(look, format!("Only {mac} can change it.")).into_any_element()],
+            changed: false,
+            glyph: Some(("folder", look.color(token::FG_SUBTLE))),
+            control: div().flex().child(chip).into_any_element(),
+        };
+        let spread = self.spread(look, window, cx);
+        Some(rows_card(look, "kept-place", vec![labelled(split_row(look, spread, row, true), Role::Row, title).into_any_element()]).into_any_element())
+    }
+
     // ---- reading --------------------------------------------------------------------------------
 
     /// Read the store the project picked names, once each time the page is drawn for a project. Every project has
@@ -276,6 +326,9 @@ impl SettingsOverlay {
     }
 
     pub(super) fn press_store(&mut self, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if Self::changes_store(name) && self.kept_by(cx).is_some() {
+            return;
+        }
         match name {
             "pick" => self.open_picker(true, window, cx),
             "use-none" => self.use_none(window, cx),
@@ -421,7 +474,7 @@ impl SettingsOverlay {
         }
         let team = self.store.team.read(cx).value().trim().to_string();
         let Some(project) = self.begin_store(Act::Join) else { return };
-        let press = self.wire.set_project_store(&project, Some(JoinStore { address, team: (!team.is_empty()).then_some(team) }), cx);
+        let press = self.wire.set_project_store(&project, Some(JoinStore { address, team: (!team.is_empty()).then_some(team), account_id: None }), cx);
         self.store._act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = press.await;
             let _ = this.update_in(cx, |this, window, cx| {
@@ -517,6 +570,9 @@ impl SettingsOverlay {
                 }
             }
         }
+        if let Some(mac) = self.kept_by(cx) {
+            line = line.child(pill(look, "store-kept", Some("lock"), &format!("Kept on {mac}"), look.color(token::FG_MUTED), look.color(token::BG_SUNKEN), Some(&Self::held_tip(&mac, "its store"))));
+        }
         control = control.child(line);
         if state.store.is_some() {
             control = control.child(self.press(look, "use-none", "Use none", None, Weight::Quiet, busy == Some(Act::UseNone), false, window, cx));
@@ -570,6 +626,7 @@ impl SettingsOverlay {
         }
 
         // Join a store
+        let held = self.kept_by(cx).is_some();
         let off = page.address.read(cx).value().trim().is_empty();
         let joining = busy == Some(Act::Join);
         let join = self.press(look, "join", "Join", None, Weight::Plain, joining, off, window, cx);
@@ -579,16 +636,16 @@ impl SettingsOverlay {
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
-                .child(field(look, "store-address-field", "Address", &page.address))
-                .child(div().flex().items_end().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(field(look, "store-team-field", "Team", &page.team))).child(join))
+                .child(field(look, "store-address-field", "Address", &page.address, held))
+                .child(div().flex().items_end().gap(look.length(token::SPACE_3)).child(div().flex_1().min_w_0().child(field(look, "store-team-field", "Team", &page.team, held))).child(join))
         } else {
             div()
                 .w_full()
                 .flex()
                 .items_end()
                 .gap(look.length(token::SPACE_3))
-                .child(div().flex_1().min_w_0().child(field(look, "store-address-field", "Address", &page.address)))
-                .child(div().flex_none().w(look.length(token::SPACE_12) * 3.).child(field(look, "store-team-field", "Team", &page.team)))
+                .child(div().flex_1().min_w_0().child(field(look, "store-address-field", "Address", &page.address, held)))
+                .child(div().flex_none().w(look.length(token::SPACE_12) * 3.).child(field(look, "store-team-field", "Team", &page.team, held)))
                 .child(join)
         };
         let control = div().w_full().flex().flex_col().gap(look.length(token::SPACE_3)).child(form).children(page.refused.get(Act::Join.key()).map(|said| refused_line(look, "store-join-refused", said)));
@@ -638,7 +695,7 @@ impl SettingsOverlay {
             .flex()
             .items_end()
             .gap(look.length(token::SPACE_3))
-            .child(div().flex_1().min_w_0().child(field(look, "store-token-field", "Cloudflare token", &self.store.token)))
+            .child(div().flex_1().min_w_0().child(field(look, "store-token-field", "Cloudflare token", &self.store.token, false)))
             .child(self.press(look, "deploy-again", if updating { "Update again" } else { "Deploy again" }, Some("upload"), Weight::Primary, deploying, false, window, cx));
         div()
             .id("store-ask")
@@ -695,7 +752,8 @@ impl SettingsOverlay {
     #[allow(clippy::too_many_arguments)]
     fn press(&self, look: &Look, name: &'static str, said: &'static str, glyph: Option<&'static str>, weight: Weight, busy: bool, blank: bool, window: &Window, cx: &Context<Self>) -> AnyElement {
         let Some(focus) = self.store.keys.get(name).cloned() else { return div().into_any_element() };
-        let off = busy || blank || self.store.out.is_some() && name != "pick";
+        let held = if Self::changes_store(name) { self.kept_by(cx) } else { None };
+        let off = busy || blank || held.is_some() || self.store.out.is_some() && name != "pick";
         let (ink, fill, edge) = match weight {
             Weight::Primary => (look.color(token::FG_INVERSE), look.color(token::ACCENT), look.color(token::ACCENT)),
             Weight::Plain => (look.color(token::FG_DEFAULT), look.color(token::BG_OVERLAY), look.color(token::BORDER_STRONG)),
@@ -743,11 +801,16 @@ impl SettingsOverlay {
                 button.cursor_pointer().hover(move |style| style.bg(hover)).on_click(cx.listener(move |this, _, window, cx| this.press_store(name, window, cx)))
             })
             .when(name == "pick", |button| button.tooltip(tip("\u{2318}P")))
+            .when_some(held.clone(), |button, mac| button.tooltip(tip(Self::held_tip(&mac, "its store"))))
             .children(mark)
             .child(shown);
         let button = ringed(look, button, &focus, window).track_focus(&focus);
-        // A name is what a person hears: the press as it reads now.
-        labelled(button, Role::Button, shown).into_any_element()
+        // A name is what a person hears: the press as it reads now, and the Mac that keeps what it would change.
+        let heard = match &held {
+            Some(mac) => format!("{shown}, kept on {mac}"),
+            None => shown.to_string(),
+        };
+        labelled(button, Role::Button, heard).into_any_element()
     }
 }
 
@@ -783,13 +846,13 @@ fn pill(look: &Look, id: &'static str, glyph: Option<&'static str>, said: &str, 
 }
 
 /// A labelled text field: its name over a box that holds the words typed.
-fn field(look: &Look, id: &'static str, label: &'static str, input: &Entity<InputState>) -> AnyElement {
+fn field(look: &Look, id: &'static str, label: &'static str, input: &Entity<InputState>, held: bool) -> AnyElement {
     div()
         .flex()
         .flex_col()
         .gap(look.length(token::SPACE_1))
         .child(div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_MUTED)).child(label))
-        .child(labelled(div().id(id).w_full().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_SM)).child(Input::new(input)), Role::TextInput, label))
+        .child(labelled(div().id(id).w_full().key_context(crate::keymap::TEXT_BOX).text_size(look.length(token::TEXT_SM)).child(Input::new(input).disabled(held)), Role::TextInput, label))
         .into_any_element()
 }
 
@@ -888,6 +951,58 @@ mod tests {
             window.draw(cx).clear(cx);
             cx.try_global::<crate::labels::LabelBook>().is_some_and(|book| book.find(window.window_handle().window_id(), role, name).is_some())
         })
+    }
+
+    /// The project picked is a copy of one the Mac named Studio keeps.
+    fn kept_on_studio(overlay: &Entity<SettingsOverlay>, id: &str, cx: &mut VisualTestContext) {
+        cx.update(|_, cx| crate::pairing::hold(vec![ipc::Mac { id: "mac-studio".into(), name: "Studio".into(), ..Default::default() }], cx));
+        let copy = ipc::Project { id: id.into(), name: id.into(), mac: Some("mac-studio".into()), place: ipc::ProjectPlace::default(), ..ipc::Project::default() };
+        overlay.update(cx, |this, _| this.scope.projects = Some(ipc::Projects { projects: vec![copy], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() }));
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+    }
+
+    #[gpui::test]
+    fn a_copys_store_is_shown_as_the_keeping_macs_and_no_press_changes_it(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        kept_on_studio(&overlay, "armada", cx);
+        type_into(&overlay, "address", "https://store.example.com", cx);
+        for name in ["use-none", "deploy", "deploy-again", "join"] {
+            press(&overlay, name, cx);
+        }
+        assert!(calls(&overlay, cx).is_empty(), "Fleet is asked nothing of a store the other Mac keeps");
+        assert!(on_page(&overlay, Role::Status, "Kept on Studio", cx), "the store row says which Mac keeps it");
+        for name in ["Use none, kept on Studio", "Update, kept on Studio"] {
+            assert!(on_page(&overlay, Role::Button, name, cx), "{name}");
+        }
+        assert!(on_page(&overlay, Role::Button, "Copy the address", cx), "reading the store is still there");
+        overlay.read_with(cx, |this, cx| {
+            assert_eq!(this.kept_by(cx).as_deref(), Some("Studio"));
+            assert!(this.store.state().is_some_and(|state| state.store.is_some()), "its state is what Fleet answered");
+        });
+    }
+
+    #[gpui::test]
+    fn his_own_projects_store_is_pressed_as_before_and_wears_no_kept_chip(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        assert!(!on_page(&overlay, Role::Status, "Kept on Studio", cx));
+        assert!(on_page(&overlay, Role::Button, "Use none", cx));
+        press(&overlay, "use-none", cx);
+        assert_eq!(calls(&overlay, cx).len(), 1);
+    }
+
+    #[gpui::test]
+    fn a_copys_place_is_shown_as_the_keeping_macs_on_the_page_of_its_macs(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
+        kept_on_studio(&overlay, "armada", cx);
+        overlay.update(cx, |this, _| this.picked = "bridge:macs");
+        assert!(on_page(&overlay, Role::Status, "On Studio", cx), "where its file is kept, as the keeping Mac's");
+        assert!(on_page(&overlay, Role::Row, "Where its file is kept", cx));
+        overlay.update(cx, |this, cx| {
+            this.scope.projects = None;
+            cx.notify();
+        });
+        assert!(overlay.read_with(cx, |this, cx| this.kept_by(cx).is_none()), "his own project has no such row");
     }
 
     #[gpui::test]

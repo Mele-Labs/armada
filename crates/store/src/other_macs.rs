@@ -91,7 +91,8 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Every row, report and project held from Mac `mac` dropped, the edits and acts queued for it, and the acts it sent.
+    /// Every row, report and project held from Mac `mac` dropped, the edits and acts queued for it, the acts it sent,
+    /// and what its Kit offered and agreed with this one.
     pub fn forget_mac(&mut self, mac: &str) -> Result<(), WriteError> {
         let doing = "forgetting what another Mac shared";
         let tx = self.conn.transaction().map_err(fault(doing)).map_err(WriteError::Database)?;
@@ -100,7 +101,7 @@ impl Store {
                 .map_err(fault(doing))
                 .map_err(WriteError::Database)?;
         }
-        for table in ["other_mac_project_acts", "other_mac_acts_run"] {
+        for table in ["other_mac_project_acts", "other_mac_acts_run", "kit_link_agreed", "kit_link_held"] {
             tx.execute(&format!("DELETE FROM {table} WHERE mac = ?1"), [mac]).map_err(fault(doing)).map_err(WriteError::Database)?;
         }
         tx.commit().map_err(fault(doing)).map_err(WriteError::Database)

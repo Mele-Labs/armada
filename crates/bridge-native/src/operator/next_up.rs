@@ -190,6 +190,8 @@ impl OperatorPageView {
             } else {
                 window.focus_next(cx);
             }
+        } else {
+            crate::ui_sounds::moved();
         }
     }
 }

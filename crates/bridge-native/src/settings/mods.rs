@@ -582,6 +582,7 @@ impl SettingsOverlay {
                 let next = if key.key == "up" { row.checked_sub(1) } else { Some(row + 1) };
                 let Some(list) = next.and_then(|next| controls.get(next)) else { return false };
                 let Some(to) = list.get(at).or(list.first()) else { return false };
+                crate::ui_sounds::moved();
                 window.focus(to, cx);
             }
             _ => return false,

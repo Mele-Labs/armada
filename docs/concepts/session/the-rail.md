@@ -33,6 +33,9 @@ A Job holding none of the lifecycle is not on the step, and nothing after it is 
 Only landing passes it.
 The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
 
+**A step gated `document_approved`, `sketch_approved`, `jobs_ended` or `checks_green`, with no anchor, holds the Job until that fact** (20 Nov 2026), as a step listing an end does.
+Before this, such a step was never entered, and orchestrate and refactor Jobs stood on Plan throughout.
+
 **A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
 A ticket, pull request, deploy or running Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.
 **An unread instance, and one in a status no state lists, holds nothing**: a tracker that declares no words (Jira, a tracker mod) leaves the built-in Ticket lifecycle listing none but `closed`, so a Job holding a ticket under it would be refused with nothing the agent could do to clear it.

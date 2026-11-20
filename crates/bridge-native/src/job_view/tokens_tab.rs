@@ -83,6 +83,7 @@ impl TokensTab {
         let Some(graph) = self.graph(cx) else { return };
         let next = graph.step(self.cursor, by);
         if next != self.cursor {
+            crate::ui_sounds::moved();
             self.cursor = next;
             cx.notify();
         }

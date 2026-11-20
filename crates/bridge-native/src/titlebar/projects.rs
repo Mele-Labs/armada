@@ -10,7 +10,7 @@
 use gpui::{div, prelude::*, AnyElement, Context, Entity, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 
-use super::face::{Face, Unread};
+use super::face::{from_said, Face, RunsPlaceKind, Unread};
 use super::parts::{glyph, Btn, Weight};
 use super::{Asked, TitleBar};
 use crate::labels::labelled;
@@ -35,7 +35,8 @@ pub(super) struct Switcher {
     find: Option<(Entity<InputState>, Subscription)>,
 }
 
-/// The rows Find leaves, in the order they stand: All, the projects, what is in no project, New project.
+/// The rows Find leaves, in the order they stand: All, his projects and then the copies of another Mac's, what is in
+/// no project, New project.
 pub(super) fn picks(face: &Face, query: &str) -> Vec<Pick> {
     let wanted = query.trim().to_lowercase();
     let has = |name: &str| wanted.is_empty() || name.to_lowercase().contains(&wanted);
@@ -43,7 +44,7 @@ pub(super) fn picks(face: &Face, query: &str) -> Vec<Pick> {
     if has("All") {
         picks.push(Pick::All);
     }
-    for (at, project) in face.projects.iter().enumerate() {
+    for (at, project, _) in face.listed() {
         let member = project.members.iter().any(|member| {
             face.repositories.get(member.repository).is_some_and(|one| has(&one.name)) || member.folder.as_deref().is_some_and(|folder| has(folder))
         });
@@ -150,6 +151,7 @@ impl TitleBar {
     fn switcher_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
         let rows = picks(&self.face, &self.switcher.query).len();
+        let was = self.switcher.at;
         match keys.key.as_str() {
             "escape" => self.shut(window, cx),
             "up" => self.switcher.at = self.switcher.at.saturating_sub(1),
@@ -165,6 +167,9 @@ impl TitleBar {
             }
             // Letters, Backspace and the rest are Find's own.
             _ => return,
+        }
+        if self.switcher.at != was && matches!(keys.key.as_str(), "up" | "down") {
+            crate::ui_sounds::moved();
         }
         cx.stop_propagation();
         cx.notify();
@@ -279,25 +284,42 @@ impl TitleBar {
         let face = &self.face;
         let (icon, ink, name, detail): (&str, crate::look::Token, SharedString, Option<&str>) = match pick {
             Pick::All => ("globe", token::FG_SUBTLE, "All".into(), None),
-            Pick::Project(i) => ("layers", token::ACCENT, face.projects[i].name.clone(), None),
+            Pick::Project(i) => ("layers", token::ACCENT, face.project_at(i).map(|one| one.name.clone()).unwrap_or_default(), None),
             Pick::Lone(i) => ("git-branch", token::FG_SUBTLE, face.repositories[i].name.clone(), face.repositories[i].not_set_up.then_some("Not set up")),
             Pick::New => ("plus", token::FG_SUBTLE, "New project".into(), None),
         };
         let quiet = pick == Pick::New;
+        // A copy names the Mac that holds it on a line under its own, as the move picker does.
+        let from = match pick {
+            Pick::Project(i) => face.held_by(i).map(|mac| from_said(crate::pairing::macs(cx), mac)),
+            _ => None,
+        };
+        let label = match &from {
+            Some(from) => SharedString::from(format!("{name}, {from}")),
+            None => name.clone(),
+        };
         labelled(
             div()
                 .id(SharedString::from(format!("pick:{at}")))
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL))
+                .min_h(look.length(token::H_CONTROL))
                 .px(look.length(token::SPACE_3))
                 .cursor_pointer()
                 .when(on, |row| row.bg(look.color(token::ACCENT_MUTED)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))))
                 .when(!on, |row| row.hover(|style| style.bg(look.color(token::BG_HOVER))))
                 .when(quiet, |row| row.text_color(look.color(token::FG_SUBTLE)))
                 .child(glyph(icon, look.length(token::SPACE_4), look.color(ink)))
-                .child(div().flex_1().min_w_0().truncate().child(name.clone()))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .flex()
+                        .flex_col()
+                        .child(div().truncate().child(name.clone()))
+                        .children(from.map(|from| div().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(from)))),
+                )
                 .children(detail.map(|said| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(said)))
                 .on_click(cx.listener(move |this, event: &gpui::ClickEvent, window, cx| {
                     // One press puts the keys on the row; a second, or a double press, switches.
@@ -309,7 +331,7 @@ impl TitleBar {
                     }
                 })),
             Role::ListBoxOption,
-            name,
+            label,
         )
         .into_any_element()
     }
@@ -340,7 +362,8 @@ impl TitleBar {
                 Vec::new(),
             ),
             Pick::Project(at) => {
-                let project = &face.projects[at];
+                let Some(project) = face.project_at(at) else { return div().into_any_element() };
+                let held_by = face.held_by(at).map(|mac| crate::job_view::name_of(crate::pairing::macs(cx), mac, false));
                 let members = project
                     .members
                     .iter()
@@ -350,8 +373,12 @@ impl TitleBar {
                 if let Some(tracker) = &project.tracker {
                     lines.push(("Tracker", tracker.clone()));
                 }
-                if let Some(kept) = &project.kept {
+                // A copy's place is on the Mac that keeps it, which `on this Mac` would misname.
+                if let Some(kept) = project.kept.as_ref().filter(|kept| held_by.is_none() || kept.kind != RunsPlaceKind::Mac) {
                     lines.push(("Kept", capitalised(&kept.phrase()).into()));
+                }
+                if let Some(mac) = held_by {
+                    lines.push(("Kept by", mac.into()));
                 }
                 if let Some(worn) = &project.look {
                     lines.push(("Look", worn.clone()));
@@ -539,7 +566,7 @@ mod tests {
     }
 
     #[test]
-    fn a_copy_of_another_macs_project_is_not_a_scope_the_window_can_take() {
+    fn a_copy_of_another_macs_project_is_not_one_of_his_own_but_is_listed_after_them() {
         let served = served();
         let json = r#"{"projects":[
             {"id":"own","name":"Armada","rows":[],"members":[],"place":{"place":"this_mac"}},
@@ -547,6 +574,68 @@ mod tests {
         let read: ipc::Projects = ipc::decode("Projects", json.as_bytes()).expect("projects");
         let ids: Vec<String> = super::super::face::projects_of(&served, &read).iter().map(|one| one.id.to_string()).collect();
         assert_eq!(ids, vec!["own"]);
+        let copies: Vec<(String, String)> = super::super::face::copies_of(&served, &read).iter().map(|one| (one.project.id.to_string(), one.mac.to_string())).collect();
+        assert_eq!(copies, vec![("theirs".to_string(), "866126a3".to_string())]);
+    }
+
+    /// His projects as the mock has them, with a copy of another Mac's after them.
+    fn read_with_a_copy() -> ipc::Projects {
+        let mut read = crate::mock::projects();
+        let mut copy = read.projects[0].clone();
+        (copy.id, copy.name, copy.mac) = ("pricing-pro".to_string(), "Pricing".to_string(), Some("mac-pro".to_string()));
+        read.projects.push(copy);
+        read
+    }
+
+    #[test]
+    fn the_switcher_lists_a_copy_after_his_own_projects_names_its_mac_and_scopes_the_window_to_it() {
+        let mut face = scenes::rest();
+        face.copies = super::super::face::copies_of(&served(), &read_with_a_copy());
+        let own = face.projects.len();
+        let listed: Vec<(usize, &str, Option<&str>)> = face.listed().map(|(at, one, mac)| (at, one.name.as_ref(), mac.map(|mac| mac.as_ref()))).collect();
+        assert_eq!(listed, vec![(0, "Armada", None), (1, "Storefront", None), (2, "Pricing", Some("mac-pro"))]);
+        let all = picks(&face, "");
+        assert_eq!(all[..4], [Pick::All, Pick::Project(0), Pick::Project(1), Pick::Project(own)], "the copy follows his own");
+        assert!(picks(&face, "pricing").contains(&Pick::Project(own)), "Find lists it by its name");
+        assert_eq!(super::super::face::from_said(&[ipc::Mac { id: "mac-pro".into(), name: "Studio".into(), ..Default::default() }], "mac-pro"), "from Studio");
+        assert_eq!(super::super::face::from_said(&[], "mac-gone"), "from another Mac");
+        face.scoped = Some(own);
+        assert_eq!(face.scoped_project(), Some("pricing-pro"), "the Jobs list and every project-scoped read take the copy's id");
+        assert_eq!(face.chosen_said().0, SharedString::from("Pricing"));
+        assert_eq!(face.settings_said(), SharedString::from("Settings for Pricing"));
+        assert_eq!(current(&face), Pick::Project(own));
+        assert_eq!(TitleBar::settings_of(Some(Pick::Project(own))), Asked::ProjectSettings(own));
+    }
+
+    #[gpui::test]
+    fn a_copy_stays_scoped_across_refreshes_and_all_takes_the_window_back_once_it_is_not_listed(cx: &mut gpui::TestAppContext) {
+        cx.update(crate::init_app);
+        let (bar, cx) = cx.add_window_view(|window, cx| TitleBar::new(window, cx));
+        let served = served();
+        let read = read_with_a_copy();
+        bar.update(cx, |bar, cx| {
+            bar.set_repositories(&served, cx);
+            bar.set_projects(&served, &read, cx);
+        });
+        let scoped = |bar: &gpui::Entity<TitleBar>, cx: &mut gpui::VisualTestContext| bar.read_with(cx, |bar, _| (bar.face.scoped, bar.face.scoped_project().map(str::to_string)));
+        assert_eq!(scoped(&bar, cx), (None, None));
+        bar.update_in(cx, |bar, window, cx| bar.switch_to(Pick::Project(2), window, cx));
+        assert_eq!(scoped(&bar, cx), (Some(2), Some("pricing-pro".to_string())));
+        // Fleet answers again with one more of his own ahead of the copy: the window stays on the copy.
+        let mut more = read.clone();
+        let mut extra = more.projects[0].clone();
+        (extra.id, extra.name) = ("extra".to_string(), "Extra".to_string());
+        more.projects.insert(0, extra);
+        bar.update(cx, |bar, cx| bar.set_projects(&served, &more, cx));
+        assert_eq!(scoped(&bar, cx), (Some(3), Some("pricing-pro".to_string())), "found by its id among the copies");
+        // The same answer again changes nothing.
+        bar.update(cx, |bar, cx| bar.set_projects(&served, &more, cx));
+        assert_eq!(scoped(&bar, cx), (Some(3), Some("pricing-pro".to_string())));
+        // Fleet no longer lists it: All.
+        let mut without = read.clone();
+        without.projects.retain(|one| one.mac.is_none());
+        bar.update(cx, |bar, cx| bar.set_projects(&served, &without, cx));
+        assert_eq!(scoped(&bar, cx), (None, None));
     }
 
     #[test]

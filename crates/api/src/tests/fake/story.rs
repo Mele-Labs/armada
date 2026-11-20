@@ -31,7 +31,7 @@ impl Story for FakeDaemon {
     }
 
     async fn get_job_story(&self, session_id: SessionId) -> Result<JobStory, Refusal> {
-        Ok(JobStory { session_id, asks: Vec::new(), shown_otherwise: Vec::new(), lead: Vec::new() })
+        Ok(JobStory { session_id, asks: Vec::new(), shown_otherwise: Vec::new(), lead: Vec::new(), features: Vec::new() })
     }
 
     async fn change_ask(&self, change: ChangeAsk) -> Result<Ask, Refusal> {

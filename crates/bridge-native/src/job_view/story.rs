@@ -7,6 +7,9 @@
 //! **A story is read again when Fleet says it moved** (`session.story`, as `StoryMoved`, for this Job), when the Job's record
 //! changes and when the keys arrive. The last two are kept: they catch a story whose word was missed.
 //!
+//! **The features the Job is on** head the tab, above the asks: Up from the first ask reaches them, and a row opens its
+//! feature as a Filed under row does.
+//!
 //! **The overlay.** A Filed under row opens the feature's page over the tab in a [`FeatureOverlay`], which holds what was
 //! opened from inside it on one stack and draws the top: one layer, one Esc back.
 
@@ -54,9 +57,11 @@ pub(crate) enum Load<T> {
     Failed(String),
 }
 
-/// The parts of the tab the keys are in: the ask heads, and the Filed under rows of the ask that is unfolded.
+/// The parts of the tab the keys are in: the features the Job is on, the ask heads, and the Filed under rows of the ask
+/// that is unfolded.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) enum Region {
+    Features,
     Asks,
     Links,
 }
@@ -81,6 +86,8 @@ pub struct StoryTab {
     pub(crate) story: Load<JobStory>,
     titles: Titles,
     features: Features,
+    /// The slugs of the library's areas in its order, which give a feature's hue as the Features list draws it.
+    pub(crate) areas: Vec<String>,
     pub(crate) built: Built,
     /// The ask whose rows show, by id. One at a time.
     pub(crate) unfolded: Option<String>,
@@ -90,6 +97,8 @@ pub struct StoryTab {
     pub(crate) cursor: Option<usize>,
     pub(crate) region: Region,
     pub(crate) link_at: usize,
+    /// The row of the features the Job is on that the keys are on.
+    pub(crate) feature_at: usize,
     pub(crate) focus: FocusHandle,
     pub(crate) list: ListState,
     /// The ask to put in front when the story is read: from a Story link, or asked for by whoever opened the tab.
@@ -135,6 +144,7 @@ impl StoryTab {
         let mut this = Self::new(Reads::Mock, job.clone(), nested, window, cx);
         this.titles = mock::titles();
         this.features = mock::features();
+        this.areas = mock::areas();
         this.story = Load::Read(mock::story(&job));
         this.rebuild(cx);
         this
@@ -151,12 +161,14 @@ impl StoryTab {
             story: Load::Reading,
             titles: Titles::new(),
             features: Features::new(),
+            areas: Vec::new(),
             built: Built::default(),
             unfolded: None,
             chosen: false,
             cursor: None,
             region: Region::Asks,
             link_at: 0,
+            feature_at: 0,
             focus,
             list: ListState::new(0, ListAlignment::Top, gpui::px(200.)),
             want: None,
@@ -248,17 +260,20 @@ impl StoryTab {
         let library = self.project(cx).map(|project| crate::features::wire::library(port, &project, cx));
         self.work = Some(cx.spawn(async move |this, cx| {
             let story = story.await;
-            let titles: Option<Features> = match library {
-                Some(read) => read.await.ok().map(|library| library.areas.iter().flat_map(|area| &area.features).map(|row| (row.slug.clone(), row.title.clone())).collect()),
+            let titles: Option<(Features, Vec<String>)> = match library {
+                Some(read) => read.await.ok().map(|library| {
+                    (library.areas.iter().flat_map(|area| &area.features).map(|row| (row.slug.clone(), row.title.clone())).collect(), library.areas.iter().map(|area| area.slug.clone()).collect())
+                }),
                 None => None,
             };
             let _ = this.update(cx, |this, cx| this.took(story, titles, cx));
         }));
     }
 
-    fn took(&mut self, story: Result<JobStory, Refused>, features: Option<Features>, cx: &mut Context<Self>) {
-        if let Some(features) = features {
+    fn took(&mut self, story: Result<JobStory, Refused>, library: Option<(Features, Vec<String>)>, cx: &mut Context<Self>) {
+        if let Some((features, areas)) = library {
             self.features = features;
+            self.areas = areas;
         }
         match story {
             Ok(story) => self.story = Load::Read(story),
@@ -286,9 +301,14 @@ impl StoryTab {
         matches!(self.story, Load::Read(_))
     }
 
-    /// The places of the list: each ask, and the group of what was shown before any.
+    /// The places of the list: the features the Job is on, each ask, and the group of what was shown before any.
     pub(crate) fn places(&self) -> usize {
-        self.built.cards.len() + usize::from(!self.built.before.is_empty())
+        self.head() + self.built.cards.len() + usize::from(!self.built.before.is_empty())
+    }
+
+    /// The places before the first ask: one for the features the Job is on, where it is on any.
+    pub(crate) fn head(&self) -> usize {
+        usize::from(!self.built.features.is_empty())
     }
 
     /// The ask asked for, or the one that was unfolded, or the first open one, is unfolded with the keys on it.
@@ -310,8 +330,12 @@ impl StoryTab {
             self.region = Region::Asks;
         }
         self.link_at = self.link_at.min(self.feature_rows().len().saturating_sub(1));
+        self.feature_at = self.feature_at.min(self.built.features.len().saturating_sub(1));
+        if self.region == Region::Features && self.built.features.is_empty() {
+            self.region = Region::Asks;
+        }
         if let Some(at) = wanted {
-            self.list.scroll_to_reveal_item(at);
+            self.list.scroll_to_reveal_item(self.head() + at);
         }
         cx.notify();
     }
@@ -331,30 +355,50 @@ impl StoryTab {
         self.cursor = Some(at);
         self.region = Region::Asks;
         self.link_at = 0;
+        let head = self.head();
         if let Some(before) = before {
-            self.list.remeasure_items(before..before + 1);
+            self.list.remeasure_items(head + before..head + before + 1);
         }
-        self.list.remeasure_items(at..at + 1);
-        self.list.scroll_to_reveal_item(at);
+        self.list.remeasure_items(head + at..head + at + 1);
+        self.list.scroll_to_reveal_item(head + at);
         cx.notify();
     }
 
+    /// Up and Down: the features the Job is on come before the first ask, so the keys go from one part to the other.
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
+        let was = (self.region, self.feature_at, self.cursor, self.link_at);
         match self.region {
+            Region::Features => {
+                let next = self.feature_at as isize + by;
+                if next >= self.built.features.len() as isize && !self.built.cards.is_empty() {
+                    self.region = Region::Asks;
+                    self.cursor = Some(0);
+                    self.list.scroll_to_reveal_item(self.head());
+                } else {
+                    self.feature_at = next.clamp(0, self.built.features.len() as isize - 1) as usize;
+                    self.list.scroll_to_reveal_item(0);
+                }
+            }
             Region::Asks => {
                 let count = self.built.cards.len() as isize;
-                if count == 0 {
-                    return;
-                }
                 let at = self.cursor.map_or(if by > 0 { -1 } else { count }, |at| at as isize);
-                let next = (at + by).clamp(0, count - 1) as usize;
-                self.cursor = Some(next);
-                self.list.scroll_to_reveal_item(next);
+                if at + by < 0 && !self.built.features.is_empty() {
+                    self.region = Region::Features;
+                    self.feature_at = self.built.features.len() - 1;
+                    self.list.scroll_to_reveal_item(0);
+                } else if count > 0 {
+                    let next = (at + by).clamp(0, count - 1) as usize;
+                    self.cursor = Some(next);
+                    self.list.scroll_to_reveal_item(self.head() + next);
+                }
             }
             Region::Links => {
                 let count = self.feature_rows().len() as isize;
                 self.link_at = (self.link_at as isize + by).clamp(0, (count - 1).max(0)) as usize;
             }
+        }
+        if was != (self.region, self.feature_at, self.cursor, self.link_at) {
+            crate::ui_sounds::moved();
         }
         cx.notify();
     }
@@ -369,9 +413,14 @@ impl StoryTab {
         cx.notify();
     }
 
-    /// Enter: a head folds or unfolds, a Filed under row opens its feature.
+    /// Enter: a feature the Job is on opens, a head folds or unfolds, a Filed under row opens its feature.
     fn press(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.region {
+            Region::Features => {
+                if let Some(line) = self.built.features.get(self.feature_at) {
+                    self.open_feature(line.slug.clone(), window, cx);
+                }
+            }
             Region::Asks => {
                 if let Some(at) = self.cursor {
                     self.toggle(at, cx);
@@ -387,7 +436,8 @@ impl StoryTab {
 
     /// The feature's page opens over the tab, in the overlay, or in the one this tab is inside.
     pub(crate) fn open_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
-        let title = self.features.get(&slug).cloned().unwrap_or_else(|| slug.clone());
+        let listed = self.built.features.iter().find(|one| one.slug == slug).map(|one| one.title.clone());
+        let title = self.features.get(&slug).cloned().or(listed).unwrap_or_else(|| slug.clone());
         if self.nested {
             cx.emit(StoryEvent::Feature { slug, title });
             return;

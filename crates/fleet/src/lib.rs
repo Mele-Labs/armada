@@ -196,6 +196,8 @@ mod judge_content;
 mod judge_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
+/// Kit over the Mac link: what crosses to his other Macs, and the last-agreed marker that tells a clash.
+mod kit_link;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;
@@ -290,6 +292,8 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
+/// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
+mod project_copy_reads;
 mod project_merging;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
 mod mac_acts;

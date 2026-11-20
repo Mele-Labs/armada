@@ -28,7 +28,7 @@ use crate::piece::named;
 use crate::yaml::{self, Table};
 
 const TOP_LEVEL: &[&str] = &["version", "project_id", "name", "members", "values", "shared_with_macs", "store"];
-const STORE: &[&str] = &["address", "team", "worker", "deployed", "joins_unlimited"];
+const STORE: &[&str] = &["address", "team", "worker", "deployed", "joins_unlimited", "account_id"];
 const MEMBER: &[&str] = &["repository", "folder"];
 const TOP_LEVEL_V1: &[&str] = &["version", "workspace_id", "name", "repositories"];
 
@@ -183,7 +183,7 @@ fn member(at: &str, item: &Value, out: &mut Vec<Refusal>, bad_folder: &mut Optio
     }
 }
 
-/// A `store:` block: `address`, and `team`, `worker` and `deployed` where they are written.
+/// A `store:` block: `address`, and `team`, `worker`, `deployed` and the login's `account_id` where they are written.
 fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore> {
     let mut table = Table::open(at, value, out)?;
     let mut read = |name: &str, required: bool, out: &mut Vec<Refusal>| {
@@ -195,6 +195,8 @@ fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore
         (read("address", true, out), read("team", false, out), read("worker", false, out), read("deployed", false, out));
     let unlimited_at = format!("{at}.joins_unlimited");
     let joins_unlimited = table.optional("joins_unlimited").and_then(|value| yaml::flag(&unlimited_at, value, out)).unwrap_or(false);
+    let account_at = format!("{at}.account_id");
+    let account_id = table.optional("account_id").and_then(|value| account(&account_at, value, out));
     table.close(STORE, out);
     let address = store_part(address, StoreAddress::new, out);
     let team = store_part(team, StoreTeam::new, out);
@@ -203,7 +205,16 @@ fn store(at: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<ProjectStore
         let at = Timestamp::from_rfc3339(written);
         at.epoch_millis().map(|_| at).ok_or_else(|| MalformedStore::Deployed(written.to_string()))
     }, out);
-    Some(ProjectStore { address: address.ok()??, team: team.ok()?, worker: worker.ok()?, deployed: deployed.ok()?, joins_unlimited })
+    Some(ProjectStore { address: address.ok()??, team: team.ok()?, worker: worker.ok()?, deployed: deployed.ok()?, joins_unlimited, account_id })
+}
+
+/// `store.account_id`: a forge account's numeric id.
+fn account(key: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<u64> {
+    let read = value.as_u64();
+    if read.is_none() {
+        out.push(Refusal::new(key, Fault::WrongType { wanted: "a forge account's numeric id", found: yaml::kind(value) }));
+    }
+    read
 }
 
 /// One part of `store:` made from its text, or `Err` with the fault pushed where it is not one.
@@ -257,6 +268,9 @@ pub fn project_text(project: &Project) -> Result<String, String> {
         }
         if store.joins_unlimited {
             block.insert(text("joins_unlimited"), Value::Bool(true));
+        }
+        if let Some(account_id) = store.account_id {
+            block.insert(text("account_id"), Value::Number(account_id.into()));
         }
         top.insert(text("store"), Value::Mapping(block));
     }

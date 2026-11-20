@@ -925,10 +925,16 @@ impl JobView {
             }
             // In Look an open item goes back on ←, moves on ↑ ↓, and sends the mix on Return, where the panel itself holds the keys.
             "left" | "up" | "down" | "enter" if crate::ways::looks() && !typing && !event.keystroke.modifiers.modified() && self.dock_of(&id).is_some_and(|dock| dock.detail.is_some()) => {
+                let item = |this: &Self| this.dock_of(&id).and_then(|dock| dock.detail.clone());
+                let was = item(self);
                 match event.keystroke.key.as_str() {
                     "left" => self.set_needs(true, None, window, cx),
-                    "up" => self.look_step(-1, window, cx),
-                    "down" => self.look_step(1, window, cx),
+                    "up" | "down" => {
+                        self.look_step(if event.keystroke.key == "up" { -1 } else { 1 }, window, cx);
+                        if item(self) != was {
+                            crate::ui_sounds::moved();
+                        }
+                    }
                     _ if self.dock_focus.is_focused(window) => {
                         let item = self.dock_of(&id).and_then(|dock| dock.detail.as_ref()).and_then(|key| key.strip_prefix("item:")).map(str::to_string);
                         if let Some(item) = item {

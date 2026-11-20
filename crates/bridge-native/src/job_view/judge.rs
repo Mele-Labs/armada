@@ -522,6 +522,9 @@ impl JobView {
             let down = act.slot % 2 == 0;
             let to = if down { (at + 1).min(all.len() - 1) } else { at.saturating_sub(1) };
             if let Some(spot) = page.keys.spot_of(&all[to].key) {
+                if to != at {
+                    crate::ui_sounds::moved();
+                }
                 window.focus(&spot.focus, cx);
             }
         } else if act.is("judge_note_send") {

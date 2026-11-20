@@ -15,9 +15,6 @@ use ipc::{SessionList, SetSessionProject, WireError};
 use super::serving::{NO_SUCH_SESSION, SESSION_COMMAND_REFUSED};
 use crate::daemon::Fleet;
 
-/// A Job moved into a copy of another Mac's project whose members do not list its repository. A 422.
-const COPY_NOT_MEMBER: &str = "fleet.project_copy_not_member";
-
 impl<H, V, W> Fleet<H, V, W>
 where
     H: AgentHarness + Send + Sync + 'static,
@@ -63,8 +60,7 @@ where
             Some(project) if !self.project_own(project) && self.copy_held(project, None).await => {
                 for repository in &repositories {
                     if !self.copy_held(project, Some(repository.as_str())).await {
-                        let said = format!("This project is kept on your other Mac and does not list {repository}. Add it to the project there first.");
-                        return Err(Refusal::Unacceptable(WireError::raised(COPY_NOT_MEMBER, said, self.run_id())));
+                        return Err(self.copy_not_member(repository));
                     }
                 }
             }

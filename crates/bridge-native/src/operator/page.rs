@@ -638,6 +638,9 @@ impl OperatorPageView {
         }
         let at = self.open_item().and_then(|front| queue.iter().position(|id| *id == front.id)).unwrap_or(0) as isize;
         let to = (at + by).clamp(0, queue.len() as isize - 1) as usize;
+        if to as isize != at {
+            crate::ui_sounds::moved();
+        }
         self.bring(&queue[to], cx);
     }
 

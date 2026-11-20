@@ -634,6 +634,7 @@ impl JobView {
                 }
                 .cloned();
                 if let Some(next) = next {
+                    crate::ui_sounds::moved();
                     let item = nav.iter().take_while(|one| **one != next).filter(|one| !matches!(one, FileNav::Test(_, ix) if *ix > 0)).count();
                     let item = if matches!(next, FileNav::Test(_, ix) if ix > 0) { item - 1 } else { item };
                     if let Some(panel) = self.pull_panel_mut() {
