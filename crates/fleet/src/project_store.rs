@@ -192,10 +192,12 @@ where
         (Some(manifest), of, from_copy)
     }
 
-    /// The login the projects holding the repository at `root` picked for the store it calls, for
-    /// [`SigningIn::profile_for`]. Not said on the log: [`Self::store_of_root`] says it for every call.
-    pub(crate) async fn project_login_of_root(&self, root: &str) -> Option<u64> {
-        match self.store_of_held(root).await.1 {
+    /// The login this Mac's own projects holding the repository at `root` picked for the store it calls, for
+    /// [`SigningIn::profile_for`]. Not said on the log: [`Self::store_of_root`] says it for every call. **Copies are
+    /// not read**: it is asked with the store locked (`feature_library::handoff`), and a copy's read takes that lock.
+    pub(crate) fn project_login_of_root(&self, root: &str) -> Option<u64> {
+        let manifest = core_model::ManifestId::carried(core_model::Ulid::carried(self.manifest_id_at(root)?));
+        match store_of(self.projects_held().running(), &manifest) {
             StoreOf::One(_, login) => login,
             StoreOf::None | StoreOf::Differs => None,
         }
