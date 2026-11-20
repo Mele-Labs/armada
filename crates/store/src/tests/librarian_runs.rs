@@ -16,6 +16,7 @@ fn run(project: &str, at: &str, through: u64, parts: &[&str]) -> KeptLibrarianRu
         night: "2026-11-18".to_string(),
         model_calls: 0,
         skipped: Vec::new(),
+        stopped: false,
     }
 }
 
@@ -50,6 +51,7 @@ fn a_nights_calls_the_newest_paragraph_and_the_last_run_of_a_part_read_back_per_
     let mut next_night = run("p1", "2026-11-19T10:00:00.000Z", 3867, &[]);
     next_night.night = "2026-11-19".to_string();
     next_night.model_calls = 4;
+    next_night.stopped = true;
     for kept in [&first, &second, &next_night, &run("p2", "2026-11-18T11:00:00.000Z", 0, &[])] {
         store.keep_librarian_run(kept).unwrap();
     }
@@ -63,5 +65,8 @@ fn a_nights_calls_the_newest_paragraph_and_the_last_run_of_a_part_read_back_per_
     assert_eq!(store.librarian_last_paragraph("p2").unwrap(), None);
     assert_eq!(store.librarian_last_ran_part("p1", "since_you_looked").unwrap().as_deref(), Some("2026-11-18T09:00:00.000Z"));
     assert_eq!(store.librarian_last_ran_part("p1", "links").unwrap(), None);
-    assert_eq!(store.librarian_last_run("p1").unwrap().expect("kept").skipped, Vec::<String>::new(), "the newest run skipped none");
+    let newest = store.librarian_last_run("p1").unwrap().expect("kept");
+    assert_eq!(newest.skipped, Vec::<String>::new(), "the newest run skipped none");
+    assert!(newest.stopped, "and was stopped");
+    assert!(!store.librarian_last_run("p2").unwrap().expect("kept").stopped);
 }

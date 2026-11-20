@@ -84,10 +84,14 @@ fn the_librarian_names_nine_parts_and_says_where_it_stands() {
     assert_eq!(shape::of::<RunLibrarian>(), "{project: string}");
     assert_eq!(
         shape::of::<LibrarianRan>(),
-        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists]}"
+        "{project: string, ran_at: string, ran: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], read_through?: number, skipped_for_share?: [floor_plans|links|decisions|health|drift|retire|glossary|since_you_looked|gists], stopped?: boolean}"
     );
-    assert_eq!(shape::of::<LibrarianState>(), "{last_run?: string, read_through?: number, merged_since?: [number]}");
-    assert!(shape::of::<FeatureLibrary>().contains("librarian?: {last_run?: string, read_through?: number, merged_since?: [number]}"));
+    let state = "{last_run?: string, read_through?: number, merged_since?: [number], steps?: [{id: string, title: string, detail: string, model?: boolean}], running?: {run: string, steps: [{step: string, state: running|done|skipped|failed, said?: string}]}}";
+    assert_eq!(shape::of::<LibrarianState>(), state);
+    assert!(shape::of::<FeatureLibrary>().contains(&format!("librarian?: {state}")));
+    assert_eq!(shape::of::<crate::StopLibrarian>(), "{project: string}");
+    assert_eq!(shape::of::<crate::LibrarianStopping>(), "{project: string, stopping?: boolean}");
+    assert_eq!(shape::of::<crate::LibrarianStepMoved>(), "{project: string, run: string, step: string, state: running|done|skipped|failed, said?: string}");
     assert_eq!(LibrarianPart::ALL.len(), 9);
     for part in LibrarianPart::ALL {
         assert_eq!(LibrarianPart::from_name(part.name()), Some(part), "{} reads back by its name", part.name());

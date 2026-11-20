@@ -88,6 +88,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // One step of a project's librarian run started or ended. `docs/concepts/feature-catalog.md`, *Librarian*.
+    Route {
+        operation: "librarian.step",
+        method: "GET",
+        path: "/events",
+    },
     // A run of an agent about a pull request moved, whole. `docs/concepts/pull-review.md`.
     Route {
         operation: "review_run.changed",
