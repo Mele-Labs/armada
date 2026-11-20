@@ -27,8 +27,6 @@ pub(crate) fn passed(title: &str) -> String {
 /// An item with an Approve: what Approve all and Dismiss all reach. Questions keep their own answers.
 fn approvable(item: &WaitingItem) -> bool {
     match item.source {
-        // A page waiting to be read is opened, not approved.
-        _ if super::document_answers::is_read_item(item) => false,
         WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Walk => true,
         WaitingSource::Agent => item.approves,
         _ => false,

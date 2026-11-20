@@ -425,5 +425,4 @@ A revision never kept is refused, `fleet.artifact_revision_unknown`, and so is a
 Fleet publishes `session.changed` where `seen` moved, so a Bridge reads the artifact again, and not where it held.
 An archived artifact is marked all the same, since opening it changes nothing else.
 
-**Rule.** Opening the newest revision of a page that asks nothing takes its `Read: <title>` item off his Needs you ([Document](document.md), *Asking for his approval*).
-The item carries the page as its `artifact`, and opening an older revision leaves it.
+**Rule.** A page that asks nothing raises no item in his Needs you, so opening it takes nothing off his list ([Document](document.md), *Asking for his approval*).

@@ -120,12 +120,9 @@ So does a reply of his in the thread that a model call reads as approving the pa
 `answer_waiting` on it is refused.
 A new revision asks again and lifts the dismissal; the same bytes written again ask nothing.
 
-**A page that asks nothing waits until he opens it.** One item per page, `read:<path>`, source `document`, its text `Read: <title>`, its act `message` on the job and its `artifact` the page, while the newest revision's `detail.reads` is `true` and the newest revision he opened (`mark_artifact_seen`) is older.
-Fleet writes `reads` on the job's own revision of a page that asks nothing, so a page that buried its ask, which goes back to the job, raises none, and his own Edit raises none.
-Opening the newest revision closes it, and the job is told nothing; opening an older one leaves it.
-A new revision raises it again and lifts a dismissal, and `dismiss_waiting` puts it away telling the job nothing.
-The page archived, deleted or joined to an artifact raises none.
-It asks no verdict: Approve all passes it by, and it neither holds `all_done` nor makes a working job read as waiting.
+**A page that asks nothing raises no item** (the owner, 19 Nov 2026: something that only informs him goes to the thread and his Artifacts).
+Fleet still writes `detail.reads` on the job's own revision of such a page, and `mark_artifact_seen` still keeps the revision he last opened, but neither raises nor closes an item.
+Until then it waited as `read:<path>`, text `Read: <title>`, until he opened its newest revision.
 
 **The job takes a Document back with `withdraw_document`** (`path`, `session_id`) when he has moved past it.
 `path` is the page's path as its item names it, the end of it (`lease.html`) or its title.

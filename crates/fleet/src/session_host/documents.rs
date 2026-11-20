@@ -24,7 +24,7 @@ use api::Sessions;
 use ipc::{AttachmentReport, PlanGate, SessionFact, SessionId, SessionReport, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION};
 use store::{Holder, KeptAttachment};
 
-use super::document_answers::{is_document, DOCUMENT_READS, READ_ITEM_PREFIX};
+use super::document_answers::{is_document, DOCUMENT_READS};
 use super::artifact_for::with_for;
 use super::page_actions::actions_that_will_not_run;
 use super::page_measure::buried_ask;
@@ -120,7 +120,6 @@ where
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
-        let _ = self.store().lock().await.restore_waiting(id, &format!("{READ_ITEM_PREFIX}{path}"));
         let _ = self
             .report_session(SessionReport {
                 harness: String::from(adapters::HOSTED_HARNESS),
@@ -227,11 +226,6 @@ where
             let _ = store.attach(&carried, false);
             if dismissed.contains(&item) {
                 let _ = store.dismiss_waiting(new, &item);
-            }
-            // What he read of it is read still, so a page waits to be read again only where it did.
-            let read = format!("{READ_ITEM_PREFIX}{}", carried.target);
-            if dismissed.contains(&read) {
-                let _ = store.dismiss_waiting(new, &read);
             }
             if let Some(kept) = opened.iter().find(|one| one.artifact == carried.target) {
                 let _ = store.keep_artifact_seen(new, &kept.artifact, kept.revision);

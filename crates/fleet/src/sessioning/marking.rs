@@ -68,10 +68,7 @@ fn state_of(record: &SessionRecord, thread: &Thread, read: bool) -> JobState {
         return JobState::Waiting;
     }
     let owes: Vec<&ipc::WaitingItem> = record.waiting_for.iter().filter(|one| one.source != WaitingSource::Done).collect();
-    // A page waiting to be read holds no Job that is working: it waits on him only once the Job rests.
-    let reading = |one: &ipc::WaitingItem| crate::session_host::document_answers::is_read_item(one);
     let holds_him = |one: &&ipc::WaitingItem| match one.source {
-        _ if reading(one) => false,
         WaitingSource::SlotChoice => one.creating_since.is_none(),
         WaitingSource::Delivery | WaitingSource::Plan | WaitingSource::TaskDone | WaitingSource::Sketch | WaitingSource::Document => true,
         _ => false,

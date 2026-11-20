@@ -804,9 +804,8 @@ pub enum WaitingSource {
     /// Fleet: the newest revision of a page the Job wrote under `.armada/documents/` is not answered.
     /// Derived on every read off the document, never kept: id `document:<page path>`, text `Approve "<title>"?`, a
     /// `message` act that opens the Job. Settled by `answer_document`, or by dismissing it; answering
-    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing waits as
-    /// `read:<page path>`** with this source, text `Read: <title>` and `artifact` the page, until he opens its newest
-    /// revision with `mark_artifact_seen`: nothing approves it, and the Job is told nothing.
+    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing raises no item**
+    /// (the owner, 19 Nov 2026): it is in the thread and his Artifacts. Before then it waited as `read:<page path>`.
     Document,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.

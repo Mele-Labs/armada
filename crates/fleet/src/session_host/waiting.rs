@@ -172,10 +172,6 @@ pub(crate) struct WaitingReads {
     rule_acts: Vec<store::KeptRuleAct>,
     /// The asks it made the Operator that stand on its Needs you, or in Your turn.
     job_asks: Vec<store::KeptJobAsk>,
-    /// The newest revision he opened of each of its artifacts.
-    seen: Vec<store::KeptArtifactSeen>,
-    /// The ids of its archived artifacts.
-    archived: Vec<String>,
     /// The notes it offered, which its Ready to try cards are.
     ready: Vec<store::KeptBuildNote>,
     /// The branches it has on the preview list.
@@ -251,8 +247,6 @@ pub(crate) fn waiting_reads(
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
         job_asks: store.raised_job_asks_of(&session.id)?,
-        seen: store.artifact_seen(&session.id)?,
-        archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
     })
@@ -485,7 +479,7 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready, offered } = reads;
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered } = reads;
         let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
@@ -711,8 +705,6 @@ where
             held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
-            // A page that asks nothing waits to be read, until he opens its newest revision.
-            items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
             // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
             // cards open then, so one offered later raises it again.
             items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
@@ -820,9 +812,8 @@ where
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
             // repeat of a listed command is folded below.
-            // A page waiting to be read asked nothing.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
-                !super::document_answers::is_read_item(one) && matches!(
+                matches!(
                     one.source,
                     WaitingSource::Agent
                         | WaitingSource::AskCard
@@ -1597,8 +1588,6 @@ where
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {
-            // A page waiting to be read asked the Job for nothing, so his dismissal tells it nothing.
-            _ if super::document_answers::is_read_item(&item) => None,
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
             WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
@@ -1660,9 +1649,9 @@ where
             return Ok(record);
         }
         let closed = self.closed_as_it_stood(item);
-        // His Dismiss is his answer to an ask, kept for its thread card. Not a sentence that asked nothing, a page
-        // to read, a permission or a done.
-        let no_ask = misread || super::document_answers::is_read_item(item) || matches!(item.source, WaitingSource::Permission | WaitingSource::Done);
+        // His Dismiss is his answer to an ask, kept for its thread card. Not a sentence that asked nothing, a
+        // permission or a done.
+        let no_ask = misread || matches!(item.source, WaitingSource::Permission | WaitingSource::Done);
         if !no_ask {
             let answered = super::answers_kept::Answered {
                 words: reason,

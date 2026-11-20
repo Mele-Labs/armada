@@ -81,9 +81,8 @@ The owner, 14 Nov 2026, of Jobs' pages: "holy shit talk about text overload. MY 
 It holds no plan, and an answer to it is refused: the page is for reading.
 His notes on it still reach the Job as numbered notes.
 
-**Rule.** A reading page waits in his Needs you as `Read: <title>` until he opens its newest revision ([Waiting on the person](session/waiting-on-the-person.md)).
-Opening it is the answer, and the Job is told nothing.
-A new revision waits again, and the Job archiving the page withdraws it.
+**Rule.** A reading page raises no item in his Needs you: it only informs him, so it is in the thread and his Artifacts (the owner, 19 Nov 2026; [Waiting on the person](session/waiting-on-the-person.md)).
+Until then it waited as `Read: <title>` until he opened its newest revision.
 Only the Job's own revision of a page that asks nothing waits so: one that buried its ask goes back to the Job, and his own Edit he has read.
 It asks no verdict, joins no artifact and holds nothing back.
 The owner's ruling, 15 Nov 2026: "Waits as Read".
