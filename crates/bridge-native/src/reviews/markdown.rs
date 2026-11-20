@@ -8,7 +8,7 @@ use crate::look::{token, Look};
 
 /// `source` drawn as markdown after `clean`. `id` keeps its selection and scroll apart from the
 /// other bodies on the page.
-pub(super) fn body(id: impl Into<SharedString>, source: &str, look: &Look) -> AnyElement {
+pub(crate) fn body(id: impl Into<SharedString>, source: &str, look: &Look) -> AnyElement {
     let base = look.length(token::TEXT_SM);
     let style = TextViewStyle::default()
         .heading_font_size(|level, base| match level {

@@ -111,6 +111,8 @@ pub(super) struct PullPanel {
     pub since_shown: bool,
     /// Mark as seen was pressed and Fleet has not answered.
     pub marking: bool,
+    /// The Review tab's review tools and the runs on this pull request (`pr_tools`).
+    pub tools: super::pr_tools::Tools,
     _typing: Subscription,
     _copied: Option<Task<()>>,
 }
@@ -683,6 +685,7 @@ impl JobView {
             since: None,
             since_shown: false,
             marking: false,
+            tools: Default::default(),
             _typing: typing,
             _copied: None,
         };

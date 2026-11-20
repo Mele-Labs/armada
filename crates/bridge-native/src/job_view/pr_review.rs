@@ -54,6 +54,7 @@ impl JobView {
     /// The range since he looked, read once the tab is in front and again when his seen head or the head moves.
     /// An answer that failed stays, so a refusal is not asked for again and again.
     pub(super) fn want_pull_since(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.want_pull_tools(window, cx);
         let Some(panel) = self
             .pull_panel()
             .filter(|panel| panel.tab == PullTab::Review)
