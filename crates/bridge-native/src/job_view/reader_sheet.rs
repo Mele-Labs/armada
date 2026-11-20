@@ -54,16 +54,10 @@ impl DetailZoom {
     }
 }
 
-/// What the stage draws and how it is enlarged over the whole app.
+/// What the stage draws.
 pub(super) struct Staged {
     held: String,
     scene: Rc<ipc::Scene>,
-    enlarge: Enlarge,
-}
-
-pub(super) enum Enlarge {
-    Drawing(String),
-    Sketch(String),
 }
 
 impl JobView {
@@ -234,13 +228,6 @@ impl JobView {
         self.parts_card(super::acts::SHEET, artifact, newest, true, true, page, look, cx).unwrap_or_else(|| div().into_any_element())
     }
 
-    /// The foot of the chosen artifact: what settles it, and Dismiss or Archive.
-    pub(super) fn review_parts_foot(&self, item: &Item, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let (artifact, page) = (artifact_in(item)?, self.pages.get(item.job.as_str())?);
-        let foot = self.parts_pinned_footer(super::acts::SHEET, artifact, page, look, cx)?;
-        Some(div().flex_none().border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(foot).into_any_element())
-    }
-
     /// The keys go to the chosen artifact's parts: a number picks a take, A and C answer a part, and a take put large is put back.
     pub(super) fn review_parts_focus(&mut self, item: &Item, window: &mut Window, cx: &mut Context<Self>) {
         // A page alone draws no parts card in the panel, so the card's focus is the thread's behind it, where Esc never reaches the
@@ -273,7 +260,7 @@ impl JobView {
                 }
                 let key = part_key(&artifact.id, &part.id);
                 let (held, scene) = self.scene_of_as(&What::Drawing { key: key.clone() }, "detail")?;
-                Some(Staged { held, scene, enlarge: Enlarge::Drawing(key) })
+                Some(Staged { held, scene })
             }
             Kind::Sketch => {
                 let held = self.thread(&item.job, cx)?;
@@ -281,15 +268,15 @@ impl JobView {
                 let (shown, _) = super::cards::shown_scene(card, None);
                 let held = format!("detail:{shown}");
                 let scene = crate::scene::read(&held, &card.drawing)?;
-                Some(Staged { held, scene, enlarge: Enlarge::Sketch(card.id.clone()) })
+                Some(Staged { held, scene })
             }
             _ => None,
         }
     }
 
     /// The drawing of the chosen item, filling the detail between its band and its foot: fitted to that box, zoomed in place by
-    /// the one zoomer (a pinch or ⌘ and the wheel about the pointer, ⌘+ ⌘- ⌘0, a double press, a drag or a scroll once zoomed),
-    /// and read over the whole app by the button or F.
+    /// the one zoomer (a pinch or ⌘ and the wheel about the pointer, ⌘+ ⌘- ⌘0, a double press, a drag or a scroll once zoomed).
+    /// An ask has no full-window viewer: the owner's decision of 19 Nov 2026.
     pub(super) fn review_stage(&self, item: &Item, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let staged = self.staged(item, cx)?;
         let detail = self.detail_zoom.as_ref()?;
@@ -327,7 +314,7 @@ impl JobView {
 
     /// A drawing part zoomed where it stands in the panel's parts: the column's width, as tall as its shape asks up to `tall`.
     /// A pinch or ⌘ and the wheel zoom it, a drag moves it, a double press toggles fit and 100%; a plain wheel at fit scrolls
-    /// the parts on past it. The button or F reads it over the whole app.
+    /// the parts on past it.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn drawing_in_place(&self, key: &str, held: &str, text: &str, room: Pixels, tall: Pixels, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let detail = self.detail_zoom.as_ref()?;
@@ -357,23 +344,13 @@ impl JobView {
         )
     }
 
-    /// What F reads over the whole app for the chosen item: the staged drawing or sketch, or the drawing part zoomed in place.
-    pub(super) fn review_enlarge(&self, item: &Item, cx: &gpui::App) -> Option<Enlarge> {
-        if let Some(staged) = self.staged(item, cx) {
-            return Some(staged.enlarge);
-        }
-        self.in_place_drawing(&item.job, artifact_in(item)?).map(Enlarge::Drawing)
+    /// Whether the chosen item's detail holds a drawing the one zoomer zooms: staged, or a drawing part zoomed in place.
+    fn review_zooms(&self, item: &Item, cx: &gpui::App) -> bool {
+        self.staged(item, cx).is_some() || artifact_in(item).and_then(|artifact| self.in_place_drawing(&item.job, artifact)).is_some()
     }
 
-    fn enlarge_stage(&mut self, enlarge: &Enlarge, window: &mut Window, cx: &mut Context<Self>) {
-        match enlarge {
-            Enlarge::Drawing(key) => self.open_drawing(key, window, cx),
-            Enlarge::Sketch(card) => self.read_sketch(card, card, window, cx),
-        }
-    }
-
-    /// F enlarges the drawing in the detail, and ⌘+ ⌘- ⌘0 zoom it. False where the key is not one of these, nothing is staged
-    /// or zoomed in place, or he is typing in a box of the artifact's parts.
+    /// ⌘+ ⌘- ⌘0 zoom the drawing in the detail. False where the key is not one of these, nothing is staged or zoomed in place,
+    /// or he is typing in a box of the artifact's parts.
     pub(super) fn review_zoom_key(&mut self, event: &gpui::KeyDownEvent, noting: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if self.pictures.viewing.is_some() || self.sketch_reading.is_some() || noting {
             return false;
@@ -382,11 +359,8 @@ impl JobView {
         if artifact_in(&item).is_some_and(|artifact| self.parts_typing(artifact, window, cx)) {
             return false;
         }
-        let Some(enlarge) = self.review_enlarge(&item, cx) else { return false };
-        let mods = event.keystroke.modifiers;
-        if event.keystroke.key == "f" && !mods.modified() {
-            self.enlarge_stage(&enlarge, window, cx);
-            return true;
+        if !self.review_zooms(&item, cx) {
+            return false;
         }
         zoomer::keyed(self, &event.keystroke, window, cx)
     }
@@ -437,21 +411,23 @@ mod tests {
     }
 
     #[gpui::test]
-    fn an_artifact_of_one_drawing_takes_approve_and_ask_for_changes_in_the_panels_foot(cx: &mut gpui::TestAppContext) {
+    fn an_artifact_of_one_drawing_takes_approve_and_ask_for_changes_in_the_answer_bar_at_the_panels_foot(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-folds", JOB, size(px(1400.), px(900.)), |_| {});
         view.update_in(cx, |view, window, cx| assert!(view.open_named("sketch:Step flow", window, cx)));
         redraw(cx);
         let panel = bounds_of(cx, Role::Dialog, "Review");
+        let bar = bounds_of(cx, Role::Toolbar, "Answer");
         let approve = bounds_of(cx, Role::Button, "Approve");
         let ask = bounds_of(cx, Role::Button, "Ask for changes");
         let dismiss = bounds_of(cx, Role::Button, "Dismiss");
-        let low = panel.top() + panel.size.height * 0.75;
-        assert!(approve.top() > low && ask.top() > low && approve.bottom() < panel.bottom(), "both stand in the foot, at the panel's bottom");
-        for (name, one) in [("Approve", approve), ("Ask for changes", ask)] {
+        assert!((bar.bottom() - panel.bottom()).abs() <= px(2.), "the bar is the panel's foot: {bar:?} {panel:?}");
+        for (name, one) in [("Approve", approve), ("Ask for changes", ask), ("Dismiss", dismiss)] {
+            assert!(one.top() >= bar.top() && one.bottom() <= bar.bottom(), "{name} stands in the bar: {one:?} {bar:?}");
             assert!(one.top() < dismiss.bottom() && one.bottom() > dismiss.top(), "{name} stands in Dismiss's row: {one:?} {dismiss:?}");
         }
-        assert!(approve.right() <= ask.left() && ask.right() <= dismiss.left(), "right-aligned, in the order Approve, Ask for changes, Dismiss");
-        assert!(approve.left() > panel.left() + panel.size.width * 0.5, "on the right of the foot");
+        assert!(approve.right() <= ask.left() && ask.right() < dismiss.left(), "Approve then Ask for changes, and Dismiss after them");
+        assert!(approve.left() < bar.left() + bar.size.width * 0.5, "the answer leads the bar");
+        assert!(bar.right() - dismiss.right() < bar.size.width * 0.1, "and Dismiss stands at its far end");
     }
 
     #[gpui::test]
@@ -863,20 +839,13 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_see_larger_button_and_f_read_the_drawing_over_the_app(cx: &mut gpui::TestAppContext) {
+    fn f_reads_no_drawing_over_the_app_and_no_see_larger_button_is_drawn(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
-        let flow = super::super::parts_card::part_key(ID, "flow");
         drawing_in_view(&view, cx);
-        let larger = bounds_of(cx, Role::Button, "See larger").center();
-        cx.simulate_click(larger, Modifiers::none());
-        redraw(cx);
-        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(flow.clone()), "the button reads it over the app");
-        cx.simulate_keystrokes("escape");
-        redraw(cx);
-        assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none() && view.review_open()), "Esc puts it away and the panel stays");
+        assert!(!drawn(cx, Role::Button, "See larger"), "an ask has no full-window viewer");
         cx.simulate_keystrokes("f");
         redraw(cx);
-        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(flow), "and so does F");
+        assert!(view.read_with(cx, |view, _| view.viewing_drawing().is_none() && view.review_open()), "F opens nothing over the app and the panel stays");
     }
 
     #[gpui::test]

@@ -262,11 +262,13 @@ struct Ctx<'a> {
 
 impl PartsState {
     /// The words box of a takes part, where it has been made.
+    #[cfg(test)]
     pub(super) fn notes(&self, key: &str) -> Option<Entity<InputState>> {
         self.notes.get(key).cloned()
     }
 
     /// What he answered a part, as it was sent and not yet read back from Fleet.
+    #[cfg(test)]
     pub(super) fn answer_sent(&self, key: &str) -> Option<&PartAnswer> {
         self.sent.get(key).map(|(_, _, answer)| answer)
     }
@@ -319,8 +321,12 @@ impl JobView {
 
     /// A part by its key, as he reads it, with the id of the artifact it belongs to.
     pub(super) fn part_of_key(&self, key: &str) -> Option<(String, ArtifactPart)> {
+        self.part_of_key_in(self.shown.as_ref()?, key)
+    }
+
+    /// The same, of Job `job`'s artifact: the review sheet from the Jobs list holds other Jobs' asks.
+    fn part_of_key_in(&self, job: &str, key: &str) -> Option<(String, ArtifactPart)> {
         let (artifact, part) = split_key(key)?;
-        let job = self.shown.as_ref()?;
         let page = self.pages.get(job)?;
         let held = self.artifact_of(job, artifact)?.parts.iter().find(|held| held.id == part)?;
         Some((artifact.to_string(), effective(held, key, &page.cards.parts)))
@@ -328,11 +334,16 @@ impl JobView {
 
     /// The takes of a takes part, whether a pick is still asked for, and the take he has chosen or picked, by its place.
     pub(super) fn takes_of_key(&self, key: &str) -> Option<(Vec<PartTake>, bool, Option<usize>)> {
-        let (_, part) = self.part_of_key(key)?;
+        self.takes_of_key_in(self.shown.as_ref()?, key)
+    }
+
+    /// The same, of Job `job`'s artifact.
+    pub(super) fn takes_of_key_in(&self, job: &str, key: &str) -> Option<(Vec<PartTake>, bool, Option<usize>)> {
+        let (_, part) = self.part_of_key_in(job, key)?;
         let PartContent::Takes { takes, form, .. } = &part.content else { return None };
         let open = part.is_open_ask() && *form == VoteForm::Pick;
         let picked = part.answer.as_ref().and_then(|answer| answer.take.as_deref()).and_then(|id| takes.iter().position(|one| one.id == id));
-        let chosen = if open { self.pages.get(self.shown.as_ref()?)?.cards.parts.chosen.get(key).copied().filter(|at| *at < takes.len()) } else { picked };
+        let chosen = if open { self.pages.get(job)?.cards.parts.chosen.get(key).copied().filter(|at| *at < takes.len()) } else { picked };
         Some((takes.clone(), open, chosen))
     }
 
@@ -1752,12 +1763,9 @@ impl JobView {
 
 impl JobView {
     /// The vote the review sheet answers for an artifact ask: its first takes part still asking for a pick, by key. None for an
-    /// ask that is no artifact, or one of a Job other than the shown one, whose parts state the sheet cannot reach.
+    /// ask that is no artifact.
     pub(super) fn sheet_vote(&self, item: &Item) -> Option<String> {
         let artifact = artifact_in(item)?;
-        if self.shown.as_deref() != Some(item.job.as_str()) {
-            return None;
-        }
         let page = self.pages.get(item.job.as_str())?;
         let held = self.artifact_of(&item.job, artifact)?;
         held.parts.iter().find(|part| is_pick(&effective(part, &part_key(artifact, &part.id), &page.cards.parts))).map(|part| part_key(artifact, &part.id))
@@ -1780,7 +1788,7 @@ impl JobView {
 
     /// The sheet's answer to an artifact ask: every part still asking approved, and each vote sent with the take chosen; or, with
     /// `words`, every part still asking sent back with them. False where nothing was sent: a vote with no take chosen holds the
-    /// whole answer back.
+    /// whole answer back. The parts' acts answer the shown Job, so another Job's ask is answered under `as_job`.
     pub(super) fn sheet_answer_parts(&mut self, item: &Item, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(artifact) = artifact_in(item).map(str::to_string) else { return false };
         if self.shown.as_deref() != Some(item.job.as_str()) {
@@ -1819,7 +1827,7 @@ impl JobView {
     /// it refused the last answer.
     pub(super) fn sheet_takes(&self, item: &Item, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         let artifact = artifact_in(item)?;
-        let job = self.shown.clone().filter(|job| job.as_ref() == item.job)?;
+        let job = SharedString::from(item.job.clone());
         let page = self.pages.get(&job)?;
         let held = self.artifact_of(&job, artifact)?;
         let part = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).find(is_takes)?;
@@ -1918,6 +1926,8 @@ impl JobView {
             )
             .children(chip);
         let (press_key, key_key) = (key.to_string(), key.to_string());
+        // A take of another Job's ask is chosen on that Job's page.
+        let (press_job, key_job) = (c.job.to_string(), c.job.to_string());
         let card = div()
             .id(SharedString::from(format!("sheet-take:{key}:{at}")))
             .flex_1()
@@ -1940,10 +1950,10 @@ impl JobView {
                     .on_key_down(cx.listener(move |this, event: &KeyDownEvent, _, cx| {
                         if !event.keystroke.modifiers.modified() && matches!(event.keystroke.key.as_str(), "enter" | "space") {
                             cx.stop_propagation();
-                            this.choose_take(&key_key, at, cx);
+                            this.as_job(&key_job, |this| this.choose_take(&key_key, at, cx));
                         }
                     }))
-                    .on_click(cx.listener(move |this, _, _, cx| this.choose_take(&press_key, at, cx)))
+                    .on_click(cx.listener(move |this, _, _, cx| this.as_job(&press_job, |this| this.choose_take(&press_key, at, cx))))
             });
         labelled(card, Role::RadioButton, name).into_any_element()
     }

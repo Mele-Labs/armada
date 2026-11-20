@@ -46,19 +46,6 @@ pub(super) enum Kind {
 }
 
 impl Kind {
-    /// The kind's glyph, the word its tooltip names it by, and the hue its tile takes (the look's kind-glyph).
-    pub(super) fn mark(self) -> (&'static str, &'static str, Token) {
-        match self {
-            Kind::Plan => Ask::Plan.mark(),
-            Kind::Sketch => Ask::Drawing.mark(),
-            Kind::Draft => Ask::Draft.mark(),
-            Kind::Document => Ask::Page.mark(),
-            Kind::Artifact => ("layers", "Artifact", token::KIND_STEP),
-            Kind::Build => Ask::Build.mark(),
-            Kind::Question => Ask::Question.mark(),
-        }
-    }
-
     /// Whether the item is answered in its own detail, by its parts or its build's four answers, and never by the sheet's
     /// Approve, Ask for changes and Dismiss.
     pub(super) fn answers_inside(self) -> bool {
@@ -183,18 +170,6 @@ pub(super) enum Verdict {
     Dismissed,
     /// Fleet stopped listing it, answered on its card or by another of his Bridges.
     Answered,
-}
-
-impl Verdict {
-    /// The glyph, the words and the hue its row shows.
-    fn mark(self) -> (&'static str, &'static str, Token) {
-        match self {
-            Verdict::Approved => ("badge-check", "Approved", token::STATUS_COMPLETED_SUCCESS),
-            Verdict::ChangesAsked => ("pencil", "Changes asked", token::STATUS_REJECTED),
-            Verdict::Dismissed => ("x", "Dismissed", token::STATUS_KILLED),
-            Verdict::Answered => ("check", "Answered", token::FG_MUTED),
-        }
-    }
 }
 
 /// Where one row stands: its verdict, or none while it still asks, and Fleet's sentence where it refused one.
@@ -530,6 +505,16 @@ impl JobView {
     /// Whether the Review panel is up, for a screen that draws this view under its own to host it.
     pub(crate) fn review_up(&self) -> bool {
         self.review_open()
+    }
+
+    /// Runs `act` with Job `job` as the shown one. A card's and a part's acts read and answer the shown Job, and the sheet from the
+    /// Jobs list holds other Jobs' asks: so a build or takes of another Job is answered on that Job's page and sent to its session.
+    /// The sheet's own state stays on the page it was opened on, which `act` does not reach.
+    pub(super) fn as_job<R>(&mut self, job: &str, act: impl FnOnce(&mut Self) -> R) -> R {
+        let held = self.shown.replace(SharedString::from(job.to_string()));
+        let done = act(self);
+        self.shown = held;
+        done
     }
 
     /// The card whose open box holds the keys, by the key its ⌘↵ is kept under.
@@ -919,9 +904,9 @@ impl JobView {
         }
         // A vote among takes starts on the Job's pick, so its answer is one press.
         if let Some(vote) = self.sheet_vote(&item) {
-            if self.takes_of_key(&vote).is_some_and(|(_, open, chosen)| open && chosen.is_none()) {
-                if let Some(pick) = self.takes_of_key(&vote).and_then(|(takes, _, _)| takes.iter().position(|take| super::parts_card::pick_mark(&take.title).1)) {
-                    self.choose_take(&vote, pick, cx);
+            if self.takes_of_key_in(&item.job, &vote).is_some_and(|(_, open, chosen)| open && chosen.is_none()) {
+                if let Some(pick) = self.takes_of_key_in(&item.job, &vote).and_then(|(takes, _, _)| takes.iter().position(|take| super::parts_card::pick_mark(&take.title).1)) {
+                    self.as_job(&item.job, |this| this.choose_take(&vote, pick, cx));
                 }
             }
         }
@@ -1030,7 +1015,7 @@ impl JobView {
     fn review_primary_label(&self, item: &Item, ask: Ask, cx: &gpui::App) -> (String, bool) {
         match ask {
             Ask::Takes => {
-                let chosen = self.sheet_vote(item).and_then(|vote| self.takes_of_key(&vote)).and_then(|(takes, _, chosen)| chosen.and_then(|at| takes.get(at).cloned()));
+                let chosen = self.sheet_vote(item).and_then(|vote| self.takes_of_key_in(&item.job, &vote)).and_then(|(takes, _, chosen)| chosen.and_then(|at| takes.get(at).cloned()));
                 match chosen {
                     Some(take) => (format!("Pick {}", super::parts_card::pick_mark(&take.title).0), true),
                     None => ("Pick one".to_string(), false),
@@ -1062,13 +1047,13 @@ impl JobView {
         }
         match item.kind {
             Kind::Artifact => {
-                if !self.sheet_answer_parts(&item, None, window, cx) {
+                if !self.as_job(&item.job, |this| this.sheet_answer_parts(&item, None, window, cx)) {
                     return;
                 }
             }
             Kind::Build => {
-                let Some(card) = self.build_card(&item, cx).filter(|_| self.shown.as_deref() == Some(item.job.as_str())) else { return };
-                self.answer_ready(SHEET, &card, ipc::ReadyAnswer::LooksGood, window, cx);
+                let Some(card) = self.build_card(&item, cx) else { return };
+                self.as_job(&item.job, |this| this.answer_ready(SHEET, &card, ipc::ReadyAnswer::LooksGood, window, cx));
             }
             Kind::Question => {
                 let choice = self.review().and_then(|review| review.choice.get(&item.key()).copied());
@@ -1126,13 +1111,13 @@ impl JobView {
         let key = item.key();
         match item.kind {
             Kind::Artifact => {
-                if !self.sheet_answer_parts(&item, Some(words), window, cx) {
+                if !self.as_job(&item.job, |this| this.sheet_answer_parts(&item, Some(words), window, cx)) {
                     return;
                 }
             }
             Kind::Build => {
-                let Some(card) = self.build_card(&item, cx).filter(|_| self.shown.as_deref() == Some(item.job.as_str())) else { return };
-                self.answer_ready(SHEET, &card, ipc::ReadyAnswer::NeedsRework { words }, window, cx);
+                let Some(card) = self.build_card(&item, cx) else { return };
+                self.as_job(&item.job, |this| this.answer_ready(SHEET, &card, ipc::ReadyAnswer::NeedsRework { words }, window, cx));
             }
             Kind::Question => {
                 self.review_answer_question(&item, None, Some(words), window, cx);
@@ -1156,7 +1141,7 @@ impl JobView {
         let Some((item, row)) = self.review_current() else { return };
         match item.kind {
             Kind::Artifact => {
-                self.review_parts_dismiss(&item, window, cx);
+                self.as_job(&item.job, |this| this.review_parts_dismiss(&item, window, cx));
                 self.review_after(&item.key(), window, cx);
             }
             // A build is dismissed by the Ready to try row that waits on him for it, as on Needs you.
@@ -1342,7 +1327,7 @@ impl JobView {
         act.is("thread_send_back") || act.is("thread_yes") || act.is("thread_change") || act.is("thread_no") || act.is("needs_you") || act.is("needs_you_fold")
     }
 
-    /// The registry's `review sheet` keys. There is no Approve all: its keys do nothing here.
+    /// The registry's `review sheet` keys.
     fn review_sheet_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) {
         if self.review_noting(window, cx) {
             cx.propagate();
@@ -1352,7 +1337,6 @@ impl JobView {
             "items_approve" => self.review_primary(window, cx),
             "items_ask_changes" => self.review_open_changes(window, cx),
             "items_dismiss" => self.review_dismiss(window, cx),
-            "items_approve_all" | "items_dismiss_all" => {}
             // j, k, ↓, ↑ in the registry's order: the even slots move down.
             "items_move" => {
                 self.review_step(if act.slot % 2 == 0 { "down" } else { "up" }, window, cx);
@@ -1460,9 +1444,9 @@ impl JobView {
         match self.ask_of(&item) {
             Ask::Takes => {
                 let Some(vote) = self.sheet_vote(&item) else { return };
-                let Some((takes, true, _)) = self.takes_of_key(&vote) else { return };
+                let Some((takes, true, _)) = self.takes_of_key_in(&item.job, &vote) else { return };
                 if let Some(at) = super::parts_card::take_of_key(key, takes.len()) {
-                    self.choose_take(&vote, at, cx);
+                    self.as_job(&item.job, |this| this.choose_take(&vote, at, cx));
                     cx.stop_propagation();
                 }
             }
@@ -1820,13 +1804,13 @@ impl JobView {
                 .line_clamp(1)
                 .child(SharedString::from(line))
         });
+        // The Operator's read runs under the question and Close both, to the body's right edge.
         let head = labelled(
             div()
                 .id(SharedString::from(format!("review-head:{key}")))
                 .flex_none()
                 .flex()
-                .items_start()
-                .gap(look.length(token::SPACE_3))
+                .flex_col()
                 .px(look.length(token::SPACE_6))
                 .pt(look.length(token::SPACE_4))
                 .pb(look.length(token::SPACE_4))
@@ -1834,23 +1818,29 @@ impl JobView {
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .child(
                     div()
-                        .flex_1()
-                        .min_w_0()
                         .flex()
-                        .flex_col()
-                        .gap(look.length(token::SPACE_1))
+                        .items_start()
+                        .gap(look.length(token::SPACE_3))
                         .child(
                             div()
-                                .text_size(look.length(token::TEXT_XL))
-                                .line_height(look.length(token::LEADING_XL))
-                                .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
-                                .text_color(look.color(token::FG_DEFAULT))
-                                .child(SharedString::from(item.name.clone())),
+                                .flex_1()
+                                .min_w_0()
+                                .flex()
+                                .flex_col()
+                                .gap(look.length(token::SPACE_1))
+                                .child(
+                                    div()
+                                        .text_size(look.length(token::TEXT_XL))
+                                        .line_height(look.length(token::LEADING_XL))
+                                        .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                                        .text_color(look.color(token::FG_DEFAULT))
+                                        .child(SharedString::from(item.name.clone())),
+                                )
+                                .children(background),
                         )
-                        .children(background)
-                        .children(self.operator_reads.get(&key).map(|read| self.review_operator(read, look))),
+                        .child(close),
                 )
-                .child(close),
+                .children(self.operator_reads.get(&key).map(|read| self.review_operator(read, look))),
             Role::Heading,
             item.name.clone(),
         );
@@ -2016,7 +2006,7 @@ impl JobView {
         labelled(
             div()
                 .id("review-operator")
-                .mt(look.length(token::SPACE_2))
+                .mt(look.length(token::SPACE_3))
                 .w_full()
                 .flex()
                 .flex_col()
@@ -2450,7 +2440,7 @@ mod tests {
     }
 
     #[test]
-    fn approve_all_sends_every_item_still_asking_each_with_its_own_notes() {
+    fn an_answer_names_each_item_by_job_and_id_with_its_own_notes() {
         let (one, two, three) = (item("a", "sketch:One", "t"), item("b", "plan:2", "t"), item("b", "draft:d1", "t"));
         let notes = |it: &Item| if it.id == "plan:2" { "  Keep the second group.  ".to_string() } else { String::new() };
         let body = answer_batch(&[&one, &two, &three], ItemHow::Approve, notes);
@@ -2464,7 +2454,7 @@ mod tests {
     }
 
     #[test]
-    fn dismiss_all_sends_every_item_still_asking_by_job_and_id() {
+    fn a_dismiss_names_each_item_by_job_and_id() {
         let (one, two) = (item("a", "sketch:One", "t"), item("b", "document:design", "t"));
         let body = dismiss_batch(&[&one, &two]);
         let sent: Vec<(&str, &str)> = body.items.iter().map(|one| (one.session_id.as_str(), one.item.as_str())).collect();
@@ -2591,45 +2581,96 @@ mod tests {
         view.read_with(cx, |view, _| view.review().map(|review| review.items().map(|item| review.row(&item.key()).verdict).collect()).unwrap_or_default())
     }
 
+    fn chosen_name(view: &Entity<JobView>, cx: &mut gpui::VisualTestContext) -> String {
+        view.read_with(cx, |view, _| view.review_chosen().map(|item| item.name).expect("an ask is chosen"))
+    }
+
     #[gpui::test]
-    fn the_item_acts_stand_in_its_band_and_the_all_acts_under_the_list_where_the_caret_holds_dismiss_all(cx: &mut gpui::TestAppContext) {
+    fn the_answer_bar_stands_at_the_foot_of_the_chosen_ask_and_a_dismissed_ask_leaves_the_list(cx: &mut gpui::TestAppContext) {
         use super::super::parts_fold::{drawn, redraw};
         let (view, cx) = sheet_open(cx);
-        let column = drawn_at(cx, Role::Group, "Waiting on you");
-        let foot = drawn_at(cx, Role::Toolbar, "Every item");
-        let all = drawn_at(cx, Role::Button, "Approve all");
-        let band = drawn_at(cx, Role::Group, "Answers");
-        let approve = drawn_at(cx, Role::Button, "Approve");
-        assert!(foot.left() == column.left() && foot.right() <= band.left() + px(1.), "the foot stands under the list, not under the detail: {foot:?} {column:?}");
-        assert!(all.left() >= foot.left() && all.right() <= foot.right() && all.top() >= foot.top() && all.bottom() <= foot.bottom(), "Approve all is in the foot: {all:?} {foot:?}");
-        assert!(all.top() >= column.bottom(), "and under the rows, which scroll above it: {all:?} {column:?}");
-        assert!(all.right() <= band.left() + px(1.), "and not under the detail: {all:?} {band:?}");
-        assert!(approve.left() >= band.left() && approve.right() <= band.right() && approve.top() >= band.top() && approve.bottom() <= band.bottom(), "the item's Approve is in its band: {approve:?} {band:?}");
-        assert!(!drawn(cx, Role::Button, "Dismiss all"), "Dismiss all waits under the caret");
+        let first = chosen_name(&view, cx);
+        let list = drawn_at(cx, Role::List, "Asks");
+        let detail = drawn_at(cx, Role::Region, &first);
+        let bar = drawn_at(cx, Role::Toolbar, "Answer");
+        let dismiss = drawn_at(cx, Role::Button, "Dismiss");
+        assert!(detail.left() >= list.right() - px(1.), "the chosen ask stands beside the list: {detail:?} {list:?}");
+        assert!(bar.left() >= detail.left() && bar.right() <= detail.right() + px(1.) && (bar.bottom() - detail.bottom()).abs() <= px(1.), "the bar is the detail's foot: {bar:?} {detail:?}");
+        assert!(dismiss.left() >= bar.left() && dismiss.right() <= bar.right() && dismiss.top() >= bar.top() && dismiss.bottom() <= bar.bottom(), "Dismiss is in the bar: {dismiss:?} {bar:?}");
+        for gone in ["Approve all", "Dismiss all", "More for every item"] {
+            assert!(!drawn(cx, Role::Button, gone), "{gone} is not drawn");
+        }
+        assert!(drawn(cx, Role::ListItem, &first), "{first} is listed while it asks");
 
-        // The caret's menu holds Dismiss all, and Esc shuts the menu alone.
-        let caret = drawn_at(cx, Role::Button, "More for every item").center();
-        cx.simulate_click(caret, Modifiers::none());
+        cx.simulate_click(dismiss.center(), Modifiers::none());
         redraw(cx);
-        assert!(drawn(cx, Role::MenuItem, "Dismiss all"), "the caret opens a menu with Dismiss all");
-        cx.simulate_keystrokes("escape");
-        redraw(cx);
-        assert!(!drawn(cx, Role::MenuItem, "Dismiss all"), "Esc shuts the menu");
-        assert!(view.read_with(cx, |view, _| view.review_open()), "and leaves the panel");
+        assert!(!drawn(cx, Role::ListItem, &first), "the dismissed ask leaves the list");
+        assert!(verdicts(&view, cx).contains(&Some(Verdict::Dismissed)), "and its row holds the verdict");
+        if view.read_with(cx, |view, _| view.review_open()) {
+            let next = chosen_name(&view, cx);
+            assert_ne!(next, first, "the next ask is chosen");
+            assert!(drawn(cx, Role::Region, &next), "and stands in the detail");
+        }
+    }
 
-        // Pressing it dismisses what ⇧D does.
-        let caret = drawn_at(cx, Role::Button, "More for every item").center();
-        cx.simulate_click(caret, Modifiers::none());
-        redraw(cx);
-        let dismiss = drawn_at(cx, Role::MenuItem, "Dismiss all").center();
-        cx.simulate_click(dismiss, Modifiers::none());
-        redraw(cx);
-        let by_menu = verdicts(&view, cx);
-        assert!(by_menu.iter().any(|verdict| *verdict == Some(Verdict::Dismissed)), "the menu's Dismiss all dismissed: {by_menu:?}");
-        let (view, cx) = sheet_open(cx);
-        // The key's act, `items_dismiss_all`, is this call (`review_sheet_act`); keys are not bound in this window.
-        view.update_in(cx, |view, window, cx| view.review_dismiss_all(window, cx));
-        redraw(cx);
-        assert_eq!(verdicts(&view, cx), by_menu, "the same as the key");
+    /// The every-Job sheet opened on `mock-04`'s draft, with `mock-01` visited first so its thread and parts are held.
+    fn every_job_sheet<'a>(cx: &'a mut gpui::TestAppContext) -> (Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = super::super::parts_fold::rooted_job(cx, "review-asks", "mock-01", gpui::size(px(1440.), px(900.)), |_| {});
+        let item = ItemRef { session_id: SessionId::carried("mock-04".to_string()), item: "draft:dra-401".to_string() };
+        view.update_in(cx, |view, window, cx| view.open_review_for(item, None, window, cx));
+        super::super::parts_fold::redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.shown.as_ref().map(|job| job.to_string())).as_deref(), Some("mock-04"));
+        (view, cx)
+    }
+
+    fn choose_in(view: &Entity<JobView>, cx: &mut gpui::VisualTestContext, job: &str, kind: Kind) -> String {
+        let key = view.read_with(cx, |view, _| view.review().and_then(|review| review.items().find(|item| item.job == job && item.kind == kind).map(Item::key)));
+        let key = key.unwrap_or_else(|| panic!("the every-Job sheet lists {job}'s {kind:?}"));
+        view.update_in(cx, |view, window, cx| view.review_choose(&key, window, cx));
+        super::super::parts_fold::redraw(cx);
+        key
+    }
+
+    #[gpui::test]
+    fn another_jobs_build_is_answered_from_the_every_job_sheet_and_goes_to_that_jobs_session(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = every_job_sheet(cx);
+        let key = choose_in(&view, cx, "mock-01", Kind::Build);
+        view.update_in(cx, |view, window, cx| view.review_primary(window, cx));
+        super::super::parts_fold::redraw(cx);
+        let sent: Vec<String> = view.read_with(cx, |view, _| view.mock_ready.iter().map(|one| one.session_id.as_str().to_string()).collect());
+        assert_eq!(sent, ["mock-01"], "the answer goes to the build's own Job");
+        view.read_with(cx, |view, cx| {
+            assert_eq!(view.shown.as_deref(), Some("mock-04"), "the Job behind the sheet stays");
+            let review = view.review().expect("the sheet stays up while asks are left");
+            let item = review.item(&key).expect("the build is still an item").clone();
+            assert_eq!(view.item_row(&item, review, cx).verdict, Some(Verdict::Approved));
+            assert_ne!(review.at.as_deref(), Some(key.as_str()), "the next ask comes up");
+        });
+    }
+
+    #[gpui::test]
+    fn another_jobs_takes_is_picked_from_the_every_job_sheet_and_goes_to_that_jobs_session(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = every_job_sheet(cx);
+        let key = choose_in(&view, cx, "mock-01", Kind::Artifact);
+        let ready = |view: &Entity<JobView>, cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, cx| {
+                let item = view.review_chosen().expect("chosen");
+                view.review_primary_label(&item, view.ask_of(&item), cx).1
+            })
+        };
+        assert!(!ready(&view, cx), "Send pick waits for a pick");
+        cx.simulate_keystrokes("1");
+        super::super::parts_fold::redraw(cx);
+        assert!(ready(&view, cx), "a digit picks a take of the other Job's vote");
+        view.update_in(cx, |view, window, cx| view.review_primary(window, cx));
+        super::super::parts_fold::redraw(cx);
+        let sent: Vec<(String, Option<String>)> = view.read_with(cx, |view, _| view.mock_part_posts().iter().map(|one| (one.session_id.as_str().to_string(), one.take.clone())).collect());
+        assert_eq!(sent.len(), 1, "one pick is sent: {sent:?}");
+        assert_eq!(sent[0].0, "mock-01", "to the vote's own Job");
+        assert!(sent[0].1.is_some(), "carrying the take");
+        view.read_with(cx, |view, _| {
+            assert_eq!(view.shown.as_deref(), Some("mock-04"));
+            assert_ne!(view.review().and_then(|review| review.at.clone()).as_deref(), Some(key.as_str()), "the next ask comes up");
+        });
     }
 }
