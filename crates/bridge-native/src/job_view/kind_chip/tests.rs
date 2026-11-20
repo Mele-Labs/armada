@@ -306,8 +306,11 @@ fn with_no_open_ask_revision_and_answer_cannot_be_picked(cx: &mut TestAppContext
         held.asks.clear();
         store::hold(JOB, held, cx);
     });
-    // One frame for the wider column to settle before the press.
-    cx.update(|window, cx| window.draw(cx).clear(cx));
+    // Frames for the wider column to settle before the press, as a slow runner needs more than one.
+    for _ in 0..3 {
+        cx.update(|window, cx| window.draw(cx).clear(cx));
+        cx.run_until_parked();
+    }
     press(cx, Role::Button, "Message kind: Talk");
     let before = kept(cx, TALK);
     press(cx, Role::MenuItemCheckBox, "Revision");
