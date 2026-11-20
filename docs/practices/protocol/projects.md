@@ -251,7 +251,7 @@ The lifeboat is untouched.
 
 ## Review on a new pull request
 
-A project's `values.review_on_new_pr` is a list of review tool ids, and it is the project's alone: a Kit file that names it is refused with `fleet.kit_values_refused`.
+A project's `values.review_on_new_pr` is a list of review tool ids, and it is the project's alone: a Kit file that names it is refused with `fleet.project_values_refused`.
 No list means nothing happens.
 When Fleet sees an open pull request in a project's repository that it has not seen before, from any author and draft or not, it adds an item to the Operator's Your turn list: `Run <tools> on #N?` with Run and Not now.
 The item id is `review:<manifest>:<number>`.
