@@ -487,14 +487,18 @@ That afternoon three code-editor background checks, two native-app builds an age
 Rules:
 
 - **Held is `SIGSTOP`, and let go is `SIGCONT`.** Nothing is ended, so no work is lost; a held build picks up where it stopped.
-- **What is held is a Job's `cargo`, `rustc` and `rustdoc`**: those in the agent's process tree, or carrying its `ARMADA_SESSION`. A linker or build script they started finishes and waits on its stopped parent.
-- **A Check's builds are never held.** Checks already run one at a time on a loaded machine, and a held Check would spend its budget waiting, so its fifteen minutes count only while it runs. A build outside every Job, such as a person's own, is not Fleet's to stop.
-- **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each. A Job whose builds have ended gives its turn up at once to the next after it.
+- **What is held is a Job's `cargo`, `rustc` and `rustdoc`**: those in the agent's process tree, or carrying its `ARMADA_SESSION`.
+  A linker or build script they started finishes and waits on its stopped parent.
+- **A Check's builds are never held.** Checks already run one at a time on a loaded machine, and a held Check would spend its budget waiting, so its fifteen minutes count only while it runs.
+  A build outside every Job, such as a person's own, is not Fleet's to stop.
+- **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each.
+  A Job whose builds have ended gives its turn up at once to the next after it.
   One Job at a time is prioritised, from its row's menu in Bridge (`prioritise_session`), and a second press clears it.
 - **Memory is short at a `kern.memorystatus_vm_pressure_level` of 2 (warn) or more**, and stays short for five minutes after it eases, so the builds a hold let swap out do not all start again at once.
   Measured 20 Nov 2026 on a 32 GB Mac: each compile of the Fleet crate took 3 to 4 GB, swap stayed near full long after the pressure went, and `memory_pressure` said 30% free while the Mac thrashed.
 - **Fleet looks every five seconds**, so a compiler a held build starts is held within that.
-- **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops. A Fleet that ended without letting go continues every stopped compiler of a Job at its first look.
+- **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops.
+  A Fleet that ended without letting go continues every stopped compiler of a Job at its first look.
 - **A Job is told when its builds are paused and when they run again** (`builds_held`), so its agent waits on a build that went quiet rather than starting it again.
   The owner's choice of 20 Nov 2026, on hearing that an agent would otherwise not know.
 
