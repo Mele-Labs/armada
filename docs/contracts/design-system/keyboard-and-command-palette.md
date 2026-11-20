@@ -223,6 +223,9 @@ Enter          open the feature   (features only)
 Tab / ⇧Tab     move between the parts of the page   (features only)
 ← / →          move between chips   (features only)
 s              open the story of the ask   (features only)
+1–9            show a project   (features only)
+c              catch up the librarian   (features only)
+v              change the layout of Who's on what   (features only)
 f              open the feature of this note   (features only)
 ```
 
@@ -303,6 +306,10 @@ The bare keys stand down in the filter, which takes them as typing, and `Esc` gi
 A feature's page has three parts, the list of sections, the filter chips and the rows, which `Tab` and `⇧Tab` move between; `j`, `k` and the arrows move the section or the row, `←` and `→` move along the chips and `Enter` applies the chip.
 On an ask, `Enter` or `s` opens the Job it came from on its Story tab at that ask, as a press on the row's Story link does.
 The asks show five rows and a line below them, Earlier, folded, which `Enter` opens; `Esc` folds them again before it leaves the page.
+Each project has a chip over the list, and a press shows that project; `1` to `9` press the chips in their order from the list or the page, and the choice is kept for the next start.
+`c` presses Catch up on the librarian card, which runs the project's librarian now.
+Who's on what is the third row over the areas, beside Overview and Since you looked, and it has three layouts, Grid, By feature and By person, in a control in its head; `v` cycles them from the list or the page, and the choice is kept for the next start.
+Every pull request number and Job chip on it is a stop of `j`, `k` and the arrows, and `Enter` opens what it names, as a press does; a feature's name opens its page.
 
 **A note's card in the annotation layer takes the `features` key `f`.**
 It opens the page of the feature the note's element belongs to beside the card, and the next feature on a press where the note maps to several.

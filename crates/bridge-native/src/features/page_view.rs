@@ -6,7 +6,8 @@ use gpui::{div, prelude::*, px, relative, AnyElement, ClipboardItem, Div, Elemen
 use super::asks::{self, Spot};
 use super::dossier::{button, hue_of_name, pill, pill_area, tint};
 use super::page::{FeaturePageView, Load, Region};
-use super::page_model::{Body, Chip, Code, Item, Row, Section, Written};
+use super::floor_map::{Ink, Laid, HEIGHT, WIDTH};
+use super::page_model::{Body, Chip, Code, Floor, Item, Row, Section, Written};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::reviews::{card_inner_radius, panel_inner_radius};
@@ -18,6 +19,8 @@ use crate::titlebar::parts::{mono, sans};
 enum Card {
     Who,
     Asks,
+    /// The code map with the feature's rooms lit. Not a section: it has no place in the rail.
+    Floor,
     Section(Section),
 }
 
@@ -27,21 +30,22 @@ fn side(look: &Look) -> Pixels {
 }
 
 /// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs and asks, how it is tested and runs
-/// and its designs, then its code and what is stale or owed.
+/// and its designs, then its code and what is stale or owed. In two or three columns the floor plan is not among them: it spans
+/// the page under them, so the right column does not carry it.
 fn columns(count: usize) -> Vec<Vec<Card>> {
-    use Card::{Asks, Who};
+    use Card::{Asks, Floor, Who};
     use Section::{Code, Debt, Designs, Observe, Runs, Test};
     let s = Card::Section;
     match count {
         3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), s(Observe), s(Debt)]],
         2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), s(Observe), s(Debt)]],
-        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), s(Observe), s(Debt)]],
+        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), Floor, s(Observe), s(Debt)]],
     }
 }
 
 /// A card (`.card`) on the page's panel, a step under the panel's ground so it reads as a card: the hairline, the card shadow, and where the keys are on it the focus colour. The one that says what
 /// runs now is tinted with the running hue (`.now`).
-fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
+pub(super) fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> Stateful<Div> {
     let edge = if ring {
         ring_colour(look)
     } else if running {
@@ -54,7 +58,7 @@ fn shell(look: &Look, id: impl Into<ElementId>, ring: bool, running: bool) -> St
 }
 
 /// A card's title (`h3`): on a ground a little under the card's own, or in the running hue for the card that says what runs.
-fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl IntoElement {
+pub(super) fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl IntoElement {
     let (ground, ink, edge) = if running {
         (tint(look, look.color(token::BG_BASE), token::STATUS_RUNNING, 0.20), look.color(token::STATUS_RUNNING), look.color(token::STATUS_RUNNING).opacity(0.30))
     } else {
@@ -83,7 +87,7 @@ fn head(look: &Look, key: &str, title: &str, running: bool, first: bool) -> impl
 }
 
 /// The inside of a card that holds text (`.in`).
-fn inner(look: &Look) -> Div {
+pub(super) fn inner(look: &Look) -> Div {
     div().flex().flex_col().gap(look.length(token::SPACE_3) - px(2.)).px(look.length(token::SPACE_3) + px(2.)).py(look.length(token::SPACE_3))
 }
 
@@ -104,7 +108,11 @@ pub(super) fn said_empty(key: &str) -> &'static str {
 
 /// A card with nothing in it: its title and one muted line under it. It has no rows, chips or buttons, so no key stops on it.
 fn empty_card(look: &Look, key: &str, title: &str) -> AnyElement {
-    let said = said_empty(key);
+    empty_card_saying(look, key, title, said_empty(key))
+}
+
+/// The same, where the line is the model's.
+fn empty_card_saying(look: &Look, key: &str, title: &str, said: &'static str) -> AnyElement {
     let line = labelled(
         div()
             .id(SharedString::from(format!("feature-empty-{key}")))
@@ -245,6 +253,9 @@ impl FeaturePageView {
             this.select(section, cx);
             this.pick_row(ix, cx);
             this.focus_region(Region::Rows, window, cx);
+            if section == Section::Designs {
+                this.open_design(ix, cx);
+            }
         }));
         labelled(line, Role::ListBoxOption, row.title.clone()).into_any_element()
     }
@@ -572,10 +583,27 @@ impl FeaturePageView {
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 
+    // ---- the floor plan ----------------------------------------------------------------------
+
+    /// The code map as a card: every module a plot sized by its bytes, its files pills inside sized by theirs, the contracts the
+    /// feature crosses as dashed doors, and the key under it. With nothing to draw it says why and what fills it.
+    fn render_floor(&self, look: &Look, wide: bool) -> AnyElement {
+        let map = match (&self.page, &self.floor) {
+            (Load::Read(_), Floor::Plan(map)) => map.clone(),
+            (Load::Read(_), Floor::Empty(said)) => return empty_card_saying(look, "floor", "Floor plan", said),
+            _ => return empty_card_saying(look, "floor", "Floor plan", super::page_model::NO_PLAN),
+        };
+        let pad = look.length(token::SPACE_3) + px(2.);
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).px(pad).py(look.length(token::SPACE_3)).child(floor_drawing(look, map, wide)).child(floor_key(look));
+        let card = shell(look, "feature-card-floor", false, false).child(head(look, "floor", "Floor plan", false, true)).child(body);
+        labelled(card, Role::Region, "Floor plan").into_any_element()
+    }
+
     fn render_card(&self, card: Card, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
         match card {
             Card::Who => self.render_who(look, window, cx),
             Card::Asks => self.render_asks(look, window, cx),
+            Card::Floor => self.render_floor(look, false),
             Card::Section(Section::Designs) => self.render_designs(look, window, cx),
             Card::Section(section) => match self.cards.get(&section) {
                 Some(Body::Code(code)) if self.present(section) => self.render_code(code, look, window),
@@ -599,7 +627,10 @@ impl FeaturePageView {
             }
             grid = grid.child(column);
         }
-        grid.into_any_element()
+        if count == 1 {
+            return grid.into_any_element();
+        }
+        div().w_full().flex().flex_col().gap(gap).child(grid).child(self.render_floor(look, true)).into_any_element()
     }
 
     fn render_loading(&self, look: &Look) -> AnyElement {
@@ -652,4 +683,142 @@ impl Render for FeaturePageView {
                     .child(content),
             )
     }
+}
+
+/// The colours the floor plan paints with, read from the look before the paint, which has none.
+#[derive(Clone, Copy)]
+struct FloorInks {
+    plot: Hsla,
+    edge: Hsla,
+    lit_plot: Hsla,
+    lit_edge: Hsla,
+    pill: Hsla,
+    lit_pill: Hsla,
+    changing: Hsla,
+    door: Hsla,
+}
+
+fn floor_inks(look: &Look) -> FloorInks {
+    let raised = look.color(token::BG_RAISED);
+    FloorInks {
+        plot: raised,
+        edge: look.color(token::BORDER_DEFAULT),
+        lit_plot: tint(look, raised, token::STATUS_AWAITING_REVIEW, 0.07),
+        lit_edge: look.color(token::STATUS_AWAITING_REVIEW),
+        pill: tint(look, raised, token::BORDER_DEFAULT, 0.8),
+        lit_pill: tint(look, raised, token::STATUS_AWAITING_REVIEW, 0.6),
+        changing: look.color(token::STATUS_RUNNING),
+        door: look.color(token::FG_DEFAULT),
+    }
+}
+
+/// `text` in the mono face at `size`, cut with an ellipsis until it is no wider than `room`; none where not one letter fits.
+fn shaped_within(window: &mut Window, text: &str, font: &gpui::Font, size: Pixels, colour: Hsla, room: Pixels) -> Option<gpui::ShapedLine> {
+    let shape = |words: String, window: &mut Window| {
+        let run = gpui::TextRun { len: words.len(), font: font.clone(), color: colour, background_color: None, underline: None, strikethrough: None };
+        window.text_system().shape_line(words.into(), size, &[run], None)
+    };
+    let whole = shape(text.to_string(), window);
+    if whole.width <= room {
+        return Some(whole);
+    }
+    let letters: Vec<char> = text.chars().collect();
+    (1..letters.len()).rev().map(|keep| letters[..keep].iter().collect::<String>() + "\u{2026}").find_map(|cut| {
+        let line = shape(cut, window);
+        (line.width <= room).then_some(line)
+    })
+}
+
+/// The plots, pills, doors, names and door chips painted as quads, paths and shaped lines at the card's width, the mock's shape
+/// kept: about 1500 rects a frame, laid out again only when the width moves.
+/// Across the page (`wide`) it keeps the mock's height and takes the width; in a column it keeps the mock's shape.
+fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>, wide: bool) -> AnyElement {
+    let inks = floor_inks(look);
+    // The names keep the mock's size, the smallest the tokens hold, whatever the width.
+    let words_size = look.length(token::TEXT_SWITCH);
+    let look_radius = look.length(token::RADIUS_SM);
+    let (name_ink, lit_ink, chip_ground) = (look.color(token::FG_SUBTLE), look.color(token::STATUS_AWAITING_REVIEW), look.color(token::BG_BASE));
+    let family = mono(look);
+    let (body, heading) = (FontWeight(look.number(token::WEIGHT_BODY)), FontWeight(look.number(token::WEIGHT_HEADING)));
+    let said = laid.said.clone();
+    // The strip a plot's name sits in: the name's line and the room over and under it.
+    let strip = f32::from(words_size * 1.2) + 3.;
+    let paint = gpui::canvas(
+        move |bounds, _, _| laid.at(f32::from(bounds.size.width), f32::from(bounds.size.height), strip),
+        move |bounds, painted, window, cx| {
+            let at = |x: f32, y: f32| gpui::point(bounds.origin.x + px(x), bounds.origin.y + px(y));
+            let rect = |r: &super::floor_map::Rect| gpui::Bounds::new(at(r.x, r.y), gpui::size(px(r.w), px(r.h)));
+            for plot in &painted.plots {
+                let (ground, edge) = if plot.lit { (inks.lit_plot, inks.lit_edge) } else { (inks.plot, inks.edge) };
+                window.paint_quad(gpui::quad(rect(&plot.rect), look_radius, ground, px(1.), edge, gpui::BorderStyle::Solid));
+            }
+            for pill in &painted.pills {
+                let ink = match pill.ink {
+                    Ink::Plain => inks.pill,
+                    Ink::Lit => inks.lit_pill,
+                    Ink::Changing => inks.changing,
+                };
+                window.paint_quad(gpui::fill(rect(&pill.rect), ink));
+            }
+            let name_size = words_size;
+            for plot in &painted.plots {
+                let font = gpui::Font { family: family.clone(), weight: if plot.lit { heading } else { body }, ..gpui::font(family.clone()) };
+                let room = px((plot.rect.w - 8.).max(0.));
+                if let Some(line) = shaped_within(window, &plot.name, &font, name_size, if plot.lit { lit_ink } else { name_ink }, room) {
+                    let _ = line.paint(at(plot.rect.x + 5., plot.rect.y + 2.), name_size * 1.2, gpui::TextAlign::Left, None, window, cx);
+                }
+            }
+            let chip_size = words_size;
+            let chip_font = gpui::Font { family: family.clone(), weight: heading, ..gpui::font(family.clone()) };
+            for door in &painted.doors {
+                let mut line = gpui::PathBuilder::stroke(px(1.5)).dash_array(&[px(4.), px(3.)]);
+                line.move_to(at(door.from.0, door.from.1));
+                line.line_to(at(door.to.0, door.to.1));
+                if let Ok(path) = line.build() {
+                    window.paint_path(path, inks.door.opacity(0.85));
+                }
+                let dot = 3.;
+                for end in [door.from, door.to] {
+                    let centre = at(end.0, end.1);
+                    window.paint_quad(gpui::fill(gpui::Bounds::new(gpui::point(centre.x - px(dot), centre.y - px(dot)), gpui::size(px(dot * 2.), px(dot * 2.))), inks.door).corner_radii(px(dot)));
+                }
+                // The chip at the middle names the module the door leads to.
+                let Some(words) = shaped_within(window, &door.label, &chip_font, chip_size, inks.door, bounds.size.width) else { continue };
+                let middle = at((door.from.0 + door.to.0) / 2., (door.from.1 + door.to.1) / 2.);
+                let (wide, tall) = (words.width + chip_size, chip_size * 1.6);
+                let chip = gpui::Bounds::new(gpui::point(middle.x - wide / 2., middle.y - tall / 2.), gpui::size(wide, tall));
+                window.paint_quad(gpui::quad(chip, tall / 2., chip_ground, px(1.), inks.door, gpui::BorderStyle::Solid));
+                let _ = words.paint(gpui::point(middle.x - words.width / 2., middle.y - chip_size * 0.6), chip_size * 1.2, gpui::TextAlign::Left, None, window, cx);
+            }
+        },
+    )
+    .absolute()
+    .size_full();
+    labelled(
+        div().id("feature-floor-map").relative().w_full().map(|map| if wide { map.h(px(HEIGHT)) } else { map.aspect_ratio(WIDTH / HEIGHT) }).rounded(look.length(token::RADIUS_MD)).overflow_hidden().bg(look.color(token::BG_SUNKEN)).child(paint),
+        Role::Image,
+        said,
+    )
+    .into_any_element()
+}
+
+/// What the colours of the floor plan mean, in a line under it.
+fn floor_key(look: &Look) -> AnyElement {
+    let swatch = |colour: Hsla| div().flex_none().w(look.length(token::SPACE_3)).h(look.length(token::SPACE_2)).rounded(px(2.)).bg(colour);
+    let entry = |mark: Option<AnyElement>, words: &'static str| div().flex().items_center().gap(look.length(token::SPACE_1)).whitespace_nowrap().children(mark).child(words);
+    let inks = floor_inks(look);
+    let contract = div().font_family(mono(look)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("- -").into_any_element();
+    div()
+        .flex()
+        .flex_wrap()
+        .items_center()
+        .gap_x(look.length(token::SPACE_3))
+        .text_size(look.length(token::TEXT_2XS))
+        .line_height(look.length(token::LEADING_2XS))
+        .text_color(look.color(token::FG_SUBTLE))
+        .child(entry(Some(swatch(inks.lit_pill).into_any_element()), "this feature's files"))
+        .child(entry(Some(swatch(inks.changing).into_any_element()), "changed by a Job now"))
+        .child(entry(None, "small files share a pill"))
+        .child(entry(Some(contract), "contract crossed"))
+        .into_any_element()
 }

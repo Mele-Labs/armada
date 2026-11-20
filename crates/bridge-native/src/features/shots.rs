@@ -382,3 +382,253 @@ pub fn shoot_dossier(dir: &Path) -> Result<(), String> {
     }
     Ok(())
 }
+
+/// The floor plan card on the first feature's page at 1400 wide: the mock's plan, then a page with no plan, then the same plan with
+/// no room lit and no door.
+pub fn shoot_floor_plan(dir: &Path) -> Result<(), String> {
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    for (name, step) in [("floor-plan-1400", 0), ("floor-plan-none-1400", 1), ("floor-plan-unlit-1400", 2)] {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(1100.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_cursor(window, cx);
+                if let Some(page) = screen.page.clone() {
+                    page.update(cx, |page, cx| {
+                        if let super::page::Load::Read(read) = &mut page.page {
+                            match step {
+                                1 => read.floor_plan = None,
+                                2 => {
+                                    if let Some(plan) = read.floor_plan.as_mut() {
+                                        plan.doors.clear();
+                                        for room in &mut plan.rooms {
+                                            room.lit = false;
+                                            for file in &mut room.files {
+                                                file.lit = false;
+                                                file.changing = false;
+                                            }
+                                        }
+                                    }
+                                }
+                                _ => {}
+                            }
+                        }
+                        page.rebuild(cx);
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// The librarian's card over the list in each state it can be in, and the chips row with another project chosen, at 1000 wide.
+pub fn shoot_librarian(dir: &Path) -> Result<(), String> {
+    use super::librarian::Press;
+    use super::mock::{self, Reading};
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    let refusal = "Fleet holds no project named armada";
+    let states: [(&str, Reading, Press, Option<&str>); 8] = [
+        ("librarian-never", Reading::Never, Press::Idle, None),
+        ("librarian-current", Reading::Current, Press::Idle, None),
+        ("librarian-behind", Reading::Behind, Press::Idle, None),
+        ("librarian-behind-long", Reading::FarBehind, Press::Idle, None),
+        ("librarian-working", Reading::Behind, Press::Working, None),
+        ("librarian-running", Reading::Running, Press::Idle, None),
+        ("librarian-failed", Reading::Behind, Press::Failed(refusal.into()), None),
+        ("chips-pocket", Reading::Current, Press::Idle, Some("pocket")),
+    ];
+    for (name, reading, press, project) in states {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1000.), px(560.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                if let Some(project) = project {
+                    screen.choose(project.to_string(), cx);
+                } else if let super::Load::Read(library) = &mut screen.library {
+                    library.librarian = mock::librarian(reading);
+                    let library = library.clone();
+                    screen.run_read(&library);
+                }
+                screen.press = press;
+                cx.notify();
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// The project's Overview and Since you looked pages beside the list at 1400 wide: the Overview as the first read leaves it, with
+/// terms in the glossary, and with no README sentence; Since you looked with its paragraph, and with nothing since.
+pub fn shoot_project(dir: &Path) -> Result<(), String> {
+    use super::page::Load;
+    use super::project_model::ProjectPage;
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    let terms = || {
+        vec![
+            ipc::GlossaryTerm { term: "Job".into(), meaning: "One agent working one task in a slot, from a brief to a merged pull request.".into() },
+            ipc::GlossaryTerm { term: "Slot".into(), meaning: "A warm worktree leased to a Job and given back when it lands.".into() },
+            ipc::GlossaryTerm { term: "Story".into(), meaning: "The thread of a Job's asks and answers, read in order.".into() },
+        ]
+    };
+    let steps: [(&str, ProjectPage, u8); 5] = [
+        ("project-overview-1400", ProjectPage::Overview, 0),
+        ("project-overview-glossary-1400", ProjectPage::Overview, 1),
+        ("project-overview-no-readme-1400", ProjectPage::Overview, 2),
+        ("project-since-1400", ProjectPage::Since, 0),
+        ("project-since-nothing-1400", ProjectPage::Since, 3),
+    ];
+    for (name, which, step) in steps {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_project(which, window, cx);
+                if let Some(page) = screen.project_page.clone() {
+                    page.update(cx, |page, cx| {
+                        if let Load::Read(read) = &mut page.overview {
+                            match step {
+                                1 => read.glossary = terms(),
+                                2 => read.what_it_is = None,
+                                _ => {}
+                            }
+                        }
+                        if let (3, Load::Read(read)) = (step, &mut page.since) {
+                            read.paragraph.clear();
+                            read.features.clear();
+                        }
+                        cx.notify();
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}
+
+/// Who's on what beside the list at 1400 wide, in each of its three layouts, with the keys on a pull request, and with nothing to say.
+pub fn shoot_who(dir: &Path) -> Result<(), String> {
+    use super::page::Load;
+    use super::project_model::ProjectPage;
+    use super::who_model::WhoView;
+    std::fs::create_dir_all(dir).map_err(|why| format!("{}: {why}", dir.display()))?;
+    let platform = gpui_platform::current_platform(true);
+    let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || gpui_platform::current_headless_renderer());
+    cx.update(crate::init_app);
+    cx.update(|cx| cx.set_reduce_motion(true));
+    // `(name, layout, keys on the page at this place, nothing to say)`.
+    let steps: [(&str, WhoView, Option<usize>, bool); 5] = [
+        ("who-grid-1400", WhoView::Grid, None, false),
+        ("who-grid-keys-1400", WhoView::Grid, Some(2), false),
+        ("who-by-feature-1400", WhoView::ByFeature, None, false),
+        ("who-by-person-1400", WhoView::ByPerson, None, false),
+        ("who-empty-1400", WhoView::Grid, None, true),
+    ];
+    for (name, view, at, empty) in steps {
+        let held: Rc<RefCell<Option<gpui::Entity<FeaturesScreen>>>> = Rc::default();
+        let keep = held.clone();
+        let handle = cx
+            .open_window(size(px(1400.), px(836.)), move |window, cx| {
+                let screen = cx.new(|cx| FeaturesScreen::mock(window, cx));
+                *keep.borrow_mut() = Some(screen.clone());
+                screen
+            })
+            .map_err(|why| why.to_string())?;
+        let screen = held.borrow().clone().ok_or("the screen was not made")?;
+        cx.update_window(handle.into(), |_, window, cx| {
+            window.activate_window();
+            screen.update(cx, |screen, cx| {
+                screen.enter(window, cx);
+                screen.open_project(ProjectPage::Who, window, cx);
+                if let Some(page) = screen.project_page.clone() {
+                    page.update(cx, |page, cx| {
+                        page.set_view(view, cx);
+                        if empty {
+                            page.who = Load::Read(ipc::WhosOnWhat { project: super::mock::PROJECT.into(), people: Vec::new(), features: Vec::new() });
+                        }
+                        if at.is_some() {
+                            page.focus_body(window, cx);
+                        }
+                        page.at = at;
+                        cx.notify();
+                    });
+                }
+            })
+        })
+        .map_err(|why| why.to_string())?;
+        for _ in 0..4 {
+            cx.run_until_parked();
+            cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
+        }
+        let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
+        let path = dir.join(format!("{name}.png"));
+        picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+    }
+    Ok(())
+}

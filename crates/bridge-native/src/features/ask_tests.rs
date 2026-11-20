@@ -143,6 +143,7 @@ fn open(cx: &mut TestAppContext) -> (gpui::Entity<FeaturePageView>, Heard, &mut 
         cx.subscribe(&page, move |_, event: &FeaturePageEvent, _| match event {
             FeaturePageEvent::Story { session_id, ask_id } => sink.borrow_mut().push((session_id.as_str().to_string(), ask_id.clone())),
             FeaturePageEvent::Escape => sink.borrow_mut().push(("escape".into(), String::new())),
+            FeaturePageEvent::Design { job, artifact } => sink.borrow_mut().push((format!("design {job}"), artifact.clone())),
         })
         .detach();
     });
@@ -287,4 +288,55 @@ fn the_screen_leaves_the_ask_for_the_story_tab_and_asks_for_the_job_to_open(cx: 
     assert!(matches!(asked.borrow().as_slice(), [crate::titlebar::Asked::OpenJob(id)] if id == "job-card-title"), "the Job opens as any screen opens one");
     assert_eq!(cx.update(|_, cx| story_link::take(cx)), Some(StoryRequest { session_id: SessionId::carried("job-card-title"), ask_id: "ask-1".into() }));
     assert_eq!(cx.update(|_, cx| story_link::take(cx)), None, "taking it leaves none");
+}
+
+#[gpui::test]
+fn enter_or_a_press_on_a_designs_row_opens_its_artifact_in_the_job_that_made_it(cx: &mut TestAppContext) {
+    use super::artifact_link::{self, ArtifactRequest};
+    ready(cx);
+    let asked: Rc<RefCell<Vec<crate::titlebar::Asked>>> = Rc::default();
+    let heard = asked.clone();
+    cx.update(|cx| cx.set_global(crate::titlebar::AskedSink(Rc::new(move |one: &crate::titlebar::Asked, _: &mut gpui::App| heard.borrow_mut().push(one.clone())))));
+    let (screen, cx) = cx.add_window_view(|window, cx| FeaturesScreen::mock(window, cx));
+    let page = cx.update(|window, cx| {
+        screen.update(cx, |screen, cx| {
+            screen.enter(window, cx);
+            screen.open_cursor(window, cx);
+            screen.page.clone().expect("the page opened")
+        })
+    });
+    // As Fleet files a sketch: by the artifact's id, with the Job that made it.
+    cx.update(|window, cx| {
+        page.update(cx, |page, cx| {
+            if let super::page::Load::Read(read) = &mut page.page {
+                let sketch = read.links.iter_mut().find(|link| link.kind == ipc::FeatureLinkKind::Sketch).expect("a sketch");
+                sketch.target = "sketch:Start card with the model picker".into();
+                sketch.job = Some("job-start-card".into());
+            }
+            page.rebuild(cx);
+            page.select(Section::Designs, cx);
+            page.focus_region(Region::Rows, window, cx);
+        })
+    });
+    cx.run_until_parked();
+    let wanted = ArtifactRequest { job: "job-start-card".into(), artifact: "sketch:Start card with the model picker".into() };
+    let opened = [crate::titlebar::Asked::OpenJob("job-start-card".into()), crate::titlebar::Asked::Place("jobs")];
+    let place = |key: &str, page: &super::page::FeaturePageView| {
+        let Body::Rows(rows) = &page.body else { panic!("rows") };
+        page.items.iter().position(|item| matches!(item, Item::Row(row) if rows[*row].key == key)).expect("a row")
+    };
+    let (walk, sketch) = page.read_with(cx, |page, _| (place("walks/start-card", page), place("sketch:Start card with the model picker", page)));
+    page.update(cx, |page, cx| page.pick_row(walk, cx));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(*asked.borrow(), [], "Fleet names no Job for the walk, so nothing opens");
+    page.update(cx, |page, cx| page.pick_row(sketch, cx));
+    cx.simulate_keystrokes("enter");
+    assert_eq!(*asked.borrow(), opened, "the Job opens, then the Jobs screen comes to the front");
+    assert_eq!(cx.update(|_, cx| artifact_link::take(cx)), Some(wanted.clone()), "the artifact is left for the Job's view to open");
+    asked.borrow_mut().clear();
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    let at = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::ListBoxOption, "Start card with the model picker").map(|one| one.bounds.center())).expect("drawn");
+    cx.simulate_click(at, Modifiers::none());
+    assert_eq!(*asked.borrow(), opened, "a press opens it as Enter does");
+    assert_eq!(cx.update(|_, cx| artifact_link::take(cx)), Some(wanted));
 }
