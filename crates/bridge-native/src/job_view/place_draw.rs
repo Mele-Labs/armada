@@ -560,7 +560,7 @@ impl JobView {
             "browser" => ("globe", format!("Job column: {word}")),
             "loadout" => ("layers", format!("Job column: {word}")),
             "tokens" => ("chart-column", format!("Job column: {word}")),
-            crate::api_client::KIND => ("webhook", format!("Job column: {word}")),
+            crate::api_client::KIND => ("arrow-right-left", format!("Job column: {word}")),
             super::loadout_tab::ITEM_KIND => (Self::loadout_item_look(tab_of).0, format!("Job tab: {word}")),
             "terminal" => (self.view_glyph(job, tab_of), format!("Job column: {word}")),
             _ => match row {

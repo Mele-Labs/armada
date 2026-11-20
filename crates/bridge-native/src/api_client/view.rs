@@ -223,7 +223,6 @@ impl ApiClient {
                 .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
                 .tooltip(tip("Environment, \u{2318}E cycles"))
                 .on_click(cx.listener(|this, _, window, cx| this.pick(Pick::Environment, false, window, cx)))
-                .child(glyph(look, "server", token::FG_MUTED))
                 .child(SharedString::from(environment.clone().unwrap_or_else(|| "None".to_string())))
                 .children(caution),
             Role::Button,

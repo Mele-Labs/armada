@@ -40,7 +40,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("jobs", "Jobs", "link"),
     ("ledger", "Ledger", "files"),
     ("files", "Files", "folder-tree"),
-    (crate::api_client::KIND, crate::api_client::NAME, "webhook"),
+    (crate::api_client::KIND, crate::api_client::NAME, "arrow-right-left"),
     ("subagents", "Subagents", "zap"),
     ("checks", "Checks", "shield-check"),
     ("workflow", "Workflow", "workflow"),
