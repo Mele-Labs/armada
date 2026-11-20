@@ -21,7 +21,7 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `path`, one of Mac `mac`'s `/other_mac/*` reads, decoded as `what`. **What it refuses is passed on as it was said there.**
-    async fn read_from_other_mac<T: serde::de::DeserializeOwned>(&self, mac: &str, path: &str, what: &'static str) -> Result<T, Refusal> {
+    pub(crate) async fn read_from_other_mac<T: serde::de::DeserializeOwned>(&self, mac: &str, path: &str, what: &'static str) -> Result<T, Refusal> {
         let answered = self.phone_switch()?.read_other_mac(mac, path).await;
         let (status, bytes) = answered.map_err(|why| Refusal::Fault(WireError::raised(MAC_UNREACHABLE, why, self.run_id())))?;
         if (200..300).contains(&status) {

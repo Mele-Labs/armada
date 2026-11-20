@@ -115,6 +115,8 @@ pub struct FakeDaemon {
     pub words_on: Mutex<Option<(u16, fn(&ipc::door::Reachable) -> bool)>>,
     /// The peer port a test says a session Fleet hosts for Bridge holds.
     pub session_on: Mutex<Option<u16>>,
+    /// Whether the session at [`Self::session_on`] is the Operator's own.
+    pub session_is_the_operator: Mutex<bool>,
     /// Every pull request page read for him, by manifest id and number, in order.
     pub opened: std::sync::Arc<Mutex<Vec<(String, u64)>>>,
     /// Every Studio held, starting with [`THE_STUDIO`]. `#1285`.
@@ -159,6 +161,7 @@ impl FakeDaemon {
             asked_to_run: Mutex::new(Vec::new()),
             words_on: Mutex::new(None),
             session_on: Mutex::new(None),
+            session_is_the_operator: Mutex::new(false),
             opened: std::sync::Arc::default(),
             studios: Mutex::new(vec![studios::the_studio()]),
             added_by: Mutex::new(Vec::new()),

@@ -1104,19 +1104,8 @@ impl JobView {
                         // Open for new words, the bubble takes the room it may, so the box is not a sliver.
                         .when(open, |column| column.w(relative(0.8)).items_stretch())
                         .child(labelled(
-                            div()
+                            bubble(look)
                                 .id(SharedString::from(format!("words:{id}")))
-                                // Held to the column, so a long line or list item wraps inside it
-                                // rather than widening the bubble past the thread's edge.
-                                .min_w_0()
-                                .max_w_full()
-                                .px(look.length(token::SPACE_4) + look.length(token::SPACE_1))
-                                .py(look.length(token::SPACE_3))
-                                .rounded(look.length(token::RADIUS_LG))
-                                .bg(look.color(token::FG_DEFAULT).opacity(0.07))
-                                .flex()
-                                .flex_col()
-                                .gap(look.length(token::SPACE_2))
                                 .when(open, |words| words.border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::FOCUS_RING)))
                                 .child(words)
                                 .children(debug)
@@ -1135,6 +1124,24 @@ impl JobView {
         .into_any_element()
     }
 
+}
+
+/// His words' bubble, as the thread draws it: the Operator's talk draws his words in the same one.
+pub(crate) fn bubble(look: &Look) -> gpui::Div {
+    div()
+        // Held to the column, so a long line or list item wraps inside it rather than widening the bubble past the thread's edge.
+        .min_w_0()
+        .max_w_full()
+        .px(look.length(token::SPACE_4) + look.length(token::SPACE_1))
+        .py(look.length(token::SPACE_3))
+        .rounded(look.length(token::RADIUS_LG))
+        .bg(look.color(token::FG_DEFAULT).opacity(0.07))
+        .flex()
+        .flex_col()
+        .gap(look.length(token::SPACE_2))
+}
+
+impl JobView {
     /// A name drawn as a read-only chip: a file, or a tag the words did not place after its kind.
     fn chip(&self, from: Option<&str>, said: &str, look: &Look) -> gpui::Div {
         div()

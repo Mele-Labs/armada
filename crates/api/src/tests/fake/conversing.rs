@@ -16,7 +16,9 @@ impl crate::Admitting for FakeDaemon {
     fn words_reach_at(&self, caller: crate::Caller) -> Option<crate::WordsReach> {
         let session = *self.session_on.lock().expect("not poisoned");
         if session.is_some() && caller.port() == session {
-            return Some(crate::WordsReach::of_a_hosted_session());
+            let reach = crate::WordsReach::of_a_hosted_session();
+            let operator = *self.session_is_the_operator.lock().expect("not poisoned");
+            return Some(if operator { reach.the_operator() } else { reach });
         }
         let planted = *self.words_on.lock().expect("not poisoned");
         let (port, may) = planted?;

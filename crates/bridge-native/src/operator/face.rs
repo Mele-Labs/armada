@@ -37,12 +37,12 @@ pub fn dispatch_kind(kind: ipc::DispatchKind) -> Kind {
     }
 }
 
-/// What the chip's tooltip says: the word is a hint and nothing is decided by it.
+/// What the chip's tooltip says: picked, it turns the send into work for the Operator.
 pub fn dispatch_kind_tip(kind: ipc::DispatchKind) -> &'static str {
     match kind {
-        ipc::DispatchKind::Idea => "A hint that this is an idea. The Operator decides what happens to it",
-        ipc::DispatchKind::Feature => "A hint that this is a feature. The Operator decides what happens to it",
-        ipc::DispatchKind::Bug => "A hint that this is a bug. The Operator decides what happens to it",
+        ipc::DispatchKind::Idea => "Send it as an idea, work for the Operator to act on",
+        ipc::DispatchKind::Feature => "Send it as a feature, work for the Operator to act on",
+        ipc::DispatchKind::Bug => "Send it as a bug, work for the Operator to act on",
     }
 }
 
@@ -62,6 +62,34 @@ pub fn card_kind(kind: OperatorCardKind) -> Kind {
     }
 }
 
+/// A card he picked that came back to the front: the Operator reported it failed, or nothing settled it in time.
+pub fn returned(turn: &OperatorTurnItem) -> bool {
+    turn.card.as_ref().is_some_and(|card| card.returned.is_some())
+}
+
+/// The first line of a returned card's read: what he picked, and why it came back.
+pub fn returned_lead(turn: &OperatorTurnItem) -> Option<SharedString> {
+    let card = turn.card.as_ref()?;
+    let back = card.returned.as_ref()?;
+    Some(match &card.picked {
+        Some(picked) => format!("You picked {}. {}", picked.option, back.why).into(),
+        None => back.why.clone().into(),
+    })
+}
+
+/// A card as Fleet serves it once he has pressed `option` at `at`: picked, with no steps yet and nothing returned.
+/// The page shows it so at once, before Fleet's page says so.
+pub fn picked_card(turn: &OperatorTurnItem, option: &str, at: &str) -> Option<OperatorTurnItem> {
+    let card = turn.card.as_ref()?;
+    let picked = ipc::OperatorCardPicked { option: option.to_string(), at: ipc::Instant::carried(at) };
+    Some(OperatorTurnItem { card: Some(ipc::OperatorCard { picked: Some(picked), steps: Vec::new(), returned: None, ..card.clone() }), ..turn.clone() })
+}
+
+/// The option he picked on a card the Operator is working on.
+pub fn picked_option(turn: &OperatorTurnItem) -> Option<SharedString> {
+    turn.card.as_ref()?.picked.as_ref().map(|picked| picked.option.clone().into())
+}
+
 /// One entry of the feed: its glyph, its hue and the word its tooltip says.
 pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) {
     match kind {
@@ -78,6 +106,9 @@ pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) 
 pub const QUESTION: Kind = kind("Question", "message-circle-question-mark", REVIEW);
 
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
+    if returned(turn) {
+        return kind("Did not settle", "circle-alert", FAILED);
+    }
     if let Some(card) = &turn.card {
         return card_kind(card.kind);
     }
@@ -95,7 +126,7 @@ pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
         (WaitingSource::Sketch, _) => kind("Sketch", "pencil-ruler", REVIEW),
         (WaitingSource::Document, _) => kind("Document", "file-text", REVIEW),
         (WaitingSource::Draft, _) => kind("Draft", "file-pen-line", REVIEW),
-        (WaitingSource::ReadyToTry, _) => kind("Try", "bell-ring", REVIEW),
+        (WaitingSource::ReadyToTry, _) => kind("Ready to try", "bell-ring", REVIEW),
         (WaitingSource::Permission, _) => kind("Permission", "shield", REVIEW),
         (WaitingSource::AskCard, _) | (WaitingSource::WindowAsk, _) => QUESTION,
         _ if !item.options.is_empty() => QUESTION,
@@ -141,6 +172,9 @@ pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString 
     if goes_to_look(turn) {
         return "Go look".into();
     }
+    if goes_to_review(turn) {
+        return "Review".into();
+    }
     let pick = chosen.map(SharedString::from).or_else(|| pick_of(turn));
     match pick {
         None => "Yes".into(),
@@ -151,12 +185,31 @@ pub fn pick_word(turn: &OperatorTurnItem, chosen: Option<&str>) -> SharedString 
 
 /// The pick's sentence, where its button cannot say it: a pick that is neither an option nor Later.
 pub fn pick_sentence(turn: &OperatorTurnItem) -> Option<SharedString> {
+    // The pick of an item read in the Review panel stands there, under the Operator's name.
+    if goes_to_review(turn) {
+        return None;
+    }
     pick_of(turn).filter(|pick| !is_later(pick) && !turn.item.options.iter().any(|option| option.label == pick.as_ref()))
 }
 
 /// A walk a Job holds, with no pick of Later: its press opens the Job to look at it, and says no Yes.
 pub fn goes_to_look(turn: &OperatorTurnItem) -> bool {
     kind_of(turn).word == "Walk" && turn.session_id.is_some() && !picks_later(turn)
+}
+
+/// A plan, sketch, page or draft a Job holds, with no pick of Later: its press opens the Review panel over the page with it
+/// chosen, where it is read and answered, and says no Yes.
+pub fn goes_to_review(turn: &OperatorTurnItem) -> bool {
+    turn.card.is_none()
+        && turn.session_id.is_some()
+        && matches!(turn.item.source, WaitingSource::Plan | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Draft)
+        && !returned(turn)
+        && !picks_later(turn)
+}
+
+/// A Job's Ready to try: its answers are the shared card's own, drawn on the page, so the page's keys answer nothing.
+pub fn answers_on_card(turn: &OperatorTurnItem) -> bool {
+    turn.card.is_none() && turn.session_id.is_some() && turn.item.source == WaitingSource::ReadyToTry && !returned(turn)
 }
 
 /// Whether the Operator's pick is Later, which a Yes does.
@@ -252,6 +305,22 @@ mod tests {
         assert!(goes_to_look(&walk));
         assert_eq!(pick_word(&walk, None).as_ref(), "Go look");
         assert!(!goes_to_look(&turn(PLAN)), "a plan still takes its pick");
+    }
+
+    #[test]
+    fn a_plan_a_job_holds_says_review_and_a_build_to_try_answers_on_its_own_card() {
+        let plan = turn(PLAN);
+        assert!(goes_to_review(&plan));
+        assert_eq!(pick_word(&plan, None).as_ref(), "Review");
+        assert_eq!(pick_sentence(&plan), None, "the pick stands in the Review panel");
+        let mut later = turn(PLAN);
+        later.read.as_mut().expect("a read").pick = "Later".into();
+        assert!(!goes_to_review(&later), "a pick of Later is still done by Yes");
+        assert!(!goes_to_review(&turn(WALK)) && !goes_to_review(&turn(RED)));
+        let build = turn(r#"{"id":"turn:4","kind":"decision","session_id":"s-3","job":"Native Bridge foundation","item":{"id":"try:s-3","text":"Ready to try","since":"2026-11-11T12:00:00Z","source":"ready_to_try"},"raised_at":"2026-11-11T12:00:00Z"}"#);
+        assert!(answers_on_card(&build) && !goes_to_review(&build));
+        assert!(!answers_on_card(&plan));
+        assert_eq!(kind_of(&build).word, "Ready to try", "its chip in Next up names the kind whole");
     }
 
     #[test]

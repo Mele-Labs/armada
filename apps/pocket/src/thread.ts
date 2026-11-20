@@ -30,6 +30,7 @@ import { fileCallOf, keptFrom, sessionOfRecord, sketchCallOf } from "./kit/scree
 import { withDocuments } from "./kit/screens/thread-cards";
 
 import { asks, foldedSaid, keptAt, ofParts } from "./artifacts";
+import { revisionSaid, type RowFacts } from "./kit/components/compositions/BandCard/BandCard";
 
 const NOTHING_BESIDE = {
   picture: () => undefined,
@@ -717,7 +718,79 @@ export function documentOf(
  * revision was kept, and the older cards of the drawings and pages that joined one left out, since the artifact draws
  * them. One that still asks is a card at the thread's foot (`ArtifactCard`), so it is not a row here.
  */
+/** What the artifact list says of a sketch, page or draft row, which its card's band draws: its newest revision, who made it, what it is for. */
+function factsOf(artifact: JobArtifact): RowFacts {
+  const last = artifact.revisions[artifact.revisions.length - 1];
+  return {
+    ...(last === undefined
+      ? {}
+      : {
+          revision: {
+            number: last.number,
+            said: revisionSaid(last.number, last.by, last.at),
+          },
+        }),
+    ...(last?.by === "owner"
+      ? {
+          yours: `r${String(last.number)} is your edit`,
+        }
+      : {}),
+    ...(artifact.for_line === undefined
+      ? {}
+      : {
+          forLine: artifact.for_line,
+        }),
+    ...(artifact.words === undefined
+      ? {}
+      : {
+          words: artifact.words,
+        }),
+  };
+}
+
+/** The thread's sketch, page and draft rows, each with what the list holds of its artifact. */
+export function withFacts(
+  rows: readonly SessionThreadRow[],
+  artifacts: readonly JobArtifact[] | undefined,
+): SessionThreadRow[] {
+  if (artifacts === undefined || artifacts.length === 0)
+    return [
+      ...rows,
+    ];
+  const by = new Map(
+    artifacts.map((one) => [
+      one.id,
+      one,
+    ]),
+  );
+  return rows.map((row) => {
+    const one =
+      row.kind === "sketch"
+        ? by.get(row.sketch)
+        : row.kind === "document"
+          ? by.get(row.page)
+          : row.kind === "draft"
+            ? by.get(`draft:${row.title}`)
+            : undefined;
+    return one === undefined ||
+      (row.kind !== "sketch" && row.kind !== "document" && row.kind !== "draft")
+      ? row
+      : {
+          ...row,
+          facts: factsOf(one),
+        };
+  });
+}
+
 export function withArtifacts(
+  rows: readonly SessionThreadRow[],
+  artifacts: readonly JobArtifact[] | undefined,
+  onOpen: (artifact: string) => void,
+): SessionThreadRow[] {
+  return withParts(withFacts(rows, artifacts), artifacts, onOpen);
+}
+
+function withParts(
   rows: readonly SessionThreadRow[],
   artifacts: readonly JobArtifact[] | undefined,
   onOpen: (artifact: string) => void,

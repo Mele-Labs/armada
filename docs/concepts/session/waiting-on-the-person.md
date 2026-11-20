@@ -20,6 +20,9 @@ An item kept already, or written again as it was, is never taken off for it.
 **In a repository with a preview it refuses an item that asks him to try the Job's own change** (`fleet.session_waiting_look`): an `approve_pr` act on one of the Job's pull requests, `approves: true` whose words name one of them or a branch it offered, or words opening with *Try*, *Look at* or *Test* that name one (`look_asks.rs`).
 The Ready to try card of `offer_preview` asks him that, and his Looks good closes the `you_approved` gate, so the refusal tells the agent to offer the branch; a decision with options and an item about another Job's work stand.
 On 17 Nov 2026 Jobs raised such items above the card that asked the same thing, though the job note said not to; one kept before the rule comes off every read once the Job's branch is on the preview list.
+**It refuses an `approves` item whose `artifact` names one of the Job's artifacts that already asks him** (`fleet.session_waiting_artifact_asks`, `approval_items.rs`): the sketch or page has its own Approve.
+His Approve of an artifact takes off the `approves` items naming it, as an answer to one would; an item naming no artifact stands.
+On 19 Nov 2026 a Job drew a sketch and also asked him to approve it, and the second ask stayed after he approved the first.
 **A `run` item meant for another of his Macs names it in `act.on`**, and Bridge offers no Run for it on any other Mac (`run_macs.rs`, `job_view/run_mac.rs`).
 On 18 Nov 2026 a Job asked him to run a command on his other Mac, and Run ran it on the one he sat at.
 Only the act says it; the item's words are never read for a Mac.

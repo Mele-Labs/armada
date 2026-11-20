@@ -380,13 +380,13 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
-pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
     FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
-pub use librarian::{LibrarianPart, LibrarianRan, LibrarianState, RunLibrarian};
+pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};
 pub use features::{CheckCommitFeature, CommitFeatureChecked, feature_in_detail, FeatureNames, FeaturesHandedOver, HandOverFeatures, ARTIFACT_FEATURE};
 pub use job_asks::{AskHeld, ConflictRaised, HeldAsked, HeldChecks, OperatorAskJob, OperatorConflict, OperatorHeld, RaiseConflict};
@@ -499,7 +499,7 @@ pub use hosted_sessions::{
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
-    SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
+    SetSessionWorkflow, SkipSessionStep, JumpSessionStep, SessionSubagent, SessionThread, SessionWindow, SessionTurn, SessionUpload, ToolMessage, MessagePeer, ToolSubagent, ToolSubagentState,
     SessionVoice, SessionVoiceNamed, StartSession, StopSession, RetryHandoff, PauseSession, ResumeSession, SnoozeSession, SessionPaused, StartAgain, MendSessionTools, StartFailed, SetSessionAutoLand, SetSessionProject, TagKind, TakeHeld, TerminalAsk,
     TerminalAsked, TuneSession, MessageReach, MessageTo, QuietJob, QuietJobs, QuietWhy,
 };

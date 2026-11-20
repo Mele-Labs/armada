@@ -618,13 +618,19 @@ jobs:
           cmd: python3 scripts/test_format_catch_up.py
 
   # The desktop tests that read no surface: main and the renderer's own modules,
-  # mostly node. Linux, one job, no shards: the files add up to 44 seconds.
+  # mostly node. Two shards: one Chromium page lost its connection after about
+  # 475 of 534 files in 3 of 9 runs on 19 Nov, a different file each time.
+  # armada-uxuk.
   desktop_unit:
-    name: desktop_unit
+    name: desktop_unit ${{ matrix.shard }}/2
     needs: plan
     if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop/unit:desktop_test')
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: ./.github/actions/node-setup
@@ -633,7 +639,7 @@ jobs:
       - uses: ./.github/actions/run-check
         with:
           name: apps/desktop/unit:desktop_test
-          cmd: pnpm --dir apps/desktop exec vitest run --maxWorkers="$WIDTH" --project 'desktop*'
+          cmd: pnpm --dir apps/desktop exec vitest run --maxWorkers="$WIDTH" --project 'desktop*' --shard=${{ matrix.shard }}/2
 
   # The name a ruleset will require, once desktop_test is stable. Passes when
   # the plan skipped the unit job, fails when it failed or was cancelled.

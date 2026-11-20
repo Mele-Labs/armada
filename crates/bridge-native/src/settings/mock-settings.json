@@ -135,8 +135,8 @@
     "max": 500,
     "unit": "GiB"
    },
-   "default": 100,
-   "value": 100,
+   "default": 60,
+   "value": 60,
    "saved": null,
    "applies": "live",
    "pending_restart": false,

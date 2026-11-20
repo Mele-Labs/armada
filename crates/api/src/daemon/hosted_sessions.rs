@@ -641,6 +641,15 @@ pub trait HostedSessions: Send + Sync + 'static {
         id: SessionId,
     ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
 
+    /// `get_session` with `?last=`: the newest rows of the thread, or the ones before a row the client holds, and
+    /// whether older ones stand. **For a Job held from another Mac the window is cut where the Job is held**, so only
+    /// it crosses the link.
+    fn get_session_window(
+        self: Arc<Self>,
+        id: SessionId,
+        window: ipc::SessionWindow,
+    ) -> impl Future<Output = Result<SessionThread, Refusal>> + Send;
+
     /// `get_job_thread`: the Job's thread folded, as whole items. [`Refusal::Unacceptable`] for a `before` no
     /// item holds.
     fn get_job_thread(

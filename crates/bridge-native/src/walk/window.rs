@@ -888,7 +888,7 @@ impl Render for WalkWindow {
                 .on_action(cx.listener(Self::reload))
                 .on_action(cx.listener(Self::approve))
                 .on_action(cx.listener(Self::take_note))
-                // In a development build the layer's ⌥⌘A is bound with no context, which gpui ranks
+                // The layer's ⌥⌘A is bound with no context, which gpui ranks
                 // above the walk's own; taken here first, it is the walk's note wherever the keys are.
                 // A step's key while playing goes on to the screen, as the notes walk shows the layer.
                 .capture_action(cx.listener(|this, _: &crate::annotate::Toggle, window, cx| {

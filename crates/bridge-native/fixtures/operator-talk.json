@@ -3,6 +3,7 @@
  "head": { "trail": { "started": "2026-11-11T09:00:00-05:00", "bays": [] } },
  "items": [
   { "kind": "row", "row": { "kind": "message", "id": "op-001", "at": "2026-11-11T09:14:00-05:00", "from": { "kind": "you" }, "text": "Is anything stuck?" } },
-  { "kind": "row", "row": { "kind": "message", "id": "op-002", "at": "2026-11-11T09:14:30-05:00", "from": { "kind": "agent" }, "text": "No. Store reports its size waited on a slot for a while, and it has one now." } }
+  { "kind": "row", "row": { "kind": "message", "id": "op-002", "at": "2026-11-11T09:14:30-05:00", "from": { "kind": "agent" }, "text": "No. Store reports its size waited on a slot for a while, and it has one now." } },
+  { "kind": "document", "id": "document:backlog-report:r1", "at": "2026-11-11T12:30:00-05:00", "page": "backlog-report", "title": "Backlog report for armada", "revision": 1 }
  ]
 }

@@ -503,6 +503,10 @@ impl HostedSessions for FakeDaemon {
         Err(nothing_hosted())
     }
 
+    async fn get_session_window(self: Arc<Self>, _id: SessionId, _window: ipc::SessionWindow) -> Result<SessionThread, Refusal> {
+        Err(nothing_hosted())
+    }
+
     async fn get_job_thread(self: Arc<Self>, _read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
         Err(nothing_hosted())
     }

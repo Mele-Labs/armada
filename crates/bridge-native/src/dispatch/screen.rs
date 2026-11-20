@@ -240,6 +240,15 @@ pub fn open_new_project(cx: &mut App) {
     reach(cx, |this, window, cx| this.new_project.update(cx, |sheet, cx| sheet.show(window, cx)));
 }
 
+/// The switcher's Members: the New project sheet opens on the project, filled in, to edit.
+pub fn open_project_members(at: usize, cx: &mut App) {
+    reach(cx, move |this, window, cx| {
+        let Some(bar) = titlebar::live(cx) else { return };
+        let Some(id) = bar.read(cx).face.projects.get(at).map(|project| project.id.to_string()) else { return };
+        this.new_project.update(cx, |sheet, cx| sheet.show_edit(&id, window, cx));
+    });
+}
+
 /// The switcher's In this build: the sheet of the running build's notes opens again.
 pub fn open_build_notes(cx: &mut App) {
     reach(cx, |this, window, cx| this.build_notes.update(cx, |sheet, cx| sheet.show(window, cx)));
@@ -309,9 +318,9 @@ impl DispatchScreen {
         let targets = face.mentions.jobs.clone();
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
         let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
-        // The layer is mounted only where Electron's is: a development build.
+        // The layer is mounted in every build, shipped or not.
         annotate::forget_awake(cx);
-        let layer = annotate::dev_build().then(|| new_layer(&area, targets, true, cx));
+        let layer = Some(new_layer(&area, targets, true, cx));
         // On a live Fleet the New project sheet sends to it; a walk's has the mock's answers.
         let wire = match jobs.read(cx).list.read(cx).fleet() {
             Some(fleet) => crate::new_project::wire::Wire::Live(fleet),
@@ -325,6 +334,11 @@ impl DispatchScreen {
         let mut subs = vec![
             cx.subscribe_in(&sheet, window, |this, _, asked: &Asked, window, cx| this.sheet_asked(asked, window, cx)),
             cx.subscribe_in(&new_project, window, |this, _, made: &crate::new_project::Made, window, cx| this.project_made(made, window, cx)),
+            cx.subscribe(&new_project, |_, _, edited: &crate::new_project::Edited, cx| {
+                if let Some(bar) = titlebar::live(cx) {
+                    bar.update(cx, |bar, cx| bar.set_projects(&edited.served, &edited.projects, cx));
+                }
+            }),
         ];
         if let Some(layer) = &layer {
             subs.push(cx.observe(layer, |_, _, cx| cx.notify()));
@@ -799,6 +813,22 @@ impl DispatchScreen {
             let targets = targets_of(list.read(cx).records());
             watched.update(cx, |layer, cx| layer.set_targets(targets, cx));
         }));
+        // The Operator's session is not in that list, so it is read from the jobs Fleet holds, where it is kept
+        // with its own flag: the picker offers it first while one runs.
+        if let Some(fleet) = list.read(cx).fleet() {
+            let operator_of = |fleet: &Entity<crate::fleet::FleetConnection>, cx: &App| -> Option<SharedString> {
+                let held = fleet.read(cx).held();
+                let running = held.jobs.iter().find(|record| record.operator && record.state == ipc::SessionState::Live && record.hosted.is_some());
+                running.map(|record| record.id.as_str().to_string().into())
+            };
+            let operator = operator_of(&fleet, cx);
+            layer.update(cx, |layer, cx| layer.set_operator(operator, cx));
+            let watched = layer.clone();
+            self._subs.push(cx.observe(&fleet, move |_, fleet, cx| {
+                let operator = operator_of(&fleet, cx);
+                watched.update(cx, |layer, cx| layer.set_operator(operator, cx));
+            }));
+        }
         self._subs.push(cx.subscribe_in(&layer, window, |this, layer, asked: &annotate::Asked, window, cx| this.send_notes(layer.clone(), asked, window, cx)));
     }
 
@@ -855,11 +885,15 @@ impl DispatchScreen {
             let answer = task.await;
             let _ = cx.update(|_, cx| match answer {
                 Ok(Sent::Into { session, title }) => {
+                    // The Operator's session is no Job in the list: he stays where he was, the bar says it was sent.
+                    let operator = layer.read(cx).operator.as_ref().is_some_and(|operator| **operator == *session);
                     layer.update(cx, |layer, cx| {
                         layer.sending_to(session.clone().into());
                         layer.sent(&title, false, cx);
                     });
-                    list.update(cx, |list, cx| list.open(session.into(), cx));
+                    if !operator {
+                        list.update(cx, |list, cx| list.open(session.into(), cx));
+                    }
                 }
                 Ok(Sent::Started { session, title }) => {
                     layer.update(cx, |layer, cx| {
@@ -1042,6 +1076,11 @@ impl DispatchScreen {
                 let list = self.jobs.read(cx).list.clone();
                 list.update(cx, |list, cx| list.hold_started(&idea, cx));
             }
+            "layer-operator" => {
+                // The Operator's session starts: the picker's first row comes.
+                let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
+                layer.update(cx, |layer, cx| layer.set_operator(Some("mock-operator".into()), cx));
+            }
             "layer-sent" | "layer-started" | "layer-refused" => {
                 let layer = self.layer.clone().ok_or("the annotation layer is not in this build")?;
                 layer.update(cx, |layer, cx| {
@@ -1133,7 +1172,7 @@ mod tests {
             let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
             DispatchScreen::new(jobs, &records, window, cx)
         });
-        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("a development build mounts the layer");
+        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("every build mounts the layer");
         assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
         screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
         assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");

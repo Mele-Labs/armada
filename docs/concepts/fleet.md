@@ -491,6 +491,12 @@ So after each list Fleet reads, by number and one call each, every pull request 
 It is added to the list as one entry, so a pull request in both is told once, and the hub shows it in Bridge.
 A pull request nobody holds is never read by number: paging every open one costs two or three calls a round to read pull requests nobody owns.
 
+**An open pull request a Job holds is also read when the forge says it changed.** Fleet subscribes to the forge's event stream for each, and any event reads that one pull request again through the same path as a person's Refresh, so each notice is still told once.
+Several events for one pull request within two seconds are one read, and a stream that attaches or reattaches reads it once, because nothing is replayed after a disconnect.
+A subscription lasts a day: Fleet makes it again an hour before it ends, ends it when the pull request merges or closes, and holds at most 100, the newest first.
+The pull reading above is unchanged and still runs every interval, so events only make a notice earlier.
+An account the forge has events off for (a 403 that says so) is not subscribed at all: Fleet holds nothing, says so once in its log, and asks again every six hours.
+
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said.
 Hung again, it is told like any failure.
 

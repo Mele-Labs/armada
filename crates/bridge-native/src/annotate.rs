@@ -11,7 +11,7 @@
 //! The rest of the layer is here: ⌥⌘S for a note on the whole window, the opened note's card with
 //! its acts, the All notes panel (`panel.rs`) and the card's tools and pictures (`tools.rs`).
 //!
-//! **Available only in a development build**, as Electron's is ([`dev_build`]).
+//! **Available in every build**, shipped or not: the owner chose it over Electron's development-build gate.
 
 pub mod live;
 mod panel;
@@ -20,7 +20,7 @@ pub mod tools;
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -65,40 +65,9 @@ pub fn forget_awake(cx: &mut App) {
 
 /// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
 /// registry does not list them, so they are restated here until it does. Bound with no context, so
-/// they work from any focus, and only in a development build. The screen that hosts the layer
-/// answers them (`dispatch::screen::bind`).
+/// they work from any focus. The screen that hosts the layer answers them (`dispatch::screen::bind`).
 pub fn bind(cx: &mut App) {
-    if dev_build() {
-        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
-    }
-}
-
-/// Whether this is a development build: not packaged, or a kept build run from a source folder.
-///
-/// Electron's gate is `!app.isPackaged || process.defaultApp` (`M/dev-build.ts`): the dev copy of the
-/// app is a bundle in name, so a bundle started with a source folder still counts. The native
-/// reading of the same: the executable is **packaged** when it lives inside a `.app` bundle's
-/// `Contents/MacOS`; a development build is any executable that is not (cargo's `target`), a bundle
-/// kept as a build (`scripts/preview` and `scripts/restart` put a `build.toml` beside the `.app`, as
-/// Electron's preview is started with its folder), **or** a bundle started with its working
-/// directory inside a source folder, one that has a `.git` above it. Launched from the Dock the
-/// working directory is `/` and no record stands beside it, so a shipped app is never one.
-pub fn dev_build() -> bool {
-    let exe = std::env::current_exe().ok();
-    let cwd = std::env::current_dir().ok();
-    is_dev_build(exe.as_deref(), cwd.as_deref(), &|dir: &Path| dir.join(".git").exists(), &|dir: &Path| dir.join("build.toml").exists())
-}
-
-pub fn is_dev_build(exe: Option<&Path>, cwd: Option<&Path>, has_git: &dyn Fn(&Path) -> bool, kept: &dyn Fn(&Path) -> bool) -> bool {
-    let bundle = exe.and_then(|exe| {
-        exe.ancestors().find(|at| {
-            at.extension().is_some_and(|ext| ext == "app") && exe.strip_prefix(at).is_ok_and(|inside| inside.starts_with("Contents/MacOS"))
-        })
-    });
-    match bundle {
-        None => true,
-        Some(bundle) => bundle.parent().is_some_and(kept) || cwd.is_some_and(|cwd| cwd.ancestors().any(has_git)),
-    }
+    cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -198,6 +167,8 @@ pub struct Layer {
     pub(crate) opened: Option<u32>,
     /// The live Jobs the picker lists.
     pub targets: Vec<Offered>,
+    /// The session of the Operator while one runs: the picker's first choice, and none while it does not.
+    pub operator: Option<SharedString>,
     menu: Option<Menu>,
     split_at: Rc<Cell<Option<Bounds<Pixels>>>>,
     /// Where the card's and the All notes header's Send to job are drawn, so the picker opens beside them.
@@ -241,6 +212,7 @@ impl Layer {
             sending_session: None,
             opened: None,
             targets,
+            operator: None,
             menu: None,
             split_at: Rc::default(),
             card_at: Rc::default(),
@@ -561,7 +533,7 @@ impl Layer {
         // The saved note stays open on Send to job, so the send is all keys: Enter opens the live Jobs, ⌥1–9
         // or Enter picks one, Esc closes. With no Job live the keys wait on Start job.
         self.open_note(id, window, cx);
-        let start = if self.targets.is_empty() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
+        let start = if self.no_target() { self.card_keys.1.clone() } else { self.card_keys.0.clone() };
         window.defer(cx, move |window, cx| window.focus(&start, cx));
     }
 
@@ -586,6 +558,19 @@ impl Layer {
         self.paste = None;
         cx.emit(Asked::Send { to, notes });
         cx.notify();
+    }
+
+    /// The Operator's session while one runs, as Fleet says it now.
+    pub fn set_operator(&mut self, session: Option<SharedString>, cx: &mut Context<Self>) {
+        if self.operator != session {
+            self.operator = session;
+            cx.notify();
+        }
+    }
+
+    /// Nowhere to send a note: no Job is live and no Operator runs.
+    pub(crate) fn no_target(&self) -> bool {
+        self.targets.is_empty() && self.operator.is_none()
     }
 
     /// The live Jobs the picker lists, as Fleet says them now.
@@ -647,7 +632,8 @@ impl Layer {
         for id in ids {
             self.changed(id, cx);
         }
-        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming("Sent to Job ", title, "", false) });
+        let lead = if self.operator.as_ref() == Some(&session) { "Sent to " } else { "Sent to Job " };
+        self.said = Some(if new_job { Said::naming("Job started: ", title, "", false) } else { Said::naming(lead, title, "", false) });
         cx.notify();
     }
 
@@ -736,23 +722,21 @@ impl Layer {
         if self.sending.is_some() || self.menu.is_some() {
             return;
         }
-        // Searchable by typing, and the first nine take ⌥1–9, as Classic's picker and the dispatch chips.
-        let entries: Vec<Entry> = std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
-            .chain(self.targets.iter().enumerate().map(|(at, job)| Entry::Item {
-                id: id_of(format!("job:{}", job.id)),
-                label: job.title.clone(),
-                icon: Some("square-terminal"),
-                danger: false,
-                key: (at < 9).then(|| format!("⌥{}", at + 1).into()),
-                off: None,
-            }))
-            .collect();
-        let dropdown = cx.new(|cx| Dropdown::new("Send to a Job", entries, at, corner, true, cx));
+        let entries = picker_entries(self.operator.is_some(), &self.targets);
+        let operator = self.operator.is_some();
+        let dropdown = cx.new(|cx| {
+            let menu = Dropdown::new("Send to a Job", entries, at, corner, true, cx);
+            if operator { menu.tip(OPERATOR_ROW, OPERATOR_TIP) } else { menu }
+        });
         let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             let ids = this.menu.take().map(|menu| menu.ids).unwrap_or_default();
             this.refocus(window, cx);
-            let job = id.strip_prefix("job:").and_then(|id| this.targets.iter().find(|one| one.id == id)).cloned();
+            let job = if *id == OPERATOR_ROW {
+                this.operator.clone().map(|session| Offered { id: session, title: OPERATOR_TITLE.into() })
+            } else {
+                id.strip_prefix("job:").and_then(|id| this.targets.iter().find(|one| one.id == id)).cloned()
+            };
             if job.is_some() {
                 this.send(ids, job, cx);
             }
@@ -829,6 +813,29 @@ impl Layer {
             window.focus(&focus, cx);
         }
     }
+}
+
+/// The picker's row for the Operator's session, and what it is called where the notes say where they went.
+const OPERATOR_ROW: &str = "operator";
+const OPERATOR_TITLE: &str = "Operator";
+const OPERATOR_TIP: &str = "Sends these notes to the Operator's thread";
+
+/// The picker's rows after its search: the Operator first while its session runs, then the live Jobs, the
+/// first nine rows taking ⌥1–9 as Classic's picker and the dispatch chips do.
+fn picker_entries(operator: bool, targets: &[Offered]) -> Vec<Entry> {
+    let keyed = |at: usize| (at < 9).then(|| SharedString::from(format!("⌥{}", at + 1)));
+    let first = usize::from(operator);
+    std::iter::once(Entry::Search { label: "Find a Job", to_rule: false })
+        .chain(operator.then(|| Entry::Item { id: OPERATOR_ROW, label: OPERATOR_TITLE.into(), icon: Some("bot"), danger: false, key: keyed(0), off: None }))
+        .chain(targets.iter().enumerate().map(|(at, job)| Entry::Item {
+            id: id_of(format!("job:{}", job.id)),
+            label: job.title.clone(),
+            icon: Some("square-terminal"),
+            danger: false,
+            key: keyed(first + at),
+            off: None,
+        }))
+        .collect()
 }
 
 /// Start job and the caret that lists the Jobs, as Electron's `SplitButton`: one control in two
@@ -1104,7 +1111,7 @@ impl Render for Layer {
                                 "note",
                                 "Send to job",
                                 off,
-                                self.targets.is_empty(),
+                                self.no_target(),
                                 None,
                                 self.own_job(&[id]).map(|job| job.title),
                                 Rc::clone(&self.card_at),
@@ -1167,7 +1174,7 @@ impl Layer {
                 "annotate",
                 "Send to job",
                 false,
-                self.targets.is_empty(),
+                self.no_target(),
                 pending.clone(),
                 self.own_job(&self.sendable_here()).map(|job| job.title),
                 Rc::clone(&self.split_at),
@@ -1296,21 +1303,36 @@ impl Layer {
 mod tests {
     use super::*;
 
-    fn none(_: &Path) -> bool {
-        false
+    fn jobs() -> Vec<Offered> {
+        vec![Offered { id: "s-1".into(), title: "Fix the merge line".into() }, Offered { id: "s-2".into(), title: "Audit the docs index".into() }]
+    }
+
+    fn labels(entries: &[Entry]) -> Vec<(String, Option<String>)> {
+        entries
+            .iter()
+            .filter_map(|entry| match entry {
+                Entry::Item { label, key, .. } => Some((label.to_string(), key.as_ref().map(|key| key.to_string()))),
+                _ => None,
+            })
+            .collect()
     }
 
     #[test]
-    fn a_kept_preview_bundle_is_a_dev_build_and_a_shipped_one_is_not() {
-        let preview = Path::new("/Users/me/Library/Application Support/Armada/builds/current/Armada.app/Contents/MacOS/Armada");
-        let stamp = Path::new("/Users/me/Library/Application Support/Armada/builds/2026-11-12T132938Z-da8d647");
-        let kept = |dir: &Path| dir.ends_with("builds/current");
-        assert!(is_dev_build(Some(preview), Some(stamp), &none, &kept));
-        let shipped = Path::new("/Applications/Armada.app/Contents/MacOS/Armada");
-        assert!(!is_dev_build(Some(shipped), Some(Path::new("/")), &none, &none));
-        let started_in_source = |dir: &Path| dir == Path::new("/src/armada");
-        assert!(is_dev_build(Some(shipped), Some(Path::new("/src/armada/crates")), &started_in_source, &none));
-        assert!(is_dev_build(Some(Path::new("/src/armada/target/debug/bridge-native")), Some(Path::new("/")), &none, &none));
+    fn the_operator_is_the_pickers_first_row_while_its_session_runs() {
+        let entries = picker_entries(true, &jobs());
+        assert!(matches!(entries[0], Entry::Search { .. }));
+        assert!(matches!(&entries[1], Entry::Item { id: "operator", icon: Some("bot"), .. }));
+        assert_eq!(
+            labels(&entries),
+            vec![("Operator".into(), Some("⌥1".into())), ("Fix the merge line".into(), Some("⌥2".into())), ("Audit the docs index".into(), Some("⌥3".into()))]
+        );
+    }
+
+    #[test]
+    fn no_operator_row_is_offered_when_none_runs() {
+        let entries = picker_entries(false, &jobs());
+        assert_eq!(labels(&entries), vec![("Fix the merge line".into(), Some("⌥1".into())), ("Audit the docs index".into(), Some("⌥2".into()))]);
+        assert!(!entries.iter().any(|entry| matches!(entry, Entry::Item { id: "operator", .. })));
     }
 
     #[test]

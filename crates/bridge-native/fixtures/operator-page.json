@@ -220,6 +220,59 @@
    }
   }
  ],
+ "working": [
+  {
+   "id": "turn:30",
+   "kind": "decision",
+   "manifest_id": "armada",
+   "repository": "armada",
+   "item": {
+    "id": "card:001e",
+    "text": "Retry the flaky login test or skip it",
+    "since": "2026-11-11T12:40:00-05:00",
+    "source": "agent",
+    "act": {
+     "kind": "answer",
+     "target": "card:001e"
+    },
+    "options": [
+     {
+      "label": "Retry it once",
+      "description": "About 5 min of a slot"
+     },
+     {
+      "label": "Skip it for now",
+      "description": "The test stays red in CI"
+     }
+    ]
+   },
+   "read": {
+    "read": "The login test failed twice on the same line, which looks like timing and not a real break.",
+    "pick": "Retry it once"
+   },
+   "raised_at": "2026-11-11T12:40:00-05:00",
+   "card": {
+    "kind": "raise",
+    "sessions": [
+     "mock-04"
+    ],
+    "picked": {
+     "option": "Retry it once",
+     "at": "2026-11-11T13:01:00-05:00"
+    },
+    "steps": [
+     {
+      "at": "2026-11-11T13:02:00-05:00",
+      "said": "Started a Job for the retry"
+     },
+     {
+      "at": "2026-11-11T13:04:00-05:00",
+      "said": "The retry Job is running"
+     }
+    ]
+   }
+  }
+ ],
  "feed": [
   {
    "at": "2026-11-11T13:04:00-05:00",

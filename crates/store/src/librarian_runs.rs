@@ -38,16 +38,18 @@ pub struct KeptLibrarianRun {
     pub model_calls: u32,
     /// The names of the parts it left out because the night's share was spent.
     pub skipped: Vec<String>,
+    /// Stop was pressed before it ended.
+    pub stopped: bool,
 }
 
-const RUN: &str = "project, ran_at, by, through_pr, through_at, at_commit, parts, paragraph, night, model_calls, skipped";
+const RUN: &str = "project, ran_at, by, through_pr, through_at, at_commit, parts, paragraph, night, model_calls, skipped, stopped";
 
 impl Store {
     /// Keep a run. A run at the same instant for the same project is left as it was.
     pub fn keep_librarian_run(&mut self, run: &KeptLibrarianRun) -> Result<(), WriteError> {
         self.conn
             .execute(
-                &format!("INSERT OR IGNORE INTO librarian_runs ({RUN}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)"),
+                &format!("INSERT OR IGNORE INTO librarian_runs ({RUN}) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)"),
                 params![
                     run.project,
                     run.ran_at,
@@ -59,7 +61,8 @@ impl Store {
                     run.paragraph,
                     run.night,
                     run.model_calls,
-                    run.skipped.join(",")
+                    run.skipped.join(","),
+                    run.stopped
                 ],
             )
             .map(drop)
@@ -87,6 +90,7 @@ impl Store {
                         night: row.get(8)?,
                         model_calls: row.get(9)?,
                         skipped: skipped.split(',').filter(|part| !part.is_empty()).map(str::to_string).collect(),
+                        stopped: row.get(11)?,
                     })
                 },
             )

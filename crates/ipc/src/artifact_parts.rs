@@ -437,6 +437,7 @@ fn buttons_checked(actions: &[PartAction], problems: &mut Vec<String>) -> Option
             PageAct::Answer if said(&action.ask).is_none() || said(&action.option).is_none() => {
                 problems.push(format!("actions[{at}] `{id}` is an `answer` and needs `ask`, the ask's waiting id, and `option`, one of its labels"));
             }
+            PageAct::Close => problems.push(format!("actions[{at}] `{id}` is a `close`, which only a page's `<armada-action>` runs, with the issues it lists")),
             _ => {}
         }
         kept.push(PartAction {

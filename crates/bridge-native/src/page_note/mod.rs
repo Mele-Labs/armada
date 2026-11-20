@@ -29,24 +29,70 @@ const READER: &str = include_str!("read.js");
 /// A page that does not answer within this is read as nothing.
 const ANSWER: Duration = Duration::from_secs(5);
 
-/// The pages a note may be made over: each Job browser's, with the Job it is.
+/// Where a note on a Job's document says it was made: a sealed page has no web address of its own.
+pub const DOCUMENT_ADDRESS: &str = "armada://artifact/";
+
+/// The Job's document a sealed page draws: a note on it names the document and its revision, since the page has no address.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Document {
+    pub artifact: String,
+    pub revision: u32,
+    pub title: String,
+}
+
+impl Document {
+    /// `armada://artifact/<artifact>?revision=<n>`, the artifact's id kept to the characters an address carries bare.
+    pub fn address(&self) -> String {
+        let artifact: String = self
+            .artifact
+            .bytes()
+            .map(|byte| if byte.is_ascii_alphanumeric() || b"-_.~".contains(&byte) { char::from(byte).to_string() } else { format!("%{byte:02X}") })
+            .collect();
+        format!("{DOCUMENT_ADDRESS}{artifact}?revision={}", self.revision)
+    }
+}
+
+/// A page a note may be made over, the Job the note goes to, and the document it draws, where it draws one.
+struct Offer {
+    page: WeakEntity<WebPage>,
+    job: SharedString,
+    document: Option<Document>,
+}
+
+/// The pages a note may be made over: each Job browser's and walk's, and each document's.
 #[derive(Default)]
-struct Offered(Vec<(WeakEntity<WebPage>, SharedString)>);
+struct Offered(Vec<Offer>);
 
 impl Global for Offered {}
 
+fn keep(offer: Offer, cx: &mut App) {
+    let offered = cx.default_global::<Offered>();
+    offered.0.retain(|one| one.page.upgrade().is_some());
+    offered.0.push(offer);
+}
+
 /// A Job's page, in its browser or its walk tab, which a note may be made over, and its Job, which the note goes to.
 pub fn offer(page: &Entity<WebPage>, job: SharedString, cx: &mut App) {
-    let offered = cx.default_global::<Offered>();
-    offered.0.retain(|(one, _)| one.upgrade().is_some());
-    offered.0.push((page.downgrade(), job));
+    keep(Offer { page: page.downgrade(), job, document: None }, cx);
+}
+
+/// A Job's document, in its tab or the review panel: a note on it goes to that Job and names the document.
+pub fn offer_document(page: &Entity<WebPage>, job: SharedString, document: Document, cx: &mut App) {
+    keep(Offer { page: page.downgrade(), job, document: Some(document) }, cx);
 }
 
 /// The Job a page was offered for, if it was.
 #[cfg(test)]
 pub fn offered_for(page: &Entity<WebPage>, cx: &App) -> Option<SharedString> {
     let offered = cx.try_global::<Offered>()?;
-    offered.0.iter().find(|(one, _)| one.upgrade().as_ref() == Some(page)).map(|(_, job)| job.clone())
+    offered.0.iter().find(|one| one.page.upgrade().as_ref() == Some(page)).map(|one| one.job.clone())
+}
+
+/// The document a page was offered with, if it was offered as one.
+#[cfg(test)]
+pub fn document_of(page: &Entity<WebPage>, cx: &App) -> Option<Document> {
+    let offered = cx.try_global::<Offered>()?;
+    offered.0.iter().find(|one| one.page.upgrade().as_ref() == Some(page)).and_then(|one| one.document.clone())
 }
 
 /// The page under a point of the window, and where its viewport is drawn.
@@ -57,16 +103,24 @@ pub struct Over {
     pub origin: Point<Pixels>,
     /// Its size in points, which is its viewport's in CSS pixels.
     pub viewport: (f64, f64),
-    /// The Job whose browser it is.
+    /// The Job whose page it is.
     pub job: SharedString,
+    /// The document the page draws, where it is a Job's document.
+    pub document: Option<Document>,
 }
 
 /// The offered page a pane draws at `at`, if one does.
 pub fn page_at(at: Point<Pixels>, cx: &App) -> Option<Over> {
     let offered = cx.try_global::<Offered>()?;
-    offered.0.iter().filter_map(|(page, job)| Some((page.upgrade()?, job))).find_map(|(page, job)| {
+    offered.0.iter().filter_map(|one| Some((one.page.upgrade()?, one))).find_map(|(page, one)| {
         let (bounds, visible) = page.read(cx).place()?;
-        visible.contains(&at).then(|| Over { origin: bounds.origin, viewport: (f64::from(bounds.size.width), f64::from(bounds.size.height)), page, job: job.clone() })
+        visible.contains(&at).then(|| Over {
+            origin: bounds.origin,
+            viewport: (f64::from(bounds.size.width), f64::from(bounds.size.height)),
+            page,
+            job: one.job.clone(),
+            document: one.document.clone(),
+        })
     })
 }
 
@@ -76,9 +130,20 @@ impl Over {
         (f64::from(at.x - self.origin.x), f64::from(at.y - self.origin.y))
     }
 
-    /// The page's address.
+    /// The page's address: a document's own, or the web page's url.
     pub fn address(&self, cx: &App) -> String {
-        self.page.read(cx).url().unwrap_or_default()
+        match &self.document {
+            Some(document) => document.address(),
+            None => self.page.read(cx).url().unwrap_or_default(),
+        }
+    }
+
+    /// What the note card leads a part with: the document's title, or the web page's host.
+    fn place_word(&self, address: &str) -> Option<String> {
+        match &self.document {
+            Some(document) => Some(document.title.clone()).filter(|title| !title.trim().is_empty()),
+            None => read::host_of(address),
+        }
     }
 }
 
@@ -88,7 +153,7 @@ pub struct Freeze(Vec<WeakEntity<WebPage>>);
 
 impl Freeze {
     pub fn new(cx: &mut App) -> Self {
-        let pages: Vec<WeakEntity<WebPage>> = cx.try_global::<Offered>().map(|offered| offered.0.iter().map(|(page, _)| page.clone()).collect()).unwrap_or_default();
+        let pages: Vec<WeakEntity<WebPage>> = cx.try_global::<Offered>().map(|offered| offered.0.iter().map(|one| one.page.clone()).collect()).unwrap_or_default();
         let mut held = Vec::new();
         for page in pages {
             if let Some(page) = page.upgrade() {
@@ -150,8 +215,10 @@ pub struct PageHeld {
     pub said: SharedString,
     /// The page's url as loaded.
     pub address: String,
-    /// The Job whose browser the page is.
+    /// The Job whose page it is.
     pub job: SharedString,
+    /// The document the page draws, where it is a Job's document.
+    pub document: Option<Document>,
     pub read: read::Read,
 }
 
@@ -166,15 +233,15 @@ impl Over {
     /// What an aim answered, as a ring and words in the window.
     pub fn aim(&self, answer: &Value, address: &str) -> Option<Aim> {
         let aimed = read::aimed(answer, self.viewport)?;
-        let said = read::said(read::host_of(address).as_deref(), &aimed.words, "");
+        let said = read::said(self.place_word(address).as_deref(), &aimed.words, "");
         Some(Aim { bounds: bounds_of(aimed.rect, self.origin), said: said.into() })
     }
 
     /// What a take answered, held.
     pub fn held(&self, answer: &Value, address: String) -> Option<PageHeld> {
         let read = read::held(answer, self.viewport)?;
-        let said = read::said(read::host_of(&address).as_deref(), &read.words, &read.text);
-        Some(PageHeld { bounds: bounds_of(read.rect, self.origin), said: said.into(), address, job: self.job.clone(), read })
+        let said = read::said(self.place_word(&address).as_deref(), &read.words, &read.text);
+        Some(PageHeld { bounds: bounds_of(read.rect, self.origin), said: said.into(), address, job: self.job.clone(), document: self.document.clone(), read })
     }
 }
 
@@ -201,6 +268,9 @@ impl PageHeld {
         raw["stamp"] = json!(read.stamp);
         raw["selected"] = json!(read.selected);
         raw["scenario"] = json!(read::scenario_of(&read.location));
+        if let Some(document) = &self.document {
+            raw["document"] = json!({ "artifact": document.artifact, "revision": document.revision, "title": document.title });
+        }
     }
 }
 
@@ -225,7 +295,7 @@ mod tests {
             stamp: Some("src/a.tsx:3".into()),
             selected: Vec::new(),
         };
-        PageHeld { bounds: bounds_of(read.rect, point(px(0.), px(0.))), said: "fast.com › button · Google Search".into(), address: "https://fast.com/search?scenario=wide".into(), job: "job-1".into(), read }
+        PageHeld { bounds: bounds_of(read.rect, point(px(0.), px(0.))), said: "fast.com › button · Google Search".into(), address: "https://fast.com/search?scenario=wide".into(), job: "job-1".into(), document: None, read }
     }
 
     #[gpui::test]
@@ -245,6 +315,42 @@ mod tests {
         cx.update(|cx| second.thaw(cx));
         assert!(!held(cx), "a layer let go twice lets go once");
         assert!(cx.update(|cx| page_at(point(px(5.), px(5.)), cx)).is_none(), "a page no pane draws is under no point");
+    }
+
+    fn design() -> Document {
+        Document { artifact: "design notes/2".into(), revision: 3, title: "How a Job lands".into() }
+    }
+
+    #[test]
+    fn a_document_is_addressed_by_its_artifact_and_revision() {
+        assert_eq!(design().address(), "armada://artifact/design%20notes%2F2?revision=3");
+        let plain = Document { artifact: "a1b2-c3".into(), revision: 1, title: String::new() };
+        assert_eq!(plain.address(), "armada://artifact/a1b2-c3?revision=1");
+    }
+
+    #[gpui::test]
+    fn a_note_over_a_document_names_the_document_and_not_the_pages_url(cx: &mut gpui::TestAppContext) {
+        let page = cx.new(|cx| WebPage::for_job_browser(cx));
+        let over = Over { page, origin: point(px(0.), px(0.)), viewport: (800., 600.), job: "job-1".into(), document: Some(design()) };
+        let address = cx.update(|cx| over.address(cx));
+        assert_eq!(address, "armada://artifact/design%20notes%2F2?revision=3");
+        assert_eq!(over.place_word(&address).as_deref(), Some("How a Job lands"), "the card leads with the document's title");
+        let untitled = Over { document: Some(Document { title: " ".into(), ..design() }), ..over.clone() };
+        assert_eq!(untitled.place_word(&address), None, "an untitled document leads with the part alone");
+        let web = Over { document: None, ..over };
+        assert_eq!(web.place_word("https://fast.com/a").as_deref(), Some("fast.com"), "a web page still leads with its host");
+    }
+
+    #[test]
+    fn a_part_of_a_document_is_written_with_the_document_it_is_on() {
+        let mut held = held_part();
+        held.address = design().address();
+        held.document = Some(design());
+        let mut raw = json!({});
+        held.write_into(&mut raw);
+        assert_eq!(raw["address"], "armada://artifact/design%20notes%2F2?revision=3");
+        assert_eq!(raw["job"], "job-1", "the batch goes to the document's own Job");
+        assert_eq!(raw["document"], json!({ "artifact": "design notes/2", "revision": 3, "title": "How a Job lands" }));
     }
 
     #[test]
