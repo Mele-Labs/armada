@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 23 Oct 2026. `docs/concepts/kit.md`, *The shared home*, and `docs/concepts/account.md`, *What syncs*.
+The shared home is being replaced by Kit over the Mac link, and this page describes what ships until then. **Not built.** [Kit](../../concepts/kit.md), *Over the Mac link*.
+
+Since 23 Oct 2026. `docs/concepts/kit.md`, *The shared home, retired*, and `docs/concepts/account.md`, *What syncs*.
 **Additive**: eight operations, eight routes, twelve error codes and the types they carry; no event kind.
 Since 25 Oct 2026 `set_home_repository`, `planned` and `Profile`'s `orgs` and `home` are added, and the protocol ID moved with them.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.

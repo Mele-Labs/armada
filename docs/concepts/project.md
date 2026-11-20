@@ -108,6 +108,12 @@ A lifecycle, a rule or an autonomy piece names a project in its `scope:`.
 A piece scoped to a project is read from Kit and from every member repository's `.armada/<kind>/`.
 [Protocol](../practices/protocol.md), *Lifecycles and rules, read*, says how each is served.
 
+## Its store
+
+**A project's `store:` block names the store it joins and the GitHub login that joins it, and a repository of the project may override the login.**
+A project with a store and no login sends nothing, and says so.
+**Not built.** The rule is [Central store](../contracts/central-store.md), *A store per project*, and the login is [Account](account.md), *Which login a project joins as*.
+
 ## Sharing with his other Macs
 
 **A project is shared with his other Macs only when he turns it on, and every project starts off.**
