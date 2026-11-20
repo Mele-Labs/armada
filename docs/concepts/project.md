@@ -150,6 +150,10 @@ A read of the copy, of its values, issues, claims or features, is answered on th
 > A merge keeps this rule: each Mac changes only what it holds, and the other Mac's part crosses as an act.
 > Why: he said "If I make a change to the project or anything in that project on one mac, it updates on the other"; the place is a folder on that Mac's disk, and a store is joined and deployed with that Mac's sign-in.
 
+> **Rule (20 Nov).** A copy keeps the holder's store and login, and a repository on this Mac that the copy lists claims at that store with this Mac's own profile for that login.
+> This Mac enrols that profile the first time it needs it, and writes nothing to the holder's file; a Mac not signed in as that login sends nothing, and the copy's store setting says so.
+> Why: joining is per Mac, and a repository that is in a copy only claimed nothing on the Mac that held the copy.
+
 > **Rule (19 Nov).** A Job of this Mac moves into a copy, or starts in one, where the copy lists the Job's repository, and is shared with the holding Mac from then; otherwise the move or the start is refused, `fleet.project_copy_not_member`, and the copy's members are not touched.
 > Why: he chose one shared project across his Macs, with Jobs from either Mac in it, and a merge already moves Jobs into a copy this way.
 

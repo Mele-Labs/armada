@@ -135,7 +135,8 @@ impl KitScreen {
                     this.focus(Pane::Rail, window, cx);
                 }))
                 .child(tile(look, kind.hue(), kind.glyph()))
-                .child(div().min_w_0().truncate().child(kind.label()));
+                .child(div().flex_1().min_w_0().truncate().child(kind.label()))
+                .child(self.kind_switch(kind, look, cx));
             kinds = kinds.child(labelled(row, Role::ListBoxOption, kind.label()));
         }
         let caption = div().px(look.length(token::SPACE_2)).pt(look.length(token::SPACE_3)).pb(look.length(token::SPACE_1)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child("In Settings");
@@ -281,7 +282,7 @@ impl KitScreen {
     }
 
     /// One piece as a rounded card: its lamp, its name and its one line. A removed one stays amber and struck through.
-    fn render_piece(&self, shown: &model::Shown, focused: bool, look: &Look, _window: &mut Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+    fn render_piece(&self, shown: &model::Shown, focused: bool, look: &Look, window: &mut Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let row = &shown.row;
         let picked = Some(&row.id) == self.selected.as_ref();
         let gone = shown.gone.is_some();
@@ -355,8 +356,17 @@ impl KitScreen {
                 div()
                     .flex_1()
                     .min_w_0()
-                    .child(name.child(SharedString::from(row.name.clone())))
-                    .child(div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says))),
+                    // The name's line ends in the row's mark over the link, and the words under it in the row's own switch
+                    // over the link, so the name keeps its width.
+                    .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(name.flex_1().child(SharedString::from(row.name.clone()))).children((!gone).then(|| self.mark_cell(row, look)).flatten()))
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says)))
+                            .children(self.cross_cell(row, gone, look, window, cx)),
+                    ),
             )
             .children(restore);
         div().w_full().px(look.length(token::SPACE_2)).py(px(2.)).child(labelled(card, Role::ListBoxOption, row.name.clone())).into_any_element()
@@ -368,7 +378,7 @@ impl KitScreen {
         let focused = self.panes[2].is_focused(window);
         let inside = match (&self.inventory, self.picked()) {
             (Load::Reading, _) => self.detail_bones(look).into_any_element(),
-            (_, Some(shown)) => self.piece_detail(shown, look, cx).into_any_element(),
+            (_, Some(shown)) => self.piece_detail(shown, look, window, cx).into_any_element(),
             _ => div().flex_1().into_any_element(),
         };
         labelled(
@@ -433,7 +443,7 @@ impl KitScreen {
             .child(div().flex_1().bg(look.color(token::BG_SUNKEN)).p(look.length(token::SPACE_3)).flex().flex_col().gap(look.length(token::SPACE_2)).children((0..4).map(|n| bone(look, px(120. + 48. * (n % 3) as f32), look.length(token::LEADING_2XS)))))
     }
 
-    fn piece_detail(&self, shown: &model::Shown, look: &Look, cx: &mut gpui::Context<Self>) -> Div {
+    fn piece_detail(&self, shown: &model::Shown, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Div {
         let row = &shown.row;
         let gone = shown.gone.is_some();
         let off = self.off_here();
@@ -467,7 +477,7 @@ impl KitScreen {
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
         let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);
-        let has_file = row.kind.file().is_some() && !matches!(self.files.get(&row.id), Some(FileState::Refused { .. }));
+        let has_file = row.kind.file().is_some() && row.elsewhere.is_none() && !matches!(self.files.get(&row.id), Some(FileState::Refused { .. }));
         if has_file && !gone && !editing {
             // Edit is offered once the file is read and no plugin brought it; Open works for either.
             let can = self.can_edit();
@@ -585,13 +595,16 @@ impl KitScreen {
 
         let said = self.refused.clone().map(|said| labelled(refusal(look, said.clone()).id("kit-refused").px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)), Role::Alert, said));
 
-        div().flex_1().min_h_0().flex().flex_col().child(head).child(meta).children(said).child(self.render_file(row, look, cx))
+        // A clash shows both Macs' versions in place of the file, until he is editing it.
+        let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);
+        let body = if !self.compared.is_empty() && !gone && !editing { self.render_clash(look, window, cx) } else { self.render_file(row, look, cx) };
+        div().flex_1().min_h_0().flex().flex_col().child(head).child(meta).children(said).child(body)
     }
 
     /// The file's text in a sunken pane with line numbers, as Fleet read it, or a textarea over it while it is edited. Where
     /// Fleet reads no file for the kind, the piece's own words stand in; where it says there is none, there is no pane.
     fn render_file(&self, row: &Row, look: &Look, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
-        if row.kind.file().is_none() || matches!(self.files.get(&row.id), Some(FileState::Refused { code, .. }) if code.as_deref() == Some("fleet.kit_file_none")) {
+        if row.kind.file().is_none() || row.elsewhere.is_some() || matches!(self.files.get(&row.id), Some(FileState::Refused { code, .. }) if code.as_deref() == Some("fleet.kit_file_none")) {
             return self.render_facts(row, look, cx);
         }
         let pane = || div().id("kit-file").flex_1().min_h_0().flex().bg(look.color(token::BG_SUNKEN)).font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).line_height(px(20.));
@@ -683,6 +696,16 @@ impl KitScreen {
         };
         let scope = self.scope_name();
         let mut card = div().flex().flex_col().gap(look.length(token::SPACE_3));
+        if let Some(macs) = &row.elsewhere {
+            let said = row.says.clone().filter(|said| !said.is_empty()).unwrap_or_else(|| format!("{} {}", row.kind.label(), row.name));
+            card = card.child(fact("What it is", said, false)).child(fact("Where", format!("Only on {macs}"), false));
+            return labelled(
+                div().id("kit-facts").flex_1().min_h_0().overflow_y_scroll().p(look.length(token::SPACE_4)).text_size(look.length(token::TEXT_SM)).font_family(sans(look)).child(card),
+                Role::Region,
+                "Facts",
+            )
+            .into_any_element();
+        }
         match (row.kind, &row.server) {
             (Kind::Servers, Some(server)) => {
                 card = card
@@ -748,7 +771,13 @@ impl KitScreen {
     // ---- the keys' strip ---------------------------------------------------------------------
 
     fn render_keys(&self, look: &Look) -> impl IntoElement {
-        let on = format!("On in {}", self.scope_name());
+        let on = if self.stop.is_some() {
+            "Press".to_string()
+        } else if self.pane == Pane::Rail && super::sync::home_kind(self.kind).is_some() {
+            format!("Cross {}", self.kind.label())
+        } else {
+            format!("On in {}", self.scope_name())
+        };
         let editing = self.editing.is_some();
         let scrolling = self.pane == Pane::Detail;
         let item = |keys: &[&str], words: String| {
@@ -816,6 +845,7 @@ impl Render for KitScreen {
         let detail = self.render_detail(&look, window, cx);
         let add = self.render_add(&look, cx);
         let confirm = self.render_confirm(&look, cx);
+        let bar = self.render_bar(&look, window, cx);
         div()
             .id("kit")
             .key_context(crate::generated::actions::ActionScope::Kit.key_context().unwrap_or_default())
@@ -825,13 +855,22 @@ impl Render for KitScreen {
             .relative()
             .size_full()
             .flex()
+            .flex_col()
             .gap(look.length(token::GAP_PANEL))
             .p(look.length(token::SPACE_3))
             .bg(look.color(token::BG_BASE))
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
-            .children((!narrow || !in_detail).then(|| crate::reviews::panel(&look).h_full().flex().when(narrow, |left| left.flex_1().min_w_0()).when(!narrow, |left| left.flex_none()).child(rail).child(list)))
-            .children((!narrow || in_detail).then(|| crate::reviews::panel(&look).flex_1().min_w_0().h_full().flex().child(detail)))
+            .child(bar)
+            .child(
+                div()
+                    .flex_1()
+                    .min_h_0()
+                    .flex()
+                    .gap(look.length(token::GAP_PANEL))
+                    .children((!narrow || !in_detail).then(|| crate::reviews::panel(&look).h_full().flex().when(narrow, |left| left.flex_1().min_w_0()).when(!narrow, |left| left.flex_none()).child(rail).child(list)))
+                    .children((!narrow || in_detail).then(|| crate::reviews::panel(&look).flex_1().min_w_0().h_full().flex().child(detail))),
+            )
             .children(add)
             .children(confirm)
     }

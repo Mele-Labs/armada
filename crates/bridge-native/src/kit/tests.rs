@@ -1,7 +1,7 @@
 use gpui::{TestAppContext, VisualTestContext};
 
 use super::model::{self, Kind, Line, Mark, Read, Removal};
-use super::{mock, KitScreen, Pane};
+use super::{mock, sync, KitScreen, Pane, Stop};
 
 fn skills() -> Vec<model::Row> {
     match model::read_kind(Kind::Skills, &mock::inventory(), &[]) {
@@ -34,7 +34,7 @@ fn pieces_are_grouped_by_where_they_come_from_yours_first_and_a_plugin_before_th
     assert_eq!(heads, [Mark::Yours, Mark::Plugin("design-kit".into()), Mark::Repository]);
     // A group's chip is followed by its own pieces and no other's.
     let names: Vec<&str> = listed.shown.iter().map(|one| one.row.name.as_str()).collect();
-    assert_eq!(names, ["release-notes", "review-pr", "pdf-tools", "frontend-design", "deploy-check", "long-notes"]);
+    assert_eq!(names, ["release-notes", "review-pr", "pdf-tools", "deploy-notes", "tracker-sync", "frontend-design", "deploy-check", "long-notes"]);
 }
 
 #[test]
@@ -72,7 +72,7 @@ fn j_and_k_move_the_piece_picked_and_tab_moves_between_the_panes(cx: &mut TestAp
     assert_eq!(picked(&screen, cx).as_deref(), Some("release-notes"));
     cx.simulate_keystrokes("j");
     assert_eq!(picked(&screen, cx).as_deref(), Some("review-pr"));
-    cx.simulate_keystrokes("j j j");
+    cx.simulate_keystrokes("j j j j j j");
     assert_eq!(picked(&screen, cx).as_deref(), Some("frontend-design"), "past the removed piece and the group's chip, to the next group's first");
     cx.simulate_keystrokes("k");
     assert_eq!(picked(&screen, cx).as_deref(), Some("old-triage"));
@@ -232,7 +232,7 @@ fn the_read_pane_scrolls_on_a_page_key_and_goes_back_to_the_top_for_another_piec
 #[test]
 fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group_says_so() {
     let mut inventory = mock::inventory();
-    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/you/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None, server: None };
+    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/user/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None, server: None };
     style.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
     if let Some(one) = inventory.kinds.iter_mut().find(|one| one.kind == "output_styles") {
         if let ipc::WhatWasRead::Read { items, .. } = &mut one.read {
@@ -275,4 +275,308 @@ fn servers_are_grouped_by_where_they_are_configured_and_several_repositories_eac
     let alone = mock::inventory();
     let Read::Rows(rows) = model::read_kind(Kind::Servers, &alone, &[]) else { panic!("servers read") };
     assert_eq!(rows.iter().find(|row| row.name == "ci-logs").map(|row| row.mark.clone()), Some(Mark::Repository), "one repository is just This repository");
+}
+
+// ---- over the Mac link ---------------------------------------------------------------------------
+
+fn standings(linked: mock::Linked) -> Vec<(String, Option<sync::Standing>)> {
+    let link = mock::MockKit::linked(linked).link;
+    let mut rows = skills();
+    rows.extend(sync::elsewhere(&link, Kind::Skills, &rows));
+    rows.iter()
+        .map(|row| {
+            let standing = match &row.elsewhere {
+                Some(macs) => Some(sync::Standing::OnlyThere(macs.clone())),
+                None => sync::link_row(&link, row).and_then(|one| sync::standing(&link, one)),
+            };
+            (row.name.clone(), standing)
+        })
+        .collect()
+}
+
+#[test]
+fn each_row_is_marked_against_the_linked_mac_and_a_refusal_comes_before_its_mark() {
+    use sync::Standing::*;
+    let work = "Work Mac".to_string();
+    let marks = standings(mock::Linked::Apart);
+    let mark = |name: &str| marks.iter().find(|(one, _)| one == name).and_then(|(_, standing)| standing.clone());
+    assert_eq!(mark("release-notes"), Some(Clash(work.clone())));
+    assert_eq!(mark("review-pr"), Some(Same(work.clone())));
+    assert_eq!(mark("pdf-tools"), Some(Differs(work.clone())));
+    assert_eq!(mark("deploy-notes"), Some(NewHere(work.clone())));
+    assert_eq!(mark("tracker-sync"), Some(Refused(mock::REFUSED.into())), "Fleet's reason, whatever the row's mark");
+    assert_eq!(mark("pricing-review"), Some(OnlyThere(work.clone())), "a row only on the other Mac joins the list");
+    assert_eq!(mark("frontend-design"), None, "a plugin's piece never crosses");
+    assert_eq!(mark("deploy-check"), None, "nor does a repository's");
+    assert_eq!(OnlyThere(work.clone()).word(), "Only on Work Mac");
+    assert_eq!(Refused(mock::REFUSED.into()).said(), mock::REFUSED, "the tooltip is Fleet's words");
+    // With no Mac linked, a row has nothing to stand against: only a refusal is said.
+    let alone = standings(mock::Linked::Unlinked);
+    assert!(alone.iter().all(|(name, standing)| standing.is_none() || name == "tracker-sync"), "{alone:?}");
+    assert!(!alone.iter().any(|(name, _)| name == "pricing-review"));
+}
+
+#[test]
+fn a_row_against_two_macs_says_its_loudest_mark_and_names_the_macs_it_stands_so_against() {
+    let mut link = mock::MockKit::linked(mock::Linked::Apart).link;
+    link.macs.push(ipc::KitLinkedMac { mac: "mac-studio".into(), name: "Studio".into(), crossed_at: None, kinds: Vec::new(), items: Vec::new() });
+    let row = link.rows.iter_mut().find(|row| row.name == "review-pr").expect("the mock has it");
+    row.against.push(ipc::KitAgainst { mac: "mac-studio".into(), mark: ipc::KitMark::Differs, here: None, there: None });
+    let row = link.rows.iter().find(|row| row.name == "review-pr").expect("the mock has it");
+    assert_eq!(sync::standing(&link, row), Some(sync::Standing::Differs("Studio".into())));
+    let row = link.rows.iter_mut().find(|row| row.name == "review-pr").expect("the mock has it");
+    row.against[1].mark = ipc::KitMark::Same;
+    let row = link.rows.iter().find(|row| row.name == "review-pr").expect("the mock has it");
+    assert_eq!(sync::standing(&link, row), Some(sync::Standing::Same("Work Mac and Studio".into())));
+}
+
+#[test]
+fn the_bar_says_no_mac_linked_in_step_or_what_differs_with_a_clash_first() {
+    let bar = |linked| sync::bar(&mock::MockKit::linked(linked).link);
+    assert_eq!(bar(mock::Linked::Unlinked), sync::Bar::Unlinked);
+    let sync::Bar::Linked { to, crossed, apart } = bar(mock::Linked::InStep) else { panic!("a Mac is linked") };
+    assert_eq!((to.as_str(), crossed.len(), apart), ("Work Mac", 1, None), "in step: no chip");
+    let sync::Bar::Linked { apart: Some(apart), .. } = bar(mock::Linked::Apart) else { panic!("something differs") };
+    assert_eq!(apart, sync::Apart { clash: true, names: vec!["release-notes".into()] }, "a clash outranks the rows that only differ");
+    let (word, said) = sync::apart_said(&apart);
+    assert_eq!(word, "Clash");
+    assert!(said.contains("release-notes") && !said.chars().any(|c| c.is_ascii_digit()), "names the item and counts nothing: {said}");
+    // The Account page's row reads the same facts.
+    assert_eq!(sync::sync_status(&mock::MockKit::linked(mock::Linked::InStep).link), Some(sync::SyncStatus { macs: vec!["Work Mac".into()], in_step: true }));
+    assert_eq!(sync::sync_status(&mock::MockKit::linked(mock::Linked::Apart).link).map(|status| status.in_step), Some(false));
+    assert_eq!(sync::sync_status(&mock::MockKit::linked(mock::Linked::Unlinked).link), None);
+}
+
+#[test]
+fn a_clash_side_tints_its_own_lines_and_marks_where_the_others_sit() {
+    use sync::Tint::*;
+    let here = sync::compared("a\nmine\nb", "a\nb\ntheirs");
+    assert_eq!(here, vec![(Both, "a".into()), (Ours, "mine".into()), (Both, "b".into()), (Theirs, "theirs".into())]);
+    let there = sync::compared("a\nb\ntheirs", "a\nmine\nb");
+    assert_eq!(there.iter().filter(|(tint, _)| *tint == Ours).count(), 1);
+}
+
+#[test]
+fn a_plugin_is_named_with_its_marketplace_and_output_styles_do_not_cross() {
+    let Read::Rows(rows) = model::read_kind(Kind::Plugins, &mock::inventory(), &[]) else { panic!("plugins read") };
+    assert_eq!(sync::link_name(&rows[0]), "design-kit@design-kit");
+    assert_eq!(sync::home_kind(Kind::OutputStyles), None);
+    assert_eq!(sync::home_kind(Kind::Instructions), Some(ipc::HomeKind::GlobalInstructions));
+}
+
+fn open_linked(cx: &mut TestAppContext, linked: mock::Linked) -> (gpui::Entity<KitScreen>, &mut VisualTestContext) {
+    ready(cx);
+    let (screen, cx) = cx.add_window_view(|window, cx| KitScreen::mock_linked(linked, window, cx));
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.enter(window, cx)));
+    cx.run_until_parked();
+    (screen, cx)
+}
+
+fn kind_on(screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext, kind: Kind) -> Option<bool> {
+    screen.read_with(cx, |screen, _| match &screen.link {
+        super::Load::Read(link) => sync::kind_on(link, kind),
+        _ => None,
+    })
+}
+
+#[gpui::test]
+fn space_in_the_rail_switches_the_kind_over_the_link(cx: &mut TestAppContext) {
+    let (screen, cx) = open_linked(cx, mock::Linked::Apart);
+    assert_eq!(kind_on(&screen, cx, Kind::Skills), Some(true));
+    cx.simulate_keystrokes("shift-tab");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.pane), Pane::Rail);
+    cx.simulate_keystrokes("space");
+    assert_eq!(kind_on(&screen, cx, Kind::Skills), Some(false), "Space in the rail is the kind's switch");
+    assert!(screen.read_with(cx, |screen, _| screen.standings.is_empty()), "with Skills off, no row is marked");
+    cx.simulate_keystrokes("space");
+    assert_eq!(kind_on(&screen, cx, Kind::Skills), Some(true));
+    assert!(!screen.read_with(cx, |screen, _| screen.standings.is_empty()), "on again, the marks come back");
+    assert!(drawn(cx, gpui::Role::Switch, "Cross Skills"), "the switch is drawn and named");
+}
+
+#[gpui::test]
+fn tab_reaches_each_side_of_a_clash_after_the_read_pane_and_enter_keeps_it(cx: &mut TestAppContext) {
+    let (screen, cx) = open_linked(cx, mock::Linked::Apart);
+    assert!(drawn(cx, gpui::Role::Region, "Clash with Work Mac"), "the first row clashes, and its detail shows both sides");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(screen.read_with(cx, |screen, _| (screen.stop.clone(), screen.pane)), (Some(Stop::CrossItem), Pane::List), "the picked row's switch comes after the list");
+    cx.simulate_keystrokes("tab tab");
+    let keep = |keep| Some(Stop::Keep { mac: mock::WORK_MAC.0.into(), keep });
+    assert_eq!(screen.read_with(cx, |screen, _| screen.stop.clone()), keep(ipc::KitKeep::Here));
+    cx.simulate_keystrokes("tab");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.stop.clone()), keep(ipc::KitKeep::There));
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    let after = screen.read_with(cx, |screen, _| (screen.stop.clone(), screen.pane, screen.standings.get(mock::RELEASE_NOTES_ID).cloned(), screen.file_of_picked().map(|file| file.text.clone())));
+    assert_eq!(after.0, None, "the keys go back to the read pane");
+    assert_eq!(after.1, Pane::Detail);
+    assert_eq!(after.2, Some(sync::Standing::Same("Work Mac".into())), "settled, the row reads the same");
+    assert!(after.3.is_some_and(|text| text.contains("Wrap at 72.")), "Work Mac's version is what the file holds now");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(screen.read_with(cx, |screen, _| (screen.stop.clone(), screen.pane)), (None, Pane::Rail), "with no clash, Tab wraps to the rail");
+}
+
+#[gpui::test]
+fn with_no_mac_linked_tab_reaches_the_bars_link_before_the_rail(cx: &mut TestAppContext) {
+    let (screen, cx) = open_linked(cx, mock::Linked::Unlinked);
+    assert!(drawn(cx, gpui::Role::Button, "Link a Mac in Settings"));
+    cx.simulate_keystrokes("shift-tab shift-tab");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.stop.clone()), Some(Stop::Account));
+}
+
+fn rows_of(link: &ipc::KitLink, kind: Kind) -> Vec<model::Row> {
+    let Read::Rows(mut rows) = model::read_kind(kind, &mock::inventory(), &[]) else { panic!("the mock's rows read") };
+    let there = sync::elsewhere(link, kind, &rows);
+    rows.extend(there);
+    rows
+}
+
+fn item(kind: ipc::HomeKind, name: &str) -> ipc::HomeItem {
+    ipc::HomeItem { kind, name: name.into(), repository: None }
+}
+
+fn row_named<'a>(rows: &'a [model::Row], name: &str) -> &'a model::Row {
+    rows.iter().find(|row| row.name == name).unwrap_or_else(|| panic!("the mock has {name}"))
+}
+
+#[test]
+fn a_kind_is_on_off_or_some_where_it_is_off_and_some_of_its_items_cross_by_themselves() {
+    use sync::KindCross::*;
+    let link = mock::MockKit::linked(mock::Linked::Apart).link;
+    assert_eq!(sync::kind_cross(&link, Kind::Skills), Some(On), "on: every item, and any added later");
+    assert_eq!(sync::kind_cross(&link, Kind::SubAgents), Some(Partly), "off, with code-reviewer on by itself");
+    assert_eq!(sync::kind_cross(&link, Kind::Plugins), Some(Off), "off, with nothing on by itself");
+    assert_eq!(sync::kind_cross(&link, Kind::OutputStyles), None, "output styles do not cross");
+    let agents = rows_of(&link, Kind::SubAgents);
+    assert!(sync::row_crosses(&link, row_named(&agents, "code-reviewer")));
+    assert!(!sync::row_crosses(&link, row_named(&agents, "test-writer")));
+}
+
+#[test]
+fn the_rails_switch_takes_some_or_off_to_on_and_on_to_everything_off_items_first() {
+    use ipc::HomeKind;
+    use sync::Cross;
+    let mut link = mock::MockKit::linked(mock::Linked::Apart).link;
+    assert_eq!(sync::rail_press(&link, Kind::SubAgents), vec![Cross::Kind(HomeKind::SubAgents, true)], "from some");
+    assert_eq!(sync::rail_press(&link, Kind::Plugins), vec![Cross::Kind(HomeKind::Plugins, true)], "from off");
+    assert_eq!(sync::rail_press(&link, Kind::Skills), vec![Cross::Kind(HomeKind::Skills, false)], "from on, with no item on by itself");
+    // On, with an item still on by itself from before: it goes off first, so a refusal leaves the kind on.
+    link.kinds.iter_mut().filter(|one| one.kind == HomeKind::SubAgents).for_each(|one| one.on = true);
+    assert_eq!(sync::rail_press(&link, Kind::SubAgents), vec![Cross::Item(item(HomeKind::SubAgents, "code-reviewer"), false), Cross::Kind(HomeKind::SubAgents, false)]);
+    assert_eq!(sync::rail_press(&link, Kind::OutputStyles), Vec::new());
+}
+
+#[test]
+fn a_rows_switch_sends_its_item_while_the_kind_is_off_and_keeps_the_rest_crossing_while_it_is_on() {
+    use ipc::HomeKind;
+    use sync::Cross;
+    let mut link = mock::MockKit::linked(mock::Linked::Apart).link;
+    let agents = rows_of(&link, Kind::SubAgents);
+    assert_eq!(sync::row_press(&link, row_named(&agents, "test-writer"), &agents), vec![Cross::Item(item(HomeKind::SubAgents, "test-writer"), true)], "kind off: on by itself");
+    assert_eq!(sync::row_press(&link, row_named(&agents, "code-reviewer"), &agents), vec![Cross::Item(item(HomeKind::SubAgents, "code-reviewer"), false)], "kind off: off by itself");
+    // Kind on: every other row Fleet takes goes on by itself, then the kind off. The refused row, the plugin's
+    // piece and the repository's are left out; the row only on Work Mac is in.
+    let skills = rows_of(&link, Kind::Skills);
+    let on = |name: &str| Cross::Item(item(HomeKind::Skills, name), true);
+    assert_eq!(
+        sync::row_press(&link, row_named(&skills, "deploy-notes"), &skills),
+        vec![on("release-notes"), on("review-pr"), on("pdf-tools"), on("pricing-review"), Cross::Kind(HomeKind::Skills, false)],
+    );
+    // An item still on by itself from before goes off last; one already on is not sent again.
+    link.items.push(item(HomeKind::Skills, "deploy-notes"));
+    link.items.push(item(HomeKind::Skills, "review-pr"));
+    assert_eq!(
+        sync::row_press(&link, row_named(&skills, "deploy-notes"), &skills),
+        vec![on("release-notes"), on("pdf-tools"), on("pricing-review"), Cross::Kind(HomeKind::Skills, false), Cross::Item(item(HomeKind::Skills, "deploy-notes"), false)],
+    );
+    assert_eq!(sync::row_press(&link, row_named(&skills, "tracker-sync"), &skills), Vec::new(), "Fleet refuses it: its switch sends nothing");
+    assert_eq!(sync::row_press(&link, row_named(&skills, "frontend-design"), &skills), Vec::new(), "a plugin's piece has no switch");
+}
+
+fn sent(screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext) -> Vec<sync::Cross> {
+    screen.read_with(cx, |screen, _| match &screen.source {
+        super::Source::Mock(kit) => kit.sent.clone(),
+        super::Source::Live(_) => Vec::new(),
+    })
+}
+
+fn crosses(screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext, name: &str) -> bool {
+    screen.read_with(cx, |screen, _| match (&screen.link, &screen.read) {
+        (super::Load::Read(link), Read::Rows(rows)) => sync::row_crosses(link, row_named(rows, name)),
+        _ => false,
+    })
+}
+
+fn kind_cross(screen: &gpui::Entity<KitScreen>, cx: &mut VisualTestContext, kind: Kind) -> Option<sync::KindCross> {
+    screen.read_with(cx, |screen, _| match &screen.link {
+        super::Load::Read(link) => sync::kind_cross(link, kind),
+        _ => None,
+    })
+}
+
+#[gpui::test]
+fn a_row_switched_off_while_its_kind_is_on_leaves_the_kind_at_some_with_the_rest_crossing(cx: &mut TestAppContext) {
+    use ipc::HomeKind;
+    let (screen, cx) = open_linked(cx, mock::Linked::Apart);
+    assert!(drawn(cx, gpui::Role::Switch, "Cross deploy-notes"), "every row carries its own switch");
+    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/user/.claude/skills/deploy-notes:deploy-notes", cx));
+    cx.run_until_parked();
+    let on = |name: &str| sync::Cross::Item(item(HomeKind::Skills, name), true);
+    assert_eq!(sent(&screen, cx), vec![on("release-notes"), on("review-pr"), on("pdf-tools"), on("pricing-review"), sync::Cross::Kind(HomeKind::Skills, false)]);
+    assert_eq!(kind_cross(&screen, cx, Kind::Skills), Some(sync::KindCross::Partly));
+    assert!(!crosses(&screen, cx, "deploy-notes"));
+    assert!(["release-notes", "review-pr", "pdf-tools"].iter().all(|name| crosses(&screen, cx, name)), "the rest keep crossing");
+    // The rail's switch from some: the kind on, every item.
+    screen.update(cx, |screen, cx| screen.cross_kind(Kind::Skills, cx));
+    cx.run_until_parked();
+    assert_eq!(sent(&screen, cx).last(), Some(&sync::Cross::Kind(HomeKind::Skills, true)));
+    assert_eq!(kind_cross(&screen, cx, Kind::Skills), Some(sync::KindCross::On));
+    assert!(crosses(&screen, cx, "deploy-notes"));
+    // From on: each item on by itself off, then the kind.
+    let before = sent(&screen, cx).len();
+    screen.update(cx, |screen, cx| screen.cross_kind(Kind::Skills, cx));
+    cx.run_until_parked();
+    let off = |name: &str| sync::Cross::Item(item(HomeKind::Skills, name), false);
+    assert_eq!(sent(&screen, cx)[before..], [off("release-notes"), off("review-pr"), off("pdf-tools"), off("pricing-review"), sync::Cross::Kind(HomeKind::Skills, false)]);
+    assert_eq!(kind_cross(&screen, cx, Kind::Skills), Some(sync::KindCross::Off));
+}
+
+#[gpui::test]
+fn a_refusal_part_way_says_fleets_words_and_leaves_the_rest_crossing(cx: &mut TestAppContext) {
+    use ipc::HomeKind;
+    let (screen, cx) = open_linked(cx, mock::Linked::Apart);
+    screen.update(cx, |screen, _| {
+        if let super::Source::Mock(kit) = &mut screen.source {
+            kit.refuse = Some(sync::Cross::Kind(HomeKind::Skills, false));
+        }
+    });
+    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/user/.claude/skills/deploy-notes:deploy-notes", cx));
+    cx.run_until_parked();
+    assert_eq!(sent(&screen, cx).last(), Some(&sync::Cross::Kind(HomeKind::Skills, false)), "the items went first, and the kind was the call refused");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.refused.clone()).as_deref(), Some("Fleet could not write the link's switches on this Mac."));
+    assert_eq!(kind_cross(&screen, cx, Kind::Skills), Some(sync::KindCross::On));
+    assert!(["release-notes", "review-pr", "pdf-tools", "deploy-notes"].iter().all(|name| crosses(&screen, cx, name)), "nothing stopped crossing");
+}
+
+#[gpui::test]
+fn tab_reaches_the_picked_rows_switch_and_space_presses_it(cx: &mut TestAppContext) {
+    use ipc::HomeKind;
+    let (screen, cx) = open_linked(cx, mock::Linked::Apart);
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.show_kind("sub-agents", window, cx)));
+    cx.run_until_parked();
+    assert!(drawn(cx, gpui::Role::Switch, "Cross Sub agents"));
+    assert!(drawn(cx, gpui::Role::Switch, "Cross test-writer"));
+    assert!(!drawn(cx, gpui::Role::Switch, "Cross code-reviewer alone"), "the detail's own switch is gone");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(screen.read_with(cx, |screen, _| screen.stop.clone()), Some(Stop::CrossItem));
+    cx.simulate_keystrokes("space");
+    cx.run_until_parked();
+    assert_eq!(sent(&screen, cx), vec![sync::Cross::Item(item(HomeKind::SubAgents, "code-reviewer"), false)]);
+    assert_eq!(kind_cross(&screen, cx, Kind::SubAgents), Some(sync::KindCross::Off), "nothing of the kind crosses now");
+    // A row Fleet refuses has a switch, and no Tab stop.
+    cx.update(|window, cx| screen.update(cx, |screen, cx| screen.show_kind("skills", window, cx)));
+    screen.update(cx, |screen, cx| screen.pick("skills:/Users/user/.claude/skills/tracker-sync:tracker-sync".into(), cx));
+    cx.run_until_parked();
+    assert!(drawn(cx, gpui::Role::Switch, "Cross tracker-sync"));
+    assert!(!screen.read_with(cx, |screen, _| screen.stops().contains(&Stop::CrossItem)));
 }

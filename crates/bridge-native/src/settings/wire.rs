@@ -759,6 +759,55 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/sign_in_app".into(), String::new()), "SignInAppRegistration", cx))
     }
 
+    /// `GET /accounts`: the logins this Mac has joined, the repositories chosen for each, and the sign-in in flight.
+    pub fn accounts(&mut self, cx: &App) -> Task<Result<ipc::Accounts, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Ok(mock.accounts.accounts.clone()));
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/accounts".into()), "Accounts", cx))
+    }
+
+    /// `POST /accounts/start_sign_in`, no body: Fleet answers with the code to type, and polls the forge itself.
+    pub fn start_sign_in(&mut self, cx: &App) -> Task<Result<ipc::Accounts, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.accounts.start_sign_in());
+        }
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/start_sign_in".into(), String::new()), "Accounts", cx))
+    }
+
+    /// `POST /accounts/sign_out`: one login off this Mac, and out of the store.
+    pub fn sign_out(&mut self, account_id: u64, cx: &App) -> Task<Result<ipc::SignedOut, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.accounts.sign_out(account_id));
+        }
+        let said = body(&ipc::SignOut { account_id });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/sign_out".into(), said), "SignedOut", cx))
+    }
+
+    /// `POST /accounts/set_repository_profile`: the login a repository claims as over its project's, or none.
+    pub fn set_repository_profile(&mut self, root: &str, account_id: Option<u64>, cx: &App) -> Task<Result<ipc::Accounts, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.accounts.set_repository(root, account_id));
+        }
+        let said = body(&ipc::SetRepositoryProfile { root: root.to_string(), account_id });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/accounts/set_repository_profile".into(), said), "Accounts", cx))
+    }
+
+    /// Each repository Fleet serves by the id a project's member names it by, with its root and its folder's name.
+    pub fn repository_roots(&self, cx: &App) -> Vec<(String, String, String)> {
+        let held = match self {
+            Wire::Live(fleet) => fleet.read(cx).held().repositories.clone().unwrap_or_default(),
+            Wire::Mock(mock) => mock.repositories.clone(),
+        };
+        held.into_iter()
+            .filter_map(|one| {
+                let id = one.manifest.as_ref().map(|manifest| manifest.id.as_str().to_string()).or_else(|| one.implicit_id.as_ref().map(|id| id.as_str().to_string()))?;
+                let name = one.root.rsplit('/').next().unwrap_or(&one.root).to_string();
+                Some((id, one.root, name))
+            })
+            .collect()
+    }
+
     /// The person's key bindings as Fleet last said them, or the mock's.
     pub fn key_bindings(&self, cx: &App) -> String {
         match self {

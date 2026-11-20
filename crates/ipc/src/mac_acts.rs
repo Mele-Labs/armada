@@ -53,6 +53,8 @@ pub enum JobAct {
     ArtifactRestore(crate::ArtifactRef),
     /// His answer to one asking part of an artifact. Since 18 Nov 2026.
     ArtifactPartAnswer(crate::AnswerPart),
+    /// His End job. Since 20 Nov 2026.
+    Close(crate::CloseSession),
 }
 
 /// How a move ended on the Mac the Job went to.
@@ -119,6 +121,7 @@ impl JobAct {
             JobAct::SketchAnswer(one) => Some(&one.session_id),
             JobAct::DocumentAnswer(one) => Some(&one.session_id),
             JobAct::Stop(one) => Some(&one.session_id),
+            JobAct::Close(one) => Some(&one.session_id),
             JobAct::Merge { session_id, .. } => Some(session_id),
             JobAct::JobMessage(one) => Some(&one.to),
             JobAct::Move { session_id } => Some(session_id),
@@ -156,6 +159,7 @@ impl JobAct {
             JobAct::SketchAnswer(_) => "sketch_answer",
             JobAct::DocumentAnswer(_) => "document_answer",
             JobAct::Stop(_) => "stop",
+            JobAct::Close(_) => "close",
             JobAct::Merge { .. } => "merge",
             JobAct::Start(_) => "start",
             JobAct::Dispatch(_) => "dispatch",

@@ -61,7 +61,7 @@ impl Page {
 pub fn keys_of(body: Body) -> &'static [Key] {
     match body {
         Body::Values(page) => page.keys(),
-        Body::Macs => &[Key::Shared],
+        Body::Shared => &[Key::Shared],
         _ => &[],
     }
 }
@@ -376,9 +376,9 @@ impl SettingsOverlay {
     pub fn grid_of(&self, cx: &App) -> Vec<Vec<(Key, Column)>> {
         let Some(shown) = self.shown(cx) else { return Vec::new() };
         let project = self.scope.project.is_some();
-        // The share switch is a project's; with Every project picked, Macs draws only this Mac's.
+        // The share switch is a project's; with Every project picked, Other Macs draws none.
         let keys = keys_of(shown.body);
-        if keys.is_empty() || (shown.body == Body::Macs && !project) {
+        if keys.is_empty() || (shown.body == Body::Shared && !project) {
             return Vec::new();
         }
         cells(keys, project)
@@ -936,7 +936,7 @@ mod tests {
         // Every key `ValuesSet` has, named so a key added to it fails here until a page holds it. `workflows_off` is
         // switched a row at a time on the Workflows page, through `set_project_workflow`, and is on no values page.
         let ValuesSet { pr_mode: _, auto_merge: _, review_model: _, look: _, tracker: _, reviews: _, agent_starts: _, delivery: _, workflows_off: _ } = ValuesSet::default();
-        let keys: Vec<Key> = [Body::Values(Page::PullRequests), Body::Values(Page::StartingJobs), Body::Values(Page::Look), Body::Macs].into_iter().flat_map(|body| keys_of(body).iter().copied()).collect();
+        let keys: Vec<Key> = [Body::Values(Page::PullRequests), Body::Values(Page::StartingJobs), Body::Values(Page::Look), Body::Shared].into_iter().flat_map(|body| keys_of(body).iter().copied()).collect();
         let mut sorted = keys.clone();
         sorted.sort();
         sorted.dedup();
@@ -1017,7 +1017,7 @@ mod tests {
         assert_eq!(one, vec![vec![(Key::AgentStarts, Column::Every)]], "Kit names no tracker");
         let two = cells(Page::StartingJobs.keys(), true);
         assert_eq!(two, vec![vec![(Key::AgentStarts, Column::Every), (Key::AgentStarts, Column::Own)], vec![(Key::Tracker, Column::Own)]], "the tracker's every project cell is empty");
-        assert_eq!(cells(keys_of(Body::Macs), true), vec![vec![(Key::Shared, Column::Own)]]);
+        assert_eq!(cells(keys_of(Body::Shared), true), vec![vec![(Key::Shared, Column::Own)]]);
     }
 
     #[test]
