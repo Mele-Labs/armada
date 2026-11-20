@@ -188,7 +188,6 @@ pub(super) async fn machine_hosting(
     Machine { fleet, view, _home: home }
 }
 
-/// Every repository `fleet` serves, in one new project that names the store at `address`. Its id.
 /// A project holding every repository the Fleet serves, naming no store. Its id.
 pub(crate) async fn a_project_of_every_repository(fleet: &Fixture) -> String {
     let members = fleet
@@ -201,6 +200,8 @@ pub(crate) async fn a_project_of_every_repository(fleet: &Fixture) -> String {
     api::Projects::add_project(fleet, new).await.expect("added").projects.last().expect("the project").id.clone()
 }
 
+/// Every repository `fleet` serves, in one new project that names the store at `address` and octocat,
+/// the account [`machine`] signs in as, as its login. Its id.
 pub(crate) async fn in_a_project_storing_at(fleet: &Fixture, address: &str) -> String {
     let members = fleet
         .repositories()
@@ -211,7 +212,7 @@ pub(crate) async fn in_a_project_storing_at(fleet: &Fixture, address: &str) -> S
     let new = ipc::NewProject { name: format!("Stored at {address}"), members: Some(members), place: None, values: None };
     let id = api::Projects::add_project(fleet, new).await.expect("added").projects.last().expect("the project").id.clone();
     let store = core_model::ProjectStore::joined(core_model::StoreAddress::new(address).expect("an address"), None);
-    fleet.project_store_written(&id, Some(store)).await.expect("its store named");
+    fleet.project_store_written(&id, Some(core_model::ProjectStore { account_id: Some(583_231), ..store })).await.expect("its store named");
     id
 }
 

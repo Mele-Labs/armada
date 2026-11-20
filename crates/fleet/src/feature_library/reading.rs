@@ -283,7 +283,14 @@ where
                 store.feature_decisions(&feature.id).map_err(|why| self.feature_fault(why))?,
             )
         };
-        let docs = reads_of(&links, feature_link_kind::DOC);
+        let mut docs = reads_of(&links, feature_link_kind::DOC);
+        if !docs.is_empty() {
+            for kept in store.doc_drift_in(&loaded.project).map_err(|why| self.feature_fault(why))? {
+                if let Some(doc) = docs.iter_mut().find(|doc| doc.target == kept.target) {
+                    doc.drifted = kept.names;
+                }
+            }
+        }
         let tickets = reads_of(&links, feature_link_kind::TICKET);
         let mut page = FeaturePage {
             project: loaded.project.clone(),
@@ -423,6 +430,7 @@ fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
             job: link.job.clone(),
             at: instant(&link.at),
             state: link.state.clone(),
+            drifted: Vec::new(),
         });
     }
     reads

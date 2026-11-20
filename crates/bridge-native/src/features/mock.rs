@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorFile, FloorPlan, FloorRoom, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -33,6 +33,74 @@ fn stale(mut row: FeatureRow, since: u64) -> FeatureRow {
 
 fn area(slug: &str, title: &str, features: Vec<FeatureRow>) -> FeatureAreaRow {
     FeatureAreaRow { slug: slug.into(), title: title.into(), features }
+}
+
+/// The projects the mock names, in Fleet's order, as `(id, name)`: the first is the one `library` belongs to.
+pub fn projects() -> Vec<(String, String)> {
+    [(PROJECT, "Armada"), ("pocket", "Pocket"), ("store", "Store")].into_iter().map(|(id, name)| (id.to_string(), name.to_string())).collect()
+}
+
+/// Where the librarian can stand, for a walk and a test to ask for.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Reading {
+    /// It never ran.
+    Never,
+    /// It read through the last merge, four minutes ago.
+    Current,
+    /// Three pull requests merged since its last read.
+    Behind,
+    /// Forty pull requests merged since, more than a line of numbers holds.
+    FarBehind,
+    /// Behind by three, and a run going: its first step done, its second running, its third not reached.
+    Running,
+}
+
+/// What a run would do, as Fleet lists it: read what merged, write what changed since he looked, mark the catalog read.
+pub fn plan(merges: &str, through: Option<u64>) -> Vec<ipc::LibrarianStep> {
+    let step = |id: &str, title: &str, detail: &str, model: bool| ipc::LibrarianStep { id: id.into(), title: title.into(), detail: detail.into(), model };
+    vec![
+        step("read_merges", "Read what merged", merges, false),
+        step("since_you_looked", "Write what changed since you looked", "One model call from tonight's share", true),
+        step("read_through", "Mark the catalog read", &through.map_or_else(|| "Nothing merged to read through".to_string(), |n| format!("Read through #{n}")), false),
+    ]
+}
+
+/// The librarian's state at `at`, with the times as of now so a picture reads the same each day.
+pub fn librarian(at: Reading) -> ipc::LibrarianState {
+    let ago = |minutes: i64| Instant::carried((chrono::Utc::now() - chrono::Duration::seconds(minutes * 60 + 30)).to_rfc3339());
+    match at {
+        Reading::Never => ipc::LibrarianState { steps: plan("Every merged pull request Fleet kept", None), ..Default::default() },
+        Reading::Current => ipc::LibrarianState { last_run: Some(ago(4)), read_through: Some(3864), merged_since: Vec::new(), steps: plan("Nothing merged since #3864", Some(3864)), running: None },
+        Reading::Behind => ipc::LibrarianState { last_run: Some(ago(190)), read_through: Some(3861), merged_since: vec![3862, 3863, 3864], steps: plan("#3862 #3863 #3864, from Fleet's own record", Some(3864)), running: None },
+        Reading::FarBehind => ipc::LibrarianState { last_run: Some(ago(60 * 30)), read_through: Some(3820), merged_since: (3821..=3860).collect(), steps: plan("#3821 to #3860, 40 pull requests", Some(3860)), running: None },
+        Reading::Running => {
+            let run = ago(0);
+            let now = |step: &str, state, said: &str| ipc::LibrarianStepNow { step: step.into(), state, said: said.into() };
+            ipc::LibrarianState {
+                running: Some(ipc::LibrarianRunning {
+                    run,
+                    steps: vec![now("read_merges", ipc::LibrarianStepState::Done, "Read 3 merges"), now("since_you_looked", ipc::LibrarianStepState::Running, "")],
+                }),
+                ..librarian(Reading::Behind)
+            }
+        }
+    }
+}
+
+/// The library of the project `id`: Armada's own, or a short one for the other projects the mock names.
+pub fn library_of(id: &str) -> FeatureLibrary {
+    match id {
+        "pocket" => {
+            let sync = "sync-and-pairing";
+            FeatureLibrary {
+                project: id.into(),
+                areas: vec![area(sync, "Sync and pairing", vec![feature(sync, "pair-a-phone", "Pair a phone", "Scan a code to link a phone"), feature(sync, "offline-queue", "Offline queue", "Sends wait until the Mac is back")])],
+                librarian: librarian(Reading::Current),
+            }
+        }
+        "store" => FeatureLibrary { project: id.into(), areas: vec![area("checkout", "Checkout", vec![feature("checkout", "cart", "Cart", "Items, quantities, totals")])], librarian: librarian(Reading::Never) },
+        _ => library(),
+    }
 }
 
 pub fn library() -> FeatureLibrary {
@@ -76,7 +144,7 @@ pub fn library() -> FeatureLibrary {
             ),
             area("pending", "pending", vec![pending]),
         ],
-        librarian: Default::default(),
+        librarian: librarian(Reading::Behind),
     }
 }
 
@@ -150,7 +218,65 @@ pub fn page(slug: &str) -> FeaturePage {
         ],
         docs: Vec::new(),
         tickets: Vec::new(),
-        floor_plan: None,
+        floor_plan: Some(floor_plan()),
+    }
+}
+
+/// The code map of the mock's repository: twelve modules sized as Armada's are, the four the feature has files in lit, with their
+/// files as Fleet lists them on a read with `files=true`, and four doors, three of them contracts.
+fn floor_plan() -> FloorPlan {
+    // Each room: its module, folder, kind, whether it is lit, and its folders as (folder, bytes, files).
+    let rooms: [(&str, &str, &str, bool, &[(&str, u64, usize)]); 12] = [
+        ("desktop", "apps/desktop", "npm", true, &[("src/renderer/src", 7_400_000, 60), ("src/main", 3_900_000, 34), ("src/renderer/src/features", 1_300_000, 12), ("e2e", 2_100_000, 20), ("src/preload", 800_000, 8)]),
+        ("bridge-native", "crates/bridge-native", "cargo", true, &[("src/job_view", 4_600_000, 44), ("src", 3_100_000, 36), ("src/features", 1_900_000, 22), ("src/titlebar", 1_500_000, 18), ("src/settings", 1_400_000, 16), ("fixtures", 1_900_000, 12)]),
+        ("fleet", "crates/fleet", "cargo", true, &[("src", 4_200_000, 48), ("src/tests", 3_700_000, 40), ("src/feature_library", 1_200_000, 14), ("src/session_host", 2_300_000, 22), ("src/thread_view", 1_900_000, 16)]),
+        ("components", "packages/components", "npm", false, &[("src", 4_100_000, 40), ("src/stories", 2_300_000, 24)]),
+        ("ipc", "crates/ipc", "cargo", true, &[("src", 2_200_000, 30), ("operations", 900_000, 40)]),
+        ("store", "crates/store", "cargo", false, &[("src", 1_300_000, 20), ("src/tests", 500_000, 10), ("migrations", 260_000, 30)]),
+        ("config", "crates/config", "cargo", false, &[("src", 900_000, 12), ("presets", 420_000, 8)]),
+        ("core-model", "crates/core-model", "cargo", false, &[("src", 520_000, 10), ("domain", 220_000, 6)]),
+        ("xtask", "xtask", "cargo", false, &[("src", 627_000, 14)]),
+        ("testkit", "crates/testkit", "cargo", false, &[("src", 300_000, 8), ("fixtures", 270_000, 12)]),
+        ("tokens", "packages/tokens", "npm", false, &[("src", 300_000, 6), ("build", 137_000, 4)]),
+        ("drone", "crates/drone", "cargo", false, &[("src", 260_000, 7)]),
+    ];
+    // What the feature owns, and what a live Job is writing now.
+    let owned = ["apps/desktop/src/renderer/src/features", "crates/bridge-native/src/features", "crates/fleet/src/feature_library", "crates/ipc/src/features.rs", "crates/ipc/src/feature_pages.rs"];
+    let changing = ["crates/fleet/src/feature_library/holding.rs", "crates/bridge-native/src/features/floor.rs"];
+    let words = ["holding", "floor", "pages", "reading", "filing", "committing", "health", "glossary", "consulting", "pending", "rows", "view", "model", "wire", "tests", "mock", "shots", "keys", "layout", "card"];
+    let built = rooms.iter().map(|(module, path, kind, lit, folders)| {
+        let ext = if *kind == "npm" { "tsx" } else { "rs" };
+        let mut files = Vec::new();
+        for (folder, bytes, count) in folders.iter() {
+            let base = format!("{path}/{folder}");
+            // Sizes fall away as real files do: a few large, a long tail of small ones.
+            let shares: Vec<f64> = (0..*count).map(|at| 1. / (at as f64 + 1.).powf(0.9)).collect();
+            let whole: f64 = shares.iter().sum();
+            let mut tail = (0u64, 0u32);
+            for (at, share) in shares.iter().enumerate() {
+                let name = if *module == "ipc" && *folder == "src" && at < 2 { ["features", "feature_pages"][at].to_string() } else { format!("{}{}", words[at % words.len()], if at < words.len() { String::new() } else { format!("_{}", at / words.len()) }) };
+                let file = format!("{base}/{name}.{ext}");
+                let size = (*bytes as f64 * share / whole) as u64;
+                let lit = owned.iter().any(|own| file == *own || file.starts_with(&format!("{own}/")) || file == format!("{own}.rs"));
+                let now = changing.contains(&file.as_str());
+                // Every file the feature owns or a Job is changing stands alone, then the largest; the rest share one entry.
+                if lit || now || at < count / 3 {
+                    files.push(FloorFile { path: file, bytes: size, lit, changing: now, grouped: 0 });
+                } else {
+                    tail = (tail.0 + size, tail.1 + 1);
+                }
+            }
+            if tail.1 > 0 {
+                files.push(FloorFile { path: format!("{base}/"), bytes: tail.0, lit: false, changing: false, grouped: tail.1 });
+            }
+        }
+        files.sort_by(|a, b| b.bytes.cmp(&a.bytes));
+        FloorRoom { module: module.to_string(), path: path.to_string(), kind: kind.to_string(), lit: *lit, manifest_id: None, files }
+    });
+    let door = |from: &str, to: &str, contract: bool| FloorDoor { from: from.into(), to: to.into(), contract };
+    FloorPlan {
+        rooms: built.collect(),
+        doors: vec![door("bridge-native", "ipc", true), door("fleet", "store", true), door("fleet", "config", true), door("desktop", "components", false)],
     }
 }
 
@@ -215,6 +341,91 @@ pub fn asks(slug: &str) -> FeatureAsks {
                 "when the start is slow the card asks the small model for a title two times and the second one replaces what i typed in the first line",
             ),
             by(ask("ask-10", AskKind::Bug, "The workflow picker forgets the last repository", AskState::Built, 3, 6), "job-card-workflow", Some("job-card-title")),
+        ],
+    }
+}
+
+/// How far back the mock's Since you looked page reaches before he marks it read.
+pub const SINCE_DAYS_AGO: i64 = 3;
+
+/// The project's overview as the librarian's first read leaves it: Armada's own modules over the areas of `library`, the
+/// busiest features by their merges, and no glossary, which is what Fleet serves until a Job adds a term.
+pub fn overview() -> ipc::ProjectOverview {
+    let room = |module: &str, path: &str, kind: &str, area: Option<&str>| ipc::MapRoom { module: module.into(), path: path.into(), kind: kind.into(), manifest_id: None, area: area.map(str::to_string) };
+    let (running, thread, review) = ("running-a-job", "job-thread-and-terminal", "pull-requests-and-review");
+    ipc::ProjectOverview {
+        project: PROJECT.into(),
+        what_it_is: Some(ipc::ReadmeSentence {
+            sentence: "A macOS app that dispatches coding agents as Jobs against git repositories and verifies their work before advancing them.".into(),
+            file: "README.md".into(),
+        }),
+        rooms: vec![
+            room("fleet", "crates/fleet", "cargo", Some(running)),
+            room("store", "crates/store", "cargo", Some(running)),
+            room("config", "crates/config", "cargo", Some(running)),
+            room("ipc", "crates/ipc", "cargo", Some(thread)),
+            room("bridge-native", "crates/bridge-native", "cargo", Some(thread)),
+            room("apps/desktop", "apps/desktop", "npm", Some(thread)),
+            room("components", "packages/components", "npm", Some(review)),
+            room("plugins/armada", "plugins/armada", "npm", Some(review)),
+            room("core-model", "crates/core-model", "cargo", None),
+            room("xtask", "xtask", "cargo", None),
+        ],
+        busiest: vec![
+            ipc::BusyFeature { slug: "job-list-and-live-status".into(), title: "Job list and live status".into(), pulls: vec![3863, 3862] },
+            ipc::BusyFeature { slug: "thread-and-composer".into(), title: "Thread and composer".into(), pulls: vec![3865] },
+            ipc::BusyFeature { slug: "pause-resume-stop-snooze".into(), title: "Pause, resume, stop, snooze".into(), pulls: vec![3864] },
+            ipc::BusyFeature { slug: "reviews".into(), title: "Reviews".into(), pulls: vec![3879] },
+        ],
+        glossary: Vec::new(),
+    }
+}
+
+/// What moved since `at`: the feature waiting on him whatever the time, and each merge or new feature by how long ago it was.
+pub fn since(at: chrono::DateTime<chrono::Utc>) -> ipc::SinceYouLooked {
+    let now = chrono::Utc::now();
+    // `(hours ago, tag, slug, title, what, pulls)`: Needs you first, then Changed by newest merge, then New.
+    let moved: [(i64, ipc::LookedTag, &str, &str, &str, &[u64]); 4] = [
+        (0, ipc::LookedTag::NeedsYou, "model-and-context", "Model and context", "Its Test section is older than the last merge that changed its files.", &[]),
+        (5, ipc::LookedTag::Changed, "thread-and-composer", "Thread and composer", "Ask head on two lines, Last line in full.", &[3865]),
+        (30, ipc::LookedTag::Changed, "job-list-and-live-status", "Job list and live status", "On it now counts Jobs holding a slot. Two panels with rounded corners.", &[3863, 3862]),
+        (50, ipc::LookedTag::New, "agent-notes-on-a-diff", "Agent notes on a diff", "Pending, named by a Feature line.", &[]),
+    ];
+    let features: Vec<ipc::LookedFeature> = moved
+        .into_iter()
+        .filter(|(hours, tag, ..)| *tag == ipc::LookedTag::NeedsYou || now - chrono::Duration::hours(*hours) > at)
+        .map(|(_, tag, slug, title, what, pulls)| ipc::LookedFeature { tag, slug: slug.into(), title: title.into(), what: what.into(), pulls: pulls.to_vec() })
+        .collect();
+    // The librarian's paragraph covers the merges; with none since, there is nothing for it to say.
+    let paragraph = if features.iter().any(|one| one.tag != ipc::LookedTag::NeedsYou) { "The Features screen moved to two panels and its ask cards wrap. A Job's ask head now takes two lines. One section waits on your Confirm." } else { "" };
+    ipc::SinceYouLooked { project: PROJECT.into(), paragraph: paragraph.into(), features }
+}
+
+/// Who is on what, as Fleet serves it: the owner first and the others by login, the features with most people first and then by
+/// title. Two features have two people on them, the owner holds Jobs where the others hold pull requests, and one pull request
+/// is a draft.
+pub fn who() -> ipc::WhosOnWhat {
+    let repository = "Mele-Labs/armada";
+    let pull = |number: u64, title: &str, draft: bool| ipc::WhoPull { number, repository: repository.into(), title: title.into(), draft };
+    let cell = |login: &str, pulls: Vec<ipc::WhoPull>, jobs: &[&str]| ipc::WhoCell { login: login.into(), pulls, jobs: jobs.iter().map(|id| SessionId::carried(*id)).collect() };
+    let feature = |slug: &str, title: &str, cells: Vec<ipc::WhoCell>| ipc::WhoFeature { slug: slug.into(), title: title.into(), cells };
+    let person = |login: &str, me: bool| ipc::WhoPerson { login: login.into(), me };
+    ipc::WhosOnWhat {
+        project: PROJECT.into(),
+        people: vec![person("you", true), person("dana", false), person("marco", false), person("priya", false)],
+        features: vec![
+            feature(
+                "pull-request-panel",
+                "Pull request panel",
+                vec![cell("dana", vec![pull(3871, "Pull request panel in two columns", false)], &[]), cell("priya", vec![pull(3868, "Pull request panel remembers its folds", false)], &[])],
+            ),
+            feature(
+                "start-a-job",
+                "Start a Job",
+                vec![cell("you", Vec::new(), &["job-start-card"]), cell("priya", vec![pull(3869, "Start card remembers the last workflow", false)], &[])],
+            ),
+            feature("job-list-and-live-status", "Job list and live status", vec![cell("you", Vec::new(), &["job-list-scroll"])]),
+            feature("reviews", "Reviews", vec![cell("marco", vec![pull(3879, "Review list keeps the last read", false), pull(3875, "Review notes on a diff", true)], &[])]),
         ],
     }
 }

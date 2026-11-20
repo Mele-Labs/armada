@@ -173,18 +173,19 @@ fn a_project_names_no_store_unless_its_file_does_and_a_named_one_reads_back_whol
     assert!(!project_text(&none).expect("text").contains("store"), "none is not written");
 
     let team = format!(
-        "{file}store:\n  address: https://Armada-Store.acme.workers.dev/\n  team: Acme/Platform\n  worker: armada-store-acme\n  deployed: 2026-11-13T10:00:00.000Z\n"
+        "{file}store:\n  address: https://Armada-Store.acme.workers.dev/\n  team: Acme/Platform\n  worker: armada-store-acme\n  deployed: 2026-11-13T10:00:00.000Z\n  account_id: 583231\n"
     );
     let read = parse_project(Path::new("shop.yml"), &team).expect("a Project with a team store");
     let store = read.store().expect("its store");
     assert_eq!(store.address.as_str(), "https://armada-store.acme.workers.dev", "lowercased, the trailing slash taken off");
     assert_eq!(store.team.as_ref().map(ToString::to_string).as_deref(), Some("acme/platform"));
     assert_eq!(store.worker.as_ref().map(|it| it.as_str()), Some("armada-store-acme"));
+    assert_eq!(store.account_id, Some(583_231), "the login that joins it");
     let written = project_text(&read).expect("text");
     assert_eq!(parse_project(Path::new("shop.yml"), &written).expect("read back"), read);
 
     let mine = parse_project(Path::new("shop.yml"), &format!("{file}store:\n  address: https://store.example.com\n")).expect("joined by address");
-    assert_eq!(mine.store().map(|it| (it.team.is_none(), it.worker.is_none(), it.deployed.is_none())), Some((true, true, true)));
+    assert_eq!(mine.store().map(|it| (it.team.is_none(), it.worker.is_none(), it.deployed.is_none(), it.account_id)), Some((true, true, true, None)));
 
     for (bad, names) in [
         ("store:\n  address: http://store.example.com\n", "store.address"),
@@ -192,6 +193,7 @@ fn a_project_names_no_store_unless_its_file_does_and_a_named_one_reads_back_whol
         ("store:\n  address: https://store.example.com\n  team: acme/plat/form\n", "store.team"),
         ("store:\n  address: https://store.example.com\n  worker: Armada_Store\n", "store.worker"),
         ("store:\n  address: https://store.example.com\n  deployed: yesterday\n", "store.deployed"),
+        ("store:\n  address: https://store.example.com\n  account_id: octocat\n", "store.account_id"),
         ("store:\n  team: acme\n", "store"),
         ("store:\n  address: https://store.example.com\n  token: abc\n", "store"),
     ] {
