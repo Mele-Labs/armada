@@ -163,7 +163,7 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
-    /// Settings › Account: who he is on GitHub and what signing in turns on.
+    /// Settings › Account: who he is on the forge and what signing in turns on.
     pub account: super::account::AccountPage,
     /// Settings › Claims store.
     pub store: super::store::StorePage,

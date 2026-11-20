@@ -63,7 +63,7 @@ pub enum Body {
     Ways,
     /// Whether a project's Jobs reach his other Macs, and where a copy's file is kept (`project.rs`).
     Shared,
-    /// Who he is on GitHub, his devices off the Phone Gateway (`macs.rs`), and what signing in turns on (`account.rs`).
+    /// Who he is on the forge, his devices off the Phone Gateway (`macs.rs`), and what signing in turns on (`account.rs`).
     Account,
     /// A list of mods (`ModList`): All where no kind is named, else the mods of that kind, listed only while there is one.
     Mods(Option<ipc::ModKind>),

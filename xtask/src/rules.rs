@@ -214,7 +214,8 @@ const PENDING_ROUTES_FILE: &str = "packages/protocol/src/pending.ts";
 ///
 /// The account a person signs in with is a GitHub account, and the approved
 /// button, its mock and its walk name it so the owner can tell which one. The
-/// owner chose this exception over neutral wording on 14 Oct 2026. The address
+/// owner chose this exception over neutral wording on 14 Oct 2026, and native
+/// Bridge's Account page and its Joins as row are the same page ported. The address
 /// to sign in at still comes from Fleet when this is wired.
 const SIGN_IN_FILES: &[&str] = &[
     "apps/desktop/src/renderer/src/mock/account.tsx",
@@ -228,6 +229,9 @@ const SIGN_IN_FILES: &[&str] = &[
     "packages/components/src/compositions/TitleBar/TitleBar.stories.tsx",
     "packages/components/src/compositions/TitleBar/TitleMenu.tsx",
     "apps/store/src/enrol.ts",
+    "crates/bridge-native/src/settings/account.rs",
+    "crates/bridge-native/src/settings/mock_account.rs",
+    "crates/bridge-native/src/settings/store_login.rs",
 ];
 
 /// The mock files that stand in for what Fleet sends about the forge's own name.
