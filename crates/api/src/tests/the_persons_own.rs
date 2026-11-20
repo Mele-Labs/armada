@@ -91,7 +91,8 @@ async fn a_job_cannot_keep_the_feature_catalog_and_bridge_can() {
     let app = wired();
     let upsert = ipc::encode(&ipc::UpsertFeatures { project: "p".into(), areas: Vec::new(), features: Vec::new() }).expect("encodes");
     let change = ipc::encode(&ipc::ChangeFeature { project: "p".into(), feature: "f".into(), into: None, slug: None, title: Some("T".into()), area: None }).expect("encodes");
-    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change)] {
+    let retire = ipc::encode(&ipc::AnswerRetire { project: "p".into(), slug: "f".into(), retire: false }).expect("encodes");
+    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change), ("/features/retire", retire)] {
         let (status, refused) = call(&app, "POST", uri, JOB, &body).await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{uri} from a Job");
         let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");

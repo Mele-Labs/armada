@@ -17,6 +17,7 @@ use ipc::{Instant, LibrarianPart, LibrarianRan, LibrarianState, LibrarianStep, L
 use super::doc_drift;
 use super::librarian_steps as steps;
 use super::since_paragraph::Since;
+use super::upkeep;
 use store::{feature_link_kind, librarian_run_by, KeptLibrarianRun, Store, WriteError};
 
 use crate::daemon::Fleet;
@@ -77,8 +78,9 @@ impl Librarian {
     }
 }
 
-/// The parts that have work behind them. Drift's is its free half: the model half is not built.
-const BUILT: &[LibrarianPart] = &[LibrarianPart::Drift, LibrarianPart::SinceYouLooked];
+/// The parts that have work behind them. Drift's is its free half: the model half is not built. Links and Retire share one
+/// free step, which reads features and linked docs against the code.
+const BUILT: &[LibrarianPart] = &[LibrarianPart::Links, LibrarianPart::Drift, LibrarianPart::Retire, LibrarianPart::SinceYouLooked];
 
 const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
 
@@ -139,15 +141,16 @@ where
             None => String::new(),
         };
         let night = self.night_of(&at).await;
-        let (state, last, spent, docs) = {
+        let (state, last, spent, docs, features) = {
             let store = self.store().lock().await;
             let state = state_of(&store, project).map_err(|why| self.ledger_fault(why))?;
             let last = store.librarian_last_run(project).map_err(|why| self.ledger_fault(why))?;
             let docs = doc_drift::linked_docs(&store, project).map_err(|why| self.ledger_fault(why))?;
-            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?, docs)
+            let features = upkeep::checked_count(&store, project).map_err(|why| self.ledger_fault(why))?;
+            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?, docs, features)
         };
         let share = set.model_share;
-        let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent, docs.len());
+        let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent, docs.len(), features);
         let tell = |step: &str, state: LibrarianStepState, said: String| {
             held.moved(step, state, &said);
             self.publish(ipc::Event::LibrarianStep(LibrarianStepMoved { project: project.to_string(), run: run.clone(), step: step.to_string(), state, said }));
@@ -188,6 +191,19 @@ where
                     let flagged = doc_drift::keep_checked(&mut *self.store().lock().await, project, &at, found).map_err(|why| failed(&step.id, why))?;
                     ran.push(LibrarianPart::Drift);
                     tell(&step.id, LibrarianStepState::Done, steps::drift_said(flagged));
+                }
+                steps::CHECK_UPKEEP => {
+                    let now = self.now().epoch_millis().unwrap_or(0);
+                    let asked = upkeep::asked(&*self.store().lock().await, project, &docs, now).map_err(|why| failed(&step.id, why))?;
+                    let (inspected, asking) = (roots.clone(), asked.clone());
+                    let seen = tokio::task::spawn_blocking(move || upkeep::inspect(&inspected, &asking)).await.ok().flatten();
+                    let Some(seen) = seen else {
+                        tell(&step.id, LibrarianStepState::Skipped, steps::UPKEEP_UNREAD.to_string());
+                        continue;
+                    };
+                    let counted = upkeep::keep(&mut *self.store().lock().await, project, &at, &asked, &seen).map_err(|why| failed(&step.id, why))?;
+                    ran.extend(set.parts.iter().copied().filter(|part| matches!(part, LibrarianPart::Links | LibrarianPart::Retire)));
+                    tell(&step.id, LibrarianStepState::Done, steps::upkeep_said(counted));
                 }
                 name => {
                     let Some(part) = LibrarianPart::from_name(name) else { continue };
@@ -249,7 +265,8 @@ where
         let set = self.librarian_set();
         let spent = store.librarian_model_calls(project, night).map_err(|why| self.ledger_fault(why))?;
         let docs = doc_drift::linked_docs(store, project).map_err(|why| self.ledger_fault(why))?;
-        Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent, docs.len()))
+        let features = upkeep::checked_count(store, project).map_err(|why| self.ledger_fault(why))?;
+        Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent, docs.len(), features))
     }
 
     /// The night it is now, which a night's share of model calls is counted by.

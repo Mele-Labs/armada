@@ -111,6 +111,10 @@ where
         self.features_upserted(upsert).await
     }
 
+    async fn answer_retire(&self, caller: Option<api::Caller>, answer: ipc::AnswerRetire) -> Result<ipc::RetireAnswered, Refusal> {
+        self.retire_answered(caller, answer).await
+    }
+
     async fn seed_features(&self, caller: Option<api::Caller>, seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         self.features_seeded(caller, seed).await
     }
