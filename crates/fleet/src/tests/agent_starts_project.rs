@@ -218,3 +218,56 @@ async fn a_handoff_is_for_the_old_jobs_project() {
     assert_ne!(new, old.as_str(), "a fresh Job took its place");
     assert_eq!(rig.fleet.project_of_job(&new).await.as_deref(), Some(project.as_str()));
 }
+
+/// Work's copy "Notes", listing the rig's repository and `more`, as Work says it.
+fn notes_listing(rig: &Rig, more: &[&ipc::ManifestId]) -> ipc::Project {
+    let mut members = vec![ProjectMember { manifest_id: rig.manifest.clone(), folder: None }];
+    members.extend(more.iter().map(|one| ProjectMember { manifest_id: (*one).clone(), folder: None }));
+    ipc::Project { members, ..super::other_mac_projects::theirs("p-notes", "Notes", Vec::new()) }
+}
+
+#[tokio::test]
+async fn a_starter_in_a_copy_starts_its_job_in_the_copy_and_a_repository_it_lacks_is_added_on_the_mac_that_keeps_it() {
+    use super::other_mac_projects::{Link, WORK};
+    let rig = rig(None);
+    let link = Link::new();
+    rig.fleet.switching_phone_with(Arc::clone(&link) as Arc<dyn crate::phone::PhoneSwitch>);
+    rig.fleet.copies_replaced(WORK, vec![notes_listing(&rig, &[])]).await.expect("held");
+    an_agent_for(&rig, "p-notes").await;
+
+    // In a repository the copy lists: the Job is in the copy, and nothing is sent.
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), begins(&rig, "Check the reader", BRIEF)).await.expect("started");
+    assert_eq!(project_of(&rig, &held.session_id).await.as_deref(), Some("p-notes"));
+    assert!(link.calls().is_empty());
+
+    // In one it lacks: Work is asked to add it, whole, and the Job is in the copy.
+    let second = a_second_repository(&rig.fleet, &rig.home);
+    let both = notes_listing(&rig, &[&second]);
+    link.answers(200, &ipc::Projects { projects: vec![both.clone()], loose: Vec::new(), left_out: Vec::new(), left_behind: Vec::new() });
+    let mut start = begins(&rig, "Check the other", BRIEF);
+    start.manifest_id = Some(second.clone());
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect("started");
+    assert_eq!(project_of(&rig, &held.session_id).await.as_deref(), Some("p-notes"));
+    let calls = link.calls();
+    let [sent] = calls.as_slice() else { panic!("{calls:?}") };
+    let ipc::ProjectAct::EditProject { project, edit } = &sent.act else { panic!("{sent:?}") };
+    assert_eq!((project.as_str(), edit.members.as_ref()), ("p-notes", Some(&both.members)), "the copy's members and the new one, whole");
+}
+
+#[tokio::test]
+async fn a_starter_in_a_copy_whose_mac_refuses_the_repository_starts_its_job_in_none() {
+    use super::other_mac_projects::{Link, WORK};
+    let rig = rig(None);
+    let link = Link::new();
+    rig.fleet.switching_phone_with(Arc::clone(&link) as Arc<dyn crate::phone::PhoneSwitch>);
+    rig.fleet.copies_replaced(WORK, vec![notes_listing(&rig, &[])]).await.expect("held");
+    an_agent_for(&rig, "p-notes").await;
+    let second = a_second_repository(&rig.fleet, &rig.home);
+    link.answers(404, &ipc::WireError::raised("fleet.no_such_project", "there is no project p-notes", ipc::RunId::carried("01THEIRRUN")));
+    let mut start = begins(&rig, "Check the other", BRIEF);
+    start.manifest_id = Some(second);
+
+    let held = Arc::clone(&rig.fleet).start_another_session(caller(), start).await.expect("a start is never refused for its project");
+
+    assert_eq!(project_of(&rig, &held.session_id).await, None);
+}

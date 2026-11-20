@@ -20,6 +20,15 @@ pub fn hue_of_name(name: &str) -> Token {
     area_hue(name.bytes().fold(0usize, |sum, byte| sum.wrapping_mul(31).wrapping_add(byte as usize)))
 }
 
+/// The hue of the area `slug` among `areas`, the library's area slugs in its order: its place among those not pending,
+/// and the Operator's for the pending group.
+pub fn hue_among<'a>(areas: impl IntoIterator<Item = &'a str>, slug: &str) -> Token {
+    if slug == super::curate::PENDING_AREA {
+        return token::OPERATOR;
+    }
+    areas.into_iter().filter(|area| *area != super::curate::PENDING_AREA).position(|area| area == slug).map_or_else(|| hue_of_name(slug), area_hue)
+}
+
 /// `color-mix(in srgb, hue N%, ground)`: the hue at `share` over the ground.
 pub fn tint(look: &Look, ground: Hsla, hue: Token, share: f32) -> Hsla {
     ground.blend(look.color(hue).opacity(share))

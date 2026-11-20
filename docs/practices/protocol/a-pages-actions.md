@@ -9,9 +9,9 @@ Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Clas
 | Where | Side | Carries |
 | --- | --- | --- |
 | `press_page_action` (`POST /sessions/artifacts/press`, `agent_access = "No"`) | Bridge writes | `PressPageAction` `{ session_id, artifact, revision, action, words? }`: the page's path, the kept revision pressed and the action's `id` |
-| Its answer | Fleet writes, Bridge reads | 200 `PagePress` `{ revision, action, item?, act, at, did }`. `act` is `message`, `start` or `answer`. `did` is tagged by `kind`: `sent`, `started` with `job`, or `answered` with `item`, the ask's id |
+| Its answer | Fleet writes, Bridge reads | 200 `PagePress` `{ revision, action, item?, act, at, did }`. `act` is `message`, `start`, `answer` or `close`. `did` is tagged by `kind`: `sent`, `started` with `job`, `answered` with `item`, the ask's id, or `closed` with `issues`, those the tracker closed |
 | `JobArtifact.presses` (`get_job_artifacts`) | Fleet writes, Bridge reads | Every `PagePress` on a page, oldest first. Absent where none, and on every form but a page |
-| Refusals | Fleet | 422 `fleet.page_action_unknown`, `fleet.page_act_refused`, `fleet.page_ask_not_open`, `fleet.page_archived`, `fleet.artifact_not_held`, `fleet.session_unnamed`, or the refusal of the start or the answer it made |
+| Refusals | Fleet | 422 `fleet.page_action_unknown`, `fleet.page_act_refused`, `fleet.page_ask_not_open`, `fleet.page_close_refused`, `fleet.page_archived`, `fleet.artifact_not_held`, `fleet.session_unnamed`, or the refusal of the start or the answer it made |
 
 **The action is read off the kept revision**, never off the call, so the body names the revision and the action's id and nothing of what it does.
 **Fleet keeps the list of acts**, and an act off it is refused at the press and named to the Job when the page is kept.
@@ -23,3 +23,4 @@ One press is one or two sends, so the unmeasured sink risk is neither better nor
 
 **Skew.** The route is new, so the protocol ID moves and a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 A `JobArtifact` with `presses` reads on a Bridge that does not know it as the artifact without them.
+Since 18 Nov 2026 `PageAct` holds `close` and `PressDid` holds `closed`, so the protocol ID moves again.

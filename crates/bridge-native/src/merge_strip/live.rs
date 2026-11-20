@@ -140,7 +140,7 @@ fn picked_roots(held: &Held, cx: &App) -> Option<Vec<String>> {
     let served = held.repositories.as_deref()?;
     let bar = crate::titlebar::live(cx)?;
     let face = &bar.read(cx).face;
-    let at: Vec<usize> = match face.scoped.and_then(|at| face.projects.get(at)) {
+    let at: Vec<usize> = match face.scoped_to() {
         Some(project) => project.members.iter().map(|member| member.repository).collect(),
         None => vec![face.chosen?],
     };

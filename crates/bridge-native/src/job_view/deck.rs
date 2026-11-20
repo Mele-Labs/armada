@@ -272,7 +272,27 @@ impl JobView {
             );
         }
         let footer = div().flex().items_center().gap(look.length(token::SPACE_2)).child(if last { go } else { next }).children(skip);
-        let typed_box = other_on.then(|| self.box_of(&format!("dock:{key}:{front}"), Mode::Note, "Other", look, cx)).flatten();
+        // Enter in the typed Other box does what the footer's primary press does: Next, or Answer on the last question.
+        let typed_box = other_on
+            .then(|| self.box_of(&format!("dock:{key}:{front}"), Mode::Note, "Other", look, cx))
+            .flatten()
+            .map(|boxed| {
+                let (enter_id, enter_key, enter_source, enter_answers) = (id.clone(), key.to_string(), source.clone(), answers.clone());
+                let (ready, sending) = (here_chosen, deck.sending);
+                div().w_full().child(boxed).capture_action(cx.listener(move |this, _: &gpui_component::input::Enter, window, cx| {
+                    cx.stop_propagation();
+                    if !ready {
+                        return;
+                    }
+                    if last {
+                        if all_chosen && !sending {
+                            this.deck_answer(&enter_id, &enter_key, &enter_source, enter_answers.clone(), window, cx);
+                        }
+                    } else {
+                        this.deck_front(&enter_key, total, front + 1, cx);
+                    }
+                }))
+            });
         let said = self.dock_of(id).and_then(|dock| dock.said.get(&format!("question:{key}")).cloned());
         let body = labelled(
             div()

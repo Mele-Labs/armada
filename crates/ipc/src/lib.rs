@@ -380,7 +380,7 @@ pub use annotations::{
 };
 pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
-pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, ProjectOperatorActs, RaiseCard, ReviseCard, SetOperatorActs, SettleCard};
+pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
     AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
@@ -690,7 +690,7 @@ pub use session_import::{
 };
 pub use asides::{Aside, AsideList, AsideState, AskAside, TellAside};
 pub use story::{
-    Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
+    Ask, AskKind, AskState, AskWords, ChangeAsk, FeatureAsks, FileAsk, JobAsks, JobFeature, JobStory, MessageKind, MessageSorting, MessageSortings, SetMessageKind, SortedBy, StoryAsk,
     StoryBuilt, StoryChanged, StoryHanded, StoryShown,
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};

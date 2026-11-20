@@ -146,9 +146,10 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `get_project_claims`: the project's store's claims, grouped by holder and named where this Mac can.
+    /// `get_project_claims`: the project's store's claims, grouped by holder and named where this Mac can. **A copy of
+    /// another Mac's is read here**, from the store it names and the repositories this Mac serves of it.
     pub(crate) async fn project_claims(&self, project: &str) -> Result<ipc::ProjectClaims, Refusal> {
-        let held = self.project_read(project)?;
+        let held = self.project_held(project).await?;
         let none = |store: bool, unread: Option<String>| ipc::ProjectClaims { project: project.to_string(), store, unread, holders: Vec::new() };
         if held.store().is_none() {
             return Ok(none(false, None));

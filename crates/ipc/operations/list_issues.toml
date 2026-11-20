@@ -1,7 +1,7 @@
 [operations.list_issues]
 kind = "query"
 transport = "HTTP"
-agent_access = "No"
+agent_access = "Operator"
 description = "A repository's open issues as its tracker lists them, each with the Jobs holding it"
 notes = """
 `GET /issues/:repository`, `repository` a manifest id, and `?refresh=true` to read the tracker again whatever is held. #91, `docs/concepts/tracker.md`. Answers `IssueList`: `manifest_id`, `fetched_at`, `issues` newest edit first, and `stale` where the read just tried failed and an older list is answered instead, in the tracker's words.

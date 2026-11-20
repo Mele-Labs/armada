@@ -418,6 +418,13 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
                 turn_interval,
                 |why| eprintln!("main was not read: {why}"),
             );
+            // A Job's open pull request is read again the moment the forge says it changed. The reading
+            // above stays what it is: this is only earlier, and an account without events never sees it.
+            fleet::pull_hearing::keep_hearing_pulls(
+                Arc::clone(&fleet),
+                Arc::new(adapters::ApiPullEvents::shared()),
+                |line| eprintln!("{line}"),
+            );
             // Each Job's watches: a command run when due, on a timer of their own, and the notices they owe.
             fleet::watches::keep_running_watches(Arc::clone(&fleet), fleet::watches::EVERY);
             // Pull requests and issues, for the same reason: a landing is told to its Job

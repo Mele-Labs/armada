@@ -7,7 +7,7 @@ use std::time::Duration;
 
 use api::{OtherMacs, Projects, Refusal, Subscription};
 use ipc::{
-    EditProject, Event, MacNamed, MoveProjectRow, NewProjectTask, OtherMacProjects, PhoneGateway, Project, ProjectAct,
+    Event, MacNamed, MoveProjectRow, NewProjectTask, OtherMacProjects, PhoneGateway, Project, ProjectAct,
     ProjectActFromMac, ProjectRow, ProjectTask, ProjectTaskState, TickProjectTask, WireError,
 };
 
@@ -146,7 +146,7 @@ async fn projects_another_mac_shares_are_held_with_their_mac_told_to_bridge_and_
 }
 
 #[tokio::test]
-async fn a_copy_refuses_what_only_the_mac_that_holds_it_may_change() {
+async fn a_copy_refuses_a_job_link_a_repository_move_and_a_move_between_macs() {
     let rig = rig_placing(None);
     let own = project(&rig, "Shop").await;
     rig.fleet
@@ -164,9 +164,6 @@ async fn a_copy_refuses_what_only_the_mac_that_holds_it_may_change() {
         assert_eq!(refused.error().message, format!("Only Mac {WORK} can change this project."));
     };
 
-    held(rig.fleet.edit_project("p-notes".into(), EditProject { name: Some("Mine now".into()), ..Default::default() }).await.expect_err("refused"));
-    held(rig.fleet.edit_project("p-notes".into(), EditProject { shared_with_macs: Some(false), ..Default::default() }).await.expect_err("the switch is the holder's"));
-    held(rig.fleet.delete_project("p-notes".into()).await.expect_err("refused"));
     held(rig.fleet.link_task_job("t-1".into(), ipc::LinkTaskJob { session_id: ipc::SessionId::carried("01JOB") }).await.expect_err("Job links wait for stage 2"));
     held(rig.fleet.unlink_task_job("t-1".into()).await.expect_err("refused"));
     held(Projects::move_project_task_repository(&*rig.fleet, "t-1".into(), ipc::MoveProjectTaskRepository { manifest_id: rig.manifest.clone() }).await.expect_err("refused"));

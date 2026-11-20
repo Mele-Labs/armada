@@ -100,7 +100,9 @@ export type PagePress = {
 export type PageAct =
   | "message"
   | "start"
-  | "answer";
+  | "answer"
+  /** Close the issues a page's button lists, in its repository's tracker. Only his press closes them. */
+  | "close";
 
 /** What a press did. */
 export type PressDid =
@@ -117,6 +119,11 @@ export type PressDid =
   | {
       kind: "answered";
       item: string;
+    }
+  /** The issues the button listed that the tracker closed, in its order. One it refused is told to the Job. */
+  | {
+      kind: "closed";
+      issues: string[];
     };
 
 /** `cast_page_vote`: his vote on an `<armada-vote>` a page declares. `crates/ipc/operations/cast_page_vote.toml`. */

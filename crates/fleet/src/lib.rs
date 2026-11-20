@@ -261,6 +261,7 @@ mod feature_library;
 /// Whose pull requests Fleet watches: the signed-in account's and the forge command line's.
 mod my_pulls;
 /// Who owns a pull request, from the Sessions ledger and the Jobs.
+pub mod pull_hearing;
 mod pull_owners;
 /// Which Session or Job claimed a pull request, kept in the central store for the other machines.
 mod pull_registry;
@@ -289,6 +290,8 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_copies;
+/// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
+mod project_copy_reads;
 mod project_merging;
 /// Acts on a Job another Mac holds, sent there or kept in order, and what another Mac sends here.
 mod mac_acts;

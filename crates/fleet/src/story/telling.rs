@@ -85,7 +85,7 @@ pub(crate) fn story_of(session: &SessionId, mut entries: Vec<Entry>, artifacts: 
         .zip(shown)
         .map(|(entry, shown)| StoryAsk { open: open(entry.ask.state), ask: entry.ask, shown, built: entry.built, handed: entry.handed })
         .collect();
-    JobStory { session_id: session.clone(), asks, shown_otherwise: otherwise, lead }
+    JobStory { session_id: session.clone(), asks, shown_otherwise: otherwise, lead, features: Vec::new() }
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -103,8 +103,10 @@ where
         let asks = self.job_asks_listed(session).await?.asks;
         let artifacts = self.job_artifacts(session.as_str()).await?;
         let mut entries = Vec::new();
+        let features;
         {
             let store = self.store().lock().await;
+            features = self.features_of_job_in(&store, session.as_str(), &asks).map_err(|why| self.ledger_fault(why))?;
             for ask in asks {
                 let built = store
                     .merges_of_ask(&ask.ask_id)
@@ -125,6 +127,6 @@ where
                 entries.push(Entry { ask, built, handed });
             }
         }
-        Ok(story_of(session, entries, &artifacts))
+        Ok(JobStory { features, ..story_of(session, entries, &artifacts) })
     }
 }

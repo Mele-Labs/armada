@@ -3,7 +3,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 45] = [
+pub static STEPS: [Step; 48] = [
     step("⌥⌘A turns annotating on over any screen; the bar says so", Verb::Key("alt-cmd-a"), "status", "Annotating"),
     step("Aiming reaches the title bar too: it is outlined and named like anything on the screen", Verb::Hover, "tab", "Jobs"),
     step("A press holds it and opens the note", Verb::Press, "row", "Native Bridge foundation"),
@@ -40,6 +40,9 @@ pub static STEPS: [Step; 45] = [
     press_on("No job lists the open notes nobody has taken, each screen under its name", "tab", "No job", "button", "Group the repositories under their project"),
     press_on("A note ticked brings the acts over the selection", "checkbox", "Select Group the repositories under their project", "checkbox", "Select Group the repositories under their project"),
     press_on("Send to job leads the acts over the selection and opens the live Jobs under it", "button", "Send selected notes to job", "menu", "Send to a Job"),
+    step("Esc shuts the Jobs", Verb::Key("escape"), "checkbox", "Select Group the repositories under their project"),
+    answer("The Operator's session runs: Send to job offers it too", "layer-operator", "button", "Send selected notes to job"),
+    press_on("Operator leads the Jobs, with the bot glyph and ⌥1: it sends the notes to its thread, with their pictures", "button", "Send selected notes to job", "menuitem", "Operator"),
     step("Esc shuts the Jobs", Verb::Key("escape"), "checkbox", "Select Group the repositories under their project"),
     press_on("Mark done takes the note off No job", "button", "Mark done", "tab", "Done"),
     press_on("Done lists the finished notes, each with Reopen", "tab", "Done", "button", "Group the repositories under their project"),

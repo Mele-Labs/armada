@@ -518,6 +518,8 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
 #[allow(clippy::too_many_arguments)]
 fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Unreachable]) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
+    // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
+    let project = project.map(|id| names.same.get(id).map_or(id, String::as_str));
     let of_project = |job: &&SessionRecord| project.is_none_or(|id| names.project_of(job) == Some(id));
     let paused = |job: &SessionRecord| job.hosted.as_ref().is_some_and(|hosted| hosted.paused.is_some());
     let quiet = |job: &SessionRecord| job.mark.is_some_and(|mark| mark.state == JobState::Quiet);
@@ -866,6 +868,8 @@ struct Open {
 
 pub struct JobsList {
     jobs: Vec<SessionRecord>,
+    /// The Operator's own session, which is never a row: the Operator's page opens it as a Job's view does.
+    operator: Option<SessionRecord>,
     lines: Vec<Line>,
     scope: Scope,
     query: String,
@@ -1021,6 +1025,7 @@ impl JobsList {
             // cloned: Fleet moves several times a second and the list holds hundreds of Jobs.
             let unmoved = names == this.names && this.holds_already(held.jobs.iter().filter(|job| !job.operator));
             let mut jobs: Vec<SessionRecord> = if unmoved { Vec::new() } else { held.jobs.iter().filter(|job| !job.operator).cloned().collect() };
+            let operator = crate::operator::session_of(&held.jobs).cloned();
             if unmoved {
                 // A rename Fleet now serves is let go, as the hold below lets it go.
                 this.asked.retain(|id, (was, _)| held.jobs.iter().any(|job| job.id.as_str() == id && job.title == *was));
@@ -1032,6 +1037,13 @@ impl JobsList {
                 this.names = names;
                 this.place_new();
                 this.relist(cx);
+            }
+            if operator != this.operator {
+                this.operator = operator;
+                // Only the Operator's session opened over the Jobs screen has anything drawn from this record.
+                if this.operator.as_ref().is_some_and(|record| this.opened.as_deref() == Some(record.id.as_str())) {
+                    cx.notify();
+                }
             }
             if this.resume_open() {
                 cx.notify();
@@ -1086,6 +1098,7 @@ impl JobsList {
             opened: None,
             resume: if remember { crate::job_view::place_kept_open() } else { None },
             picks: 0,
+            operator: None,
             made: Vec::new(),
             focus: cx.focus_handle(),
             within: cx.focus_handle(),
@@ -1222,7 +1235,7 @@ impl JobsList {
     /// Open a Job from outside the list, as a press on its row does: the keys land on it and its card
     /// closes. A Job the list does not hold is not opened. Returns whether it was.
     pub fn open_job(&mut self, id: &str, cx: &mut Context<Self>) -> bool {
-        if !self.jobs.iter().any(|one| one.id.as_str() == id) {
+        if self.record(id).is_none() {
             return false;
         }
         let id: SharedString = id.to_string().into();
@@ -1320,7 +1333,31 @@ impl JobsList {
     }
 
     pub fn record(&self, id: &str) -> Option<&SessionRecord> {
-        self.jobs.iter().find(|job| job.id.as_str() == id)
+        self.jobs.iter().find(|job| job.id.as_str() == id).or_else(|| self.operator.as_ref().filter(|job| job.id.as_str() == id))
+    }
+
+    /// The Operator's session as the Operator's page read it, held so its Job view has a record to draw. A live Fleet's own
+    /// record replaces it as it changes; the walk's has none.
+    pub fn hold_operator(&mut self, record: SessionRecord) {
+        self.operator = Some(record);
+    }
+
+    /// The Operator's own session, which the list holds apart from its Jobs.
+    pub fn operator_record(&self) -> Option<&SessionRecord> {
+        self.operator.as_ref()
+    }
+
+    /// The Operator's session is shut again: the Job that was open before it is open once more.
+    pub fn leave_operator(&mut self, was: Option<SharedString>, cx: &mut Context<Self>) {
+        self.open_quietly(was, cx);
+    }
+
+    /// A Job opens as no pick does: the Job's box does not take the keys. For a place over the Jobs screen that draws one of its Job's parts.
+    pub fn open_quietly(&mut self, id: Option<SharedString>, cx: &mut Context<Self>) {
+        self.opened = id.clone();
+        self.focused = id;
+        self.card = None;
+        cx.notify();
     }
 
     /// A test's stand-in for a Fleet read that changes one record.
@@ -3298,6 +3335,10 @@ impl JobsScreen {
                 crate::dispatch::screen::open_new_project(cx);
                 return;
             }
+            if let crate::titlebar::Asked::ProjectMembers(at) = asked {
+                crate::dispatch::screen::open_project_members(*at, cx);
+                return;
+            }
             if *asked != crate::titlebar::Asked::Palette {
                 return;
             }
@@ -3336,6 +3377,11 @@ impl JobsScreen {
     /// The palette, for the screen this one sits in to draw while another place is in front.
     pub(crate) fn palette(&self) -> &Entity<crate::palette::Palette> {
         &self.palette
+    }
+
+    /// The Job view, for the screen this one sits in to draw under its own while the Review panel it holds is up there.
+    pub(crate) fn view(&self) -> &Entity<JobView> {
+        &self.view
     }
 
     /// The room the three columns share: the window less its padding and the gaps between them.
@@ -3847,6 +3893,30 @@ mod tests {
         let mut ledger = all[0].clone();
         ledger.hosted.as_mut().expect("hosted").project = Some("theirs".into());
         assert_eq!(group_of(&ledger, &lone), ("project:theirs".to_string(), "Kiavi only".to_string()));
+    }
+
+    #[test]
+    fn scoped_to_a_copy_the_list_draws_the_jobs_in_it_and_those_in_this_macs_project_of_its_name() {
+        let all = crate::mock::jobs("jobs-projects").expect("the fixture decodes");
+        let mut projects = crate::mock::projects();
+        let own = projects.projects.iter().find(|one| one.id == "armada").expect("Armada is this Mac's").clone();
+        projects.projects.push(ipc::Project { id: "theirs".into(), mac: Some("kiavi".into()), ..own.clone() });
+        let names = Names::of(&crate::mock::repositories(), Some(&projects));
+        let here = all.iter().find(|job| job.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some("armada")).expect("a Job in Armada").clone();
+        let mut there = here.clone();
+        there.id = ipc::SessionId::carried("kiavi-01".to_string());
+        there.mac = Some("kiavi".into());
+        there.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        let listed = ids(&lines_within(&[here.clone(), there], &[], Scope::All, "", &[], &names, Some("theirs")));
+        assert!(listed.contains(&"kiavi-01".to_string()) && listed.contains(&here.id.as_str().to_string()), "the other Mac's Job and his own, in one project: {listed:?}");
+        // A copy with no project of its name here: the Jobs in it alone.
+        let mut alone = crate::mock::projects();
+        alone.projects.push(ipc::Project { id: "theirs".into(), name: "Kiavi only".into(), mac: Some("kiavi".into()), ..own });
+        let lone = Names::of(&crate::mock::repositories(), Some(&alone));
+        let mut inside = all[0].clone();
+        inside.hosted.as_mut().expect("hosted").project = Some("theirs".into());
+        let listed = ids(&lines_within(&[inside.clone(), all[1].clone()], &[], Scope::All, "", &[], &lone, Some("theirs")));
+        assert_eq!(listed, vec![inside.id.as_str().to_string()]);
     }
 
     #[test]
