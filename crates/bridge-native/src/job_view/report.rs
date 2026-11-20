@@ -52,6 +52,19 @@ impl JobView {
         records.iter().filter_map(|job| job.manifest_id.as_ref()).find(|id| id.as_str().eq_ignore_ascii_case(ARMADA)).cloned().or_else(|| record.manifest_id.clone())
     }
 
+    /// The project a report's Job starts in: the one an Armada Job is in, so it is not left in none where he has the
+    /// repository in more than one project (Fleet picks only a repository's single project). Where no Armada Job is
+    /// known the report starts on the reported Job's repository, so its project.
+    pub(super) fn report_project(&self, record: &SessionRecord, cx: &gpui::App) -> Option<String> {
+        let records = self.list.read(cx).records();
+        let project_of = |job: &SessionRecord| job.hosted.as_ref().and_then(|hosted| hosted.project.clone()).filter(|id| !id.trim().is_empty());
+        let armada = records.iter().filter(|job| job.manifest_id.as_ref().is_some_and(|id| id.as_str().eq_ignore_ascii_case(ARMADA)));
+        match armada.clone().next() {
+            Some(_) => armada.filter_map(|job| project_of(job)).next(),
+            None => project_of(record),
+        }
+    }
+
     /// The toolbelt's Report: off, with its reason, where the reported Job's repository is not known.
     pub(super) fn report_act(&self, id: &SharedString, cx: &Context<Self>) -> AnyElement {
         let look = cx.look();
@@ -114,6 +127,7 @@ impl JobView {
         }
         let Some(record) = self.record(&job, cx).cloned() else { return };
         let Some(manifest_id) = self.report_manifest(&record, cx) else { return };
+        let project = self.report_project(&record, cx);
         let items = self.thread(&job, cx).map(|held| held.items.clone()).unwrap_or_default();
         let from = ReportFrom {
             at: chrono::Utc::now(),
@@ -146,7 +160,7 @@ impl JobView {
                     held: false,
                     project_rows: Vec::new(),
                     on_your_words: None,
-                    project: None,
+                    project,
                 };
                 let done: Done = Box::new(move |this, answer, window, cx| match answer {
                     Ok(bytes) => match ipc::decode::<SessionRecord>("SessionRecord", &bytes) {
