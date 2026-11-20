@@ -171,7 +171,8 @@ impl OperatorPageView {
             .border_color(look.color(if stopped { token::STATUS_COMPLETED_FAILED } else { token::OPERATOR_EDGE }))
             .child(glyph("bot", look.length(token::SPACE_4) + look.length(token::SPACE_1), look.color(if off { token::FG_MUTED } else { token::OPERATOR })))
             .child(div().flex_none().text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(title.clone()))
-            .child(state)
+            // Embedded, the page's header row already draws the chip and the line: the card does not say them again.
+            .children((!self.embedded).then_some(state))
             .child(div().flex_1())
             .children(button);
         let (mark, mark_said) = status.mark();
@@ -220,8 +221,11 @@ impl OperatorPageView {
         let refused = refused.or_else(|| self.switch_refused.clone().filter(|_| off).map(|why| format!("Not switched on: {why}"))).map(|said| {
             labelled(div().id("status-refused").text_size(look.length(token::TEXT_SM)).text_color(danger).child(SharedString::from(said.clone())), Role::Alert, said)
         });
-        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).child(doing).children(last).children(refused);
-        labelled(card_frame("status", false, look).when(stopped, |card| card.border_color(danger)).child(head).child(body), Role::Region, title).into_any_element()
+        // Embedded with nothing left to say under the head, the card is its head alone.
+        let body = (!self.embedded || last.is_some() || refused.is_some()).then(|| {
+            div().flex().flex_col().gap(look.length(token::SPACE_2)).px(look.length(token::SPACE_4)).py(look.length(token::SPACE_4)).children((!self.embedded).then_some(doing)).children(last).children(refused)
+        });
+        labelled(card_frame("status", false, look).when(stopped, |card| card.border_color(danger)).child(head).children(body), Role::Region, title).into_any_element()
     }
 
     /// Switch on, in the Off card's head: the setting Electron's Permissions tab saves, or its spinner while Fleet saves it.

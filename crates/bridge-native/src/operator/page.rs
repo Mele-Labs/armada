@@ -274,6 +274,16 @@ impl OperatorPageView {
         self
     }
 
+    #[cfg(test)]
+    pub(super) fn is_embedded(&self) -> bool {
+        self.embedded
+    }
+
+    /// The caret goes to the box under the card: the Cockpit's ⌘J with no Job open.
+    pub fn focus_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+    }
+
     /// Where the host turns embedding on or off after the page is built.
     pub fn set_embedded(&mut self, embedded: bool, cx: &mut Context<Self>) {
         if self.embedded != embedded {
@@ -2421,5 +2431,29 @@ mod tests {
         let (_, cx) = pane_of(None, false, cx);
         let column = bounds_named(cx, gpui::Role::Group, "Message box").expect("the box is drawn");
         assert!(f32::from(column.size.width) > 1000., "unchanged: {:?} wide", column.size.width);
+    }
+
+    fn drawn_count(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> usize {
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name == name).count())
+    }
+
+    #[gpui::test]
+    fn an_embedded_status_card_leaves_out_the_chip_and_the_line_the_header_row_already_says(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(Some(1800.), true, cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        settle(cx);
+        assert!(bounds_named(cx, gpui::Role::Region, "Nothing needs you").is_some(), "the card stands");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1, "the state chip is the header's alone");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1, "and so is the status line");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"), 1, "the last act stays in the card");
+    }
+
+    #[gpui::test]
+    fn the_standalone_status_card_keeps_its_chip_and_its_line(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        settle(cx);
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1);
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1);
     }
 }
