@@ -471,6 +471,7 @@ impl Held {
         // On unless the list says false, as `settings.ts` reads it.
         self.deep_links = Some(value("features.deepLinks") != Some(&SettingValue::Bool(false)));
         self.ui_sounds = value("features.uiSounds") != Some(&SettingValue::Bool(false));
+        crate::ui_sounds::set_on(self.ui_sounds);
         self.workflows_off = value("features.workflows") == Some(&SettingValue::Bool(false));
         self.open_group = value("bridge.openGroup") != Some(&SettingValue::Bool(false));
     }

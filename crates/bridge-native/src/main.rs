@@ -234,15 +234,11 @@ impl Render for Shell {
         // What a library widget inherits; gpui's own text colour is black.
         let text = cx.look().color(look::token::FG_DEFAULT);
         // A press anywhere in the window is heard here first, so a control that stops it still clicks.
-        let fleet = self._fleet.as_ref().map(|(fleet, ..)| fleet.downgrade());
         label_root(
             div()
                 .size_full()
                 .text_color(text)
-                .capture_any_mouse_down(move |event, window, cx| {
-                    let on = fleet.as_ref().and_then(|fleet| fleet.upgrade()).is_none_or(|fleet| fleet.read(cx).held().ui_sounds);
-                    ui_sounds::pressed(event, on, window, cx);
-                })
+                .capture_any_mouse_down(ui_sounds::pressed)
                 .child(self.screen.clone())
                 .children(option_pictures::over(window, cx)),
         )

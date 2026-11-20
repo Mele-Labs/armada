@@ -1,6 +1,6 @@
-//! The window's quiet click: a press on a button, a switch, a tab or a checkbox. Nothing else makes one.
-//! Synthesised, no audio files. The voice is Pebble, the take the owner chose: a short sine pluck with a
-//! noise attack, the same samples Electron's `ui-sounds.ts` renders for a press.
+//! The window's quiet sounds: a tick when the keyboard moves a list's selection, a click when a control is
+//! pressed. Nothing else makes one. Synthesised, no audio files. The voice is Pebble, the take the owner
+//! chose: a short sine pluck with a noise attack, the same samples Electron's `ui-sounds.ts` renders.
 
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
@@ -15,7 +15,7 @@ use crate::labels::{Drawn, LabelBook};
 
 /// Every sound is normalised to this peak: felt more than heard.
 const PEAK_DB: f32 = -30.0;
-/// A press this soon after the last is silent, so a fast run of presses does not machine-gun.
+/// A sound this soon after the last is dropped, so a held key does not machine-gun.
 const GAP: Duration = Duration::from_millis(25);
 const RATE: u32 = 48_000;
 
@@ -30,6 +30,8 @@ struct Voice {
     level: f32,
 }
 
+/// The move is a touch higher and shorter than the press.
+const MOVE: Voice = Voice { ms: 12.0, from: 1600.0, to: 1400.0, hz: 4000.0, q: 1.4, noise_ms: 2.0, level: 0.4 };
 const PRESS: Voice = Voice { ms: 16.0, from: 1300.0, to: 1100.0, hz: 3200.0, q: 1.2, noise_ms: 2.0, level: 0.4 };
 
 /// What a press sounds on: the roles Electron's `PRESSABLE` selector names.
@@ -103,21 +105,39 @@ fn wav(samples: &[f32], rate: u32) -> Vec<u8> {
     out
 }
 
+#[derive(Clone, Copy)]
+enum Kind {
+    Move,
+    Press,
+}
+
 thread_local! {
-    static SOUND: RefCell<Option<Retained<NSSound>>> = const { RefCell::new(None) };
+    /// `features.uiSounds`: on unless Fleet's settings say false, and on until Fleet has answered.
+    static ON: Cell<bool> = const { Cell::new(true) };
+    static SOUNDS: RefCell<[Option<Retained<NSSound>>; 2]> = const { RefCell::new([None, None]) };
     static LAST: Cell<Option<Instant>> = const { Cell::new(None) };
 }
 
-/// Plays the press, made on the first press and kept. A press while the last still sounds restarts it.
-fn play() {
+/// Set from Fleet's settings as they arrive.
+pub fn set_on(on: bool) {
+    ON.set(on);
+}
+
+/// Plays one sound, made the first time it plays and kept. A sound while the last still plays restarts it.
+fn play(kind: Kind) {
     let now = Instant::now();
-    if LAST.get().is_some_and(|last| now.duration_since(last) < GAP) {
+    if !ON.get() || LAST.get().is_some_and(|last| now.duration_since(last) < GAP) {
         return;
     }
     LAST.set(Some(now));
-    SOUND.with_borrow_mut(|sound| {
+    SOUNDS.with_borrow_mut(|sounds| {
+        let sound = &mut sounds[kind as usize];
         if sound.is_none() {
-            let bytes = wav(&render(&PRESS, RATE as f32), RATE);
+            let voice = match kind {
+                Kind::Move => &MOVE,
+                Kind::Press => &PRESS,
+            };
+            let bytes = wav(&render(voice, RATE as f32), RATE);
             *sound = NSSound::initWithData(NSSound::alloc(), &NSData::with_bytes(&bytes));
         }
         if let Some(sound) = sound {
@@ -125,6 +145,12 @@ fn play() {
             sound.play();
         }
     });
+}
+
+/// The keyboard moved a list's selection, a rail's or a grid's. Called by the list, only when the selection
+/// is somewhere new: at the end of a list the key does nothing, and nothing sounds.
+pub fn moved() {
+    play(Kind::Move);
 }
 
 /// Whether a press at `at` lands on something pressable: the innermost labelled element painted under
@@ -140,14 +166,14 @@ fn on_pressable(drawn: &[Drawn], at: Point<Pixels>) -> bool {
     false
 }
 
-/// The window root's capture listener: a left press on a pressable control clicks, while `on` holds.
-pub fn pressed(event: &MouseDownEvent, on: bool, window: &Window, cx: &App) {
-    if !on || event.button != MouseButton::Left {
+/// The window root's capture listener: a left press on a pressable control clicks.
+pub fn pressed(event: &MouseDownEvent, window: &mut Window, cx: &mut App) {
+    if event.button != MouseButton::Left {
         return;
     }
     let Some(book) = cx.try_global::<LabelBook>() else { return };
     if on_pressable(book.drawn(window.window_handle().window_id()), event.position) {
-        play();
+        play(Kind::Press);
     }
 }
 
@@ -191,5 +217,6 @@ mod tests {
         assert_eq!(file.len(), 44 + samples.len() * 2);
         let loudest = file[44..].chunks(2).map(|pair| i16::from_le_bytes([pair[0], pair[1]]).unsigned_abs()).max().unwrap();
         assert!((1000..1100).contains(&loudest), "-30 dBFS is about 1036 of 32767, read {loudest}");
+        assert_eq!(render(&MOVE, RATE as f32).len(), 576, "the move is 12 ms");
     }
 }
