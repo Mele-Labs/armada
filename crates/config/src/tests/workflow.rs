@@ -17,6 +17,7 @@ mod places;
 mod plan;
 mod resolving;
 mod runs_at;
+mod tabs;
 mod step;
 mod width;
 

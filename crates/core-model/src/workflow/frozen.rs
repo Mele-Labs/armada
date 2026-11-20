@@ -523,6 +523,9 @@ pub struct ResolvedStep {
     /// What the person does that ends the step, any one of them. **Empty** on every step that lists
     /// none; `awaits_reply: true` is `[Replied]`.
     ends_on: Vec<StepEnd>,
+    /// The right-column tabs the step opens, front tab first, as ids of `STEP_TABS`. **Empty** on every
+    /// step that lists none.
+    tabs: Vec<String>,
 }
 
 impl ResolvedStep {
@@ -584,6 +587,7 @@ impl ResolvedStep {
             asks_delivery: false,
             walks: false,
             ends_on: Vec::new(),
+            tabs: Vec::new(),
         }
     }
 
@@ -692,6 +696,17 @@ impl ResolvedStep {
 
     pub fn ends_on(&self) -> &[StepEnd] {
         &self.ends_on
+    }
+
+    /// The tabs the step opens, for the same reason.
+    pub fn opening(mut self, tabs: Vec<String>) -> ResolvedStep {
+        self.tabs = tabs;
+        self
+    }
+
+    /// The tabs the step opens in the Job's right column, the front one first.
+    pub fn tabs(&self) -> &[String] {
+        &self.tabs
     }
 
     /// What the step does for the Job, for the reason [`frozen`](Self::frozen)
