@@ -30,7 +30,7 @@ pub(crate) mod view;
 pub mod walk;
 pub mod ways;
 pub(crate) mod wire;
-mod workflow_detail;
+pub(crate) mod workflow_detail;
 mod workflows;
 mod lanes;
 

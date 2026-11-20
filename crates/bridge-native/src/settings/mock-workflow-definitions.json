@@ -191,6 +191,11 @@
      "instructions": "Write the change in the page's own voice. Touch no code."
     },
     {
+     "id": "read_through",
+     "label": "Read through",
+     "instructions": "Read the page aloud against the voice rules and fix what sounds wrong."
+    },
+    {
      "id": "deliver",
      "label": "Deliver",
      "instructions": "Open the pull request and merge it on a green ci. Say what landed."

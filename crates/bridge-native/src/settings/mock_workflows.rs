@@ -1019,6 +1019,21 @@ mod tests {
         assert!(fleet.delete_workflow("armada", copy("feature", "armada")).is_err());
     }
 
+    /// The one mock workflow with a middle step nothing ends is warned of, and only on that step: Fleet's own words.
+    #[test]
+    fn a_middle_step_nothing_ends_is_warned_of_in_the_mock_and_no_other_step_is() {
+        let fleet = MockFleet::new();
+        let warned = |id: &str, source: &str| -> Vec<(String, Option<String>)> {
+            fleet.workflow_steps(id, source, "armada").expect("read").steps.into_iter().map(|one| (one.id.as_str().to_string(), one.warning)).collect()
+        };
+        let kit = warned("docs_only", "kit");
+        assert_eq!(kit.iter().filter(|(_, warning)| warning.is_some()).map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["read_through"]);
+        assert!(kit[1].1.as_deref().is_some_and(|said| said.starts_with("Nothing ends this step that Fleet can see")));
+        for (id, source) in [("feature", "armada"), ("bug", "armada"), ("design_plan", "armada"), ("prototype", "armada")] {
+            assert!(warned(id, source).iter().all(|(_, warning)| warning.is_none()), "{id} warns of nothing");
+        }
+    }
+
     #[test]
     fn a_change_drafts_on_the_next_read_and_approving_it_writes_the_split_steps() {
         let mut fleet = MockFleet::new();

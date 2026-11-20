@@ -463,6 +463,7 @@ impl SettingsOverlay {
             }
         }
         self.workflows.detail.reads.insert(key.to_string(), StepsRead::Read(read));
+        self.offer_step_warnings(key, cx);
         cx.notify();
     }
 
@@ -1151,7 +1152,7 @@ pub(super) fn sunken_button(look: &Look, id: SharedString, said: &'static str, o
 }
 
 /// What the editor warns of a step as written: Fleet's words on an amber line, with the warning glyph.
-fn warning_line(look: &Look, at: &str, warning: &str) -> AnyElement {
+pub(crate) fn warning_line(look: &Look, at: &str, warning: &str) -> AnyElement {
     let amber = look.color(token::NOTICE_CAUTION);
     labelled(
         div()
