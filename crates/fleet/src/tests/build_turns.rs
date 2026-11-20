@@ -8,10 +8,11 @@ use std::time::{Duration, Instant};
 use crate::build_turns::{self, Contender, Signal, Turns, LISTING, TURN};
 use crate::tests::tmp::TempDir;
 
-/// A copy of `sleep` named `rustc`, so the process table names a compiler.
+/// `sleep` by a link named `rustc`, so the process table names a compiler. A link, because macOS
+/// kills a plain copy of a system program at its start (`Killed: 9`).
 fn stand_in(dir: &Path) -> PathBuf {
     let rustc = dir.join("rustc");
-    std::fs::copy("/bin/sleep", &rustc).expect("sleep copies");
+    std::os::unix::fs::symlink("/bin/sleep", &rustc).expect("sleep links");
     rustc
 }
 
