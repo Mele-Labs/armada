@@ -1095,12 +1095,16 @@ impl Native {
             } else {
                 // SAFETY: WebKit passes a live image for the length of this call.
                 let image = unsafe { &*image };
-                image
-                    .TIFFRepresentation()
-                    .and_then(|tiff| NSBitmapImageRep::imageRepWithData(&tiff))
-                    // SAFETY: a PNG encoding of a bitmap, with no properties.
-                    .and_then(|rep| unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) })
-                    .map(|data| data.to_vec())
+                // AppKit autoreleases the TIFF and the CGImages it makes on the way to a PNG, about 128 MB for a tall page, and
+                // nothing drained them where WebKit calls back: 22 such buffers were held after two hours. Our own pool frees them here.
+                objc2::rc::autoreleasepool(|_| {
+                    image
+                        .TIFFRepresentation()
+                        .and_then(|tiff| NSBitmapImageRep::imageRepWithData(&tiff))
+                        // SAFETY: a PNG encoding of a bitmap, with no properties.
+                        .and_then(|rep| unsafe { rep.representationUsingType_properties(NSBitmapImageFileType::PNG, &NSDictionary::new()) })
+                        .map(|data| data.to_vec())
+                })
             };
             if let Some(done) = done.borrow_mut().take() {
                 done(png);
