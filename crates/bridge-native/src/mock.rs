@@ -234,6 +234,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+            for visit in &mut one.workflow_visits {
+                visit.since = shifted(NOW_ANCHOR, &visit.since);
+            }
             if let Some(held) = one.plan.as_mut().and_then(|plan| plan.held.as_mut()) {
                 held.since = shifted(NOW_ANCHOR, &held.since);
             }

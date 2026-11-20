@@ -370,6 +370,26 @@ mod tests {
 
     /// A row's track is the strip's own reading of the record: a bar for each step of the definition, the one it is on in front.
     #[test]
+    fn the_mock_jobs_cover_each_state_the_strip_draws() {
+        let held = crate::mock::workflows();
+        let jobs = crate::mock::jobs("job-workflow").expect("the fixture decodes");
+        let by = |id: &str| jobs.iter().find(|job| job.id.as_str() == id).expect("the Job is in the fixture");
+        let at = |id: &str| track_of(by(id), &held, Utc::now()).expect("a track").step;
+        assert_eq!(at("mock-16").as_deref(), Some("Walk"));
+        assert_eq!(at("mock-17").as_deref(), Some("Build and deliver"));
+        assert_eq!(at("mock-18").as_deref(), Some("Find the cause"));
+        assert!(matches!(by("mock-18").mark.as_ref().map(|mark| &mark.state), Some(ipc::JobState::Stuck)));
+        for id in ["mock-16", "mock-17", "mock-18", "mock-19"] {
+            assert!(!by(id).workflow_visits.is_empty() && !by(id).workflow_waiting_on.is_empty(), "{id} shows a time and what it waits on");
+        }
+        let kids: Vec<&str> = by("mock-19").attachments.iter().filter(|one| one.kind == "started_to").map(|one| one.target.as_str()).collect();
+        assert_eq!(kids.len(), 3);
+        let steps: HashSet<Option<String>> = kids.iter().map(|id| at(id)).collect();
+        assert_eq!(steps.len(), 3, "the three children are on different steps");
+        assert!(by("mock-04").workflow.is_none(), "one Job follows no workflow");
+    }
+
+    #[test]
     fn a_row_reads_its_steps_from_the_workflow_fleet_holds() {
         let held = crate::mock::workflows();
         let jobs = crate::mock::jobs("job-workflow").expect("the fixture decodes");
