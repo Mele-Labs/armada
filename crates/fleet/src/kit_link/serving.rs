@@ -178,6 +178,7 @@ where
     /// Take from what `only`, or every linked Mac, offers: put here each piece that changed there only, record the
     /// markers that moved, then tell Bridge and the linked Macs where anything did.
     async fn kit_exchanged(&self, only: Option<&str>) -> Result<(), Refusal> {
+        let exchanging = self.home_held().exchanging.lock().await;
         let syncs = self.kit_syncs().await?;
         let context = self.kit_context(syncs.clone()).await?;
         if let Some(context) = &context {
@@ -210,6 +211,7 @@ where
                 }
             }
         }
+        drop(exchanging);
         self.kit_link_read().await.map(|_| ())
     }
 

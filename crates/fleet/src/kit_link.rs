@@ -189,7 +189,8 @@ pub(crate) fn plan(syncs: &Syncs, mine: &[Mine], others: &[Other]) -> Plan {
             if let Some(hash) = judged.agree {
                 plan.agrees.push((other.mac.clone(), key.clone(), hash));
             }
-            let Some(there) = there.filter(|there| judged.take && fit_to_put(there)) else { continue };
+            // A server's key does not cross, so one is never put here: it is added in Kit with its key.
+            let Some(there) = there.filter(|there| judged.take && key.0 != HomeKind::McpServers && fit_to_put(there)) else { continue };
             if plan.takes.iter().all(|one| (one.kind, one.piece.repository.clone(), one.piece.name.clone()) != key) {
                 let replacing = here.map(|one| one.piece.clone());
                 plan.takes.push(Take { mac: other.mac.clone(), kind: key.0, piece: piece_of(there), replacing, hash: there.hash.clone() });

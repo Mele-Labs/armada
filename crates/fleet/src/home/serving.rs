@@ -32,6 +32,8 @@ pub(crate) struct HomeHeld {
     fittings: OnceLock<Arc<HomeFittings>>,
     /// What Kit last told Bridge and the linked Macs.
     pub(crate) told: crate::kit_link::Told,
+    /// Held while an exchange plans and puts, so two never put the same piece twice.
+    pub(crate) exchanging: tokio::sync::Mutex<()>,
 }
 
 impl HomeHeld {
