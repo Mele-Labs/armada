@@ -232,7 +232,7 @@ fn the_read_pane_scrolls_on_a_page_key_and_goes_back_to_the_top_for_another_piec
 #[test]
 fn a_plugin_id_the_inventory_gave_is_kept_whole_for_the_wire_and_a_plugins_group_says_so() {
     let mut inventory = mock::inventory();
-    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/you/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None, server: None };
+    let mut style = ipc::SetupItem { name: "Armada".into(), says: Some("The house voice".into()), source: "/Users/user/.claude/plugins/armada/output-styles/armada.md".into(), style: None, plugin: None, uninstall: None, server: None };
     style.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
     if let Some(one) = inventory.kinds.iter_mut().find(|one| one.kind == "output_styles") {
         if let ipc::WhatWasRead::Read { items, .. } = &mut one.read {
@@ -519,7 +519,7 @@ fn a_row_switched_off_while_its_kind_is_on_leaves_the_kind_at_some_with_the_rest
     use ipc::HomeKind;
     let (screen, cx) = open_linked(cx, mock::Linked::Apart);
     assert!(drawn(cx, gpui::Role::Switch, "Cross deploy-notes"), "every row carries its own switch");
-    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/you/.claude/skills/deploy-notes:deploy-notes", cx));
+    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/user/.claude/skills/deploy-notes:deploy-notes", cx));
     cx.run_until_parked();
     let on = |name: &str| sync::Cross::Item(item(HomeKind::Skills, name), true);
     assert_eq!(sent(&screen, cx), vec![on("release-notes"), on("review-pr"), on("pdf-tools"), on("pricing-review"), sync::Cross::Kind(HomeKind::Skills, false)]);
@@ -550,7 +550,7 @@ fn a_refusal_part_way_says_fleets_words_and_leaves_the_rest_crossing(cx: &mut Te
             kit.refuse = Some(sync::Cross::Kind(HomeKind::Skills, false));
         }
     });
-    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/you/.claude/skills/deploy-notes:deploy-notes", cx));
+    screen.update(cx, |screen, cx| screen.cross_row("skills:/Users/user/.claude/skills/deploy-notes:deploy-notes", cx));
     cx.run_until_parked();
     assert_eq!(sent(&screen, cx).last(), Some(&sync::Cross::Kind(HomeKind::Skills, false)), "the items went first, and the kind was the call refused");
     assert_eq!(screen.read_with(cx, |screen, _| screen.refused.clone()).as_deref(), Some("Fleet could not write the link's switches on this Mac."));
@@ -575,7 +575,7 @@ fn tab_reaches_the_picked_rows_switch_and_space_presses_it(cx: &mut TestAppConte
     assert_eq!(kind_cross(&screen, cx, Kind::SubAgents), Some(sync::KindCross::Off), "nothing of the kind crosses now");
     // A row Fleet refuses has a switch, and no Tab stop.
     cx.update(|window, cx| screen.update(cx, |screen, cx| screen.show_kind("skills", window, cx)));
-    screen.update(cx, |screen, cx| screen.pick("skills:/Users/you/.claude/skills/tracker-sync:tracker-sync".into(), cx));
+    screen.update(cx, |screen, cx| screen.pick("skills:/Users/user/.claude/skills/tracker-sync:tracker-sync".into(), cx));
     cx.run_until_parked();
     assert!(drawn(cx, gpui::Role::Switch, "Cross tracker-sync"));
     assert!(!screen.read_with(cx, |screen, _| screen.stops().contains(&Stop::CrossItem)));

@@ -12,10 +12,10 @@ use super::wire::Saved;
 use crate::settings::wire::Refused;
 
 /// The mock's home for the harness.
-pub const HOME: &str = "/Users/you/.claude";
+pub const HOME: &str = "/Users/user/.claude";
 
 /// Where the mock's person keeps their things, for a path to be written as `~/...`.
-pub const USER: &str = "/Users/you";
+pub const USER: &str = "/Users/user";
 
 pub fn scope() -> Scope {
     Scope { name: "armada".into(), repositories: vec!["armada".into()] }
@@ -30,19 +30,19 @@ fn row(kind: &str, items: Vec<SetupItem>) -> SetupKindRow {
 }
 
 pub fn inventory() -> KitInventory {
-    let mut style = item("Concise", "Short answers, no preamble", "/Users/you/.claude/output-styles/concise.md", None);
+    let mut style = item("Concise", "Short answers, no preamble", "/Users/user/.claude/output-styles/concise.md", None);
     style.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "active".into(), plugin: None });
-    let mut other = item("Explainer", "Walks through the why of a change", "/Users/you/.claude/output-styles/explainer.md", None);
+    let mut other = item("Explainer", "Walks through the why of a change", "/Users/user/.claude/output-styles/explainer.md", None);
     other.style = Some(ipc::OutputStyleFacts { from: "person".into(), applied: "available".into(), plugin: None });
-    let mut armada = item("Armada", "The house voice: short, plain, no filler", "/Users/you/.claude/plugins/armada/output-styles/armada.md", None);
+    let mut armada = item("Armada", "The house voice: short, plain, no filler", "/Users/user/.claude/plugins/armada/output-styles/armada.md", None);
     armada.style = Some(ipc::OutputStyleFacts { from: "plugin".into(), applied: "available".into(), plugin: Some("armada@armada-local".into()) });
-    let mut docs_here = item("design-docs", "design-docs-mcp", "/Users/you/.claude/plugins/design-kit/.mcp.json", Some("design-kit@design-kit"));
+    let mut docs_here = item("design-docs", "design-docs-mcp", "/Users/user/.claude/plugins/design-kit/.mcp.json", Some("design-kit@design-kit"));
     docs_here.says = Some("design-docs-mcp".into());
     let mut ci = item("ci-logs", "ci-logs-mcp", "/work/armada/.mcp.json", None);
     ci.server = Some(ipc::ServerFacts { from: "repository".into(), folder: "/work/armada".into() });
-    let mut plugin = item("design-kit@design-kit", "version 1.4.0", "/Users/you/.claude/plugins/design-kit", None);
+    let mut plugin = item("design-kit@design-kit", "version 1.4.0", "/Users/user/.claude/plugins/design-kit", None);
     plugin.uninstall = Some("claude plugin uninstall design-kit@design-kit".into());
-    let mut notes = item("release-notes", "Writes release notes from merged pull requests", "/Users/you/.claude/skills/release-notes", None);
+    let mut notes = item("release-notes", "Writes release notes from merged pull requests", "/Users/user/.claude/skills/release-notes", None);
     notes.plugin = None;
     KitInventory {
         harness: "Claude Code".into(),
@@ -53,11 +53,11 @@ pub fn inventory() -> KitInventory {
                 "skills",
                 vec![
                     notes,
-                    item("review-pr", "Reviews a pull request against the house rules", "/Users/you/.claude/skills/review-pr", None),
-                    item("pdf-tools", "Reads and fills PDF forms", "/Users/you/.claude/skills/pdf-tools", None),
-                    item("deploy-notes", "Writes the notes a deploy goes out with", "/Users/you/.claude/skills/deploy-notes", None),
-                    item("tracker-sync", "Files a ticket for each new issue", "/Users/you/.claude/skills/tracker-sync", None),
-                    item("frontend-design", "Builds a screen in the repository's own look", "/Users/you/.claude/plugins/design-kit/skills/frontend-design", Some("design-kit")),
+                    item("review-pr", "Reviews a pull request against the house rules", "/Users/user/.claude/skills/review-pr", None),
+                    item("pdf-tools", "Reads and fills PDF forms", "/Users/user/.claude/skills/pdf-tools", None),
+                    item("deploy-notes", "Writes the notes a deploy goes out with", "/Users/user/.claude/skills/deploy-notes", None),
+                    item("tracker-sync", "Files a ticket for each new issue", "/Users/user/.claude/skills/tracker-sync", None),
+                    item("frontend-design", "Builds a screen in the repository's own look", "/Users/user/.claude/plugins/design-kit/skills/frontend-design", Some("design-kit")),
                     item("deploy-check", "Checks a deploy before it is announced", "/work/armada/.claude/skills/deploy-check", None),
                     item("long-notes", "A long file, for scrolling", "/work/armada/.claude/skills/long-notes", None),
                 ],
@@ -66,12 +66,12 @@ pub fn inventory() -> KitInventory {
             row(
                 "sub_agents",
                 vec![
-                    item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/you/.claude/agents/code-reviewer.md", None),
-                    item("test-writer", "Writes the test a change is missing", "/Users/you/.claude/agents/test-writer.md", None),
+                    item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/user/.claude/agents/code-reviewer.md", None),
+                    item("test-writer", "Writes the test a change is missing", "/Users/user/.claude/agents/test-writer.md", None),
                 ],
             ),
-            row("commands", vec![item("ship", "Merges the open pull request and tags it", "/Users/you/.claude/commands/ship.md", None)]),
-            row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "/Users/you/.claude/CLAUDE.md", None)]),
+            row("commands", vec![item("ship", "Merges the open pull request and tags it", "/Users/user/.claude/commands/ship.md", None)]),
+            row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "/Users/user/.claude/CLAUDE.md", None)]),
             row("output_styles", vec![style, other, armada]),
             row("mcp_servers", vec![item("linear", "linear.app", "", None), docs_here, ci]),
             row("allowlist", vec![item("cargo check", "", "always allow", None), item("git status", "", "written by hand", None)]),
@@ -122,7 +122,7 @@ impl MockKit {
         let mut skills_off = BTreeMap::new();
         skills_off.insert("armada".to_string(), vec!["pdf-tools".to_string()]);
         let files = HashMap::from([
-            ("skills:/Users/you/.claude/skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string()),
+            ("skills:/Users/user/.claude/skills/review-pr:review-pr".to_string(), REVIEW_PR.to_string()),
             (LONG_NOTES_ID.to_string(), long_notes()),
             (RELEASE_NOTES_ID.to_string(), RELEASE_NOTES_HERE.to_string()),
         ]);
@@ -199,7 +199,7 @@ impl MockKit {
     /// A skill this mock removed before the screen drew, so the first look shows one amber and struck through.
     pub fn removed_first(&mut self) -> Gone {
         let name = "old-triage";
-        let item = item(name, "Sorts new issues by how long they have waited", "/Users/you/.claude/skills/old-triage", None);
+        let item = item(name, "Sorts new issues by how long they have waited", "/Users/user/.claude/skills/old-triage", None);
         let row = super::model::read_kind(Kind::Skills, &KitInventory { kinds: vec![row("skills", vec![item.clone()])], ..inventory() }, &[]);
         let super::model::Read::Rows(mut rows) = row else { unreachable!("a skill reads as rows") };
         let row: Row = rows.remove(0);
@@ -291,7 +291,7 @@ pub enum Linked {
 pub const WORK_MAC: (&str, &str) = ("mac-work", "Work Mac");
 
 /// The skill that clashes, as Kit lists it.
-pub const RELEASE_NOTES_ID: &str = "skills:/Users/you/.claude/skills/release-notes:release-notes";
+pub const RELEASE_NOTES_ID: &str = "skills:/Users/user/.claude/skills/release-notes:release-notes";
 
 const RELEASE_NOTES_HERE: &str = "---\nname: release-notes\ndescription: Writes release notes from merged pull requests\n---\n\nGroup the changes by area.\nSay what the diff cannot.\nOne line per change.";
 const RELEASE_NOTES_THERE: &str = "---\nname: release-notes\ndescription: Writes release notes from merged pull requests\n---\n\nGroup the changes by area.\nOne line per change.\nWrap at 72.";
