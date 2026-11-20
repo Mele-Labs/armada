@@ -196,6 +196,8 @@ mod judge_content;
 mod judge_keeping;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
+/// Kit over the Mac link: what crosses to his other Macs, and the last-agreed marker that tells a clash.
+mod kit_link;
 /// Mods: folders on this machine that change how Bridge looks.
 pub mod mods;
 pub mod mint;

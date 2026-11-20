@@ -64,4 +64,33 @@ impl SharedHome for FakeDaemon {
         let planned = HomePlanned { account: choice.owner, repository: choice.name, exists: false };
         Ok(SharedHomeRead { home: None, planned: Some(planned), rows: Vec::new(), unreadable: Vec::new() })
     }
+
+    async fn get_kit_link(&self) -> Result<ipc::KitLink, Refusal> {
+        Ok(kit_link(None))
+    }
+
+    async fn set_kit_link_kind(&self, switch: ipc::SetKitLinkKind) -> Result<ipc::KitLink, Refusal> {
+        Ok(kit_link(Some((switch.kind, switch.on))))
+    }
+
+    async fn set_kit_link_item(&self, switch: ipc::SetKitLinkItem) -> Result<ipc::KitLink, Refusal> {
+        let mut link = kit_link(None);
+        if switch.on {
+            link.items.push(switch.item);
+        }
+        Ok(link)
+    }
+
+    async fn settle_kit_clash(&self, settle: ipc::SettleKitClash) -> Result<ipc::KitLink, Refusal> {
+        Err(Refusal::NotFound(ipc::WireError::raised(
+            "fleet.other_mac_not_linked",
+            format!("This Mac is not linked to Mac {}.", settle.mac),
+            run_id(),
+        )))
+    }
+}
+
+/// A Mac linked to none, every kind off but the one switched.
+fn kit_link(on: Option<(HomeKind, bool)>) -> ipc::KitLink {
+    ipc::KitLink { kinds: every_kind(String::new(), on).kinds, ..ipc::KitLink::default() }
 }

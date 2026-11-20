@@ -38,8 +38,8 @@ pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extensi
     read_as(gateway, mac, uri, false).await
 }
 
-/// `GET /api/mac/conversation`: as [`read`], with the asking Mac named to Fleet, which hands a moving Job's
-/// conversation only to the Mac it moves to.
+/// `GET /api/mac/conversation` and `/api/mac/kit`: as [`read`], with the asking Mac named to Fleet, which hands a
+/// moving Job's conversation only to the Mac it moves to, and marks each Kit piece with what the two last agreed.
 pub async fn read_naming_mac(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
     read_as(gateway, mac, uri, true).await
 }
@@ -134,6 +134,25 @@ pub async fn refresh_claim(State(gateway): State<Gateway>, Extension(MacId(mac))
         Err(refused) => return refused,
     };
     let answer = match fleet_client::send_as_mac(port, "POST", "/other_mac/refresh_claim", Some(&body), &mac).await {
+        Ok(answer) => answer,
+        Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
+    };
+    let status = StatusCode::from_u16(answer.status).unwrap_or(StatusCode::BAD_GATEWAY);
+    let kind = answer.content_type.unwrap_or_else(|| String::from("application/json"));
+    (status, [(header::CONTENT_TYPE, kind)], answer.body).into_response()
+}
+
+/// `POST /api/mac/kit_settle`: a Kit clash the other Mac settled, handed to Fleet's `/other_mac/kit_settle` as the
+/// Mac the signature names. **Refused while the link is frozen**: the sender keeps it queued until the builds match.
+pub async fn kit_settle(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, body: Bytes) -> Response {
+    if let Some(refused) = refused_frozen(&gateway, &mac) {
+        return refused;
+    }
+    let port = match port(&gateway) {
+        Ok(port) => port,
+        Err(refused) => return refused,
+    };
+    let answer = match fleet_client::send_as_mac(port, "POST", "/other_mac/kit_settle", Some(&body), &mac).await {
         Ok(answer) => answer,
         Err(_) => return refusal(StatusCode::SERVICE_UNAVAILABLE, NOT_ANSWERING),
     };

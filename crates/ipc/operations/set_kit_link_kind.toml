@@ -1,0 +1,8 @@
+[operations.set_kit_link_kind]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one Kit kind on or off for crossing to his other Macs, on this Mac"
+notes = """
+`POST /kit/link/kinds/set`, body `SetKitLinkKind { kind, on }`, answered with `KitLink`. One switch both sends this Mac's items of the kind and takes the linked Macs' items of it. Kept in this Mac's store and never sent. Switching it on takes at once what the linked Macs last offered of it, and `kit.changed` tells them to read this Mac's offer again; switching it off removes nothing on either Mac. `agent_access` is `No`: his press.
+"""

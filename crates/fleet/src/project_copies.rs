@@ -41,6 +41,8 @@ struct Queued {
 enum Waiting {
     Project(ProjectAct),
     Job { id: String, act: JobAct },
+    /// A Kit clash settled here, `crate::kit_link`'s.
+    Kit(ipc::KitSettled),
 }
 
 /// The answer from the other Mac to a sent act.
@@ -173,6 +175,7 @@ fn waiting_of(kept: KeptQueuedAct) -> Option<Queued> {
     let act = match kept.kind.as_str() {
         "project" => Waiting::Project(ipc::decode("an edit queued for another Mac", kept.act.as_bytes()).ok()?),
         "job" => Waiting::Job { id: kept.id, act: ipc::decode("an act queued for another Mac", kept.act.as_bytes()).ok()? },
+        "kit" => Waiting::Kit(ipc::decode("a settled Kit clash queued for another Mac", kept.act.as_bytes()).ok()?),
         _ => return None,
     };
     Some(Queued { seq: kept.seq, mac: kept.mac, at: kept.at, act })
@@ -613,6 +616,11 @@ where
                         Flushed::Sent => {}
                         Flushed::Kept => continue,
                         Flushed::Stopped => break,
+                    }
+                }
+                Waiting::Kit(settled) => {
+                    if matches!(self.kit_settle_sent(&mac, &settled).await, crate::kit_link::SettleSent::Unreachable) {
+                        break;
                     }
                 }
             }

@@ -107,6 +107,8 @@ where
             Event::PreviewOffersChanged(offers) => {
                 return Some(Crosses(Event::PreviewOffersChanged(self.preview_offers_cut(offers.clone()))));
             }
+            // Carries nothing: a linked Mac reads `share_kit` again, which is cut by `kit_for_other_mac`.
+            Event::KitChanged(_) => return Some(Crosses(event)),
             Event::BugReportsChanged(reports) => {
                 return Some(Crosses(Event::BugReportsChanged(self.bug_reports_for_other_mac(reports.clone()).await.sent())));
             }
@@ -284,6 +286,15 @@ where
 
     /// The projects named to another Mac: the shared ones, with their tasks. Tasks in no project and files that
     /// would not read stay, **and so does a copy held from another Mac**, which never goes on to a third.
+    /// This Mac's Kit as it leaves: `crate::kit_link` offers only the kinds and items switched on, and **a piece
+    /// whose name or text carries a credential is taken out here** whatever it was offered with.
+    pub fn kit_for_other_mac(&self, mut offer: ipc::KitOffer) -> Crosses<ipc::KitOffer> {
+        offer.pieces.retain(|piece| {
+            std::iter::once(piece.name.as_str()).chain(piece.files.values().map(String::as_str)).all(|text| crate::home::secrets::leak(text).is_none())
+        });
+        Crosses(offer)
+    }
+
     pub fn projects_for_other_mac(&self, projects: Projects) -> Crosses<Projects> {
         let shared = projects
             .projects

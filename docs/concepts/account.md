@@ -36,7 +36,7 @@ The store names no repository: it holds a hash of each, and for a repository who
 | --- | --- |
 | Identity | The account's numeric id, its login and the organisations it belongs to, read once. An account GitHub will not list them for keeps none, marked unread, and still signs in |
 | Central store | Nothing at sign-in. A project's store setting joins the store it names, as the login the project picks, [A store per project](../contracts/central-store.md#a-store-per-project). The store keeps the pull request owner registry and claims of every kind, as opaque rows naming who holds each, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
-| Shared home | The repository Kit's rows are compared against. Retired: Kit keeps his Macs the same over the Mac link, [Kit](kit.md), *Over the Mac link*. **Not built.** Fleet still makes and reads it until then |
+| Shared home | The repository Kit's rows are compared against. Retired: Kit keeps his Macs the same over the Mac link, [Kit](kit.md), *Over the Mac link*. Fleet no longer reads it since 19 Nov 2026 |
 
 ## Profiles
 
@@ -75,7 +75,7 @@ That binding is what `get_accounts` and `set_repository_profile` carry today, an
 **What syncs is Kit's, not the account's.**
 Each kind is switched on per Mac, and what crosses goes over the Mac link, [Kit](kit.md), *Over the Mac link*.
 A project he shares, with its tasks, crosses the same link, [Project](project.md), *Sharing with his other Macs*.
-**Not built.** Fleet still keeps the choice per profile in this machine's store, and sends it through the shared home.
+Fleet keeps the choice per Mac in its store since 19 Nov 2026; the per-profile choice it kept before is not carried over.
 
 ## In Classic
 
@@ -129,10 +129,12 @@ Linking a Mac is as [Native Bridge](native-bridge.md), *Macs found*, says of Set
 There is no active profile and no set-active act.
 
 **Built in Fleet.** What syncs, per kind and per item and per machine and kept in the store, and the shared home: Fleet makes the repository where the person chose, keeps that choice per profile, and the sign-in's home step reads done once the home exists.
+Since 19 Nov 2026 the home is not read, so `get_accounts` names no home and the home step does not read done.
 `get_accounts` carries each profile's organisations, read at sign-in, and where its home is or will be. [Kit](kit.md), *The shared home, retired*, and [the protocol page](../practices/protocol/the-shared-home.md).
 
 **Built in Bridge.** What syncs reads a profile's kinds from `get_home_kinds` when it opens and switches one with `set_home_kind`, drawn at once and then as Fleet answers; the home chip is made once this machine holds a copy of that profile's home.
 A refused switch goes back and is said on the page, as the other refusals are.
 Kit switches the same kinds, and single items with `set_home_item`. [Kit](kit.md), *The shared home, retired*.
+Since 19 Nov 2026 Fleet answers every kind off and refuses each switch, naming the link; Classic's What syncs is not moved onto `set_kit_link_kind`.
 **Not built.** Per-item scopes: Fleet sends no item of a kind, so a kind turned on lists none, and nothing shows it pulling.
 The central store is deployed outside this repository, [Central store](../contracts/central-store.md).

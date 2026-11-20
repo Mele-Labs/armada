@@ -130,6 +130,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // What Kit sends his other Macs, or a mark against one, moved: read `get_kit_link` again.
+    Route {
+        operation: "kit.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     Route {
         operation: "agent_sign_in.changed",

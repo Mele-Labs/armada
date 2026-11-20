@@ -21,6 +21,7 @@ use tower::ServiceExt;
 mod acting;
 mod artifacts;
 mod job_moves;
+mod kit;
 mod messages;
 mod moving;
 mod pages;

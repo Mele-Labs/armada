@@ -9,6 +9,8 @@ It is absent for a custom Job, once the delivering step's pull request has merge
 **Three anchors are exact.** A `records_plan` step is current until a plan is approved, which a plan recorded after one of its listed ends, or on a `plan_unasked` step, is at once ([Workflow](../workflow.md#walks-and-replies)).
 A `follows_plan` step is current from approval, and stays until a later step is entered.
 A `delivers` step is current from the first push until its pull request merges.
+A step gated `plan_approved` records the plan, and one gated `walk_approved` walks, as if it said so (20 Nov 2026).
+The workflows shipped on 9 Nov state every step by its gate alone, and until then the rail read no anchor on them: 33 feature and bug Jobs stood on their first step from the plan's approval to the merge.
 
 **Steps before the plan, and the walk** (27 Oct 2026, `.claude/decisions/2026-10-27-a-feature-job-walks-before-it-tests.md`).
 A step before the recording step is current until a plan is recorded, or until any end its `ends_on` lists holds (28 Oct 2026).
@@ -18,9 +20,10 @@ A walk he approves before the plan's approval ends such a step and never passes 
 The recording step, when something precedes it, is entered when a plan is recorded and is current until he approves it.
 A `walks` step is current from the plan's approval until he has approved every window the Job showed since (`show_window`), leaving out one a newer window of its page replaced and one taken back (2 Nov 2026).
 A walk is expected as [Workflow](../workflow.md#walks-and-replies) says.
-It is passed over only when the plan was approved with no walk expected and the step's own work is done: for a `walks` step that also follows the plan, such as the bug workflow's Fix, once the plan's tasks are finished, and for one that does not, at the plan's approval.
+It is passed over only when the plan was approved with no walk expected and the step's own work is done: for a `walks` step that also follows the plan, once the plan's tasks are finished, and for one that does not, such as the feature workflow's Walk and the bug workflow's Fix, at the plan's approval.
 It never waits for the push, which ends the step after it: a bug Job with nothing to show finished its tasks, waited to be moved on to Tests, and Fleet waited for a push (30 Oct 2026).
 The step after it is entered once it is passed, whatever fact would have entered it: a window shown again voids his approval, and a Job left on the step before the walk would show it again (30 Oct 2026).
+A delivering step right after a walk is entered then too, with no push.
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
 
 **A step that ends on a lifecycle state** (29 Oct 2026, "Workspaces, lifecycles and rules") is entered once the Job holds an instance of that lifecycle and left when the state is reached.
@@ -32,6 +35,9 @@ A Job holding none of the lifecycle is not on the step, and nothing after it is 
 **On a delivering step the state gates the merge and does not end the step** ("How Land behaves"): Land is entered on the push as always, and Fleet wakes the agent where it stands, with one line, once the state comes, unless the thread already holds that line or the owner wrote on the step.
 Only landing passes it.
 The step after one is entered when it ends, whatever fact would have entered it, and the rail ends when the last step does; orchestrate's Oversee is one, and Summarise is entered the moment the last Job has landed or ended.
+
+**A step gated `document_approved`, `sketch_approved`, `jobs_ended` or `checks_green`, with no anchor, holds the Job until that fact** (20 Nov 2026), as a step listing an end does.
+Before this, such a step was never entered, and orchestrate and refactor Jobs stood on Plan throughout.
 
 **A live instance holds its Job open** (30 Oct 2026, "Workspaces, lifecycles and rules"), as an open pull request does.
 A ticket, pull request, deploy or running Job the Job holds that stands in a state its lifecycle knows and does not end on refuses the agent's `all_done` and `finish_up` with `Deploy is Rolling out`, one line for each.

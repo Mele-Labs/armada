@@ -10,7 +10,7 @@ use crate::error::{fault, DatabaseFault, WriteError};
 use crate::open::Store;
 
 /// One item switched on by itself, as the store keeps it.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub struct KeptHomeItem {
     /// The wire's word for its kind.
     pub kind: String,
