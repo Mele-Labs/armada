@@ -333,6 +333,13 @@ impl JobView {
     /// Read the shown Job's list where its thread or record moved. Called as the view draws, never from a row.
     pub(super) fn sync_artifacts(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         let Some(version) = self.thread(id, cx).map(|held| held.version) else { return };
+        // A Designs row on a feature's page asked for one of this Job's artifacts: it opens once the list holds it, as its row here opens it.
+        if let Some(asked) = crate::features::artifact_link::peek(cx).filter(|asked| asked.job == id.as_ref() && self.artifact_of(&asked.job, &asked.artifact).is_some()) {
+            crate::features::artifact_link::take(cx);
+            cx.defer_in(window, move |this, window, cx| {
+                this.open_named(&asked.artifact, window, cx);
+            });
+        }
         let record = self.record(id, cx).map(|record| (record.attachments.len(), record.waiting_for.len())).unwrap_or_default();
         let stamp = (version, record.0, record.1);
         if self.artifacts.read.get(id.as_ref()).is_some_and(|read| read.stamp == stamp) {
@@ -905,6 +912,26 @@ mod tests {
         let opened = view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
         assert!(opened);
         assert_eq!(open(&view, cx), Some(false), "Needs you gives way to the artifact");
+    }
+
+    #[gpui::test]
+    fn an_artifact_a_features_designs_row_asked_for_opens_when_its_job_draws(cx: &mut gpui::TestAppContext) {
+        use crate::features::artifact_link::{self, ArtifactRequest};
+        let (view, cx) = parts_job(cx);
+        let job = crate::mock_parts::JOB;
+        let open = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.dock_of(job).and_then(|dock| dock.open));
+        assert_eq!(open(&view, cx), Some(true), "Needs you is open");
+        let elsewhere = ArtifactRequest { job: "another-job".into(), artifact: crate::mock_parts::ID.into() };
+        cx.update(|_, cx| artifact_link::leave(elsewhere.clone(), cx));
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        assert_eq!(cx.update(|_, cx| artifact_link::peek(cx)), Some(elsewhere), "another Job's artifact waits for that Job");
+        assert_eq!(open(&view, cx), Some(true), "nothing moved");
+        cx.update(|_, cx| artifact_link::leave(ArtifactRequest { job: job.into(), artifact: crate::mock_parts::ID.into() }, cx));
+        cx.update(|window, _| window.refresh());
+        cx.run_until_parked();
+        assert_eq!(cx.update(|_, cx| artifact_link::peek(cx)), None, "the Job's view took it");
+        assert_eq!(open(&view, cx), Some(false), "the artifact opened, so Needs you gave way to it, as a press on its row does");
     }
 
     #[gpui::test]

@@ -310,6 +310,10 @@ pub struct FeatureRead {
     /// `gone` where the address no longer answers. Empty until a check sets it.
     #[serde(default, skip_serializing_if = "String::is_empty")]
     pub state: String,
+    /// The names the document gives that the code had when it was last changed and no longer has. Empty for a ticket, an
+    /// address, and a document the librarian's drift part has not found any in.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub drifted: Vec<String>,
 }
 
 /// `get_feature_brief`: the page condensed for an agent.

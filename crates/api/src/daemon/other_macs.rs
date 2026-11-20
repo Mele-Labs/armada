@@ -167,7 +167,8 @@ pub trait OtherMacs: Send + Sync + 'static {
     fn hold_refresh_claim(&self, mac: String, sent: ipc::RefreshClaimSent) -> impl Future<Output = Result<(), Refusal>> + Send;
 
     /// `share_kit` — this Mac's Kit as it crosses: the kinds and items switched on, never a piece with a credential.
-    fn share_kit(&self) -> impl Future<Output = Result<ipc::KitOffer, Refusal>> + Send;
+    /// `mac`, the Mac asking where the Gateway names it, has each piece carry this Mac's marker for it with that Mac.
+    fn share_kit(&self, mac: Option<String>) -> impl Future<Output = Result<ipc::KitOffer, Refusal>> + Send;
 
     /// `hold_other_mac_kit` — what Mac `mac`'s Kit offers, kept, and taken here where it changed there only. Takes
     /// the `Arc` because what is queued for that Mac is sent on a task of its own.

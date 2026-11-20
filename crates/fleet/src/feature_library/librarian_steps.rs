@@ -8,6 +8,8 @@ use ipc::{Instant, LibrarianPart, LibrarianRunning, LibrarianState, LibrarianSte
 
 /// The first step: what merged since the last run, and the sections Jobs wrote.
 pub(super) const READ_MERGES: &str = "read_merges";
+/// The drift part's step, free: linked documents read against the code. Its id is not the part's name.
+pub(super) const CHECK_DRIFT: &str = "check_drift";
 /// The last step: the catalog read through the newest merge, and the run's record kept.
 pub(super) const READ_THROUGH: &str = "read_through";
 /// What a step skipped for a press of Stop says.
@@ -21,16 +23,21 @@ const MOST_NAMED: usize = 5;
 fn title_of(part: LibrarianPart) -> Option<&'static str> {
     match part {
         LibrarianPart::SinceYouLooked => Some("Write the Since you looked paragraph"),
+        LibrarianPart::Drift => Some("Check docs against the code"),
         _ => None,
     }
 }
 
 /// The steps a run would take now: what merged, each of `parts` that is `built`, then reading through. `spent` is what
-/// tonight's runs took of `share`.
-pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32) -> Vec<LibrarianStep> {
+/// tonight's runs took of `share`, and `docs` is how many documents are linked to features, which the drift step reads.
+pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32, docs: usize) -> Vec<LibrarianStep> {
     let mut steps = vec![LibrarianStep { id: READ_MERGES.to_string(), title: "Read what merged".to_string(), detail: merges_detail(state), model: false }];
     for part in parts.iter().copied().filter(|part| built.contains(part)) {
         let Some(title) = title_of(part) else { continue };
+        if part == LibrarianPart::Drift {
+            steps.push(LibrarianStep { id: CHECK_DRIFT.to_string(), title: title.to_string(), detail: drift_detail(docs), model: false });
+            continue;
+        }
         let model = part.spends_model_share();
         let detail = if model { model_detail(share, spent) } else { String::new() };
         steps.push(LibrarianStep { id: part.name().to_string(), title: title.to_string(), detail, model });
@@ -38,6 +45,24 @@ pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: 
     let newest = state.merged_since.last().copied().or(state.read_through);
     steps.push(LibrarianStep { id: READ_THROUGH.to_string(), title: "Mark the catalog read".to_string(), detail: through_said(newest), model: false });
     steps
+}
+
+/// What the drift step reads, from the count of documents linked to features.
+fn drift_detail(docs: usize) -> String {
+    match docs {
+        0 => "No docs are linked to features yet".to_string(),
+        1 => "The doc linked to a feature, against the code at HEAD".to_string(),
+        n => format!("The {n} docs linked to features, against the code at HEAD"),
+    }
+}
+
+/// What the drift step found: how many documents name something the code no longer has.
+pub(super) fn drift_said(flagged: usize) -> String {
+    match flagged {
+        0 => "No doc names what the code no longer has".to_string(),
+        1 => "1 doc names what the code no longer has".to_string(),
+        n => format!("{n} docs name what the code no longer has"),
+    }
 }
 
 fn merges_detail(state: &LibrarianState) -> String {

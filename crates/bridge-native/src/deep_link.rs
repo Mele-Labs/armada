@@ -124,6 +124,17 @@ fn link_through_fleet(link: PullLink, cx: &mut App) {
     .detach();
 }
 
+/// Open a pull request a screen of the app names, in Reviews. It is the link's own way in with the switch for links not asked,
+/// since a press inside the app is not a link from outside: nothing happens until Fleet has said which repositories it serves.
+pub fn open(link: &PullLink, cx: &mut App) {
+    let Some((_, repositories)) = crate::operator::screen::link_state(cx) else { return };
+    match decide(link, Some(true), repositories.as_deref()) {
+        Fate::Open(asked) => crate::operator::screen::open_asked(Some(asked), cx),
+        Fate::Unserved => link_through_fleet(link.clone(), cx),
+        Fate::Hold | Fate::Ignore => {}
+    }
+}
+
 /// Take a link to the window: held until there is something to decide it with.
 pub fn deliver(link: &PullLink, cx: &mut App) {
     Note::info("a pull request link was opened")

@@ -166,6 +166,10 @@ pub struct KitPiece {
     pub hash: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub changed_at: Option<Instant>,
+    /// The offering Mac's last-agreed marker for it with the Mac that asked, so the asker can tell an edit made
+    /// there after taking the asker's from an edit made on both. Left out where they never agreed on it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub agreed: Option<String>,
 }
 
 /// `share_kit`: what this Mac offers his other Macs. Only the kinds it has on and the items on by themselves, and

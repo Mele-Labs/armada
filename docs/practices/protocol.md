@@ -2141,3 +2141,24 @@ The other two lists leave it out.
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 An older Fleet's row has no field, which a newer Bridge reads as a wait it does not know and draws after those it does.
 **The event stream.** No new event.
+
+## A project picks the login that joins its store: `ProjectStore.account_id`, `JoinStore.account_id`
+
+Since 19 Nov 2026. `docs/concepts/account.md`, `docs/contracts/central-store.md`, *A store per project*.
+**Additive only**: one optional field on two existing types; no operation, route, event kind or error. Two fields stop being filled.
+The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/projects.ts` and `project-store.ts`, written by hand, field for field.
+Electron sends neither field, so its join keeps the login the project picked.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ProjectStore` (`get_project_store`, `list_projects`, `projects.changed`) | Fleet writes, Bridge reads | Gains `account_id`, absent when none is picked: the login that joins the store and that the project's repositories claim as, by the profile's numeric account id. Absent sends nothing |
+| `JoinStore` (`set_project_store`) | Bridge writes, Fleet reads | Gains `account_id`: the login to join as. Absent keeps the one the project picked |
+| `Accounts.unmatched` (`get_accounts` and every account act) | Fleet writes, Bridge reads | Always empty: a repository's owner binds nothing, and one with no choice of its own claims as its project's login |
+| `BoundRepository.how` | Fleet writes, Bridge reads | Always `chosen`: `matched` is no longer sent |
+
+**A repository's own choice still wins**, through `set_repository_profile`, in a project that picked a login.
+A project that picked none sends nothing, and its store state says "No login is picked for this store." in `macs_unread`.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+**The event stream.** `projects.changed` carries the project whole, so it carries the field; no new event.

@@ -164,7 +164,7 @@ impl OtherMacs for FakeDaemon {
         Ok(())
     }
 
-    async fn share_kit(&self) -> Result<ipc::KitOffer, Refusal> {
+    async fn share_kit(&self, _mac: Option<String>) -> Result<ipc::KitOffer, Refusal> {
         Ok(ipc::KitOffer::default())
     }
 
