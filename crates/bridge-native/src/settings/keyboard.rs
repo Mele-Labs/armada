@@ -51,7 +51,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
         "features_move" | "usage_move" => &["Down", "Up", "Down", "Up"],
         "usage_open" => &["Enter", "Space"],
         "tokens_move" => &["Next", "Previous"],
-        "api_client_part" => &["Headers", "Body"],
+        "api_client_part" => &["Previous", "Next"],
         "usage_window" => &["Day", "Week", "Fortnight"],
         _ => &[],
     }

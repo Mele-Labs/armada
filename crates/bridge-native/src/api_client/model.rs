@@ -4,7 +4,7 @@
 
 use std::ops::Range;
 
-use ipc::{Placed, RequestBy, RequestEnvironmentRead, RequestHeader, Requests, VariableRead};
+use ipc::{Placed, RequestBy, RequestEnvironmentRead, RequestHeader, RequestPlace, RequestRun, RequestRunSummary, RequestSent, Requests, RequestsNotRead, VariableRead};
 
 use crate::look::{token, Token};
 
@@ -231,23 +231,55 @@ impl Filter {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Line {
     Heading(String),
+    /// A collection's heading, by its place in the read: pressing it opens the collection's shared headers.
+    Collection(usize),
     /// A saved request, by its place in the read: the collection, then the request.
     Saved(usize, usize),
+    /// A run of the saved request that is open, by its place in the runs read.
+    Run(usize),
+    /// The runs of the open saved request, while Fleet has not answered.
+    RunsLoading,
+    /// The runs of the open saved request, where Fleet refused to list them, in its own words.
+    RunsFailed(String),
     /// A send of this Job, by its place in the thread's lines.
     Sent(usize),
 }
 
+impl Line {
+    /// A row the keys can stand on: not a heading, and not a row that only says the runs are coming.
+    pub fn is_stop(&self) -> bool {
+        !matches!(self, Line::Heading(_) | Line::RunsLoading | Line::RunsFailed(_))
+    }
+}
+
+/// What the runs under the open saved request come to, for the list: which request they belong to and how far the read has got.
+pub struct RunsShown<'a> {
+    pub collection: &'a str,
+    pub request: &'a str,
+    pub count: usize,
+    pub loading: bool,
+    pub failed: Option<&'a str>,
+}
+
 /// The list under `filter`: each collection's saved requests under its heading, then this Job's sends newest first under theirs.
-/// A section with nothing in it has no heading.
-pub fn lines(read: Option<&Requests>, sent: &[SentLine], filter: Filter) -> Vec<Line> {
+/// The sends' section with nothing in it has no heading; a collection with no request keeps its own, which opens its headers. The saved request whose runs are `runs` has them under its row.
+pub fn lines(read: Option<&Requests>, sent: &[SentLine], filter: Filter, runs: Option<RunsShown<'_>>) -> Vec<Line> {
     let mut lines = Vec::new();
     if matches!(filter, Filter::ThisJob | Filter::Saved) {
         for (at, collection) in read.map(|read| read.collections.as_slice()).unwrap_or_default().iter().enumerate() {
-            if collection.item.requests.is_empty() {
-                continue;
+            lines.push(Line::Collection(at));
+            for (request, saved) in collection.item.requests.iter().enumerate() {
+                lines.push(Line::Saved(at, request));
+                if let Some(runs) = runs.as_ref().filter(|runs| runs.collection == collection.item.id && runs.request == saved.id) {
+                    lines.extend((0..runs.count).map(Line::Run));
+                    if runs.loading {
+                        lines.push(Line::RunsLoading);
+                    }
+                    if let Some(said) = runs.failed {
+                        lines.push(Line::RunsFailed(said.to_string()));
+                    }
+                }
             }
-            lines.push(Line::Heading(format!("Saved in {}", collection.item.name)));
-            lines.extend((0..collection.item.requests.len()).map(|request| Line::Saved(at, request)));
         }
     }
     if matches!(filter, Filter::ThisJob | Filter::Agent | Filter::Mine) {
@@ -361,4 +393,83 @@ fn indented(json: &str) -> String {
 /// The first header whose name holds a space, which no header name can.
 pub fn bad_header(names: &[String]) -> Option<usize> {
     names.iter().position(|name| name.trim().chars().any(char::is_whitespace))
+}
+
+// ---- runs ---------------------------------------------------------------------------------------
+
+/// Who sent a run: the Job's title where another Job did, else You or Agent.
+pub fn run_who(run: &RequestRunSummary, this_job: &str) -> String {
+    if let Some(job) = run.job.as_ref().filter(|job| job.id.as_str() != this_job) {
+        return job.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| "Another Job".to_string());
+    }
+    if run.by == RequestBy::Owner {
+        "You".to_string()
+    } else {
+        "Agent".to_string()
+    }
+}
+
+/// A run's request, to start from: exactly as it went, its address filled but for a secret's `{{name}}`.
+pub fn run_start(run: &RequestRun) -> Start {
+    Start { method: run.sent.method.clone(), url: run.sent.url.clone(), environment: run.environment.clone(), headers: run.sent.headers.clone(), body: run.sent.body.clone() }
+}
+
+/// A run's answer as the answer card draws one. It carries the answer's headers, so the card offers them.
+pub fn run_sent(run: &RequestRun) -> RequestSent {
+    RequestSent {
+        url: run.sent.url.clone(),
+        status: run.answer.status,
+        ms: run.answer.ms,
+        headers: run.answer.headers.clone(),
+        body: run.answer.body.clone(),
+        truncated: run.answer.truncated,
+        error: run.answer.error.clone(),
+        note: None,
+        saved: None,
+    }
+}
+
+// ---- files that would not read -------------------------------------------------------------------
+
+/// What a file that would not read is called in the caution line.
+pub fn unread_file(unread: &RequestsNotRead) -> &'static str {
+    match unread.place {
+        RequestPlace::Repository => "The repository's .armada/requests.toml",
+        RequestPlace::Yours => "Your own requests file",
+        RequestPlace::Server => "A server's environment",
+    }
+}
+
+/// Fleet's why, ending in a full stop; where it is the person's own file the line says what that costs.
+pub fn unread_said(unread: &RequestsNotRead) -> String {
+    let why = unread.why.trim();
+    let why = if why.ends_with(['.', '!', '?']) { why.to_string() } else { format!("{why}.") };
+    if unread.place == RequestPlace::Yours {
+        format!("{why} Save is off until it reads.")
+    } else {
+        why
+    }
+}
+
+/// The person's own file, where it would not read: Fleet refuses a save over it, so none is offered.
+pub fn yours_unread(read: Option<&Requests>) -> Option<&RequestsNotRead> {
+    read?.not_read.iter().find(|one| one.place == RequestPlace::Yours)
+}
+
+/// A name as an id, for a request saved under a new name: letters and digits, the rest a hyphen, as Classic's `idOf` makes one.
+pub fn id_of(name: &str) -> String {
+    let mut id = String::new();
+    for one in name.trim().to_lowercase().chars() {
+        if one.is_ascii_alphanumeric() {
+            id.push(one);
+        } else if !id.is_empty() && !id.ends_with('-') {
+            id.push('-');
+        }
+    }
+    let id = id.trim_end_matches('-').to_string();
+    if id.is_empty() {
+        "request".to_string()
+    } else {
+        id
+    }
 }

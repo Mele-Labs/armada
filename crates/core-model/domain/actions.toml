@@ -1846,14 +1846,26 @@ notes = "Cycles the environment of a Job's API Client tab: none, then each envir
 [actions.api_client_part]
 kind = "Action"
 tier = "Contextual"
-verb = "Headers or Body"
+verb = "Previous or next part"
 icon = ""
 icon_absent = "undecided"
 shortcut = "[ / ]"
 scope = "api client"
 destructive = false
 confirms = false
-notes = "Switches the open request of a Job's API Client tab to its Headers with `[` and to its Body with `]`, as Classic's tab keys do. A bare key, so it stands down while a text box has the keys. Native only, 20 Nov 2026."
+notes = "Cycles the open request of a Job's API Client tab through its Headers, Body and Environment parts, `[` to the one before and `]` to the one after, round the end. A bare key, so it stands down while a text box has the keys. Native only, 20 Nov 2026."
+
+[actions.api_client_save]
+kind = "Action"
+tier = "Contextual"
+verb = "Save"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘S"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Saves what is open in a Job's API Client tab. A saved request is written back into its collection, with the collection's other requests as they are. Any other request asks for a name and a collection on a row under the request line, and a second press saves it there. A collection open on the right writes its name and shared headers, and the Environment part writes the environment the keys were last in. Nothing is saved while the person's own requests file will not read, and the control says so. Its scope is the tab, so the key means this only while the keys are inside it; `⌘S` is the Kit file editor's own while that is up. Native only, 20 Nov 2026."
 
 [actions.usage_apply]
 kind = "Action"
