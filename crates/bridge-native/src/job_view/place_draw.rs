@@ -342,6 +342,7 @@ impl JobView {
         };
         let popups = if hosts { std::mem::take(&mut frame.popups) } else { Vec::new() };
         let press = one.id.clone();
+        let bands = self.column_bands(&job, &one.id, look, cx);
         let body_marks = self.body_drop_mark(&one.id, look);
         let pane_marks = self.pane_drop_marks(&one.id, look);
         let element = sized(pane(look).id(SharedString::from(format!("pane:{}", one.id))), share)
@@ -349,6 +350,7 @@ impl JobView {
             .when(hosts, |pane| pane.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
+            .children(bands)
             .child(strip_el)
             .children(said)
             .child(div().flex_1().min_h_0().flex().flex_col().relative().children(body).child(self.mark_drawn(format!("body:{}", one.id))).children(body_marks))
@@ -447,6 +449,8 @@ impl JobView {
                     Zone::Artifacts => self.pane_artifacts(&id, look, cx),
                     Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                     Zone::Qa => self.pane_questions(&id, look, window, cx),
+                    Zone::Children => self.pane_children(&id, look, cx),
+                    Zone::Walks => self.pane_walks(&id, look, cx),
                 };
                 // Changes, Files and the rest draw their own strip over a body that scrolls, as `.job-pane__pick` does.
                 let own_frame = matches!(zone, Zone::Story | Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);

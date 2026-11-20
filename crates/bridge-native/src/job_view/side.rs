@@ -41,10 +41,12 @@ pub(super) enum Zone {
     Artifacts,
     ForYou,
     Qa,
+    Children,
+    Walks,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 21] = [
+    pub(super) const ALL: [Zone; 23] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -66,6 +68,8 @@ impl Zone {
         Zone::Artifacts,
         Zone::ForYou,
         Zone::Qa,
+        Zone::Children,
+        Zone::Walks,
     ];
 
     pub(super) fn id(self) -> &'static str {
@@ -91,6 +95,8 @@ impl Zone {
             Zone::Artifacts => "artifacts",
             Zone::ForYou => "for_you",
             Zone::Qa => "qa",
+            Zone::Children => "children",
+            Zone::Walks => "walks",
         }
     }
 
@@ -117,6 +123,8 @@ impl Zone {
             Zone::Artifacts => ("shapes", "Artifacts"),
             Zone::ForYou => ("user-check", "For you"),
             Zone::Qa => ("messages-square", "Q&A"),
+            Zone::Children => ("git-branch", "Child Jobs"),
+            Zone::Walks => ("footprints", "Walks"),
         }
     }
 }
@@ -148,6 +156,10 @@ pub(super) struct SideState {
     pub(super) chunks: HashSet<String>,
     /// The Open group after the last step is folded.
     pub(super) open_group_shut: bool,
+    /// The chip of Needs you he pressed on this Job; none until he does.
+    pub(super) needs_chip: Option<super::column_bands::Chip>,
+    /// The step the Job was at when last seen here, which a move from opens the next step's tabs. None until seen.
+    pub(super) stepped: Option<Option<u32>>,
 }
 
 /// Where a group of an approved plan stands.

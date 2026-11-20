@@ -38,6 +38,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("pulls", "Pull Requests", "git-pull-request"),
     ("issues", "Issues", "ticket"),
     ("jobs", "Jobs", "link"),
+    ("children", "Child Jobs", "git-branch"),
     ("ledger", "Ledger", "files"),
     ("files", "Files", "folder-tree"),
     (crate::api_client::KIND, crate::api_client::NAME, "arrow-right-left"),
@@ -49,6 +50,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("spine", "Spine", "waypoints"),
     ("judge", "Judge", "scale"),
     ("artifacts", "Artifacts", "shapes"),
+    ("walks", "Walks", "footprints"),
     ("loadout", "Loadout", "layers"),
     ("tokens", "Tokens", "chart-column"),
 ];
@@ -112,12 +114,16 @@ impl JobView {
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
             .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
             .collect();
+        let entries = self.with_bands(pane, entries);
         let back = window.focused(cx);
         let menu = cx.new(|cx| Dropdown::new("Add tab", entries, at, Anchor::TopLeft, false, cx).at_point(window, cx));
         let target = pane.to_string();
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             this.tabs_menu = None;
+            if this.band_picked(id, cx) {
+                return;
+            }
             if let Some(offer) = offers.iter().find(|offer| offer.id == *id) {
                 let (open, job) = (offer.open.clone(), this.shown.as_ref().map(|job| job.to_string()));
                 if let Some(job) = job {
