@@ -163,6 +163,8 @@ pub struct SettingsOverlay {
     /// Settings → Models.
     pub models: super::models::ModelsPage,
     pub macs: super::macs::MacsPage,
+    /// Settings › Account: who he is on the forge and what signing in turns on.
+    pub account: super::account::AccountPage,
     /// Settings › Claims store.
     pub store: super::store::StorePage,
     pub sign_in_app: super::sign_in_app::SignInApp,
@@ -274,6 +276,7 @@ impl SettingsOverlay {
             mods: super::mods::ModRows::default(),
             models: super::models::ModelsPage::new(window, cx),
             macs: super::macs::MacsPage::new(window, cx),
+            account: super::account::AccountPage::new(),
             store: super::store::StorePage::new(window, cx),
             sign_in_app: super::sign_in_app::SignInApp::new(cx),
             prefs: super::prefs::Prefs::new(),
@@ -923,10 +926,11 @@ impl SettingsOverlay {
         if let Body::Store = shown.body {
             return self.store_stops(cx);
         }
-        if let Body::Macs = shown.body {
-            let mut stops = self.grid_stops(cx);
-            stops.extend(self.macs_stops());
-            return stops;
+        if let Body::Shared = shown.body {
+            return self.grid_stops(cx);
+        }
+        if let Body::Account = shown.body {
+            return self.account_stops(cx);
         }
         if let Body::Layout = shown.body {
             return self.layout_stops(cx);
@@ -949,35 +953,39 @@ impl SettingsOverlay {
             return super::limits::stops(self, list, cx);
         }
         stops.push(self.file_stop.clone());
-        if let Body::Schema(["account"]) = shown.body {
-            stops.extend(self.sign_in_app_stops());
-        }
-        let Some(list) = &self.list else { return stops };
         let sections: Vec<&str> = match shown.body {
             Body::Schema(ids) => ids.to_vec(),
             Body::Features => vec!["features"],
             _ => Vec::new(),
         };
         for id in sections {
-            for one in entries::settings_in(list, id) {
-                let Some(held) = self.stops.get(&one.key) else { continue };
-                match self.typed.get(&one.key) {
-                    _ if super::view::slides(one) => stops.push(held.slider.clone()),
-                    Some(typed) => stops.push(typed.focus(cx)),
-                    None => stops.push(held.control.clone()),
-                }
-                if self.dirty(&one.key, cx) || self.saving.as_deref() == Some(one.key.as_str()) {
-                    stops.push(held.save.clone());
-                }
-                if super::limits::changed(one) {
-                    stops.push(held.reset.clone());
-                }
-            }
+            stops.extend(self.section_stops(id, cx));
         }
         if let Body::Repository | Body::Features = shown.body {
             stops.extend(super::view::pane_stops(self, shown, cx));
         }
         let _ = window;
+        stops
+    }
+
+    /// The stops of one settings.json section's rows: each control, its slider, Save and Reset where drawn.
+    pub(super) fn section_stops(&self, id: &str, cx: &App) -> Vec<FocusHandle> {
+        let mut stops = Vec::new();
+        let Some(list) = &self.list else { return stops };
+        for one in entries::settings_in(list, id) {
+            let Some(held) = self.stops.get(&one.key) else { continue };
+            match self.typed.get(&one.key) {
+                _ if super::view::slides(one) => stops.push(held.slider.clone()),
+                Some(typed) => stops.push(typed.focus(cx)),
+                None => stops.push(held.control.clone()),
+            }
+            if self.dirty(&one.key, cx) || self.saving.as_deref() == Some(one.key.as_str()) {
+                stops.push(held.save.clone());
+            }
+            if super::limits::changed(one) {
+                stops.push(held.reset.clone());
+            }
+        }
         stops
     }
 
@@ -1112,7 +1120,7 @@ impl SettingsOverlay {
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Workflows) && self.workflows_key(key, window, cx) {
             return true;
         }
-        if self.shown(cx).is_some_and(|shown| shown.body == Body::Macs) && self.macs_key(key, window, cx) {
+        if self.shown(cx).is_some_and(|shown| shown.body == Body::Account) && (self.account_key(key, window, cx) || self.macs_key(key, window, cx)) {
             return true;
         }
         if self.shown(cx).is_some_and(|shown| shown.body == Body::Store) && self.store_key(key, window, cx) {

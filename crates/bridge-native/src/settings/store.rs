@@ -75,6 +75,8 @@ pub struct StorePage {
     pub(super) address: Entity<InputState>,
     pub(super) team: Entity<InputState>,
     keys: BTreeMap<&'static str, FocusHandle>,
+    /// The login the project joins as, and each repository's own (`store_login.rs`).
+    pub(super) logins: super::store_login::Logins,
     _read: Option<Task<()>>,
     _act: Option<Task<()>>,
     _copied: Option<Task<()>>,
@@ -102,7 +104,7 @@ impl StorePage {
             cx.subscribe_in(&address, window, |this, _, event: &InputEvent, window, cx| this.field_event("address", event, window, cx)),
             cx.subscribe_in(&team, window, |this, _, event: &InputEvent, window, cx| this.field_event("team", event, window, cx)),
         ];
-        StorePage { project: None, state: None, ask: None, out: None, refused: BTreeMap::new(), join_said: None, copied: false, token, address, team, keys: BTreeMap::new(), _read: None, _act: None, _copied: None, _fields: fields }
+        StorePage { project: None, state: None, ask: None, out: None, refused: BTreeMap::new(), join_said: None, copied: false, token, address, team, keys: BTreeMap::new(), logins: super::store_login::Logins::new(), _read: None, _act: None, _copied: None, _fields: fields }
     }
 
     /// Settings opened again: the store is read again the next time the page is drawn.
@@ -228,12 +230,16 @@ impl SettingsOverlay {
         page._act = None;
         page.refused.clear();
         page.join_said = None;
+        page.logins.opened.clear();
+        page.logins.refused = None;
         let (address, team, token) = (page.address.clone(), page.team.clone(), page.token.clone());
         let kept = |field: &str, cx: &mut Context<Self>| crate::drafts::kept(&draft_key(&id, field), cx).unwrap_or_default();
         let (said_address, said_team) = (kept("address", cx), kept("team", cx));
         address.update(cx, |state, cx| state.set_value(said_address, window, cx));
         team.update(cx, |state, cx| state.set_value(said_team, window, cx));
         token.update(cx, |state, cx| state.set_value("", window, cx));
+        // The logins signed in here, which Joins as lists.
+        self.read_accounts(window, cx);
         let read = self.wire.project_store(&id, cx);
         self.store._read = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = read.await;
@@ -266,6 +272,7 @@ impl SettingsOverlay {
         for name in PRESSES {
             self.store.keys.entry(name).or_insert_with(|| cx.focus_handle().tab_stop(true));
         }
+        self.login_keys(cx);
     }
 
     /// The page's stops, in the order it draws them.
@@ -281,6 +288,7 @@ impl SettingsOverlay {
         if state.store.is_some() {
             stops.extend(key("copy"));
             stops.extend(key("use-none"));
+            stops.extend(self.login_stops(cx));
         }
         if page.ask.is_some() {
             stops.extend(key("open-page"));
@@ -300,6 +308,9 @@ impl SettingsOverlay {
         let mods = &key.modifiers;
         if mods.platform || mods.control || mods.alt {
             return false;
+        }
+        if self.login_key(key, window, cx) {
+            return true;
         }
         match key.key.as_str() {
             "escape" if self.store.ask.is_some() => {
@@ -537,7 +548,7 @@ impl SettingsOverlay {
                 None => said.into_any_element(),
             };
             let row = Row { id: id.into(), title: title.into(), tip: None, chips: Vec::new(), says: vec![said], changed: false, glyph: Some((glyph, hue)), control };
-            let drawn = split_row(look, spread, row, rows.is_empty()).when_some(edge, |row, edge| row.child(div().absolute().left_0().top_0().bottom_0().w(look.length(token::BORDER_WIDTH) * 3.).bg(edge)));
+            let drawn = split_row(look, spread, row, rows.is_empty()).when_some(edge, |row, edge| row.border_1().border_color(edge).bg(Hsla { a: 0.1, ..edge }));
             rows.push(labelled(drawn, Role::Row, title).into_any_element());
         };
 
@@ -652,6 +663,10 @@ impl SettingsOverlay {
         let edge = page.refused.get(Act::Join.key()).map(|_| look.color(token::STATUS_COMPLETED_FAILED));
         row(look, "store-row-join", "Join a store", "Join one by its address. Fill Team only for a store a GitHub organisation shares, as org or org/team; leave it empty for your own.".into(), None, "link", edge, control.into_any_element());
 
+        // Joins as, and the repositories with a login of their own, stand under the store.
+        let under = self.login_rows(state, look, spread, window, cx);
+        let at = rows.len().min(1);
+        rows.splice(at..at, under);
         rows_card(look, "store-rows", rows).into_any_element()
     }
 
@@ -995,7 +1010,7 @@ mod tests {
     fn a_copys_place_is_shown_as_the_keeping_macs_on_the_page_of_its_macs(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
         kept_on_studio(&overlay, "armada", cx);
-        overlay.update(cx, |this, _| this.picked = "bridge:macs");
+        overlay.update(cx, |this, _| this.picked = "project:shared");
         assert!(on_page(&overlay, Role::Status, "On Studio", cx), "where its file is kept, as the keeping Mac's");
         assert!(on_page(&overlay, Role::Row, "Where its file is kept", cx));
         overlay.update(cx, |this, cx| {
@@ -1119,7 +1134,7 @@ mod tests {
         let (overlay, cx) = opened(cx, Some(("armada", "Armada")));
         assert!(on_page(&overlay, Role::Row, "Update the store", cx));
         assert!(on_page(&overlay, Role::Button, "Update", cx));
-        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), 6, "Copy, Use none, Update, the two fields and Join");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), 7, "Copy, Use none, Joins as, Update, the two fields and Join");
     }
 
     #[gpui::test]
@@ -1130,7 +1145,7 @@ mod tests {
         press(&overlay, "join", cx);
         assert!(overlay.read_with(cx, |this, _| this.store.state().is_some_and(|state| state.store.as_ref().is_some_and(|store| store.deployed.is_none()))));
         assert_eq!(overlay.read_with(cx, |this, _| this.store.state().map(deploys)), Some(Deploys::Neither), "neither row is drawn");
-        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), before + 1, "Copy joins the stops, and Use none stands where Deploy did");
+        assert_eq!(overlay.read_with(cx, |this, cx| this.store_stops(cx).len()), before + 2, "Copy and Joins as join the stops, and Use none stands where Deploy did");
     }
 
     #[gpui::test]

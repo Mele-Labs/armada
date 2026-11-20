@@ -35,6 +35,7 @@ use store::MainCi;
 
 use crate::daemon::Fleet;
 use crate::main_fix::MainNotFixable;
+use crate::project_store::StoreCalled;
 use crate::signing_in::this_machine;
 
 /// How long a call to the store may take. A take waits on it, so it is short.
@@ -196,7 +197,13 @@ where
         if !switched_on {
             return Ok(None);
         }
-        let Some((address, project_login)) = self.store_of_root(root) else { return Ok(None) };
+        let Some(StoreCalled { address, login: project_login, from_copy }) = self.store_of_root(root).await else { return Ok(None) };
+        // A copy's store is joined by no one here, so the first call enrols this Mac as the login the copy carries.
+        if from_copy {
+            if let Err(refused) = self.copy_store_joined(vec![root.to_string()], &address, project_login).await {
+                return Err(StoreError::Refused(refused.error().message.clone()));
+            }
+        }
         let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();

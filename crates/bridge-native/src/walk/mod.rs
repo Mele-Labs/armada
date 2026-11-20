@@ -3664,6 +3664,27 @@ pub static WALKS: &[Walk] = &[
         steps: crate::settings::walk::CLAIMS_STORE_STEPS,
     },
     Walk {
+        name: crate::settings::walk::ACCOUNT,
+        title: "Settings › Account: logins, devices and what signing in turns on",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::ACCOUNT_REPOSITORIES,
+        title: "Settings › Claims store: the login a project and a repository join as",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_REPOSITORIES_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::ACCOUNT_ENDED,
+        title: "Settings › Account: a sign-in that ended",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_ENDED_STEPS,
+    },
+    Walk {
         name: crate::settings::walk::SIGN_IN_APP,
         title: "Settings › Account: register the sign-in app on GitHub",
         screen: Screen::Settings,
