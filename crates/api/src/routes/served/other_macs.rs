@@ -35,6 +35,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/other_mac/thread",
     },
     Route {
+        operation: "share_job_session",
+        method: "GET",
+        path: "/other_mac/session",
+    },
+    Route {
         operation: "share_job_artifacts",
         method: "GET",
         path: "/other_mac/artifacts",

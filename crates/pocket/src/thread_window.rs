@@ -56,5 +56,6 @@ pub async fn one(State(gateway): State<Gateway>, method: Method, uri: Uri, Query
         return refusal(StatusCode::BAD_GATEWAY, NOT_READABLE);
     };
     let (rows, older) = window(&thread.rows, last, which.before.as_deref());
-    json(&Window { session: &thread.session, rows, older })
+    // A held Job's window is cut on the Mac that holds it, and says by `older` that more stand there.
+    json(&Window { session: &thread.session, rows, older: older || thread.older })
 }

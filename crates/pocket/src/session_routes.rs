@@ -429,7 +429,7 @@ pub async fn fork(State(gateway): State<Gateway>, body: Bytes) -> Response {
         return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION);
     }
     let path = format!("/sessions/one?session_id={}", forking.session_id);
-    let SessionThread { session: old, rows } = match read::<SessionThread>(&gateway, &path, "a job").await {
+    let SessionThread { session: old, rows, .. } = match read::<SessionThread>(&gateway, &path, "a job").await {
         Ok(Some(thread)) => thread,
         Ok(None) => return refusal(StatusCode::NOT_FOUND, NO_SUCH_SESSION),
         Err(refused) => return refused,

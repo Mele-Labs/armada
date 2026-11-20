@@ -309,9 +309,9 @@ impl DispatchScreen {
         let targets = face.mentions.jobs.clone();
         let sheet = cx.new(|cx| DispatchSheet::new(face, window, cx));
         let area: Rc<Cell<Option<Bounds<Pixels>>>> = Rc::default();
-        // The layer is mounted only where Electron's is: a development build.
+        // The layer is mounted in every build, shipped or not.
         annotate::forget_awake(cx);
-        let layer = annotate::dev_build().then(|| new_layer(&area, targets, true, cx));
+        let layer = Some(new_layer(&area, targets, true, cx));
         // On a live Fleet the New project sheet sends to it; a walk's has the mock's answers.
         let wire = match jobs.read(cx).list.read(cx).fleet() {
             Some(fleet) => crate::new_project::wire::Wire::Live(fleet),
@@ -1158,7 +1158,7 @@ mod tests {
             let jobs = cx.new(|cx| JobsScreen::new(list, None, window, cx));
             DispatchScreen::new(jobs, &records, window, cx)
         });
-        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("a development build mounts the layer");
+        let layer = screen.read_with(cx, |screen, _| screen.layer.clone()).expect("every build mounts the layer");
         assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
         screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
         assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");

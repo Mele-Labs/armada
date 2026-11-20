@@ -3,6 +3,7 @@
 import { useEffect } from "react";
 
 import { ArtifactView } from "./Artifact";
+import { ArtifactsView } from "./ArtifactsList";
 import { Dispatch } from "./Dispatch";
 import { DocumentView } from "./Document";
 import { Draft } from "./Draft";
@@ -49,6 +50,8 @@ function Screen({ route }: { route: Route }) {
       return <DocumentView origin={route.origin} id={route.id} page={route.page} />;
     case "artifact":
       return <ArtifactView origin={route.origin} id={route.id} artifact={route.artifact} />;
+    case "artifacts":
+      return <ArtifactsView origin={route.origin} id={route.id} />;
     case "try":
       return <TryView origin={route.origin} id={route.id} card={route.card} />;
   }

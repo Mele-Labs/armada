@@ -133,7 +133,7 @@ shortcut = "⌥⌘C"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Studio capture (#1290): point at something wrong anywhere in Bridge and it lands on the open Studio as a Note. Global, because what is wrong is on whatever surface a person is looking at rather than on the Studio. The modifier pair is the development annotation layer's own — ⌥⌘A, which stays permanently and is not in this registry because it ships in no packaged build — so the two capture tools sit a key apart and neither is a bare ⌘. C for capture; ⌥⌘C is bound by no Electron default menu and by nothing else here. No glyph: nothing registered means pointing at a thing, and the nearest silhouettes are all spoken for — `flag` is an alert's, `stamp` is attest's, `message-square` is a thread's."
+notes = "Studio capture (#1290): point at something wrong anywhere in Bridge and it lands on the open Studio as a Note. Global, because what is wrong is on whatever surface a person is looking at rather than on the Studio. The modifier pair is the development annotation layer's own — ⌥⌘A, which stays permanently and is not in this registry, and ships in every build since 19 Nov 2026 — so the two capture tools sit a key apart and neither is a bare ⌘. C for capture; ⌥⌘C is bound by no Electron default menu and by nothing else here. No glyph: nothing registered means pointing at a thing, and the nearest silhouettes are all spoken for — `flag` is an alert's, `stamp` is attest's, `message-square` is a thread's."
 
 [actions.history]
 kind = "Action"
@@ -391,7 +391,7 @@ shortcut = "⇧⌘D"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Shoots the whole window, records the page, the open Job or Session, the connection and Doctor's read as a whole-window annotation, and starts a Session on Bridge's own repository with all of it as the first message, then opens that Session. The owner asked for it on 12 Oct 2026, to report the state of the app in one keystroke rather than through the annotation layer. Dev only, like the layer: a packaged Bridge has no capture and no repository of its own source, so the palette draws it dormant there. ⇧⌘D and not ⌥⌘D, which macOS takes to hide the Dock."
+notes = "Shoots the whole window, records the page, the open Job or Session, the connection and Doctor's read as a whole-window annotation, and starts a Session on Bridge's own repository with all of it as the first message, then opens that Session. The owner asked for it on 12 Oct 2026, to report the state of the app in one keystroke rather than through the annotation layer. Dev only: a packaged Bridge has no repository of its own source, so the palette draws it dormant there. ⇧⌘D and not ⌥⌘D, which macOS takes to hide the Dock."
 
 # -------------------------------------------------------------- contextual
 

@@ -11,7 +11,7 @@
 //! The rest of the layer is here: ⌥⌘S for a note on the whole window, the opened note's card with
 //! its acts, the All notes panel (`panel.rs`) and the card's tools and pictures (`tools.rs`).
 //!
-//! **Available only in a development build**, as Electron's is ([`dev_build`]).
+//! **Available in every build**, shipped or not: the owner chose it over Electron's development-build gate.
 
 pub mod live;
 mod panel;
@@ -65,12 +65,9 @@ pub fn forget_awake(cx: &mut App) {
 
 /// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
 /// registry does not list them, so they are restated here until it does. Bound with no context, so
-/// they work from any focus, and only in a development build. The screen that hosts the layer
-/// answers them (`dispatch::screen::bind`).
+/// they work from any focus. The screen that hosts the layer answers them (`dispatch::screen::bind`).
 pub fn bind(cx: &mut App) {
-    if dev_build() {
-        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
-    }
+    cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
 }
 
 /// Whether this is a development build: not packaged, or a kept build run from a source folder.

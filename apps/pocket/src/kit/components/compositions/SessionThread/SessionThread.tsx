@@ -107,6 +107,7 @@ import { StartFailedRow } from "./StartFailedRow";
 import { RequestedRow } from "./RequestedRow";
 import { SavedRow } from "./SavedRow";
 import { DocumentRow } from "./DocumentRow";
+import type { RowFacts } from "../BandCard/BandCard";
 import { StartedRow } from "./StartedRow";
 import { MovedRow } from "./MovedRow";
 import { WaiterRow } from "./WaiterRow";
@@ -452,6 +453,8 @@ type SessionThreadKinds =
         where: string;
         to: string;
       };
+      /** **Pocket's**: what the artifact list says of it, for the card's band. */
+      facts?: RowFacts;
     }
   /**
    * The agent drew a sketch: a card with a small drawing, a press that opens it. `sketch` is the ledger row's id.
@@ -474,6 +477,8 @@ type SessionThreadKinds =
       withdrawn?: true;
       settled?: SketchSettled;
       revisions?: readonly Scene[];
+      /** **Pocket's**: what the artifact list says of it, for the card's band. */
+      facts?: RowFacts;
     }
   /**
    * A page the Job wrote under `.armada/documents/`, as its newest revision, at the time Fleet kept it. `page` is the ledger's id
@@ -489,6 +494,8 @@ type SessionThreadKinds =
       revision: number;
       asked?: true;
       settled?: SketchSettled;
+      /** **Pocket's**: what the artifact list says of it, for the card's band. */
+      facts?: RowFacts;
     }
   /** This Session's agent started a Session, or forked itself into one: a press that opens it. `start` is the host's, while that Job is held on its start card: Start at the row's end begins it without opening it, and `starting` while the start waits on the request being read. */
   | {
@@ -809,6 +816,10 @@ export type SessionThreadProps = {
   onOpenDocument?: (page: string) => void;
   /** Answers the newest revision of a document put to him, by the page's ledger id. Absent, it draws with nothing to press. */
   onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
+  /** Takes a page put to him back without answering: its card offers Dismiss where this is passed. */
+  onWithdrawDocument?: (page: string) => void;
+  /** A page's first screen, which its card draws in a well. Absent, the card draws none. */
+  screenOf?: (page: string, revision: number) => ReactNode;
   /**
    * Opens what a note the person sent from a viewer named: the sketch with its parts picked, the file on its lines, the
    * picture with its region drawn. `root` is the Job's checkout, which a file is shown from. Absent, such a message is words.
@@ -1965,6 +1976,8 @@ function Row({
   onWithdrawSketch,
   onOpenDocument,
   onAnswerDocument,
+  onWithdrawDocument,
+  screenOf,
   sessionId,
   agentName = "Agent",
   onOpenRetro,
@@ -1990,6 +2003,10 @@ function Row({
   onWithdrawSketch?: (sketch: string) => void;
   onOpenDocument?: (page: string) => void;
   onAnswerDocument?: (page: string, answer: SketchAnswer) => void;
+  /** Takes a page put to him back without answering: its card offers Dismiss where this is passed. */
+  onWithdrawDocument?: (page: string) => void;
+  /** A page's first screen, which its card draws in a well. Absent, the card draws none. */
+  screenOf?: (page: string, revision: number) => ReactNode;
   sessionId?: string;
   onRetry?: (rowId: string) => void;
   /** Start again on a Job whose agent did not start: absent where the host serves none. */
@@ -2174,6 +2191,16 @@ function Row({
           ? {}
           : {
               onAnswer: onAnswerDocument,
+            })}
+        {...(onWithdrawDocument === undefined
+          ? {}
+          : {
+              onWithdraw: onWithdrawDocument,
+            })}
+        {...(screenOf === undefined
+          ? {}
+          : {
+              screen: screenOf(row.page, row.revision),
             })}
       />
     );
@@ -3468,6 +3495,8 @@ export function SessionThread({
   onWithdrawSketch,
   onOpenDocument,
   onAnswerDocument,
+  onWithdrawDocument,
+  screenOf,
   onOpenCheck,
   onOpenSubagent,
   onOpenRetro,
@@ -3510,6 +3539,8 @@ export function SessionThread({
     onWithdrawSketch: useSteady(onWithdrawSketch),
     onOpenDocument: useSteady(onOpenDocument),
     onAnswerDocument: useSteady(onAnswerDocument),
+    onWithdrawDocument: useSteady(onWithdrawDocument),
+    screenOf: useSteady(screenOf),
     onOpenRetro: useSteady(onOpenRetro),
     onOpenSent: useSteady(onOpenSent),
     onMuteNotice: useSteady(onMuteNotice),
@@ -4079,6 +4110,16 @@ export function SessionThread({
                                   ? {}
                                   : {
                                       onAnswerDocument: steady.onAnswerDocument,
+                                    })}
+                                {...(steady.onWithdrawDocument === undefined
+                                  ? {}
+                                  : {
+                                      onWithdrawDocument: steady.onWithdrawDocument,
+                                    })}
+                                {...(steady.screenOf === undefined
+                                  ? {}
+                                  : {
+                                      screenOf: steady.screenOf,
                                     })}
                                 {...(sessionId === undefined
                                   ? {}
