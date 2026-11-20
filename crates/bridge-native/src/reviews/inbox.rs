@@ -109,6 +109,9 @@ impl ReviewsScreen {
                 Some(at) => (at as isize + by).clamp(0, rows.len() as isize - 1) as usize,
                 None => 0,
             };
+            if rows.get(next).copied() != self.focused {
+                crate::ui_sounds::moved();
+            }
             self.focused = rows.get(next).copied();
             cx.notify();
         } else if act.is("open_focused") {

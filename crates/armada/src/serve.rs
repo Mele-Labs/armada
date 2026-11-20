@@ -73,8 +73,6 @@ pub const STORE_FILE: &str = "armada.db";
 /// configuration could read the address it reports evidence to, and one that
 /// could write it could name a different server.
 pub const MCP_FILE: &str = "mcp.json";
-/// The shared homes' clones, one a profile's login, in the machine directory. `fleet::home`.
-pub const HOME_DIR: &str = "home";
 
 /// Every number Fleet runs by is a setting now, read out of settings.json
 /// against `config::settings`' table: what ships, and the argument for each
@@ -293,9 +291,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     }));
     fleet.switching_phone_with(Arc::clone(&phone) as Arc<dyn fleet::phone::PhoneSwitch>);
     phone.start_if_marked();
-    // The shared home's clone sits in the machine directory, beside the mods it carries.
+    // Kit's pieces on this Mac, which cross to his other Macs over the link.
     fleet.sharing_home_with(fleet::home::HomeFittings {
-        homes: Arc::new(adapters::ForgeHomes::in_dir(machine.join(HOME_DIR))),
         mods: Arc::new(adapters::Folder::at(machine.join("mods"))),
         kit: Arc::new(adapters::Folder::at(&kit_dir)),
         harness: Arc::new(adapters::AgentHome::at(&person_home, &install_path)),

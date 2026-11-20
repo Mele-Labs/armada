@@ -289,6 +289,7 @@ impl JobView {
     pub(super) fn offer_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(offer) = self.composer.offer.as_mut() else { return false };
         let last = offer.rows.len().saturating_sub(1);
+        let was = offer.current;
         match key {
             "down" => offer.current = (offer.current + 1).min(last),
             "up" => offer.current = offer.current.saturating_sub(1),
@@ -304,6 +305,9 @@ impl JobView {
                 self.choose(current, window, cx);
             }
             _ => return false,
+        }
+        if self.composer.offer.as_ref().is_some_and(|offer| offer.current != was) && matches!(key, "up" | "down") {
+            crate::ui_sounds::moved();
         }
         cx.notify();
         true

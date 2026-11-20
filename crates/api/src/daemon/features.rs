@@ -94,6 +94,11 @@ pub trait Features: Send + Sync + 'static {
     /// blank part (`fleet.feature_blank`), with nothing kept.
     fn upsert_features(&self, caller: Option<crate::Caller>, upsert: ipc::UpsertFeatures) -> impl Future<Output = Result<ipc::FeaturesUpserted, Refusal>> + Send;
 
+    /// `answer_retire` — the owner's Retire or Keep for a feature the librarian proposed to retire. Refused as `upsert_features` is
+    /// to any session but the Operator's (`fleet.not_the_operator`); [`Refusal::NotFound`] for an unknown feature
+    /// (`fleet.feature_unknown`), [`Refusal::IllegalMove`] for one not proposed (`fleet.retire_not_proposed`).
+    fn answer_retire(&self, caller: Option<crate::Caller>, answer: ipc::AnswerRetire) -> impl Future<Output = Result<ipc::RetireAnswered, Refusal>> + Send;
+
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
     /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that

@@ -1,6 +1,6 @@
-//! A repository is bound to one profile: the organisations a sign-in keeps, the
-//! match from a repository's owner, the choice that overrides it, and the
-//! store each repository is claimed in.
+//! Which profile a repository claims as: the organisations a sign-in keeps, the
+//! login its project picks, the choice that overrides it, a repository owner that
+//! binds nothing, and the store each repository is claimed in.
 //!
 //! The sign-ins are the scripted forge and store of `signing_in`'s tests over a
 //! real machine directory, so what is on disk is what is read back.
@@ -55,18 +55,20 @@ pub(super) fn two_profiles(home: &TempDir) -> SigningIn {
 }
 
 pub(super) fn repo(slug: &str) -> Repo {
-    Repo::new(&format!("/work/{}", slug.replace('/', "-")), Some(slug.to_string()))
+    Repo::new(&format!("/work/{}", slug.replace('/', "-")))
 }
 
-/// Where `repo` stands: the account it is bound to and how, or its candidates.
-fn standing(accounts: &Accounts, repo: &Repo) -> Result<(u64, BoundHow), Vec<u64>> {
-    for profile in &accounts.profiles {
-        if let Some(bound) = profile.repositories.iter().find(|bound| bound.root == repo.root) {
-            return Ok((profile.account_id, bound.how));
-        }
-    }
-    let loose = accounts.unmatched.iter().find(|loose| loose.root == repo.root).expect("bound or unmatched, never lost");
-    Err(loose.candidates.clone())
+/// The account `repo` is listed under and how. **Nothing is ever unmatched** since a project picks the login.
+fn standing(accounts: &Accounts, repo: &Repo) -> Option<(u64, BoundHow)> {
+    assert!(accounts.unmatched.is_empty(), "no repository is listed as bound to none");
+    accounts.profiles.iter().find_map(|profile| {
+        profile.repositories.iter().find(|bound| bound.root == repo.root).map(|bound| (profile.account_id, bound.how))
+    })
+}
+
+/// The account `repo` claims as where its project picked `project`.
+fn claims(signing: &SigningIn, repo: &Repo, project: Option<u64>) -> Option<u64> {
+    signing.profile_for(&repo.root, project).map(|bound| bound.account_id)
 }
 
 #[test]
@@ -109,67 +111,43 @@ fn a_forge_that_will_not_list_organisations_keeps_none_and_says_so_and_the_sign_
 }
 
 #[test]
-fn a_repository_owned_by_the_profiles_login_is_bound_to_it_whatever_the_case() {
+fn a_repository_owner_or_organisation_binds_nothing_and_the_projects_login_is_used() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
-    let dotfiles = repo("octocat/dotfiles");
-    let shouted = Repo::new("/work/loud", Some("OctoCat/loud".to_string()));
-    let read = signing.accounts(&[dotfiles.clone(), shouted.clone()]).unwrap();
-    assert_eq!(standing(&read, &dotfiles), Ok((OCTOCAT, BoundHow::Matched)));
-    assert_eq!(standing(&read, &shouted), Ok((OCTOCAT, BoundHow::Matched)));
+    let (armada, dotfiles) = (repo("mele-labs/armada"), repo("octocat/dotfiles"));
+    let read = signing.accounts(&[armada.clone(), dotfiles.clone()]).unwrap();
+    assert_eq!((standing(&read, &armada), standing(&read, &dotfiles)), (None, None), "octocat's organisation and login bind nothing");
+
+    assert_eq!(claims(&signing, &armada, None), None, "no login picked, nothing claimed");
+    assert_eq!(claims(&signing, &armada, Some(HUBOT)), Some(HUBOT), "the project's login, not the owner's match");
+    let bound = signing.profile_for(&dotfiles.root, Some(HUBOT)).expect("bound");
+    assert_eq!(bound.login, "hubot");
 }
 
 #[test]
-fn a_repository_owned_by_an_organisation_of_one_profile_is_bound_to_that_profile() {
+fn a_projects_login_this_machine_is_not_signed_in_to_claims_nothing() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
-    let (site, armada) = (repo("acme/site"), repo("mele-labs/armada"));
-    let read = signing.accounts(&[site.clone(), armada.clone()]).unwrap();
-    assert_eq!(standing(&read, &site), Ok((HUBOT, BoundHow::Matched)));
-    assert_eq!(standing(&read, &armada), Ok((OCTOCAT, BoundHow::Matched)));
-    let hubot = read.profiles.iter().find(|one| one.account_id == HUBOT).unwrap();
-    assert_eq!(hubot.repositories.len(), 1, "a repository is listed under one profile only");
+    assert_eq!(claims(&signing, &repo("mele-labs/armada"), Some(7)), None);
 }
 
 #[test]
-fn a_repository_owned_by_an_organisation_both_share_is_unmatched_with_both_as_candidates() {
+fn a_repositorys_choice_wins_over_its_projects_login_and_survives_a_restart() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
-    let shared = repo("shared-co/lib");
-    let read = signing.accounts(&[shared.clone()]).unwrap();
-    assert_eq!(standing(&read, &shared), Err(vec![OCTOCAT, HUBOT]));
-    assert!(!read.unmatched[0].none_chosen);
-    assert_eq!(signing.profile_for(&shared), None, "unbound claims nothing");
-}
+    let (armada, site) = (repo("mele-labs/armada"), repo("acme/site"));
+    let both = [armada.clone(), site.clone()];
 
-#[test]
-fn a_repository_owned_by_a_stranger_or_with_no_remote_is_unmatched_with_no_candidates() {
-    let home = TempDir::new();
-    let signing = two_profiles(&home);
-    let (stranger, nowhere) = (repo("stranger/thing"), Repo::new("/work/local", None));
-    let read = signing.accounts(&[stranger.clone(), nowhere.clone()]).unwrap();
-    assert_eq!(standing(&read, &stranger), Err(Vec::new()));
-    assert_eq!(standing(&read, &nowhere), Err(Vec::new()));
-    assert_eq!((signing.profile_for(&stranger), signing.profile_for(&nowhere)), (None, None));
-}
-
-#[test]
-fn a_choice_wins_over_a_match_and_over_no_match_and_survives_a_restart() {
-    let home = TempDir::new();
-    let signing = two_profiles(&home);
-    let (matched_to_a, shared) = (repo("mele-labs/armada"), repo("shared-co/lib"));
-    let both = [matched_to_a.clone(), shared.clone()];
-
-    signing.set_repository_profile(&matched_to_a.root, Some(HUBOT), &both).expect("chosen over a match");
-    let read = signing.set_repository_profile(&shared.root, Some(OCTOCAT), &both).expect("chosen where none matched");
-    assert_eq!(standing(&read, &matched_to_a), Ok((HUBOT, BoundHow::Chosen)));
-    assert_eq!(standing(&read, &shared), Ok((OCTOCAT, BoundHow::Chosen)));
+    let read = signing.set_repository_profile(&armada.root, Some(HUBOT), &both).expect("chosen");
+    assert_eq!(standing(&read, &armada), Some((HUBOT, BoundHow::Chosen)));
+    assert_eq!(standing(&read, &site), None, "one with no choice is not listed");
+    assert_eq!(claims(&signing, &armada, Some(OCTOCAT)), Some(HUBOT), "the choice wins");
+    assert_eq!(claims(&signing, &site, Some(OCTOCAT)), Some(OCTOCAT), "no choice is the project's login");
+    assert_eq!(claims(&signing, &armada, None), None, "a project that picked no login sends nothing, a choice or not");
 
     let restarted = SigningIn::new(home.path(), Arc::new(FakeSignIn::new()), Arc::new(Enrolled::new()), Arc::new(Ticking::from_nine()));
-    let again = restarted.accounts(&both).unwrap();
-    assert_eq!(standing(&again, &matched_to_a), Ok((HUBOT, BoundHow::Chosen)));
-    assert_eq!(standing(&again, &shared), Ok((OCTOCAT, BoundHow::Chosen)));
-    assert_eq!(restarted.profile_for(&matched_to_a).map(|bound| bound.account_id), Some(HUBOT));
+    assert_eq!(standing(&restarted.accounts(&both).unwrap(), &armada), Some((HUBOT, BoundHow::Chosen)));
+    assert_eq!(claims(&restarted, &armada, Some(OCTOCAT)), Some(HUBOT));
 
     let text = std::fs::read_to_string(home.path().join(FILE)).expect("the choices");
     assert!(text.contains("\"how\":\"chosen\""), "{text}");
@@ -177,30 +155,29 @@ fn a_choice_wins_over_a_match_and_over_no_match_and_survives_a_restart() {
 }
 
 #[test]
-fn choosing_none_binds_a_repository_to_no_profile_and_no_store_even_where_one_matches() {
+fn choosing_none_claims_nothing_over_the_projects_login() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
     let armada = repo("mele-labs/armada");
-    assert_eq!(signing.profile_for(&armada).map(|bound| bound.account_id), Some(OCTOCAT));
+    assert_eq!(claims(&signing, &armada, Some(OCTOCAT)), Some(OCTOCAT));
 
     let read = signing.set_repository_profile(&armada.root, None, &[armada.clone()]).expect("chosen");
-    assert_eq!(standing(&read, &armada), Err(vec![OCTOCAT]));
-    assert!(read.unmatched[0].none_chosen);
-    assert_eq!(signing.profile_for(&armada), None);
+    assert_eq!(standing(&read, &armada), None);
+    assert_eq!(claims(&signing, &armada, Some(OCTOCAT)), None);
     assert!(std::fs::read_to_string(home.path().join(FILE)).unwrap().contains("\"account_id\":null"));
 }
 
 #[test]
-fn a_repository_chosen_for_a_profile_that_signed_out_has_no_store_and_is_not_handed_to_another() {
+fn a_repository_chosen_for_a_profile_that_signed_out_has_no_store_and_is_not_handed_to_the_projects_login() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
     let armada = repo("mele-labs/armada");
     signing.set_repository_profile(&armada.root, Some(HUBOT), &[armada.clone()]).expect("chosen");
-    assert!(signing.profile_for(&armada).is_some());
+    assert_eq!(claims(&signing, &armada, Some(OCTOCAT)), Some(HUBOT));
 
     let out = signing.sign_out(HUBOT, &[armada.clone()]).expect("signed out");
-    assert_eq!(standing(&out.accounts, &armada), Err(vec![OCTOCAT]), "its login's owner still matches, and is only offered");
-    assert_eq!(signing.profile_for(&armada), None);
+    assert_eq!(standing(&out.accounts, &armada), None);
+    assert_eq!(claims(&signing, &armada, Some(OCTOCAT)), None);
 }
 
 #[test]
@@ -253,8 +230,8 @@ struct TwoRepositories {
     _home: TempDir,
 }
 
-/// One Fleet serving `mele-labs/armada` (octocat's organisation) and `acme/site`
-/// (hubot's), each switched to the registry, with a store of its own for each account.
+/// One Fleet serving `mele-labs/armada` and `acme/site`, each switched to the registry, with a store
+/// of its own for each account, in a project whose login is octocat. `acme/site` overrides it with hubot.
 async fn two_repositories() -> TwoRepositories {
     let home = TempDir::new();
     two_profiles(&home);
@@ -282,6 +259,9 @@ async fn two_repositories() -> TwoRepositories {
         })
         .expect("served");
     super::red_claim::in_a_project_storing_at(&fleet, "https://store.test").await;
+    api::Accounts::set_repository_profile(&fleet, ipc::SetRepositoryProfile { root: second.clone(), account_id: Some(HUBOT) })
+        .await
+        .expect("chosen");
     let first = super::main_fix::root(&fleet).await;
     TwoRepositories { fleet, first, second, octocat, hubot, _home: home }
 }
@@ -314,7 +294,7 @@ fn owner_of(store: &FakeStore, slug: &str, number: u64) -> bool {
 }
 
 #[tokio::test]
-async fn a_red_is_claimed_in_the_view_of_the_profile_its_repository_is_bound_to_and_no_other() {
+async fn a_red_is_claimed_as_the_projects_login_or_the_repositorys_override_and_no_other() {
     let two = two_repositories().await;
     let taker = Taker::Session("s-1".to_string());
 
@@ -322,13 +302,13 @@ async fn a_red_is_claimed_in_the_view_of_the_profile_its_repository_is_bound_to_
     assert!(two.fleet.claim_red(&red_at(&two.second, &two.fleet), &taker, false).await.expect("claimed"));
 
     let name = |claim: Option<Claimant>| claim.map(|held| held.name);
-    assert_eq!(name(claim_of(&two.octocat, "mele-labs/armada")).as_deref(), Some("octocat"), "octocat's repository is in octocat's store, named as octocat");
-    assert_eq!(name(claim_of(&two.hubot, "acme/site")).as_deref(), Some("hubot"), "hubot's repository is in hubot's store, named as hubot");
+    assert_eq!(name(claim_of(&two.octocat, "mele-labs/armada")).as_deref(), Some("octocat"), "the project's login, octocat, in octocat's store");
+    assert_eq!(name(claim_of(&two.hubot, "acme/site")).as_deref(), Some("hubot"), "the override, hubot, in hubot's store");
     assert!(claim_of(&two.octocat, "acme/site").is_none() && claim_of(&two.hubot, "mele-labs/armada").is_none());
 }
 
 #[tokio::test]
-async fn a_pull_request_owner_is_registered_in_the_view_of_the_profile_its_repository_is_bound_to_and_no_other() {
+async fn a_pull_request_owner_is_registered_in_the_view_of_the_profile_its_repository_claims_as_and_no_other() {
     let two = two_repositories().await;
     let taker = Taker::Session("s-1".to_string());
 
@@ -342,7 +322,7 @@ async fn a_pull_request_owner_is_registered_in_the_view_of_the_profile_its_repos
 }
 
 #[tokio::test]
-async fn a_repository_chosen_none_or_matched_by_nobody_claims_nothing_while_the_other_still_does() {
+async fn a_repository_chosen_none_claims_nothing_while_the_other_still_does() {
     let two = two_repositories().await;
     let taker = Taker::Session("s-1".to_string());
     api::Accounts::set_repository_profile(&two.fleet, ipc::SetRepositoryProfile { root: two.second.clone(), account_id: None })
@@ -356,7 +336,7 @@ async fn a_repository_chosen_none_or_matched_by_nobody_claims_nothing_while_the_
 }
 
 #[tokio::test]
-async fn a_repository_bound_to_a_profile_the_machine_signed_out_of_claims_nothing() {
+async fn a_repository_claiming_as_a_profile_the_machine_signed_out_of_claims_nothing() {
     let two = two_repositories().await;
     let taker = Taker::Session("s-1".to_string());
     let out = api::Accounts::sign_out(&two.fleet, ipc::SignOut { account_id: OCTOCAT }).await.expect("signed out");

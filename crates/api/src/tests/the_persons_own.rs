@@ -91,7 +91,8 @@ async fn a_job_cannot_keep_the_feature_catalog_and_bridge_can() {
     let app = wired();
     let upsert = ipc::encode(&ipc::UpsertFeatures { project: "p".into(), areas: Vec::new(), features: Vec::new() }).expect("encodes");
     let change = ipc::encode(&ipc::ChangeFeature { project: "p".into(), feature: "f".into(), into: None, slug: None, title: Some("T".into()), area: None }).expect("encodes");
-    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change)] {
+    let retire = ipc::encode(&ipc::AnswerRetire { project: "p".into(), slug: "f".into(), retire: false }).expect("encodes");
+    for (uri, body) in [("/features/upsert", upsert), ("/features/change", change), ("/features/retire", retire)] {
         let (status, refused) = call(&app, "POST", uri, JOB, &body).await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{uri} from a Job");
         let refused: WireError = ipc::decode("a refusal", &refused).expect("decodes");
@@ -113,6 +114,7 @@ fn handing_in_another_macs_rows() -> Vec<(&'static str, &'static str, String)> {
         ("PUT", "/other_macs/sessions", r#"{"mac":"mac-work","sessions":[]}"#.to_string()),
         ("PUT", "/other_macs/bug_reports", r#"{"mac":"mac-work","reports":[]}"#.to_string()),
         ("PUT", "/other_macs/preview_offers", r#"{"mac":"mac-work","offers":[]}"#.to_string()),
+        ("PUT", "/other_macs/kit", r#"{"mac":"mac-work","kit":{"kinds":[]}}"#.to_string()),
         ("POST", "/other_macs/event", ipc::encode(&event).expect("encodes")),
         ("POST", "/other_macs/forget", r#"{"mac":"mac-work"}"#.to_string()),
         ("PUT", "/other_macs/claims", r#"{"claims":[]}"#.to_string()),

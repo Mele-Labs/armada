@@ -380,6 +380,29 @@ impl OperatorScreen {
         cx.notify();
     }
 
+    /// Where he is: the place in front and, on the Jobs screen, the Job open on it. The Job is no part of another place:
+    /// the Operator lends one to its own cards, which he did not open.
+    pub fn at(&self, cx: &App) -> (Front, Option<SharedString>) {
+        let job = (self.front == Front::Jobs).then(|| self.jobs.read(cx).list.read(cx).opened_id()).flatten();
+        (self.front, job)
+    }
+
+    /// The Jobs list, whose opened Job is part of [`Self::at`].
+    pub fn list(&self, cx: &App) -> Entity<crate::jobs::JobsList> {
+        self.jobs.read(cx).list.clone()
+    }
+
+    /// Back or Forward to a place: it comes to the front, and on the Jobs screen the Job open there opens as no pick does,
+    /// so the keys stay where `bring` put them. A Job the list no longer holds is left shut.
+    pub fn restore(&mut self, front: Front, job: Option<SharedString>, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(front), window, cx);
+        if front == Front::Jobs {
+            let list = self.list(cx);
+            let job = job.filter(|id| list.read(cx).record(id).is_some());
+            list.update(cx, |list, cx| list.open_quietly(job, cx));
+        }
+    }
+
     /// The Usage page this screen holds.
     #[cfg(test)]
     pub fn usage_for_test(&self) -> Option<Entity<crate::usage_page::UsageScreen>> {
@@ -546,6 +569,26 @@ pub fn link_state(cx: &App) -> Option<(Option<bool>, Option<Vec<ipc::RepositoryS
 /// The Fleet a link is linked through, where the screen has one.
 pub fn link_fleet(cx: &App) -> Option<Entity<FleetConnection>> {
     cx.try_global::<Here>()?.0.upgrade()?.read(cx).fleet.clone()
+}
+
+impl OperatorScreen {
+    /// A ready review: the pull request in Reviews, on Review comments.
+    pub fn open_review_findings(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(Front::Reviews), window, cx);
+        if let Some(reviews) = &self.reviews {
+            reviews.update(cx, |reviews, cx| reviews.open_asked_findings(asked, window, cx));
+        }
+    }
+}
+
+/// A banner's press on a ready review: [`OperatorScreen::open_review_findings`] from outside the screen.
+pub fn open_findings(asked: ipc::ReviewAsked, cx: &mut App) {
+    let Some(Here(me, handle)) = cx.try_global::<Here>().map(|here| Here(here.0.clone(), here.1)) else { return };
+    cx.defer(move |cx| {
+        let _ = handle.update(cx, |_, window, cx| {
+            let _ = me.update(cx, |this, cx| this.open_review_findings(&asked, window, cx));
+        });
+    });
 }
 
 /// A banner's press on a review asked of him: [`OperatorScreen::open_review`] from outside the screen.

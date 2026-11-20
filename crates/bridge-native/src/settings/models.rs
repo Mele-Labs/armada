@@ -495,6 +495,7 @@ impl SettingsOverlay {
         let now = steps.iter().position(|one| *one == self.slot_word(slot)).unwrap_or(0) as isize;
         let next = (now + by).clamp(0, steps.len() as isize - 1) as usize;
         if next as isize != now {
+            crate::ui_sounds::moved();
             self.choose_slot(slot, steps[next].clone(), window, cx);
         }
     }
@@ -544,6 +545,9 @@ impl SettingsOverlay {
                     let Some(at) = rows.iter().position(|one| one.name == name) else { return true };
                     let next = if word == "up" { at.saturating_sub(1) } else { (at + 1).min(rows.len() - 1) };
                     let to = rows[next].name.clone();
+                    if to != name {
+                        crate::ui_sounds::moved();
+                    }
                     self.pick_model(&to, window, cx);
                     return true;
                 }

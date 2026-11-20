@@ -342,8 +342,13 @@ impl JobView {
                 super::pop::trap_tab(&order, event.keystroke.modifiers.shift, window, cx);
                 return;
             }
-            "up" => confirm.picked = confirm.picked.saturating_sub(1),
-            "down" => confirm.picked = (confirm.picked + 1).min(confirm.rows.len().saturating_sub(1)),
+            "up" | "down" => {
+                let was = confirm.picked;
+                confirm.picked = if key == "up" { confirm.picked.saturating_sub(1) } else { (confirm.picked + 1).min(confirm.rows.len().saturating_sub(1)) };
+                if confirm.picked != was {
+                    crate::ui_sounds::moved();
+                }
+            }
             digit if digit.len() == 1 && digit.chars().all(|c| c.is_ascii_digit()) && !event.keystroke.modifiers.alt => {
                 let n = digit.parse::<usize>().unwrap_or(0);
                 if (1..=confirm.rows.len().min(9)).contains(&n) {

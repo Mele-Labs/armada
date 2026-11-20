@@ -550,8 +550,8 @@ slug = "kit"
 area = "kit-and-logbook"
 title = "Kit"
 summary = "Skills, MCP servers, plugins"
-paths = ["crates/fleet/src/kit.rs", "docs/concepts/kit.md", "crates/core-model/src/kit.rs", "packages/components/src/compositions/KitBrowser"]
-entry_points = ["crates/fleet/src/kit.rs:141", "crates/fleet/src/kit_pieces.rs:167", "crates/fleet/src/kit_files.rs:168", "crates/fleet/src/kit_allowlist.rs", "crates/ipc/src/kit.rs"]
+paths = ["crates/fleet/src/kit.rs", "docs/concepts/kit.md", "crates/core-model/src/kit.rs", "packages/components/src/compositions/KitBrowser", "crates/fleet/src/kit_link.rs", "crates/fleet/src/kit_link", "docs/practices/protocol/kit-over-the-mac-link.md"]
+entry_points = ["crates/fleet/src/kit.rs:141", "crates/fleet/src/kit_pieces.rs:167", "crates/fleet/src/kit_files.rs:168", "crates/fleet/src/kit_allowlist.rs", "crates/ipc/src/kit.rs", "crates/fleet/src/kit_link/serving.rs:180", "crates/ipc/src/kit_link.rs"]
 
 [[features]]
 slug = "logbook"
@@ -615,7 +615,7 @@ area = "accounts-macs-and-sharing"
 title = "Shared home"
 summary = "One home across Macs"
 paths = ["crates/fleet/src/home.rs", "crates/fleet/src/home", "crates/adapters/src/shared_home.rs", "docs/practices/protocol/the-shared-home.md"]
-entry_points = ["crates/fleet/src/home.rs:43", "crates/fleet/src/home/serving.rs:42", "crates/adapters/src/shared_home.rs", "crates/ipc/src/shared_home.rs", "apps/desktop/src/renderer/src/fleet-shared-home.ts"]
+entry_points = ["crates/fleet/src/home.rs:37", "crates/fleet/src/home/serving.rs:21", "crates/adapters/src/shared_home.rs", "crates/ipc/src/shared_home.rs", "apps/desktop/src/renderer/src/fleet-shared-home.ts"]
 
 [[features]]
 slug = "pairing-and-other-macs"

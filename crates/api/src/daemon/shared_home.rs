@@ -1,10 +1,14 @@
-//! The shared home: Kit's rows against it, the acts that settle one, and what this machine
-//! syncs. Its own surface, for [`Accounts`](super::Accounts)' reason: the home is the Machine's,
-//! and a handler taking only this cannot reach for a Job. `docs/concepts/kit.md`.
+//! Kit across his Macs: over the Mac link, each kind's switch on this Mac, each row against every linked Mac, and
+//! the acts that switch one or settle a clash; and the retired shared home, whose routes answer that Kit crosses
+//! over the link now, so Classic Bridge still reads them. Its own surface, for [`Accounts`](super::Accounts)'
+//! reason: Kit is the Machine's, and a handler taking only this cannot reach for a Job. `docs/concepts/kit.md`.
 
 use std::future::Future;
 
-use ipc::{ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead};
+use ipc::{
+    ChooseHomeSide, HomeKinds, HomeProfile, HomeRowAt, HomeSynced, KitLink, SetHomeItem, SetHomeKind, SetHomeRepository, SetKitLinkItem,
+    SetKitLinkKind, SettleKitClash, SharedHomeRead,
+};
 
 use crate::daemon::Refusal;
 
@@ -40,4 +44,17 @@ pub trait SharedHome: Send + Sync + 'static {
 
     /// `set_home_repository` — where one profile's home is made, before it exists.
     fn set_home_repository(&self, choice: SetHomeRepository) -> impl Future<Output = Result<SharedHomeRead, Refusal>> + Send;
+
+    /// `get_kit_link` — each kind's switch on this Mac, and every row it crosses against every linked Mac. Reads
+    /// this Mac's Kit again, and reaches no other Mac.
+    fn get_kit_link(&self) -> impl Future<Output = Result<KitLink, Refusal>> + Send;
+
+    /// `set_kit_link_kind` — switch one kind on or off for crossing, on this Mac.
+    fn set_kit_link_kind(&self, switch: SetKitLinkKind) -> impl Future<Output = Result<KitLink, Refusal>> + Send;
+
+    /// `set_kit_link_item` — switch one item on or off by itself.
+    fn set_kit_link_item(&self, switch: SetKitLinkItem) -> impl Future<Output = Result<KitLink, Refusal>> + Send;
+
+    /// `settle_kit_clash` — keep one side of a clash with a linked Mac, on both Macs.
+    fn settle_kit_clash(&self, settle: SettleKitClash) -> impl Future<Output = Result<KitLink, Refusal>> + Send;
 }

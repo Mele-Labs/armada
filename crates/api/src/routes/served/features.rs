@@ -53,6 +53,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/upsert",
     },
     Route {
+        operation: "answer_retire",
+        method: "POST",
+        path: "/features/retire",
+    },
+    Route {
         operation: "seed_features",
         method: "POST",
         path: "/features/seed",

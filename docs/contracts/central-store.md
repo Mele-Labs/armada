@@ -387,6 +387,11 @@ A project's file names it under `store:`, as `address`, and `team` where it is a
 A project with none sends nothing.
 Why: a work project points at the team's store and Armada at his own, decided by the owner on 13 Nov 2026 (`.claude/decisions/2026-11-13-claims-store.md`).
 
+**Rule.** A project's `store:` block also names the login that joins it, and a repository may override the login.
+A project with a store and no login sends nothing, and says so.
+Claims go as that login, never as a profile matched through the repository's owner, [Account](../concepts/account.md), *Which login a project joins as*.
+**Not built.** Fleet still calls each repository as the profile bound to it by its owner (`crates/fleet/src/project_store.rs`, `bound_profiles`).
+
 **Rule.** A repository calls the store the projects holding it name, read when the call is made.
 A repository in no project, or in projects that name none, makes no call, and that holds for what was still to send when a store was taken out.
 A repository in two projects that name different stores makes no call either, and Fleet says so on its log.
@@ -429,7 +434,7 @@ The tunnel's is read from `cloudflared`'s certificate when a deploy runs, and a 
 
 **Rule.** A deploy of a Worker that is already up replaces its script and keeps its Durable Objects and their rows.
 
-**Rule.** Joining a store enrols each profile the project's repositories are bound to, with `gh`'s token for the profile's login, read once and dropped.
+**Rule.** Joining a store enrols the login the project names and each login a repository of it overrides with, with `gh`'s token for the profile's login, read once and dropped.
 A profile already enrolled there is left as it is.
 A join that is refused writes nothing, and a deploy whose join is refused still names the store and says why.
 Why: the owner chose `gh`'s sign-in for joins, 14 Nov 2026, since `gh`'s token carries `read:org` for a team store's check.
@@ -454,11 +459,11 @@ Why: a red main's or a flaky test's fix Job always starts, so two Macs that skip
 
 **Rule.** `409` is an answer, not a failure. It names the holder, and the take is refused as taken elsewhere.
 
-**Rule.** A repository with the switch off, one in no project that names a store, one bound to no profile (or to None), and one bound to a profile the machine has signed out of, make no call.
-Each repository calls as its own profile, [Account](../concepts/account.md), *Repositories*.
+**Rule.** A repository with the switch off, one in no project that names a store, one in a project that names a store and no login, and one whose login the machine has signed out of, make no call.
+Each repository calls as the login its project names, or its own override, [Account](../concepts/account.md), *Which login a project joins as*.
 
-**Rule.** A repository's runs call as its own profile whether or not its Manifest turns the pull request owners on: choosing the place `cloud` is the switch.
-A repository with no remote, one bound to no profile and one in no project that names a store refuse the choice, `422 fleet.run_cloud_unsigned`.
+**Rule.** A repository's runs call as the login its project names, or its override, whether or not its Manifest turns the pull request owners on: choosing the place `cloud` is the switch.
+A repository with no remote, one with no login and one in no project that names a store refuse the choice, `422 fleet.run_cloud_unsigned`.
 
 **Rule.** A store that cannot be reached, or answers with a refusal, on the choice of `cloud` refuses the choice and the old place stays.
 Later, a write that fails keeps the facts in Fleet's own record, marked waiting with the reason, and the next turn's end writes again.

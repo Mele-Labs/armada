@@ -294,8 +294,13 @@ impl Aa {
         if let Some((which, at)) = self.open {
             let last = which.options().len() - 1;
             match key {
-                "down" => self.open = Some((which, (at + 1).min(last))),
-                "up" => self.open = Some((which, at.saturating_sub(1))),
+                "down" | "up" => {
+                    let to = if key == "down" { (at + 1).min(last) } else { at.saturating_sub(1) };
+                    if to != at {
+                        crate::ui_sounds::moved();
+                    }
+                    self.open = Some((which, to));
+                }
                 "enter" | "space" | " " => self.pick(which, at, window, cx),
                 "escape" => self.escape(window, cx),
                 _ => return,

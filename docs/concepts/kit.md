@@ -33,7 +33,7 @@ Setting up your *first project* is also out of scope: a Job starts on any folder
 
 | Home | Whose | What Armada does with it |
 | --- | --- | --- |
-| The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what the person brings from the shared home ([The shared home](#the-shared-home)); the automatic push of Kit's edits is [not built](#push-to-claude) |
+| The harness's own — `~/.claude` for the first adapter | The person's. It is what every other tool they use reads | **Reads it**, to show it. Writes only what the person brings from the shared home ([The shared home, retired](#the-shared-home-retired)); an edit made in Kit writing into it is [not built](#push-to-claude) |
 | `~/.armada` | Armada's own | Makes it, reads it, writes it. Workflows, and since 5 Oct 2026 the allowlist (`allowed-commands`); and anything with no counterpart in a harness |
 
 **Neither is authoritative over the other's idea of anything**, which is what makes two homes survivable where the issue that raised this feared they would not be.
@@ -286,7 +286,7 @@ A command whose every run failed is never kept, and the facts merge with those i
 | `repository` | `armada.yml` on the Job's own branch, committed, so it lands with the Job's pull request. **Every line is a Command, never a Check**: this records how the repository runs, and nothing remembered gates a pull request. A name the file already declares is left alone |
 | `cloud` | Armada's central store, or a bucket the person owns, chosen with the place: `{"store":{}}` or `{"bucket":"s3://bucket/prefix"}` (`r2://` and `gs://` too) |
 
-**The store form** keeps the facts as rows under a hash of the repository's remote, as the profile the repository is bound to, [Central store](../contracts/central-store.md).
+**The store form** keeps the facts as rows under a hash of the repository's remote, as the login its project names, or the repository's own, [Central store](../contracts/central-store.md), *A store per project*.
 **The bucket form** keeps the Kit layout as one object, `<prefix>/runs/<owner--name>.toml`, signed with the provider's own credentials: `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` or a profile in `~/.aws/credentials` for `s3://`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY` for `r2://`, and `GOOGLE_APPLICATION_CREDENTIALS` or `gcloud auth application-default login` for `gs://`.
 Kit holds none of them.
 A key that may not list the bucket reads a missing object as refused.
@@ -328,8 +328,9 @@ The places are named as a person reads them:
 | `synced` | A synced folder, such as iCloud Drive or Google Drive |
 | `cloud` | Cloud storage: Armada's store, or a bucket address |
 
-**Cloud storage asks a second line.** Under it Bridge lists the store, as one row naming the profile the repository is bound to, and a field for a bucket address; the pick is sent as `{"store":{}}` or `{"bucket":"…"}`.
-A repository bound to no profile has no store row.
+**Cloud storage asks a second line.** Under it Bridge lists the store, as one row naming the login that joins it, and a field for a bucket address; the pick is sent as `{"store":{}}` or `{"bucket":"…"}`.
+A repository whose project names no login has no store row.
+**Not built.** The row names the profile bound to the repository by its owner until the project names the login.
 
 | Where | Shows |
 |---|---|
@@ -458,10 +459,11 @@ Kit is the first group of the System page's sidebar, whose places [Bridge](bridg
 
 Keeps your live local Claude environment in step with your Kit's Skills, MCP and Agent files.
 
-**Automatic.** When you edit your Kit, Fleet pushes the change out; you never have to trigger it. Non-conflicting items merge silently.
-
-**Not built: the automatic part.** Nothing yet pushes a Kit edit into a person's own Claude configuration.
-The one write there is [Add to this machine](#the-shared-home), which the person presses for a row from the shared home.
+**An edit made in Kit writes into `~/.claude`, and crosses to his other Macs from there**, [Over the Mac link](#over-the-mac-link).
+You never have to trigger it, and non-conflicting items merge silently.
+**Built in Fleet.** Kit's editor saves into the person's Claude folder, and the next exchange offers the file from there.
+A change made in `~/.claude` outside Armada is read at the next exchange: when Kit is read, when a linked Mac's Kit arrives, or when a kind is switched.
+Nothing watches the folder.
 
 **A same-named conflict with config Claude already has outside Armada surfaces for you to resolve**, rather than being silently overwritten. That is the one time you are involved.
 
@@ -471,15 +473,26 @@ A manual re-push exists as recovery — after resolving a conflict, or repairing
 
 Two mechanisms, both carried over from the v1 prototype:
 
-- Git-repo push/pull, for continuous cross-machine portability.
+- Git-repo push/pull, for continuous cross-machine portability. Retired: his own Macs keep one Kit [over the Mac link](#over-the-mac-link), decided 19 Nov 2026.
 - One-off file export/import, for a simple copy.
 
 **Your Kit travels, the Machine does not.** Import / Export is #1449.
 
-### The shared home
+### Over the Mac link
 
-**The git-repo mechanism is a private repository on the person's own GitHub account, `<gh login>/armada-home`, and every machine signed in to that account reads and writes it.** Signing in, the identity and the profiles a machine joins are [Account](account.md); Armada holds no account of its own.
-It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
+**Kit keeps his linked Macs' setups the same over the Mac link, the link shared projects cross, with no GitHub repository and no Sync press.**
+The link is [Project](project.md), *Sharing with his other Macs*.
+An edit on one Mac crosses to the other where the kind is switched on.
+**Built in Fleet**, 19 Nov 2026, for any number of linked Macs; the wire is [the protocol page](../practices/protocol/kit-over-the-mac-link.md).
+**Not built in Bridge.** Neither Classic nor native draws it yet.
+
+**Each kind is switched on per Mac, and every kind is off until it is switched on.**
+One switch on a kind both sends this Mac's items of it and takes the other Mac's.
+The kinds are Mods, Skills, Plugins, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+The choice is kept on each Mac, and a Mac with a kind off neither sends nor takes it.
+
+**Each row is marked how it stands against the other Mac:** the same, differs, new here, or only on the other Mac.
+A server also carries whether its key is here, and a server whose key is not on this Mac is marked as needing one; no key crosses, so adding it here is the person's.
 
 | Carried | Not carried |
 | --- | --- |
@@ -490,18 +503,50 @@ It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement
 | Plugins, as a name, a marketplace and a source | |
 | An MCP server as its name and host | |
 
+**Agent file is not a kind of its own.** It is the global instructions, and the link carries one file for it.
+
+**Mods are a kind.** A mod is a folder, [Mod](mods.md), and it travels whole except for the dotted files: its own history and a tracker mod's last try stay on the Mac.
+A mod that is not valid here is not added.
+
+**Nothing secret crosses, and a piece that would carry one is refused, never scrubbed.**
+A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
+The refusal names the host and never the value.
+
+**A clash is held with both sides, and the person settles it.**
+A clash is an item both Macs changed while they were unlinked.
+Kit shows the two side by side in the item's detail, with *Keep this Mac's* and *Keep <other Mac>'s*, and the pick settles it on both Macs.
+Until then each Mac keeps its own.
+A pick made while the other Mac is asleep waits, and is sent when the link opens, oldest first.
+
+**A change on one side crosses by itself.** Each Mac keeps, for every item and every linked Mac, what the two last agreed on.
+An item that moved on one side only since then is taken by the other, and one that moved on both is a clash.
+Keeping a side records the other side as agreed, on both Macs.
+
+**A deletion does not cross.** An item taken away on one Mac reads as only on the other Mac, and is not brought back.
+
+**Each synced item has one scope.** **Not built:** an item is switched on or off, and no item carries a scope.
+
+| Scope | Where the item lives |
+| --- | --- |
+| Global | Every project |
+| Repo | One named repository |
+| Private | This machine only, and it never leaves |
+
+**In native Kit** a bar across the top names the Mac it crosses to, what differs and when it last crossed, and a switch sits on each kind in the rail.
+**Not built.**
+
+### The shared home, retired
+
+**The repository `<gh login>/armada-home`, a private repository on the person's own GitHub account that every machine signed in to it read and wrote, is retired: Fleet no longer reads or writes it, and nothing deletes it.**
+Since 19 Nov 2026 Classic's page reads no home and every kind off, and each of its acts refuses, naming the link.
+The rest of this section is what the home did until then.
+Signing in, the identity and the profiles a machine joins are [Account](account.md); Armada holds no account of its own.
+It is a third place beside [Kit's two homes](#kits-two-homes), not a replacement for either: each machine keeps its own `~/.claude` and `~/.armada`, and the repository is what they are compared against.
+What it carries and refuses is [Over the Mac link](#over-the-mac-link)'s table, kept unchanged.
+
 **Where each is kept in the repository.**
 `mods/<name>/…`, `skills/<name>/…`, `sub_agents/<name>.md`, `commands/<name>.md`, `global_instructions/<file>`, `workflows/<file>`, `memory/<repo>/<note>.md`, `plugins/<name>.toml`, `mcp_servers/<name>.toml` and `allowlist`.
 What crosses to Bridge is on [the protocol page](../practices/protocol/the-shared-home.md).
-
-**Agent file is not a kind of its own.** It is the global instructions, and the home holds one file for it.
-
-**Mods are a kind.** A mod is a folder, [Mod](mods.md), and it travels whole except for the dotted files: its own history and a tracker mod's last try stay on the machine.
-A mod that is not valid here is not added.
-
-**Nothing secret leaves, and a piece that would carry one is refused, never scrubbed.**
-A scrubbed copy would read as differing from the original for good, and the person would be shown a file that is not theirs.
-The refusal names the host and never the value.
 
 **Sync makes the repository.** The first Sync creates the home where the person chose, `<login>/armada-home` until they choose, as a private repository through the forge's API with `gh`'s token for the profile's login.
 Fleet marks it with the topic `armada-home` as it makes it, so another Mac can find it.
@@ -522,7 +567,7 @@ A row Add to the home would refuse stays on this machine and keeps its mark: a p
 Each one that stays is told in a toast of its own, naming the row and why, never the credential.
 A row that differs is left for the person to settle, and a row only in the home stays there until it is brought.
 
-**What syncs is chosen per kind and per item, per machine, and is kept in the machine's store.** [Account](account.md), *What syncs*.
+**What syncs is chosen per kind and per item, per machine, and is kept in the machine's store.** [Over the Mac link](#over-the-mac-link) keeps the per-kind, per-Mac switch.
 A kind switched off has no rows in Kit but the items switched on by themselves, and every kind is off until it is turned on.
 A Sync with nothing switched on says so in a toast.
 
@@ -540,7 +585,7 @@ Bring never overwrites a file that differs; only choosing a side replaces it.
 A row only on this machine goes into the home at the next Sync, or at once by the person's act; a row only in the home comes here by the person's act alone.
 A server whose key is not on this machine is marked as needing one; the home does not carry the key, so adding it here is the person's.
 
-**The page.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
+**The page, in Classic.** Each row carries a mark for how it stands against the home (the same, differs, only on this machine, only in the home, needs a key).
 A bar names the repository and offers Sync, and under it a Sync all switch turns the open kind on or off.
 An item's detail carries a Sync to home switch that sends it alone; while its kind is on, the switch reads on and cannot be moved.
 **Switching an item or a kind on sends it to the home at once**: Sync runs, so there is no second act to add it.
@@ -569,7 +614,7 @@ The settings in `../contracts/configuration.md` that directly affect this concep
 
 - Kit-level allowed/default models list
 - AI-assisted prompt toggle
-- Import/Export Git repo target
+- Import/Export Git repo target (retired with the shared home)
 - Push to Claude conflict-resolution policy
 - Push to Claude target (which local Claude install)
 

@@ -151,6 +151,7 @@ impl TitleBar {
     fn switcher_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         let keys = &event.keystroke;
         let rows = picks(&self.face, &self.switcher.query).len();
+        let was = self.switcher.at;
         match keys.key.as_str() {
             "escape" => self.shut(window, cx),
             "up" => self.switcher.at = self.switcher.at.saturating_sub(1),
@@ -166,6 +167,9 @@ impl TitleBar {
             }
             // Letters, Backspace and the rest are Find's own.
             _ => return,
+        }
+        if self.switcher.at != was && matches!(keys.key.as_str(), "up" | "down") {
+            crate::ui_sounds::moved();
         }
         cx.stop_propagation();
         cx.notify();

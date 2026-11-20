@@ -7,7 +7,8 @@ use std::future::Future;
 use std::time::Duration;
 
 use ipc::{
-    BugReports, Event, OtherMacBugReports, OtherMacEvent, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, PreviewOffers, Projects, SessionList, StreamMessage,
+    BugReports, Event, KitOffer, OtherMacBugReports, OtherMacEvent, OtherMacKit, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, PreviewOffers,
+    Projects, SessionList, StreamMessage,
 };
 use serde::de::DeserializeOwned;
 use serde::Serialize;
@@ -183,6 +184,7 @@ impl Link<'_> {
         self.projects().await?;
         self.sessions().await?;
         self.preview_offers().await?;
+        self.kit().await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })
             .await
@@ -228,7 +230,28 @@ impl Link<'_> {
         self.hand("PUT", "/other_macs/preview_offers", &OtherMacPreviewOffers { mac: self.mac.to_string(), offers: offers.offers }).await
     }
 
+    /// The other Mac's Kit as it offers it. **A Mac on a build from before Kit crossed answers 404**, and the link
+    /// stays up without it.
+    async fn kit(&self) -> Result<(), String> {
+        let came = signed_whole(self.gateway, self.mac, self.address, "GET", "/api/mac/kit", None)
+            .await
+            .map_err(|why| format!("{} could not be reached: {why}", self.name))?;
+        if came.status == 404 {
+            return Ok(());
+        }
+        if !came.ok() {
+            return Err(format!("{} answered {}: {}", self.name, came.status, came.sentence()));
+        }
+        let kit: KitOffer = ipc::decode("a Kit", &came.body)
+            .map_err(|_| format!("{} sent a Kit this Mac cannot read. Update Armada on both.", self.name))?;
+        self.hand("PUT", "/other_macs/kit", &OtherMacKit { mac: self.mac.to_string(), kit }).await
+    }
+
     async fn event(&self, event: Event) -> Result<(), String> {
+        // Its Kit changed: read again, and the event itself is the other Mac's own, not Bridge's here.
+        if matches!(event, Event::KitChanged(_)) {
+            return self.kit().await;
+        }
         // A project that stops being shared takes its rows with it, so the list is read again.
         let projects = matches!(event, Event::ProjectsChanged(_));
         self.hand("POST", "/other_macs/event", &OtherMacEvent { mac: self.mac.to_string(), event }).await?;
@@ -261,8 +284,8 @@ impl Link<'_> {
 }
 
 /// [`crate::Gateway`]'s answer to Fleet's `send_other_mac`: `body` posted to Mac `mac` as `/api/mac/project_act`,
-/// `/api/mac/act`, `/api/mac/update` or `/api/mac/terminal`, for the paths `/other_mac/project_act`, `/other_mac/act`,
-/// `/other_mac/update` and `/other_mac/terminal` and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
+/// `/api/mac/act`, `/api/mac/update`, `/api/mac/refresh_claim`, `/api/mac/kit_settle` or `/api/mac/terminal`, for the
+/// same paths under `/other_mac/` and no other. **While the link is frozen only the update is sent**, and the rest are refused as unsent. The status its Fleet
 /// answered and the bytes, so a refusal there is said here as it was said.
 pub fn send_other_mac(
     gateway: &Gateway,
@@ -277,6 +300,7 @@ pub fn send_other_mac(
             "/other_mac/act" => "/api/mac/act",
             "/other_mac/update" => "/api/mac/update",
             "/other_mac/refresh_claim" => "/api/mac/refresh_claim",
+            "/other_mac/kit_settle" => "/api/mac/kit_settle",
             "/other_mac/terminal" => "/api/mac/terminal",
             _ => return Err(format!("{path} is not sent to another Mac.")),
         };
