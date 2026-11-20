@@ -54,7 +54,9 @@ async fn a_kit_edit_lands_in_the_harness_home_and_is_what_this_mac_offers() {
     let save = SaveKitFile { kind: KitFileKind::Skills, name: "docs".into(), plugin: None, read: read.text, text: edited.into() };
     fleet.kit_file_saved(save).await.expect("saved");
 
-    let on_disk = std::fs::read_to_string(home.path().join(".claude/skills/docs/SKILL.md")).expect("in the harness's home");
+    // The harness's own folder is the adapter's to name, so it is found rather than named here.
+    let saved = std::fs::read_dir(home.path()).expect("the home").filter_map(Result::ok).map(|entry| entry.path().join("skills/docs/SKILL.md")).find(|path| path.is_file());
+    let on_disk = std::fs::read_to_string(saved.expect("in the harness's folder in the home")).expect("read back");
     assert_eq!(on_disk, edited);
     let offer = fleet.kit_offered().await.expect("offered");
     let docs = offer.pieces.iter().find(|piece| piece.name == "docs").expect("docs is offered");
