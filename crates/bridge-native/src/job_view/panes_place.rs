@@ -53,7 +53,7 @@ pub(super) struct Arranged {
     /// The split whose divider is being dragged.
     pub dragging: Option<String>,
     /// Focus handles by `{job}/{tab}`, `{job}/add:{pane}`.
-    handles: HashMap<String, FocusHandle>,
+    pub(super) handles: HashMap<String, FocusHandle>,
     /// Each strip's scroll, by `{job}/{pane}`, and the tab that was in front when it was last drawn.
     pub scrolls: HashMap<String, (ScrollHandle, Option<String>)>,
     /// The pane a + was pressed in, for the tab its source opens next on that Job, while that is still recent.
@@ -301,7 +301,7 @@ fn retag(node: &mut Node, change: &mut impl FnMut(&mut Tab)) {
 
 /// A new tab of `kind` at the end of the pane, or at an index in it, else in a split of its own, behind: each pane keeps
 /// the tab it had in front, and the focus stays.
-fn put_behind(was: &Arrangement, kind: &str, target: Option<(String, Option<usize>)>) -> Arrangement {
+pub(super) fn put_behind(was: &Arrangement, kind: &str, target: Option<(String, Option<usize>)>) -> Arrangement {
     let mut next = match &target {
         Some((pane, _)) => tree::add_tab(was, pane, kind, Extras::default()).into_owned(),
         None => tree::arrive(was, kind, Extras::default()),

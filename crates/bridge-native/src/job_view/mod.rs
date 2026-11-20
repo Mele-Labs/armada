@@ -905,6 +905,7 @@ impl JobView {
             self.mock_needs.remove(id.as_ref());
             self.compact_refused.remove(&id);
         }
+        self.follow_steps(window, cx);
     }
 
     /// Why acts on the Job on screen are off, as [`Self::off_here`] says for the one shown.

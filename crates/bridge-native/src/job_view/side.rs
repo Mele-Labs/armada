@@ -154,6 +154,8 @@ pub(super) struct SideState {
     pub(super) open_group_shut: bool,
     /// The chip of Needs you he pressed on this Job; none until he does.
     pub(super) needs_chip: Option<super::column_bands::Chip>,
+    /// The step the Job was at when last seen here, which a move from opens the next step's tabs. None until seen.
+    pub(super) stepped: Option<Option<u32>>,
 }
 
 /// Where a group of an approved plan stands.
