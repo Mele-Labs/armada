@@ -1,16 +1,44 @@
-//! What Kit draws of the Mac link: the bar across its top, a kind's switch in the rail, a row's mark, the picked
-//! item's own switch, and a clash's two sides. Drawn from `sync.rs`; every value is a token.
+//! What Kit draws of the Mac link: the bar across its top, a kind's switch in the rail, a row's mark and its own
+//! switch, and a clash's two sides. Drawn from `sync.rs`; every value is a token.
 
 use chrono::{DateTime, Local};
+use gpui::accesskit::Toggled;
 use gpui::{div, prelude::*, px, AnyElement, Div, FocusHandle, FontWeight, Role, SharedString, Stateful, Window};
 
 use super::model::{Kind, Row};
-use super::sync::{self, Bar, Standing, Tint};
+use super::sync::{self, Bar, KindCross, Standing, Tint};
 use super::{Compared, KitScreen, Load, Stop};
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
 use crate::settings::view::{bone, ring_colour, switch_track, tip};
 use crate::titlebar::parts::{glyph, mono, Btn, Weight};
+
+/// The switch's third look, for a kind that is off with some of its items crossing: the knob in the middle of a
+/// muted accent track, the same size as on and off.
+fn switch_some(look: &Look) -> Div {
+    let edge = look.length(token::BORDER_WIDTH);
+    let tall = look.length(token::H_BADGE);
+    let pad = edge * 2.;
+    let knob = tall - pad * 2.;
+    let air = look.length(token::SPACE_1);
+    let half = (look.length(token::SPACE_4) + look.length(token::SPACE_2)) / 2.;
+    let disc = div().flex_none().size(knob).rounded_full().border(edge * 2.).border_color(look.color(token::ACCENT).opacity(0.6)).bg(look.color(token::FG_DEFAULT));
+    div()
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(air)
+        .h(tall)
+        .pl(air)
+        .pr(pad - edge)
+        .border(edge)
+        .border_color(look.color(token::ACCENT))
+        .rounded(tall / 2.)
+        .bg(look.color(token::ACCENT_MUTED))
+        .child(div().flex_none().w(half))
+        .child(disc)
+        .child(div().flex_none().w(half - air))
+}
 
 /// The width of a row's mark: room for `Only on` and a short Mac's name, which a longer one truncates in.
 fn mark_width(look: &Look) -> gpui::Pixels {
@@ -124,13 +152,18 @@ impl KitScreen {
 
     // ---- the rail ---------------------------------------------------------------------------------
 
-    /// A kind's switch over the link, in a fixed place at the row's end. Empty for a kind that does not cross.
+    /// A kind's switch over the link, in a fixed place at the row's end: on, off, or some where the kind is off and
+    /// some of its items cross by themselves. Empty for a kind that does not cross.
     pub(super) fn kind_switch(&self, kind: Kind, look: &Look, cx: &mut gpui::Context<Self>) -> AnyElement {
         let cell = div().flex_none().flex().justify_end().w(look.length(token::SPACE_12));
         let Load::Read(link) = &self.link else { return cell.into_any_element() };
-        let Some(on) = sync::kind_on(link, kind) else { return cell.into_any_element() };
+        let Some(stands) = sync::kind_cross(link, kind) else { return cell.into_any_element() };
         let label = kind.label();
-        let said = if on { format!("{label} cross to your linked Macs: this Mac sends its own and takes theirs") } else { format!("{label} stay on this Mac") };
+        let (said, toggled, track) = match stands {
+            KindCross::On => (format!("{label} cross to your linked Macs: this Mac sends its own and takes theirs"), Toggled::True, switch_track(look, true, false)),
+            KindCross::Partly => ("Some cross".to_string(), Toggled::Mixed, switch_some(look)),
+            KindCross::Off => (format!("{label} stay on this Mac"), Toggled::False, switch_track(look, false, false)),
+        };
         let track = div()
             .id(SharedString::from(format!("kit-cross-{}", kind.id())))
             .flex_none()
@@ -141,8 +174,8 @@ impl KitScreen {
                 cx.stop_propagation();
                 this.cross_kind(kind, cx);
             }))
-            .aria_toggled(if on { gpui::accesskit::Toggled::True } else { gpui::accesskit::Toggled::False })
-            .child(switch_track(look, on, false));
+            .aria_toggled(toggled)
+            .child(track);
         cell.child(labelled(track, Role::Switch, format!("Cross {label}"))).into_any_element()
     }
 
@@ -162,35 +195,53 @@ impl KitScreen {
         Some(cell.child(labelled(chip, Role::Image, word)).into_any_element())
     }
 
+    /// A row's own switch over the link, in its fixed column at the card's end. The column is kept, empty, on a row
+    /// that never crosses, and left out where the kind does not cross. A row Fleet refuses shows its switch off and
+    /// unpressable, with Fleet's reason.
+    pub(super) fn cross_cell(&self, row: &Row, gone: bool, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        let Load::Read(link) = &self.link else { return None };
+        sync::home_kind(row.kind)?;
+        let cell = div().flex_none().flex().justify_end().w(look.length(token::SPACE_12));
+        if gone || !sync::row_switchable(row) {
+            return Some(cell.into_any_element());
+        }
+        let name = format!("Cross {}", row.name);
+        let track = div().id(SharedString::from(format!("kit-cross-row-{}", row.id))).flex_none().rounded_full();
+        if let Some(why) = sync::refusal(link, row) {
+            let track = track.tooltip(tip(why.to_string())).aria_toggled(Toggled::False).aria_description(why.to_string()).child(switch_track(look, false, true));
+            return Some(cell.child(labelled(track, Role::Switch, name)).into_any_element());
+        }
+        let on = sync::row_crosses(link, row);
+        let said = match (&row.elsewhere, on) {
+            (_, true) => "Crosses to your linked Macs".to_string(),
+            (Some(macs), false) => format!("On {macs}. On, this Mac takes it"),
+            (None, false) => "Stays on this Mac".to_string(),
+        };
+        let id = row.id.clone();
+        let track = track
+            .cursor_pointer()
+            .tooltip(tip(said))
+            .on_click(cx.listener(move |this, _, _, cx| {
+                cx.stop_propagation();
+                this.cross_row(&id, cx);
+            }))
+            .aria_toggled(if on { Toggled::True } else { Toggled::False })
+            .child(switch_track(look, on, false));
+        let picked = Some(&row.id) == self.selected.as_ref();
+        let track = if picked { ringed(look, track, self.stop_handle(&Stop::CrossItem), window) } else { track };
+        Some(cell.child(labelled(track, Role::Switch, name)).into_any_element())
+    }
+
     // ---- the detail -------------------------------------------------------------------------------
 
-    /// The picked item's own switch, while its kind is off. Empty otherwise.
-    pub(super) fn item_switch(&self, shown: &super::model::Shown, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
-        if !self.crosses_alone(shown) {
+    /// Whether the picked row crosses, read only, beside its name. The row's own switch in the list changes it.
+    pub(super) fn cross_said(&self, shown: &super::model::Shown, look: &Look) -> Option<AnyElement> {
+        let Load::Read(link) = &self.link else { return None };
+        if shown.gone.is_some() || !sync::row_switchable(&shown.row) || link.macs.is_empty() || sync::refusal(link, &shown.row).is_some() {
             return None;
         }
-        let Load::Read(link) = &self.link else { return None };
-        let on = sync::item_on(link, &shown.row);
-        let track = div()
-            .id("kit-cross-item")
-            .flex_none()
-            .rounded_full()
-            .cursor_pointer()
-            .tooltip(tip(format!("{} are off over the Mac link. On, this one crosses by itself.", shown.row.kind.label())))
-            .on_click(cx.listener(|this, _, _, cx| this.cross_item(cx)))
-            .aria_toggled(if on { gpui::accesskit::Toggled::True } else { gpui::accesskit::Toggled::False })
-            .child(switch_track(look, on, false));
-        let track = ringed(look, track, self.stop_handle(&Stop::CrossItem), window);
-        Some(
-            div()
-                .flex_none()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .child(div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child("Crosses alone"))
-                .child(labelled(track, Role::Switch, format!("Cross {} alone", shown.row.name)))
-                .into_any_element(),
-        )
+        let words = if sync::row_crosses(link, &shown.row) { format!("Crosses to {}", sync::macs_listed(link)) } else { "Stays on this Mac".to_string() };
+        Some(labelled(div().id("kit-crosses").flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(words.clone())), Role::Label, words).into_any_element())
     }
 
     /// The picked row's clashes: each Mac's side by side, and a button to keep each.

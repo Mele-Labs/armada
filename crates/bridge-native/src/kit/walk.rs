@@ -39,7 +39,7 @@ const fn part(say: &'static str, scenario: &'static str) -> Step {
 
 /// The `kit-sync` walk: Kit over the Mac link with no Mac linked, with every row the same, and with a row in every
 /// mark and a clash, on `kit/mock.rs`.
-pub static SYNC_STEPS: [Step; 16] = [
+pub static SYNC_STEPS: [Step; 20] = [
     part("No Mac linked", "kit-unlinked"),
     step("The bar says Kit crosses once a Mac is linked, and opens Account in Settings", Verb::PressOn("tab", "Kit"), "button", "Link a Mac in Settings"),
     step("Each kind has its switch in the rail: the choice is this Mac's", Verb::Look, "switch", "Cross Skills"),
@@ -50,10 +50,14 @@ pub static SYNC_STEPS: [Step; 16] = [
     step("A clash opens in the detail: both versions side by side, each Mac's own lines tinted", Verb::PressOn("tab", "Kit"), "region", "Clash with Work Mac"),
     step("The bar's chip says something clashes, and names it", Verb::Hover, "img", "Clash over the Mac link"),
     step("Each row's mark in a fixed column: same, differs, new here, refused, only on Work Mac", Verb::Look, "img", "Only on Work Mac"),
-    step("Refused: Fleet's reason in the tooltip", Verb::Hover, "img", "Refused"),
+    step("Each row has its own switch beside its mark. Skills are on, so every one crosses", Verb::Look, "switch", "Cross deploy-notes"),
+    step("Refused: its switch stays off, with Fleet's reason in the tooltip", Verb::Hover, "switch", "Cross tracker-sync"),
     step("Keep Work Mac's: its version is written here and the row reads the same", Verb::PressOn("button", "Keep Work Mac's"), "region", "File"),
-    step("Plugins are off over the link: design-kit crosses alone, with its own switch", Verb::PressOn("option", "Plugins"), "switch", "Cross design-kit alone"),
-    step("Switched on, Plugins cross whole and the item's own switch goes", Verb::PressOn("switch", "Cross Plugins"), "img", "Same"),
+    step("deploy-notes off: the rest keep crossing by themselves", Verb::PressOn("switch", "Cross deploy-notes"), "switch", "Cross deploy-notes"),
+    step("Skills' switch in the rail now says some cross", Verb::Hover, "switch", "Cross Skills"),
+    step("Pressed from some, Skills cross whole again", Verb::PressOn("switch", "Cross Skills"), "switch", "Cross deploy-notes"),
+    step("Sub agents are off, with code-reviewer crossing by itself", Verb::PressOn("option", "Sub agents"), "switch", "Cross code-reviewer"),
+    step("test-writer on: it crosses by itself too", Verb::PressOn("switch", "Cross test-writer"), "switch", "Cross test-writer"),
     step("Back in Skills", Verb::PressOn("option", "Skills"), "option", "pricing-review"),
-    step("A row only on Work Mac has no file here: its facts say where it is", Verb::PressOn("option", "pricing-review"), "region", "Facts"),
+    step("A row only on Work Mac has a switch too, and no file here: its facts say where it is", Verb::PressOn("option", "pricing-review"), "region", "Facts"),
 ];

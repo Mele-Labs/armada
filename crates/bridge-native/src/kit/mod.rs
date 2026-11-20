@@ -35,6 +35,7 @@ use crate::settings::wire::Refused;
 use crate::titlebar::{self, Asked, AskedSink};
 use add::Add;
 use model::{Gone, Kind, Line, Listed, Read, Removal, Row, Scope, KINDS};
+use sync::Cross;
 
 /// The kinds as the palette lists them: the word that opens Kit on one, its label and its glyph.
 pub fn kinds() -> impl Iterator<Item = (&'static str, &'static str, &'static str)> {
@@ -51,8 +52,8 @@ pub enum Pane {
 
 const PANES: [Pane; 3] = [Pane::Rail, Pane::List, Pane::Detail];
 
-/// A control Tab stops on past the three panes: the bar's link to Settings, the picked item's own crossing switch,
-/// and each side of a clash. Space or Enter presses it.
+/// A control Tab stops on past the three panes: the bar's link to Settings, the picked row's own switch over the
+/// link, and each side of a clash. Space or Enter presses it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Stop {
     Account,
@@ -507,15 +508,15 @@ impl KitScreen {
         cx.notify();
     }
 
-    /// The stops drawn now, in Tab's order: the bar's link first, then the picked item's switch and its clash's
-    /// buttons, which come after the read pane.
+    /// The stops drawn now, in Tab's order: the bar's link first, then the picked row's switch, which comes after the
+    /// list, and its clash's buttons, which come after the read pane.
     pub(super) fn stops(&self) -> Vec<Stop> {
         let mut stops = Vec::new();
         if let Load::Read(link) = &self.link {
             if link.macs.is_empty() {
                 stops.push(Stop::Account);
             }
-            if self.picked().is_some_and(|one| self.crosses_alone(one)) {
+            if self.picked().is_some_and(|one| one.gone.is_none() && sync::row_switchable(&one.row) && sync::refusal(link, &one.row).is_none()) {
                 stops.push(Stop::CrossItem);
             }
         }
@@ -531,16 +532,12 @@ impl KitScreen {
         self.stops().iter().position(|one| one == stop).and_then(|at| self.stop_handles.get(at))
     }
 
-    /// Whether the picked row shows its own switch: its kind crosses and is off here.
-    pub(super) fn crosses_alone(&self, shown: &model::Shown) -> bool {
-        let Load::Read(link) = &self.link else { return false };
-        shown.gone.is_none() && shown.row.elsewhere.is_none() && sync::kind_on(link, shown.row.kind) == Some(false) && sync::item_of(&shown.row).is_some() && sync::his(&shown.row)
-    }
-
     fn places(&self) -> Vec<Place> {
         let stops = self.stops();
-        let (before, after): (Vec<Stop>, Vec<Stop>) = stops.into_iter().partition(|stop| *stop == Stop::Account);
-        before.into_iter().map(Place::Stop).chain(PANES.into_iter().map(Place::Pane)).chain(after.into_iter().map(Place::Stop)).collect()
+        let row = stops.contains(&Stop::CrossItem).then_some(Place::Stop(Stop::CrossItem));
+        let (before, after): (Vec<Stop>, Vec<Stop>) = stops.into_iter().filter(|stop| *stop != Stop::CrossItem).partition(|stop| *stop == Stop::Account);
+        let panes = [Place::Pane(Pane::Rail), Place::Pane(Pane::List)].into_iter().chain(row).chain([Place::Pane(Pane::Detail)]);
+        before.into_iter().map(Place::Stop).chain(panes).chain(after.into_iter().map(Place::Stop)).collect()
     }
 
     fn next_pane(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
@@ -561,8 +558,10 @@ impl KitScreen {
         while self.stop_handles.len() <= at {
             self.stop_handles.push(cx.focus_handle());
         }
-        if stop != Stop::Account {
-            self.pane = Pane::Detail;
+        match stop {
+            Stop::Account => {}
+            Stop::CrossItem => self.pane = Pane::List,
+            Stop::Keep { .. } => self.pane = Pane::Detail,
         }
         window.focus(&self.stop_handles[at], cx);
         self.stop = Some(stop);
@@ -573,7 +572,11 @@ impl KitScreen {
     fn press_stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         match self.stop.clone() {
             Some(Stop::Account) => self.settings_page("fleet:account", cx),
-            Some(Stop::CrossItem) => self.cross_item(cx),
+            Some(Stop::CrossItem) => {
+                if let Some(id) = self.selected.clone() {
+                    self.cross_row(&id, cx);
+                }
+            }
             Some(Stop::Keep { mac, keep }) => self.settle(mac, keep, window, cx),
             None => {}
         }
@@ -846,34 +849,65 @@ impl KitScreen {
         );
     }
 
-    /// A kind's switch over the link: on, it sends this Mac's pieces of the kind and takes the linked Macs'.
+    /// The rail's switch over the link: from some or off, the kind on; from on, everything of the kind off.
     pub(super) fn cross_kind(&mut self, kind: Kind, cx: &mut Context<Self>) {
-        let (Load::Read(link), Some(home)) = (&self.link, sync::home_kind(kind)) else { return };
-        let on = !sync::kind_on(link, kind).unwrap_or(false);
-        self.refused = None;
-        if let Source::Mock(mock) = &mut self.source {
-            mock.cross_kind(home, on);
-            return self.read_mock(cx);
-        }
-        let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be changed.", cx) };
-        let ask = wire::cross_kind(port, ipc::SetKitLinkKind { kind: home, on }, cx);
-        self.hold_link("cross", ask, cx);
+        let Load::Read(link) = &self.link else { return };
+        let sent = sync::rail_press(link, kind);
+        self.send_crosses(sent, cx);
     }
 
-    /// The picked item's own switch, while its kind is off.
-    pub(super) fn cross_item(&mut self, cx: &mut Context<Self>) {
-        let Load::Read(link) = &self.link else { return };
-        let Some(row) = self.picked().filter(|one| self.crosses_alone(one)).map(|one| one.row.clone()) else { return };
-        let Some(item) = sync::item_of(&row) else { return };
-        let on = !sync::item_on(link, &row);
+    /// A row's own switch over the link, `id` naming the row in the kind shown.
+    pub(super) fn cross_row(&mut self, id: &str, cx: &mut Context<Self>) {
+        let (Load::Read(link), Read::Rows(rows)) = (&self.link, &self.read) else { return };
+        let Some(row) = rows.iter().find(|row| row.id == id) else { return };
+        let sent = sync::row_press(link, row, rows);
+        self.send_crosses(sent, cx);
+    }
+
+    /// The calls a switch sends, one after another, each once the one before was taken. A refusal stops there, says
+    /// Fleet's words, and reads the link again for where it stands.
+    fn send_crosses(&mut self, sent: Vec<Cross>, cx: &mut Context<Self>) {
+        if sent.is_empty() {
+            return;
+        }
         self.refused = None;
         if let Source::Mock(mock) = &mut self.source {
-            mock.cross_item(item, on);
-            return self.read_mock(cx);
+            let refused = sent.iter().find_map(|one| mock.send(one).err());
+            self.read_mock(cx);
+            if let Some(why) = refused {
+                self.refuse(why, cx);
+            }
+            return;
         }
         let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be changed.", cx) };
-        let ask = wire::cross_item(port, ipc::SetKitLinkItem { item, on }, cx);
-        self.hold_link("cross", ask, cx);
+        self.work.insert(
+            "cross",
+            cx.spawn(async move |this, cx| {
+                let mut last = None;
+                for one in sent {
+                    let ask = cx.update(|cx| match one {
+                        Cross::Kind(kind, on) => wire::cross_kind(port, ipc::SetKitLinkKind { kind, on }, cx),
+                        Cross::Item(item, on) => wire::cross_item(port, ipc::SetKitLinkItem { item, on }, cx),
+                    });
+                    match ask.await {
+                        Ok(link) => last = Some(link),
+                        Err(why) => {
+                            let _ = this.update(cx, |this, cx| {
+                                this.refuse(why.said, cx);
+                                this.read_link(cx);
+                            });
+                            return;
+                        }
+                    }
+                }
+                if let Some(link) = last {
+                    let _ = this.update(cx, |this, cx| {
+                        this.link = Load::Read(link);
+                        this.relist(cx);
+                    });
+                }
+            }),
+        );
     }
 
     /// Keep one side of the picked row's clash with `mac`, on both Macs. The file is read again, since keeping the
@@ -970,7 +1004,8 @@ impl KitScreen {
         match act.id {
             "kit_move" => self.step(if down { 1 } else { -1 }, cx),
             "kit_pane" => self.next_pane(if act.slot == 0 { 1 } else { -1 }, window, cx),
-            // In the rail, Space is the kind's switch over the link; elsewhere the picked piece's in the project.
+            // In the rail, Space is the kind's switch over the link; elsewhere the picked piece's in the project. A
+            // row's own switch over the link is pressed from its Tab stop.
             "kit_toggle" if self.pane == Pane::Rail => self.cross_kind(self.kind, cx),
             "kit_toggle" => self.toggle(cx),
             "kit_remove" => self.remove(cx),

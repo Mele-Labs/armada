@@ -282,7 +282,7 @@ impl KitScreen {
     }
 
     /// One piece as a rounded card: its lamp, its name and its one line. A removed one stays amber and struck through.
-    fn render_piece(&self, shown: &model::Shown, focused: bool, look: &Look, _window: &mut Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
+    fn render_piece(&self, shown: &model::Shown, focused: bool, look: &Look, window: &mut Window, cx: &mut gpui::Context<Self>) -> gpui::AnyElement {
         let row = &shown.row;
         let picked = Some(&row.id) == self.selected.as_ref();
         let gone = shown.gone.is_some();
@@ -360,7 +360,8 @@ impl KitScreen {
                     .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(name.flex_1().child(SharedString::from(row.name.clone()))).children((!gone).then(|| self.mark_cell(row, look)).flatten()))
                     .child(div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says))),
             )
-            .children(restore);
+            .children(restore)
+            .children(self.cross_cell(row, gone, look, window, cx));
         div().w_full().px(look.length(token::SPACE_2)).py(px(2.)).child(labelled(card, Role::ListBoxOption, row.name.clone())).into_any_element()
     }
 
@@ -466,7 +467,7 @@ impl KitScreen {
             div().into_any_element()
         };
         let switch = div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().justify_end().child(switch);
-        let crosses = self.item_switch(shown, look, window, cx);
+        let crosses = self.cross_said(shown, look);
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
         let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);

@@ -1,4 +1,5 @@
-//! Kit over the Mac link, worked out from what `get_kit_link` answered: which of Kit's kinds cross, how each row
+//! Kit over the Mac link, worked out from what `get_kit_link` answered: which of Kit's kinds and items cross, what
+//! each switch sends, how each row
 //! stands against the linked Macs, what the bar across Kit says, and a clash's two sides as tinted lines. Nothing
 //! here touches the screen or the wire. `docs/concepts/kit.md`, *Over the Mac link*.
 
@@ -43,6 +44,86 @@ pub fn kind_on(link: &KitLink, kind: Kind) -> Option<bool> {
 /// Whether this row is switched on by itself, while its kind is off.
 pub fn item_on(link: &KitLink, row: &Row) -> bool {
     item_of(row).is_some_and(|item| link.items.contains(&item))
+}
+
+/// How a kind's switch in the rail stands.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum KindCross {
+    /// Every item of the kind crosses, the ones added later too.
+    On,
+    /// The kind is off and some of its items cross by themselves.
+    Partly,
+    Off,
+}
+
+/// None where the kind does not cross.
+pub fn kind_cross(link: &KitLink, kind: Kind) -> Option<KindCross> {
+    let home = home_kind(kind)?;
+    Some(if kind_on(link, kind)? {
+        KindCross::On
+    } else if link.items.iter().any(|item| item.kind == home) {
+        KindCross::Partly
+    } else {
+        KindCross::Off
+    })
+}
+
+/// Whether a row crosses: its kind is on, or it is on by itself.
+pub fn row_crosses(link: &KitLink, row: &Row) -> bool {
+    kind_on(link, row.kind) == Some(true) || item_on(link, row)
+}
+
+/// Whether a row carries its own switch over the link: one of his, of a kind that crosses.
+pub fn row_switchable(row: &Row) -> bool {
+    his(row) && item_of(row).is_some()
+}
+
+/// Fleet's reason a row stays on this Mac, where it refuses it.
+pub fn refusal<'a>(link: &'a KitLink, row: &Row) -> Option<&'a str> {
+    link_row(link, row).and_then(|one| one.refused.as_deref())
+}
+
+/// One call over the link: `set_kit_link_kind` or `set_kit_link_item`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Cross {
+    Kind(HomeKind, bool),
+    Item(HomeItem, bool),
+}
+
+/// What the rail's switch sends. From some or off, the kind on, which takes every item. From on, each item on by
+/// itself off and then the kind, so a refusal part way leaves the kind as it stood.
+pub fn rail_press(link: &KitLink, kind: Kind) -> Vec<Cross> {
+    let Some(home) = home_kind(kind) else { return Vec::new() };
+    match kind_cross(link, kind) {
+        None => Vec::new(),
+        Some(KindCross::On) => link.items.iter().filter(|item| item.kind == home).map(|item| Cross::Item(item.clone(), false)).chain([Cross::Kind(home, false)]).collect(),
+        Some(_) => vec![Cross::Kind(home, true)],
+    }
+}
+
+/// What a row's switch sends, `rows` being its kind's rows in Kit's list. With the kind off, the item by itself.
+/// With the kind on, every other row Fleet does not refuse goes on by itself first, then the kind goes off, then
+/// this item where it was on by itself: a refusal part way never leaves the rest uncrossed.
+pub fn row_press(link: &KitLink, row: &Row, rows: &[Row]) -> Vec<Cross> {
+    let Some(item) = item_of(row).filter(|_| row_switchable(row)) else { return Vec::new() };
+    if refusal(link, row).is_some() {
+        return Vec::new();
+    }
+    if kind_on(link, row.kind) != Some(true) {
+        return vec![Cross::Item(item, !item_on(link, row))];
+    }
+    let mut sent: Vec<Cross> = rows
+        .iter()
+        .filter(|one| one.id != row.id && one.kind == row.kind && row_switchable(one) && refusal(link, one).is_none() && !item_on(link, one))
+        .filter_map(item_of)
+        .filter(|one| *one != item)
+        .map(|one| Cross::Item(one, true))
+        .collect();
+    sent.push(Cross::Kind(item.kind, false));
+    if link.items.contains(&item) {
+        sent.push(Cross::Item(item, false));
+    }
+    sent
 }
 
 /// A row the person keeps himself: never a piece a plugin brought, a repository's, or Armada's own.
@@ -146,6 +227,11 @@ fn listed(names: &[String]) -> String {
         [one] => one.clone(),
         [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
     }
+}
+
+/// The linked Macs, as a person lists them.
+pub fn macs_listed(link: &KitLink) -> String {
+    listed(&link.macs.iter().map(|mac| mac.name.clone()).collect::<Vec<_>>())
 }
 
 /// How a link row stands: Fleet's refusal before anything, then its loudest mark against any linked Mac, naming

@@ -7,6 +7,7 @@ use ipc::{HomeItem, HomeKind, HomeKindSwitch, KitAgainst, KitInventory, KitLink,
 use serde_json::json;
 
 use super::model::{Gone, Kind, Row, Scope};
+use super::sync::Cross;
 use super::wire::Saved;
 use crate::settings::wire::Refused;
 
@@ -62,7 +63,13 @@ pub fn inventory() -> KitInventory {
                 ],
             ),
             row("plugins", vec![plugin]),
-            row("sub_agents", vec![item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/you/.claude/agents/code-reviewer.md", None)]),
+            row(
+                "sub_agents",
+                vec![
+                    item("code-reviewer", "Reads a diff the way the house rules ask", "/Users/you/.claude/agents/code-reviewer.md", None),
+                    item("test-writer", "Writes the test a change is missing", "/Users/you/.claude/agents/test-writer.md", None),
+                ],
+            ),
             row("commands", vec![item("ship", "Merges the open pull request and tags it", "/Users/you/.claude/commands/ship.md", None)]),
             row("agent_file", vec![item("CLAUDE.md", "42 lines, opening How we work", "/Users/you/.claude/CLAUDE.md", None)]),
             row("output_styles", vec![style, other, armada]),
@@ -104,6 +111,10 @@ pub struct MockKit {
     pub link: KitLink,
     /// Rows of a kind switched off, back when it is switched on.
     stash: Vec<KitLinkRow>,
+    /// Each call over the link, in the order it was sent.
+    pub sent: Vec<Cross>,
+    /// A call Fleet refuses, for a test of a refusal part way.
+    pub refuse: Option<Cross>,
 }
 
 impl MockKit {
@@ -116,13 +127,26 @@ impl MockKit {
             (RELEASE_NOTES_ID.to_string(), RELEASE_NOTES_HERE.to_string()),
         ]);
         let link = [(KIT_UNLINKED, Linked::Unlinked), (KIT_IN_STEP, Linked::InStep)].into_iter().find(|(name, _)| crate::mock::scenario_is(name)).map_or(Linked::Apart, |(_, linked)| linked);
-        MockKit { inventory: inventory(), servers: servers(), skills_off, files, trash: Vec::new(), link: link_of(linked_now(link)), stash: Vec::new() }
+        MockKit { inventory: inventory(), servers: servers(), skills_off, files, trash: Vec::new(), link: link_of(linked_now(link)), stash: Vec::new(), sent: Vec::new(), refuse: None }
     }
 
     /// The same, with Kit over the Mac link standing as `linked` says.
     #[cfg(test)]
     pub fn linked(linked: Linked) -> MockKit {
         MockKit { link: link_of(linked_now(linked)), ..MockKit::new() }
+    }
+
+    /// One call over the link, as Fleet answers it: taken, or refused in Fleet's words.
+    pub fn send(&mut self, cross: &Cross) -> Result<(), String> {
+        self.sent.push(cross.clone());
+        if self.refuse.as_ref() == Some(cross) {
+            return Err("Fleet could not write the link's switches on this Mac.".into());
+        }
+        match cross {
+            Cross::Kind(kind, on) => self.cross_kind(*kind, *on),
+            Cross::Item(item, on) => self.cross_item(item.clone(), *on),
+        }
+        Ok(())
     }
 
     /// Kit's switch for a kind: switched off, its rows leave the link's read, and come back when it is on again.
@@ -297,7 +321,8 @@ fn link_row(kind: HomeKind, name: &str, says: Option<&str>, against: Vec<KitAgai
 }
 
 fn link_of((linked, times): (Linked, Times)) -> KitLink {
-    let on = [HomeKind::Skills, HomeKind::SubAgents, HomeKind::Commands, HomeKind::GlobalInstructions];
+    // Sub agents are off with one item crossing by itself, so their switch stands at some.
+    let on = [HomeKind::Skills, HomeKind::Commands, HomeKind::GlobalInstructions];
     let mac = WORK_MAC.0;
     let macs = match linked {
         Linked::Unlinked => Vec::new(),
@@ -332,7 +357,7 @@ fn link_of((linked, times): (Linked, Times)) -> KitLink {
     }
     KitLink {
         kinds: HomeKind::ALL.iter().map(|kind| HomeKindSwitch { kind: *kind, on: on.contains(kind) }).collect(),
-        items: vec![HomeItem { kind: HomeKind::Plugins, name: "design-kit@design-kit".into(), repository: None }],
+        items: vec![HomeItem { kind: HomeKind::SubAgents, name: "code-reviewer".into(), repository: None }],
         macs,
         rows,
         unreadable: Vec::new(),
