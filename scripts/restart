@@ -766,7 +766,8 @@ fi
 # **Each build drops what it superseded**: cargo keeps every old hash's output and rustc an older
 # session in every incremental cache, which grew the preview's two build folders to 29 GB, 16 of it
 # dead. Cargo's JSON names what the build used; `scripts/prune-build` has the rule. Best effort.
-units=$(mktemp -t armada-units)
+# A template ending in Xs: GNU mktemp, on Linux CI, refuses macOS's `-t prefix` form.
+units=$(mktemp "${TMPDIR:-/tmp}/armada-units.XXXXXX")
 # Cargo's JSON lines to `$units`, emptied first so one build never reads another's, and anything
 # else it prints on to the log as before. Under `pipefail` the build's own failure still stops the run.
 units_from() {
