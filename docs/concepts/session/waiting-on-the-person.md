@@ -31,6 +31,9 @@ Fleet refuses a name that is neither this Mac nor a paired one (`fleet.session_w
 The reply to a timed-out question says so, and tells the agent not to ask it again or list it; one that does anyway is refused when its option labels are the question's or its text is the question's, and an item kept before the rule is left off every read while the question stands (`lapsed_asks.rs`).
 **Where he answers by buttons it refuses a question with no options, or more than four** (`fleet.session_waiting_options`), naming the item and telling the agent to ask it with two to four options, its pick first and a cost on each.
 A question is an item with no `approves`, no `steps` and no act but `answer`; a run, a pull request, a message and a procedure need no options (`ways_checking.rs`).
+**It refuses an item that asks and is not worded as a question** (`fleet.session_waiting_question`), naming the item (the owner, 19 Nov 2026).
+An item asks where it has options, an `answer` act, or `approves`, and its text is its title: the question in plain words, one line of at most 200 characters, with no backticks, ending in `?`.
+Something that only informs him is not an item: the Job says it in its reply, or shows it with `asks` false.
 A reply that asks in words is not sent back to be asked with options: on 13 Nov 40 of the 51 sent were disputed, read off replies that asked nothing, quoted a question, handed takes to another Job or pointed at an item already in Needs you.
 Both his answer to a kept question and to a timed-out one start with "Answering your earlier question".
 **Two items are never folded to one row**: whether two wordings are one ask is a guess, so each stands (*Items that are one ask*).
@@ -57,6 +60,10 @@ We dont need it in the ledger." Bridge puts a Job with items under Needs you wit
 **`answer_waiting`** (`session_id`, `item_id`, and a `choice` index into the item's `options`, `text`, or `mode` of `best` or `quick`) settles one: a card item goes through `answer_session_ask`, a walk item sends the approval as the person's message, an agent item becomes a message to the job, and once that is delivered the item is dismissed as `dismiss_waiting` does, so it leaves the list without the agent restating it.
 A `choice` with `text` says both: the words go with the pick, to the agent as a second line and to an ask card as its note.
 `best` tells the agent to decide for itself and think it through, `quick` to just get it done: finish the work and land it, skipping the formalities.
+**A card of several questions is one item a question**: `ask:<call>` for the first and `ask:<call>#<n>` for each after it, each titled with its question and carrying its choices, a multi-select one too.
+Answering one keeps his pick and takes it off the list, and the call is answered once every question has been, with every answer in the order asked.
+**His answer is kept for its thread card**, apart from what the Job is told: the item, its question, how he answered, his words and his pick, on `SessionRecord.answers` ([Artifact](../artifact.md), *Parts*).
+His dismissal is kept too, as `dismissed` with his reason, and a permission prompt keeps nothing.
 **`answer_items` and `dismiss_items`** answer or dismiss several items with an Approve at once, across Jobs, each as its own answer would: [Artifact](../artifact.md), *Several at once*.
 **`dismiss_waiting`** (`session_id`, `item_id`, and an optional `reason`) drops an item for good: the id is kept in `session_waiting_dismissed`, a derived item with it never comes back, save a walk the job shows again, and an agent item with it is removed and left off if the agent states it again.
 **An item the agent stated tells it so**: the Job is sent `Owner removed "<item text>"`, with `: <reason>` after it where the person gave a reason that is not blank, so the agent does not take the silence for an answer.
@@ -87,8 +94,8 @@ It writes the dismissal `dismiss_waiting` writes for `walk:<url>`, so the item l
 Only a window the job showed can be withdrawn.
 Showing the page again with `show_window` lifts the dismissal, so a withdrawn walk waits again, and so does one he dismissed himself.
 **Every sketch a job shows waits until the person answers it, except one shown with `asks: false`, which waits on no one** ([Drawing a sketch](drawing-a-sketch.md)).
-One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch, or a part that joined it, is put to him and unanswered.
-Its text is the title for a lone sketch, else the title and the parts still open, never a count ([Artifact](../artifact.md), *Parts*).
+One item per artifact, `sketch:<title>`, source `sketch`, its act `message` on the job, while a sketch or its part is put to him and unanswered.
+Its text is the question its one ask puts to him; an artifact kept before every ask was a question reads as its title, with the parts still open, never a count ([Artifact](../artifact.md), *Parts*).
 His Approve or Send back on its card settles it, and so does `dismiss_waiting`, which tells the job `Owner dismissed "<title>"`.
 `answer_waiting` on it is refused: the card answers it.
 Drawing the title again lifts the dismissal, so the redrawn sketch waits again.

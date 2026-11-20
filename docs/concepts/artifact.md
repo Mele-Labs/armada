@@ -26,7 +26,8 @@ The owner approved the design on 13 Nov 2026.
 | A page's votes, `cast_page_vote` | Built in Fleet; native draws the votes later |
 | A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
 | Notes that point at words, and the revision he last saw, `mark_artifact_seen` | Built in Fleet; native draws them later |
-| Parts: `add_part`, `answer_part`, `JobArtifact.parts`, one open artifact per Job | Built in Fleet; native draws the parts later |
+| Parts: `add_part`, `answer_part`, `JobArtifact.parts`, one ask to an item | Built in Fleet; native draws the parts later |
+| Every ask titled with its question, and his answers kept on `SessionRecord.answers` | Built in Fleet; native draws the thread card later |
 | A page revision's own HTML, `get_artifact_page_source`, for native's Edit | Built in Fleet; native's reader calls it on Save |
 | A node's `state` in a sketch's scene | Built in Fleet; native draws it later, Classic does not |
 | A page that buries its ask is kept for reading and not put to him | Built in Fleet |
@@ -110,19 +111,20 @@ Words and a drawing get Approve and Ask for changes, and takes get Send pick.
 Words and a drawing that only inform get nothing, and buttons act when pressed.
 
 **Rule.** Takes are a vote, never an Approve.
-A takes part is answered by a pick that names one of its takes, and an Approve or a note on it is refused with a sentence saying to send a pick.
+A takes part is answered by a pick that names one of its takes, or by his Ask for changes with his words, which picks none of them and tells the Job what to change.
+An Approve on it is refused with a sentence saying to send a pick or ask for changes.
 A `rank` or `score` takes part is cast with `cast_page_vote`.
-In an artifact that holds a takes part, his pick is its one answer, so every drawing in it informs and asks nothing, whether it came before the takes or after.
-A drawing still open when takes join stops asking then, and a pick settles any left open.
-Words and a page that ask keep asking.
+
+**Rule.** **Takes stand alone**, with no explaining drawing beside them (the owner, 19 Nov 2026).
+An artifact that holds takes holds no drawing and no other part, and takes go on no artifact that holds one.
+The background goes in the takes' `question` or `for` line, as a line of text.
 The owner, 17 Nov 2026, of a drawing that asked again after his pick: "I already voted. Why did you show me this?"
 A note on an old sketch card that only names one take is still a pick, since those cards pre-date takes parts.
 `show_sketch` and `record_plan` refuse takes drawn side by side in one sketch with 422 `fleet.sketch_takes`, saying to put them in a takes part ([Drawing a sketch](session/drawing-a-sketch.md)).
 A take's mocks are kept with their style set, as a sketch's are, so they draw in the app's styles.
 
 **Rule.** A Job presents one clean thing, and the rules it reads say how (`crates/adapters/src/session_rules.md`).
-It grows one artifact for each question and never shows a new sketch, draft or page beside it.
-The artifact opens with one sentence saying what he decides, then the takes, with detail folded below.
+Each question is its own artifact, titled with that question.
 Takes go in a takes part, the Job's pick first: a take about a screen is a `mock` of that screen with short, plausible content, and labelled blocks are only for a choice that is not a screen.
 It names which parts ask and which only inform, and how each is answered.
 The owner, 14 Nov 2026: "There is no spacing, no depth, everything is bright and in your face."
@@ -135,15 +137,20 @@ Words added with `add_part` are told `Approved part "<id>" of "<title>".` or `Se
 **Rule.** The artifact settles once every part that asks is answered, `approved` or `sent_back` where any part was.
 His Approve of the whole answers every asking part at once, and is refused while a takes part is open, since a pick is his to give.
 
-**Rule.** His Needs you list holds one item for an artifact, its id, and its text names the parts still open: `<title>: <part>, <part>`.
-It never counts them.
-An artifact of one drawing reads as its title alone.
+**Rule.** **One ask is one item, in one place** (the owner, 19 Nov 2026).
+Each sketch, draft, page or part that asks is its own artifact and its own Needs you item, and nothing joins another artifact on its own.
+A part goes on the artifact of the title it names, and one artifact asks one thing: a part or a drawing that asks is refused on a title whose other part still asks, saying to use another title or to show it with `asks` false.
+Something that only informs him asks nothing, and goes to the thread and his Artifacts.
+A sketch, draft or page that joined an artifact before 19 Nov 2026 is still read as its part.
 
-**Rule.** **One artifact is open per Job**, and Fleet places it, not the Job.
-While an artifact still asks him, anything new the Job shows joins it as a part: a sketch under any title, a draft, a page that asks, or an `add_part`.
-It never becomes a second artifact or a second item.
-A lone draft or page that is open when something new arrives becomes a part of an artifact made over it.
-Once every ask is answered the next thing the Job shows starts a new artifact.
+**Rule.** **An item's text is the question in plain words**, such as `Which layout reads better?`.
+A sketch that asks carries `question`, and a part that asks carries its own; one missing or not worded as a question is refused.
+A question is one line of at most 200 characters, with no backticks, ending in `?` (`ipc::question_checked`).
+Fleet words its own asks: a draft or a page that asks reads `Approve "<title>"?`, and a plan `Approve this plan?`.
+An artifact kept before every ask was a question reads as its title.
+
+**Rule.** **An answered item leaves his list at once, and his answer is kept for its thread card** on `SessionRecord.answers`, apart from what the Job is told.
+Each `AnsweredAsk` holds the item, its question, how he answered (`picked`, `approved`, `asked_for_changes`, `dismissed` or `answered`), his words, his pick, the artifact and part it asked on, and his notes.
 
 **Rule.** Two things stay out of it: a draft that describes a pull request, which is the pull request's own, and a draft Fleet raises for a workflow change.
 

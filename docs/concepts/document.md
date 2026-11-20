@@ -92,6 +92,7 @@ The owner's ruling, 15 Nov 2026: "Waits as Read".
 A page written before its plan names a `document_approved` gate asks from its next revision.
 
 **Rule.** Until he answers, the page waits in his Needs you as `document:<path>` and the Job's row calls him ([Waiting on the person](session/waiting-on-the-person.md)).
+Its text is the question Fleet words for it, `Approve "<title>"?`, and his answer is kept for its thread card ([Artifact](artifact.md), *Parts*).
 
 **Rule.** He approves the revision he read, or sends it back with a note, with `answer_document`; an answer to a revision kept since is refused.
 The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at its path.
