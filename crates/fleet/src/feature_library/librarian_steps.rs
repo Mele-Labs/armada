@@ -8,6 +8,10 @@ use ipc::{Instant, LibrarianPart, LibrarianRunning, LibrarianState, LibrarianSte
 
 /// The first step: what merged since the last run, and the sections Jobs wrote.
 pub(super) const READ_MERGES: &str = "read_merges";
+/// The drift part's step, free: linked documents read against the code. Its id is not the part's name.
+pub(super) const CHECK_DRIFT: &str = "check_drift";
+/// The retire and links parts' one step, free: features and linked docs read against the code. Its id is neither part's name.
+pub(super) const CHECK_UPKEEP: &str = "check_upkeep";
 /// The last step: the catalog read through the newest merge, and the run's record kept.
 pub(super) const READ_THROUGH: &str = "read_through";
 /// What a step skipped for a press of Stop says.
@@ -21,16 +25,29 @@ const MOST_NAMED: usize = 5;
 fn title_of(part: LibrarianPart) -> Option<&'static str> {
     match part {
         LibrarianPart::SinceYouLooked => Some("Write the Since you looked paragraph"),
+        LibrarianPart::Drift => Some("Check docs against the code"),
+        LibrarianPart::Retire | LibrarianPart::Links => Some("Check features and links against the code"),
         _ => None,
     }
 }
 
 /// The steps a run would take now: what merged, each of `parts` that is `built`, then reading through. `spent` is what
-/// tonight's runs took of `share`.
-pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32) -> Vec<LibrarianStep> {
+/// tonight's runs took of `share`, `docs` is how many documents are linked to features, which the drift step reads, and
+/// `features` how many features the upkeep step reads. **Retire and links are one step**, where the first of them stands.
+pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32, docs: usize, features: usize) -> Vec<LibrarianStep> {
     let mut steps = vec![LibrarianStep { id: READ_MERGES.to_string(), title: "Read what merged".to_string(), detail: merges_detail(state), model: false }];
     for part in parts.iter().copied().filter(|part| built.contains(part)) {
         let Some(title) = title_of(part) else { continue };
+        if part == LibrarianPart::Drift {
+            steps.push(LibrarianStep { id: CHECK_DRIFT.to_string(), title: title.to_string(), detail: drift_detail(docs), model: false });
+            continue;
+        }
+        if matches!(part, LibrarianPart::Retire | LibrarianPart::Links) {
+            if !steps.iter().any(|step| step.id == CHECK_UPKEEP) {
+                steps.push(LibrarianStep { id: CHECK_UPKEEP.to_string(), title: title.to_string(), detail: upkeep_detail(features, docs), model: false });
+            }
+            continue;
+        }
         let model = part.spends_model_share();
         let detail = if model { model_detail(share, spent) } else { String::new() };
         steps.push(LibrarianStep { id: part.name().to_string(), title: title.to_string(), detail, model });
@@ -39,6 +56,51 @@ pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: 
     steps.push(LibrarianStep { id: READ_THROUGH.to_string(), title: "Mark the catalog read".to_string(), detail: through_said(newest), model: false });
     steps
 }
+
+/// What the drift step reads, from the count of documents linked to features.
+fn drift_detail(docs: usize) -> String {
+    match docs {
+        0 => "No docs are linked to features yet".to_string(),
+        1 => "The doc linked to a feature, against the code at HEAD".to_string(),
+        n => format!("The {n} docs linked to features, against the code at HEAD"),
+    }
+}
+
+/// What the drift step found: how many documents name something the code no longer has.
+pub(super) fn drift_said(flagged: usize) -> String {
+    match flagged {
+        0 => "No doc names what the code no longer has".to_string(),
+        1 => "1 doc names what the code no longer has".to_string(),
+        n => format!("{n} docs name what the code no longer has"),
+    }
+}
+
+/// What the upkeep step reads: `The 48 features and 12 linked docs, against the code at HEAD`.
+fn upkeep_detail(features: usize, docs: usize) -> String {
+    let plural = |n: usize, word: &str| format!("{n} {word}{}", if n == 1 { "" } else { "s" });
+    format!("The {} and {}, against the code at HEAD", plural(features, "feature"), plural(docs, "linked doc"))
+}
+
+/// What the upkeep step found: `2 to retire, 1 planned, 1 dead link`, or that it found nothing.
+pub(super) fn upkeep_said(counted: super::upkeep::Counted) -> String {
+    let retire = match counted.retire {
+        0 => "nothing to retire".to_string(),
+        n => format!("{n} to retire"),
+    };
+    let planned = match counted.planned {
+        0 => "nothing planned".to_string(),
+        n => format!("{n} planned"),
+    };
+    let dead = match counted.dead_links {
+        0 => "no dead links".to_string(),
+        1 => "1 dead link".to_string(),
+        n => format!("{n} dead links"),
+    };
+    capitalised(&format!("{retire}, {planned}, {dead}"))
+}
+
+/// What the upkeep step says where git could not read a repository of the project, so it marked nothing.
+pub(super) const UPKEEP_UNREAD: &str = "No repository could be read, so nothing was marked";
 
 fn merges_detail(state: &LibrarianState) -> String {
     match (state.merged_since.as_slice(), state.read_through) {

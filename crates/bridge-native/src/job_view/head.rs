@@ -198,6 +198,9 @@ impl Confirm {
             "escape" => cx.emit(DismissEvent),
             "enter" => self.decide(self.on_confirm, cx),
             "left" | "right" | "tab" => {
+                if event.keystroke.key != "tab" {
+                    crate::ui_sounds::moved();
+                }
                 self.on_confirm = !self.on_confirm;
                 cx.notify();
             }

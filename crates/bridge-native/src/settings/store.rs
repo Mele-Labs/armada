@@ -474,7 +474,7 @@ impl SettingsOverlay {
         }
         let team = self.store.team.read(cx).value().trim().to_string();
         let Some(project) = self.begin_store(Act::Join) else { return };
-        let press = self.wire.set_project_store(&project, Some(JoinStore { address, team: (!team.is_empty()).then_some(team) }), cx);
+        let press = self.wire.set_project_store(&project, Some(JoinStore { address, team: (!team.is_empty()).then_some(team), account_id: None }), cx);
         self.store._act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = press.await;
             let _ = this.update_in(cx, |this, window, cx| {

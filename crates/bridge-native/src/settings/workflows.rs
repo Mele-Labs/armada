@@ -631,6 +631,9 @@ impl SettingsOverlay {
                 "up" | "down" => {
                     let next = if word == "up" { at.saturating_sub(1) } else { (at + 1).min(shown.len() - 1) };
                     let key = shown[next].0.key();
+                    if next != at {
+                        crate::ui_sounds::moved();
+                    }
                     self.pick_workflow(&key, window, cx);
                     return true;
                 }

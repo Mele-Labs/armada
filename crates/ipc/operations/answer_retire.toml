@@ -1,0 +1,16 @@
+[operations.answer_retire]
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Answer the librarian's proposal to retire a feature: Retire takes it out of the catalog, Keep holds it. Give the project, the feature's slug and `retire`"
+notes = """
+`POST /features/retire`, body `AnswerRetire`: `project`, `slug` and `retire` (true to retire, false to keep). Answered with `RetireAnswered`: `project`, `slug`, and `retired` where the feature left the catalog.
+
+**Only a feature the librarian proposed for Retire is answered**: its `FeatureRow.retire` is set, with `why` (`code_gone` or `unused`) and the `evidence` line. Any other is refused with 422 `fleet.retire_not_proposed`, and an unknown slug with 404 `fleet.feature_unknown`. Nothing is kept on a refusal. Fleet proposes and never retires: this call is the only way a feature is retired by the librarian's finding.
+
+**Retire** removes the feature, its prefixes and its mark from the catalog, as a merge removes the feature it folds. Its links, written sections and the files Jobs filed under it stay in the store under the id it had. No alias is kept, so a trailer naming the slug again is a feature a Job named, which waits on his word.
+
+**Keep** holds the proposal quiet while the librarian's next checks find the same evidence. A check that finds other evidence, such as a newer last commit, proposes it again; one that finds nothing clears the mark.
+
+**The Operator and Bridge reach it**, as `upsert_features` is reached. Through the door it is the Operator's own session alone, and any other session is refused 422 `fleet.not_the_operator`. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""

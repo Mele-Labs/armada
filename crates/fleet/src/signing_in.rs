@@ -7,18 +7,17 @@
 //! 2. A thread polls the forge at the interval it gave, longer after it says to
 //!    slow down, until the code is typed, turned down or expired.
 //! 3. The forge says who signed in. **The numeric id is the identity.** While the
-//!    token is in hand it also lists the account's organisations, which are what
-//!    a repository's owner is later matched against. A forge that will not list
-//!    them leaves `orgs` empty and the profile marked unread, which is not a
-//!    failed sign-in.
+//!    token is in hand it also lists the account's organisations, which are where
+//!    a copy of its shared home may be. A forge that will not list them leaves
+//!    `orgs` empty and the profile marked unread, which is not a failed sign-in.
 //! 4. The device-flow token is dropped. **The token is a [`Secret`] held on that
 //!    thread's stack and nowhere else**: it is never written, logged or kept.
 //! 5. Only then does the profile join the list. A flow that ends before this
 //!    leaves no profile and no directory.
 //!
 //! **A sign-in enrols with no store.** A store is named by a project, and a profile
-//! joins one when a project picks it ([`SigningIn::join_store`]), with `gh`'s token
-//! read once then. `docs/contracts/central-store.md`, *A store per project*.
+//! joins one when the project picks it as its login ([`SigningIn::join_store`]), with
+//! `gh`'s token read once then. `docs/contracts/central-store.md`, *A store per project*.
 //!
 //! A profile signing in twice is the same profile: its login is brought up to date.
 //!
@@ -36,17 +35,14 @@ use std::sync::{Arc, Mutex, MutexGuard, OnceLock, PoisonError};
 use std::time::{Duration, Instant};
 
 use adapter_traits::{Polled, Secret, SignIn, SignInApp, SignInError, StoreError, HOME_REPOSITORY};
-use ipc::{
-    AccountFlow, Accounts, BoundRepository, Profile, ProfileHome, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut,
-    UnmatchedRepository,
-};
+use ipc::{AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SetUpState, SetUpSteps, SignInEnded, SignInOutcome, SignedOut};
 
 pub use enrolling::{Enrolling, OverHttp};
 pub(crate) use serving::this_machine;
 
 use crate::clock::Clock;
 use crate::profiles::{Joined, Orgs, Profiles};
-use crate::repository_profiles::{binding, Binding, Choices, Repo};
+use crate::repository_profiles::{claims_as, Choices, Repo};
 
 /// What a sign-in is begun with: read from the machine's settings when the
 /// person asks, so a change is the next sign-in's.
@@ -95,10 +91,11 @@ impl Pacing {
     }
 }
 
-/// The profile a repository claims and syncs as, and where its key is.
+/// The profile a repository claims as, its login, and where its key is.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Bound {
     pub account_id: u64,
+    pub login: String,
     pub directory: PathBuf,
 }
 
@@ -198,8 +195,9 @@ impl SigningIn {
         self.inner.state.lock().unwrap_or_else(PoisonError::into_inner)
     }
 
-    /// The profiles joined with the `repositories` each is bound to, those bound
-    /// to none, and the sign-in in flight.
+    /// The profiles joined with the `repositories` a person chose each for, and the
+    /// sign-in in flight. **`unmatched` is sent empty**: a repository with no choice
+    /// claims as its project's login, which is the project's to say.
     pub fn accounts(&self, repositories: &[Repo]) -> Result<Accounts, Refused> {
         // The flow before the profiles: a sign-in joins its profile and then goes idle, so an idle
         // read first always lists the profile it joined.
@@ -207,23 +205,13 @@ impl SigningIn {
         let profiles = self.inner.profiles.list().map_err(Refused::Fault)?;
         let choices = self.inner.choices.all().map_err(Refused::Fault)?;
         let mut wired: Vec<Profile> = profiles.iter().cloned().map(|joined| self.wire(joined)).collect();
-        let mut unmatched = Vec::new();
         for repo in repositories {
-            match binding(&profiles, choices.get(&repo.root), repo) {
-                Binding::Bound { account_id, how } => {
-                    if let Some(profile) = wired.iter_mut().find(|one| one.account_id == account_id) {
-                        profile.repositories.push(BoundRepository { root: repo.root.clone(), name: repo.name.clone(), how });
-                    }
-                }
-                Binding::Unbound { candidates, none_chosen } => unmatched.push(UnmatchedRepository {
-                    root: repo.root.clone(),
-                    name: repo.name.clone(),
-                    candidates,
-                    none_chosen,
-                }),
+            let Some(account_id) = choices.get(&repo.root).and_then(|choice| choice.account_id) else { continue };
+            if let Some(profile) = wired.iter_mut().find(|one| one.account_id == account_id) {
+                profile.repositories.push(BoundRepository { root: repo.root.clone(), name: repo.name.clone(), how: BoundHow::Chosen });
             }
         }
-        Ok(Accounts { profiles: wired, unmatched, flow })
+        Ok(Accounts { profiles: wired, unmatched: Vec::new(), flow })
     }
 
     /// A profile as the wire has it. Its home is the copy here where there is one and else the
@@ -370,37 +358,26 @@ impl SigningIn {
         Ok(device)
     }
 
-    /// The profile `repo` claims and syncs as. **The one function the store's
-    /// holders ask**: `None` for a repository that is bound to no profile, was
-    /// given "None", or whose profile this machine has signed out of, and then
-    /// there is no store, as with the switch off. Also `None` where the lists
-    /// cannot be read.
-    pub fn profile_for(&self, repo: &Repo) -> Option<Bound> {
-        let joined = self.inner.profiles.list().ok()?;
+    /// The profile the repository at `root` claims as, where `project` is the login its project picked.
+    /// **The one function asked for every claim, every join and whose pull requests are mine**
+    /// ([`claims_as`]): the repository's own choice, else `project`. `None` for a repository given
+    /// "None", one whose project picked no login, whatever it chose, or one whose profile this machine
+    /// is not signed in to, and then there is no store, as with the switch off. Also `None` where the
+    /// lists cannot be read.
+    pub fn profile_for(&self, root: &str, project: Option<u64>) -> Option<Bound> {
         let choices = self.inner.choices.all().ok()?;
-        match binding(&joined, choices.get(&repo.root), repo) {
-            Binding::Bound { account_id, .. } => {
-                Some(Bound { account_id, directory: self.inner.profiles.directory_of(account_id) })
-            }
-            Binding::Unbound { .. } => None,
-        }
+        self.profile(claims_as(choices.get(root), project)?)
     }
 
-    /// The login of the profile `repo` is bound to, **the account its pull requests are mine by**.
-    /// `None` as [`profile_for`](Self::profile_for) is.
-    pub fn login_for(&self, repo: &Repo) -> Option<String> {
+    /// Profile `account_id` where this machine is signed in to it.
+    pub(crate) fn profile(&self, account_id: u64) -> Option<Bound> {
         let joined = self.inner.profiles.list().ok()?;
-        let choices = self.inner.choices.all().ok()?;
-        match binding(&joined, choices.get(&repo.root), repo) {
-            Binding::Bound { account_id, .. } => {
-                joined.iter().find(|one| one.account_id == account_id).map(|one| one.login.clone())
-            }
-            Binding::Unbound { .. } => None,
-        }
+        let login = joined.into_iter().find(|one| one.account_id == account_id)?.login;
+        Some(Bound { account_id, login, directory: self.inner.profiles.directory_of(account_id) })
     }
 
-    /// Bind the repository at `root` to the profile `account_id`, or to none.
-    /// **A choice wins over a match.** Refused for a root that is not among
+    /// Have the repository at `root` claim as the profile `account_id`, or as none,
+    /// over its project's login. Refused for a root that is not among
     /// `repositories` and for an account this machine has not joined.
     pub fn set_repository_profile(
         &self,

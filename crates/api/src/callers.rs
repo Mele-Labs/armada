@@ -94,6 +94,7 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("change_slot_pool", "changes the slot pool"),
     ("upsert_features", "keeps the feature catalog"),
     ("change_feature", "keeps the feature catalog"),
+    ("answer_retire", "keeps the feature catalog"),
     ("confirm_operator_order", "gives the Operator its orders"),
     ("remove_operator_order", "gives the Operator its orders"),
     ("operator_answer", "answers the Operator"),
@@ -135,6 +136,12 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("forget_other_mac", "pairs his other Macs"),
     ("hold_mac_claims", "pairs his other Macs"),
     ("hold_refresh_claim", "pairs his other Macs"),
+    ("hold_other_mac_kit", "pairs his other Macs"),
+    ("kit_settle_from_mac", "pairs his other Macs"),
+    // A Job switching what crosses would write into his other Macs' setups.
+    ("set_kit_link_kind", "changes what his Kit sends his other Macs"),
+    ("set_kit_link_item", "changes what his Kit sends his other Macs"),
+    ("settle_kit_clash", "changes what his Kit sends his other Macs"),
 ];
 
 /// The operation a matched route serves and what its refusal says, where it is the person's.

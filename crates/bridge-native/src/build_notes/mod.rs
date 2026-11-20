@@ -441,6 +441,10 @@ impl BuildNotesSheet {
             "move_focus" => {
                 let from = self.at().unwrap_or(0);
                 let to = moved(self.notes().len(), from, if key.slot % 2 == 0 { 1 } else { -1 });
+                // The key ticks here, not in `select`: a click on a row already plays the press.
+                if to != from {
+                    crate::ui_sounds::moved();
+                }
                 self.select(to, window, cx);
             }
             "build_note_step" => {

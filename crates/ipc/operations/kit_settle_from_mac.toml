@@ -1,0 +1,8 @@
+[operations.kit_settle_from_mac]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "A Kit clash another Mac settled, recorded here so the kept side crosses"
+notes = """
+`POST /other_mac/kit_settle`, body `KitSettled { kind, name, repository?, agreed }`, answered 204. `agreed` is the hash of the side not kept, recorded here as the last-agreed version with the sending Mac, whose id is the `x-armada-mac` header the Gateway sets from the signature. What that Mac last offered is then taken as `hold_other_mac_kit` takes it, so where it kept its own, it is written here at once. 422 for a body this build cannot read or no `x-armada-mac`. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""

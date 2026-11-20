@@ -2,7 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 23 Oct 2026. `docs/concepts/kit.md`, *The shared home*, and `docs/concepts/account.md`, *What syncs*.
+Since 23 Oct 2026. `docs/concepts/kit.md`, *The shared home, retired*, and `docs/concepts/account.md`, *What syncs*.
+**Retired 19 Nov 2026.** Fleet no longer clones, pulls, pushes or searches for the home: `get_shared_home` answers with no home and no rows, `get_home_kinds` with every kind off, and every other operation here refuses with 409 `fleet.shared_home_retired`, "Kit now crosses to your other Macs over the link."
+Kit crosses over the Mac link now, [Kit over the Mac link](kit-over-the-mac-link.md); what follows is the wire Classic Bridge still speaks.
 **Additive**: eight operations, eight routes, twelve error codes and the types they carry; no event kind.
 Since 25 Oct 2026 `set_home_repository`, `planned` and `Profile`'s `orgs` and `home` are added, and the protocol ID moved with them.
 The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.

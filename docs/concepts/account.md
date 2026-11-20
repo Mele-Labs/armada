@@ -1,12 +1,12 @@
 # Account
 
-**What it is:** The GitHub account a machine signs in to, the profiles it joins, and what each profile syncs.
+**What it is:** The GitHub account a machine signs in to, the profiles it joins, and which store each project joins as which profile.
 
 ---
 
 **Kind:** Entity.
 
-Defines the account. The shared home it sets up is [Kit](kit.md); the registry its store holds is [Job](session.md).
+Defines the account. What crosses between his Macs is [Kit](kit.md); the registry its store holds is [Job](session.md).
 
 ## Sign-in
 
@@ -35,8 +35,8 @@ The store names no repository: it holds a hash of each, and for a repository who
 | Set up | Holds |
 | --- | --- |
 | Identity | The account's numeric id, its login and the organisations it belongs to, read once. An account GitHub will not list them for keeps none, marked unread, and still signs in |
-| Central store | Nothing at sign-in. A project's store setting joins the store it names, as each profile its repositories are bound to, [A store per project](../contracts/central-store.md#a-store-per-project). The store keeps the pull request owner registry and claims of every kind, as opaque rows naming who holds each, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
-| Shared home | The repository Kit's rows are compared against |
+| Central store | Nothing at sign-in. A project's store setting joins the store it names, as the login the project picks, [A store per project](../contracts/central-store.md#a-store-per-project). The store keeps the pull request owner registry and claims of every kind, as opaque rows naming who holds each, and the runs of a repository whose Kit place is `cloud`, as commands and workspace paths under its hash |
+| Shared home | The repository Kit's rows are compared against. Retired: Kit keeps his Macs the same over the Mac link, [Kit](kit.md), *Over the Mac link*. Fleet no longer reads it since 19 Nov 2026 |
 
 ## Profiles
 
@@ -44,51 +44,42 @@ The store names no repository: it holds a hash of each, and for a repository who
 
 **Rule.** Any machine holds any number of profiles, and nothing stops it adding any account.
 
-A work machine starts on its own work profile with nothing from the personal side. Adding the personal login there is a deliberate act, and every kind it syncs is off until the person turns it on.
+A work machine starts on its own work profile with nothing from the personal side.
+Adding the personal login there is a deliberate act, and nothing of Kit crosses until the person switches a kind on, [Kit](kit.md), *Over the Mac link*.
 
-## Repositories
+## What a login does
 
-**Rule.** No profile is active. Each repository on the machine is bound to one profile, and the repository claims and syncs as that profile.
+**Rule.** A login proves who the person is to a store, and vouches a new Mac or phone, [Pocket](pocket.md), *Through his store*.
+It no longer names Kit's home: Kit crosses over the Mac link, and the repository `<login>/armada-home` is retired, [Kit](kit.md), *The shared home, retired*.
+**Not built.** Fleet still makes and reads that repository for each profile.
 
-**Rule.** A repository is matched through GitHub.
-At sign-in Fleet keeps the account's login and the organisations it belongs to, and a repository whose owner is one of them is matched to that profile.
-The token is still not kept.
+## Which login a project joins as
+
+**Rule.** No profile is active, and no repository is bound to a profile by its owner.
+**A project picks which GitHub login (profile) joins its store; a single repository may override it.**
 
 | Case | What happens |
 | --- | --- |
-| One profile matches | The repository is bound to it, marked matched |
-| No profile matches, such as another person's repository you collaborate on | It waits unbound until chosen once |
-| Two profiles match, such as an owner both belong to | It waits unbound until chosen once |
-| The person chooses a profile, or moves a bound repository to another | It is bound to that profile, marked chosen |
-| The person chooses None | It claims and syncs nothing |
+| The project names a login | Every repository of the project calls its store as that profile |
+| A repository names its own login | That repository calls as it, and the project's pick is left for the others |
+| The project has a store and names no login | It sends nothing, and says so, [A store per project](../contracts/central-store.md#a-store-per-project) |
 
-**Rule.** A choice wins over a match, is kept per repository on this machine and names a profile by its account id.
-It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile that happens to match.
+**Rule.** A repository's override is kept per repository on this Mac and names a profile by its account id.
+It outlives the profile: after signing out of that profile the repository has no store, and is not handed to another profile.
 
-**Rule.** Organisations are read at sign-in only, so one joined later is matched after the next sign-in.
-An organisation that restricts third-party apps is not listed, and its repositories wait unbound until chosen.
+**Not built.** Fleet binds each repository to a profile by matching its owner to the login or one of the organisations read at sign-in, and a repository no profile matches waits unbound until chosen once.
+That binding is what `get_accounts` and `set_repository_profile` carry today, and the project's pick and the per-repository override replace it.
 
 ## What syncs
 
-**Rule.** What syncs is chosen per kind and per machine, and every kind is off until it is turned on.
-An item can be switched on by itself while its kind is off, and then it alone of that kind syncs.
+**What syncs is Kit's, not the account's.**
+Each kind is switched on per Mac, and what crosses goes over the Mac link, [Kit](kit.md), *Over the Mac link*.
+A project he shares, with its tasks, crosses the same link, [Project](project.md), *Sharing with his other Macs*.
+Fleet keeps the choice per Mac in its store since 19 Nov 2026; the per-profile choice it kept before is not carried over.
 
-The kinds are Kit's: Mods, Skills, Plugins, Global instructions, Sub agents, Commands, MCP servers, the allowlist, Workflows and Memory.
+## In Classic
 
-**Rule.** A project he shares, with its tasks, syncs between his paired Macs over their link, apart from Kit's kinds and from any profile.
-The Mac that holds it stays its authority, and a project not shared never leaves it. [Project](project.md), *Sharing with his other Macs*.
-Agent file is not a kind of its own; it is the global instructions.
-The choice is kept in this machine's store for each profile, and a kind switched off has no rows in Kit but the items switched on by themselves. [Kit](kit.md), *The shared home*.
-
-**Rule.** Each synced item has one scope. **Not built:** an item is switched on or off, and no item carries a scope.
-
-| Scope | Where the item lives |
-| --- | --- |
-| Global | Every project |
-| Repo | One named repository |
-| Private | This machine only, and it never leaves |
-
-## In Bridge
+This is Armada Classic's screen, and it stays as it is.
 
 | Where | What |
 | --- | --- |
@@ -114,6 +105,20 @@ No token holds pure white or black, so `ForgeMark.css` is the one stylesheet tha
 
 The glyphs are registry entries marked Proposed: `packages/icons/icons/user-check.toml`, `packages/icons/icons/database.toml`, `packages/icons/icons/globe.toml`, `packages/icons/icons/folder-git-2.toml`, `packages/icons/icons/laptop.toml`, `packages/icons/icons/user-pen.toml`, `packages/icons/icons/circle-dashed.toml`, `packages/icons/icons/ban.toml`, `packages/icons/icons/copy.toml`, `packages/icons/icons/hammer.toml` and `packages/icons/icons/house.toml`.
 
+## In native Bridge
+
+**Settings › This Mac › Account is one page with three stacked sections, and the title bar's Account row opens it.**
+**Not built.**
+
+| Section | What it holds |
+| --- | --- |
+| Who you are | A card for each login, with Sign in through the device code and Sign out, and an Add a GitHub login card |
+| Your devices | This Mac with its address and tunnel, the linked Macs and the phones, each with Link and Forget. Moved here from Settings › Bridge › Macs |
+| What it turns on | A Kit status row naming the Mac it is in step with, and one row for each project store naming the login that joins it, each opening where it is set |
+
+Sign-in is the device code above, once per login, and a project's store row is where the project's pick and a repository's override are set, [Which login a project joins as](#which-login-a-project-joins-as).
+Linking a Mac is as [Native Bridge](native-bridge.md), *Macs found*, says of Settings › Macs, and its list moves to this page.
+
 ## Built
 
 **Built, on mock data.** The title bar menu, the device code, the set-up rows, the profiles and What syncs all draw from `draft.account` in the mock Fleet, and the walks `onboarding-home`, `onboarding-work` and `title-bar-menu` play them.
@@ -124,10 +129,12 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 There is no active profile and no set-active act.
 
 **Built in Fleet.** What syncs, per kind and per item and per machine and kept in the store, and the shared home: Fleet makes the repository where the person chose, keeps that choice per profile, and the sign-in's home step reads done once the home exists.
-`get_accounts` carries each profile's organisations, read at sign-in, and where its home is or will be. [Kit](kit.md), *The shared home*, and [the protocol page](../practices/protocol/the-shared-home.md).
+Since 19 Nov 2026 the home is not read, so `get_accounts` names no home and the home step does not read done.
+`get_accounts` carries each profile's organisations, read at sign-in, and where its home is or will be. [Kit](kit.md), *The shared home, retired*, and [the protocol page](../practices/protocol/the-shared-home.md).
 
 **Built in Bridge.** What syncs reads a profile's kinds from `get_home_kinds` when it opens and switches one with `set_home_kind`, drawn at once and then as Fleet answers; the home chip is made once this machine holds a copy of that profile's home.
 A refused switch goes back and is said on the page, as the other refusals are.
-Kit switches the same kinds, and single items with `set_home_item`. [Kit](kit.md), *The shared home*.
+Kit switches the same kinds, and single items with `set_home_item`. [Kit](kit.md), *The shared home, retired*.
+Since 19 Nov 2026 Fleet answers every kind off and refuses each switch, naming the link; Classic's What syncs is not moved onto `set_kit_link_kind`.
 **Not built.** Per-item scopes: Fleet sends no item of a kind, so a kind turned on lists none, and nothing shows it pulling.
 The central store is deployed outside this repository, [Central store](../contracts/central-store.md).

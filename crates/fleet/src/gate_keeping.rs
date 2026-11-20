@@ -122,6 +122,28 @@ fn walk_fact(rows: &[SessionRow], dismissed: &[String], shown: &[&str], group: O
     })
 }
 
+/// When the plan was first recorded: what a gate's fact must come after to count.
+pub(crate) fn plan_first_recorded(plan: &KeptPlan, rows: &[SessionRow]) -> String {
+    rows.iter()
+        .find_map(|row| match row {
+            SessionRow::Plan { at, .. } => Some(at.as_str().to_string()),
+            _ => None,
+        })
+        .unwrap_or_else(|| plan.recorded_at.clone())
+}
+
+/// When the last of `started`, the Jobs started since the plan, was done: absent while one is live, and with none started.
+pub(crate) fn last_done<'a>(started: &[&'a Started]) -> Option<&'a str> {
+    started.iter().map(|one| one.done_at.as_deref()).collect::<Option<Vec<_>>>().and_then(|all| all.into_iter().max())
+}
+
+/// Whether every Job started since the plan was first recorded is done, and one was: what `jobs_ended` reads.
+pub(crate) fn jobs_have_ended(plan: &KeptPlan, rows: &[SessionRow], started: &[Started]) -> bool {
+    let since = plan_first_recorded(plan, rows);
+    let started: Vec<&Started> = started.iter().filter(|one| one.since.as_str() >= since.as_str()).collect();
+    last_done(&started).is_some()
+}
+
 /// Every fact on the Job a gate can close on: his approval of the plan, of every walk shown, of a
 /// sketch, of a page's newest revision and of an item the agent raised asking for it, the merge of a
 /// pull request tied to a group, own or `handed`, and the end of the last of the Jobs it started. **Only what happened once the plan was first recorded** (`since`): a walk he approved
@@ -135,13 +157,7 @@ pub(crate) fn facts_seen(
     started: &[Started],
     approvals: &[KeptApproval],
 ) -> Vec<Seen> {
-    let since = rows
-        .iter()
-        .find_map(|row| match row {
-            SessionRow::Plan { at, .. } => Some(at.as_str().to_string()),
-            _ => None,
-        })
-        .unwrap_or_else(|| plan.recorded_at.clone());
+    let since = plan_first_recorded(plan, rows);
     let mut seen = Vec::new();
     if let Some(at) = &plan.approved_at {
         seen.push(Seen {
@@ -222,8 +238,7 @@ pub(crate) fn facts_seen(
     }
     // The Jobs started once the plan was recorded: when every one is done, the last to finish is the fact.
     let started: Vec<&Started> = started.iter().filter(|one| one.since.as_str() >= since.as_str()).collect();
-    let last = started.iter().map(|one| one.done_at.as_deref()).collect::<Option<Vec<_>>>().and_then(|all| all.into_iter().max());
-    if let Some(at) = last {
+    if let Some(at) = last_done(&started) {
         let mut names: Vec<&str> = started.iter().map(|one| one.name.as_str()).collect();
         names.sort_unstable();
         let fact = match names.join(", ") {

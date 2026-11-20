@@ -80,6 +80,10 @@ pub struct ProjectStore {
     /// account's plan. Absent while false.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub joins_unlimited: bool,
+    /// The login that joins it and that the project's repositories claim as, by the profile's numeric account
+    /// id. **Absent is none picked: its Jobs send nothing.** Since 19 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_id: Option<u64>,
 }
 
 /// A member of a project: a whole repository, or any folder of it, which needs no `armada.yml` of its own.

@@ -448,6 +448,8 @@ async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_he
         ("POST", "/api/mac/act"),
         ("POST", "/api/mac/project_act"),
         ("POST", "/api/mac/refresh_claim"),
+        ("GET", "/api/mac/kit"),
+        ("POST", "/api/mac/kit_settle"),
         ("POST", "/api/mac/terminal"),
         ("GET", "/api/mac/terminal/observe"),
     ];

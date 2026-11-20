@@ -128,11 +128,11 @@ fn where_neither_login_is_known_or_the_forge_named_no_author_every_pull_request_
 }
 
 #[test]
-fn the_signed_in_login_is_the_one_of_the_profile_the_repository_is_bound_to() {
+fn the_signed_in_login_is_the_one_of_the_profile_the_repository_claims_as() {
     let home = TempDir::new();
     let signing = two_profiles(&home);
-    assert_eq!(signing.login_for(&repo("mele-labs/armada")).as_deref(), Some("octocat"));
-    assert_eq!(signing.login_for(&repo("acme/site")).as_deref(), Some("hubot"));
-    assert_eq!(signing.login_for(&repo("shared-co/lib")), None, "two profiles match, so neither is chosen");
-    assert_eq!(signing.login_for(&repo("stranger/thing")), None);
+    let login = |slug: &str, project: Option<u64>| signing.profile_for(&repo(slug).root, project).map(|bound| bound.login);
+    assert_eq!(login("acme/site", Some(583_231)).as_deref(), Some("octocat"), "the project's login, whoever owns it");
+    assert_eq!(login("mele-labs/armada", Some(9_919)).as_deref(), Some("hubot"));
+    assert_eq!(login("mele-labs/armada", None), None, "a repository's owner binds nothing");
 }

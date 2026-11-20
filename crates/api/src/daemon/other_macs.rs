@@ -166,6 +166,18 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// `get_fleet_build`. [`Refusal::NotFound`] for a Mac this one is not paired with.
     fn hold_refresh_claim(&self, mac: String, sent: ipc::RefreshClaimSent) -> impl Future<Output = Result<(), Refusal>> + Send;
 
+    /// `share_kit` — this Mac's Kit as it crosses: the kinds and items switched on, never a piece with a credential.
+    /// `mac`, the Mac asking where the Gateway names it, has each piece carry this Mac's marker for it with that Mac.
+    fn share_kit(&self, mac: Option<String>) -> impl Future<Output = Result<ipc::KitOffer, Refusal>> + Send;
+
+    /// `hold_other_mac_kit` — what Mac `mac`'s Kit offers, kept, and taken here where it changed there only. Takes
+    /// the `Arc` because what is queued for that Mac is sent on a task of its own.
+    fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
+    /// `kit_settle_from_mac` — a clash Mac `mac` settled, recorded here so the kept side crosses.
+    /// [`Refusal::NotFound`] for a Mac this one is not paired with.
+    fn kit_settle_from_mac(&self, mac: String, settled: ipc::KitSettled) -> impl Future<Output = Result<(), Refusal>> + Send;
+
     /// `forget_other_mac` — every row and report held from Mac `mac` dropped.
     fn forget_other_mac(&self, mac: MacNamed) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 

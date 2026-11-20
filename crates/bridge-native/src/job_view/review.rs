@@ -1096,6 +1096,9 @@ impl JobView {
         let keys = order(&review.groups);
         let here = review.at.as_ref().and_then(|at| keys.iter().position(|key| key == at));
         if let Some(to) = step_to(keys.len(), here, key) {
+            if matches!(key, "up" | "down") && Some(to) != here {
+                crate::ui_sounds::moved();
+            }
             self.review_choose(&keys[to], window, cx);
         }
     }

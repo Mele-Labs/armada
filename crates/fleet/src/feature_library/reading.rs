@@ -9,7 +9,7 @@ use ipc::{
     FeatureAreaRow, FeatureBrief, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureRead,
     FeatureSectionKind, FeatureState, Instant, SessionId,
 };
-use store::{feature_link_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, Store, WriteError};
+use store::{feature_link_kind, upkeep_kind, KeptFeatureDecision, KeptFeature, KeptFeatureLink, KeptSection, KeptUpkeep, Store, WriteError};
 
 use super::health::Health;
 use super::brief::{condensed, first_line, tokens_of, BriefFacts};
@@ -205,11 +205,12 @@ where
         let on = self.jobs_on_features(&store, &chosen)?;
         let mut areas: Vec<FeatureAreaRow> = loaded.areas.iter().map(|area| FeatureAreaRow { slug: area.slug.clone(), title: area.title.clone(), features: Vec::new() }).collect();
         let mut health = Health::new(&store, &loaded, self.repositories_of(&store, &loaded.project));
+        let upkeep = store.upkeep_in(&chosen).map_err(|why| self.feature_fault(why))?;
         for feature in loaded.map.features() {
             let marked = sections_marked(&store, &loaded, feature).map_err(|why| self.feature_fault(why))?;
             let stale = marked.iter().filter_map(|(_, since)| *since).min();
             let jobs = on.get(&feature.id).cloned().unwrap_or_default();
-            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale);
+            let row = row_of(feature, health.of(feature, &marked, &jobs), jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug));
             match areas.iter_mut().find(|area| area.slug == feature.area) {
                 Some(area) => area.features.push(row),
                 // A feature whose area was never kept is listed under its own slug rather than dropped.
@@ -283,11 +284,24 @@ where
                 store.feature_decisions(&feature.id).map_err(|why| self.feature_fault(why))?,
             )
         };
-        let docs = reads_of(&links, feature_link_kind::DOC);
+        let mut docs = reads_of(&links, feature_link_kind::DOC);
+        if !docs.is_empty() {
+            for kept in store.doc_drift_in(&loaded.project).map_err(|why| self.feature_fault(why))? {
+                if let Some(doc) = docs.iter_mut().find(|doc| doc.target == kept.target) {
+                    doc.drifted = kept.names;
+                }
+            }
+            // A doc the upkeep check found no longer a file of the repository keeps its gist and says `gone`.
+            let gone = store.docs_gone_in(&loaded.project).map_err(|why| self.feature_fault(why))?;
+            for doc in docs.iter_mut().filter(|doc| gone.contains(&doc.target)) {
+                doc.state = "gone".to_string();
+            }
+        }
+        let upkeep = store.upkeep_in(&loaded.project).map_err(|why| self.feature_fault(why))?;
         let tickets = reads_of(&links, feature_link_kind::TICKET);
         let mut page = FeaturePage {
             project: loaded.project.clone(),
-            feature: row_of(&feature, health, jobs, stale),
+            feature: row_of(&feature, health, jobs, stale, upkeep.iter().find(|mark| mark.slug == feature.slug)),
             manifest_id: Some(feature.manifest_id.clone()).filter(|one| !one.is_empty()),
             paths: feature.paths.clone(),
             entry_points: feature.entry_points.clone(),
@@ -367,7 +381,18 @@ fn holds_a_slot(store: &Store, job: &str) -> bool {
         .any(|one| one.kind == "slot" && one.state == store::AttachmentState::Standing)
 }
 
-fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>) -> FeatureRow {
+/// The proposal to retire a feature, where one stands: the owner has not kept it on this evidence.
+fn retire_of(mark: Option<&KeptUpkeep>) -> Option<ipc::RetireProposal> {
+    let mark = mark.filter(|mark| mark.kept_at.is_none())?;
+    let why = match mark.kind.as_str() {
+        upkeep_kind::RETIRE_GONE => ipc::RetireWhy::CodeGone,
+        upkeep_kind::RETIRE_UNUSED => ipc::RetireWhy::Unused,
+        _ => return None,
+    };
+    Some(ipc::RetireProposal { why, evidence: mark.evidence.clone() })
+}
+
+fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<FeatureJob>, stale_since: Option<u64>, upkeep: Option<&KeptUpkeep>) -> FeatureRow {
     FeatureRow {
         id: feature.id.clone(),
         slug: feature.slug.clone(),
@@ -378,6 +403,8 @@ fn row_of(feature: &KeptFeature, health: ipc::FeatureHealth, jobs_now: Vec<Featu
         jobs_now,
         stale_since,
         health,
+        retire: retire_of(upkeep),
+        planned: upkeep.is_some_and(|mark| mark.kind == upkeep_kind::PLANNED),
     }
 }
 
@@ -423,6 +450,7 @@ fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
             job: link.job.clone(),
             at: instant(&link.at),
             state: link.state.clone(),
+            drifted: Vec::new(),
         });
     }
     reads

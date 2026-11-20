@@ -43,5 +43,5 @@ mod talk;
 pub(crate) mod view;
 mod wire;
 
-pub use screen::{live, OperatorScreen};
+pub use screen::{live, Front, OperatorScreen};
 pub use status::session_of;

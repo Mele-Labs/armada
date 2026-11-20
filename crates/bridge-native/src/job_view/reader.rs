@@ -550,6 +550,9 @@ impl JobView {
             (Some(at), true) => (at + 1).min(last),
             (Some(at), false) => at.saturating_sub(1),
         };
+        if held.on != Some(at) {
+            crate::ui_sounds::moved();
+        }
         held.on = Some(at);
         let block = held.blocks.iter().position(|one| one.block.id == held.notes[at].block);
         if let Some(block) = block {

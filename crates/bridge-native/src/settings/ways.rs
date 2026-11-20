@@ -633,6 +633,7 @@ impl SettingsOverlay {
         for (row, name, focus) in [(Row::Take, "take_in", "ways:take"), (Row::Answer, "answer_with", "ways:answer")] {
             if self.prefs.keys.get(focus).is_some_and(|handle| handle.is_focused(window)) {
                 if let Some(to) = moved(row, &self.chosen(name), if key.key == "left" { -1 } else { 1 }) {
+                    crate::ui_sounds::moved();
                     self.choose_way(row, to.word, window, cx);
                 }
                 return true;

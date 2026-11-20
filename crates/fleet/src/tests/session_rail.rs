@@ -390,3 +390,55 @@ async fn with_workflows_off_there_is_no_step_and_no_boundary_judge() {
     assert!(asked_of(&judge).is_empty(), "no boundary judge: {:?}", asked_of(&judge));
     assert_eq!(says_of_steps(&rig).await, entered, "and no step entered on the timeline after the switch");
 }
+
+// ---- A step held by its gate ----
+
+/// A step with no anchor, gated on `gate`: how `oversee`, `summarise` and `implement` read in the shipped workflows.
+fn gated(label: &str, gate: core_model::StepGate) -> RailStep {
+    RailStep { gate, ..step(label) }
+}
+
+/// The first step, as `steps_of` reads a plan step once PR 3955 lands; here it says so itself.
+fn recording(label: &str) -> RailStep {
+    RailStep { records_plan: true, gate: core_model::StepGate::PlanApproved, ..step(label) }
+}
+
+/// **A step gated `jobs_ended` or `document_approved` with no anchor holds the Job until its fact.** The
+/// orchestrate workflow stood on Plan from the plan's approval to the end (20 Nov 2026).
+#[test]
+fn an_orchestrate_shaped_job_moves_through_oversee_and_summarise_on_the_facts_that_gate_them() {
+    use core_model::StepGate::{DocumentApproved, JobsEnded};
+    let steps = [recording("Plan"), gated("Oversee", JobsEnded), gated("Summarise", DocumentApproved)];
+    assert_eq!(at(&steps, Facts { plan_recorded: true, ..Facts::default() }), Some(0), "a plan waiting on him keeps Plan");
+    assert_eq!(at(&steps, approved()), Some(1), "approved: oversee holds the Job while its Jobs run");
+    assert_eq!(at(&steps, Facts { document_approved: true, ..approved() }), Some(1), "a page approved early does not pass oversee");
+    assert_eq!(at(&steps, Facts { jobs_ended: true, ..approved() }), Some(2), "every Job it started has ended: summarise");
+    // The last step's end has come and nothing follows it: the rail is absent, as for a last step that waits on a lifecycle.
+    let done = Facts { jobs_ended: true, document_approved: true, ..approved() };
+    assert_eq!(at(&steps, done), None, "the summary approved: nothing follows");
+}
+
+/// **The step after a held one is entered at its end, push or not**: refactor's handoff delivers, and the Job
+/// has pushed nothing when he approves the page that ends Implement.
+#[test]
+fn a_refactor_shaped_job_enters_its_delivering_step_when_the_page_is_approved_before_any_push() {
+    use core_model::StepGate::DocumentApproved;
+    let steps = [recording("Plan"), gated("Implement", DocumentApproved), delivers("Handoff")];
+    assert_eq!(at(&steps, approved()), Some(1), "approved, nothing pushed: implement");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(1), "a push does not end a step held on a page");
+    assert_eq!(at(&steps, Facts { document_approved: true, ..approved() }), Some(2), "the page approved: handoff, before any push");
+    assert_eq!(at(&steps, Facts { document_approved: true, pushed: true, landed: true, ..approved() }), None, "merged, and nothing follows");
+}
+
+/// A `sketch_approved` and a `checks_green` gate hold the same way, and each reads its own fact.
+#[test]
+fn a_step_gated_on_a_sketch_or_green_checks_holds_until_that_fact_alone() {
+    use core_model::StepGate::{ChecksGreen, SketchApproved};
+    let steps = [recording("Plan"), gated("Sketch", SketchApproved), gated("Verify", ChecksGreen), fitted("Close", Fit::Committed)];
+    assert_eq!(at(&steps, approved()), Some(1));
+    assert_eq!(at(&steps, Facts { checks_green: true, ..approved() }), Some(1), "green checks do not pass the sketch");
+    let sketched = Facts { sketch_approved: true, ..approved() };
+    assert_eq!(at(&steps, sketched), Some(2), "the sketch approved: verify holds");
+    assert_eq!(at(&steps, Facts { pushed: true, committed: true, ..sketched }), Some(2), "a push and a commit do not pass it");
+    assert_eq!(at(&steps, Facts { checks_green: true, ..sketched }), Some(3), "Fleet's Checks passed: the step after");
+}

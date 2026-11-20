@@ -243,6 +243,10 @@ pub enum Event {
     // `docs/practices/protocol/his-other-macs-fleets-half.md`.
     #[serde(rename = "queued.changed")]
     QueuedChanged(QueuedList),
+    // This Mac's Kit, or how it stands against a linked Mac, changed: Bridge reads `get_kit_link` again, and a linked
+    // Mac reads `share_kit` again. `docs/concepts/kit.md`, *Over the Mac link*.
+    #[serde(rename = "kit.changed")]
+    KitChanged(crate::KitChanged),
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     // `docs/concepts/session/a-job-whose-sign-in-expired.md`.
     #[serde(rename = "agent_sign_in.changed")]

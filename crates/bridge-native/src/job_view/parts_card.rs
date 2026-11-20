@@ -697,6 +697,9 @@ impl JobView {
         } else if plain && matches!(pressed, "left" | "right") && large.is_some() && count > 0 {
             if let (Some(key), Some(at)) = (take_key.as_deref(), large) {
                 let to = if pressed == "left" { (at + count - 1) % count } else { (at + 1) % count };
+                if to != at {
+                    crate::ui_sounds::moved();
+                }
                 self.large_take(key, Some(to), cx);
             }
             true

@@ -818,6 +818,7 @@ impl NewProjectSheet {
         let len = lines.len().max(1);
         self.active = self.active.min(len - 1);
         let line = lines.get(self.active).cloned();
+        let was = self.active;
         match (key.key.as_str(), line) {
             ("down", _) => self.active = (self.active + 1).min(len - 1),
             ("up", _) => self.active = self.active.saturating_sub(1),
@@ -836,6 +837,9 @@ impl NewProjectSheet {
             ("enter" | "space", Some(Line::New)) => self.toggle_new(window, cx),
             _ => return,
         }
+        if self.active != was && matches!(key.key.as_str(), "up" | "down" | "left") {
+            crate::ui_sounds::moved();
+        }
         cx.stop_propagation();
         cx.notify();
     }
@@ -848,6 +852,9 @@ impl NewProjectSheet {
             "left" | "up" => at.saturating_sub(1),
             _ => return,
         };
+        if to != at {
+            crate::ui_sounds::moved();
+        }
         self.place = PLACES[to].0;
         cx.stop_propagation();
         cx.notify();
@@ -857,8 +864,14 @@ impl NewProjectSheet {
     pub fn tile_key(&mut self, custom: bool, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
         match event.keystroke.key.as_str() {
             "enter" | "space" => self.set_custom(custom, cx),
-            "right" if !custom => window.focus(&self.at.custom, cx),
-            "left" if custom => window.focus(&self.at.defaults, cx),
+            "right" if !custom => {
+                crate::ui_sounds::moved();
+                window.focus(&self.at.custom, cx)
+            }
+            "left" if custom => {
+                crate::ui_sounds::moved();
+                window.focus(&self.at.defaults, cx)
+            }
             _ => return,
         }
         cx.stop_propagation();

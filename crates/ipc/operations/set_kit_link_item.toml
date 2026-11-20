@@ -1,0 +1,8 @@
+[operations.set_kit_link_item]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Switch one Kit item on or off by itself for crossing to his other Macs, whatever its kind's switch says"
+notes = """
+`POST /kit/link/items/set`, body `SetKitLinkItem { kind, name, repository?, on }`, answered with `KitLink`. `repository` names a memory note's repository and is ignored for any other kind. An item on by itself is sent and taken while its kind is off. `agent_access` is `No`: his press.
+"""

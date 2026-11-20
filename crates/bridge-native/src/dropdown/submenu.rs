@@ -132,6 +132,9 @@ impl Dropdown {
         }
         let now = self.sub().cursor.and_then(|at| ids.iter().position(|&id| id == at)).unwrap_or(0);
         let next = ids[(now as isize + by).clamp(0, ids.len() as isize - 1) as usize];
+        if self.sub().cursor != Some(next) {
+            crate::ui_sounds::moved();
+        }
         if let Some(keys) = self.sub_mut() {
             keys.cursor = Some(next);
         }
