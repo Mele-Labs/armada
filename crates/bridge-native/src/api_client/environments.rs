@@ -55,6 +55,10 @@ impl EnvForm {
     }
 }
 
+fn name_draft(job: &str) -> String {
+    format!("request:{job}:environment-name")
+}
+
 fn row_blank(row: &VarRow, cx: &gpui::App) -> bool {
     row.name.read(cx).value().is_empty() && row.value.read(cx).value().is_empty() && !row.set
 }
@@ -126,7 +130,18 @@ impl ApiClient {
             .unwrap_or_default();
         rows.push(self.blank_row(id, window, cx));
         let name = cx.new(|cx| InputState::new(window, cx).placeholder("test"));
-        let subs = vec![cx.subscribe_in(&name, window, move |this, _, event: &InputEvent, window, cx| match event {
+        // The name of an environment being added is kept as the body is, so closing the tab does not lose it.
+        let is_new = read.is_none();
+        if is_new {
+            if let Some(kept) = crate::drafts::kept(&name_draft(&self.job), cx) {
+                name.update(cx, |input, cx| input.set_value(kept, window, cx));
+            }
+        }
+        let subs = vec![cx.subscribe_in(&name, window, move |this, input, event: &InputEvent, window, cx| match event {
+            InputEvent::Change if is_new => {
+                crate::drafts::keep(&name_draft(&this.job), input.read(cx).value().as_ref(), cx);
+                cx.notify();
+            }
             InputEvent::PressEnter { .. } => this.save_environment(id, window, cx),
             InputEvent::Focus => {
                 this.env_active = Some(id);
@@ -286,6 +301,7 @@ impl ApiClient {
                 if let Ok(read) = answer {
                     if this.adding.as_ref().is_some_and(|form| form.id == id) {
                         this.adding = None;
+                        crate::drafts::keep(&name_draft(&this.job), "", cx);
                     }
                     this.landed(Ok(read), window, cx);
                 }

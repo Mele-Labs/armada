@@ -462,13 +462,7 @@ impl ApiClient {
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .focus_visible(|style| style.border_color(ring_colour(look)))
                 .tooltip(tip("Collection"))
-                .on_click(cx.listener(|this, _, window, cx| this.pick(Pick::Collection, false, window, cx)))
-                .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| {
-                    if matches!(event.keystroke.key.as_str(), "enter" | "space" | "down") && !event.keystroke.modifiers.modified() {
-                        this.pick(Pick::Collection, true, window, cx);
-                        cx.stop_propagation();
-                    }
-                }))
+                .on_click(cx.listener(|this, event: &gpui::ClickEvent, window, cx| this.pick(Pick::Collection, event.is_keyboard(), window, cx)))
                 .child(SharedString::from(collection.unwrap_or_else(|| "Collection".to_string()))),
             Role::Button,
             "Collection",
