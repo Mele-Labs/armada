@@ -69,7 +69,7 @@ async fn marked(rig: &Rig, mark: MarkArtifactSeen) -> Result<u32, Refusal> {
 }
 
 async fn seen_on(rig: &Rig, id: &SessionId, path: &str) -> Option<u32> {
-    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap().seen
+    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == rig.fleet.page_home(id.as_str(), path)).unwrap().seen
 }
 
 #[tokio::test]

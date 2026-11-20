@@ -60,15 +60,21 @@ pub(crate) fn approved_on_newest(detail: &BTreeMap<String, String>) -> bool {
 }
 
 /// Whether `page` is a document in front of him: its newest revision put to him, not answered or
-/// dismissed, and its file still there. **The one test for the card and for the plan it holds**, so
-/// the plan is never held by what is not in his Needs you list. The Job deleting the page withdraws it.
+/// dismissed, and still kept in Fleet's folder. **The one test for the card and for the plan it holds**, so
+/// the plan is never held by what is not in his Needs you list. The file in the Job's checkout is not read: a
+/// slot given back or reset takes nothing from him, and only the Job withdrawing or archiving it does.
 pub(crate) fn in_front_of_him(page: &ipc::Attachment, dismissed: &[String]) -> bool {
     page.kind == "artifact"
         && is_document(&page.detail)
         && page.detail.get(DOCUMENT_ASKED).map(String::as_str) == Some("true")
         && !page.detail.contains_key(DOCUMENT_SETTLED)
         && !dismissed.contains(&format!("{DOCUMENT_ITEM_PREFIX}{}", page.target))
-        && std::path::Path::new(&page.target).is_file()
+        && still_kept(&page.detail)
+}
+
+/// Whether a document's newest revision is still in Fleet's folder, where no slot reaches.
+pub(crate) fn still_kept(detail: &BTreeMap<String, String>) -> bool {
+    super::documents::revisions_named(detail).last().is_some_and(|newest| std::path::Path::new(newest).is_file())
 }
 
 /// Every document in front of him ([`in_front_of_him`]), as the item that waits on him: id
@@ -129,7 +135,7 @@ pub(crate) fn read_items<'a>(
         .filter(|one| one.kind == "artifact" && is_document(&one.detail))
         .filter(|one| one.detail.get(DOCUMENT_READS).map(String::as_str) == Some("true"))
         .filter(|one| super::artifact_parts::joined_of(attachments, one).is_none())
-        .filter(|one| !archived.contains(&one.target) && std::path::Path::new(&one.target).is_file())
+        .filter(|one| !archived.contains(&one.target) && still_kept(&one.detail))
         .filter(move |one| {
             let newest = one.detail.get(DOCUMENT_REVISION).and_then(|number| number.parse::<u32>().ok()).unwrap_or(1);
             seen.iter().find(|kept| kept.artifact == one.target).map_or(true, |kept| kept.revision < newest)
@@ -215,7 +221,7 @@ where
         }
         let body = match said.how {
             DocumentHow::Approved => approved(&title, &revision, words),
-            DocumentHow::SentBack => sent_back(&title, &revision, words.unwrap_or_default(), &path),
+            DocumentHow::SentBack => sent_back(&title, &revision, words.unwrap_or_default(), &super::documents::shown_page(&path)),
         };
         let message = SendSessionMessage {
             session_id: said.session_id.clone(),
@@ -341,11 +347,11 @@ where
             .session(id)
             .map_err(|why| self.ledger_fault(why))?
             .ok_or_else(|| self.hosted_refusal(DOCUMENT_ANSWER_UNNAMED, "a job Fleet knows"))?;
-        let held = self
-            .ledger_row(&store, &session)?
-            .attachments
-            .into_iter()
-            .find(|one| one.kind == "artifact" && one.target == path && is_document(&one.detail));
+        // A Job holds one page a file name, so an answer naming the page at a slot it was written in finds it too.
+        let pages: Vec<ipc::Attachment> =
+            self.ledger_row(&store, &session)?.attachments.into_iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)).collect();
+        let name = super::documents::page_name(path);
+        let held = pages.iter().find(|one| one.target == path).or_else(|| pages.iter().find(|one| super::documents::page_name(&one.target) == name)).cloned();
         Ok((session.harness, held))
     }
 

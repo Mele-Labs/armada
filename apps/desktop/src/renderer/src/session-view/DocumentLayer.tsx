@@ -396,9 +396,10 @@ function DocumentReading({
     if (id === "web") void save("html");
     else if (id === "pdf") void save("pdf");
     // Adding to the repo asks the Job, as a person would. The page is ignored by git, so the commit forces it in.
+    // Its id is Fleet's copy, outside every checkout, so the Job is named the page as it writes it in its own.
     else if (id === "repo" && doc !== undefined)
       void draft?.send(session.id, {
-        text: `Commit ${doc.id} to the repo. It is gitignored, so add it with git add -f.`,
+        text: `Commit ${doc.id.includes(".armada/documents/") ? doc.id.slice(doc.id.lastIndexOf(".armada/documents/")) : doc.id} to the repo. It is gitignored, so add it with git add -f.`,
         files: [],
         sketches: [],
         tags: [],

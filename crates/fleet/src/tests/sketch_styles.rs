@@ -668,6 +668,7 @@ async fn a_document_page_with_a_mock_carries_its_style_sets_beside_it_and_a_mock
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     std::fs::write(&file, page).unwrap();
     let path = file.to_string_lossy().into_owned();
+    let home = rig.fleet.page_home(id.as_str(), &path);
     rig.stand_in.says(
         0,
         vec![
@@ -677,12 +678,12 @@ async fn a_document_page_with_a_mock_carries_its_style_sets_beside_it_and_a_mock
     );
     eventually(|| async {
         let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
-        listed.iter().find(|one| one.id == id).is_some_and(|one| one.attachments.iter().any(|a| a.target == path && a.detail.contains_key("kept_styles")))
+        listed.iter().find(|one| one.id == id).is_some_and(|one| one.attachments.iter().any(|a| a.target == home && a.detail.contains_key("kept_styles")))
     })
     .await;
     let listed = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions;
     let record = listed.iter().find(|one| one.id == id).unwrap();
-    let document = record.attachments.iter().find(|one| one.target == path).unwrap();
+    let document = record.attachments.iter().find(|one| one.target == home).unwrap();
     let kept: std::collections::BTreeMap<String, String> = ipc::decode("kept styles", document.detail["kept_styles"].as_bytes()).unwrap();
     assert_eq!(kept.keys().collect::<Vec<_>>(), ["Good#m"]);
     assert!(rig.fleet.get_kept_styles(kept["Good#m"].clone()).await.is_ok());

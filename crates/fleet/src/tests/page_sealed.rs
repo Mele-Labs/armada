@@ -71,7 +71,7 @@ pub(super) async fn rewritten(rig: &Rig, id: &SessionId, at: usize, path: &str, 
         ],
     );
     eventually(|| async {
-        rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == path && one.revisions.len() == revisions)
+        rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == rig.fleet.page_home(id.as_str(), path) && one.revisions.len() == revisions)
     })
     .await;
 }
@@ -151,7 +151,7 @@ async fn with_the_host_drawing_the_kit_the_pages_inline_scripts_run_and_nothing_
     assert!(tags.contains(&"<script href=\"https://example.com/svg.js\">"), "as does an svg script with one: {tags:?}");
     assert!(served.html.contains("<button onclick=\"window.clicked = true\">"), "a handler stays, and the policy refuses it");
     assert!(!served.html.contains("document.querySelectorAll(\"armada-action\")"), "the kit's script is the host's");
-    assert_eq!(record_of(&served.html).artifact, path, "the record stays");
+    assert_eq!(record_of(&served.html).artifact, rig.fleet.page_home(id.as_str(), &path), "the record stays");
     let plain = page(&rig, &id, &path, None).await.expect("served without");
     assert!(plain.policy.contains("script-src 'nonce-") && plain.html.contains("document.querySelectorAll(\"armada-action\")"), "without it, today's page");
 }
@@ -196,7 +196,7 @@ async fn presses_and_votes_stand_on_later_revisions_while_their_action_and_vote_
     assert_eq!(newest.revision, 2);
     assert!(newest.html.contains("Flaky tests, again"));
     let record = record_of(&newest.html);
-    assert_eq!((record.artifact.as_str(), record.revision), (path.as_str(), 2));
+    assert_eq!((record.artifact.as_str(), record.revision), (rig.fleet.page_home(id.as_str(), &path).as_str(), 2));
     assert_eq!((record.presses, record.votes), (vec![pressed.clone()], vec![voted.clone()]), "another section changed, so both stand, read as made on 1");
     let record = record_of(&page(&rig, &id, &path, Some(1)).await.expect("the first").html);
     assert_eq!((record.revision, record.presses, record.votes), (1, vec![pressed], vec![voted]));

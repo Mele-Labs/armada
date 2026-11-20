@@ -216,7 +216,7 @@ async fn converting_a_draft_writes_its_page_withdraws_it_registers_the_document_
     eventually(|| async {
         let record = rig.fleet.list_sessions(None, None, None).await.unwrap().sessions.into_iter().find(|one| one.id == id).expect("listed");
         record.attachments.iter().any(|one| {
-            one.kind == "artifact" && one.target == path && one.detail.get("form").map(String::as_str) == Some("document")
+            one.kind == "artifact" && one.target == rig.fleet.page_home(id.as_str(), &path) && one.detail.get("form").map(String::as_str) == Some("document")
                 && one.detail.get("title").map(String::as_str) == Some(TITLE)
         })
     })

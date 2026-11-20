@@ -44,7 +44,7 @@ pub(super) async fn page_holding(rig: &Rig, id: &SessionId, at: usize, html: &st
             DroneEvent::Answered { call: "toolu_1".into(), failed: false },
         ],
     );
-    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == path) }).await;
+    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == rig.fleet.page_home(id.as_str(), &path)) }).await;
     path
 }
 
@@ -66,7 +66,7 @@ pub(super) fn sent(rows: &[SessionRow]) -> Vec<String> {
 }
 
 async fn presses(rig: &Rig, id: &SessionId, path: &str) -> Vec<PagePress> {
-    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap().presses
+    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == rig.fleet.page_home(id.as_str(), path)).unwrap().presses
 }
 
 #[tokio::test]
@@ -149,7 +149,7 @@ async fn an_act_off_the_list_is_named_when_the_page_is_kept_and_refused_at_the_p
     };
     eventually(|| async { told().await.is_some() }).await;
     let told = told().await.unwrap();
-    assert!(told.starts_with(&format!("In the page {path}, action \"Merge\" will not run: act \"merge\" is not one a page runs.")), "{told}");
+    assert!(told.starts_with("In the page .armada/documents/flaky.html, action \"Merge\" will not run: act \"merge\" is not one a page runs."), "{told}");
 
     let refused = pressed(&rig, pressing(&id, &path, "merge-1", None)).await.expect_err("refused");
     assert_eq!(refused.error().code, "fleet.page_act_refused");

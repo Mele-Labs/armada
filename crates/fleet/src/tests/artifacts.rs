@@ -108,7 +108,7 @@ async fn a_jobs_page_and_twice_proposed_draft_read_back_as_two_newest_first() {
         read,
         [
             ("draft:Description for #41", ArtifactForm::Draft, 2, ArtifactState::Asking, Some(drafts[0])),
-            (path.as_str(), ArtifactForm::Page, 1, ArtifactState::Reading, None),
+            (rig.fleet.page_home(id.as_str(), &path).as_str(), ArtifactForm::Page, 1, ArtifactState::Reading, None),
         ]
     );
     let draft = &artifacts[0];
@@ -329,7 +329,8 @@ async fn a_page_reads_its_for_meta_and_links_and_a_javascript_link_is_dropped_an
     );
     eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.form == ArtifactForm::Page) }).await;
 
-    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap();
+    let home = rig.fleet.page_home(id.as_str(), &path);
+    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == home).unwrap();
     let wanted = ArtifactFor { text: Some(FOR.into()), links: vec![link(ArtifactLinkKind::Link, "Issue 7", "https://example.com/issues/7")] };
     assert_eq!(page.for_line, Some(wanted));
     let told = || async {
@@ -381,7 +382,7 @@ async fn page_holding(rig: &Rig, id: &SessionId, at: usize, html: &str) -> Strin
             DroneEvent::Answered { call: "toolu_1".into(), failed: false },
         ],
     );
-    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == path) }).await;
+    eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.id == rig.fleet.page_home(id.as_str(), &path)) }).await;
     path
 }
 
@@ -404,13 +405,14 @@ async fn his_edit_of_a_heading_and_a_cell_is_his_revision_in_the_pages_file_and_
     let told: Vec<String> = sent(&rig.rows(&id).await).into_iter().skip(told_before.len()).collect();
     let wanted = format!(
         "He edited \"Lease expiry\": revision 2 is his, from revision 1.\n- Top: \"Findings\" → \"What we found\"\n\
-         - What we found: \"Redis\" → \"Postgres\"\nThe page at {path} holds his words. Build on them."
+         - What we found: \"Redis\" → \"Postgres\"\nThe page at .armada/documents/lease.html holds his words. Build on them."
     );
     assert_eq!(told, [wanted]);
 
     // The turn's end reads his bytes again and keeps no third, nor makes his the agent's.
     super::documents::turn_swept(&rig, &id, at, "zz-swept.html").await;
-    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap();
+    let home = rig.fleet.page_home(id.as_str(), &path);
+    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == home).unwrap();
     assert_eq!(page.revisions.iter().map(|one| one.by).collect::<Vec<_>>(), [ArtifactBy::Agent, ArtifactBy::Owner]);
 }
 
@@ -430,7 +432,8 @@ async fn an_edit_that_adds_an_element_is_refused_naming_it_and_keeps_nothing() {
     assert!(refused.message.contains("`<p>` where revision 1 has `<table>`"), "{}", refused.message);
     assert_eq!(std::fs::read_to_string(&path).unwrap(), LEASE);
     assert_eq!(sent(&rig.rows(&id).await), told_before, "nothing is sent");
-    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap();
+    let home = rig.fleet.page_home(id.as_str(), &path);
+    let page = rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == home).unwrap();
     assert_eq!(page.revisions.len(), 1);
 }
 
@@ -543,5 +546,5 @@ async fn a_page_names_its_features_in_its_head() {
     );
     eventually(|| async { rig.fleet.get_job_artifacts(id.clone()).await.unwrap().iter().any(|one| one.form == ArtifactForm::Page) }).await;
 
-    assert_eq!(featured(&rig, &id, &path).await.as_deref(), Some("voting-on-takes,page-actions,one-more"));
+    assert_eq!(featured(&rig, &id, &rig.fleet.page_home(id.as_str(), &path)).await.as_deref(), Some("voting-on-takes,page-actions,one-more"));
 }

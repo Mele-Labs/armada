@@ -199,8 +199,8 @@ fn artifact_of(
                 Some(how) => (settled(how), said(DOCUMENT_WORDS), None),
                 None if said(ARTIFACT_WITHDRAWN_BY) == Some("agent") => (ArtifactState::Withdrawn, None, None),
                 None if gone(&item) => (ArtifactState::Dismissed, None, None),
-                // The Job deleting the page withdraws it, as Needs you reads it (`in_front_of_him`).
-                None if said(DOCUMENT_ASKED) == Some("true") && !std::path::Path::new(&one.target).is_file() => (ArtifactState::Withdrawn, None, None),
+                // A page no longer kept is withdrawn, as Needs you reads it (`in_front_of_him`); its slot file is not read.
+                None if said(DOCUMENT_ASKED) == Some("true") && !super::document_answers::still_kept(&one.detail) => (ArtifactState::Withdrawn, None, None),
                 None if said(DOCUMENT_ASKED) == Some("true") => (ArtifactState::Asking, None, Some(item)),
                 None => (ArtifactState::Reading, None, None),
             }

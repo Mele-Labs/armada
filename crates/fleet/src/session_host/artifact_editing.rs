@@ -147,6 +147,11 @@ where
     async fn page_edit_kept(self: Arc<Self>, id: &str, artifact: &JobArtifact, html: String) -> Result<(), Refusal> {
         let path = artifact.id.clone();
         let (_, held) = self.document_held(id, &path).await?;
+        // The file the Job last wrote it at takes his words too, where that checkout is still there.
+        // An earlier build kept the page at that file.
+        let written = held.as_ref().and_then(|page| {
+            page.detail.get(super::documents::DOCUMENT_WRITTEN_AT).cloned().or_else(|| (self.page_home(id, &page.target) != page.target).then(|| page.target.clone()))
+        });
         let newest = held.and_then(|page| revisions_named(&page.detail).pop()).ok_or_else(|| self.unkept("the revision he edited is not kept"))?;
         let base = tokio::task::spawn_blocking(move || std::fs::read_to_string(newest))
             .await
@@ -160,12 +165,14 @@ where
         }
         let lines: Vec<String> =
             changes.iter().map(|one| format!("- {}: \"{}\" → \"{}\"", one.section, quoted(&one.old), quoted(&one.new))).collect();
-        let then = format!("The page at {path} holds his words. Build on them.");
+        let then = format!("The page at {} holds his words. Build on them.", super::documents::shown_page(&path));
         self.told_of_edit(id, edited_told(&artifact.title, number + 1, &lines, &then)).await?;
         let folder = self.documents_of(id).join(folder_of(&path));
-        let (file, bytes) = (path.clone(), html.clone().into_bytes());
+        let (checkout, bytes) = (written.clone(), html.clone().into_bytes());
         let kept = tokio::task::spawn_blocking(move || {
-            std::fs::write(&file, &bytes)?;
+            if let Some(file) = checkout.filter(|file| std::path::Path::new(file).parent().is_some_and(std::path::Path::is_dir)) {
+                std::fs::write(&file, &bytes)?;
+            }
             keep(&folder, &bytes, "html")
         })
         .await
@@ -175,7 +182,8 @@ where
         .ok_or_else(|| self.unkept("his Edit was sent to the job, and his page could not be written"))?;
         self.his_revision(id, &path, kept.len() as u32).await?;
         // Problems with its sketches were the agent's to hear about on its own revision, and his Edit changed none.
-        let _ = self.page_kept(id, &path, &html, &kept, false).await;
+        let home = self.page_home(id, &path);
+        let _ = self.page_kept(id, &home, written.as_deref(), &html, &kept, false).await;
         Ok(())
     }
 

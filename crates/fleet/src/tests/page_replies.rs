@@ -155,7 +155,7 @@ async fn a_reply_sent_before_the_revision_was_kept_is_not_read() {
     let work = TempDir::new();
     let file = work.path().join(".armada/documents/lease.html");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    let path = file.to_string_lossy().into_owned();
+    let path = rig.fleet.page_home(id.as_str(), &file.to_string_lossy());
     written(&rig, &file, "first", "toolu_1").await;
     revision_kept(&rig, &id, &path, "1").await;
 

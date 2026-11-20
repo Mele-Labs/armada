@@ -177,8 +177,12 @@ impl JobView {
             back,
             move |this, picked, window, cx| match picked {
                 "html" | "pdf" => this.reader_save(&shared, picked == "pdf", cx),
-                // As Classic's Add to the repo: the page is ignored by git, so the commit forces it in.
-                "repo" if this.shown.as_ref() == Some(&shared.job) => this.send_line(format!("Commit {} to the repo. It is gitignored, so add it with git add -f.", shared.artifact), window, cx),
+                // As Classic's Add to the repo: the page is ignored by git, so the commit forces it in. Its id is Fleet's
+                // copy, outside every checkout, so the Job is named the page as it writes it in its own.
+                "repo" if this.shown.as_ref() == Some(&shared.job) => {
+                    let page = shared.artifact.rfind(".armada/documents/").map_or(shared.artifact.as_str(), |at| &shared.artifact[at..]);
+                    this.send_line(format!("Commit {page} to the repo. It is gitignored, so add it with git add -f."), window, cx)
+                }
                 _ => {
                     if let Some((tool, server)) = tools.iter().find(|(tool, _)| tool.id == picked) {
                         this.reader_export(&shared, tool, server, window, cx);

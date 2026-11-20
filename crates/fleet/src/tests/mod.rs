@@ -71,6 +71,7 @@ mod needs_you;
 mod started_jobs;
 mod step_waits;
 mod documents;
+mod page_moves;
 mod building;
 mod refresh_claim;
 mod build_blocked;
