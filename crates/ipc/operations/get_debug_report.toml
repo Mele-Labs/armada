@@ -1,4 +1,5 @@
 [operations.get_debug_report]
+ask_tool = "none"
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"

@@ -1,4 +1,5 @@
 [operations.list_operator_acts]
+ask_tool = "none"
 kind = "query"
 transport = "HTTP"
 agent_access = "Operator"

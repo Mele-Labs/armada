@@ -1,4 +1,5 @@
 [operations.ask_the_person]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "On your words"

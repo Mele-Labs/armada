@@ -1,4 +1,5 @@
 [operations.show_sketch]
+ask_tool = ["sketch", "diagram"]
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

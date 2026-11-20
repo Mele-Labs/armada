@@ -1,4 +1,5 @@
 [operations.change_session_steps]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

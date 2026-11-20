@@ -167,24 +167,11 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
     lines.extend(
         tags.iter()
             .filter(|(tag, _)| tag.kind == TagKind::Tool)
-            .filter_map(|(tag, _)| tool_use(&tag.id).map(|how| format!("The person asked for {}: {how}.", tag.title))),
+            // The tool's `line` in `ask_tools.toml` says how the agent answers. An id the file does not hold adds
+            // nothing: the person's words still say what they meant.
+            .filter_map(|(tag, _)| ipc::ask_tools::ask_tool(&tag.id).map(|tool| format!("The person asked for {}: {}.", tag.title, tool.line))),
     );
     (!lines.is_empty()).then(|| lines.join("\n"))
-}
-
-/// How the agent answers a message that asks for one of Armada's tools, by the tool's id. None for
-/// an id Fleet does not know, which adds nothing: the person's words still say what they meant.
-fn tool_use(id: &str) -> Option<&'static str> {
-    Some(match id {
-        "sketch" => "draw it with `show_sketch` as a `mock` of the screen",
-        "diagram" => "draw it with `show_sketch` as boxes and edges",
-        "takes" => "put the options to them with `add_part` of kind `takes`, one scene each, your pick first",
-        "document" => "write it as an HTML page under `.armada/documents/`, as the `armada:writing-a-document` skill says",
-        "browser" => "open the page in the Job's browser with `show_window`",
-        "terminal" => "run it in one of the Job's terminals, where they can watch it, with `show_terminal` or `type_in_terminal`",
-        "features" => "read the project's feature catalog with `list_features` and `get_feature_brief`, and answer from it",
-        _ => return None,
-    })
 }
 
 /// The title without the `#<id> ` Bridge puts in front of an issue's or a pull request's, so the

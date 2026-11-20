@@ -39,6 +39,7 @@ Add the file. Nothing else lists it.
 
 - **An operation, an icon, a convention:** a file named for the key, with the
   table in it.
+  An operation an agent can reach carries `ask_tool` first, under its header: the tool in `crates/core-model/domain/ask_tools.toml` that covers it, or `none`, and the gate (*every operation an agent can reach has a place in the message box's tools, or says none*) refuses it without one.
 - **A mock scenario's row:** a file in `mock/scenarios/` exporting one `Scenario`,
   built with `holding` from `../holding`. The export name must be unique, or the
   glob keeps one and drops the other, and `scenario.test.ts` fails where a name

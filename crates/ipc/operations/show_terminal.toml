@@ -1,4 +1,5 @@
 [operations.show_terminal]
+ask_tool = "terminal"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

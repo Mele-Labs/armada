@@ -6,35 +6,16 @@
 //! the box.
 
 use gpui::{prelude::*, AnyElement, Context, Role, SharedString, Window};
+use ipc::ask_tools::{ask_tool, ask_tools};
 use ipc::TagKind;
 
 use super::offer::{Offer, Pick, Row};
 use super::JobView;
 use crate::labels::labelled;
-use crate::look::{token, Look, Token};
+use crate::look::{Look, Token};
 
 /// The list's heading, and its name to a screen reader.
 const ASK_FOR: &str = "Ask the agent for";
-
-/// One tool: the id Fleet reads, its name, what it gives, its glyph and its hue.
-struct Tool {
-    id: &'static str,
-    name: &'static str,
-    says: &'static str,
-    glyph: &'static str,
-    hue: Token,
-}
-
-/// The tools in the order the list draws them, each in its own hue from `tokens/ask-tools.css`.
-const TOOLS: [Tool; 7] = [
-    Tool { id: "sketch", name: "Sketch", says: "a screen drawn as a mock", glyph: "layout-template", hue: token::ASK_SKETCH },
-    Tool { id: "diagram", name: "Diagram", says: "boxes and arrows: a flow or a map", glyph: "chart-network", hue: token::ASK_DIAGRAM },
-    Tool { id: "takes", name: "Takes", says: "options side by side; you pick one", glyph: "columns-2", hue: token::ASK_TAKES },
-    Tool { id: "document", name: "Document", says: "a page you read and approve", glyph: "file-text", hue: token::ASK_DOCUMENT },
-    Tool { id: "browser", name: "Browser", says: "open a page in this Job", glyph: "globe", hue: token::ASK_BROWSER },
-    Tool { id: "terminal", name: "Terminal", says: "a command you can watch run", glyph: "monitor-play", hue: token::ASK_TERMINAL },
-    Tool { id: "features", name: "Features", says: "the project's feature catalog", glyph: "blocks", hue: token::ASK_FEATURES },
-];
 
 /// The key the registry gives `ask_for_tool`, for the button's tooltip.
 fn key() -> Option<gpui::Keystroke> {
@@ -44,23 +25,19 @@ fn key() -> Option<gpui::Keystroke> {
     Some(gpui::Keystroke { modifiers, key: chord.key, key_char: None })
 }
 
-fn tool(id: &str) -> Option<&'static Tool> {
-    TOOLS.iter().find(|tool| tool.id == id)
-}
-
 /// A tool's hue by its id; none for an id this build does not list.
 pub(crate) fn hue(id: &str) -> Option<Token> {
-    tool(id).map(|tool| tool.hue)
+    ask_tool(id).map(|tool| Token(tool.hue))
 }
 
 /// Each tool's id, glyph and hue as `look` draws it, for a chip drawn where no `Look` is held.
 pub(crate) fn painted(look: &Look) -> Vec<(&'static str, &'static str, gpui::Hsla)> {
-    TOOLS.iter().map(|tool| (tool.id, tool.glyph, look.color(tool.hue))).collect()
+    ask_tools().iter().map(|tool| (tool.id, tool.glyph, look.color(Token(tool.hue)))).collect()
 }
 
-/// The list's rows, the heading over the first.
+/// The list's rows, in the order `ask_tools.toml` lists them, the heading over the first.
 pub(super) fn rows() -> Vec<Row> {
-    TOOLS
+    ask_tools()
         .iter()
         .enumerate()
         .map(|(at, tool)| Row {
@@ -123,10 +100,10 @@ mod tests {
 
     #[test]
     fn each_tool_has_a_hue_and_a_glyph_no_other_tool_has() {
-        let glyphs: Vec<&str> = TOOLS.iter().map(|tool| tool.glyph).collect();
+        let glyphs: Vec<&str> = ask_tools().iter().map(|tool| tool.glyph).collect();
         assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks"]);
-        let hues: std::collections::BTreeSet<&str> = TOOLS.iter().map(|tool| tool.hue.0).collect();
-        assert_eq!(hues.len(), TOOLS.len(), "no two tools share a hue");
+        let hues: std::collections::BTreeSet<&str> = ask_tools().iter().map(|tool| tool.hue).collect();
+        assert_eq!(hues.len(), ask_tools().len(), "no two tools share a hue");
         assert!(hues.iter().all(|hue| hue.starts_with("--ask-")), "every hue is an ask tool's own, none a status's");
     }
 

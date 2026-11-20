@@ -126,9 +126,9 @@ pub enum TagKind {
     Report,
     /// One of the Job's terminals. `id` is `t2`, `title` its name.
     Terminal,
-    /// One of Armada's own tools the person asks the agent to use. `id` is `sketch`, `diagram`,
-    /// `takes`, `document`, `browser`, `terminal` or `features`, `title` its name. Fleet says which
-    /// tool to call; an `id` it does not know adds nothing to the line.
+    /// One of Armada's own tools the person asks the agent to use. `id` is a key of
+    /// `crates/core-model/domain/ask_tools.toml`, `title` its name. Fleet says which tool to
+    /// call; an `id` it does not know adds nothing to the line.
     Tool,
 }
 

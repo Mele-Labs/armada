@@ -1,4 +1,5 @@
 [operations.take_main_red]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

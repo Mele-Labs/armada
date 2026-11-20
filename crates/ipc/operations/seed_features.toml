@@ -1,4 +1,5 @@
 [operations.seed_features]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Operator"
