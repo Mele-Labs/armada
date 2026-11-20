@@ -2,18 +2,23 @@
 //! offer what changed there only since the two last agreed. `docs/concepts/kit.md`, *Over the Mac link*.
 //!
 //! **The last-agreed marker.** For each item and each linked Mac, this Mac keeps the hash of the item's canonical
-//! text both Macs held when they last agreed on it (`kit_link_agreed`). Against one Mac, `h` this Mac's hash, `t`
-//! the other's, `a` the marker:
+//! text both Macs held when they last agreed on it (`kit_link_agreed`), and each piece the other Mac offers carries
+//! that Mac's own marker with this one. Against one Mac, `h` this Mac's hash, `t` the other's, `a` this Mac's marker
+//! and `b` the other's:
 //!
-//! | Here, there | Marker | Mark | What happens |
+//! | Here, there | Markers | Mark | What happens |
 //! | --- | --- | --- | --- |
 //! | `h == t` | any | same | `a` becomes `h` |
-//! | `h != t` | `a == h` | differs | there changed only: taken here, `a` becomes `t` |
-//! | `h != t` | `a == t` | differs | here changed only: the other Mac takes it |
-//! | `h != t` | neither, or none | clash | held: each keeps its own until he picks |
+//! | `h != t` | `a` or `b` is `h`, neither is `t` | differs | there changed only: taken here, `a` becomes `t` |
+//! | `h != t` | `a` or `b` is `t`, neither is `h` | differs | here changed only: the other Mac takes it |
+//! | `h != t` | neither names either, or one names each | clash | held: each keeps its own until he picks |
 //! | here only | any | new here | the other Mac takes it |
 //! | there only | none | only there | new there: taken here |
 //! | there only | some | only there | deleted here: not brought back |
+//!
+//! **Why both markers.** One Mac takes the other's edit and records it before the other has read that it did; an
+//! edit made there in between moved past `a` alone, and would read as a clash. `b` names this Mac's text, so it is
+//! the other's change only.
 //!
 //! **Each Mac writes only to itself.** Both Gateways follow each other, so each Mac takes from the other's offer on
 //! its own exchange, and the two markers meet. **A deletion does not cross**: a piece one Mac took away is marked
@@ -97,8 +102,9 @@ pub(crate) fn piece_of(sent: &KitPiece) -> Piece {
     Piece { name: sent.name.clone(), repository: sent.repository.clone(), files: sent.files.clone(), says: sent.says.clone(), source: sent.source.clone() }
 }
 
-/// What this Mac sends: the kinds and items it has on, and each piece of them that may leave it.
-pub(crate) fn offer(name: &str, syncs: &Syncs, mine: &[Mine]) -> KitOffer {
+/// What this Mac sends: the kinds and items it has on, and each piece of them that may leave it, with `agreed`, its
+/// markers with the Mac that asked.
+pub(crate) fn offer(name: &str, syncs: &Syncs, mine: &[Mine], agreed: &BTreeMap<Key, String>) -> KitOffer {
     let pieces = mine
         .iter()
         .filter(|one| one.refused.is_none() && syncs.takes(one.kind, &one.piece.name, one.piece.repository.as_deref()))
@@ -111,6 +117,7 @@ pub(crate) fn offer(name: &str, syncs: &Syncs, mine: &[Mine]) -> KitOffer {
             source: one.piece.source.clone(),
             hash: one.hash.clone(),
             changed_at: one.changed_at.clone(),
+            agreed: agreed.get(&one.key()).cloned(),
         })
         .collect();
     KitOffer { name: name.to_string(), kinds: syncs.kinds.clone(), items: syncs.items.clone(), pieces }
@@ -134,14 +141,22 @@ pub(crate) struct Judged {
     pub(crate) agree: Option<String>,
 }
 
-pub(crate) fn judged(here: Option<&str>, there: Option<&str>, agreed: Option<&str>) -> Judged {
+/// `agreed` is this Mac's marker with the other, `theirs` the other's marker with this one, as its offer carried it.
+pub(crate) fn judged(here: Option<&str>, there: Option<&str>, agreed: Option<&str>, theirs: Option<&str>) -> Judged {
     let (mark, take, agree) = match (here, there) {
         (Some(h), Some(t)) if h == t => (KitMark::Same, false, (agreed != Some(h)).then(|| h.to_string())),
-        (Some(h), Some(_)) if agreed == Some(h) => (KitMark::Differs, true, None),
-        (Some(_), Some(t)) if agreed == Some(t) => (KitMark::Differs, false, None),
-        (Some(_), Some(_)) => (KitMark::Clash, false, None),
+        (Some(h), Some(t)) => {
+            // Either Mac's marker naming a side's text says that side has not moved since they agreed.
+            let unmoved_here = agreed == Some(h) || theirs == Some(h);
+            let unmoved_there = agreed == Some(t) || theirs == Some(t);
+            match (unmoved_here, unmoved_there) {
+                (true, false) => (KitMark::Differs, true, None),
+                (false, true) => (KitMark::Differs, false, None),
+                _ => (KitMark::Clash, false, None),
+            }
+        }
         (Some(_), None) => (KitMark::NewHere, false, None),
-        (None, Some(_)) => (KitMark::OnlyThere, agreed.is_none(), None),
+        (None, Some(_)) => (KitMark::OnlyThere, agreed.is_none() && theirs.is_none(), None),
         (None, None) => (KitMark::Same, false, None),
     };
     Judged { mark, take, agree }
@@ -185,7 +200,7 @@ pub(crate) fn plan(syncs: &Syncs, mine: &[Mine], others: &[Other]) -> Plan {
         let here = mine.iter().find(|one| one.key() == key);
         for other in others.iter().filter(|other| other.sends(&key)) {
             let there = other.piece(&key);
-            let judged = judged(here.map(|one| one.hash.as_str()), there.map(|one| one.hash.as_str()), other.agreed.get(&key).map(String::as_str));
+            let judged = judged(here.map(|one| one.hash.as_str()), there.map(|one| one.hash.as_str()), other.agreed.get(&key).map(String::as_str), there.and_then(|one| one.agreed.as_deref()));
             if let Some(hash) = judged.agree {
                 plan.agrees.push((other.mac.clone(), key.clone(), hash));
             }
@@ -218,7 +233,7 @@ pub(crate) fn rows(here_name: &str, syncs: &Syncs, mine: &[Mine], others: &[Othe
                 .map(|other| {
                     let there = other.piece(&key);
                     theirs = theirs.or(there);
-                    let judged = judged(here.map(|one| one.hash.as_str()), there.map(|one| one.hash.as_str()), other.agreed.get(&key).map(String::as_str));
+                    let judged = judged(here.map(|one| one.hash.as_str()), there.map(|one| one.hash.as_str()), other.agreed.get(&key).map(String::as_str), there.and_then(|one| one.agreed.as_deref()));
                     let both = matches!(judged.mark, KitMark::Differs | KitMark::Clash);
                     KitAgainst {
                         mac: other.mac.clone(),

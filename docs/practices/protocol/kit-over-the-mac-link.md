@@ -14,7 +14,7 @@ Native Bridge draws it from `crates/ipc/src/kit_link.rs` directly.
 | `set_kit_link_kind` (`POST /kit/link/kinds/set`, `No`) | Bridge sends, Fleet answers 200 | `SetKitLinkKind { kind, on }`; answers `KitLink` |
 | `set_kit_link_item` (`POST /kit/link/items/set`, `No`) | Bridge sends, Fleet answers 200 | `SetKitLinkItem { kind, name, repository?, on }`; answers `KitLink` |
 | `settle_kit_clash` (`POST /kit/link/settle`, `No`) | Bridge sends, Fleet answers 200 | `SettleKitClash { mac, kind, name, repository?, keep }`, `keep` `here` or `there`; answers `KitLink`. 409 `fleet.kit_no_clash` for a row that is not a clash with that Mac, 404 `fleet.other_mac_not_linked` for a Mac this one holds no Kit from |
-| `share_kit` | the Gateway calls | `GET /other_mac/kit`, answered `KitOffer { name, kinds, items, pieces }`, each `KitPiece { kind, name, repository?, files, says?, source?, hash, changed_at? }`, cut by `crate::share`: no piece that carries a credential |
+| `share_kit` | the Gateway calls | `GET /other_mac/kit`, answered `KitOffer { name, kinds, items, pieces }`, each `KitPiece { kind, name, repository?, files, says?, source?, hash, changed_at?, agreed? }`, cut by `crate::share`: no piece that carries a credential. `agreed` is the offering Mac's marker with the Mac named in `x-armada-mac`, which the Gateway sends on this read |
 | `hold_other_mac_kit` | the Gateway calls | `PUT /other_macs/kit`, body `OtherMacKit { mac, kit }`, kept in place of what that Mac last offered, then taken. Answers `MacNamed` |
 | `kit_settle_from_mac` | the other Mac's Gateway calls | `POST /other_mac/kit_settle`, body `KitSettled { kind, name, repository?, agreed }`, header `x-armada-mac`; answers 204 |
 | `kit.changed` | Fleet sends | Carries nothing. Bridge reads `get_kit_link` again; it crosses to the linked Macs, whose Gateways read `share_kit` again and hand it in, and is not handed to their Fleets as an event |
@@ -24,7 +24,8 @@ Native Bridge draws it from `crates/ipc/src/kit_link.rs` directly.
 A change made in the harness's home outside Armada is read on the Mac's next Kit read, `get_kit_link` or an exchange, and where this Mac's offer moved, `kit.changed` tells the linked Macs.
 
 **The last-agreed marker.** Fleet keeps, per linked Mac and item, the hash of the item's canonical text both held when they last agreed (`kit_link_agreed` in the store).
-Against it a change on one side is told from a change on both: the table is `crates/fleet/src/kit_link.rs`'s module doc.
+Each offered piece carries the offering Mac's own marker with the asker, so a Mac that took an edit and changed the item again before the first Mac read the take still reads as the only one that moved.
+Against the two a change on one side is told from a change on both: the table is `crates/fleet/src/kit_link.rs`'s module doc.
 `changed_at` is when this Mac first read the version (`kit_link_seen`), not the file's own time.
 Settling a clash records the hash of the side not kept as the marker on both Macs, so the kept side reads as the only change and crosses.
 A settle the other Mac cannot be reached for waits in the queue project acts use, `kind` `kit`, and is sent oldest first when its link opens.

@@ -400,8 +400,8 @@ where
         Ok(MacNamed { mac })
     }
 
-    async fn share_kit(&self) -> Result<ipc::KitOffer, Refusal> {
-        self.kit_offered().await
+    async fn share_kit(&self, mac: Option<String>) -> Result<ipc::KitOffer, Refusal> {
+        self.kit_offered(mac.as_deref()).await
     }
 
     async fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> Result<MacNamed, Refusal> {

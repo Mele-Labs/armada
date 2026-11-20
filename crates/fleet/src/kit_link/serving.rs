@@ -167,12 +167,18 @@ where
         Ok(others)
     }
 
-    /// `share_kit`: what this Mac sends, cut by `crate::share`.
-    pub(crate) async fn kit_offered(&self) -> Result<KitOffer, Refusal> {
+    /// `share_kit`: what this Mac sends, cut by `crate::share`, each piece marked with what it last agreed with
+    /// `asking`.
+    pub(crate) async fn kit_offered(&self, asking: Option<&str>) -> Result<KitOffer, Refusal> {
         let syncs = self.kit_syncs().await?;
         let context = self.kit_context(syncs.clone()).await?;
         let (mine, _) = self.kit_mine(context.as_ref()).await?;
-        Ok(self.kit_for_other_mac(offer(&self.kit_here_name(), &syncs, &mine)).sent())
+        let agreed = match asking {
+            Some(mac) => self.store().lock().await.kit_link_agreed(mac).map_err(|why| self.kit_not_kept(why))?,
+            None => Default::default(),
+        };
+        let agreed = agreed.iter().filter_map(|(item, hash)| Some((key_kept(item)?, hash.clone()))).collect();
+        Ok(self.kit_for_other_mac(offer(&self.kit_here_name(), &syncs, &mine, &agreed)).sent())
     }
 
     /// Take from what `only`, or every linked Mac, offers: put here each piece that changed there only, record the
@@ -266,13 +272,17 @@ where
         macs.extend(never);
         // What the linked Macs read, and what Bridge draws: the offer's hashes and every mark.
         let mut told = Sha256::new();
-        let offered = offer(&here_name, &syncs, &mine);
+        let offered = offer(&here_name, &syncs, &mine, &Default::default());
         told.update(format!("{:?}{:?}", offered.kinds, offered.items));
         for piece in &offered.pieces {
             told.update(format!("{:?}{:?}{}{}\n", piece.kind, piece.repository, piece.name, piece.hash));
         }
         for row in &rows {
             told.update(format!("{:?}{:?}{}{:?}\n", row.kind, row.repository, row.name, row.against.iter().map(|one| (&one.mac, one.mark)).collect::<Vec<_>>()));
+        }
+        // A marker that moved changes what each linked Mac's offer of this one carries.
+        for other in &others {
+            told.update(format!("{}{:?}\n", other.mac, other.agreed));
         }
         let told = format!("{:x}", told.finalize());
         let moved = self.home_held().told.lock().unwrap_or_else(PoisonError::into_inner).replace(told.clone()) != Some(told);
@@ -317,8 +327,9 @@ where
             )));
         };
         let here = mine.iter().find(|one| one.key() == key).map(|one| one.hash.clone());
-        let there = other.offer.pieces.iter().find(|piece| super::key_of(piece) == key).map(|piece| piece.hash.clone());
-        let mark = judged(here.as_deref(), there.as_deref(), other.agreed.get(&key).map(String::as_str)).mark;
+        let sent = other.offer.pieces.iter().find(|piece| super::key_of(piece) == key);
+        let there = sent.map(|piece| piece.hash.clone());
+        let mark = judged(here.as_deref(), there.as_deref(), other.agreed.get(&key).map(String::as_str), sent.and_then(|piece| piece.agreed.as_deref())).mark;
         let (Some(here), Some(there), KitMark::Clash) = (here, there, mark) else {
             return Err(Refusal::IllegalMove(WireError::raised(NO_CLASH, format!("{} is not a clash with {}.", key.2, other.offer.name), self.run_id())));
         };

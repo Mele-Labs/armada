@@ -110,8 +110,9 @@ async fn hold_refresh_claim<D: OtherMacs>(State(served): State<Served<D>>, heade
     }
 }
 
-async fn share_kit<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
-    match served.daemon().share_kit().await {
+async fn share_kit<D: OtherMacs>(State(served): State<Served<D>>, headers: axum::http::HeaderMap) -> Response {
+    let asking = headers.get(crate::acting::MAC_HEADER).and_then(|one| one.to_str().ok()).map(str::trim).filter(|one| !one.is_empty());
+    match served.daemon().share_kit(asking.map(str::to_string)).await {
         Ok(offer) => answer(StatusCode::OK, &offer, served.run_id()),
         Err(refusal) => refused(refusal),
     }

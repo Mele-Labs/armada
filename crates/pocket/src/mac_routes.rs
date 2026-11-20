@@ -32,14 +32,14 @@ pub(crate) fn refused_frozen(gateway: &Gateway, mac: &str) -> Option<Response> {
     Some((StatusCode::SERVICE_UNAVAILABLE, crate::macs::frozen_why(&link, &name)).into_response())
 }
 
-/// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/preview_offers`, `/api/mac/projects`, `/api/mac/kit`, `/api/mac/session`,
+/// `GET /api/mac/sessions`, `/api/mac/bug_reports`, `/api/mac/preview_offers`, `/api/mac/projects`, `/api/mac/session`,
 /// `/api/mac/thread`, `/api/mac/artifacts` and `/api/mac/artifact_page`: Fleet's answer as it came.
 pub async fn read(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
     read_as(gateway, mac, uri, false).await
 }
 
-/// `GET /api/mac/conversation`: as [`read`], with the asking Mac named to Fleet, which hands a moving Job's
-/// conversation only to the Mac it moves to.
+/// `GET /api/mac/conversation` and `/api/mac/kit`: as [`read`], with the asking Mac named to Fleet, which hands a
+/// moving Job's conversation only to the Mac it moves to, and marks each Kit piece with what the two last agreed.
 pub async fn read_naming_mac(State(gateway): State<Gateway>, Extension(MacId(mac)): Extension<MacId>, uri: Uri) -> Response {
     read_as(gateway, mac, uri, true).await
 }

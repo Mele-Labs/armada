@@ -96,7 +96,7 @@ async fn a_kind_switched_off_sends_nothing_and_takes_nothing() {
     work.wrote("lint", LINT).await;
     pair(&home, &work).await;
 
-    let offer = home.mac.rig.fleet.kit_offered().await.expect("Home's offer");
+    let offer = home.mac.rig.fleet.kit_offered(None).await.expect("Home's offer");
     assert!(offer.kinds.is_empty() && offer.pieces.is_empty(), "Home sends nothing: {offer:?}");
     // Work has heard Home and has skills on, and still has no tone; Home has skills off and took no lint.
     assert_eq!(work.text("tone"), None, "Home's skill did not cross");
@@ -173,7 +173,7 @@ async fn an_edit_on_both_sides_is_held_as_a_clash_with_both_sides_and_neither_mo
     let on_work = work.against("tone", &home.mac.id).await.expect("tone against Home");
     let (here, there) = (on_work.here.expect("Work's side"), on_work.there.expect("Home's side"));
     // Each side named as its own Fleet names its Mac.
-    let (work_name, home_name) = (work.mac.rig.fleet.kit_offered().await.expect("Work's").name, home.mac.rig.fleet.kit_offered().await.expect("Home's").name);
+    let (work_name, home_name) = (work.mac.rig.fleet.kit_offered(None).await.expect("Work's").name, home.mac.rig.fleet.kit_offered(None).await.expect("Home's").name);
     assert_eq!((here.mac_name.as_str(), here.text.as_str()), (work_name.as_str(), theirs.as_str()));
     assert_eq!((there.mac_name.as_str(), there.text.as_str()), (home_name.as_str(), mine.as_str()));
     assert!(here.changed_at.is_some() && there.changed_at.is_some(), "each side says when its Mac first read it");
@@ -236,7 +236,7 @@ async fn a_piece_holding_a_credential_stays_here_and_says_why_naming_the_host_an
     let why = keys.refused.as_deref().expect("it says why");
     assert!(why.contains("api.example.dev"), "{why}");
     assert!(!why.contains("hunter2") && !why.contains("ana:"), "never the value: {why}");
-    let offer = home.mac.rig.fleet.kit_offered().await.expect("Home's offer");
+    let offer = home.mac.rig.fleet.kit_offered(None).await.expect("Home's offer");
     assert!(offer.pieces.iter().all(|piece| piece.name != "keys"), "not offered");
     assert_eq!(work.text("keys"), None, "never on Work");
     assert!(work.read().await.rows.iter().all(|row| row.name != "keys"), "Work does not know it exists");
