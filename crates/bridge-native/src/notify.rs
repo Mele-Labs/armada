@@ -176,10 +176,19 @@ impl Notifier {
 
     /// A press on a banner: the app comes forward and the Job opens. A Mac waiting to pair names no Job: its
     /// banner opens the Operator's page with that Mac's card in front. A review asked of him opens the pull request in
-    /// Reviews.
+    /// Reviews, and a ready review opens it on Review comments.
     fn pressed(&mut self, session_id: &str, cx: &mut Context<Self>) {
         cx.activate(true);
         let _ = self.window.update(cx, |_view, window, _cx| window.activate_window());
+        // A ready review started from its toast: Review comments on that pull request, while this run of the app holds it.
+        if session_id.starts_with(crate::toasts::READY_TAG) {
+            let asked = crate::toasts::ready_asked(session_id, cx);
+            Note::info("a banner was pressed").field("ready", session_id).field("opened", asked.is_some()).emit();
+            if let Some(asked) = asked {
+                crate::operator::screen::open_findings(asked, cx);
+            }
+            return;
+        }
         if is_review_key(session_id) {
             let asked = self.fleet.read(cx).held().review_asked(session_id).cloned();
             Note::info("a banner was pressed").field("call", session_id).field("opened", asked.is_some()).emit();
