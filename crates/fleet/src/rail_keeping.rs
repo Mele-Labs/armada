@@ -2,11 +2,12 @@
 //! holds. `docs/concepts/session.md`, *The rail*. The rules are `rail`'s.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use core_model::{Ulid, WorkflowId};
+use core_model::{StepGate, Ulid, WorkflowId};
 use ipc::{AskedQuestion, DraftHow, Instant, QuestionAnswer, SessionRow, SessionVoice, WaitingSource};
-use store::{Holder, KeptSession, Store, WriteError};
+use store::{Holder, KeptSession, Store, WriteError, CHECKS_GREEN};
 
 use crate::daemon::Fleet;
+use crate::gate_keeping::{jobs_have_ended, started_of};
 use crate::rail::{self, Extra, Facts, RailStep};
 use crate::rail_ends::{self, Waiter};
 use crate::rail_lifecycle::{self, Held, StepBits};
@@ -42,6 +43,9 @@ pub(crate) struct RailReads {
     /// The Job's own copy of its workflow, once it changed a step of it. The rail reads this in place of the
     /// repository's.
     pub own: Option<store::KeptWorkflowCopy>,
+    /// The 9-in-10 seconds of each step of the Job's workflow that has enough visits, by step id
+    /// (`crate::step_stalls`). Empty where none has.
+    pub usual: std::sync::Arc<std::collections::HashMap<String, u64>>,
 }
 
 impl RailReads {
@@ -81,7 +85,19 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
             Some(approved) => store.session_work(&session.id, approved.as_str())?.first_push.is_some(),
             None => false,
         };
+        // Read only where a step is gated on it: the first walks the Jobs this one started, the second the gates kept.
+        let jobs_ended = match &plan {
+            Some(plan) if steps.iter().any(|step| step.gate == StepGate::JobsEnded) => {
+                let held = store.attachments_of(&Holder::session(&session.id))?;
+                jobs_have_ended(plan, &rows, &started_of(store, &held))
+            }
+            _ => false,
+        };
+        let checks_green = steps.iter().any(|step| step.gate == StepGate::ChecksGreen)
+            && store.session_gates(&session.id)?.iter().any(|gate| gate.gate == CHECKS_GREEN);
         Extra {
+            jobs_ended,
+            checks_green,
             walk_approved: walk_approved.is_some(),
             pushed_since_walk,
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),
@@ -107,7 +123,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
         ),
         false => Default::default(),
     };
-    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own })
+    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own, usual: Default::default() })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -307,6 +323,7 @@ where
         );
         let at = rail::current(steps, &facts);
         record.workflow_step = at.map(|at| at as u32);
+        record.workflow_strip = self.strip_drawn(steps, at, &facts, reads, record);
         let name = |one: &store::KeptInstance| rail_lifecycle::named(one, reads.titles.get(&one.key).map(String::as_str));
         record.workflow_waiting_on = at.map(|at| rail_lifecycle::waiting(&steps[at], &lifecycles, &reads.held, &name)).unwrap_or_default();
         let waits_on_reply = at.is_some_and(|at| {
@@ -318,3 +335,34 @@ where
         }
     }
 }
+
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
+    /// What the column draws for the step the Job is on (`ipc::WorkflowStrip`). Absent where there is nothing to draw.
+    /// **Stalled is the step standing past its usual time**, from when its last visit began.
+    fn strip_drawn(&self, steps: &[RailStep], at: Option<usize>, facts: &Facts, reads: &RailReads, record: &ipc::SessionRecord) -> Option<ipc::WorkflowStrip> {
+        let passed_unapproved = rail::passed_unapproved(steps, facts, at).into_iter().map(|one| one as u32).collect();
+        let mut strip = ipc::WorkflowStrip { passed_unapproved, ..ipc::WorkflowStrip::default() };
+        if let Some(at) = at {
+            let step = &steps[at];
+            strip.tabs = step.tabs.clone();
+            strip.usual_secs = reads.usual.get(&step.id).copied();
+            strip.ends_when = rail_ends::ends_any(steps, at);
+            let since = record.workflow_visits.iter().rev().find(|visit| visit.step as usize == at).map(|visit| visit.since.as_str());
+            if let (Some(usual), Some(since)) = (strip.usual_secs, since) {
+                strip.stalled = crate::step_stalls::stalled_since(since, usual, &self.now())
+                    .map(|since| ipc::StepStalled { since: Instant::carried(since), cause: crate::step_stalls::cause_of(steps, at) });
+            }
+        }
+        (strip != ipc::WorkflowStrip::default()).then_some(strip)
+    }
+}
+

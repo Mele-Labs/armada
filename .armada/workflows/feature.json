@@ -23,6 +23,7 @@
     {
       "id": "propose",
       "label": "Propose",
+      "tabs": ["plan", "qa", "now"],
       "about": "Asks what is unclear, then puts a plan to you, with a sketch inside where it helps. Ends when you approve the plan.",
       "instructions": "Read the request and every link in it, and the code it touches. Ask what is unclear, one question at a time.\nThen record the plan with record_plan and wait for the person to approve it. Put a sketch inside it where a picture helps. Edit nothing on the branch but a mock before the approval.\nIn the plan: a summary of a few lines in the person's own words saying what he gets, and a gives line per group. Say `seen: true` when the person would see any piece of the change.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path.\nName the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nIf he says he is not ready for a plan, keep talking and record no plan until he asks for one.",
       "gate": "plan_approved",
@@ -33,6 +34,7 @@
     {
       "id": "walk",
       "label": "Walk",
+      "tabs": ["walks", "artifacts", "now"],
       "about": "Builds each part you would see as a mock and shows it to you as a walk. Each part is its own group and ends when you approve its walk. Left out when the project has no walks or nothing would be seen.",
       "instructions": "Make one walk group per part the person would see, with ids walk, walk_2 and so on, each gated walk_approved. Leave the walk groups out when the project serves no walk or nothing would be seen.\nBuild each part as a mock and show it with show_window, naming its group. Show them together when you can.\nWire a part as soon as its walk is approved, while the others wait.\nWhen the person changes the look of a part he already approved, change it and show a new walk for that part's group: it holds again until he approves it. Record the changed plan without ask_again; pass ask_again only for a change of approach he did not ask for.\nShow a walk once. Do not show one he approved again.",
       "gate": "walk_approved",
@@ -42,6 +44,7 @@
     {
       "id": "deliver",
       "label": "Build and deliver",
+      "tabs": ["pulls", "checks", "now"],
       "about": "Wires the change, writes the tests and delivers it the way you chose. Ends at the merge.",
       "instructions": "Wire it to the real thing and write the tests. Every new test is shown failing without the change, then passing.\nFollow the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nPush the branch and open a draft pull request while the checks run locally. Fix what is red. A test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.\nDeliver by the delivery the person chose, and do not ask again. Auto land: mark the pull request ready and merge it on a green ci. Open PR: leave it open; the Job stays until it merges, so what the person finds comes back here. Keep local: push nothing, and record this group's gate as none.\nReport the branch, what is on it, and what the person needs before merging.",
       "gate": "merged",

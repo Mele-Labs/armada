@@ -157,6 +157,8 @@ async fn a_vote_on_a_job_whose_mac_is_asleep_waits_and_goes_when_it_wakes() {
         kept.iter().any(|one| one.votes.len() == 1)
     })
     .await;
+    // Work keeps the run after the vote itself and before it answers, and Home lets the act go only on that answer.
+    until("and left Home's queue", || async { super::acting::queued(&home).await.queued.is_empty() }).await;
     assert_eq!(acts_run(&work).await.iter().map(|one| one.what.as_str()).collect::<Vec<_>>(), ["artifact_vote"]);
 }
 

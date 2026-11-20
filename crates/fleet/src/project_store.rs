@@ -9,7 +9,8 @@
 //!
 //! **Who joins it is the login the project picks** (`store.account_id`), and each repository claims as
 //! that login unless it overrides it (`crate::repository_profiles`). A project that picks none sends
-//! nothing. Projects naming one store with two different logins pick none between them.
+//! nothing, **unless exactly one profile here already enrolled at its store**: `store_logins_carried` writes that
+//! one in. Projects naming one store with two different logins pick none between them.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -208,6 +209,24 @@ where
             }
         }
         joined
+    }
+
+    /// **A store written before a project picked a login takes the one profile here that enrolled at it.** Each
+    /// project of this Mac's in `projects` that names a store and no login, and whose store exactly one profile
+    /// enrolled at, is written with that profile as its login, in the place its file is kept. None or several
+    /// enrolled leaves it. A copy of another Mac's is never in `projects`, so is never written. Whether any was.
+    pub(crate) async fn store_logins_carried(&self, projects: &config::Projects) -> bool {
+        let mut written = false;
+        for project in projects.running() {
+            let Some(store) = project.store().filter(|store| store.account_id.is_none()) else { continue };
+            let [login] = self.signing_in().enrolled_at(&store.address)[..] else { continue };
+            let named = project.clone().with_store(Some(ProjectStore { account_id: Some(login), ..store.clone() }));
+            match self.project_stored(&named).await {
+                Ok(()) => written = true,
+                Err(refused) => self.values_warned("a project's store login was not carried over", Some(project.id().as_str()), &refused.error().message),
+            }
+        }
+        written
     }
 
     /// The sign-in app's client id, as the machine's settings hold it now. Blank where none is set.

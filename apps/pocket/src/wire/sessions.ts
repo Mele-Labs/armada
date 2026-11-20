@@ -20,6 +20,7 @@ import type { SessionLink } from "./session-starts";
 import type { SessionWait } from "./session-waits";
 import type { WorkflowSummary } from "./setup";
 import type { SlotHolder, SlotWait } from "./slot-choice";
+import type { WorkflowStrip } from "./workflow-strip";
 
 /** A session, by the id its harness knows it by. */
 export type SessionId = string;
@@ -919,6 +920,12 @@ export type SessionRecord = {
    * Empty where the step waits on no lifecycle, and once an end has come. Since 30 Oct 2026.
    */
   workflow_waiting_on?: string[];
+  /**
+   * The step the Job is on as the column draws it: its tabs, usual time, what ends it, whether it is
+   * stalled, and the steps passed without the Approve they wait on. Absent for a Job that follows no
+   * workflow, one that has ended, and one whose workflow did not resolve. Since 20 Nov 2026.
+   */
+  workflow_strip?: WorkflowStrip;
   /**
    * The Job's own copy of its workflow, once a step of it was changed: the steps the rail and the lanes
    * draw, in place of the ones the repository's definition lists. Also the steps a publish pinned the Job to

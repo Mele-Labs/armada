@@ -127,6 +127,8 @@ where
         kept.step = record.workflow_step;
         if let Some(to) = record.workflow_step {
             kept.visits.push((to, self.now().as_str().to_string()));
+            // A new visit to a step is a new chance for its one nudge.
+            kept.stalled.retain(|stalled| *stalled != to);
         }
         let keeping = {
             let mut store = self.store().lock().await;

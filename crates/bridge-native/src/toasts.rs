@@ -10,7 +10,7 @@ use ipc::operator_page::OperatorTurnItem;
 mod view;
 
 pub(crate) use view::about;
-pub use view::{at_rest, bind, dispatch_held, dispatched, fleet, job_started, reading, refused_too_large, tell, tell_refused, tell_retry, BellSlot, Retry, Toasts};
+pub use view::{at_rest, bind, dispatch_held, dispatched, fleet, job_started, reading, ready_asked, refused_too_large, tell, tell_refused, tell_retry, BellSlot, Retry, Toasts, READY_TAG};
 
 /// A state of Fleet the app reads for itself, raised as a toast for as long as it lasts: Fleet alive
 /// and not answering. Bridge raises it, not the Operator, since Fleet is not there to send it; the

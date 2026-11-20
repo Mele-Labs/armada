@@ -112,7 +112,7 @@ A piece scoped to a project is read from Kit and from every member repository's 
 
 **A project's `store:` block names the store it joins and the GitHub login that joins it, and a repository of the project may override the login.**
 A project with a store and no login sends nothing, and says so.
-**Not built.** The rule is [Central store](../contracts/central-store.md), *A store per project*, and the login is [Account](account.md), *Which login a project joins as*.
+The rule is [Central store](../contracts/central-store.md), *A store per project*, and the login is [Account](account.md), *Which login a project joins as*.
 
 ## Sharing with his other Macs
 

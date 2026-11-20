@@ -90,7 +90,7 @@ pub(super) async fn acts_run(mac: &OneMac) -> Vec<store::KeptActRun> {
     mac.rig.fleet.store().lock().await.acts_run().expect("reads")
 }
 
-async fn queued(mac: &OneMac) -> QueuedList {
+pub(super) async fn queued(mac: &OneMac) -> QueuedList {
     let (status, body) = {
         use tower::ServiceExt;
         let answer = mac.fleet.clone().oneshot(axum::http::Request::get("/queued").body(axum::body::Body::empty()).expect("a request")).await.expect("answered");
