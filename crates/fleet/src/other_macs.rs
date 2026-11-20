@@ -217,6 +217,13 @@ where
         let held = self.sessions_from_macs().await?;
         Ok(held.into_iter().filter(|one| one.mac.as_deref() == Some(mac)).map(|one| (one.id.as_str().to_string(), one)).collect())
     }
+
+    /// The rows of Jobs this Mac started on Mac `mac` that it has not yet spoken of, taken.
+    fn started_there_taken(&self, mac: &str) -> Vec<SessionRecord> {
+        let mut started = self.phone_held().started_there.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        let ids: Vec<(String, String)> = started.keys().filter(|(on, _)| on == mac).cloned().collect();
+        ids.iter().filter_map(|key| started.remove(key)).collect()
+    }
 }
 
 impl<H, V, W> OtherMacs for Fleet<H, V, W>
@@ -354,7 +361,7 @@ where
     async fn hold_other_mac_sessions(&self, held: OtherMacSessions) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         let before = self.sessions_held_from(&mac).await?;
-        let rows: Vec<SessionRecord> = held
+        let mut rows: Vec<SessionRecord> = held
             .sessions
             .into_iter()
             .map(|mut record| {
@@ -362,8 +369,15 @@ where
                 record
             })
             .collect();
+        let mut store = self.store().lock().await;
+        // A Job this Mac just started there outlasts one list that leaves it out, which may have been read before
+        // the start. Any list after this one was read after it.
+        let ahead: Vec<SessionRecord> =
+            self.started_there_taken(&mac).into_iter().filter(|one| !rows.iter().any(|row| row.id == one.id)).collect();
+        rows.extend(ahead);
         let kept = rows.iter().map(|one| Ok((one.id.as_str().to_string(), self.encoded(one)?))).collect::<Result<Vec<_>, Refusal>>()?;
-        self.store().lock().await.replace_from_mac(FromMac::Sessions, &mac, &kept).map_err(|why| self.ledger_fault(why))?;
+        store.replace_from_mac(FromMac::Sessions, &mac, &kept).map_err(|why| self.ledger_fault(why))?;
+        drop(store);
         let left_out = before.keys().filter(|id| !rows.iter().any(|one| one.id.as_str() == id.as_str()));
         self.relay_removed(left_out.cloned().collect());
         // A row that is as it was is no news, so a Mac waking after a sleep rings for what changed while it slept.
@@ -400,6 +414,11 @@ where
             Event::SessionChanged(record) => {
                 let mut record = record.clone();
                 record.mac = Some(mac.clone());
+                self.phone_held()
+                    .started_there
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .remove(&(mac.clone(), record.id.as_str().to_string()));
                 let before = self.sessions_held_from(&mac).await?;
                 if before.get(record.id.as_str()) != Some(&record) {
                     let body = self.encoded(&record)?;
@@ -463,6 +482,7 @@ where
         let mac = self.mac_named(&named.mac)?;
         let before = self.sessions_held_from(&mac).await?;
         self.store().lock().await.forget_mac(&mac).map_err(|why| self.ledger_fault(why))?;
+        self.started_there_taken(&mac);
         self.relay_removed(before.into_keys().collect());
         self.every_bug_report_relayed().await?;
         self.projects_relayed().await?;
