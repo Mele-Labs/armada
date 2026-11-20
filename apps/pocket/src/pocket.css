@@ -1710,3 +1710,104 @@ button.pk-send__title {
   height: auto;
   max-height: 70vh;
 }
+
+/* A Job's artifacts, in native's Rows look: the kind's tile beside the title, what it is for, and a line of where it stands. A
+   row is a hairline under it, and the archived below are dimmed. */
+.pk-art-body {
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+.pk-art-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pk-art-row {
+  border-bottom: var(--border-width) solid var(--border-subtle);
+}
+.pk-art-row[data-folded] {
+  opacity: 0.5;
+}
+.pk-art-row__open {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  border: 0;
+  background: transparent;
+  color: var(--fg-default);
+  font: inherit;
+  text-align: left;
+}
+.pk-art-row__open:active {
+  background: var(--bg-hover);
+}
+.pk-art-row__text {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.pk-art-row__title {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  font-weight: var(--weight-heading);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-art-row__for {
+  overflow: hidden;
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+  line-height: var(--leading-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pk-art-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+.pk-art-row__time {
+  color: var(--fg-subtle);
+  font-size: var(--text-2xs);
+  white-space: nowrap;
+}
+.pk-art-row--shape {
+  display: flex;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+}
+.pk-art-row__shape {
+  background: color-mix(in srgb, var(--fg-default) 7%, transparent);
+}
+.pk-art-row--shape .pk-art-row__text {
+  gap: var(--space-2);
+  padding-top: var(--space-1);
+}
+.pk-art-empty {
+  margin: 0;
+  padding: var(--space-3) var(--space-4);
+  color: var(--fg-muted);
+  font-size: var(--text-xs);
+}
+.pk-art-fold {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: 100%;
+  min-height: var(--h-control-sm);
+  padding: var(--space-2) var(--space-4);
+  border: 0;
+  border-bottom: var(--border-width) solid var(--border-default);
+  background: var(--bg-sunken);
+  color: var(--fg-muted);
+  font: inherit;
+  font-size: var(--text-xs);
+  text-align: left;
+}

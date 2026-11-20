@@ -108,15 +108,15 @@ pub fn staged_plan(folders: &[BuildFolder], now: SystemTime) -> Vec<Act> {
 ///    Job has not ended and a branch with no commits yet is trivially in the base.
 /// 3. Whole folders of free slots, least recently built first.
 /// 4. Whole folders of held slots idle for six hours, least recently built first.
+/// 5. Incremental caches of main and the preview, on the same terms as step 1.
 ///
-/// Main and the preview appear in step 1 only.
+/// Main and the preview appear in step 5 only: every refresh builds on them (armada-nk57).
 pub fn pressure_plan(folders: &[BuildFolder], now: SystemTime) -> Vec<Act> {
     let all = || folders.iter();
-    let incremental = oldest_first(
-        all()
-            .filter(|folder| folder.has_incremental && idle(folder, now) > BUILDING_LATELY)
-            .collect(),
-    );
+    let warm = |folder: &&BuildFolder| matches!(folder.role, Role::Main | Role::Preview);
+    let cache = |folder: &&BuildFolder| folder.has_incremental && idle(folder, now) > BUILDING_LATELY;
+    let incremental = oldest_first(all().filter(cache).filter(|folder| !warm(folder)).collect());
+    let warm_caches = oldest_first(all().filter(cache).filter(warm).collect());
     let landed = oldest_first(
         all()
             .filter(|folder| folder.landed && matches!(folder.role, Role::Other | Role::FreeSlot))
@@ -142,5 +142,6 @@ pub fn pressure_plan(folders: &[BuildFolder], now: SystemTime) -> Vec<Act> {
                 .chain(held)
                 .map(|folder| act(folder, How::Whole)),
         )
+        .chain(warm_caches.into_iter().map(|folder| act(folder, How::Incremental)))
         .collect()
 }

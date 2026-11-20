@@ -28,6 +28,8 @@ pub enum Front {
     Kit,
     /// The project's feature library, on the project the bar is scoped to.
     Features,
+    /// Where the burn was wasted. No place in the strip: it is reached by name from the palette.
+    Usage,
 }
 
 impl Front {
@@ -38,6 +40,7 @@ impl Front {
             Front::Reviews => "reviews",
             Front::Kit => "kit",
             Front::Features => "features",
+            Front::Usage => "usage",
         }
     }
 }
@@ -50,6 +53,7 @@ pub struct OperatorScreen {
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
     features: Option<Entity<crate::features::FeaturesScreen>>,
+    usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
     fleet: Option<Entity<FleetConnection>>,
@@ -109,7 +113,10 @@ impl OperatorScreen {
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
         let kit = cx.new(|cx| crate::kit::KitScreen::live(fleet, window, cx));
         let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
+        let usage = cx.new(|cx| crate::usage_page::UsageScreen::live(fleet, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
+        this.usage = Some(usage);
+        this.name_jobs(cx);
         this.fleet = Some(fleet.clone());
         // A link that launched the app is held for this screen, and decided as Fleet's answers arrive.
         this._subs.push(cx.observe(fleet, |_, _, cx| crate::deep_link::settle(cx)));
@@ -135,6 +142,8 @@ impl OperatorScreen {
     /// On the walk's Fleet, with the Jobs screen in front and Reviews in the strip, on its own mock,
     /// whose work lands on the walk's `Lands` steps.
     pub fn mock_reviews(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        // Made first: the mocks after it name scenarios of their own, and this one reads the scenario the walk named.
+        let usage = cx.new(crate::usage_page::UsageScreen::mock);
         let page = cx.new(|cx| OperatorPageView::mock(window, cx));
         let reviews = cx.new(|cx| {
             let mut reviews = crate::reviews::ReviewsScreen::mock(window, cx);
@@ -143,7 +152,17 @@ impl OperatorScreen {
         });
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
         let features = cx.new(|cx| crate::features::FeaturesScreen::mock(window, cx));
-        Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx)
+        let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
+        this.usage = Some(usage);
+        this.name_jobs(cx);
+        this
+    }
+
+    /// As [`Self::mock_reviews`], with the Usage page in front: `--mock usage-week` and its kin.
+    pub fn mock_usage(jobs: Entity<JobsScreen>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::mock_reviews(jobs, window, cx);
+        this.bring(Some(Front::Usage), window, cx);
+        this
     }
 
     fn new(
@@ -203,6 +222,7 @@ impl OperatorScreen {
                 Asked::Place("reviews") => Some(Some(Front::Reviews)),
                 Asked::Place("kit") => Some(Some(Front::Kit)),
                 Asked::Place("features") => Some(Some(Front::Features)),
+                Asked::Place("usage") => Some(Some(Front::Usage)),
                 _ => None,
             };
             match to {
@@ -238,7 +258,7 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), reviews, kit, features, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
+        let mut this = OperatorScreen { jobs, page, front, within: cx.focus_handle(), reviews, kit, features, usage: None, toasts, fleet: None, over: None, lent: None, reviewing: false, _subs: subs };
         this.name_jobs(cx);
         this.show_places(cx);
         if front == Front::Operator {
@@ -260,6 +280,9 @@ impl OperatorScreen {
             .collect();
         // A card's chips name every Job it is about, ended ones too.
         let titles: std::collections::HashMap<String, String> = list.read(cx).records().iter().filter_map(|job| job.title.clone().map(|title| (job.id.as_str().to_string(), title))).collect();
+        if let Some(usage) = &self.usage {
+            usage.update(cx, |usage, cx| usage.set_titles(&titles, cx));
+        }
         self.page.update(cx, |page, cx| {
             page.set_jobs(named, cx);
             page.set_titles(titles, cx);
@@ -287,7 +310,7 @@ impl OperatorScreen {
     /// Bring a place to the front; `None` is the Operator's own key, which goes back where it came from.
     pub fn bring(&mut self, to: Option<Front>, window: &mut Window, cx: &mut Context<Self>) {
         let to = to.unwrap_or(if self.front == Front::Operator { Front::Jobs } else { Front::Operator });
-        if to == self.front || (to == Front::Reviews && self.reviews.is_none()) || (to == Front::Kit && self.kit.is_none()) || (to == Front::Features && self.features.is_none()) {
+        if to == self.front || (to == Front::Reviews && self.reviews.is_none()) || (to == Front::Kit && self.kit.is_none()) || (to == Front::Features && self.features.is_none()) || (to == Front::Usage && self.usage.is_none()) {
             return;
         }
         if self.front == Front::Reviews {
@@ -303,6 +326,11 @@ impl OperatorScreen {
         if self.front == Front::Features {
             if let Some(features) = &self.features {
                 features.update(cx, |features, cx| features.leave(cx));
+            }
+        }
+        if self.front == Front::Usage {
+            if let Some(usage) = &self.usage {
+                usage.update(cx, |usage, cx| usage.leave(cx));
             }
         }
         // The Operator's session was opened over the page: coming back to the page puts the Job that was open before it back.
@@ -343,8 +371,19 @@ impl OperatorScreen {
                     features.update(cx, |features, cx| features.enter(window, cx));
                 }
             }
+            Front::Usage => {
+                if let Some(usage) = &self.usage {
+                    usage.update(cx, |usage, cx| usage.enter(window, cx));
+                }
+            }
         }
         cx.notify();
+    }
+
+    /// The Usage page this screen holds.
+    #[cfg(test)]
+    pub fn usage_for_test(&self) -> Option<Entity<crate::usage_page::UsageScreen>> {
+        self.usage.clone()
     }
 
     /// Kit in front, on a kind of its own when one is named.
@@ -565,6 +604,11 @@ impl Render for OperatorScreen {
                 let title = crate::chrome::title_row(window, cx);
                 let features = self.features.clone().map(|features| features.into_any_element());
                 div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(features)).into_any_element()
+            }
+            Front::Usage => {
+                let title = crate::chrome::title_row(window, cx);
+                let usage = self.usage.clone().map(|usage| usage.into_any_element());
+                div().size_full().flex().flex_col().bg(cx.look().color(token::BG_BASE)).child(title).child(div().flex_1().min_h_0().children(usage)).into_any_element()
             }
         };
         // ⌘K and the bar's search open the Jobs screen's palette over whichever place is in front; the Jobs screen

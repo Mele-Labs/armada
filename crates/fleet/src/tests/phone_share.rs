@@ -175,6 +175,34 @@ async fn an_unshared_jobs_shown_file_answers_as_a_job_that_does_not_exist() {
     }
 }
 
+#[tokio::test]
+async fn an_unshared_jobs_thread_artifacts_and_files_answer_as_a_job_that_does_not_exist() {
+    let phone = Phone::paired().await;
+    let jobs = jobs(&phone).await;
+    for route in ["/api/sessions/thread", "/api/sessions/artifacts", "/api/sessions/artifacts/page", "/api/sessions/repository_file"] {
+        let asked = |job: &str| format!("{route}?session_id={job}&artifact=a.html&path=a.txt");
+        let missing = phone.call("GET", &asked(NOBODY), "", NOBODY).await;
+        assert_ne!(missing.0, StatusCode::OK, "{route}: {missing:?}");
+        assert_eq!(phone.call("GET", &asked(jobs.private.as_str()), "", jobs.private.as_str()).await, missing, "{route}: the answer says nothing of it");
+        assert_ne!(phone.call("GET", &asked(jobs.open.as_str()), "", jobs.open.as_str()).await, missing, "{route}: a shared Job is found");
+        assert_ne!(phone.call("GET", &asked(jobs.loose.as_str()), "", jobs.loose.as_str()).await, missing, "{route}: so is one in no project");
+    }
+}
+
+/// A Ready to try answer says the same of a Job with no such card as of no Job, so it is told from the door's own refusal.
+#[tokio::test]
+async fn a_ready_to_try_answer_from_the_phone_reaches_the_card_of_a_job_it_sees_and_not_an_unshared_ones() {
+    let phone = Phone::paired().await;
+    let jobs = jobs(&phone).await;
+    let answer = |job: &str| format!(r#"{{"session_id":"{job}","branch":"b","tip":"t","answer":{{"kind":"looks_good"}}}}"#);
+    let route = "/api/sessions/ready_to_try/answer";
+    let missing = phone.call("POST", route, &answer(NOBODY), NOBODY).await;
+    assert!(missing.1.contains("fleet.ready_to_try_unknown"), "the route is reached: {missing:?}");
+    assert_eq!(phone.call("POST", route, &answer(jobs.private.as_str()), jobs.private.as_str()).await, missing);
+    let reached = phone.call("POST", route, &answer(jobs.open.as_str()), jobs.open.as_str()).await;
+    assert!(reached.1.contains("fleet.ready_to_try_unknown"), "a shared Job's card is looked for: {reached:?}");
+}
+
 /// Every act the Gateway forwards, each with a body Fleet reads, the Job written `{id}`.
 const ACTS: &[(&str, &str)] = &[
     ("ask/answer", r#"{"session_id":"{id}","call":"c1","answer":"refuse"}"#),
@@ -194,6 +222,10 @@ const ACTS: &[(&str, &str)] = &[
     ("waiting/dismiss", r#"{"session_id":"{id}","item_id":"i1"}"#),
     ("change_waiting", r#"{"waiting_session":"{id}"}"#),
     ("start_waiting", r#"{"session_id":"{id}"}"#),
+    ("artifacts/part/answer", r#"{"session_id":"{id}","artifact":"a.html","part":"p1","drawn":"d1","how":"approved"}"#),
+    ("artifacts/press", r#"{"session_id":"{id}","artifact":"a.html","revision":1,"action":"x"}"#),
+    ("artifacts/vote", r#"{"session_id":"{id}","artifact":"a.html","revision":1,"vote":"v","result":{"form":"pick","take":"t"}}"#),
+    ("artifacts/seen", r#"{"session_id":"{id}","artifact":"a.html","revision":1}"#),
 ];
 
 /// A Job in `project` waiting for `on` to end. Fleet keeps a wait only with the request it is to start on,

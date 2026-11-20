@@ -8,7 +8,6 @@ import {
   type KeyboardEvent,
   type PointerEvent as ReactPointerEvent,
   type MouseEvent as ReactMouseEvent,
-  type ReactNode,
 } from "react";
 import {
   MockStylesContext,
@@ -35,7 +34,6 @@ import {
   type SceneChange,
   type SceneIcon,
   type SceneEdge,
-  type SceneShape,
 } from "./scene";
 import { type MockPart, splitPart, partAt, mockMarkup, partsIn } from "./mock-frame";
 import {
@@ -249,6 +247,8 @@ type NodeData = {
 };
 type SceneRfNode = Node<NodeData, "scene">;
 type EdgeData = {
+  /** The hue an arrow is drawn in: the one it says, else the one of the box it leaves. */
+  hue: SceneNode["color"];
   path: string;
   place: LabelPlace | undefined;
   edge: SceneEdge;
@@ -278,15 +278,52 @@ function Sides({ type }: { type: "source" | "target" }) {
 
 const sentence = (name: string) => name.charAt(0).toUpperCase() + name.slice(1).replace(/-/g, " ");
 
+/** What a box is, as the small outline at its left says it: native Bridge's marks, drawn in a 14-unit square. */
+function Mark({ node }: { node: SceneNode }) {
+  if (node.kind !== "box") return null;
+  const mark =
+    node.shape === "diamond"
+      ? "decision"
+      : node.shape === "cylinder"
+        ? "store"
+        : node.shape === "hexagon"
+          ? "process"
+          : node.shape === "pill"
+            ? "pill"
+            : "step";
+  return (
+    <svg
+      className="armada-scene-node__mark"
+      data-mark={mark}
+      viewBox="0 0 14 14"
+      width="14"
+      height="14"
+      aria-hidden
+    >
+      {mark === "pill" ? <rect x="1" y="3.5" width="12" height="7" rx="3.5" /> : null}
+      {mark === "step" ? <rect x="1.5" y="2.5" width="11" height="9" rx="2.5" /> : null}
+      {mark === "decision" ? <polygon points="7,1 13,7 7,13 1,7" /> : null}
+      {mark === "process" ? <polygon points="3.5,2 10.5,2 13,7 10.5,12 3.5,12 1,7" /> : null}
+      {mark === "store" ? (
+        <>
+          <ellipse cx="7" cy="3.5" rx="5.5" ry="2" />
+          <path d="M1.5 3.5V10.5A5.5 2 0 0 0 12.5 10.5V3.5" />
+        </>
+      ) : null}
+    </svg>
+  );
+}
+
 function Head({ node }: { node: SceneNode }) {
   const Glyph = node.icon === undefined ? undefined : ICON[node.icon];
-  if (node.title === undefined && Glyph === undefined) return null;
+  if (node.title === undefined && Glyph === undefined && node.lang === undefined) return null;
   return (
     <div className="armada-scene-node__head">
+      <Mark node={node} />
       {Glyph === undefined || node.icon === undefined ? null : (
         <Tooltip label={sentence(node.icon)}>
           <span className="armada-scene-node__icon" role="img" aria-label={sentence(node.icon)}>
-            <Glyph size={12} strokeWidth={2} aria-hidden />
+            <Glyph size={14} strokeWidth={1.5} aria-hidden />
           </span>
         </Tooltip>
       )}
@@ -320,59 +357,6 @@ function Wire({ node }: { node: SceneNode }) {
   );
 }
 
-/** The outlines a box's frame cannot draw: drawn in a 100-unit square stretched to the box. A pill and a circle are the frame's own corners. */
-const OUTLINE: Partial<Record<SceneShape, ReactNode>> = {
-  diamond: <polygon points="50,0 100,50 50,100 0,50" />,
-  hexagon: <polygon points="12,0 88,0 100,50 88,100 12,100 0,50" />,
-  cylinder: (
-    <>
-      <path d="M0 10 A50 10 0 0 1 100 10 V90 A50 10 0 0 1 0 90 Z" />
-      <path d="M0 10 A50 10 0 0 0 100 10" />
-    </>
-  ),
-};
-
-/** A box in an outline of its own: no title band, its glyph, title and words centred. */
-function Shaped({ node }: { node: SceneNode }) {
-  const Glyph = node.icon === undefined ? undefined : ICON[node.icon];
-  const outline = node.shape === undefined ? undefined : OUTLINE[node.shape];
-  return (
-    <>
-      {outline === undefined ? null : (
-        <svg
-          className="armada-scene-node__outline"
-          viewBox="0 0 100 100"
-          preserveAspectRatio="none"
-          aria-hidden
-        >
-          {outline}
-        </svg>
-      )}
-      <div className="armada-scene-node__shaped">
-        {node.title === undefined && Glyph === undefined ? null : (
-          <span className="armada-scene-node__name">
-            {Glyph === undefined || node.icon === undefined ? null : (
-              <Tooltip label={sentence(node.icon)}>
-                <span
-                  className="armada-scene-node__icon"
-                  role="img"
-                  aria-label={sentence(node.icon)}
-                >
-                  <Glyph size={12} strokeWidth={2} aria-hidden />
-                </span>
-              </Tooltip>
-            )}
-            {node.title}
-          </span>
-        )}
-        {node.body === undefined ? null : (
-          <pre className="armada-scene-node__body">{node.body}</pre>
-        )}
-      </div>
-    </>
-  );
-}
-
 function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
   const {
     node,
@@ -390,7 +374,6 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
     frame,
     onBody,
   } = data;
-  const shape = node.kind === "box" && !mine && node.shape !== "box" ? node.shape : undefined;
   return (
     <>
       <Sides type="target" />
@@ -398,7 +381,7 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
         className="armada-scene-node"
         data-kind={node.kind}
         data-wire={node.wire}
-        data-shape={shape}
+        data-shape={node.kind === "box" ? node.shape : undefined}
         data-color={node.color}
         data-change={change}
         data-dim={dim || undefined}
@@ -457,8 +440,6 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
           <MockView node={node} resolve={resolve} parts={parts} />
         ) : node.kind === "wire" ? (
           <Wire node={node} />
-        ) : shape !== undefined ? (
-          <Shaped node={node} />
         ) : node.kind === "label" ? (
           <span className="armada-scene-node__label">{node.title ?? node.body}</span>
         ) : (
@@ -466,6 +447,9 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
             <Head node={node} />
             {node.body === undefined ? null : (
               <pre className="armada-scene-node__body">{node.body}</pre>
+            )}
+            {node.step === undefined || node.kind === "group" || node.kind === "lane" ? null : (
+              <span className="armada-scene-node__step">{node.step}</span>
             )}
           </>
         )}
@@ -485,13 +469,13 @@ function SceneNodeView({ data }: NodeProps<SceneRfNode>) {
 /** An arrow on the way `route` found for it, which `SketchScene` works out from where the boxes settled. */
 function SceneEdgeView({ id, data }: EdgeProps<SceneRfEdge>) {
   if (data === undefined) return null;
-  const { path, edge, place, change, dim, active, still, asked, mine, struck, onPress } = data;
+  const { hue, path, edge, place, change, dim, active, still, asked, mine, struck, onPress } = data;
   const said = `${mine ? "Yours, " : struck ? "Struck out, " : change === undefined ? "" : `${CHANGE_SAID[change]}, `}${edge.label ?? "Arrow"}`;
   const at = place;
   return (
     <g
       className="armada-scene-edge"
-      data-color={edge.color}
+      data-color={hue}
       data-change={change}
       data-dim={dim || undefined}
       data-active={active || undefined}
@@ -507,8 +491,8 @@ function SceneEdgeView({ id, data }: EdgeProps<SceneRfEdge>) {
           viewBox="0 0 10 10"
           refX="9"
           refY="5"
-          markerWidth="8"
-          markerHeight="8"
+          markerWidth="4"
+          markerHeight="4"
           orient="auto-start-reverse"
         >
           <path className="armada-scene-edge__head" d="M0 0L10 5L0 10z" />
@@ -1258,6 +1242,7 @@ export function SketchScene({
             // Over the boxes, so no box hides where an arrow goes. A picked box still rises over it.
             zIndex: 1,
             data: {
+              hue: edge.color ?? shown?.nodes.find((one) => one.id === edge.from)?.color,
               path,
               edge,
               place: places.get(edge.id),

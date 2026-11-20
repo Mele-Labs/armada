@@ -482,14 +482,16 @@ where
         if let Some(words) = words {
             sketch.detail.insert(SKETCH_WORDS.into(), words.to_string());
         }
-        self.report_session(SessionReport {
-            harness,
-            session_id: SessionId::carried(&id),
-            fact: SessionFact::Attached {
-                attachment: AttachmentReport { kind: sketch.kind, target: sketch.target, detail: sketch.detail },
-            },
-        })
-        .await
+        let record = self
+            .report_session(SessionReport {
+                harness,
+                session_id: SessionId::carried(&id),
+                fact: SessionFact::Attached {
+                    attachment: AttachmentReport { kind: sketch.kind, target: sketch.target, detail: sketch.detail },
+                },
+            })
+            .await?;
+        Ok(self.approved_items_settled(&id, record).await)
     }
 
     /// The job's harness, and the sketch it holds as `target`.

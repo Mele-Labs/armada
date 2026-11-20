@@ -9,6 +9,7 @@ import {
   Check,
   CirclePause,
   CornerDownRight,
+  Files,
   GitFork,
   Link as Linked,
   LoaderCircle,
@@ -20,9 +21,6 @@ import {
 import { AskCards, SessionThread } from "./kit/components/compositions/SessionThread/SessionThread";
 import { Button } from "./kit/components/primitives/Button/Button";
 import { Card, CardFooter, CardHeader, CardTitle } from "./kit/components/primitives/Card/Card";
-import { Prose } from "./kit/components/primitives/Prose/Prose";
-import { ProseCommand } from "./kit/components/primitives/Prose/SlashCommand";
-import { ProseRunner } from "./kit/components/primitives/Prose/RunnableBlock";
 import { Select } from "./kit/components/primitives/Select/Select";
 import { SessionComposer } from "./kit/components/compositions/SessionComposer/SessionComposer";
 import { SessionFrame } from "./kit/components/compositions/SessionFrame/SessionFrame";
@@ -50,14 +48,27 @@ import { actsOn, attempt, attemptPage, readShownMedia, useJob, type Acts } from 
 import { WithKeptStyles } from "./keptStyles";
 import type { Machine } from "./machines";
 import { ArtifactCard } from "./Artifact";
+import { BandCard, Well } from "./kit/components/compositions/BandCard/BandCard";
+import { DraftText } from "./kit/components/compositions/SessionThread/DraftRow";
+import { PageScreen } from "./PageBody";
 import { asks, ofParts, useArtifacts } from "./artifacts";
 import { TryLine, useTryCards } from "./ReadyToTry";
-import { artifactPath, documentPath, draftPath, filePath, go, jobPath, sketchPath } from "./router";
+import {
+  artifactPath,
+  artifactsPath,
+  documentPath,
+  draftPath,
+  filePath,
+  go,
+  jobPath,
+  sketchPath,
+} from "./router";
 import {
   approvalOf,
   askedOf,
   asksOf,
   choicesOf,
+  documentOf,
   draftsOf,
   handedOf,
   linksOf,
@@ -291,7 +302,7 @@ function OnMac({ item }: { item: WaitingItem }) {
   );
 }
 
-/** A draft the agent proposed with `propose_draft`: approved as written, or sent back with a note. */
+/** A draft the agent proposed with `propose_draft`, as the Band card draws it: approved as written, or sent back with a note. */
 function DraftCard({
   draft,
   keep,
@@ -305,62 +316,31 @@ function DraftCard({
   sendBack: (note: string) => Promise<boolean>;
   dismiss: () => Promise<boolean>;
 }) {
-  const [noting, setNoting] = useState(false);
-  const [note, setNote] = useState("");
   return (
-    <Card className="pk-card" role="group" aria-label={draft.title}>
-      <CardHeader>
-        <CardTitle>{draft.title}</CardTitle>
-      </CardHeader>
-      <div className="pk-card__text">
-        <ProseRunner.Provider value={null}>
-          <ProseCommand.Provider value={null}>
-            <Prose text={draft.text} />
-          </ProseCommand.Provider>
-        </ProseRunner.Provider>
-      </div>
-      {noting ? (
-        <Textarea
-          keep={keep}
-          rows={3}
-          autoFocus
-          aria-label="Note"
-          placeholder="Note"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-        />
-      ) : null}
-      <CardFooter className="pk-card__acts">
-        {noting ? (
-          <>
-            <Button variant="ghost" onClick={() => (setNote(""), setNoting(false))}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              disabled={note.trim() === ""}
-              onClick={() => void sendBack(note.trim()).then((went) => went && setNote(""))}
-            >
-              Send back
-            </Button>
-          </>
-        ) : (
-          <>
-            {draft.proposed === true ? (
-              <Button variant="ghost" onClick={() => void dismiss()}>
-                Dismiss
-              </Button>
-            ) : null}
-            <Button variant="secondary" onClick={() => setNoting(true)}>
-              Send back
-            </Button>
-            <Button variant="primary" onClick={() => void approve()}>
-              Approve
-            </Button>
-          </>
-        )}
-      </CardFooter>
-    </Card>
+    <BandCard
+      as="div"
+      facts={{
+        form: "draft",
+        title: draft.title,
+        stand: "asking",
+      }}
+      keep={keep}
+      well={
+        <Well>
+          <DraftText text={draft.text} />
+        </Well>
+      }
+      acts={{
+        approve: () => void approve(),
+        ask: (note) => void sendBack(note),
+        ...(draft.proposed === true
+          ? {
+              dismiss: () => void dismiss(),
+            }
+          : {}),
+      }}
+      asked
+    />
   );
 }
 
@@ -438,10 +418,27 @@ function useModels(machine: Machine): ModelsBody | undefined {
   return models;
 }
 
-/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, the model and effort, and End. An ended Job keeps Fork alone, and a waiting one, which runs nothing, End alone. */
-function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuEntry[] {
+/** The entry that opens the Job's artifacts, which a Job that showed none does not carry. */
+const ARTIFACTS_ENTRY = {
+  kind: "item",
+  id: "artifacts",
+  label: "Artifacts",
+  icon: Files,
+} as const;
+
+/** The header's ⋯ menu: Stop while a turn runs, Pause or Resume, Fork, Artifacts where the Job showed any, the model and effort, and End. An ended Job keeps Fork and Artifacts, and a waiting one, which runs nothing, End and Artifacts. */
+function menuOf(
+  session: Session,
+  models: ModelsBody | undefined,
+  showed: boolean,
+): DropdownMenuEntry[] {
   if (session.waits !== undefined)
     return [
+      ...(showed
+        ? [
+            ARTIFACTS_ENTRY,
+          ]
+        : []),
       {
         kind: "item",
         id: "end",
@@ -458,6 +455,11 @@ function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuE
         label: "Fork",
         icon: GitFork,
       },
+      ...(showed
+        ? [
+            ARTIFACTS_ENTRY,
+          ]
+        : []),
     ];
   const model = session.model ?? models?.session;
   const efforts = models?.offered?.find((one) => one.name === model)?.efforts ?? EFFORTS;
@@ -491,6 +493,11 @@ function menuOf(session: Session, models: ModelsBody | undefined): DropdownMenuE
       label: "Fork",
       icon: GitFork,
     },
+    ...(showed
+      ? [
+          ARTIFACTS_ENTRY,
+        ]
+      : []),
     ...(models === undefined || models.models.length === 0
       ? []
       : [
@@ -759,6 +766,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
     else if (entry === "resume") void run(() => acts.resume(job));
     else if (entry === "end") void run(() => acts.close(job));
     else if (entry === "fork") void run(async () => openJob((await acts.fork(job)).id));
+    else if (entry === "artifacts") go(artifactsPath(machine.origin, id));
     else if (entry.startsWith("model:") || entry.startsWith("effort:")) {
       const model = entry.startsWith("model:") ? entry.slice("model:".length) : session.model;
       const effort = entry.startsWith("effort:") ? entry.slice("effort:".length) : session.effort;
@@ -1003,7 +1011,7 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
             />
           }
           menu={{
-            entries: menuOf(session, models),
+            entries: menuOf(session, models, showed),
             onSelect: onMenu,
           }}
           back={<Back label="Home" onClick={home} />}
@@ -1076,6 +1084,34 @@ function Thread({ machine, id, several }: { machine: Machine; id: string; severa
                       reread,
                     )
                   }
+                  onWithdrawSketch={(sketch) =>
+                    void run(() =>
+                      acts.dismissWaiting({
+                        session_id: id,
+                        item_id: sketch,
+                      }),
+                    )
+                  }
+                  onWithdrawDocument={(page) =>
+                    void run(() =>
+                      acts.dismissWaiting({
+                        session_id: id,
+                        item_id: `document:${page}`,
+                      }),
+                    )
+                  }
+                  screenOf={(page, revision) => {
+                    const held = documentOf(session, page);
+                    return (
+                      <PageScreen
+                        machine={machine}
+                        id={id}
+                        path={held?.revisions[revision - 1]}
+                        title={held?.title ?? page}
+                        keptStyles={held?.keptStyles}
+                      />
+                    );
+                  }}
                   onOpenDocument={(page) => go(documentPath(machine.origin, id, page))}
                   onAnswerDocument={(page, answer) =>
                     void run(

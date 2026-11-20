@@ -46,3 +46,10 @@
     size = "16px"
     status = "Proposed"
     notes = "Proposed 14 Oct 2026 for the walks `onboarding-home` and `onboarding-work`. Every poll control is this glyph's. Turns while the poll runs, held still under reduced motion. Tooltip `Waiting for GitHub`. The same turn marks a set-up row in progress, tooltip `Setting up`, and a kind pulling on, tooltip `Pulling`."
+
+[[icons.rotate-cw.usage]]
+  means = "A kind of token waste: fresh starts and compactions, on its row of the Usage page"
+  group = "Usage"
+  size = "16px"
+  status = "Proposed"
+  notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Fresh starts and compactions`. Stands in a square of the sketch grey hue at 16%, drawn in that hue: a Job that started over. A start again is Redispatch, this glyph's own meaning."

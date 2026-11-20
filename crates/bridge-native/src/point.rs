@@ -10,14 +10,13 @@ use crate::labels::Drawn;
 pub const MOD: &str = "point-mod";
 pub const REPORT: &str = "point-report";
 
-/// The two acts, set apart by a rule. Report only where the annotation layer is, a development
-/// build, as Electron's `canReport`.
+/// The two acts, set apart by a rule. Report is in every build, as the annotation layer is.
 pub fn entries() -> Vec<Entry> {
-    let mut entries = vec![Entry::Rule, Entry::Act { id: MOD, label: "Mod".into(), icon: Some("puzzle"), danger: false }];
-    if crate::annotate::dev_build() {
-        entries.push(Entry::Act { id: REPORT, label: "Report".into(), icon: Some("flag"), danger: false });
-    }
-    entries
+    vec![
+        Entry::Rule,
+        Entry::Act { id: MOD, label: "Mod".into(), icon: Some("puzzle"), danger: false },
+        Entry::Act { id: REPORT, label: "Report".into(), icon: Some("flag"), danger: false },
+    ]
 }
 
 /// Run a point act on what was pressed at `at`.

@@ -11,7 +11,7 @@
 //! The rest of the layer is here: ⌥⌘S for a note on the whole window, the opened note's card with
 //! its acts, the All notes panel (`panel.rs`) and the card's tools and pictures (`tools.rs`).
 //!
-//! **Available only in a development build**, as Electron's is ([`dev_build`]).
+//! **Available in every build**, shipped or not: the owner chose it over Electron's development-build gate.
 
 pub mod live;
 mod panel;
@@ -20,7 +20,7 @@ pub mod tools;
 
 use std::cell::Cell;
 use std::collections::{BTreeSet, HashSet};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
@@ -65,40 +65,9 @@ pub fn forget_awake(cx: &mut App) {
 
 /// ⌥⌘A and ⌥⌘S. **Electron reads them by key place in the layer itself** (`Layer.tsx:75-91`); the
 /// registry does not list them, so they are restated here until it does. Bound with no context, so
-/// they work from any focus, and only in a development build. The screen that hosts the layer
-/// answers them (`dispatch::screen::bind`).
+/// they work from any focus. The screen that hosts the layer answers them (`dispatch::screen::bind`).
 pub fn bind(cx: &mut App) {
-    if dev_build() {
-        cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
-    }
-}
-
-/// Whether this is a development build: not packaged, or a kept build run from a source folder.
-///
-/// Electron's gate is `!app.isPackaged || process.defaultApp` (`M/dev-build.ts`): the dev copy of the
-/// app is a bundle in name, so a bundle started with a source folder still counts. The native
-/// reading of the same: the executable is **packaged** when it lives inside a `.app` bundle's
-/// `Contents/MacOS`; a development build is any executable that is not (cargo's `target`), a bundle
-/// kept as a build (`scripts/preview` and `scripts/restart` put a `build.toml` beside the `.app`, as
-/// Electron's preview is started with its folder), **or** a bundle started with its working
-/// directory inside a source folder, one that has a `.git` above it. Launched from the Dock the
-/// working directory is `/` and no record stands beside it, so a shipped app is never one.
-pub fn dev_build() -> bool {
-    let exe = std::env::current_exe().ok();
-    let cwd = std::env::current_dir().ok();
-    is_dev_build(exe.as_deref(), cwd.as_deref(), &|dir: &Path| dir.join(".git").exists(), &|dir: &Path| dir.join("build.toml").exists())
-}
-
-pub fn is_dev_build(exe: Option<&Path>, cwd: Option<&Path>, has_git: &dyn Fn(&Path) -> bool, kept: &dyn Fn(&Path) -> bool) -> bool {
-    let bundle = exe.and_then(|exe| {
-        exe.ancestors().find(|at| {
-            at.extension().is_some_and(|ext| ext == "app") && exe.strip_prefix(at).is_ok_and(|inside| inside.starts_with("Contents/MacOS"))
-        })
-    });
-    match bundle {
-        None => true,
-        Some(bundle) => bundle.parent().is_some_and(kept) || cwd.is_some_and(|cwd| cwd.ancestors().any(has_git)),
-    }
+    cx.bind_keys([KeyBinding::new("alt-cmd-a", Toggle, None), KeyBinding::new("alt-cmd-s", Shoot, None)]);
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -1334,10 +1303,6 @@ impl Layer {
 mod tests {
     use super::*;
 
-    fn none(_: &Path) -> bool {
-        false
-    }
-
     fn jobs() -> Vec<Offered> {
         vec![Offered { id: "s-1".into(), title: "Fix the merge line".into() }, Offered { id: "s-2".into(), title: "Audit the docs index".into() }]
     }
@@ -1368,19 +1333,6 @@ mod tests {
         let entries = picker_entries(false, &jobs());
         assert_eq!(labels(&entries), vec![("Fix the merge line".into(), Some("⌥1".into())), ("Audit the docs index".into(), Some("⌥2".into()))]);
         assert!(!entries.iter().any(|entry| matches!(entry, Entry::Item { id: "operator", .. })));
-    }
-
-    #[test]
-    fn a_kept_preview_bundle_is_a_dev_build_and_a_shipped_one_is_not() {
-        let preview = Path::new("/Users/me/Library/Application Support/Armada/builds/current/Armada.app/Contents/MacOS/Armada");
-        let stamp = Path::new("/Users/me/Library/Application Support/Armada/builds/2026-11-12T132938Z-da8d647");
-        let kept = |dir: &Path| dir.ends_with("builds/current");
-        assert!(is_dev_build(Some(preview), Some(stamp), &none, &kept));
-        let shipped = Path::new("/Applications/Armada.app/Contents/MacOS/Armada");
-        assert!(!is_dev_build(Some(shipped), Some(Path::new("/")), &none, &none));
-        let started_in_source = |dir: &Path| dir == Path::new("/src/armada");
-        assert!(is_dev_build(Some(shipped), Some(Path::new("/src/armada/crates")), &started_in_source, &none));
-        assert!(is_dev_build(Some(Path::new("/src/armada/target/debug/bridge-native")), Some(Path::new("/")), &none, &none));
     }
 
     #[test]
