@@ -493,6 +493,8 @@ Rules:
   One Job at a time is prioritised, from its row's menu in Bridge (`prioritise_session`), and a second press clears it.
 - **Fleet looks every five seconds**, so a compiler a held build starts is held within that.
 - **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops. A Fleet that ended without letting go continues every stopped compiler of a Job at its first look.
+- **A Job is told when its builds are paused and when they run again** (`builds_held`), so its agent waits on a build that went quiet rather than starting it again.
+  The owner's choice of 20 Nov 2026, on hearing that an agent would otherwise not know.
 
 What it costs:
 

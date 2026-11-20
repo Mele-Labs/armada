@@ -1503,6 +1503,7 @@ export class WiredStore {
       startAgain: (id) => void this.plain(this.api.startAgain(id)),
       pause: (id) => this.took(this.api.pauseSession(id)),
       resume: (id) => this.took(this.api.resumeSession(id)),
+      prioritise: (id) => this.took(this.api.prioritiseSession(id)),
       autoLand: (id, on) => this.landing(id, on),
       releaseHolds: (id, to, rows) => this.releasing(id, to, rows),
       rename: (id, title) =>

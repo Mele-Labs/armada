@@ -1165,6 +1165,8 @@ const api: BridgeApi = {
     ipcRenderer.invoke(CHANNELS.viewSession, sessionId, on),
   pauseSession: (sessionId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.pauseSession, sessionId),
+  prioritiseSession: (sessionId: string): Promise<SessionActed> =>
+    ipcRenderer.invoke(CHANNELS.prioritiseSession, sessionId),
   resumeSession: (sessionId: string): Promise<SessionActed> =>
     ipcRenderer.invoke(CHANNELS.resumeSession, sessionId),
   setSessionAutoLand: (sessionId: string, on: boolean): Promise<SessionActed> =>

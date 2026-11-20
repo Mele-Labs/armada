@@ -213,3 +213,26 @@ fn a_job_that_stops_building_gives_its_turn_up_at_once() {
     turns.look(true, &jobs, &without_a, |_| false, |_, _| false, start + Duration::from_secs(1), TURN);
     assert_eq!(turns.leader(), Some("b"));
 }
+
+#[test]
+fn each_job_held_is_named_while_held_so_it_is_told_both_ways() {
+    let both = "\
+  10     1 S    /usr/bin/claude
+  11    10 R    /bin/cargo
+  20     1 S    /usr/bin/claude
+  21    20 R    /bin/cargo
+";
+    let jobs = [
+        Contender { job: "a".into(), roots: vec![10], prioritised: false },
+        Contender { job: "b".into(), roots: vec![20], prioritised: false },
+    ];
+    let mut turns = Turns::default();
+    let start = Instant::now();
+    turns.look(true, &jobs, both, |_| false, |_, _| false, start, TURN);
+    assert_eq!(turns.jobs_held(), ["b".to_string()].into(), "b is held, so it is told it is paused");
+    let b_stopped = both.replace(" 21    20 R", " 21    20 T");
+    turns.look(true, &jobs, &b_stopped, |_| false, |_, _| false, start + TURN + Duration::from_secs(1), TURN);
+    assert_eq!(turns.jobs_held(), ["a".to_string()].into(), "the turn passed: a is told it waits, b that it runs");
+    turns.look(false, &jobs, both, |_| false, |_, _| false, start + TURN * 2, TURN);
+    assert!(turns.jobs_held().is_empty(), "under the limit every Job is told its builds run");
+}

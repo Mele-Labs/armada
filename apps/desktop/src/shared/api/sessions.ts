@@ -260,6 +260,8 @@ export type SessionsApi = {
   viewSession: (sessionId: string, on: boolean) => Promise<SessionActed>;
   /** Stops the turn, commits the work to the Session's branch and gives its slot back. The row stays, marked paused. */
   pauseSession: (sessionId: string) => Promise<SessionActed>;
+  /** Makes the Job the one priority, or clears it where it holds it. Fleet moves the mark off any other Job. */
+  prioritiseSession: (sessionId: string) => Promise<SessionActed>;
   /** Auto land on or off for a hosted Session. Fleet keeps the flag first, so a forge's refusal leaves it set and comes back as a refusal. */
   setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
   /** Takes a slot again at the branch tip, or waits for one. A message to a paused Session does the same. */
@@ -547,6 +549,7 @@ export const SESSIONS_CHANNELS = {
   startAgain: "bridge:start-again",
   viewSession: "bridge:view-session",
   pauseSession: "bridge:pause-session",
+  prioritiseSession: "bridge:prioritise-session",
   resumeSession: "bridge:resume-session",
   setSessionAutoLand: "bridge:set-session-auto-land",
   setSessionWorkflow: "bridge:set-session-workflow",

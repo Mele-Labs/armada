@@ -13,8 +13,11 @@
 //! **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that
 //! are building, oldest first, [`TURN`] each. A Job with no compiler running gives its turn up at
 //! once. Under the limit, or with one Job building, everything held runs again.
+//!
+//! **A Job is told both ways** ([`Turns::jobs_held`]), so its agent waits on a quiet build
+//! rather than starting it again: the owner's choice of 20 Nov 2026.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::time::{Duration, Instant};
 
 /// How long a Job's builds run before the next building Job's do, while none is prioritised.
@@ -79,13 +82,19 @@ fn rows(listing: &str) -> Vec<Row> {
 #[derive(Debug, Default)]
 pub(crate) struct Turns {
     leader: Option<(String, Instant)>,
-    held: BTreeSet<u32>,
+    /// Each compiler this Fleet stopped, and the Job it is of.
+    held: BTreeMap<u32, String>,
 }
 
 impl Turns {
     /// The Job whose builds run, while any are held.
     pub(crate) fn leader(&self) -> Option<&str> {
         self.leader.as_ref().map(|(job, _)| job.as_str())
+    }
+
+    /// The Jobs whose builds are held now: told when they join this, and again when they leave it.
+    pub(crate) fn jobs_held(&self) -> BTreeSet<String> {
+        self.held.values().cloned().collect()
     }
 
     /// What each Job's compilers in `listing` should be sent, the load `loaded` or not.
@@ -125,7 +134,7 @@ impl Turns {
         self.leader = if loaded && building.len() > 1 { self.next(contenders, &building, now, turn) } else { None };
         let leader = self.leader().map(str::to_string);
         let alive: BTreeSet<u32> = compilers.iter().map(|(row, _)| row.pid).collect();
-        self.held.retain(|pid| alive.contains(pid));
+        self.held.retain(|pid, _| alive.contains(pid));
 
         let mut said = Vec::new();
         for (row, job) in compilers {
@@ -136,7 +145,7 @@ impl Turns {
                     said.push(Signal::Continue(row.pid));
                 }
             } else {
-                self.held.insert(row.pid);
+                self.held.insert(row.pid, job.to_string());
                 if !row.stopped {
                     said.push(Signal::Stop(row.pid));
                 }
@@ -148,7 +157,7 @@ impl Turns {
     /// Every process this Fleet holds, given up: what a Fleet that stops sends `SIGCONT`.
     pub(crate) fn released(&mut self) -> Vec<Signal> {
         self.leader = None;
-        std::mem::take(&mut self.held).into_iter().map(Signal::Continue).collect()
+        std::mem::take(&mut self.held).into_keys().map(Signal::Continue).collect()
     }
 
     /// Who leads now: the prioritised Job while it builds; else the leader until its turn is

@@ -1546,6 +1546,13 @@ export class SessionsHost {
     });
   }
 
+  /** Makes the Job the person's one priority, or clears it. Answers the record. */
+  async prioritise(sessionId: string): Promise<SessionActed> {
+    return await this.act("POST", "/sessions/prioritise", {
+      session_id: sessionId,
+    });
+  }
+
   /** Auto land on or off. Fleet answers the record once the flag is kept and asks the forge after; a pull request the forge refuses reaches the Job as an `auto_land_refused` notice. */
   async setAutoLand(sessionId: string, on: boolean): Promise<SessionActed> {
     return await this.act("POST", "/sessions/auto_land", {

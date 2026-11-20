@@ -137,7 +137,7 @@ export const viewEntries = (view: RowView): DropdownMenuEntry[] => [
 
 /** Each place in the card's corner, its width in px and its order. The other fields are on the card's lines. The places are the same for every row, so none shifts. */
 const COLUMNS: readonly {
-  field: "conflicts" | "status" | "tools" | "reported";
+  field: "conflicts" | "status" | "tools" | "reported" | "prioritised";
   width: number;
 }[] = [
   {
@@ -153,6 +153,10 @@ const COLUMNS: readonly {
     width: 16,
   },
   {
+    field: "prioritised",
+    width: 16,
+  },
+  {
     field: "status",
     width: 36,
   },
@@ -165,7 +169,13 @@ const DEFAULT_TAKES = 16 + 36 + GAP * 2;
 const TITLE_GIVES = 96;
 
 /** The tools column is not a View field: it is kept while a row in the list has the mark, as the conflicts column is for the earlier-Job mark. */
-const columnsOn = (view: RowView, earlier: boolean, tools: boolean, reported: boolean) =>
+const columnsOn = (
+  view: RowView,
+  earlier: boolean,
+  tools: boolean,
+  reported: boolean,
+  prioritised: boolean,
+) =>
   COLUMNS.filter(({ field }) =>
     field === "conflicts"
       ? view.conflicts || earlier
@@ -173,7 +183,9 @@ const columnsOn = (view: RowView, earlier: boolean, tools: boolean, reported: bo
         ? tools
         : field === "reported"
           ? reported
-          : view[field],
+          : field === "prioritised"
+            ? prioritised
+            : view[field],
   );
 
 /**
@@ -185,18 +197,23 @@ export function columnsOf(
   earlier: boolean,
   tools = false,
   reported = false,
+  prioritised = false,
 ): {
   clashRight: string;
   toolsRight: string;
   reportedRight: string;
+  prioritisedRight: string;
 } {
-  const on = columnsOn(view, earlier, tools, reported);
+  const on = columnsOn(view, earlier, tools, reported, prioritised);
   const after = on.slice(on.findIndex(({ field }) => field === "conflicts") + 1);
   // The tools mark is a button, so it too is drawn over the row, in its column's place.
   const afterTools = on.slice(on.findIndex(({ field }) => field === "tools") + 1);
   // The reported-a-bug mark is a button too, drawn over its column the same way.
   const afterReported = on.slice(on.findIndex(({ field }) => field === "reported") + 1);
+  // The priority mark is drawn over its column too, so each row's mark sits in the same place.
+  const afterPrioritised = on.slice(on.findIndex(({ field }) => field === "prioritised") + 1);
   return {
+    prioritisedRight: `calc(var(--space-3)${afterPrioritised.map(({ width }) => ` + ${width}px + ${GAP}px`).join("")})`,
     reportedRight: `calc(var(--space-3)${afterReported.map(({ width }) => ` + ${width}px + ${GAP}px`).join("")})`,
     toolsRight: `calc(var(--space-3)${afterTools.map(({ width }) => ` + ${width}px + ${GAP}px`).join("")})`,
     clashRight: `calc(var(--space-3)${after.map(({ width }) => ` + ${width}px + ${GAP}px`).join("")})`,
@@ -205,7 +222,7 @@ export function columnsOf(
 
 /** How much wider than its resting width the list is drawn for the fields that are on, in px, so the title keeps most of what it had. A column the person dragged is theirs and is left as dragged. */
 export function restBonus(view: RowView, earlier: boolean, tools = false): number {
-  const on = columnsOn(view, earlier, tools, false);
+  const on = columnsOn(view, earlier, tools, false, false);
   const takes = on.reduce((sum, { width }) => sum + width + GAP, 0);
   return Math.max(0, takes - DEFAULT_TAKES - TITLE_GIVES);
 }
@@ -239,6 +256,7 @@ export function rowParts({
   earlier,
   tools,
   reported,
+  prioritised,
   one,
   session,
   hit,
@@ -248,6 +266,7 @@ export function rowParts({
   earlier: boolean;
   tools: boolean;
   reported: boolean;
+  prioritised: boolean;
   one: Subject;
   session: Session | undefined;
   hit:
@@ -286,13 +305,14 @@ export function rowParts({
   const shownFlow = view.workflow && flow !== undefined;
   return {
     // The clash, tools, reported and earlier marks are buttons, drawn over their empty places from `Deck.tsx`.
-    ...(view.conflicts || earlier || tools || reported || view.status
+    ...(view.conflicts || earlier || tools || reported || prioritised || view.status
       ? {
           marks: (
             <>
               {view.conflicts || earlier ? <ListCardMark /> : null}
               {tools ? <ListCardMark /> : null}
               {reported ? <ListCardMark /> : null}
+              {prioritised ? <ListCardMark /> : null}
               {view.status ? <ListCardMark wide>{status}</ListCardMark> : null}
             </>
           ),

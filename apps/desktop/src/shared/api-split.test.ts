@@ -627,6 +627,7 @@ type OldBridgeApi = {
   startAgain: (sessionId: string) => Promise<SessionActed>;
   viewSession: (sessionId: string, on: boolean) => Promise<SessionActed>;
   pauseSession: (sessionId: string) => Promise<SessionActed>;
+  prioritiseSession: (sessionId: string) => Promise<SessionActed>;
   resumeSession: (sessionId: string) => Promise<SessionActed>;
   setSessionAutoLand: (sessionId: string, on: boolean) => Promise<SessionActed>;
   setSessionWorkflow: (sessionId: string, workflow?: string) => Promise<SessionActed>;
@@ -1077,6 +1078,7 @@ const OLD_CHANNELS = {
   startAgain: "bridge:start-again",
   viewSession: "bridge:view-session",
   pauseSession: "bridge:pause-session",
+  prioritiseSession: "bridge:prioritise-session",
   resumeSession: "bridge:resume-session",
   setSessionAutoLand: "bridge:set-session-auto-land",
   setSessionWorkflow: "bridge:set-session-workflow",

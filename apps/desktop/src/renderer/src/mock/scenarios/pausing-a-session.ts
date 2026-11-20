@@ -16,6 +16,7 @@ const ROOT = repository().root;
 const RUNNING: Session = {
   id: "7c3d9a10-2b45-4e6f-8a91-0d1e2f3a4b5c",
   title: "Pin the store clock",
+  prioritised: true,
   manifestId: OWNER,
   cwd: ROOT,
   turn: {
@@ -194,6 +195,20 @@ function build(): Scenario {
           send: (id, sent) => {
             store.send(id, sent);
             if (id === ASKING.id) store.edit(id, ({ waitingFor: _, ...one }) => one);
+          },
+          // Fleet keeps one prioritised Job: the mark moves to the pressed Job, or goes where it already was.
+          prioritise: async (id) => {
+            const held = store.get().find((one) => one.id === id)?.prioritised === true;
+            for (const one of store.get()) {
+              if (one.prioritised === true)
+                store.edit(one.id, ({ prioritised: _, ...rest }) => rest);
+            }
+            if (!held)
+              store.edit(id, (one) => ({
+                ...one,
+                prioritised: true,
+              }));
+            return true;
           },
           resume: async (id) => {
             // Resume starts no turn: the Job that was waiting on him is waiting again, and the one that was working works.

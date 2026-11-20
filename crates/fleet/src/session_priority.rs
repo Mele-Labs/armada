@@ -54,8 +54,6 @@ where
 
     /// The live prioritised Job's id. **None** when none is, when it has ended, or when the store
     /// will not answer.
-    // Read by the pause of other Jobs' builds on a loaded machine, which lands on its own.
-    #[cfg_attr(not(test), allow(dead_code))]
     pub(crate) async fn prioritised_session_id(&self) -> Option<String> {
         let store = self.store().lock().await;
         let id = store.prioritised_session().ok().flatten()?;

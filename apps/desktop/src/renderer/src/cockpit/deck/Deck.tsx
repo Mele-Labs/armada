@@ -99,6 +99,7 @@ import { CallPane, SessionPane, ShellPanel } from "./panes";
 import { inOrder, useReplayDriver, useReplayKeys, windowOf } from "./replay";
 import { RowMenu, type RowMenuAt } from "./RowMenu";
 import { ToolsMarkOf } from "../../tools-fixes";
+import { PrioritisedMark } from "./PrioritisedMark";
 import { ReportedMark } from "../../issues-tab/marks";
 import { reportOfJob } from "../../issues-tab/reports";
 import { useIssues, useIssuesStore } from "../../issues-tab/store";
@@ -447,7 +448,9 @@ function List({
   const reported = subjects.some(
     (one) => one.kind === "session" && reportedOf(one.id) !== undefined,
   );
-  const columns = columnsOf(view, earlier, tooled, reported);
+  // The priority mark has a column of its own, kept for every row while one Job holds it.
+  const prioritised = sessions.some((one) => one.prioritised === true);
+  const columns = columnsOf(view, earlier, tooled, reported, prioritised);
   const row = (one: Subject) => {
     const band = movable.has(one.key) ? bandOf(subjects, banding, one.key) : undefined;
     // What a search matched in the Session, in place of its age.
@@ -623,6 +626,7 @@ function List({
               earlier,
               tools: tooled,
               reported,
+              prioritised,
               one,
               session: sessions.find((each) => each.id === one.id),
               hit,
@@ -648,6 +652,11 @@ function List({
             </span>
           );
         })()}
+        {sessionOf?.prioritised !== true ? null : (
+          <span className="deck-row__prioritised">
+            <PrioritisedMark />
+          </span>
+        )}
         {one.kind === "pr" || !view.conflicts ? null : (
           <span className="deck-row__clash">
             <ClashMark kind={one.kind} id={one.id} />
@@ -709,6 +718,7 @@ function List({
             "--deck-clash-right": columns.clashRight,
             "--deck-tools-right": columns.toolsRight,
             "--deck-reported-right": columns.reportedRight,
+            "--deck-prioritised-right": columns.prioritisedRight,
           } as CSSProperties
         }
       >
