@@ -125,7 +125,7 @@ pub(super) use super::zoomer::fitted;
 
 /// What a mock thread's pictures read as, with no Fleet to ask: a window with a sidebar and a few rows, in
 /// the shape its name says (`Wide`, `Tall`), else 960 by 600.
-pub(super) fn mock_picture(name: &str) -> Option<Vec<u8>> {
+pub(crate) fn mock_picture(name: &str) -> Option<Vec<u8>> {
     use resvg::{tiny_skia, usvg};
     let (w, h) = if name.starts_with("Wide") { (1600u32, 400u32) } else if name.starts_with("Tall") { (480, 1440) } else { (960, 600) };
     let (wf, hf) = (w as f32, h as f32);
