@@ -37,6 +37,11 @@ where
     pub fn timeline(&self) -> &crate::timeline::Timeline {
         &self.timeline
     }
+    /// Which Job's builds run on a loaded machine. [`crate::build_turns`].
+    pub(crate) fn build_turns(&self) -> &std::sync::Mutex<crate::build_turns::Turns> {
+        &self.build_turns
+    }
+
     /// What wakes the worker that does what a Job's rules planned.
     pub(crate) fn rule_acts(&self) -> &crate::lifecycles::acting::Owed {
         &self.rule_acts

@@ -521,6 +521,8 @@ pub async fn serve(repository: Option<PathBuf>) -> Result<(), Box<dyn Error>> {
     fleet_for_shutdown.released_checkout_ports().await;
     // A native walk is a window on this Fleet's port, so it does not outlive it, unlike a server.
     fleet_for_shutdown.native_walks_stopped();
+    // A build held for its turn is stopped, and nothing but a Fleet continues it.
+    fleet_for_shutdown.builds_released();
     // Fleet's own listener port, given back beside the main checkout's span
     // and at the same moment. A release that does not happen — a crash — is
     // not a port lost: the next start reads the row and takes the port up

@@ -84,6 +84,8 @@ mod build_notices;
 /// The build Fleet runs on and the detached restart onto another. `scripts/restart-build`.
 mod build_start;
 mod building;
+/// On a loaded machine, one Job's builds run and the others wait stopped, in turns.
+mod build_turns;
 /// Every build Fleet has run, kept for the Usage page.
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.

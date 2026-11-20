@@ -71,6 +71,7 @@ where
         let mut pages_read = tokio::time::Instant::now();
         let mut stops_swept: Option<tokio::time::Instant> = None;
         let mut alive = tokio::time::Instant::now();
+        let mut turns_looked = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
             if alive.elapsed() >= crate::session_host::stopping::BEAT {
@@ -102,6 +103,11 @@ where
             if slept.elapsed() >= crate::test_map_feed::EVERY {
                 slept = tokio::time::Instant::now();
                 fleet.test_map_slept_over();
+            }
+            // On a loaded machine one Job's builds run and the rest wait stopped, in turns.
+            if turns_looked.elapsed() >= crate::build_turns::EVERY {
+                turns_looked = tokio::time::Instant::now();
+                fleet.builds_taken_in_turns().await;
             }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
