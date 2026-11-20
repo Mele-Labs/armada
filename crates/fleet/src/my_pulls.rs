@@ -60,7 +60,7 @@ where
 {
     /// Who the repository at `root`'s pull requests are mine by.
     pub(crate) async fn mine_in(&self, root: &str) -> Mine {
-        let (project, signing, at) = (self.project_login_of_root(root), self.signing_in().clone(), root.to_string());
+        let (project, signing, at) = (self.project_login_of_root(root).await, self.signing_in().clone(), root.to_string());
         let signed = tokio::task::spawn_blocking(move || signing.profile_for(&at, project).map(|bound| bound.login))
         .await
         .ok()
