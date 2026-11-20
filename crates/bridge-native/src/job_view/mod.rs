@@ -69,6 +69,7 @@ mod plan_sketches;
 mod pop;
 mod quick;
 mod ready_card;
+mod on_page;
 mod todo_strip;
 mod ready_compact;
 mod teach;
@@ -142,6 +143,9 @@ pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
 pub use review::{open_over, OperatorRead};
+pub use on_page::{ready_key_on_page, ready_on_page};
+#[cfg(test)]
+pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
 mod runs;

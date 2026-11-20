@@ -155,7 +155,7 @@ async fn an_act_off_the_list_is_named_when_the_page_is_kept_and_refused_at_the_p
     assert_eq!(refused.error().code, "fleet.page_act_refused");
     assert_eq!(
         refused.error().message,
-        "a page runs start, answer and message only. Anything that lands, merges, deletes or stops goes to the Job as a message"
+        "a page runs start, answer, message and close only. Anything that lands, merges, deletes or stops goes to the Job as a message"
     );
     assert!(presses(&rig, &id, &path).await.is_empty());
 }

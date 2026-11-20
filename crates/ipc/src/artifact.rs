@@ -111,6 +111,8 @@ pub enum PageAct {
     Message,
     Start,
     Answer,
+    /// Close the issues a page's button lists, in its repository's tracker. Only his press closes them.
+    Close,
 }
 
 impl PageAct {
@@ -120,6 +122,7 @@ impl PageAct {
             "message" => Some(PageAct::Message),
             "start" => Some(PageAct::Start),
             "answer" => Some(PageAct::Answer),
+            "close" => Some(PageAct::Close),
             _ => None,
         }
     }
@@ -129,6 +132,7 @@ impl PageAct {
             PageAct::Message => "message",
             PageAct::Start => "start",
             PageAct::Answer => "answer",
+            PageAct::Close => "close",
         }
     }
 }
@@ -143,6 +147,8 @@ pub enum PressDid {
     Started { job: SessionId },
     /// The Job's ask, by its waiting id, was answered with the action's option.
     Answered { item: String },
+    /// The issues the button listed that the tracker closed, in its order. One it refused is told to the Job.
+    Closed { issues: Vec<String> },
 }
 
 /// `cast_page_vote`: his vote on an `<armada-vote>` a page declares. `crates/ipc/operations/cast_page_vote.toml`.

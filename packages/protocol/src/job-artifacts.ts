@@ -273,12 +273,12 @@ export type VoteCast = {
 };
 
 /** The acts a page may run. Fleet keeps the list and refuses anything off it. */
-export type PageAct = "message" | "start" | "answer";
+export type PageAct = "message" | "start" | "answer" | "close";
 
 /**
  * `POST /sessions/artifacts/press`: his press of an `<armada-action>` on a page, read off the kept revision he
  * pressed. Answered with the `PagePress`. 422 `fleet.page_action_unknown`, `fleet.page_act_refused`,
- * `fleet.page_ask_not_open`, `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
+ * `fleet.page_ask_not_open`, `fleet.page_close_refused`, `fleet.page_archived`, `fleet.artifact_not_held` and `fleet.session_unnamed`.
  */
 export type PressPageAction = {
   session_id: string;
@@ -291,7 +291,7 @@ export type PressPageAction = {
   words?: string;
 };
 
-/** What a press did: the Job sent it, a Job started, or the Job's ask was answered. */
+/** What a press did: the Job sent it, a Job started, the Job's ask was answered, or issues were closed. */
 export type PressDid =
   | {
       kind: "sent";
@@ -303,6 +303,11 @@ export type PressDid =
   | {
       kind: "answered";
       item: string;
+    }
+  | {
+      kind: "closed";
+      /** The issues the tracker closed, in the button's order. */
+      issues: string[];
     };
 
 /** One press of a page's action, as Fleet kept it. */

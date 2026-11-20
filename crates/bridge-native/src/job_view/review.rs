@@ -302,6 +302,7 @@ pub fn open_over(window: &mut Window, cx: &mut gpui::App, item: ItemRef, operato
 }
 
 pub(super) fn offer_open_over(cx: &mut Context<JobView>) {
+    super::on_page::offer(cx);
     let view = cx.entity().downgrade();
     cx.set_global(OpenOver(Rc::new(move |item, read, window, cx| {
         let _ = view.update(cx, |this, cx| this.open_review_for(item, read, window, cx));
@@ -526,6 +527,11 @@ impl JobView {
         self.review().is_some_and(|review| review.open)
     }
 
+    /// Whether the Review panel is up, for a screen that draws this view under its own to host it.
+    pub(crate) fn review_up(&self) -> bool {
+        self.review_open()
+    }
+
     /// The card whose open box holds the keys, by the key its ⌘↵ is kept under.
     fn focused_card_box(&self, window: &Window, cx: &gpui::App) -> Option<String> {
         let page = self.shown.as_ref().and_then(|id| self.pages.get(id))?;
@@ -563,9 +569,13 @@ impl JobView {
 
     /// Every Job's items for the sheet, grouped, the Job `first` heading them.
     fn review_groups(&self, first: &str, opened: Option<&str>, scope: &Scope, cx: &gpui::App) -> Vec<Group> {
-        let records = self.list.read(cx).records();
-        let groups = records
+        let list = self.list.read(cx);
+        // The Operator is no Job, but the pages it keeps for him are read here as a Job's are.
+        let operator = list.operator_record().map(|record| record.id.as_str());
+        let groups = list
+            .records()
             .iter()
+            .chain(list.operator_record())
             .filter(|record| match scope {
                 Scope::Job(job) => record.id.as_str() == job,
                 Scope::All => true,
@@ -573,6 +583,10 @@ impl JobView {
             .map(|record| {
                 let job = record.id.as_str();
                 let mut items = self.review_items(job, cx);
+                if operator == Some(job) {
+                    items.retain(|item| page_of_item(&item.id).is_some());
+                    return Group { job: job.to_string(), title: "Operator".into(), state: None, items };
+                }
                 // The shown Job's artifacts of parts that still ask stand with what else waits on him, and the one he opened.
                 if job == first {
                     items.extend(self.artifact_items(job, opened));
@@ -630,11 +644,11 @@ impl JobView {
     /// the sheet draws, so each is read, and its group comes in when it lands.
     fn review_read_threads(&mut self, cx: &mut Context<Self>) {
         let Some(fleet) = self.fleet.clone() else { return };
-        let wanted: Vec<String> = self
-            .list
-            .read(cx)
+        let list = self.list.read(cx);
+        let wanted: Vec<String> = list
             .records()
             .iter()
+            .chain(list.operator_record())
             .filter(|record| record.waiting_for.iter().any(|one| reviewable(one.source)))
             .map(|record| record.id.as_str().to_string())
             .filter(|id| self.thread(id, cx).is_none())
@@ -713,8 +727,11 @@ impl JobView {
         let job = SharedString::from(item.session_id.as_str().to_string());
         // Where the keys were is kept before the Job changes, so Esc gives them back to the card the press came from.
         self.review_from = window.focused(cx);
+        // The Job comes on screen now, not when the list's change is heard, so the panel opens on it; and as no pick, so its box
+        // does not take the keys from the screen the press came from.
         if self.shown.as_ref() != Some(&job) {
-            self.open_job(job.to_string(), cx);
+            self.list.update(cx, |list, cx| list.open_quietly(Some(job.clone()), cx));
+            self.followed(window, cx);
         }
         let key = key_of(&job, &item.item);
         self.operator_reads.clear();
@@ -1668,7 +1685,7 @@ impl JobView {
                     .min_w_0()
                     .flex()
                     .flex_col()
-                    .gap(px(2.))
+                    .gap(look.length(token::SPACE_1) / 2.)
                     .child(
                         div()
                             .text_size(look.length(token::TEXT_SM))
@@ -2051,7 +2068,7 @@ impl JobView {
                 let press = key.clone();
                 let radio = div()
                     .flex_none()
-                    .mt(px(2.))
+                    .mt(look.length(token::SPACE_1) / 2.)
                     .flex()
                     .items_center()
                     .justify_center()
@@ -2083,7 +2100,7 @@ impl JobView {
                                 .min_w_0()
                                 .flex()
                                 .flex_col()
-                                .gap(px(2.))
+                                .gap(look.length(token::SPACE_1) / 2.)
                                 .child(
                                     div()
                                         .text_size(look.length(token::TEXT_SM))

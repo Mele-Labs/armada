@@ -45,6 +45,14 @@ pub struct KeptTurn {
     pub undone_at: Option<String>,
     /// `ipc::OperatorCard`, as JSON, on a card the Operator's own session raised. Since 14 Nov 2026.
     pub card: Option<String>,
+    /// The option he pressed on a card, while it is worked on or after it came back. Since 14 Nov 2026.
+    pub picked: Option<String>,
+    pub picked_at: Option<String>,
+    /// What the Operator reported doing on a picked card, a JSON array of `{at, said}`. Since 14 Nov 2026.
+    pub steps: Option<String>,
+    /// Why a picked card came back to the front, and when. Since 14 Nov 2026.
+    pub returned_why: Option<String>,
+    pub returned_at: Option<String>,
 }
 
 /// What the page remembers between two looks.
@@ -59,7 +67,7 @@ pub struct KeptPage {
     pub top_at: Option<String>,
 }
 
-const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at, card";
+const COLUMNS: &str = "n, session, item, manifest_id, job, go_ahead, body, read_text, pick, then_pick, ord, raised_at, later_until, answer, settled_at, left_at, call, follows, undone_at, card, picked, picked_at, steps, returned_why, returned_at";
 
 fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
     Ok(KeptTurn {
@@ -83,6 +91,11 @@ fn row_of(row: &rusqlite::Row<'_>) -> rusqlite::Result<KeptTurn> {
         follows: row.get(17)?,
         undone_at: row.get(18)?,
         card: row.get(19)?,
+        picked: row.get(20)?,
+        picked_at: row.get(21)?,
+        steps: row.get(22)?,
+        returned_why: row.get(23)?,
+        returned_at: row.get(24)?,
     })
 }
 
@@ -177,6 +190,47 @@ impl Store {
             .execute("UPDATE operator_turn SET body = ?2, read_text = ?3, pick = ?4 WHERE n = ?1 AND settled_at IS NULL", params![n, body, read_text, pick])
             .map(|changed| changed > 0)
             .map_err(failed("revising a card of the person's Your turn"))
+    }
+
+    /// Open card `n` picked with `option` at `at`: what came back before is cleared and so are the steps.
+    /// `false` where it is settled, not there, or picked and not come back.
+    pub fn pick_operator_turn(&mut self, n: i64, option: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE operator_turn SET picked = ?2, picked_at = ?3, answer = 'pressed:' || ?2, steps = NULL, returned_why = NULL, returned_at = NULL \
+                 WHERE n = ?1 AND settled_at IS NULL AND (picked_at IS NULL OR returned_at IS NOT NULL)",
+                params![n, option, at],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("keeping a pick on a card of the person's Your turn"))
+    }
+
+    /// One step `said` at `at` added to picked card `n`. `false` where it is not picked and open.
+    pub fn step_operator_turn(&mut self, n: i64, at: &str, said: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE operator_turn SET steps = json_insert(coalesce(steps, '[]'), '$[#]', json_object('at', ?2, 'said', ?3)) \
+                 WHERE n = ?1 AND settled_at IS NULL AND picked_at IS NOT NULL AND returned_at IS NULL",
+                params![n, at, said],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("keeping a step on a card of the person's Your turn"))
+    }
+
+    /// Picked card `n` back in front at `at`, for `why`. `false` where it is not picked and open.
+    pub fn return_operator_turn(&mut self, n: i64, why: &str, at: &str) -> Result<bool, WriteError> {
+        self.conn
+            .execute(
+                "UPDATE operator_turn SET returned_why = ?2, returned_at = ?3 WHERE n = ?1 AND settled_at IS NULL AND picked_at IS NOT NULL AND returned_at IS NULL",
+                params![n, why, at],
+            )
+            .map(|changed| changed > 0)
+            .map_err(failed("returning a card to the front of the person's Your turn"))
+    }
+
+    /// The open cards picked at or before `by` that have not come back.
+    pub fn operator_turn_picked_by(&self, by: &str) -> Result<Vec<KeptTurn>, WriteError> {
+        self.turn_read(&format!("SELECT {COLUMNS} FROM operator_turn WHERE settled_at IS NULL AND picked_at <= ?1 AND returned_at IS NULL ORDER BY picked_at, n"), params![by])
     }
 
     /// Open item `n` goes last until `until`.

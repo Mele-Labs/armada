@@ -119,6 +119,10 @@ where
         self.librarian_pressed(caller, run).await
     }
 
+    async fn stop_librarian(&self, caller: Option<api::Caller>, stop: ipc::StopLibrarian) -> Result<ipc::LibrarianStopping, Refusal> {
+        self.librarian_stop_pressed(caller, stop)
+    }
+
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         self.feature_changed(caller, change).await
     }

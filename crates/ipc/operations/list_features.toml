@@ -14,6 +14,8 @@ notes = """
 
 **`stale_since` is a pull request's number**: the oldest merge after a written section's commit that changed a file of the feature, over its sections. Absent where nothing is stale.
 
+**`librarian` is where the project's librarian stands**, `LibrarianState`: `last_run`, `read_through`, `merged_since`, `steps` (the steps a run would take now, each `id`, `title`, a one-line `detail` and `model` where it spends a model call) and `running`. `running` is the run going now, kept in Fleet's memory as it moves: its `run` and each step it has reached so far as `step`, `state` and `said`, the latest `librarian.step` told of it. Absent where no run is going, so a Bridge that reads mid-run redraws the steps and Stop. See `run_librarian`.
+
 The library lives on this Mac. Sharing it with teammates is not built.
 
 `agent_access` is `Yes`: a Job reads what exists before it files its work.

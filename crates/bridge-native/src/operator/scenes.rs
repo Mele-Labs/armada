@@ -35,6 +35,10 @@ pub struct MockFleet {
     pub parked: Vec<ipc::ParkedIdea>,
     /// Every dispatch it was asked for, for a test to read.
     pub dispatched: Vec<ipc::DispatchJob>,
+    /// The Operator's own session, as Fleet's held Jobs carry it: none is a session not started.
+    pub session: Option<ipc::SessionRecord>,
+    /// The page was emptied by a scene, so switching on again does not bring its cards back.
+    pub quiet: bool,
     /// How many dispatches it has taken, which numbers what it answers with.
     taken: u32,
 }
@@ -47,6 +51,26 @@ pub fn page() -> OperatorPage {
 pub fn parked() -> Vec<ipc::ParkedIdea> {
     ipc::decode::<ipc::ParkedIdeas>("ParkedIdeas", include_bytes!("../../fixtures/operator-parked.json")).expect("the parked ideas fixture decodes").ideas
 }
+
+/// The Operator's session record in one of the states the status card draws: `working`, `watching` or `stopped`.
+pub fn session(state: &str) -> ipc::SessionRecord {
+    let mut all = ipc::decode::<std::collections::BTreeMap<String, ipc::SessionRecord>>("the Operator's sessions", include_bytes!("../../fixtures/operator-session.json")).expect("the Operator session fixture decodes");
+    all.remove(state).unwrap_or_else(|| panic!("no Operator session in the state {state}"))
+}
+
+/// The Jobs' threads the page's walk opens: the Job view's own, a build to try at the foot of Native Bridge foundation's, and the
+/// Operator's session.
+pub fn page_threads() -> Result<std::collections::HashMap<String, JobThread>, String> {
+    let mut threads = crate::mock::threads("job-view")?;
+    let wire = r#"{"kind":"ready_to_try","id":"try:native/strip@5c1e9a2","at":"2026-11-11T14:24:00-05:00","offered_at":"2026-11-11T14:24:00-05:00","branch":"native/strip","tip":"5c1e9a2","about":"The places strip keeps its order after a restart","in_build":true,"state":"open","steps":[{"say":"Drag Kit before Jobs in the strip"},{"say":"Quit and open Bridge again"}]}"#;
+    let card = ipc::decode::<ipc::ThreadItem>("ready card", wire.as_bytes()).map_err(|why| why.to_string())?;
+    threads.get_mut(READY_JOB).ok_or("no thread for the Job with a build to try")?.items.push(card);
+    threads.insert(session("working").id.as_str().to_string(), thread());
+    Ok(threads)
+}
+
+/// The Job whose build to try comes in front.
+const READY_JOB: &str = "mock-02";
 
 /// The Operator session's thread before the walk's talk.
 pub fn thread() -> JobThread {
@@ -72,7 +96,8 @@ impl MockFleet {
     pub fn new() -> MockFleet {
         MockFleet {
             page: page(),
-            thread: thread(),
+            // The walk opens on the card: the talk starts with the walk's own words.
+            thread: JobThread { items: Vec::new(), ..thread() },
             fronted: 0,
             heard: Vec::new(),
             pressed: Vec::new(),
@@ -84,6 +109,8 @@ impl MockFleet {
             refuse_pairing: None,
             parked: parked(),
             dispatched: Vec::new(),
+            session: Some(session("working")),
+            quiet: false,
             taken: 0,
         }
     }
@@ -126,8 +153,12 @@ impl MockFleet {
                 None => answered.open = turn.item.act.clone().filter(|act: &WaitingAct| act.kind != ipc::WaitingActKind::Answer),
             }
         }
-        if answered.open.is_some() {
-            self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn);
+        // A press on a card picks it: it leaves the front for `working` until the Operator settles it.
+        let option = press.option.clone().or_else(|| super::face::pick_of(&turn).map(|pick| pick.to_string()));
+        match (answered.open.is_some(), option.and_then(|option| super::face::picked_card(&turn, &option, now().to_rfc3339().as_str()))) {
+            (false, Some(picked)) => self.page.working.insert(0, picked),
+            (true, _) => self.page.turn.insert(at.unwrap_or(0).min(self.page.turn.len()), turn),
+            (false, None) => {}
         }
         answered.page = self.page.clone();
         Ok(answered)
@@ -156,11 +187,22 @@ impl MockFleet {
         self.page.on = on;
         if !on {
             self.page.turn.clear();
+            self.page.working.clear();
             self.page.on_it = None;
             self.page.top = None;
-        } else if self.page.turn.is_empty() {
+            // Fleet ends the session when the switch goes off, and the next tick starts one once it is on.
+            self.session = None;
+        } else if self.page.turn.is_empty() && !self.quiet {
             self.page = page();
         }
+    }
+
+    /// The page empties and the Operator is in a turn: nothing needs him, so the status card stands in front.
+    pub fn quiet(&mut self) {
+        self.quiet = true;
+        self.page.turn.clear();
+        self.page.working.clear();
+        self.session = Some(session("working"));
     }
 
     /// What `set_operator_acts` does: the project's value is kept, or unset with none; every project's value is answered.
@@ -179,7 +221,7 @@ impl MockFleet {
     }
 
     /// The Operator answers the words it was sent last, in its thread, and where they were about a card raises one that
-    /// carries on from it: the walk's second card, with its own options.
+    /// carries on from it: the walk's second card, with its own options. Words about no card get an answer and no card.
     pub fn said(&mut self) -> Option<()> {
         let (words, about) = self.heard.pop()?;
         let n = self.thread.items.len();
@@ -188,7 +230,11 @@ impl MockFleet {
             None => words,
         };
         self.thread.items.push(row(&format!("op-{n:03}"), "2026-11-11T13:09:00-05:00", "you", &said));
-        self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files."));
+        let answer = match &about {
+            Some(_) => "Pocket's change is small. Holding it for 20 minutes costs less than the conflict. The other way is to move it into Jobs screens, which takes one Job off the files.",
+            None => "Pocket, Jobs screens and the desktop_unit fix are running. None of them waits on you.",
+        };
+        self.thread.items.push(row(&format!("op-{:03}", n + 1), "2026-11-11T13:09:20-05:00", "agent", answer));
         if let Some(about) = about {
             let wire = format!(
                 r#"{{"id":"turn:36","kind":"decision","manifest_id":"armada","repository":"armada","item":{{"id":"card:0024","text":"Hold Pocket for 20 minutes or move its change","since":"2026-11-11T13:09:30-05:00","source":"agent","act":{{"kind":"answer","target":"card:0024"}},"options":[{{"label":"Hold Pocket for 20 minutes","description":"Pocket waits"}},{{"label":"Move its change into Jobs screens","description":"Pocket ends"}}]}},"read":{{"read":"You asked about the two Jobs on paging.rs. Both ways avoid the conflict.","pick":"Hold Pocket for 20 minutes"}},"raised_at":"2026-11-11T13:09:30-05:00","card":{{"kind":"raise","talk_of":"{about}","sessions":["mock-05"]}}}}"#
@@ -198,6 +244,57 @@ impl MockFleet {
             }
         }
         Some(())
+    }
+
+    /// The Operator says more in its thread, with no card raised: what it found on the next tick.
+    pub fn replies(&mut self) {
+        let n = self.thread.items.len();
+        let words = [
+            "Pocket pushed at 13:31 and its checks are green. The other Job on paging.rs rebased onto it with no conflict.",
+            "Storefront's main is still red. The Job that fixes desktop_unit is in review, and its checks pass.",
+            "Nothing else waits on you. I will put a card in front of you when something does.",
+        ];
+        for (at, said) in words.into_iter().enumerate() {
+            self.thread.items.push(row(&format!("op-{:03}", n + at), "2026-11-11T13:40:00-05:00", "agent", said));
+        }
+    }
+
+    /// The Operator reports the oldest card it is working on failed: the card comes back first in the queue, with its
+    /// steps and why.
+    pub fn returns(&mut self) -> Option<()> {
+        let mut turn = self.page.working.pop()?;
+        if let Some(card) = turn.card.as_mut() {
+            card.returned = Some(ipc::OperatorCardReturned { why: "The retry Job stopped before it finished".into(), at: ipc::Instant::carried("2026-11-11T13:06:00-05:00") });
+        }
+        self.page.turn.insert(0, turn);
+        Some(())
+    }
+
+    /// A Job's plan comes in front at 14:22, and the Operator's session holds its backlog report for him to read.
+    pub fn plan_comes(&mut self) -> Option<String> {
+        let wire = br#"{"id":"turn:50","kind":"decision","session_id":"mock-01","job":"Fix the merge line freshness chip","manifest_id":"armada","repository":"armada","item":{"id":"plan:2","text":"Plan to approve","since":"2026-11-11T14:22:00-05:00","source":"plan"},"read":{"read":"It keeps the chip's colour in one place and tests it on a stale branch.","pick":"Approve"},"raised_at":"2026-11-11T14:22:00-05:00"}"#;
+        let turn = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()?;
+        let id = turn.id.clone();
+        self.page.turn.insert(0, turn);
+        self.session = Some(session("reported"));
+        Some(id)
+    }
+
+    /// A Job's build to try comes in front at 14:24.
+    pub fn build_comes(&mut self) -> Option<String> {
+        let wire = br#"{"id":"turn:51","kind":"decision","session_id":"mock-02","job":"Native Bridge foundation","manifest_id":"armada","repository":"armada","item":{"id":"try:mock-02","text":"Ready to try","since":"2026-11-11T14:24:00-05:00","source":"ready_to_try"},"raised_at":"2026-11-11T14:24:00-05:00"}"#;
+        let turn = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire).ok()?;
+        let id = turn.id.clone();
+        self.page.turn.insert(0, turn);
+        Some(id)
+    }
+
+    /// A card comes at 14:20 where nothing was in front.
+    pub fn comes(&mut self) {
+        let wire = br#"{"id":"turn:41","kind":"decision","manifest_id":"armada","repository":"armada","item":{"id":"card:0029","text":"Checkout's coupon fix has a walk for you","since":"2026-11-11T14:20:00-05:00","source":"agent","act":{"kind":"answer","target":"card:0029"},"options":[{"label":"Open the walk","description":"About 5 min"},{"label":"Approve without it","description":"Its checks are green"}]},"read":{"read":"The total shows once after a coupon, which is what the idea asked for.","pick":"Open the walk"},"raised_at":"2026-11-11T14:20:00-05:00","card":{"kind":"deal","sessions":["mock-05"]}}"#;
+        if let Ok(turn) = ipc::decode::<OperatorTurnItem>("OperatorTurnItem", wire) {
+            self.page.turn.push(turn);
+        }
     }
 
     /// A new card joins the queue at 14:02, at its end.

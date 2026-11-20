@@ -1,20 +1,25 @@
-//! The box pinned to the foot of the Operator's page: where he throws an idea, a feature or a bug at the
-//! Operator without opening a Job. A send is a dispatch (`dispatch_job`), unheld, which the Operator may start,
-//! fold into a live Job, ask about or keep as an idea; a toast says which when `operator.dispatched` arrives.
+//! The box pinned to the foot of the Operator's page: where he talks to the Operator, or throws an idea, a feature
+//! or a bug at it without opening a Job. A send with no kind chip picked is a talk to the Operator
+//! (`talk_to_operator`, `about` none), answered in the talk. A send with a chip picked is a dispatch (`dispatch_job`),
+//! unheld, which the Operator may start, fold into a live Job, ask about or keep as an idea; a toast says which when
+//! `operator.dispatched` arrives.
 //!
 //! **It is the Job's message box, not a copy of it.** The words, the chips in them, the tray of files, the list
 //! `@` and `#` open, Send and the paste are `job_view::composer` and `job_view::offer`, drawn here from this
 //! entity's state. What a Job's box has and this has not: its permission and model pickers, Talk, sketches and
 //! quick lines, which are a running Job's.
 //!
-//! **The kind chips are hints.** One picked rides as `kind`; none sends none. A chip never picks a workflow
-//! and never changes the route, and pressing the picked chip again unpicks it.
+//! **A kind chip makes the send work.** One picked turns the send into a dispatch with that `kind`; none leaves it a
+//! talk. A chip never picks a workflow, and pressing the picked chip again unpicks it.
 //!
-//! **The words are kept** under [`KEEP`], chips and all, so leaving the page does not lose them. They go when
+//! **The words are kept** under [`KEEP`], chips and all, so leaving the page, a crash or a restart does not lose them
+//! (`drafts.rs` writes them to the app's file, as the Jobs' box is). With a card tagged they are kept under that card
+//! instead (`operator:compose:<card id>`), and Discuss on it again brings them back into an empty box. They go when
 //! Fleet answers the send, and stay where it refuses.
 //!
 //! **Discuss puts a tag in the box**, naming the card he is talking about. A send with the tag is a talk about that
-//! card (`talk_to_operator`, `about` the card's id) and not a dispatch; dropping the tag makes it a dispatch again.
+//! card (`talk_to_operator`, `about` the card's id), whatever chip is picked; dropping the tag makes it a talk about
+//! no card again, or a dispatch with a chip picked.
 
 use std::collections::{HashMap, HashSet};
 use std::path::PathBuf;
@@ -41,6 +46,11 @@ use crate::titlebar::parts::glyph;
 /// The key the words are kept under, as Electron's `useKept` names a place.
 pub const KEEP: &str = "operator:compose";
 
+/// The key the words are kept under while the box is tagged with the card `id`.
+fn keep_for(id: &str) -> String {
+    format!("{KEEP}:{id}")
+}
+
 /// A dispatch ready to go, and the words it carries, which a toast names it by while the Operator holds it.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Outgoing {
@@ -52,8 +62,8 @@ pub struct Outgoing {
 #[derive(Clone, Debug, PartialEq)]
 pub enum Composed {
     Send(Outgoing),
-    /// Words about the card the tag names, which go to the Operator as a talk.
-    Talk { words: String, about: String },
+    /// Words to the Operator as a talk: about the card the tag names, or about no card.
+    Talk { words: String, about: Option<String> },
     /// Esc with nothing open: the keys go back to the page.
     Leave,
 }
@@ -106,7 +116,7 @@ impl OperatorComposer {
     pub fn new(fleet: Option<Entity<FleetConnection>>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let input = cx.new(|cx| TextareaState::new(window, cx).auto_grow(1, 8).submit_on_enter(true));
         // What he left in the box comes back, before the box is listened to.
-        if let Some(kept) = Self::left(cx) {
+        if let Some(kept) = Self::left(KEEP, cx) {
             let content = kept.content();
             input.update(cx, |input, cx| input.set_value(content, window, cx));
         }
@@ -142,8 +152,8 @@ impl OperatorComposer {
     // ---- what it holds -------------------------------------------------------------------
 
     /// The words and chips he left, if any stand.
-    fn left(cx: &App) -> Option<Kept> {
-        let kept = crate::drafts::kept(KEEP, cx)?;
+    fn left(key: &str, cx: &App) -> Option<Kept> {
+        let kept = crate::drafts::kept(key, cx)?;
         ipc::decode::<Kept>("the Operator's draft", kept.as_bytes()).ok()
     }
 
@@ -192,10 +202,28 @@ impl OperatorComposer {
         self.input.read(cx).focus_handle(cx).contains_focused(window, cx)
     }
 
-    /// Discuss: the box names the card in a tag, until he drops it or the talk ends.
-    pub fn tag(&mut self, id: String, title: SharedString, cx: &mut Context<Self>) {
+    /// The key the words are kept under now: the page's, or the tagged card's.
+    fn key(&self) -> String {
+        self.tag.as_ref().map_or_else(|| KEEP.to_string(), |(id, _)| keep_for(id))
+    }
+
+    /// Discuss: the box names the card in a tag, until he drops it or the talk ends. Words already in the box go with the tag;
+    /// an empty box takes back what was left for the card.
+    pub fn tag(&mut self, id: String, title: SharedString, window: &mut Window, cx: &mut Context<Self>) {
+        let was = self.key();
         self.tag = Some((id, title));
         self.refused = None;
+        let now = self.key();
+        if was != now {
+            if self.input.read(cx).value().is_empty() {
+                if let Some(kept) = Self::left(&now, cx) {
+                    self.set_box(&kept, window, cx);
+                }
+            } else {
+                crate::drafts::clear(&was, cx);
+                self.typed(cx);
+            }
+        }
         cx.notify();
     }
 
@@ -205,8 +233,12 @@ impl OperatorComposer {
         self.tag.clone()
     }
 
+    /// The tag goes; the words in the box stay, and are kept for the page again.
     pub fn untag(&mut self, cx: &mut Context<Self>) {
+        let was = self.key();
         if self.tag.take().is_some() {
+            crate::drafts::clear(&was, cx);
+            self.typed(cx);
             cx.notify();
         }
     }
@@ -222,9 +254,10 @@ impl OperatorComposer {
             return;
         }
         let kept = self.kept(cx);
+        let key = self.key();
         match (kept.text.is_empty(), ipc::encode(&kept)) {
-            (false, Ok(encoded)) => crate::drafts::keep(KEEP, &encoded, cx),
-            _ => crate::drafts::clear(KEEP, cx),
+            (false, Ok(encoded)) => crate::drafts::keep(&key, &encoded, cx),
+            _ => crate::drafts::clear(&key, cx),
         }
         cx.notify();
     }
@@ -488,15 +521,19 @@ impl OperatorComposer {
         self.input.read(cx).value().trim().is_empty() && self.files.is_empty()
     }
 
-    /// Send: the words go to Fleet as a dispatch, unheld, and stay in the box until Fleet answers.
+    /// Send: the words go to Fleet as a talk, or as a dispatch with a kind chip picked, and stay in the box until
+    /// Fleet answers.
     pub fn send(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.sending || self.nothing(cx) {
             return;
         }
-        // A tagged send is a talk about that card: words only, and no repository is wanted.
-        if let Some((about, _)) = self.tag.clone() {
+        // A tagged send, or one with no chip, is a talk: words only, and no repository is wanted.
+        let about = self.tag.clone().map(|(about, _)| about);
+        if about.is_some() || self.kind.is_none() {
             if !self.files.is_empty() {
-                self.refused = Some("A talk about a card carries words only".into());
+                self.refused = Some(
+                    if about.is_some() { "A talk about a card carries words only" } else { "A talk carries words only. Pick Idea, Feature or Bug to send files" }.into(),
+                );
                 cx.notify();
                 return;
             }
@@ -545,7 +582,7 @@ impl OperatorComposer {
     pub fn sent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.sending = false;
         self.set_box(&Kept::default(), window, cx);
-        crate::drafts::clear(KEEP, cx);
+        crate::drafts::clear(&self.key(), cx);
         self.files.clear();
         self.kind = None;
         self.refused = None;
@@ -658,7 +695,7 @@ impl OperatorComposer {
                     .hover(|style| style.bg(cx.look().color(token::OPERATOR_FAINT)))
                     .focusable()
                     .tab_stop(true)
-                    .tooltip(tip("Send it as a message that is about no card".into()))
+                    .tooltip(tip("Talk about no card".into()))
                     .child(glyph("x", look.length(token::SPACE_3), look.color(token::OPERATOR))),
                 cx,
                 |this, _, cx| this.untag(cx),
@@ -797,12 +834,10 @@ impl Render for OperatorComposer {
         );
         div()
             .flex_none()
-            .flex()
-            .justify_center()
             .pt(look.length(token::SPACE_2))
             .pb(look.length(token::SPACE_4))
             .on_modifiers_changed(cx.listener(|_, _: &ModifiersChangedEvent, _, cx| cx.notify()))
-            .child(div().w_full().max_w(look.length(token::SPACE_12) * 20.).flex().flex_col().gap(look.length(token::SPACE_2)).children(refused).child(frame))
+            .child(div().w_full().flex().flex_col().gap(look.length(token::SPACE_2)).children(refused).child(frame))
     }
 }
 
@@ -822,16 +857,38 @@ mod tests {
     }
 
     #[gpui::test]
-    fn no_chip_sends_no_kind_and_a_picked_chip_rides_as_the_kind(cx: &mut TestAppContext) {
+    fn a_picked_chip_rides_as_the_dispatchs_kind_unheld(cx: &mut TestAppContext) {
         let (composer, cx) = open(cx);
         composer.update_in(cx, |composer, window, cx| {
             composer.input.update(cx, |input, cx| input.set_value("Keep the scrollback", window, cx));
-            let plain = composer.outgoing(Vec::new(), cx).expect("a send");
-            assert_eq!(plain.dispatch.kind, None);
-            assert!(!plain.dispatch.start.held, "a dispatch from the composer is unheld");
             composer.pick_kind(DispatchKind::Bug, cx);
-            assert_eq!(composer.outgoing(Vec::new(), cx).expect("a send").dispatch.kind, Some(DispatchKind::Bug));
+            let out = composer.outgoing(Vec::new(), cx).expect("a send");
+            assert_eq!(out.dispatch.kind, Some(DispatchKind::Bug));
+            assert!(!out.dispatch.start.held, "a dispatch from the composer is unheld");
         });
+    }
+
+    #[gpui::test]
+    fn a_send_with_no_chip_is_a_talk_about_no_card_and_a_chip_makes_it_a_dispatch_of_that_kind(cx: &mut TestAppContext) {
+        let (composer, cx) = open(cx);
+        let heard = std::rc::Rc::new(std::cell::RefCell::new(Vec::new()));
+        let seen = heard.clone();
+        let _held = cx.update(|_, cx| cx.subscribe(&composer, move |_, event: &Composed, _| seen.borrow_mut().push(event.clone())));
+        composer.update_in(cx, |composer, window, cx| {
+            composer.input.update(cx, |input, cx| input.set_value("Which Jobs are running?", window, cx));
+            composer.send(window, cx);
+        });
+        cx.run_until_parked();
+        assert!(matches!(heard.borrow().as_slice(), [Composed::Talk { words, about: None }] if words == "Which Jobs are running?"), "{:?}", heard.borrow());
+        heard.borrow_mut().clear();
+        composer.update_in(cx, |composer, window, cx| {
+            composer.sent(window, cx);
+            composer.input.update(cx, |input, cx| input.set_value("Keep the scrollback", window, cx));
+            composer.pick_kind(DispatchKind::Feature, cx);
+            composer.send(window, cx);
+        });
+        cx.run_until_parked();
+        assert!(matches!(heard.borrow().as_slice(), [Composed::Send(out)] if out.dispatch.kind == Some(DispatchKind::Feature) && out.words == "Keep the scrollback"), "{:?}", heard.borrow());
     }
 
     #[gpui::test]
@@ -866,12 +923,12 @@ mod tests {
         let seen = heard.clone();
         let _held = cx.update(|_, cx| cx.subscribe(&composer, move |_, event: &Composed, _| seen.borrow_mut().push(event.clone())));
         composer.update_in(cx, |composer, window, cx| {
-            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), cx);
+            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), window, cx);
             composer.input.update(cx, |input, cx| input.set_value("Why hold Pocket?", window, cx));
             composer.send(window, cx);
         });
         cx.run_until_parked();
-        assert!(matches!(heard.borrow().as_slice(), [Composed::Talk { words, about }] if words == "Why hold Pocket?" && about == "turn:31"));
+        assert!(matches!(heard.borrow().as_slice(), [Composed::Talk { words, about: Some(about) }] if words == "Why hold Pocket?" && about == "turn:31"));
         composer.update_in(cx, |composer, window, cx| {
             composer.sent(window, cx);
             assert_eq!(composer.words(cx), "", "a sent talk empties the box");
@@ -920,5 +977,33 @@ mod tests {
             (second, cx)
         };
         assert_eq!(again.read_with(cx, |composer, cx| composer.words(cx)), "Half a thought");
+    }
+
+    #[gpui::test]
+    fn words_typed_with_a_card_tagged_are_kept_for_that_card_and_come_back_on_its_next_discuss(cx: &mut TestAppContext) {
+        let (composer, cx) = open(cx);
+        composer.update_in(cx, |composer, window, cx| {
+            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), window, cx);
+            composer.input.update(cx, |input, cx| input.set_value("Why hold Pocket?", window, cx));
+            composer.typed(cx);
+        });
+        cx.update(|_, cx| {
+            assert_eq!(crate::drafts::kept(KEEP, cx), None, "not the page's");
+            assert!(crate::drafts::kept("operator:compose:turn:31", cx).is_some(), "the card's");
+        });
+        // The box is made again, as at a restart: the page's draft comes back, and the tag does not.
+        let (again, cx) = cx.add_window_view(|window, cx| OperatorComposer::new(None, window, cx));
+        assert_eq!(again.read_with(cx, |composer, cx| composer.words(cx)), "");
+        again.update_in(cx, |composer, window, cx| {
+            composer.tag("turn:31".into(), "Two Jobs are changing paging.rs".into(), window, cx);
+            assert_eq!(composer.words(cx), "Why hold Pocket?", "Discuss on the card brings its words back");
+            // Dropping the tag keeps the words for the page.
+            composer.untag(cx);
+            assert_eq!(composer.words(cx), "Why hold Pocket?");
+        });
+        cx.update(|_, cx| {
+            assert!(crate::drafts::kept(KEEP, cx).is_some());
+            assert_eq!(crate::drafts::kept("operator:compose:turn:31", cx), None);
+        });
     }
 }

@@ -48,6 +48,7 @@ mod link_lookup;
 mod main_ci;
 mod manifest_edit;
 mod pull_comments;
+mod pull_events;
 mod pull_reading;
 mod pull_request;
 mod pull_request_detail;
@@ -102,6 +103,9 @@ pub use main_ci::{
 };
 pub use manifest_edit::{ManifestEditSent, ManifestEditToSend, ManifestOnTheBase, PullRequestFor};
 pub use pull_comments::{OnFile, PullComment};
+pub use pull_events::{
+    PullEvents, PullEventsFailure, PullStreamAction, PullStreamEnd, PullStreamSignal, PullSubscription,
+};
 pub use pull_reading::{PullQueue, FollowedCheck, FollowedPull, FollowedPulls};
 pub use backlog::{Backlog, BeadState, CopyMark};
 pub use pull_request::{MergeState, PullRequestFacts, PullRequestStanding};

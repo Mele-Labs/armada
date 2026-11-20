@@ -19,6 +19,7 @@ mod handoff;
 mod health;
 mod holding;
 pub(crate) mod librarian;
+pub(crate) mod librarian_steps;
 pub(crate) mod mapping;
 mod measuring;
 mod modules;
