@@ -484,7 +484,8 @@ Two mechanisms, both carried over from the v1 prototype:
 The link is [Project](project.md), *Sharing with his other Macs*.
 An edit on one Mac crosses to the other where the kind is switched on.
 **Built in Fleet**, 19 Nov 2026, for any number of linked Macs; the wire is [the protocol page](../practices/protocol/kit-over-the-mac-link.md).
-**Not built in Bridge.** Neither Classic nor native draws it yet.
+**Drawn in native Kit**, 20 Nov 2026: a bar naming the Mac it crosses to, a switch on each kind in the rail, a mark on each row, and a clash side by side in the item's detail.
+Classic does not draw it.
 
 **Each kind is switched on per Mac, and every kind is off until it is switched on.**
 One switch on a kind both sends this Mac's items of it and takes the other Mac's.
