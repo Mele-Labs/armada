@@ -21,7 +21,7 @@ The owner approved the design on 13 Nov 2026.
 | The For line, the agent's and Fleet's links | Built in Fleet; native draws it later |
 | His Edit of a page's or a draft's words, kept as his revision | Built in Fleet and in native's reader, for drafts and pages |
 | A plan's sketches, settled by its one Approve | Built in Fleet; native draws the page later |
-| Approve all and Dismiss all across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review panel calls them later |
+| Answering and dismissing items across Jobs, `answer_items` and `dismiss_items` | Built in Fleet; native's review sheet calls them one ask at a time |
 | A page's actions, `press_page_action` | Built in Fleet; native draws the buttons later |
 | A page's votes, `cast_page_vote` | Built in Fleet; native draws the votes later |
 | A page served sealed, `get_artifact_page`, with the kit's script drawing actions and votes | Built in Fleet; native and Pocket host it later |
@@ -258,7 +258,8 @@ A sketch drawn again with no `for` has only Fleet's links.
 ## Several at once
 
 The owner decided this on 13 Nov 2026.
-His review panel answers several items in one press: Approve all, Ask for changes on each, and Dismiss all.
+His review panel answered several items in one press: Approve all, Ask for changes on each, and Dismiss all.
+On 19 Nov 2026 he removed Approve all and Dismiss all: the review sheet answers each ask on its own, through the same two calls with one item.
 Fleet's half is `answer_items` and `dismiss_items` (`crates/fleet/src/session_host/answering_items.rs`).
 
 **Rule.** Both reach every item with an Approve, across Jobs: a sketch, a page that asks, a plan, a draft, a walk, and an item a Job raised with `approves: true`.
@@ -277,7 +278,7 @@ They are the words of an approval, or the note of a send back, and a send back w
 A plan's notes are each a note on the plan as a whole.
 A walk approved with notes keeps `Approved: <address>` as its first line, with the notes under it.
 
-**Rule.** Dismiss all takes each item off his list with no verdict.
+**Rule.** `dismiss_items` takes each item off his list with no verdict.
 Each Job is sent one message, a line `He passed on "<title>" with no verdict.` for each of its items, in place of each kind's own dismiss text.
 A plan's title is `plan v<version>`.
 

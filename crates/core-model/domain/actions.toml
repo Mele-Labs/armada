@@ -1577,7 +1577,7 @@ shortcut = "a"
 scope = "review sheet"
 destructive = false
 confirms = false
-notes = "Approves the item chosen in the review sheet, with the notes typed on it, through `answer_items` for that one item. The sheet lists every item with an Approve across Jobs, grouped by Job. Its own scope, as the sheet holds the keys while it is up and its letters meet only the global ones. Native only. The owner's look, 14 Nov 2026."
+notes = "Approves the item chosen in the review sheet, with the notes typed on it, through `answer_items` for that one item. The sheet lists the asks of one Job, or of every Job from the Jobs list, beside the chosen one. An answered ask leaves the list. There is no Approve all: each ask is answered on its own, the owner's decision of 19 Nov 2026. Its own scope, as the sheet holds the keys while it is up and its letters meet only the global ones. Native only. The owner's look, 14 Nov 2026."
 
 [actions.items_ask_changes]
 kind = "Action"
@@ -1613,30 +1613,6 @@ scope = "review sheet"
 destructive = false
 confirms = false
 notes = "Chooses the next or the previous item of the review sheet, across its Jobs' groups. Its own row for the reason `plan`'s is: the sheet's list is not the Board's. Native only, 14 Nov 2026."
-
-[actions.items_approve_all]
-kind = "Action"
-tier = "Contextual"
-verb = "Approve all"
-icon = ""
-icon_absent = "undecided"
-shortcut = "⇧a"
-scope = "review sheet"
-destructive = false
-confirms = false
-notes = "Approves every item of the review sheet still asking in one `answer_items` call, each with its own notes. A refusal stands on its own row as Fleet's sentence and the rest settle. Shift on `a`, Approve's key: the same act on every item. It sits in the sheet's foot, away from the item's buttons. Native only, 14 Nov 2026."
-
-[actions.items_dismiss_all]
-kind = "Action"
-tier = "Contextual"
-verb = "Dismiss all"
-icon = ""
-icon_absent = "undecided"
-shortcut = "⇧d"
-scope = "review sheet"
-destructive = false
-confirms = false
-notes = "Takes every item of the review sheet still asking off his list in one `dismiss_items` call. Each Job is told he passed on its items with no verdict. Native only, 14 Nov 2026."
 
 [actions.build_note_step]
 kind = "Action"

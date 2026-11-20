@@ -196,8 +196,6 @@ a              approve   (review sheet only)
 c              ask for changes   (review sheet only)
 d              dismiss   (review sheet only)
 j / k / ↓ / ↑  move between items   (review sheet only)
-⇧a             approve all   (review sheet only)
-⇧d             dismiss all   (review sheet only)
 1–9            go to step   (review sheet only)
 ⌘E             good   (review sheet only)
 ⇧⌘E            needs work   (review sheet only)
@@ -475,9 +473,10 @@ Their scope is `thread`, and the registry ids are `thread_yes`, `thread_change`,
 They are `⌥` chords because the caret usually sits in the Job's message box, where a single key is suppressed.
 They join the Job view's `⌥` family under Two tiers.
 `1`–`9` still pick a question's option, and `⌘↵` commits an open edit or note box.
-In the review sheet, which `⇧⌘Y` opens, the items with an Approve across Jobs stand grouped by Job.
-`a` approves the chosen item, `c` sends it back with its notes, `d` dismisses it, `j` and `k` move, `⇧a` approves every item still asking and `⇧d` dismisses them.
-`c` with no notes puts the caret in the item's notes, where `⌘↵` sends, and Esc returns focus to the key that opened the sheet.
+In the review sheet, which `⇧⌘Y` opens, the open Job's asks stand in a list beside the chosen one; opened from the Jobs list, every Job's do.
+`a` gives the chosen ask its own answer, `c` opens the Ask for changes box in its answer bar, `d` dismisses it, and `j` and `k` move.
+In the box `⌘↵` sends and Esc closes it; Esc again returns focus to the key that opened the sheet.
+Each ask is answered on its own: there is no key that answers every ask at once.
 In the In this build sheet, which opens on a preview build that holds branches Jobs offered, `1`–`9` run the chosen note's steps, `⌘E` marks it good, `⇧⌘E` marks it as needing work and puts the caret in its box, `⌥⌘O` closes the sheet and opens the note's Job, `↑` and `↓` move between notes, `⌘↵` sends the feedback and Esc closes it.
 It takes the review sheet's scope, since it is the same kind of sheet, and its keys are heard only while it is up.
 
