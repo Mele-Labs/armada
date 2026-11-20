@@ -1208,13 +1208,12 @@ impl Toasts {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG) * 1.5)
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
+            .border_color(edge_of(toast.urgency, look))
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             // A press on a toast never reaches what is under it.
             .occlude()
             .font_family(sans(look))
-            .child(div().flex_none().w(gpui::px(3.)).bg(edge_of(toast.urgency, look)))
             .child(body);
         let frame = if newest {
             frame
@@ -1274,13 +1273,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {}", notice.headline),
@@ -1359,13 +1357,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {sentence}"),
@@ -1441,13 +1438,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {headline}"),
@@ -1575,13 +1571,12 @@ impl Toasts {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG) * 1.5)
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(ink.opacity(0.6))
+            .border_color(ink)
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             // A press on a toast never reaches what is under it.
             .occlude()
             .font_family(sans(look))
-            .child(div().flex_none().w(gpui::px(3.)).bg(ink))
             .child(body);
         // ⌥⌘J puts the keys on the newest toast: Enter opens it, Esc closes it.
         let frame = if newest {
@@ -1715,7 +1710,7 @@ impl Toasts {
                 .rounded(look.length(token::RADIUS_MD))
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .child(div().flex_none().w(gpui::px(3.)).h(look.length(token::SPACE_4)).rounded_full().bg(edge_of(toast.urgency, look)))
+                .child(div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(edge_of(toast.urgency, look)))
                 .child(kind_chip(face::kind_of(&toast.item), look))
                 .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(title.clone()))
                 .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said))
