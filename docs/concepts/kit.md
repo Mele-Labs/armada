@@ -472,7 +472,7 @@ A manual re-push exists as recovery — after resolving a conflict, or repairing
 
 Two mechanisms, both carried over from the v1 prototype:
 
-- Git-repo push/pull, for continuous cross-machine portability.
+- Git-repo push/pull, for continuous cross-machine portability. Retired: his own Macs keep one Kit [over the Mac link](#over-the-mac-link), decided 19 Nov 2026.
 - One-off file export/import, for a simple copy.
 
 **Your Kit travels, the Machine does not.** Import / Export is #1449.
@@ -604,7 +604,7 @@ The settings in `../contracts/configuration.md` that directly affect this concep
 
 - Kit-level allowed/default models list
 - AI-assisted prompt toggle
-- Import/Export Git repo target
+- Import/Export Git repo target (retired with the shared home)
 - Push to Claude conflict-resolution policy
 - Push to Claude target (which local Claude install)
 
