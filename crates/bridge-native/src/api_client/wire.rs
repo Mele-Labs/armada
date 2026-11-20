@@ -6,7 +6,7 @@ use std::time::Duration;
 use gpui::{App, AppContext, SharedString, Task};
 use ipc::{
     DeleteRequestEnvironment, RequestCollection, RequestEnvironmentWrite, RequestHeader, RequestRun, RequestRuns, RequestSaved, RequestSent, RequestToSave, RequestToSend, Requests, SaveRequestCollection,
-    SaveRequestEnvironment, SaveRequestToCollection, SendRequest, SessionId,
+    SaveRequestEnvironment, SaveRequestToCollection, SavedRequestNamed, SendRequest, SessionId,
 };
 
 use crate::settings::wire::{request, Ask};
@@ -29,6 +29,9 @@ pub struct ToSend {
     pub environment: Option<String>,
     /// The collection whose headers go under the request's own.
     pub collection: Option<String>,
+    /// The saved request this is, by its collection's id and its own: its method and address are unchanged, so the send is one
+    /// of its runs. The headers and body here go over the kept ones.
+    pub saved: Option<(String, String)>,
     pub headers: Vec<RequestHeader>,
     pub body: Option<String>,
 }
@@ -55,7 +58,10 @@ pub fn send(port: u16, job: &str, to_send: ToSend, cx: &App) -> Task<Result<Answ
     let body = ipc::encode(&SendRequest {
         session_id: Some(SessionId::carried(job)),
         repository: None,
-        request: RequestToSend::Own { method: to_send.method, url: to_send.url, collection: to_send.collection },
+        request: match to_send.saved {
+            Some((collection, request)) => RequestToSend::Saved(SavedRequestNamed { collection, request }),
+            None => RequestToSend::Own { method: to_send.method, url: to_send.url, collection: to_send.collection },
+        },
         environment: to_send.environment,
         headers: to_send.headers,
         body: to_send.body,

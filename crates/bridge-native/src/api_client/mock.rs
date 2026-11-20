@@ -2,7 +2,7 @@
 
 use ipc::{
     Instant, Placed, RequestBy, RequestCollection, RequestEnvironmentRead, RequestEnvironmentWrite, RequestHeader, RequestPlace, RequestRun, RequestRunAnswer, RequestRunJob, RequestRunSent,
-    RequestRunSummary, RequestRuns, RequestSaved, RequestSent, RequestToSave, Requests, RunPlace, SavedRequest, SessionId, VariableRead, VariableWrite,
+    RequestRunSummary, RequestRuns, RequestSaved, RequestSent, RequestToSave, Requests, RequestsNotRead, RunPlace, SavedRequest, SessionId, VariableRead, VariableWrite,
 };
 
 use super::wire::{Answered, ToSend, RUNS_PAGE};
@@ -95,6 +95,17 @@ pub fn send(to_send: &ToSend) -> Answered {
 pub struct Store {
     read: Requests,
     runs: Vec<RequestRun>,
+    job: String,
+    kept: u32,
+}
+
+/// Set to `yours` or `repository` to start the mock with that file unable to read, so the caution line and every Save that goes
+/// off with it can be seen without Fleet.
+pub const UNREAD_SWITCH: &str = "ARMADA_MOCK_REQUESTS_UNREAD";
+
+/// Fleet's refusal of a save over the person's own file while it will not read.
+fn unread_refusal(why: &str) -> String {
+    format!("Your requests file would not read: {why}")
 }
 
 fn at(minute: u32) -> Instant {
@@ -147,7 +158,45 @@ fn blank(name: &str, what: &str) -> Result<(), String> {
 
 impl Store {
     pub fn new(job: &str) -> Store {
-        Store { read: requests(), runs: seeded_runs(job) }
+        let mut read = requests();
+        match std::env::var(UNREAD_SWITCH).as_deref() {
+            Ok("yours") => read.not_read.push(RequestsNotRead { place: RequestPlace::Yours, why: "expected `=` after a key at line 3 column 9".into() }),
+            Ok("repository") => read.not_read.push(RequestsNotRead { place: RequestPlace::Repository, why: "a table has no name at line 12".into() }),
+            _ => {}
+        }
+        Store { read, runs: seeded_runs(job), job: job.to_string(), kept: 0 }
+    }
+
+    /// The why of the person's own file not reading, where it does not.
+    fn yours_unread(&self) -> Option<String> {
+        self.read.not_read.iter().find(|one| one.place == RequestPlace::Yours).map(|one| unread_refusal(&one.why))
+    }
+
+    /// A send of a saved request is one of its runs, newest first.
+    pub fn kept_run(&mut self, to_send: &ToSend, answered: &Answered) {
+        let Some((collection, request)) = to_send.saved.clone() else { return };
+        self.kept += 1;
+        let sent = &answered.sent;
+        self.runs.push(RequestRun {
+            id: format!("run-kept-{}", self.kept),
+            at: Instant::carried(format!("2026-11-20T10:{:02}:00Z", self.kept.min(59))),
+            by: RequestBy::Owner,
+            job: Some(RequestRunJob { id: SessionId::carried(self.job.clone()), title: Some("This Job".into()) }),
+            collection,
+            request,
+            environment: to_send.environment.clone(),
+            sent: RequestRunSent { method: to_send.method.clone(), url: sent.url.clone(), headers: to_send.headers.clone(), body: to_send.body.clone() },
+            answer: RequestRunAnswer {
+                status: sent.status,
+                ms: sent.ms,
+                headers: sent.headers.clone(),
+                body: sent.body.clone(),
+                truncated: sent.truncated,
+                bytes: sent.body.len() as u64,
+                content_type: None,
+                error: sent.error.clone(),
+            },
+        });
     }
 
     pub fn read(&self) -> Requests {
@@ -155,6 +204,9 @@ impl Store {
     }
 
     pub fn save_collection(&mut self, collection: RequestCollection) -> Result<Requests, String> {
+        if let Some(refused) = self.yours_unread() {
+            return Err(refused);
+        }
         blank(&collection.id, "collection.id")?;
         blank(&collection.name, "collection.name")?;
         let mut seen = Vec::new();
@@ -183,6 +235,9 @@ impl Store {
     }
 
     pub fn save_request(&mut self, collection: &str, request: RequestToSave) -> Result<RequestSaved, String> {
+        if let Some(refused) = self.yours_unread() {
+            return Err(refused);
+        }
         blank(&request.name, "request.name")?;
         blank(collection, "collection")?;
         if !super::model::METHODS.contains(&request.method.to_ascii_uppercase().as_str()) {
@@ -226,6 +281,9 @@ impl Store {
     /// An environment saved whole. A secret sent with a value is set and the value goes no further; one sent with none keeps
     /// what it was; a variable left out is forgotten.
     pub fn save_environment(&mut self, environment: RequestEnvironmentWrite) -> Result<Requests, String> {
+        if let Some(refused) = self.yours_unread() {
+            return Err(refused);
+        }
         blank(&environment.name, "environment.name")?;
         if environment.name.starts_with(ipc::SERVER_ENVIRONMENT_PREFIX) {
             return Err(format!("environment.name cannot start with `{}`.", ipc::SERVER_ENVIRONMENT_PREFIX));
@@ -268,6 +326,9 @@ impl Store {
     }
 
     pub fn delete_environment(&mut self, name: &str) -> Result<Requests, String> {
+        if let Some(refused) = self.yours_unread() {
+            return Err(refused);
+        }
         match self.read.environments.iter().position(|one| one.item.name == name && one.place == RequestPlace::Yours) {
             Some(at) => {
                 self.read.environments.remove(at);

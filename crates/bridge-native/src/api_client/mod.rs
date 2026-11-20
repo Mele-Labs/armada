@@ -777,7 +777,16 @@ impl ApiClient {
             return;
         }
         let body = self.body_text(cx);
+        // A saved request sent as it was saved, in method and address, is one of its runs: Fleet keeps the run of a `Saved` send
+        // and none of an `Own` one. What was edited in its headers and body still goes, over what is kept.
+        let address = self.address_text(cx).trim().to_string();
+        let saved = self
+            .collection()
+            .zip(self.saved())
+            .filter(|(_, saved)| saved.method.eq_ignore_ascii_case(&self.method) && saved.url == address)
+            .map(|(collection, saved)| (collection.item.id.clone(), saved.id.clone()));
         let to_send = ToSend {
+            saved,
             method: self.method.clone(),
             url: self.address_text(cx).trim().to_string(),
             environment: self.environment_read().map(|one| one.name.clone()),
@@ -788,6 +797,9 @@ impl ApiClient {
         let asked = match &self.fleet {
             None => {
                 let answered = mock::send(&to_send);
+                if let Some(store) = self.store.as_mut() {
+                    store.kept_run(&to_send, &answered);
+                }
                 return self.sent_landed(Ok(answered), window, cx);
             }
             Some(_) => match self.port(cx) {
