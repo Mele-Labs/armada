@@ -312,3 +312,107 @@ async fn a_copy_of_another_macs_project_is_not_written() {
     let state = api::Projects::get_project_store(&rig.fleet, "p-notes".into()).await.expect("read");
     assert_eq!(state.store.and_then(|store| store.account_id), None, "its login stays the Mac's that keeps it");
 }
+
+impl Rig {
+    /// A copy `id` of the project Mac `mac` keeps, listing the repository at `root` and naming `store`: its address and the login the
+    /// holder picked. It is held as the holder said it, and no file is written for it here.
+    async fn copy(&self, id: &str, mac: &str, root: &str, store: Option<(&str, Option<u64>)>) {
+        let manifest = self.fleet.manifest_id_at(root).expect("served");
+        let members = vec![ipc::ProjectMember { manifest_id: ipc::ManifestId::carried(manifest.as_str()), folder: None }];
+        let store = store.map(|(address, account_id)| ipc::ProjectStore {
+            address: address.into(),
+            team: None,
+            worker: None,
+            deployed: None,
+            joins_unlimited: false,
+            account_id,
+        });
+        let copy = ipc::Project { id: id.into(), name: "Shared".into(), members, store, shared_with_macs: true, ..Default::default() };
+        self.fleet.copies_replaced(mac, vec![copy]).await.expect("held");
+    }
+
+    /// Whether the profile `account` of this Mac enrolled at the store at `address`.
+    fn is_enrolled(&self, account: u64, address: &str) -> bool {
+        let profile = self._home.path().join(crate::profiles::DIRECTORY).join(account.to_string());
+        let address = core_model::StoreAddress::new(address).expect("an address");
+        matches!(adapters::device_id(&crate::project_store::store_directory(&profile, &address)), Ok(Some(_)))
+    }
+}
+
+#[tokio::test]
+async fn a_copy_keeps_the_login_its_holder_picked_and_reads_joined_from_this_macs_own_enrolment() {
+    let rig = rig().await;
+    rig.enrolled(OCTOCAT, ONE);
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(OCTOCAT)))).await;
+
+    let state = api::Projects::get_project_store(&rig.fleet, "p-shared".into()).await.expect("read");
+    assert_eq!(state.store.as_ref().and_then(|store| store.account_id), Some(OCTOCAT), "the copy carries the holder's login");
+    assert!(state.joined_here && state.macs_unread.is_none(), "this Mac enrolled as it: {state:?}");
+}
+
+#[tokio::test]
+async fn a_repository_in_a_copy_claims_at_the_copys_store_as_the_login_it_carries() {
+    let rig = rig().await;
+    rig.enrolled(OCTOCAT, ONE);
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(OCTOCAT)))).await;
+
+    assert!(rig.claim(&rig.first, "aaa").await.is_some(), "a repository whose only project here is a copy still claims");
+    let slug = format!("mele-labs/{}", Path::new(&rig.first).file_name().and_then(|it| it.to_str()).expect("a name"));
+    assert!(Rig::held(&rig.one, &slug, "aaa"), "the claim is in the copy's store");
+    assert!(rig.claim(&rig.second, "bbb").await.is_none(), "a repository the copy does not list makes no call");
+}
+
+#[tokio::test]
+async fn a_signed_in_profile_that_has_not_enrolled_enrols_for_a_copys_store_and_writes_no_project_file() {
+    let rig = rig().await;
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(OCTOCAT)))).await;
+    assert!(!rig.is_enrolled(OCTOCAT, ONE));
+
+    assert!(rig.claim(&rig.first, "aaa").await.is_some(), "the first claim enrols this Mac, then reaches the store");
+    assert!(rig.is_enrolled(OCTOCAT, ONE), "enrolled as the login the copy carries");
+    assert!(!rig.fleet.kit_folder().join("projects").join("p-shared.yml").exists(), "the file is the holder's");
+
+    rig.copy("p-more", "mac-other", &rig.second, Some((TWO, Some(OCTOCAT)))).await;
+    assert!(!rig.is_enrolled(OCTOCAT, TWO));
+    let state = api::Projects::get_project_store(&rig.fleet, "p-more".into()).await.expect("read");
+    assert!(state.joined_here, "reading a copy's store enrols this Mac too: {state:?}");
+    assert!(rig.is_enrolled(OCTOCAT, TWO));
+}
+
+#[tokio::test]
+async fn a_copys_store_with_this_mac_not_signed_in_as_its_login_sends_nothing_and_says_so() {
+    let rig = rig().await;
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(HUBOT)))).await;
+
+    assert!(rig.claim(&rig.first, "aaa").await.is_none(), "this Mac has no profile for the login");
+    assert!(rig.opened().is_empty(), "no store was opened");
+    assert!(!rig.is_enrolled(OCTOCAT, ONE), "no other profile stands in for it");
+    let state = api::Projects::get_project_store(&rig.fleet, "p-shared".into()).await.expect("read");
+    assert_eq!(state.macs_unread.as_deref(), Some("This Mac is not signed in as the login picked for this store."));
+    assert!(!state.joined_here);
+}
+
+#[tokio::test]
+async fn a_project_here_and_a_copy_naming_different_stores_for_one_repository_make_no_call() {
+    let rig = rig().await;
+    rig.enrolled(OCTOCAT, ONE);
+    rig.enrolled(OCTOCAT, TWO);
+    rig.project(&rig.first, Some(TWO)).await;
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(OCTOCAT)))).await;
+
+    assert!(rig.claim(&rig.first, "aaa").await.is_none(), "nothing says which store was meant");
+    assert!(rig.opened().is_empty());
+}
+
+#[tokio::test]
+async fn a_copys_store_cannot_be_set_or_deployed_from_this_mac() {
+    let rig = rig().await;
+    rig.copy("p-shared", "mac-home", &rig.first, Some((ONE, Some(OCTOCAT)))).await;
+
+    let join = ipc::JoinStore { address: TWO.into(), team: None, account_id: Some(OCTOCAT) };
+    let set = api::Projects::set_project_store(&rig.fleet, "p-shared".into(), ipc::SetProjectStore { store: Some(join) }).await;
+    assert!(matches!(set, Err(api::Refusal::IllegalMove(_))), "{set:?}");
+    let state = api::Projects::get_project_store(&rig.fleet, "p-shared".into()).await.expect("read");
+    assert_eq!(state.store.map(|store| store.address), Some(ONE.to_string()), "the copy still names the holder's store");
+    assert!(!rig.is_enrolled(OCTOCAT, TWO), "nothing was joined");
+}
