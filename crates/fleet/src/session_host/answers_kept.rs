@@ -4,6 +4,7 @@
 
 use std::collections::BTreeMap;
 
+use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use ipc::{AnswerHow, AnsweredAsk};
 use store::{AttachmentState, Holder, KeptAttachment};
 
@@ -41,7 +42,16 @@ impl<'a> Answered<'a> {
     }
 }
 
-impl Fleet {
+impl<H, V, W> Fleet<H, V, W>
+where
+    H: AgentHarness + Send + Sync + 'static,
+    H::Error: std::error::Error + Send + Sync + 'static,
+    V: Vcs + Delivery + Send + Sync + 'static,
+    V::Error: std::error::Error + Send + Sync + 'static,
+    V::CommitError: std::error::Error + Send + Sync + 'static,
+    W: WorkProduct + Send + Sync + 'static,
+    W::Error: std::error::Error + Send + Sync + 'static,
+{
     /// Keeps his answer on the Job's ledger. **Best effort**: the Job was already told and the item is gone, so a
     /// ledger that will not take the row costs the card its answer and nothing else.
     pub(crate) async fn answer_kept(&self, id: &str, said: Answered<'_>) {
