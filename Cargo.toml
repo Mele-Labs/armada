@@ -42,8 +42,13 @@ debug = "line-tables-only"
 [profile.installed]
 inherits = "dev"
 
+#
+# **No debug info for dependencies**: Armada's own frames keep their file and line, and a
+# dependency's frame still names its function. Its line tables were 3.7 GB of the preview's 10.8 GB
+# build on 20 Nov 2026, and a one-line Fleet change rebuilt no slower without them.
 [profile.installed.package."*"]
 opt-level = 3
+debug = false
 
 # What a GitHub Release ships inside Armada.app (`checks.yml`, the `release` job): optimised
 # throughout and stripped. Built from `installed`, the binary was 195 MB of debug line tables and
