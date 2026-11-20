@@ -13,7 +13,7 @@ use super::librarian::{libraried, pressed, rig, set, step, steps_listed, steps_t
 use super::session_host::Rig;
 use crate::feature_library::doc_drift::names_in;
 
-fn git(root: &str, args: &[&str]) {
+pub(super) fn git(root: &str, args: &[&str]) {
     let out = Command::new("git")
         .current_dir(root)
         .env_remove("GIT_DIR")
@@ -26,13 +26,13 @@ fn git(root: &str, args: &[&str]) {
     assert!(out.status.success(), "git {args:?}: {}", String::from_utf8_lossy(&out.stderr));
 }
 
-fn write(root: &str, path: &str, text: &str) {
+pub(super) fn write(root: &str, path: &str, text: &str) {
     let at = std::path::Path::new(root).join(path);
     std::fs::create_dir_all(at.parent().expect("a parent")).expect("made");
     std::fs::write(at, text).expect("written");
 }
 
-fn commit(root: &str, paths: &[&str], message: &str) {
+pub(super) fn commit(root: &str, paths: &[&str], message: &str) {
     let mut add = vec!["add", "--"];
     add.extend(paths);
     git(root, &add);
@@ -188,7 +188,7 @@ async fn the_step_appears_only_where_drift_is_on_and_says_how_many_docs_name_wha
     linked(&rig, &feature, feature_link_kind::DOC, "docs/whole.md").await;
     linked(&rig, &feature, feature_link_kind::DOC, "https://example.com/spec").await;
 
-    set(&rig, "features.librarianParts", SettingValue::List(vec![SettingValue::Text("links".into())])).await;
+    set(&rig, "features.librarianParts", SettingValue::List(vec![SettingValue::Text("floor_plans".into())])).await;
     let ids: Vec<String> = steps_listed(&rig, &project).await.into_iter().map(|(id, _, _)| id).collect();
     assert_eq!(ids, ["read_merges", "read_through"], "drift is off");
 

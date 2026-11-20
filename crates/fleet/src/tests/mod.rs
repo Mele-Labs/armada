@@ -23,6 +23,7 @@ mod feature_decisions;
 mod feature_library;
 mod librarian;
 mod doc_drift;
+mod upkeep;
 mod floor_plan;
 mod project_pages;
 mod pre_pr;

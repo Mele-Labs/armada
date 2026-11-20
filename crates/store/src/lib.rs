@@ -374,6 +374,8 @@ mod glossary;
 pub use glossary::{KeptTerm, SEED_JOB as GLOSSARY_SEED_JOB};
 mod doc_drift;
 pub use doc_drift::KeptDocDrift;
+mod feature_upkeep;
+pub use feature_upkeep::{upkeep_kind, KeptUpkeep, UpkeepFound};
 pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.

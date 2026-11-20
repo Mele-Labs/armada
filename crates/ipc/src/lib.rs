@@ -382,9 +382,9 @@ pub use disputes::{DisputeFleet, DisputeSpotted, FleetDisputed};
 pub use bug_reports::{BugFixed, BugReport, BugReportDropped, BugReported, BugReports, ReportBug};
 pub use operator_cards::{CardOption, CardRaised, CardRevised, OperatorCardSettled, OperatorActs, OperatorActsList, OperatorCard, OperatorCardKind, OperatorCardPicked, OperatorCardReturned, OperatorCardStep, ProjectOperatorActs, RaiseCard, ReportCard, ReviseCard, SetOperatorActs, SettleCard};
 pub use features::{
-    AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
+    AnswerRetire, AreaSeed, ChangeFeature, FeatureAreaRow, FeatureBrief, FeatureChanged, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeatureOfPath, FeatureOwed, FeatureRead,
     FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureSectionText, FeatureSectionsWritten, FeatureSeed, FeatureState,
-    FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
+    FeaturesOfPath, FeaturesSeeded, FeaturesUpserted, FirstEditSearches, PathHow, RetireAnswered, RetireProposal, RetireWhy, SearchWeek, SeedFeatures, UpsertFeatures, WriteFeatureSections,
 };
 pub use librarian::{LibrarianPart, LibrarianRan, LibrarianRunning, LibrarianState, LibrarianStep, LibrarianStepMoved, LibrarianStepNow, LibrarianStepState, LibrarianStopping, RunLibrarian, StopLibrarian};
 pub use features::{FloorDoor, FloorFile, FloorPlan, FloorRoom};

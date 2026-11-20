@@ -108,6 +108,24 @@ pub struct FeatureJob {
     pub title: String,
 }
 
+/// Why the librarian proposes retiring a feature.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum RetireWhy {
+    /// Its paths match no file now, and matched some once.
+    CodeGone,
+    /// It has files, and nothing has touched them, and no Job has been on it, for months.
+    Unused,
+}
+
+/// A proposal to retire a feature, with what the librarian saw. Only the owner retires: `answer_retire`.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetireProposal {
+    pub why: RetireWhy,
+    /// The fact it rests on, one line: `Its paths match no file since abc1234, 14 May`.
+    pub evidence: String,
+}
+
 /// One feature in a list.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct FeatureRow {
@@ -127,6 +145,12 @@ pub struct FeatureRow {
     pub stale_since: Option<u64>,
     /// How it stands and why, read from what Fleet keeps.
     pub health: crate::feature_health::FeatureHealth,
+    /// The librarian proposes retiring it. Absent where it has none, or where the owner kept it on this evidence.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub retire: Option<RetireProposal>,
+    /// Its paths match no file at `HEAD` and never did: the code is not written yet. It is a normal feature from its first file.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub planned: bool,
 }
 
 /// An area and its features, in their order.
@@ -411,6 +435,26 @@ pub struct UpsertFeatures {
     pub areas: Vec<AreaSeed>,
     #[serde(default)]
     pub features: Vec<FeatureSeed>,
+}
+
+/// `answer_retire`: the owner's answer to a proposal to retire a feature.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerRetire {
+    /// A project's id.
+    pub project: String,
+    pub slug: String,
+    /// True retires the feature. False keeps it, and the proposal stays quiet until its evidence changes.
+    pub retire: bool,
+}
+
+/// What `answer_retire` did.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct RetireAnswered {
+    pub project: String,
+    pub slug: String,
+    /// The feature left the catalog. False where the owner kept it.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub retired: bool,
 }
 
 /// What `upsert_features` did.

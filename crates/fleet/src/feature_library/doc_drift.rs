@@ -141,7 +141,7 @@ pub(crate) fn linked_docs(store: &Store, project: &str) -> Result<Vec<String>, W
 }
 
 /// `target` as a path inside the repository at `root`, or `None` for one that points elsewhere.
-fn inside(root: &Path, target: &str) -> Option<String> {
+pub(super) fn inside(root: &Path, target: &str) -> Option<String> {
     let path = Path::new(target);
     let relative = if path.is_absolute() {
         match path.strip_prefix(root) {
@@ -163,7 +163,7 @@ fn inside(root: &Path, target: &str) -> Option<String> {
 }
 
 /// What git printed for `args` in `root`, where it ran. `ok` says which exit codes are an answer.
-fn git(root: &Path, args: &[String], ok: &[i32]) -> Option<String> {
+pub(super) fn git(root: &Path, args: &[String], ok: &[i32]) -> Option<String> {
     let out = crate::files::git_in(root).args(args).output().ok()?;
     out.status.code().filter(|code| ok.contains(code))?;
     Some(String::from_utf8_lossy(&out.stdout).into_owned())
