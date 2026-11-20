@@ -60,6 +60,7 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::PlanChanges(changes) if changes.approve => said("Plan approved", Some("with changes".into())),
         JobAct::PlanChanges(_) => said("Plan changes", None),
         JobAct::Stop(_) => said("Stop", None),
+        JobAct::Close(_) => said("End job", None),
         JobAct::Merge { number, .. } => said(&format!("Merge #{number}"), None),
         JobAct::Start(_) => said("Start", None),
         JobAct::Dispatch(_) => said("Start", None),
