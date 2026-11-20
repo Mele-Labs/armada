@@ -126,11 +126,15 @@ pub enum TagKind {
     Report,
     /// One of the Job's terminals. `id` is `t2`, `title` its name.
     Terminal,
+    /// One of Armada's own tools the person asks the agent to use. `id` is a key of
+    /// `crates/core-model/domain/ask_tools.toml`, `title` its name. Fleet says which tool to
+    /// call; an `id` it does not know adds nothing to the line.
+    Tool,
 }
 
 /// Something a message names: another session, a pull request, an issue, a reported bug, a
-/// terminal or a branch. **Fleet writes the line that tells the agent**; the person's words
-/// are kept as typed.
+/// terminal, a branch or one of Armada's tools. **Fleet writes the line that tells the agent**;
+/// the person's words are kept as typed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionTag {
     pub kind: TagKind,

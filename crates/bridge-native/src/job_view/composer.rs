@@ -449,12 +449,22 @@ pub(crate) fn send_face(look: &Look, nothing: bool, said: &'static str, key_text
 pub(crate) fn words_area(input: &Entity<TextareaState>, look: &Look, on_paste: impl Fn(&ClipboardItem, &mut Window, &mut App) -> bool + 'static) -> Textarea {
     let quote_bar = look.length(token::BORDER_WIDTH) * 2.;
     let (accent, gap, mono) = (look.color(token::ACCENT), look.length(token::SPACE_2), look.font_stack(token::FONT_MONO).into_iter().next());
+    let tools = super::ask_tools::painted(look);
     Textarea::new(input)
         .appearance(false)
         .aria_label("Message")
         .on_paste(on_paste)
         .token(move |drawn, _, _| match format_of(drawn.token().id()) {
-            None => gpui_component::input::InputToken::new(drawn).into_any_element(),
+            // One of Armada's tools is tinted in its hue, its glyph in the hue and its whole edge a hairline of it.
+            None => match super::offer::mention_of(drawn.token().id(), drawn.token().label()).filter(|tag| tag.kind == ipc::TagKind::Tool).and_then(|tag| tools.iter().find(|(id, ..)| *id == tag.id)) {
+                Some((_, glyph, hue)) => gpui_component::input::InputToken::new(drawn)
+                    .icon(gpui_component::Icon::empty().path(crate::assets::icon_path(glyph)).text_color(*hue))
+                    .bg(hue.opacity(0.16))
+                    .border_color(hue.opacity(0.6))
+                    .when(drawn.is_selected(), |chip| chip.bg(hue.opacity(0.32)).border_color(*hue))
+                    .into_any_element(),
+                None => gpui_component::input::InputToken::new(drawn).into_any_element(),
+            },
             // A quote's marker is its accent edge; an item's is an accent bullet (`SessionComposer.css`).
             Some(Format::Quote) => div().h(drawn.line_height()).pr(gap).flex().child(div().w(quote_bar).h_full().bg(accent)).into_any_element(),
             Some(Format::Item) => div().h(drawn.line_height()).pr(gap).flex().items_center().text_color(accent).child("•").into_any_element(),
@@ -942,6 +952,10 @@ impl JobView {
         }
         if act.is("thread_find") {
             self.open_find(window, cx);
+            return;
+        }
+        if act.is("ask_for_tool") {
+            self.open_tools(window, cx);
             return;
         }
         if (act.is("thread_find_next") || act.is("thread_find_previous")) && self.finding() {
@@ -1441,6 +1455,7 @@ impl JobView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(mode_button)
             .child(tune_button)
+            .child(self.tools_button(look, cx))
             .child(attach)
             .child(self.sketch_button(look, cx))
             .child(self.side_chat_button(look, cx))

@@ -92,3 +92,22 @@ fn a_terminal_is_named_by_its_id_and_name_and_the_line_says_to_pass_the_id() {
         Some(r#"The person named: terminal t2 "Terminal 2" (pass t2 as `terminal` to type_in_terminal or read_terminal)."#)
     );
 }
+
+#[test]
+fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
+    let line = mention_line(&[tag(TagKind::Tool, "takes", "Takes", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for Takes: put the options to them with `add_part` of kind `takes`, one scene each, your pick first.")
+    );
+}
+
+#[test]
+fn a_tool_follows_what_the_message_names_and_an_unknown_tool_says_nothing() {
+    let line = mention_line(&[tag(TagKind::Tool, "sketch", "Sketch", None), tag(TagKind::Issue, "219", "#219 Walk it", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person named: issue #219 \"Walk it\".\nThe person asked for Sketch: draw it with `show_sketch` as a `mock` of the screen.")
+    );
+    assert_eq!(mention_line(&[tag(TagKind::Tool, "kettle", "Kettle", None)]), None);
+}

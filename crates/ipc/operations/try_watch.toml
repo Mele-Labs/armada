@@ -1,4 +1,5 @@
 [operations.try_watch]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

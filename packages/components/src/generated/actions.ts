@@ -2261,6 +2261,19 @@ export const ACTIONS: readonly Action[] = [
     confirms: false,
     unbuilt: null,
   },
+  {
+    id: "ask_for_tool",
+    kind: "Action",
+    tier: "Global",
+    verb: "Ask the agent for a tool",
+    icon: Plus,
+    iconAbsent: null,
+    shortcut: "⌘/",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
 ];
 
 /**

@@ -39,12 +39,18 @@ export type TagKind =
   /** A reported bug (`report_bug`) the Job is started on. `id` is the report's id, `title` its title. */
   | "report"
   /** One of the Job's terminals. `id` is `t2`, `title` its name. */
-  | "terminal";
+  | "terminal"
+  /**
+   * One of Armada's own tools the person asks the agent to use. `id` is a key of
+   * `crates/core-model/domain/ask_tools.toml`, `title` its name. Fleet says which tool to
+   * call; an `id` it does not know adds nothing to the line.
+   */
+  | "tool";
 
 /**
  * Something a message names: another session, a pull request, an issue, a reported bug, a
- * terminal or a branch. **Fleet writes the line that tells the agent**; the person's words
- * are kept as typed.
+ * terminal, a branch or one of Armada's tools. **Fleet writes the line that tells the agent**;
+ * the person's words are kept as typed.
  */
 export type SessionTag = {
   kind: TagKind;
