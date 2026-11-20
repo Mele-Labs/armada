@@ -5,7 +5,7 @@ use gpui::{deferred, div, list, prelude::*, px, svg, AnyElement, Context, Div, F
 use gpui_component::input::{InlineTokenContext, Input, Textarea};
 
 use super::model::{self, Filter, Line, Outcome};
-use super::{ApiClient, Load, Part, Pick, Reply, Show};
+use super::{ApiClient, Load, Part, Pick, Reply, Rows, Show};
 use crate::assets::icon_path;
 use crate::generated::actions::ActionScope;
 use crate::labels::labelled;
@@ -13,7 +13,7 @@ use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, refusal, ring_colour, tip};
 use crate::titlebar::parts::{mono, sans};
 
-fn glyph(look: &Look, name: &str, ink: Token) -> gpui::Svg {
+pub(super) fn glyph(look: &Look, name: &str, ink: Token) -> gpui::Svg {
     svg().flex_none().path(icon_path(name)).size(look.length(token::SPACE_3)).text_color(look.color(ink))
 }
 
@@ -33,7 +33,7 @@ fn variable_chip(look: &Look, context: &InlineTokenContext) -> impl IntoElement 
 }
 
 /// A bordered field a text box sits in. It takes the focus ring while the box has the keys.
-fn field(look: &Look, id: impl Into<gpui::ElementId>, focused: bool) -> Stateful<Div> {
+pub(super) fn field(look: &Look, id: impl Into<gpui::ElementId>, focused: bool) -> Stateful<Div> {
     div()
         .id(id)
         .key_context(crate::keymap::TEXT_BOX)
@@ -95,6 +95,32 @@ fn segments(look: &Look, name: &'static str, parts: Vec<(Stateful<Div>, &'static
     .into_any_element()
 }
 
+/// A row of the list: a hairline round the one open, a fill under the one the keys are on.
+pub(super) fn row_shell(look: &Look, id: String, held: bool, under_keys: bool) -> Stateful<Div> {
+    div()
+        .id(SharedString::from(id))
+        .w_full()
+        .h(look.length(token::H_ROW))
+        .px(look.length(token::SPACE_2))
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .border(look.length(token::BORDER_WIDTH))
+        .text_size(look.length(token::TEXT_XS))
+        .map(|row| {
+            if held {
+                row.bg(look.color(token::ACCENT_FAINT)).border_color(look.color(token::ACCENT)).text_color(look.color(token::FG_DEFAULT))
+            } else if under_keys {
+                row.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)).text_color(look.color(token::FG_DEFAULT))
+            } else {
+                row.border_color(gpui::transparent_black()).text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_HOVER)))
+            }
+        })
+        .cursor_pointer()
+        .aria_selected(held)
+}
+
 /// Skeleton shapes where the list will be.
 fn list_bones(look: &Look) -> AnyElement {
     div()
@@ -120,7 +146,7 @@ impl Render for ApiClient {
         let look = cx.look().clone();
         let look = &look;
         let line = self.request_line(look, window, cx);
-        let crumb = self.crumb(look);
+        let crumb = self.crumb(look, window, cx);
         let left = self.left(look, window, cx);
         let right = self.right(look, window, cx);
         div()
@@ -348,41 +374,6 @@ impl ApiClient {
         .into_any_element()
     }
 
-    // ---- the crumb ---------------------------------------------------------------------------------
-
-    fn crumb(&self, look: &Look) -> Option<AnyElement> {
-        // Only a saved request has a crumb; the address is on the line above.
-        let place = self.collection().zip(self.saved()).map(|(collection, saved)| (collection.item.name.clone(), saved.name.clone()))?;
-        let crumb = div()
-            .id("api-crumb")
-            .flex_none()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_4))
-            .px(look.length(token::SPACE_4))
-            .pb(look.length(token::SPACE_3))
-            .text_color(look.color(token::FG_MUTED))
-            .child({
-                let (collection, request) = place;
-                let said = format!("{collection}, {request}");
-                labelled(
-                    div()
-                        .id("api-crumb-place")
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_1))
-                        .child(SharedString::from(collection))
-                        .child(svg().flex_none().path(icon_path("chevron-right")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_SUBTLE)))
-                        .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(request))),
-                    Role::Label,
-                    said,
-                )
-            })
-            .into_any_element();
-        Some(crumb)
-    }
-
     // ---- the list ----------------------------------------------------------------------------------
 
     fn left(&mut self, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -426,6 +417,28 @@ impl ApiClient {
             Role::RadioGroup,
             "Show",
         );
+        let unread = self.requests().map(|read| read.not_read.clone()).unwrap_or_default().into_iter().enumerate().map(|(at, one)| {
+            let title = format!("{} would not read", model::unread_file(&one));
+            labelled(
+                div()
+                    .id(SharedString::from(format!("api-unread-{at}")))
+                    .flex_none()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .mx(look.length(token::SPACE_3))
+                    .mb(look.length(token::SPACE_2))
+                    .p(look.length(token::SPACE_3))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::NOTICE_CAUTION))
+                    .bg(look.color(token::NOTICE_CAUTION_BG))
+                    .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::NOTICE_CAUTION)).child(SharedString::from(title.clone())))
+                    .child(div().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(model::unread_said(&one)))),
+                Role::Alert,
+                title,
+            )
+        });
         let body = match &self.read {
             Load::Reading => labelled(div().id("api-list-loading").flex_1().child(list_bones(look)), Role::Image, "Loading").into_any_element(),
             Load::Failed(why) => div()
@@ -473,6 +486,7 @@ impl ApiClient {
             .flex_col()
             .bg(look.color(token::BG_SUNKEN))
             .child(chips)
+            .children(unread)
             .child(body)
             .into_any_element()
     }
@@ -485,30 +499,7 @@ impl ApiClient {
         let held = self.is_open(&line);
         let under_keys = self.cursor == Some(at) && self.list_focus.is_focused(window);
         let method_column = look.length(token::SPACE_12) + look.length(token::SPACE_2);
-        let shell = |id: String, held: bool| {
-            div()
-                .id(SharedString::from(id))
-                .w_full()
-                .h(look.length(token::H_ROW))
-                .px(look.length(token::SPACE_2))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .text_size(look.length(token::TEXT_XS))
-                .map(|row| {
-                    if held {
-                        row.bg(look.color(token::ACCENT_FAINT)).border_color(look.color(token::ACCENT)).text_color(look.color(token::FG_DEFAULT))
-                    } else if under_keys {
-                        row.bg(look.color(token::BG_HOVER)).border_color(look.color(token::BORDER_STRONG)).text_color(look.color(token::FG_DEFAULT))
-                    } else {
-                        row.border_color(gpui::transparent_black()).text_color(look.color(token::FG_MUTED)).hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    }
-                })
-                .cursor_pointer()
-                .aria_selected(held)
-        };
+        let shell = |id: String, held: bool| row_shell(look, id, held, under_keys);
         let outer = |row: AnyElement| div().w_full().px(look.length(token::SPACE_2)).child(row).into_any_element();
         match line {
             Line::Heading(said) => labelled(
@@ -528,6 +519,39 @@ impl ApiClient {
                 said,
             )
             .into_any_element(),
+            Line::Collection(of) => {
+                let Some(placed) = self.requests().and_then(|read| read.collections.get(of)) else { return div().into_any_element() };
+                let said = format!("Saved in {}", placed.item.name);
+                let repository = placed.place == ipc::RequestPlace::Repository;
+                let row = shell(format!("api-collection-{at}"), held)
+                    .h(look.length(token::H_ROW))
+                    .px(look.length(token::SPACE_2))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.cursor = Some(at);
+                        this.open_collection(of, window, cx);
+                    }))
+                    .child(
+                        div()
+                            .flex_1()
+                            .min_w_0()
+                            .truncate()
+                            .text_size(look.length(token::TEXT_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(if held { token::FG_DEFAULT } else { token::FG_SUBTLE }))
+                            .child(SharedString::from(said.to_uppercase())),
+                    )
+                    .children(repository.then(|| {
+                        div()
+                            .id(SharedString::from(format!("api-collection-mark-{at}")))
+                            .flex_none()
+                            .child(glyph(look, "folder-git-2", token::FG_MUTED))
+                            .tooltip(tip("The repository's"))
+                    }));
+                outer(labelled(row, Role::ListBoxOption, said).into_any_element())
+            }
+            Line::Run(run) => self.run_line(look, run, at, held, under_keys, cx),
+            Line::RunsLoading => self.runs_loading_line(look),
+            Line::RunsFailed(said) => self.runs_failed_line(look, said),
             Line::Saved(collection, request) => {
                 let Some((_, saved)) = self.saved_at(collection, request) else { return div().into_any_element() };
                 let (method, name) = (saved.method.clone(), saved.name.clone());
@@ -569,33 +593,28 @@ impl ApiClient {
     // ---- the request and its answer ----------------------------------------------------------------
 
     fn right(&mut self, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let parts = segments(
-            look,
-            "Request part",
-            vec![
-                (segment(look, "api-part-headers", "Headers", self.part == Part::Headers).track_focus(&self.part_focus[0]).tab_stop(true).on_click(cx.listener(|this, _, _, cx| this.set_part(Part::Headers, cx))), "Headers"),
-                (segment(look, "api-part-body", "Body", self.part == Part::Body).track_focus(&self.part_focus[1]).tab_stop(true).on_click(cx.listener(|this, _, _, cx| this.set_part(Part::Body, cx))), "Body"),
-            ],
-        );
+        let shell = |content: Vec<AnyElement>| {
+            div().id("api-right").flex_1().min_w_0().h_full().overflow_y_scroll().flex().flex_col().gap(look.length(token::SPACE_4)).p(look.length(token::SPACE_4)).children(content).into_any_element()
+        };
+        if let Some(collection) = self.collection_view(look, window, cx) {
+            return shell(vec![collection]);
+        }
+        let mut parts = Vec::new();
+        for (at, part) in Part::ALL.into_iter().enumerate() {
+            let word = part.word();
+            parts.push((segment(look, SharedString::from(format!("api-part-{}", word.to_lowercase())), word, self.part == part).track_focus(&self.part_focus[at]).tab_stop(true).on_click(cx.listener(move |this, _, _, cx| this.set_part(part, cx))), word));
+        }
+        let parts = segments(look, "Request part", parts);
         let panel = match self.part {
             Part::Headers => self.headers_panel(look, window, cx),
             Part::Body => self.body_panel(look, window, cx),
+            Part::Environment => self.environment_panel(look, window, cx),
         };
-        let answer = self.answer(look, cx);
-        div()
-            .id("api-right")
-            .flex_1()
-            .min_w_0()
-            .h_full()
-            .overflow_y_scroll()
-            .flex()
-            .flex_col()
-            .gap(look.length(token::SPACE_4))
-            .p(look.length(token::SPACE_4))
-            .child(parts)
-            .child(panel)
-            .children(answer)
-            .into_any_element()
+        // The answer is the request's: the Environment part has none beside it.
+        let answer = if self.part == Part::Environment { None } else { self.answer(look, cx) };
+        let mut content = vec![parts, panel];
+        content.extend(answer);
+        shell(content)
     }
 
     fn headers_panel(&self, look: &Look, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
@@ -626,43 +645,79 @@ impl ApiClient {
                 })
                 .collect::<Vec<_>>()
         });
-        let own = (0..self.headers.len()).map(|at| {
-            let (name, value) = (self.headers[at].name.clone(), self.headers[at].value.clone());
-            let name_focused = name.read(cx).focus_handle(cx).is_focused(window);
-            let value_focused = value.read(cx).focus_handle(cx).is_focused(window);
-            let n = at + 1;
-            let remove = labelled(
+        let own = self.header_rows(look, Rows::Request, window, cx);
+        let add = self.add_header_button(look, Rows::Request, cx);
+        labelled(
+            div()
+                .id("api-headers")
+                .flex_none()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .children(dimmed.unwrap_or_default())
+                .children(own)
+                .child(div().flex().child(add)),
+            Role::Group,
+            "Headers",
+        )
+        .into_any_element()
+    }
+
+    /// The editable rows of headers, the request's own or a collection's shared ones, in the same columns.
+    pub(super) fn header_rows(&self, look: &Look, which: Rows, window: &mut Window, cx: &mut Context<Self>) -> Vec<AnyElement> {
+        let name_column = look.length(token::SPACE_12) * 3.;
+        let last_column = look.length(token::SPACE_12) * 2.5;
+        let key = if which == Rows::Request { "header" } else { "cheader" };
+        let rows = match which {
+            Rows::Request => self.headers.as_slice(),
+            Rows::Collection => self.collection_edit.as_ref().map(|edit| edit.rows.as_slice()).unwrap_or_default(),
+        };
+        (0..rows.len())
+            .map(|at| {
+                let (name, value) = (rows[at].name.clone(), rows[at].value.clone());
+                let name_focused = name.read(cx).focus_handle(cx).is_focused(window);
+                let value_focused = value.read(cx).focus_handle(cx).is_focused(window);
+                let n = at + 1;
+                let remove = labelled(
+                    div()
+                        .id(SharedString::from(format!("api-{key}-remove-{at}")))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .justify_center()
+                        .size(look.length(token::H_CONTROL_SM))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .cursor_pointer()
+                        .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                        .tooltip(tip("Remove"))
+                        .on_click(cx.listener(move |this, _, window, cx| this.remove_header(which, at, window, cx)))
+                        .child(svg().flex_none().path(icon_path("x")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
+                    Role::Button,
+                    format!("Remove header {n}"),
+                );
                 div()
-                    .id(SharedString::from(format!("api-header-remove-{at}")))
-                    .flex_none()
+                    .id(SharedString::from(format!("api-{key}-{at}")))
                     .flex()
                     .items_center()
-                    .justify_center()
-                    .size(look.length(token::H_CONTROL_SM))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
-                    .tooltip(tip("Remove"))
-                    .on_click(cx.listener(move |this, _, window, cx| this.remove_header(at, window, cx)))
-                    .child(svg().flex_none().path(icon_path("x")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_SUBTLE))),
-                Role::Button,
-                format!("Remove header {n}"),
-            );
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().flex_none().w(name_column).flex().child(labelled(field(look, SharedString::from(format!("api-{key}-name-{at}")), name_focused).child(Input::new(&name).appearance(false)), Role::TextInput, format!("Header {n} name"))))
+                    .child(div().flex_1().min_w_0().flex().child(labelled(field(look, SharedString::from(format!("api-{key}-value-{at}")), value_focused).child(Input::new(&value).appearance(false)), Role::TextInput, format!("Header {n} value"))))
+                    .child(div().flex_none().w(last_column).flex().justify_end().child(remove))
+                    .into_any_element()
+            })
+            .collect()
+    }
+
+    pub(super) fn add_header_button(&self, look: &Look, which: Rows, cx: &mut Context<Self>) -> AnyElement {
+        let focus = match which {
+            Rows::Request => self.add_focus.clone(),
+            Rows::Collection => self.collection_edit.as_ref().map(|edit| edit.add_focus.clone()).unwrap_or_else(|| self.add_focus.clone()),
+        };
+        labelled(
             div()
-                .id(SharedString::from(format!("api-header-{at}")))
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .child(div().flex_none().w(name_column).flex().child(labelled(field(look, SharedString::from(format!("api-header-name-{at}")), name_focused).child(Input::new(&name).appearance(false)), Role::TextInput, format!("Header {n} name"))))
-                .child(div().flex_1().min_w_0().flex().child(labelled(field(look, SharedString::from(format!("api-header-value-{at}")), value_focused).child(Input::new(&value).appearance(false)), Role::TextInput, format!("Header {n} value"))))
-                .child(div().flex_none().w(last_column).flex().justify_end().child(remove))
-                .into_any_element()
-        });
-        let add = labelled(
-            div()
-                .id("api-header-add")
-                .track_focus(&self.add_focus)
+                .id(if which == Rows::Request { "api-header-add" } else { "api-cheader-add" })
+                .track_focus(&focus)
                 .tab_stop(true)
                 .flex_none()
                 .flex()
@@ -676,24 +731,11 @@ impl ApiClient {
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
-                .on_click(cx.listener(|this, _, window, cx| this.add_header(window, cx)))
+                .on_click(cx.listener(move |this, _, window, cx| this.add_header(which, window, cx)))
                 .child(svg().flex_none().path(icon_path("plus")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_DEFAULT)))
                 .child("Add header"),
             Role::Button,
             "Add header",
-        );
-        labelled(
-            div()
-                .id("api-headers")
-                .flex_none()
-                .flex()
-                .flex_col()
-                .gap(look.length(token::SPACE_2))
-                .children(dimmed.unwrap_or_default())
-                .children(own)
-                .child(div().flex().child(add)),
-            Role::Group,
-            "Headers",
         )
         .into_any_element()
     }
