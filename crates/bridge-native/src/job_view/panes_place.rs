@@ -289,6 +289,21 @@ pub(super) fn offer_story(was: &Arrangement) -> Out<'_> {
     Cow::Owned(next)
 }
 
+/// The tabs the column's bands took the place of: Needs you holds what For you, Open, Done and Deferred listed.
+const BAND_TABS: [&str; 4] = ["for_you", "open", "done", "deferred"];
+
+/// A Job kept with those four as tabs shows them twice, as tabs and as the band. They go out of its panes once, a pane
+/// left empty goes with them and the rest of the layout stays; they are marked, so one he opens again from + stays.
+pub(super) fn leave_bands(was: &Arrangement) -> Out<'_> {
+    if was.offered.iter().any(|one| one == "bands") {
+        return Cow::Borrowed(was);
+    }
+    let held: Vec<String> = tree::panes_of(&was.root).into_iter().flat_map(|pane| pane.tabs.iter()).filter(|tab| BAND_TABS.contains(&tab.kind.as_str())).map(|tab| tab.id.clone()).collect();
+    let mut next = held.iter().fold(was.clone(), |at, tab| tree::close_tab(&at, tab).into_owned());
+    next.offered.push("bands".to_string());
+    Cow::Owned(next)
+}
+
 fn retag(node: &mut Node, change: &mut impl FnMut(&mut Tab)) {
     match node {
         Node::Pane(pane) => pane.tabs.iter_mut().for_each(change),
@@ -371,6 +386,10 @@ impl JobView {
                     // The thread is what a Job opens on, whichever tab of its pane was in front when it was left.
                     placed.arrangement = tree::thread_in_front(&kept);
                     cx.notify();
+                }
+                // With Needs you hidden the tabs are all he has of those lists, so they stay.
+                if this.band_shown(super::column_bands::Band::Column) {
+                    this.look_in(&job, leave_bands, cx);
                 }
                 this.offer_artifacts(&job, cx);
                 this.offer_story_tab(&job, cx);
@@ -1244,5 +1263,43 @@ mod tests {
         }
         // The four arrows are one row, bound once for each direction.
         assert!(crate::generated::actions::act("focus_pane").is_some());
+    }
+
+    /// A Job kept with For you, Open, Done and Deferred as tabs loses them once, since the band is their home: the pane they
+    /// filled goes, the thread, Story and Now stay, and the arrangement says it ran.
+    #[test]
+    fn a_kept_column_of_the_four_tabs_loses_them_once() {
+        let kept = two_panes();
+        let left = leave_bands(&kept).into_owned();
+        for gone in BAND_TABS {
+            assert!(!tree::has_kind(&left, gone), "{gone} is the band's now");
+        }
+        let panes = tree::panes_of(&left.root);
+        assert_eq!(panes.iter().map(|pane| kinds(pane)).collect::<Vec<_>>(), [vec!["thread", "story"], vec!["now"]], "the emptied pane is dropped, the rest stays");
+        assert!(left.offered.iter().any(|one| one == "bands"));
+        assert!(tree::pane_by_id(&left, &left.focus).is_some(), "the focus is on a pane that is there");
+        assert!(matches!(leave_bands(&left), Cow::Borrowed(_)), "it ran once, so it changes nothing again");
+    }
+
+    /// One he opens from + afterwards stays: the arrangement was marked when the four went.
+    #[test]
+    fn a_tab_opened_again_from_plus_is_not_taken_out_again() {
+        let left = leave_bands(&two_panes()).into_owned();
+        let foot = tree::holder_of(&left, "now").map(|pane| pane.id.clone()).expect("Now stays");
+        let again = tree::add_tab(&left, &foot, "open", Extras::default()).into_owned();
+        assert!(matches!(leave_bands(&again), Cow::Borrowed(_)));
+        assert!(tree::has_kind(&again, "open"));
+    }
+
+    /// A pane that holds his own tabs beside one of the four keeps those, and keeps its place.
+    #[test]
+    fn a_pane_with_his_own_tabs_beside_the_four_keeps_them() {
+        let kept = two_panes();
+        let (_, top, _) = column(&kept);
+        let top = top.id.clone();
+        let kept = tree::add_tab(&kept, &top, "files", Extras::default()).into_owned();
+        let left = leave_bands(&kept).into_owned();
+        let panes = tree::panes_of(&left.root);
+        assert_eq!(panes.iter().map(|pane| kinds(pane)).collect::<Vec<_>>(), [vec!["thread", "story"], vec!["files"], vec!["now"]]);
     }
 }

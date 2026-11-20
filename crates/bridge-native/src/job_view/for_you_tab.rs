@@ -14,6 +14,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Hsla, KeyDownEvent,
 use ipc::{ForYou, ForYouChanged, ForYouItem, ForYouOpens, OrderForYou, SessionId, SessionStanding, WithdrawForYou};
 
 use super::artifacts_tab::step;
+use super::dock::Thing;
 use super::keys::Spot;
 use super::menus::Pick;
 use super::pulls::{pull_of, Pull, PullChecks, PullState};
@@ -123,6 +124,16 @@ fn ordered(read: &mut ForYou, ids: &[String]) {
     read.waiting = held;
 }
 
+/// Whether Needs you's own rows hold the item: it opens a row they list, or it is the question the thread carries.
+fn held_by_a_row(item: &ForYouItem, things: &[Thing]) -> bool {
+    let ForYouOpens::Waiting { id } = &item.opens else { return false };
+    things.iter().any(|thing| match thing {
+        Thing::Row(row) => row.id == *id,
+        Thing::Ask(_) => id.starts_with("ask:") || id.starts_with("perm:"),
+        Thing::Lapsed(_) => false,
+    })
+}
+
 fn empty(job: &str) -> ForYou {
     ForYou { job: SessionId::carried(job.to_string()), waiting: Vec::new(), building: Vec::new(), landing: Vec::new() }
 }
@@ -144,7 +155,9 @@ impl JobView {
 
     /// Read the shown Job's list the first time its tab is in front. Called as the view draws, never from a row.
     pub(super) fn sync_for_you(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        if self.for_you.read.contains_key(id.as_ref()) || !self.zones_shown().contains(&Zone::ForYou) {
+        // Needs you's Open chip lists these rows too, so the band reads them as the tab does.
+        let wanted = self.zones_shown().contains(&Zone::ForYou) || self.band_shown(super::column_bands::Band::Column);
+        if self.for_you.read.contains_key(id.as_ref()) || !wanted {
             return;
         }
         self.for_you.read.insert(id.to_string(), None);
@@ -377,6 +390,68 @@ impl JobView {
     }
 
     // ---- the tab -------------------------------------------------------------------------
+
+    /// What the tab lists under Waiting on you that Needs you's own rows do not already hold: the items Fleet added (a
+    /// document, a plan, a preview, a sketch) and any the agent stated that the rows left out. Needs you's Open chip lists
+    /// these after its rows, so it holds everything the tab does.
+    pub(super) fn for_you_beyond_rows(&self, id: &str, cx: &gpui::App) -> Vec<&ForYouItem> {
+        let Some(read) = self.for_you.read.get(id).and_then(Option::as_ref) else { return Vec::new() };
+        let (things, _) = self.things(id, cx);
+        read.waiting.iter().filter(|item| !held_by_a_row(item, &things)).collect()
+    }
+
+    /// Those rows as Open draws them: the title, and Review, which presses as the tab's own does.
+    pub(super) fn for_you_beyond_row_views(&self, job: &SharedString, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        self.for_you_beyond_rows(job, cx)
+            .into_iter()
+            .map(|item| {
+                let (press, review) = ((job.to_string(), Rowed::Waiting(item.id.clone())), (job.to_string(), Rowed::Waiting(item.id.clone())));
+                let button = labelled(
+                    div()
+                        .id(SharedString::from(format!("needs-for-you-review:{}", item.id)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .bg(look.color(token::ACCENT))
+                        .text_color(look.color(token::TEXT_ON_ACCENT))
+                        .text_size(look.length(token::TEXT_XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .cursor_pointer()
+                        .tab_index(0)
+                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+                        .focus_visible(|style| style.border_1().border_color(look.color(token::FG_DEFAULT)))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.for_you_open(&review.0, &review.1, window, cx);
+                        }))
+                        .child("Review"),
+                    Role::Button,
+                    format!("Review {}", item.title),
+                );
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("needs-for-you:{}", item.id)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .min_h(look.length(token::H_ROW))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, window, cx| this.for_you_open(&press.0, &press.1, window, cx)))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())))
+                        .child(button),
+                    Role::ListItem,
+                    item.title.clone(),
+                )
+                .into_any_element()
+            })
+            .collect()
+    }
 
     /// The tab: its sections, or its shapes while Fleet has not answered. None where there is nothing to say.
     pub(super) fn pane_for_you(&self, id: &SharedString, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
@@ -644,6 +719,24 @@ mod tests {
         read.landing.clear();
         assert!(sections(&read).is_empty(), "a Job with nothing in any section draws nothing");
         assert!(rows(&read).is_empty());
+    }
+
+    /// The band's Open chip holds what the tab lists under Waiting on you: a document Fleet added is a row of it, Open is
+    /// the chip Needs you stands on, and it presses as the tab's Review does.
+    #[gpui::test]
+    fn open_lists_the_fleet_added_document_the_for_you_tab_lists(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let ids = view.read_with(cx, |view, cx| view.for_you_beyond_rows(JOB, cx).into_iter().map(|one| one.id.clone()).collect::<Vec<_>>());
+        assert!(ids.contains(&"document:design".to_string()), "the document waiting on him is in Open, got {ids:?}");
+        let held = view.read_with(cx, |view, cx| view.needs_held(&SharedString::from(JOB), cx));
+        assert!(held.open, "with a Fleet-added item waiting, Open holds a row");
+        assert_eq!(super::super::column_bands::standing(None, held), Some(super::super::column_bands::Chip::Open), "so the band stands on Open, not Deferred");
+        let drawn = view.update_in(cx, |view, _, cx| {
+            use crate::look::ActiveLook;
+            let look = cx.look().clone();
+            view.for_you_beyond_row_views(&SharedString::from(JOB), &look, cx).len()
+        });
+        assert_eq!(drawn, ids.len(), "one row each");
     }
 
     #[gpui::test]

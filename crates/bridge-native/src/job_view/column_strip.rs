@@ -1,17 +1,17 @@
-//! The progress strip over a Job's right column: the workflow, the step of its steps, the time on it and what it
-//! waits on, with each step a cell under it. A step done shows a check and the time it took; the step under way is
-//! in the accent. A Job on no workflow shows its own plan's groups as the cells.
+//! The step line over a Job's right column: the workflow, the step of its steps and the time on it, with each step a small bar
+//! on the same line, and under it what the step waits on. The step under way is in the accent. A Job on no workflow shows its
+//! own plan's groups as the bars.
 //!
 //! What it says is worked out from the record by [`strip_of`] and [`own_plan_strip`], which draw nothing, so what a
-//! step reads can be tested without a window. [`JobView::column_strip`] draws it, under the band's x
-//! (`column_bands.rs`).
+//! step reads can be tested without a window. [`JobView::strip_parts`] draws it, for the band's card
+//! (`column_bands.rs`), with the band's x at its end.
 
 use std::collections::HashSet;
 
 use chrono::{DateTime, Utc};
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString};
 
-use super::column_bands::{band_frame, Band};
+use super::column_bands::Band;
 use super::composer::Kept;
 use super::rows::{glyph, tip, Size};
 use super::side::Stands;
@@ -248,17 +248,33 @@ pub(crate) fn track_of(job: &ipc::SessionRecord, held: &[ipc::WorkflowSummary], 
 
 /// A Job's steps as small bars, one for each, in the state each is in: done in the muted ink, the step under way in the accent,
 /// and the rest in the hairline's. Said once as a whole, so a reader of the screen hears the steps and not each bar.
+fn pip_hue(look: &Look, state: PipState) -> gpui::Hsla {
+    match state {
+        PipState::Done => look.color(token::FG_MUTED),
+        PipState::Now => look.color(token::ACCENT),
+        PipState::Stalled | PipState::Unapproved => look.color(token::STATUS_AWAITING_REVIEW),
+        PipState::Skipped => look.color(token::FG_SUBTLE),
+        PipState::Next => look.color(token::BORDER_DEFAULT),
+    }
+}
+
+/// What a step in this state is, in the words a tooltip and a reader of the screen say.
+fn pip_said(state: PipState) -> &'static str {
+    match state {
+        PipState::Done => "Done",
+        PipState::Now => "Under way",
+        PipState::Stalled => "Not moving",
+        PipState::Unapproved => "Passed without your Approve",
+        PipState::Next => "Not started",
+        PipState::Skipped => "Skipped",
+    }
+}
+
 pub(crate) fn pips_bar(look: &Look, id: impl Into<gpui::ElementId>, states: &[PipState], said: impl Into<SharedString>) -> AnyElement {
     let said: SharedString = said.into();
     labelled(
         div().id(id).flex_none().flex().items_center().gap(look.length(token::SPACE_1) / 2.).tooltip(tip(said.clone())).children(states.iter().map(|state| {
-            let hue = match state {
-                PipState::Done => look.color(token::FG_MUTED),
-                PipState::Now => look.color(token::ACCENT),
-                PipState::Stalled | PipState::Unapproved => look.color(token::STATUS_AWAITING_REVIEW),
-                PipState::Skipped => look.color(token::FG_SUBTLE),
-                PipState::Next => look.color(token::BORDER_DEFAULT),
-            };
+            let hue = pip_hue(look, *state);
             div().flex_none().w(look.length(token::SPACE_3)).h(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(hue)
         })),
         Role::Image,
@@ -278,31 +294,40 @@ impl JobView {
             None => {
                 let place = super::side::placed(job);
                 let groups: Vec<(String, Stands)> = job.plan.iter().filter(|plan| plan.approved).flat_map(|plan| plan.groups.iter()).map(|group| (group.title.clone(), place(group))).collect();
-                Some(own_plan_strip(&groups, Some(job.started_at.as_str()), now))
+                // No workflow and no plan: nothing to say of steps, so no step line.
+                Some(own_plan_strip(&groups, Some(job.started_at.as_str()), now)).filter(|strip| !strip.pips.is_empty())
             }
         }
     }
 
-    /// The strip drawn: a header of the workflow, its place and the time, a cell for each step, and what it waits on.
-    pub(super) fn column_strip(&self, id: &SharedString, strip: &Strip, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let text = |size: crate::look::Token| div().text_size(look.length(size)).line_height(look.length(token::LEADING_XS));
-        let head = div()
+    /// The step line and what hangs under it, as parts of the band's card (`column_bands.rs` frames and joins them): one slim line of
+    /// the workflow, `Step 2 of 3 · Walk`, the time and the steps as pips, then the x that hides the band; then what the step waits
+    /// on, and the amber boxes where they apply. What does not fit on the line is left off its end, whole, never cut short.
+    pub(super) fn strip_parts(&self, id: &SharedString, strip: &Strip, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let text = |size: crate::look::Token| div().text_size(look.length(size)).line_height(look.length(token::LEADING_XS)).whitespace_nowrap();
+        let step = match (strip.place.is_empty(), strip.pips.iter().find(|pip| pip.state.is_now())) {
+            (true, _) => None,
+            (false, Some(pip)) => Some(format!("{} \u{b7} {}", strip.place, pip.name)),
+            (false, None) => Some(strip.place.clone()),
+        };
+        let time = strip.step_time.clone().or_else(|| strip.time.clone());
+        let pips = (!strip.pips.is_empty()).then(|| self.strip_pips(id, strip, look));
+        // Wrapped on a line one row high with the rest hidden: an item that does not fit goes to the row below, out of sight, whole.
+        let line = div()
+            .id(SharedString::from(format!("strip-line:{id}")))
+            .flex_1()
+            .min_w_0()
+            .h(look.length(token::LEADING_XS))
+            .overflow_hidden()
             .flex()
+            .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .min_w_0()
             .child(text(token::TEXT_XS).flex_none().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(strip.flow.clone())))
-            .when(!strip.place.is_empty(), |head| head.child(text(token::TEXT_XS).flex_none().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(strip.place.clone()))))
-            .when_some(strip.time.clone(), |head, time| head.child(text(token::TEXT_XS).min_w_0().truncate().text_color(look.color(if strip.stalled.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED })).child(SharedString::from(time))))
-            .child(div().flex_1())
-            .child(self.band_hide(id, Band::Strip, look, cx));
-        let cells = (!strip.pips.is_empty()).then(|| {
-            labelled(
-                div().id(SharedString::from(format!("strip-steps:{id}"))).flex().gap(look.length(token::SPACE_1)).children(strip.pips.iter().enumerate().map(|(at, pip)| self.strip_cell(id, at, pip, look))),
-                Role::List,
-                "Steps",
-            )
-        });
+            .children(step.map(|step| text(token::TEXT_XS).flex_none().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(step))))
+            .children(time.map(|time| text(token::TEXT_XS).flex_none().text_color(look.color(if strip.stalled.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED })).child(SharedString::from(time))))
+            .children(pips);
+        let head = div().flex().items_center().gap(look.length(token::SPACE_2)).child(line).child(self.band_hide(id, Band::Column, look, cx));
         let waits = strip.waits.iter().enumerate().map(|(at, said)| {
             labelled(
                 div()
@@ -311,16 +336,36 @@ impl JobView {
                     .items_start()
                     .gap(look.length(token::SPACE_2))
                     .child(div().id(SharedString::from(format!("strip-waits-mark:{id}:{at}"))).flex_none().tooltip(tip("Waits on")).child(glyph(look, "clock", Size::Small, look.color(token::FG_SUBTLE))))
-                    .child(text(token::TEXT_XS).min_w_0().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone()))),
+                    .child(text(token::TEXT_XS).min_w_0().whitespace_normal().text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(said.clone()))),
                 Role::Group,
                 said.clone(),
             )
+            .into_any_element()
         });
         let stalled = strip.stalled.as_ref().map(|stalled| self.stalled_box(id, stalled, look, cx));
+        std::iter::once(head.into_any_element()).chain(waits).chain(stalled).chain(self.moved_past_box(id, strip, look, cx)).collect()
+    }
+
+    /// The steps as small bars on the step line, each in its state's hue and each saying its step's name in its tooltip.
+    fn strip_pips(&self, id: &SharedString, strip: &Strip, look: &Look) -> AnyElement {
         labelled(
-            band_frame(look, SharedString::from(format!("band-strip:{id}"))).child(head).children(cells).children(waits).children(stalled).children(self.moved_past_box(id, strip, look, cx)),
-            Role::Group,
-            "Progress strip",
+            div().id(SharedString::from(format!("strip-steps:{id}"))).flex_none().flex().items_center().gap(look.length(token::SPACE_1) / 2.).children(strip.pips.iter().enumerate().map(|(at, pip)| {
+                let said = format!("{}, {}", pip.name, pip_said(pip.state));
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("strip-step:{id}:{at}")))
+                        .flex_none()
+                        .h(look.length(token::LEADING_XS))
+                        .flex()
+                        .items_center()
+                        .tooltip(tip(said.clone()))
+                        .child(div().w(look.length(token::SPACE_3)).h(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(pip_hue(look, pip.state))),
+                    Role::ListItem,
+                    said,
+                )
+            })),
+            Role::List,
+            "Steps",
         )
         .into_any_element()
     }
@@ -389,75 +434,6 @@ impl JobView {
         let kept = Kept { text: step_question(step, &held.text), tags: held.tags };
         self.set_words(kept, window, cx);
         self.to_composer(window, cx);
-    }
-
-    /// One step's cell: its words, then a check and its time where it is done.
-    fn strip_cell(&self, id: &SharedString, at: usize, pip: &Pip, look: &Look) -> AnyElement {
-        let edge = look.length(token::BORDER_WIDTH);
-        let accent = look.color(token::ACCENT);
-        let amber = look.color(token::STATUS_AWAITING_REVIEW);
-        let (ink, weight, ground, border) = match pip.state {
-            PipState::Now => (accent, token::WEIGHT_HEADING, look.color(token::BG_RAISED).blend(accent.opacity(0.14)), accent),
-            PipState::Stalled => (amber, token::WEIGHT_HEADING, look.color(token::BG_RAISED).blend(amber.opacity(0.14)), amber),
-            PipState::Unapproved => (amber, token::WEIGHT_HEADING, look.color(token::BG_RAISED).blend(amber.opacity(0.10)), amber),
-            PipState::Done => (look.color(token::FG_MUTED), token::WEIGHT_MEDIUM, look.color(token::BG_RAISED), look.color(token::BORDER_SUBTLE)),
-            PipState::Skipped | PipState::Next => (look.color(token::FG_SUBTLE), token::WEIGHT_BODY, look.color(token::BG_RAISED), look.color(token::BORDER_SUBTLE)),
-        };
-        let said = match pip.state {
-            PipState::Done => "Done",
-            PipState::Now => "Under way",
-            PipState::Stalled => "Not moving",
-            PipState::Unapproved => "Passed without your Approve",
-            PipState::Next => "Not started",
-            PipState::Skipped => "Skipped",
-        };
-        let mark = match pip.state {
-            PipState::Done => Some(("check", token::STEP_ADVANCED)),
-            PipState::Skipped => Some(("minus", token::FG_SUBTLE)),
-            PipState::Stalled | PipState::Unapproved => Some(("triangle-alert", token::STATUS_AWAITING_REVIEW)),
-            PipState::Now | PipState::Next => None,
-        };
-        // A step passed with no Approve says so where the time of the others stands.
-        let time = if pip.state == PipState::Unapproved { Some("no Approve".to_string()) } else { pip.time.clone() };
-        let name = match (&pip.time, pip.state) {
-            (Some(time), state) if state != PipState::Unapproved => format!("{}, {said}, {time}", pip.name),
-            _ => format!("{}, {said}", pip.name),
-        };
-        labelled(
-            div()
-                .id(SharedString::from(format!("strip-step:{id}:{at}")))
-                .flex_1()
-                .min_w_0()
-                .flex()
-                .flex_col()
-                .items_center()
-                .py(look.length(token::SPACE_1))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(edge)
-                .border_color(border)
-                .bg(ground)
-                .text_color(ink)
-                .text_size(look.length(token::TEXT_XS))
-                .line_height(look.length(token::LEADING_XS))
-                .font_weight(FontWeight(look.number(weight)))
-                .tooltip(tip(said))
-                .child(div().max_w_full().truncate().child(SharedString::from(pip.name.clone())))
-                .when(time.is_some() || mark.is_some(), |cell| {
-                    cell.child(
-                        div()
-                            .flex()
-                            .items_center()
-                            .gap(look.length(token::SPACE_1))
-                            .text_color(if matches!(pip.state, PipState::Stalled | PipState::Unapproved) { amber } else { look.color(token::FG_SUBTLE) })
-                            .text_size(look.length(token::TEXT_2XS))
-                            .when_some(mark, |line, (icon, hue)| line.child(glyph(look, icon, Size::Small, look.color(hue))))
-                            .when_some(time, |line, time| line.child(SharedString::from(time))),
-                    )
-                }),
-            Role::ListItem,
-            name,
-        )
-        .into_any_element()
     }
 }
 
@@ -709,6 +685,45 @@ pub(super) mod tests {
             view.read_with(cx, |view, _| assert_eq!(view.dock_of("mock-17").and_then(|dock| dock.detail.clone()).as_deref(), Some("item:plan:1"), "the plan item stands open in Needs you"));
             view.update_in(cx, |view, window, cx| view.go_to_approve("not-a-row", window, cx));
             view.read_with(cx, |view, _| assert_eq!(view.dock_of("mock-17").and_then(|dock| dock.detail.clone()).as_deref(), Some("item:not-a-row"), "with no row for it, the item is opened by its id"));
+        }
+
+        /// With something waiting on him the band is one card: the step line, a hairline, then Needs you with its chips. One x hides the lot.
+        #[gpui::test]
+        fn one_card_holds_the_step_line_and_needs_you_under_it(cx: &mut gpui::TestAppContext) {
+            let (_, cx) = opened(cx, "mock-01");
+            assert!(drawn(cx, Role::Group, "Step and Needs you"));
+            assert!(drawn(cx, Role::List, "Steps"), "the step line is in it");
+            assert!(drawn(cx, Role::RadioGroup, "Needs you"), "and Needs you's chips");
+            assert_eq!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Step"), ["Hide Step and Needs you"], "one x, on the card");
+            assert!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Needs").is_empty() && super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Progress").is_empty(), "not one each");
+        }
+
+        /// With nothing waiting on him the card is the step line alone: no Needs you head, no list.
+        #[gpui::test]
+        fn with_nothing_waiting_the_card_is_the_step_line_alone(cx: &mut gpui::TestAppContext) {
+            let (_, cx) = opened(cx, "mock-02");
+            assert!(drawn(cx, Role::Group, "Step and Needs you"));
+            assert!(drawn(cx, Role::List, "Steps"));
+            assert!(!drawn(cx, Role::RadioGroup, "Needs you"), "no Needs you head");
+            assert_eq!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Step"), ["Hide Step and Needs you"], "the x is on the step line");
+        }
+
+        /// A Job on no workflow with no plan and nothing waiting has no card at all.
+        #[gpui::test]
+        fn with_no_workflow_no_plan_and_nothing_waiting_there_is_no_card(cx: &mut gpui::TestAppContext) {
+            let (_, cx) = opened(cx, "mock-03");
+            assert!(!drawn(cx, Role::Group, "Step and Needs you"));
+            assert!(!drawn(cx, Role::List, "Steps"));
+        }
+
+        /// The x hides the whole band, and it stays hidden for the next Job.
+        #[gpui::test]
+        fn the_x_hides_the_whole_band_for_every_job(cx: &mut gpui::TestAppContext) {
+            let (view, cx) = opened(cx, "mock-01");
+            press(cx, "Hide Step and Needs you");
+            assert!(!drawn(cx, Role::Group, "Step and Needs you"));
+            assert!(!drawn(cx, Role::RadioGroup, "Needs you"));
+            view.read_with(cx, |view, _| assert!(!view.band_shown(super::super::super::column_bands::Band::Column)));
         }
 
         #[gpui::test]

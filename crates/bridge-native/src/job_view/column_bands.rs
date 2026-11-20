@@ -1,6 +1,8 @@
-//! The bands over a Job's right column: the progress strip (`column_strip.rs`) and Needs you. A band is not a tab. Each has
-//! an x that hides it for every Job, and + lists a hidden band under Bands to bring it back. The hide is one preference of
-//! the machine, kept in a file beside the Jobs list's own (`native-column-bands`) and read once when the view is made.
+//! The band over a Job's right column: one card that holds the step line (`column_strip.rs`) and, under a hairline, Needs you.
+//! A band is not a tab. Its x, on the step line, hides it for every Job, and + lists it hidden under Bands to bring it back as
+//! Step and Needs you. The hide is one preference of the machine, kept in a file beside the Jobs list's own
+//! (`native-column-bands`) and read once when the view is made; a machine that hid the strip or Needs you before hides the band.
+//! The two halves are drawn by `strip_parts` and `needs_parts`, apart, and joined only in `column_bands`.
 //!
 //! Needs you is one list under three chips. Open is what Fleet's Needs you holds for the Job, Done what he closed from it
 //! and Deferred what the agent kept for later. It is drawn only while something waits on him, which is Open or Deferred
@@ -21,49 +23,33 @@ use crate::look::{token, Look};
 /// A band over the column.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum Band {
-    Strip,
-    Needs,
+    Column,
 }
 
 impl Band {
-    pub(super) const ALL: [Band; 2] = [Band::Strip, Band::Needs];
+    pub(super) const ALL: [Band; 1] = [Band::Column];
 
     /// What the file and the + menu's entry name it by.
     pub(super) fn id(self) -> &'static str {
-        match self {
-            Band::Strip => "strip",
-            Band::Needs => "needs",
-        }
+        "column"
     }
 
     /// The entry's id in + (an entry's id is `&'static str`).
     pub(super) fn entry(self) -> &'static str {
-        match self {
-            Band::Strip => "band:strip",
-            Band::Needs => "band:needs",
-        }
+        "band:column"
     }
 
     pub(super) fn word(self) -> &'static str {
-        match self {
-            Band::Strip => "Progress strip",
-            Band::Needs => "Needs you",
-        }
+        "Step and Needs you"
     }
 
     pub(super) fn glyph(self) -> &'static str {
-        match self {
-            Band::Strip => "milestone",
-            Band::Needs => "user-check",
-        }
+        "milestone"
     }
 
     /// What the x says it does.
     fn hides(self) -> &'static str {
-        match self {
-            Band::Strip => "Hide the strip for every Job",
-            Band::Needs => "Hide Needs you for every Job",
-        }
+        "Hide Step and Needs you for every Job"
     }
 }
 
@@ -72,9 +58,10 @@ impl Band {
 pub(super) struct Hidden(BTreeSet<Band>);
 
 impl Hidden {
-    /// The file's lines: each is the id of a band that is hidden. A line that names no band is left out.
+    /// The file's lines: each is the id of a band that is hidden. A line that names no band is left out. The strip and Needs
+    /// were two bands once, so a machine that hid either has hidden the one band now.
     pub(super) fn parse(text: &str) -> Hidden {
-        Hidden(text.lines().filter_map(|line| Band::ALL.into_iter().find(|band| band.id() == line.trim())).collect())
+        Hidden(text.lines().filter(|line| matches!(line.trim(), "column" | "strip" | "needs")).map(|_| Band::Column).collect())
     }
 
     pub(super) fn spell(&self) -> String {
@@ -259,51 +246,59 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The bands over the column, in the order they stand, for a pane that holds them. Nothing for a Job with none to draw.
+    /// The band over the column, for a pane that holds it: one card with the step line, and under a hairline Needs you. With nothing
+    /// waiting on him the card is the step line alone; with no step to say and nothing waiting, there is no card.
     pub(super) fn column_bands(&self, job: &SharedString, pane: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.bands_pane(pane) {
+        if !self.bands_pane(pane) || !self.band_shown(Band::Column) {
             return None;
         }
-        let strip = self.band_shown(Band::Strip).then(|| self.strip_for(job, cx)).flatten().map(|strip| self.column_strip(job, &strip, look, cx));
-        let needs = self.band_shown(Band::Needs).then(|| self.column_needs(job, look, cx)).flatten();
-        if strip.is_none() && needs.is_none() {
+        let strip = self.strip_for(job, cx);
+        let steps = strip.as_ref().map(|strip| self.strip_parts(job, strip, look, cx));
+        // The x stands on the step line; with none, it stands on Needs you's head.
+        let needs = self.needs_parts(job, steps.is_none(), look, cx);
+        if steps.is_none() && needs.is_none() {
             return None;
         }
+        let hairline = (steps.is_some() && needs.is_some()).then(|| div().flex_none().border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)));
+        let card = labelled(
+            band_frame(look, SharedString::from(format!("band-column:{job}"))).children(steps.into_iter().flatten()).children(hairline).children(needs.into_iter().flatten()),
+            Role::Group,
+            Band::Column.word(),
+        );
         Some(
             div()
                 .id(SharedString::from(format!("column-bands:{job}")))
                 .flex_none()
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_2))
                 .p(look.length(token::SPACE_2))
                 .bg(look.color(token::BG_SUNKEN))
                 .border_b(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_GLASS))
-                .children(strip)
-                .children(needs)
+                .child(card)
                 .into_any_element(),
         )
     }
 
     /// What each chip of Needs you holds for the Job.
-    fn needs_held(&self, id: &SharedString, cx: &Context<Self>) -> Held {
+    pub(super) fn needs_held(&self, id: &SharedString, cx: &gpui::App) -> Held {
         let Some(job) = self.record(id, cx) else { return Held::default() };
         Held {
-            open: !self.things(id, cx).0.is_empty(),
+            open: !self.things(id, cx).0.is_empty() || !self.for_you_beyond_rows(id, cx).is_empty(),
             done: !job.closed.is_empty(),
             deferred: job.later.iter().any(|later| !later.confirmed && !self.later_settled(&later.id)),
         }
     }
 
-    /// Needs you: the head with its chips and x, then the list under the chip that stands. None where nothing waits on him.
-    fn column_needs(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+    /// Needs you: the head with its chips, and the x where `hides` says the step line has none, then the list under the chip that
+    /// stands. None where nothing waits on him.
+    fn needs_parts(&self, id: &SharedString, hides: bool, look: &Look, cx: &Context<Self>) -> Option<Vec<AnyElement>> {
         let pressed = self.pages.get(id).and_then(|page| page.side.needs_chip);
         let held = self.needs_held(id, cx);
         let chip = standing(pressed, held)?;
         let rows: Vec<AnyElement> = listed(
             chip,
-            || self.things(id, cx).0.iter().map(|thing: &Thing| self.thing_row(id, thing, look, cx)).collect(),
+            || self.things(id, cx).0.iter().map(|thing: &Thing| self.thing_row(id, thing, look, cx)).chain(self.for_you_beyond_row_views(id, look, cx)).collect(),
             || self.closed_rows(id, look, cx),
             || self.deferred_rows(id, true, look, cx),
         );
@@ -348,15 +343,8 @@ impl JobView {
             .child(div().flex_none().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Needs you"))
             .child(labelled(div().id(SharedString::from(format!("needs-chips:{id}"))).flex().items_center().gap(look.length(token::SPACE_1)).children(chips), Role::RadioGroup, "Needs you"))
             .child(div().flex_1())
-            .child(self.band_hide(id, Band::Needs, look, cx));
-        Some(
-            labelled(
-                band_frame(look, SharedString::from(format!("band-needs:{id}"))).child(head).child(div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows)),
-                Role::Group,
-                "Needs you",
-            )
-            .into_any_element(),
-        )
+            .children(hides.then(|| self.band_hide(id, Band::Column, look, cx)));
+        Some(vec![head.into_any_element(), div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element()])
     }
 
     /// What he closed from the Job's Needs you: its words and when.
@@ -397,30 +385,36 @@ mod tests {
         std::env::temp_dir().join(format!("armada-column-bands-{}-{name}", std::process::id()))
     }
 
-    /// Hiding a band for one Job hides it for the next, and the choice is there after a restart.
+    /// Hiding the band for one Job hides it for the next, and the choice is there after a restart.
     #[test]
     fn a_hidden_band_stays_hidden_across_runs() {
         let path = temp("hidden");
         let _ = std::fs::remove_file(&path);
         assert_eq!(read_hidden_from(&path), Hidden::default(), "nothing kept, nothing hidden");
         let mut hidden = Hidden::default();
-        assert!(hidden.set(Band::Strip, true));
-        assert!(!hidden.set(Band::Strip, true), "hiding it again changes nothing");
+        assert!(hidden.set(Band::Column, true));
+        assert!(!hidden.set(Band::Column, true), "hiding it again changes nothing");
         write_hidden_to(&path, &hidden);
         let back = read_hidden_from(&path);
-        assert!(back.has(Band::Strip) && !back.has(Band::Needs));
-        assert_eq!(back.hidden().collect::<Vec<_>>(), [Band::Strip], "+ lists exactly what was hidden");
+        assert!(back.has(Band::Column));
+        assert_eq!(back.hidden().collect::<Vec<_>>(), [Band::Column], "+ lists exactly what was hidden");
         // Brought back from +, it is kept shown.
         let mut shown = back;
-        assert!(shown.set(Band::Strip, false));
+        assert!(shown.set(Band::Column, false));
         write_hidden_to(&path, &shown);
         assert_eq!(read_hidden_from(&path), Hidden::default());
         let _ = std::fs::remove_file(&path);
     }
 
+    /// A machine that hid the strip or Needs you when they were two bands hides the one band now, and a line naming neither is left out.
     #[test]
-    fn a_kept_line_that_names_no_band_is_left_out() {
-        assert_eq!(Hidden::parse("needs\nsomething else\n\n strip \n").hidden().collect::<Vec<_>>(), [Band::Strip, Band::Needs]);
+    fn an_earlier_hide_of_either_band_hides_the_one_band() {
+        for kept in ["strip\n", "needs\n", "needs\nstrip\n", "column\n", "something else\n\n strip \n"] {
+            assert!(Hidden::parse(kept).has(Band::Column), "{kept:?} hides it");
+        }
+        assert_eq!(Hidden::parse("something else\n\n"), Hidden::default());
+        assert_eq!(Hidden::parse("needs\nstrip\n").spell(), "column\n", "it is kept as the one band");
+        assert_eq!(Band::Column.word(), "Step and Needs you", "+ offers it back as one entry");
     }
 
     #[test]

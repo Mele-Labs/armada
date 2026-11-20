@@ -326,19 +326,6 @@ pub(super) fn lamp_mark(look: &Look, key: &str, hue: Token, said: &'static str, 
 }
 
 impl JobView {
-    /// Now's band alone in its pane: Sketch while a plan with a sketch is drafted, Ask for an update,
-    /// and Plan once the plan is approved, at its end.
-    fn now_band(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .min_h(look.length(token::H_ROW))
-            .child(div().flex_1())
-            .child(self.now_acts(id, look, cx))
-            .into_any_element()
-    }
-
     /// Now's acts: Sketch while a plan with a sketch is drafted, Ask for an update, and Plan once the
     /// plan is approved.
     pub(super) fn now_acts(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
@@ -366,12 +353,11 @@ impl JobView {
         div().flex().items_center().gap(look.length(token::SPACE_1)).children(sketch).children(ask).children(whole).into_any_element()
     }
 
-    /// Now alone in its pane: the band's acts and what runs, or nothing when nothing runs. The band
-    /// draws no lamp here: the tab names the zone, and a dot alone said nothing (12 Nov).
+    /// Now alone in its pane: the act this second, the five before it and the subagents at work, with Now's acts at the
+    /// right of the first row, never on a row of their own. Nothing where there is nothing to say.
     pub(super) fn side_now(&self, id: &SharedString, look: &Look, cx: &Context<Self>) -> AnyElement {
-        // When nothing runs, Now draws nothing.
         let Some((_, Some(body))) = self.now_parts(id, false, look, cx) else { return div().into_any_element() };
-        div().flex().flex_col().child(self.now_band(id, look, cx)).child(body).into_any_element()
+        div().flex().items_start().gap(look.length(token::SPACE_2)).child(div().flex_1().min_w_0().child(body)).child(self.now_acts(id, look, cx)).into_any_element()
     }
 
     /// Now's lamp and its rows, absent with none. On the Spine the route still to come stands in Open,
@@ -449,10 +435,10 @@ impl JobView {
         };
         let agent = agent.map(|(name, row)| labelled(named("agent", row), Role::Group, name));
         // The page the Job is building, its dev server or the page it showed last: running now, so in Now alone too.
-        let live = job.activity.as_ref().and_then(|activity| activity.live.clone()).map(|live| self.live_beat(id, &live, job.mac.as_deref(), look, cx));
+        let live = job.activity.as_ref().and_then(|activity| activity.live.clone()).filter(|_| !only_now).map(|live| self.live_beat(id, &live, job.mac.as_deref(), look, cx));
 
         // Fleet at work on the Job, one more worker beside the agent.
-        let fleet = head.iter().flat_map(|head| head.fleet_acts.iter()).filter(|act| act.state == FleetActState::UnderWay).map(|act| {
+        let fleet = head.iter().flat_map(|head| head.fleet_acts.iter()).filter(|_| !only_now).filter(|act| act.state == FleetActState::UnderWay).map(|act| {
             let key = format!("fleet:{}", act.id);
             let said = words(look, act.said.clone(), token::FG_MUTED, false, false, false).id(SharedString::from(format!("now-fleet-said:{}", act.id)));
             let said = match act.why.clone() {
@@ -473,12 +459,14 @@ impl JobView {
         // ends on gates says where it is in its stretches instead.
         let under_way = route
             .iter()
+            .filter(|_| !only_now)
             .filter(|step| !gates && (step.state == PlanTaskState::Working || (!only_now && step.state == PlanTaskState::Failed)) && !work.names(step.label))
             .map(|step| route_beat(look, *step));
         let checks: Vec<(&String, SessionCheckState, String)> = rows.iter().filter_map(|row| if let SessionRow::Check { id, name, state, .. } = row { Some((name, *state, id.clone())) } else { None }).collect();
         let failed_check = checks.last().filter(|(_, state, _)| matches!(state, SessionCheckState::Failed | SessionCheckState::TimedOut)).cloned();
         let check_rows = checks
             .iter()
+            .filter(|_| !only_now)
             .filter(|(_, state, _)| *state == SessionCheckState::Running)
             .map(|(name, _, row)| (name, PlanTaskState::Working, row))
             .chain(failed_check.as_ref().filter(|_| !only_now).map(|(name, _, row)| (name, PlanTaskState::Failed, row)))
@@ -502,15 +490,17 @@ impl JobView {
         };
 
         let (act_now, agent) = if only_now { (agent.map(|agent| agent.into_any_element()), None) } else { (None, agent) };
+        // With no act this second, Now says since when the Job has been quiet, or nothing where there is no time to give.
+        let act_now = act_now.or_else(|| self.now_idle(id, &job, &acts, look, cx).filter(|_| only_now));
         let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(slot_wait).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
         // plan that ends on gates draws it under the live stretch's tasks instead.
         let list_after = after_plan && !at_work.is_empty();
-        let list = if gates { None } else { self.now_tasks(&job, look, only_now) };
+        let list = if gates || only_now { None } else { self.now_tasks(&job, look, only_now) };
         let (list_before, list_after) = if list_after { (None, list) } else { (list, None) };
-        let flight = if gates { None } else { self.flight_rows(&job, &at_work, false, only_now, look, cx) };
-        let helpers = if gates { self.helpers(&job, look, cx) } else { None };
+        let flight = if gates || only_now { None } else { self.flight_rows(&job, &at_work, false, only_now, look, cx) };
+        let helpers = if gates && !only_now { self.helpers(&job, look, cx) } else { None };
         let leading: Vec<AnyElement> = act_now.into_iter().chain(self.now_last_acts(&acts, look)).chain(self.now_subagents(&job, look).filter(|_| only_now)).collect();
         let rows: Vec<AnyElement> = leading
             .into_iter()
@@ -519,10 +509,10 @@ impl JobView {
             .chain(self.now_subagents(&job, look).filter(|_| !only_now))
             .chain(flight)
             .chain(helpers)
-            .chain(self.now_children(&job, look, cx))
+            .chain((!only_now).then(|| self.now_children(&job, look, cx)).flatten())
             .chain(list_after)
             .chain(self.now_plan(id, &job, look, cx).filter(|_| !only_now))
-            .chain(self.watching(&job, look, cx).filter(|_| !only_now || self.watches_of(id, cx).iter().any(|watch| watch.live)).map(|watching| watching.into_any_element()))
+            .chain(self.watching(&job, look, cx).filter(|_| !only_now).map(|watching| watching.into_any_element()))
             .collect();
         let body = (!rows.is_empty()).then(|| div().flex().flex_col().when(only_now, |body| body.gap(look.length(token::SPACE_2))).children(rows).into_any_element());
         Some((lamp, body))

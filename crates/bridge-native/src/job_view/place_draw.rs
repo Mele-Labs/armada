@@ -404,7 +404,7 @@ impl JobView {
         match tab.kind.as_str() {
             "thread" => frame.thread_body.take(),
             "now" => {
-                let body = self.zone_alone(Area::Now, self.flow_alone(&id, Area::Now, look, cx).unwrap_or_else(|| self.side_now(&id, look, cx)), cx);
+                let body = self.zone_alone(Area::Now, self.side_now(&id, look, cx), cx);
                 Some(scrolled(format!("pane-body:{}", tab.id), Some(body)))
             }
             // The Job's page, over its head: a plain body, never a scrolling one, where the page is laid over.

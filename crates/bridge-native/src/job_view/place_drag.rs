@@ -359,9 +359,10 @@ mod tests {
 
     #[test]
     fn a_drop_in_a_strip_goes_to_the_place_among_the_other_tabs() {
-        let was = tree::default_arrangement();
+        // A Job kept with the old column, whose top pane holds four tabs.
+        let was = tree::legacy_arrangement();
         let top = tree::panes_of(&was.root)[1].clone();
-        assert!(top.tabs.len() >= 2, "the top pane holds Open, Done and Deferred");
+        assert!(top.tabs.len() >= 2, "the top pane holds For you, Open, Done and Deferred");
         let last = top.tabs.last().expect("a tab").id.clone();
         let next = landed(&was, None, &last, &Target::Strip { pane: top.id.clone(), index: 0 }).expect("lands");
         assert_eq!(tree::pane_by_id(&next, &top.id).expect("pane").tabs[0].id, last);
