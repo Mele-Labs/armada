@@ -52,6 +52,16 @@ where
         Path::new(&self.host().attachments_dir).join("documents").join(id)
     }
 
+    /// Fleet's own copy of the page a Job wrote at `path` in any checkout: **the Document, and its id**, one a Job
+    /// and file name, so a slot given back, reset or moved from neither loses nor doubles it.
+    pub(crate) fn page_home(&self, id: &str, path: &str) -> String {
+        let home = self.documents_of(id);
+        if Path::new(path).starts_with(&home) {
+            return path.to_string();
+        }
+        home.join(DOCUMENTS.trim_matches('/')).join(page_name(path)).to_string_lossy().into_owned()
+    }
+
     /// The page at `path` was written and the tool has answered, so the file on disk is the Job's.
     pub(super) async fn page_written(self: &Arc<Self>, id: &str, path: String) {
         let folder = self.documents_of(id).join(folder_of(&path));
@@ -63,7 +73,8 @@ where
         .await;
         // Unreadable, not text, or the bytes the newest revision holds: nothing new to keep.
         let Ok(Ok(Some((html, revisions)))) = kept else { return };
-        let Some(told) = self.page_kept(id, &path, &html, &revisions, true).await else { return };
+        let home = self.page_home(id, &path);
+        let Some(told) = self.page_kept(id, &home, Some(&path), &html, &revisions, true).await else { return };
         let (fleet, id) = (Arc::clone(self), id.to_string());
         // Off the hearing of the stream: a word to the Job is a send, and the stream is what it waits on.
         tokio::spawn(async move {
@@ -71,18 +82,32 @@ where
         });
     }
 
-    /// The page at `path` was kept as its newest revision, `html`: its row says so, asking again where it asks.
-    /// What the Job is to be told about the page, where anything. His Edit keeps a revision this way too, and
-    /// `measured` is false for it: only the Job's own revision is held back for an ask it buried.
-    pub(super) async fn page_kept(&self, id: &str, path: &str, html: &str, revisions: &[PathBuf], measured: bool) -> Option<String> {
+    /// The page at `path`, Fleet's own copy ([`Self::page_home`]), was kept as its newest revision, `html`: the copy
+    /// holds it and its row says so, asking again where it asks. `written` is the file in the Job's checkout it came
+    /// from, where it came from one. What the Job is to be told about the page, where anything. His Edit keeps a
+    /// revision this way too, and `measured` is false for it: only the Job's own revision is held back for an ask it buried.
+    pub(super) async fn page_kept(&self, id: &str, path: &str, written: Option<&str>, html: &str, revisions: &[PathBuf], measured: bool) -> Option<String> {
         let names: Vec<String> = revisions.iter().map(|one| one.to_string_lossy().into_owned()).collect();
         let encoded = ipc::encode(&names).ok()?;
+        let (home, bytes) = (PathBuf::from(path), html.as_bytes().to_vec());
+        let copied = tokio::task::spawn_blocking(move || {
+            std::fs::create_dir_all(home.parent().unwrap_or(&home))?;
+            std::fs::write(&home, bytes)
+        })
+        .await;
+        if !matches!(copied, Ok(Ok(()))) {
+            return None;
+        }
+        let moved = self.page_moved_home(id, path).await;
+        let written_at = written.map(str::to_string).or(moved);
+        // The Job reads its page where it writes it, never at Fleet's copy.
+        let shown = shown_page(path);
         let styles = self.page_styles(id, html).await;
         let asks = asks_approval(html) || self.approval_gate_waits(id, PlanGate::DocumentApproved, rail_ends::End::DocumentApproved).await;
         // A page that buries its ask is kept and does not reach him: it reads, and the Job is told what to move.
         // A vote or buttons ask him too, on a page with no Approve mark.
         let presses = { let lower = html.to_ascii_lowercase(); lower.contains("<armada-vote") || lower.contains("<armada-action") };
-        let buried = if (asks || presses) && measured { buried_ask(html, path) } else { None };
+        let buried = if (asks || presses) && measured { buried_ask(html, &shown) } else { None };
         // The Job's own revision of a page that asks nothing waits on him to read it. One that buried its ask goes
         // back to the Job, and his Edit he has read.
         let reads = measured && !asks && !presses;
@@ -103,6 +128,7 @@ where
         if reads {
             detail.insert(DOCUMENT_READS.to_string(), String::from("true"));
         }
+        detail.extend(written_at.map(|at| (DOCUMENT_WRITTEN_AT.to_string(), at)));
         // The page is not rewritten, because `keep` compares its bytes: the style sets its mocks were drawn with ride beside it.
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
@@ -130,15 +156,30 @@ where
             })
             .await;
         let closes = self.closes_on(id, html).await;
-        let told = [sketches_that_will_not_draw(html, path), actions_that_will_not_run(html, path, &closes), votes_that_will_not_count(html, path), buried]
+        let told = [sketches_that_will_not_draw(html, &shown), actions_that_will_not_run(html, &shown, &closes), votes_that_will_not_count(html, &shown), buried]
             .into_iter()
             .flatten()
             .reduce(|told, more| format!("{told} {more}"));
-        match (styles.told(told, path), links_dropped(&dropped)) {
+        match (styles.told(told, &shown), links_dropped(&dropped)) {
             (Some(told), Some(links)) => Some(format!("{told} {links}")),
-            (None, Some(links)) => Some(format!("In the page {path}, {}", links.replacen("The", "the", 1))),
+            (None, Some(links)) => Some(format!("In the page {shown}, {}", links.replacen("The", "the", 1))),
             (told, None) => told,
         }
+    }
+
+    /// Every other page of the Job's with the file name of `home`, Fleet's copy, moved to it: one an earlier build
+    /// kept at the path it was written at. Where the checkout file it was last written at, if any.
+    async fn page_moved_home(&self, id: &str, home: &str) -> Option<String> {
+        let mut store = self.store().lock().await;
+        let held = store.attachments_of(&Holder::session(id)).unwrap_or_default();
+        let name = page_name(home);
+        let mut written = held.iter().find(|one| one.kind == "artifact" && one.target == home).and_then(|one| one.detail.get(DOCUMENT_WRITTEN_AT).cloned());
+        for old in held.iter().filter(|one| one.kind == "artifact" && one.target != home && is_document(&one.detail) && page_name(&one.target) == name) {
+            if store.move_page(id, &old.target, home).is_ok() && written.is_none() {
+                written = Some(old.target.clone());
+            }
+        }
+        written
     }
 
     /// Whether the Job waits on his approval of a page or a sketch, `gate` and `end` naming which: its plan
@@ -184,11 +225,22 @@ where
     /// the file holds the bytes of another's newest revision. A slot handed over is not cleaned, and Jobs
     /// can share a checkout.
     async fn left_by_another(&self, id: &str, path: &str) -> bool {
-        let rows = self.store().lock().await.attachments_at("artifact", path, None).unwrap_or_default();
-        let pages: Vec<KeptAttachment> = rows.into_iter().filter(|one| is_document(&one.detail)).collect();
-        if pages.iter().any(|one| one.holder.id == id) {
-            return false;
-        }
+        let name = page_name(path);
+        let pages: Vec<KeptAttachment> = {
+            let store = self.store().lock().await;
+            if store.attachments_of(&Holder::session(id)).unwrap_or_default().iter().any(|one| one.kind == "artifact" && is_document(&one.detail) && page_name(&one.target) == name) {
+                return false;
+            }
+            let Some(manifest) = store.hosting(id).ok().flatten().map(|hosting| hosting.manifest_id) else { return false };
+            // A page is kept at Fleet's copy and names the file it was written at; an earlier build's, at that file.
+            let targets = store.attachment_targets("artifact", &manifest).unwrap_or_default();
+            targets
+                .iter()
+                .filter(|target| page_name(target) == name)
+                .flat_map(|target| store.attachments_at("artifact", target, None).unwrap_or_default())
+                .filter(|one| is_document(&one.detail) && (one.target == path || one.detail.get(DOCUMENT_WRITTEN_AT).is_some_and(|at| at == path)))
+                .collect()
+        };
         let newest: Vec<String> = pages.iter().filter_map(|one| revisions_named(&one.detail).pop()).collect();
         let path = path.to_string();
         tokio::task::spawn_blocking(move || {
@@ -214,22 +266,33 @@ where
         for page in held.into_iter().filter(|one| one.kind == "artifact" && is_document(&one.detail)) {
             let folder = self.documents_of(new).join(folder_of(&page.target));
             let kept = revisions_named(&page.detail);
-            let Ok(Ok(copied)) = tokio::task::spawn_blocking(move || copied_to(&folder, &kept)).await else { continue };
+            // The new Job's own copy of the page is its id there, as the old Job's is here.
+            let home = self.documents_of(new).join(DOCUMENTS.trim_matches('/')).join(page_name(&page.target));
+            let target = home.to_string_lossy().into_owned();
+            let copy = tokio::task::spawn_blocking(move || {
+                let copied = copied_to(&folder, &kept)?;
+                if let Some(newest) = copied.last() {
+                    std::fs::create_dir_all(home.parent().unwrap_or(&home))?;
+                    std::fs::copy(newest, &home)?;
+                }
+                Ok::<_, io::Error>(copied)
+            });
+            let Ok(Ok(copied)) = copy.await else { continue };
             let Ok(encoded) = ipc::encode(&copied) else { continue };
             let mut detail = page.detail.clone();
             detail.insert("revisions".to_string(), encoded);
             let now = self.instant().as_str().to_string();
-            let item = format!("{DOCUMENT_ITEM_PREFIX}{}", page.target);
             let mut store = self.store().lock().await;
-            let _ = store.carry_owner_revisions(old, new, &page.target);
-            let carried = KeptAttachment { holder: Holder::session(new), detail, since: now.clone(), changed_at: now, ..page };
+            let _ = store.carry_owner_revisions(old, new, &page.target, &target);
+            // What he dismissed of it stays dismissed, and the revision he last read stays read.
+            if dismissed.contains(&format!("{DOCUMENT_ITEM_PREFIX}{}", page.target)) {
+                let _ = store.dismiss_waiting(new, &format!("{DOCUMENT_ITEM_PREFIX}{target}"));
+            }
+            if let Some(kept) = opened.iter().find(|one| one.artifact == page.target) {
+                let _ = store.keep_artifact_seen(new, &target, kept.revision);
+            }
+            let carried = KeptAttachment { holder: Holder::session(new), target, detail, since: now.clone(), changed_at: now, ..page };
             let _ = store.attach(&carried, false);
-            if dismissed.contains(&item) {
-                let _ = store.dismiss_waiting(new, &item);
-            }
-            if let Some(kept) = opened.iter().find(|one| one.artifact == carried.target) {
-                let _ = store.keep_artifact_seen(new, &kept.artifact, kept.revision);
-            }
         }
     }
 }
@@ -295,10 +358,29 @@ fn links_dropped(dropped: &[String]) -> Option<String> {
     (!dropped.is_empty()).then(|| format!("The armada-for links {} were not kept.", dropped.join("; ")))
 }
 
+/// The key of a document's `detail` that names the file in a checkout its newest revision was written at, which
+/// his Edit writes back to. Absent on a page carried from another Job.
+pub(crate) const DOCUMENT_WRITTEN_AT: &str = "written_at";
+
 /// The folder a page's revisions are in: its path under `.armada/documents/`, as one name.
 pub(super) fn folder_of(path: &str) -> String {
-    let under = path.rsplit_once(DOCUMENTS).map_or(path, |(_, under)| under);
-    one_name(under)
+    one_name(page_name(path))
+}
+
+/// A page's file name: its path under `.armada/documents/`, the same in every checkout and in Fleet's copy.
+pub(crate) fn page_name(path: &str) -> &str {
+    let relative = DOCUMENTS.trim_start_matches('/');
+    path.rsplit_once(DOCUMENTS).map(|(_, under)| under).or_else(|| path.strip_prefix(relative)).unwrap_or(path)
+}
+
+/// Whether `named` names a page by its path: in a checkout, at Fleet's copy, or from a checkout's root.
+pub(crate) fn is_page_path(named: &str) -> bool {
+    named.contains(DOCUMENTS) || named.starts_with(DOCUMENTS.trim_start_matches('/'))
+}
+
+/// A page as the Job names it: `.armada/documents/<name>`, which it writes in whatever checkout it is in.
+pub(crate) fn shown_page(path: &str) -> String {
+    format!("{}{}", DOCUMENTS.trim_start_matches('/'), page_name(path))
 }
 
 /// `text` as one folder name: anything but letters, digits, `-` and `.` becomes `_`.

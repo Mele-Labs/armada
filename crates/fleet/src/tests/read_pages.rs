@@ -34,15 +34,17 @@ async fn a_page_that_asks_nothing_raises_no_item_and_stays_among_his_artifacts_a
     let (_, path) = page_at_root(&rig, "status.html");
     written(&rig, &id, at, &path, &reading("Status", "Findings."), "toolu_1", 1).await;
 
+    // The page's id is Fleet's copy of it, wherever the Job wrote it from.
+    let home = rig.fleet.page_home(id.as_str(), &path);
     let record = record_of(&rig, &id).await;
-    assert!(!waits_about(&record, &path), "it only informs him: {:?}", record.waiting_for);
+    assert!(!waits_about(&record, &home), "it only informs him: {:?}", record.waiting_for);
     let artifacts = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
-    let page = artifacts.iter().find(|one| one.id == path).expect("among his Artifacts");
+    let page = artifacts.iter().find(|one| one.id == home).expect("among his Artifacts");
     assert_eq!(page.state, ArtifactState::Reading);
 
     written(&rig, &id, at, &path, &reading("Status, later", "Findings."), "toolu_2", 2).await;
     let record = record_of(&rig, &id).await;
-    assert!(!waits_about(&record, &path), "a new revision raises none either: {:?}", record.waiting_for);
+    assert!(!waits_about(&record, &home), "a new revision raises none either: {:?}", record.waiting_for);
 
     // A page that asks waits for his Approve.
     let (_, asks) = page_at_root(&rig, "design.html");
@@ -60,7 +62,7 @@ async fn a_page_that_buried_its_ask_and_his_own_edit_raise_none() {
     let words = vec!["word"; 300].join(" ");
     let overloaded = format!(r#"<html><head><title>Findings</title><meta name="armada-review" content="approve"></head><body><p>{words}</p><h2>Decision</h2></body></html>"#);
     written(&rig, &id, at, &buried, &overloaded, "toolu_1", 1).await;
-    assert!(!waits_about(&record_of(&rig, &id).await, &buried), "a buried ask goes back to the Job");
+    assert!(!waits_about(&record_of(&rig, &id).await, &rig.fleet.page_home(id.as_str(), &buried)), "a buried ask goes back to the Job");
 
     let (_, path) = page_at_root(&rig, "status.html");
     let html = reading("Status", "Findings.");
@@ -72,5 +74,5 @@ async fn a_page_that_buried_its_ask_and_his_own_edit_raise_none() {
         .expect("saved");
     let record = record_of(&rig, &id).await;
     assert_eq!(revisions_of(&record, &path).map(|kept| kept.len()), Some(2));
-    assert!(!waits_about(&record, &path), "his own revision does not wait on him: {:?}", record.waiting_for);
+    assert!(!waits_about(&record, &rig.fleet.page_home(id.as_str(), &path)), "his own revision does not wait on him: {:?}", record.waiting_for);
 }

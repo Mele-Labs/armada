@@ -44,6 +44,15 @@ A rewrite to the same path is the next revision, and an identical write is none.
 The copies are `r1.html`, `r2.html` and on, under the machine's `attachments/documents/<job id>/<page>/`, outside every worktree, so a released slot keeps them.
 A revision is kept once the tool has answered, so a failed write keeps nothing.
 
+**Rule.** The page lives in Fleet, not in the worktree.
+Fleet keeps the newest revision at `attachments/documents/<job id>/.armada/documents/<name>.html`, and that path is the page's id: one page a Job and file name, whichever slot the Job writes it from.
+The same name written from another slot is the page's next revision, and the row names the file it was last written at as `written_at`.
+A slot given back, reset or reused takes nothing from the page: the file in the worktree is never read to decide whether the page waits.
+Only the Job withdrawing or archiving the page takes it back, and a page outlasts its Job.
+A page an earlier build kept at its slot path moves to Fleet's copy on its next revision, with his answers, reads, dismissals, presses and votes.
+Why: on 20 Nov 2026 a page that waited on his Approve went from his Needs you three times in one Job, once each time its slot was given back and reset, and the page it wrote next in another slot showed below the old one.
+The owner, that day: "artifacts should live somewhere else. Keeping them in the slot is too fragile."
+
 **Rule.** A page may also be written by Fleet from a draft the person turned into a Document (`docs/concepts/session/proposing-a-draft.md`).
 It is a page like any other from then on, and the Job is told to revise it there.
 
@@ -82,19 +91,17 @@ It holds no plan, and an answer to it is refused: the page is for reading.
 His notes on it still reach the Job as numbered notes.
 
 **Rule.** A reading page raises no item in his Needs you: it only informs him, so it is in the thread and his Artifacts (the owner, 19 Nov 2026; [Waiting on the person](session/waiting-on-the-person.md)).
-Until then it waited as `Read: <title>` until he opened its newest revision.
-Only the Job's own revision of a page that asks nothing waits so: one that buried its ask goes back to the Job, and his own Edit he has read.
-It asks no verdict, joins no artifact and holds nothing back.
-The owner's ruling, 15 Nov 2026: "Waits as Read".
+It replaces his ruling of 15 Nov 2026, "Waits as Read", under which the page waited as `Read: <title>` until he opened its newest revision.
 
 **Rule.** Whether a page asks is decided when the revision is kept.
 A page written before its plan names a `document_approved` gate asks from its next revision.
 
-**Rule.** Until he answers, the page waits in his Needs you as `document:<path>` and the Job's row calls him ([Waiting on the person](session/waiting-on-the-person.md)).
+**Rule.** Until he answers, the page waits in his Needs you as `document:<path>`, the path of Fleet's copy, and the Job's row calls him ([Waiting on the person](session/waiting-on-the-person.md)).
 Its text is the question Fleet words for it, `Approve "<title>"?`, and his answer is kept for its thread card ([Artifact](artifact.md), *Parts*).
+An answer that names the page at a slot it was written in finds the same page, by its file name.
 
 **Rule.** He approves the revision he read, or sends it back with a note, with `answer_document`; an answer to a revision kept since is refused.
-The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at its path.
+The Job is told as his message: `Approved document: <title>, revision <n>` and to go on from it as written, or `Sent back document: <title>, revision <n>`, his note and to revise the page at `.armada/documents/<name>`, in whatever slot the Job is in.
 `detail` then keeps `settled`, `settled_at` and his `words`.
 
 **Rule.** His reply in the thread approves the page too, when a model call reads it as approving.
@@ -122,12 +129,12 @@ While the Job is on such a step, every page it writes asks, marked or not.
 **Rule.** A page is put to the person only by the Job that changed it.
 Why: on 1 Nov 2026 a page he approved at r13 came back as r1 on the Job that took over its slot, with Approve and Send back, though that Job had only read it.
 
-**Rule.** A new Job that takes another's place holds each of the old Job's pages from the hand: its row, a copy of each revision in the new Job's own folder, `revision`, and his answer or dismissal.
+**Rule.** A new Job that takes another's place holds each of the old Job's pages from the hand: its row, a copy of each revision and of the page in the new Job's own folder, so its id is the new Job's copy, `revision`, and his answer or dismissal.
 The next real edit is the next revision and asks again, and the same bytes ask nothing.
 A page he had not answered waits on the new Job.
 The old Job keeps its own, so a hand undone has lost nothing.
 
-**Rule.** The turn's end passes over a page this Job holds no row for where the file holds the bytes of another Job's newest revision.
+**Rule.** The turn's end passes over a page this Job holds none of that name for where the file holds the bytes of the newest revision another Job wrote at that file.
 A lease cleans the page out of a slot, but a slot handed to another Job is not cleaned, and Jobs can share a checkout.
 Once the bytes differ the page is this Job's, and its first revision asks.
 A Write or Edit is always kept, since the tool call says the Job wrote it.
@@ -256,7 +263,7 @@ Why: the person who opens it has neither Armada nor a network the Job could have
 Both ask where to save in the system's save dialog, named for the page title.
 Native lays the page out at A4's width and makes it one PDF page as tall as the page, where Classic prints A4 pages.
 
-**Rule.** Add to the repo sends the Job one line naming the page's path and saying it is gitignored, so the Job adds it with `git add -f`.
+**Rule.** Add to the repo sends the Job one line naming the page as `.armada/documents/<name>`, in its own checkout, and saying it is gitignored, so the Job adds it with `git add -f`.
 
 **Rule.** Export rows stand under a rule, one for each document tool the Job has an MCP server connected for, read from `get_session_mcp` as the menu opens.
 A server's name is matched by its words against one table in `crates/bridge-native/src/job_view/reader_share.rs`: Notion, Google Drive, Confluence, Dropbox, Box, OneDrive, SharePoint, Coda and Slite.

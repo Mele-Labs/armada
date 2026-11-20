@@ -39,7 +39,7 @@ The owner approved the design on 13 Nov 2026.
 **Rule.** An artifact is something a Job made for the person to read or answer: a sketch from `show_sketch`, a draft from `propose_draft`, or a page under `.armada/documents/` ([Document](document.md)).
 A file, an image, a window or a note shown to him is not one.
 
-**Rule.** An artifact's id is the ledger target it is kept under, and it stays the same across revisions: `sketch:<title>`, the page's path, or `draft:<title>`.
+**Rule.** An artifact's id is the ledger target it is kept under, and it stays the same across revisions: `sketch:<title>`, the path of Fleet's copy of the page ([Document](document.md), *Where it is written*), or `draft:<title>`.
 
 **Rule.** Its form is `sketch`, `draft` or `page`, and where it holds parts, the first part's kind read that way: a drawing or takes `sketch`, words `draft`, buttons or a page `page`.
 A client that reads no parts reads `form` and still draws something.
@@ -53,7 +53,8 @@ An identical write keeps no new revision.
 ## Where it stands
 
 **Rule.** The state is for the newest revision: `reading`, `asking`, `approved`, `sent_back`, `withdrawn` or `dismissed`.
-A page that does not ask reads `reading`; one that asks and whose file is gone reads `withdrawn`.
+A page that does not ask reads `reading`; one that asks and whose newest revision Fleet no longer keeps reads `withdrawn`.
+The file in the Job's worktree is not read, so a slot given back and reset withdraws nothing.
 `dismissed` is his Dismiss, with no verdict.
 `withdrawn` is the Job taking it back with `withdraw_sketch`, `withdraw_document` or `withdraw_draft`, or a draft replaced under its title.
 
@@ -223,7 +224,7 @@ A page's change is a block whose words changed, as `- <section>: "<old>" → "<n
 A draft's is a line diff of `-` and `+` lines.
 At most 40 changes are listed, then `and <k> more`, and each quote is cut at 300 characters.
 
-**Rule.** A page he edited is written to its file in the worktree, so the agent's next write builds on his words.
+**Rule.** A page he edited is written to Fleet's copy and to the file the Job last wrote it at, where that worktree is still there, so the agent's next write builds on his words.
 The turn's end reads the same bytes as the newest revision and keeps nothing more.
 
 **Rule.** A draft he edited takes his text on its open row, so his Approve sends his text for the Job to apply.

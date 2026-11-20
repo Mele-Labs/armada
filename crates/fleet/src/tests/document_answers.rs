@@ -74,7 +74,7 @@ pub(super) fn answer(id: &SessionId, path: &str, revision: &str, how: DocumentHo
     }
 }
 
-/// A Job that wrote one page, kept as its first revision, and the page's file and path.
+/// A Job that wrote one page, kept as its first revision, and the page's file and its id: Fleet's copy.
 pub(super) async fn one_page(rig: &Rig) -> (SessionId, TempDir, std::path::PathBuf, String) {
     let id = rig.start().await;
     rig.send(&id, "write it up").await;
@@ -82,7 +82,7 @@ pub(super) async fn one_page(rig: &Rig) -> (SessionId, TempDir, std::path::PathB
     let work = TempDir::new();
     let file = work.path().join(".armada/documents/lease.html");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
-    let path = file.to_string_lossy().into_owned();
+    let path = rig.fleet.page_home(id.as_str(), &file.to_string_lossy());
     written(rig, &file, "first", "toolu_1").await;
     revision_kept(rig, &id, &path, "1").await;
     (id, work, file, path)
@@ -125,7 +125,7 @@ async fn approving_tells_the_job_settles_the_revision_and_the_same_bytes_again_a
     written(&rig, &file, "first", "toolu_2").await;
     let other = work.path().join(".armada/documents/other.html");
     written(&rig, &other, "another", "toolu_3").await;
-    revision_kept(&rig, &id, &other.to_string_lossy(), "1").await;
+    revision_kept(&rig, &id, &rig.fleet.page_home(id.as_str(), &other.to_string_lossy()), "1").await;
     let record = record_of(&rig, &id).await;
     let detail = &the_document(&record, &path).unwrap().detail;
     assert_eq!((detail["revision"].as_str(), detail.get("settled").map(String::as_str)), ("1", Some("approved")));
@@ -176,7 +176,7 @@ async fn sending_a_document_back_tells_the_job_his_note_and_where_the_page_is() 
         .unwrap();
     assert_eq!(
         sent(&rig.rows(&id).await).pop().unwrap(),
-        format!("Sent back document: {TITLE}, revision 1\n{note}\nRevise the page at {path} and write it again.")
+        format!("Sent back document: {TITLE}, revision 1\n{note}\nRevise the page at .armada/documents/lease.html and write it again.")
     );
     let detail = &the_document(&record, &path).unwrap().detail;
     assert_eq!((detail.get("settled").map(String::as_str), detail.get("words").map(String::as_str)), (Some("sent_back"), Some(note)));

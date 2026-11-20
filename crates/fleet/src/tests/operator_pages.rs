@@ -28,7 +28,7 @@ async fn the_operator(rig: &Rig) -> (SessionId, usize, std::path::PathBuf) {
     (SessionId::carried(id), at, std::path::PathBuf::from(cwd))
 }
 
-/// The Operator writes `html` as `name` in its own folder's documents, and Fleet keeps it as revision 1.
+/// The Operator writes `html` as `name` in its own folder's documents, and Fleet keeps it as revision 1: the page's id is returned.
 async fn its_page(rig: &Rig, id: &SessionId, at: usize, folder: &std::path::Path, name: &str, html: &str, call: &str) -> String {
     let file = folder.join(".armada/documents").join(name);
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
@@ -36,7 +36,7 @@ async fn its_page(rig: &Rig, id: &SessionId, at: usize, folder: &std::path::Path
     let path = file.to_string_lossy().into_owned();
     writes(rig, at, &path, call, "Write", " +1").await;
     eventually(|| async { revisions_of(&record_of(rig, id).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
-    path
+    rig.fleet.page_home(id.as_str(), &path)
 }
 
 #[tokio::test]
@@ -121,7 +121,7 @@ async fn a_close_button_whose_tracker_cannot_close_is_named_as_one_that_will_not
     tracker.cannot("close", "this tracker cannot close an issue");
     let rig = rig_tracking(&tracker);
     let (id, at, folder) = the_operator(&rig).await;
-    let path = its_page(&rig, &id, at, &folder, "backlog.html", &closing_report(rig.manifest.as_str()), "toolu_1").await;
+    its_page(&rig, &id, at, &folder, "backlog.html", &closing_report(rig.manifest.as_str()), "toolu_1").await;
 
     let told = || async {
         rig.rows(&id).await.into_iter().find_map(|row| match row {
@@ -132,7 +132,7 @@ async fn a_close_button_whose_tracker_cannot_close_is_named_as_one_that_will_not
     eventually(|| async { told().await.is_some() }).await;
     let told = told().await.unwrap();
     assert!(
-        told.starts_with(&format!("In the page {path}, action \"Close 2 issues\" will not run: this tracker cannot close an issue.")),
+        told.starts_with("In the page .armada/documents/backlog.html, action \"Close 2 issues\" will not run: this tracker cannot close an issue."),
         "{told}"
     );
 }
