@@ -117,6 +117,7 @@ fn long_lived() -> SessionRecord {
         standing: None,
         held_until: None,
         snoozed_until: None,
+        prioritised: false,
         context_breakdown: None,
         loadout_summary: None,
         on_your_words: false,

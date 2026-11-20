@@ -392,6 +392,12 @@ pub trait HostedSessions: Send + Sync + 'static {
         asked: ipc::SnoozeSession,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `prioritise_session`: makes a Job the one prioritised, or clears it from the Job that holds it.
+    fn prioritise_session(
+        &self,
+        asked: ipc::PrioritiseSession,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `set_session_auto_land`: turns Auto land on or off and answers the Session. The forge is asked
     /// after the answer, so a pull request it refuses is a notice to the Job, not a refusal here.
     fn set_session_auto_land(

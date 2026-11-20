@@ -126,6 +126,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/snooze",
     },
     Route {
+        operation: "prioritise_session",
+        method: "POST",
+        path: "/sessions/prioritise",
+    },
+    Route {
         operation: "set_session_auto_land",
         method: "POST",
         path: "/sessions/auto_land",
