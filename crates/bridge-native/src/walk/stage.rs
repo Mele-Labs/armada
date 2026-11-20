@@ -109,6 +109,18 @@ impl Stage {
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: held.into(), focus })
             }
+            Screen::Cockpit => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let threads = crate::mock::threads(walk.scenario)?;
+                let jobs = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_cockpit(jobs, window, cx));
+                let focus = Focus { keys: held.read(cx).page.read(cx).focus.clone(), within: held.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: held.into(), focus })
+            }
             Screen::App => {
                 super::strip_marks::leave(cx);
                 if walk.scenario == "project-filter" {

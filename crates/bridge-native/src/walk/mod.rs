@@ -14,6 +14,7 @@
 pub mod all;
 pub mod bar;
 pub mod check;
+pub mod cockpit;
 pub mod dispatch;
 pub mod fleet;
 pub mod move_to_project;
@@ -231,6 +232,8 @@ pub enum Screen {
     Settings,
     /// The Jobs screen in front inside the Operator's screen, with Reviews and Kit in the strip, on `reviews/mock.rs` and `kit/mock.rs`.
     Reviews,
+    /// The Cockpit as the app opens it: the Jobs list with the Operator's page at its right until a Job is opened.
+    Cockpit,
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
@@ -2387,6 +2390,13 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &notes::STEPS,
+    },
+    Walk {
+        name: "cockpit",
+        title: "The Cockpit: Jobs and the Operator in one screen",
+        screen: Screen::Cockpit,
+        scenario: "jobs-many",
+        steps: cockpit::STEPS,
     },
     Walk {
         name: "operator-page",
