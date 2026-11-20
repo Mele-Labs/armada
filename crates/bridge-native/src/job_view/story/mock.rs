@@ -1,8 +1,8 @@
 //! A Job's story for a walk, a picture and the tests, with no Fleet: the three asks of the approved mock (a change request
 //! being built, a bug handed on, a bug fixed) and one thing shown before any ask. It stands on the features the feature
-//! screens' mock holds, so a Filed under row opens a page that exists.
+//! screens' mock holds, so a Filed under row opens a page that exists, and is on three of them.
 
-use ipc::{Ask, AskKind, AskState, AskWords, ArtifactForm, ArtifactState, Instant, JobStory, MessageKind, PageAct, PagePress, PressDid, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteCast, VoteForm, VoteResult};
+use ipc::{Ask, AskKind, AskState, AskWords, ArtifactForm, ArtifactState, Instant, JobFeature, JobStory, MessageKind, PageAct, PagePress, PressDid, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteCast, VoteForm, VoteResult};
 
 use super::model::Features;
 use crate::features::page_model::Titles;
@@ -27,6 +27,15 @@ pub fn titles() -> Titles {
 /// The titles of the features of the mock project.
 pub fn features() -> Features {
     crate::features::mock::library().areas.iter().flat_map(|area| &area.features).map(|row| (row.slug.clone(), row.title.clone())).collect()
+}
+
+/// The slugs of the mock library's areas, in its order.
+pub fn areas() -> Vec<String> {
+    crate::features::mock::library().areas.iter().map(|area| area.slug.clone()).collect()
+}
+
+fn on(slug: &str, title: &str, area: &str, files_written: u32, commits_named: u32, asks: u32) -> JobFeature {
+    JobFeature { slug: slug.into(), title: title.into(), area: area.into(), files_written, commits_named, asks }
 }
 
 fn ask(id: &str, kind: AskKind, title: &str, words: &str, state: AskState, opened: u32, moved: u32, features: &[&str]) -> Ask {
@@ -82,5 +91,10 @@ pub fn story(job: &str) -> JobStory {
         asks: vec![catalog, reading, votes],
         shown_otherwise: vec![shown("sketches/start-card", "Start card with the model picker", ArtifactForm::Sketch, ArtifactState::Dismissed, None, 11)],
         lead: vec!["Feature catalog: being built".into(), "A reading page never shows: handed to One artifact that grows".into(), "Votes show as never cast: fixed in #3720".into()],
+        features: vec![
+            on("start-a-job", "Start a Job", "running-a-job", 12, 9, 3),
+            on("thread-and-composer", "Thread and composer", "job-thread-and-terminal", 0, 3, 0),
+            on("reviews", "Reviews", "pull-requests-and-review", 0, 0, 1),
+        ],
     }
 }

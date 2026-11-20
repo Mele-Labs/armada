@@ -399,7 +399,7 @@ where
 
     /// The project `id`'s values, or a refusal: a 404 `fleet.no_such_project` where he has none by that id and
     /// a 422 `fleet.project_unreadable` where its file did not read. **With a repository the project must hold it**
-    /// (422 `fleet.project_not_member`), as a Job started in it requires.
+    /// (422 `fleet.project_not_member`), as a Job started in it requires. A copy of another Mac's answers what it sets.
     async fn project_values(&self, id: &str, repository: Option<&Repository>) -> Result<Values, Refusal> {
         if let Some(repository) = repository {
             self.project_started_for(id, repository.as_str()).await?;
@@ -407,7 +407,8 @@ where
         self.project_held(id).await.map(|project| project.values().clone())
     }
 
-    /// The project `id` as its file read, or the refusals `project_values` gives.
+    /// The project `id` as its file read, or as a copy of another Mac's carries it, or the refusals `project_values`
+    /// gives.
     pub(crate) async fn project_held(&self, id: &str) -> Result<core_model::Project, Refusal> {
         let read = ScopeId::new(id).ok().and_then(|scope| self.projects_held().get(&scope).cloned());
         match read {
@@ -415,6 +416,9 @@ where
             None => {
                 let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
                 if !kept.projects.iter().any(|one| one.id == id) {
+                    if let Some(copy) = self.copy_read(id).await {
+                        return Ok(copy);
+                    }
                     return Err(Refusal::NotFound(self.project_refusal(NO_SUCH_PROJECT, format!("Fleet holds no project {id}"))));
                 }
                 Err(Refusal::Unacceptable(self.project_refusal(UNREADABLE, format!("The file of project {id} did not read, so Fleet cannot say what it sets"))))
@@ -477,7 +481,8 @@ where
         match project {
             Some(project) => {
                 let mut wire = self.project_values_annotated(wire, &project, repository.as_ref()).await?;
-                wire.workflows = self.workflow_switches(&project, repository.as_ref());
+                let held = self.project_held(&project).await.ok();
+                wire.workflows = self.workflow_switches(held.as_ref(), repository.as_ref());
                 Ok(wire)
             }
             None => Ok(wire),
@@ -487,7 +492,7 @@ where
     /// Each workflow's switch for `project`, of the repository asked or of every repository served where none was,
     /// in id order, with the layer that holds it off: `workflow_off_from`, or `workflow_off_across` the project's
     /// repositories where none was asked. The main switch is not folded in.
-    fn workflow_switches(&self, project: &str, repository: Option<&ManifestId>) -> Vec<ipc::ResolvedWorkflow> {
+    fn workflow_switches(&self, project: Option<&core_model::Project>, repository: Option<&ManifestId>) -> Vec<ipc::ResolvedWorkflow> {
         let served = match repository {
             Some(named) => self.repositories().serving(named.as_str()).into_iter().collect(),
             None => self.repositories().served(),
@@ -497,7 +502,7 @@ where
         ids.into_iter()
             .map(|id| {
                 let from = match repository {
-                    Some(named) => self.workflow_off_from(Some(named.as_str()), Some(project), &id),
+                    Some(named) => self.workflow_off_from_held(Some(named.as_str()), project, &id),
                     None => self.workflow_off_across(project, &id),
                 };
                 ipc::ResolvedWorkflow { on: from.is_none(), from: from.unwrap_or(ipc::ValueLayer::Default), id }

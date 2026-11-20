@@ -25,6 +25,7 @@ mod messages;
 mod moving;
 mod pages;
 mod pairing_calls;
+mod project_edits;
 mod refreshing;
 mod session;
 mod terminals;

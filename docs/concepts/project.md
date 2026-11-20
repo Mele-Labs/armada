@@ -140,13 +140,17 @@ A stream event that is not about one Job or a shared project, such as servers, s
 **A shared project is kept on the other Mac as a copy, with its tasks, and the Mac that holds it stays its authority.**
 The copy is listed beside that Mac's own projects with the Mac it is from, and turning the switch off removes it, at once or when the link next opens.
 A task edited, added, ticked, linked, moved within the project or removed on the copy is sent through the link to the holding Mac, which makes the change with its own code, and the copy is what that Mac answers.
+So is a change to the project itself made on the copy: its name, members, values, a workflow switched off, its share switch, and its deletion.
 An edit on the holding Mac reaches the copy the same way.
+A read of the copy, of its values, issues, claims or features, is answered on this Mac from what the copy carries, over this Mac's own Kit, repositories and feature catalog.
 
-> **Rule.** Only the holding Mac changes the project itself: its name, members, values, place, switch and deletion, a Job linked to a task, and a task's repository.
+> **Rule (19 Nov).** A change to a shared project made on either Mac reaches both, and the holding Mac makes it.
+> Only the holding Mac chooses where the file is kept, and sets the claims store, and an edit on the copy that names a place is refused whole, `fleet.other_mac_project_held`.
+> A Job linked to a task and a task's repository also stay the holding Mac's.
 > A merge keeps this rule: each Mac changes only what it holds, and the other Mac's part crosses as an act.
-> Why: the file is on that Mac, and a Job of the other Mac is not this Mac's to link until acts cross between Macs.
+> Why: he said "If I make a change to the project or anything in that project on one mac, it updates on the other"; the place is a folder on that Mac's disk, and a store is joined and deployed with that Mac's sign-in.
 
-> **Rule (19 Nov).** A Job of this Mac moves into a copy where the copy lists the Job's repository, and is shared with the holding Mac from then; otherwise the move is refused, `fleet.project_copy_not_member`, and the copy's members are not touched.
+> **Rule (19 Nov).** A Job of this Mac moves into a copy, or starts in one, where the copy lists the Job's repository, and is shared with the holding Mac from then; otherwise the move or the start is refused, `fleet.project_copy_not_member`, and the copy's members are not touched.
 > Why: he chose one shared project across his Macs, with Jobs from either Mac in it, and a merge already moves Jobs into a copy this way.
 
 > **Rule (13 Nov).** An edit made on a copy while the holding Mac is asleep shows on the copy at once and is sent when that Mac wakes, oldest first.
@@ -220,6 +224,7 @@ The wire is [Projects](../practices/protocol/projects.md), *Values*.
 > **Rule (13 Nov).** A Job another Job starts is for its starter's project and takes that project's values, and its repository becomes a whole member where it was not.
 > Why: a Job an agent started was in no project, so how its work lands was unset and he was asked every time.
 > A starter in no project starts its Job in the one project that holds its repository, where exactly one does, and otherwise in none.
+> A starter in a copy of another Mac's project starts its Job in the copy, and a repository the copy does not list is sent to the holding Mac as a member to add; where that Mac refuses, the Job starts in no project.
 > A fork or a handoff keeps its source Job's project, and a move into another repository adds that repository as a whole member.
 > Why: a Job that drops out of its project looks lost in a list grouped by project.
 
