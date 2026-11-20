@@ -2560,9 +2560,23 @@ impl JobsList {
                         Some(time) => format!("{step} \u{b7} {time}"),
                         None => step.to_string(),
                     };
+                    // A step with no move for longer than its usual time reads in amber, and its tooltip gives Fleet's cause.
+                    let cause = row.track.as_ref().and_then(|track| track.stalled.clone());
+                    let pips_said: SharedString = match &cause {
+                        Some(cause) => format!("{said}: {cause}").into(),
+                        None => said.clone(),
+                    };
                     line.child(chip(format!("flow-chip-{}", row.id), name, said.clone()))
-                        .children(row.track.as_ref().filter(|track| !track.pips.is_empty()).map(|track| crate::job_view::column_strip::pips_bar(look, SharedString::from(format!("flow-pips-{}", row.id)), &track.pips, said.clone())))
-                        .child(div().min_w_0().truncate().text_color(look.color(token::FG_MUTED)).child(SharedString::from(step_words)))
+                        .children(row.track.as_ref().filter(|track| !track.pips.is_empty()).map(|track| crate::job_view::column_strip::pips_bar(look, SharedString::from(format!("flow-pips-{}", row.id)), &track.pips, pips_said)))
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("flow-step-{}", row.id)))
+                                .min_w_0()
+                                .truncate()
+                                .text_color(look.color(if cause.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED }))
+                                .child(SharedString::from(step_words))
+                                .when_some(cause, |words, cause| words.tooltip(tip(cause.into()))),
+                        )
                 }
                 None => line.child(
                     meta(look)
@@ -2814,7 +2828,10 @@ impl JobsList {
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
         // A selected row wears an accent edge over a faint accent fill: the open row's fill is the stronger one.
         let selected = self.selected.contains(&row.id);
+        let amber = look.color(token::STATUS_AWAITING_REVIEW);
+        let stalled = row.track.as_ref().is_some_and(|track| track.stalled.is_some());
         let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place && !selected, pad)
+            .when(stalled && !opened && !selected, |strip| strip.border_color(amber).bg(look.color(token::BG_SUNKEN).blend(amber.opacity(0.10))))
             .when(selected && !opened, |strip| strip.border_color(look.color(token::ACCENT)).bg(look.color(token::ACCENT_FAINT)))
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
@@ -4224,6 +4241,24 @@ mod tests {
         assert_eq!(first.now.as_deref(), Some("Plan to approve"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
+    }
+
+    /// A row on a step that stands past its usual time carries Fleet's cause for the amber and its tooltip; a row inside its time carries none.
+    #[test]
+    fn a_row_on_a_step_that_is_not_moving_carries_fleets_cause() {
+        let names = Names { flows: crate::mock::workflows(), ..Names::default() };
+        let lines = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[], &names);
+        let cause = |title: &str| {
+            lines
+                .iter()
+                .find_map(|line| match line {
+                    Line::Job(row) if row.title == title => Some(row.track.as_ref().and_then(|track| track.stalled.clone())),
+                    _ => None,
+                })
+                .expect(title)
+        };
+        assert!(cause("Cart total rounds the wrong way").is_some_and(|cause| cause.contains("plan")), "the stuck bug's row says why");
+        assert_eq!(cause("Show the stale chip in the Jobs list"), None, "a step inside its time stays as it was");
     }
 
     #[test]

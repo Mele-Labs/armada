@@ -36,11 +36,14 @@ impl JobView {
         let key = kid.id.as_str().to_string();
         let title = crate::jobs::titled(kid.title.as_deref());
         let work = self.work(kid, cx);
-        let strip = work.name.as_deref().filter(|_| !work.off).map(|name| strip_of(name, &work.steps, work.at, &work.visits, &work.skipped, &[], Utc::now()));
+        let strip = work.name.as_deref().filter(|_| !work.off).map(|name| strip_of(name, &work.steps, work.at, &work.visits, &work.skipped, &[], Utc::now()).read_by(kid.workflow_strip.as_ref()));
+        // A child whose step stands past its usual time with no move turns amber, with Fleet's cause to read.
+        let stalled = kid.workflow_strip.as_ref().and_then(|wire| wire.stalled.as_ref()).map(|stalled| stalled.cause.clone());
         let on_him: Vec<String> = kid.waiting_for.iter().map(|item| item.text.clone()).collect();
         let waits = waits_of(&on_him, &kid.workflow_waiting_on);
-        let step = strip.as_ref().and_then(|strip| strip.pips.iter().find(|pip| pip.state == super::column_strip::PipState::Now)).map(|pip| pip.name.clone());
-        let name = [Some(title.clone()), step.clone(), waits.clone()].into_iter().flatten().collect::<Vec<_>>().join(", ");
+        let step = strip.as_ref().and_then(|strip| strip.pips.iter().find(|pip| pip.state.is_now())).map(|pip| pip.name.clone());
+        let name = [Some(title.clone()), step.clone(), stalled.clone(), waits.clone()].into_iter().flatten().collect::<Vec<_>>().join(", ");
+        let amber = look.color(token::STATUS_AWAITING_REVIEW);
         let open = key.clone();
         labelled(
             div()
@@ -59,6 +62,7 @@ impl JobView {
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
                 .tab_index(0)
+                .when(stalled.is_some(), |row| row.mb(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(amber).bg(look.color(token::BG_RAISED).blend(amber.opacity(0.10))))
                 .focus_visible(|style| style.border_1().border_color(look.color(token::ACCENT)))
                 .child(div().min_w_0().truncate().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(title)))
                 .child(
@@ -70,7 +74,12 @@ impl JobView {
                         .text_color(look.color(token::FG_MUTED))
                         .children(strip.as_ref().map(|strip| {
                             let states: Vec<_> = strip.pips.iter().map(|pip| pip.state).collect();
-                            pips_bar(look, SharedString::from(format!("child-pips:{key}")), &states, step.clone().unwrap_or_else(|| strip.flow.clone()))
+                            let said = step.clone().unwrap_or_else(|| strip.flow.clone());
+                            let said = match &stalled {
+                                Some(cause) => format!("{said}: {cause}"),
+                                None => said,
+                            };
+                            pips_bar(look, SharedString::from(format!("child-pips:{key}")), &states, said)
                         }))
                         .children(waits.map(|waits| div().max_w(look.length(token::SPACE_12) * 3.).truncate().child(SharedString::from(waits)))),
                 )
@@ -92,5 +101,21 @@ mod tests {
         assert_eq!(waits_of(&words(&["Approve the walk"]), &words(&["Waiting on PR #3951: Merged"])).as_deref(), Some("Approve the walk"));
         assert_eq!(waits_of(&[], &words(&["Waiting on PR #3951: Merged"])).as_deref(), Some("Waiting on PR #3951: Merged"));
         assert_eq!(waits_of(&[], &[]), None, "an empty slot stays empty");
+    }
+
+    /// The Job that started three, one of which has stood past its usual time: its row says why, as the child's own words.
+    #[gpui::test]
+    fn a_child_whose_step_is_not_moving_names_the_cause_and_the_others_do_not(cx: &mut gpui::TestAppContext) {
+        use super::super::column_strip::tests::drawn::{fresh, opened};
+        use super::super::parts_fold::drawn_like;
+        let (view, cx) = opened(cx, "mock-19");
+        view.update_in(cx, |view, _, cx| view.open_kind("children", cx));
+        fresh(cx);
+        let cause = "The step waits on the checks of its pull request, and Fleet has seen none run.";
+        let rows = drawn_like(cx, gpui::Role::Button, "Deliver the child tab");
+        assert_eq!(rows.len(), 1, "the child is a row of the tab");
+        assert!(rows[0].contains(cause), "the row reads Fleet's cause: {}", rows[0]);
+        let others = drawn_like(cx, gpui::Role::Button, "Draw the child rows");
+        assert!(others.iter().all(|row| !row.contains("Fleet has seen")), "a child inside its time says nothing of it");
     }
 }

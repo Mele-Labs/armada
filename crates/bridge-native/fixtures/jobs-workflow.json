@@ -1362,6 +1362,17 @@
       "workflow_waiting_on": [
         "Waiting on the walk: Approved"
       ],
+      "workflow_strip": {
+        "tabs": [
+          "walks",
+          "artifacts",
+          "now"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve every walk"
+        ]
+      },
       "state": "live",
       "started_at": "2026-11-09T09:10:00Z",
       "last_seen_at": "2026-11-09T14:40:00Z",
@@ -1434,6 +1445,20 @@
         "Waiting on PR #3402: Approved",
         "Waiting on PR #3402: Merged"
       ],
+      "workflow_strip": {
+        "tabs": [
+          "pulls",
+          "plan",
+          "now"
+        ],
+        "usual_secs": 2700,
+        "ends_when": [
+          "it is merged"
+        ],
+        "passed_unapproved": [
+          0
+        ]
+      },
       "state": "live",
       "started_at": "2026-11-09T08:00:00Z",
       "last_seen_at": "2026-11-09T14:40:00Z",
@@ -1506,6 +1531,20 @@
       "workflow_waiting_on": [
         "Waiting on the plan: Approved"
       ],
+      "workflow_strip": {
+        "tabs": [
+          "now",
+          "plan"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve a plan"
+        ],
+        "stalled": {
+          "since": "2026-11-09T08:50:00Z",
+          "cause": "The step waits on a plan from the Job, and none is recorded."
+        }
+      },
       "state": "live",
       "started_at": "2026-11-09T07:50:00Z",
       "last_seen_at": "2026-11-09T14:40:00Z",
@@ -1573,6 +1612,17 @@
       "workflow_waiting_on": [
         "Waiting on Draw the child rows: Ended"
       ],
+      "workflow_strip": {
+        "tabs": [
+          "jobs",
+          "pulls",
+          "now"
+        ],
+        "usual_secs": 7200,
+        "ends_when": [
+          "every Job it started is merged or ended"
+        ]
+      },
       "state": "live",
       "started_at": "2026-11-09T08:30:00Z",
       "last_seen_at": "2026-11-09T14:40:00Z",
@@ -1811,6 +1861,20 @@
       "workflow_waiting_on": [
         "Waiting on checks: Green"
       ],
+      "workflow_strip": {
+        "tabs": [
+          "now",
+          "plan"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve the plan"
+        ],
+        "stalled": {
+          "since": "2026-11-09T10:15:00Z",
+          "cause": "The step waits on the checks of its pull request, and Fleet has seen none run."
+        }
+      },
       "state": "live",
       "started_at": "2026-11-09T09:25:00Z",
       "last_seen_at": "2026-11-09T14:40:00Z",
