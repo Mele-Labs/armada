@@ -567,8 +567,8 @@ pub(super) fn bleed(look: &Look) -> gpui::Pixels {
 impl JobView {
     /// The words' column, as Electron's `--spacious-column`: 70% of the pane, from 680 to 960 wide.
     pub(super) fn column(&self, look: &Look) -> gpui::Pixels {
-        let (least, most) = (look.length(token::SPACE_12) * 14. + look.length(token::SPACE_2), look.length(token::SPACE_12) * 20.);
-        self.pane.map_or(most, |pane| gpui::px((f32::from(pane) * 0.7).clamp(f32::from(least), f32::from(most))))
+        let (least, most) = (look.length(token::SPACE_12) * 14. + look.length(token::SPACE_2), look.length(token::SPACE_12) * 32.);
+        self.pane.map_or(most, |pane| gpui::px((f32::from(pane) * 0.94).clamp(f32::from(least), f32::from(most))))
     }
 
     pub fn new(
