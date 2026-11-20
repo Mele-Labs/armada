@@ -227,8 +227,8 @@ pub(super) fn render_steps(look: &Look, rows: Vec<Row>, cx: &mut Context<Feature
         } else {
             pill(look, token::FG_SUBTLE, "free").bg(look.color(token::BG_SUNKEN)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE))
         };
-        let title = div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.title.clone()));
-        let head = div().flex().items_center().gap(look.length(token::SPACE_2)).child(title).child(tag);
+        let title = div().min_w_0().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(row.title.clone()));
+        let head = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2)).child(title).child(tag.flex_none());
         let text = (!row.text.is_empty()).then(|| div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(said_colour(&row))).child(SharedString::from(row.text.clone())));
         let body = div().flex_1().min_w_0().flex().flex_col().child(head).children(text);
         let mark = div().flex_none().h(look.length(token::LEADING_XS)).flex().items_center().child(check(look, &row, cx));

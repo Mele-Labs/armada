@@ -454,12 +454,13 @@ pub fn shoot_librarian(dir: &Path) -> Result<(), String> {
     cx.update(crate::init_app);
     cx.update(|cx| cx.set_reduce_motion(true));
     let refusal = "Fleet holds no project named armada";
-    let states: [(&str, Reading, Press, Option<&str>); 7] = [
+    let states: [(&str, Reading, Press, Option<&str>); 8] = [
         ("librarian-never", Reading::Never, Press::Idle, None),
         ("librarian-current", Reading::Current, Press::Idle, None),
         ("librarian-behind", Reading::Behind, Press::Idle, None),
         ("librarian-behind-long", Reading::FarBehind, Press::Idle, None),
         ("librarian-working", Reading::Behind, Press::Working, None),
+        ("librarian-running", Reading::Running, Press::Idle, None),
         ("librarian-failed", Reading::Behind, Press::Failed(refusal.into()), None),
         ("chips-pocket", Reading::Current, Press::Idle, Some("pocket")),
     ];
@@ -482,6 +483,8 @@ pub fn shoot_librarian(dir: &Path) -> Result<(), String> {
                     screen.choose(project.to_string(), cx);
                 } else if let super::Load::Read(library) = &mut screen.library {
                     library.librarian = mock::librarian(reading);
+                    let library = library.clone();
+                    screen.run_read(&library);
                 }
                 screen.press = press;
                 cx.notify();
