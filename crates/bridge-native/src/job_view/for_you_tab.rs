@@ -741,7 +741,8 @@ mod tests {
     fn for_you_is_a_tab_a_pane_can_hold_the_plus_offers_and_a_zone_that_draws_it() {
         assert!(super::super::pane_tree::is_tab_kind("for_you"));
         assert_eq!(super::super::panes_place::zone_of("for_you").map(Zone::id), Some("for_you"));
-        let top = super::super::pane_tree::default_arrangement();
+        // A Job kept before the column's bands has it first in the column, before Now.
+        let top = super::super::pane_tree::legacy_arrangement();
         let panes = super::super::pane_tree::panes_of(&top.root);
         assert_eq!(panes[1].tabs.first().map(|tab| tab.kind.as_str()), Some("for_you"), "first in the column, before Now");
     }

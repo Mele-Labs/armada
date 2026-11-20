@@ -104,7 +104,7 @@ impl JobView {
 
     /// Each follow-up kept and not yet settled: a card in its own pane (`flat`), a plain row in the
     /// Spine's frame.
-    fn deferred_rows(&self, id: &SharedString, flat: bool, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+    pub(super) fn deferred_rows(&self, id: &SharedString, flat: bool, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let Some(job) = self.record(id, cx) else { return Vec::new() };
         let hue = look.color(token::TOOL_LOOK);
         let edge = look.length(token::BORDER_WIDTH);
@@ -214,7 +214,7 @@ impl JobView {
         );
     }
 
-    fn later_settled(&self, later: &str) -> bool {
+    pub(super) fn later_settled(&self, later: &str) -> bool {
         self.shown.as_ref().and_then(|id| self.pages.get(id.as_str())).is_some_and(|page| page.side.settled.contains(later))
     }
 

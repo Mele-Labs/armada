@@ -119,6 +119,8 @@ pub(crate) mod pulls;
 mod issues;
 mod system;
 mod bays;
+mod column_bands;
+mod column_strip;
 mod pr_files;
 mod pr_notes;
 mod pr_panel;
@@ -436,6 +438,8 @@ pub struct JobView {
     aged: bool,
     /// How Done lists what was made, for the run.
     ledger_view: done::LedgerView,
+    /// The bands over the right column he hid, for every Job.
+    bands: column_bands::Hidden,
     /// What each Job's artifacts list holds, and the first screens of its pages.
     artifacts: artifacts_tab::Artifacts,
     /// What each Job's For you holds, as Fleet last read it, and what a refusal said on a row.
@@ -706,6 +710,7 @@ impl JobView {
             for_you: for_you_tab::ForYouTab::mock(if mock_on { crate::mock::for_you() } else { None }),
             questions: questions::Questions::mock(if mock_on { crate::mock::questions() } else { None }),
             ledger_view: if remember { done::read_ledger_view() } else { done::LedgerView::default() },
+            bands: if remember { column_bands::read_hidden() } else { column_bands::Hidden::default() },
             mod_switch: HashMap::new(),
             visiting: None,
             switched: None,

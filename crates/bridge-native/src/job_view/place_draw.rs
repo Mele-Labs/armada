@@ -333,7 +333,7 @@ impl JobView {
         let said = if thread_like { self.head_said_row(&job, cx) } else { None };
         let region: Option<SharedString> = match slot {
             Slot::Thread => None,
-            Slot::Top => Some("Open, Done and Deferred".into()),
+            Slot::Top => Some("Job column".into()),
             Slot::Now => Some("Job column: Now".into()),
             Slot::Other => Some(match front.as_ref() {
                 Some(tab) => format!("Pane: {}", self.tab_word(&job, tab)).into(),
@@ -342,6 +342,7 @@ impl JobView {
         };
         let popups = if hosts { std::mem::take(&mut frame.popups) } else { Vec::new() };
         let press = one.id.clone();
+        let bands = self.column_bands(&job, &one.id, look, cx);
         let body_marks = self.body_drop_mark(&one.id, look);
         let pane_marks = self.pane_drop_marks(&one.id, look);
         let element = sized(pane(look).id(SharedString::from(format!("pane:{}", one.id))), share)
@@ -349,6 +350,7 @@ impl JobView {
             .when(hosts, |pane| pane.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
+            .children(bands)
             .child(strip_el)
             .children(said)
             .child(div().flex_1().min_h_0().flex().flex_col().relative().children(body).child(self.mark_drawn(format!("body:{}", one.id))).children(body_marks))

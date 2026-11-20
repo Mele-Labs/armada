@@ -101,11 +101,15 @@ impl JobView {
         let offers = cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default();
         let arrangement = self.arrangement().into_owned();
         let into = super::panes_place::view_pane_of(&arrangement, pane);
-        let entries: Vec<Entry> = KINDS
+        // The column's + brings back a band he hid, ahead of the tabs it offers.
+        let hidden: Vec<super::column_bands::Band> = if self.bands_pane(pane) { self.bands.hidden().collect() } else { Vec::new() };
+        let bands = Some(Entry::Label("Bands")).filter(|_| !hidden.is_empty()).into_iter().chain(hidden.iter().map(|band| Entry::Item { id: band.entry(), label: band.word().into(), icon: Some(band.glyph()), danger: false, key: None, off: None })).chain(Some(Entry::Label("Tabs")).filter(|_| !hidden.is_empty()));
+        let entries: Vec<Entry> = bands
+            .chain(KINDS
             .iter()
             .filter(|&&(id, _, _)| !laid_off(id) && !(id == "thread" && tree::has_kind(&arrangement, id)))
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
-            .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
+            .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None })))
             .collect();
         let back = window.focused(cx);
         let menu = cx.new(|cx| Dropdown::new("Add tab", entries, at, Anchor::TopLeft, false, cx).at_point(window, cx));
@@ -113,6 +117,10 @@ impl JobView {
         let picked = cx.subscribe_in(&menu, window, move |this, _, picked: &Picked, window, cx| {
             let Picked::Entry { id, .. } = picked;
             this.tabs_menu = None;
+            if let Some(band) = super::column_bands::Band::ALL.into_iter().find(|band| band.entry() == *id) {
+                this.set_band(band, false, cx);
+                return;
+            }
             if let Some(offer) = offers.iter().find(|offer| offer.id == *id) {
                 let (open, job) = (offer.open.clone(), this.shown.as_ref().map(|job| job.to_string()));
                 if let Some(job) = job {
@@ -143,7 +151,7 @@ impl JobView {
     pub(super) fn add_button(&mut self, pane: &str, look: &Look, cx: &mut Context<Self>) -> impl IntoElement {
         let name = match super::panes_place::slot_of(pane) {
             super::panes_place::Slot::Thread => "Add tab: Thread",
-            super::panes_place::Slot::Top => "Add tab: Done",
+            super::panes_place::Slot::Top => "Add tab: Job column",
             super::panes_place::Slot::Now => "Add tab: Now",
             super::panes_place::Slot::Other => "Add tab",
         };

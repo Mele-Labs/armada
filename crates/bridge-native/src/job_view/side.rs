@@ -148,6 +148,8 @@ pub(super) struct SideState {
     pub(super) chunks: HashSet<String>,
     /// The Open group after the last step is folded.
     pub(super) open_group_shut: bool,
+    /// The chip of Needs you he pressed on this Job; none until he does.
+    pub(super) needs_chip: Option<super::column_bands::Chip>,
 }
 
 /// Where a group of an approved plan stands.
