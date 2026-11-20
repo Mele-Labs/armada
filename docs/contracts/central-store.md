@@ -390,7 +390,10 @@ Why: a work project points at the team's store and Armada at his own, decided by
 **Rule.** A project's `store:` block also names the login that joins it, and a repository may override the login.
 A project with a store and no login sends nothing, and says so.
 Claims go as that login, never as a profile matched through the repository's owner, [Account](../concepts/account.md), *Which login a project joins as*.
-**Not built.** Fleet still calls each repository as the profile bound to it by its owner (`crates/fleet/src/project_store.rs`, `bound_profiles`).
+
+**Rule.** A project of this Mac's that names a store and no login takes the one profile here that already enrolled at that store, and Fleet writes it into the project's file once, where the file is kept, when it reads the projects.
+None enrolled, or two or more, leaves it as it is and the sentence above stands, and a copy of another Mac's project is never written.
+Why: every project file written before login naming has a store and no login, and without this each of them stopped sending claims the day it landed.
 
 **Rule.** A repository calls the store the projects holding it name, read when the call is made.
 A repository in no project, or in projects that name none, makes no call, and that holds for what was still to send when a store was taken out.
