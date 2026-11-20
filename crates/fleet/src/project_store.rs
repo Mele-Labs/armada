@@ -188,7 +188,7 @@ where
     /// Name `store` as project `project`'s, or none, in its file, and answer the projects as every
     /// write does. **Nothing is called here**: a join or a deploy reaches the store first.
     pub(crate) async fn project_store_written(&self, project: &str, store: Option<ProjectStore>) -> Result<ipc::Projects, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let named = held.clone().with_store(store);
         if named != held {
@@ -203,9 +203,9 @@ where
         served.iter().filter(|one| project.holds(one.manifest().id())).map(|one| one.root().to_string()).collect()
     }
 
-    /// Everything the store setting of `project` shows.
+    /// Everything the store setting of `project` shows, a copy of another Mac's included.
     pub(crate) async fn project_store_state(&self, project: &str) -> Result<ipc::ProjectStoreState, Refusal> {
-        let held = self.project_read(project)?;
+        let held = self.project_held(project).await?;
         let roots = self.project_roots(&held);
         let reaching = Arc::clone(self.reaching());
         let signing = self.signing_in().clone();
@@ -232,7 +232,7 @@ where
     /// Join the store `set` names and name it as `project`'s, or name none. **Nothing is written unless
     /// the join worked.**
     pub(crate) async fn project_store_set(&self, project: &str, set: ipc::SetProjectStore) -> Result<ipc::ProjectStoreState, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let named = match set.store {
             None => None,
@@ -254,7 +254,7 @@ where
     /// Put `project`'s store up on his Cloudflare account, name it in the project's file, and join this
     /// Mac to it. **Nothing is changed where Cloudflare refuses every sign-in.**
     pub(crate) async fn project_store_deployed(&self, project: &str, deploy: ipc::DeployProjectStore) -> Result<ipc::StoreDeployed, Refusal> {
-        self.project_not_held(project).await?;
+        self.store_not_held(project).await?;
         let held = self.project_read(project)?;
         let team = deploy.team.as_deref().map(StoreTeam::new).transpose().map_err(|why| self.store_malformed(&why))?;
         let name = worker_name(team.as_ref());

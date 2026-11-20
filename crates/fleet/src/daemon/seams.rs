@@ -81,15 +81,18 @@ where
     /// not asked here.
     pub(crate) fn workflow_off_from(&self, manifest: Option<&str>, project: Option<&str>, workflow: &str) -> Option<ipc::ValueLayer> {
         let held = project.and_then(|id| core_model::ScopeId::new(id).ok()).and_then(|scope| self.projects_held().get(&scope).cloned());
-        let listed = held.as_ref().map_or(&[][..], |project| project.values().workflows_off.as_slice());
+        self.workflow_off_from_held(manifest, held.as_ref(), workflow)
+    }
+    /// [`Fleet::workflow_off_from`] for a project already read, a copy of another Mac's included.
+    pub(crate) fn workflow_off_from_held(&self, manifest: Option<&str>, held: Option<&core_model::Project>, workflow: &str) -> Option<ipc::ValueLayer> {
+        let listed = held.map_or(&[][..], |project| project.values().workflows_off.as_slice());
         self.tuned(|dials| dials.workflows_off.off_from(manifest, listed, workflow))
     }
     /// The layer holding `workflow` off for `project` asked about without one repository: off from `repository` where
     /// every repository the project keeps switches it off (`ipc::workflows_off`). A project that did not read keeps none.
-    pub(crate) fn workflow_off_across(&self, project: &str, workflow: &str) -> Option<ipc::ValueLayer> {
-        let held = core_model::ScopeId::new(project).ok().and_then(|scope| self.projects_held().get(&scope).cloned());
-        let listed = held.as_ref().map_or(&[][..], |project| project.values().workflows_off.as_slice());
-        let manifests: Vec<&str> = held.as_ref().map_or_else(Vec::new, |project| project.members().iter().map(|one| one.repository().as_str()).collect());
+    pub(crate) fn workflow_off_across(&self, held: Option<&core_model::Project>, workflow: &str) -> Option<ipc::ValueLayer> {
+        let listed = held.map_or(&[][..], |project| project.values().workflows_off.as_slice());
+        let manifests: Vec<&str> = held.map_or_else(Vec::new, |project| project.members().iter().map(|one| one.repository().as_str()).collect());
         self.tuned(|dials| dials.workflows_off.off_across(&manifests, listed, workflow))
     }
     /// Whether `workflow` may be followed in the repository `manifest`, for a Job in `project` where it has one: the

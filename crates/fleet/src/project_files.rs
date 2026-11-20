@@ -265,11 +265,20 @@ where
     /// The project `id` a Job in `repository` is started for, or a refusal before anything is made: a 404
     /// `fleet.no_such_project` where he has none by that id, a 422 `fleet.project_not_member` where it does not
     /// hold the repository, and a 422 `fleet.project_unreadable` where its file did not read and Fleet cannot say.
+    /// **A copy of another Mac's project takes it where the copy lists the repository**, and is otherwise a 422
+    /// `fleet.project_copy_not_member`.
     pub(crate) async fn project_started_for(&self, id: &str, repository: &str) -> Result<String, Refusal> {
         let named = ScopeId::new(id).ok();
         let read = named.as_ref().and_then(|scope| self.projects_held().get(scope).cloned());
         let kept = self.store().lock().await.projects().map_err(|why| self.ledger_fault(why))?;
         if read.is_none() && !kept.projects.iter().any(|one| one.id == id) {
+            // A copy of another Mac's project takes a Job as a move into it does, in a repository it lists as shown.
+            if let Some(copy) = self.project_copies().await?.into_iter().find(|one| one.id == id) {
+                return match copy.members.iter().any(|one| one.manifest_id.as_str() == repository) {
+                    true => Ok(id.to_string()),
+                    false => Err(self.copy_not_member(repository)),
+                };
+            }
             return Err(Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id}"))));
         }
         let not_member = |said: String| Refusal::Unacceptable(self.project_refusal(NOT_MEMBER, said));
@@ -308,7 +317,7 @@ where
         }
     }
 
-    /// The repositories project `id` holds, a folder member counting as its repository: a 404
+    /// The repositories project `id` holds, or a copy of another Mac's lists, a folder member counting as its repository: a 404
     /// `fleet.no_such_project` where he has none by that id, and a 422 `fleet.project_unreadable`
     /// where its file did not read and Fleet cannot say.
     pub(crate) async fn project_repositories(&self, id: &str) -> Result<Vec<Repository>, Refusal> {
@@ -321,6 +330,8 @@ where
             Err(Refusal::Unacceptable(
                 self.project_refusal(UNREADABLE, format!("The file of project {id} did not read, so Fleet cannot say what it holds")),
             ))
+        } else if let Some(copy) = self.copy_read(id).await {
+            Ok(copy.repositories().into_iter().cloned().collect())
         } else {
             Err(Refusal::NotFound(self.project_refusal(NO_SUCH, format!("Fleet holds no project {id}"))))
         }

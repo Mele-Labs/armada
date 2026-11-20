@@ -1,4 +1,4 @@
-//! A task act another Mac made on its copy of one of this Mac's shared projects, run here. `docs/concepts/project.md`,
+//! An act another Mac made on its copy of one of this Mac's shared projects, on a task or the project itself, run here. `docs/concepts/project.md`,
 //! *Sharing with his other Macs*.
 //!
 //! **Run by the code that runs the same act for the person here**, so every refusal, every stamp and every
@@ -44,6 +44,8 @@ where
             ProjectAct::RemoveProjectRow { row } => Projects::remove_project_row(self, row).await,
             ProjectAct::Absorb { kept, gone, from_gone } => self.absorb_run(&kept, gone, &from_gone).await,
             ProjectAct::GiveUp { gone, into, absorbed } => self.give_up_run(&gone, &into, &absorbed, None).await,
+            ProjectAct::EditProject { project, edit } => Projects::edit_project(self, project, edit).await,
+            ProjectAct::DeleteProject { project } => Projects::delete_project(self, project).await,
         }?;
         Ok(self.projects_for_other_mac(answered).sent())
     }
