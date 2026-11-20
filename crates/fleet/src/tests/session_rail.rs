@@ -122,6 +122,38 @@ fn where_a_step_cannot_be_told_from_its_neighbour_the_earlier_one_is_kept() {
     assert_eq!(at(&twin, all), Some(1), "and a step that fits nothing is never entered by itself");
 }
 
+/// A workflow this repository ships, as the rail reads it.
+fn shipped(file: &str, text: &str) -> Vec<RailStep> {
+    let def = config::WorkflowDef::parse(std::path::Path::new(file), text, &config::Roster::offering_nothing())
+        .unwrap_or_else(|refused| panic!("{file} did not parse: {refused}"));
+    let resolved = config::ResolvedWorkflow::resolve(&def, &super::daemon::manifest())
+        .unwrap_or_else(|refused| panic!("{file} did not resolve: {refused}"));
+    rail::steps_of(&resolved)
+}
+
+/// **A step placed by its `gate` alone moves the Job on.** The workflows shipped on 9 Nov 2026 state
+/// every step by its gate, with no `records_plan` or `walks`, and the rail read neither: 33 Jobs whose
+/// plan was approved and whose pull request merged stood on their first step throughout.
+#[test]
+fn feature_and_bug_leave_their_first_step_when_the_plan_is_approved() {
+    for (file, text) in [
+        ("feature.json", include_str!("../../../../.armada/workflows/feature.json")),
+        ("bug.json", include_str!("../../../../.armada/workflows/bug.json")),
+    ] {
+        let steps = shipped(file, text);
+        assert_eq!(steps.len(), 3, "{file}: propose, walk, deliver");
+        let recorded = Facts { plan_recorded: true, ..Facts::default() };
+        assert_eq!(at(&steps, recorded), Some(0), "{file}: a plan waiting on him keeps the first step");
+        let seen = Facts { plan_expects_walk: true, tasks_open: true, edited: true, ..approved() };
+        assert_eq!(at(&steps, seen), Some(1), "{file}: approved, with a part he would see, is the walk");
+        let walked = Facts { walk_shown: true, walk_approved: true, ..seen };
+        assert_eq!(at(&steps, walked), Some(2), "{file}: his Approve of the walk is the delivering step, before any push");
+        let unseen = Facts { tasks_open: true, edited: true, ..approved() };
+        assert_eq!(at(&steps, unseen), Some(2), "{file}: with nothing he would see, the walk is passed over");
+        assert_eq!(at(&steps, Facts { pushed: true, landed: true, ..unseen }), None, "{file}: merged, and nothing follows");
+    }
+}
+
 // ---- Through a Fleet ----
 
 pub(super) const REQUEST: &str = "the log reader drops the last line of every file";
