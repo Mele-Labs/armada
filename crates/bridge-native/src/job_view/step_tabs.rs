@@ -1,10 +1,10 @@
 //! The tabs a workflow step lists are the column's own: Fleet's `core_model::STEP_TABS` holds every id of `side::Zone`,
-//! and `now` and `walks` beside them, which the zone list lacks. A zone added here without an id there is a tab
+//! and `now` beside them, which the zone list lacks. A zone added here without an id there is a tab
 //! a workflow file could not name.
 //!
 //! **A step's tabs open when the Job's step moves** ([`JobView::follow_steps`]): each the Job holds in no pane goes in beside his
 //! own, and the step's front tab comes to the front of its pane unless his pointer or his keys are in that pane. A step names
-//! Child Jobs `jobs`; `walks` is a tab the column does not draw yet, so it opens nothing.
+//! Child Jobs `jobs`.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
@@ -22,7 +22,6 @@ pub(super) fn kind_of(id: &str) -> Option<&'static str> {
     match id {
         "jobs" => Some("children"),
         "now" => Some("now"),
-        "walks" => None,
         id => Zone::ALL.into_iter().map(Zone::id).find(|zone| *zone == id),
     }
 }
@@ -52,7 +51,7 @@ pub(super) fn with_step_tabs<'a>(was: &'a Arrangement, kinds: &[&str], held: &dy
         next = Cow::Owned(put_behind(&next, kind, target));
     }
     let front = kinds.first().and_then(|kind| tree::holder_of(&next, kind).and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == *kind).map(|tab| (pane.id.clone(), tab.id.clone()))));
-    if let Some((pane, tab)) = front.filter(|(pane, _)| !held(pane)) {
+    if let Some((_, tab)) = front.filter(|(pane, _)| !held(pane)) {
         let shown = tree::activate(&next, &tab).into_owned();
         if shown != *next {
             next = Cow::Owned(shown);
@@ -114,7 +113,6 @@ mod tests {
     use super::super::panes_place::front_of;
     use super::super::side::Zone;
     use super::*;
-    use gpui::prelude::*;
 
     #[test]
     fn every_zone_id_is_a_tab_a_workflow_step_may_list() {
@@ -130,14 +128,14 @@ mod tests {
     }
 
     #[test]
-    fn a_step_names_child_jobs_jobs_and_a_tab_the_column_does_not_draw_opens_nothing() {
+    fn a_step_names_child_jobs_jobs_and_every_id_it_may_list_opens_a_tab() {
         assert_eq!(kind_of("jobs"), Some("children"));
         assert_eq!(kind_of("now"), Some("now"));
         assert_eq!(kind_of("plan"), Some("plan"));
-        assert_eq!(kind_of("walks"), None, "the Walks tab is not built here yet");
-        assert_eq!(kinds_of(&words(&["walks", "artifacts", "now", "artifacts"])), ["artifacts", "now"], "front first, each once");
+        assert_eq!(kind_of("walks"), Some("walks"));
+        assert_eq!(kinds_of(&words(&["walks", "artifacts", "now", "artifacts"])), ["walks", "artifacts", "now"], "front first, each once");
         for id in core_model::STEP_TABS {
-            assert!(*id == "walks" || kind_of(id).is_some(), "`{id}` is a tab a step lists and the column draws");
+            assert!(kind_of(id).is_some(), "`{id}` is a tab a step lists and the column draws");
         }
     }
 

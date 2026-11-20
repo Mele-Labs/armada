@@ -450,6 +450,7 @@ impl JobView {
                     Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                     Zone::Qa => self.pane_questions(&id, look, window, cx),
                     Zone::Children => self.pane_children(&id, look, cx),
+                    Zone::Walks => self.pane_walks(&id, look, cx),
                 };
                 // Changes, Files and the rest draw their own strip over a body that scrolls, as `.job-pane__pick` does.
                 let own_frame = matches!(zone, Zone::Story | Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);

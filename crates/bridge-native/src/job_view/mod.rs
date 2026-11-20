@@ -160,6 +160,7 @@ mod tool_icons;
 mod tune;
 pub(crate) mod wire;
 mod waits_for;
+mod walks_tab;
 mod workflow_card;
 
 use std::cell::RefCell;

@@ -50,6 +50,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("spine", "Spine", "waypoints"),
     ("judge", "Judge", "scale"),
     ("artifacts", "Artifacts", "shapes"),
+    ("walks", "Walks", "footprints"),
     ("loadout", "Loadout", "layers"),
     ("tokens", "Tokens", "chart-column"),
 ];
