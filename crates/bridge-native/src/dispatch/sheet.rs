@@ -333,6 +333,12 @@ impl DispatchSheet {
         !self.files.is_empty() || !self.drawn.is_empty()
     }
 
+    /// A Job that waits starts with no first message, so nothing can go with it: Attach and Draw sketch
+    /// are put away while a wait is tagged, and paste and drop leave files where they are.
+    pub(super) fn takes_files(&self) -> bool {
+        self.wait.is_none()
+    }
+
     /// What goes with the request's first message: its files and its sketches.
     pub(super) fn held(&self) -> (Vec<Attached>, Vec<DrawnSketch>) {
         (self.files.clone(), self.drawn.clone())
@@ -595,6 +601,9 @@ impl DispatchSheet {
 
     /// Attach opens the Mac's own picker. On the walks' mock there is none to answer, so it adds samples, as a Job's box does.
     pub(super) fn attach_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
         if !self.live {
             self.add_file("sample.rs".into(), "text/plain".into(), b"fn main() {}\n".to_vec(), cx);
             if let Some(picture) = crate::job_view::pictures::mock_picture("Pasted file.png") {
@@ -607,6 +616,9 @@ impl DispatchSheet {
 
     /// Files named by a drop or a paste are read off the main thread and attached.
     pub(super) fn take_paths(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
         read_files(paths, cx, |this, name, media_type, bytes, cx| this.add_file(name, media_type, bytes, cx));
     }
 
@@ -631,6 +643,9 @@ impl DispatchSheet {
 
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     pub(super) fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
+        if !self.takes_files() {
+            return false;
+        }
         let taken = clipped_keyed(item, &mut self.next_key);
         for (name, media_type, bytes) in taken.files.iter().cloned() {
             self.add_file(name, media_type, bytes, cx);
@@ -644,6 +659,9 @@ impl DispatchSheet {
 
     /// Draw sketch: the sheet opens on the request's own pad, as it was left.
     pub(super) fn open_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
         self.pad.update(cx, |pad, cx| pad.open(window, cx));
         cx.notify();
     }
@@ -766,7 +784,10 @@ impl DispatchSheet {
             stops.extend(self.parts[..parts].iter().cloned());
         }
         stops.push(self.request.focus_handle(cx));
-        stops.extend([self.attach_key.clone(), self.sketch_key.clone(), self.talk_key.clone()]);
+        if self.takes_files() {
+            stops.extend([self.attach_key.clone(), self.sketch_key.clone()]);
+        }
+        stops.push(self.talk_key.clone());
         if self.face.connected {
             stops.extend([self.row.clone(), self.model_key.clone(), self.effort_key.clone()]);
         }
@@ -1140,7 +1161,7 @@ mod tests {
         let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
         let (sheet, cx) = open(face, Some("sample-api"), cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft");
+            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "talk", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft, Attach or Draw sketch");
             sheet.step_focus(true, window, cx);
             assert_eq!(at(sheet, window, cx), "part", "Shift-Tab from the request enters the sentence");
             assert!(sheet.parts[3].is_focused(window));
@@ -1166,6 +1187,22 @@ mod tests {
             sheet.remove_file(key, window, cx);
             assert_eq!(names(sheet), ["Pasted file.png"]);
             assert!(sheet.request.focus_handle(cx).is_focused(window), "the caret goes back to the request");
+        });
+    }
+
+    #[gpui::test]
+    fn a_wait_takes_no_files_or_sketches(cx: &mut TestAppContext) {
+        let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
+        let (sheet, cx) = open(face, Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(!sheet.takes_files(), "a Job that waits starts with no message");
+            sheet.attach_files(window, cx);
+            let picture = gpui::Image::from_bytes(gpui::ImageFormat::Png, vec![1, 2, 3]);
+            assert!(!sheet.paste(&ClipboardItem::new_image(&picture), cx), "the paste is left to the words");
+            sheet.take_paths(vec![std::path::PathBuf::from("/tmp/dropped.txt")], cx);
+            assert!(names(sheet).is_empty(), "nothing attaches while a wait is tagged");
+            sheet.open_sketch(window, cx);
+            assert!(!sheet.pad.read(cx).is_open(), "Draw sketch does not open");
         });
     }
 

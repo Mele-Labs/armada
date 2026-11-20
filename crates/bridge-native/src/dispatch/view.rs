@@ -358,8 +358,21 @@ impl DispatchSheet {
             })
         };
         let drawn = drawn_tiles(&self.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx));
+        // A Job that waits starts with no message, so what is held is said not to go.
+        let unsent = (!self.takes_files()).then(|| {
+            labelled(
+                div()
+                    .id("dispatch-unsent")
+                    .px(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child("Not sent: a Job that waits starts with no message."),
+                Role::Status,
+                "Not sent",
+            )
+        });
         // The tray's own inset, and this much more, lines its tiles up with the words.
-        Some(div().px(look.length(token::SPACE_2)).child(tray(&self.files, drawn, look, remove)).into_any_element())
+        Some(div().px(look.length(token::SPACE_2)).child(tray(&self.files, drawn, look, remove)).children(unsent).into_any_element())
     }
 
     /// The request box's tools under the words, over a hairline as a Job's box has them: a place kept for Tools, then
@@ -383,8 +396,10 @@ impl DispatchSheet {
             .border_color(look.color(token::BORDER_SUBTLE))
             // Tools goes here once it lands in a Job's box.
             .child(div().flex_none().size(look.length(token::H_CONTROL)))
-            .child(attach_button(look, None, dress(&self.attach_key), cx, |this: &mut Self, window, cx| this.attach_files(window, cx)))
-            .child(sketch_button(look, None, dress(&self.sketch_key), cx, |this: &mut Self, window, cx| this.open_sketch(window, cx)))
+            .when(self.takes_files(), |row| {
+                row.child(attach_button(look, None, dress(&self.attach_key), cx, |this: &mut Self, window, cx| this.attach_files(window, cx)))
+                    .child(sketch_button(look, None, dress(&self.sketch_key), cx, |this: &mut Self, window, cx| this.open_sketch(window, cx)))
+            })
             .child(div().flex_1())
             .child(crate::job_view::talk::render_with(self, look, dress(&self.talk_key), cx))
     }
