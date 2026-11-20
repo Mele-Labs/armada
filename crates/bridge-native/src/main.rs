@@ -34,6 +34,7 @@ mod drafts;
 // No screen opens a file yet; the first one that does calls it.
 #[allow(dead_code)]
 mod editor;
+mod api_client;
 mod features;
 mod first_run;
 mod fleet;

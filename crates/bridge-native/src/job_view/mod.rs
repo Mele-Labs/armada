@@ -139,6 +139,7 @@ mod view_tabs;
 mod job_browser;
 mod loadout_tab;
 mod tokens_tab;
+mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;

@@ -216,6 +216,8 @@ j / k / ↓ / ↑  move between kinds of waste   (usage only)
 Enter / Space  open the row: the Jobs a kind hit, a setting's values, or a Job's Tokens tab   (usage only)
 a              apply the setting   (usage only)
 → / ←          move along a Job's tokens   (tokens only)
+⌘E             next environment   (api client only)
+[ / ]          headers or body   (api client only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
@@ -299,6 +301,12 @@ The keys go on down the open panel's Jobs, and `Enter` or `Space` on one opens t
 **A Job's Tokens tab has a scope of its own, `tokens`, in the native Bridge.**
 `→` and `←` move the cursor along the buckets of time, held at either end, and the tooltip follows it.
 The first move from nowhere lands on the first bucket, or on the last going left.
+
+**A Job's API Client tab has a scope of its own, `api client`, in the native Bridge.**
+`⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.
+`[` and `]` switch the open request to its Headers and its Body, and stand down while a text box has the keys.
+`⌘↵` is `send_message`'s chord, which the request line answers as Send while it has the keys; `⌘L` and `⌘N` stay the Layout menu's and Dispatch's, so the tab binds neither.
+`↑` and `↓` move through the list or the saved requests an address finds, `↵` opens the row, and `Esc` gives the keys back to the thread.
 
 **The Features tab has a scope of its own, `features`, in the native Bridge.**
 `j`, `k` and the arrows move the row between features, `Enter` opens the feature's page beside the list and `/` goes to the filter.
