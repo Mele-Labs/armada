@@ -168,12 +168,12 @@ pub(super) fn standing(pressed: Option<Chip>, held: Held) -> Option<Chip> {
     pressed.or_else(|| [Chip::Open, Chip::Deferred].into_iter().find(|chip| held.of(*chip)))
 }
 
-/// What a chip lists: its own list and no other.
-pub(super) fn listed<'a, T>(chip: Chip, open: &'a [T], done: &'a [T], deferred: &'a [T]) -> &'a [T] {
+/// What a chip lists: its own list and no other, which is the only one made.
+pub(super) fn listed<T>(chip: Chip, open: impl FnOnce() -> Vec<T>, done: impl FnOnce() -> Vec<T>, deferred: impl FnOnce() -> Vec<T>) -> Vec<T> {
     match chip {
-        Chip::Open => open,
-        Chip::Done => done,
-        Chip::Deferred => deferred,
+        Chip::Open => open(),
+        Chip::Done => done(),
+        Chip::Deferred => deferred(),
     }
 }
 
@@ -198,6 +198,24 @@ impl JobView {
         let arrangement = self.arrangement();
         let thread = super::pane_tree::holder_of(&arrangement, "thread").map(|held| held.id.clone());
         super::panes_place::pane_for(&arrangement, super::view_tabs::ViewPane::Top).is_some_and(|top| top == pane && thread.as_deref() != Some(pane))
+    }
+
+    /// + in a pane of the column with the bands he hid listed first, under Bands, and the tabs under Tabs.
+    pub(super) fn with_bands(&self, pane: &str, tabs: Vec<crate::dropdown::Entry>) -> Vec<crate::dropdown::Entry> {
+        use crate::dropdown::Entry;
+        let hidden: Vec<Band> = if self.bands_pane(pane) { self.bands.hidden().collect() } else { Vec::new() };
+        if hidden.is_empty() {
+            return tabs;
+        }
+        let bands = hidden.into_iter().map(|band| Entry::Item { id: band.entry(), label: band.word().into(), icon: Some(band.glyph()), danger: false, key: None, off: None });
+        std::iter::once(Entry::Label("Bands")).chain(bands).chain(std::iter::once(Entry::Label("Tabs"))).chain(tabs).collect()
+    }
+
+    /// A pick in + that is a band coming back. Whether it was one.
+    pub(super) fn band_picked(&mut self, entry: &str, cx: &mut Context<Self>) -> bool {
+        let Some(band) = Band::ALL.into_iter().find(|band| band.entry() == entry) else { return false };
+        self.set_band(band, false, cx);
+        true
     }
 
     /// Whether the band is drawn: not one he hid.
@@ -283,11 +301,12 @@ impl JobView {
         let pressed = self.pages.get(id).and_then(|page| page.side.needs_chip);
         let held = self.needs_held(id, cx);
         let chip = standing(pressed, held)?;
-        let rows: Vec<AnyElement> = match chip {
-            Chip::Open => self.things(id, cx).0.iter().map(|thing: &Thing| self.thing_row(id, thing, look, cx)).collect(),
-            Chip::Done => self.closed_rows(id, look, cx),
-            Chip::Deferred => self.deferred_rows(id, true, look, cx),
-        };
+        let rows: Vec<AnyElement> = listed(
+            chip,
+            || self.things(id, cx).0.iter().map(|thing: &Thing| self.thing_row(id, thing, look, cx)).collect(),
+            || self.closed_rows(id, look, cx),
+            || self.deferred_rows(id, true, look, cx),
+        );
         let chips = Chip::ALL.into_iter().map(|one| {
             let on = one == chip;
             let accent = look.color(token::ACCENT);
@@ -416,9 +435,17 @@ mod tests {
 
     #[test]
     fn a_chip_lists_its_own_rows_and_no_other() {
-        let (open, done, deferred) = (["a", "b"], ["c"], ["d", "e", "f"]);
-        assert_eq!(listed(Chip::Open, &open, &done, &deferred), open);
-        assert_eq!(listed(Chip::Done, &open, &done, &deferred), done);
-        assert_eq!(listed(Chip::Deferred, &open, &done, &deferred), deferred);
+        let pick = |chip| listed(chip, || vec!["a", "b"], || vec!["c"], || vec!["d", "e", "f"]);
+        assert_eq!(pick(Chip::Open), ["a", "b"]);
+        assert_eq!(pick(Chip::Done), ["c"]);
+        assert_eq!(pick(Chip::Deferred), ["d", "e", "f"]);
+        // The lists of the chips that were not pressed are never made.
+        let made = std::cell::Cell::new(0);
+        let counted = || {
+            made.set(made.get() + 1);
+            vec![1]
+        };
+        listed(Chip::Done, || panic!("Open was made"), counted, || panic!("Deferred was made"));
+        assert_eq!(made.get(), 1);
     }
 }

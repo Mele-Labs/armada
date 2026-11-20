@@ -333,7 +333,7 @@ impl JobView {
         let said = if thread_like { self.head_said_row(&job, cx) } else { None };
         let region: Option<SharedString> = match slot {
             Slot::Thread => None,
-            Slot::Top => Some("Job column".into()),
+            Slot::Top => Some("Open, Done and Deferred".into()),
             Slot::Now => Some("Job column: Now".into()),
             Slot::Other => Some(match front.as_ref() {
                 Some(tab) => format!("Pane: {}", self.tab_word(&job, tab)).into(),
@@ -447,6 +447,7 @@ impl JobView {
                     Zone::Artifacts => self.pane_artifacts(&id, look, cx),
                     Zone::ForYou => self.pane_for_you(&id, look, window, cx),
                     Zone::Qa => self.pane_questions(&id, look, window, cx),
+                    Zone::Children => self.pane_children(&id, look, cx),
                 };
                 // Changes, Files and the rest draw their own strip over a body that scrolls, as `.job-pane__pick` does.
                 let own_frame = matches!(zone, Zone::Story | Zone::Changes | Zone::Files | Zone::Judge | Zone::Spine | Zone::Workflow);

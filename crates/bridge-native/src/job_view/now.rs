@@ -386,6 +386,8 @@ impl JobView {
         let head = self.thread(id, cx).map(|held| held.head.clone());
         let rows = self.thread_rows(id, cx);
         let working = self.working(id, cx);
+        // Now alone leads with the act this second, then the five before it, then the subagents at work.
+        let acts = if only_now { super::now_acts::last_acts(&rows, head.as_ref().is_some_and(|head| head.open_call.is_some())) } else { Vec::new() };
         let stuck = job.mark.is_some_and(|mark| mark.state == JobState::Stuck);
         let marks = self.plan_marks(id);
         let drafting = job.plan.as_ref().is_some_and(|plan| !plan.approved);
@@ -499,6 +501,7 @@ impl JobView {
             None
         };
 
+        let (act_now, agent) = if only_now { (agent.map(|agent| agent.into_any_element()), None) } else { (None, agent) };
         let beats: Vec<AnyElement> = owed.into_iter().chain(walk_rows).chain(agent.map(|agent| agent.into_any_element())).chain(live).chain(fleet).chain(waits).chain(slot_wait).chain(under_way).chain(check_rows).collect();
         let beats = (!beats.is_empty()).then(|| labelled(div().id("now-beats").flex().flex_col().when(only_now, |beats| beats.gap(look.length(token::SPACE_1))).children(beats), Role::List, "Now").into_any_element());
         // With a workflow and a plan group being worked, the agent's list follows the plan's tasks; a
@@ -508,10 +511,12 @@ impl JobView {
         let (list_before, list_after) = if list_after { (None, list) } else { (list, None) };
         let flight = if gates { None } else { self.flight_rows(&job, &at_work, false, only_now, look, cx) };
         let helpers = if gates { self.helpers(&job, look, cx) } else { None };
-        let rows: Vec<AnyElement> = beats
+        let leading: Vec<AnyElement> = act_now.into_iter().chain(self.now_last_acts(&acts, look)).chain(self.now_subagents(&job, look).filter(|_| only_now)).collect();
+        let rows: Vec<AnyElement> = leading
             .into_iter()
+            .chain(beats)
             .chain(list_before)
-            .chain(self.now_subagents(&job, look))
+            .chain(self.now_subagents(&job, look).filter(|_| !only_now))
             .chain(flight)
             .chain(helpers)
             .chain(self.now_children(&job, look, cx))

@@ -41,10 +41,11 @@ pub(super) enum Zone {
     Artifacts,
     ForYou,
     Qa,
+    Children,
 }
 
 impl Zone {
-    pub(super) const ALL: [Zone; 21] = [
+    pub(super) const ALL: [Zone; 22] = [
         Zone::Open,
         Zone::Done,
         Zone::Deferred,
@@ -66,6 +67,7 @@ impl Zone {
         Zone::Artifacts,
         Zone::ForYou,
         Zone::Qa,
+        Zone::Children,
     ];
 
     pub(super) fn id(self) -> &'static str {
@@ -91,6 +93,7 @@ impl Zone {
             Zone::Artifacts => "artifacts",
             Zone::ForYou => "for_you",
             Zone::Qa => "qa",
+            Zone::Children => "children",
         }
     }
 
@@ -117,6 +120,7 @@ impl Zone {
             Zone::Artifacts => ("shapes", "Artifacts"),
             Zone::ForYou => ("user-check", "For you"),
             Zone::Qa => ("messages-square", "Q&A"),
+            Zone::Children => ("git-branch", "Child Jobs"),
         }
     }
 }

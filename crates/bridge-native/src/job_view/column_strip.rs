@@ -20,7 +20,7 @@ use crate::look::{token, Look};
 
 /// What one cell of the strip says of its step.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(super) enum PipState {
+pub(crate) enum PipState {
     Done,
     Now,
     Next,
@@ -45,6 +45,8 @@ pub(super) struct Strip {
     pub place: String,
     /// `40m on Walk` on a workflow; how long the Job has run where it follows none.
     pub time: Option<String>,
+    /// Only the span of `time` on a workflow: `40m`.
+    pub step_time: Option<String>,
     pub pips: Vec<Pip>,
     /// What the step waits on, as the rail words it, each its own line.
     pub waits: Vec<String>,
@@ -102,13 +104,12 @@ pub(super) fn strip_of(name: &str, steps: &[String], at: Option<usize>, visits: 
         })
         .collect();
     let place = at.filter(|_| !steps.is_empty()).map(|at| format!("Step {} of {}", at + 1, steps.len())).unwrap_or_default();
-    let time = at
-        .and_then(|at| steps.get(at).map(|word| (at, word)))
-        .and_then(|(at, word)| {
-            let since = visits.iter().rev().find(|(step, _)| *step == at).map(|(_, since)| since)?;
-            Some(format!("{} on {word}", spoken(minutes_between(since, now)?)))
-        });
-    Strip { flow: name.to_string(), place, time, pips, waits: waits.to_vec() }
+    let on_step = at.and_then(|at| steps.get(at).map(|word| (at, word))).and_then(|(at, word)| {
+        let since = visits.iter().rev().find(|(step, _)| *step == at).map(|(_, since)| since)?;
+        Some((spoken(minutes_between(since, now)?), word))
+    });
+    let time = on_step.as_ref().map(|(span, word)| format!("{span} on {word}"));
+    Strip { flow: name.to_string(), place, time, step_time: on_step.map(|(span, _)| span), pips, waits: waits.to_vec() }
 }
 
 /// The strip of a Job on no workflow: its own plan's groups as the cells, the one at work in the accent, and how long it
@@ -127,7 +128,53 @@ pub(super) fn own_plan_strip(groups: &[(String, Stands)], started: Option<&str>,
         })
         .collect();
     let place = if pips.is_empty() { String::new() } else { "own plan".to_string() };
-    Strip { flow: "No workflow".to_string(), place, time: started.and_then(|since| minutes_between(since, now)).map(spoken), pips, waits: Vec::new() }
+    Strip { flow: "No workflow".to_string(), place, time: started.and_then(|since| minutes_between(since, now)).map(spoken), step_time: None, pips, waits: Vec::new() }
+}
+
+/// What a Jobs list row says of the Job's steps: a bar for each, the step it is on and how long it has been on it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct Track {
+    pub pips: Vec<PipState>,
+    pub step: Option<String>,
+    pub time: Option<String>,
+}
+
+/// The track of a Job that follows a workflow Fleet holds, or whose own copy it carries. None where it follows none, or Fleet holds
+/// no definition of the one it follows.
+pub(crate) fn track_of(job: &ipc::SessionRecord, held: &[ipc::WorkflowSummary], now: DateTime<Utc>) -> Option<Track> {
+    let id = job.workflow.as_deref()?;
+    let def = job
+        .workflow_copy
+        .as_ref()
+        .filter(|copy| copy.id.as_str() == id)
+        .or_else(|| held.iter().find(|one| one.id.as_str() == id && job.manifest_id.as_ref().is_none_or(|manifest| *manifest == one.manifest_id)))
+        .or_else(|| held.iter().find(|one| one.id.as_str() == id))?;
+    let steps: Vec<String> = def.steps.iter().map(|step| step.label.clone()).collect();
+    let at = job.workflow_step.map(|at| at as usize).filter(|at| *at < steps.len());
+    let visits: Vec<(usize, String)> = job.workflow_visits.iter().map(|visit| (visit.step as usize, visit.since.as_str().to_string())).collect();
+    let skipped: HashSet<usize> = job.skipped_steps.iter().map(|step| *step as usize).collect();
+    let strip = strip_of(&def.name, &steps, at, &visits, &skipped, &[], now);
+    Some(Track { pips: strip.pips.iter().map(|pip| pip.state).collect(), step: at.map(|at| steps[at].clone()), time: strip.step_time })
+}
+
+/// A Job's steps as small bars, one for each, in the state each is in: done in the muted ink, the step under way in the accent,
+/// and the rest in the hairline's. Said once as a whole, so a reader of the screen hears the steps and not each bar.
+pub(crate) fn pips_bar(look: &Look, id: impl Into<gpui::ElementId>, states: &[PipState], said: impl Into<SharedString>) -> AnyElement {
+    let said: SharedString = said.into();
+    labelled(
+        div().id(id).flex_none().flex().items_center().gap(look.length(token::SPACE_1) / 2.).tooltip(tip(said.clone())).children(states.iter().map(|state| {
+            let hue = match state {
+                PipState::Done => look.color(token::FG_MUTED),
+                PipState::Now => look.color(token::ACCENT),
+                PipState::Skipped => look.color(token::FG_SUBTLE),
+                PipState::Next => look.color(token::BORDER_DEFAULT),
+            };
+            div().flex_none().w(look.length(token::SPACE_3)).h(look.length(token::SPACE_1)).rounded(look.length(token::RADIUS_SM)).bg(hue)
+        })),
+        Role::Image,
+        said,
+    )
+    .into_any_element()
 }
 
 impl JobView {
@@ -319,6 +366,21 @@ mod tests {
         assert_eq!(strip.pips.iter().map(|pip| pip.state).collect::<Vec<_>>(), [PipState::Done, PipState::Now, PipState::Next]);
         // With no plan there is nothing to place, so the place is left unsaid.
         assert_eq!(own_plan_strip(&[], None, at(11, 10)).place, "");
+    }
+
+    /// A row's track is the strip's own reading of the record: a bar for each step of the definition, the one it is on in front.
+    #[test]
+    fn a_row_reads_its_steps_from_the_workflow_fleet_holds() {
+        let held = crate::mock::workflows();
+        let jobs = crate::mock::jobs("job-workflow").expect("the fixture decodes");
+        let job = jobs.iter().find(|job| job.workflow.is_some() && job.workflow_step.is_some()).expect("a Job on a step");
+        let def = job.workflow_copy.as_ref().filter(|copy| Some(copy.id.as_str()) == job.workflow.as_deref()).or_else(|| held.iter().find(|one| Some(one.id.as_str()) == job.workflow.as_deref())).expect("its definition");
+        let track = track_of(job, &held, Utc::now()).expect("a track");
+        assert_eq!(track.pips.len(), def.steps.len());
+        assert_eq!(track.pips.iter().filter(|state| **state == PipState::Now).count(), 1);
+        assert_eq!(track.step.as_deref(), job.workflow_step.and_then(|at| def.steps.get(at as usize)).map(|step| step.label.as_str()));
+        let none = jobs.iter().find(|job| job.workflow.is_none());
+        assert!(none.is_none_or(|job| track_of(job, &held, Utc::now()).is_none()), "no workflow, no track");
     }
 
     #[test]
