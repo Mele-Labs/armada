@@ -50,7 +50,7 @@ pub static SYNC_STEPS: [Step; 20] = [
     step("A clash opens in the detail: both versions side by side, each Mac's own lines tinted", Verb::PressOn("tab", "Kit"), "region", "Clash with Work Mac"),
     step("The bar's chip says something clashes, and names it", Verb::Hover, "img", "Clash over the Mac link"),
     step("Each row's mark in a fixed column: same, differs, new here, refused, only on Work Mac", Verb::Look, "img", "Only on Work Mac"),
-    step("Each row has its own switch beside its mark. Skills are on, so every one crosses", Verb::Look, "switch", "Cross deploy-notes"),
+    step("Each row has its own switch under its mark. Skills are on, so every one crosses", Verb::Look, "switch", "Cross deploy-notes"),
     step("Refused: its switch stays off, with Fleet's reason in the tooltip", Verb::Hover, "switch", "Cross tracker-sync"),
     step("Keep Work Mac's: its version is written here and the row reads the same", Verb::PressOn("button", "Keep Work Mac's"), "region", "File"),
     step("deploy-notes off: the rest keep crossing by themselves", Verb::PressOn("switch", "Cross deploy-notes"), "switch", "Cross deploy-notes"),

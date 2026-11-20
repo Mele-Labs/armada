@@ -356,12 +356,19 @@ impl KitScreen {
                 div()
                     .flex_1()
                     .min_w_0()
-                    // The name's line ends in the row's mark over the link, so the words under it keep the width.
+                    // The name's line ends in the row's mark over the link, and the words under it in the row's own switch
+                    // over the link, so the name keeps its width.
                     .child(div().flex().items_center().gap(look.length(token::SPACE_2)).child(name.flex_1().child(SharedString::from(row.name.clone()))).children((!gone).then(|| self.mark_cell(row, look)).flatten()))
-                    .child(div().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says))),
+                    .child(
+                        div()
+                            .flex()
+                            .items_center()
+                            .gap(look.length(token::SPACE_2))
+                            .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(says)))
+                            .children(self.cross_cell(row, gone, look, window, cx)),
+                    ),
             )
-            .children(restore)
-            .children(self.cross_cell(row, gone, look, window, cx));
+            .children(restore);
         div().w_full().px(look.length(token::SPACE_2)).py(px(2.)).child(labelled(card, Role::ListBoxOption, row.name.clone())).into_any_element()
     }
 
@@ -467,7 +474,6 @@ impl KitScreen {
             div().into_any_element()
         };
         let switch = div().flex_none().min_w(look.length(token::SPACE_12) * 2.).flex().justify_end().child(switch);
-        let crosses = self.cross_said(shown, look);
 
         let mut acts = div().flex().items_center().gap(look.length(token::SPACE_1));
         let editing = self.editing.as_ref().is_some_and(|edit| edit.id == row.id);
@@ -539,7 +545,6 @@ impl KitScreen {
             ))
             .child(chip(look, mark_hue(&row.mark), row.mark.label(), false))
             .child(div().flex_1())
-            .children(crosses)
             .child(switch)
             .child(acts);
 

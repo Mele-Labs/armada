@@ -229,11 +229,6 @@ fn listed(names: &[String]) -> String {
     }
 }
 
-/// The linked Macs, as a person lists them.
-pub fn macs_listed(link: &KitLink) -> String {
-    listed(&link.macs.iter().map(|mac| mac.name.clone()).collect::<Vec<_>>())
-}
-
 /// How a link row stands: Fleet's refusal before anything, then its loudest mark against any linked Mac, naming
 /// every Mac it stands so against. None where no linked Mac crosses it.
 pub fn standing(link: &KitLink, row: &KitLinkRow) -> Option<Standing> {

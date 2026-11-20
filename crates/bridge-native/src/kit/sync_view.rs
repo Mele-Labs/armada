@@ -195,9 +195,9 @@ impl KitScreen {
         Some(cell.child(labelled(chip, Role::Image, word)).into_any_element())
     }
 
-    /// A row's own switch over the link, in its fixed column at the card's end. The column is kept, empty, on a row
-    /// that never crosses, and left out where the kind does not cross. A row Fleet refuses shows its switch off and
-    /// unpressable, with Fleet's reason.
+    /// A row's own switch over the link, in its fixed column at the end of the row's second line, under its mark.
+    /// The column is kept, empty, on a row that never crosses, and left out where the kind does not cross. A row
+    /// Fleet refuses shows its switch off and unpressable, with Fleet's reason.
     pub(super) fn cross_cell(&self, row: &Row, gone: bool, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
         let Load::Read(link) = &self.link else { return None };
         sync::home_kind(row.kind)?;
@@ -233,16 +233,6 @@ impl KitScreen {
     }
 
     // ---- the detail -------------------------------------------------------------------------------
-
-    /// Whether the picked row crosses, read only, beside its name. The row's own switch in the list changes it.
-    pub(super) fn cross_said(&self, shown: &super::model::Shown, look: &Look) -> Option<AnyElement> {
-        let Load::Read(link) = &self.link else { return None };
-        if shown.gone.is_some() || !sync::row_switchable(&shown.row) || link.macs.is_empty() || sync::refusal(link, &shown.row).is_some() {
-            return None;
-        }
-        let words = if sync::row_crosses(link, &shown.row) { format!("Crosses to {}", sync::macs_listed(link)) } else { "Stays on this Mac".to_string() };
-        Some(labelled(div().id("kit-crosses").flex_none().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(words.clone())), Role::Label, words).into_any_element())
-    }
 
     /// The picked row's clashes: each Mac's side by side, and a button to keep each.
     pub(super) fn render_clash(&self, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
