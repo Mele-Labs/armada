@@ -409,3 +409,25 @@ fn only_uat_carries_no_code_and_none_of_its_steps_deliver() {
     }
     assert_eq!(carrying_none, vec!["uat"]);
 }
+
+/// **Every step of every shipped workflow lists the tabs it opens**, each one a tab the column has
+/// (`core_model::STEP_TABS`, which the load already holds it to), so no step opens an empty column.
+#[test]
+fn every_shipped_step_lists_tabs_and_the_first_is_the_front_one() {
+    for (path, text) in shipped() {
+        let def = config::WorkflowDef::parse(&path, &text, &roster())
+            .unwrap_or_else(|why| panic!("{} is refused:\n{why}", path.display()));
+        for step in def.steps() {
+            assert!(!step.tabs().is_empty(), "{} step `{}` lists no tabs", path.display(), step.id().as_str());
+        }
+    }
+    let read = |name: &str| -> Vec<Vec<String>> {
+        let (path, text) = shipped().into_iter().find(|(path, _)| path.ends_with(format!("{name}.json"))).expect("shipped");
+        config::WorkflowDef::parse(&path, &text, &roster()).expect("loads").steps().iter().map(|step| step.tabs().to_vec()).collect()
+    };
+    assert_eq!(
+        read("feature"),
+        vec![vec!["plan", "qa", "now"], vec!["walks", "artifacts", "now"], vec!["pulls", "checks", "now"]],
+        "the design page's table, Propose, Walk, Deliver"
+    );
+}

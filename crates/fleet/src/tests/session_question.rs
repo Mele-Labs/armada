@@ -355,6 +355,7 @@ async fn on_a_feature(rig: &Rig, id: &SessionId) {
         job: id.as_str().into(),
         title: String::new(),
         gist: String::new(),
+        gist_by: String::new(),
         state: String::new(),
         via: "trailer".into(),
         at: "2026-11-18T09:00:00.000Z".into(),

@@ -34,6 +34,7 @@ pub enum IconAbsence {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum ActionScope {
     Anywhere,
+    ApiClient,
     Call,
     Dashboard,
     Deck,
@@ -61,6 +62,7 @@ impl ActionScope {
     pub const fn as_str(self) -> &'static str {
         match self {
             ActionScope::Anywhere => "anywhere",
+            ActionScope::ApiClient => "api client",
             ActionScope::Call => "call",
             ActionScope::Dashboard => "dashboard",
             ActionScope::Deck => "deck",
@@ -89,6 +91,7 @@ impl ActionScope {
     pub const fn key_context(self) -> Option<&'static str> {
         match self {
             ActionScope::Anywhere => None,
+            ActionScope::ApiClient => Some("api-client"),
             ActionScope::Call => Some("call"),
             ActionScope::Dashboard => Some("dashboard"),
             ActionScope::Deck => Some("deck"),
@@ -2208,6 +2211,34 @@ pub const ACTIONS: &[Act] = &[
         confirms: false,
         unbuilt: None,
         in_palette: false,
+    },
+    Act {
+        id: "api_client_environment",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "Next environment",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "⌘E",
+        scope: ActionScope::ApiClient,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
+    },
+    Act {
+        id: "api_client_part",
+        kind: ActionKind::Action,
+        tier: ActionTier::Contextual,
+        verb: "Headers or Body",
+        glyph: None,
+        icon_absent: Some(IconAbsence::Undecided),
+        shortcut: "[ / ]",
+        scope: ActionScope::ApiClient,
+        destructive: false,
+        confirms: false,
+        unbuilt: None,
+        in_palette: true,
     },
     Act {
         id: "usage_apply",

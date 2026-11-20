@@ -33,6 +33,8 @@ pub(crate) enum End {
     ChecksGreen,
     /// Every Job this Job started merged or ended, as a `jobs_ended` gate reads it.
     JobsEnded,
+    /// The Job ends: what ends the last step when it lists nothing.
+    JobEnds,
     /// Instances of a lifecycle the Job holds reach a state. The world's to bring about, and Fleet
     /// reads it: neither the Job's act nor the person's.
     Lifecycle(LifecycleEnd),
@@ -84,6 +86,7 @@ impl End {
             End::PrOpened => "a pull request is opened".into(),
             End::ChecksGreen => "its Checks pass".into(),
             End::JobsEnded => "every Job it started ends".into(),
+            End::JobEnds => "the Job ends".into(),
         }
     }
 
@@ -109,7 +112,8 @@ impl End {
             | End::Edited
             | End::Checked
             | End::Committed
-            | End::PrOpened => Waiter::TheJob,
+            | End::PrOpened
+            | End::JobEnds => Waiter::TheJob,
         }
     }
 
@@ -192,7 +196,11 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
             false => step.ends_on.iter().map(End::listed).collect(),
         };
     }
-    steps.get(at + 1).and_then(entry).into_iter().collect()
+    // **The last step that lists nothing ends when the Job does.**
+    match steps.get(at + 1) {
+        Some(next) => entry(next).into_iter().collect(),
+        None => vec![End::JobEnds],
+    }
 }
 
 /// What ends the step at `at` where one thing does, or `None` where several or nothing does.

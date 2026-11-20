@@ -39,6 +39,7 @@ export type ActionTier = "Global" | "Contextual";
  */
 export type ActionScope =
   | "anywhere"
+  | "api client"
   | "call"
   | "dashboard"
   | "deck"
@@ -2009,6 +2010,32 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "→ / ←",
     scope: "tokens",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "api_client_environment",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Next environment",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌘E",
+    scope: "api client",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "api_client_part",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Headers or Body",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "[ / ]",
+    scope: "api client",
     destructive: false,
     confirms: false,
     unbuilt: null,
