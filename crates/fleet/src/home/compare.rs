@@ -1,13 +1,12 @@
-//! A kind's rows: each piece on this machine against the home's, by its name, as the same,
-//! differing, only here or only there.
+//! What of a piece is compared between two Macs, and how one is shown beside the other.
 //!
-//! **One canonical form per kind**, so a row that reads the same reads it on every machine and
-//! after every sync. Line endings and trailing blank lines never count. A memory note's own
+//! **One canonical form per kind**, so a row that reads the same reads it on every Mac and
+//! after every crossing. Line endings and trailing blank lines never count. A memory note's own
 //! stamps, the session it was written in and when, are the harness's and not the note.
 
 use std::collections::BTreeMap;
 
-use ipc::{HomeKind, HomeRow, HomeRowState, ModKind};
+use ipc::{HomeKind, ModKind};
 
 use super::pieces::Piece;
 use crate::mods::{manifest, MANIFEST};
@@ -39,12 +38,8 @@ pub(crate) fn canonical(kind: HomeKind, piece: &Piece) -> BTreeMap<String, Strin
     }
 }
 
-pub(crate) fn same(kind: HomeKind, here: &Piece, home: &Piece) -> bool {
-    canonical(kind, here) == canonical(kind, home)
-}
-
 /// A piece as the compare sheet shows it: its one file, or each file under its path.
-fn shown(piece: &Piece) -> String {
+pub(crate) fn shown(piece: &Piece) -> String {
     match piece.files.len() {
         1 => piece.files.values().next().cloned().unwrap_or_default(),
         _ => piece.files.iter().map(|(path, text)| format!("── {path} ──\n{text}")).collect::<Vec<_>>().join("\n"),
@@ -52,45 +47,6 @@ fn shown(piece: &Piece) -> String {
 }
 
 /// The kind a mod's `mod.toml` names, where it names one this build knows.
-fn mod_kind_of(piece: &Piece) -> Option<ModKind> {
+pub(crate) fn mod_kind_of(piece: &Piece) -> Option<ModKind> {
     piece.files.get(&format!("{}/{MANIFEST}", piece.name)).and_then(|text| manifest::read(text, &piece.name).0.kind)
-}
-
-type Key = (Option<String>, String);
-
-fn keyed(pieces: &[Piece]) -> BTreeMap<Key, &Piece> {
-    pieces.iter().map(|piece| ((piece.repository.clone(), piece.name.clone()), piece)).collect()
-}
-
-/// Every row of `kind`, by repository and then name.
-pub(crate) fn rows(kind: HomeKind, here: &[Piece], home: &[Piece]) -> Vec<HomeRow> {
-    let (here, home) = (keyed(here), keyed(home));
-    let mut keys: Vec<&Key> = here.keys().chain(home.keys()).collect();
-    keys.sort();
-    keys.dedup();
-    keys.into_iter()
-        .map(|key| {
-            let (mine, theirs) = (here.get(key).copied(), home.get(key).copied());
-            let state = match (mine, theirs) {
-                (Some(mine), Some(theirs)) if same(kind, mine, theirs) => HomeRowState::Same,
-                (Some(_), Some(_)) => HomeRowState::Differs,
-                (Some(_), None) => HomeRowState::Here,
-                _ => HomeRowState::Home,
-            };
-            let either = mine.or(theirs).expect("a key is on one side at least");
-            let differs = state == HomeRowState::Differs;
-            HomeRow {
-                kind,
-                name: key.1.clone(),
-                state,
-                says: mine.and_then(|one| one.says.clone()).or_else(|| theirs.and_then(|one| one.says.clone())),
-                source: either.source.clone(),
-                repository: key.0.clone(),
-                key_here: (kind == HomeKind::McpServers).then_some(mine.is_some()),
-                mod_kind: (kind == HomeKind::Mods).then(|| mine.and_then(mod_kind_of).or_else(|| theirs.and_then(mod_kind_of))).flatten(),
-                here: mine.filter(|_| differs).map(shown),
-                there: theirs.filter(|_| differs).map(shown),
-            }
-        })
-        .collect()
 }

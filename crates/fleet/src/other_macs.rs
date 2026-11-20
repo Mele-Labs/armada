@@ -400,6 +400,18 @@ where
         Ok(MacNamed { mac })
     }
 
+    async fn share_kit(&self) -> Result<ipc::KitOffer, Refusal> {
+        self.kit_offered().await
+    }
+
+    async fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> Result<MacNamed, Refusal> {
+        self.kit_held(held).await
+    }
+
+    async fn kit_settle_from_mac(&self, mac: String, settled: ipc::KitSettled) -> Result<(), Refusal> {
+        self.kit_settle_held(mac, settled).await
+    }
+
     async fn hold_other_mac_bug_reports(&self, held: OtherMacBugReports) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&held.mac)?;
         self.reports_held(&mac, held.reports).await?;

@@ -1,0 +1,8 @@
+[operations.settle_kit_clash]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Settle a Kit clash with a linked Mac by keeping this Mac's version or the other Mac's, on both Macs"
+notes = """
+`POST /kit/link/settle`, body `SettleKitClash { mac, kind, name, repository?, keep }`, `keep` `here` or `there`, answered with `KitLink`. Both Macs record the side not kept as the last-agreed version, so the kept side crosses to the Mac that did not have it: keeping the other Mac's writes it here at once. The other Mac is told as `kit_settle_from_mac`; one that cannot be reached is told when it next speaks, oldest first, in the queue project acts use. A row that is not a clash with that Mac is 409 `fleet.kit_no_clash`; a Mac not linked is 404 `fleet.other_mac_not_linked`. `agent_access` is `No`: his press.
+"""

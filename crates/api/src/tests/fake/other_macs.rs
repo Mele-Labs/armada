@@ -164,6 +164,18 @@ impl OtherMacs for FakeDaemon {
         Ok(())
     }
 
+    async fn share_kit(&self) -> Result<ipc::KitOffer, Refusal> {
+        Ok(ipc::KitOffer::default())
+    }
+
+    async fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> Result<MacNamed, Refusal> {
+        Ok(MacNamed { mac: held.mac })
+    }
+
+    async fn kit_settle_from_mac(&self, _mac: String, _settled: ipc::KitSettled) -> Result<(), Refusal> {
+        Ok(())
+    }
+
     async fn forget_other_mac(&self, mac: MacNamed) -> Result<MacNamed, Refusal> {
         Ok(mac)
     }

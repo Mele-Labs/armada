@@ -199,6 +199,7 @@ mod preferences;
 mod settings;
 /// Kit against the shared home: each row's state, the acts that settle one, and what syncs.
 mod shared_home;
+mod kit_link;
 /// Which wire a build speaks: a hash `build.rs` takes of the wire surface.
 mod protocol_id;
 /// A pull request, by repository and number, and the acts a Session takes on one.
@@ -549,6 +550,10 @@ pub use sharing::{KitManifestSaved, SaveKitManifest};
 pub use shared_home::{
     ChooseHomeSide, HomeItem, HomeKind, HomeKindSwitch, HomeKinds, HomeLeft, HomeNamed, HomePlanned, HomeProfile, HomeRow, HomeRowAt,
     HomeRowState, HomeSide, HomeSynced, HomeUnreadable, SetHomeItem, SetHomeKind, SetHomeRepository, SharedHomeRead,
+};
+pub use kit_link::{
+    KitAgainst, KitChanged, KitKeep, KitLink, KitLinkRow, KitLinkedMac, KitMark, KitOffer, KitPiece, KitSettled, KitSide, OtherMacKit,
+    SetKitLinkItem, SetKitLinkKind, SettleKitClash,
 };
 pub use issue_reference::{ClaimIssue, IssueClaimed, IssueReference};
 pub use issue_queries::{

@@ -147,4 +147,25 @@ pub(super) const ROUTES: &[Route] = &[
         method: "POST",
         path: "/shared_home/repository",
     },
+    // Kit over the Mac link: a read, a kind or an item switched on this Mac, and a clash settled on both Macs.
+    Route {
+        operation: "get_kit_link",
+        method: "GET",
+        path: "/kit/link",
+    },
+    Route {
+        operation: "set_kit_link_kind",
+        method: "POST",
+        path: "/kit/link/kinds/set",
+    },
+    Route {
+        operation: "set_kit_link_item",
+        method: "POST",
+        path: "/kit/link/items/set",
+    },
+    Route {
+        operation: "settle_kit_clash",
+        method: "POST",
+        path: "/kit/link/settle",
+    },
 ];
