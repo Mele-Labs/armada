@@ -569,7 +569,8 @@ A built-in tracker mod is listed and validated but cannot be tried or used, sinc
 
 ## In the shared home
 
-A person's own several machines carry their mods through the shared home, [Kit](kit.md), *The shared home*.
+A person's own several machines carry their mods over the Mac link, [Kit](kit.md), *Over the Mac link*.
+**Not built.** They carry them through the shared home until then, [Kit](kit.md), *The shared home, retired*.
 A mod is the home's `mods/<name>/` folder, and Kit lists mods as a kind of its own, with the Theme rows carrying the same marks.
 
 > **Rule.** A mod that is not valid on this machine is not added to the home.

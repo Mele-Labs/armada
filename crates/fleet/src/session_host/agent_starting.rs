@@ -218,11 +218,16 @@ where
 
     /// The project a Job `me` starts in `repository` is for: `me`'s own, `None` where it has none. **A project that
     /// does not read, or whose file cannot be written, gives none**, said on the log, since a start is never refused
-    /// for a fault of the project, as `agent_start_held` falls back.
+    /// for a fault of the project, as `agent_start_held` falls back. A copy of another Mac's that lacks the repository
+    /// is asked to take it on that Mac, and a refusal there gives none too.
     pub(super) async fn started_project(&self, me: &str, project: Option<String>, repository: &str) -> Option<String> {
         let project = project?;
-        let joined = match self.members_followed_published(&project, vec![repository.to_string()]).await {
-            Ok(_) => self.project_started_for(&project, repository).await,
+        let joined = match self.copy_of_project(Some(&project)).await {
+            Ok(Some(mac)) => self.copy_member_followed(&mac, &project, repository).await.map(|()| project.clone()),
+            Ok(None) => match self.members_followed_published(&project, vec![repository.to_string()]).await {
+                Ok(_) => self.project_started_for(&project, repository).await,
+                Err(why) => Err(why),
+            },
             Err(why) => Err(why),
         };
         match joined {

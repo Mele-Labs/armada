@@ -1016,7 +1016,8 @@ impl SettingsOverlay {
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
             Some(Body::Macs) => {
-                // The share switch is the project's, over this Mac's own.
+                // The share switch is the project's, over this Mac's own. A copy's place is the keeping Mac's, shown above it.
+                cards.extend(self.kept_card(look, window, cx));
                 if self.scope.project.is_some() {
                     cards.push(super::project::grid(self, "Shared with your other Macs", super::project::keys_of(Body::Macs), look, window, cx));
                 }
