@@ -319,7 +319,7 @@ fn a_repository_file_that_would_not_read_leaves_saving_on(cx: &mut TestAppContex
         type_address(tab, "{{base}}/health?x=1", window, cx);
         tab.save_pressed(window, cx);
     });
-    assert!(settle(&tab, cx, |tab| !posted(&seen, "/requests/collections").is_empty()), "Fleet writes only the person's own file, so the save goes");
+    assert!(settle(&tab, cx, |_| !posted(&seen, "/requests/collections").is_empty()), "Fleet writes only the person's own file, so the save goes");
 }
 
 // ---- send as a run ------------------------------------------------------------------------------
