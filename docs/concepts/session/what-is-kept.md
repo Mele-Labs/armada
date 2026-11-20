@@ -144,7 +144,7 @@ With it off, the repository registers none and shows no owners at all, those ano
 | The reading of a repository's open pull requests | Asks for the rows of all of them in one call, and puts each owner on the merge line's pull request and on the panel's page as `owner` (kind, id, machine, `this_machine`) |
 | A pull request is in the last reading and not in this one | Deletes its row |
 
-**None of it can fail the claim or the delivery.** A store that cannot be reached, a repository bound to no profile (or to one signed out) and a switch that is off leave the row unwritten and the field absent, and a claim is made all the same.
+**None of it can fail the claim or the delivery.** A store that cannot be reached, a repository whose project names no login (or one signed out) and a switch that is off leave the row unwritten and the field absent, and a claim is made all the same.
 The panel's page carries what the last reading found and makes no call of its own.
 
 **Bridge draws a row as a chip.** The `square-terminal` glyph and the Job's short id in mono lead, and the machine's mark follows: `laptop` for this machine, `monitor` for another, its tooltip the machine's name.
