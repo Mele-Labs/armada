@@ -344,7 +344,11 @@ impl JobView {
         let on = rows.iter().find(|row| self.qa_focus(job, row).is_some_and(|focus| focus.is_focused(window))).cloned();
         match event.keystroke.key.as_str() {
             key @ ("down" | "up") => {
-                if let Some(focus) = step(&rows, on.as_deref(), if key == "down" { 1 } else { -1 }).and_then(|to| self.qa_focus(job, &to)) {
+                let to = step(&rows, on.as_deref(), if key == "down" { 1 } else { -1 });
+                if let Some(focus) = to.as_ref().and_then(|to| self.qa_focus(job, to)) {
+                    if to != on {
+                        crate::ui_sounds::moved();
+                    }
                     window.focus(&focus, cx);
                 }
                 true

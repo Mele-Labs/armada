@@ -139,6 +139,8 @@ pub struct Held {
     pub dropped: Option<std::time::Instant>,
     /// Whether `features.notifications` is on. On until Fleet's settings say false, as Electron reads it.
     pub notifications: bool,
+    /// Whether `features.uiSounds` is on: a press on a control clicks. On until Fleet's settings say false, as Electron reads it.
+    pub ui_sounds: bool,
     /// Whether `features.deepLinks` is on: `None` until Fleet's settings have answered, as Electron's `DeepLinks` waits.
     pub deep_links: Option<bool>,
     /// Whether `features.workflows` is off, so Jobs follow no workflow (`workflowsOffIn`). Off only once
@@ -228,6 +230,7 @@ impl Held {
             read_at: None,
             dropped: None,
             notifications: true,
+            ui_sounds: true,
             deep_links: None,
             workflows_off: false,
             settings_stamp: 0,
@@ -467,6 +470,8 @@ impl Held {
         let value = |key: &str| list.settings.iter().find(|one| one.key == key).map(|one| &one.value);
         // On unless the list says false, as `settings.ts` reads it.
         self.deep_links = Some(value("features.deepLinks") != Some(&SettingValue::Bool(false)));
+        self.ui_sounds = value("features.uiSounds") != Some(&SettingValue::Bool(false));
+        crate::ui_sounds::set_on(self.ui_sounds);
         self.workflows_off = value("features.workflows") == Some(&SettingValue::Bool(false));
         self.open_group = value("bridge.openGroup") != Some(&SettingValue::Bool(false));
     }

@@ -116,6 +116,7 @@ impl FirstRunScreen {
                     return;
                 };
                 if let Some(to) = ways::moved(row, held, by) {
+                    crate::ui_sounds::moved();
                     self.pick(row, to.word, cx);
                 }
             }
