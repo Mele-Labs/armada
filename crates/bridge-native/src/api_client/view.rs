@@ -120,7 +120,7 @@ impl Render for ApiClient {
         let look = cx.look().clone();
         let look = &look;
         let line = self.request_line(look, window, cx);
-        let crumb = self.crumb(look, cx);
+        let crumb = self.crumb(look);
         let left = self.left(look, window, cx);
         let right = self.right(look, window, cx);
         div()
@@ -143,7 +143,7 @@ impl Render for ApiClient {
             .text_size(look.length(token::TEXT_XS))
             .line_height(look.length(token::LEADING_XS))
             .child(line)
-            .child(crumb)
+            .children(crumb)
             .child(div().flex_1().min_h_0().flex().child(left).child(right))
             .children(self.menu_element())
     }
@@ -223,7 +223,7 @@ impl ApiClient {
                 .hover(|style| style.text_color(look.color(token::FG_DEFAULT)))
                 .tooltip(tip("Environment, \u{2318}E cycles"))
                 .on_click(cx.listener(|this, _, window, cx| this.pick(Pick::Environment, false, window, cx)))
-                .child(SharedString::from(environment.clone().unwrap_or_else(|| "None".to_string())))
+                .child(SharedString::from(environment.clone().unwrap_or_else(|| "No environment".to_string())))
                 .children(caution),
             Role::Button,
             "Environment",
@@ -350,11 +350,10 @@ impl ApiClient {
 
     // ---- the crumb ---------------------------------------------------------------------------------
 
-    fn crumb(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let place = self.collection().zip(self.saved()).map(|(collection, saved)| (collection.item.name.clone(), saved.name.clone()));
-        let text = self.address_text(cx);
-        let sends = (!text.trim().is_empty()).then(|| model::filled(text.trim(), self.environment_read()).text);
-        div()
+    fn crumb(&self, look: &Look) -> Option<AnyElement> {
+        // Only a saved request has a crumb; the address is on the line above.
+        let place = self.collection().zip(self.saved()).map(|(collection, saved)| (collection.item.name.clone(), saved.name.clone()))?;
+        let crumb = div()
             .id("api-crumb")
             .flex_none()
             .flex()
@@ -363,7 +362,8 @@ impl ApiClient {
             .px(look.length(token::SPACE_4))
             .pb(look.length(token::SPACE_3))
             .text_color(look.color(token::FG_MUTED))
-            .children(place.map(|(collection, request)| {
+            .child({
+                let (collection, request) = place;
                 let said = format!("{collection}, {request}");
                 labelled(
                     div()
@@ -378,23 +378,9 @@ impl ApiClient {
                     Role::Label,
                     said,
                 )
-            }))
-            .children(sends.map(|filled| {
-                labelled(
-                    div()
-                        .id("api-crumb-sends")
-                        .flex_1()
-                        .min_w_0()
-                        .flex()
-                        .items_center()
-                        .gap(look.length(token::SPACE_2))
-                        .child(div().flex_none().text_color(look.color(token::FG_SUBTLE)).child("Sends to"))
-                        .child(div().min_w_0().truncate().font_family(mono(look)).child(SharedString::from(filled.clone()))),
-                    Role::Label,
-                    format!("Sends to {filled}"),
-                )
-            }))
-            .into_any_element()
+            })
+            .into_any_element();
+        Some(crumb)
     }
 
     // ---- the list ----------------------------------------------------------------------------------
@@ -809,15 +795,16 @@ impl ApiClient {
                 let (icon, ink) = outcome.look();
                 let ground = if outcome == Outcome::Answered { token::STATUS_COMPLETED_SUCCESS_BG } else { token::STATUS_COMPLETED_FAILED_BG };
                 let code = sent.status.map_or("No answer".to_string(), |status| status.to_string());
-                let show = self.show;
-                let switch = segments(
+                // A send reopened from the thread keeps no answer headers, so it offers no Headers to switch to.
+                let show = if sent.headers.is_empty() { Show::Body } else { self.show };
+                let switch = (!sent.headers.is_empty()).then(|| segments(
                     look,
                     "Answer part",
                     vec![
                         (segment(look, "api-show-body", "Body", show == Show::Body).track_focus(&self.show_focus[0]).tab_stop(true).on_click(cx.listener(|this, _, _, cx| this.set_show(Show::Body, cx))), "Body"),
                         (segment(look, "api-show-headers", "Headers", show == Show::Headers).track_focus(&self.show_focus[1]).tab_stop(true).on_click(cx.listener(|this, _, _, cx| this.set_show(Show::Headers, cx))), "Headers"),
                     ],
-                );
+                ));
                 let head = band(ground)
                     .child(glyph(look, icon, ink))
                     .child(
@@ -832,7 +819,7 @@ impl ApiClient {
                     .child(div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(model::time_of(sent.ms))))
                     .children(sent.truncated.then(|| div().flex_none().text_color(look.color(token::FG_MUTED)).child("Body cut at 256 KiB")))
                     .child(div().flex_1())
-                    .child(switch);
+                    .children(switch);
                 let mut content: Vec<AnyElement> = Vec::new();
                 if let Some(error) = sent.error.as_ref() {
                     content.push(div().px(look.length(token::SPACE_3)).pt(look.length(token::SPACE_3)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(SharedString::from(error.clone())).into_any_element());

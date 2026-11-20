@@ -659,7 +659,7 @@ impl ApiClient {
                 "Method",
             ),
             Pick::Environment => {
-                let mut entries = vec![Entry::Choice { id: ENVIRONMENT_NONE, label: "None".into(), on: self.environment_read().is_none() }];
+                let mut entries = vec![Entry::Choice { id: ENVIRONMENT_NONE, label: "No environment".into(), on: self.environment_read().is_none() }];
                 entries.extend(self.environments().iter().zip(ENVIRONMENT_IDS).map(|(one, id)| Entry::Choice {
                     id,
                     label: one.item.name.clone().into(),
