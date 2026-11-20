@@ -211,6 +211,8 @@ pub struct Row {
     pub marketplace: Option<String>,
     /// What the file says, where Fleet has handed it over.
     pub file: Option<String>,
+    /// Set on a row only on a linked Mac: that Mac's name. It has no file or act here.
+    pub elsewhere: Option<String>,
 }
 
 /// What a kind came to.
@@ -291,6 +293,7 @@ fn row_of(kind: Kind, item: &ipc::SetupItem, home: &str) -> Row {
         command: None,
         marketplace: None,
         file: None,
+        elsewhere: None,
     };
     match kind {
         Kind::Plugins => {
@@ -386,6 +389,7 @@ pub fn read_kind(kind: Kind, inventory: &KitInventory, servers: &[KitServerRow])
             command: None,
             marketplace: None,
             file: None,
+            elsewhere: None,
         });
         rows.splice(0..0, held);
         // Where several repositories each list servers, each is grouped under its own folder's name.
@@ -516,6 +520,10 @@ impl Row {
 
     /// Whether it is on in the scoped project, for the lamp and the switch. None where the kind has no lamp.
     pub fn lamp(&self, off: &BTreeMap<String, Vec<String>>, scope: &Scope) -> Option<bool> {
+        // Only on a linked Mac: nothing here to be on or off.
+        if self.elsewhere.is_some() {
+            return None;
+        }
         match (self.kind, &self.jobs, &self.server) {
             (Kind::Skills, Some(name), _) => Some(on_in(off, &scope.repositories, name)),
             // A skill a Jobs starts without ever being asked: the repository's own and Armada's.

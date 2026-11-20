@@ -67,6 +67,26 @@ pub fn install(port: u16, install: ipc::InstallKitPiece, cx: &App) -> Task<Resul
     request(port, Ask::Post("/kit/pieces/install".into(), body(&install)), "KitPieceInstalled", cx)
 }
 
+/// `GET /kit/link`: each kind's switch, and each row against every linked Mac.
+pub fn link(port: u16, cx: &App) -> Task<Result<ipc::KitLink, Refused>> {
+    request(port, Ask::Get("/kit/link".into()), "KitLink", cx)
+}
+
+/// `POST /kit/link/kinds/set`: one switch sends this Mac's items of the kind and takes the linked Macs'.
+pub fn cross_kind(port: u16, ask: ipc::SetKitLinkKind, cx: &App) -> Task<Result<ipc::KitLink, Refused>> {
+    request(port, Ask::Post("/kit/link/kinds/set".into(), body(&ask)), "KitLink", cx)
+}
+
+/// `POST /kit/link/items/set`: one item crosses by itself while its kind is off.
+pub fn cross_item(port: u16, ask: ipc::SetKitLinkItem, cx: &App) -> Task<Result<ipc::KitLink, Refused>> {
+    request(port, Ask::Post("/kit/link/items/set".into(), body(&ask)), "KitLink", cx)
+}
+
+/// `POST /kit/link/settle`: one side of a clash kept, on both Macs.
+pub fn settle(port: u16, ask: ipc::SettleKitClash, cx: &App) -> Task<Result<ipc::KitLink, Refused>> {
+    request(port, Ask::Post("/kit/link/settle".into(), body(&ask)), "KitLink", cx)
+}
+
 /// Why a save did not take: Fleet's own words, its code, and what is on disk now where it says (`on_disk`).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Saved {
