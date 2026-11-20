@@ -3,5 +3,5 @@
   group = "Action"
   size = "16px"
   status = "Specified"
-  reserved = "The title row's Dispatch segment only. Never dispatched, which is send's — this marks opening the composer, not the act the composed request performs once sent."
-  notes = "#1107. The shell mock leads Dispatch's label with a plus; a bare cross is the smallest departure from send's silhouette in the Action group, and the two read as compose versus commit rather than as duplicates."
+  reserved = "Two uses, both the owner's: the title row's Dispatch segment, and the button in a Job's message box that lists Armada's tools to ask the agent for (⌘/). Never dispatched, which is send's — this marks opening something to add from, not the act the composed request performs once sent."
+  notes = "#1107. The shell mock leads Dispatch's label with a plus; a bare cross is the smallest departure from send's silhouette in the Action group, and the two read as compose versus commit rather than as duplicates. Widened 19 Nov 2026: the owner picked a + button for the message box's tools list over a word button, knowing it shares the glyph with Dispatch."
