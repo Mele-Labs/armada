@@ -38,6 +38,7 @@ pub(crate) mod artifact_parts;
 mod artifacts;
 mod archiving;
 mod answering_items;
+pub(crate) mod answers_kept;
 mod artifact_editing;
 pub(crate) mod page_measure;
 mod page_words;
@@ -545,6 +546,9 @@ pub(crate) struct State {
     /// `all_done` standing.
     pub fleet_told: u32,
     pub asked: Option<CallInFlight>,
+    /// What he picked so far on a card of several questions, under the call it answers: each question is its own
+    /// item, and the call is answered once every one is. In memory, as `asked` is.
+    pub ask_picks: Option<(String, Vec<ipc::QuestionAnswer>)>,
     /// The door the answer to `asked` came through, set by the request that
     /// answers and taken by the ask that was waiting, which is another task.
     pub answered_via: Option<ipc::Via>,
@@ -692,6 +696,7 @@ impl State {
             woken_by: Vec::new(),
             fleet_told: 0,
             asked: None,
+            ask_picks: None,
             answered_via: None,
             allowed_folders: Vec::new(),
             allowed_kinds: Vec::new(),

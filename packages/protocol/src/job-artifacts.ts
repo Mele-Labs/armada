@@ -180,6 +180,8 @@ export type ArtifactPart = PartContent & {
   drawn: string;
   added: string;
   answer?: PartAnswer;
+  /** The ask in plain words, which titles his item. Absent on a part that asks nothing. */
+  question?: string;
 };
 
 /** How he answered a part: `approved` or `sent_back` for words, a drawing or a page, `picked` for a pick vote. */

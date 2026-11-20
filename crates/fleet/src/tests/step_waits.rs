@@ -71,7 +71,7 @@ fn drawn(id: &SessionId, second: &str) -> ShowSketch {
     let scene = format!(
         r#"{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Bridge"}},{{"id":"b","kind":"box","x":300,"y":0,"title":"{second}"}}],"edges":[{{"id":"e1","from":"a","to":"b"}}]}}"#
     );
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
         .unwrap()
 }
 

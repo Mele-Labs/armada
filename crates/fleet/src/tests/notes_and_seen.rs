@@ -25,7 +25,7 @@ fn note(text: &str, on: Option<(&str, &str)>) -> ItemNote {
 async fn sent_back_with(notes: Vec<ItemNote>) -> String {
     let rig = rig_placing(None);
     let (id, _at) = a_job(&rig).await;
-    let body = format!(r#"{{"title":"Bay flow","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
+    let body = format!(r#"{{"title":"Bay flow","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
     rig.fleet.show_sketch(None, ipc::decode::<ShowSketch>("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
     let answer = ItemAnswer { session_id: id.clone(), item: "sketch:Bay flow".into(), how: ItemHow::SendBack, notes };
     let settled = Arc::clone(&rig.fleet).answer_items(AnswerItems { items: vec![answer] }, Vec::new()).await;

@@ -16,7 +16,7 @@ const TARGET: &str = "sketch:Request flow";
 fn shown_as(id: &SessionId, title: &str, asks: &str) -> ShowSketch {
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}{asks}}}"#, id.as_str()).as_bytes(),
+        format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}{asks}}}"#, id.as_str()).as_bytes(),
     )
     .unwrap()
 }

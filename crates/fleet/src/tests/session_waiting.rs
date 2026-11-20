@@ -712,7 +712,7 @@ async fn an_item_repeating_a_question_that_lapsed_is_refused_and_one_with_other_
     lapsed_clock_question(&rig, &id).await;
 
     // The same labels in another order, under words of the agent's own.
-    let repeat = answer_item(&id, "clock", "Choose which clock the tests run on", &["Frozen", "Fake"]);
+    let repeat = answer_item(&id, "clock", "Which clock do the tests run on?", &["Frozen", "Fake"]);
     let why = refused_for(rig.fleet.waiting_for(None, repeat).await);
     assert!(why.contains("already in his Needs you"), "{why}");
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
@@ -724,7 +724,7 @@ async fn an_item_repeating_a_question_that_lapsed_is_refused_and_one_with_other_
     refused_for(rig.fleet.waiting_for(None, worded).await);
 
     // Other options and other words are a different thing to ask.
-    let other = answer_item(&id, "tz", "Choose the time zone", &["UTC", "Local"]);
+    let other = answer_item(&id, "tz", "Which time zone?", &["UTC", "Local"]);
     rig.fleet.waiting_for(None, other).await.expect("a different question is kept");
     let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
     assert_eq!(ids(&record), ["tz"]);

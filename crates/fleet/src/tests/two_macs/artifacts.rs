@@ -164,12 +164,9 @@ async fn a_vote_on_a_job_whose_mac_is_asleep_waits_and_goes_when_it_wakes() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 4)]
 async fn his_answer_to_a_part_of_a_job_another_mac_holds_is_taken_on_that_mac() {
-    use api::{HostedSessions, Sessions};
+    use api::HostedSessions;
     let Pair { home, work, job } = pair_over_a_shared_job(false).await;
-    let scene = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
-    let drawn = format!(r#"{{"title":"Cache design","session_id":"{}","scene":{scene}}}"#, job.as_str());
-    work.rig.fleet.show_sketch(None, ipc::decode("a sketch", drawn.as_bytes()).expect("a sketch")).await.expect("drawn");
-    let part = format!(r#"{{"session_id":"{}","title":"Cache design","part":{{"id":"notes","kind":"words","text":"Keep it small."}}}}"#, job.as_str());
+    let part = format!(r#"{{"session_id":"{}","title":"Cache design","question":"Keep the cache small?","part":{{"id":"notes","kind":"words","text":"Keep it small."}}}}"#, job.as_str());
     work.rig.fleet.add_part(None, ipc::decode("a part", part.as_bytes()).expect("a part")).await.expect("added");
 
     // Home reads the artifact through the link and answers the part it reads there.

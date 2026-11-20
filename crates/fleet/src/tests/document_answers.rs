@@ -16,6 +16,8 @@ use super::tmp::TempDir;
 use crate::session_host::document_answers::approved_on_newest;
 
 const TITLE: &str = "Lease expiry";
+/// The question Fleet words for the page, which titles its item.
+const ASKED: &str = "Approve \"Lease expiry\"?";
 
 fn page(body: &str) -> String {
     format!(r#"<html><head><title>{TITLE}</title><meta name="armada-review" content="approve"></head><body><p>{body}</p></body></html>"#)
@@ -97,7 +99,7 @@ async fn a_kept_revision_is_asked_and_waits_as_one_item_that_opens_the_job() {
     assert!(kept_at.as_bytes().get(10) == Some(&b'T') && kept_at.ends_with('Z'), "RFC 3339 as settled_at is: {kept_at}");
     assert!(!detail.contains_key("settled"), "open until he answers it");
     let item = format!("document:{path}");
-    assert_eq!(waits(&record), [(item.as_str(), TITLE, WaitingSource::Document)]);
+    assert_eq!(waits(&record), [(item.as_str(), ASKED, WaitingSource::Document)]);
     let act = record.waiting_for[0].act.as_ref().expect("an act");
     assert_eq!((act.kind, act.target.as_str()), (ipc::WaitingActKind::Message, id.as_str()));
 }
@@ -145,14 +147,14 @@ async fn a_new_revision_asks_again_and_lifts_a_dismissal() {
         assert!(!detail.contains_key(gone), "a new revision drops `{gone}`: {detail:?}");
     }
     assert!(!approved_on_newest(detail), "his approval was of the first");
-    assert_eq!(waits(&record), [(item.as_str(), TITLE, WaitingSource::Document)], "it asks again");
+    assert_eq!(waits(&record), [(item.as_str(), ASKED, WaitingSource::Document)], "it asks again");
 
     let dismiss = ipc::DismissWaiting { session_id: id.clone(), item_id: item.clone(), reason: None, misread: false };
     let after = Arc::clone(&rig.fleet).dismiss_waiting(dismiss).await.expect("dismissed");
     assert!(waits(&after).iter().all(|(one, ..)| *one != item), "{:?}", waits(&after));
     written(&rig, &file, "third", "toolu_3").await;
     revision_kept(&rig, &id, &path, "3").await;
-    assert_eq!(waits(&record_of(&rig, &id).await), [(item.as_str(), TITLE, WaitingSource::Document)], "revised, it waits again");
+    assert_eq!(waits(&record_of(&rig, &id).await), [(item.as_str(), ASKED, WaitingSource::Document)], "revised, it waits again");
 }
 
 #[tokio::test]

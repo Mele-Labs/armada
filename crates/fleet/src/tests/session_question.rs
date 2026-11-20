@@ -405,3 +405,49 @@ async fn a_question_answered_in_his_place_is_no_decision_of_his() {
 
     assert!(rig.fleet.store().lock().await.feature_decisions("feature-1").unwrap().is_empty());
 }
+
+/// The card's items on his list now, as `(id, text, option labels)`.
+async fn listed(rig: &Rig, id: &SessionId) -> Vec<(String, String, Vec<String>)> {
+    let record = Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session;
+    record.waiting_for.into_iter().filter(|one| one.source == ipc::WaitingSource::AskCard).map(|one| (one.id, one.text, one.options.into_iter().map(|choice| choice.label).collect())).collect()
+}
+
+#[tokio::test]
+async fn each_question_of_a_card_is_its_own_item_with_its_choices_and_the_card_is_answered_once_every_one_is() {
+    let rig = rig_placing(None);
+    let id = rig.start().await;
+    let fleet = Arc::clone(&rig.fleet);
+    let session = id.as_str().to_string();
+    let held = tokio::spawn(async move { fleet.session_permission(&session, asking()).await });
+    let ask = waiting_on(&rig, &id).await;
+    let (first, second) = (format!("ask:{}", ask.call), format!("ask:{}#1", ask.call));
+    let labels = |all: &[&str]| all.iter().map(|one| one.to_string()).collect::<Vec<_>>();
+    assert_eq!(
+        listed(&rig, &id).await,
+        [
+            (first.clone(), "Which toppings?".to_string(), labels(&["cheese", "ham"])),
+            (second.clone(), "Which size?".to_string(), labels(&["S", "L"])),
+        ],
+        "a pick of several lists its choices too"
+    );
+
+    let pick = |item: &str, choice: u32, text: Option<&str>| ipc::AnswerWaiting {
+        session_id: id.clone(),
+        item_id: item.into(),
+        choice: Some(choice),
+        text: text.map(str::to_string),
+        mode: None,
+        fixed: None,
+    };
+    Arc::clone(&rig.fleet).answer_waiting(pick(&second, 1, Some("Thin crust"))).await.unwrap();
+    assert_eq!(listed(&rig, &id).await.into_iter().map(|(item, ..)| item).collect::<Vec<_>>(), [first.clone()], "the answered question leaves at once");
+    assert!(!held.is_finished(), "the card waits on its other question");
+
+    Arc::clone(&rig.fleet).answer_waiting(pick(&first, 1, None)).await.unwrap();
+    let RunOrNot::Allow { updated_input } = held.await.unwrap().unwrap() else {
+        panic!("an answered card runs");
+    };
+    let said = |question: &str| updated_input.pointer(&format!("/answers/{question}")).and_then(|one| one.as_str()).map(str::to_string);
+    assert_eq!((said("Which toppings?").as_deref(), said("Which size?").as_deref()), (Some("ham"), Some("L, Thin crust")));
+    assert!(listed(&rig, &id).await.is_empty());
+}

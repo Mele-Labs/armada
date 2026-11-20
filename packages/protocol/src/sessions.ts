@@ -236,6 +236,11 @@ export type SessionRecord = {
    */
   closed?: ClosedWaiting[];
   /**
+   * His answers to the Job's asks, oldest first: each ask's question, how he answered and his words, apart from what the Job was told.
+   * The thread card of an answered ask draws its answer from here. Absent when none. Since 20 Nov 2026.
+   */
+  answers?: AnsweredAsk[];
+  /**
    * Dispatched to wait on another Session and not started: it holds its brief, no slot and no process until the condition is
    * met. Absent once it has started. Since 16 Oct 2026.
    */
@@ -1114,6 +1119,26 @@ export type ReopenWaiting = {
   item_id: string;
 };
 
+/** How he answered an ask, as `AnsweredAsk.how` spells it. */
+export type AnswerHow = "picked" | "approved" | "asked_for_changes" | "dismissed" | "answered";
+
+/**
+ * His answer to one ask, as `SessionRecord.answers` lists it. `item` is the `waiting_for` id it answered, `question` the ask in plain
+ * words, `words` what he typed, `pick` the choice or take he picked, `artifact` and `part` what the card's Open goes to, `notes` his
+ * notes on a part.
+ */
+export type AnsweredAsk = {
+  item: string;
+  question: string;
+  how: AnswerHow;
+  words?: string;
+  pick?: string;
+  artifact?: string;
+  part?: string;
+  notes?: Record<string, string>;
+  at: string;
+};
+
 /**
  * An item the person closed, as `SessionRecord.closed` lists it: `item` is the `WaitingItem` as Needs you drew it when he closed it
  * (`id`, `text`, `since`, `source`, `act`, `options`, `steps`; `reopen_waiting` takes `item.id`), and `at` when he closed it. `ended` is sent
@@ -1240,6 +1265,8 @@ export type ShowSketch = {
   links?: ForLink[];
   /** `false` for a sketch that only explains: it never waits on him and has no Approve. Left out, it asks. */
   asks?: boolean;
+  /** The ask in plain words, ending in `?`, which titles his item. Required on a sketch that asks, except one the pending plan names. */
+  question?: string;
 };
 
 /**

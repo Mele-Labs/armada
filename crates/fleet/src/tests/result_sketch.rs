@@ -16,7 +16,7 @@ const TITLE: &str = "What changed";
 
 fn drawn(id: &SessionId) -> ShowSketch {
     let scene = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Before"},{"id":"b","kind":"box","x":300,"y":0,"title":"After"}],"edges":[{"id":"e1","from":"a","to":"b"}]}"#;
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn sketch_items(record: &SessionRecord) -> Vec<&str> {
@@ -125,7 +125,7 @@ async fn a_sketch_beside_the_jobs_own_open_question_still_waits() {
     let option = |label: &str| WaitingOption { label: label.into(), description: None, picture: None };
     let question = WaitingInput {
         id: "which".into(),
-        text: "Pick a take from the sketch".into(),
+        text: "Which take from the sketch?".into(),
         act: None,
         options: vec![option("Left"), option("Right")],
         approves: false,

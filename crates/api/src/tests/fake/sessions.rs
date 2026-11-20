@@ -66,6 +66,7 @@ impl Sessions for FakeDaemon {
             workflow_step: None,
             judge_readings: Vec::new(),
             closed: Vec::new(),
+            answers: Vec::new(),
             waits: None,
             later: Vec::new(),
             held_open_by: Vec::new(),

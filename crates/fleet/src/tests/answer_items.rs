@@ -21,7 +21,7 @@ const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay
 const DRAFT: &str = "PR body";
 
 fn drawn(id: &SessionId, title: &str) -> ShowSketch {
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 async fn sketched(rig: &Rig, id: &SessionId, title: &str) {
@@ -64,7 +64,6 @@ fn refused_code(outcome: &ItemSettled) -> &str {
 async fn one_call_approves_a_sketch_a_draft_a_page_and_a_plan_across_two_jobs_each_told_as_its_own_answer() {
     let rig = rig_placing(None);
     let (pages, _work, _file, path) = one_page(&rig).await;
-    // One artifact is open per Job, so the sketch is in a Job of its own: beside the page it would be a part of it.
     let drawing = rig.start().await;
     sketched(&rig, &drawing, "Bay flow").await;
     let plans = running_second(&rig).await;
@@ -127,7 +126,6 @@ async fn a_question_in_the_batch_is_refused_while_the_sketch_beside_it_settles()
 async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
-    // One artifact is open per Job, so the second sketch is in a Job of its own.
     let other = rig.start().await;
     sketched(&rig, &id, "One").await;
     sketched(&rig, &other, "Two").await;
@@ -147,26 +145,28 @@ async fn a_send_back_with_no_note_is_refused_for_that_item_only() {
 }
 
 #[tokio::test]
-async fn dismissing_a_draft_and_a_sketch_of_one_job_is_one_artifact_one_item_and_one_line() {
+async fn dismissing_a_draft_and_a_sketch_of_one_job_is_two_items_and_one_message_naming_each() {
     let rig = rig_placing(None);
     let id = running(&rig).await;
     let draft = drafted(&rig, &id).await;
     sketched(&rig, &id, "Bay flow").await;
     // Drawn in the turn still running, it waits once that turn ends.
     rig.stand_in.finishes(0, "Drawn.");
-    eventually(|| async { !ids(&record_of(&rig, &id).await).is_empty() }).await;
+    eventually(|| async { ids(&record_of(&rig, &id).await).len() == 2 }).await;
     let before = sent(&rig.rows(&id).await).len();
-    // One artifact is open per Job: the sketch took the draft in, and his list holds the one item.
-    let item = record_of(&rig, &id).await.waiting_for.into_iter().find(|one| one.id == "sketch:Bay flow").expect("the artifact waits");
-    assert!(item.text.contains("Bay flow") && item.text.contains(DRAFT), "it names what is open: {}", item.text);
-    assert!(!ids(&record_of(&rig, &id).await).contains(&draft.as_str()), "the draft is a part, no item of its own");
+    // One ask is one item: each is titled with its question.
+    let record = record_of(&rig, &id).await;
+    let text = |item: &str| record.waiting_for.iter().find(|one| one.id == item).map(|one| one.text.clone()).expect("it waits");
+    assert_eq!(text("sketch:Bay flow"), "Does this read right?");
+    assert_eq!(text(&draft), format!("Approve \"{DRAFT}\"?"));
 
-    let items = vec![ItemRef { session_id: id.clone(), item: "sketch:Bay flow".into() }];
+    let items = vec![ItemRef { session_id: id.clone(), item: "sketch:Bay flow".into() }, ItemRef { session_id: id.clone(), item: draft.clone() }];
     let settled = Arc::clone(&rig.fleet).dismiss_items(DismissItems { items }, Vec::new()).await;
     assert!(settled.outcomes.iter().all(|one| one.outcome == ItemSettled::Settled), "{:?}", settled.outcomes);
 
     let to_job = sent(&rig.rows(&id).await);
-    assert_eq!(&to_job[before..], [format!("He passed on \"{}\" with no verdict.", item.text)], "one message, and no draft's own withdrawal");
+    let said = format!("He passed on \"Bay flow\" with no verdict.\nHe passed on \"{DRAFT}\" with no verdict.");
+    assert_eq!(&to_job[before..], [said], "one message naming each by its title");
     assert!(ids(&record_of(&rig, &id).await).is_empty(), "{:?}", ids(&record_of(&rig, &id).await));
 }
 

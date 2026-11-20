@@ -107,20 +107,14 @@ where
         detail.extend(styles.kept.clone().map(|kept| ("kept_styles".to_string(), kept)));
         with_for(&mut detail, self.for_line(id, said).await.as_ref());
         detail.extend(super::document_page::features_of(html).map(|slugs| (ipc::ARTIFACT_FEATURE.to_string(), slugs)));
-        // **One open artifact per Job**: a page that asks, written while one still asks him, is a part of it. A page
-        // that joined one keeps it across its revisions.
-        let kept_in = {
+        // A page that joined an artifact before each ask was its own item keeps it across its revisions.
+        let joins = {
             let store = self.store().lock().await;
             store
                 .attachments_of(&store::Holder::session(id))
                 .ok()
                 .and_then(|held| held.into_iter().find(|one| one.kind == "artifact" && one.target == path))
                 .and_then(|one| one.detail.get(ipc::ARTIFACT_IN).cloned())
-        };
-        let joins = match (kept_in, asks) {
-            (Some(root), _) => Some(root),
-            (None, true) => self.artifact_joined(id, adapters::HOSTED_HARNESS, path, &title_of(html, path), false).await.ok().flatten(),
-            (None, false) => None,
         };
         detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.

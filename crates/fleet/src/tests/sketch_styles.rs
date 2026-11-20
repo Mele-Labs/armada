@@ -540,7 +540,7 @@ fn drawn(id: &SessionId, title: &str, scene: &str, against: Option<&str>) -> Sho
     let against = against.map(|one| format!(r#","against":"{one}""#)).unwrap_or_default();
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{title}","session_id":"{}","scene":{scene}{against}}}"#, id.as_str()).as_bytes(),
+        format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{scene}{against}}}"#, id.as_str()).as_bytes(),
     )
     .unwrap()
 }

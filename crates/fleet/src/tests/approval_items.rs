@@ -12,12 +12,12 @@ use super::session_host::{rig_placing, Rig};
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
 fn sketch(id: &SessionId, asks: bool) -> ShowSketch {
-    let body = format!(r#"{{"title":"Bay flow","session_id":"{}","scene":{SCENE},"asks":{asks}}}"#, id.as_str());
+    let body = format!(r#"{{"title":"Bay flow","question":"Does this read right?","session_id":"{}","scene":{SCENE},"asks":{asks}}}"#, id.as_str());
     ipc::decode("a sketch to show", body.as_bytes()).unwrap()
 }
 
 fn approve(id: &str, artifact: Option<&str>) -> WaitingInput {
-    WaitingInput { id: id.into(), text: "Approve the bay flow".into(), act: None, options: Vec::new(), approves: true, steps: Vec::new(), artifact: artifact.map(String::from) }
+    WaitingInput { id: id.into(), text: "Approve the bay flow?".into(), act: None, options: Vec::new(), approves: true, steps: Vec::new(), artifact: artifact.map(String::from) }
 }
 
 async fn states(rig: &Rig, id: &SessionId, items: Vec<WaitingInput>) -> Result<(), Refusal> {

@@ -40,6 +40,8 @@ const SKETCH_WITHDRAW_UNNAMED: &str = "fleet.sketch_withdraw_unnamed";
 const SKETCH_WITHDRAW_NOT_SHOWN: &str = "fleet.sketch_withdraw_not_shown";
 const SKETCH_ANSWER_UNNAMED: &str = "fleet.sketch_answer_unnamed";
 pub(crate) const SKETCH_TAKES: &str = "fleet.sketch_takes";
+/// On a sketch row: the question its drawing puts to him, which titles his item.
+pub(crate) const SKETCH_QUESTION: &str = "question";
 
 /// What a sketch's ledger row is keyed by, apart from a file or a page an artifact may be.
 pub(crate) const TARGET_PREFIX: &str = "sketch:";
@@ -80,14 +82,15 @@ where
                     "a sketch needs a job to draw it for, and this call places none",
                 )
             })?;
-        let (harness, held) = {
+        let (harness, held, in_plan) = {
             let store = self.store().lock().await;
             let session = store
                 .session(&id)
                 .map_err(|why| self.ledger_fault(why))?
                 .ok_or_else(|| self.hosted_refusal(SKETCH_UNNAMED, "a job Fleet knows"))?;
-            let held = self.ledger_row(&store, &session)?.attachments;
-            (session.harness, held)
+            let record = self.ledger_row(&store, &session)?;
+            let in_plan = in_pending_plan(&record);
+            (session.harness, record.attachments, in_plan)
         };
         // Kept before `against` is read, so the earlier scene's `kept` rides in the size the cap counts.
         let sketch = self.sketch_styled(&id, sketch, "show_sketch").await?;
@@ -122,7 +125,15 @@ where
             (Some(title), Some(scene)) => sketch.read_against(title, scene).map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &why))?,
             _ => sketch,
         };
+        // Every ask is a question in plain words, which titles his item. One the pending plan names asks with the plan.
+        let question = match show.asks && !in_plan.contains(&sketch.title) {
+            true => Some(ipc::question_checked(show.question.as_deref(), "`question`").map_err(|why| self.hosted_refusal(SKETCH_REFUSED, &format!("the sketch was not drawn: {why}")))?),
+            false => show.question.as_deref().and_then(|said| ipc::question_checked(Some(said), "`question`").ok()),
+        };
         let existing = earlier.or_else(|| by_title(&sketch.title));
+        if let Some(why) = existing.and_then(|one| super::artifact_parts::drawing_refused(&held, one, show.asks)) {
+            return Err(self.hosted_refusal(SKETCH_TAKES, &format!("the sketch was not drawn: {why}")));
+        }
         let target = existing.map_or_else(|| format!("{TARGET_PREFIX}{}", sketch.title), |one| one.target.clone());
         // A sketch that asks nothing is no part of an artifact that does, so a redraw of one that joined leaves it.
         let kept_keys: &[&str] = if show.asks { &[ipc::ARTIFACT_IN, ipc::ARTIFACT_PARTS] } else { &[ipc::ARTIFACT_PARTS] };
@@ -134,23 +145,15 @@ where
                     .collect()
             })
             .unwrap_or_default();
-        // **One open artifact per Job**: a drawing shown while one still asks him is a part of it.
-        let joins = match existing {
-            Some(_) => None,
-            None if show.asks => self.artifact_joined(&id, &harness, &target, &sketch.title, true).await?,
-            None => None,
-        };
         let revisions = self.scene_kept(&id, target.trim_start_matches(TARGET_PREFIX), &sketch).await;
         let mut attachment = sketch_attachment(sketch);
         attachment.target = target;
         attachment.detail.extend(carried);
-        attachment.detail.extend(joins.map(|root| (ipc::ARTIFACT_IN.to_string(), root)));
-        // In an artifact that holds takes his pick is the one answer, so a drawing in it only informs.
-        let root = attachment.detail.get(ipc::ARTIFACT_IN).cloned().unwrap_or_else(|| attachment.target.clone());
-        let in_takes = super::artifact_parts::holds_takes(&attachment.detail)
-            || held.iter().any(|one| one.target == root && super::artifact_parts::holds_takes(&one.detail));
-        if show.asks && !in_takes {
+        if show.asks {
             attachment.detail.insert(SKETCH_ASKED.into(), "true".into());
+        }
+        if let Some(question) = question {
+            attachment.detail.insert(SKETCH_QUESTION.into(), question);
         }
         attachment.detail.insert(SKETCH_DRAWN.into(), self.row_id(&id));
         if let Some(revisions) = revisions {
@@ -472,6 +475,19 @@ where
             sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, message).await?;
+        let question = sketch.detail.get(SKETCH_QUESTION).cloned().unwrap_or_else(|| title.clone());
+        let answered = match (&take, said.how) {
+            (Some(_), _) => ipc::AnswerHow::Picked,
+            (None, SketchHow::Approved) => ipc::AnswerHow::Approved,
+            (None, SketchHow::SentBack) => ipc::AnswerHow::AskedForChanges,
+        };
+        let kept = super::answers_kept::Answered {
+            words,
+            pick: take.as_deref(),
+            artifact: Some(&target),
+            ..super::answers_kept::Answered::to(&target, &question, answered)
+        };
+        self.answer_kept(&id, kept).await;
         // Read again after the send: a drawing the job made meanwhile is not the one he answered.
         let (_, now) = self.sketch_held(&id, &target).await?;
         let Some(mut sketch) = now.filter(|one| one.detail.get(SKETCH_DRAWN) == Some(&said.drawn)) else {
@@ -592,8 +608,7 @@ pub(crate) fn still_asks(sketch: &ipc::Attachment) -> bool {
 }
 
 /// Every artifact with a part still asking him, newest drawn first, as the one item that waits on him: id the
-/// artifact's, text its title where it is one drawing and else the title with what is still open, opening the
-/// Session. **A sketch, draft or page that joined an artifact is a part of it and raises no item of its own.** An
+/// artifact's and naming it, text the question its one ask puts to him, opening the Session. **A sketch, draft or page that joined an artifact is a part of it and raises no item of its own.** An
 /// artifact the pending plan names, by `in_plan` titles, is approved with the plan, and an answered one never stays
 /// the thread head's pin. `open_drafts` is the ledger id of each draft whose row is still open.
 pub(crate) fn sketch_items<'a>(
@@ -627,6 +642,6 @@ pub(crate) fn sketch_items<'a>(
         creating_since: None,
         create_refused: None,
         operator_read: None,
-        artifact: None,
+        artifact: Some(one.target.clone()),
     })
 }

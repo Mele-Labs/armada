@@ -302,8 +302,8 @@ async fn handed_on(rig: &Rig, old: &SessionId) -> (SessionId, usize) {
     (new, at)
 }
 
-/// Whether the page waits on him: by its own item, or as a part of the artifact that is one item of the Job's
-/// (`artifact_parts.rs`: one artifact is open per Job, so a second page that asks joins the first).
+/// Whether the page waits on him: by its own item, or, kept before each ask was its own item, as a part of the
+/// artifact it joined (`artifact_parts.rs`).
 pub(super) fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
     if record.waiting_for.iter().any(|one| one.id == format!("document:{path}")) {
         return true;
@@ -377,8 +377,6 @@ async fn a_page_handed_on_unanswered_still_asks_and_one_dismissed_stays_dismisse
     use api::HostedSessions;
     let rig = rig_placing(None);
     let (old, at) = a_job(&rig).await;
-    // The page he dismisses is written first: one artifact is open per Job, so a page written while another still
-    // asks would be a part of it, and his Dismiss would be of both.
     let (dismissed, dismissed_path) = page_at_root(&rig, "dismissed.html");
     std::fs::write(&dismissed, page("Dismissed", &[])).unwrap();
     writes(&rig, at, &dismissed_path, "toolu_2", "Write", " +10").await;

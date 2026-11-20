@@ -136,6 +136,7 @@ fn long_lived() -> SessionRecord {
         workflow_step: None,
         judge_readings: Vec::new(),
         closed: Vec::new(),
+        answers: Vec::new(),
         waits: None,
         later: Vec::new(),
         held_open_by: Vec::new(),
@@ -216,7 +217,7 @@ async fn on_the_route(app: &axum::Router, path: &str, body: &str) -> String {
 }
 
 const SHOW: &str = r#"{"url":"http://localhost:5173/","title":"The label"}"#;
-const SKETCH: &str = r#"{"title":" Request flow ","scene":{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[]}}"#;
+const SKETCH: &str = r#"{"title":" Request flow ","question":"Does this read right?","scene":{"nodes":[{"id":"a","kind":"box","x":0,"y":0}],"edges":[]}}"#;
 const WITHDRAW: &str = r#"{"url":"http://localhost:5173/"}"#;
 
 const FILE: &str = r#"{"path":"/work/armada/notes/plan.md"}"#;

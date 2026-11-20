@@ -72,7 +72,7 @@ pub(crate) fn in_front_of_him(page: &ipc::Attachment, dismissed: &[String]) -> b
 }
 
 /// Every document in front of him ([`in_front_of_him`]), as the item that waits on him: id
-/// `document:<path>`, text its title, opening the Job.
+/// `document:<path>`, text the question Fleet words for it, opening the Job.
 pub(crate) fn document_items<'a>(
     attachments: &'a [ipc::Attachment],
     session: &'a str,
@@ -86,7 +86,7 @@ pub(crate) fn document_items<'a>(
         .map(move |one| WaitingItem {
             approves: false,
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),
-            text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.clone()),
+            text: super::artifact_parts::fleet_question(one.detail.get("title").unwrap_or(&one.target)),
             since: one.changed_at.clone(),
             source: WaitingSource::Document,
             act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string(), on: None }),
@@ -98,7 +98,7 @@ pub(crate) fn document_items<'a>(
             creating_since: None,
             create_refused: None,
             operator_read: None,
-            artifact: None,
+            artifact: Some(one.target.clone()),
         })
 }
 
@@ -225,6 +225,17 @@ where
             sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, message).await?;
+        let question = super::artifact_parts::fleet_question(&title);
+        let answered = match said.how {
+            DocumentHow::Approved => ipc::AnswerHow::Approved,
+            DocumentHow::SentBack => ipc::AnswerHow::AskedForChanges,
+        };
+        let kept = super::answers_kept::Answered {
+            words,
+            artifact: Some(&document.target),
+            ..super::answers_kept::Answered::to(&item, &question, answered)
+        };
+        self.answer_kept(&id, kept).await;
         // Read again after the send: a revision the Job kept meanwhile is not the one he answered.
         let (_, now) = self.document_held(&id, &path).await?;
         let Some(document) = now.filter(|one| one.detail.get(DOCUMENT_REVISION) == Some(&revision)) else {

@@ -1,15 +1,13 @@
-//! One artifact a Job grows. **While an artifact still asks him, anything new the Job shows joins it as a part**:
-//! a sketch, a draft, a page that asks, or a part from `add_part`. It never becomes a second artifact or a second
-//! Needs you item, and Fleet enforces it where each is kept, never by asking the agent. Once every part that asks
-//! is answered the artifact settles, and the next thing the Job shows starts a new one. **In an artifact that holds
-//! takes, his pick is the answer**: its drawings inform and ask nothing, whichever came first.
+//! An artifact a Job shows him, and the parts `add_part` puts on it. **One ask is one item**: a sketch, a draft, a
+//! page or a part that asks is its own artifact and its own Needs you item, and nothing joins another on its own. A
+//! part goes on the artifact of the title it names. **Takes stand alone**: an artifact that holds takes holds no
+//! drawing and no other part that asks, and the background goes in its question or its `for` line.
 //! `docs/concepts/artifact.md`, *Parts*.
 //!
-//! **How it is kept.** The artifact is a sketch row, `sketch:<title>`: the first thing shown, or a scene-less one
-//! Fleet makes where a draft or a page came first. A sketch, a draft or a page that joined carries `in`, that
-//! row's id, on its own row, so each keeps every rule it had (a drawing is answered at its `drawn`, a page at its
-//! revision, a draft at its row) and raises no item of its own. The parts `add_part` makes, words, takes and
-//! buttons, are kept on the artifact's own row in `parts`.
+//! **How it is kept.** The artifact is a sketch row, `sketch:<title>`: a drawing, or a scene-less one Fleet makes for
+//! `add_part`. The parts `add_part` makes, words, takes and buttons, are kept on the row in `parts`. A sketch, a draft
+//! or a page that joined an artifact before each ask was its own item carries `in`, that row's id, and is still read
+//! as a part of it.
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
@@ -89,10 +87,56 @@ fn drawing_asks(detail: &BTreeMap<String, String>) -> bool {
     detail.get(SKETCH_ASKED).map(String::as_str) == Some("true") && !detail.contains_key(SKETCH_SETTLED) && !detail.contains_key(SKETCH_WITHDRAWN)
 }
 
-/// Whether a row keeps a takes part. **In an artifact that holds one, his pick is its one answer**, so a drawing in
-/// it informs and asks nothing.
+/// Whether a row keeps a takes part.
 pub(crate) fn holds_takes(detail: &BTreeMap<String, String>) -> bool {
     stored(detail).iter().any(|part| part.content.kind() == PartKind::Takes)
+}
+
+/// Why a drawing may not be drawn again on the sketch row `row`, where it may not. **Takes stand alone**, so no
+/// drawing goes on an artifact that holds them, and **one artifact asks one thing**, so a drawing that asks does not
+/// go on one whose other part still asks.
+pub(crate) fn drawing_refused(held: &[ipc::Attachment], row: &ipc::Attachment, asks: bool) -> Option<String> {
+    let title = row.detail.get("title").map_or(row.target.as_str(), String::as_str);
+    let root = joined_of(held, row).and_then(|root| held.iter().find(|one| one.target == root));
+    if holds_takes(&row.detail) || root.is_some_and(|root| holds_takes(&root.detail)) {
+        return Some(format!(
+            "`{title}` holds takes, which stand alone with no drawing beside them. Put the background in the takes' `question` or `for` line, or draw this under another title"
+        ));
+    }
+    let open = stored(&row.detail).into_iter().find(ArtifactPart::is_open_ask);
+    match open {
+        Some(part) if asks => Some(format!(
+            "`{title}` still asks him about the part `{}`, and one artifact asks one thing. Draw this under another title, or show it with `asks` false",
+            part.id
+        )),
+        _ => None,
+    }
+}
+
+/// Why `checked` may not go on the sketch row whose detail is `detail`, where it may not. **Takes stand alone**: an
+/// artifact holding takes holds nothing else, and takes go on none that holds a drawing or another part. **One
+/// artifact asks one thing**: a part that asks goes on none whose drawing or other part still asks.
+fn part_refused(title: &str, detail: &BTreeMap<String, String>, checked: &ipc::CheckedPart) -> Option<String> {
+    let others: Vec<ArtifactPart> = stored(detail).into_iter().filter(|part| part.id != checked.id).collect();
+    let alone = "Takes stand alone: put the background in the takes' `question` or `for` line, or put this part under another title";
+    if checked.content.kind() == PartKind::Takes {
+        if detail.contains_key("scene") {
+            return Some(format!("`{title}` holds a drawing. {alone}"));
+        }
+        if let Some(other) = others.first() {
+            return Some(format!("`{title}` holds the {} part `{}`. {alone}", other.content.kind().word(), other.id));
+        }
+    }
+    if let Some(takes) = others.iter().find(|part| part.content.kind() == PartKind::Takes) {
+        return Some(format!("`{title}` holds the takes part `{}`. {alone}", takes.id));
+    }
+    if !checked.asks {
+        return None;
+    }
+    let asking = if drawing_asks(detail) { Some(String::from("its drawing")) } else { others.iter().find(|part| part.is_open_ask()).map(|part| format!("the part `{}`", part.id)) };
+    asking.map(|open| {
+        format!("`{title}` still asks him about {open}, and one artifact asks one thing. Put this part under another title, or add it with `asks` false")
+    })
 }
 
 /// Whether a sketch row has a part still asking: its drawing, or one `add_part` put to him.
@@ -109,6 +153,8 @@ pub(crate) struct Asking {
     pub names: Vec<String>,
     /// How many parts it holds, those answered ones too.
     pub size: usize,
+    /// The question of each ask still open, in the order of `names`, where the Job worded one.
+    pub questions: Vec<Option<String>>,
 }
 
 /// Where the artifact at `root` stands in `groups`, which it joins at the end where it is not there yet.
@@ -116,7 +162,7 @@ fn group_at(groups: &mut Vec<Asking>, root: &str) -> usize {
     match groups.iter().position(|one| one.root == root) {
         Some(at) => at,
         None => {
-            groups.push(Asking { root: root.to_string(), names: Vec::new(), size: 0 });
+            groups.push(Asking { root: root.to_string(), names: Vec::new(), size: 0, questions: Vec::new() });
             groups.len() - 1
         }
     }
@@ -140,11 +186,13 @@ pub(crate) fn asking_groups(attachments: &[ipc::Attachment], in_plan: &[String],
                 // A drawing the pending plan names is approved with the plan, so it is no ask of the artifact's own.
                 if drawing_asks(&one.detail) && !in_plan.contains(&titled(one)) {
                     groups[group].names.push(titled(one));
+                    groups[group].questions.push(one.detail.get(super::sketching::SKETCH_QUESTION).cloned());
                 }
                 for part in stored(&one.detail) {
                     groups[group].size += 1;
                     if part.is_open_ask() {
                         groups[group].names.push(part.id);
+                        groups[group].questions.push(part.question);
                     }
                 }
             }
@@ -153,6 +201,7 @@ pub(crate) fn asking_groups(attachments: &[ipc::Attachment], in_plan: &[String],
                 groups[group].size += 1;
                 if open_drafts.contains(&one.target) {
                     groups[group].names.push(titled(one));
+                    groups[group].questions.push(None);
                 }
             }
             Some("document") if member.is_some() => {
@@ -160,6 +209,7 @@ pub(crate) fn asking_groups(attachments: &[ipc::Attachment], in_plan: &[String],
                 groups[group].size += 1;
                 if super::document_answers::in_front_of_him(one, dismissed) {
                     groups[group].names.push(titled(one));
+                    groups[group].questions.push(None);
                 }
             }
             _ => {}
@@ -196,7 +246,12 @@ pub(crate) fn joined_drafts(attachments: &[ipc::Attachment]) -> BTreeSet<String>
 }
 
 /// The item text for an artifact: its title alone where it is one drawing, else the title and what is still open.
+/// **The question of its one open ask**, where the Job worded one. An artifact kept before every ask was a question
+/// reads as its title, with what is still open where it holds more than one part.
 pub(crate) fn asking_text(title: &str, asking: &Asking) -> String {
+    if let [Some(question)] = asking.questions.as_slice() {
+        return question.clone();
+    }
     match (asking.size, asking.names.as_slice()) {
         (0 | 1, _) => title.to_string(),
         (_, [only]) if only == title => title.to_string(),
@@ -231,7 +286,21 @@ pub(crate) fn part_of(artifact: &JobArtifact, one: &store::KeptAttachment, draft
         drawn,
         added: Instant::carried(one.since.clone()),
         answer: answered.then(|| PartAnswer { words: artifact.words.clone(), ..PartAnswer::default() }),
+        question: match artifact.form {
+            ArtifactForm::Sketch => said(super::sketching::SKETCH_QUESTION),
+            ArtifactForm::Draft | ArtifactForm::Page => asks.then(|| fleet_question(&artifact.title)),
+        },
     })
+}
+
+/// The question Fleet words for a draft or a page that asks, which the Job does not word: his approval of it.
+pub(crate) fn fleet_question(title: &str) -> String {
+    format!("Approve \"{title}\"?")
+}
+
+/// The title a question [`fleet_question`] worded names, where `text` is one.
+pub(crate) fn fleet_question_of(text: &str) -> Option<&str> {
+    text.strip_prefix("Approve \"")?.strip_suffix("\"?")
 }
 
 /// `form` for a client that reads no parts: the first part's kind.
@@ -321,28 +390,6 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// **Where a thing the Job now shows goes**, `target` being the ledger id it will be kept under: the id of the
-    /// artifact still asking him, which it joins as a part, else `None`, and it starts alone.
-    /// Where the open one is a lone draft or page, which cannot hold parts, a sketch becomes the artifact and takes
-    /// it in, and anything else puts a scene-less artifact over both. A thing already a part of one keeps it.
-    pub(crate) async fn artifact_joined(&self, id: &str, harness: &str, target: &str, title: &str, is_sketch: bool) -> Result<Option<String>, Refusal> {
-        let open = self
-            .job_artifacts(id)
-            .await?
-            .into_iter()
-            .find(|one| one.state == ArtifactState::Asking && one.archived.is_none() && one.id != target && !one.parts.iter().any(|part| part.id == target));
-        let Some(open) = open else { return Ok(None) };
-        if open.id.starts_with(TARGET_PREFIX) {
-            return Ok(Some(open.id));
-        }
-        let root = match is_sketch {
-            true => target.to_string(),
-            false => self.container_made(id, harness, title).await?,
-        };
-        self.row_joined(id, harness, &open.id, &root).await?;
-        Ok((!is_sketch).then_some(root))
-    }
-
     /// A scene-less artifact titled `title`, which holds parts and is no drawing. Its target is unique among the Job's.
     async fn container_made(&self, id: &str, harness: &str, title: &str) -> Result<String, Refusal> {
         let held = self.held_rows(id).await?;
@@ -360,19 +407,6 @@ where
         })
         .await?;
         Ok(target)
-    }
-
-    /// The row at `target` written again as a part of the artifact `root`.
-    async fn row_joined(&self, id: &str, harness: &str, target: &str, root: &str) -> Result<(), Refusal> {
-        let Some(mut row) = self.held_rows(id).await?.into_iter().find(|one| one.kind == "artifact" && one.target == target) else { return Ok(()) };
-        row.detail.insert(ARTIFACT_IN.into(), root.to_string());
-        self.report_session(SessionReport {
-            harness: harness.to_string(),
-            session_id: SessionId::carried(id),
-            fact: SessionFact::Attached { attachment: AttachmentReport { kind: row.kind, target: row.target, detail: row.detail } },
-        })
-        .await?;
-        Ok(())
     }
 
     /// His answer to a part put again since he read it.
@@ -408,14 +442,32 @@ where
         let held = self.held_rows(&id).await?;
         // A part the Job put before is revised where it stands.
         let earlier = held.iter().filter(|one| is_sketch(one)).find(|one| stored(&one.detail).iter().any(|part| part.id == checked.id)).map(|one| one.target.clone());
-        let target = match earlier {
+        // Else the artifact of that title takes it, and one is made where there is none. **Nothing joins another
+        // artifact on its own**: each thing that asks is its own item.
+        let titled = held.iter().filter(|one| is_sketch(one)).find(|one| one.detail.get("title").map(String::as_str) == Some(checked.title.as_str())).map(|one| one.target.clone());
+        let target = match earlier.or(titled) {
             Some(target) => target,
-            None => match self.artifact_joined(&id, &harness, "", &checked.title, false).await? {
-                Some(root) => root,
-                None => self.container_made(&id, &harness, &checked.title).await?,
-            },
+            None => self.container_made(&id, &harness, &checked.title).await?,
         };
-        self.part_put(&id, &harness, &target, &checked, said).await
+        let record = self.part_put(&id, &harness, &target, &checked, said).await?;
+        match add.feature.as_ref() {
+            Some(named) => self.feature_named(&id, &harness, &target, named, record).await,
+            None => Ok(record),
+        }
+    }
+
+    /// The features `named` kept on the artifact at `target`, as `show_sketch` keeps a sketch's. `record` where it is
+    /// not held.
+    async fn feature_named(&self, id: &str, harness: &str, target: &str, named: &ipc::FeatureNames, record: SessionRecord) -> Result<SessionRecord, Refusal> {
+        let held = self.held_rows(id).await?;
+        let Some(mut row) = held.into_iter().find(|one| is_sketch(one) && one.target == target) else { return Ok(record) };
+        ipc::feature_in_detail(&mut row.detail, Some(named));
+        self.report_session(SessionReport {
+            harness: harness.to_string(),
+            session_id: SessionId::carried(id),
+            fact: SessionFact::Attached { attachment: AttachmentReport { kind: row.kind, target: row.target, detail: row.detail } },
+        })
+        .await
     }
 
     /// `checked` with each take's mocks kept with their style set, as `show_sketch` keeps a sketch's. Without it a
@@ -484,6 +536,9 @@ where
         let held = self.held_rows(id).await?;
         let row = held.into_iter().find(|one| is_sketch(one) && one.target == target).ok_or_else(|| self.hosted_refusal(PART_UNKNOWN, "an artifact the job holds"))?;
         let mut detail = row.detail;
+        if let Some(why) = part_refused(&checked.title, &detail, checked) {
+            return Err(self.hosted_refusal(PART_REFUSED, &format!("the part was not added: {why}")));
+        }
         let mut parts = stored(&detail);
         let now = self.instant();
         let drawn = self.row_id(id);
@@ -496,7 +551,16 @@ where
                         &format!("`{}` is a {} part, and a part keeps its kind. Use another id for a {} part", was.id, was.content.kind().word(), checked.content.kind().word()),
                     ));
                 }
-                let part = ArtifactPart { content: checked.content.clone(), asks: checked.asks, state: PartState::Open, revision: was.revision + 1, drawn, answer: None, ..was };
+                let part = ArtifactPart {
+                    content: checked.content.clone(),
+                    asks: checked.asks,
+                    state: PartState::Open,
+                    revision: was.revision + 1,
+                    drawn,
+                    answer: None,
+                    question: checked.question.clone(),
+                    ..was
+                };
                 parts.insert(at, part.clone());
                 part
             }
@@ -504,19 +568,22 @@ where
                 if parts.len() + 1 >= MOST_PARTS {
                     return Err(self.hosted_refusal(PART_REFUSED, &format!("an artifact holds at most {MOST_PARTS} parts. Settle this one, or put the part in a new artifact once it is")));
                 }
-                let part = ArtifactPart { id: checked.id.clone(), content: checked.content.clone(), asks: checked.asks, state: PartState::Open, revision: 1, drawn, added: now.clone(), answer: None };
+                let part = ArtifactPart {
+                    id: checked.id.clone(),
+                    content: checked.content.clone(),
+                    asks: checked.asks,
+                    state: PartState::Open,
+                    revision: 1,
+                    drawn,
+                    added: now.clone(),
+                    answer: None,
+                    question: checked.question.clone(),
+                };
                 parts.push(part.clone());
                 part
             }
         };
         store_parts(&mut detail, &parts).map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
-        // Takes joined: every drawing in the artifact stops asking, this row's own with the part.
-        if checked.content.kind() == PartKind::Takes {
-            self.drawings_informed(id, target, Some(target)).await?;
-            if drawing_asks(&detail) {
-                detail.remove(SKETCH_ASKED);
-            }
-        }
         if said.is_some() || !detail.contains_key(ipc::ARTIFACT_FOR) {
             with_for(&mut detail, self.for_line(id, said).await.as_ref());
         }
@@ -560,9 +627,13 @@ where
             return Err(self.hosted_refusal(PART_ANSWER_EMPTY, "a part is sent back with a note saying what to change"));
         }
         let kind = part.content.kind();
-        if (said.how == PartHow::Picked) != (kind == PartKind::Takes) {
+        let fits = match kind {
+            PartKind::Takes => said.how != PartHow::Approved,
+            _ => said.how != PartHow::Picked,
+        };
+        if !fits {
             return Err(wrong(match kind {
-                PartKind::Takes => "a takes part is answered by a vote, never an Approve or a note: send a pick, with how `picked` and the take he chose",
+                PartKind::Takes => "a takes part is answered by a pick, or sent back with his note asking for changes, never an Approve: send how `picked` with the take he chose, or `sent_back` with his words",
                 _ => "only a takes part is answered with a pick. Words, a drawing and a page are approved or sent back",
             }));
         }
@@ -586,18 +657,42 @@ where
                 Arc::clone(&self).member_draft_answered(&id, &part, said.how, words).await?;
             }
             (PartContent::Words { .. }, _) => {
-                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words).await?;
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone()).await?;
+            }
+            // Ask for changes on takes: none of them, and his words say what to draw instead.
+            (PartContent::Takes { .. }, _) if said.how == PartHow::SentBack => {
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone()).await?;
             }
             (PartContent::Takes { .. }, _) => {
                 let Some(take) = said.take.as_deref().map(str::trim).filter(|take| !take.is_empty()) else {
                     return Err(self.hosted_refusal(PART_ANSWER_EMPTY, "a pick names the take: `take`"));
                 };
                 let result = ipc::VoteResult::Pick { take: take.to_string(), notes: said.notes.clone() };
-                Arc::clone(&self).part_voted(&id, &artifact, &part, part.revision, result, words).await?;
+                Arc::clone(&self).part_voted(&id, &artifact, &part, part.revision, result, words.clone()).await?;
             }
             (PartContent::Buttons { .. }, _) => {
                 return Err(not_open(format!("`{}` holds buttons, which act when he presses them", part.id)));
             }
+        }
+        // A drawing and a page keep his answer where they settle; words and takes are kept here.
+        if matches!(kind, PartKind::Words | PartKind::Takes) && !part.id.starts_with(DRAFT_PREFIX) {
+            let how = match said.how {
+                PartHow::Picked => ipc::AnswerHow::Picked,
+                PartHow::Approved => ipc::AnswerHow::Approved,
+                PartHow::SentBack => ipc::AnswerHow::AskedForChanges,
+            };
+            let question = part.question.clone().unwrap_or_else(|| artifact.title.clone());
+            let pick = said.take.as_deref().map(str::trim).filter(|_| how == ipc::AnswerHow::Picked);
+            let kept = super::answers_kept::Answered {
+                words: words.as_deref(),
+                pick,
+                artifact: Some(&artifact.id),
+                part: Some(&part.id),
+                notes: &said.notes,
+                ..super::answers_kept::Answered::to(&artifact.id, &question, how)
+            };
+            self.answer_kept(&id, kept).await;
+            let _ = self.published_hosted(&id).await;
         }
         self.artifact_held(&id, &artifact.id).await
     }
@@ -608,7 +703,7 @@ where
     pub(crate) async fn artifact_answered_all(self: Arc<Self>, id: &str, root: &str, approve: bool, words: Option<String>) -> Result<JobArtifact, Refusal> {
         let artifact = self.artifact_held(id, root).await?;
         let open: Vec<ArtifactPart> = artifact.parts.iter().filter(|part| part.is_open_ask()).cloned().collect();
-        if let Some(takes) = open.iter().find(|part| part.content.kind() == PartKind::Takes) {
+        if let Some(takes) = open.iter().find(|part| approve && part.content.kind() == PartKind::Takes) {
             return Err(self.hosted_refusal(PART_HOW, &format!("`{}` holds a pick, `{}`, which is a vote: send a pick on it with the take he chose, which no Approve of the whole stands in for", artifact.title, takes.id)));
         }
         for part in open {
@@ -691,8 +786,9 @@ where
         Ok(())
     }
 
-    /// **Each drawing of the artifact at `root` that still asks him stops asking**, as one shown with asks false: it
-    /// informs, and the takes the artifact holds are its answer. `except` is a row the caller writes itself.
+    /// **Each drawing of the artifact at `root` that still asks him stops asking**, as one shown with asks false. Only
+    /// an artifact kept before takes stood alone holds a drawing beside them, and his pick answers it whole.
+    /// `except` is a row the caller writes itself.
     pub(crate) async fn drawings_informed(&self, id: &str, root: &str, except: Option<&str>) -> Result<(), Refusal> {
         let held = self.held_rows(id).await?;
         let ours = |one: &ipc::Attachment| one.target == root || joined_of(&held, one) == Some(root);

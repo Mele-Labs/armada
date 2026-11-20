@@ -23,7 +23,7 @@ fn scene(second: &str) -> String {
 fn drawn(id: &SessionId, second: &str) -> ShowSketch {
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{}}}"#, id.as_str(), scene(second)).as_bytes(),
+        format!(r#"{{"title":"{TITLE}","question":"Does this read right?","session_id":"{}","scene":{}}}"#, id.as_str(), scene(second)).as_bytes(),
     )
     .unwrap()
 }
@@ -74,7 +74,8 @@ async fn a_sketch_shown_is_asked_on_its_card_and_waits_as_one_item() {
     assert!(sketch.detail.get("drawn").is_some_and(|one| !one.is_empty()), "{:?}", sketch.detail);
     assert!(!sketch.detail.contains_key("settled"), "open until he answers it");
     let waits: Vec<_> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str(), one.source)).collect();
-    assert_eq!(waits, [(TARGET, TITLE, ipc::WaitingSource::Sketch)], "one Needs you item, its title");
+    assert_eq!(waits, [(TARGET, "Does this read right?", ipc::WaitingSource::Sketch)], "one Needs you item, titled with its question");
+    assert_eq!(record.waiting_for[0].artifact.as_deref(), Some(TARGET), "it names its artifact");
 }
 
 #[tokio::test]
@@ -122,7 +123,7 @@ async fn takes_held(rig: &Rig, id: &SessionId) -> (ipc::SessionRecord, String) {
     };
     let scene = format!(r#"{{"nodes":[{},{}],"edges":[]}}"#, screen("a", 0, "A (my pick): one rail"), screen("b", 400, "B: two panes"));
     let shown: ShowSketch =
-        ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap();
+        ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes()).unwrap();
     let mut attachment = sketch_attachment(shown.checked().unwrap());
     let drawn = format!("{}-legacy-1", id.as_str());
     attachment.detail.insert("asked".into(), "true".into());
@@ -279,28 +280,28 @@ async fn a_sketch_the_job_never_showed_is_not_withdrawn() {
 }
 
 #[tokio::test]
-async fn a_sketch_drawn_under_a_new_title_joins_the_open_artifact_and_each_part_is_answered_alone() {
+async fn a_sketch_drawn_under_a_new_title_is_its_own_item_and_each_is_answered_alone() {
     let rig = rig_placing(None);
     let (id, _) = shown(&rig).await;
     let retitled = "Request flow, settings too";
     let show: ShowSketch = ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{retitled}","session_id":"{}","scene":{}}}"#, id.as_str(), scene("Daemon")).as_bytes(),
+        format!(r#"{{"title":"{retitled}","question":"Does this read right?","session_id":"{}","scene":{}}}"#, id.as_str(), scene("Daemon")).as_bytes(),
     )
     .unwrap();
     let record = rig.fleet.show_sketch(None, show).await.unwrap();
     let newer = format!("sketch:{retitled}");
-    // One artifact is open per Job: the new title is a part of it, and his list holds the one item.
+    // One ask is one item: the new title waits on its own, newest first, each titled with its question.
     let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
-    assert_eq!(items, [(TARGET, "Request flow: Request flow, settings too, Request flow")], "one item naming both, newest first");
+    assert_eq!(items, [(newer.as_str(), "Does this read right?"), (TARGET, "Does this read right?")], "two items, newest first");
     assert_eq!(the_sketch(&record).detail.get("withdrawn"), None, "the old title is not taken back");
 
     let drawn = record.attachments.iter().find(|one| one.target == newer).unwrap().detail["drawn"].clone();
     let mut approve = answer(&id, &drawn, SketchHow::Approved, None);
-    approve.sketch = newer;
+    approve.sketch = newer.clone();
     let record = Arc::clone(&rig.fleet).answer_sketch(approve).await.unwrap();
     let items: Vec<(&str, &str)> = record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect();
-    assert_eq!(items, [(TARGET, "Request flow")], "the older drawing still waits, and the item names only it");
+    assert_eq!(items, [(TARGET, "Does this read right?")], "the older drawing still waits on its own");
 }
 
 #[tokio::test]
@@ -349,7 +350,7 @@ fn titled(id: &SessionId, title: &str, against: Option<&str>) -> ShowSketch {
     let against = against.map(|earlier| format!(r#","against":"{earlier}""#)).unwrap_or_default();
     ipc::decode(
         "a sketch to show",
-        format!(r#"{{"title":"{title}","session_id":"{}","scene":{}{against}}}"#, id.as_str(), scene(title)).as_bytes(),
+        format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{}{against}}}"#, id.as_str(), scene(title)).as_bytes(),
     )
     .unwrap()
 }
