@@ -343,7 +343,7 @@ fn at_820_enter_opens_the_page_full_width_with_a_back_row_and_escape_returns_to_
 #[gpui::test]
 fn at_820_a_press_on_a_row_or_on_back_opens_and_closes_the_page(cx: &mut TestAppContext) {
     let (screen, cx) = open_wide(cx, 820.);
-    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::ListBoxOption, "Job list and live status").map(|one| one.bounds)).expect("the row is drawn");
+    let row = cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == gpui::Role::ListBoxOption && one.name == "Job list and live status").map(|one| one.bounds)).expect("the row is drawn");
     cx.simulate_click(row.center(), gpui::Modifiers::default());
     redraw(cx);
     assert_eq!(page_of(&screen, cx).as_deref(), Some("job-list-and-live-status"));

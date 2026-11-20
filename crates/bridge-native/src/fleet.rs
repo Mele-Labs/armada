@@ -157,6 +157,8 @@ pub struct Held {
     for_you_moved: Vec<ipc::ForYouChanged>,
     /// The Jobs whose sorting, asks or questions moved (`session.story`), folded since the last take, oldest first.
     story_moved: Vec<ipc::StoryChanged>,
+    /// The steps of a librarian run that started or ended (`librarian.step`), folded since the last take, oldest first.
+    librarian_moved: Vec<ipc::LibrarianStepMoved>,
     /// The asides that moved (`session.aside`), each whole, folded since the last take, oldest first.
     asides_moved: Vec<ipc::Aside>,
     /// News since the last time it was taken: a thing that began to wait on him. Told once.
@@ -236,6 +238,7 @@ impl Held {
             subagents_moved: Vec::new(),
             for_you_moved: Vec::new(),
             story_moved: Vec::new(),
+            librarian_moved: Vec::new(),
             asides_moved: Vec::new(),
             arrived: Vec::new(),
             shells: Vec::new(),
@@ -405,6 +408,11 @@ impl Held {
     /// The Jobs whose story moved, folded since the last take, oldest first.
     pub fn take_story_moved(&mut self) -> Vec<ipc::StoryChanged> {
         std::mem::take(&mut self.story_moved)
+    }
+
+    /// The librarian's steps that moved, folded since the last take, oldest first.
+    pub fn take_librarian_moved(&mut self) -> Vec<ipc::LibrarianStepMoved> {
+        std::mem::take(&mut self.librarian_moved)
     }
 
     /// The asides that moved, each as Fleet sent it whole, folded since the last take, oldest first.
@@ -603,6 +611,7 @@ impl Held {
                         Event::SessionSubagent(moved) => self.subagents_moved.push(moved),
                         Event::SessionForYou(moved) => self.for_you_moved.push(moved),
                         Event::SessionStory(moved) => self.story_moved.push(moved),
+                        Event::LibrarianStep(moved) => self.librarian_moved.push(moved),
                         // An aside arrives whole: the side chat replaces the one it holds by its id.
                         Event::SessionAside(aside) => self.asides_moved.push(aside),
                         Event::JobThreadTail(tail) => {
@@ -758,6 +767,11 @@ impl EventEmitter<ForYouMoved> for FleetConnection {}
 pub struct StoryMoved(pub Vec<ipc::StoryChanged>);
 
 impl EventEmitter<StoryMoved> for FleetConnection {}
+
+/// The librarian's steps that moved in one folded batch (`librarian.step`), for the Features screen to tick them off.
+pub struct LibrarianStepsMoved(pub Vec<ipc::LibrarianStepMoved>);
+
+impl EventEmitter<LibrarianStepsMoved> for FleetConnection {}
 
 /// The asides that moved in one folded batch (`session.aside`), each whole, for a side chat to replace the one it holds.
 pub struct AsidesMoved(pub Vec<ipc::Aside>);
@@ -1367,6 +1381,7 @@ impl FleetConnection {
                     let subagents = this.held.take_subagents_moved();
                     let for_you = this.held.take_for_you_moved();
                     let story = this.held.take_story_moved();
+                    let librarian = this.held.take_librarian_moved();
                     let asides = this.held.take_asides_moved();
                     let arrived = this.held.take_arrived(crate::pairing::macs(cx));
                     let shells = this.held.take_shells();
@@ -1405,6 +1420,9 @@ impl FleetConnection {
                     }
                     if !story.is_empty() {
                         cx.emit(StoryMoved(story));
+                    }
+                    if !librarian.is_empty() {
+                        cx.emit(LibrarianStepsMoved(librarian));
                     }
                     if !asides.is_empty() {
                         cx.emit(AsidesMoved(asides));

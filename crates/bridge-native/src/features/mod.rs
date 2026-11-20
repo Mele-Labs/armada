@@ -30,6 +30,7 @@ mod projects;
 #[allow(dead_code)]
 pub mod shots;
 pub mod story_link;
+mod steps;
 mod view;
 pub(crate) mod wire;
 mod who_kept;
@@ -101,6 +102,11 @@ pub struct FeaturesScreen {
     /// Where the librarian's press stands, and the press itself while it is in flight.
     press: librarian::Press,
     ran: Option<Task<()>>,
+    /// The run shown under the card's line: going on now, or the last one this screen watched end.
+    run: Option<steps::Run>,
+    /// Stop was pressed and Fleet has not yet said the run ended.
+    stopping: bool,
+    stopped: Option<Task<()>>,
     /// What the mock's press is refused with, where a walk or a test wants it refused.
     mock_refusal: Option<String>,
     /// The buttons, editor, picker and sheet that curate the library from the list.
@@ -121,6 +127,12 @@ impl FeaturesScreen {
         this.explicit = project.or_else(|| chosen::get(cx));
         let watch = cx.observe(fleet, |this, _, cx| this.moved(cx));
         this._subs.push(watch);
+        let steps = cx.subscribe(fleet, |this, _, told: &crate::fleet::LibrarianStepsMoved, cx| {
+            for moved in &told.0 {
+                this.step_moved(moved, cx);
+            }
+        });
+        this._subs.push(steps);
         this
     }
 
@@ -177,6 +189,9 @@ impl FeaturesScreen {
             work: None,
             press: librarian::Press::Idle,
             ran: None,
+            run: None,
+            stopping: false,
+            stopped: None,
             mock_refusal: None,
             curate: curate::Curate::default(),
             bar: None,
@@ -276,9 +291,11 @@ impl FeaturesScreen {
                 if self.library_project.as_deref() != Some(library.project.as_str()) {
                     self.cursor = None;
                     self.on_project = None;
+                    self.run = None;
                     self.close_page(cx);
                 }
                 self.library_project = Some(library.project.clone());
+                self.run_read(&library);
                 self.library = Load::Read(library);
             }
             // A read that failed keeps what was read before, where there was one.

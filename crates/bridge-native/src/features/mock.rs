@@ -51,16 +51,39 @@ pub enum Reading {
     Behind,
     /// Forty pull requests merged since, more than a line of numbers holds.
     FarBehind,
+    /// Behind by three, and a run going: its first step done, its second running, its third not reached.
+    Running,
+}
+
+/// What a run would do, as Fleet lists it: read what merged, write what changed since he looked, mark the catalog read.
+pub fn plan(merges: &str, through: Option<u64>) -> Vec<ipc::LibrarianStep> {
+    let step = |id: &str, title: &str, detail: &str, model: bool| ipc::LibrarianStep { id: id.into(), title: title.into(), detail: detail.into(), model };
+    vec![
+        step("read_merges", "Read what merged", merges, false),
+        step("since_you_looked", "Write what changed since you looked", "One model call from tonight's share", true),
+        step("read_through", "Mark the catalog read", &through.map_or_else(|| "Nothing merged to read through".to_string(), |n| format!("Read through #{n}")), false),
+    ]
 }
 
 /// The librarian's state at `at`, with the times as of now so a picture reads the same each day.
 pub fn librarian(at: Reading) -> ipc::LibrarianState {
     let ago = |minutes: i64| Instant::carried((chrono::Utc::now() - chrono::Duration::seconds(minutes * 60 + 30)).to_rfc3339());
     match at {
-        Reading::Never => ipc::LibrarianState::default(),
-        Reading::Current => ipc::LibrarianState { last_run: Some(ago(4)), read_through: Some(3864), merged_since: Vec::new() },
-        Reading::Behind => ipc::LibrarianState { last_run: Some(ago(190)), read_through: Some(3861), merged_since: vec![3862, 3863, 3864] },
-        Reading::FarBehind => ipc::LibrarianState { last_run: Some(ago(60 * 30)), read_through: Some(3820), merged_since: (3821..=3860).collect() },
+        Reading::Never => ipc::LibrarianState { steps: plan("Every merged pull request Fleet kept", None), ..Default::default() },
+        Reading::Current => ipc::LibrarianState { last_run: Some(ago(4)), read_through: Some(3864), merged_since: Vec::new(), steps: plan("Nothing merged since #3864", Some(3864)), running: None },
+        Reading::Behind => ipc::LibrarianState { last_run: Some(ago(190)), read_through: Some(3861), merged_since: vec![3862, 3863, 3864], steps: plan("#3862 #3863 #3864, from Fleet's own record", Some(3864)), running: None },
+        Reading::FarBehind => ipc::LibrarianState { last_run: Some(ago(60 * 30)), read_through: Some(3820), merged_since: (3821..=3860).collect(), steps: plan("#3821 to #3860, 40 pull requests", Some(3860)), running: None },
+        Reading::Running => {
+            let run = ago(0);
+            let now = |step: &str, state, said: &str| ipc::LibrarianStepNow { step: step.into(), state, said: said.into() };
+            ipc::LibrarianState {
+                running: Some(ipc::LibrarianRunning {
+                    run,
+                    steps: vec![now("read_merges", ipc::LibrarianStepState::Done, "Read 3 merges"), now("since_you_looked", ipc::LibrarianStepState::Running, "")],
+                }),
+                ..librarian(Reading::Behind)
+            }
+        }
     }
 }
 

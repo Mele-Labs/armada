@@ -40,6 +40,12 @@ pub fn run_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::Lib
     request(port, Ask::Post("/features/librarian".into(), crate::settings::wire::body(&body)), "LibrarianRan", cx)
 }
 
+/// `POST /features/librarian/stop`: the project's running run stops before its next step. `crates/ipc/operations/stop_librarian.toml`.
+pub fn stop_librarian(port: u16, project: &str, cx: &App) -> Task<Result<ipc::LibrarianStopping, Refused>> {
+    let body = ipc::StopLibrarian { project: project.to_string() };
+    request(port, Ask::Post("/features/librarian/stop".into(), crate::settings::wire::body(&body)), "LibrarianStopping", cx)
+}
+
 /// `GET /features/overview?project=`: a project's map, busiest features and glossary. `crates/ipc/operations/get_project_overview.toml`.
 pub fn overview(port: u16, project: &str, cx: &App) -> Task<Result<ipc::ProjectOverview, Refused>> {
     request(port, Ask::Get(format!("/features/overview?project={}", crate::link::percent_encoded(project))), "ProjectOverview", cx)
