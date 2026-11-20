@@ -121,6 +121,7 @@ pub fn job(id: &str, title: &str, attachments: Vec<Attachment>) -> SessionRecord
         workflow_visits: Vec::new(),
         skipped_steps: Vec::new(),
         workflow_waiting_on: Vec::new(),
+        workflow_strip: None,
         workflow_copy: None,
         in_flight: Vec::new(),
         mark: None,

@@ -41,7 +41,7 @@ pub enum Notice {
     SlotStranded,
     /// Main went red and the Session has it to fix.
     MainRed,
-    /// A step of the workflow was skipped.
+    /// The Job stood on a workflow step past its usual time, and is told once what the step waits on.
     RailNudge,
     /// The instructions of the workflow step the Session entered.
     RailStep,

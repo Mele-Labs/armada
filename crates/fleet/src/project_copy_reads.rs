@@ -33,6 +33,12 @@ where
         copies.into_iter().find(|one| one.id == id).and_then(|copy| self.copy_as_project(&copy))
     }
 
+    /// Every copy held, each read as a project. **One that does not read is left out.**
+    pub(crate) async fn copies_read(&self) -> Vec<core_model::Project> {
+        let copies = self.copies_held().await.unwrap_or_default();
+        copies.iter().filter_map(|copy| self.copy_as_project(copy)).collect()
+    }
+
     /// [`Fleet::copy_read`] from a store already locked, as the copy's Mac last said it.
     pub(crate) fn copy_read_in(&self, store: &Store, id: &str) -> Option<core_model::Project> {
         let held = store.held_from_macs(FromMac::Projects).ok()?;
@@ -54,10 +60,10 @@ where
             Some(set) => self.values_read(set).ok()?,
             None => core_model::Values::default(),
         };
-        // Joined by address alone: what a read needs of it.
+        // Joined by address and the login the holder picked: what a read of it, and a claim from here, need.
         let store = copy.store.as_ref().and_then(|store| {
             let team = store.team.as_deref().map(StoreTeam::new).transpose().ok()?;
-            Some(ProjectStore::joined(StoreAddress::new(&store.address).ok()?, team))
+            Some(ProjectStore { account_id: store.account_id, ..ProjectStore::joined(StoreAddress::new(&store.address).ok()?, team) })
         });
         let project = self.project_declared(&copy.id, &copy.name, members).ok()?;
         Some(project.with_values(values).with_shared_with_macs(copy.shared_with_macs).with_store(store))

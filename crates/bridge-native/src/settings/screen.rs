@@ -91,6 +91,24 @@ impl SettingsScreen {
         });
     }
 
+    /// For the walks of the Account page: the sign-in app is registered, so a login can be added.
+    pub fn sign_in_app_registered(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.sign_in_app_registered();
+            }
+        });
+    }
+
+    /// For the walk of a sign-in that ended: its code ran out.
+    pub fn sign_in_ended(&mut self, cx: &mut Context<Self>) {
+        self.overlay.update(cx, |overlay, _| {
+            if let Wire::Mock(mock) = &mut overlay.wire {
+                mock.accounts.ended();
+            }
+        });
+    }
+
     /// For the walk of a Mac nothing is set up on.
     pub fn fresh_mac(&mut self, cx: &mut Context<Self>) {
         self.overlay.update(cx, |overlay, _| {
@@ -168,9 +186,14 @@ impl SettingsScreen {
                 });
                 return;
             }
-            // Kit's links: Settings on that page, for every project.
-            if let Asked::SettingsPage(page) = asked {
-                let (me, page) = (me.clone(), *page);
+            // Kit's links: Settings on that page, for every project. The title bar's Account row is Settings on Account.
+            let page = match asked {
+                Asked::SettingsPage(page) => Some(*page),
+                Asked::Account => Some(super::entries::ACCOUNT),
+                _ => None,
+            };
+            if let Some(page) = page {
+                let me = me.clone();
                 cx.defer(move |cx| {
                     let Some(me) = me.upgrade() else { return };
                     let _ = handle.update(cx, move |_, window, cx| {

@@ -46,13 +46,14 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
-    /// Job `new` took the place of `old`: the revisions he wrote of `artifact` are `new`'s too.
-    pub fn carry_owner_revisions(&mut self, old: &str, new: &str, artifact: &str) -> Result<(), WriteError> {
+    /// Job `new` took the place of `old`: the revisions he wrote of `artifact` are `new`'s too, as `carried`, the
+    /// id the artifact has on `new`.
+    pub fn carry_owner_revisions(&mut self, old: &str, new: &str, artifact: &str, carried: &str) -> Result<(), WriteError> {
         self.conn
             .execute(
                 "INSERT OR IGNORE INTO artifact_owner_revisions (session_id, artifact, revision, at)
-                 SELECT ?2, artifact, revision, at FROM artifact_owner_revisions WHERE session_id = ?1 AND artifact = ?3",
-                params![old, new, artifact],
+                 SELECT ?2, ?4, revision, at FROM artifact_owner_revisions WHERE session_id = ?1 AND artifact = ?3",
+                params![old, new, artifact, carried],
             )
             .map(drop)
             .map_err(fault("carrying the revisions he wrote"))

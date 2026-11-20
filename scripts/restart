@@ -659,6 +659,7 @@ if $dry_run; then
   echo "would run detached, in a session of its own with SIGHUP ignored and no stdin, so Fleet stopping does not end it: output is appended to $restart_log, and the command follows it to the end and exits with its code"
   echo "the new Fleet would speak protocol $(tree_protocol)"
   echo "would install armada from $src (cargo install --path crates/armada --profile installed --locked) to $armada_bin"
+  echo "would drop, after each cargo build, the build output that build superseded (scripts/prune-build)"
   if [[ ! -f "$src/apps/desktop/out/.armada-restart-stamp" ]]; then
     echo "would build Bridge from $src — no build stamp there"
   elif bridge_protocol_stale; then
@@ -762,6 +763,21 @@ if "$armada_bin" disk reclaim --help >/dev/null 2>&1; then
   fi
 fi
 
+# **Each build drops what it superseded**: cargo keeps every old hash's output and rustc an older
+# session in every incremental cache, which grew the preview's two build folders to 29 GB, 16 of it
+# dead. Cargo's JSON names what the build used; `scripts/prune-build` has the rule. Best effort.
+# A template ending in Xs: GNU mktemp, on Linux CI, refuses macOS's `-t prefix` form.
+units=$(mktemp "${TMPDIR:-/tmp}/armada-units.XXXXXX")
+# Cargo's JSON lines to `$units`, emptied first so one build never reads another's, and anything
+# else it prints on to the log as before. Under `pipefail` the build's own failure still stops the run.
+units_from() {
+  : >"$units"
+  awk -v out="$units" '/^\{"reason":/ { print > out; next } { print }'
+}
+prune_build() {
+  "$root/scripts/prune-build" "$1" "$units" >&2 || true
+}
+
 # Rebuild.
 built_protocol=$(ipc_built_protocol)
 if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
@@ -770,11 +786,14 @@ if [[ -n "$built_protocol" && "$built_protocol" != "$(tree_protocol)" ]]; then
 fi
 if $keep_only; then
   say "Building armada from $src"
-  (cd "$src" && cargo build --profile installed --locked -p armada --bin armada)
+  (cd "$src" && cargo build --profile installed --locked -p armada --bin armada --message-format=json-render-diagnostics) | units_from
   armada_bin="$src/target/installed/armada"
 else
 say "Installing armada from $src"
-(cd "$src" && cargo install --path crates/armada --profile installed --locked)
+(cd "$src" && cargo install --path crates/armada --profile installed --locked --message-format=json-render-diagnostics) | units_from
+fi
+prune_build "${CARGO_TARGET_DIR:-$src/target}/installed"
+if ! $keep_only; then
 
 # The Claude Code mod rides with the build: Fleet's own copy, which the
 # owner's plugin install points at, is refreshed from the tree just built.
@@ -868,14 +887,16 @@ if native_present; then
     tree_protocol >"$native_pending"
     # Incremental keeps a native change to seconds; the shipped app is built by CI with plain --release.
     # A profile in its Cargo.toml would reach CI too, so the switch is set for this one command.
-    (cd "$src" && CARGO_PROFILE_RELEASE_INCREMENTAL=true cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target)
+    (cd "$src" && CARGO_PROFILE_RELEASE_INCREMENTAL=true cargo build --release --manifest-path crates/bridge-native/Cargo.toml --target-dir crates/bridge-native/target --message-format=json-render-diagnostics) | units_from
     [[ -f "$native_binary" ]] || fail "cargo built the native Bridge but $native_binary is not there"
+    prune_build "$native_dir/target/release"
     mv -f "$native_pending" "$native_stamp"
   else
     say "The native Bridge is unchanged since its last build"
   fi
   native_arg="$native_binary"
 fi
+rm -f "$units"
 
 # The phone app, so the Gateway serves the tree it is restarted onto. Built on
 # every Mac, opted in or not: Bridge's Phone access switch starts the Gateway

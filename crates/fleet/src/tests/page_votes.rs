@@ -38,7 +38,7 @@ async fn cast(rig: &Rig, vote: CastPageVote) -> Result<VoteCast, Refusal> {
 }
 
 async fn votes(rig: &Rig, id: &SessionId, path: &str) -> Vec<VoteCast> {
-    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == path).unwrap().votes
+    rig.fleet.get_job_artifacts(id.clone()).await.unwrap().into_iter().find(|one| one.id == rig.fleet.page_home(id.as_str(), path)).unwrap().votes
 }
 
 #[tokio::test]
@@ -113,7 +113,7 @@ async fn a_recast_replaces_the_earlier_result_on_the_page() {
 async fn a_vote_with_one_take_is_named_when_the_page_is_kept() {
     let rig = rig_placing(None);
     let (id, at) = a_job(&rig).await;
-    let path = page_holding(&rig, &id, at, &layouts("pick", "<armada-take id=\"dense\" title=\"Dense\"></armada-take>")).await;
+    page_holding(&rig, &id, at, &layouts("pick", "<armada-take id=\"dense\" title=\"Dense\"></armada-take>")).await;
 
     let told = || async {
         rig.rows(&id).await.into_iter().find_map(|row| match row {
@@ -123,6 +123,6 @@ async fn a_vote_with_one_take_is_named_when_the_page_is_kept() {
     };
     eventually(|| async { told().await.is_some() }).await;
     let told = told().await.unwrap();
-    let named = format!("In the page {path}, vote \"Which layout?\" will not count: it holds 1 take, and a vote needs two or more.");
-    assert!(told.starts_with(&named), "{told}");
+    let named = "In the page .armada/documents/flaky.html, vote \"Which layout?\" will not count: it holds 1 take, and a vote needs two or more.";
+    assert!(told.starts_with(named), "{told}");
 }

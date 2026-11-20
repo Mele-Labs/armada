@@ -339,6 +339,7 @@ fn main() -> ExitCode {
             Mode::Help | Mode::Walks => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
+                    ui_sounds::allow();
                     let fleet = cx.new(FleetConnection::new);
                     terminal::shells::hold_live(&fleet, cx);
                     titlebar::offer_crash(&fleet, cx);

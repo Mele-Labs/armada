@@ -164,6 +164,8 @@ pub struct Boxes {
     pub clone: Entity<InputState>,
     pub new: Entity<InputState>,
     pub synced: Entity<InputState>,
+    /// His description of a tracker to build, where the tracker is Custom.
+    pub tracker: Entity<InputState>,
 }
 
 pub struct NewProjectSheet {
@@ -185,11 +187,15 @@ pub struct NewProjectSheet {
     pub inherited: Option<HashMap<Key, String>>,
     pub picked: HashMap<Key, String>,
     pub models: Vec<String>,
+    /// The layout mods he can pick, as (their `layout.json`, name).
+    pub layouts: Vec<(String, String)>,
     pub share: bool,
     /// The line of the repositories list the keys are on.
     pub active: usize,
     pub refused: Option<SharedString>,
     pub sending: bool,
+    /// What an Enter in the Clone or New box is doing now.
+    pub making: Option<&'static str>,
     /// Set where the sheet edits a project: the same sheet, filled from it, saved with `edit_project`.
     editing: Option<Original>,
     popup: Option<Popup>,
@@ -216,6 +222,7 @@ impl NewProjectSheet {
             clone: field("", window, cx),
             new: field("my-app", window, cx),
             synced: field("", window, cx),
+            tracker: field("Describe the tracker: what it is, and where its issues live", window, cx),
         };
         let mut subs = Vec::new();
         for (state, keep) in [(&boxes.name, KEEP_NAME), (&boxes.clone, KEEP_CLONE), (&boxes.new, KEEP_NEW), (&boxes.synced, KEEP_SYNCED)] {
@@ -248,6 +255,13 @@ impl NewProjectSheet {
                 cx.notify();
             }
         }));
+        for (state, clone) in [(&boxes.clone, true), (&boxes.new, false)] {
+            subs.push(cx.subscribe_in(state, window, move |this, _, event: &InputEvent, window, cx| {
+                if matches!(event, InputEvent::PressEnter { secondary: false, .. }) {
+                    this.make_now(clone, window, cx);
+                }
+            }));
+        }
         // ⌘↩ in a text box, which takes the key before the sheet's action can.
         for state in [&boxes.name, &boxes.find, &boxes.folders, &boxes.clone, &boxes.new, &boxes.synced] {
             subs.push(cx.subscribe_in(state, window, |this, _, event: &InputEvent, window, cx| {
@@ -288,10 +302,12 @@ impl NewProjectSheet {
             inherited: None,
             picked: HashMap::new(),
             models: Vec::new(),
+            layouts: Vec::new(),
             share: false,
             active: 0,
             refused: None,
             sending: false,
+            making: None,
             editing: None,
             popup: None,
             keys_were: None,
@@ -420,7 +436,20 @@ impl NewProjectSheet {
         let areas = self.wire.areas(cx);
         let values = self.wire.values(cx);
         let models = self.wire.models(cx);
+        let layouts: Vec<_> = self.wire.layout_mods(cx).into_iter().map(|name| (self.wire.layout_text(&name, cx), name)).collect();
         self.reads = vec![
+            cx.spawn(async move |this, cx| {
+                let mut found = Vec::new();
+                for (text, name) in layouts {
+                    if let Some(text) = text.await {
+                        found.push((text, name));
+                    }
+                }
+                let _ = this.update(cx, |this, cx| {
+                    this.layouts = found;
+                    cx.notify();
+                });
+            }),
             cx.spawn(async move |this, cx| {
                 let answer = areas.await;
                 let _ = this.update(cx, |this, cx| {
@@ -906,7 +935,7 @@ impl NewProjectSheet {
         let entries = match menu {
             Menu::Setting(key) => {
                 let now = self.shown(key).map(|(word, _)| word).unwrap_or_default();
-                key.options(&self.models)
+                key.options(&self.models, &self.layouts)
                     .into_iter()
                     .map(|(word, label)| Entry::Choice { id: crate::titlebar::id_of(format!("word:{word}")), label: label.into(), on: word == now })
                     .collect()
@@ -959,7 +988,7 @@ impl NewProjectSheet {
     }
 
     pub fn open_setting(&mut self, key: Key, window: &mut Window, cx: &mut Context<Self>) {
-        if self.inherited.is_none() || key.options(&self.models).is_empty() {
+        if self.inherited.is_none() || key.options(&self.models, &self.layouts).is_empty() {
             return;
         }
         self.open_menu(Menu::Setting(key), key.label(), gpui::Role::Button, window, cx);
@@ -989,10 +1018,23 @@ impl NewProjectSheet {
         if self.sending || !self.named(cx) {
             return;
         }
+        if self.tracker_words(cx).is_some_and(|words| words.is_empty()) {
+            return self.refuse("Describe the tracker to build".into(), cx);
+        }
         self.sending = true;
         self.refused = None;
         self.next(window, cx);
         cx.notify();
+    }
+
+    /// His description of the tracker to build, where the settings pick Custom.
+    fn tracker_words(&self, cx: &App) -> Option<String> {
+        (self.custom && self.picked.get(&Key::Tracker).map(String::as_str) == Some(values::CUSTOM)).then(|| self.boxes.tracker.read(cx).value().trim().to_string())
+    }
+
+    /// The brief of the Job that builds a tracker mod for `project` from his words.
+    fn tracker_brief(project: &str, words: &str) -> String {
+        format!("Build a tracker mod for the project \"{project}\". Its issues live somewhere Armada has no tracker for. This is how he describes it:\n\n{words}")
     }
 
     /// The next request of a Create. A repository cloned or made is served and picked whole, and its field
@@ -1000,31 +1042,87 @@ impl NewProjectSheet {
     fn next(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let url = self.boxes.clone.read(cx).value().trim().to_string();
         let fresh = self.boxes.new.read(cx).value().trim().to_string();
-        let (task, field) = if self.clone_open && !url.is_empty() {
-            let Some(parent) = self.clone_parent.clone() else { return self.refuse("Pick a folder to clone into".into(), cx) };
-            (self.wire.clone_repository(url, parent, cx), Some((self.boxes.clone.clone(), KEEP_CLONE)))
+        let clone = if self.clone_open && !url.is_empty() {
+            true
         } else if self.new_open && !fresh.is_empty() {
-            let Some(parent) = self.new_parent.clone() else { return self.refuse("Pick a folder to make it in".into(), cx) };
-            (self.wire.create_repository(fresh, parent, cx), Some((self.boxes.new.clone(), KEEP_NEW)))
+            false
         } else {
             return self.add(window, cx);
+        };
+        let (task, field, keep) = match self.make_request(clone, url, fresh, cx) {
+            Ok(request) => request,
+            Err(why) => return self.refuse(why, cx),
         };
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
             let _ = this.update_in(cx, |this, window, cx| match answer {
                 Ok(made) => {
-                    let one = served_of(&made);
-                    this.picks.insert(one.id.clone(), Pick { whole: true, folders: Vec::new() });
-                    this.served.get_or_insert_with(Vec::new).push(one);
-                    if let Some((field, keep)) = field {
-                        crate::drafts::clear(keep, cx);
-                        field.update(cx, |field, cx| field.set_value("", window, cx));
-                    }
+                    this.took(made, field, keep, window, cx);
                     this.next(window, cx);
                 }
                 Err(why) => this.refuse(why.into(), cx),
             });
         }));
+    }
+
+    /// The Fleet request that clones the address typed or makes the empty repository named, and the box it clears.
+    fn make_request(&mut self, clone: bool, url: String, fresh: String, cx: &mut Context<Self>) -> Result<(Task<Result<RepositorySummary, String>>, Entity<InputState>, &'static str), SharedString> {
+        if clone {
+            let parent = self.clone_into().ok_or_else(|| SharedString::from("Pick a folder to clone into"))?;
+            Ok((self.wire.clone_repository(url, parent, cx), self.boxes.clone.clone(), KEEP_CLONE))
+        } else {
+            let parent = self.new_into().ok_or_else(|| SharedString::from("Pick a folder to make it in"))?;
+            Ok((self.wire.create_repository(fresh, parent, cx), self.boxes.new.clone(), KEEP_NEW))
+        }
+    }
+
+    /// A repository cloned or made is served and picked whole, and its box and draft clear.
+    fn took(&mut self, made: RepositorySummary, field: Entity<InputState>, keep: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        let one = served_of(&made);
+        self.picks.insert(one.id.clone(), Pick { whole: true, folders: Vec::new() });
+        self.served.get_or_insert_with(Vec::new).push(one);
+        crate::drafts::clear(keep, cx);
+        field.update(cx, |field, cx| field.set_value("", window, cx));
+    }
+
+    /// The folder a clone goes into: the one picked, else the first the served repositories sit in.
+    pub fn clone_into(&self) -> Option<String> {
+        self.clone_parent.clone().or_else(|| self.parents().into_iter().next())
+    }
+
+    pub fn new_into(&self) -> Option<String> {
+        self.new_parent.clone().or_else(|| self.parents().into_iter().next())
+    }
+
+    /// Return in the Clone or New box: do it now, showing the line while it runs and Fleet's sentence if refused.
+    pub fn make_now(&mut self, clone: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.sending || self.making.is_some() {
+            return;
+        }
+        let words = if clone { &self.boxes.clone } else { &self.boxes.new }.read(cx).value().trim().to_string();
+        if words.is_empty() {
+            return;
+        }
+        self.refused = None;
+        let (task, field, keep) = match self.make_request(clone, words.clone(), words, cx) {
+            Ok(request) => request,
+            Err(why) => return self.refuse(why, cx),
+        };
+        self.making = Some(if clone { "Cloning…" } else { "Making…" });
+        self.act = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update_in(cx, |this, window, cx| {
+                this.making = None;
+                match answer {
+                    Ok(made) => {
+                        this.took(made, field, keep, window, cx);
+                        cx.notify();
+                    }
+                    Err(why) => this.refuse(why.into(), cx),
+                }
+            });
+        }));
+        cx.notify();
     }
 
     fn add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -1045,6 +1143,7 @@ impl NewProjectSheet {
         let inherited = self.inherited.clone().unwrap_or_default();
         let project = create_body(name.clone(), members, (self.place != Place::Mac).then_some(place), self.custom, &self.picked, &inherited);
         let share = self.custom && self.share;
+        let brief = self.tracker_words(cx).map(|words| Self::tracker_brief(&name, &words));
         let task = self.wire.add_project(project, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
@@ -1055,6 +1154,11 @@ impl NewProjectSheet {
                     return;
                 }
             };
+            if let Some(brief) = brief {
+                if let Ok(start) = this.update(cx, |this, cx| this.wire.start_tracker_job(brief, cx)) {
+                    let _ = start.await;
+                }
+            }
             // Fleet puts a new project at the end of his list.
             let Some(id) = projects.projects.iter().rev().find(|one| one.name == name).map(|one| one.id.clone()) else { return };
             let projects = if share {
@@ -1075,11 +1179,25 @@ impl NewProjectSheet {
     fn edit(&mut self, (id, was, original): (String, ProjectPlace, Option<ipc::ValuesSet>), name: String, place: ProjectPlace, window: &mut Window, cx: &mut Context<Self>) {
         let place = if self.place == Place::Cloud && matches!(was.cloud, Some(RunCloud::Bucket(_))) { was } else { place };
         let inherited = self.inherited.clone().unwrap_or_default();
-        let values = edit_values(original, self.custom.then(|| values::values_of(&self.picked, &inherited)).flatten());
+        let brief = self.tracker_words(cx).map(|words| Self::tracker_brief(&name, &words));
+        // Custom is a request for a mod, not a provider: the tracker stays as it was until the mod exists.
+        let mut picked = self.picked.clone();
+        if brief.is_some() {
+            match original.as_ref().and_then(|set| set.tracker.as_ref()).and_then(|block| block.get("provider")) {
+                Some(was) => picked.insert(Key::Tracker, was.clone()),
+                None => picked.remove(&Key::Tracker),
+            };
+        }
+        let values = edit_values(original, self.custom.then(|| values::values_of(&picked, &inherited)).flatten());
         let edit = ipc::EditProject { name: Some(name), members: Some(self.members()), place: Some(place), values: Some(values), shared_with_macs: self.custom.then_some(self.share) };
         let task = self.wire.edit_project(&id, edit, cx);
         self.act = Some(cx.spawn_in(window, async move |this, cx| {
             let answer = task.await;
+            if let (Ok(_), Some(brief)) = (&answer, brief) {
+                if let Ok(start) = this.update(cx, |this, cx| this.wire.start_tracker_job(brief, cx)) {
+                    let _ = start.await;
+                }
+            }
             let _ = this.update_in(cx, |this, window, cx| match answer {
                 Ok(projects) => {
                     let served = this.wire.repositories(cx).unwrap_or_default();
@@ -1511,6 +1629,65 @@ mod tests {
     }
 
     #[gpui::test]
+    fn return_in_the_clone_box_clones_now_and_ticks_the_repository_whole(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, "https://github.com/acme/billing.git");
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.make_now(true, window, cx);
+            assert_eq!(sheet.making, Some("Cloning…"));
+        });
+        cx.run_until_parked();
+        sheet.update(cx, |sheet, cx| {
+            assert_eq!(sheet.making, None);
+            assert_eq!(sheet.picks.get("billing").map(|pick| pick.whole), Some(true));
+            assert!(sheet.served.as_ref().is_some_and(|all| all.iter().any(|one| one.id == "billing")));
+            assert_eq!(sheet.boxes.clone.read(cx).value().as_ref(), "");
+            assert!(!sheet.sending, "the project is not created");
+        });
+    }
+
+    #[gpui::test]
+    fn return_in_the_clone_box_shows_fleets_sentence_when_refused_and_keeps_the_address(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = forged(cx, ".git");
+        sheet.update_in(cx, |sheet, window, cx| sheet.make_now(true, window, cx));
+        cx.run_until_parked();
+        sheet.update(cx, |sheet, cx| {
+            assert_eq!(sheet.refused.as_ref().map(|why| why.as_ref()), Some("git refused the URL"));
+            assert_eq!((sheet.making, sheet.boxes.clone.read(cx).value().as_ref()), (None, ".git"));
+        });
+    }
+
+    #[gpui::test]
+    fn return_in_the_new_box_makes_it_now_and_create_still_clones_what_is_left_typed(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.new_open = true;
+            sheet.boxes.new.update(cx, |field, cx| field.set_value("scratch", window, cx));
+            sheet.make_now(false, window, cx);
+        });
+        cx.run_until_parked();
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert_eq!(sheet.picks.get("scratch").map(|pick| pick.whole), Some(true));
+            sheet.clone_open = true;
+            sheet.boxes.clone.update(cx, |field, cx| field.set_value("https://github.com/acme/billing", window, cx));
+            sheet.boxes.name.update(cx, |field, cx| field.set_value("Shop", window, cx));
+            sheet.create(window, cx);
+        });
+        cx.run_until_parked();
+        sheet.update(cx, |sheet, _| assert!(!sheet.is_open() || sheet.picks.contains_key("billing"), "Create cloned the address left typed"));
+    }
+
+    #[gpui::test]
+    fn an_edit_opens_with_a_folder_to_clone_into(cx: &mut gpui::TestAppContext) {
+        let (sheet, cx) = sheet(cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.served = None;
+            assert!(sheet.show_edit("storefront", window, cx));
+            sheet.served = sheet.wire.repositories(cx).map(|all| all.iter().map(served_of).collect());
+            assert!(sheet.clone_into().is_some(), "the chip and the clone agree on the folder");
+        });
+    }
+
+    #[gpui::test]
     fn save_edits_the_project_through_edit_project_and_cancel_leaves_the_sheet_new(cx: &mut gpui::TestAppContext) {
         let (sheet, cx) = sheet(cx);
         let edited = cx.update(|_, cx| cx.new(|_| Vec::<Edited>::new()));
@@ -1543,5 +1720,11 @@ mod tests {
         assert_eq!(sent.workflows_off, ["bug"]);
         let tracker = sent.tracker.expect("tracker");
         assert_eq!((tracker.get("provider").map(String::as_str), tracker.get("team").map(String::as_str)), (Some("jira"), Some("ENG")));
+    }
+
+    #[test]
+    fn the_tracker_job_brief_names_the_project_and_his_words() {
+        let brief = NewProjectSheet::tracker_brief("Pocket", "Jira Cloud, project ABC");
+        assert!(brief.contains("\"Pocket\"") && brief.contains("Jira Cloud, project ABC"), "{brief}");
     }
 }

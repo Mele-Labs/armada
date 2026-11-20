@@ -112,10 +112,18 @@ enum Kind {
 }
 
 thread_local! {
+    /// Whether this process is the live window. Tests and walk checks that Jobs run in the background drive
+    /// the same views, and their presses would click through the owner's speakers while nobody is there.
+    static LIVE: Cell<bool> = const { Cell::new(false) };
     /// `features.uiSounds`: on unless Fleet's settings say false, and on until Fleet has answered.
     static ON: Cell<bool> = const { Cell::new(true) };
     static SOUNDS: RefCell<[Option<Retained<NSSound>>; 2]> = const { RefCell::new([None, None]) };
     static LAST: Cell<Option<Instant>> = const { Cell::new(None) };
+}
+
+/// Called once by the live window. Nothing else makes a sound.
+pub fn allow() {
+    LIVE.set(true);
 }
 
 /// Set from Fleet's settings as they arrive.
@@ -123,13 +131,20 @@ pub fn set_on(on: bool) {
     ON.set(on);
 }
 
-/// Plays one sound, made the first time it plays and kept. A sound while the last still plays restarts it.
-fn play(kind: Kind) {
-    let now = Instant::now();
-    if !ON.get() || LAST.get().is_some_and(|last| now.duration_since(last) < GAP) {
-        return;
+/// Whether a sound at `now` plays, and if so, `now` is the last one.
+fn may_play(now: Instant) -> bool {
+    if !LIVE.get() || !ON.get() || LAST.get().is_some_and(|last| now.duration_since(last) < GAP) {
+        return false;
     }
     LAST.set(Some(now));
+    true
+}
+
+/// Plays one sound, made the first time it plays and kept. A sound while the last still plays restarts it.
+fn play(kind: Kind) {
+    if !may_play(Instant::now()) {
+        return;
+    }
     SOUNDS.with_borrow_mut(|sounds| {
         let sound = &mut sounds[kind as usize];
         if sound.is_none() {
@@ -205,6 +220,16 @@ mod tests {
     fn an_overlay_painted_later_takes_the_press() {
         let page = vec![drawn(Role::Button, (0.0, 0.0), (100.0, 100.0), None, 1), drawn(Role::Dialog, (0.0, 0.0), (200.0, 200.0), None, 2)];
         assert!(!on_pressable(&page, point(px(50.0), px(50.0))));
+    }
+
+    #[test]
+    fn nothing_sounds_until_the_live_window_allows_it() {
+        let now = Instant::now();
+        assert!(!may_play(now), "a test or a walk check drives the views and must stay silent");
+        allow();
+        assert!(may_play(now + GAP), "the live window clicks");
+        set_on(false);
+        assert!(!may_play(now + GAP * 2), "features.uiSounds off");
     }
 
     #[test]
