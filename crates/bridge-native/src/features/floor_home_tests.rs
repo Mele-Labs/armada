@@ -1,3 +1,4 @@
+use gpui::{ParentElement as _, Styled as _};
 use gpui::{AppContext, Entity, Role, TestAppContext, VisualTestContext};
 use ipc::FeatureLibrary;
 
