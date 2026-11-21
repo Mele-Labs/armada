@@ -206,13 +206,6 @@ impl JobView {
         });
         let main = answer.pick.clone().filter(|pick| !pick.trim().is_empty());
         let words: Vec<String> = answer.words.clone().into_iter().chain(answer.notes.values().cloned()).filter(|line| !line.trim().is_empty()).collect();
-        let (main, words) = match main {
-            Some(pick) => (Some(pick), words),
-            None => {
-                let mut words = words.into_iter();
-                (words.next(), words.collect())
-            }
-        };
         let main = main.map(|said| {
             div()
                 .px(look.length(token::SPACE_3))
@@ -223,14 +216,12 @@ impl JobView {
                 .text_color(look.color(token::FG_DEFAULT))
                 .child(SharedString::from(said))
         });
-        let rest = words.into_iter().map(|line| {
+        // His words keep the formatting he gave them, and his tags stand where he wrote them, as his message's do.
+        let rest = words.into_iter().enumerate().map(|(at, line)| {
             div()
                 .px(look.length(token::SPACE_3))
                 .pt(look.length(token::SPACE_1))
-                .text_size(look.length(token::TEXT_SM))
-                .line_height(look.length(token::LEADING_SM))
-                .text_color(look.color(token::FG_DEFAULT))
-                .child(SharedString::from(line))
+                .child(self.prose_tagged(format!("answer-words:{key}:{at}"), &line, token::FG_DEFAULT, &answer.extras.mentions, look, cx))
         });
         let chips: Vec<AnyElement> = answer
             .extras
@@ -347,7 +338,7 @@ pub(super) fn card_item(item: &ThreadItem, thread: &[ThreadItem]) -> Option<Stri
 }
 
 /// The keys the thread cards of item `item` take an answer under: a page's newest card, a sketch's card and its pin over
-/// the thread, and a draft's row.
+/// the thread, a draft's row and a plan's card.
 pub(super) fn card_keys(item: &str, head: &ThreadHead, thread: &[ThreadItem]) -> Vec<String> {
     let mut keys: Vec<String> = thread
         .iter()
@@ -356,22 +347,25 @@ pub(super) fn card_keys(item: &str, head: &ThreadHead, thread: &[ThreadItem]) ->
             ThreadItem::Sketch(card) => Some(card.id.clone()),
             ThreadItem::Document(card) => Some(card.id.clone()),
             ThreadItem::Row { row: SessionRow::Draft { id, .. } } => Some(format!("draft:{id}")),
+            ThreadItem::Plan(plan) => Some(plan.id.clone()),
             _ => None,
         })
         .collect();
+    let plan = head.plan.as_ref().filter(|plan| format!("plan:{}", plan.version) == item || (item.starts_with("plan:") && plan.state == ipc::PlanCardState::Waiting)).map(|plan| plan.id.clone());
+    keys.extend(plan.filter(|id| !keys.contains(id)));
     keys.extend(head.sketch.as_ref().filter(|sketch| sketch.sketch == item).map(|sketch| format!("pin:{}", sketch.id)));
     keys
 }
 
 /// Whether the thread draws answer `answer` on the card it was asked on: a thread card, the card over the thread, or the
-/// card of the artifact of parts. Any other, a question's among them, stands at the time he gave it: a settled card of
-/// questions is a call folded into its run.
+/// card of the artifact of parts. Any other, a question's and a plan's among them, stands at the time he gave it: a settled
+/// card of questions is a call folded into its run, and a plan's card folds.
 pub(super) fn answer_in_place(answer: &AnsweredAsk, head: &ThreadHead, thread: &[ThreadItem], parts: &[String]) -> bool {
-    if answer.item.starts_with("ask:") {
+    // A plan's card folds once answered, so his answer stands where he gave it, as a question's does.
+    if answer.item.starts_with("ask:") || answer.item.starts_with("plan:") {
         return false;
     }
     answer.artifact.as_ref().is_some_and(|artifact| parts.contains(artifact))
-        || head.plan.as_ref().is_some_and(|plan| answer.item == format!("plan:{}", plan.version))
         || head.sketch.as_ref().is_some_and(|sketch| answer.item == sketch.sketch)
         || thread.iter().any(|item| card_item(item, thread).is_some_and(|key| same_item(&key, &answer.item)))
 }
@@ -548,6 +542,52 @@ mod tests {
         assert!(drawn(cx, Role::Group, "Attached: stale-chip.png"), "his picture stands on it by name");
         assert!(drawn(cx, Role::Group, "Tagged: chip-colour"), "and what he tagged");
         assert!(drawn_like(cx, Role::Button, FIRST).is_empty(), "an answered question points nowhere");
+    }
+
+    #[gpui::test]
+    fn his_answer_card_keeps_the_formatting_of_his_words(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job_with(
+            cx,
+            "job-view",
+            "mock-01",
+            size(px(1440.), px(900.)),
+            |jobs| {
+                let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+                job.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+                let mut held = answer("ask:call-1", FIRST, "2099-01-01T00:00:00Z");
+                held.words = Some("Amber, and run\n```\narmada check\n```".into());
+                job.answers.push(held);
+            },
+            |threads| {
+                if let Some(thread) = threads.get_mut("mock-01") {
+                    thread.head.asked = None;
+                }
+            },
+        );
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let card = bounds(cx, Role::Region, &format!("You picked: {FIRST}"));
+        let copy = cx.update(|window, cx| {
+            cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == Role::Button && one.name == "Copy").map(|one| one.bounds).find(|one| card.contains(&one.center()))
+        });
+        assert!(copy.is_some(), "his block of code is drawn as a block, with its Copy, as the composer sent it");
+    }
+
+    #[gpui::test]
+    fn a_waiting_plan_in_the_thread_is_one_line_that_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let name = view.read_with(cx, |view, cx| view.held_item("mock-01", "plan:2", cx).map(|item| item.name)).expect("plan v2 waits on him");
+        assert_eq!(drawn_like(cx, Role::Button, &name), [name.clone()], "the plan is one line in the thread");
+        for answer in ["Approve", "Suggest", "Not yet", "Send changes"] {
+            assert!(!drawn(cx, Role::Button, answer), "{answer} is the sheet's, not the thread's");
+        }
+        let line = bounds(cx, Role::Button, &name);
+        cx.simulate_click(line.center(), gpui::Modifiers::none());
+        redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("plan:2"), "the line opens the sheet on the plan");
     }
 
     #[gpui::test]
