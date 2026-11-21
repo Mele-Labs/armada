@@ -415,7 +415,9 @@ mod tests {
         assert!(view.read_with(cx, |view, _| view.review_open()), "the review panel is up");
         let panel = bounds_of(cx, Role::Dialog, "Review");
         assert_eq!((panel.left(), panel.right()), (px(24.), px(1400. - 24.)), "24 points from each side: {panel:?}");
-        assert!(drawn(cx, Role::Region, TITLE), "the artifact is the detail");
+        let chosen = view.read_with(cx, |view, _| view.review_chosen()).expect("an item is picked");
+        assert!(chosen.kind == Kind::Artifact && chosen.id.contains(ID), "the artifact is picked: {chosen:?}");
+        assert!(drawn(cx, Role::Region, &chosen.name), "the artifact is the detail");
         assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no pane gained a tab");
         view.update_in(cx, |view, window, cx| view.close_review(window, cx));
         redraw(cx);
@@ -537,32 +539,36 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_pick_sent_from_the_panels_foot_carries_the_take_and_his_words(cx: &mut gpui::TestAppContext) {
+    fn a_pick_sent_from_the_answer_bar_carries_the_take_he_chose(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
         let key = super::super::parts_card::part_key(ID, "bar");
-        let pick = bounds_of(cx, Role::RadioButton, &format!("Pick {}", TAKES[1]));
-        let send = bounds_of(cx, Role::Button, "Send pick");
-        let words = bounds_of(cx, Role::TextInput, "Note on your pick");
-        // The takes scroll in the detail, so a tall one runs past the foot: the foot is what the pick row stands in, at the panel's bottom.
+        let pick = bounds_of(cx, Role::RadioButton, &format!("Pick {}", TAKES[0]));
+        assert!(drawn(cx, Role::Button, "Pick B \u{b7} Rail"), "the Job's pick starts chosen, and the bar's answer is named for it");
+        let bar = bounds_of(cx, Role::Toolbar, "Answer");
         let panel = bounds_of(cx, Role::Dialog, "Review");
-        let low = panel.top() + panel.size.height * 0.75;
-        assert!(send.top() > pick.top() && words.top() > pick.top(), "the words box and Send pick stand under the takes' tops");
-        assert!(send.top() > low && words.top() > low && send.bottom() < panel.bottom(), "and in the foot, at the panel's bottom");
+        assert!(bar.top() > pick.top() && bar.top() > panel.top() + panel.size.height * 0.75 && bar.bottom() <= panel.bottom(), "the bar stands under the takes, at the panel's bottom: {pick:?} {bar:?} {panel:?}");
+        view.update(cx, |view, cx| view.choose_take(&key, 0, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, &format!("Pick {}", TAKES[0])), "the bar's answer follows the take he chose");
         view.update_in(cx, |view, window, cx| {
-            view.choose_take(&key, 1, cx);
-            let input = view.pages.get(JOB).and_then(|page| page.cards.parts.notes(&key)).expect("the words box");
-            input.update(cx, |input, cx| input.set_value("Rail, but narrower.", window, cx));
-            view.send_pick(&key, window, cx);
+            let item = view.review_chosen().expect("the artifact is chosen");
+            assert!(view.sheet_answer_parts(&item, None, window, cx), "the bar's answer sends");
         });
         view.read_with(cx, |view, _| {
             let sent = view.pages.get(JOB).and_then(|page| page.cards.parts.answer_sent(&key)).expect("the pick went");
-            assert_eq!((sent.take.as_deref(), sent.words.as_deref()), (Some("rail"), Some("Rail, but narrower.")), "one answer holds the pick and the note");
+            assert_eq!(sent.take.as_deref(), Some("bar"), "the answer holds the take he chose");
         });
     }
 
     /// The panel open on the artifact with a second vote added under the first: "side", of two takes with no scene.
     fn opened_with_two_votes<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         let (view, cx) = opened(cx, 1400., 900.);
+        add_side_vote(&view, cx);
+        (view, cx)
+    }
+
+    /// A second vote added under the first: "side", of two takes with no scene.
+    fn add_side_vote(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) {
         view.update(cx, |view, cx| {
             view.mock_parts_tuned(
                 ID,
@@ -577,7 +583,6 @@ mod tests {
             )
         });
         redraw(cx);
-        (view, cx)
     }
 
     fn note(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, key: &str, words: &str) {
@@ -613,7 +618,26 @@ mod tests {
 
     #[gpui::test]
     fn a_vote_with_no_pick_stays_asking_after_send_picks_and_the_button_waits_for_a_pick(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened_with_two_votes(cx);
+        // Neither vote carries a Job's pick, so neither starts chosen when the panel opens.
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update(cx, |view, cx| {
+            view.mock_parts_tuned(
+                ID,
+                |artifact| {
+                    for part in &mut artifact.parts {
+                        if let ipc::PartContent::Takes { takes, .. } = &mut part.content {
+                            for take in takes {
+                                take.title = take.title.replace(" (Job's pick)", "");
+                            }
+                        }
+                    }
+                },
+                cx,
+            )
+        });
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
+        redraw(cx);
+        add_side_vote(&view, cx);
         let side = super::super::parts_card::part_key(ID, "side");
         let send = bounds_of(cx, Role::Button, "Send picks").center();
         cx.simulate_click(send, Modifiers::none());
@@ -904,14 +928,16 @@ mod tests {
     #[gpui::test]
     fn a_page_part_opened_from_the_artifacts_tab_is_the_live_page_in_the_panel_and_no_tab_opens(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| !matches!(part.content, ipc::PartContent::Takes { .. })), cx));
+        redraw(cx);
         let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
         view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
         redraw(cx);
         assert!(view.read_with(cx, |view, _| view.review_open()), "the panel is up");
         assert!(view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx).is_some()), "it holds the page's live view");
         assert!(drawn(cx, Role::Region, "Page"), "the live page is drawn in the detail");
-        let (page, takes) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Takes"));
-        assert!(page.left() - takes.left() <= px(2.) && takes.right() - page.right() <= px(2.), "it takes the detail's whole width, as the takes do, less its hairline frame: {page:?} {takes:?}");
+        let (page, drawing) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Drawing"));
+        assert!(page.left() - drawing.left() <= px(2.) && drawing.right() - page.right() <= px(2.), "it takes the detail's whole width, as a drawing does, less its hairline frame: {page:?} {drawing:?}");
         let panel = view.read_with(cx, |view, _| view.sheet.get().height);
         assert!(page.size.height <= panel * TALL_SHARE + px(1.), "and no taller than a picture stands: {page:?}");
         assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
@@ -935,8 +961,10 @@ mod tests {
         let revision: u32 = chosen.revision.as_deref().and_then(|word| word.trim_start_matches('r').parse().ok()).expect("its revision");
         assert!(view.read_with(cx, |view, cx| view.panel_page("draft-job", &page, revision, cx).is_some()), "it holds the page's live view");
         let live = bounds_of(cx, Role::Region, "Page");
-        let (band, foot) = (bounds_of(cx, Role::Group, "Answers"), bounds_of(cx, Role::Toolbar, "Every item"));
-        assert!(live.top() - band.bottom() <= px(2.) && foot.top() - live.bottom() <= px(2.), "alone in the detail, it takes all of it between the band and the foot: {band:?} {live:?} {foot:?}");
+        // Opened, the page is read, so it has no answer bar: it runs down to the detail's own bottom.
+        assert!(!drawn(cx, Role::Toolbar, "Answer"), "a page he read asks nothing");
+        let (head, detail) = (bounds_of(cx, Role::Heading, &chosen.name), bounds_of(cx, Role::Region, &chosen.name));
+        assert!(live.top() - head.bottom() <= px(2.) && detail.bottom() - live.bottom() <= px(2.), "alone in the detail, it takes all of it under the head: {head:?} {live:?} {detail:?}");
         assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
         assert!(view.read_with(cx, |view, _| view.row_tabs.get("draft-job").is_none_or(|tabs| tabs.pages.is_empty())), "no tab holds the page");
         assert!(view.read_with(cx, |view, _| view.mock_seen_posts().iter().any(|one| one.artifact == page && one.revision == revision)), "Fleet is told he opened it, as the reader tells it");
@@ -947,19 +975,20 @@ mod tests {
 
     #[gpui::test]
     fn a_page_that_is_an_artifacts_only_part_takes_the_whole_detail_and_one_among_parts_keeps_its_share(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         let panel = view.read_with(cx, |view, _| view.sheet.get().height);
         assert!(bounds_of(cx, Role::Region, "Page").size.height <= panel * TALL_SHARE + px(1.), "among other parts it stands at its share");
         view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| part.id == PAGE), cx));
         redraw(cx);
-        let (page, band) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Group, "Answers"));
-        assert!(page.top() - band.bottom() <= px(2.), "alone, it starts under the band: {band:?} {page:?}");
+        let name = view.read_with(cx, |view, _| view.review_chosen().map(|item| item.name)).expect("the artifact is chosen");
+        let (page, head) = (bounds_of(cx, Role::Region, "Page"), bounds_of(cx, Role::Heading, &name));
+        assert!(page.top() - head.bottom() <= px(2.), "alone, it starts under the head: {head:?} {page:?}");
         assert!(page.size.height > panel * TALL_SHARE, "and takes more than a picture's share of the panel: {page:?}");
     }
 
     #[gpui::test]
     fn a_vote_and_a_press_the_panels_page_posts_are_carried_to_fleet_and_its_answer_goes_back(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         let tab = view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx)).expect("the panel's live page");
         let post = |posted: PageToHost, cx: &mut gpui::VisualTestContext| {
             tab.update(cx, |_, cx| cx.emit(PageTabEvent::Posted(posted)));
@@ -982,7 +1011,7 @@ mod tests {
 
     #[gpui::test]
     fn a_page_fleet_refuses_says_so_in_the_panel_and_draws_no_picture(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         view.update(cx, |view, cx| {
             view.mock_parts_tuned(
                 ID,
@@ -997,13 +1026,5 @@ mod tests {
         redraw(cx);
         assert!(drawn(cx, Role::Alert, "revision 2 of `notes` is not kept"), "Fleet's sentence stands where the page would");
         assert!(view.read_with(cx, |view, cx| view.panel_page(JOB, PAGE, 2, cx).is_none() && view.panel_page(JOB, "notes", 2, cx).is_some()), "the page the part names now is the one held");
-    }
-
-    #[gpui::test]
-    fn a_takes_picture_fills_its_tile_with_no_frame_between(cx: &mut gpui::TestAppContext) {
-        let (_, cx) = opened(cx, 1400., 900.);
-        let tile = bounds_of(cx, Role::RadioButton, "Pick A \u{b7} Bar under the title");
-        let picture = bounds_of(cx, Role::Button, "Picture: A \u{b7} Bar under the title");
-        assert!(picture.left() - tile.left() < px(4.) && tile.right() - picture.right() < px(4.), "no padding: {tile:?} {picture:?}");
     }
 }

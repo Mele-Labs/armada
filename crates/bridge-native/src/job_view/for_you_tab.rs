@@ -722,7 +722,8 @@ mod tests {
         let chosen = chosen.expect("the review panel is open on an item");
         assert_eq!(chosen.kind, super::super::review::Kind::Build);
         assert_eq!(chosen.name, "The reviewer's brief names its files", "the newest open build is chosen");
-        assert!(drawn(cx, gpui::Role::Article, "Ready to try: The reviewer's brief names its files"), "drawn whole, with its answers");
+        assert!(drawn(cx, gpui::Role::Region, "The reviewer's brief names its files"), "drawn in the detail");
+        assert!(drawn(cx, gpui::Role::Button, "Looks good"), "with its answer in the bar");
     }
 
     #[test]

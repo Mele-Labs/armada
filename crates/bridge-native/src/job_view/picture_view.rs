@@ -657,19 +657,18 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_tall_take_is_held_to_its_share_of_the_review_panel_and_stands_centred_in_the_column(cx: &mut gpui::TestAppContext) {
+    fn a_tall_take_in_the_review_panel_stands_as_tall_as_a_wide_one_and_no_taller_than_its_share(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1100.), px(700.)), |_| {});
         view.update_in(cx, |view, window, cx| view.open_artifact_tab(ID, window, cx));
         redraw(cx);
         assert!(view.read_with(cx, |view, _| view.review_open()), "the take is read in the review panel");
         let panel = view.read_with(cx, |view, _| view.sheet.get().height);
         assert!(panel > px(0.), "the panel has a height");
-        let cap = panel * super::super::reader_sheet::TALL_SHARE;
-        let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {B} (Job's pick)"));
-        let picture = bounds_of(cx, Role::Button, &format!("Picture: {B}"));
-        assert!(picture.size.height <= cap + px(1.), "no taller than its share of the panel: {picture:?} in a panel {panel:?} high");
-        assert!((picture.size.height - cap).abs() < px(2.), "a rail taller than that stands exactly at the cap: {picture:?}");
-        assert!((picture.center().x - tile.center().x).abs() < px(2.), "and stands in the middle of its tile: {picture:?} in {tile:?}");
+        // The Job's pick starts chosen; a take's tile is its picture and its name, one press for the pick.
+        let tall = bounds_of(cx, Role::RadioButton, &format!("Chosen: {B}"));
+        let wide = bounds_of(cx, Role::RadioButton, &format!("Pick {A}"));
+        assert!((tall.size.height - wide.size.height).abs() < px(1.), "every well is one height, so the takes stand level: {tall:?} beside {wide:?}");
+        assert!(tall.size.height <= panel * super::super::reader_sheet::TALL_SHARE + px(1.), "no taller than its share of the panel: {tall:?} in a panel {panel:?} high");
     }
 
     #[gpui::test]
