@@ -172,12 +172,12 @@ impl JobView {
         }
     }
 
-    /// Read the document `page` of the shown Job in the review panel, with its live page: one press, as a page part is read. A
-    /// page the Job holds no card or artifact for opens nothing.
+    /// Read the document `page` of the shown Job: a page the thread holds a card for reads in a tab of the Job beside the
+    /// thread, its margin at its right; any other the Job holds as an artifact reads in the review panel. A page the Job holds
+    /// no card or artifact for opens nothing.
     pub(super) fn open_document(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        // The mocks of planning on a page read it in a tab of the Job, where the talk and the thread stand beside it.
-        if crate::mock::scenario_is("planning-margin") || crate::mock::scenario_is("planning-side") {
+        if self.thread(&job, cx).is_some_and(|held| super::review::document_card(&held.items, page).is_some()) {
             return self.open_document_tab(page, window, cx);
         }
         if self.artifact_item(&job, page).is_none() && self.document_item(&job, page, cx).is_none() {

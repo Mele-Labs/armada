@@ -476,13 +476,6 @@ impl JobView {
                         next = super::pane_tree::activate(&next, active).into_owned();
                     }
                     next.focus = focus;
-                    // The mock of the page beside the thread, for the owner to judge: the page takes a pane of its own at the thread's left.
-                    if *kind == "document" && crate::mock::scenario_is("planning-side") {
-                        let made = super::pane_tree::panes_of(&next.root).into_iter().flat_map(|one| one.tabs.iter()).find(|tab| tab.kind == *kind && tab.row.as_deref() == Some(key.as_str())).map(|tab| tab.id.clone());
-                        if let Some(made) = made {
-                            next = super::pane_tree::move_tab_to_edge(&next, &made, &pane, super::pane_tree::Side::Left).into_owned();
-                        }
-                    }
                 }
                 for tab in &gone {
                     next = super::pane_tree::close_tab(&next, tab).into_owned();

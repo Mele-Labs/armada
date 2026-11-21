@@ -44,7 +44,7 @@
       "from": {
        "kind": "you"
       },
-      "text": "Sent back document: Quiet hours for notices, revision 2\nSection: How it works\nPassage: Notices that arrive wait until 9:00\nWhy 9:00? I start at 8, and on Fridays I want the digest at 7:30 so I can clear it before standup.\nRevise the page at /work/slots/slot-3/.armada/documents/quiet-hours.html and write it again."
+      "text": "Sent back \"Quiet hours for notices\" with your notes.\nWhy 9:00? I start at 8, and on Fridays I want the digest at 7:30 so I can clear it before standup."
      }
     },
     {
@@ -68,7 +68,7 @@
       "from": {
        "kind": "you"
       },
-      "text": "Sent back document: Quiet hours for notices, revision 2\nSection: How it works\nPassage: A failed check still interrupts.\nYes, tie it to my work start. And should a failed check on a branch wake me? I only care about main.\nRevise the page at /work/slots/slot-3/.armada/documents/quiet-hours.html and write it again."
+      "text": "Sent back \"Quiet hours for notices\" with your notes.\nYes, tie it to my work start. And should a failed check on a branch wake me? I only care about main."
      }
     },
     {
@@ -80,7 +80,7 @@
       "from": {
        "kind": "agent"
       },
-      "text": "No: a failed check on a branch can wait for the digest. Only one on main stops other Jobs. Revision 3 has both changes; the page you are reading keeps your place until you show it."
+      "text": "No: a failed check on a branch can wait for the digest. Only one on main stops other Jobs. The page will say both in its next revision."
      }
     }
    ]

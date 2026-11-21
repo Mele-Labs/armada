@@ -300,32 +300,6 @@ pub(super) fn margin(look: &Look) -> AnyElement {
         .into_any_element()
 }
 
-/// The page beside the thread: a revision the Job wrote while he reads waits here, and the page he reads stays where he
-/// scrolled it, his notes with it, until he presses Show it.
-pub(super) fn newer_strip(look: &Look) -> AnyElement {
-    div()
-        .id("talk-newer")
-        .flex_none()
-        .flex()
-        .items_center()
-        .gap(look.length(token::SPACE_2))
-        .mx(look.length(token::SPACE_4))
-        .mt(look.length(token::SPACE_3))
-        .px(look.length(token::SPACE_3))
-        .py(look.length(token::SPACE_2))
-        .rounded(look.length(token::RADIUS_MD))
-        .bg(mixed(look, token::ACCENT, 0.12))
-        .border(look.length(token::BORDER_WIDTH))
-        .border_color(mixed(look, token::ACCENT, 0.4))
-        .text_size(look.length(token::TEXT_SM))
-        .text_color(look.color(token::FG_DEFAULT))
-        .child(glyph(look, "refresh-cw", look.color(token::ACCENT)))
-        .child(div().flex_1().min_w_0().truncate().child("Revision 3 is ready: work start, and failed checks on main"))
-        .child(button(look, "talk-show-changes", "Show changes", Tone::Secondary, false, None, true))
-        .child(button(look, "talk-show-it", "Show it", Tone::Primary, false, None, true))
-        .into_any_element()
-}
-
 /// What he sent from a page, as the mocks draw it in the thread: the page and the section it is about, the passage, his
 /// whole note, and Open, which goes to that spot. Fleet's line for the agent and the page's path are never shown.
 /// `None` where `text` is not a note sent from a page.

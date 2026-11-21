@@ -128,10 +128,6 @@ svg { display: block; max-inline-size: 100%; block-size: auto; color: var(--fg-d
 hr { border: 0; border-block-start: var(--border-width) solid var(--border-subtle); margin: var(--space-6) 0; }
 </style>
 <style>
-mark.talk { background: color-mix(in srgb, var(--you) 16%, transparent); color: inherit; border-block-end: var(--border-width) solid var(--you-edge); padding: 0 1px; border-radius: 2px; }
-mark.talk.on { background: color-mix(in srgb, var(--you) 30%, transparent); }
-.sugg del { color: var(--diff-del-fg); background: var(--diff-del-bg); text-decoration: line-through; border-radius: 2px; padding: 0 2px; }
-.sugg ins { color: var(--diff-add-fg); background: var(--diff-add-bg); text-decoration: none; border-radius: 2px; padding: 0 2px; }
 .from { color: var(--accent); font-size: var(--text-xs); white-space: nowrap; }
 .who { color: var(--fg-muted); }
 </style>
@@ -147,14 +143,14 @@ mark.talk.on { background: color-mix(in srgb, var(--you) 30%, transparent); }
 <tbody>
 <tr><td>Quiet hours run 18:00 to 9:00 on weekdays</td><td class="who">Nick, 18 Nov</td><td></td></tr>
 <tr><td>A Job that cannot go on always interrupts</td><td class="who">Nick, 18 Nov</td><td></td></tr>
-
+<tr><td>Weekends are quiet all day</td><td class="who">Nick, 19 Nov</td><td><a class="from" href="#">From the discussion</a></td></tr>
 </tbody>
 </table>
 </section>
 
 <section aria-label="How it works">
 <h2>How it works</h2>
-<p>When quiet hours start, toasts stop and the menu bar icon dims. <mark class="talk on">Notices that arrive wait until 9:00 and come in as one digest</mark>, grouped by Job, with the newest first.</p>
+<p>When quiet hours start, toasts stop and the menu bar icon dims. Notices that arrive wait until 9:00 and come in as one digest, grouped by Job, with the newest first.</p>
 <p>A failed check still interrupts. A Job asking a question waits too, unless it has waited an hour.</p>
 <p>The sound stays off until the first notice after 9:00. Pressing the dimmed icon shows what is waiting without ending quiet hours.</p>
 </section>

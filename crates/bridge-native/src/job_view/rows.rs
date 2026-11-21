@@ -1274,7 +1274,7 @@ impl JobView {
                 }
                 let text = page.edits.get(id).unwrap_or(text);
                 // The mocks of planning on a page: a note sent from a page reads as a card.
-                if crate::mock::scenario_is("planning-side") || crate::mock::scenario_is("planning-margin") {
+                if crate::mock::scenario_is("planning-today") || crate::mock::scenario_is("planning-margin") {
                     if let Some(card) = super::reader_talk::sent_card(look, id, text) {
                         return Some(card);
                     }

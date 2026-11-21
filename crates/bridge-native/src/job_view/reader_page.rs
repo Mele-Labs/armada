@@ -48,10 +48,6 @@ impl JobView {
         if crate::mock::scenario_is("planning-margin") {
             return div().flex_1().min_h_0().min_w_0().flex().child(view).child(super::reader_talk::margin(look)).into_any_element();
         }
-        // The mock of the page beside the thread: a newer revision waits behind a strip, so the page never moves under him.
-        if crate::mock::scenario_is("planning-side") {
-            return div().flex_1().min_h_0().min_w_0().flex().flex_col().child(super::reader_talk::newer_strip(look)).child(view).into_any_element();
-        }
         // Notes off: no margin and nothing under the page, so the page takes the width.
         if !held.notes_on {
             return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
@@ -125,7 +121,7 @@ impl JobView {
         let asked = tab.read(cx).ask(&ask::selection(), cx);
         let (job, reader) = (id.clone(), name.to_string());
         cx.spawn_in(window, async move |this, cx| {
-            let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or(ask::Picked { quote: String::new(), block: String::new() });
+            let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or_default();
             let _ = this.update_in(cx, |this, window, cx| {
                 // With nothing selected, N is the switch of the margin; the margin's own button always makes a note.
                 if toggle && picked.quote.trim().is_empty() {

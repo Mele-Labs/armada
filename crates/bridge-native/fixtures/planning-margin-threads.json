@@ -44,7 +44,7 @@
       "from": {
        "kind": "you"
       },
-      "text": "Margin round: Quiet hours for notices\nSettled: weekends are quiet all day, now in Decisions\nsettled"
+      "text": "Settled \"Weekends are quiet all day\" in Quiet hours for notices"
      }
     },
     {
@@ -52,11 +52,23 @@
      "row": {
       "kind": "message",
       "id": "r-2",
-      "at": "2026-11-20T10:41:00Z",
+      "at": "2026-11-20T10:31:00Z",
       "from": {
        "kind": "you"
       },
-      "text": "Margin round: Quiet hours for notices\nYour comments are answered in the margin, and a change waits for your Accept\nwaiting"
+      "text": "Comments on Quiet hours for notices\nOn \"Notices that arrive wait until 9:00 and come in as one digest\": Why 9:00? I start at 8.\nOn \"A Job asking a question waits until the next workday.\": Does a public holiday count as a workday?"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "r-3",
+      "at": "2026-11-20T10:40:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Make this change on \"A failed check still interrupts.\" in Quiet hours for notices"
      }
     },
     {
