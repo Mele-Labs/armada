@@ -29,10 +29,10 @@ fn needs_you_with_only_a_plan_opens_the_plan() {
     plays("needs-plan");
 }
 
-/// Two questions on the Operator's card in Needs you: the stepper, a number that answers the one in front, and
-/// Discuss putting the caret in the Job's box.
+/// Two questions in Needs you, each one line that opens the review sheet on it, where a press or a number chooses and
+/// Send answer sends.
 #[test]
-fn a_question_in_needs_you_is_the_operators_card_and_discuss_goes_to_the_box() {
+fn a_question_in_needs_you_is_one_line_and_the_sheet_answers_it() {
     plays("native-ways-buttons");
 }
 
