@@ -85,7 +85,8 @@ Only the drawing he read is answered: one drawn again since is refused.
 Every part he has not answered waits on him with its own Approve and Ask for changes, and answering one leaves the rest waiting.
 Drawing a title again replaces that drawing only.
 A drawing that asks is refused on a title whose other part still asks, and any drawing on a title that holds takes: **takes stand alone**, with the background as a line of text in their `question` or `for` line.
-Fleet lists the artifact as one item in his Needs you, titled with its question, and Bridge pins it while it still asks. The pin is read again after each answer, so an answered artifact never stays pinned.
+Fleet lists the artifact as one item in his Needs you, titled with its question, and Bridge pins it while it still asks.
+The pin is read again after each answer, so an answered artifact never stays pinned.
 A plan's sketch is not asked, because it is approved with the plan.
 
 **A sketch that only explains is shown with `asks: false`** (a cause, a map, a result; default `true`), so a Job's picture need not put a question to him.
