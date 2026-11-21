@@ -2234,7 +2234,7 @@ pub static WALKS: &[Walk] = &[
             step("The view button again", Verb::Press, "button", "Snoozed \u{b7} By state"),
             step("↓ past the groups to All Jobs", Verb::Keys(&["down"; 3]), "menuitemcheckbox", "All Jobs"),
             step("Enter picks it", Verb::Key("enter"), "row", "Audit the docs index"),
-            step("A right press opens the Job's menu: Snooze sits under Pause", Verb::RightPress("Audit the docs index"), "menuitem", "Snooze"),
+            step("A right press opens the Job's menu: Snooze sits under Pause and Prioritise", Verb::RightPress("Audit the docs index"), "menuitem", "Snooze"),
             press_on("Snooze opens its presets, each saying when it ends", "menuitem", "Snooze", "menuitem", "1 hour"),
             step("Tomorrow is nine the next morning", Verb::Look, "menuitem", "Tomorrow"),
             press_on("1 hour", "menuitem", "1 hour", "button", "By state"),
