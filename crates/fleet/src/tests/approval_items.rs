@@ -62,7 +62,7 @@ async fn his_approval_of_a_sketch_takes_off_the_item_naming_it_and_leaves_the_re
     let drawn = shown.attachments.iter().find(|one| one.target == "sketch:Bay flow").and_then(|one| one.detail.get("drawn")).cloned().expect("drawn");
     assert!(his_list(&rig, &id).await.contains(&"bay".to_string()));
 
-    let said = AnswerSketch { session_id: id.clone(), sketch: "sketch:Bay flow".into(), drawn, how: SketchHow::Approved, words: None };
+    let said = AnswerSketch { session_id: id.clone(), sketch: "sketch:Bay flow".into(), drawn, how: SketchHow::Approved, words: None, extras: Default::default() };
     let record = Arc::clone(&rig.fleet).answer_sketch(said).await.expect("approved");
     let list: Vec<&str> = record.waiting_for.iter().map(|one| one.id.as_str()).collect();
     assert!(!list.contains(&"bay") && list.contains(&"plain"), "{list:?}");

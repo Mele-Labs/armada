@@ -160,6 +160,11 @@ where
             | Event::QueuedChanged(_)
             | Event::ActFailed(_) => return None,
         };
+        // A Job that moved away is still in its shared project here, but what is relayed of it now is the other
+        // Mac's own news: sent back, the two Macs echo it, and every old row stands over the new for good.
+        if !self.holds_itself(job.as_str()).await {
+            return None;
+        }
         self.of_job_for_other_mac(&job, event).await
     }
 

@@ -441,7 +441,7 @@ impl JobView {
         let key = foot.key.as_str();
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2));
         if (!foot.asking || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
-            page.cards.kept_seen.borrow_mut().push((key.to_string(), foot.ix, foot.asking));
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), foot.ix, foot.asking, true));
         }
         if let Some(why) = page.cards.said.get(key) {
             column = column.child(refusal(look, key, why.clone()));
@@ -526,7 +526,8 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .children(reveal)
             .capture_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                // A list open over the words is closed by Esc first; the box itself shuts on the next.
+                if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() && !this.note_offering(cx) {
                     cx.stop_propagation();
                     esc(this, Act::Cancel, window, cx);
                 }
@@ -583,6 +584,16 @@ impl JobView {
     /// Ask for changes: the note box opens under the card, and is revealed again once it is drawn at its height.
     pub(super) fn ask_for_changes(&mut self, ix: usize, key: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.open_box(ix, key, Mode::Note, "", window, cx);
+        self.reveal_note(key);
+    }
+
+    /// Ask for changes where the answer can carry pictures and tags: the note is a rich box.
+    pub(super) fn ask_in_note(&mut self, ix: usize, key: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.open_note(ix, key, "What should change?", window, cx);
+        self.reveal_note(key);
+    }
+
+    fn reveal_note(&mut self, key: &str) {
         if let Some(cards) = self.cards_mut() {
             cards.reveal.insert(key.to_string(), Rc::new(std::cell::Cell::new(true)));
         }
@@ -624,7 +635,7 @@ impl JobView {
     fn folded_document(&self, foot: Foot, title: &str, revision: u32, stand: Stand, chip_words: Option<&str>, words: Option<&str>, here: bool, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = foot.key.clone();
         if self.holds_kept(&key) && !page.cards.modes.contains_key(&key) {
-            page.cards.kept_seen.borrow_mut().push((key.clone(), foot.ix, false));
+            page.cards.kept_seen.borrow_mut().push((key.clone(), foot.ix, false, true));
         }
         let said: Option<String> = words.map(|words| words.split_whitespace().collect::<Vec<_>>().join(" ")).filter(|words| !words.is_empty());
         let parts = vec![
@@ -713,16 +724,17 @@ impl JobView {
             let revision = card.revision;
             Rc::new(move |this, act, window, cx| {
                 let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
-                let answer = |how: DocumentHow, words: Option<String>| {
-                    ipc::encode(&AnswerDocument { session_id: session.clone(), document: format!("document:{page_name}"), revision: revision.to_string(), how, words }).map_err(|why| format!("{why:?}"))
+                let answer = |how: DocumentHow, words: Option<String>, extras: ipc::AnswerExtras| {
+                    ipc::encode(&AnswerDocument { session_id: session.clone(), document: format!("document:{page_name}"), revision: revision.to_string(), how, words, extras }).map_err(|why| format!("{why:?}"))
                 };
                 match act {
-                    Act::Approve => this.settle(ix, id.clone(), Answer::Approved, "/sessions/document/answer", answer(DocumentHow::Approved, None), window, cx),
-                    Act::Ask => this.ask_for_changes(ix, &id, window, cx),
+                    Act::Approve => this.settle(ix, id.clone(), Answer::Approved, "/sessions/document/answer", answer(DocumentHow::Approved, None, Default::default()), window, cx),
+                    Act::Ask => this.ask_in_note(ix, &id, window, cx),
                     Act::Send => {
                         let note = this.typed_in(&id, Mode::Note, cx).trim().to_string();
                         if !note.is_empty() {
-                            this.settle(ix, id.clone(), Answer::SentBack(note.clone()), "/sessions/document/answer", answer(DocumentHow::SentBack, Some(note)), window, cx);
+                            let extras = this.extras_of(&id, Mode::Note, cx);
+                            this.settle(ix, id.clone(), Answer::SentBack(note.clone()), "/sessions/document/answer", answer(DocumentHow::SentBack, Some(note), extras), window, cx);
                         }
                     }
                     Act::Cancel => this.shut_band_note(ix, &id, window, cx),

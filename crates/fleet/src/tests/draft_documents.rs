@@ -277,7 +277,7 @@ async fn an_unknown_a_settled_or_a_proposed_draft_is_refused_and_nothing_is_writ
     assert_eq!(why.code, "fleet.no_such_session");
 
     // A settled draft, whichever way it settled.
-    let approve = AnswerWaiting { session_id: id.clone(), item_id: item.clone(), choice: Some(0), text: None, mode: None, fixed: None };
+    let approve = AnswerWaiting { session_id: id.clone(), item_id: item.clone(), choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(approve).await.unwrap();
     let Err(Refusal::IllegalMove(why)) = Arc::clone(&rig.fleet).convert_draft_to_document(convert(&id, &item)).await else {
         panic!("an approved draft is a 409")

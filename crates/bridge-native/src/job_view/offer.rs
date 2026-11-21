@@ -10,7 +10,7 @@ use std::rc::Rc;
 use std::time::Duration;
 
 use gpui::{div, prelude::*, svg, Context, Role, ScrollHandle, SharedString, Window};
-use gpui_component::input::InlineToken;
+use gpui_component::input::{InlineToken, TextareaState};
 use ipc::TagKind;
 
 use super::JobView;
@@ -170,6 +170,62 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
     Some(ipc::SessionTag { kind, id: tag_id, title: title.to_string(), url })
 }
 
+/// What `@` offers: the Jobs whose titles hold the query, at most five, then the files `found` for it, at most five.
+pub(crate) fn at_rows(jobs: &[(String, String)], found: Vec<String>, query: &str) -> Vec<Row> {
+    let lowered = query.to_lowercase();
+    let mut rows: Vec<Row> = jobs
+        .iter()
+        .filter(|(_, title)| lowered.is_empty() || title.to_lowercase().contains(&lowered))
+        .take(5)
+        .map(|(job, title)| Row {
+            group: None,
+            glyph: "square-terminal",
+            name: title.clone(),
+            says: String::new(),
+            pick: Pick::Tag { kind: TagKind::Session, id: job.clone(), title: title.clone(), url: None },
+        })
+        .collect();
+    if let Some(first) = rows.first_mut() {
+        first.group = Some("Jobs");
+    }
+    let before = rows.len();
+    rows.extend(found.into_iter().take(5).map(|path| {
+        let (folder, name) = path.rsplit_once('/').map_or(("", path.as_str()), |(folder, name)| (folder, name));
+        Row { group: None, glyph: "file", name: name.to_string(), says: folder.to_string(), pick: Pick::File(path.clone()) }
+    }));
+    if let Some(first) = rows.get_mut(before) {
+        first.group = Some("Files");
+    }
+    rows
+}
+
+/// A row chosen puts its words in the box over `range`: a command or a file as plain text, a Job or a number as one chip.
+pub(crate) fn put_pick(input: &mut TextareaState, pick: Pick, range: std::ops::Range<usize>, window: &mut Window, cx: &mut Context<TextareaState>) {
+    match pick {
+        Pick::Command(name) => {
+            input.set_selected_range(range, cx);
+            input.replace(format!("/{name} "), window, cx);
+        }
+        Pick::File(path) => {
+            input.set_selected_range(range, cx);
+            input.replace(format!("@{path} "), window, cx);
+        }
+        Pick::Tag { kind, id, title, url } => {
+            // A tool's list replaces no word: its chip goes at the caret, a space before it where a word ends there.
+            let range = if range.is_empty() && input.value()[..range.start].chars().next_back().is_some_and(|ch| !ch.is_whitespace()) {
+                input.set_selected_range(range.clone(), cx);
+                input.insert(" ", window, cx);
+                range.start + 1..range.start + 1
+            } else {
+                range
+            };
+            if input.replace_range_with_token(range, chip_of(kind, &id, &title, url.as_deref()), window, cx).is_ok() {
+                input.insert(" ", window, cx);
+            }
+        }
+    }
+}
+
 impl JobView {
     /// The offer for what is under the caret now, or none.
     pub(super) fn refresh_offer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -210,38 +266,18 @@ impl JobView {
                 ("Tag an issue or pull request", numbers_for(numbered, &query))
             }
             _ => {
-                let lowered = query.to_lowercase();
-                let mut rows: Vec<Row> = self
+                let jobs: Vec<(String, String)> = self
                     .list
                     .read(cx)
                     .records()
                     .iter()
                     .filter(|job| self.reporting.is_none() && job.id.as_str() != id.as_str() && job.state != ipc::SessionState::Ended)
                     .filter_map(|job| job.title.as_ref().map(|title| (job.id.as_str().to_string(), title.clone())))
-                    .filter(|(_, title)| lowered.is_empty() || title.to_lowercase().contains(&lowered))
-                    .take(5)
-                    .map(|(job, title)| Row {
-                        group: None,
-                        glyph: "square-terminal",
-                        name: title.clone(),
-                        says: String::new(),
-                        pick: Pick::Tag { kind: TagKind::Session, id: job, title, url: None },
-                    })
                     .collect();
-                if let Some(first) = rows.first_mut() {
-                    first.group = Some("Jobs");
-                }
                 let files = self.composer.catalog.files.as_ref().filter(|(asked, _)| *asked == query).map(|(_, paths)| paths.clone());
                 loading = files.is_none();
                 let stale = files.or_else(|| self.composer.catalog.files.as_ref().map(|(_, paths)| paths.clone())).unwrap_or_default();
-                let before = rows.len();
-                rows.extend(stale.into_iter().take(5).map(|path| {
-                    let (folder, name) = path.rsplit_once('/').map_or(("", path.as_str()), |(folder, name)| (folder, name));
-                    Row { group: None, glyph: "file", name: name.to_string(), says: folder.to_string(), pick: Pick::File(path.clone()) }
-                }));
-                if let Some(first) = rows.get_mut(before) {
-                    first.group = Some("Files");
-                }
+                let rows = at_rows(&jobs, stale, &query);
                 self.want_files(&id, &query, window, cx);
                 ("Tag a Job or a file", rows)
             }
@@ -357,29 +393,7 @@ impl JobView {
         let input = self.composer.input.clone();
         input.update(cx, |input, cx| {
             input.focus(window, cx);
-            match row.pick {
-                Pick::Command(name) => {
-                    input.set_selected_range(range, cx);
-                    input.replace(format!("/{name} "), window, cx);
-                }
-                Pick::File(path) => {
-                    input.set_selected_range(range, cx);
-                    input.replace(format!("@{path} "), window, cx);
-                }
-                Pick::Tag { kind, id, title, url } => {
-                    // A tool's list replaces no word: its chip goes at the caret, a space before it where a word ends there.
-                    let range = if range.is_empty() && input.value()[..range.start].chars().next_back().is_some_and(|ch| !ch.is_whitespace()) {
-                        input.set_selected_range(range.clone(), cx);
-                        input.insert(" ", window, cx);
-                        range.start + 1..range.start + 1
-                    } else {
-                        range
-                    };
-                    if input.replace_range_with_token(range, chip_of(kind, &id, &title, url.as_deref()), window, cx).is_ok() {
-                        input.insert(" ", window, cx);
-                    }
-                }
-            }
+            put_pick(input, row.pick, range, window, cx);
         });
         self.typed(cx);
     }
@@ -433,6 +447,18 @@ pub(crate) fn offer_list(
     look: &Look,
     choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>,
     outside: Option<Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)>>,
+) -> gpui::AnyElement {
+    offer_list_at(offer, look, choose, outside, true)
+}
+
+/// The same list, floating over the box or, where `floating` is false, standing in the flow above its words: a card
+/// that cuts what runs past its edge would cut a floating one.
+pub(crate) fn offer_list_at(
+    offer: &Offer,
+    look: &Look,
+    choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>,
+    outside: Option<Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)>>,
+    floating: bool,
 ) -> gpui::AnyElement {
     let mut rows: Vec<gpui::AnyElement> = Vec::new();
     let heading = |text: &str| {
@@ -539,10 +565,7 @@ pub(crate) fn offer_list(
     labelled(
         div()
             .id("offer")
-            .absolute()
-            .bottom_full()
-            .left_0()
-            .mb(look.length(token::SPACE_1))
+            .when(floating, |list| list.absolute().bottom_full().left_0().mb(look.length(token::SPACE_1)))
             .w(look.length(token::SPACE_12) * 8.)
             .max_w_full()
             .max_h(look.length(token::H_CONTROL) * 8.)

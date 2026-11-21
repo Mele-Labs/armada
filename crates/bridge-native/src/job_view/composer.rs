@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use super::head::{drawn, icon_button, tip, Confirm};
 use super::keys;
-use super::format::{enter_at, format_of, marks_of, Enter as BlockEnter, Format};
+use super::format::{format_of, Format};
 use super::offer::{mention_of, Offer};
 use super::quick::Quick;
 use super::tune::{effort_meter, effort_place, trigger_name, TunePicker, Tuned};
@@ -163,6 +163,40 @@ pub(crate) fn media_type_of(name: &str) -> &'static str {
         Some("md" | "txt" | "rs" | "ts" | "tsx" | "toml" | "yml" | "yaml" | "css" | "html") => "text/plain",
         _ => "application/octet-stream",
     }
+}
+
+/// A file taken into a box, with its picture where it is one.
+pub(crate) fn attached(key: u64, name: String, media_type: String, bytes: Vec<u8>) -> Attached {
+    let preview = preview_of(&media_type, &bytes);
+    Attached { key, name, media_type, bytes: Arc::new(bytes), preview }
+}
+
+/// The Mac's own file picker; what it answers with goes to `take`.
+pub(crate) fn pick_files<T: 'static>(window: &mut Window, cx: &mut Context<T>, take: impl FnOnce(&mut T, Vec<PathBuf>, &mut Context<T>) + 'static) {
+    let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
+    cx.spawn_in(window, async move |this, cx| {
+        if let Ok(Ok(Some(paths))) = picked.await {
+            let _ = this.update(cx, |this, cx| take(this, paths, cx));
+        }
+    })
+    .detach();
+}
+
+/// The paperclip in a box's bar, `dress`ed by that box; `off` says why it cannot be pressed.
+pub(crate) fn attach_button<T: 'static>(
+    look: &Look,
+    off: Option<SharedString>,
+    dress: impl FnOnce(gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div>,
+    cx: &Context<T>,
+    press: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    labelled(
+        dress(icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some()))
+            .when(off.is_none(), |button| button.on_click(cx.listener(move |this, _: &ClickEvent, window, cx| press(this, window, cx)))),
+        Role::Button,
+        "Attach file",
+    )
+    .into_any_element()
 }
 
 pub(crate) fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
@@ -399,6 +433,14 @@ pub(crate) fn clipped(item: &ClipboardItem, mut snippet: impl FnMut() -> u64) ->
     taken
 }
 
+/// [`clipped`], with each snippet named by the next of a box's keys.
+pub(crate) fn clipped_keyed(item: &ClipboardItem, next_key: &mut u64) -> Clipped {
+    clipped(item, || {
+        *next_key += 1;
+        *next_key
+    })
+}
+
 /// Files named by a drop or a paste are read off the main thread, and `add` takes each one as it arrives.
 pub(crate) fn read_files<T: 'static>(paths: Vec<PathBuf>, cx: &mut Context<T>, add: impl Fn(&mut T, String, String, Vec<u8>, &mut Context<T>) + 'static) {
     cx.spawn(async move |this, cx| {
@@ -541,51 +583,15 @@ impl JobView {
         if self.composer.setting {
             return;
         }
-        let input = self.composer.input.clone();
-        let (text, spans, caret) = {
-            let box_ = input.read(cx);
-            (box_.value().to_string(), box_.tokens().to_vec(), box_.selected_range())
-        };
-        let stale: Vec<_> = spans
-            .iter()
-            .filter(|span| matches!(format_of(span.token().id()), Some(Format::Quote | Format::Item)) && span.range().start != 0 && !text[..span.range().start].ends_with('\n'))
-            .map(|span| (span.range(), span.token().text().to_string()))
-            .collect();
-        let taken: Vec<_> = spans.iter().map(|span| span.range()).filter(|range| !stale.iter().any(|(gone, _)| gone == range)).collect();
-        let marks = marks_of(&text, &taken);
-        if stale.is_empty() && marks.is_empty() {
-            return;
-        }
-        input.update(cx, |box_, cx| {
-            for (range, words) in stale {
-                box_.set_selected_range(range, cx);
-                box_.replace(words, window, cx);
-            }
-            for (range, token) in marks {
-                let _ = box_.replace_range_with_token(range, token, window, cx);
-            }
-            box_.set_selected_range(caret, cx);
-        });
+        super::format::draw(&self.composer.input.clone(), window, cx);
     }
 
     /// Enter in a quote or a list goes on with it or leaves it (`enterInBlock`). Returns whether it did;
     /// anywhere else the key is the box's own.
     fn enter_in_block(&mut self, shift: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let input = self.composer.input.clone();
-        let (text, caret) = {
-            let box_ = input.read(cx);
-            (box_.value().to_string(), box_.selected_range())
-        };
-        let act = if caret.is_empty() { enter_at(&text, caret.start, shift) } else { None };
-        match act {
-            Some(BlockEnter::Insert(words)) => input.update(cx, |box_, cx| box_.insert(words, window, cx)),
-            Some(BlockEnter::Leave(marker)) => input.update(cx, |box_, cx| {
-                box_.set_selected_range(marker, cx);
-                box_.replace("", window, cx);
-            }),
-            None => return false,
+        if !super::format::enter_in(&self.composer.input.clone(), shift, window, cx) {
+            return false;
         }
-        self.draw_format(window, cx);
         self.typed(cx);
         true
     }
@@ -748,6 +754,12 @@ impl JobView {
             if kept.text.trim().is_empty() {
                 return;
             }
+            // What the box holds beside words goes with them, as the panel's own box sends it.
+            let extras = ipc::AnswerExtras {
+                attachments: encoded_files(self.composer.files_of(&id).to_vec()),
+                mentions: kept.tags.iter().filter_map(|tag| mention_of(&tag.id, &tag.label)).collect(),
+            };
+            self.composer.box_of(&id).files.clear();
             self.set_box(&Kept::default(), window, cx);
             if self.composer.drafts.set(&id, Kept::default()) {
                 self.keep_soon(cx);
@@ -755,7 +767,7 @@ impl JobView {
             if let Some(dock) = self.dock_mut() {
                 dock.answering = None;
             }
-            self.answer_row_words(&item, kept.text, window, cx);
+            self.answer_row_words(&item, super::format::sent_text(kept.text.trim()), extras, window, cx);
             self.to_composer(window, cx);
             return;
         }
@@ -1047,13 +1059,7 @@ impl JobView {
             }
             return;
         }
-        let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = picked.await {
-                let _ = this.update(cx, |this, cx| this.take_paths(paths, cx));
-            }
-        })
-        .detach();
+        pick_files(window, cx, |this, paths, cx| this.take_paths(paths, cx));
     }
 
     /// Files named by a drop or a paste are read off the main thread and attached to the Job in view.
@@ -1065,8 +1071,7 @@ impl JobView {
     fn add_file(&mut self, id: &SharedString, name: String, media_type: String, bytes: Vec<u8>, cx: &mut Context<Self>) {
         self.composer.next_key += 1;
         let key = self.composer.next_key;
-        let preview = preview_of(&media_type, &bytes);
-        self.composer.box_of(id).files.push(Attached { key, name, media_type, bytes: Arc::new(bytes), preview });
+        self.composer.box_of(id).files.push(attached(key, name, media_type, bytes));
         cx.notify();
     }
 
@@ -1081,12 +1086,7 @@ impl JobView {
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
         let Some(id) = self.box_key() else { return false };
-        let mut next = self.composer.next_key;
-        let taken = clipped(item, || {
-            next += 1;
-            next
-        });
-        self.composer.next_key = next;
+        let taken = clipped_keyed(item, &mut self.composer.next_key);
         for (name, media_type, bytes) in taken.files.iter().cloned() {
             self.add_file(&id, name, media_type, bytes, cx);
         }
@@ -1313,13 +1313,7 @@ impl JobView {
 
     pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
         let off = self.off_shown_to(MESSAGE, cx);
-        labelled(
-            icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some())
-                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.attach(window, cx)))),
-            Role::Button,
-            "Attach file",
-        )
-        .into_any_element()
+        attach_button(look, off, |button| button, cx, |this: &mut Self, window, cx| this.attach(window, cx))
     }
 
     /// The box's words: the one text box, with the keys a list over it takes first.

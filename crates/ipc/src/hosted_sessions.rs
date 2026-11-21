@@ -161,6 +161,24 @@ pub struct SessionUpload {
     pub data: String,
 }
 
+/// What an answer to a card, a page part, a document or a question carries beside its words: the
+/// pictures and files he attached, and what he tagged. They reach the Job as a message's do
+/// (`SendSessionMessage`), and the answer's row on the thread keeps them.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct AnswerExtras {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub attachments: Vec<SessionUpload>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub mentions: Vec<SessionTag>,
+}
+
+impl AnswerExtras {
+    /// Nothing attached and nothing tagged.
+    pub fn is_empty(&self) -> bool {
+        self.attachments.is_empty() && self.mentions.is_empty()
+    }
+}
+
 /// `send_session_message`. It takes a turn.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SendSessionMessage {

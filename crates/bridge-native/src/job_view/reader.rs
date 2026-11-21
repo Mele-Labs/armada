@@ -23,6 +23,7 @@ use serde::{Deserialize, Serialize};
 use super::acts::{Answer, SHEET};
 use super::band_card::Stand;
 use super::cards::{settled_of, Said};
+use super::rich_note::RichNote;
 use super::row_tabs::RowKind;
 use super::JobView;
 
@@ -244,8 +245,8 @@ pub(super) fn said_of(notes: &[ItemNote]) -> String {
 }
 
 /// `answer_items` for one item: his verdict and its notes.
-pub(super) fn verdict(job: &str, item: &str, how: ItemHow, notes: Vec<ItemNote>) -> AnswerItems {
-    AnswerItems { items: vec![ItemAnswer { session_id: SessionId::carried(job.to_string()), item: item.to_string(), how, notes }] }
+pub(super) fn verdict(job: &str, item: &str, how: ItemHow, notes: Vec<ItemNote>, extras: ipc::AnswerExtras) -> AnswerItems {
+    AnswerItems { items: vec![ItemAnswer { session_id: SessionId::carried(job.to_string()), item: item.to_string(), how, notes, extras }] }
 }
 
 /// The key the reader keeps a thing's notes under (`drafts.rs`).
@@ -366,7 +367,7 @@ pub(super) struct Reader {
     /// What a save from Share came to, said in the band for a moment.
     pub shared: Option<SharedString>,
     /// Ask for changes, opened in place under the answers: what should change, sent with the notes on the words.
-    pub ask: Option<(Entity<TextareaState>, Subscription)>,
+    pub ask: Option<(Entity<TextareaState>, Subscription, Entity<RichNote>)>,
 }
 
 impl Reader {
@@ -418,7 +419,7 @@ impl Reader {
         let in_area = |area: &Entity<TextareaState>| area.read(cx).focus_handle(cx).contains_focused(window, cx);
         self.notes.iter().any(|one| in_area(&one.area))
             || self.edit.as_ref().is_some_and(|edit| edit.areas.iter().any(in_area))
-            || self.ask.as_ref().is_some_and(|(area, _)| in_area(area))
+            || self.ask.as_ref().is_some_and(|(area, ..)| in_area(area))
     }
 
     /// The notes as `Note`s, as they are kept.
@@ -603,8 +604,10 @@ impl JobView {
                 cx.notify();
             }
         });
+        let scope = self.note_scope(cx);
+        let note = cx.new(|cx| RichNote::new(area.clone(), "What should change?", scope, window, cx));
         let Some(held) = self.reader_mut(id, reader) else { return };
-        held.ask = Some((area.clone(), typing));
+        held.ask = Some((area.clone(), typing, note));
         area.update(cx, |area, cx| area.focus(window, cx));
         cx.notify();
     }
@@ -635,27 +638,33 @@ impl JobView {
     /// His verdict, with his notes, as `answer_items` takes it. The card reads it at once; Fleet's refusal takes it back.
     pub(super) fn reader_answer(&mut self, id: &SharedString, reader: &str, how: ItemHow, card_key: String, item: String, window: &mut Window, cx: &mut Context<Self>) {
         let mut notes = self.reader_of(id, reader).map(|held| items_of(&held.kept_notes(cx))).unwrap_or_default();
+        // What the box holds beside words goes with them, read before the box is spent.
+        let mut extras = ipc::AnswerExtras::default();
         if how == ItemHow::SendBack {
             // Ask for changes opens a box in place first; its words go with the notes on the words, as a note on the whole.
-            let typed = self.reader_of(id, reader).and_then(|held| held.ask.as_ref()).map(|(area, _)| (area.clone(), area.read(cx).value().trim().to_string()));
+            let typed = self.reader_of(id, reader).and_then(|held| held.ask.as_ref()).map(|(area, _, note)| (area.clone(), note.read(cx).sent(cx), note.read(cx).extras(cx)));
             match typed {
                 None => {
                     self.reader_ask_open(id, reader, window, cx);
                     return;
                 }
-                Some((area, words)) if words.is_empty() && notes.is_empty() => {
+                Some((area, words, _)) if words.is_empty() && notes.is_empty() => {
                     area.update(cx, |area, cx| area.focus(window, cx));
                     return;
                 }
-                Some((_, words)) if !words.is_empty() => notes.push(ItemNote { text: words, on: None }),
-                Some(_) => {}
+                Some((_, words, with)) => {
+                    extras = with;
+                    if !words.is_empty() {
+                        notes.push(ItemNote { text: words, on: None });
+                    }
+                }
             }
         }
         let answer = match how {
             ItemHow::Approve => Answer::Approved,
             ItemHow::SendBack => Answer::SentBack(said_of(&notes)),
         };
-        let body = ipc::encode(&verdict(id, &item, how, notes));
+        let body = ipc::encode(&verdict(id, &item, how, notes, extras));
         self.reader_notes_spent(id, reader, cx);
         if let Some(cards) = self.cards_mut() {
             cards.answers.insert(card_key.clone(), answer);
@@ -1025,7 +1034,7 @@ mod tests {
         assert_eq!(items[0], ItemNote { text: "Beside the title instead.".into(), on: Some(NoteOn { quote: "steps under the title".into(), block: "b1".into() }) });
         assert_eq!(items[1].on, None, "a note with no quote has no `on`");
         assert_eq!(said_of(&items), "1. Beside the title instead.\n2. Drop the Ran column.");
-        let body = verdict("mock-01", "draft:dra-1", ItemHow::SendBack, items);
+        let body = verdict("mock-01", "draft:dra-1", ItemHow::SendBack, items, Default::default());
         let wire = ipc::encode(&body).unwrap();
         assert!(wire.contains(r#""how":"send_back""#) && wire.contains(r#""on":{"quote":"steps under the title","block":"b1"}"#), "{wire}");
     }

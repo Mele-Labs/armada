@@ -2,7 +2,7 @@
 
 import type { CallInFlight } from "./call";
 import type { ContextBreakdown } from "./context-breakdown";
-import type { HostedFacts, SessionMode } from "./hosted-sessions";
+import type { AnswerExtras, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { Instant, ManifestId } from "./ids";
 import type { CompactOffer } from "./job-compact";
 import type { JobLanesView } from "./job-lanes";
@@ -575,6 +575,8 @@ export type AnswerWaiting = {
    * an item of any other source.
    */
   fixed?: string;
+  /** Pictures and tags that go with `text`, sent to the agent as a message's are. */
+  extras?: AnswerExtras;
 };
 
 /**

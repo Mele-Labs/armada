@@ -50,7 +50,7 @@ fn gate_item(record: &SessionRecord) -> Option<&WaitingItem> {
 }
 
 async fn pressed(rig: &Rig, id: &SessionId, item: &str, choice: u32) -> SessionRecord {
-    let said = AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice: Some(choice), text: None, mode: None, fixed: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered")
 }
 

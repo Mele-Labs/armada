@@ -99,6 +99,7 @@ export const NOTICE_NAMES: Record<SessionNotice, string> = {
   gate_closed: "a gate closed",
   gate_hold: "a gate holds",
   claims: "claims",
+  red_streak: "red streak",
 };
 
 /**

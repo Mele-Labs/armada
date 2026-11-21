@@ -23,6 +23,7 @@ use ipc::{
 
 use super::acts::Mode;
 use super::deck::Deck;
+use super::rich_note::{kept_of, RichNote};
 use super::perm::Perm;
 use super::rows::{glyph, tip, Size};
 use super::JobView;
@@ -910,6 +911,8 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         let typing = self.dock_typing(window, cx);
         match event.keystroke.key.as_str() {
+            // A list open over the words of Answer in words is closed by Esc first; the box shuts on the next.
+            "escape" if self.note_offering(cx) => {}
             "escape" if self.dock_of(&id).is_some_and(|dock| dock.row_box.is_some()) => {
                 self.close_row_box(window, cx);
                 cx.stop_propagation();
@@ -1391,15 +1394,19 @@ impl JobView {
         let area = cx.new(|cx| gpui_component::input::TextareaState::new(window, cx).auto_grow(1, 3).submit_on_enter(true));
         // His words for a question are kept as he types them, under Classic's `waiting:<job>:<item>`.
         let kept = (what == RowBoxFor::Words).then(|| format!("waiting:{id}:{row}"));
-        let typing = kept.map(|kept| {
-            let words = self.draft_words(&kept);
-            if !words.is_empty() {
-                area.update(cx, |area, cx| area.set_value(words, window, cx));
+        // Answer in words carries pictures, tags and formatting; the other two boxes are one plain line.
+        let note = (what == RowBoxFor::Words).then(|| {
+            let draft = self.draft_of(&format!("waiting:{id}:{row}"));
+            if !draft.text.is_empty() {
+                area.update(cx, |area, cx| area.set_value(draft.content(), window, cx));
             }
+            let scope = self.note_scope(cx);
+            cx.new(|cx| RichNote::new(area.clone(), "Answer in words", scope, window, cx))
+        });
+        let typing = kept.map(|kept| {
             cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
                 if let InputEvent::Change = event {
-                    let words = area.read(cx).value().to_string();
-                    this.keep_words(&kept, &words, cx);
+                    this.keep_draft(&kept, kept_of(area, cx), cx);
                 }
             })
         });
@@ -1411,6 +1418,9 @@ impl JobView {
         area.update(cx, |area, cx| area.focus(window, cx));
         if let Some(page) = self.pages.get_mut(&id) {
             page.cards.boxes.insert(format!("dock:row:{row}:{:?}", Mode::Note), area);
+            if let Some(note) = note {
+                page.cards.notes.insert(format!("dock:row:{row}:{:?}", Mode::Note), note);
+            }
             page.dock.row_box = Some(RowBox { row: row.to_string(), what, _enter: enter, _typing: typing });
         }
         cx.notify();
@@ -1422,6 +1432,7 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(&id) {
             if page.dock.row_box.take().is_some() {
                 page.cards.boxes.retain(|name, _| !name.starts_with("dock:row:"));
+                page.cards.notes.retain(|name, _| !name.starts_with("dock:row:"));
             }
         }
     }
@@ -1447,10 +1458,11 @@ impl JobView {
         let Some(id) = self.shown.clone() else { return };
         let Some((row, what)) = self.dock_of(&id).and_then(|dock| dock.row_box.as_ref()).map(|open| (open.row.clone(), open.what)) else { return };
         let words = self.typed_in(&format!("dock:row:{row}"), Mode::Note, cx);
+        let extras = self.extras_of(&format!("dock:row:{row}"), Mode::Note, cx);
         match what {
             RowBoxFor::Reason => self.dismiss_row(&row, Some(words), false, window, cx),
             RowBoxFor::Note => self.done_row(&row, Some(words), window, cx),
-            RowBoxFor::Words => self.answer_row_words(&row, words, window, cx),
+            RowBoxFor::Words => self.answer_row_words(&row, words, extras, window, cx),
         }
         self.row_home(window, cx);
     }
@@ -1648,19 +1660,19 @@ impl JobView {
     /// A button pressed: the option goes to Fleet as the whole pick and the row goes at once.
     pub(super) fn answer_row(&mut self, item: &str, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None, extras: Default::default() });
         self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }
 
     /// Answer in words: what he typed goes as his own words, and what was kept for the box goes.
-    pub(super) fn answer_row_words(&mut self, item: &str, words: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn answer_row_words(&mut self, item: &str, words: String, extras: ipc::AnswerExtras, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
         let words = words.trim().to_string();
         if words.is_empty() {
             return;
         }
         self.keep_words(&format!("waiting:{id}:{item}"), "", cx);
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: None, text: Some(words), mode: None, fixed: None });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: None, text: Some(words), mode: None, fixed: None, extras });
         self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }
 

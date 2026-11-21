@@ -114,6 +114,13 @@ where
             let job = self.operator_started_fix(manifest, commit).await.map_err(Fault::NotDone)?;
             return Ok(Done { started: Some(job), ..Done::default() });
         }
+        if let Some((manifest, number)) = super::reviewing::parts_of(id) {
+            return match doing.pick {
+                super::reviewing::RUN => self.review_run_pressed(manifest, number).await.map(|()| Done::default()).map_err(Fault::NotDone),
+                super::reviewing::NOT_NOW => Ok(Done::default()),
+                other => Err(Fault::NotOffered(format!("{other} is not a pick this item offers"))),
+            };
+        }
         if let Some(manifest) = id.strip_prefix(super::disking::DISK_HOLD) {
             return match doing.pick {
                 super::disking::DROP_THEM => self.disk_dropped(manifest).await.map(|()| Done::default()).map_err(Fault::NotDone),
@@ -130,7 +137,7 @@ where
             }
         }
         if let Some(choice) = choice_of(doing.item, doing.pick) {
-            let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None };
+            let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() };
             return match Arc::clone(self).settle_waiting(said).await {
                 Ok(_) => Ok(Done::default()),
                 Err(refused) => Err(Fault::NotDone(refused.error().message.clone())),

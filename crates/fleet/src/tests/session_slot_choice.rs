@@ -30,6 +30,7 @@ async fn choose(rig: &super::session_host::Rig, id: &SessionId, choice: u32) -> 
             text: None,
             mode: None,
             fixed: None,
+            extras: Default::default(),
         })
         .await
 }
@@ -167,6 +168,7 @@ async fn an_answer_that_is_not_one_of_the_two_choices_is_refused() {
             text: Some("wait".into()),
             mode: None,
             fixed: None,
+            extras: Default::default(),
         })
         .await;
     assert!(words.is_err(), "words are not a choice");

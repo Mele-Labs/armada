@@ -611,6 +611,8 @@ impl Held {
                         Event::ReviewListsChanged(changed) => self.review_lists_changed(changed),
                         Event::SessionChanged(record) => {
                             match self.jobs.iter_mut().find(|held| held.id == record.id) {
+                                // The row this Mac kept of a Job that moved away never stands over the other Mac's, as `list_sessions` has it.
+                                Some(held) if held.mac.is_some() && record.mac.is_none() && crate::move_to_mac::moved(&record) => {}
                                 Some(held) => *held = record,
                                 None => self.jobs.push(record),
                             }
@@ -1615,6 +1617,29 @@ mod tests {
         assert!(!held.watches.contains_key(&gone));
         assert_eq!(held.take_removed(), vec![gone]);
         assert!(held.take_removed().is_empty(), "told once");
+    }
+
+    #[test]
+    fn this_macs_ended_row_of_a_job_that_moved_away_never_stands_over_the_other_macs() {
+        let mut held = Held::new();
+        let mut there = crate::mock::jobs("jobs-many").expect("the fixture decodes").remove(0);
+        there.state = ipc::SessionState::Live;
+        there.mac = Some("mac-air".into());
+        held.fold(vec![Signal::Jobs(vec![there.clone()])]);
+        let changed = |record: SessionRecord| Signal::Stream(StreamMessage::Event(ipc::Delivered { cursor: Cursor::at(1), event: Event::SessionChanged(record) }));
+
+        let mut left = there.clone();
+        left.mac = None;
+        left.state = ipc::SessionState::Ended;
+        left.end_reason = Some(crate::move_to_mac::ENDED_AS.into());
+        held.fold(vec![changed(left)]);
+        assert_eq!(held.jobs, vec![there.clone()], "the row here stood over the other Mac's");
+
+        let mut ended = there.clone();
+        ended.state = ipc::SessionState::Ended;
+        ended.end_reason = Some("closed".into());
+        held.fold(vec![changed(ended.clone())]);
+        assert_eq!(held.jobs, vec![ended], "ended there, it ends here");
     }
 
     #[test]

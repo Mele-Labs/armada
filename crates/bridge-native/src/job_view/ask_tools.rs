@@ -18,7 +18,7 @@ use crate::labels::labelled;
 use crate::look::{Look, Token};
 
 /// The list's heading, and its name to a screen reader.
-const ASK_FOR: &str = "Ask the agent for";
+pub(crate) const ASK_FOR: &str = "Ask the agent for";
 
 /// The heading of API Client's own items.
 const ASK_FOR_API_CLIENT: &str = "Ask the agent for › API Client";
@@ -63,7 +63,7 @@ pub(crate) fn painted(look: &Look) -> Vec<(&'static str, &'static str, gpui::Hsl
 }
 
 /// The list's rows, in the order `ask_tools.toml` lists them, the heading over the first.
-pub(super) fn rows() -> Vec<Row> {
+pub(crate) fn rows() -> Vec<Row> {
     ask_tools()
         .iter()
         .enumerate()
@@ -206,6 +206,27 @@ impl JobView {
         )
         .into_any_element()
     }
+}
+
+/// The + as another box draws it, for a view that is not a Job's: `keyed` puts the act's key in its tooltip, where the
+/// box's scope hears it.
+pub(crate) fn plus_button<T: 'static>(
+    look: &Look,
+    open: bool,
+    keyed: bool,
+    dress: impl FnOnce(gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div>,
+    cx: &Context<T>,
+    press: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    let key = if keyed { key() } else { None };
+    labelled(
+        dress(super::head::icon_frame(look, "ask-for-tool", "plus", open, false))
+            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new("Ask the agent for a sketch, takes, a page").key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+            .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| press(this, window, cx))),
+        Role::Button,
+        "Ask the agent for a tool",
+    )
+    .into_any_element()
 }
 
 #[cfg(test)]
