@@ -1,0 +1,16 @@
+[operations.prioritise_session]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Makes a Job the person's one priority, whose builds a loaded machine runs while other Jobs' wait, or clears it from the Job that holds it"
+notes = """
+`POST /sessions/prioritise`, body `PrioritiseSession`: `session_id`. Answers the `SessionRecord`, with `prioritised` set when the act gave this Job the mark and absent when it took it away.
+
+**At most one Job is prioritised across Fleet.** On a Job that is not prioritised the mark moves to it, off any other; on the Job that holds it the mark is cleared and no Job is prioritised. It is kept in the store, so a Fleet restart keeps it.
+
+**An ended Job is never prioritised.** The store keeps the id when that Job ends, and the row reads it as not prioritised, so ending needs no clearing.
+
+Refused with nothing changed: 409 `fleet.session_not_prioritisable` for an ended Job ("This Job has ended, so it cannot be prioritised."); 422 `fleet.no_such_session`.
+
+Publishes `session.changed` for the Job gaining the mark and for the Job losing it. `agent_access` is `No`: a priority is the person's.
+"""

@@ -167,6 +167,13 @@ fn read_parts(text: &str) -> Vec<PagePart> {
     )
 }
 
+/// Takes a picture that is no longer shown off every window's GPU atlas. gpui keeps a painted `RenderImage`'s texture until
+/// told, so a picture replaced without this stays on the GPU for the run: a tall page 960 points across is 120 MB. Deferred, so no
+/// window is mid-update and every one is reached; a clone still drawn somewhere is uploaded again when next painted.
+pub fn let_go(image: Arc<RenderImage>, cx: &mut App) {
+    cx.defer(move |cx| cx.drop_image(image, None));
+}
+
 /// A PNG as the image gpui paints: BGRA, one frame. `to`: the size in pixels it is drawn at, where it is not the one WebKit
 /// made (the screen's own scale: 2 on a Retina display). A smaller size is resampled down; a larger is not made up.
 pub fn decode(png: &[u8], to: Option<(u32, u32)>) -> Option<Arc<RenderImage>> {

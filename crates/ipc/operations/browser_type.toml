@@ -1,4 +1,5 @@
 [operations.browser_type]
+ask_tool = "browser"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

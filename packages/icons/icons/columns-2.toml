@@ -1,0 +1,7 @@
+[icons.columns-2]
+  means = "A frame split down the middle into two columns: two things side by side"
+  group = "Ask tools"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Takes, the Armada tool a message asks the agent for: its row in the list the message box's + opens and its chip in the words. Never a split of panes, which the panes' own controls draw, and never a diff."
+  notes = "Proposed 19 Nov 2026 for the message box's Ask the agent for list, for the owner to rule on. Takes are options put side by side for him to pick one, and two columns are that. Refused: `scale`, the Judge's, whose reservation refuses any comparison; `split`, a subagent a Session dispatched; `gallery-horizontal`, a strip of pictures to scroll, which reads as a carousel."
