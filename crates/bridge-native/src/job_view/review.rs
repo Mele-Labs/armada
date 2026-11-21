@@ -572,9 +572,10 @@ impl JobView {
                     items.retain(|item| page_of_item(&item.id).is_some());
                     return Group { job: job.to_string(), title: "Operator".into(), state: None, items };
                 }
-                // The shown Job's artifacts of parts that still ask stand with what else waits on him, and the one he opened.
+                // Each Job's artifacts of parts that still ask stand with what else waits on him, and the shown Job's one he
+                // opened: a vote of another Job is picked from the every-Job sheet as from its own.
+                items.extend(self.artifact_items(job, opened.filter(|_| job == first)));
                 if job == first {
-                    items.extend(self.artifact_items(job, opened));
                     // A document he opened is read in the panel, with the item that waits on him for it, else one of its own.
                     if let Some(page) = opened.filter(|page| !items.iter().any(|item| page_of_item(&item.id) == Some(*page))) {
                         items.extend(self.document_item(job, page, cx));
@@ -1032,6 +1033,8 @@ impl JobView {
     fn review_offers_second(&self, item: &Item, ask: Ask, cx: &gpui::App) -> bool {
         match ask {
             Ask::Takes | Ask::Question | Ask::Build => true,
+            // An artifact's parts take his words as a send back of each part that still asks.
+            _ if item.kind == Kind::Artifact => true,
             _ => item.send_back && !item.read && self.item_asks(item, cx),
         }
     }

@@ -42,15 +42,17 @@ pub(super) fn artifact_in(item: &Item) -> Option<&str> {
     item.artifact.as_deref().filter(|_| item.kind == Kind::Artifact)
 }
 
-/// The zoom of the drawing the panel's detail holds in place, with the scene key it draws under. Fresh for each item chosen.
+/// The zoom of the drawing the panel's detail holds in place, with the scene key it draws under, and the drawing part a press
+/// put there in place of the first. Fresh for each item chosen.
 pub(super) struct DetailZoom {
     pub zoom: Zoomer,
     pub held: RefCell<String>,
+    pub part: Option<String>,
 }
 
 impl DetailZoom {
     pub(super) fn new() -> Self {
-        DetailZoom { zoom: Zoomer::default(), held: RefCell::new(String::new()) }
+        DetailZoom { zoom: Zoomer::default(), held: RefCell::new(String::new()), part: None }
     }
 }
 
@@ -301,15 +303,26 @@ impl JobView {
         )
     }
 
-    /// The drawing part the panel zooms in place within an artifact of several parts: its first. The detail has one zoomer, so
-    /// any later drawing part keeps the press that reads it over the app.
+    /// The drawing part the panel zooms in place within an artifact of several parts: the one a press put there, else its first.
+    /// The detail has one zoomer, so a press on another drawing moves the zoom to it; an ask never opens over the app.
     pub(super) fn in_place_drawing(&self, job: &str, artifact: &str) -> Option<String> {
         let artifact = self.artifact_of(job, artifact)?;
         if artifact.parts.len() < 2 {
             return None;
         }
-        let part = artifact.parts.iter().find(|part| matches!(part.content, ipc::PartContent::Drawing { .. }))?;
-        Some(part_key(&artifact.id, &part.id))
+        let drawings = artifact.parts.iter().filter(|part| matches!(part.content, ipc::PartContent::Drawing { .. }));
+        let pressed = self.detail_zoom.as_ref().and_then(|detail| detail.part.clone());
+        let mut keys = drawings.map(|part| part_key(&artifact.id, &part.id));
+        let first = keys.next()?;
+        Some(pressed.filter(|key| *key == first || keys.any(|other| other == *key)).unwrap_or(first))
+    }
+
+    /// A press on a drawing part the detail does not zoom: it takes the zoomer, fitted, where it stands in the body.
+    pub(super) fn zoom_drawing_in_place(&mut self, key: &str, cx: &mut Context<Self>) {
+        let Some(detail) = self.detail_zoom.as_mut() else { return };
+        detail.part = Some(key.to_string());
+        detail.zoom = Zoomer::default();
+        cx.notify();
     }
 
     /// A drawing part zoomed where it stands in the panel's parts: the column's width, as tall as its shape asks up to `tall`.
@@ -722,6 +735,7 @@ mod tests {
             let at = bounds_of(cx, if name.starts_with("Pick") { Role::RadioButton } else { Role::Button }, &name).center();
             cx.simulate_click(at, Modifiers::none());
             redraw(cx);
+            assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none()), "a press on {name} opens nothing over the app");
             cx.simulate_keystrokes("escape");
             redraw(cx);
             if view.read_with(cx, |view, _| view.review_open()) {
@@ -780,6 +794,14 @@ mod tests {
         assert_eq!(words.left(), takes.left(), "prose and pictures share a left edge");
     }
 
+    /// The artifact opened in the panel with its takes taken out, so it asks as a drawing and the sheet draws its parts.
+    fn opened_drawings<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| !matches!(part.content, ipc::PartContent::Takes { .. })), cx));
+        redraw(cx);
+        (view, cx)
+    }
+
     /// The artifact read in the panel with its drawing part in view, and that drawing's bounds.
     fn drawing_in_view(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> Bounds<gpui::Pixels> {
         let drawing = bounds_of(cx, Role::Group, "Drawing");
@@ -795,10 +817,10 @@ mod tests {
 
     #[gpui::test]
     fn a_press_on_a_drawing_among_parts_leaves_it_in_place_with_the_panel_open(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         let drawing = drawing_in_view(&view, cx);
-        let (column, panel) = (bounds_of(cx, Role::Group, "Takes"), view.read_with(cx, |view, _| view.sheet.get().height));
-        assert_eq!(drawing.size.width, column.size.width, "the drawing takes the column's width: {drawing:?} beside {column:?}");
+        let (column, panel) = (bounds_of(cx, Role::Group, "Words"), view.read_with(cx, |view, _| view.sheet.get().height));
+        assert!(drawing.left() == column.left() && drawing.size.width >= column.size.width, "the drawing takes the column's width: {drawing:?} beside {column:?}");
         assert!(drawing.size.height <= panel * TALL_SHARE + px(1.), "and no more than its share of the panel's height: {drawing:?}");
         cx.simulate_click(drawing.center(), Modifiers::none());
         redraw(cx);
@@ -811,7 +833,7 @@ mod tests {
 
     #[gpui::test]
     fn command_and_the_wheel_or_a_pinch_zoom_the_drawing_in_place_and_a_plain_wheel_scrolls_past_it(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         let at = drawing_in_view(&view, cx).center();
         let wheel = |modifiers| gpui::ScrollEvent { position: at, delta: gpui::ScrollDelta::Pixels(gpui::point(px(0.), px(120.))), modifiers, ..Default::default() };
         let page = view.read_with(cx, |view, _| view.body_scroll.offset());
@@ -840,7 +862,7 @@ mod tests {
 
     #[gpui::test]
     fn f_reads_no_drawing_over_the_app_and_no_see_larger_button_is_drawn(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = opened_drawings(cx);
         drawing_in_view(&view, cx);
         assert!(!drawn(cx, Role::Button, "See larger"), "an ask has no full-window viewer");
         cx.simulate_keystrokes("f");
@@ -849,8 +871,8 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_second_drawing_part_still_opens_over_the_app_on_a_press(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+    fn a_press_on_a_second_drawing_part_zooms_it_in_the_body_and_opens_nothing_over_the_app(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened_drawings(cx);
         view.update(cx, |view, cx| {
             view.mock_parts_tuned(
                 ID,
@@ -873,7 +895,10 @@ mod tests {
         cx.simulate_click(second, Modifiers::none());
         redraw(cx);
         let again = super::super::parts_card::part_key(ID, "flow-again");
-        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), Some(again), "a press on the second opens it over the app");
+        assert_eq!(view.read_with(cx, |view, _| view.viewing_drawing().map(str::to_string)), None, "an ask opens nothing over the app");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and the panel stays");
+        assert_eq!(view.read_with(cx, |view, _| view.in_place_drawing(JOB, ID)), Some(again), "the second takes the zoom where it stands in the body");
+        assert!(drawing_in_view(&view, cx).size.width > px(0.), "drawn zoomable in place");
     }
 
     #[gpui::test]

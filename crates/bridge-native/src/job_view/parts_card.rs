@@ -1357,12 +1357,14 @@ impl JobView {
         let text = take.scene.as_deref()?;
         let held = format!("part:{}:{key}:{at}:{}:column", c.job, text.len());
         let picture = self.scene_column(&held, text, self.tall_most(c), c.look, c.sheet)?;
-        Some(self.take_press(key, at, take, picture, cx))
+        Some(self.take_press(c, key, at, take, picture, cx))
     }
 
-    /// A take's picture made a button: a press reads it large over the app, and a press beside it still chooses the take.
-    fn take_press(&self, key: &str, at: usize, take: &PartTake, picture: AnyElement, cx: &Context<Self>) -> AnyElement {
+    /// A take's picture made a button: a press reads it large over the app, and a press beside it still chooses the take. In the
+    /// review panel the press chooses the take, as an ask never opens over the app.
+    fn take_press(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, picture: AnyElement, cx: &Context<Self>) -> AnyElement {
         let press = key.to_string();
+        let sheet = c.sheet.then(|| c.job.to_string());
         labelled(
             div()
                 .id(SharedString::from(format!("take-picture:{key}:{at}")))
@@ -1371,7 +1373,10 @@ impl JobView {
                 .child(picture)
                 .on_click(cx.listener(move |this, _, window, cx| {
                     cx.stop_propagation();
-                    this.open_take(&press, at, window, cx);
+                    match &sheet {
+                        Some(job) => this.as_job(job, |this| this.choose_take(&press, at, cx)),
+                        None => this.open_take(&press, at, window, cx),
+                    }
                 })),
             Role::Button,
             format!("Picture: {}", pick_mark(&take.title).0),
@@ -1614,16 +1619,24 @@ impl JobView {
 
     /// The drawing read large in the artifact's tab: the width of the column, as tall as its own shape asks.
     fn drawing_large(&self, c: &Ctx, key: &str, held: &str, scene: &str, cx: &Context<Self>) -> AnyElement {
-        // In the review panel the artifact's first drawing zooms where it stands; a later one opens over the app on a press.
+        // In the review panel one drawing zooms where it stands, the first until another is pressed; a press on another moves the
+        // zoom to it, as an ask never opens over the app. Outside the panel a press reads it over the app.
         if c.sheet && self.in_place_drawing(&c.job, c.id).as_deref() == Some(key) {
             if let Some(drawn) = self.drawing_in_place(key, &format!("{held}:column"), scene, self.part_room(c), self.tall_most(c), c.look, cx) {
                 return drawn;
             }
         }
         let Some(drawn) = self.scene_column(&format!("{held}:column"), scene, self.tall_most(c), c.look, c.sheet) else { return div().into_any_element() };
-        let press = key.to_string();
+        let (press, sheet) = (key.to_string(), c.sheet);
         labelled(
-            div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| this.open_drawing(&press, window, cx))),
+            div().id(SharedString::from(format!("drawing:{key}"))).w_full().cursor_pointer().child(drawn).on_click(cx.listener(move |this, _, window, cx| {
+                cx.stop_propagation();
+                if sheet {
+                    this.zoom_drawing_in_place(&press, cx);
+                } else {
+                    this.open_drawing(&press, window, cx);
+                }
+            })),
             Role::Button,
             "Drawing",
         )
@@ -1964,7 +1977,7 @@ mod tests {
     use super::*;
 
     fn part(id: &str, content: PartContent, asks: bool, state: PartState) -> ArtifactPart {
-        ArtifactPart { id: id.into(), content, asks, state, revision: 1, drawn: format!("{id}-1"), added: ipc::Instant::carried("2026-11-14T10:00:00Z"), answer: None }
+        ArtifactPart { id: id.into(), content, asks, state, revision: 1, drawn: format!("{id}-1"), added: ipc::Instant::carried("2026-11-14T10:00:00Z"), answer: None, question: None }
     }
 
     fn words(id: &str, asks: bool, state: PartState) -> ArtifactPart {

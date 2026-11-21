@@ -43,7 +43,7 @@ fn flow() -> String {
 }
 
 fn part(id: &str, content: PartContent, asks: bool, minute: u32) -> ArtifactPart {
-    ArtifactPart { id: id.into(), content, asks, state: PartState::Open, revision: 1, drawn: format!("{id}-1"), added: at(minute), answer: None }
+    ArtifactPart { id: id.into(), content, asks, state: PartState::Open, revision: 1, drawn: format!("{id}-1"), added: at(minute), answer: None, question: None }
 }
 
 fn take(id: &str, title: &str, scene: String) -> PartTake {
