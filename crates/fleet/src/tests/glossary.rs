@@ -70,7 +70,7 @@ fn term(word: &str, meaning: &str, not: &[&str]) -> GlossaryTermWrite {
 }
 
 fn writing(id: &SessionId, terms: Vec<GlossaryTermWrite>) -> WriteFeatureSections {
-    WriteFeatureSections { feature: VOTING.to_string(), sections: Vec::new(), glossary: terms, project: None, session_id: Some(id.clone()) }
+    WriteFeatureSections { feature: VOTING.to_string(), sections: Vec::new(), glossary: terms, gists: Vec::new(), project: None, session_id: Some(id.clone()) }
 }
 
 #[tokio::test]

@@ -467,7 +467,7 @@ async fn withdraw_document_refuses_a_page_the_job_does_not_hold_a_name_that_fits
     // Two pages with one title are two Documents for that name.
     let twin = work.path().join(".armada/documents/twin.html");
     written(&rig, &twin, "again", "toolu_3").await;
-    revision_kept(&rig, &id, &twin.to_string_lossy(), "1").await;
+    revision_kept(&rig, &id, &rig.fleet.page_home(id.as_str(), &twin.to_string_lossy()), "1").await;
     let Err(Refusal::Unacceptable(many)) = rig.fleet.withdraw_document(None, withdraw(&id, "Lease expiry")).await else {
         panic!("a title two Documents carry is refused")
     };

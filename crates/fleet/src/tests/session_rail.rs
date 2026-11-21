@@ -51,6 +51,7 @@ pub(super) fn step(label: &str) -> RailStep {
         gate: core_model::StepGate::None,
         criteria: Vec::new(),
         fit: None,
+        tabs: Vec::new(),
     }
 }
 
@@ -160,7 +161,7 @@ pub(super) const REQUEST: &str = "the log reader drops the last line of every fi
 
 pub(super) fn workflow() -> config::ResolvedWorkflow {
     let text = "version: 1\nworkflow_id: rail\nname: Rail\nsteps:\n  \
-        - id: plan\n    label: \"Plan the change\"\n    instructions: \"Record the plan before editing.\"\n    evidence: {submitted: {type: plan}}\n    \
+        - id: plan\n    label: \"Plan the change\"\n    instructions: \"Record the plan before editing.\"\n    tabs: [plan, qa, now]\n    evidence: {submitted: {type: plan}}\n    \
         mechanical_checks:\n      - { type: plan_recorded, min_tasks: 1 }\n    delivers: false\n    advance_gate: auto\n  \
         - id: implement\n    label: \"Implement\"\n    follows_plan: true\n    retry_limit: 2\n    \
         evidence: {submitted: {type: diff}}\n    mechanical_checks:\n      - { type: diff_nonempty }\n    delivers: false\n    \
@@ -425,7 +426,8 @@ fn a_refactor_shaped_job_enters_its_delivering_step_when_the_page_is_approved_be
     use core_model::StepGate::DocumentApproved;
     let steps = [recording("Plan"), gated("Implement", DocumentApproved), delivers("Handoff")];
     assert_eq!(at(&steps, approved()), Some(1), "approved, nothing pushed: implement");
-    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(1), "a push does not end a step held on a page");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(2), "a push is work for the step after, so the Job moves on");
+    assert_eq!(rail::passed_unapproved(&steps, &Facts { pushed: true, ..approved() }, Some(2)), vec![1], "and the page it never approved is flagged");
     assert_eq!(at(&steps, Facts { document_approved: true, ..approved() }), Some(2), "the page approved: handoff, before any push");
     assert_eq!(at(&steps, Facts { document_approved: true, pushed: true, landed: true, ..approved() }), None, "merged, and nothing follows");
 }
@@ -441,4 +443,89 @@ fn a_step_gated_on_a_sketch_or_green_checks_holds_until_that_fact_alone() {
     assert_eq!(at(&steps, sketched), Some(2), "the sketch approved: verify holds");
     assert_eq!(at(&steps, Facts { pushed: true, committed: true, ..sketched }), Some(2), "a push and a commit do not pass it");
     assert_eq!(at(&steps, Facts { checks_green: true, ..sketched }), Some(3), "Fleet's Checks passed: the step after");
+}
+
+// ---- Work ahead of a step ----
+
+/// A step gated `you_approved`, as `steps_of` reads it: his Approve is also what it lists as its end.
+fn pressed(label: &str) -> RailStep {
+    RailStep { gate: core_model::StepGate::YouApproved, ends_on: vec![StepEnd::YouApproved], ..step(label) }
+}
+
+/// **A push or a pull request seen while a step waits on his Approve moves the Job on and flags the step.**
+/// Propose stood from the plan to the merge on 41 Jobs that held a pull request (20 Nov 2026).
+#[test]
+fn work_ahead_of_an_unapproved_plan_moves_the_step_on_and_flags_the_passed_one() {
+    let steps = [recording("Propose"), RailStep { walks: true, gate: core_model::StepGate::WalkApproved, ..step("Walk") }, delivers("Deliver")];
+    let recorded = Facts { plan_recorded: true, ..Facts::default() };
+    assert_eq!(at(&steps, recorded), Some(0), "nothing ahead: the plan waits on him");
+    for ahead in [Facts { pushed: true, ..recorded }, Facts { pushed: true, pr_opened: true, ..recorded }, Facts { landed: true, pushed: true, ..recorded }] {
+        let now = at(&steps, ahead);
+        assert_eq!(now, if ahead.landed { None } else { Some(2) }, "{ahead:?}");
+        assert_eq!(rail::passed_unapproved(&steps, &ahead, now), vec![0], "Propose is passed without his Approve: {ahead:?}");
+    }
+}
+
+#[test]
+fn work_ahead_still_stops_at_a_walk_the_plan_expects() {
+    let steps = [recording("Propose"), RailStep { walks: true, gate: core_model::StepGate::WalkApproved, ..step("Walk") }, delivers("Deliver")];
+    let ahead = Facts { plan_recorded: true, pushed: true, plan_expects_walk: true, ..Facts::default() };
+    assert_eq!(at(&steps, ahead), Some(1), "a push never passes a walk: the Job stands on it");
+    assert_eq!(rail::passed_unapproved(&steps, &ahead, Some(1)), vec![0], "though the plan it never approved is flagged");
+}
+
+#[test]
+fn an_approved_step_is_not_flagged_and_work_with_nothing_to_deliver_to_flags_nothing() {
+    let steps = [recording("Propose"), follows("Build"), delivers("Deliver")];
+    let pushed = Facts { pushed: true, ..approved() };
+    assert_eq!(at(&steps, pushed), Some(2));
+    assert!(rail::passed_unapproved(&steps, &pushed, Some(2)).is_empty(), "he approved the plan");
+    let no_delivery = [recording("Frame"), fitted("Build", Fit::Edited), step("Write up")];
+    let ahead = Facts { plan_recorded: true, pushed: true, ..Facts::default() };
+    assert_eq!(at(&no_delivery, ahead), Some(0), "no later step delivers, so a push belongs to none");
+    assert!(rail::passed_unapproved(&no_delivery, &ahead, Some(0)).is_empty());
+}
+
+#[test]
+fn a_step_gated_on_his_approve_of_an_item_is_flagged_when_work_passes_it_and_not_when_he_pressed() {
+    let steps = [recording("Plan"), pressed("Sign off"), delivers("Deliver")];
+    let ahead = Facts { pushed: true, ..approved() };
+    assert_eq!(at(&steps, ahead), Some(2));
+    assert_eq!(rail::passed_unapproved(&steps, &ahead, Some(2)), vec![1]);
+    let pressed = Facts { you_approved: crate::rail_lifecycle::StepBits::of([1]), ..ahead };
+    assert!(rail::passed_unapproved(&steps, &pressed, Some(2)).is_empty(), "his press is the fact");
+}
+
+/// **Only his press ends a step that waits on it**: the agent saying it is done is no fact the rail has.
+#[test]
+fn the_agents_word_does_not_end_a_step_that_waits_on_his_press_and_his_press_does() {
+    let steps = [recording("Plan"), pressed("Sign off"), step("Close out")];
+    let said = Facts { replied: true, edited: true, committed: true, checked: true, ..approved() };
+    assert_eq!(at(&steps, said), Some(1), "words, edits and checks do not end it");
+    let pressed = Facts { you_approved: crate::rail_lifecycle::StepBits::of([1]), ..said };
+    assert_eq!(at(&steps, pressed), Some(2), "his Approve does");
+}
+
+// ---- The last step that lists nothing ----
+
+#[test]
+fn a_last_step_that_lists_nothing_is_entered_once_the_steps_before_it_pass_and_ends_when_the_job_does() {
+    let steps = [recording("Plan"), follows("Do"), step("Close out")];
+    let working = Facts { tasks_open: true, ..approved() };
+    assert_eq!(at(&steps, working), Some(1), "tasks open: the step before it");
+    assert_eq!(at(&steps, approved()), Some(2), "every step before it passed: the Job stands on it");
+    assert_eq!(rail_ends::ends_of(&steps, 2), vec![rail_ends::End::JobEnds]);
+    assert_eq!(rail_ends::ends_when(&steps, 2).as_deref(), Some("the Job ends"));
+}
+
+#[test]
+fn a_middle_step_nothing_ends_is_warned_of_and_one_a_later_step_enters_or_a_gate_ends_is_not() {
+    let nothing = [recording("Plan"), step("Free"), step("Close out")];
+    assert!(crate::workflow_page::warning_of(&nothing, 1).is_some_and(|said| said.contains("passes through it at once")), "a middle step with nothing to end it");
+    assert!(crate::workflow_page::warning_of(&nothing, 2).is_none(), "the last ends with the Job");
+    assert!(crate::workflow_page::warning_of(&nothing, 0).is_none(), "the plan's approval ends the first");
+    let entered = [recording("Plan"), step("Free"), fitted("Build", Fit::Edited)];
+    assert!(crate::workflow_page::warning_of(&entered, 1).is_none(), "the step after it is entered on a fact Fleet sees");
+    let gated_step = [recording("Plan"), pressed("Sign off"), step("Close out")];
+    assert!(crate::workflow_page::warning_of(&gated_step, 1).is_none(), "his press ends it");
 }

@@ -1,7 +1,7 @@
 //! The project switcher, take B (picked 10 Nov): the trigger reads the project with its repositories
 //! muted beside it, and its popover is two panes. On the left Find, All, the projects, what is in no
 //! project and New project; on the right the row the keys are on, its members and what it holds, with
-//! Switch, Settings and Members. ↑↓ move, Enter switches, ⌘, opens Settings, Esc shuts.
+//! Switch and Edit (Settings for a lone repository). ↑↓ move, Enter switches, ⌘, opens Settings, Esc shuts.
 //!
 //! The projects are Fleet's (`GET /projects`, kept current by `projects.changed`), read through
 //! [`super::face::projects_of`]; a walk's scene reads the same from the mock. Fleet has no route that
@@ -407,7 +407,7 @@ impl TitleBar {
                 Role::Button,
                 "Switch",
             ))
-            .when(pick != Pick::All, |acts| {
+            .when(matches!(pick, Pick::Lone(_)), |acts| {
                 acts.child(labelled(
                     Btn::new("pick-settings", "Settings", Weight::Secondary)
                         .icon("sliders-horizontal")
@@ -419,12 +419,12 @@ impl TitleBar {
             })
             .when_some(if let Pick::Project(at) = pick { Some(at) } else { None }, |acts, at| {
                 acts.child(labelled(
-                    Btn::new("members", "Members", Weight::Secondary)
+                    Btn::new("edit", "Edit", Weight::Secondary)
                         .icon("pencil")
                         .draw(look, cx)
                         .on_click(cx.listener(move |this, _, window, cx| this.leave_with(Asked::ProjectMembers(at), window, cx))),
                     Role::Button,
-                    "Members",
+                    "Edit",
                 ))
             });
         labelled(

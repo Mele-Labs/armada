@@ -1,18 +1,24 @@
 //! Kit, as a place of its own: the owner's Claude Code setup, kind by kind. A rail of kinds, the pieces of
 //! one kind grouped by where they come from, and the piece picked with what Armada can do to it.
 //!
-//! What is read is Fleet's own: `get_kit_inventory`, `get_kit_servers` and settings.json's skills-off map.
-//! `model.rs` works out what each pane draws from them and nothing there touches the screen.
+//! What is read is Fleet's own: `get_kit_inventory`, `get_kit_servers`, settings.json's skills-off map, and
+//! `get_kit_link` for what crosses to his other Macs. `model.rs` and `sync.rs` work out what each pane draws from
+//! them and nothing there touches the screen.
 
 mod add;
 mod file;
 mod mock;
 mod model;
+mod sync;
+mod sync_view;
 mod view;
 pub mod walk;
 pub(crate) mod wire;
 
 pub(crate) use model::source_path;
+// The Account page's Kit row reads where Kit stands from here; nothing outside Kit calls it yet.
+#[allow(unused_imports)]
+pub use sync::{sync_status, SyncStatus};
 
 use std::collections::HashMap;
 
@@ -20,7 +26,7 @@ use gpui::{
     prelude::*, Focusable as _, App, Context, Entity, EventEmitter, FocusHandle, KeyDownEvent, ListAlignment, ListState, SharedString, Subscription, Task, Window,
 };
 use gpui_component::input::{InputEvent, InputState};
-use ipc::{KitInventory, KitPieceKind, KitServerRow, SettingsList};
+use ipc::{KitInventory, KitKeep, KitLink, KitPieceKind, KitServerRow, SettingsList};
 
 use crate::fleet::FleetConnection;
 use crate::keymap::Act;
@@ -29,6 +35,7 @@ use crate::settings::wire::Refused;
 use crate::titlebar::{self, Asked, AskedSink};
 use add::Add;
 use model::{Gone, Kind, Line, Listed, Read, Removal, Row, Scope, KINDS};
+use sync::Cross;
 
 /// The kinds as the palette lists them: the word that opens Kit on one, its label and its glyph.
 pub fn kinds() -> impl Iterator<Item = (&'static str, &'static str, &'static str)> {
@@ -44,6 +51,33 @@ pub enum Pane {
 }
 
 const PANES: [Pane; 3] = [Pane::Rail, Pane::List, Pane::Detail];
+
+/// A control Tab stops on past the three panes: the bar's link to Settings, the picked row's own switch over the
+/// link, and each side of a clash. Space or Enter presses it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Stop {
+    Account,
+    CrossItem,
+    Keep { mac: String, keep: KitKeep },
+}
+
+/// Where Tab can put the keys.
+#[derive(Clone, Debug, PartialEq, Eq)]
+enum Place {
+    Pane(Pane),
+    Stop(Stop),
+}
+
+/// A clash's two sides, each read against the other, by Mac.
+pub(super) struct Compared {
+    pub mac: String,
+    /// The other Mac's name, as its side names it.
+    pub name: String,
+    pub here_at: Option<ipc::Instant>,
+    pub there_at: Option<ipc::Instant>,
+    pub here: Vec<(sync::Tint, String)>,
+    pub there: Vec<(sync::Tint, String)>,
+}
 
 /// Where Kit reads from.
 enum Source {
@@ -76,6 +110,20 @@ pub struct KitScreen {
     servers: Vec<KitServerRow>,
     settings: Option<SettingsList>,
     pub kind: Kind,
+    /// Kit over the Mac link: each kind's switch, and each row against the linked Macs.
+    link: Load<KitLink>,
+    /// The `kit.changed` count the link was last read at.
+    link_read_at: u64,
+    /// Whether Kit is in front, so a `kit.changed` reads the link again.
+    shown: bool,
+    /// How each listed row stands over the link, by its id.
+    standings: HashMap<String, sync::Standing>,
+    /// The picked row's clashes, read side against side when the link was read.
+    compared: Vec<Compared>,
+    /// The control past the panes that has the keys, where one does.
+    pub stop: Option<Stop>,
+    /// One handle for each stop, in [`KitScreen::stops`]' order, made when Tab first reaches it.
+    stop_handles: Vec<FocusHandle>,
     selected: Option<String>,
     /// Pieces taken out, until he leaves Kit.
     removed: Vec<Gone>,
@@ -105,7 +153,18 @@ const KEEP_FILTER: &str = "kit:filter";
 
 impl KitScreen {
     pub fn live(fleet: &Entity<FleetConnection>, window: &mut Window, cx: &mut Context<Self>) -> Self {
-        Self::new(Source::Live(fleet.clone()), window, cx)
+        let mut this = Self::new(Source::Live(fleet.clone()), window, cx);
+        // `kit.changed`, folded: the link is read again while Kit is in front.
+        this._subs.push(cx.observe(fleet, |this, fleet, cx| {
+            let moved = fleet.read(cx).held().kit_moved;
+            if moved != this.link_read_at {
+                this.link_read_at = moved;
+                if this.shown {
+                    this.read_link(cx);
+                }
+            }
+        }));
+        this
     }
 
     /// On the mock Fleet in `mock.rs`, with one piece already removed.
@@ -114,6 +173,14 @@ impl KitScreen {
         let gone = kit.removed_first();
         let mut this = Self::new(Source::Mock(Box::new(kit)), window, cx);
         this.removed.push(gone);
+        this.read_mock(cx);
+        this
+    }
+
+    /// On the mock Fleet, with Kit over the Mac link standing as `linked` says.
+    #[cfg(test)]
+    fn mock_linked(linked: mock::Linked, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::new(Source::Mock(Box::new(mock::MockKit::linked(linked))), window, cx);
         this.read_mock(cx);
         this
     }
@@ -148,6 +215,13 @@ impl KitScreen {
             servers: Vec::new(),
             settings: None,
             kind: Kind::Skills,
+            link: Load::Reading,
+            link_read_at: 0,
+            shown: false,
+            standings: HashMap::new(),
+            compared: Vec::new(),
+            stop: None,
+            stop_handles: Vec::new(),
             selected: None,
             removed: Vec::new(),
             listed: Listed::default(),
@@ -192,6 +266,7 @@ impl KitScreen {
         if let Source::Mock(kit) = &self.source {
             self.inventory = Load::Read(kit.inventory.clone());
             self.servers = kit.servers.clone();
+            self.link = Load::Read(kit.link.clone());
             self.settings = None;
         }
         self.relist(cx);
@@ -225,6 +300,7 @@ impl KitScreen {
         if self.editing.is_none() {
             self.files.clear();
         }
+        self.read_link(cx);
         let inventory = wire::inventory(port, cx);
         let settings = wire::settings(port, cx);
         let manifest = self.scope.repositories.first().cloned();
@@ -258,6 +334,26 @@ impl KitScreen {
         cx.notify();
     }
 
+    /// Read `get_kit_link`. A read that failed keeps what was read before, where there was one.
+    fn read_link(&mut self, cx: &mut Context<Self>) {
+        let Some(port) = self.port(cx) else { return };
+        let ask = wire::link(port, cx);
+        self.work.insert(
+            "link",
+            cx.spawn(async move |this, cx| {
+                let answer = ask.await;
+                let _ = this.update(cx, |this, cx| {
+                    match answer {
+                        Ok(link) => this.link = Load::Read(link),
+                        Err(why) if !matches!(this.link, Load::Read(_)) => this.link = Load::Failed(why.said),
+                        Err(_) => {}
+                    }
+                    this.relist(cx);
+                });
+            }),
+        );
+    }
+
     /// The title bar moved to another project or repository: the servers are read again, in its Manifest.
     fn scope_moved(&mut self, cx: &mut Context<Self>) {
         if self.is_mock() {
@@ -275,6 +371,11 @@ impl KitScreen {
             Load::Read(inventory) => model::read_kind(self.kind, inventory, &self.servers),
             _ => Read::Rows(Vec::new()),
         };
+        // What is on a linked Mac and not here joins his own group.
+        if let (Load::Read(link), Read::Rows(rows)) = (&self.link, &mut self.read) {
+            let there = sync::elsewhere(link, self.kind, rows);
+            rows.extend(there);
+        }
         let query = self.filter.read(cx).value().to_string();
         let gone: Vec<Gone> = self.removed.iter().filter(|one| one.row.kind == self.kind).cloned().collect();
         self.listed = match &self.read {
@@ -285,9 +386,48 @@ impl KitScreen {
         if !self.listed.shown.iter().any(|one| Some(&one.row.id) == self.selected.as_ref()) {
             self.selected = self.listed.shown.first().map(|one| one.row.id.clone());
         }
+        self.standings = match (&self.link, &self.read) {
+            (Load::Read(link), Read::Rows(rows)) => rows
+                .iter()
+                .filter_map(|row| {
+                    let standing = match &row.elsewhere {
+                        Some(macs) => Some(sync::Standing::OnlyThere(macs.clone())),
+                        None => sync::link_row(link, row).and_then(|one| sync::standing(link, one)),
+                    };
+                    standing.map(|standing| (row.id.clone(), standing))
+                })
+                .collect(),
+            _ => HashMap::new(),
+        };
+        self.compare_picked();
         self.leave_edit_of_another();
         self.want_file(cx);
         cx.notify();
+    }
+
+    /// The picked row's clashes, each side read against the other.
+    fn compare_picked(&mut self) {
+        self.compared = match (&self.link, self.picked()) {
+            (Load::Read(link), Some(shown)) if shown.gone.is_none() => sync::link_row(link, &shown.row)
+                .map(|one| {
+                    sync::clashes(one)
+                        .into_iter()
+                        .filter_map(|against| {
+                            let (here, there) = (against.here.as_ref()?, against.there.as_ref()?);
+                            Some(Compared {
+                                mac: against.mac.clone(),
+                                name: there.mac_name.clone(),
+                                here_at: here.changed_at.clone(),
+                                there_at: there.changed_at.clone(),
+                                here: sync::compared(&here.text, &there.text),
+                                there: sync::compared(&there.text, &here.text),
+                            })
+                        })
+                        .collect()
+                })
+                .unwrap_or_default(),
+            _ => Vec::new(),
+        };
     }
 
     // ---- what is picked ----------------------------------------------------------------------
@@ -320,6 +460,7 @@ impl KitScreen {
     fn pick(&mut self, id: String, cx: &mut Context<Self>) {
         self.selected = Some(id);
         self.refused = None;
+        self.compare_picked();
         self.leave_edit_of_another();
         self.want_file(cx);
         if let Some(at) = self.picked_at() {
@@ -361,21 +502,91 @@ impl KitScreen {
 
     fn focus(&mut self, pane: Pane, window: &mut Window, cx: &mut Context<Self>) {
         self.pane = pane;
+        self.stop = None;
         let handle = &self.panes[PANES.iter().position(|one| *one == pane).unwrap_or(1)];
         window.focus(handle, cx);
         cx.notify();
     }
 
+    /// The stops drawn now, in Tab's order: the bar's link first, then the picked row's switch, which comes after the
+    /// list, and its clash's buttons, which come after the read pane.
+    pub(super) fn stops(&self) -> Vec<Stop> {
+        let mut stops = Vec::new();
+        if let Load::Read(link) = &self.link {
+            if link.macs.is_empty() {
+                stops.push(Stop::Account);
+            }
+            if self.picked().is_some_and(|one| one.gone.is_none() && sync::row_switchable(&one.row) && sync::refusal(link, &one.row).is_none()) {
+                stops.push(Stop::CrossItem);
+            }
+        }
+        for one in &self.compared {
+            stops.push(Stop::Keep { mac: one.mac.clone(), keep: KitKeep::Here });
+            stops.push(Stop::Keep { mac: one.mac.clone(), keep: KitKeep::There });
+        }
+        stops
+    }
+
+    /// The handle a stop's control tracks, where Tab has reached it.
+    pub(super) fn stop_handle(&self, stop: &Stop) -> Option<&FocusHandle> {
+        self.stops().iter().position(|one| one == stop).and_then(|at| self.stop_handles.get(at))
+    }
+
+    fn places(&self) -> Vec<Place> {
+        let stops = self.stops();
+        let row = stops.contains(&Stop::CrossItem).then_some(Place::Stop(Stop::CrossItem));
+        let (before, after): (Vec<Stop>, Vec<Stop>) = stops.into_iter().filter(|stop| *stop != Stop::CrossItem).partition(|stop| *stop == Stop::Account);
+        let panes = [Place::Pane(Pane::Rail), Place::Pane(Pane::List)].into_iter().chain(row).chain([Place::Pane(Pane::Detail)]);
+        before.into_iter().map(Place::Stop).chain(panes).chain(after.into_iter().map(Place::Stop)).collect()
+    }
+
     fn next_pane(&mut self, by: isize, window: &mut Window, cx: &mut Context<Self>) {
-        let at = PANES.iter().position(|one| *one == self.pane).unwrap_or(1) as isize;
-        let next = (at + by).rem_euclid(PANES.len() as isize) as usize;
-        self.focus(PANES[next], window, cx);
+        let places = self.places();
+        let now = match &self.stop {
+            Some(stop) => Place::Stop(stop.clone()),
+            None => Place::Pane(self.pane),
+        };
+        let at = places.iter().position(|one| *one == now).unwrap_or(2) as isize;
+        match places[(at + by).rem_euclid(places.len() as isize) as usize].clone() {
+            Place::Pane(pane) => self.focus(pane, window, cx),
+            Place::Stop(stop) => self.focus_stop(stop, window, cx),
+        }
+    }
+
+    fn focus_stop(&mut self, stop: Stop, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(at) = self.stops().iter().position(|one| *one == stop) else { return };
+        while self.stop_handles.len() <= at {
+            self.stop_handles.push(cx.focus_handle());
+        }
+        match stop {
+            Stop::Account => {}
+            Stop::CrossItem => self.pane = Pane::List,
+            Stop::Keep { .. } => self.pane = Pane::Detail,
+        }
+        window.focus(&self.stop_handles[at], cx);
+        self.stop = Some(stop);
+        cx.notify();
+    }
+
+    /// Space or Enter on the stop that has the keys.
+    fn press_stop(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        match self.stop.clone() {
+            Some(Stop::Account) => self.settings_page("fleet:account", cx),
+            Some(Stop::CrossItem) => {
+                if let Some(id) = self.selected.clone() {
+                    self.cross_row(&id, cx);
+                }
+            }
+            Some(Stop::Keep { mac, keep }) => self.settle(mac, keep, window, cx),
+            None => {}
+        }
     }
 
     // ---- entering and leaving ----------------------------------------------------------------
 
     /// Brought to the front: the keys go to the list, and Fleet is read again.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.shown = true;
         self.focus(Pane::List, window, cx);
         if self.bar.is_none() {
             if let Some(bar) = titlebar::live(cx) {
@@ -387,6 +598,8 @@ impl KitScreen {
 
     /// Another place in front: what he removed stops being offered back.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
+        self.shown = false;
+        self.stop = None;
         self.removed.clear();
         self.editing = None;
         self.moved = None;
@@ -617,6 +830,103 @@ impl KitScreen {
         );
     }
 
+    // ---- over the Mac link --------------------------------------------------------------------
+
+    /// A task that takes Fleet's answer about the link.
+    fn hold_link(&mut self, key: &'static str, answer: Task<Result<KitLink, Refused>>, cx: &mut Context<Self>) {
+        self.work.insert(
+            key,
+            cx.spawn(async move |this, cx| {
+                let answer = answer.await;
+                let _ = this.update(cx, |this, cx| match answer {
+                    Ok(link) => {
+                        this.link = Load::Read(link);
+                        this.relist(cx);
+                    }
+                    Err(why) => this.refuse(why.said, cx),
+                });
+            }),
+        );
+    }
+
+    /// The rail's switch over the link: from some or off, the kind on; from on, everything of the kind off.
+    pub(super) fn cross_kind(&mut self, kind: Kind, cx: &mut Context<Self>) {
+        let Load::Read(link) = &self.link else { return };
+        let sent = sync::rail_press(link, kind);
+        self.send_crosses(sent, cx);
+    }
+
+    /// A row's own switch over the link, `id` naming the row in the kind shown.
+    pub(super) fn cross_row(&mut self, id: &str, cx: &mut Context<Self>) {
+        let (Load::Read(link), Read::Rows(rows)) = (&self.link, &self.read) else { return };
+        let Some(row) = rows.iter().find(|row| row.id == id) else { return };
+        let sent = sync::row_press(link, row, rows);
+        self.send_crosses(sent, cx);
+    }
+
+    /// The calls a switch sends, one after another, each once the one before was taken. A refusal stops there, says
+    /// Fleet's words, and reads the link again for where it stands.
+    fn send_crosses(&mut self, sent: Vec<Cross>, cx: &mut Context<Self>) {
+        if sent.is_empty() {
+            return;
+        }
+        self.refused = None;
+        if let Source::Mock(mock) = &mut self.source {
+            let refused = sent.iter().find_map(|one| mock.send(one).err());
+            self.read_mock(cx);
+            if let Some(why) = refused {
+                self.refuse(why, cx);
+            }
+            return;
+        }
+        let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be changed.", cx) };
+        self.work.insert(
+            "cross",
+            cx.spawn(async move |this, cx| {
+                let mut last = None;
+                for one in sent {
+                    let ask = cx.update(|cx| match one {
+                        Cross::Kind(kind, on) => wire::cross_kind(port, ipc::SetKitLinkKind { kind, on }, cx),
+                        Cross::Item(item, on) => wire::cross_item(port, ipc::SetKitLinkItem { item, on }, cx),
+                    });
+                    match ask.await {
+                        Ok(link) => last = Some(link),
+                        Err(why) => {
+                            let _ = this.update(cx, |this, cx| {
+                                this.refuse(why.said, cx);
+                                this.read_link(cx);
+                            });
+                            return;
+                        }
+                    }
+                }
+                if let Some(link) = last {
+                    let _ = this.update(cx, |this, cx| {
+                        this.link = Load::Read(link);
+                        this.relist(cx);
+                    });
+                }
+            }),
+        );
+    }
+
+    /// Keep one side of the picked row's clash with `mac`, on both Macs. The file is read again, since keeping the
+    /// other Mac's writes it here.
+    pub(super) fn settle(&mut self, mac: String, keep: KitKeep, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(row) = self.picked().filter(|one| one.gone.is_none()).map(|one| one.row.clone()) else { return };
+        let Some(item) = sync::item_of(&row) else { return };
+        self.refused = None;
+        self.files.remove(&row.id);
+        self.focus(Pane::Detail, window, cx);
+        if let Source::Mock(mock) = &mut self.source {
+            mock.settle(&mac, &item, keep, &row.id);
+            return self.read_mock(cx);
+        }
+        let Some(port) = self.port(cx) else { return self.refuse("Fleet is not connected, so nothing can be changed.", cx) };
+        let ask = wire::settle(port, ipc::SettleKitClash { mac, item, keep }, cx);
+        self.hold_link("settle", ask, cx);
+    }
+
     /// Settings opens on the page for Models, Prompts or Workflows.
     fn settings_page(&mut self, page: &'static str, cx: &mut Context<Self>) {
         match cx.try_global::<AskedSink>().cloned() {
@@ -687,9 +997,16 @@ impl KitScreen {
             return false;
         }
         let down = act.slot % 2 == 0;
+        if self.stop.is_some() && matches!(act.id, "kit_toggle" | "kit_open") {
+            self.press_stop(window, cx);
+            return true;
+        }
         match act.id {
             "kit_move" => self.step(if down { 1 } else { -1 }, cx),
             "kit_pane" => self.next_pane(if act.slot == 0 { 1 } else { -1 }, window, cx),
+            // In the rail, Space is the kind's switch over the link; elsewhere the picked piece's in the project. A
+            // row's own switch over the link is pressed from its Tab stop.
+            "kit_toggle" if self.pane == Pane::Rail => self.cross_kind(self.kind, cx),
             "kit_toggle" => self.toggle(cx),
             "kit_remove" => self.remove(cx),
             "kit_edit" => self.start_edit(window, cx),

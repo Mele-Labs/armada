@@ -115,6 +115,7 @@ pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
         TagKind::Issue => "issue",
         TagKind::Report => "report",
         TagKind::Terminal => "terminal",
+        TagKind::Tool => "tool",
     };
     let one_line = title.replace(['\n', '\r'], " ");
     InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(one_line)
@@ -130,6 +131,7 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
         "issue" => TagKind::Issue,
         "report" => TagKind::Report,
         "terminal" => TagKind::Terminal,
+        "tool" => TagKind::Tool,
         _ => return None,
     };
     let tag_id = parts.next()?.to_string();
@@ -328,6 +330,14 @@ impl JobView {
                     input.replace(format!("@{path} "), window, cx);
                 }
                 Pick::Tag { kind, id, title, url } => {
+                    // A tool's list replaces no word: its chip goes at the caret, a space before it where a word ends there.
+                    let range = if range.is_empty() && input.value()[..range.start].chars().next_back().is_some_and(|ch| !ch.is_whitespace()) {
+                        input.set_selected_range(range.clone(), cx);
+                        input.insert(" ", window, cx);
+                        range.start + 1..range.start + 1
+                    } else {
+                        range
+                    };
                     if input.replace_range_with_token(range, chip_of(kind, &id, &title, url.as_deref()), window, cx).is_ok() {
                         input.insert(" ", window, cx);
                     }
@@ -367,7 +377,12 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
             );
         }
         let name: SharedString = if row.says.is_empty() { row.name.clone().into() } else { format!("{} {}", row.name, row.says).into() };
-        let mono = look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default();
+        // A tool's glyph takes its hue and its name the box's own face; a command's or a file's name is code.
+        let hue = match &row.pick {
+            Pick::Tag { kind: TagKind::Tool, id, .. } => super::ask_tools::hue(id),
+            _ => None,
+        };
+        let mono = if hue.is_some() { None } else { look.font_stack(token::FONT_MONO).into_iter().next() };
         rows.push(
             labelled(
                 div()
@@ -383,10 +398,10 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
                     .cursor_pointer()
                     .child(
                         div().flex_none().mr(look.length(token::SPACE_2)).child(
-                            svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED)),
+                            svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(hue.unwrap_or(token::FG_MUTED))),
                         ),
                     )
-                    .child(div().flex_none().font_family(mono).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
+                    .child(div().flex_none().when_some(mono, |name, mono| name.font_family(mono)).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
                     .child(
                         div()
                             .flex_1()
@@ -488,5 +503,13 @@ mod tests {
         assert_eq!(chip.text().as_ref(), "@#3290 Merge line");
         let tag = mention_of(chip.id(), chip.label()).expect("a mention");
         assert_eq!((tag.kind, tag.id.as_str(), tag.url.as_deref()), (TagKind::Issue, "3290", Some("https://forge/3290")));
+    }
+
+    #[test]
+    fn a_tool_chip_reads_back_as_the_tool_it_asks_for() {
+        let chip = chip_of(TagKind::Tool, "takes", "Takes", None);
+        assert_eq!((chip.text().as_ref(), chip.label().as_ref()), ("@Takes", "Takes"));
+        let tag = mention_of(chip.id(), chip.label()).expect("a mention");
+        assert_eq!(tag, ipc::SessionTag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
     }
 }

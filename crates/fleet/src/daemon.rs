@@ -110,6 +110,9 @@ pub struct Fleet<H, V, W> {
     timeline: crate::timeline::Timeline,
     /// Wakes the worker that does what a Job's rules planned. In memory: a Fleet that starts finds the acts in the store. See [`crate::lifecycles::acting`].
     rule_acts: crate::lifecycles::acting::Owed,
+    /// Which Job's builds run on a loaded machine, and what this Fleet stopped. In memory: a Fleet
+    /// that starts continues what one before it left stopped. See [`crate::build_turns`].
+    build_turns: std::sync::Mutex<crate::build_turns::Turns>,
     /// The Operator once seated, the rulings starts wait on, and the moves owed word. In memory:
     /// its Log is in the store. See [`crate::operator`].
     operator: crate::operator::Seat,
@@ -167,6 +170,8 @@ pub struct Fleet<H, V, W> {
     notice_batches: crate::session_host::NoticeBatches,
     /// Which Jobs were told which token rule. Rebuilt from the trip rows when needed — `crate::usage_rules`.
     usage_following: crate::usage_rules::Following,
+    /// How long each workflow step usually takes, and which Jobs are drawn amber. Never written down — `crate::step_stalls`.
+    step_times: crate::step_stalls::StepTimes,
     /// Which Jobs have a person's run out in their worktree, and how to stop
     /// it. Never written down, for `pressing`'s reason — `crate::rehearsing`.
     rehearsals: crate::rehearsing::Rehearsals,

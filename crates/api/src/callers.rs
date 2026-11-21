@@ -92,6 +92,8 @@ pub(crate) const THE_PERSONS_OWN: &[(&str, &str)] = &[
     ("save_repository_flight_controls", "changes settings"),
     ("approve_repository_tile", "changes settings"),
     ("change_slot_pool", "changes the slot pool"),
+    // A Job that prioritised itself around the door would hold every other Job's builds.
+    ("prioritise_session", "prioritises a Job"),
     ("upsert_features", "keeps the feature catalog"),
     ("change_feature", "keeps the feature catalog"),
     ("answer_retire", "keeps the feature catalog"),

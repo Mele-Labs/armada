@@ -1,4 +1,5 @@
 [operations.ready_pull_request]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "On your words"

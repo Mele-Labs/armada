@@ -259,6 +259,7 @@ pub(super) fn write_all(id: &SessionId, feature: &str, sections: &[FeatureSectio
         feature: feature.to_string(),
         sections: sections.iter().map(|section| FeatureSectionText { section: *section, text: format!("The {} text.", section.name()) }).collect(),
         glossary: Vec::new(),
+        gists: Vec::new(),
         project: None,
         session_id: Some(id.clone()),
     }

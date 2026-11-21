@@ -29,6 +29,36 @@ pub(super) fn chip(look: &Look, hue: crate::look::Token, word: &str) -> gpui::Di
 }
 
 impl JobView {
+    /// Open on a request's row: the API Client opens with this request in its line, as Classic's Open on the same row does.
+    fn open_request(&self, row: &str, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let row = row.to_string();
+        labelled(
+            div()
+                .id(SharedString::from(format!("req-open:{row}")))
+                .flex_none()
+                .px(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_SM))
+                .text_size(look.length(token::TEXT_2XS))
+                .line_height(look.length(token::LEADING_2XS))
+                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                .text_color(look.color(token::FG_MUTED))
+                .cursor_pointer()
+                .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+                .tooltip(tip("Open in API Client"))
+                .on_click(cx.listener(move |this, _, window, cx| {
+                    cx.stop_propagation();
+                    let Some(job) = this.shown.clone() else { return };
+                    if let Some(recorded) = this.requested_row(&job, &row, cx) {
+                        this.open_api_client(Some(recorded), window, cx);
+                    }
+                }))
+                .child("Open"),
+            Role::Button,
+            "Open request",
+        )
+        .into_any_element()
+    }
+
     pub(super) fn body_row(&self, ix: usize, row: &SessionRow, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
         match row {
             SessionRow::Ran { id, command, code, tail, .. } => self.ran(ix, id, command, *code, tail, page, look, cx),
@@ -55,6 +85,7 @@ impl JobView {
                     div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_DEFAULT)).child(method.clone()).into_any_element(),
                     div().flex_1().min_w_0().truncate().font_family(mono(look)).child(url.clone()).into_any_element(),
                     div().flex_none().font_family(mono(look)).text_color(look.color(token::FG_SUBTLE)).child(took).into_any_element(),
+                    self.open_request(id, look, cx),
                 ];
                 let body = (error.is_some() || !response.is_empty()).then(|| {
                     div()

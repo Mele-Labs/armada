@@ -202,6 +202,7 @@ WebSocket event stream, read this first.
 | [A repository's app, run from Bridge: `list_app_runs`, `start_app_run`, `app_run.changed` and four more](protocol/a-repositorys-app-run-from-bridge.md) |
 | [What a workflow lands in: `WorkflowSummary.lands`](protocol/what-a-workflow-lands-in.md) |
 | [How a Job started, and when each step began: `SessionRecord.started`, `SessionRecord.workflow_visits`](protocol/how-a-job-started-and-when-each-step-began.md) |
+| [The step a Job is on, in its column: `SessionRecord.workflow_strip`, `StepReading.warning`](protocol/the-step-a-job-is-on-in-its-column.md) |
 | [Projects: tasks and linked issues, across repositories](protocol/projects.md) |
 | [His other Macs, Fleet's half: `share_sessions` and seven more](protocol/his-other-macs-fleets-half.md) |
 | [The Workflows page: `get_workflow_steps`, `delete_workflow_copy`, `reset_workflow_copy`](protocol/the-workflows-page.md) |
@@ -241,6 +242,7 @@ WebSocket event stream, read this first.
 | [One Job's For you: `get_for_you`, its four acts and `session.for_you`](protocol/for-you.md) |
 | [The forge's merge verdict, and one commit's files: `merge_state`, `get_pull_request_commit_patches`](protocol/the-forges-merge-verdict-and-one-commits-files.md) |
 | [A question and the reply that answers it: `list_job_questions`, `mark_answer_read`, `SessionRecord.answer_unread`](protocol/a-question-and-the-reply-that-answers-it.md) |
+| [A message asks for one of Armada's tools: `TagKind::Tool`](protocol/a-message-asks-for-one-of-armadas-tools.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

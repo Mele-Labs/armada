@@ -415,6 +415,13 @@ pub static WALKS: &[Walk] = &[
         steps: &crate::kit::walk::STEPS,
     },
     Walk {
+        name: "kit-sync",
+        title: "Kit over the Mac link: what crosses to your other Macs, and a clash",
+        screen: Screen::Reviews,
+        scenario: "kit-sync",
+        steps: &crate::kit::walk::SYNC_STEPS,
+    },
+    Walk {
         name: "reviews",
         title: "Reviews: what changed since you looked, on free panes",
         screen: Screen::Reviews,
@@ -3684,6 +3691,27 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Settings,
         scenario: "jobs-many",
         steps: crate::settings::walk::CLAIMS_STORE_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::ACCOUNT,
+        title: "Settings › Account: logins, devices and what signing in turns on",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::ACCOUNT_REPOSITORIES,
+        title: "Settings › Claims store: the login a project and a repository join as",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_REPOSITORIES_STEPS,
+    },
+    Walk {
+        name: crate::settings::walk::ACCOUNT_ENDED,
+        title: "Settings › Account: a sign-in that ended",
+        screen: Screen::Settings,
+        scenario: "jobs-many",
+        steps: crate::settings::walk::ACCOUNT_ENDED_STEPS,
     },
     Walk {
         name: crate::settings::walk::SIGN_IN_APP,

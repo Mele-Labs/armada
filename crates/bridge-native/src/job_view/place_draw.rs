@@ -368,6 +368,7 @@ impl JobView {
             "browser" => "Browser".into(),
             "loadout" => "Loadout".into(),
             "tokens" => "Tokens".into(),
+            crate::api_client::KIND => crate::api_client::NAME.into(),
             super::loadout_tab::ITEM_KIND => Self::loadout_item_look(tab).1,
             "terminal" => self.view_title(job, tab).unwrap_or_else(|| "Terminal".into()),
             kind => match (row_kind_of(kind), tab.row.as_deref()) {
@@ -411,6 +412,7 @@ impl JobView {
             }
             "loadout" | super::loadout_tab::ITEM_KIND => self.loadout_body(&id, tab, cx),
             "tokens" => self.tokens_body(&id, tab, cx),
+            crate::api_client::KIND => self.api_client_body(&id, tab, window, cx),
             "terminal" => {
                 let view = self.view_id_of(&id, tab).and_then(|view| self.view_tabs.by_job.get(&id)?.iter().find(|one| one.id == view).map(|one| one.view.clone()))?;
                 Some(plain(format!("pane-body:{}", tab.id), Some(div().size_full().child(view).into_any_element())))
@@ -558,6 +560,7 @@ impl JobView {
             "browser" => ("globe", format!("Job column: {word}")),
             "loadout" => ("layers", format!("Job column: {word}")),
             "tokens" => ("chart-column", format!("Job column: {word}")),
+            crate::api_client::KIND => ("arrow-right-left", format!("Job column: {word}")),
             super::loadout_tab::ITEM_KIND => (Self::loadout_item_look(tab_of).0, format!("Job tab: {word}")),
             "terminal" => (self.view_glyph(job, tab_of), format!("Job column: {word}")),
             _ => match row {

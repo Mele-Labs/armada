@@ -127,6 +127,11 @@ It is the world's to bring about, so the step raises no wait for the owner; if h
 A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
 On a step that `delivers` the state gates the merge instead (Land waits on `pr: approved`): the agent opens the pull request, ends its turn and does not merge, and Fleet wakes it with one line when the state comes.
 
+**`tabs`** lists the right-column tabs the step opens on the Job's page, the front one first (20 Nov 2026).
+The words are the native Bridge's zone ids, `now` and `walks`: `plan`, `qa`, `now`, `walks`, `artifacts`, `pulls`, `checks`, `changes`, `jobs` (the Jobs this one started) and the rest of `core_model::STEP_TABS`.
+A word outside them is refused at load, naming them, and a repeat is kept once.
+A tab the person opens or moves stays on that Job; the next step's tabs open beside his.
+
 **`awaits_reply: true`** is `ends_on: ["replied"]`.
 
 **`walks: true`** is the step where he is shown the work and approves it before any test is written.
