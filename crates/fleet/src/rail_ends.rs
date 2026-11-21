@@ -22,6 +22,8 @@ pub(crate) enum End {
     IdeaPicked,
     DocumentApproved,
     YouApproved,
+    /// His Looks good on the Ready to try card of the branch the Job offered, as a `previews` step ends.
+    LooksGood,
     PlanRecorded,
     Pushed,
     WalkShown,
@@ -77,6 +79,7 @@ impl End {
             End::IdeaPicked => "you pick one of the ideas shown".into(),
             End::DocumentApproved => "you approve a document".into(),
             End::YouApproved => "you approve".into(),
+            End::LooksGood => "you say Looks good on the branch offered".into(),
             End::PlanRecorded => "a plan is recorded".into(),
             End::Pushed => "it is pushed".into(),
             End::WalkShown => "a walk is shown".into(),
@@ -106,7 +109,9 @@ impl End {
             End::IdeaPicked => Waiter::ThePerson(WaitingSource::AskCard),
             End::DocumentApproved => Waiter::ThePerson(WaitingSource::Document),
             End::YouApproved => Waiter::ThePerson(WaitingSource::Replied),
-            End::PlanRecorded
+            // The Ready to try card is his item once the Job offers, so no reply item stands for it: the Job's offer comes first.
+            End::LooksGood
+            | End::PlanRecorded
             | End::Pushed
             | End::WalkShown
             | End::Edited
@@ -180,6 +185,9 @@ pub(crate) fn ends_of(steps: &[RailStep], at: usize) -> Vec<End> {
     }
     if step.walks {
         return vec![End::WalkApproved];
+    }
+    if step.previews {
+        return vec![End::LooksGood];
     }
     // The declared gate before any guess from the step after it: a step gated `plan_approved` ends
     // on his Approve whether or not it says `records_plan`.

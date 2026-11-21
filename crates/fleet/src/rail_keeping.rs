@@ -95,9 +95,12 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
         };
         let checks_green = steps.iter().any(|step| step.gate == StepGate::ChecksGreen)
             && store.session_gates(&session.id)?.iter().any(|gate| gate.gate == CHECKS_GREEN);
+        // Read only where a step previews: a note is kept for each offer and outlives its withdrawal.
+        let offered = steps.iter().any(|step| step.previews) && !store.build_notes_of_session(&session.id)?.is_empty();
         Extra {
             jobs_ended,
             checks_green,
+            offered,
             walk_approved: walk_approved.is_some(),
             pushed_since_walk,
             committed: store.session_work(&session.id, &session.started_at)?.first_commit.is_some(),

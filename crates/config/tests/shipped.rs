@@ -312,14 +312,14 @@ fn bug_and_feature_each_end_in_a_deliver_step() {
 /// A step with no gate is the one that ends the Job by itself: `uat`'s `writeback`.
 #[test]
 fn each_shipped_workflow_runs_the_steps_the_owner_settled() {
-    use core_model::StepGate::{self, DocumentApproved, JobsEnded, Merged, PlanApproved, WalkApproved, YouApproved};
+    use core_model::StepGate::{self, DocumentApproved, JobsEnded, Merged, PlanApproved, YouApproved};
     let expected: [(&str, Vec<(&str, StepGate)>); 9] = [
-        ("bug", vec![("find_the_cause", PlanApproved), ("fix", WalkApproved), ("deliver", Merged)]),
+        ("bug", vec![("find_the_cause", PlanApproved), ("fix", YouApproved), ("deliver", Merged)]),
         ("create-workflow", vec![("quiz", PlanApproved), ("propose", YouApproved), ("build", Merged)]),
         ("design-plan", vec![("draft", DocumentApproved)]),
-        ("feature", vec![("propose", PlanApproved), ("walk", WalkApproved), ("deliver", Merged)]),
+        ("feature", vec![("propose", PlanApproved), ("try", YouApproved), ("deliver", Merged)]),
         ("orchestrate", vec![("plan", PlanApproved), ("oversee", JobsEnded), ("summarise", DocumentApproved)]),
-        ("prototype", vec![("frame", PlanApproved), ("build", WalkApproved), ("write_up", DocumentApproved)]),
+        ("prototype", vec![("frame", PlanApproved), ("build", YouApproved), ("write_up", DocumentApproved)]),
         ("refactor", vec![("plan", PlanApproved), ("implement", DocumentApproved), ("handoff", Merged)]),
         ("revert", vec![("plan", PlanApproved), ("handoff", Merged)]),
         ("uat", vec![("review", DocumentApproved), ("writeback", StepGate::None)]),
@@ -427,7 +427,7 @@ fn every_shipped_step_lists_tabs_and_the_first_is_the_front_one() {
     };
     assert_eq!(
         read("feature"),
-        vec![vec!["plan", "qa", "now"], vec!["walks", "artifacts", "now"], vec!["pulls", "checks", "now"]],
-        "the design page's table, Propose, Walk, Deliver"
+        vec![vec!["plan", "qa", "now"], vec!["for_you", "changes", "now"], vec!["pulls", "checks", "now"]],
+        "the design page's table, Propose, Try, Deliver"
     );
 }

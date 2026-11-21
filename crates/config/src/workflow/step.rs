@@ -55,6 +55,7 @@ const STEP_KEYS: &[&str] = &[
     "plan_unasked",
     "asks_delivery",
     "walks",
+    "previews",
     "awaits_reply",
     "ends_on",
     "phase",
@@ -168,6 +169,7 @@ pub struct Step {
     plan_unasked: bool,
     asks_delivery: bool,
     walks: bool,
+    previews: bool,
     ends_on: Vec<StepEnd>,
     phase: Option<StepPhase>,
     gate: StepGate,
@@ -369,6 +371,12 @@ impl Step {
         self.walks
     }
 
+    /// Whether this is the step where the work is offered for his preview and he says looks good. **False where
+    /// the file leaves the key out.** `workflowdef-fields.toml`, `previews`.
+    pub fn previews(&self) -> bool {
+        self.previews
+    }
+
     /// What ends the step, any one of them: `ends_on`, with `awaits_reply:
     /// true` read as `replied`. **Empty where the file writes neither.** `workflowdef-fields.toml`.
     pub fn ends_on(&self) -> &[StepEnd] {
@@ -506,6 +514,11 @@ pub(super) fn read(
     let walks = match table.optional("walks") {
         None => Some(false),
         Some(value) => yaml::flag(&walks_key, value, out),
+    };
+    let previews_key = table.at("previews");
+    let previews = match table.optional("previews") {
+        None => Some(false),
+        Some(value) => yaml::flag(&previews_key, value, out),
     };
     let awaits_key = table.at("awaits_reply");
     let awaits_reply = match table.optional("awaits_reply") {
@@ -679,7 +692,7 @@ pub(super) fn read(
     }
     // A lifecycle end on a step that something else places would be read by nothing. **A delivering step is
     // not one**: the end gates its merge.
-    let placed = ends::Placed { walks: walks == Some(true), follows_plan: follows_plan == Some(true), records_plan: is_plan_step };
+    let placed = ends::Placed { walks: walks == Some(true), previews: previews == Some(true), follows_plan: follows_plan == Some(true), records_plan: is_plan_step };
     out.extend(ends::placed(&ends_key, ends_on.as_deref().unwrap_or_default(), placed));
     table.close(STEP_KEYS, out);
     if disagrees
@@ -719,6 +732,7 @@ pub(super) fn read(
         plan_unasked: plan_unasked?,
         asks_delivery: asks_delivery?,
         walks: walks?,
+        previews: previews?,
         ends_on: ends_on?,
         phase,
         gate: plan_gate?,

@@ -41,7 +41,7 @@ Fleet reads the Job's current step off what it observed, and a step with `judge_
 
 ### `feature` and `bug`
 
-The order is the owner's, and a mock is walked before any test is written.
+The order is the owner's, and the branch is offered for his preview before any test is written (20 Nov 2026, in place of a walk).
 The last column is what the Workflows page draws under each step (`rail_ends.rs`).
 
 **`feature`**
@@ -49,11 +49,11 @@ The last column is what the Workflows page draws under each step (`rail_ends.rs`
 | Step | The agent | Ends when |
 |---|---|---|
 | `propose` | Asks what is unclear, then puts its proposal to him: a plan, with a sketch inside where it helps, or a sketch, draft, document or rough walk alone | you approve the plan, or any one of those |
-| `walk` | Builds the mock in the real Bridge on fixtures and shows it as a walk, or several; writes no test | you approve every walk |
+| `try` | Builds the part he would see on the branch and offers it with `offer_preview`; writes no test | you say Looks good on its Ready to try card |
 | `refine` | Wires it for real and writes the tests | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`walk` is passed over when nothing would be seen, or when a rough walk he approved on `propose` was it.
+`try` is passed over when nothing would be seen and nothing was offered.
 
 **One approval moves the Job on** (2 Nov 2026).
 After he approves anything `propose` lists, the plan the agent then records stands with no card.
@@ -65,12 +65,12 @@ The agent prefers one proposal; a second stays open beside the first, and he ans
 | Step | The agent | Ends when |
 |---|---|---|
 | `find_the_cause` | Reproduces the bug, names the cause, records the fix as tasks | you approve the plan |
-| `fix` | Makes the fix and shows it as a short walk straight to the place; writes no test | you approve every walk |
+| `fix` | Makes the fix and offers the branch for his preview; writes no test | you say Looks good on its Ready to try card |
 | `tests` | Writes the test that fails without the fix and passes with it | it is pushed |
 | `deliver` | Delivers the way he chose | it is merged |
 
-`fix` both follows the plan and walks, and its walk is passed over when nothing would be seen: Fix then ends once the plan's tasks are done, and Tests begins.
-A separate walk step after it had him approve one walk twice (30 Oct 2026).
+`fix` both makes the fix and previews it, and is passed over when nothing would be seen and nothing was offered.
+A separate step after it had him approve one walk twice (30 Oct 2026).
 
 ### `orchestrate`
 
@@ -124,7 +124,7 @@ His Looks good on a Ready to try card counts the same way.
 Every instance of the lifecycle the Job holds must have reached the state, so `job: landed` waits for every Job this one started.
 Fleet moves the Job on when a move it kept for an instance satisfies the end, and wakes the agent with one line.
 It is the world's to bring about, so the step raises no wait for the owner; if he writes on the step or skips it, the Job moves on without the line.
-A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
+A lifecycle or state the repository does not have is refused where the workflow is read, naming it, and a step that `walks`, `previews`, `follows_plan` or `records_plan` takes none: put the wait on the step before or after it.
 On a step that `delivers` the state gates the merge instead (Land waits on `pr: approved`): the agent opens the pull request, ends its turn and does not merge, and Fleet wakes it with one line when the state comes.
 
 **`tabs`** lists the right-column tabs the step opens on the Job's page, the front one first (20 Nov 2026).
@@ -139,6 +139,12 @@ It is current from the plan's approval until he has approved every window the Jo
 A window replaced by a newer one of its page, or taken back with `withdraw_window`, waits on nothing, and a walk shown later puts the Job back on the step until he approves that one too (2 Nov 2026).
 A plan that stood on a rough walk he approved counts as approved from when the first such walk went out, so that walk passes the step and any shown with it wait.
 The step after it is entered the moment it is passed, so a Job is never sent back to show a walk he approved.
+
+**`previews: true`** is the step where the agent offers the branch for his preview and he says Looks good (20 Nov 2026).
+It is the step `try` is, and `fix` in `bug`: work he sees reaches him as a branch the Job offers with `offer_preview`, and his Looks good on its Ready to try card is his Approve, so the step is gated `you_approved` and ends on it.
+It is entered once the plan is approved and the step before it is passed, or once the Job offers a branch.
+**A push never passes it**, since a push is how a preview is made, and a withdrawn or moved offer ends nothing: the Job offers again.
+It is passed over when the plan was approved without `seen: true`, no branch was offered and the Job has pushed, as a walk is.
 
 **A walk is expected** when the plan said `seen: true`, when it named a `walk`, or when the Job showed a window.
 `seen: true` says the person would see the change, and holds nothing.
