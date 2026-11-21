@@ -576,9 +576,13 @@ checks:
 
 **Where the Check also declares `narrow` with `under`, `one_test` compiles only
 the members that declare the test.** The members are those under `under` whose
-source has `fn <name>` or `mod <name>`, less `except`, spelled by `each` after
+test source has `fn <name>` or `mod <name>`, or is the module `<name>`, less
+`except`, spelled by `each` after
 the command; the command therefore must not select the whole workspace itself.
-A name no member declares is refused. A Check with no `under` runs its
+Test source is a file with a test attribute or one under a `tests` module, so a
+plain `mod kit_files;` beside the tests does not count. Where no member's test
+source declares the name, any declaration counts. A name no member declares is
+refused. A Check with no `under` runs its
 `one_test` as written.
 
 Rules that follow:
