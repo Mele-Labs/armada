@@ -406,6 +406,16 @@ mod tests {
             .unwrap_or_else(|| panic!("{name} was not drawn"))
     }
 
+    /// A take's radio on the sheet, chosen or not: the vote starts on the Job's pick, whose title drops its mark.
+    fn take_bounds(cx: &mut gpui::VisualTestContext, take: &str) -> Bounds<gpui::Pixels> {
+        let (title, _) = super::super::parts_card::pick_mark(take);
+        let chosen = format!("Chosen: {title}");
+        if drawn(cx, Role::RadioButton, &chosen) {
+            return bounds_of(cx, Role::RadioButton, &chosen);
+        }
+        bounds_of(cx, Role::RadioButton, &format!("Pick {title}"))
+    }
+
     #[gpui::test]
     fn an_artifact_opens_the_review_panel_across_the_window_with_it_picked_and_closing_leaves_the_panes(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
@@ -780,17 +790,18 @@ mod tests {
     }
 
     #[gpui::test]
-    fn takes_stand_side_by_side_at_2400_and_one_to_a_row_at_1100(cx: &mut gpui::TestAppContext) {
+    fn takes_stand_side_by_side_at_2400(cx: &mut gpui::TestAppContext) {
         let (_, cx) = opened(cx, 2400., 1500.);
-        let tops: Vec<_> = TAKES.iter().map(|name| bounds_of(cx, Role::RadioButton, &format!("Pick {name}")).top()).collect();
+        let tops: Vec<_> = TAKES.iter().map(|name| take_bounds(cx, name).top()).collect();
         assert_eq!(tops[0], tops[1], "side by side at 2400");
     }
 
+    /// The sheet's takes are cards up to three to a row at any width, so two still share a row at 1100.
     #[gpui::test]
-    fn takes_stand_one_to_a_row_at_1100(cx: &mut gpui::TestAppContext) {
+    fn takes_stand_side_by_side_at_1100(cx: &mut gpui::TestAppContext) {
         let (_, cx) = opened(cx, 1100., 700.);
-        let tiles: Vec<_> = TAKES.iter().map(|name| bounds_of(cx, Role::RadioButton, &format!("Pick {name}"))).collect();
-        assert!(tiles[1].top() >= tiles[0].bottom(), "one to a row at 1100: {tiles:?}");
+        let tops: Vec<_> = TAKES.iter().map(|name| take_bounds(cx, name).top()).collect();
+        assert_eq!(tops[0], tops[1], "side by side at 1100");
     }
 
     #[gpui::test]

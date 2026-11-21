@@ -638,9 +638,15 @@ impl JobView {
 
     /// The keys go back to the card, once its box has shut: the card in the thread, or the reader's own in a tab.
     pub(super) fn focus_card(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("reader:{artifact}")).or_else(|| page.keys.spot_of(&format!("card:{artifact}"))));
-        if let Some(spot) = spot {
-            window.focus(&spot.focus, cx);
+        let page = self.shown.as_ref().and_then(|job| self.pages.get(job));
+        let reader = page.and_then(|page| page.keys.spot_of(&format!("reader:{artifact}")));
+        // With the sheet open the keys stay in it: the thread's card behind it would take Esc away from the sheet.
+        let open = self.review_open();
+        let spot = if open { reader } else { reader.or_else(|| page.and_then(|page| page.keys.spot_of(&format!("card:{artifact}")))) };
+        match spot {
+            Some(spot) => window.focus(&spot.focus, cx),
+            None if open => window.focus(&self.review_focus.list, cx),
+            None => {}
         }
     }
 
