@@ -47,6 +47,7 @@ pub(super) fn step(label: &str) -> RailStep {
         delivers: false,
         asks_delivery: false,
         walks: false,
+        previews: false,
         ends_on: Vec::new(),
         gate: core_model::StepGate::None,
         criteria: Vec::new(),
@@ -142,16 +143,110 @@ fn feature_and_bug_leave_their_first_step_when_the_plan_is_approved() {
         ("bug.json", include_str!("../../../../.armada/workflows/bug.json")),
     ] {
         let steps = shipped(file, text);
-        assert_eq!(steps.len(), 3, "{file}: propose, walk, deliver");
+        assert_eq!(steps.len(), 3, "{file}: propose, try, deliver");
         let recorded = Facts { plan_recorded: true, ..Facts::default() };
         assert_eq!(at(&steps, recorded), Some(0), "{file}: a plan waiting on him keeps the first step");
         let seen = Facts { plan_expects_walk: true, tasks_open: true, edited: true, ..approved() };
-        assert_eq!(at(&steps, seen), Some(1), "{file}: approved, with a part he would see, is the walk");
-        let walked = Facts { walk_shown: true, walk_approved: true, ..seen };
-        assert_eq!(at(&steps, walked), Some(2), "{file}: his Approve of the walk is the delivering step, before any push");
+        assert_eq!(at(&steps, seen), Some(1), "{file}: approved, with a part he would see, is the try");
+        let tried = Facts { offered: true, you_approved: crate::rail_lifecycle::StepBits::of([1]), pushed: true, ..seen };
+        assert_eq!(at(&steps, tried), Some(2), "{file}: his Looks good is the delivering step");
         let unseen = Facts { tasks_open: true, edited: true, ..approved() };
-        assert_eq!(at(&steps, unseen), Some(2), "{file}: with nothing he would see, the walk is passed over");
-        assert_eq!(at(&steps, Facts { pushed: true, landed: true, ..unseen }), None, "{file}: merged, and nothing follows");
+        assert_eq!(at(&steps, unseen), Some(1), "{file}: nothing is passed over before the Job has pushed");
+        let unseen = Facts { pushed: true, ..unseen };
+        assert_eq!(at(&steps, unseen), Some(2), "{file}: with nothing he would see, the try is passed over once pushed");
+        assert_eq!(at(&steps, Facts { landed: true, ..unseen }), None, "{file}: merged, and nothing follows");
+    }
+}
+
+// ---- A step that previews ----
+
+/// A previewing step as `steps_of` reads one: gated `you_approved`, so his Approve is what it lists as its end.
+fn previewing(label: &str) -> RailStep {
+    RailStep { previews: true, gate: core_model::StepGate::YouApproved, ends_on: vec![StepEnd::YouApproved], ..step(label) }
+}
+
+fn looked_good(at: usize) -> crate::rail_lifecycle::StepBits {
+    crate::rail_lifecycle::StepBits::of([at])
+}
+
+/// **Entered when the plan is approved and the step before it is passed, or when the Job offers a branch.**
+#[test]
+fn a_previewing_step_is_entered_when_the_plan_is_approved_or_when_the_job_offers_a_branch() {
+    let steps = [recording("Propose"), previewing("Try"), delivers("Deliver")];
+    let seen = Facts { plan_expects_walk: true, ..approved() };
+    assert_eq!(at(&steps, Facts { plan_recorded: true, ..Facts::default() }), Some(0), "a plan waiting on him keeps Propose");
+    assert_eq!(at(&steps, seen), Some(1), "approved: Try, with nothing offered yet");
+    let early = Facts { plan_recorded: true, offered: true, ..Facts::default() };
+    assert_eq!(at(&steps, early), Some(1), "a branch offered enters it before the plan is approved");
+    assert_eq!(rail_ends::ends_of(&steps, 1), vec![rail_ends::End::LooksGood]);
+    assert_eq!(rail_ends::ends_when(&steps, 1).as_deref(), Some("you say Looks good on the branch offered"));
+}
+
+/// **A push is how a preview is made**, so it never passes the step, and the work-ahead rule skips it.
+#[test]
+fn a_push_never_passes_a_previewing_step_and_work_ahead_flags_nothing_on_it() {
+    let steps = [recording("Propose"), previewing("Try"), delivers("Deliver")];
+    let offered = Facts { offered: true, plan_expects_walk: true, ..approved() };
+    for ahead in [Facts { pushed: true, ..offered }, Facts { pushed: true, pr_opened: true, ..offered }] {
+        assert_eq!(at(&steps, ahead), Some(1), "{ahead:?}");
+        assert!(rail::passed_unapproved(&steps, &ahead, Some(1)).is_empty(), "nothing is passed: {ahead:?}");
+    }
+    let unapproved = Facts { plan_recorded: true, pushed: true, offered: true, ..Facts::default() };
+    assert_eq!(at(&steps, unapproved), Some(1), "work ahead of an unapproved plan still stops at the offer");
+    assert_eq!(rail::passed_unapproved(&steps, &unapproved, Some(1)), vec![0], "though the plan he never approved is flagged");
+}
+
+/// **His Looks good is the `you_approved` fact and the only thing that ends it**; the delivering step is then entered, push or not.
+#[test]
+fn his_looks_good_ends_a_previewing_step_and_the_delivering_step_is_entered() {
+    let steps = [recording("Propose"), previewing("Try"), delivers("Deliver")];
+    let offered = Facts { offered: true, pushed: true, plan_expects_walk: true, ..approved() };
+    assert_eq!(at(&steps, offered), Some(1));
+    assert_eq!(at(&steps, Facts { you_approved: looked_good(1), ..offered }), Some(2), "Looks good: Deliver");
+    assert_eq!(at(&steps, Facts { you_approved: looked_good(1), pushed: false, ..offered }), Some(2), "before any push too");
+    assert_eq!(at(&steps, Facts { replied: true, edited: true, committed: true, checked: true, ..offered }), Some(1), "words, edits and checks do not end it");
+    assert_eq!(at(&steps, Facts { you_approved: looked_good(1), landed: true, ..offered }), None, "merged, and nothing follows");
+}
+
+/// **A withdrawn offer, or one the branch moved past, ends nothing**: Fleet keeps a note for each offer, so the fact
+/// that one was made outlives its withdrawal and the step stays held until he says Looks good.
+#[test]
+fn a_withdrawn_or_moved_offer_leaves_a_previewing_step_held() {
+    let steps = [recording("Propose"), previewing("Try"), delivers("Deliver")];
+    let held = Facts { offered: true, pushed: true, ..approved() };
+    assert_eq!(at(&steps, held), Some(1), "offered, then withdrawn: the note is kept");
+    assert_eq!(at(&steps, Facts { pushed: true, plan_expects_walk: true, ..approved() }), Some(1), "no offer left, and the plan said he would see it");
+    assert!(rail::passed_unapproved(&steps, &held, Some(1)).is_empty());
+}
+
+/// A plan approved saying he would see nothing, and no branch offered: the step is passed over once the Job pushes, as a walk is.
+#[test]
+fn a_previewing_step_is_passed_over_when_the_plan_says_nothing_would_be_seen_and_nothing_was_offered() {
+    let steps = [recording("Propose"), previewing("Try"), delivers("Deliver")];
+    assert_eq!(at(&steps, approved()), Some(1), "approved, nothing pushed: Try");
+    assert_eq!(at(&steps, Facts { pushed: true, ..approved() }), Some(2), "pushed with nothing to see: Deliver");
+    assert_eq!(at(&steps, Facts { pushed: true, offered: true, ..approved() }), Some(1), "an offer holds it");
+}
+
+/// The four workflows this repository ships try a branch where they walked: `previews`, his Approve as its end, no walk.
+#[test]
+fn every_shipped_walk_step_is_a_previewing_step_that_ends_on_his_looks_good() {
+    for (file, text, id) in [
+        ("feature.json", include_str!("../../../../.armada/workflows/feature.json"), "try"),
+        ("bug.json", include_str!("../../../../.armada/workflows/bug.json"), "fix"),
+        ("annotations.json", include_str!("../../../../.armada/workflows/annotations.json"), "try"),
+        ("prototype.json", include_str!("../../../../.armada/workflows/prototype.json"), "build"),
+    ] {
+        let steps = shipped(file, text);
+        assert!(steps.iter().all(|step| !step.walks), "{file}: no step is a walk");
+        let tries: Vec<&RailStep> = steps.iter().filter(|step| step.previews).collect();
+        let [one] = tries.as_slice() else { panic!("{file}: one previewing step, got {}", tries.len()) };
+        assert_eq!(one.id, id, "{file}");
+        assert_eq!(one.gate, core_model::StepGate::YouApproved, "{file}");
+        assert!(one.ends_on.contains(&StepEnd::YouApproved), "{file}: his Approve ends it");
+        let said = one.instructions.as_deref().unwrap_or_default();
+        assert!(said.contains("offer_preview") && said.contains("Looks good") && !said.contains("show_window"), "{file}: {said}");
+        assert_eq!(rail_ends::ends_of(&steps, steps.iter().position(|step| step.previews).unwrap()), vec![rail_ends::End::LooksGood], "{file}");
     }
 }
 

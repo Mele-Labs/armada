@@ -874,7 +874,7 @@ fn page_manifest(pulls: &HashMap<u64, Pull>, number: u64) -> String {
 }
 
 /// A run lands over the one it moves on (same kind, name, head and range), or joins the list.
-fn land_run(runs: &mut Vec<ReviewRun>, run: ReviewRun) {
+pub(crate) fn land_run(runs: &mut Vec<ReviewRun>, run: ReviewRun) {
     match runs.iter_mut().find(|held| held.kind == run.kind && held.name == run.name && held.head == run.head && held.since == run.since) {
         Some(held) => *held = run,
         None => runs.push(run),

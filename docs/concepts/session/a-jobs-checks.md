@@ -17,6 +17,12 @@ A directory no Job holds is a person's own run and is not recorded, and neither 
 The panel's head holds Stop, which sends `SIGTERM` to the Check's process group and `SIGKILL` after a grace period, and Force stop, which sends `SIGKILL`.
 Fleet holds the ask and answers it to the next `chunk`; the process ends its own group and tells `end` as for any run.
 
+**A Job that runs one Check red five times in a row is told once** (`red_streak`), at the fifth red of the streak and not at the sixth or later.
+A streak is the Job's consecutive runs of one Check name, in order of run id, each ended `failed` or `timed_out`; a `passed` run ends it, and the next five reds tell again.
+The word names the Check and the tests the last run's log names as failing (else where its log blames), says each run is a full compile, and asks the agent to read the failure and change the code before it runs the Check again.
+Fleet holds and refuses nothing: the next run starts as any run does.
+Ruled 21 Nov 2026: from 7 to 21 Nov 2026, 80 streaks reached five reds in a row, and the median compile of a run was 90 s, more under load.
+
 A terminal Job's thread is its transcript and carries no `check` row; its runs are on the Checks page.
 A run whose `armada check` process is killed stays `running` until its Job ends, when Fleet ends it as failed with "the Job ended" as its log.
 Until then the agent is not told the run is gone, and the person reads it as still out: #2698.
