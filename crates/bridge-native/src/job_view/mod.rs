@@ -148,7 +148,7 @@ mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
 pub use mods_made::OpenMod;
-pub use review::{open_over, OperatorRead};
+pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
 #[cfg(test)]
 pub use on_page::ready_sent_on_page;

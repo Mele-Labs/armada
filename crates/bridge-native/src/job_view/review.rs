@@ -14,7 +14,7 @@ use gpui::{
     anchored, canvas, deferred, div, prelude::*, px, Anchor, AnyElement, Bounds, Context, Entity, FocusHandle, Focusable as _, FontWeight,
     KeyDownEvent, MouseButton, Pixels, Role, SharedString, Subscription, Window,
 };
-use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
+use gpui_component::input::{Enter, InputEvent, TextareaState};
 use ipc::{
     AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemOutcome, ItemRef, ItemSettled, ItemsSettled, JobState, PlanCardState, SessionId,
     ReadyState, SessionRow, ThreadDocument, ThreadHead, ThreadItem, ThreadSketch, WaitingItem, WaitingSource,
@@ -91,7 +91,7 @@ impl Ask {
     }
 
     /// The bar's second answer, which opens the box in the bar: words in place of an option for a question.
-    fn second(self) -> &'static str {
+    pub(super) fn second(self) -> &'static str {
         match self {
             Ask::Question => "Answer in words",
             _ => "Ask for changes",
@@ -179,11 +179,14 @@ pub(super) struct Row {
     pub refused: Option<String>,
 }
 
-/// The notes of the chosen item; what is typed is kept under the item.
+/// The notes of the chosen item; what is typed is kept under the item, with its chips. The words are a rich note's, so a
+/// picture pasted or a file dropped goes with the answer, `@` tags a Job or a file, and the words are formatted as a message's.
 pub(super) struct NoteBox {
     pub key: String,
     pub area: Entity<TextareaState>,
+    pub note: Entity<super::rich_note::RichNote>,
     _typed: Subscription,
+    _sized: Subscription,
 }
 
 /// What the sheet remembers while it is open. Held on the page of the Job it was opened from.
@@ -207,6 +210,8 @@ pub(super) struct ReviewState {
     pub pages: HashMap<String, (Entity<super::page_tab::PageTab>, Subscription)>,
     /// The answer bar's box is open, for Ask for changes or Answer in words on the chosen ask.
     pub changing: bool,
+    /// The bar's Edit box on a draft, by the ask's key: the draft's words to fix before approving.
+    pub edit: Option<(String, Entity<TextareaState>)>,
     /// The option chosen on each question, by key, until Send answer.
     pub choice: HashMap<String, usize>,
 }
@@ -234,6 +239,7 @@ pub(super) struct Focuses {
     pub close: FocusHandle,
     pub cancel: FocusHandle,
     pub send: FocusHandle,
+    pub edit: FocusHandle,
 }
 
 impl Focuses {
@@ -246,6 +252,7 @@ impl Focuses {
             close: cx.focus_handle(),
             cancel: cx.focus_handle(),
             send: cx.focus_handle(),
+            edit: cx.focus_handle(),
         }
     }
 }
@@ -274,6 +281,26 @@ pub fn open_over(window: &mut Window, cx: &mut gpui::App, item: ItemRef, operato
     let Some(open) = cx.try_global::<OpenOver>().cloned() else { return };
     let read = operator_read.map(|(reading, pick)| OperatorRead { reading, pick: pick.filter(|pick| !pick.trim().is_empty()) });
     (open.0)(item, read, window, cx);
+}
+
+/// A walk's scene of the review sheet, as a person cannot drive it from the keys alone: `sheet-paste-picture` pastes a
+/// picture into the sheet's open box, as ⌘V with one on the clipboard does, without touching his clipboard;
+/// `sheet-settled-artifact` opens the mock's settled artifact of parts in the sheet.
+pub fn walk_scene(name: &str, window: &mut Window, cx: &mut gpui::App) -> Result<(), String> {
+    let view = JobView::live(cx).ok_or_else(|| "no Job view is drawn yet".to_string())?;
+    match name {
+        "sheet-paste-picture" => {
+            let note = view.read(cx).review().and_then(|review| review.note.as_ref()).map(|held| held.note.clone()).ok_or_else(|| "the sheet's box is not open".to_string())?;
+            let bytes = crate::mock::shown_still("pick-actions-a.png").unwrap_or_default().to_vec();
+            let picture = gpui::ClipboardItem::new_image(&gpui::Image::from_bytes(gpui::ImageFormat::Png, bytes));
+            note.update(cx, |note, cx| note.paste(&picture, cx)).then_some(()).ok_or_else(|| "the box took no picture".to_string())
+        }
+        "sheet-settled-artifact" => {
+            view.update(cx, |view, cx| view.open_artifact_review(crate::mock_parts::ID, window, cx));
+            Ok(())
+        }
+        other => Err(format!("no review sheet scene named {other}")),
+    }
 }
 
 pub(super) fn offer_open_over(cx: &mut Context<JobView>) {
@@ -313,6 +340,11 @@ pub(super) fn document_card<'a>(thread: &'a [ThreadItem], page: &str) -> Option<
         ThreadItem::Document(card) if card.page == page => Some(card),
         _ => None,
     })
+}
+
+/// What Approve with fixes sends: the draft approved, with his words in place of the Job's.
+pub(super) fn fixed_body(job: &str, item: &str, words: String) -> Result<String, ipc::Unencodable> {
+    ipc::encode(&ipc::AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string(), choice: None, text: None, mode: None, fixed: Some(words), extras: Default::default() })
 }
 
 pub(super) fn draft_row<'a>(thread: &'a [ThreadItem], row: &str) -> Option<&'a SessionRow> {
@@ -532,6 +564,11 @@ impl JobView {
     fn focused_card_box(&self, window: &Window, cx: &gpui::App) -> Option<String> {
         let page = self.shown.as_ref().and_then(|id| self.pages.get(id))?;
         page.cards.boxes.iter().find(|(_, area)| area.read(cx).focus_handle(cx).contains_focused(window, cx)).and_then(|(key, _)| key.rsplit_once(':').map(|(card, _)| card.to_string()))
+    }
+
+    /// The caret is in the bar's Edit box on a draft.
+    fn review_editing(&self, window: &Window, cx: &gpui::App) -> bool {
+        self.review().and_then(|review| review.edit.as_ref()).is_some_and(|(_, area)| area.read(cx).focus_handle(cx).contains_focused(window, cx))
     }
 
     fn review_noting(&self, window: &Window, cx: &gpui::App) -> bool {
@@ -903,20 +940,24 @@ impl JobView {
         let held = self.review().and_then(|review| review.note.as_ref()).is_some_and(|note| note.key == key);
         if !held {
             let kept_key = note_key(&item.job, &item.id);
-            let kept = self.draft_words(&kept_key);
+            let kept = self.draft_of(&kept_key);
             let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 10));
-            area.update(cx, |area, cx| area.set_value(kept, window, cx));
+            area.update(cx, |area, cx| area.set_value(kept.content(), window, cx));
+            // Made before the box's own watcher, so what a keystroke draws is drawn before the draft is read.
+            let scope = self.as_job(&item.job, |this| this.note_scope(cx));
+            let note = cx.new(|cx| super::rich_note::RichNote::new(area.clone(), self.ask_of(&item).second(), scope, window, cx));
+            let sized = cx.subscribe(&note, |_, _, _: &super::rich_note::Resized, cx| cx.notify());
             let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
                 if let InputEvent::Change = event {
-                    let text = area.read(cx).value().to_string();
-                    this.keep_words(&kept_key, &text, cx);
+                    this.keep_draft(&kept_key, super::rich_note::kept_of(area, cx), cx);
                     cx.notify();
                 }
             });
             if let Some(review) = self.review_mut() {
-                review.note = Some(NoteBox { key: key.to_string(), area, _typed: typed });
+                review.note = Some(NoteBox { key: key.to_string(), area, note, _typed: typed, _sized: sized });
                 // The box opens for one ask: another chosen starts with its bar shut.
                 review.changing = false;
+                review.edit = None;
             }
         }
         // A vote among takes starts on the Job's pick, so its answer is one press.
@@ -975,12 +1016,23 @@ impl JobView {
         Some((review.item(at)?.clone(), review.row(at)))
     }
 
+    /// The words of the item's box as a message sends them: trimmed, with a blank line where a quote or a list ends in words.
     fn review_notes_text(&self, item: &Item, cx: &gpui::App) -> String {
         let held = self.review().and_then(|review| review.note.as_ref()).filter(|note| note.key == item.key());
         match held {
-            Some(note) => note.area.read(cx).value().to_string(),
-            None => self.draft_words(&note_key(&item.job, &item.id)),
+            Some(held) => held.note.read(cx).sent(cx),
+            None => super::format::sent_text(self.draft_words(&note_key(&item.job, &item.id)).trim()),
         }
+    }
+
+    /// The pictures, files and tags the item's box holds, which go with its words.
+    fn review_extras(&self, item: &Item, cx: &gpui::App) -> ipc::AnswerExtras {
+        self.review().and_then(|review| review.note.as_ref()).filter(|note| note.key == item.key()).map(|held| held.note.read(cx).extras(cx)).unwrap_or_default()
+    }
+
+    /// A list is open over the words of the bar's box, so Esc is the list's.
+    fn review_note_offering(&self, cx: &gpui::App) -> bool {
+        self.review().and_then(|review| review.note.as_ref()).is_some_and(|held| held.note.read(cx).offering())
     }
 
     /// The asks the list shows: every one still asking, and the chosen one in the frame it is answered. A page he is only to
@@ -1076,7 +1128,7 @@ impl JobView {
             }
             Kind::Question => {
                 let choice = self.review().and_then(|review| review.choice.get(&item.key()).copied());
-                self.review_answer_question(&item, choice, None, window, cx);
+                self.review_answer_question(&item, choice, None, Default::default(), window, cx);
                 return;
             }
             Kind::Plan | Kind::Sketch | Kind::Document | Kind::Draft => {
@@ -1128,9 +1180,10 @@ impl JobView {
             return;
         }
         let key = item.key();
+        let extras = self.review_extras(&item, cx);
         match item.kind {
             Kind::Artifact => {
-                if !self.as_job(&item.job, |this| this.sheet_answer_parts(&item, Some(words), window, cx)) {
+                if !self.as_job(&item.job, |this| this.sheet_answer_parts(&item, Some((words, extras)), window, cx)) {
                     return;
                 }
             }
@@ -1139,20 +1192,90 @@ impl JobView {
                 self.as_job(&item.job, |this| this.answer_ready(SHEET, &card, ipc::ReadyAnswer::NeedsRework { words }, window, cx));
             }
             Kind::Question => {
-                self.review_answer_question(&item, None, Some(words), window, cx);
+                self.review_answer_question(&item, None, Some(words), extras, window, cx);
                 return;
             }
             Kind::Plan | Kind::Sketch | Kind::Document | Kind::Draft => {
                 if !item.send_back || item.read || !self.item_asks(&item, cx) {
                     return;
                 }
-                let body = answer_batch(&[&item], ItemHow::SendBack, |one| self.review_notes_text(one, cx));
+                let mut body = answer_batch(&[&item], ItemHow::SendBack, |one| self.review_notes_text(one, cx));
+                if let Some(one) = body.items.first_mut() {
+                    one.extras = extras;
+                }
                 self.review_send(vec![item], Verdict::ChangesAsked, "/sessions/items/answer", ipc::encode(&body), window, cx);
                 return;
             }
         }
         self.keep_words(&note_key(&item.job, &item.id), "", cx);
         self.review_after(&key, window, cx);
+    }
+
+    /// The draft an ask stands for, as its row holds it: its words.
+    fn draft_text(&self, item: &Item, cx: &gpui::App) -> Option<String> {
+        let held = self.thread(&item.job, cx)?;
+        match draft_row(&held.items, item.id.strip_prefix("draft:").unwrap_or(&item.id)) {
+            Some(SessionRow::Draft { text, .. }) => Some(text.clone()),
+            _ => None,
+        }
+    }
+
+    /// Whether the bar offers Edit on the ask: a draft still asking, whose words he may fix before approving it.
+    fn review_offers_edit(&self, item: &Item, cx: &gpui::App) -> bool {
+        item.kind == Kind::Draft && !item.read && self.draft_text(item, cx).is_some()
+    }
+
+    /// `E` and the bar's Edit on a draft: the box opens in the bar holding the draft's words, to fix and approve.
+    fn review_open_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(item) = self.review_open_ask(cx) else { return };
+        if !self.review_offers_edit(&item, cx) {
+            return;
+        }
+        let key = item.key();
+        let held = self.review().and_then(|review| review.edit.as_ref()).filter(|(on, _)| *on == key).map(|(_, area)| area.clone());
+        let area = match held {
+            Some(area) => area,
+            None => {
+                let text = self.draft_text(&item, cx).unwrap_or_default();
+                let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(4, 12));
+                area.update(cx, |area, cx| area.set_value(text, window, cx));
+                area
+            }
+        };
+        if let Some(review) = self.review_mut() {
+            review.changing = false;
+            review.edit = Some((key, area.clone()));
+        }
+        area.update(cx, |area, cx| area.focus(window, cx));
+        cx.notify();
+    }
+
+    /// Cancel, and Esc in the Edit box: the bar shuts and the draft stands as it was.
+    fn review_cancel_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(review) = self.review_mut() {
+            review.edit = None;
+        }
+        window.focus(&self.review_focus.list, cx);
+        cx.notify();
+    }
+
+    /// Approve with fixes, and ⌘↵ in the Edit box: the draft is approved with his words in place of the Job's, or as written
+    /// where he changed nothing.
+    fn review_send_edit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(item) = self.review_open_ask(cx) else { return };
+        let Some(area) = self.review().and_then(|review| review.edit.as_ref()).filter(|(on, _)| *on == item.key()).map(|(_, area)| area.clone()) else { return };
+        let words = area.read(cx).value().to_string();
+        if words.trim().is_empty() {
+            area.update(cx, |area, cx| area.focus(window, cx));
+            return;
+        }
+        if Some(words.as_str()) == self.draft_text(&item, cx).as_deref() {
+            self.review_approve(window, cx);
+            return;
+        }
+        let body = fixed_body(&item.job, &item.id, words.clone());
+        self.sheet_settles(&item.job, &item.id, Some(super::acts::Answer::Fixed(words)), cx);
+        self.review_waiting(&item, Verdict::Approved, "/sessions/waiting/answer", body, window, cx);
     }
 
     /// `D`: the chosen ask off his list, with no verdict. A build has no Dismiss: it is tried or sent back.
@@ -1190,7 +1313,7 @@ impl JobView {
     }
 
     /// A question answered by its option `choice`, or in his words.
-    fn review_answer_question(&mut self, item: &Item, choice: Option<usize>, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+    fn review_answer_question(&mut self, item: &Item, choice: Option<usize>, words: Option<String>, extras: ipc::AnswerExtras, window: &mut Window, cx: &mut Context<Self>) {
         if choice.is_none() && words.is_none() {
             return;
         }
@@ -1201,7 +1324,7 @@ impl JobView {
             text: words,
             mode: None,
             fixed: None,
-            extras: Default::default(),
+            extras,
         });
         self.keep_words(&note_key(&item.job, &item.id), "", cx);
         self.review_waiting(item, Verdict::Answered, "/sessions/waiting/answer", body, window, cx);
@@ -1315,6 +1438,7 @@ impl JobView {
     fn review_after(&mut self, from: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(review) = self.review_mut() {
             review.changing = false;
+            review.edit = None;
         }
         self.review_advance(Some(from), window, cx);
         if self.review_open() {
@@ -1359,7 +1483,9 @@ impl JobView {
         }
         // ⌘↵ reaches the sheet as Send: in the bar's box it sends his words, and anywhere else the ask's own answer.
         if act.is("send_message") {
-            if self.review_noting(window, cx) {
+            if self.review_editing(window, cx) {
+                self.review_send_edit(window, cx);
+            } else if self.review_noting(window, cx) {
                 self.review_send_changes(window, cx);
             } else if let Some(key) = self.focused_card_box(window, cx) {
                 // A part's Ask for changes box in the panel sends as its Send does.
@@ -1382,6 +1508,7 @@ impl JobView {
         match act.id {
             "items_approve" => self.review_primary(window, cx),
             "items_ask_changes" => self.review_open_changes(window, cx),
+            "items_edit" => self.review_open_edit(window, cx),
             "items_dismiss" => self.review_dismiss(window, cx),
             // j, k, ↓, ↑ in the registry's order: the even slots move down.
             "items_move" => {
@@ -1410,8 +1537,12 @@ impl JobView {
             // One Esc leaves from any depth, and the keys go back to what opened the sheet. The picture zoomer, drawn over it
             // with its own focus, hears its Esc first.
             "escape" => {
-                // A box he is typing in closes alone, its words kept: the panel stays for the next Esc.
-                if !self.review_close_box(window, cx) {
+                // A list open over the bar's words goes first, then the box, then the sheet.
+                if self.review_note_offering(cx) {
+                    if let Some(note) = self.review().and_then(|review| review.note.as_ref()).map(|held| held.note.clone()) {
+                        note.update(cx, |note, cx| note.close_offer(cx));
+                    }
+                } else if !self.review_close_box(window, cx) {
                     self.close_review(window, cx);
                 }
             }
@@ -1430,6 +1561,10 @@ impl JobView {
     /// Esc in the bar's box or in a box of the chosen artifact's parts: the box shuts, and its words stay kept in it. False where
     /// he is in no box.
     fn review_close_box(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.review().is_some_and(|review| review.edit.is_some()) {
+            self.review_cancel_edit(window, cx);
+            return true;
+        }
         if self.review_noting(window, cx) || self.review().is_some_and(|review| review.changing) {
             self.review_cancel_changes(window, cx);
             return true;
@@ -1449,7 +1584,12 @@ impl JobView {
         if let Some(item) = self.review_open_ask(cx) {
             let ask = self.ask_of(&item);
             let changing = self.review().is_some_and(|review| review.changing);
-            if changing {
+            let editing = self.review().and_then(|review| review.edit.as_ref()).map(|(_, area)| area.read(cx).focus_handle(cx));
+            if let Some(edit) = editing {
+                stops.push(edit);
+                stops.push(focus.cancel.clone());
+                stops.push(focus.send.clone());
+            } else if changing {
                 if let Some(note) = self.review().and_then(|review| review.note.as_ref()) {
                     stops.push(note.area.read(cx).focus_handle(cx));
                 }
@@ -1457,6 +1597,9 @@ impl JobView {
                 stops.push(focus.send.clone());
             } else {
                 stops.push(focus.approve.clone());
+                if self.review_offers_edit(&item, cx) {
+                    stops.push(focus.edit.clone());
+                }
                 if self.review_offers_second(&item, ask, cx) {
                     stops.push(focus.changes.clone());
                 }
@@ -1522,6 +1665,9 @@ impl JobView {
         if ready {
             entries.push(Entry::Act { id: "approve", label: label.into(), icon: Some("check"), danger: false });
         }
+        if self.review_offers_edit(&item, cx) {
+            entries.push(Entry::Act { id: "edit", label: "Edit".into(), icon: Some("square-pen"), danger: false });
+        }
         if self.review_offers_second(&item, ask, cx) {
             entries.push(Entry::Act { id: "changes", label: ask.second().into(), icon: Some("pencil"), danger: false });
         }
@@ -1536,6 +1682,7 @@ impl JobView {
             move |this, id, window, cx| match id {
                 "approve" => this.review_primary(window, cx),
                 "changes" => this.review_open_changes(window, cx),
+                "edit" => this.review_open_edit(window, cx),
                 "dismiss" => this.review_dismiss(window, cx),
                 _ => {}
             },
@@ -1956,8 +2103,40 @@ impl JobView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .bg(look.color(token::BG_OVERLAY));
         let row = div().flex().items_center().gap(look.length(token::SPACE_2));
-        let bar = if changing {
-            let area = review.note.as_ref().map(|note| note.area.clone())?;
+        let editing = review.edit.as_ref().filter(|(on, _)| *on == item.key()).map(|(_, area)| area.clone());
+        let bar = if let Some(area) = editing {
+            let empty = area.read(cx).value().trim().is_empty();
+            let field = labelled(
+                div()
+                    .id("review-edit")
+                    .key_context(crate::keymap::TEXT_BOX)
+                    // ⌘↩ approves with the fixes, taken before the text area puts a line break in.
+                    .capture_action(cx.listener(|this, action: &Enter, window, cx| {
+                        if action.secondary {
+                            cx.stop_propagation();
+                            this.review_send_edit(window, cx);
+                        }
+                    }))
+                    .w_full()
+                    .px(look.length(token::SPACE_3))
+                    .py(look.length(token::SPACE_2))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_STRONG))
+                    .bg(look.color(token::BG_RAISED))
+                    .text_size(look.length(token::TEXT_SM))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(gpui_component::input::Textarea::new(&area).appearance(false).aria_label("Draft text")),
+                Role::TextInput,
+                "Draft text",
+            );
+            bar.child(field).child(
+                row.child(div().flex_1())
+                    .child(self.review_button(look, "review-cancel", "Cancel".into(), Tone::Ghost, None, Some("Esc"), &focus.cancel, true, Self::review_cancel_edit, cx))
+                    .child(self.review_button(look, "review-send", "Approve with fixes".into(), Tone::Primary, Some("\u{2318}\u{21b5}"), None, &focus.send, !empty, Self::review_send_edit, cx)),
+            )
+        } else if changing {
+            let (area, note) = review.note.as_ref().map(|held| (held.area.clone(), held.note.clone()))?;
             let empty = area.read(cx).value().trim().is_empty();
             let field = labelled(
                 div()
@@ -1979,7 +2158,7 @@ impl JobView {
                     .bg(look.color(token::BG_RAISED))
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::FG_DEFAULT))
-                    .child(Textarea::new(&area).appearance(false).aria_label(ask.second())),
+                    .child(note),
                 Role::TextInput,
                 ask.second(),
             );
@@ -1994,6 +2173,7 @@ impl JobView {
             let second = self.review_offers_second(item, ask, cx);
             bar.child(
                 row.child(self.review_button(look, "review-approve", label.into(), Tone::Primary, Some("\u{2318}\u{21b5}"), None, &focus.approve, ready, Self::review_primary, cx))
+                    .when(self.review_offers_edit(item, cx), |row| row.child(self.review_button(look, "review-edit-open", "Edit".into(), Tone::Secondary, None, Some("E"), &focus.edit, true, Self::review_open_edit, cx)))
                     .when(second, |row| row.child(self.review_button(look, "review-changes", ask.second().into(), Tone::Secondary, None, Some("C"), &focus.changes, true, Self::review_open_changes, cx)))
                     .child(div().flex_1())
                     .child(self.review_button(look, "review-dismiss", "Dismiss".into(), Tone::Ghost, None, Some("D"), &focus.dismiss, true, Self::review_dismiss, cx)),

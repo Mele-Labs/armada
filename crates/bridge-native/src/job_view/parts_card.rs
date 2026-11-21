@@ -486,10 +486,16 @@ impl JobView {
     /// row says why.
     #[allow(clippy::too_many_arguments)]
     fn answer_part(&mut self, artifact: &str, part: &ArtifactPart, how: PartHow, take: Option<String>, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
+        self.answer_part_with(artifact, part, how, take, words, None, window, cx);
+    }
+
+    /// [`Self::answer_part`] with `extras` in place of what the part's own box holds: the sheet's box sends them.
+    #[allow(clippy::too_many_arguments)]
+    fn answer_part_with(&mut self, artifact: &str, part: &ArtifactPart, how: PartHow, take: Option<String>, words: Option<String>, extras: Option<ipc::AnswerExtras>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let key = part_key(artifact, &part.id);
         // Read before the box goes.
-        let extras = self.extras_of(&key, Mode::Note, cx);
+        let extras = extras.unwrap_or_else(|| self.extras_of(&key, Mode::Note, cx));
         if let Some(ix) = self.parts_ix(artifact) {
             self.close_box(ix, &key, cx);
         }
@@ -1862,7 +1868,7 @@ impl JobView {
     /// The sheet's answer to an artifact ask: every part still asking approved, and each vote sent with the take chosen; or, with
     /// `words`, every part still asking sent back with them. False where nothing was sent: a vote with no take chosen holds the
     /// whole answer back. The parts' acts answer the shown Job, so another Job's ask is answered under `as_job`.
-    pub(super) fn sheet_answer_parts(&mut self, item: &Item, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub(super) fn sheet_answer_parts(&mut self, item: &Item, words: Option<(String, ipc::AnswerExtras)>, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(artifact) = artifact_in(item).map(str::to_string) else { return false };
         if self.shown.as_deref() != Some(item.job.as_str()) {
             return false;
@@ -1873,9 +1879,11 @@ impl JobView {
             return false;
         }
         match words {
-            Some(words) => {
+            Some((words, extras)) => {
+                // What he attached goes once, with the first part sent back: the Job reads one message for each part.
+                let mut extras = Some(extras);
                 for part in &asking {
-                    self.answer_part(&artifact, part, PartHow::SentBack, None, Some(words.clone()), window, cx);
+                    self.answer_part_with(&artifact, part, PartHow::SentBack, None, Some(words.clone()), extras.take(), window, cx);
                 }
             }
             None => {
@@ -1925,7 +1933,23 @@ impl JobView {
             })
             .collect();
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
-        Some(labelled(div().id(SharedString::from(format!("sheet-takes:{key}"))).w_full().flex().flex_col().gap(gap).children(rows).children(said), Role::RadioGroup, item.name.clone()).into_any_element())
+        // A settled vote is read, not answered: the take he picked stands over the takes, which carry no radios.
+        let settled = (!open).then_some(picked).flatten().map(|at| {
+            let line = format!("Picked: {}", pick_mark(&takes[at].title).0);
+            labelled(
+                div()
+                    .id(SharedString::from(format!("sheet-picked:{key}")))
+                    .text_size(look.length(token::TEXT_SM))
+                    .line_height(look.length(token::LEADING_SM))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .child(SharedString::from(line.clone())),
+                Role::Status,
+                line,
+            )
+        });
+        let role = if open { Role::RadioGroup } else { Role::Group };
+        Some(labelled(div().id(SharedString::from(format!("sheet-takes:{key}"))).w_full().flex().flex_col().gap(gap).children(settled).children(rows).children(said), role, item.name.clone()).into_any_element())
     }
 
     /// One take on the sheet: its picture in a well, then its radio, its title wrapped whole and, on the Job's pick, a chip.
@@ -1933,7 +1957,12 @@ impl JobView {
     fn sheet_take(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, on: bool, open: bool, wide: gpui::Pixels, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let (title, marked) = pick_mark(&take.title);
-        let name = if on { format!("Chosen: {title}") } else { format!("Pick {title}") };
+        let name = match (open, on) {
+            (true, true) => format!("Chosen: {title}"),
+            (true, false) => format!("Pick {title}"),
+            (false, true) => format!("Picked: {title}"),
+            (false, false) => title.to_string(),
+        };
         let radio = div()
             .flex_none()
             .mt(look.length(token::SPACE_1) / 2.)
@@ -1986,7 +2015,7 @@ impl JobView {
             .items_start()
             .gap(look.length(token::SPACE_2))
             .p(look.length(token::SPACE_3))
-            .child(radio)
+            .when(open, |head| head.child(radio))
             .child(
                 div()
                     .flex_1()
@@ -2028,7 +2057,7 @@ impl JobView {
                     }))
                     .on_click(cx.listener(move |this, _, _, cx| this.as_job(&press_job, |this| this.choose_take(&press_key, at, cx))))
             });
-        labelled(card, Role::RadioButton, name).into_any_element()
+        labelled(card, if open { Role::RadioButton } else { Role::Group }, name).into_any_element()
     }
 }
 

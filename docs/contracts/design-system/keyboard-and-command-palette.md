@@ -196,6 +196,7 @@ d              Dispatch job to fix the failed hand off   (thread only)
 a              approve   (review sheet only)
 c              ask for changes   (review sheet only)
 d              dismiss   (review sheet only)
+e              edit   (review sheet only)
 j / k / ↓ / ↑  move between items   (review sheet only)
 1–9            go to step   (review sheet only)
 ⌘E             good   (review sheet only)
@@ -486,7 +487,9 @@ They join the Job view's `⌥` family under Two tiers.
 `1`–`9` still pick a question's option, and `⌘↵` commits an open edit or note box.
 In the review sheet, which `⇧⌘Y` opens, the open Job's asks stand in a list beside the chosen one; opened from the Jobs list, every Job's do.
 `a` gives the chosen ask its own answer, `c` opens the Ask for changes box in its answer bar, `d` dismisses it, and `j` and `k` move.
+On a draft `e` opens its words in the answer bar to fix, and `⌘↵` there approves it with his fixes.
 In the box `⌘↵` sends and Esc closes it; Esc again returns focus to the key that opened the sheet.
+Where `@` has a list open in the box, Esc closes the list first.
 Each ask is answered on its own: there is no key that answers every ask at once.
 In the In this build sheet, which opens on a preview build that holds branches Jobs offered, `1`–`9` run the chosen note's steps, `⌘E` marks it good, `⇧⌘E` marks it as needing work and puts the caret in its box, `⌥⌘O` closes the sheet and opens the note's Job, `↑` and `↓` move between notes, `⌘↵` sends the feedback and Esc closes it.
 It takes the review sheet's scope, since it is the same kind of sheet, and its keys are heard only while it is up.

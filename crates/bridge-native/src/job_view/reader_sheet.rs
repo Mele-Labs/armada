@@ -665,6 +665,123 @@ mod tests {
         assert!(!view.read_with(cx, |view, _| view.review_open()), "the next Esc closes the panel");
     }
 
+    /// The sheet's Ask for changes box, open: the rich box the Job composer's words are, holding his note.
+    fn sheet_note(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) -> gpui::Entity<super::super::rich_note::RichNote> {
+        let ask = bounds_of(cx, Role::Button, "Ask for changes").center();
+        cx.simulate_click(ask, Modifiers::none());
+        redraw(cx);
+        view.read_with(cx, |view, _| view.review().and_then(|review| review.note.as_ref()).map(|held| held.note.clone())).expect("the box is open, a rich one")
+    }
+
+    #[gpui::test]
+    fn the_sheets_ask_for_changes_box_sends_a_pasted_picture_and_a_tag_with_its_words(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
+        let note = sheet_note(&view, cx);
+        note.update_in(cx, |note, window, cx| {
+            let picture = gpui::ClipboardItem::new_image(&gpui::Image::from_bytes(gpui::ImageFormat::Png, vec![1, 2, 3]));
+            assert!(note.paste(&picture, cx), "a pasted picture is attached, not typed");
+            note.type_words("Shorter, as @Brief", window, cx);
+            assert!(note.offering(), "@ opens the list of Jobs and files, as the composer's does");
+            note.pick_offered(0, window, cx);
+        });
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let posts = view.mock_part_posts();
+            assert!(!posts.is_empty(), "the note went back");
+            assert_eq!(posts[0].extras.attachments.len(), 1, "the picture goes with the words: {:?}", posts[0].extras);
+            assert_eq!(posts[0].extras.mentions.len(), 1, "and the tag: {:?}", posts[0].extras);
+            assert!(posts[0].words.as_deref().is_some_and(|words| words.starts_with("Shorter, as ")), "{:?}", posts[0].words);
+            assert!(posts[1..].iter().all(|post| post.extras.is_empty()), "once, with the first part sent back");
+        });
+    }
+
+    #[gpui::test]
+    fn escape_in_the_sheets_box_closes_its_tag_list_first_then_the_box_then_the_sheet(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = opened(cx, 1400., 900.);
+        let note = sheet_note(&view, cx);
+        note.update_in(cx, |note, window, cx| note.type_words("as @Brief", window, cx));
+        redraw(cx);
+        assert!(note.read_with(cx, |note, _| note.offering()), "the list is open");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!note.read_with(cx, |note, _| note.offering()), "the first Esc closes the list");
+        assert!(drawn(cx, Role::TextInput, "Ask for changes"), "and leaves the box");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!drawn(cx, Role::TextInput, "Ask for changes"), "the next closes the box");
+        assert!(view.read_with(cx, |view, _| view.review_open()));
+        cx.simulate_keystrokes("escape");
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "and the next the sheet");
+    }
+
+    #[gpui::test]
+    fn a_settled_takes_ask_opened_in_the_sheet_says_what_he_picked_with_no_radios_and_no_bar(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts-answered", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_artifact_review(ID, window, cx));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the sheet opens on the settled artifact");
+        assert!(drawn(cx, Role::Status, "Picked: B \u{b7} Rail"), "it says the take he picked");
+        for take in TAKES {
+            let (title, _) = super::super::parts_card::pick_mark(take);
+            for name in [format!("Chosen: {title}"), format!("Pick {title}")] {
+                assert!(!drawn(cx, Role::RadioButton, &name), "no radio: {name}");
+            }
+        }
+        assert!(!drawn(cx, Role::Toolbar, "Answer"), "and no answer bar");
+    }
+
+    /// The draft Job with its release note waiting on him, opened in the sheet.
+    fn draft_opened(cx: &mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &mut gpui::VisualTestContext) {
+        let row = r#"[{"id":"draft:dra-1","text":"Release note for 0.42","since":"2026-11-10T22:02:00Z","source":"draft"}]"#;
+        let (view, cx) = rooted_job(cx, "drafts", "draft-job", size(px(1400.), px(900.)), |jobs| {
+            let held = ipc::decode::<Vec<ipc::WaitingItem>>("waiting", row.as_bytes()).expect("a waiting row");
+            jobs.iter_mut().find(|one| one.id.as_str() == "draft-job").expect("the job").waiting_for.extend(held);
+        });
+        cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
+        view.update_in(cx, |view, window, cx| view.open_review_on("draft:dra-1", window, cx));
+        redraw(cx);
+        (view, cx)
+    }
+
+    #[gpui::test]
+    fn edit_on_a_draft_opens_its_words_in_the_bar_and_approves_them_with_his_fixes(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = draft_opened(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.kind)), Some(Kind::Draft));
+        let (edit, approve) = (bounds_of(cx, Role::Button, "Edit"), bounds_of(cx, Role::Button, "Approve"));
+        assert!(approve.right() <= edit.left(), "Edit stands after Approve in the bar");
+        assert!((edit.size.height - approve.size.height).abs() < px(1.) && (edit.center().y - approve.center().y).abs() < px(1.), "one height and one line: {edit:?} {approve:?}");
+        assert!(!drawn(cx, Role::Button, "Discuss"), "no Discuss");
+        cx.simulate_keystrokes("e");
+        redraw(cx);
+        assert!(drawn(cx, Role::TextInput, "Draft text"), "E opens the draft's words in the bar");
+        let area = view.read_with(cx, |view, _| view.review().and_then(|review| review.edit.as_ref()).map(|(_, area)| area.clone())).expect("the box");
+        assert_eq!(area.read_with(cx, |area, _| area.value().to_string()), "Armada 0.42 draws each tool call on a row of its own.", "holding the draft as the Job wrote it");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!drawn(cx, Role::TextInput, "Draft text"), "Esc shuts the box");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and leaves the sheet");
+        cx.simulate_keystrokes("e");
+        redraw(cx);
+        let area = view.read_with(cx, |view, _| view.review().and_then(|review| review.edit.as_ref()).map(|(_, area)| area.clone())).expect("the box again");
+        area.update_in(cx, |area, window, cx| area.set_value("Armada 0.42 draws each call on its own row.", window, cx));
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let answer = view.pages.get("draft-job").and_then(|page| page.cards.answers.get("draft:dra-1").cloned());
+            assert_eq!(answer, Some(super::super::acts::Answer::Fixed("Armada 0.42 draws each call on its own row.".into())), "approved with his words in place of the Job's");
+        });
+    }
+
+    #[test]
+    fn approve_with_fixes_sends_his_words_as_the_fix() {
+        let wire = super::super::review::fixed_body("draft-job", "draft:dra-1", "Mine.".into()).expect("encodes");
+        assert!(wire.contains(r#""item_id":"draft:dra-1""#) && wire.contains(r#""fixed":"Mine.""#), "{wire}");
+    }
+
     #[gpui::test]
     fn one_escape_closes_it_from_the_parts_and_from_the_list(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);

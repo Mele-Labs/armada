@@ -676,6 +676,8 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             crate::job_view::open_over(window, cx, item, Some((reading.into(), Some(pick.into()))));
             Ok(())
         }
+        // A picture pasted into the sheet's open box, or a settled artifact opened in the sheet.
+        Verb::Answer(name) if name.starts_with("sheet-") => crate::job_view::walk_scene(name, window, cx).map_err(Missed),
         // The review sheet opened from the Jobs list, on the Features vote: every Job's asks, grouped by Job.
         Verb::Answer("review-all") => {
             let item = ipc::ItemRef { session_id: ipc::SessionId::carried(crate::mock_parts::FEATURES_JOB.to_string()), item: "agent-place".to_string() };
