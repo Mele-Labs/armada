@@ -38,7 +38,7 @@ macro_rules! each_key {
     };
 }
 
-each_key!(pr_mode, auto_merge, review_model, look, tracker, reviews, agent_starts, delivery, workflows_off);
+each_key!(pr_mode, auto_merge, review_model, look, tracker, reviews, agent_starts, delivery, workflows_off, review_on_new_pr);
 
 /// Whether a key says anything: an option that is present, or a list that is not empty.
 fn set<T: IsSet>(held: &T) -> bool {
