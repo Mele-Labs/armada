@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use api::{HostedSessions, Sessions};
+use api::HostedSessions;
 use ipc::{
     AddPart, AnswerHow, AnswerPart, AnswerWaiting, AnsweredAsk, DismissWaiting, PartHow, PartState, SessionId, SetWaitingFor, WaitingAct,
     WaitingActKind, WaitingInput, WaitingOption,

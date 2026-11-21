@@ -200,6 +200,7 @@ pub struct PartAnswer {
 
 /// One part of an artifact, in the order the Job added them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "PartAsWritten", into = "PartAsWritten")]
 pub struct ArtifactPart {
     /// Unique in its Job. A drawing, draft or page that joined is named by the ledger id it is kept under
     /// (`sketch:<title>`, `draft:<title>`, the page's path); a part added with `add_part` by the id the Job gave.
@@ -222,6 +223,48 @@ pub struct ArtifactPart {
     /// worded one; a part kept before every ask was a question has none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub question: Option<String>,
+}
+
+/// [`ArtifactPart`] as it is written. **A takes part's question is written once**, as the takes' own `question`, which
+/// shares the part's key; written twice, the part would not read back.
+#[derive(Serialize, Deserialize)]
+struct PartAsWritten {
+    id: String,
+    #[serde(flatten)]
+    content: PartContent,
+    asks: bool,
+    state: PartState,
+    revision: u32,
+    drawn: String,
+    added: Instant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    answer: Option<PartAnswer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    question: Option<String>,
+}
+
+impl From<PartAsWritten> for ArtifactPart {
+    fn from(written: PartAsWritten) -> Self {
+        let PartAsWritten { id, mut content, asks, state, revision, drawn, added, answer, question } = written;
+        // The part's own field reads the shared key, so the takes are given it back.
+        if let PartContent::Takes { question: own, .. } = &mut content {
+            if own.is_none() {
+                own.clone_from(&question);
+            }
+        }
+        ArtifactPart { id, content, asks, state, revision, drawn, added, answer, question }
+    }
+}
+
+impl From<ArtifactPart> for PartAsWritten {
+    fn from(part: ArtifactPart) -> Self {
+        let ArtifactPart { id, content, asks, state, revision, drawn, added, answer, question } = part;
+        let question = match &content {
+            PartContent::Takes { question: own, .. } => question.filter(|_| own.is_none()),
+            _ => question,
+        };
+        PartAsWritten { id, content, asks, state, revision, drawn, added, answer, question }
+    }
 }
 
 impl ArtifactPart {

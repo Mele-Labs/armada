@@ -80,7 +80,7 @@ async fn a_part_that_asks_needs_its_question_and_the_question_titles_its_item() 
     );
     rig.fleet.add_part(None, part(&id, &takes)).await.unwrap();
     let record = rig.fleet.published_hosted(id.as_str()).await.unwrap();
-    let item = record.waiting_for.iter().find(|one| one.id == "sketch:Catalog").expect("the takes wait");
+    let item = record.waiting_for.iter().find(|one| one.id == "sketch:Catalog").unwrap_or_else(|| panic!("the takes wait: {:?}", record.waiting_for));
     assert_eq!(item.text, "Which layout reads better?");
     let held = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
     let layout = held.iter().flat_map(|one| one.parts.iter()).find(|one| one.id == "layout").expect("the takes part");

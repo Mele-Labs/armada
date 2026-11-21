@@ -201,7 +201,7 @@ async fn takes_are_answered_by_one_pick_and_approve_of_the_whole_never_stands_in
     let layout = artifacts(&rig, &id).await[0].parts[0].clone();
     let wrong = refused(Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Catalog", "layout", &layout.drawn, PartHow::Approved)).await);
     assert_eq!(wrong.code, "fleet.part_how");
-    assert!(wrong.message.contains("send a pick"), "it says what to send: {}", wrong.message);
+    assert!(wrong.message.contains("send how `picked`"), "it says what to send: {}", wrong.message);
     let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Catalog".into(), how: ipc::ItemHow::Approve, notes: Vec::new() };
     let whole = Arc::clone(&rig.fleet).answer_items(ipc::AnswerItems { items: vec![item] }, Vec::new()).await;
     let ipc::ItemSettled::Refused { message, .. } = &whole.outcomes[0].outcome else { panic!("an Approve of the whole is refused while a pick is open") };
