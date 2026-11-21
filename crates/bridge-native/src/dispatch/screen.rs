@@ -1145,19 +1145,6 @@ mod tests {
     use super::*;
     use crate::titlebar::scenes;
 
-    #[test]
-    fn the_first_message_carries_the_files_and_sketches() {
-        let file = crate::job_view::composer::attached(1, "notes.md".into(), "text/markdown".into(), b"hi".to_vec());
-        let sketch = crate::sketch::DrawnSketch { id: "d1".into(), title: "Login form".into(), drawing: Default::default() };
-        let message = first_message("Fix the login".into(), Vec::new(), vec![file], &[sketch]);
-        assert_eq!(message.text, "Fix the login");
-        assert_eq!(message.sketches, [ipc::SentSketch { id: "d1".into(), title: "Login form".into() }]);
-        let names: Vec<&str> = message.attachments.iter().map(|one| one.name.as_str()).collect();
-        assert_eq!(names.len(), 2, "the file, then the sketch's picture: {names:?}");
-        assert_eq!(names[0], "notes.md");
-        assert_eq!(message.attachments[0].data, "aGk=");
-    }
-
     fn storefront() -> titlebar::Face {
         let mut face = scenes::rest();
         face.scoped = Some(1);
@@ -1203,5 +1190,18 @@ mod tests {
         assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
         screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
         assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");
+    }
+
+    #[test]
+    fn the_first_message_carries_the_files_and_sketches() {
+        let file = crate::job_view::composer::attached(1, "notes.md".into(), "text/markdown".into(), b"hi".to_vec());
+        let sketch = crate::sketch::DrawnSketch { id: "d1".into(), title: "Login form".into(), drawing: Default::default() };
+        let message = first_message("Fix the login".into(), Vec::new(), vec![file], &[sketch]);
+        assert_eq!(message.text, "Fix the login");
+        assert_eq!(message.sketches, [ipc::SentSketch { id: "d1".into(), title: "Login form".into() }]);
+        let names: Vec<&str> = message.attachments.iter().map(|one| one.name.as_str()).collect();
+        assert_eq!(names.len(), 2, "the file, then the sketch's picture: {names:?}");
+        assert_eq!(names[0], "notes.md");
+        assert_eq!(message.attachments[0].data, "aGk=");
     }
 }
