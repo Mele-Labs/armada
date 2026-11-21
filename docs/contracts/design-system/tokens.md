@@ -498,3 +498,34 @@ the kind.
 sits near a status — setup near `completed_success`, the gate near
 `rejected` — and a tint or a 4px edge is never read as a status, which is
 a mark, a badge or a solid band.
+
+## Ask tools
+
+Which of Armada's own tools a message asks the agent for, in seven hues, declared in `tokens/ask-tools.css`.
+Its own file under the owner's ruling of 9 Nov 2026, so it borrows neither the node kinds nor the tool families.
+A tool is picked from the + in the native message box's bar, or `ask_for_tool` (⌘/), and sits in the words as a chip.
+
+```
+                 dark      light
+--ask-sketch     #AD9BF5   #6A4FC8   a screen drawn as a mock
+--ask-diagram    #86A8F0   #3C62B8   boxes and arrows: a flow or a map
+--ask-takes      #DDB66C   #835F10   options side by side, one picked
+--ask-document   #72C7DE   #1D6F86   a page he reads and approves
+--ask-browser    #6FCDB4   #1E7660   a page opened in the Job's browser
+--ask-terminal   #A6CF7E   #4D7323   a command he can watch run
+--ask-features   #E59AC4   #A43E77   the project's feature catalog
+```
+
+**A tool is a tint with a hairline all the way round, and its glyph in the hue; never a solid band and never a one-sided stripe.**
+The chip's fill is the hue at 16%, its edge the hue at 60%, and its words stay `--fg-default`.
+The list the + opens draws each row's glyph in its tool's hue.
+
+**Seven hues, none shared, and none a status's.**
+Each sits nearest one status and is told apart by being lighter and softer, as the kinds are: the takes near `awaiting_review`, the browser near `handed_in`, the terminal near `completed_success`.
+A chip is never a status's mark, badge or band, so the two never share a slot.
+
+Measured 19 Nov 2026.
+Dark, as a glyph on `--bg-overlay`, `--bg-hover` and `--bg-sunken`, the lowest is 6.08:1, and 4.54:1 on its own 16% tint.
+Light, the lowest is 4.64:1 on those grounds and 3.77:1 on its tint, above the 3:1 a glyph needs.
+`--fg-default` reads 8.64:1 or more on any tint, either way.
+The catalogue themes declare none of the seven, as they declare no node kind, so a catalogue theme shows the shipped dark values.

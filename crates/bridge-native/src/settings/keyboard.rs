@@ -32,6 +32,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Kit", &[ActionScope::Kit]),
     ("Usage", &[ActionScope::Usage]),
     ("Tokens", &[ActionScope::Tokens]),
+    ("API Client", &[ActionScope::ApiClient]),
     ("Features", &[ActionScope::Features]),
     ("Issues", &[ActionScope::Issues, ActionScope::Report]),
     ("Projects", &[ActionScope::Projects]),
@@ -50,6 +51,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
         "features_move" | "usage_move" => &["Down", "Up", "Down", "Up"],
         "usage_open" => &["Enter", "Space"],
         "tokens_move" => &["Next", "Previous"],
+        "api_client_part" => &["Previous", "Next"],
         "usage_window" => &["Day", "Week", "Fortnight"],
         _ => &[],
     }
@@ -58,7 +60,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
 /// Where an act's keys are heard, so two acts meet only where both listen (`PLACES`).
 fn places(scope: ActionScope) -> &'static [&'static str] {
     match scope {
-        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "usage", "features", "tokens"],
+        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "usage", "features", "tokens", "api-client"],
         ActionScope::List => &["board", "dashboard", "deck"],
         ActionScope::ListAndDetail => &["board", "detail", "dashboard"],
         ActionScope::OpenStudio => &["studio"],
@@ -78,6 +80,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::Kit => &["kit"],
         ActionScope::Usage => &["usage"],
         ActionScope::Tokens => &["tokens"],
+        ActionScope::ApiClient => &["api-client"],
         ActionScope::Features => &["features"],
     }
 }

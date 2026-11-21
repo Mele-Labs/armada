@@ -1,4 +1,5 @@
 [operations.get_checkout_run_sheet]
+ask_tool = "none"
 kind = "query"
 transport = "HTTP"
 agent_access = "On your words"

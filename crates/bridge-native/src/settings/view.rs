@@ -882,10 +882,7 @@ impl SettingsOverlay {
             match &self.list {
                 None => cards.push(self.row_bones(look, spread)),
                 Some(list) => {
-                    // Account opens with the press that registers the sign-in app, until an app is registered.
-                    let registering = if id == "account" { self.sign_in_app_row(spread, look, window, cx) } else { None };
-                    let first = registering.is_none();
-                    let rows = registering.into_iter().chain(entries::settings_in(list, id).into_iter().enumerate().map(|(n, one)| self.field_row(one, spread, first && n == 0, look, window, cx))).collect();
+                    let rows = entries::settings_in(list, id).into_iter().enumerate().map(|(n, one)| self.field_row(one, spread, n == 0, look, window, cx)).collect();
                     cards.push(rows_card(look, SharedString::from(format!("settings-card-{id}")), rows).into_any_element());
                 }
             }
@@ -1007,6 +1004,21 @@ impl SettingsOverlay {
         if let Some(entry) = shown.filter(|one| one.body == Body::Store) {
             return self.render_store(entry, look, window, cx);
         }
+        if let Some(entry) = shown.filter(|one| one.body == Body::Account) {
+            return self.render_account(entry, look, window, cx);
+        }
+        if let Some(entry) = shown.filter(|one| one.body == Body::Shared) {
+            // The share switch is the project's. A copy's place is the keeping Mac's, shown above it.
+            let mut cards: Vec<AnyElement> = self.kept_card(look, window, cx).into_iter().collect();
+            let purpose = match &self.scope.project {
+                Some((_, name)) => {
+                    cards.push(super::project::grid(self, "Shared with your other Macs", super::project::keys_of(Body::Shared), look, window, cx));
+                    format!("Whether {name}'s Jobs reach your other Macs.")
+                }
+                None => "Each project is shared on its own.".to_string(),
+            };
+            return self.rows_page(entry, purpose.into(), false, Vec::new(), cards, look, window, cx);
+        }
         let mut cards: Vec<AnyElement> = Vec::new();
         match shown.map(|one| one.body) {
             Some(Body::Repository) => cards.extend(self.connectors_card(look, window, cx)),
@@ -1015,23 +1027,14 @@ impl SettingsOverlay {
                 cards.push(self.render_theme(look, window, cx));
                 cards.extend(self.render_mods(super::mods::Page::Theme, look, window, cx));
             }
-            Some(Body::Macs) => {
-                // The share switch is the project's, over this Mac's own. A copy's place is the keeping Mac's, shown above it.
-                cards.extend(self.kept_card(look, window, cx));
-                if self.scope.project.is_some() {
-                    cards.push(super::project::grid(self, "Shared with your other Macs", super::project::keys_of(Body::Macs), look, window, cx));
-                }
-                cards.extend(self.render_macs(look, window, cx));
-            }
             Some(Body::Layout) => cards.extend(self.render_layout(look, window, cx)),
             Some(Body::Ways) => cards.extend(self.render_ways(look, window, cx)),
-            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Store | Body::Time) => {}
+            Some(Body::Models | Body::Workflows | Body::Schema(_) | Body::Features | Body::Values(_) | Body::Store | Body::Time | Body::Shared | Body::Account) => {}
             Some(body @ Body::Mods(_)) => cards.extend(super::mods::page_of(body).and_then(|page| self.render_mods(page, look, window, cx))),
             None => {}
         }
         let gap = look.length(token::GAP_PANEL);
-        // Macs lays its own cards out, wide, in `render_macs`.
-        let wide = cards.len() >= 2 && shown.is_some_and(|one| one.body != Body::Macs) && self.page_width(look, window, cx) >= px(COLUMN_MIN) * 2. + gap;
+        let wide = cards.len() >= 2 && self.page_width(look, window, cx) >= px(COLUMN_MIN) * 2. + gap;
         let stack = if wide {
             // Two equal columns, the cards in reading order, each row's cards top-aligned and none stretched.
             let mut rows: Vec<AnyElement> = Vec::new();
@@ -1078,10 +1081,14 @@ impl SettingsOverlay {
         } else {
             self.store.reopen();
         }
-        if self.shown(cx).is_some_and(|one| one.body == Body::Macs) {
+        if self.shown(cx).is_some_and(|one| one.body == Body::Account) {
+            self.read_account(window, cx);
+            self.account_keys(cx);
             self.read_macs(window, cx);
             self.macs_keys(cx);
             self.macs_settle(window, cx);
+        } else {
+            self.account.reopen();
         }
         if self.shown(cx).is_some_and(|one| matches!(one.body, Body::Layout | Body::Time | Body::Ways)) {
             self.read_prefs(cx);

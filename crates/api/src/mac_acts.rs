@@ -88,6 +88,7 @@ async fn run<D: HostedSessions + Sessions + PullRequests + OtherMacs + Story>(se
         JobAct::ArtifactRestore(body) => through!(hosted::restore_artifact, &body),
         JobAct::ArtifactPartAnswer(body) => through!(hosted::answer_part, &body),
         JobAct::Stop(body) => through!(hosted::stop_session, &body),
+        JobAct::Close(body) => through!(hosted::close_session, &body),
         JobAct::Merge { repository, number, .. } => {
             boxed(move || pull_requests::merge_pull_request_by_number(State(served), axum::extract::Path((repository, number)))).await
         }

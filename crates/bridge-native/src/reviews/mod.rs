@@ -42,6 +42,7 @@ use crate::look::{token, ActiveLook, Look};
 use crate::titlebar::parts::{card, sans, Btn, Weight};
 use layout::{LayoutControl, Layouts};
 use live::Find;
+pub(crate) use live::{post_run, read_runs, read_tools};
 use model::{Critique, DraftOf, Explain, Group, Inbox, Mine, Page, Summary, Verdict, Viewed};
 
 /// Each tab a pull request's page can hold: its kind, as the pane tree keys it, and its name.
@@ -205,8 +206,8 @@ pub struct ReviewsScreen {
     asking_review: Option<AskingReview>,
     /// The review tools a review can be asked to look for.
     review_tools: Vec<model::ReviewTool>,
-    /// His last ask, by repository, until Fleet keeps it.
-    review_asks: HashMap<String, model::ReviewAsk>,
+    /// Opened from a ready review's toast or banner: once its page shows, Review comments comes to the front.
+    findings_next: Option<u64>,
     name_box: Entity<InputState>,
     dialog: FocusHandle,
     pop: Option<Pop>,
@@ -254,6 +255,21 @@ impl gpui::Global for Walked {}
 /// The reviews screen a walk is playing, if one is drawn.
 pub fn walked(cx: &App) -> Option<Entity<ReviewsScreen>> {
     cx.try_global::<Walked>().and_then(|walked| walked.0.upgrade())
+}
+
+/// His last ask, by repository (`owner/name`), for this run of the app: the Reviews sheet and a review toast's
+/// picker both open on it, and Start in either keeps it.
+#[derive(Default)]
+struct LastAsks(HashMap<String, model::ReviewAsk>);
+
+impl gpui::Global for LastAsks {}
+
+pub(crate) fn last_ask(repository: &str, cx: &App) -> Option<model::ReviewAsk> {
+    cx.try_global::<LastAsks>().and_then(|kept| kept.0.get(repository).cloned())
+}
+
+pub(crate) fn keep_ask(repository: String, ask: model::ReviewAsk, cx: &mut App) {
+    cx.default_global::<LastAsks>().0.insert(repository, ask);
 }
 
 impl ReviewsScreen {
@@ -319,7 +335,7 @@ impl ReviewsScreen {
             asking: None,
             asking_review: None,
             review_tools: mock::review_tools(),
-            review_asks: HashMap::new(),
+            findings_next: None,
             name_box,
             dialog: cx.focus_handle(),
             pop: None,
@@ -479,6 +495,12 @@ impl ReviewsScreen {
         self.press_row(asked.number, window, cx);
     }
 
+    /// A ready review, from its toast or its banner: the pull request opens as `open_asked` opens it, on Review comments.
+    pub fn open_asked_findings(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
+        self.findings_next = Some(asked.number);
+        self.open_asked(asked, window, cx);
+    }
+
     /// The pull request being opened or open, for a test.
     #[cfg(test)]
     pub fn showing(&self) -> Option<u64> {
@@ -537,6 +559,10 @@ impl ReviewsScreen {
         self.sheet = false;
         self.whole = !changed || gone;
         self.bring_kind("pr-overview", cx);
+        if self.findings_next == Some(number) {
+            self.findings_next = None;
+            self.bring_kind("pr-findings", cx);
+        }
         self.summary = Some(self.boxed(&format!("reviews:summary:{number}"), None, 3, 8, window, cx));
         let mine: Vec<DraftOf> = self.drafts.iter().filter(|draft| draft.number == number).cloned().collect();
         for draft in mine {
@@ -915,7 +941,7 @@ impl ReviewsScreen {
     /// Review these changes: the sheet opens under its button with his last ask on this repository.
     pub(super) fn open_review(&mut self, title: &'static str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(page) = self.page() else { return };
-        let ask = self.review_asks.get(&page.repository).cloned().unwrap_or_else(|| model::ReviewAsk::first(&self.review_tools));
+        let ask = last_ask(&page.repository, cx).unwrap_or_else(|| model::ReviewAsk::first(&self.review_tools));
         let at = under_label(Role::Button, title, Point::default(), window, cx);
         let focus = cx.new(|cx| InputState::new(window, cx).placeholder("Optional"));
         let was = ask.focus.clone();
@@ -963,7 +989,7 @@ impl ReviewsScreen {
                 Some(finds) => finds.flags == Find::Done || finds.sets == Find::Running || finds.flags == Find::Running,
                 None => page.overview.read || self.finding.contains_key(&number),
             };
-        self.review_asks.insert(repository, open.ask.clone());
+        keep_ask(repository, open.ask.clone(), cx);
         self.sheet = false;
         if !found {
             self.find_problems(window, cx);

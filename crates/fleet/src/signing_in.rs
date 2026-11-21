@@ -335,6 +335,20 @@ impl SigningIn {
             .find(|directory| matches!(adapters::device_id(directory), Ok(Some(_))))
     }
 
+    /// The profiles enrolled with the store at `address`: a device id is kept in the folder it has for it.
+    pub(crate) fn enrolled_at(&self, address: &core_model::StoreAddress) -> Vec<u64> {
+        let profiles = &self.inner.profiles;
+        let listed = profiles.list().unwrap_or_default();
+        listed
+            .iter()
+            .filter(|profile| {
+                let directory = crate::project_store::store_directory(&profiles.directory_of(profile.account_id), address);
+                matches!(adapters::device_id(&directory), Ok(Some(_)))
+            })
+            .map(|profile| profile.account_id)
+            .collect()
+    }
+
     /// Enrol profile `account_id` with the store at `address` as `machine`, with
     /// `gh`'s token for the profile's login read once and dropped. **A profile
     /// already enrolled there is left as it is** and answers its device. Blocking.

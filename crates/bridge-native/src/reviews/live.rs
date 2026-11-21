@@ -102,6 +102,28 @@ fn runtime() -> Result<tokio::runtime::Runtime, String> {
     tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|why| why.to_string())
 }
 
+fn runs_route(manifest: &str) -> String {
+    format!("/review_runs/{}", encoded(manifest))
+}
+
+/// A repository's review tools, as the sheet lists them. Blocking: for a caller off the main thread, such as a review toast.
+pub(crate) fn read_tools(port: u16, manifest: &str) -> Result<Vec<model::ReviewTool>, String> {
+    let tools: ReviewTools = runtime()?.block_on(fetch(port, Verb::Get, &format!("/review_tools/{}", encoded(manifest)), None, "ReviewTools"))?;
+    Ok(map::tools_of(&tools))
+}
+
+/// One run asked of Fleet, as `start_run` asks it. Blocking, as `read_tools`.
+pub(crate) fn post_run(port: u16, manifest: &str, run: &ipc::StartReviewRun) -> Result<ReviewRun, String> {
+    let body = ipc::encode(run).map_err(|why| why.to_string())?;
+    runtime()?.block_on(fetch(port, Verb::Post, &runs_route(manifest), Some(body), "ReviewRun"))
+}
+
+/// Every run kept or going for one pull request. Blocking, as `read_tools`.
+pub(crate) fn read_runs(port: u16, manifest: &str, number: u64) -> Result<Vec<ReviewRun>, String> {
+    let runs: ReviewRuns = runtime()?.block_on(fetch(port, Verb::Get, &format!("{}/{number}", runs_route(manifest)), None, "ReviewRuns"))?;
+    Ok(runs.runs)
+}
+
 /// One page read, mapped.
 struct Landed {
     facts: map::Facts,
@@ -480,7 +502,7 @@ impl ReviewsScreen {
         let Some(manifest) = self.manifest_of(number) else { return };
         let body = ipc::encode(&ipc::StartReviewRun { number, kind, name: name.clone(), again, place: None, finding: None, since }).ok();
         let key = format!("run:{number}:{kind:?}:{name}");
-        self.call(key, Verb::Post, format!("/review_runs/{}", encoded(&manifest)), body, "ReviewRun", window, cx, move |this, answer: Result<ReviewRun, String>, window, cx| {
+        self.call(key, Verb::Post, runs_route(&manifest), body, "ReviewRun", window, cx, move |this, answer: Result<ReviewRun, String>, window, cx| {
             let Some(pull) = this.live.as_mut().and_then(|live| live.pulls.get_mut(&number)) else { return };
             // A refusal stands where the run would, in Fleet's words, until a run of its kind is started.
             pull.facts.refused.retain(|(was, asked, _)| !(*was == kind && *asked == name));

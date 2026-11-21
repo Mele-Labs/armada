@@ -137,8 +137,12 @@ impl Refs {
     }
 
     /// The file a press on a link opens, where the link is one this file wrote.
+    /// A `:12` or `:12-20` line suffix is where to look, not part of the name, so it is dropped.
     pub(super) fn file_of(address: &str) -> Option<String> {
-        address.strip_prefix(FILE).map(str::to_string)
+        let path = address.strip_prefix(FILE)?;
+        let (name_at, name) = path.rsplit_once('/').map_or((0, path), |(dir, name)| (dir.len() + 1, name));
+        let end = name.find(':').map_or(path.len(), |colon| name_at + colon);
+        Some(path[..end].to_string())
     }
 
     /// The words with each Job they name written as a link, and code left alone: a code span that is exactly
@@ -344,6 +348,7 @@ mod tests {
         let out = refs().linked("`/tmp/armada-red/operator-handoff.md` `crates/a/b.rs` `a/b` `cargo test` `x.rs`");
         assert_eq!(out, "[`/tmp/armada-red/operator-handoff.md`](<armada-ref:file//tmp/armada-red/operator-handoff.md>) [`crates/a/b.rs`](<armada-ref:file/crates/a/b.rs>) `a/b` `cargo test` `x.rs`");
         assert_eq!(Refs::file_of("armada-ref:file//tmp/x.md").as_deref(), Some("/tmp/x.md"));
+        assert_eq!(Refs::file_of("armada-ref:file/ops/config/routes.rb:878-880").as_deref(), Some("ops/config/routes.rb"));
     }
 
     #[test]
