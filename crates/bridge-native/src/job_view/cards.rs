@@ -637,7 +637,7 @@ impl JobView {
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
         if (!open || mode == Mode::Read) && self.holds_kept(&key) {
-            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open));
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open, false));
         }
         let target = self.is_target(&key);
         // A draft is a card in the Band look; a proposed workflow change keeps its own card.
