@@ -114,12 +114,15 @@ where
     /// The artifact the Job holds as `named`, refused naming the ids it does hold.
     pub(super) async fn artifact_held(&self, id: &str, named: &str) -> Result<JobArtifact, Refusal> {
         let named = named.trim();
+        // A page is named as the Job wrote it, at its slot: its id is Fleet's copy of it.
+        let home = super::documents::is_page_path(named).then(|| self.page_home(id, named));
+        let is = |one: &JobArtifact| one.id == named || home.as_deref() == Some(one.id.as_str());
         let held = self.job_artifacts(id).await?;
-        if let Some(artifact) = held.iter().find(|one| one.id == named) {
+        if let Some(artifact) = held.iter().find(|one| is(one)) {
             return Ok(artifact.clone());
         }
         // A sketch, draft or page that joined an artifact is named by its own id still.
-        if let Some(part) = self.artifacts_unfolded(id).await?.into_iter().find(|one| one.id == named) {
+        if let Some(part) = self.artifacts_unfolded(id).await?.into_iter().find(|one| is(one)) {
             return Ok(part);
         }
         let ids: Vec<&str> = held.iter().take(MOST_NAMED).map(|one| one.id.as_str()).collect();

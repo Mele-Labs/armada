@@ -1,4 +1,5 @@
 [operations.create_project]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "On your words"

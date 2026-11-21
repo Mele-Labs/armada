@@ -516,13 +516,15 @@ async fn a_plan_set_aside_holds_nothing_and_the_next_version_waits_again() {
     assert_eq!(call(&rig, &id).await.expect("asked again").id, "plan:2");
 }
 
+/// A page whose one kept revision is the file at `target`, as Fleet keeps its copy.
 fn document(target: &str, detail: &[(&str, &str)]) -> ipc::Attachment {
+    let kept = ipc::encode(&vec![target.to_string()]).expect("a list of paths");
     ipc::Attachment {
         kind: "artifact".into(),
         manifest_id: None,
         target: target.into(),
         state: ipc::AttachmentState::Standing,
-        detail: [("form", "document")].iter().chain(detail).map(|(k, v)| (k.to_string(), v.to_string())).collect(),
+        detail: [("form", "document"), ("revisions", kept.as_str())].iter().chain(detail).map(|(k, v)| (k.to_string(), v.to_string())).collect(),
         since: ipc::Instant::carried("2026-01-01T00:00:00Z"),
         changed_at: ipc::Instant::carried("2026-01-01T00:00:00Z"),
     }
@@ -549,7 +551,7 @@ fn a_page_put_to_him_holds_a_pending_plan_until_he_settles_it() {
 }
 
 /// **A page holds the plan only while it is in front of him.** The Operator Job's plan v6 was held for good by a page the
-/// design had moved past: the Job deleted the file, and nothing else could clear a hold that was no card of his.
+/// design had moved past, and nothing could clear a hold that was no card of his. A page Fleet no longer keeps is none.
 #[test]
 fn a_page_whose_file_is_gone_holds_nothing_and_the_plan_is_asked() {
     let folder = crate::tests::tmp::TempDir::new();
@@ -560,7 +562,7 @@ fn a_page_whose_file_is_gone_holds_nothing_and_the_plan_is_asked() {
 
     assert!(crate::session_host::planning::plan_called("s", 6, &holds()).is_none(), "a page he can still answer holds the plan");
 
-    std::fs::remove_file(&page).expect("the Job deletes the page");
+    std::fs::remove_file(&page).expect("Fleet's copy is gone");
     let asked = crate::session_host::planning::plan_called("s", 6, &holds()).expect("the plan is asked once nothing is in front of him");
     assert_eq!(asked.id, "plan:6");
 }
@@ -582,7 +584,7 @@ fn a_page_he_dismissed_holds_nothing_and_the_plan_is_asked() {
     assert_eq!(asked.id, "plan:3");
 }
 
-/// A page's own card is read by the test that holds the plan, so it leaves Needs you when its file is deleted or he dismisses it.
+/// A page's own card is read by the test that holds the plan, so it leaves Needs you when Fleet's copy is gone or he dismisses it.
 #[test]
 fn a_pages_card_is_gone_with_its_file_and_with_his_dismissal() {
     let folder = crate::tests::tmp::TempDir::new();
@@ -594,8 +596,8 @@ fn a_pages_card_is_gone_with_its_file_and_with_his_dismissal() {
 
     assert_eq!(cards(&[]), 1, "a page he can still answer is a card");
     assert_eq!(cards(&[format!("document:{page}")]), 0, "a dismissed page is none");
-    std::fs::remove_file(&file).expect("the Job deletes the page");
-    assert_eq!(cards(&[]), 0, "a deleted page is none");
+    std::fs::remove_file(&file).expect("Fleet's copy is gone");
+    assert_eq!(cards(&[]), 0, "a page no longer kept is none");
 }
 
 /// **A walk the plan names holds it only while its window is in front of him.** A plan was held for good by a walk the Job had

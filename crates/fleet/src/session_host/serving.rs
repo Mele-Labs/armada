@@ -521,6 +521,10 @@ where
         self.session_snoozed(asked).await
     }
 
+    async fn prioritise_session(&self, asked: ipc::PrioritiseSession) -> Result<SessionRecord, Refusal> {
+        self.session_prioritised(asked).await
+    }
+
     async fn set_session_auto_land(self: Arc<Self>, asked: ipc::SetSessionAutoLand) -> Result<SessionRecord, Refusal> {
         self.session_auto_land_set(asked).await
     }

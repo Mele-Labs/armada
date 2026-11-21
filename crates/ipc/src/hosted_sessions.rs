@@ -126,11 +126,15 @@ pub enum TagKind {
     Report,
     /// One of the Job's terminals. `id` is `t2`, `title` its name.
     Terminal,
+    /// One of Armada's own tools the person asks the agent to use. `id` is a key of
+    /// `crates/core-model/domain/ask_tools.toml`, `title` its name. Fleet says which tool to
+    /// call; an `id` it does not know adds nothing to the line.
+    Tool,
 }
 
 /// Something a message names: another session, a pull request, an issue, a reported bug, a
-/// terminal or a branch. **Fleet writes the line that tells the agent**; the person's words
-/// are kept as typed.
+/// terminal, a branch or one of Armada's tools. **Fleet writes the line that tells the agent**;
+/// the person's words are kept as typed.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SessionTag {
     pub kind: TagKind,
@@ -333,6 +337,13 @@ pub struct SnoozeSession {
     pub session_id: SessionId,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub until: Option<Instant>,
+}
+
+/// `prioritise_session`: make this Job the person's one priority, or clear the mark from the Job
+/// that holds it. A loaded machine runs the prioritised Job's builds while others wait.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrioritiseSession {
+    pub session_id: SessionId,
 }
 
 /// `set_session_auto_land`: turn Auto land on or off for a Session. On, Fleet enables auto-merge on

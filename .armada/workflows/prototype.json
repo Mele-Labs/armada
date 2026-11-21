@@ -21,6 +21,7 @@
     {
       "id": "frame",
       "label": "Frame",
+      "tabs": ["plan"],
       "about": "Says in a few lines what will be tried and how, as a plan. Ends when you approve it.",
       "instructions": "Say in three lines what you will try, how, and what would answer the question. Record it as the plan with record_plan and wait for the person to approve it. Write no code before then.",
       "gate": "plan_approved",
@@ -30,6 +31,7 @@
     {
       "id": "build",
       "label": "Build",
+      "tabs": ["now", "walks"],
       "about": "Builds a rough version to answer the question and shows it to you running. Ends when you approve the walk.",
       "instructions": "Build the roughest version that answers the question. Show it running with show_window, naming this group: the app itself, or a small page of what it measured where nothing would be seen in the app. Wait for the person's approval.",
       "gate": "walk_approved",
@@ -42,6 +44,7 @@
     {
       "id": "write_up",
       "label": "Write up",
+      "tabs": ["artifacts"],
       "about": "Writes up what was tried and what it showed, as a page. Ends when you approve it. The code is not landed.",
       "instructions": "Load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html: the answer first, what was tried, what it measured, and what was not measured. Answer every note by changing the page.\nOnce the person approves the page, ask him whether to move forward with it now, as build Jobs or in this Job, or leave it as a write-up.",
       "gate": "document_approved",

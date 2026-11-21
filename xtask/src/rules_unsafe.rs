@@ -80,6 +80,16 @@ const UNSAFE_SITES: &[(&str, &str)] = &[
         "the group signal that ends a Check whose budget expired, and everything it spawned",
     ),
     (
+        "crates/checks-runner/src/build_slots.rs",
+        "libc::getuid, naming the jobserver's own /tmp directory when Fleet's machine directory \
+         has a space that would split MAKEFLAGS — std reads no uid but a file's",
+    ),
+    (
+        "crates/fleet/src/build_turns.rs",
+        "libc::kill with SIGSTOP and SIGCONT over the compilers of Jobs whose turn it is not, on a \
+         loaded machine — a per-pid signal, not a group's, so the agent and its shell keep running",
+    ),
+    (
         "crates/checks-runner/src/serving.rs",
         "libc::setsid() in pre_exec — a server a Job started leads a session of its own, so it \
          outlives the Fleet that started it and the next Fleet adopts it",

@@ -1547,6 +1547,11 @@ pub struct SessionRecord {
     /// that is not snoozed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snoozed_until: Option<Instant>,
+    /// The person's one prioritised Job, set and cleared by `prioritise_session`: a loaded machine
+    /// runs its builds while other Jobs' wait. At most one live Job carries it; absent on every
+    /// other, and on an ended Job.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub prioritised: bool,
     /// What fills the session's context window, as `/context` shows it, from the latest report. Absent
     /// until a mod reports one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -1670,6 +1675,11 @@ pub struct SessionRecord {
     /// Empty where the step waits on no lifecycle, and once an end has come. Since 30 Oct 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflow_waiting_on: Vec<String>,
+    /// The step the Job is on as the column draws it: its tabs, usual time, what ends it, whether it is
+    /// stalled, and the steps passed without the Approve they wait on. Absent for a Job that follows no
+    /// workflow, one that has ended, and one whose workflow did not resolve. Since 20 Nov 2026.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub workflow_strip: Option<crate::WorkflowStrip>,
     /// The Job's own copy of its workflow, once a step of it was changed: the steps the rail and the lanes
     /// draw, in place of the ones the repository's definition lists. Also the steps a publish pinned the Job to
     /// (`docs/practices/protocol/protocol-23-97-moving-running-jobs-to-a-new-workflow-version.md`). Absent for a Job with neither.

@@ -38,4 +38,5 @@ export type * from "./style-sources";
 export type * from "./thought";
 export type * from "./values";
 export type * from "./walk-steps";
+export type * from "./workflow-strip";
 export type * from "./workflow-versions";

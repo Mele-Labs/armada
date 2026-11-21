@@ -41,7 +41,7 @@ pub enum Notice {
     SlotStranded,
     /// Main went red and the Session has it to fix.
     MainRed,
-    /// A step of the workflow was skipped.
+    /// The Job stood on a workflow step past its usual time, and is told once what the step waits on.
     RailNudge,
     /// The instructions of the workflow step the Session entered.
     RailStep,
@@ -100,6 +100,9 @@ pub enum Notice {
     /// A pull request that changes the wire types is in the merge queue or merged, and the Job's
     /// branch reads some of them.
     WireChanged,
+    /// The machine is loaded and another Job's builds take the turn, so this Job's are paused; or
+    /// its turn came and they run again.
+    BuildsHeld,
 }
 
 impl Notice {
@@ -178,6 +181,7 @@ impl Notice {
             Notice::GateHold => "gate_hold",
             Notice::Claims => "claims",
             Notice::WireChanged => "wire_changed",
+            Notice::BuildsHeld => "builds_held",
         }
     }
 }
