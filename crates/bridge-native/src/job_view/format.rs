@@ -5,7 +5,8 @@
 
 use std::ops::Range;
 
-use gpui_component::input::InlineToken;
+use gpui::{App, Entity, Window};
+use gpui_component::input::{InlineToken, TextareaState};
 
 /// The first part of every format token's id; a chip's id starts with its kind instead.
 const FORMAT: &str = "fmt";
@@ -216,6 +217,55 @@ pub(super) fn enter_at(text: &str, caret: usize, shift: bool) -> Option<Enter> {
         return None;
     }
     Some(if empty { Enter::Leave(start..start + len) } else { Enter::Insert("\n") })
+}
+
+/// Draw the box's markdown as it is typed: quotes, list items and links become format tokens over their own words, and a
+/// quote or item marker no longer at a line's start is words again. Every box that takes these words draws them so.
+pub(crate) fn draw(input: &Entity<TextareaState>, window: &mut Window, cx: &mut App) {
+    let (text, spans, caret) = {
+        let box_ = input.read(cx);
+        (box_.value().to_string(), box_.tokens().to_vec(), box_.selected_range())
+    };
+    let stale: Vec<_> = spans
+        .iter()
+        .filter(|span| matches!(format_of(span.token().id()), Some(Format::Quote | Format::Item)) && span.range().start != 0 && !text[..span.range().start].ends_with('\n'))
+        .map(|span| (span.range(), span.token().text().to_string()))
+        .collect();
+    let taken: Vec<_> = spans.iter().map(|span| span.range()).filter(|range| !stale.iter().any(|(gone, _)| gone == range)).collect();
+    let marks = marks_of(&text, &taken);
+    if stale.is_empty() && marks.is_empty() {
+        return;
+    }
+    input.update(cx, |box_, cx| {
+        for (range, words) in stale {
+            box_.set_selected_range(range, cx);
+            box_.replace(words, window, cx);
+        }
+        for (range, token) in marks {
+            let _ = box_.replace_range_with_token(range, token, window, cx);
+        }
+        box_.set_selected_range(caret, cx);
+    });
+}
+
+/// Enter in a quote or a list goes on with it or leaves it (`enterInBlock`). Returns whether it did; anywhere else the key
+/// is the box's own.
+pub(crate) fn enter_in(input: &Entity<TextareaState>, shift: bool, window: &mut Window, cx: &mut App) -> bool {
+    let (text, caret) = {
+        let box_ = input.read(cx);
+        (box_.value().to_string(), box_.selected_range())
+    };
+    let act = if caret.is_empty() { enter_at(&text, caret.start, shift) } else { None };
+    match act {
+        Some(Enter::Insert(words)) => input.update(cx, |box_, cx| box_.insert(words, window, cx)),
+        Some(Enter::Leave(marker)) => input.update(cx, |box_, cx| {
+            box_.set_selected_range(marker, cx);
+            box_.replace("", window, cx);
+        }),
+        None => return false,
+    }
+    draw(input, window, cx);
+    true
 }
 
 /// The message as it is sent: a blank line where a quote or a list ends in a line of words (`sentText`).

@@ -56,6 +56,7 @@ mod keys;
 mod lines;
 mod menus;
 pub(crate) mod offer;
+pub(crate) mod rich_note;
 pub(crate) mod ask_tools;
 mod perm;
 mod picture_view;
