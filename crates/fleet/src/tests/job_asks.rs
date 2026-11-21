@@ -47,7 +47,7 @@ async fn notes_to(rig: &Rig, job: &SessionId) -> Vec<String> {
 }
 
 async fn chose(rig: &Rig, job: &SessionId, item: &str, choice: u32) {
-    let answer = AnswerWaiting { session_id: job.clone(), item_id: item.into(), choice: Some(choice), text: None, mode: None, fixed: None };
+    let answer = AnswerWaiting { session_id: job.clone(), item_id: item.into(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(answer).await.expect("answered");
 }
 
@@ -249,7 +249,7 @@ async fn holding_both_tells_both_jobs_to_hold_landing() {
         assert!(notes_to(&rig, job).await.iter().any(|text| text.contains("He says hold landing until he rules.")), "{job:?}");
     }
     // A second press settles nothing: the first answer won.
-    let again = AnswerWaiting { session_id: one.clone(), item_id: raised.id.clone(), choice: Some(0), text: None, mode: None, fixed: None };
+    let again = AnswerWaiting { session_id: one.clone(), item_id: raised.id.clone(), choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() };
     assert!(Arc::clone(&rig.fleet).answer_waiting(again).await.is_err());
 }
 
@@ -259,7 +259,7 @@ async fn words_alone_and_a_dismissal_do_not_answer_a_conflict() {
     let (one, two) = two(&rig).await;
     let raised = Arc::clone(&rig.fleet).raise_conflict(None, conflict(&one, &two)).await.expect("raised");
 
-    let words = AnswerWaiting { session_id: one.clone(), item_id: raised.id.clone(), choice: None, text: Some("just do it".into()), mode: None, fixed: None };
+    let words = AnswerWaiting { session_id: one.clone(), item_id: raised.id.clone(), choice: None, text: Some("just do it".into()), mode: None, fixed: None, extras: Default::default() };
     assert!(Arc::clone(&rig.fleet).answer_waiting(words).await.is_err());
     assert_eq!(items(&rig, &one, WaitingSource::JobConflict).await.len(), 1, "it stands");
 }

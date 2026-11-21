@@ -103,7 +103,7 @@ async fn a_job_on_a_step_ending_on_a_sketch_waits_in_needs_you_from_the_sketch_u
     assert_eq!(item.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((ipc::WaitingActKind::Message, id.as_str())), "it opens the Job");
     assert_eq!(asked.workflow_step, Some(0));
 
-    let answer = ipc::AnswerSketch { session_id: id.clone(), sketch: TARGET.into(), drawn: drawing, how: SketchHow::Approved, words: None };
+    let answer = ipc::AnswerSketch { session_id: id.clone(), sketch: TARGET.into(), drawn: drawing, how: SketchHow::Approved, words: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_sketch(answer).await.expect("approved");
     let after = record(&rig, &id).await;
     assert!(needs(&after).iter().all(|(item, _)| *item != TARGET), "approved, it is off: {:?}", needs(&after));
@@ -148,6 +148,7 @@ async fn a_step_ending_on_a_document_ends_only_when_he_approves_its_newest_revis
         revision: revision.into(),
         how: ipc::DocumentHow::Approved,
         words: None,
+        extras: Default::default(),
     };
     assert!(Arc::clone(&rig.fleet).answer_document(read("1")).await.is_err(), "the first revision is not the newest");
     assert_eq!(record(&rig, &id).await.workflow_step, Some(0), "an older revision approved ends nothing");

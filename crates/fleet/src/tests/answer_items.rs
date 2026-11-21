@@ -36,7 +36,7 @@ async fn drafted(rig: &Rig, id: &SessionId) -> String {
 }
 
 fn answering(id: &SessionId, item: &str, how: ItemHow, notes: &[&str]) -> ItemAnswer {
-    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| ItemNote { text: one.to_string(), on: None }).collect() }
+    ItemAnswer { session_id: id.clone(), item: item.into(), how, notes: notes.iter().map(|one| ItemNote { text: one.to_string(), on: None }).collect(), extras: Default::default() }
 }
 
 async fn answered(rig: &Rig, items: Vec<ItemAnswer>) -> Vec<ItemSettled> {

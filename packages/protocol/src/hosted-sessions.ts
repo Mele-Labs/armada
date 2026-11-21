@@ -132,6 +132,15 @@ export type SessionUpload = {
   data: string;
 };
 
+/**
+ * The pictures, files and tags that ride beside the words of an answer, as a message's `attachments` and `mentions` do.
+ * They reach the Job as they do on a message, and the answer's row on the thread keeps both. Left out when empty.
+ */
+export type AnswerExtras = {
+  attachments?: SessionUpload[];
+  mentions?: SessionTag[];
+};
+
 /** `POST /sessions/message`. Answered 202 with the `SessionRecord`. */
 export type SendSessionMessage = {
   session_id: string;

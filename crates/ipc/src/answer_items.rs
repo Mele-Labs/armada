@@ -3,7 +3,7 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::SessionId;
+use crate::{AnswerExtras, SessionId};
 
 /// `answer_items`: a verdict on each item, settled in order and each on its own.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -21,6 +21,9 @@ pub struct ItemAnswer {
     pub how: ItemHow,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub notes: Vec<ItemNote>,
+    /// Pictures and tags that go with the verdict's words.
+    #[serde(default, skip_serializing_if = "AnswerExtras::is_empty")]
+    pub extras: AnswerExtras,
 }
 
 /// One note of a verdict. A note from a card's note box has no `on`; one made on words of a page, or on a part of a

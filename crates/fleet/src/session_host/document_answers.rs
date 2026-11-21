@@ -220,8 +220,8 @@ where
         let message = SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,
-            attachments: Vec::new(),
-            mentions: Vec::new(),
+            attachments: said.extras.attachments.clone(),
+            mentions: said.extras.mentions.clone(),
             sketches: Vec::new(),
         };
         Arc::clone(&self).send_known(terminal, message).await?;
