@@ -11,6 +11,8 @@ use gpui_component::input::Textarea;
 
 use super::face::{Glyph, Kind, Mentions, Part, Reading, Row};
 use super::sheet::DispatchSheet;
+use crate::job_view::composer::{attach_button, tray};
+use crate::job_view::sketch_pad::{drawn_tiles, sketch_button};
 use crate::keymap::{self, Act};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
@@ -63,10 +65,20 @@ impl Render for DispatchSheet {
             .shadow(shadows)
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
+            .on_modifiers_changed(cx.listener(|this, event: &gpui::ModifiersChangedEvent, _, cx| crate::job_view::talk::modifiers(this, event, cx)))
             .children(self.wait_chip(window, cx))
-            .child(self.line(cx))
-            .children(self.snippets(cx))
-            .children(self.menu_view(cx))
+            .child(
+                // The request box: what is attached over the words, the words, and its tools under them. Files dropped anywhere on it attach.
+                div()
+                    .id("dispatch-box")
+                    .flex()
+                    .flex_col()
+                    .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
+                    .children(self.tray(cx))
+                    .child(self.line(cx))
+                    .children(self.menu_view(cx))
+                    .child(self.tools(window, cx)),
+            )
             .child(self.drawer(window, cx));
         // A press on the scrim shuts the sheet.
         let scrim = div()
@@ -89,7 +101,15 @@ impl Render for DispatchSheet {
             .child(frame)
             .children(here);
         labelled(
-            div().id("dispatch").absolute().inset_0().child(scrim).child(column).children(self.popup.as_ref().map(|popup| popup.dropdown.clone())),
+            div()
+                .id("dispatch")
+                .absolute()
+                .inset_0()
+                .child(scrim)
+                .child(column)
+                .children(self.popup.as_ref().map(|popup| popup.dropdown.clone()))
+                // Outside the frame, so the sheet's own keys stand aside while the pad has them.
+                .children(self.pad.read(cx).is_open().then(|| self.pad.clone())),
             Role::Dialog,
             "Dispatch",
         )
@@ -278,9 +298,24 @@ impl DispatchSheet {
             .child(labelled(
                 // The text-box key context comes with the Jobs screens' `TEXT_BOX` in keymap.rs: add it to
                 // this element when the two branches meet.
-                div().id("dispatch-request").size_full().text_size(look.length(token::TEXT_LG)).line_height(line_h).child(
-                    Textarea::new(&self.request).appearance(false).bordered(false).h(line_h * 5.).p_0().text_size(look.length(token::TEXT_LG)),
-                ),
+                div()
+                    .id("dispatch-request")
+                    .size_full()
+                    .text_size(look.length(token::TEXT_LG))
+                    .line_height(line_h)
+                    .on_key_up(cx.listener(|this, event: &gpui::KeyUpEvent, _, cx| crate::job_view::talk::key_up(this, event, cx)))
+                    .child(
+                        Textarea::new(&self.request)
+                            .appearance(false)
+                            .bordered(false)
+                            .h(line_h * 5.)
+                            .p_0()
+                            .text_size(look.length(token::TEXT_LG))
+                            .on_paste({
+                                let view = cx.entity().downgrade();
+                                move |item, _, cx| view.update(cx, |this, cx| this.paste(item, cx)).unwrap_or(false)
+                            }),
+                    ),
                 Role::TextInput,
                 "Request",
             ));
@@ -310,60 +345,63 @@ impl DispatchSheet {
             )
     }
 
-    fn snippets(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
-        if self.attached.is_empty() {
+    /// What goes with the request, as tiles over the words: files as a Job's box shows them, then sketches.
+    fn tray(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+        if !self.holds() {
             return None;
         }
         let look = cx.look();
-        let chips = self.attached.iter().enumerate().map(|(at, name)| {
-            let name = name.clone();
-            div()
-                .flex()
-                .items_center()
-                .gap(look.length(token::SPACE_2))
-                .h(look.length(token::H_CONTROL))
-                .pl(look.length(token::SPACE_3))
-                .rounded(look.length(token::RADIUS_MD))
-                .border(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_DEFAULT))
-                .bg(look.color(token::BG_RAISED))
-                .text_size(look.length(token::TEXT_XS))
-                .child(glyph("file", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
-                .child(name.clone())
-                .child(labelled(
-                    div()
-                        .id(SharedString::from(format!("attached-{at}")))
-                        .size(look.length(token::H_CONTROL))
-                        .flex()
-                        .items_center()
-                        .justify_center()
-                        .cursor_pointer()
-                        .child(glyph("x", look.length(token::SPACE_3), look.color(token::FG_MUTED)))
-                        .on_click(cx.listener(move |this, _, _, cx| {
-                            if at < this.attached.len() {
-                                this.attached.remove(at);
-                            }
-                            cx.notify();
-                        })),
-                    Role::Button,
-                    format!("Remove {name}"),
-                ))
-        });
-        Some(
+        let remove = |key: u64| -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut App)> {
+            let this = cx.entity().downgrade();
+            Box::new(move |_, window, cx| {
+                let _ = this.update(cx, |this, cx| this.remove_file(key, window, cx));
+            })
+        };
+        let drawn = drawn_tiles(&self.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx));
+        // A Job that waits starts with no message, so what is held is said not to go.
+        let unsent = (!self.takes_files()).then(|| {
             labelled(
                 div()
-                    .id("dispatch-attached")
-                    .flex()
-                    .flex_wrap()
-                    .gap(look.length(token::SPACE_2))
-                    .px(look.length(token::SPACE_6))
-                    .pb(look.length(token::SPACE_3))
-                    .children(chips),
-                Role::Group,
-                "Attached",
+                    .id("dispatch-unsent")
+                    .px(look.length(token::SPACE_2))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_MUTED))
+                    .child("Not sent: a Job that waits starts with no message."),
+                Role::Status,
+                "Not sent",
             )
-            .into_any_element(),
-        )
+        });
+        // The tray's own inset, and this much more, lines its tiles up with the words.
+        Some(div().px(look.length(token::SPACE_2)).child(tray(&self.files, drawn, look, remove)).children(unsent).into_any_element())
+    }
+
+    /// The request box's tools under the words, over a hairline as a Job's box has them: a place kept for Tools, then
+    /// Attach and Draw sketch, and Talk at the right.
+    fn tools(&self, window: &Window, cx: &Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let radius = look.length(token::RADIUS_MD);
+        let dress = |key: &FocusHandle| {
+            let key = key.clone();
+            let on = key.is_focused(window);
+            move |button: gpui::Stateful<gpui::Div>| ringed(look, button.track_focus(&key), on, radius)
+        };
+        div()
+            .id("dispatch-tools")
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .px(look.length(token::SPACE_4))
+            .py(look.length(token::SPACE_2))
+            .border_t(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_SUBTLE))
+            // Tools goes here once it lands in a Job's box.
+            .child(div().flex_none().size(look.length(token::H_CONTROL)))
+            .when(self.takes_files(), |row| {
+                row.child(attach_button(look, None, dress(&self.attach_key), cx, |this: &mut Self, window, cx| this.attach_files(window, cx)))
+                    .child(sketch_button(look, None, dress(&self.sketch_key), cx, |this: &mut Self, window, cx| this.open_sketch(window, cx)))
+            })
+            .child(div().flex_1())
+            .child(crate::job_view::talk::render_with(self, look, dress(&self.talk_key), cx))
     }
 
     fn menu_view(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
@@ -480,7 +518,7 @@ impl DispatchSheet {
                 .child(self.pick_button("dispatch-model", "cpu", "Model", model, Rc::clone(&self.at.model), (&self.model_key, self.model_key.is_focused(window)), off, cx.listener(|this, _, window, cx| this.open_model(window, cx)), cx))
                 .child(self.pick_button("dispatch-effort", "zap", "Effort", effort, Rc::clone(&self.at.effort), (&self.effort_key, self.effort_key.is_focused(window)), off, cx.listener(|this, _, window, cx| this.open_effort(window, cx)), cx))
         };
-        let queue = (self.face.queue && self.attached.is_empty()).then(|| {
+        let queue = (self.face.queue && !self.holds()).then(|| {
             let live = self.queue_live(cx);
             let button = labelled(
                 ringed(look, Btn::new("dispatch-queue", "Queue for later", Weight::Secondary)
