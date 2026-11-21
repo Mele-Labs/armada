@@ -786,6 +786,12 @@ export type SessionRecord = {
    */
   snoozed_until?: Instant;
   /**
+   * The person's one prioritised Job, set and cleared by `prioritise_session`: a loaded machine
+   * runs its builds while other Jobs' wait. At most one live Job carries it; absent on every
+   * other, and on an ended Job.
+   */
+  prioritised?: boolean;
+  /**
    * What fills the session's context window, as `/context` shows it, from the latest report. Absent
    * until a mod reports one.
    */

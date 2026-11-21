@@ -1,4 +1,5 @@
 [operations.ask_in_window]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

@@ -543,8 +543,14 @@ impl JobView {
 
     fn picture_made(&mut self, key: PictureKey, made: Result<crate::scene::mock_view::Picture, String>, window: &mut Window, cx: &mut Context<Self>) {
         self.artifacts.making = self.artifacts.making.saturating_sub(1);
-        // An older width or theme of the same revision is let go.
-        self.artifacts.pictures.retain(|held, _| held == &key || !(held.job == key.job && held.page == key.page && held.revision == key.revision));
+        // Older revisions, and another width or theme of this one, are let go. A newer revision stays when an older one comes
+        // after it, as a card still showing the older would otherwise ask again and push the newer out without end.
+        let gone: Vec<PictureKey> = self.artifacts.pictures.keys().filter(|held| held.job == key.job && held.page == key.page && held.revision <= key.revision).cloned().collect();
+        for gone in gone {
+            if let Some(Picture::Ready(image, _)) = self.artifacts.pictures.remove(&gone) {
+                crate::web::let_go(image, cx);
+            }
+        }
         self.artifacts.pictures.insert(key, made.map_or(Picture::Failed, |(image, height, _)| Picture::Ready(image, height)));
         self.pages.values().for_each(|page| page.list.remeasure());
         cx.notify();
@@ -1010,5 +1016,61 @@ mod tests {
         let before = at(cx, gpui::Role::Button, "B \u{b7} Rail").expect("the take before is named by its own name");
         assert!(heading.bottom() <= back.top() && heading.bottom() <= before.top(), "the title has its own line: {heading:?} over {back:?}");
         assert!(before.right() <= back.left(), "the neighbour's column ends before Back: {before:?} {back:?}");
+    }
+
+    /// Every width the thread takes makes the page's first screen again, and each one painted held a GPU texture for the run:
+    /// 36 pictures of 1920 by 16000 pixels in the owner's Bridge after two hours. Only the one shown may stay.
+    #[gpui::test]
+    fn a_first_screen_made_again_at_a_new_width_lets_the_old_one_go(cx: &mut gpui::TestAppContext) {
+        use gpui::Styled as _;
+        let (view, cx) = parts_job(cx);
+        let picture = || Arc::new(RenderImage::new(vec![image::Frame::new(image::RgbaImage::new(4, 4))]));
+        let at = |width: u32| PictureKey { job: crate::mock_parts::JOB.into(), page: "long-page".into(), revision: 1, width, dark: true };
+        let mut shown = Vec::new();
+        for width in [600, 610, 620, 630] {
+            let image = picture();
+            view.update_in(cx, |view, window, cx| view.picture_made(at(width), Ok((image.clone(), 80., Arc::default())), window, cx));
+            cx.run_until_parked();
+            cx.draw(gpui::point(gpui::px(0.), gpui::px(0.)), gpui::size(gpui::px(100.), gpui::px(100.)), |_, _| gpui::img(image.clone()).size(gpui::px(4.)));
+            assert!(cx.update(|window, _| window.has_image_atlas_entry(&image)), "the picture shown is on the GPU");
+            shown.push(image);
+        }
+        let (last, older) = shown.split_last().expect("four drawn");
+        cx.run_until_parked();
+        cx.update(|window, _| {
+            for image in older {
+                assert!(!window.has_image_atlas_entry(image), "a first screen at an old width leaves the GPU");
+            }
+            assert!(window.has_image_atlas_entry(last));
+        });
+        assert_eq!(view.read_with(cx, |view, _| view.artifacts.pictures.keys().filter(|key| key.page == "long-page").count()), 1, "one picture of the revision is kept");
+    }
+
+    /// Every revision of every page kept its first screen for the run. A newer revision lets the older go; an older one that comes
+    /// after it, for a card still showing it, leaves the newer where it is.
+    #[gpui::test]
+    fn a_newer_revision_lets_the_older_first_screen_go(cx: &mut gpui::TestAppContext) {
+        use gpui::Styled as _;
+        let (view, cx) = parts_job(cx);
+        let picture = || Arc::new(RenderImage::new(vec![image::Frame::new(image::RgbaImage::new(4, 4))]));
+        let at = |revision: u32| PictureKey { job: crate::mock_parts::JOB.into(), page: "long-page".into(), revision, width: 600, dark: true };
+        let held = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| {
+            view.read_with(cx, |view, _| {
+                let mut revisions: Vec<u32> = view.artifacts.pictures.keys().filter(|key| key.page == "long-page").map(|key| key.revision).collect();
+                revisions.sort_unstable();
+                revisions
+            })
+        };
+        let (first, second) = (picture(), picture());
+        view.update_in(cx, |view, window, cx| view.picture_made(at(1), Ok((first.clone(), 80., Arc::default())), window, cx));
+        cx.run_until_parked();
+        cx.draw(gpui::point(gpui::px(0.), gpui::px(0.)), gpui::size(gpui::px(100.), gpui::px(100.)), |_, _| gpui::img(first.clone()).size(gpui::px(4.)));
+        view.update_in(cx, |view, window, cx| view.picture_made(at(2), Ok((second.clone(), 80., Arc::default())), window, cx));
+        cx.run_until_parked();
+        assert_eq!(held(&view, cx), [2], "the newer revision alone is kept");
+        assert!(!cx.update(|window, _| window.has_image_atlas_entry(&first)), "the older revision's first screen leaves the GPU");
+        view.update_in(cx, |view, window, cx| view.picture_made(at(1), Ok((picture(), 80., Arc::default())), window, cx));
+        cx.run_until_parked();
+        assert_eq!(held(&view, cx), [1, 2], "an older revision asked for again does not push the newer out");
     }
 }

@@ -1,4 +1,5 @@
 [operations.move_session]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

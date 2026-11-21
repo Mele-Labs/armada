@@ -1,0 +1,7 @@
+[icons.monitor-play]
+  means = "A screen with a play mark on it: something running that can be watched"
+  group = "Ask tools"
+  size = "12px"
+  status = "Proposed"
+  reserved = "Terminal, the Armada tool a message asks the agent for: its row in the list the message box's + opens and its chip in the words. Never a video or a recording, and never a terminal tab or Pilot, which are `terminal`'s."
+  notes = "Proposed 19 Nov 2026 for the message box's Ask the agent for list, for the owner to rule on. The tool asks for a command run where he can watch it, and the glyph is a screen he watches play. Refused: `terminal`, reserved to Pilot and a burst of commands on the Cockpit's timeline; `square-terminal`, a Session; `square-chevron-right`, a Logbook command."

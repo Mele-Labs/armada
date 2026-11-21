@@ -1543,6 +1543,11 @@ pub struct SessionRecord {
     /// that is not snoozed.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub snoozed_until: Option<Instant>,
+    /// The person's one prioritised Job, set and cleared by `prioritise_session`: a loaded machine
+    /// runs its builds while other Jobs' wait. At most one live Job carries it; absent on every
+    /// other, and on an ended Job.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub prioritised: bool,
     /// What fills the session's context window, as `/context` shows it, from the latest report. Absent
     /// until a mod reports one.
     #[serde(default, skip_serializing_if = "Option::is_none")]

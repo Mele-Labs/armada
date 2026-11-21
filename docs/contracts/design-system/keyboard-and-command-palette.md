@@ -65,6 +65,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
 ⌥K       change the kind of a message of his in the open Job's thread: Bug, Change request, Idea, Fix, Revision, Answer, Question or Talk, in the native Bridge only
+⌘/       ask the agent for a tool: Armada's tools listed over the open Job's message box, the one picked put at the caret as a chip, in the native Bridge only
 ⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
 ⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
 ⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too

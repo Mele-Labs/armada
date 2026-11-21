@@ -78,6 +78,7 @@ mod building;
 mod refresh_claim;
 mod build_blocked;
 mod build_holds;
+mod build_turns;
 mod title_bar_views;
 mod builds_run;
 mod retro_timing;
@@ -138,6 +139,7 @@ mod notice_mutes;
 mod notice_rules;
 mod session_import;
 mod session_limit;
+mod session_priority;
 mod session_snooze;
 /// A snooze pauses a hosted Job, and its end resumes the Job the snooze paused.
 mod session_snooze_pause;

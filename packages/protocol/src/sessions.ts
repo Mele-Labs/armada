@@ -215,6 +215,8 @@ export type SessionRecord = {
   proposal?: SessionProposal;
   /** Auto land is on: Fleet turns on the forge's auto-merge for each pull request the Session holds, as it attaches. Absent is off. Hosted only. */
   auto_land?: boolean;
+  /** The person's one prioritised Job, set and cleared by `prioritise_session`: a loaded machine runs its builds first. At most one live Job has it. */
+  prioritised?: boolean;
   /** The plan the Session recorded. Absent until it records one. See `session-plan.ts`. */
   plan?: SessionPlan;
   /** The files it and its subagents last touched, oldest first, a bounded window. Absent while there are none. */

@@ -1,4 +1,5 @@
 [operations.add_part]
+ask_tool = "takes"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"
