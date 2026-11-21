@@ -248,3 +248,15 @@ The IDs differ, so a Bridge and a Fleet either side of this change refuse one an
 **The event stream.** `projects.changed` is published on a person's write, when a Job holds, asks about or lets go of tasks, and when a linked pull request's merge
 asks about one, so it is rare.
 The lifeboat is untouched.
+
+## Review on a new pull request
+
+A project's `values.review_on_new_pr` is a list of review tool ids, and it is the project's alone: a Kit file that names it is refused with `fleet.project_values_refused`.
+No list means nothing happens.
+When Fleet sees an open pull request in a project's repository that it has not seen before, from any author and draft or not, it adds an item to the Operator's Your turn list: `Run <tools> on #N?` with Run and Not now.
+The item id is `review:<manifest>:<number>`.
+Run starts one review run per tool through `start_review_run`, and Not now dismisses the pull request for good.
+A tool is offered only when the repository defines it as a review tool, and the item is withdrawn when the pull request closes.
+The first look at a repository records what is open and offers none of it, so turning the setting on does not offer the backlog.
+Fleet keeps the numbers it has seen in the store table `review_offered`, so a restart offers nothing twice.
+The wire change is `review_on_new_pr` on `ValuesSet`, absent for none, and it moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
