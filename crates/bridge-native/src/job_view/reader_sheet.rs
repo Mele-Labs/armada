@@ -963,27 +963,17 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_plain_page_opened_from_the_artifacts_tab_is_the_live_page_filling_the_panels_detail_and_no_tab_opens(cx: &mut gpui::TestAppContext) {
+    fn a_plain_page_opened_from_the_artifacts_tab_opens_in_a_tab_of_its_job_and_the_panel_stays_shut(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "reader", "draft-job", size(px(1400.), px(900.)), |_| {});
         let page = view
             .read_with(cx, |view, _| view.artifacts_of("draft-job").iter().find(|one| one.form == ipc::ArtifactForm::Page && one.parts.is_empty()).map(|one| one.id.clone()))
             .expect("the Job holds a page with no parts");
-        let before = view.read_with(cx, |view, _| view.arrangement().into_owned());
         view.update_in(cx, |view, window, cx| assert!(view.open_named(&page, window, cx)));
         redraw(cx);
-        let chosen = view.read_with(cx, |view, _| view.review_chosen()).expect("the panel is up with the page picked");
-        assert_eq!((chosen.kind, super::page_of_item(&chosen.id)), (Kind::Document, Some(page.as_str())));
-        let revision: u32 = chosen.revision.as_deref().and_then(|word| word.trim_start_matches('r').parse().ok()).expect("its revision");
-        assert!(view.read_with(cx, |view, cx| view.panel_page("draft-job", &page, revision, cx).is_some()), "it holds the page's live view");
-        let live = bounds_of(cx, Role::Region, "Page");
-        let (band, foot) = (bounds_of(cx, Role::Group, "Answers"), bounds_of(cx, Role::Toolbar, "Every item"));
-        assert!(live.top() - band.bottom() <= px(2.) && foot.top() - live.bottom() <= px(2.), "alone in the detail, it takes all of it between the band and the foot: {band:?} {live:?} {foot:?}");
-        assert_eq!(view.read_with(cx, |view, _| view.arrangement().into_owned()), before, "no page tab opened");
-        assert!(view.read_with(cx, |view, _| view.row_tabs.get("draft-job").is_none_or(|tabs| tabs.pages.is_empty())), "no tab holds the page");
-        assert!(view.read_with(cx, |view, _| view.mock_seen_posts().iter().any(|one| one.artifact == page && one.revision == revision)), "Fleet is told he opened it, as the reader tells it");
-        cx.simulate_keystrokes("escape");
-        redraw(cx);
-        assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc closes the panel");
+        // A page whose card stands in the thread reads in a tab beside the thread, with its margin, in place of the panel.
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "the panel stays shut");
+        assert!(view.read_with(cx, |view, _| view.row_tab_list("draft-job").iter().any(|tab| tab.kind == super::super::row_tabs::RowKind::Document && tab.key == page)), "a tab holds the page");
+        assert!(drawn(cx, Role::Region, "Page"), "and draws it live");
     }
 
     #[gpui::test]
