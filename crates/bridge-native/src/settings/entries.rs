@@ -151,7 +151,7 @@ pub const SECTIONS: &[Section] = &[
         words: &["Ways of working", "read", "look", "listen", "type", "talk", "buttons", "answer", "take in", "voice", "aloud", "sample", "pictures", "microphone", "whisper", "first run"],
     },
     Section { id: "spacing", label: "Spacing", palette: "Spacing", words: &["Spacing", "density", "compact", "default", "roomy", "room", "dense"] },
-    Section { id: "pull-requests", label: "Pull requests", palette: "Pull requests", words: &["How work lands", "delivery", "auto land", "draft", "ready", "merging", "merge", "review model", "reviews", "plans", "walks", "project"] },
+    Section { id: "pull-requests", label: "Pull requests", palette: "Pull requests", words: &["How work lands", "delivery", "auto land", "draft", "ready", "merging", "merge", "review model", "reviews", "plans", "walks", "review tools", "offer", "project"] },
     Section { id: "starting-jobs", label: "Starting Jobs", palette: "Starting Jobs", words: &["Starting Jobs", "start at once", "ask me", "operator", "tracker", "issues", "linear", "beads", "project"] },
     Section { id: "claims-store", label: "Claims store", palette: "Claims store", words: &["Claims store", "claims", "store", "deploy", "join", "cloudflare", "token", "address", "team", "macs", "signed in", "project"] },
     Section { id: "look", label: "Look", palette: "Look", words: &["Look", "theme", "layout", "spacing", "density", "project"] },

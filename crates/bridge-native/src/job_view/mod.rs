@@ -56,7 +56,7 @@ mod keys;
 mod lines;
 mod menus;
 pub(crate) mod offer;
-mod ask_tools;
+pub(crate) mod ask_tools;
 mod perm;
 mod picture_view;
 pub(crate) mod pictures;
@@ -125,6 +125,7 @@ mod pr_files;
 mod pr_notes;
 mod pr_panel;
 mod pr_review;
+mod pr_tools;
 mod report_brief;
 mod side;
 mod step_tabs;
@@ -629,6 +630,7 @@ impl JobView {
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ForYouMoved, window, cx| this.for_you_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::StoryMoved, window, cx| this.questions_moved(&moved.0, window, cx)));
             subscriptions.push(cx.subscribe(fleet, |this, _, moved: &crate::fleet::AsidesMoved, cx| this.asides_moved(&moved.0, cx)));
+            subscriptions.push(cx.subscribe_in(fleet, window, |this, _, moved: &crate::fleet::ReviewRunsMoved, window, cx| this.review_runs_moved(moved, window, cx)));
             subscriptions.push(job_browser::follow(fleet, window, cx));
         }
         subscriptions.push(cx.observe_window_activation(window, |this, window, cx| {

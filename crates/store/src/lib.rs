@@ -205,6 +205,7 @@ pub mod settings_file;
 mod linked_told;
 /// Each write-clash notice Fleet sent a Job, so a restart does not send it again.
 mod clash_told;
+mod review_offered;
 /// Each claim Fleet told a Job another holds, so a restart does not tell it again.
 mod claims_told;
 /// A Job's terminals: their numbers, names, and the shell its agent last saw in each.

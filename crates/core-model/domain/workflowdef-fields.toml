@@ -306,6 +306,19 @@ notes = """
 **Needs a recording step before it.** The step is placed from the plan's approval, so in a workflow with none it is never entered. Not refused at load, unlike `follows_plan`: it grants no tool, so nothing is silently withheld. Unrelated to `evidence.walked`, which starts the repository's server when a step stops for a person.
 """
 
+[fields.previews]
+type = "bool"
+concern = "Gating"
+parent = "steps[]"
+purpose = "Whether this is the step where the work is offered for his preview and he says it looks good. Optional, and absent means it is not."
+notes = """
+**The owner's, 20 Nov 2026**, in `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md`: work he sees reaches him as a branch the Job offers (`offer_preview`), and his Looks good on its Ready to try card is his Approve. A step with `previews: true` is placed as a `walks` step is, and ends on that Approve instead of a window's: put `gate: you_approved` beside it so the plan group closes with the step.
+
+**Entered** once the plan is approved, or once the Job offers a branch, and the step before it is passed. **Ended only by his Looks good**, which closes the Job's first open `you_approved` gate: an offer withdrawn, or one the branch moved past, does not end it, and the Job offers again. **A push never passes it**, because a push is how a preview is made: the work-ahead rule that moves a Job past a step waiting on his Approve skips this step, and the delivering step after it is entered once he approves, push or not.
+
+**Not a walk.** It reads no window, so `show_window` neither enters nor ends it. A `walks` step and a `previews` step can stand in one workflow but a step is one or the other.
+"""
+
 [fields.awaits_reply]
 type = "bool"
 concern = "Gating"
@@ -712,7 +725,7 @@ why = "A UAT Job runs scenarios against an environment and writes results to a s
 [fields."steps[]"]
 type = "array[step]"
 concern = "Structure"
-sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "walks", "awaits_reply", "ends_on", "phase", "gate"]
+sub_items = ["id", "label", "model", "mechanical_checks", "judge_checks", "evidence_scope", "evidence", "advance_gate", "delivers", "retry_limit", "verdict_routing", "iteration_cap", "hard_prerequisite", "on_fail", "declare_plan_at", "quiet_after_seconds", "poke_limit", "follows_plan", "records_plan", "walks", "previews", "awaits_reply", "ends_on", "phase", "gate"]
 purpose = "The ordered set of steps. Everything nested under this row is a field of a step, not of the WorkflowDef."
 notes = """
 Ordered, and any step may send the work back to an earlier one through `verdict_routing`; there is no workflow-level label for it.
