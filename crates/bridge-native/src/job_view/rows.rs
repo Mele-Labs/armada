@@ -715,6 +715,12 @@ impl JobView {
         cx: &Context<Self>,
     ) -> Option<AnyElement> {
         let next = after.and_then(began);
+        // A round of margin talk stands just after the message that sent it, and is drawn in that message's place.
+        if let (ThreadItem::Row { row }, Some(ThreadItem::Margin(card))) = (item, after) {
+            if card.replaces.as_deref() == Some(row.id()) {
+                return None;
+            }
+        }
         // The sketch, page and draft that joined an artifact of parts are its parts: its one card draws them.
         if let Some(job) = &self.shown {
             let joined = match item {
@@ -751,8 +757,7 @@ impl JobView {
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
-            // A round of margin talk is not drawn here yet.
-            ThreadItem::Margin(_) => return None,
+            ThreadItem::Margin(card) => self.margin_round(card, look, cx),
         })
     }
 
@@ -1273,12 +1278,6 @@ impl JobView {
                     return Some(self.did(id, act, at, look, now, cx));
                 }
                 let text = page.edits.get(id).unwrap_or(text);
-                // The mocks of planning on a page: a note sent from a page reads as a card.
-                if crate::mock::scenario_is("planning-today") || crate::mock::scenario_is("planning-margin") {
-                    if let Some(card) = super::reader_talk::sent_card(look, id, text) {
-                        return Some(card);
-                    }
-                }
                 self.you(ix, page, id, text, files, sketches, tags, Some(at), None, *queued, true, edited_at.as_ref(), aside.as_deref(), look, now, cx)
             }
             SessionRow::Message { id, at, from: SessionVoice::Agent, text, .. } => self.agent(id, text, at, page, look, now, window, cx),

@@ -55,6 +55,15 @@ pub struct PageTab {
     _aim: Option<Task<()>>,
     /// The answers on their way into the page.
     _told: Vec<Task<()>>,
+    /// The marks of the margin's threads, drawn again each time the page loads (`reader::mark`).
+    marks: Option<String>,
+    /// What is to run in the page once it is up: a thread or a passage to bring into view.
+    then: Vec<String>,
+    /// The next fetch is a newer revision of what he reads: it loads out of sight and takes the place of the one he reads,
+    /// at the words he was reading, so nothing reloads under him.
+    keep_place: bool,
+    coming: Option<Coming>,
+    _swapping: Option<Task<()>>,
     /// What the kit was told, in order: a headless window has no page to hear it.
     #[cfg(test)]
     pub(super) answers: Vec<HostToPage>,
@@ -62,9 +71,96 @@ pub struct PageTab {
 
 impl EventEmitter<PageTabEvent> for PageTab {}
 
+/// A newer revision loading out of sight.
+struct Coming {
+    page: Entity<WebPage>,
+    html: String,
+    hearing: Subscription,
+}
+
 impl PageTab {
     pub fn new(job: SharedString, page: String, revision: u32, title: String) -> Self {
-        PageTab { job, page, revision, shown: revision, held: Held::Loading, heads: Vec::new(), title, html: None, _reading: None, _hearing: None, _aim: None, _told: Vec::new(), #[cfg(test)] answers: Vec::new() }
+        PageTab {
+            job,
+            page,
+            revision,
+            shown: revision,
+            held: Held::Loading,
+            heads: Vec::new(),
+            title,
+            html: None,
+            _reading: None,
+            _hearing: None,
+            _aim: None,
+            _told: Vec::new(),
+            marks: None,
+            then: Vec::new(),
+            keep_place: false,
+            coming: None,
+            _swapping: None,
+            #[cfg(test)]
+            answers: Vec::new(),
+        }
+    }
+
+    /// The Job wrote revision `revision`: where he reads the newest, the next fetch takes its place where he is reading.
+    /// Answers whether it is to be fetched; an earlier revision he chose stays in front of him.
+    pub fn newer(&mut self, revision: u32) -> bool {
+        let follows = self.shown == self.revision;
+        self.revision = revision;
+        if follows {
+            self.keep_at(revision);
+        }
+        follows
+    }
+
+    /// Revision `revision` is to take the place of the one drawn, once it has loaded, at the words he was reading.
+    pub fn keep_at(&mut self, revision: u32) {
+        self.shown = revision;
+        self.keep_place = true;
+    }
+
+    /// The margin's marks: drawn now where the page is up, and again each time it loads.
+    pub fn set_marks(&mut self, script: String, cx: &mut Context<Self>) {
+        if self.marks.as_deref() == Some(script.as_str()) {
+            return;
+        }
+        self.marks = Some(script.clone());
+        if let Some(page) = self.up(cx) {
+            self.tell_all(page, vec![script], cx);
+        }
+    }
+
+    /// A script run in the page now where it is up, else once it has loaded.
+    pub fn run(&mut self, script: String, cx: &mut Context<Self>) {
+        match self.up(cx) {
+            Some(page) => self.tell_all(page, vec![script], cx),
+            None => self.then.push(script),
+        }
+    }
+
+    /// The page, where it has loaded.
+    fn up(&self, cx: &gpui::App) -> Option<Entity<WebPage>> {
+        match &self.held {
+            Held::Ready(page) if *page.read(cx).status() == Status::Ready => Some(page.clone()),
+            _ => None,
+        }
+    }
+
+    /// Scripts run in the page in order, and a page drawn as a picture pictured again with what they changed.
+    fn tell_all(&mut self, page: Entity<WebPage>, scripts: Vec<String>, cx: &mut Context<Self>) {
+        self._told.retain(|task| !task.is_ready());
+        self._told.push(cx.spawn(async move |_, cx| {
+            for script in scripts {
+                let asked = page.read_with(cx, |page, _| page.ask(&script));
+                asked.recv().await.ok();
+            }
+            page.update(cx, |page, cx| {
+                if page.mode() != Mode::Live {
+                    page.take_picture(cx);
+                }
+            });
+        }));
     }
 
     /// The revision the page draws.
@@ -79,6 +175,8 @@ impl PageTab {
         self.html = None;
         self.heads.clear();
         self._hearing = None;
+        self.keep_place = false;
+        self.coming = None;
         cx.notify();
     }
 
@@ -144,40 +242,97 @@ impl PageTab {
         self.revision
     }
 
-    /// Fleet answered with the sealed page, or refused it.
+    /// Fleet answered with the sealed page, or refused it. A newer revision of the page he reads loads out of sight first.
     pub fn arrived(&mut self, answer: Result<String, String>, cx: &mut Context<Self>) {
-        self.held = match answer {
+        let keep = std::mem::take(&mut self.keep_place);
+        match answer {
             Ok(html) => {
-                self.html = Some(html.clone());
-                let page = cx.new(|cx| WebPage::new(None, Source::Sealed(html), cx));
-                // The annotation layer reaches only an offered page: without this a note covers the whole page and no part of it.
-                let document = crate::page_note::Document { artifact: self.page.clone(), revision: self.shown, title: self.title.clone() };
-                crate::page_note::offer_document(&page, self.job.clone(), document, cx);
-                let hearing = cx.subscribe(&page, |this, page, event: &WebPageEvent, cx| match event {
-                    WebPageEvent::Posted(text) => {
-                        if let Some(posted) = kit::read(text) {
-                            cx.emit(PageTabEvent::Posted(posted));
-                        }
-                    }
-                    // A page drawn as a picture (under a layer, or with no window of its own) is pictured once it has loaded.
-                    WebPageEvent::Loaded | WebPageEvent::Shown => {
-                        if matches!(event, WebPageEvent::Loaded) && *page.read(cx).status() == Status::Ready {
-                            this.read_heads(cx);
-                        }
-                        let pictured = *page.read(cx).status() == Status::Ready && page.read(cx).mode() == Mode::Picture;
-                        if pictured {
-                            page.update(cx, |page, cx| page.take_picture(cx));
-                        }
-                        cx.notify();
-                    }
-                    WebPageEvent::Pictured => cx.notify(),
-                });
-                self._hearing = Some(hearing);
-                Held::Ready(page)
+                let page = cx.new(|cx| WebPage::new(None, Source::Sealed(html.clone()), cx));
+                let hearing = self.hear(&page, cx);
+                if let (true, Held::Ready(old)) = (keep, &self.held) {
+                    let (width, height) = old.read(cx).viewport();
+                    page.update(cx, |page, _| page.made_at(width, height));
+                    self.coming = Some(Coming { page, html, hearing });
+                    return;
+                }
+                self.take_up(page, html, hearing, cx);
             }
-            Err(why) => Held::Refused(why.into()),
-        };
+            // The page he reads stays where a newer one is refused.
+            Err(_) if keep && matches!(self.held, Held::Ready(_)) => return,
+            Err(why) => self.held = Held::Refused(why.into()),
+        }
         cx.notify();
+    }
+
+    /// The page is the one drawn.
+    fn take_up(&mut self, page: Entity<WebPage>, html: String, hearing: Subscription, cx: &mut Context<Self>) {
+        self.html = Some(html);
+        // The annotation layer reaches only an offered page: without this a note covers the whole page and no part of it.
+        let document = crate::page_note::Document { artifact: self.page.clone(), revision: self.shown, title: self.title.clone() };
+        crate::page_note::offer_document(&page, self.job.clone(), document, cx);
+        self._hearing = Some(hearing);
+        self.held = Held::Ready(page);
+    }
+
+    /// The page's posts and loads, heard.
+    fn hear(&mut self, page: &Entity<WebPage>, cx: &mut Context<Self>) -> Subscription {
+        cx.subscribe(page, |this, page, event: &WebPageEvent, cx| match event {
+            WebPageEvent::Posted(text) => {
+                if let Some(posted) = kit::read(text) {
+                    cx.emit(PageTabEvent::Posted(posted));
+                }
+            }
+            // A page drawn as a picture (under a layer, or with no window of its own) is pictured once it has loaded.
+            WebPageEvent::Loaded | WebPageEvent::Shown => {
+                let ready = *page.read(cx).status() == Status::Ready;
+                if matches!(event, WebPageEvent::Loaded) && ready {
+                    if this.coming.as_ref().is_some_and(|coming| coming.page == page) {
+                        this.swap_in(cx);
+                        return;
+                    }
+                    let mut scripts: Vec<String> = this.marks.iter().cloned().collect();
+                    scripts.append(&mut this.then);
+                    this.tell_all(page.clone(), scripts, cx);
+                    this.read_heads(cx);
+                }
+                let pictured = ready && page.read(cx).mode() == Mode::Picture;
+                if pictured {
+                    page.update(cx, |page, cx| page.take_picture(cx));
+                }
+                cx.notify();
+            }
+            WebPageEvent::Pictured => cx.notify(),
+        })
+    }
+
+    /// The newer revision has loaded: it is marked and put at the words he was reading in the one drawn, then drawn in its place.
+    fn swap_in(&mut self, cx: &mut Context<Self>) {
+        let Some(coming) = self.coming.take() else { return };
+        let place = match &self.held {
+            Held::Ready(old) => Some(old.read(cx).ask(&reader::place())),
+            _ => None,
+        };
+        let marks = self.marks.clone();
+        self._swapping = Some(cx.spawn(async move |this, cx| {
+            let place = match place {
+                Some(asked) => reader::place_of(asked.recv().await.ok().flatten().as_deref()),
+                None => None,
+            };
+            let scripts: Vec<String> = marks.into_iter().chain(place.as_ref().map(reader::restore)).collect();
+            for script in scripts {
+                let asked = coming.page.read_with(cx, |page, _| page.ask(&script));
+                asked.recv().await.ok();
+            }
+            this.update(cx, |this, cx| {
+                let page = coming.page.clone();
+                this.take_up(coming.page, coming.html, coming.hearing, cx);
+                let then = std::mem::take(&mut this.then);
+                this.tell_all(page, then, cx);
+                this.read_heads(cx);
+                cx.notify();
+            })
+            .ok();
+        }));
     }
 
     /// Fleet's answer to a post, handed to the kit, which draws it on the row or the vote.
@@ -380,8 +535,19 @@ impl JobView {
             .filter_map(|tab| super::review::document_card(&held, &tab.key).map(|card| (tab.key.clone(), card.revision, card.title.clone())))
             .collect();
         let tabs = self.row_tabs.entry(id.clone()).or_default();
-        tabs.pages.retain(|page, (tab, _)| wanted.iter().any(|(want, revision, _)| want == page && *revision == tab.read(cx).revision()));
+        tabs.pages.retain(|page, _| wanted.iter().any(|(want, _, _)| want == page));
+        // A newer revision keeps the tab, his place in it and what he typed beside it: the page is read again under him.
+        let moved: Vec<(Entity<PageTab>, u32)> = wanted
+            .iter()
+            .filter_map(|(page, revision, _)| tabs.pages.get(page).map(|(tab, _)| (tab.clone(), *revision)))
+            .filter(|(tab, revision)| tab.read(cx).revision() != *revision)
+            .collect();
+        let newer: Vec<Entity<PageTab>> = moved.into_iter().filter_map(|(tab, revision)| tab.update(cx, |tab, _| tab.newer(revision)).then_some(tab)).collect();
+        let tabs = self.row_tabs.entry(id.clone()).or_default();
         let new: Vec<(String, u32, String)> = wanted.into_iter().filter(|(page, _, _)| !tabs.pages.contains_key(page)).collect();
+        for tab in newer {
+            self.fetch_page(tab, window, cx);
+        }
         for (page, revision, title) in new {
             let tab = cx.new(|_| PageTab::new(id.clone(), page.clone(), revision, title));
             let carrying = cx.subscribe_in(&tab, window, |this, tab, event: &PageTabEvent, window, cx| {

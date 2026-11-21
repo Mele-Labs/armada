@@ -367,6 +367,8 @@ pub(super) struct Reader {
     pub shared: Option<SharedString>,
     /// Ask for changes, opened in place under the answers: what should change, sent with the notes on the words.
     pub ask: Option<(Entity<TextareaState>, Subscription)>,
+    /// A page's margin: his comments on its passages and the agent's answers, as Fleet keeps them.
+    pub margin: super::margin::Margin,
 }
 
 impl Reader {
@@ -394,6 +396,7 @@ impl Reader {
             at_head: 0,
             shared: None,
             ask: None,
+            margin: super::margin::Margin::default(),
         }
     }
 
@@ -419,6 +422,7 @@ impl Reader {
         self.notes.iter().any(|one| in_area(&one.area))
             || self.edit.as_ref().is_some_and(|edit| edit.areas.iter().any(in_area))
             || self.ask.as_ref().is_some_and(|(area, _)| in_area(area))
+            || self.margin.typing(window, cx)
     }
 
     /// The notes as `Note`s, as they are kept.
@@ -539,6 +543,11 @@ impl JobView {
 
     /// J and K: the next note or the one before, brought into view.
     pub(super) fn reader_move(&mut self, id: &SharedString, reader: &str, down: bool, cx: &mut Context<Self>) {
+        // On a page J and K go down the margin's threads.
+        if self.reader_of(id, reader).is_some_and(|held| held.kind == RowKind::Document && held.margin.open().next().is_some()) {
+            self.margin_move(id, reader, down, cx);
+            return;
+        }
         let Some(held) = self.reader_mut(id, reader) else { return };
         if held.notes.is_empty() {
             return;
@@ -579,6 +588,10 @@ impl JobView {
 
     /// Enter on the note J and K are on: the caret goes into it.
     pub(super) fn reader_into_note(&mut self, id: &SharedString, reader: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.reader_of(id, reader).is_some_and(|held| held.kind == RowKind::Document && held.margin.on.is_some()) {
+            self.margin_into(id, reader, window, cx);
+            return;
+        }
         let area = self.reader_of(id, reader).and_then(|held| held.on.and_then(|at| held.notes.get(at))).map(|one| one.area.clone());
         if let Some(area) = area {
             area.update(cx, |area, cx| area.focus(window, cx));
@@ -816,6 +829,8 @@ impl JobView {
             if self.reader_of(id, &name).is_none() {
                 let mut fresh = Reader::new(id.clone(), tab.kind, tab.key.clone());
                 fresh.base = subject.seen.filter(|seen| *seen < subject.newest);
+                // A page opens with its margin beside it.
+                fresh.notes_on = tab.kind == RowKind::Document;
                 self.row_tabs.entry(id.clone()).or_default().readers.insert(name.clone(), fresh);
                 // The notes he left half written come back, each with the caret out of them.
                 for note in notes_read(&self.draft_words(&notes_key(id, &subject.artifact))) {
@@ -841,6 +856,7 @@ impl JobView {
                 }
             }
             self.reader_seen(id, &name, &subject, window, cx);
+            self.margin_sync(id, &name, window, cx);
         }
     }
 

@@ -63,6 +63,7 @@ mod option_pictures;
 mod page_note;
 mod mock;
 mod mock_parts;
+mod mock_margin;
 mod move_to_mac;
 mod move_to_project;
 mod new_project;

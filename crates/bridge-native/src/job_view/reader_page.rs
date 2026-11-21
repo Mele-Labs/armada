@@ -43,11 +43,18 @@ impl JobView {
         let page = self.reader_page(id, name);
         let view = div().id(SharedString::from(format!("reader-page:{name}"))).flex_1().min_w_0().min_h_0().relative().children(page);
         let pins: Vec<AnyElement> = held.notes.iter().enumerate().map(|(place, note)| self.reader_pin(id, name, place, note, held.on == Some(place), look, cx)).collect();
-        let add = (!subject.closed).then(|| self.reader_add_button(id, name, look, cx));
-        // The mock of the talk in the margin, for the owner to judge.
-        if crate::mock::scenario_is("planning-margin") {
-            return div().flex_1().min_h_0().min_w_0().flex().child(view).child(super::reader_talk::margin(look)).into_any_element();
+        // A page's margin holds the talk about it; notes left on it before it had one stand at its foot.
+        if held.kind == RowKind::Document {
+            if !held.notes_on {
+                return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
+            }
+            let margin = self.margin_column(id, name, held, pins, look, cx);
+            if room.gutter() {
+                return div().flex_1().min_h_0().min_w_0().flex().child(view).child(margin).into_any_element();
+            }
+            return div().flex_1().min_h_0().min_w_0().flex().flex_col().child(view).child(div().flex_none().max_h(look.length(token::SPACE_12) * 6.).flex().child(margin)).into_any_element();
         }
+        let add = (!subject.closed).then(|| self.reader_add_button(id, name, look, cx));
         // Notes off: no margin and nothing under the page, so the page takes the width.
         if !held.notes_on {
             return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
@@ -123,11 +130,14 @@ impl JobView {
         cx.spawn_in(window, async move |this, cx| {
             let picked = ask::picked_of(asked.recv().await.ok().flatten().as_deref()).unwrap_or_default();
             let _ = this.update_in(cx, |this, window, cx| {
-                // With nothing selected, N is the switch of the margin; the margin's own button always makes a note.
-                if toggle && picked.quote.trim().is_empty() {
+                // With nothing selected, N is the switch of the margin; its own button says what to select.
+                if !picked.quote.trim().is_empty() {
+                    this.margin_begin(&job, &reader, picked, window, cx);
+                } else if toggle {
                     this.reader_toggle_notes(&job, &reader, cx);
-                } else {
-                    this.reader_add_note(&job, &reader, picked.quote, picked.block, window, cx);
+                } else if let Some(held) = this.reader_mut(&job, &reader) {
+                    held.margin.said = Some("Select words in the page, then press N".into());
+                    cx.notify();
                 }
             });
         })

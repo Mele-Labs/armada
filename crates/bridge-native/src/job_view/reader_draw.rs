@@ -330,13 +330,20 @@ impl JobView {
     /// The notes' margin on or off, as the registry gives a document's head: the glyph shows what a press does.
     fn reader_notes_button(&self, id: &SharedString, name: &str, on: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (job, name_c) = (id.clone(), name.to_string());
-        let said = if on { "Hide the notes margin" } else { "Show the notes margin" };
+        // A page's margin holds the talk about it; a draft's holds his notes.
+        let page = self.reader_of(id, name).is_some_and(|held| held.kind == super::row_tabs::RowKind::Document);
+        let said = match (page, on) {
+            (true, true) => "Hide the margin",
+            (true, false) => "Show the margin",
+            (false, true) => "Hide the notes margin",
+            (false, false) => "Show the notes margin",
+        };
         labelled(
             super::head::icon_button(look, "reader-notes", if on { "panel-right-close" } else { "panel-right-open" }, format!("{said}, N").into(), on, false)
                 .id(SharedString::from(format!("reader-notes:{name}")))
                 .on_click(cx.listener(move |this, _, _, cx| this.reader_toggle_notes(&job, &name_c, cx))),
             Role::Switch,
-            "Notes",
+            if page { "Margin" } else { "Notes" },
         )
         .into_any_element()
     }

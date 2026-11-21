@@ -984,6 +984,9 @@ impl JobView {
         if self.review_act(act, window, cx) {
             return;
         }
+        if self.margin_act(act, window, cx) {
+            return;
+        }
         if act.is("needs_you") {
             self.needs_key(window, cx);
             return;

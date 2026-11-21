@@ -86,6 +86,7 @@ mod parts_reader;
 mod live_pill;
 mod page_sketches;
 mod reader;
+mod margin;
 mod reader_draw;
 mod reader_edit;
 mod reader_page;
