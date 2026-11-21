@@ -5,6 +5,7 @@ import type { AskedQuestion, CallInFlight } from "./call";
 import type { SessionRow, ToolSubagent } from "./hosted-sessions";
 import type { Instant } from "./ids";
 import type { JudgeArtifact } from "./judge";
+import type { ThreadMargin } from "./margin";
 import type { ThreadReadyToTry } from "./preview";
 import type { SessionId } from "./sessions";
 import type { RawScene, SketchHow } from "./sketch";
@@ -223,7 +224,11 @@ export type ThreadItem =
    */
   | {
       kind: "ready_to_try";
-    } & ThreadReadyToTry;
+    } & ThreadReadyToTry
+  /** One round of margin talk on a page, in the place of the message it sent. Since 21 Nov 2026. */
+  | {
+      kind: "margin";
+    } & ThreadMargin;
 
 /**
  * A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the

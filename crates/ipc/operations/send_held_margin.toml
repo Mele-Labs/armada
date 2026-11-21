@@ -1,0 +1,14 @@
+[operations.send_held_margin]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Send every margin comment held on a Job's page to the Job as one message"
+notes = """
+`POST /sessions/margin/send_held`, body `SendHeldMargin`: `session_id` and `document`. Answered with `MarginThreads`; `SessionChanged` is published, and a client holding the Job's thread gets `job_thread.tail`.
+
+**One round**: one message naming each passage he held a comment on, in the order the threads were opened, each with its thread id, section, quote and his words, several held on one thread joined. The Job's thread keeps his words and the passages, with no path; the agent reads the page's path too, and that each is answered with `answer_thread`. **The send goes first**, so one that fails leaves every comment held. Each held thread is `open` after.
+
+422 `fleet.margin_nothing_held` where nothing is held on the page, and `fleet.margin_no_page` for a page the Job holds none of.
+
+`agent_access` is `No`: the comments are the person's.
+"""

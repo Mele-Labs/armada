@@ -22,6 +22,7 @@ mod hosted_sessions;
 mod issues;
 mod lifecycles;
 mod logbook;
+mod margins;
 mod mods;
 mod other_macs;
 mod projects;

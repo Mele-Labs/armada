@@ -237,6 +237,27 @@ Hovering a note in the Notes card lights its place, and hovering a place lights 
 
 **Rule.** A press on a sent note's heading in the thread opens the page at that revision and place.
 
+## Margin threads
+
+**Rule.** His comment on a passage opens a margin thread on it, which keeps the quote, the section it stands under and every message.
+Fleet keeps the threads, by the page's file name, apart from the page's revisions. `crates/ipc/operations/comment_margin.toml` is the contract.
+
+**Rule.** A comment is sent now as its own message, or held, and Send held sends every held comment on the page as one message.
+The Job's thread keeps his words and the passages. The agent reads the page's path and the thread ids as well.
+
+**Rule.** The agent answers in the thread with `answer_thread`, and an answer changes nothing on the page.
+
+**Rule.** Make this change asks the agent for an edit. The agent's `suggest_edit` is drawn struck and added, with Accept and Reject, and only Accept writes the page.
+Accept writes it through the path his Edit takes, as the page's next revision, and tells the Job which revision holds it.
+
+**Rule.** Settle closes the thread and asks the agent to add its outcome to the page's Decisions section.
+
+**Rule.** A revision that no longer holds a thread's quote marks the thread gone, and the thread keeps its quote.
+A later revision that holds it again clears the mark.
+
+**Rule.** The Job's thread draws one line for each round of margin talk, in place of the message the round sent.
+A page sent back draws as a card of the page, the section, the passage and each note, never the instruction the agent read or a path.
+
 ## Revisions and Changes
 
 **Rule.** The Job answers by rewriting the same file, which becomes the next revision.

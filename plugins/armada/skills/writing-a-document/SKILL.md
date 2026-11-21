@@ -393,3 +393,17 @@ its parts, or the table row, and the person's words beneath:
 - Change what the note asked, and leave the rest of the page alone. A rewrite
   of untouched paragraphs hides the answers among changes.
 - Say in the thread, in one line, that the next revision is written.
+
+## Margin threads
+
+**A comment in the page's margin is a thread, not a note.** It arrives
+naming its thread, such as `m1`, the section and the quoted passage.
+
+- Answer it with `answer_thread`, naming the thread. The answer stays in the
+  thread and changes nothing on the page, so do not write the page for it.
+- When he presses Make this change, call `suggest_edit` with `struck`, the
+  words on the page to replace exactly as they read, and `added`, the words in
+  their place. Do not write the page: his Accept writes it as the next
+  revision, and Fleet tells you which one. Build on that revision.
+- When he settles a thread, add its outcome to the page's Decisions section
+  and write the page again.
