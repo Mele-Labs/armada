@@ -305,9 +305,9 @@ mod tests {
         fresh(cx);
     }
 
+    #[gpui::test]
     /// One ask, one place (19 Nov): the review sheet answers a question, and Needs you lists it as one line that opens
     /// the sheet on it. No card, option or stepper is drawn in the panel.
-    #[gpui::test]
     fn a_question_in_needs_you_is_one_line_each_and_no_card_answers_it_there(cx: &mut gpui::TestAppContext) {
         let (_view, cx) = opened(cx);
         assert!(drawn(cx, Role::Button, FIRST), "the first question is its line");

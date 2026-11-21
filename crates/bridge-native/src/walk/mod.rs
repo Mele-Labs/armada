@@ -2741,7 +2741,7 @@ pub static WALKS: &[Walk] = &[
             step("An act of the thread", Verb::Look, "option", "Send back"),
             step("Navigation lists the acts that work anywhere", Verb::Look, "heading", "Navigation"),
             step("Each row ends in its kind", Verb::Look, "option", "Message the Job"),
-            step("Jobs follow, under their projects", Verb::Look, "heading", "armada"),
+            step("Jobs follow", Verb::Look, "heading", "Jobs"),
             step("A Job row", Verb::Look, "option", "Fix the merge line freshness chip"),
             step("The state is a glyph with a tooltip", Verb::Hover, "img", "Waiting on you"),
             step("Typing narrows the list", Verb::Type("freshness"), "searchbox", "Search actions, jobs and settings"),
