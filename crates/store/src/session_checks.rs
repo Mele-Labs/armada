@@ -154,6 +154,33 @@ impl Store {
             .map_err(WriteError::Database)
     }
 
+    /// The newest `most` runs of the Check `name` by `session_id`, up to and including `run`, newest
+    /// first. A run begun after `run` is left out, so it reads the runs as they stood when `run` ended.
+    pub fn session_checks_up_to(
+        &self,
+        session_id: &str,
+        name: &str,
+        run: i64,
+        most: u32,
+    ) -> Result<Vec<KeptSessionCheck>, WriteError> {
+        let doing = "reading a Job's runs of one Check";
+        let mut statement = self
+            .conn
+            .prepare(&format!(
+                "SELECT {COLUMNS} FROM session_check_runs
+                 WHERE session_id = ?1 AND name = ?2 AND id <= ?3 ORDER BY id DESC LIMIT ?4"
+            ))
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement
+            .query_map(params![session_id, name, run, most], kept)
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        rows.collect::<Result<_, _>>()
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)
+    }
+
     /// The newest `most` runs, newest first. `manifest_id` narrows to one repository's.
     pub fn session_checks(
         &self,

@@ -363,7 +363,7 @@ pub trait Sessions: Send + Sync + 'static {
     /// Answers the run, or none where no Session holds the slot that directory is in.
     /// [`Refusal::Unacceptable`] for a start with no name or an end with no run or outcome.
     fn report_session_check(
-        &self,
+        self: Arc<Self>,
         call: ipc::SessionCheckCall,
     ) -> impl Future<Output = Result<ipc::SessionCheckAnswer, Refusal>> + Send;
 

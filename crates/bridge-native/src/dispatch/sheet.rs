@@ -16,10 +16,12 @@ use gpui::{
     SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Position, TextareaState};
+use ipc::SessionTag;
 
 use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
 use crate::job_view::composer::{attached, clipped_keyed, pick_files, read_files, Attached};
+use crate::job_view::offer::Pick;
 use crate::job_view::sketch_pad::{PadEvent, SketchPad};
 use crate::job_view::talk::{self, Hears, Talk};
 use crate::sketch::DrawnSketch;
@@ -65,6 +67,12 @@ pub(super) struct Menu {
     pub query: String,
     pub rows: Vec<Row>,
     pub active: usize,
+}
+
+/// A tool picked from the +: it goes as a `tool` tag with the first message, and its chip is a stop that removes it.
+pub(super) struct HeldTool {
+    pub tag: SessionTag,
+    pub key: FocusHandle,
 }
 
 /// The popover a trigger in the drawer opens.
@@ -114,6 +122,10 @@ pub struct DispatchSheet {
     /// The act is waiting for the repository read to answer.
     waiting: bool,
     pub(super) menu: Option<Menu>,
+    /// The tools the + lists are open, with the active row.
+    pub(super) tools_open: Option<usize>,
+    /// The tools picked, in the order picked, one of each.
+    pub(super) tools: Vec<HeldTool>,
     /// The Job menu on the sentence, with its active row.
     pub(super) wait_menu: Option<usize>,
     /// The Job the words tag, by id and title.
@@ -137,6 +149,7 @@ pub struct DispatchSheet {
     pub(super) queue_key: FocusHandle,
     pub(super) draft_key: FocusHandle,
     pub(super) act_key: FocusHandle,
+    pub(super) tools_key: FocusHandle,
     pub(super) attach_key: FocusHandle,
     pub(super) sketch_key: FocusHandle,
     pub(super) talk_key: FocusHandle,
@@ -186,6 +199,8 @@ impl DispatchSheet {
             asking: false,
             waiting: false,
             menu: None,
+            tools_open: None,
+            tools: Vec::new(),
             wait_menu: None,
             tagged: None,
             model: None,
@@ -204,6 +219,7 @@ impl DispatchSheet {
             queue_key: cx.focus_handle(),
             draft_key: cx.focus_handle(),
             act_key: cx.focus_handle(),
+            tools_key: cx.focus_handle(),
             attach_key: cx.focus_handle(),
             sketch_key: cx.focus_handle(),
             talk_key: cx.focus_handle(),
@@ -304,6 +320,7 @@ impl DispatchSheet {
         self.open = false;
         self.intercept = None;
         self.menu = None;
+        self.tools_open = None;
         self.wait_menu = None;
         self.popup = None;
         self.asking = false;
@@ -328,9 +345,9 @@ impl DispatchSheet {
         !self.words(cx).trim().is_empty() || self.holds()
     }
 
-    /// The request holds something besides words: a file, or a sketch.
+    /// The request holds something besides words: a file, a sketch, or a tool.
     pub(super) fn holds(&self) -> bool {
-        !self.files.is_empty() || !self.drawn.is_empty()
+        !self.files.is_empty() || !self.drawn.is_empty() || !self.tools.is_empty()
     }
 
     /// A Job that waits starts with no first message, so nothing can go with it: Attach and Draw sketch
@@ -342,6 +359,11 @@ impl DispatchSheet {
     /// What goes with the request's first message: its files and its sketches.
     pub(super) fn held(&self) -> (Vec<Attached>, Vec<DrawnSketch>) {
         (self.files.clone(), self.drawn.clone())
+    }
+
+    /// The tools picked, as the tags the first message carries.
+    pub(super) fn tools_held(&self) -> Vec<SessionTag> {
+        self.tools.iter().map(|one| one.tag.clone()).collect()
     }
 
     // -- the words ----------------------------------------------------------------------------
@@ -356,6 +378,7 @@ impl DispatchSheet {
         // A start waiting on the repository read stays what was pressed.
         self.drafting = self.drafting && self.waiting;
         let cursor = request.read(cx).cursor().min(words.len());
+        self.tools_open = None;
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
         cx.notify();
@@ -543,6 +566,7 @@ impl DispatchSheet {
         crate::drafts::clear(KEEP_REQUEST, cx);
         self.files.clear();
         self.drawn.clear();
+        self.tools.clear();
         self.wait = None;
         self.tagged = None;
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
@@ -576,6 +600,7 @@ impl DispatchSheet {
         }
         if let Some(wait) = self.face.wait.clone() {
             self.wait = Some(wait);
+            self.tools_open = None;
         }
         if self.waiting && self.face.reading != Reading::Detecting {
             self.waiting = false;
@@ -588,6 +613,9 @@ impl DispatchSheet {
 
     /// What Fleet read of the brief's tag: the sentence over the request, or none where the tag names no wait.
     pub fn set_wait(&mut self, wait: Option<Wait>, cx: &mut Context<Self>) {
+        if wait.is_some() {
+            self.tools_open = None;
+        }
         self.wait = wait;
         cx.notify();
     }
@@ -666,6 +694,41 @@ impl DispatchSheet {
         cx.notify();
     }
 
+    /// The + opens Armada's tools under the words, the first marked, with the keys in the request so the list takes
+    /// them; pressed again it shuts them. A wait takes no message, so nothing opens while one is tagged.
+    pub(super) fn open_tools(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
+        self.tools_open = if self.tools_open.is_some() { None } else { Some(0) };
+        self.menu = None;
+        self.wait_menu = None;
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    /// The tool at `at` in the list is held, once however often it is picked, and the keys stay in the request.
+    pub(super) fn pick_tool(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools_open = None;
+        if let Some(Pick::Tag { kind, id, title, url }) = crate::job_view::ask_tools::rows().into_iter().nth(at).map(|row| row.pick) {
+            if !self.tools.iter().any(|one| one.tag.id == id) {
+                self.tools.push(HeldTool { tag: SessionTag { kind, id, title, url }, key: cx.focus_handle() });
+            }
+        }
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    /// A tool's chip removed: it does not go, and the caret goes back to the request.
+    pub(super) fn remove_tool(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools.retain(|one| one.tag.id != id);
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
     // -- the repository row -------------------------------------------------------------------------
 
     /// A row picked by hand, by its [`super::face::Chip::id`].
@@ -716,6 +779,28 @@ impl DispatchSheet {
         let in_request = self.request.focus_handle(cx).is_focused(window);
         if in_request && talk::key_down(self, event, window, cx) {
             cx.stop_propagation();
+            return;
+        }
+        // The tools, as the `@` menu: arrows wrap, ↵ or ⇥ pick, Esc closes them with the keys in the request.
+        if let Some(active) = self.tools_open {
+            let len = crate::job_view::ask_tools::rows().len().max(1);
+            match key {
+                "down" | "up" => {
+                    self.tools_open = Some(if key == "down" { (active + 1) % len } else { (active + len - 1) % len });
+                    if len > 1 {
+                        crate::ui_sounds::moved();
+                    }
+                }
+                "enter" | "tab" if plain => self.pick_tool(active, window, cx),
+                "escape" => {
+                    self.tools_open = None;
+                    let focus = self.request.focus_handle(cx);
+                    window.focus(&focus, cx);
+                }
+                _ => return,
+            }
+            cx.stop_propagation();
+            cx.notify();
             return;
         }
         // The `@` menu: arrows wrap, ↵ or ⇥ choose, Esc closes it and nothing else.
@@ -774,8 +859,8 @@ impl DispatchSheet {
         self.face.connected && !self.queueing && self.worded(cx) && !self.sending
     }
 
-    /// Every stop Tab visits, in order: the wait sentence's parts when there is one, the request, its
-    /// Attach, Draw sketch and Talk, the repository, Model, Effort, Queue for later, Draft, Start, then
+    /// Every stop Tab visits, in order: the wait sentence's parts when there is one, the tools held, the request,
+    /// its +, Attach, Draw sketch and Talk, the repository, Model, Effort, Queue for later, Draft, Start, then
     /// the card under the sheet. A control that is off, or has no card to draw, has no stop.
     pub(super) fn stops(&self, cx: &App) -> Vec<FocusHandle> {
         let mut stops = Vec::new();
@@ -783,9 +868,10 @@ impl DispatchSheet {
             let parts = if wait.needs.is_some() { 4 } else { 3 };
             stops.extend(self.parts[..parts].iter().cloned());
         }
+        stops.extend(self.tools.iter().map(|one| one.key.clone()));
         stops.push(self.request.focus_handle(cx));
         if self.takes_files() {
-            stops.extend([self.attach_key.clone(), self.sketch_key.clone()]);
+            stops.extend([self.tools_key.clone(), self.attach_key.clone(), self.sketch_key.clone()]);
         }
         stops.push(self.talk_key.clone());
         if self.face.connected {
@@ -1056,6 +1142,10 @@ mod tests {
                     "start"
                 } else if is(&sheet.here_key) {
                     "card"
+                } else if is(&sheet.tools_key) {
+                    "tools"
+                } else if sheet.tools.iter().any(|one| is(&one.key)) {
+                    "tool"
                 } else if is(&sheet.attach_key) {
                     "attach"
                 } else if is(&sheet.sketch_key) {
@@ -1090,7 +1180,7 @@ mod tests {
     #[gpui::test]
     fn tab_goes_round_the_sheet_and_shift_tab_goes_back_the_same_way(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), Some("sample-api"), cx);
-        let order = ["request", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start", "card"];
+        let order = ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start", "card"];
         sheet.update_in(cx, |sheet, window, cx| {
             assert_eq!(named(sheet, cx), order);
             assert_eq!(at(sheet, window, cx), "request");
@@ -1110,11 +1200,11 @@ mod tests {
     fn a_stop_that_cannot_act_is_left_out(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            assert_eq!(named(sheet, cx), ["request", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start"], "no card where the title bar names nowhere");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start"], "no card where the title bar names nowhere");
             sheet.request.update(cx, |state, cx| state.set_value("", window, cx));
-            assert_eq!(named(sheet, cx), ["request", "attach", "sketch", "talk", "repository", "model", "effort"], "nothing to start or queue");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort"], "nothing to start or queue");
             sheet.face.connected = false;
-            assert_eq!(named(sheet, cx), ["request", "attach", "sketch", "talk"], "Fleet unreachable: only the request and its own tools");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk"], "Fleet unreachable: only the request and its own tools");
         });
     }
 
@@ -1161,10 +1251,45 @@ mod tests {
         let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
         let (sheet, cx) = open(face, Some("sample-api"), cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "talk", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft, Attach or Draw sketch");
+            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "talk", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft, +, Attach or Draw sketch");
             sheet.step_focus(true, window, cx);
             assert_eq!(at(sheet, window, cx), "part", "Shift-Tab from the request enters the sentence");
             assert!(sheet.parts[3].is_focused(window));
+        });
+    }
+
+    #[gpui::test]
+    fn the_tools_button_is_no_stop_while_a_wait_is_tagged(cx: &mut TestAppContext) {
+        let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
+        let (sheet, cx) = open(face, Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(!named(sheet, cx).contains(&"tools"), "a Job that waits starts with no message");
+            sheet.open_tools(window, cx);
+            assert_eq!(sheet.tools_open, None, "the list does not open");
+            sheet.set_wait(None, cx);
+            assert_eq!(&named(sheet, cx)[..2], ["request", "tools"], "with no wait the + follows the request");
+        });
+    }
+
+    fn held_tools(sheet: &DispatchSheet) -> Vec<String> {
+        sheet.tools_held().into_iter().map(|tag| tag.id).collect()
+    }
+
+    #[gpui::test]
+    fn a_removed_tool_chip_is_not_sent(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            // Sketch is the first row, Takes the third.
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(0, window, cx);
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(2, window, cx);
+            assert_eq!(held_tools(sheet), ["sketch", "takes"]);
+            assert_eq!(&named(sheet, cx)[..3], ["tool", "tool", "request"], "each chip is a stop over the request");
+            assert!(!named(sheet, cx).contains(&"queue"), "Queue for later keeps nothing but words");
+            sheet.remove_tool("sketch", window, cx);
+            assert_eq!(held_tools(sheet), ["takes"]);
+            assert!(sheet.request.focus_handle(cx).is_focused(window), "the caret goes back to the request");
         });
     }
 
