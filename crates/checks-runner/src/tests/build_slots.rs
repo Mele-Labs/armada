@@ -60,7 +60,7 @@ fn the_flags_name_the_fifo_the_way_cargo_reads_them() {
 }
 
 #[test]
-fn a_path_with_a_space_is_refused_because_makeflags_splits_on_it() {
+fn a_file_name_with_a_space_is_refused_because_makeflags_splits_on_it() {
     let path = fifo_for("space").with_file_name("a slots.fifo");
     assert!(BuildSlots::open(&path, 4).is_err());
 }
@@ -204,4 +204,20 @@ fn a_listing_names_a_compiler_by_the_last_part_of_its_path() {
     // passes through a directory of the name.
     assert!(!named("/Users/user/.cargo/bin/cargo-nextest\n/Users/user/cargo/bin/ls\n"));
     assert!(!named(""));
+}
+
+/// Fleet's machine directory is under `Application Support`. The pool was
+/// refused there at every start until 20 Nov 2026, so every build kept its own
+/// width and eight at once took the owner's Mac to a load of 37.
+#[test]
+fn a_machine_directory_with_a_space_still_gets_a_pool() {
+    let dir = std::env::temp_dir().join(format!("build slots {}", std::process::id()));
+    let asked = dir.join(format!("space-{}.fifo", std::process::id()));
+    let slots = BuildSlots::open(&asked, 12).expect("a path with a space is not refused");
+    let flags = slots.flags();
+    let path = flags.rsplit("fifo:").next().expect("a path");
+    assert!(!path.contains(char::is_whitespace), "MAKEFLAGS splits on spaces: {flags}");
+    assert!(path.ends_with(&format!("space-{}.fifo", std::process::id())), "{path}");
+    assert_eq!(slots.size(), 8);
+    let _ = std::fs::remove_file(path);
 }

@@ -1767,6 +1767,11 @@ export function sessionOfRecord(
       : {
           paused: true as const,
         }),
+    ...(record.prioritised === true && !ended
+      ? {
+          prioritised: true as const,
+        }
+      : {}),
     ...(hosted?.start_failed === undefined || ended
       ? {}
       : {

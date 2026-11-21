@@ -290,6 +290,11 @@ export type MendSessionTools = {
   session_id: string;
 };
 
+/** `POST /sessions/prioritise`: makes the Job the one priority, or clears it where it holds it. Answers the `SessionRecord`, with `prioritised` set when the act gave the Job the mark. */
+export type PrioritiseSession = {
+  session_id: string;
+};
+
 /** `POST /sessions/resume`: takes a slot again at the branch tip, or waits for one (`hosted.paused.resuming`). The kept turns go once it holds a slot again. Only a person resumes. Since 23.92. */
 export type ResumeSession = {
   session_id: string;

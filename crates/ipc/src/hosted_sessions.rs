@@ -321,6 +321,13 @@ pub struct SnoozeSession {
     pub until: Option<Instant>,
 }
 
+/// `prioritise_session`: make this Job the person's one priority, or clear the mark from the Job
+/// that holds it. A loaded machine runs the prioritised Job's builds while others wait.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrioritiseSession {
+    pub session_id: SessionId,
+}
+
 /// `set_session_auto_land`: turn Auto land on or off for a Session. On, Fleet enables auto-merge on
 /// each open pull request the Session holds and on each that attaches later; off, it disables it
 /// on the open ones, after answering. A pull request the forge refuses is a notice to the Job.
