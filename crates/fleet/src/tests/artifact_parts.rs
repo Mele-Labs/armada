@@ -98,7 +98,8 @@ async fn asking_page(rig: &Rig, id: &SessionId, at: usize) -> String {
         ],
     );
     eventually(|| async { artifacts(rig, id).await.iter().any(|one| one.parts.iter().any(|part| part.content.kind() == PartKind::Page)) }).await;
-    path
+    // The page is kept, and named, at its copy in Fleet's folder.
+    rig.fleet.page_home(id.as_str(), &path)
 }
 
 /// The refusal `said` must be, as its code and message.
@@ -280,7 +281,9 @@ async fn a_sketch_a_draft_a_page_and_a_part_shown_while_the_first_still_asks_are
     let held = artifacts(&rig, &id).await;
     let mut ids: Vec<&str> = held.iter().map(|one| one.id.as_str()).collect();
     ids.sort();
-    assert_eq!(ids, ["draft:Description for #41", path.as_str(), "sketch:Cache notes", "sketch:Request flow"], "{held:?}");
+    let mut four = ["draft:Description for #41", path.as_str(), "sketch:Cache notes", "sketch:Request flow"];
+    four.sort();
+    assert_eq!(ids, four, "{held:?}");
     assert!(held.iter().all(|one| one.parts.len() <= 1 && one.state == ArtifactState::Asking), "{held:?}");
 
     // What is shown in a turn still running waits once that turn ends, each as its own item.
@@ -308,11 +311,12 @@ async fn the_job_archiving_an_artifact_that_asks_withdraws_its_asks_and_his_own_
     let rig = rig_placing(None);
     let id = rig.start().await;
     rig.fleet.show_sketch(None, drawn(&id, "Cache design", None)).await.unwrap();
-    rig.fleet.add_part(None, words(&id, "Cache design", "notes", "Evict by age.")).await.unwrap();
+    // One artifact asks one thing, so the words beside its drawing only inform.
+    rig.fleet.add_part(None, aside(words(&id, "Cache design", "notes", "Evict by age."))).await.unwrap();
 
     let archived = Arc::clone(&rig.fleet).archive_artifact(None, ArtifactBy::Agent, named(&id, "sketch:Cache design")).await.expect("archived");
     assert_eq!((archived.state, archived.item.as_deref()), (ArtifactState::Withdrawn, None), "its asks are taken back, not left asking");
-    assert!(archived.parts.iter().all(|part| part.state == PartState::Withdrawn), "{:?}", archived.parts);
+    assert!(archived.parts.iter().filter(|part| part.asks).all(|part| part.state == PartState::Withdrawn), "{:?}", archived.parts);
     assert!(his_list(&rig, &id).await.is_empty());
     assert!(told(&rig.rows(&id).await).is_empty(), "the Job is told nothing of its own act");
 
@@ -349,7 +353,7 @@ async fn takes_of_mocks(rig: &Rig) -> (SessionId, ipc::SessionRecord) {
     let mock = |title: &str| {
         format!(r#"{{"id":"{title}","title":"{title}","scene":{{"nodes":[{{"id":"m","kind":"mock","x":0,"y":0,"w":300,"html":"<b class=\"a\">x</b>","styles":["src/a.css"]}}],"edges":[]}}}}"#)
     };
-    let part = format!(r#""title":"Layout","part":{{"id":"layout","kind":"takes","takes":[{},{}]}}"#, mock("left"), mock("right"));
+    let part = format!(r#""title":"Layout","part":{{"id":"layout","kind":"takes","question":"Which layout?","takes":[{},{}]}}"#, mock("left"), mock("right"));
     let record = rig.fleet.add_part(None, added(&id, &part)).await.unwrap();
     (id, record)
 }

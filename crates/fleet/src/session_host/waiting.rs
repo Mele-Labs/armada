@@ -1489,13 +1489,15 @@ where
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+                // The item reads as the question Fleet words; the Job knows the draft by its title.
+                let title = super::artifact_parts::fleet_question_of(&item.text).unwrap_or(&item.text);
                 // A proposed workflow: Approve saves it and Dismiss drops it, before the Job is told. His notes
                 // put the old change aside, and the Job proposes it afresh.
                 let proposal = self.draft_change(&id, row).await.and_then(|change| match (said.choice, fixed, words) {
-                    (Some(0), ..) => Some((change, drafting::approved(&item.text, None), DraftHow::Approved, None)),
-                    (Some(_), ..) => Some((change, drafting::withdrawn(&item.text, None), DraftHow::Withdrawn, None)),
+                    (Some(0), ..) => Some((change, drafting::approved(title, None), DraftHow::Approved, None)),
+                    (Some(_), ..) => Some((change, drafting::withdrawn(title, None), DraftHow::Withdrawn, None)),
                     (None, None, Some(note)) => {
-                        let body = [Some(drafting::workflow_sent_back(&item.text, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
+                        let body = [Some(drafting::workflow_sent_back(title, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                         Some((change, body, DraftHow::SentBack, Some(note.to_string())))
                     }
                     (None, ..) => None,
@@ -1506,12 +1508,12 @@ where
                 // A draft whose newest revision is his Edit is approved as his words, so the Job applies them.
                 let his = Box::pin(self.draft_his(&id, row)).await;
                 let (body, how, kept) = match (fixed, said.choice, words) {
-                    (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
+                    (Some(fixed), ..) => (drafting::fixed(title, fixed), DraftHow::Fixed, Some(fixed)),
                     (None, Some(_), words) => match his {
-                        Some(his) => (drafting::approved_his(&item.text, &his, words), DraftHow::Approved, words),
-                        None => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                        Some(his) => (drafting::approved_his(title, &his, words), DraftHow::Approved, words),
+                        None => (drafting::approved(title, words), DraftHow::Approved, words),
                     },
-                    (None, None, Some(note)) => (drafting::sent_back(&item.text, note), DraftHow::SentBack, Some(note)),
+                    (None, None, Some(note)) => (drafting::sent_back(title, note), DraftHow::SentBack, Some(note)),
                     (None, None, None) => {
                         return Err(self.hosted_refusal(
                             SESSION_WAITING_EMPTY,
@@ -1590,7 +1592,7 @@ where
         let told = match item.source {
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
-            WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
+            WaitingSource::Draft => Some(drafting::withdrawn(super::artifact_parts::fleet_question_of(&item.text).unwrap_or(&item.text), dismiss.reason.as_deref())),
             WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Replied if !dismiss.misread => {
                 Some(dismissed_by_owner(&item.text))
             }
