@@ -591,6 +591,24 @@ mod tests {
     }
 
     #[gpui::test]
+    fn a_page_in_its_tab_the_sheet_holds_draws_one_pointer_the_sheets_own(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |jobs| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == "plan-job").expect("the fixture has plan-job");
+            let item = br#"{"id":"document:quiet","text":"Approve Quiet hours for notices","since":"2026-11-20T05:30:00Z","source":"document"}"#;
+            job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).expect("the page item decodes"));
+        });
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Group, "Margin"), "the page reads in its tab with the margin");
+        assert!(view.read_with(cx, |view, cx| view.sheet_item("plan-job", "document:quiet", cx).is_some()), "the sheet holds the page");
+        assert!(!drawn(cx, Role::Group, "This page waits on your Approve"), "the tab's own line stands aside");
+        assert_eq!(all_of(cx, Role::Button, "Quiet hours for notices").len(), 1, "one line points to the sheet: the sheet's");
+        for answer in ["Approve", "Ask for changes", "Dismiss"] {
+            assert!(!drawn(cx, Role::Button, answer), "{answer} is the review sheet's, not the tab's");
+        }
+    }
+
+    #[gpui::test]
     fn the_margin_stands_beside_a_wide_page_at_its_width_and_folds_under_a_narrow_one(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
         view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));

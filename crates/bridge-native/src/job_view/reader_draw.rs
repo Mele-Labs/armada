@@ -282,7 +282,8 @@ impl JobView {
             .children(under_acts.2)
             .children(shared)
             .children(share);
-        let waits = (pointer && subject.asking && !earlier && !editing).then(|| {
+        // Where the sheet holds the page, its own line points to it from the body, so this one stands aside.
+        let waits = (pointer && subject.asking && !earlier && !editing && !in_sheet).then(|| {
             let page = held.key.clone();
             let said: &'static str = "This page waits on your Approve";
             let open = labelled(
