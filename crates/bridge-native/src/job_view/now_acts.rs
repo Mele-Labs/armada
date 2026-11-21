@@ -2,9 +2,10 @@
 //! act this second is the agent's row (`now.rs`); this file is the five that came before it.
 
 use gpui::{div, prelude::*, AnyElement, Role, SharedString};
-use ipc::{SessionRecord, SessionRow};
+use ipc::{RunningKind, RunningWork, SessionRecord, SessionRow, ThreadItem};
 
 use super::now::{beat, lead, named, since, words};
+use super::rows::mono;
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -49,11 +50,75 @@ pub(super) fn idle_since(heard: Option<&str>, acts: &[Act]) -> Option<String> {
     Some(format!("Idle since {}", at.with_timezone(&chrono::Local).format("%H:%M")))
 }
 
+/// One subagent or background task running in a Job, as Now lists it.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Live {
+    pub key: String,
+    pub what: String,
+    pub since: String,
+    /// The subagent's type, or "shell" for a background task. None where there is none to say.
+    pub kind: Option<String>,
+    pub background: bool,
+}
+
+/// What runs in the Job: the subagents the thread says are running, as the pill at its foot counts them, else those the record's
+/// `running` lists; then the record's background tasks. Nothing here, and the Job is quiet.
+pub(super) fn live_work(items: &[ThreadItem], running: &[RunningWork]) -> Vec<Live> {
+    let mut live: Vec<Live> = super::pinned::running_subagents(items)
+        .into_iter()
+        .map(|one| Live { key: format!("subagent:{}", one.id), what: one.task.clone(), since: one.since.as_str().to_string(), kind: one.agent_type.clone(), background: false })
+        .collect();
+    let listed = |kind: RunningKind| running.iter().enumerate().filter(move |(_, one)| one.kind == kind);
+    if live.is_empty() {
+        live.extend(listed(RunningKind::Subagent).map(|(at, one)| Live { key: format!("running:{at}"), what: one.what.clone(), since: one.since.as_str().to_string(), kind: None, background: false }));
+    }
+    live.extend(listed(RunningKind::BackgroundTask).map(|(at, one)| Live { key: format!("background:{at}"), what: one.what.clone(), since: one.since.as_str().to_string(), kind: Some("shell".into()), background: true }));
+    live
+}
+
+/// The background tasks Now has room for under the subagents: its rows stay as many as the acts it keeps.
+fn room_for_tasks(subagents: usize) -> usize {
+    KEPT.saturating_sub(subagents)
+}
+
 impl JobView {
+    /// What runs in the Job now, from the sources the pill at the thread's foot reads.
+    pub(super) fn live_work_of(&self, id: &str, cx: &gpui::App) -> Vec<Live> {
+        let items = self.thread(id, cx).map(|held| held.items.as_slice()).unwrap_or_default();
+        live_work(items, self.record(id, cx).map(|job| job.running.as_slice()).unwrap_or_default())
+    }
+
+    /// Under the last five acts: each subagent running with what it does and its time running, then the background tasks that fit. No
+    /// count beside them.
+    pub(super) fn now_running(&self, id: &str, look: &Look, cx: &gpui::App) -> Option<AnyElement> {
+        let live = self.live_work_of(id, cx);
+        let (subagents, tasks): (Vec<Live>, Vec<Live>) = live.into_iter().partition(|one| !one.background);
+        let tasks: Vec<Live> = tasks.into_iter().take(room_for_tasks(subagents.len())).collect();
+        let list = |name: &'static str, rows: Vec<Live>, prefix: &'static str| {
+            (!rows.is_empty()).then(|| {
+                let rows = rows.into_iter().map(|one| {
+                    let kind = one.kind.clone().map(|kind| div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(kind).into_any_element());
+                    let last = [kind, since(look, &one.key, &one.since, "Running for")].into_iter().flatten().collect::<Vec<_>>();
+                    let last = (!last.is_empty()).then(|| div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(last).into_any_element());
+                    labelled(
+                        named(&one.key, beat(look, lead(look, &one.key, "split", token::STATUS_RUNNING, "Running", true), words(look, one.what.clone(), token::FG_DEFAULT, false, false, false), last, None)),
+                        Role::Group,
+                        format!("{prefix}{}", one.what),
+                    )
+                    .into_any_element()
+                });
+                labelled(div().id(SharedString::from(format!("now-running:{name}"))).flex().flex_col().children(rows), Role::List, name).into_any_element()
+            })
+        };
+        let rows: Vec<AnyElement> = list("Subagents", subagents, "").into_iter().chain(list("Background tasks", tasks, "Background task ")).collect();
+        (!rows.is_empty()).then(|| div().id("now-live").flex().flex_col().children(rows).into_any_element())
+    }
+
     /// The row Now leads with when no act is under way: when the Job went quiet, in the muted ink. None for a Job that is
     /// finished, and where there is no time to give.
     pub(super) fn now_idle(&self, id: &str, job: &SessionRecord, acts: &[Act], look: &Look, cx: &gpui::App) -> Option<AnyElement> {
-        if self.closed(id, cx) {
+        // A turn that ended with subagents or tasks still at work is not a Job with nothing running.
+        if self.closed(id, cx) || !self.live_work_of(id, cx).is_empty() {
             return None;
         }
         let said = idle_since(job.last_heard_at.as_ref().map(|at| at.as_str()), acts)?;
@@ -177,5 +242,67 @@ mod tests {
             let words = has(gpui::Role::Label, "Idle since") || has(gpui::Role::Image, "Began") || has(gpui::Role::Image, "On this call") || column.iter().any(|(role, name)| *role == gpui::Role::Group && name != "Step and Needs you");
             assert!(!has(gpui::Role::Button, "Ask for an update") || words, "{job}: acts on an empty row: {column:?}");
         }
+    }
+
+    fn work(kind: RunningKind, what: &str) -> RunningWork {
+        RunningWork { kind, what: what.into(), since: ipc::Instant::carried("2026-11-20T10:00:00Z") }
+    }
+
+    #[test]
+    fn what_runs_is_the_subagents_then_the_tasks_and_nothing_running_is_empty() {
+        assert!(live_work(&[], &[]).is_empty());
+        let running = [work(RunningKind::BackgroundTask, "cargo build"), work(RunningKind::Subagent, "Read the docs")];
+        let live = live_work(&[], &running);
+        assert_eq!(live.iter().map(|one| (one.what.as_str(), one.background)).collect::<Vec<_>>(), [("Read the docs", false), ("cargo build", true)], "a subagent first, a task under it");
+        assert_eq!(room_for_tasks(2), 3);
+        assert_eq!(room_for_tasks(7), 0, "tasks wait where the subagents fill the room");
+    }
+
+    /// A Job whose turn is over with a subagent still at work is not idle: Now lists the subagent, and says nothing of idling.
+    #[gpui::test]
+    fn a_job_with_its_turn_over_and_one_subagent_running_shows_the_subagent_and_not_idle(cx: &mut gpui::TestAppContext) {
+        use super::super::column_strip::tests::drawn::{fresh, opened};
+        use super::super::parts_fold::{drawn, drawn_like};
+        // Every Job's turn is over, nothing is under way in it, and it was last heard from a while ago.
+        let (view, cx) = opened(cx, "mock-02");
+        let list = view.read_with(cx, |view, _| view.list.clone());
+        list.update(cx, |list, cx| {
+            let mut jobs = list.records().to_vec();
+            for one in &mut jobs {
+                if let Some(hosted) = one.hosted.as_mut() {
+                    hosted.turn = ipc::SessionTurn::Idle;
+                }
+                if let Some(mark) = one.mark.as_mut() {
+                    mark.state = ipc::JobState::Idle;
+                    mark.lamp = ipc::JobLamp::Idle;
+                }
+                one.stopped = None;
+                one.activity = None;
+                one.running = Vec::new();
+                one.last_heard_at = Some(ipc::Instant::carried("2026-11-20T23:15:00Z"));
+            }
+            list.replace_records(jobs, cx);
+        });
+        // A Job whose thread holds no subagent at work says since when.
+        let mut quiet = None;
+        for job in ["mock-02", "mock-03", "mock-04", "mock-10", "mock-12", "mock-05", "mock-06"] {
+            list.update(cx, |list, cx| list.open(job.into(), cx));
+            fresh(cx);
+            if drawn_like(cx, gpui::Role::Label, "Idle since").len() == 1 {
+                quiet = Some(job);
+                break;
+            }
+        }
+        let job = quiet.expect("a Job with nothing running says since when it went quiet");
+        assert!(!drawn(cx, gpui::Role::Group, "Read the migration notes"));
+        list.update(cx, |list, cx| {
+            let mut jobs = list.records().to_vec();
+            jobs.iter_mut().find(|one| one.id.as_str() == job).expect("the Job").running = vec![work(RunningKind::Subagent, "Read the migration notes")];
+            list.replace_records(jobs, cx);
+        });
+        fresh(cx);
+        assert!(drawn(cx, gpui::Role::Group, "Read the migration notes"), "the subagent has its row");
+        assert!(drawn_like(cx, gpui::Role::Label, "Idle since").is_empty(), "and the Job is not idle");
+        assert!(drawn(cx, gpui::Role::List, "Subagents"));
     }
 }

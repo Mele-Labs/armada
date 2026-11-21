@@ -501,7 +501,7 @@ impl JobView {
         let (list_before, list_after) = if list_after { (None, list) } else { (list, None) };
         let flight = if gates || only_now { None } else { self.flight_rows(&job, &at_work, false, only_now, look, cx) };
         let helpers = if gates && !only_now { self.helpers(&job, look, cx) } else { None };
-        let leading: Vec<AnyElement> = act_now.into_iter().chain(self.now_last_acts(&acts, look)).chain(self.now_subagents(&job, look).filter(|_| only_now)).collect();
+        let leading: Vec<AnyElement> = act_now.into_iter().chain(self.now_last_acts(&acts, look)).chain(self.now_running(id, look, cx).or_else(|| self.now_subagents(&job, look)).filter(|_| only_now)).collect();
         let rows: Vec<AnyElement> = leading
             .into_iter()
             .chain(beats)
