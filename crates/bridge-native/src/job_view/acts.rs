@@ -9,10 +9,11 @@ use std::collections::{HashMap, HashSet};
 
 use chrono::{DateTime, Local};
 use gpui::{
-    div, prelude::*, Context, ElementId, Entity, FontWeight, Role, SharedString, Stateful, Window,
+    div, prelude::*, App, Context, ElementId, Entity, FontWeight, Role, SharedString, Stateful, Window,
 };
 use gpui_component::input::{Enter, InputEvent, Textarea, TextareaState};
 
+use super::rich_note::{kept_of, Resized, RichNote};
 use super::JobView;
 use crate::labels::labelled;
 use crate::look::{token, Look};
@@ -44,6 +45,15 @@ pub(super) enum Answer {
 }
 
 impl CardState {
+    /// A card's boxes shut: they and what watches them are let go.
+    pub fn drop_boxes(&mut self, key: &str) {
+        let prefix = format!("{key}:");
+        self.modes.remove(key);
+        self.boxes.retain(|name, _| !name.starts_with(&prefix));
+        self.notes.retain(|name, _| !name.starts_with(&prefix));
+        self.typing.retain(|name, _| !name.starts_with(&prefix));
+    }
+
     /// What the person pressed on a sketch card, while it is the drawing he pressed it on.
     pub fn pressed(&self, key: &str, card: &ipc::ThreadSketch) -> Option<&Answer> {
         let answer = self.answers.get(key)?;
@@ -73,11 +83,13 @@ pub(super) struct CardState {
     pub said: HashMap<String, SharedString>,
     pub modes: HashMap<String, Mode>,
     pub boxes: HashMap<String, Entity<TextareaState>>,
+    /// The boxes that carry pictures, tags and formatting, by box: each wraps the text area of the same name in `boxes`.
+    pub notes: HashMap<String, Entity<RichNote>>,
     /// Each open box keeping its words as they are typed, by box.
     pub typing: HashMap<String, gpui::Subscription>,
     /// Cards drawn with words kept for them: an open one gets its box back, a settled one lets them go.
-    /// A draw writes here and the next frame acts on it.
-    pub kept_seen: std::cell::RefCell<Vec<(String, usize, bool)>>,
+    /// A draw writes here and the next frame acts on it. The last is whether the card's Note box is a rich one.
+    pub kept_seen: std::cell::RefCell<Vec<(String, usize, bool, bool)>>,
     pub folded: HashMap<String, bool>,
     /// The revision of a sketch the person chose, counting from the oldest, and how many there were when he chose it;
     /// absent is the newest. A newer one arriving ends the choice (`picked_revision`).
@@ -243,6 +255,18 @@ impl JobView {
     /// A box with its words, the ones kept for it before `text`; `focus` puts the caret in it and brings it into view.
     #[allow(clippy::too_many_arguments)]
     fn put_box(&mut self, ix: usize, key: &str, mode: Mode, text: &str, focus: bool, window: &mut Window, cx: &mut Context<Self>) {
+        self.put_box_as(ix, key, mode, text, focus, None, window, cx);
+    }
+
+    /// A Note box that carries pictures, tags and formatting, as the Job's own box does: where a person writes back to an agent.
+    /// `name` is what the box is called to VoiceOver.
+    pub(super) fn open_note(&mut self, ix: usize, key: &str, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.put_box_as(ix, key, Mode::Note, "", true, Some(name), window, cx);
+    }
+
+    /// `rich` is the name of a box that is a `RichNote` over its text area.
+    #[allow(clippy::too_many_arguments)]
+    fn put_box_as(&mut self, ix: usize, key: &str, mode: Mode, text: &str, focus: bool, rich: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
         let box_key = format!("{key}:{mode:?}");
         let existing = self.cards_mut().and_then(|cards| cards.boxes.get(&box_key).cloned());
         let area = match existing {
@@ -251,12 +275,33 @@ impl JobView {
                 let rows = if mode == Mode::Edit { (4, 12) } else { (3, 8) };
                 let kept = self.kept_key(key, mode).map(|kept| self.draft_words(&kept)).filter(|words| !words.is_empty());
                 let area = cx.new(|cx| TextareaState::new(window, cx).auto_grow(rows.0, rows.1));
-                area.update(cx, |area, cx| area.set_value(kept.unwrap_or_else(|| text.to_string()), window, cx));
+                match (rich, self.kept_key(key, mode).map(|kept| self.draft_of(&kept)).filter(|draft| !draft.text.is_empty())) {
+                    // A rich box takes its chips back with its words.
+                    (Some(_), Some(draft)) => area.update(cx, |area, cx| area.set_value(draft.content(), window, cx)),
+                    _ => area.update(cx, |area, cx| area.set_value(kept.unwrap_or_else(|| text.to_string()), window, cx)),
+                }
+                if let Some(name) = rich {
+                    // Made before the box's own watcher, so what a keystroke draws is drawn before the draft is read.
+                    let scope = self.note_scope(cx);
+                    let name = name.to_string();
+                    let note = cx.new(|cx| RichNote::new(area.clone(), name, scope, window, cx));
+                    // A tray or a list coming or going changes the card's height.
+                    let sized = cx.subscribe(&note, move |this, _, _: &Resized, cx| this.card_changed(ix, cx));
+                    if let Some(cards) = self.cards_mut() {
+                        cards.notes.insert(box_key.clone(), note);
+                        cards.typing.insert(format!("{box_key}#size"), sized);
+                    }
+                }
                 if let Some(kept) = self.kept_key(key, mode) {
+                    let is_rich = rich.is_some();
                     let typing = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
                         if let InputEvent::Change = event {
-                            let words = area.read(cx).value().to_string();
-                            this.keep_words(&kept, &words, cx);
+                            if is_rich {
+                                this.keep_draft(&kept, kept_of(area, cx), cx);
+                            } else {
+                                let words = area.read(cx).value().to_string();
+                                this.keep_words(&kept, &words, cx);
+                            }
                         }
                     });
                     if let Some(cards) = self.cards_mut() {
@@ -287,18 +332,14 @@ impl JobView {
     /// The box shut and its words kept, as `close_box` but for the words: Esc leaves them for the next time it opens.
     pub(super) fn close_box_kept(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
         if let Some(cards) = self.cards_mut() {
-            cards.modes.remove(key);
-            cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
-            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.drop_boxes(key);
         }
         self.card_changed(ix, cx);
     }
 
     pub(super) fn close_box(&mut self, ix: usize, key: &str, cx: &mut Context<Self>) {
         if let Some(cards) = self.cards_mut() {
-            cards.modes.remove(key);
-            cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
-            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.drop_boxes(key);
         }
         self.forget_box_words(key, cx);
         self.card_changed(ix, cx);
@@ -335,7 +376,7 @@ impl JobView {
     /// before Note, without the caret; a settled card's words go (`DraftRow.tsx:161-185`).
     pub(super) fn tend_kept(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(seen) = self.shown.as_ref().and_then(|id| self.pages.get(id)).map(|page| page.cards.kept_seen.take()) else { return };
-        for (key, ix, open) in seen {
+        for (key, ix, open, rich) in seen {
             if !open {
                 self.forget_box_words(&key, cx);
                 continue;
@@ -348,7 +389,7 @@ impl JobView {
             if fixed {
                 self.put_box(ix, &key, Mode::Edit, "", false, window, cx);
             } else if noted {
-                self.put_box(ix, &key, Mode::Note, "", false, window, cx);
+                self.put_box_as(ix, &key, Mode::Note, "", false, rich.then_some("What should change?"), window, cx);
             }
         }
     }
@@ -362,19 +403,46 @@ impl JobView {
     }
 
     /// The words in a card's open box.
+    /// A rich box gives them as a message sends them: trimmed, with a blank line where a quote or a list ends in words.
     pub(super) fn typed_in(&self, key: &str, mode: Mode, cx: &Context<Self>) -> String {
+        let cards = self.shown.as_ref().and_then(|id| self.pages.get(id)).map(|page| &page.cards);
+        let box_key = format!("{key}:{mode:?}");
+        if let Some(note) = cards.and_then(|cards| cards.notes.get(&box_key)) {
+            return note.read(cx).sent(cx);
+        }
+        cards.and_then(|cards| cards.boxes.get(&box_key)).map(|area| area.read(cx).value().to_string()).unwrap_or_default()
+    }
+
+    /// The files and tags a card's open box holds, for the answer it sends; none where the box is not a rich one.
+    pub(super) fn extras_of(&self, key: &str, mode: Mode, cx: &App) -> ipc::AnswerExtras {
         self.shown
             .as_ref()
             .and_then(|id| self.pages.get(id))
-            .and_then(|page| page.cards.boxes.get(&format!("{key}:{mode:?}")))
-            .map(|area| area.read(cx).value().to_string())
+            .and_then(|page| page.cards.notes.get(&format!("{key}:{mode:?}")))
+            .map(|note| note.read(cx).extras(cx))
             .unwrap_or_default()
+    }
+
+    /// Put away the lists open over the words of the shown Job's boxes. True where there was one: Esc has done its work.
+    pub(super) fn close_note_lists(&mut self, cx: &mut Context<Self>) -> bool {
+        let open: Vec<Entity<RichNote>> = self.shown.as_ref().and_then(|id| self.pages.get(id)).map(|page| page.cards.notes.values().filter(|note| note.read(cx).offering()).cloned().collect()).unwrap_or_default();
+        for note in &open {
+            note.update(cx, |note, cx| note.close_offer(cx));
+        }
+        !open.is_empty()
+    }
+
+    /// A list is open over the words of one of the shown Job's boxes, so Esc is the list's.
+    pub(super) fn note_offering(&self, cx: &App) -> bool {
+        self.shown.as_ref().and_then(|id| self.pages.get(id)).is_some_and(|page| page.cards.notes.values().any(|note| note.read(cx).offering()))
     }
 
     /// The box as a card draws it.
     pub(super) fn box_of(&self, key: &str, mode: Mode, name: impl Into<SharedString>, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let name: SharedString = name.into();
-        let area = self.shown.as_ref().and_then(|id| self.pages.get(id))?.cards.boxes.get(&format!("{key}:{mode:?}"))?;
+        let cards = &self.shown.as_ref().and_then(|id| self.pages.get(id))?.cards;
+        let area = cards.boxes.get(&format!("{key}:{mode:?}"))?;
+        let note = cards.notes.get(&format!("{key}:{mode:?}")).cloned();
         let commit_key = key.to_string();
         Some(
             labelled(
@@ -397,7 +465,10 @@ impl JobView {
                     .bg(look.color(token::BG_SUNKEN))
                     .text_size(look.length(token::TEXT_SM))
                     .text_color(look.color(token::FG_DEFAULT))
-                    .child(Textarea::new(area).appearance(false).aria_label(name.clone())),
+                    .map(|frame| match note {
+                        Some(note) => frame.child(note),
+                        None => frame.child(Textarea::new(area).appearance(false).aria_label(name.clone())),
+                    }),
                 Role::TextInput,
                 name,
             )
@@ -428,9 +499,7 @@ impl JobView {
             };
             cards.answers.insert(key.clone(), answer);
             cards.said.remove(&key);
-            cards.modes.remove(&key);
-            cards.boxes.retain(|name, _| !name.starts_with(&format!("{key}:")));
-            cards.typing.retain(|name, _| !name.starts_with(&format!("{key}:")));
+            cards.drop_boxes(&key);
         }
         self.forget_box_words(&key, cx);
         // An answer pressed in the sketch read over the window shuts the box the keys were in: they go back to the read. Its
