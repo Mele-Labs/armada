@@ -66,7 +66,6 @@ where
             };
             let peers = Arc::clone(fleet.peers());
             let mut turns = fleet.build_turns().lock().unwrap_or_else(std::sync::PoisonError::into_inner);
-            let was = turns.leader().map(str::to_string);
             let held_before = turns.jobs_held();
             let now = Instant::now();
             let loaded = turns.loaded(load.is_some(), pressure, now);
@@ -85,12 +84,6 @@ where
             );
             send(&signals);
             let leader = turns.leader().map(str::to_string);
-            if was != leader {
-                match &leader {
-                    Some(job) => eprintln!("builds take turns: {why}, so job {job}'s builds run and the other Jobs' wait"),
-                    None => eprintln!("builds take turns no more: every Job's builds run"),
-                }
-            }
             Some((held_before, turns.jobs_held(), leader, why))
         })
         .await;

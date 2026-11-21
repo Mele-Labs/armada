@@ -166,13 +166,13 @@ fn a_fleet_that_stops_lets_every_build_it_held_go() {
 #[test]
 fn a_checks_build_and_a_lone_jobs_build_are_never_held() {
     let listing = "\
-  10     1 S    /usr/bin/claude
+  10     1 S    /usr/bin/agent
   11    10 S    /bin/zsh
-  12    11 R    /Users/me/.rustup/toolchains/stable/bin/cargo
-  20     1 S    /usr/bin/claude
-  21    20 S    /Users/me/Library/Application Support/Armada/armada
-  22    21 R    /Users/me/.rustup/toolchains/stable/bin/rustc
-  30     1 R    /Users/me/.rustup/toolchains/stable/bin/rustc
+  12    11 R    /Users/user/.rustup/toolchains/stable/bin/cargo
+  20     1 S    /usr/bin/agent
+  21    20 S    /Users/user/Library/Application Support/Armada/armada
+  22    21 R    /Users/user/.rustup/toolchains/stable/bin/rustc
+  30     1 R    /Users/user/.rustup/toolchains/stable/bin/rustc
 ";
     let jobs = [
         Contender { job: "a".into(), roots: vec![10], prioritised: false },
@@ -192,7 +192,7 @@ fn a_checks_build_and_a_lone_jobs_build_are_never_held() {
 #[test]
 fn a_compiler_outside_every_jobs_tree_is_the_job_whose_id_it_carries() {
     let listing = "\
-  10     1 S    /usr/bin/claude
+  10     1 S    /usr/bin/agent
   11    10 R    /bin/cargo
   40     1 R    /bin/cargo
 ";
@@ -207,11 +207,11 @@ fn a_compiler_outside_every_jobs_tree_is_the_job_whose_id_it_carries() {
 #[test]
 fn a_job_that_stops_building_gives_its_turn_up_at_once() {
     let both = "\
-  10     1 S    /usr/bin/claude
+  10     1 S    /usr/bin/agent
   11    10 R    /bin/cargo
-  20     1 S    /usr/bin/claude
+  20     1 S    /usr/bin/agent
   21    20 R    /bin/cargo
-  30     1 S    /usr/bin/claude
+  30     1 S    /usr/bin/agent
   31    30 R    /bin/cargo
 ";
     let jobs = [
@@ -232,9 +232,9 @@ fn a_job_that_stops_building_gives_its_turn_up_at_once() {
 #[test]
 fn each_job_held_is_named_while_held_so_it_is_told_both_ways() {
     let both = "\
-  10     1 S    /usr/bin/claude
+  10     1 S    /usr/bin/agent
   11    10 R    /bin/cargo
-  20     1 S    /usr/bin/claude
+  20     1 S    /usr/bin/agent
   21    20 R    /bin/cargo
 ";
     let jobs = [
