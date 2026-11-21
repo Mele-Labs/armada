@@ -99,7 +99,7 @@ The sketch's scene is a ledger artifact `sketch:<title>`, as `show_sketch` keeps
 While that version is pending they wait with it, and his Approve of it settles them; [Artifact](../artifact.md), *A plan's sketches*.
 
 **A recorded plan is pending until the owner approves it, and pending is one of the Job's calls.** Once he has approved a plan, a version recorded after it is not pending unless the agent passed `ask_again: true`: it keeps the earlier `approved_at`, the receipt says it `stands`, and the agent goes on.
-A pending plan is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go.
+A pending plan is a waiting item, id `plan:<version>`, source `plan`, where `ask:` and `perm:` items go, its text the question Fleet words, `Approve this plan?`.
 Nothing blocks the agent's tools meanwhile; the wait is the agent's to keep, and the Job rules say to keep it (`docs/contracts/agent-prompt.md`, 5f).
 **The item is raised when it can be answered: only a window he can see or still owes holds it** (`plan_holds`, `planning.rs`).
 **A pending plan waits while any of the Job's walks waits for his Approve**, closed window or not, and arrives once he approves them.

@@ -86,7 +86,17 @@ impl JobView {
         let approved = card.state == PlanCardState::Approved || matches!(answer, Some(Answer::Approved | Answer::Going));
         let going = matches!(answer, Some(Answer::Going));
         let aside = !approved && (card.state == PlanCardState::SetAside || matches!(answer, Some(Answer::SetAside)));
-        let folded = self.folded(&key, aside || (approved && record.is_none()));
+        let item = format!("plan:{}", card.version);
+        // A plan put to him is answered in the review sheet alone: here it is one line that opens the sheet on it.
+        if !approved && !aside && answer.is_none() {
+            if let Some(held) = self.held_item(&job, &item, cx) {
+                page.keys.set(&key, None);
+                return self.ask_pointer(&format!("thread:{key}"), &held, super::ask_line::Stands::Thread, look, cx);
+            }
+        }
+        // Once he answered it, his answer card stands where he gave it, and the plan folds.
+        let answered = self.record(&job, cx).is_some_and(|held| held.answers.iter().any(|one| one.item == item));
+        let folded = self.folded(&key, aside || (approved && (record.is_none() || answered)));
         let target = self.is_target(&key);
         let mark_said = if going { "Sending" } else if approved { "Plan approved" } else { "Plan waiting for approval" };
         let (mark_icon, mark_ink) = if approved { ("badge-check", token::STEP_ADVANCED) } else { ("bell-ring", token::STEP_WAITING) };
@@ -183,7 +193,8 @@ impl JobView {
             if let Some(why) = page.cards.said.get(&key) {
                 column = column.child(refusal(look, &key, why.clone()));
             }
-            if !approved {
+            // Sent back or dismissed from the sheet, it waits for the Job's next plan with nothing to press.
+            if !approved && answer.is_none() {
                 column = column.child(self.plan_answers(ix, &key, card.version, record, reading, &earlier, aside, target, page, look, approve, cx));
             }
         }

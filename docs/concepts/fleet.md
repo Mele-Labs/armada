@@ -761,7 +761,7 @@ An offer made again at the tip it was withdrawn at opens its card again.
 **A Job with an open card has one row in Needs you**, however many builds it offered, so a card in the thread reaches him as a reading page does.
 The item is `ready_to_try`, derived on every read: id and `artifact` `try:<session_id>`, text `Ready to try`, since the oldest open card, so a client opens the Job's Ready to try list.
 It goes once no card is open, each answered, withdrawn, replaced or held by a reminder, and it comes back when a reminder comes due.
-It is answered only on the cards: `answer_waiting` refuses it, dismissing it puts away only the cards open then, so a card offered later raises it again, and Approve all passes it by.
+It is answered only on the cards: `answer_waiting` refuses it, dismissing it puts away only the cards open then, so a card offered later raises it again, and `answer_items` passes it by.
 
 ### Restarting Fleet
 

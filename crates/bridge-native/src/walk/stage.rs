@@ -669,6 +669,21 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
             Ok(())
         }
         Verb::Answer(name) if name.starts_with("toasts-") => super::toasts::scene(&name["toasts-".len()..], cx).map_err(Missed),
+        // The review sheet's Features vote with the Operator's read beside it, as the Operator page opens it.
+        Verb::Answer("review-operator-read") => {
+            let (reading, pick) = crate::mock_parts::FEATURES_OPERATOR_READ;
+            let item = ipc::ItemRef { session_id: ipc::SessionId::carried(crate::mock_parts::FEATURES_JOB.to_string()), item: format!("parts:{}", crate::mock_parts::FEATURES_ID) };
+            crate::job_view::open_over(window, cx, item, Some((reading.into(), Some(pick.into()))));
+            Ok(())
+        }
+        // A picture pasted into the sheet's open box, or a settled artifact opened in the sheet.
+        Verb::Answer(name) if name.starts_with("sheet-") => crate::job_view::walk_scene(name, window, cx).map_err(Missed),
+        // The review sheet opened from the Jobs list, on the Features vote: every Job's asks, grouped by Job.
+        Verb::Answer("review-all") => {
+            let item = ipc::ItemRef { session_id: ipc::SessionId::carried(crate::mock_parts::FEATURES_JOB.to_string()), item: "agent-place".to_string() };
+            crate::job_view::open_over(window, cx, item, None);
+            Ok(())
+        }
         Verb::Answer(name) => {
             if let Some(page) = crate::operator::live(cx) {
                 // A name the page does not know is the dispatch screen's, where the whole app is in the walk.

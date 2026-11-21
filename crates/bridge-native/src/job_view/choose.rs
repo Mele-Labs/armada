@@ -111,6 +111,7 @@ impl JobView {
         let front = things.into_iter().find(|thing| match thing {
             Thing::Ask(_) | Thing::Lapsed(_) => true,
             Thing::Row(row) => matches!(row.act, NeedsYouAct::Answer { .. }) && !row_options(row).is_empty(),
+            Thing::Sheet(_) => false,
         })?;
         match front {
             Thing::Row(row) if row_options(row).iter().any(|option| option.picture.is_some()) => Some(row),

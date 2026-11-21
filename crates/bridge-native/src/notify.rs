@@ -6,6 +6,7 @@
 //! and no banner while a window of this app has focus or `features.notifications` is off. A press on
 //! the banner brings the window forward and opens that Job.
 
+use std::collections::HashMap;
 use std::time::Duration;
 
 use gpui::{AnyWindowHandle, Context, Entity, Subscription, Task, WeakEntity};
@@ -28,6 +29,9 @@ pub struct Told {
     pub title: String,
     pub body: String,
     pub tone: CallTone,
+    /// The ask the first arrival names, which a press opens in the review sheet. Not part of the tag: a Job's newer banner
+    /// replaces its older one, whichever ask each tells.
+    pub item: Option<String>,
 }
 
 /// The banner a batch of arrivals makes: the first to arrive speaks, and the rest are counted.
@@ -42,7 +46,8 @@ pub fn told_of(batch: &[CallArrival]) -> Option<Told> {
     // readers without it.
     let by_key = matches!(first.kind, ipc::CallArrivalKind::MacPairing | ipc::CallArrivalKind::ReviewRequested);
     let tag = first.key.clone().filter(|_| by_key).unwrap_or_else(|| first.session_id.as_str().to_string());
-    Some(Told { session_id: tag, title, body, tone })
+    let item = first.item.clone().filter(|_| !by_key);
+    Some(Told { session_id: tag, title, body, tone, item })
 }
 
 /// A banner's tag that is a call's key rather than a Job's id: `mac:<id>` for `CallArrivalKind::MacPairing`, or
@@ -105,6 +110,8 @@ pub struct Notifier {
     wait: Option<Task<()>>,
     /// The count last put on the Dock, so the badge is written only when it moves.
     badge: Option<usize>,
+    /// The ask each Job's standing banner tells, by its tag: what a press on it opens.
+    asked: HashMap<String, String>,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -131,6 +138,7 @@ impl Notifier {
             collector: Collector::default(),
             wait: None,
             badge: None,
+            asked: HashMap::new(),
             _subscriptions: subscriptions,
         };
         this.follow_count(cx);
@@ -171,6 +179,11 @@ impl Notifier {
             return;
         }
         Note::info("a banner was posted").field("tone", format!("{:?}", told.tone)).emit();
+        // The newer banner replaces the Job's older one, and with it the ask a press opens.
+        match told.item.clone() {
+            Some(item) => self.asked.insert(told.session_id.clone(), item),
+            None => self.asked.remove(&told.session_id),
+        };
         banner::post(&told.session_id, &told.title, &told.body, sound_of(told.tone));
     }
 
@@ -202,6 +215,34 @@ impl Notifier {
         }
         let opened = self.jobs.update(cx, |jobs, cx| jobs.open_job(session_id, cx)).unwrap_or(false);
         Note::info("a banner was pressed").field("opened", opened).emit();
+        // The ask the banner told opens in the review sheet, the one place it is answered; the Job's newest where it told
+        // none, or where that one no longer waits.
+        let told = self.asked.remove(session_id);
+        let ask = self.jobs.upgrade().and_then(|jobs| jobs.read(cx).record(session_id).and_then(|record| ask_to_open(&record.waiting_for, told.as_deref())));
+        if let (true, Some(item)) = (opened, ask) {
+            let item = ipc::ItemRef { session_id: ipc::SessionId::carried(session_id.to_string()), item };
+            let _ = self.window.update(cx, |_, window, cx| crate::job_view::open_over(window, cx, item, None));
+        }
+    }
+}
+
+/// The ask a press on a Job's banner opens: the one it told while that still waits and the sheet answers it, else the newest.
+pub fn ask_to_open(waiting: &[ipc::WaitingItem], told: Option<&str>) -> Option<String> {
+    told.and_then(|told| waiting.iter().find(|one| one.id == told && sheet_answers(one))).map(|one| one.id.clone()).or_else(|| newest_ask(waiting))
+}
+
+/// The newest of a Job's items the review sheet answers.
+pub fn newest_ask(waiting: &[ipc::WaitingItem]) -> Option<String> {
+    waiting.iter().filter(|one| sheet_answers(one)).max_by(|a, b| a.since.as_str().cmp(b.since.as_str())).map(|one| one.id.clone())
+}
+
+/// An item the review sheet answers: a plan, sketch, page or draft, a question with choices, or one that names an artifact.
+fn sheet_answers(one: &ipc::WaitingItem) -> bool {
+    use ipc::WaitingSource::*;
+    match one.source {
+        Plan | Sketch | Document | Draft | AskCard => true,
+        Agent => !one.options.is_empty() || one.artifact.is_some(),
+        _ => false,
     }
 }
 
@@ -211,7 +252,7 @@ mod tests {
     use ipc::{CallArrivalKind, SessionId};
 
     fn arrival(job: &str, title: &str, text: &str, tone: CallTone) -> CallArrival {
-        CallArrival { session_id: SessionId::carried(job), title: title.into(), text: text.into(), tone, kind: CallArrivalKind::Needs, key: None }
+        CallArrival { session_id: SessionId::carried(job), title: title.into(), text: text.into(), tone, kind: CallArrivalKind::Needs, key: None, item: None }
     }
 
     #[test]
@@ -313,5 +354,48 @@ mod tests {
         for tone in [CallTone::Blocked, CallTone::Waiting] {
             assert!(sounds.join(sound_of(tone)).is_file(), "{} is not in apps/desktop/sounds", sound_of(tone));
         }
+    }
+
+    #[test]
+    fn a_banner_opens_the_newest_ask_and_never_a_build_or_a_permission() {
+        let jobs = crate::mock::jobs("job-view").expect("decodes");
+        let mut one = jobs.iter().flat_map(|job| job.waiting_for.iter()).next().expect("a waiting item").clone();
+        one.options.clear();
+        one.artifact = None;
+        let at = |id: &str, source: ipc::WaitingSource, since: &str| ipc::WaitingItem { id: id.into(), source, since: ipc::Instant::carried(since), ..one.clone() };
+        let waiting = [
+            at("sketch:Chip", ipc::WaitingSource::Sketch, "2026-11-20T10:00:00Z"),
+            at("ask:call-1", ipc::WaitingSource::AskCard, "2026-11-20T11:00:00Z"),
+            at("try:branch@tip", ipc::WaitingSource::ReadyToTry, "2026-11-20T12:00:00Z"),
+            at("agent-note", ipc::WaitingSource::Agent, "2026-11-20T13:00:00Z"),
+        ];
+        assert_eq!(newest_ask(&waiting).as_deref(), Some("ask:call-1"), "a build to try and an agent's note with no choices are not asks");
+        assert_eq!(newest_ask(&waiting[2..]), None);
+    }
+
+    #[test]
+    fn a_banner_opens_the_ask_it_told_while_that_still_waits() {
+        let jobs = crate::mock::jobs("job-view").expect("decodes");
+        let mut one = jobs.iter().flat_map(|job| job.waiting_for.iter()).next().expect("a waiting item").clone();
+        one.options.clear();
+        one.artifact = None;
+        let at = |id: &str, source: ipc::WaitingSource, since: &str| ipc::WaitingItem { id: id.into(), source, since: ipc::Instant::carried(since), ..one.clone() };
+        let waiting = [
+            at("sketch:Chip", ipc::WaitingSource::Sketch, "2026-11-20T10:00:00Z"),
+            at("ask:call-1", ipc::WaitingSource::AskCard, "2026-11-20T11:00:00Z"),
+            at("try:branch@tip", ipc::WaitingSource::ReadyToTry, "2026-11-20T12:00:00Z"),
+        ];
+        assert_eq!(ask_to_open(&waiting, Some("sketch:Chip")).as_deref(), Some("sketch:Chip"), "the ask the banner told, though another is newer");
+        assert_eq!(ask_to_open(&waiting, Some("plan:3")).as_deref(), Some("ask:call-1"), "one answered since opens the newest");
+        assert_eq!(ask_to_open(&waiting, Some("try:branch@tip")).as_deref(), Some("ask:call-1"), "a build to try is not the sheet's");
+        assert_eq!(ask_to_open(&waiting, None).as_deref(), Some("ask:call-1"));
+    }
+
+    #[test]
+    fn an_arrival_on_a_jobs_list_carries_its_item_to_the_banner_but_not_its_tag() {
+        let mut asked = arrival("a", "Fix the build", "Pick a slot", CallTone::Blocked);
+        asked.item = Some("sketch:Chip".into());
+        let told = told_of(&[asked]).expect("a banner");
+        assert_eq!((told.session_id.as_str(), told.item.as_deref()), ("a", Some("sketch:Chip")), "a Job's newer banner still replaces its older one");
     }
 }

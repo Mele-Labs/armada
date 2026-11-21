@@ -158,7 +158,7 @@ async fn sketch_approved(rig: &super::session_host::Rig, id: &SessionId) {
     let drawing: ShowSketch = ipc::decode(
         "a sketch to show",
         format!(
-            r#"{{"title":"Flow","session_id":"{}","scene":{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Bridge"}}],"edges":[]}}}}"#,
+            r#"{{"title":"Flow","question":"Does this read right?","session_id":"{}","scene":{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Bridge"}}],"edges":[]}}}}"#,
             id.as_str()
         )
         .as_bytes(),

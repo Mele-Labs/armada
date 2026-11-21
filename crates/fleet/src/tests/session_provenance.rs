@@ -16,7 +16,7 @@ fn drawn(id: &SessionId, second: &str) -> ShowSketch {
     let scene = format!(
         r#"{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Store"}},{{"id":"b","kind":"box","x":300,"y":0,"title":"{second}"}}],"edges":[]}}"#
     );
-    ipc::decode("a sketch to show", format!(r#"{{"title":"Flow","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
+    ipc::decode("a sketch to show", format!(r#"{{"title":"Flow","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
         .unwrap()
 }
 

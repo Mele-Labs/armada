@@ -93,7 +93,12 @@ impl JobView {
         let room = held.room();
         let editing = held.edit.is_some();
         let earlier = held.viewing.is_some_and(|at| at != subject.newest);
-        let (head, foot) = self.reader_head(id, &name, held, &subject, earlier, look, cx);
+        // One the review sheet holds is answered there: here it is read only, under one line that opens the sheet on it.
+        let sheet_item = self.sheet_item(id, &subject.item, cx).filter(|_| subject.asking && !earlier);
+        let in_sheet = sheet_item.is_some();
+        let sheet_on = sheet_item.as_ref().map(|item| item.id.clone());
+        let pointer = sheet_item.map(|item| self.ask_pointer(&format!("reader:{}", item.id), &item, super::ask_line::Stands::Thread, look, cx));
+        let (head, foot) = self.reader_head(id, &name, held, &subject, earlier, in_sheet, look, cx);
         let strip = (!room.rail()).then(|| self.reader_strip(id, &name, held, look, cx)).flatten();
         let rail = room.rail().then(|| self.reader_rail(id, &name, held, look, cx));
         let words = self.reader_words(id, &name, held, &subject, room, look, cx);
@@ -115,9 +120,9 @@ impl JobView {
         .left_0()
         .size_full();
         // A page in its Job's tab is answered in the review sheet alone, so A, C and D answer nothing here.
-        let pointer = tab.kind == super::row_tabs::RowKind::Document;
-        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier && !pointer, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
-        let waits = pointer && subject.asking;
+        let in_tab = tab.kind == super::row_tabs::RowKind::Document;
+        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier && !in_sheet && !in_tab, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
+        let waits = in_tab && subject.asking;
         let (job_c, name_c) = (id.clone(), name.clone());
         let body = div()
             .id("reader-body")
@@ -128,7 +133,7 @@ impl JobView {
             .children(rail)
             .child(div().flex_1().min_w_0().flex().flex_col().children(strip).child(words))
             .child(measure);
-        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !pointer).map(|(_, _, note)| self.reader_ask_box(id, &name, held, note, look, cx));
+        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !in_sheet && !in_tab).map(|(_, _, note)| self.reader_ask_box(id, &name, held, note, look, cx));
         let said = held.said.clone().map(|why| div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)).child(super::acts::refusal(look, "reader", why)));
         labelled(
             div()
@@ -157,6 +162,11 @@ impl JobView {
                     if mods.modified() || this.reader_of(&job, &key_name).is_none_or(|held| held.typing(window, cx)) {
                         return;
                     }
+                    if let Some(item) = sheet_on.as_deref().filter(|_| event.keystroke.key == "enter") {
+                        cx.stop_propagation();
+                        this.open_review_on(item, window, cx);
+                        return;
+                    }
                     let Some(act) = key_of(event.keystroke.key.as_str(), asking, editable, page) else { return };
                     if waits && act == RKey::Act(RAct::Archive) {
                         return;
@@ -164,6 +174,7 @@ impl JobView {
                     cx.stop_propagation();
                     this.reader_key(&job, &key_name, act, window, cx);
                 }))
+                .children(pointer.map(|pointer| div().flex_none().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_2)).child(pointer)))
                 .child(head)
                 .child(body)
                 .children(ask)
@@ -183,7 +194,7 @@ impl JobView {
     ///
     /// In the focus view the acts leave the header for a bar pinned at the foot: the revision picker, the notes toggle and what
     /// he answers with. The header keeps the kind, the title, where it stands and the For line.
-    fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, Option<AnyElement>) {
+    fn reader_head(&self, id: &SharedString, name: &str, held: &Reader, subject: &Subject, earlier: bool, in_sheet: bool, look: &Look, cx: &Context<Self>) -> (AnyElement, Option<AnyElement>) {
         let pinned = false;
         let editing = held.edit.is_some();
         let ink: Token = if editing { token::YOU } else { subject.stand.ink() };
@@ -197,7 +208,7 @@ impl JobView {
         // A page in its Job's tab is answered in the review sheet alone: the tab says it waits, with Open to the sheet.
         let pointer = held.kind == super::row_tabs::RowKind::Document;
         // While Ask for changes is open under the words, its box holds the answer and the header holds none.
-        let asking = subject.asking && !earlier && !editing && held.ask.is_none() && !pointer;
+        let asking = subject.asking && !earlier && !editing && held.ask.is_none() && !in_sheet && !pointer;
         let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind| -> AnyElement {
             let (job, name_c) = (id.clone(), name.to_string());
             labelled(
@@ -238,7 +249,7 @@ impl JobView {
             .children((!editing).then(|| state_chip(look, format!("reader-state:{name}"), subject.stand, subject.words.as_deref(), None)))
             .children(answers_at_top);
         // What he can do besides answering: Edit, and putting it away.
-        let away = if subject.asking && pointer {
+        let away = if subject.asking && (in_sheet || pointer) {
             None
         } else if subject.asking && !earlier && !editing {
             Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost))

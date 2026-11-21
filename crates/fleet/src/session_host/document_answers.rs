@@ -78,7 +78,7 @@ pub(crate) fn still_kept(detail: &BTreeMap<String, String>) -> bool {
 }
 
 /// Every document in front of him ([`in_front_of_him`]), as the item that waits on him: id
-/// `document:<path>`, text its title, opening the Job.
+/// `document:<path>`, text the question Fleet words for it, opening the Job.
 pub(crate) fn document_items<'a>(
     attachments: &'a [ipc::Attachment],
     session: &'a str,
@@ -92,58 +92,7 @@ pub(crate) fn document_items<'a>(
         .map(move |one| WaitingItem {
             approves: false,
             id: format!("{DOCUMENT_ITEM_PREFIX}{}", one.target),
-            text: one.detail.get("title").cloned().unwrap_or_else(|| one.target.clone()),
-            since: one.changed_at.clone(),
-            source: WaitingSource::Document,
-            act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string(), on: None }),
-            options: Vec::new(),
-            steps: Vec::new(),
-            place: None,
-            confirmed: false,
-            holders: Vec::new(),
-            creating_since: None,
-            create_refused: None,
-            operator_read: None,
-            artifact: None,
-        })
-}
-
-/// What a reading page's Needs you item id is its page's path behind.
-pub(crate) const READ_ITEM_PREFIX: &str = "read:";
-/// The key of a document's `detail` that says its newest revision is the Job's own and asks nothing, so it waits
-/// on him to read it: `"true"`, and absent otherwise. His Edit and a page that buried its ask never write it.
-pub(crate) const DOCUMENT_READS: &str = "reads";
-
-/// Whether `item` is a reading page's: it waits to be opened, and asks no verdict.
-pub(crate) fn is_read_item(item: &WaitingItem) -> bool {
-    item.source == WaitingSource::Document && item.id.starts_with(READ_ITEM_PREFIX)
-}
-
-/// Every reading page whose newest revision he has not opened, as the item that waits on him: id `read:<path>`,
-/// text `Read: <title>`, carrying the page as its artifact. **Opening the newest revision is the answer**, so it
-/// goes when `seen` reaches it, and it goes with the page's archive. A page that joined an artifact is opened as
-/// the artifact, so it raises none.
-pub(crate) fn read_items<'a>(
-    attachments: &'a [ipc::Attachment],
-    session: &'a str,
-    dismissed: &'a [String],
-    seen: &'a [store::KeptArtifactSeen],
-    archived: &'a [String],
-) -> impl Iterator<Item = WaitingItem> + 'a {
-    attachments
-        .iter()
-        .filter(|one| one.kind == "artifact" && is_document(&one.detail))
-        .filter(|one| one.detail.get(DOCUMENT_READS).map(String::as_str) == Some("true"))
-        .filter(|one| super::artifact_parts::joined_of(attachments, one).is_none())
-        .filter(|one| !archived.contains(&one.target) && still_kept(&one.detail))
-        .filter(move |one| {
-            let newest = one.detail.get(DOCUMENT_REVISION).and_then(|number| number.parse::<u32>().ok()).unwrap_or(1);
-            seen.iter().find(|kept| kept.artifact == one.target).map_or(true, |kept| kept.revision < newest)
-        })
-        .map(move |one| WaitingItem {
-            approves: false,
-            id: format!("{READ_ITEM_PREFIX}{}", one.target),
-            text: format!("Read: {}", one.detail.get("title").cloned().unwrap_or_else(|| one.target.clone())),
+            text: super::artifact_parts::fleet_question(one.detail.get("title").unwrap_or(&one.target)),
             since: one.changed_at.clone(),
             source: WaitingSource::Document,
             act: Some(WaitingAct { kind: WaitingActKind::Message, target: session.to_string(), on: None }),
@@ -157,8 +106,12 @@ pub(crate) fn read_items<'a>(
             operator_read: None,
             artifact: Some(one.target.clone()),
         })
-        .filter(|one| !dismissed.contains(&one.id))
 }
+
+/// The key of a document's `detail` that says its newest revision is the Job's own and asks nothing: `"true"`, and
+/// absent otherwise. His Edit and a page that buried its ask never write it. **It raises no item**: a page that only
+/// informs him is in the thread and his Artifacts (the owner, 19 Nov 2026).
+pub(crate) const DOCUMENT_READS: &str = "reads";
 
 /// The paths of the documents `named` names: a path as its item has it, with or without `document:`, the end of one
 /// (`.armada/documents/lease.html`, `lease.html`), or a title. The most exact reading that finds any is the one used.
@@ -238,6 +191,18 @@ where
         };
         let at = self.instant();
         Arc::clone(&self).send_known(terminal, message).await?;
+        let question = super::artifact_parts::fleet_question(&title);
+        let answered = match said.how {
+            DocumentHow::Approved => ipc::AnswerHow::Approved,
+            DocumentHow::SentBack => ipc::AnswerHow::AskedForChanges,
+        };
+        let kept = super::answers_kept::Answered {
+            words,
+            artifact: Some(&document.target),
+            extras: &said.extras,
+            ..super::answers_kept::Answered::to(&item, &question, answered)
+        };
+        self.answer_kept(&id, kept).await;
         if said.how == DocumentHow::SentBack {
             self.sent_back_kept(&id, &path, &at, &body, words.unwrap_or_default(), notes).await;
             self.margins_moved(&id).await;

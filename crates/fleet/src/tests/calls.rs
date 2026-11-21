@@ -67,7 +67,7 @@ fn marked(mut record: SessionRecord, state: JobState) -> SessionRecord {
 }
 
 fn arrival(record: &SessionRecord, text: &str, tone: CallTone, kind: CallArrivalKind) -> CallArrival {
-    CallArrival { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| "Job".into()), text: text.into(), tone, kind, key: None }
+    CallArrival { session_id: record.id.clone(), title: record.title.clone().unwrap_or_else(|| "Job".into()), text: text.into(), tone, kind, key: None, item: None }
 }
 
 /// Seeded on what stands.
@@ -92,7 +92,8 @@ async fn what_stands_when_fleet_starts_is_not_news_and_a_new_item_arrives_once()
     record.waiting_for.push(item("ask:2", "Which clock?", WaitingSource::AskCard, 2));
     keeper.hear(&record);
     let second = keeper.changed(&nowhere, now()).expect("a new item");
-    assert_eq!(second.arrived, [arrival(&record, "Which clock?", CallTone::Blocked, CallArrivalKind::Needs)]);
+    // The arrival names the item that began to wait, so a press on its banner opens that ask.
+    assert_eq!(second.arrived, [CallArrival { item: Some("ask:2".into()), ..arrival(&record, "Which clock?", CallTone::Blocked, CallArrivalKind::Needs) }]);
 
     keeper.hear(&record);
     assert_eq!(keeper.changed(&nowhere, now()), None, "a row heard again moves nothing");
@@ -148,10 +149,10 @@ async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
     assert_eq!(
         told.arrived,
         [
-            arrival(&record, "Run the tests?", CallTone::Blocked, CallArrivalKind::Needs),
-            arrival(&record, "Land it?", CallTone::Waiting, CallArrivalKind::Needs),
+            CallArrival { item: Some("perm:1".into()), ..arrival(&record, "Run the tests?", CallTone::Blocked, CallArrivalKind::Needs) },
+            CallArrival { item: Some("replied:2".into()), ..arrival(&record, "Land it?", CallTone::Waiting, CallArrivalKind::Needs) },
             // A fleet call holds the turn for a call, but a banner tells it as it tells any other.
-            arrival(&record, "A notice", CallTone::Waiting, CallArrivalKind::Needs),
+            CallArrival { item: Some("call:3".into()), ..arrival(&record, "A notice", CallTone::Waiting, CallArrivalKind::Needs) },
         ]
     );
 }
@@ -629,6 +630,7 @@ fn a_mac_waiting_to_pair_calls_him_with_its_id_and_digits_once_and_stops_when_ha
         tone: CallTone::Blocked,
         kind: CallArrivalKind::MacPairing,
         key: Some("mac:0a0b".into()),
+        item: None,
     };
     assert_eq!(told.arrived, [arrival]);
 

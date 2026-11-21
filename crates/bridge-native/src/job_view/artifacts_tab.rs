@@ -353,7 +353,7 @@ impl JobView {
     fn read_artifacts(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
         if self.fleet.is_none() {
             let mut rows = self.thread(id, cx).map(|held| mock_artifacts(&held.items)).unwrap_or_default();
-            if id.as_ref() == crate::mock_parts::JOB {
+            if id.as_ref() == crate::mock_parts::holder() {
                 if let Some(initial) = crate::mock_parts::initial() {
                     if self.artifacts.mock_parts.is_empty() {
                         self.artifacts.mock_parts = initial;
@@ -749,6 +749,14 @@ impl JobView {
             self.open_artifact_tab(&one.id, window, cx);
             return;
         }
+        // A sketch or draft that still asks opens in the review sheet on its ask, as a page and parts do; one that only informs
+        // is read where it always was.
+        if matches!(one.form, ArtifactForm::Draft | ArtifactForm::Sketch) && self.shown.as_deref() == Some(job) {
+            if let Some(item) = self.asking_item(job, artifact, cx) {
+                self.open_ask(&item, window, cx);
+                return;
+            }
+        }
         match one.form {
             ArtifactForm::Page => self.open_document(&one.id, window, cx),
             ArtifactForm::Draft => {
@@ -1006,7 +1014,8 @@ mod tests {
     fn a_long_take_title_never_runs_over_the_buttons_of_the_row_under_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = parts_job(cx);
         let held = crate::mock_parts::ID;
-        view.update_in(cx, |view, window, cx| view.open_named(held, window, cx));
+        // The card is read whole in its own tab: in the thread it is one line while it asks, and the sheet has no larger take.
+        view.update_in(cx, |view, window, cx| view.open_artifact_reader(held, window, cx));
         cx.run_until_parked();
         let key = super::super::parts_card::part_key(held, "bar");
         view.update(cx, |view, cx| view.large_take(&key, Some(2), cx));

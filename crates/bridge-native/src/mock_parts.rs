@@ -43,7 +43,7 @@ fn flow() -> String {
 }
 
 fn part(id: &str, content: PartContent, asks: bool, minute: u32) -> ArtifactPart {
-    ArtifactPart { id: id.into(), content, asks, state: PartState::Open, revision: 1, drawn: format!("{id}-1"), added: at(minute), answer: None }
+    ArtifactPart { id: id.into(), content, asks, state: PartState::Open, revision: 1, drawn: format!("{id}-1"), added: at(minute), answer: None, question: None }
 }
 
 fn take(id: &str, title: &str, scene: String) -> PartTake {
@@ -184,6 +184,86 @@ pub fn asides() -> JobArtifact {
         votes: Vec::new(),
         seen: None,
         parts,
+    }
+}
+
+/// The Job and id of the `review-asks` takes: where the Features screen opens, three wireframes with the Job's pick second.
+pub const FEATURES_JOB: &str = "mock-01";
+pub const FEATURES_ID: &str = "sketch:Features place";
+/// The Operator's read of the Features place vote, as its page would keep one: the reading and the take it would pick.
+pub const FEATURES_OPERATOR_READ: (&str, &str) = ("Jobs and Usage open from the top bar, and Features is a screen of the same rank.", "In the top bar");
+
+/// One box of a wireframe, grey unless it is the place the take puts Features.
+fn wire_box(id: &str, x: u32, y: u32, w: u32, h: u32, title: &str, color: &str) -> String {
+    format!(r#"{{"id":"{id}","kind":"box","x":{x},"y":{y},"w":{w},"h":{h},"title":"{title}","color":"{color}"}}"#)
+}
+
+fn wireframe(boxes: &[String]) -> String {
+    format!(r#"{{"nodes":[{}],"edges":[]}}"#, boxes.join(","))
+}
+
+fn features_top_bar() -> String {
+    wireframe(&[
+        wire_box("jobs", 0, 0, 110, 40, "Jobs", "grey"),
+        wire_box("features", 130, 0, 130, 40, "Features", "amber"),
+        wire_box("usage", 280, 0, 110, 40, "Usage", "grey"),
+        wire_box("list", 0, 80, 170, 200, "Feature list", "teal"),
+        wire_box("page", 210, 80, 280, 200, "Feature page", "blue"),
+    ])
+}
+
+fn features_sidebar() -> String {
+    wireframe(&[
+        wire_box("jobs", 0, 0, 130, 40, "Jobs", "grey"),
+        wire_box("features", 0, 60, 130, 40, "Features", "amber"),
+        wire_box("usage", 0, 120, 130, 40, "Usage", "grey"),
+        wire_box("list", 170, 0, 140, 280, "Feature list", "teal"),
+        wire_box("page", 350, 0, 160, 280, "Feature page", "blue"),
+    ])
+}
+
+fn features_tab() -> String {
+    wireframe(&[
+        wire_box("jobs", 0, 0, 140, 280, "Job list", "grey"),
+        wire_box("thread", 180, 0, 100, 40, "Thread", "grey"),
+        wire_box("features", 300, 0, 120, 40, "Features", "amber"),
+        wire_box("page", 180, 80, 320, 200, "This Job's features", "blue"),
+    ])
+}
+
+/// The takes the `review-asks` takes ask stands for: one part, a pick of three places, with no words of its own.
+pub fn features_place() -> JobArtifact {
+    let takes = vec![
+        take("sidebar", "In the sidebar", features_sidebar()),
+        take("top-bar", "In the top bar (Job's pick)", features_top_bar()),
+        take("tab", "As a tab in each Job", features_tab()),
+    ];
+    let parts = vec![part("place", PartContent::Takes { question: Some("Where should Features open?".into()), form: VoteForm::Pick, takes, parts: Vec::new() }, true, 0)];
+    let kept = |number| ArtifactRevision { number, at: at(number), by: ArtifactBy::Agent, form: ArtifactForm::Draft };
+    JobArtifact {
+        id: FEATURES_ID.into(),
+        title: "Features place".into(),
+        form: ArtifactForm::Draft,
+        revisions: vec![kept(1)],
+        state: ArtifactState::Asking,
+        words: None,
+        item: Some("agent-place".into()),
+        in_plan: None,
+        archived: None,
+        for_line: Some(ArtifactFor { text: Some("Features is a screen of its own, so it opens from where Jobs and Usage open.".into()), links: Vec::new() }),
+        presses: Vec::new(),
+        votes: Vec::new(),
+        seen: None,
+        parts,
+    }
+}
+
+/// The Job whose artifacts of parts the mock serves: the review sheet's Job on `review-asks`, else the tool rows' Job.
+pub fn holder() -> &'static str {
+    if crate::mock::scenario_is("review-asks") {
+        FEATURES_JOB
+    } else {
+        JOB
     }
 }
 
@@ -341,6 +421,9 @@ pub fn folds() -> bool {
 
 /// The artifacts the scenario's Job holds when it opens.
 pub fn initial() -> Option<Vec<JobArtifact>> {
+    if crate::mock::scenario_is("review-asks") {
+        return Some(vec![features_place()]);
+    }
     if crate::mock::scenario_is("artifact-asides") {
         return Some(vec![asides()]);
     }

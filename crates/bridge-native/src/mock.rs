@@ -85,6 +85,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
         "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        // The same Jobs, the first Job's two questions answered from the review sheet (`asks_answered`).
+        "asks-answered" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Usage page on mock waste: a week with six kinds, the reading not answered yet, and a window with no burn.
@@ -115,6 +117,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         "review-palette" => include_bytes!("../fixtures/review-palette.json"),
         // Three Jobs asking: a plan and a sketch, a sketch and a document, and a draft.
         "review-grouped" => include_bytes!("../fixtures/review-grouped.json"),
+        // Build the Features screen asking four things of four kinds, and Write the feature pages a draft and a question.
+        "review-asks" => include_bytes!("../fixtures/review-asks.json"),
         // The same Jobs: the first owing a draft and two native walks, Audit the docs index a draft whose
         // row has gone, and Quiet the write-clash notices a page alone.
         // The web walk's scenario: these Jobs, the first owing one walk, of a local page.
@@ -380,6 +384,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    if scenario == "review-asks" {
+        review_asks_ages(&mut sessions);
+    }
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
@@ -394,7 +401,75 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             }
         }
     }
+    card_items(scenario, &mut sessions);
+    if scenario == "asks-answered" {
+        asks_answered(&mut sessions)?;
+    }
     Ok(sessions)
+}
+
+/// The first Job's open card answered from the sheet: its two items gone, and his answers kept as Fleet keeps them.
+fn asks_answered(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "mock-01") else { return Ok(()) };
+    one.waiting_for.retain(|item| !item.id.starts_with("ask:call-1"));
+    one.answers = ipc::decode::<Vec<ipc::AnsweredAsk>>("answers", include_bytes!("../fixtures/asks-answered.json")).map_err(|why| why.to_string())?;
+    Ok(())
+}
+
+/// Each question of a card a thread holds open is an item of its own, as Fleet lists it (`ask_cards.rs`): `ask:<call>`
+/// for the first and `ask:<call>#<n>` after it, titled with its question and carrying its choices.
+fn card_items(scenario: &str, sessions: &mut [SessionRecord]) {
+    let Ok(threads) = fixture_threads(scenario) else { return };
+    for one in sessions.iter_mut() {
+        let Some(asked) = threads.get(one.id.as_str()).and_then(|thread| thread.head.asked.as_ref()) else { continue };
+        let call = &asked.call;
+        for (at, question) in call.questions.iter().enumerate() {
+            let id = if at == 0 { format!("ask:{}", call.call) } else { format!("ask:{}#{at}", call.call) };
+            let choices: Vec<ipc::WaitingOption> = question
+                .options
+                .iter()
+                .map(|choice| ipc::WaitingOption { label: choice.label.clone(), description: Some(choice.description.clone()).filter(|said| !said.trim().is_empty()), picture: None })
+                .collect();
+            // A fixture written before Fleet carried a card's choices on its item gets them, as Fleet sends it now.
+            if let Some(kept) = one.waiting_for.iter_mut().find(|item| item.id == id) {
+                if kept.options.is_empty() {
+                    kept.options = choices;
+                }
+                continue;
+            }
+            one.waiting_for.push(WaitingItem {
+                approves: false,
+                id,
+                text: question.question.clone(),
+                since: call.asked_at.clone(),
+                source: WaitingSource::AskCard,
+                act: Some(ipc::WaitingAct { kind: WaitingActKind::Answer, target: call.call.clone(), on: None }),
+                options: choices,
+                steps: Vec::new(),
+                place: None,
+                confirmed: false,
+                holders: Vec::new(),
+                creating_since: None,
+                create_refused: None,
+                operator_read: None,
+                artifact: None,
+            });
+        }
+    }
+}
+
+/// How long each ask of `review-asks` has waited, in minutes before the run, so its row reads as it was written.
+const REVIEW_ASK_AGES: [(&str, i64); 7] =
+    [("agent-place", 4), ("plan:1", 12), ("agent-stale", 30), ("try:mock-01", 60), ("draft:dra-401", 18), ("agent-tests", 41), ("document:feature-guide", 9)];
+
+fn review_asks_ages(sessions: &mut [SessionRecord]) {
+    for one in sessions.iter_mut() {
+        for item in &mut one.waiting_for {
+            if let Some((_, minutes)) = REVIEW_ASK_AGES.iter().find(|(id, _)| *id == item.id) {
+                item.since = crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(*minutes));
+            }
+        }
+    }
 }
 
 /// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
@@ -540,6 +615,12 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     if all.is_empty() {
         return Ok(all);
     }
+    // The first Job's card of questions was answered, so it no longer stands open over the thread.
+    if scenario == "asks-answered" {
+        if let Some(thread) = all.get_mut("mock-01") {
+            thread.head.asked = None;
+        }
+    }
     // The first Job's thread ends on a question of his that nothing has answered yet.
     if scenario == "job-questions" {
         if let Some(thread) = all.get_mut("mock-01") {
@@ -619,8 +700,9 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" | "asks-answered" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
+        "review-asks" => include_bytes!("../fixtures/review-asks-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
         "run-commands" => include_bytes!("../fixtures/run-threads.json"),
@@ -736,6 +818,16 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     // alone and with no picture. Another holds the ones settled, one line each, beside one put off.
     if scenario == "ready-to-try" {
         ready_cards(&mut all)?;
+    }
+    // The build to try was offered as long ago as its ask has waited.
+    if scenario == "review-asks" {
+        if let Some(thread) = all.get_mut("mock-01") {
+            for item in &mut thread.items {
+                if let ipc::ThreadItem::ReadyToTry(card) = item {
+                    card.offered_at = crate::snooze::instant_of(chrono::Utc::now() - chrono::Duration::minutes(60));
+                }
+            }
+        }
     }
     if scenario == "thread-jump" {
         if let Some(thread) = all.get_mut("tool-edit") {
@@ -988,6 +1080,10 @@ pub fn sealed_page(page: &str, revision: u32, presses: &[ipc::PagePress], votes:
         let list = |value: Result<String, ipc::Unencodable>| value.unwrap_or_else(|_| "[]".into());
         let record = format!(r#"{{"artifact":"marks","revision":1,"presses":{},"votes":{}}}"#, list(ipc::encode(&presses)), list(ipc::encode(&votes))).replace('<', "\\u003c");
         return Ok(SKETCHED_PAGE.replacen(SKETCHED_RECORD, &record, 1));
+    }
+    // The review-asks walk's long page: a guide with a table of decisions and a drawing.
+    if page == "feature-guide" && revision == 1 {
+        return Ok(include_str!("../fixtures/feature-guide.html").to_string());
     }
     if page != "design" || !(1..=2).contains(&revision) {
         return Err(format!("revision {revision} of `{page}` is not kept"));
@@ -1742,6 +1838,15 @@ pub fn told_words(aside: &ipc::Aside) -> String {
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn each_question_of_an_open_card_waits_as_fleet_names_it() {
+        let jobs = super::jobs("job-view").expect("decodes");
+        let waiting = &jobs.iter().find(|job| job.id.as_str() == "mock-01").expect("the first Job").waiting_for;
+        let asks: Vec<(&str, &str)> = waiting.iter().filter(|one| one.source == ipc::WaitingSource::AskCard).map(|one| (one.id.as_str(), one.text.as_str())).collect();
+        assert_eq!(asks, [("ask:call-1", "Which colour does the stale chip take?"), ("ask:call-1#1", "Where does the chip show how far behind it is?")]);
+        assert!(waiting.iter().filter(|one| one.source == ipc::WaitingSource::AskCard).all(|one| !one.options.is_empty()), "each carries its choices");
+    }
+
     #[test]
     fn a_mock_job_s_needs_you_is_grouped_in_fleet_s_order_and_a_put_away_row_is_left_out() {
         use ipc::{NeedsYouAct, NeedsYouDismiss, NeedsYouSectionKind as Section};
