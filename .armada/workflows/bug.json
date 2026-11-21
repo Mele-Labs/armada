@@ -29,7 +29,7 @@
     {
       "id": "find_the_cause",
       "label": "Find the cause",
-      "tabs": ["now", "plan"],
+      "tabs": ["artifacts"],
       "about": "Reproduces the bug, names the cause and writes down the fix as a plan. Ends when you approve the plan.",
       "instructions": "Reproduce the bug. Find why it happens, not only where it shows, and name the root cause with file:line.\nPropose the fix beside it, with its tasks in the order they must happen. Say `seen: true` in record_plan when the person would see any piece of the change.\nName the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Edit nothing before then but a mock.",
       "gate": "plan_approved",
@@ -40,7 +40,7 @@
     {
       "id": "fix",
       "label": "Fix",
-      "tabs": ["walks", "changes", "now"],
+      "tabs": ["artifacts", "pulls"],
       "about": "Makes the fix and shows it to you as a short walk straight to the place. Ends when you approve the walk. Left out when nothing would be seen.",
       "instructions": "Make the smallest change that addresses the cause, following the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nShow the fix as a short walk straight to the place with show_window, naming this group, and wait for the person's approval. Leave this group out of the plan when the project serves no walk or nothing would be seen.\nShow a walk once. Do not show one he approved again.",
       "gate": "walk_approved",
@@ -50,7 +50,7 @@
     {
       "id": "deliver",
       "label": "Test and deliver",
-      "tabs": ["pulls", "checks", "now"],
+      "tabs": ["pulls", "artifacts"],
       "about": "Proves the fix with a test that fails without it, and delivers it the way you chose. Ends at the merge.",
       "instructions": "Where the Fix group was left out, make the fix here first.\nWrite a test that fails without the fix, for the reported reason, and passes with it.\nPush the branch and open a draft pull request while the checks run locally. Fix what is red. A test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.\nDeliver by the delivery the person chose, and do not ask again. Auto land: mark the pull request ready and merge it on a green ci. Open PR: leave it open; the Job stays until it merges, so what the person finds in a test environment comes back here. Keep local: push nothing, and record this group's gate as none.\nReport the branch, what is on it, and what the person needs before merging.",
       "gate": "merged",

@@ -20,7 +20,7 @@
     {
       "id": "draft",
       "label": "Draft and present",
-      "tabs": ["artifacts", "qa", "now"],
+      "tabs": ["artifacts"],
       "about": "Writes the design as a page you read and note in Bridge, and revises it on your notes. Ends when you approve its newest revision.",
       "instructions": "Write the design as a document: load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html, never a markdown file. Conclusion first, what was decided and by whom, a sketch inline where a flow or a structure needs one, and what is still open in its own section. Record the plan behind it with record_plan: it stands without being asked, and the page is what the person approves. No code is written.\nAnswer every note by changing the page where the note points and writing the same file again.\nOnce the person approves the page, ask him what comes next: stop here, start build Jobs, or build it in this Job.",
       "gate": "document_approved",

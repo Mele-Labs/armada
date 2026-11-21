@@ -26,7 +26,7 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 /// Kinds a Job's tab can be (Classic's `JOB_TAB_KINDS`).
 pub(crate) const JOB_TAB_KINDS: &[&str] = &[
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "story", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
-    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "custom", "draft", "walk", "document", "subagent", "artifact",
+    "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "children", "walks", "custom", "draft", "walk", "document", "subagent", "artifact",
     "loadout", "loadout_item", "tokens",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
@@ -464,11 +464,24 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
     at
 }
 
-/// Today's Job arrangement: the thread with Story behind it as tabs of one pane, and to its right For you, Open, Done and
-/// Deferred as tabs of one pane over Now (Classic's `defaultArrangement`, with For you first and in front in the column, and
-/// the thread in front in its own).
+/// What a Job produced, in the order its column shows it. Child Jobs is the last, and comes only to a Job that started any.
+pub(crate) const PRODUCED: [&str; 4] = ["artifacts", "pulls", "issues", "children"];
+
+/// A new Job's arrangement: the thread with Story behind it as tabs of one pane, and to its right the column, one pane
+/// that holds what the Job produced: Artifacts, Pull Requests and Issues. The progress strip and Needs you stand over the
+/// column as bands, not tabs (`column_bands.rs`); Now, For you, Open, Done and Deferred are tabs + opens.
 pub(crate) fn default_arrangement() -> Arrangement {
-    let mut arrangement = build(
+    let mut arrangement = build(&Shape::split(Dir::Row, 0.62, Shape::pane(&["thread", "story"]), Shape::pane(&PRODUCED[..3])), None, &[]);
+    // Story and Artifacts are placed already, so one he closes before the store answers is not put back; "made" is
+    // the move off Now (`panes_place::leave_now`), which a new Job has no need of.
+    arrangement.offered.extend(["story", "artifacts", "made"].map(String::from));
+    arrangement
+}
+
+/// The arrangement a Job started before the column's bands had: the column was For you, Open, Done and Deferred as tabs
+/// of one pane over Now. Kept to know the panes of an arrangement stored then (`panes_place::slot_of`).
+pub(crate) fn legacy_arrangement() -> Arrangement {
+    build(
         &Shape::split(
             Dir::Row,
             0.62,
@@ -477,10 +490,7 @@ pub(crate) fn default_arrangement() -> Arrangement {
         ),
         None,
         &[],
-    );
-    // Story is placed already, so one he closes before the store answers is not put back.
-    arrangement.offered.push("story".to_string());
-    arrangement
+    )
 }
 
 // ---- Changing ---------------------------------------------------------------------------------------
@@ -1526,7 +1536,7 @@ mod tests {
 
         impl Owner {
             fn new() -> Self {
-                Owner { now: default_arrangement(), history: History::default(), size: None }
+                Owner { now: legacy_arrangement(), history: History::default(), size: None }
             }
 
             fn rearrange(&mut self, change: impl for<'a> FnOnce(&'a Arrangement) -> Out<'a>, merge: Option<&str>, force: bool) {
@@ -1572,14 +1582,14 @@ mod tests {
         #[test]
         fn is_this_windows_a_new_history_has_nothing_to_take_back() {
             let mut history = History::default();
-            assert_eq!(history.undo(&default_arrangement()), None);
-            assert_eq!(history.redo(&default_arrangement()), None);
+            assert_eq!(history.undo(&legacy_arrangement()), None);
+            assert_eq!(history.redo(&legacy_arrangement()), None);
         }
 
         #[test]
         fn keeps_the_last_fifty_steps_and_a_run_older_than_the_merge_window_is_a_step_of_its_own() {
             let mut history = History::default();
-            let mut at = default_arrangement();
+            let mut at = legacy_arrangement();
             for step in 0..(HISTORY + 10) {
                 history.remember(&at, None, step as u64);
                 let split = rects_of(&at.root).splits[0].id.to_string();
@@ -1607,7 +1617,7 @@ mod tests {
         fn a_change_that_squeezes_a_pane_below_its_minimum_in_a_measured_area_is_refused_and_one_forced_as_a_job_opening_a_tab_is_is_not() {
             // Room for the thread and one pane beside it, and no more.
             let size = Some(Size { w: MIN_PANE_W * 2.0 + 1.0, h: MIN_PANE_H * 8.0 });
-            let mut at = default_arrangement();
+            let mut at = legacy_arrangement();
             at = rearrange(&at, |x| add_tab(x, &x.focus, "files", Extras::default()), size, false).unwrap_or(at);
             let moved = pane_at(&at, 0).tabs[1].id.clone();
             at = rearrange(&at, |x| move_tab_to_edge(x, &moved, &x.focus, Side::Right), size, false).unwrap_or(at);
@@ -1620,7 +1630,7 @@ mod tests {
 
         #[test]
         fn whether_a_drop_can_be_made_reads_the_same_rule() {
-            let arrangement = default_arrangement();
+            let arrangement = legacy_arrangement();
             let tab = pane_at(&arrangement, 1).tabs[0].id.clone();
             let tight = Some(Size { w: MIN_PANE_W * 2.0 + 1.0, h: MIN_PANE_H * 8.0 });
             assert!(!droppable_edge(&arrangement, tight, &tab, Side::Right));
@@ -1630,7 +1640,7 @@ mod tests {
 
         #[test]
         fn an_area_not_measured_yet_allows_every_change() {
-            let arrangement = default_arrangement();
+            let arrangement = legacy_arrangement();
             let tab = pane_at(&arrangement, 1).tabs[0].id.clone();
             assert!(droppable_edge(&arrangement, None, &tab, Side::Right));
             assert!(droppable_edge(&arrangement, Some(Size { w: 0.0, h: 0.0 }), &tab, Side::Right));
@@ -1638,7 +1648,7 @@ mod tests {
 
         #[test]
         fn a_gap_and_a_pane_read_the_same_rule() {
-            let arrangement = default_arrangement();
+            let arrangement = legacy_arrangement();
             let tab = pane_at(&arrangement, 1).tabs[0].id.clone();
             let split = rects_of(&arrangement.root).splits[0].id.to_string();
             let tight = Some(Size { w: MIN_PANE_W * 2.0 + 1.0, h: MIN_PANE_H * 8.0 });
@@ -1656,7 +1666,7 @@ mod tests {
 
         #[test]
         fn the_nearest_pane_that_shares_an_edge_is_the_neighbour() {
-            let arrangement = default_arrangement();
+            let arrangement = legacy_arrangement();
             let (thread, open, now) = (pane_at(&arrangement, 0).id.clone(), pane_at(&arrangement, 1).id.clone(), pane_at(&arrangement, 2).id.clone());
             // Both panes at its right touch it; the one sharing more of its edge (Now, 60%) is nearer than Open (40%).
             assert_eq!(neighbour_of(&arrangement, &thread, Toward::Right), Some(now.clone()));
@@ -1719,7 +1729,7 @@ mod tests {
 
         #[test]
         fn a_nodes_least_size_adds_along_its_split_and_takes_the_larger_across_it() {
-            let arrangement = default_arrangement();
+            let arrangement = legacy_arrangement();
             assert_eq!(min_extent(&arrangement.root, Dir::Row), MIN_PANE_W * 2.0);
             assert_eq!(min_extent(&arrangement.root, Dir::Column), MIN_PANE_H * 2.0);
         }
