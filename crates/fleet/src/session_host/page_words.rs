@@ -38,6 +38,8 @@ enum Mark {
 /// The text before a mark, and where it stands.
 struct Text {
     raw: String,
+    /// Where `raw` starts in the page.
+    from: usize,
     /// The mark that opened the innermost words element around it.
     block: Option<usize>,
     /// The mark that opened the innermost element around it.
@@ -95,6 +97,72 @@ pub(super) fn words_changed(base: &str, his: &str, revision: u32) -> Result<Vec<
         .collect())
 }
 
+/// Where a margin thread's quote stands in a page: `Some` with the `h2` it comes under, `None` where the page no
+/// longer holds it. Whitespace is read as one space, and a quote across blocks is looked for in the page's words whole.
+pub(crate) fn passage_in(html: &str, quote: &str) -> Option<Option<String>> {
+    let quote = squeezed(quote);
+    if quote.is_empty() {
+        return None;
+    }
+    let blocks = blocks_of(html);
+    if let Some((_, section)) = blocks.iter().find(|(words, _)| words.contains(&quote)) {
+        return Some(section.clone());
+    }
+    let whole = blocks.iter().map(|(words, _)| words.as_str()).collect::<Vec<_>>().join(" ");
+    whole.contains(&quote).then_some(None)
+}
+
+/// Each words block of a page in order: its words, read and squeezed, and the `h2` it comes under, a heading its own.
+fn blocks_of(html: &str) -> Vec<(String, Option<String>)> {
+    let page = scanned(html);
+    let mut blocks: BTreeMap<usize, String> = BTreeMap::new();
+    for text in &page.texts {
+        if let Some(block) = text.block {
+            blocks.entry(block).or_default().push_str(&text.raw);
+        }
+    }
+    let words: BTreeMap<usize, String> = blocks.into_iter().map(|(block, raw)| (block, squeezed(&unescaped(&raw)))).collect();
+    let section = |block: usize| {
+        let heading = (0..=block).rev().find(|at| matches!(&page.marks[*at].0, Mark::Open { name, .. } if name == "h2"))?;
+        words.get(&heading).cloned().filter(|words| !words.is_empty())
+    };
+    words.iter().map(|(block, said)| (said.clone(), section(*block))).collect()
+}
+
+/// The page with `struck` read as `added`, the first time it stands in one run of text: in the block that holds
+/// `quote` where one does, else in any words block. Why not, where no run holds it.
+pub(crate) fn edit_applied(html: &str, quote: &str, struck: &str, added: &str) -> Result<String, String> {
+    if struck.trim().is_empty() {
+        return Err(String::from("an edit strikes words the page holds: `struck` is empty"));
+    }
+    let page = scanned(html);
+    let quote = squeezed(quote);
+    let mut words: BTreeMap<usize, String> = BTreeMap::new();
+    for text in &page.texts {
+        if let Some(block) = text.block {
+            words.entry(block).or_default().push_str(&text.raw);
+        }
+    }
+    let anchored: Vec<usize> = words.iter().filter(|(_, raw)| squeezed(&unescaped(raw)).contains(&quote)).map(|(block, _)| *block).collect();
+    let runs = page.texts.iter().filter(|text| text.block.is_some());
+    let mut ordered: Vec<&Text> = runs.clone().filter(|text| text.block.is_some_and(|block| anchored.contains(&block))).collect();
+    ordered.extend(runs.filter(|text| !text.block.is_some_and(|block| anchored.contains(&block))));
+    for text in ordered {
+        let written = match text.raw.find(&escaped(struck)) {
+            Some(_) => text.raw.replacen(&escaped(struck), &escaped(added), 1),
+            None if unescaped(&text.raw).contains(struck) => escaped(&unescaped(&text.raw).replacen(struck, added, 1)),
+            None => continue,
+        };
+        return Ok(format!("{}{written}{}", &html[..text.from], &html[text.from + text.raw.len()..]));
+    }
+    Err(format!("the page holds no \"{struck}\" in one run of text: strike words exactly as they read, inside one element"))
+}
+
+/// Text as a page holds it.
+fn escaped(text: &str) -> String {
+    text.replace('&', "&amp;").replace('<', "&lt;").replace('>', "&gt;")
+}
+
 fn scanned(html: &str) -> Scanned {
     let lower = html.to_ascii_lowercase();
     let bytes = lower.as_bytes();
@@ -126,7 +194,7 @@ fn scanned(html: &str) -> Scanned {
             at += 1;
             continue;
         };
-        scanned.texts.push(text_of(&html[text_from..at], &open));
+        scanned.texts.push(text_of(&html[text_from..at], text_from, &open));
         let index = scanned.marks.len();
         let raw = html[at..end].to_string();
         (at, text_from) = (end, end);
@@ -146,15 +214,15 @@ fn scanned(html: &str) -> Scanned {
         }
         scanned.marks.push((mark, raw));
     }
-    scanned.texts.push(text_of(&html[text_from..], &open));
+    scanned.texts.push(text_of(&html[text_from..], text_from, &open));
     scanned
 }
 
 /// `raw` as a text inside the elements `open` holds, innermost last.
-fn text_of(raw: &str, open: &[(String, usize)]) -> Text {
+fn text_of(raw: &str, from: usize, open: &[(String, usize)]) -> Text {
     let never = open.iter().any(|(name, _)| NEVER_WORDS.contains(&name.as_str()));
     let block = open.iter().rev().find(|(name, _)| WORDS.contains(&name.as_str())).map(|(_, at)| *at).filter(|_| !never);
-    Text { raw: raw.to_string(), block, inside: open.last().map(|(_, at)| *at) }
+    Text { raw: raw.to_string(), from, block, inside: open.last().map(|(_, at)| *at) }
 }
 
 /// A tag's name, from the text after its `<` or `</`.

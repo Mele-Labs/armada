@@ -1,0 +1,15 @@
+[operations.suggest_edit]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Suggest an edit on the passage of a margin thread on your page, when the owner asks for the change. It waits on his Accept, and the page changes only then. Body: thread, struck (the words on the page to replace, exactly as they read) and added (the words in their place)"
+notes = """
+`POST /sessions/margin/suggest`, body `SuggestEdit`: `thread`, `struck`, `added` and an optional `session_id`. Answered with the `MarginThread`; `SessionChanged` is published, and a client holding the Job's thread gets `job_thread.tail`.
+
+**The job is the one whose process holds the connection** when Fleet hosts it; `session_id` is read only for a job in a terminal. **Checked against the newest revision**: `struck` must stand in one run of text, in the block that holds the thread's quote where one does, else 422 `fleet.margin_edit_unfit` naming why, and an empty `struck` is refused the same. The thread is `suggested`, and a newer suggestion takes the place of one he has not decided. **The page is not written**: his Accept writes it, through `act_on_margin_thread`.
+
+Also 422 `fleet.margin_no_thread`, `fleet.margin_settled`, `fleet.margin_not_sent` and `fleet.margin_unnamed`, as `answer_thread`'s.
+
+`agent_access` is `Yes`: the agent turns its answer into an edit with it when he presses Make this change.
+"""

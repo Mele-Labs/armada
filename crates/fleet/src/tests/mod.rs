@@ -69,6 +69,7 @@ mod sketch_takes;
 mod design_catalogue;
 mod page_replies;
 mod document_answers;
+mod margin_threads;
 mod needs_you;
 mod started_jobs;
 mod step_waits;

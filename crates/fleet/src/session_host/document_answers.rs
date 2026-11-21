@@ -191,6 +191,12 @@ where
     /// `answer_document`: the Job is told as his message first, so a failed send leaves the revision
     /// open, then `detail` keeps how it ended.
     pub(crate) async fn document_answered(self: Arc<Self>, said: AnswerDocument) -> Result<SessionRecord, Refusal> {
+        self.document_answered_noted(said, &[]).await
+    }
+
+    /// [`Self::document_answered`], with his notes as he wrote them on the page, which a page sent back keeps for
+    /// the Job's thread to draw. With none, the words are one note.
+    pub(crate) async fn document_answered_noted(self: Arc<Self>, said: AnswerDocument, notes: &[ipc::ItemNote]) -> Result<SessionRecord, Refusal> {
         let id = said.session_id.as_str().trim().to_string();
         let named = said.document.trim();
         let path = named.strip_prefix(DOCUMENT_ITEM_PREFIX).unwrap_or(named).to_string();
@@ -225,12 +231,17 @@ where
         };
         let message = SendSessionMessage {
             session_id: said.session_id.clone(),
-            text: body,
+            text: body.clone(),
             attachments: said.extras.attachments.clone(),
             mentions: said.extras.mentions.clone(),
             sketches: Vec::new(),
         };
+        let at = self.instant();
         Arc::clone(&self).send_known(terminal, message).await?;
+        if said.how == DocumentHow::SentBack {
+            self.sent_back_kept(&id, &path, &at, &body, words.unwrap_or_default(), notes).await;
+            self.margins_moved(&id).await;
+        }
         // Read again after the send: a revision the Job kept meanwhile is not the one he answered.
         let (_, now) = self.document_held(&id, &path).await?;
         let Some(document) = now.filter(|one| one.detail.get(DOCUMENT_REVISION) == Some(&revision)) else {
