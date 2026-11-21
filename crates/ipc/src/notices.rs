@@ -103,6 +103,9 @@ pub enum Notice {
     /// The machine is loaded and another Job's builds take the turn, so this Job's are paused; or
     /// its turn came and they run again.
     BuildsHeld,
+    /// The Job ran one Check red five times in a row, and is told once to read the failure before
+    /// the next run, since each run is a full compile.
+    RedStreak,
 }
 
 impl Notice {
@@ -182,6 +185,7 @@ impl Notice {
             Notice::Claims => "claims",
             Notice::WireChanged => "wire_changed",
             Notice::BuildsHeld => "builds_held",
+            Notice::RedStreak => "red_streak",
         }
     }
 }
