@@ -5,8 +5,9 @@
 //! The two halves are drawn by `strip_parts` and `needs_parts`, apart, and joined only in `column_bands`.
 //!
 //! Needs you is one list under three chips. Open is what Fleet's Needs you holds for the Job, Done what he closed from it
-//! and Deferred what the agent kept for later. It is drawn only while something waits on him, which is Open or Deferred
-//! holding a row; Done alone draws nothing. The chip he pressed stands until he presses another.
+//! and Deferred what the agent kept for later. It stands on Open unless he pressed another chip, and never falls to Done or
+//! Deferred by itself: with nothing open, the head and its chips are drawn with no rows under them, and only where Done or
+//! Deferred holds a row. The chip he pressed stands for that Job until he presses another, or until a new item waits on him.
 
 use std::collections::BTreeSet;
 use std::path::{Path, PathBuf};
@@ -146,13 +147,25 @@ impl Held {
     }
 }
 
-/// The chip Needs you stands on, or None where it is not drawn. It is drawn only while something waits on him: an Open or
-/// a Deferred row. With no chip pressed it stands on the first of those that holds one; a chip he pressed stands.
+/// The chip Needs you stands on, or None where it is not drawn. It is drawn while any of the three lists holds a row. It stands
+/// on the chip he pressed, else on Open, even where Open is empty: it never falls to Done or Deferred on its own.
 pub(super) fn standing(pressed: Option<Chip>, held: Held) -> Option<Chip> {
-    if !held.open && !held.deferred {
+    if !held.open && !held.done && !held.deferred {
         return None;
     }
-    pressed.or_else(|| [Chip::Open, Chip::Deferred].into_iter().find(|chip| held.of(*chip)))
+    Some(pressed.unwrap_or(Chip::Open))
+}
+
+/// A chip he pressed, with the items that were open then. An open item that is not among them is new, and takes the press back.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(super) struct Pressed {
+    pub chip: Chip,
+    pub open: BTreeSet<String>,
+}
+
+/// The chip he pressed that still stands: none once an item waits on him that was not open when he pressed it.
+pub(super) fn kept(pressed: Option<&Pressed>, open_now: &BTreeSet<String>) -> Option<Chip> {
+    pressed.filter(|pressed| open_now.is_subset(&pressed.open)).map(|pressed| pressed.chip)
 }
 
 /// What a chip lists: its own list and no other, which is the only one made.
@@ -286,10 +299,21 @@ impl JobView {
         }
     }
 
+    /// The ids of what is open for the Job: the rows of Needs you's Open chip.
+    fn open_ids(&self, id: &SharedString, cx: &gpui::App) -> BTreeSet<String> {
+        let things = self.things(id, cx).0.into_iter().map(|thing| match thing {
+            Thing::Ask(ask) => ask.call.call.clone(),
+            Thing::Lapsed(lapsed) => lapsed.id.clone(),
+            Thing::Row(row) => row.id.clone(),
+        });
+        things.chain(self.for_you_beyond_rows(id, cx).into_iter().map(|item| item.id.clone())).collect()
+    }
+
     /// Needs you: the head with its chips, and the x where `hides` says the step line has none, then the list under the chip that
-    /// stands. None where nothing waits on him.
+    /// stands, which is none where that list is empty. None where none of the three lists holds a row.
     fn needs_parts(&self, id: &SharedString, hides: bool, look: &Look, cx: &Context<Self>) -> Option<Vec<AnyElement>> {
-        let pressed = self.pages.get(id).and_then(|page| page.side.needs_chip);
+        let open = self.open_ids(id, cx);
+        let pressed = kept(self.pages.get(id).and_then(|page| page.side.needs_chip.as_ref()), &open);
         let held = self.needs_held(id, cx);
         let chip = standing(pressed, held)?;
         // With the panel up, a question is the card in front of the thread; the band does not draw it a second time.
@@ -304,7 +328,7 @@ impl JobView {
             let on = one == chip;
             let accent = look.color(token::ACCENT);
             let (ink, ground, edge) = if on { (accent, look.color(token::BG_RAISED).blend(accent.opacity(0.14)), accent) } else { (look.color(token::FG_MUTED), look.color(token::BG_RAISED), look.color(token::BORDER_SUBTLE)) };
-            let job = id.clone();
+            let (job, open) = (id.clone(), open.clone());
             labelled(
                 div()
                     .id(SharedString::from(format!("needs-chip:{}:{id}", one.word())))
@@ -326,7 +350,7 @@ impl JobView {
                     .child(one.word())
                     .on_click(cx.listener(move |this, _, _, cx| {
                         if let Some(page) = this.pages.get_mut(&job) {
-                            page.side.needs_chip = Some(one);
+                            page.side.needs_chip = Some(Pressed { chip: one, open: open.clone() });
                         }
                         cx.notify();
                     })),
@@ -342,7 +366,8 @@ impl JobView {
             .child(labelled(div().id(SharedString::from(format!("needs-chips:{id}"))).flex().items_center().gap(look.length(token::SPACE_1)).children(chips), Role::RadioGroup, "Needs you"))
             .child(div().flex_1())
             .children(hides.then(|| self.band_hide(id, Band::Column, look, cx)));
-        Some(vec![head.into_any_element(), div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element()])
+        let list = (!rows.is_empty()).then(|| div().flex().flex_col().gap(look.length(token::SPACE_1)).children(rows).into_any_element());
+        Some(std::iter::once(head.into_any_element()).chain(list).collect())
     }
 
     /// What he closed from the Job's Needs you: its words and when.
@@ -416,13 +441,47 @@ mod tests {
     }
 
     #[test]
-    fn needs_you_is_drawn_only_while_something_waits_on_him() {
+    fn needs_you_is_drawn_only_while_something_is_held_under_a_chip() {
         assert_eq!(standing(None, Held::default()), None);
-        assert_eq!(standing(Some(Chip::Done), Held { done: true, ..Held::default() }), None, "what he closed alone asks nothing");
+        assert_eq!(standing(Some(Chip::Done), Held::default()), None, "nothing under any chip, nothing drawn");
         assert_eq!(standing(None, Held { open: true, ..Held::default() }), Some(Chip::Open));
-        assert_eq!(standing(None, Held { deferred: true, done: true, ..Held::default() }), Some(Chip::Deferred), "the first chip that holds a row, Done last");
+        assert_eq!(standing(None, Held { done: true, ..Held::default() }), Some(Chip::Open), "what he closed alone draws the head, on Open");
         // A chip he pressed stands, even over one that holds more.
         assert_eq!(standing(Some(Chip::Done), Held { open: true, done: true, deferred: false }), Some(Chip::Done));
+    }
+
+    /// With nothing open and two deferred, the band stands on Open and Open lists no row.
+    #[test]
+    fn nothing_open_and_two_deferred_stands_on_open_with_no_rows() {
+        let held = Held { deferred: true, ..Held::default() };
+        let chip = standing(None, held).expect("Deferred holds a row, so the head is drawn");
+        assert_eq!(chip, Chip::Open, "never Deferred by itself");
+        let rows = listed(chip, Vec::<&str>::new, || panic!("Done was made"), || panic!("Deferred was made"));
+        assert!(rows.is_empty());
+    }
+
+    /// A press on Deferred lists the deferred rows, and the press stands while nothing new waits on him.
+    #[test]
+    fn a_press_on_deferred_lists_them_and_stands() {
+        let held = Held { deferred: true, ..Held::default() };
+        let pressed = Pressed { chip: Chip::Deferred, open: BTreeSet::new() };
+        let chip = standing(kept(Some(&pressed), &BTreeSet::new()), held).expect("drawn");
+        assert_eq!(chip, Chip::Deferred);
+        assert_eq!(listed(chip, || vec!["open"], || vec!["done"], || vec!["a", "b"]), ["a", "b"]);
+    }
+
+    /// An item that waits on him and was not open at the press brings the band back to Open.
+    #[test]
+    fn a_new_open_item_returns_the_band_to_open() {
+        let held = Held { open: true, deferred: true, ..Held::default() };
+        let pressed = Pressed { chip: Chip::Deferred, open: ["old".to_string()].into() };
+        let same = ["old".to_string()].into();
+        assert_eq!(standing(kept(Some(&pressed), &same), held), Some(Chip::Deferred), "the same open items keep the press");
+        let fewer = BTreeSet::new();
+        assert_eq!(standing(kept(Some(&pressed), &fewer), held), Some(Chip::Deferred), "one answered is not a new one");
+        let more = ["old".to_string(), "new".to_string()].into();
+        assert_eq!(standing(kept(Some(&pressed), &more), held), Some(Chip::Open), "a new one takes the press back");
+        assert_eq!(kept(None, &more), None);
     }
 
     #[test]
