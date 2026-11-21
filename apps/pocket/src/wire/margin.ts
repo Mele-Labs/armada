@@ -39,7 +39,8 @@ export type ThreadMargin = {
   page: string;
   /** The page's title. */
   title: string;
-  kind: MarginRoundKind;
+  /** Sent as `round`: `ThreadItem` is tagged by `kind`, and a second `kind` field is refused on reading. */
+  round: MarginRoundKind;
   /** One line. */
   summary: string;
   /** An answer or a suggested edit in the round waits on him. */

@@ -240,6 +240,8 @@ pub struct ThreadMargin {
     pub page: String,
     /// The page's title.
     pub title: String,
+    /// Sent as `round`: `ThreadItem` is tagged by `kind`, and a second `kind` field is refused on reading.
+    #[serde(rename = "round")]
     pub kind: MarginRoundKind,
     /// One line.
     pub summary: String,
