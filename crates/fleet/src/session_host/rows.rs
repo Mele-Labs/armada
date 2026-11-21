@@ -121,12 +121,12 @@ where
 }
 
 /// The line Fleet adds ahead of a message that names something, and one line for each of Armada's
-/// tools it asks for. **Written for the agent**, and never shown on the thread, which keeps the
+/// tools and each request it asks for. **Written for the agent**, and never shown on the thread, which keeps the
 /// person's words.
 pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<String> {
     let named: Vec<String> = tags
         .iter()
-        .filter(|(tag, _)| tag.kind != TagKind::Tool)
+        .filter(|(tag, _)| !matches!(tag.kind, TagKind::Tool | TagKind::Request))
         .map(|(tag, address)| match tag.kind {
             TagKind::Session => match address {
                 Some(address) => format!(
@@ -157,7 +157,7 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 "terminal {} \"{}\" (pass {} as `terminal` to type_in_terminal or read_terminal)",
                 tag.id, tag.title, tag.id
             ),
-            TagKind::Tool => unreachable!("tools are said on lines of their own"),
+            TagKind::Tool | TagKind::Request => unreachable!("tools and requests are said on lines of their own"),
         })
         .collect();
     let mut lines: Vec<String> = Vec::new();
@@ -171,7 +171,24 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
             // nothing: the person's words still say what they meant.
             .filter_map(|(tag, _)| ipc::ask_tools::ask_tool(&tag.id).map(|tool| format!("The person asked for {}: {}.", tag.title, tool.line))),
     );
+    lines.extend(tags.iter().filter(|(tag, _)| tag.kind == TagKind::Request).filter_map(|(tag, _)| request_line(tag)));
     (!lines.is_empty()).then(|| lines.join("\n"))
+}
+
+/// What the agent is told of a request tag: a saved one by its collection and request, as `send_request`'s
+/// `saved` takes them, or a new one to build. An `id` that is neither says nothing.
+fn request_line(tag: &SessionTag) -> Option<String> {
+    if tag.id == "new" {
+        return Some("The person asked for a new request: build it, send it with `send_request`, and save it with `save_request_to_collection`.".to_string());
+    }
+    let (collection, request) = tag.id.split_once('/')?;
+    if collection.is_empty() || request.is_empty() {
+        return None;
+    }
+    Some(format!(
+        "The person tagged the saved request \"{}\": load it with `get_requests` (collection `{collection}`, request `{request}`) and send it with `send_request` by that id.",
+        tag.title
+    ))
 }
 
 /// The title without the `#<id> ` Bridge puts in front of an issue's or a pull request's, so the

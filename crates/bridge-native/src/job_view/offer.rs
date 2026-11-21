@@ -116,6 +116,7 @@ pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
         TagKind::Report => "report",
         TagKind::Terminal => "terminal",
         TagKind::Tool => "tool",
+        TagKind::Request => "request",
     };
     let one_line = title.replace(['\n', '\r'], " ");
     InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(one_line)
@@ -132,6 +133,7 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
         "report" => TagKind::Report,
         "terminal" => TagKind::Terminal,
         "tool" => TagKind::Tool,
+        "request" => TagKind::Request,
         _ => return None,
     };
     let tag_id = parts.next()?.to_string();
