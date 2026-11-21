@@ -33,7 +33,7 @@ pub enum Page {
 impl Page {
     pub fn keys(self) -> &'static [Key] {
         match self {
-            Page::PullRequests => &[Key::Delivery, Key::PrMode, Key::AutoMerge, Key::Plans, Key::PullRequests, Key::Walks, Key::ReviewModel],
+            Page::PullRequests => &[Key::Delivery, Key::PrMode, Key::AutoMerge, Key::Plans, Key::PullRequests, Key::Walks, Key::ReviewModel, Key::ReviewOnNewPr],
             Page::StartingJobs => &[Key::AgentStarts, Key::Tracker],
             Page::Look => &[Key::Theme, Key::Layout, Key::Density],
         }
@@ -76,6 +76,7 @@ pub enum Key {
     PullRequests,
     Walks,
     ReviewModel,
+    ReviewOnNewPr,
     AgentStarts,
     Tracker,
     Theme,
@@ -84,7 +85,7 @@ pub enum Key {
     Shared,
 }
 
-pub const KEYS: [Key; 13] = [Key::Delivery, Key::PrMode, Key::AutoMerge, Key::Plans, Key::PullRequests, Key::Walks, Key::ReviewModel, Key::AgentStarts, Key::Tracker, Key::Theme, Key::Layout, Key::Density, Key::Shared];
+pub const KEYS: [Key; 14] = [Key::Delivery, Key::PrMode, Key::AutoMerge, Key::Plans, Key::PullRequests, Key::Walks, Key::ReviewModel, Key::ReviewOnNewPr, Key::AgentStarts, Key::Tracker, Key::Theme, Key::Layout, Key::Density, Key::Shared];
 
 /// A cell's column: every project's, or the project picked.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -106,6 +107,7 @@ impl Key {
             Key::PullRequests => "Pull requests",
             Key::Walks => "Walks",
             Key::ReviewModel => "Review model",
+            Key::ReviewOnNewPr => "Offer review tools on a new pull request",
             Key::AgentStarts => "Jobs a Job or the Operator starts",
             Key::Tracker => "Tracker",
             Key::Theme => "Theme",
@@ -124,6 +126,7 @@ impl Key {
             Key::PullRequests => "How the Operator reviews a pull request before you do.",
             Key::Walks => "How the Operator reviews a walk before you do.",
             Key::ReviewModel => "The model an Operator review runs on.",
+            Key::ReviewOnNewPr => "The review tools Armada offers to run when a pull request opens in this project. None on offers nothing.",
             Key::AgentStarts => "Whether Jobs that a Job or the Operator starts begin at once or wait on your start card.",
             Key::Tracker => "The issue tracker this project's Jobs read from. It is set for this project only.",
             Key::Theme => "The colours Bridge is drawn in.",
@@ -135,7 +138,7 @@ impl Key {
 
     /// Whether every project can set it. The tracker and the share switch are a project's alone.
     pub fn every(self) -> bool {
-        !matches!(self, Key::Tracker | Key::Shared)
+        !matches!(self, Key::Tracker | Key::Shared | Key::ReviewOnNewPr)
     }
 
     /// The words it takes and how each reads, where they are fixed. The review model, the theme and the layout
@@ -150,7 +153,7 @@ impl Key {
             Key::AgentStarts => &[("at_once", "Start at once"), ("ask_me", "Ask me")],
             Key::Tracker => &[("linear", "Linear"), ("beads", "Beads")],
             Key::Density => &[("compact", "Compact"), ("default", "Default"), ("roomy", "Roomy")],
-            Key::ReviewModel | Key::Theme | Key::Layout | Key::Shared => &[],
+            Key::ReviewModel | Key::ReviewOnNewPr | Key::Theme | Key::Layout | Key::Shared => &[],
         };
         let mut words: Vec<(String, String)> = pairs.iter().map(|(word, said)| (word.to_string(), said.to_string())).collect();
         if self == Key::Delivery {
@@ -185,7 +188,7 @@ pub fn resolved(values: &ResolvedValues, key: Key) -> (Option<String>, ValueLaye
         Key::Theme => one(&values.theme),
         Key::Layout => one(&values.layout),
         Key::Density => one(&values.density),
-        Key::Shared => (None, ValueLayer::Default),
+        Key::ReviewOnNewPr | Key::Shared => (None, ValueLayer::Default),
     }
 }
 
@@ -214,7 +217,7 @@ pub fn inherited(values: &ResolvedValues, key: Key) -> Option<(Option<String>, V
         Key::Density => Some(&values.density),
         Key::AgentStarts => values.agent_starts.as_ref(),
         Key::Delivery => values.delivery.as_ref(),
-        Key::Plans | Key::PullRequests | Key::Walks | Key::Tracker | Key::Shared => None,
+        Key::Plans | Key::PullRequests | Key::Walks | Key::Tracker | Key::ReviewOnNewPr | Key::Shared => None,
     }?;
     (plain.from == ValueLayer::Project).then(|| below(plain.inherited.as_ref(), plain.inherited_from))
 }
@@ -260,6 +263,8 @@ pub fn with(own: Option<&ValuesSet>, key: Key, word: Option<&str>) -> ValuesSet 
                 block
             });
         }
+        // The word is the ids joined by commas (`review_offer::word_of`), and none is off.
+        Key::ReviewOnNewPr => set.review_on_new_pr = word.as_deref().map(super::review_offer::ids_of).unwrap_or_default(),
         Key::Shared => {}
     }
     if matches!(key, Key::Plans | Key::PullRequests | Key::Walks) {
@@ -288,7 +293,7 @@ pub fn set_count(own: Option<&ValuesSet>) -> usize {
     let Some(own) = own else { return 0 };
     let look = own.look.as_ref().map_or(0, |look| [&look.theme, &look.layout, &look.density].into_iter().filter(|one| one.is_some()).count());
     let reviews = own.reviews.as_ref().map_or(0, |set| [&set.plans, &set.pull_requests, &set.walks].into_iter().filter(|one| one.is_some()).count());
-    let plain = [own.pr_mode.is_some(), own.auto_merge.is_some(), own.review_model.is_some(), own.tracker.is_some(), own.agent_starts.is_some(), own.delivery.is_some()].into_iter().filter(|one| *one).count();
+    let plain = [own.pr_mode.is_some(), own.auto_merge.is_some(), own.review_model.is_some(), own.tracker.is_some(), own.agent_starts.is_some(), own.delivery.is_some(), !own.review_on_new_pr.is_empty()].into_iter().filter(|one| *one).count();
     look + reviews + plain
 }
 
@@ -397,7 +402,11 @@ impl SettingsOverlay {
                 stops.push(self.scope.learned.clone());
                 chip = false;
             }
-            stops.extend(self.scope.cells.get(&cell).cloned());
+            if cell.0 == Key::ReviewOnNewPr {
+                stops.extend(self.review_stops());
+            } else {
+                stops.extend(self.scope.cells.get(&cell).cloned());
+            }
         }
         stops
     }
@@ -451,7 +460,7 @@ impl SettingsOverlay {
 
     /// Open a cell's choices under it; picking one sets it in that column.
     pub fn open_cell(&mut self, cell: (Key, Column), from_keys: bool, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.live || self.scope.saving.is_some() || cell.0 == Key::Shared {
+        if !self.live || self.scope.saving.is_some() || matches!(cell.0, Key::Shared | Key::ReviewOnNewPr) {
             return;
         }
         if cell.1 == Column::Every && self.scope.project.is_some() && locked(self.scope.values.as_ref(), cell.0).is_some() {
@@ -773,6 +782,9 @@ fn cell(this: &SettingsOverlay, (key, column): (Key, Column), look: &Look, windo
     // A key the project sets: every project's cell says what it overrides.
     let picked = this.scope.project.is_some();
     let overridden = (column == Column::Every && picked).then(|| this.scope.values.as_ref().and_then(|own| inherited(own, key))).flatten();
+    if key == Key::ReviewOnNewPr {
+        return super::review_offer::cell(this, look, window, cx);
+    }
     if key == Key::Shared {
         return shared(this, look, window, cx).unwrap_or_else(|| bone(look, look.length(token::SPACE_12), look.length(token::H_BADGE)).into_any_element());
     }
@@ -934,7 +946,7 @@ mod tests {
     #[test]
     fn every_value_a_project_sets_is_on_one_page_under_the_project() {
         // Every key `ValuesSet` has, named so a key added to it fails here until a page holds it. `workflows_off` is
-        // switched a row at a time on the Workflows page, through `set_project_workflow`, and is on no values page. `review_on_new_pr` has no page yet.
+        // switched a row at a time on the Workflows page, through `set_project_workflow`, and is on no values page. `review_on_new_pr` is on the Pull requests page, a project's alone.
         let ValuesSet { pr_mode: _, auto_merge: _, review_model: _, look: _, tracker: _, reviews: _, agent_starts: _, delivery: _, workflows_off: _, review_on_new_pr: _ } = ValuesSet::default();
         let keys: Vec<Key> = [Body::Values(Page::PullRequests), Body::Values(Page::StartingJobs), Body::Values(Page::Look), Body::Shared].into_iter().flat_map(|body| keys_of(body).iter().copied()).collect();
         let mut sorted = keys.clone();
@@ -1233,6 +1245,48 @@ mod tests {
         cx.update(|window, cx| overlay.update(cx, |this, cx| this.edit(None, window, cx)));
         cx.run_until_parked();
         cx.update(|_, cx| assert!(!overlay.read(cx).learned_here(), "every project has none"));
+    }
+
+    fn offered(overlay: &gpui::Entity<SettingsOverlay>, cx: &VisualTestContext) -> Vec<String> {
+        let id = overlay.read_with(cx, |this, _| this.scope.project.as_ref().map(|(id, _)| id.clone()).unwrap_or_default());
+        overlay.read_with(cx, |this, _| match &this.wire {
+            Wire::Mock(mock) => mock.projects.projects.iter().find(|one| one.id == id).and_then(|one| one.values.as_ref()).map(|values| values.review_on_new_pr.clone()).unwrap_or_default(),
+            Wire::Live(_) => Vec::new(),
+        })
+    }
+
+    #[gpui::test]
+    fn switching_two_review_tools_on_saves_both_in_the_lists_order_and_switching_both_off_saves_none(cx: &mut TestAppContext) {
+        let (overlay, cx, armada) = shut(cx);
+        let at = SettingsAt { project: Some(armada.clone()), key: Key::ReviewOnNewPr };
+        cx.update(|window, cx| overlay.update(cx, |this, cx| this.go_to(at, window, cx)));
+        cx.run_until_parked();
+        assert_eq!(overlay.read_with(cx, |this, _| this.picked), "values:pull-requests", "the Pull requests page holds it");
+        assert_eq!(overlay.read_with(cx, |this, _| this.review_stops().len()), 3, "a switch for each tool the repository defines");
+        let toggle = |tool: &str, cx: &mut VisualTestContext| {
+            cx.update(|window, cx| overlay.update(cx, |this, cx| this.toggle_review_tool(tool, window, cx)));
+            cx.run_until_parked();
+        };
+        // Switched risks first, then bugs: the list's order is kept, not the order he pressed.
+        toggle("risks", cx);
+        assert_eq!(offered(&overlay, cx), ["risks"]);
+        toggle("bugs", cx);
+        assert_eq!(offered(&overlay, cx), ["bugs", "risks"]);
+        toggle("bugs", cx);
+        toggle("risks", cx);
+        assert!(offered(&overlay, cx).is_empty(), "none on is off");
+        assert_eq!(overlay.read_with(cx, |this, _| this.scope.refused.clone()), None);
+    }
+
+    #[test]
+    fn a_tool_a_repository_does_not_define_stays_on_while_the_others_are_switched() {
+        let tool = |id: &str| crate::reviews::model::ReviewTool { id: id.into(), name: id.into(), said: id.into(), first: false };
+        let list = [tool("a"), tool("b")];
+        let offered = vec!["gone".to_string(), "b".to_string()];
+        assert_eq!(super::super::review_offer::toggled(&offered, "a", &list), ["a", "b", "gone"]);
+        assert_eq!(super::super::review_offer::toggled(&offered, "gone", &list), ["b"], "and goes where it is switched off");
+        assert_eq!(super::super::review_offer::ids_of(&super::super::review_offer::word_of(&["a".into(), "b".into()])), ["a", "b"]);
+        assert!(with(None, Key::ReviewOnNewPr, None).review_on_new_pr.is_empty());
     }
 
     #[gpui::test]
