@@ -7,6 +7,7 @@ use std::collections::BTreeMap;
 
 use serde::{Deserialize, Serialize};
 
+use crate::hosted_sessions::AnswerExtras;
 use crate::ids::Instant;
 
 /// How he answered an ask.
@@ -71,5 +72,8 @@ pub struct AnsweredAsk {
     /// His notes on a part, keyed by what each is on, as he left them.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub notes: BTreeMap<String, String>,
+    /// The pictures and files he attached and what he tagged, so the card draws them with his words.
+    #[serde(default, skip_serializing_if = "AnswerExtras::is_empty")]
+    pub extras: AnswerExtras,
     pub at: Instant,
 }

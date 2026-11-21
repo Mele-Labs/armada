@@ -58,6 +58,7 @@ async fn takes_sent_back_with_his_words_pick_none_and_the_job_reads_what_to_chan
         take: None,
         words: Some("Neither: put the price first.".into()),
         notes: Default::default(),
+        extras: Default::default(),
     };
     let artifact = Arc::clone(&rig.fleet).answer_part(back).await.expect("takes take an Ask for changes");
     assert_eq!(artifact.parts[0].state, PartState::SentBack);
@@ -90,7 +91,7 @@ async fn his_pick_and_his_dismiss_of_a_jobs_items_are_kept_apart_from_what_the_j
     let items = vec![item("layout", "Rows or cards for the list?"), item("colour", "Which accent colour?")];
     rig.fleet.set_waiting(None, SetWaitingFor { items, session_id: Some(id.clone()) }).await.unwrap();
 
-    let pick = AnswerWaiting { session_id: id.clone(), item_id: "layout".into(), choice: Some(1), text: Some("Wider gaps.".into()), mode: None, fixed: None };
+    let pick = AnswerWaiting { session_id: id.clone(), item_id: "layout".into(), choice: Some(1), text: Some("Wider gaps.".into()), mode: None, fixed: None, extras: Default::default() };
     let after = Arc::clone(&rig.fleet).answer_waiting(pick).await.unwrap();
     assert!(after.waiting_for.iter().all(|one| one.id != "layout"), "answered, it leaves his list at once");
     assert_eq!(said(&after.answers), [("layout", "Rows or cards for the list?", AnswerHow::Picked, Some("Wider gaps."), Some("Cards"))]);

@@ -485,6 +485,7 @@ where
             words,
             pick: take.as_deref(),
             artifact: Some(&target),
+            extras: &said.extras,
             ..super::answers_kept::Answered::to(&target, &question, answered)
         };
         self.answer_kept(&id, kept).await;

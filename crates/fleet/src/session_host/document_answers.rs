@@ -192,6 +192,7 @@ where
         let kept = super::answers_kept::Answered {
             words,
             artifact: Some(&document.target),
+            extras: &said.extras,
             ..super::answers_kept::Answered::to(&item, &question, answered)
         };
         self.answer_kept(&id, kept).await;

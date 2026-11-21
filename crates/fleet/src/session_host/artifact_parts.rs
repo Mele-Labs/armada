@@ -689,6 +689,7 @@ where
                 artifact: Some(&artifact.id),
                 part: Some(&part.id),
                 notes: &said.notes,
+                extras: &said.extras,
                 ..super::answers_kept::Answered::to(&artifact.id, &question, how)
             };
             self.answer_kept(&id, kept).await;

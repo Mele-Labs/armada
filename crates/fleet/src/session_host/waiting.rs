@@ -1275,16 +1275,17 @@ where
         .filter(|_| by == Answerer::Him && item.source != WaitingSource::Permission);
         let kept_answer = how.map(|how| {
             let pick = picked.clone().filter(|_| how == ipc::AnswerHow::Picked);
-            (item.id.clone(), item.text.clone(), how, words.map(str::to_string), pick, item.artifact.clone())
+            (item.id.clone(), item.text.clone(), how, words.map(str::to_string), pick, item.artifact.clone(), said.extras.clone())
         });
         let keep_answer = |fleet: Arc<Self>, id: String| {
             let kept = kept_answer.clone();
             async move {
-                if let Some((item, question, how, words, pick, artifact)) = kept {
+                if let Some((item, question, how, words, pick, artifact, extras)) = kept {
                     let answered = super::answers_kept::Answered {
                         words: words.as_deref(),
                         pick: pick.as_deref(),
                         artifact: artifact.as_deref(),
+                        extras: &extras,
                         ..super::answers_kept::Answered::to(&item, &question, how)
                     };
                     fleet.answer_kept(&id, answered).await;

@@ -1153,7 +1153,7 @@ export type AnswerHow = "picked" | "approved" | "asked_for_changes" | "dismissed
 /**
  * His answer to one ask, as `SessionRecord.answers` lists it. `item` is the `waiting_for` id it answered, `question` the ask in plain
  * words, `words` what he typed, `pick` the choice or take he picked, `artifact` and `part` what the card's Open goes to, `notes` his
- * notes on a part.
+ * notes on a part, `extras` the pictures and tags he sent with it.
  */
 export type AnsweredAsk = {
   item: string;
@@ -1164,6 +1164,7 @@ export type AnsweredAsk = {
   artifact?: string;
   part?: string;
   notes?: Record<string, string>;
+  extras?: AnswerExtras;
   at: string;
 };
 

@@ -439,6 +439,7 @@ async fn each_question_of_a_card_is_its_own_item_with_its_choices_and_the_card_i
         text: text.map(str::to_string),
         mode: None,
         fixed: None,
+        extras: Default::default(),
     };
     Arc::clone(&rig.fleet).answer_waiting(pick(&second, 1, Some("Thin crust"))).await.unwrap();
     assert_eq!(listed(&rig, &id).await.into_iter().map(|(item, ..)| item).collect::<Vec<_>>(), [first.clone()], "the answered question leaves at once");
