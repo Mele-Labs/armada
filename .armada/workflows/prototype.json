@@ -21,7 +21,7 @@
     {
       "id": "frame",
       "label": "Frame",
-      "tabs": ["plan"],
+      "tabs": ["artifacts"],
       "about": "Says in a few lines what will be tried and how, as a plan. Ends when you approve it.",
       "instructions": "Say in three lines what you will try, how, and what would answer the question. Record it as the plan with record_plan and wait for the person to approve it. Write no code before then.",
       "gate": "plan_approved",
@@ -31,7 +31,7 @@
     {
       "id": "build",
       "label": "Build",
-      "tabs": ["now", "walks"],
+      "tabs": ["artifacts", "pulls"],
       "about": "Builds a rough version to answer the question and shows it to you running. Ends when you approve the walk.",
       "instructions": "Build the roughest version that answers the question. Show it running with show_window, naming this group: the app itself, or a small page of what it measured where nothing would be seen in the app. Wait for the person's approval.",
       "gate": "walk_approved",

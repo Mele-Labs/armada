@@ -17,7 +17,7 @@
     {
       "id": "plan",
       "label": "Scope the refactor",
-      "tabs": ["plan", "qa", "now"],
+      "tabs": ["artifacts"],
       "about": "Reads the code and writes down the restructure as a plan: what moves, what stays the same and which tests show it. Ends when you approve the plan.",
       "instructions": "Say what moves where, what behaviour stays the same, and which existing tests show it.\nList the tasks in the order they must happen. Name the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nRecord the plan with record_plan and wait for the person to approve it. Change nothing before then.",
       "gate": "plan_approved",
@@ -28,7 +28,7 @@
     {
       "id": "implement",
       "label": "Restructure and review",
-      "tabs": ["changes", "artifacts", "now"],
+      "tabs": ["artifacts", "pulls"],
       "about": "Moves and renames code from the plan, runs the checks, and puts a page in front of you summarising the diff. Ends when you approve the page.",
       "instructions": "Work the plan's tasks in order. A small correction is yours to make and to say; a change of approach goes to the person.\nBehaviour does not change. A test you have to edit is a sign it moved. Run the checks locally.\nThen load the writing-a-document skill and write one HTML page to .armada/documents/<subject>.html summarising the diff: what moved where, what was renamed, what was left, and what the checks showed. Wait for the person to approve it, and answer every note by changing the code or the page.",
       "gate": "document_approved",
@@ -38,7 +38,7 @@
     {
       "id": "handoff",
       "label": "Deliver",
-      "tabs": ["pulls", "checks", "now"],
+      "tabs": ["pulls", "artifacts"],
       "about": "Delivers the change the way you chose. Ends at the merge.",
       "instructions": "Push the branch and open the pull request. Deliver by the delivery the person chose, and do not ask again. Auto land: merge it on a green ci. Open PR: leave it open; the Job stays until it merges. Keep local: push nothing, and record this group's gate as none.\nA test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.",
       "gate": "merged",
