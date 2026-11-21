@@ -70,7 +70,9 @@ where
         let mut disputes_read = tokio::time::Instant::now();
         let mut pages_read = tokio::time::Instant::now();
         let mut stops_swept: Option<tokio::time::Instant> = None;
+        let mut steps_read: Option<tokio::time::Instant> = None;
         let mut alive = tokio::time::Instant::now();
+        let mut turns_looked = tokio::time::Instant::now();
         loop {
             ticker.tick().await;
             if alive.elapsed() >= crate::session_host::stopping::BEAT {
@@ -103,6 +105,11 @@ where
                 slept = tokio::time::Instant::now();
                 fleet.test_map_slept_over();
             }
+            // On a loaded machine one Job's builds run and the rest wait stopped, in turns.
+            if turns_looked.elapsed() >= crate::build_turns::EVERY {
+                turns_looked = tokio::time::Instant::now();
+                fleet.builds_taken_in_turns().await;
+            }
             // Sessions the plan's limit stopped, woken once it has reset.
             fleet.limits_lifted().await;
             // The Operator's own session, started while its switch is on and ended once it is off.
@@ -124,6 +131,11 @@ where
                 fleet.stops_swept().await;
             }
             fleet.stops_told().await;
+            // A step a Job has stood on past its usual time, drawn amber and told once.
+            if steps_read.is_none_or(|at| at.elapsed() >= crate::step_stalls::EVERY) {
+                steps_read = Some(tokio::time::Instant::now());
+                fleet.steps_stalled_told().await;
+            }
             // A Later that ran out puts its item back, which the page is told of.
             fleet.laters_run_out().await;
             // A Ready to try card whose reminder came, back in its Job's thread.

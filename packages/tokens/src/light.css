@@ -73,6 +73,16 @@
   --tool-change: #9F346D;
   --tool-run: #6A5D37;
 
+  /* Ask tools: as a glyph on --bg-overlay, --bg-hover and --bg-sunken the lowest
+     is 4.64:1 (Browser on --bg-hover); on its own 16% tint, 3.77:1. */
+  --ask-sketch: #6A4FC8;
+  --ask-diagram: #3C62B8;
+  --ask-takes: #835F10;
+  --ask-document: #1D6F86;
+  --ask-browser: #1E7660;
+  --ask-terminal: #4D7323;
+  --ask-features: #A43E77;
+
   /* Diff */
   --diff-add-bg: #D8F0DF;
   --diff-add-fg: #1B6B3A;

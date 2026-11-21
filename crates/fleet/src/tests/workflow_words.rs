@@ -66,3 +66,27 @@ fn the_step_gate_words_are_the_plan_gate_words() {
     let plan: Vec<&str> = ipc::PlanGate::ALL.iter().map(|gate| gate.word()).collect();
     assert_eq!(step, plan);
 }
+
+/// **The card is how the agent says a step is done, and his press is the fact**: a step that ends on his Approve of an
+/// item is told so, and a step that does not is told nothing of it.
+#[test]
+fn a_step_that_ends_on_his_press_tells_the_agent_to_raise_a_card_and_not_to_say_it_in_the_thread() {
+    let def = config::WorkflowDef::parse(
+        std::path::Path::new("fixture.yml"),
+        "version: 1\nworkflow_id: signoff\nname: signoff\nsteps:\n  \
+         - id: build\n    label: Build\n    delivers: false\n    advance_gate: auto\n  \
+         - id: sign_off\n    label: Sign off\n    delivers: false\n    advance_gate: auto\n    gate: you_approved\n  \
+         - id: land\n    label: Land\n    delivers: true\n    advance_gate: auto\n",
+        &config::Roster::offering_nothing(),
+    )
+    .unwrap_or_else(|refused| panic!("the fixture workflow did not parse: {refused}"));
+    let manifest = config::Manifest::parse(std::path::Path::new("fixture-armada.yml"), "version: 1\nid: 01FIXTUREMANIFEST\n")
+        .expect("the fixture manifest parses");
+    let resolved = ResolvedWorkflow::resolve(&def, &manifest).unwrap_or_else(|refused| panic!("{refused}"));
+    let held: BTreeMap<WorkflowId, ResolvedWorkflow> = [(resolved.id().clone(), resolved)].into_iter().collect();
+    let id = held.keys().next().expect("one workflow").as_str().to_string();
+    let words = workflow_words(&held, Some(&id), false, "").expect("told");
+    let lines: Vec<&str> = words.lines().collect();
+    assert!(lines[2].starts_with("2. sign_off") && lines[2].contains(crate::session_host::proposing::PRESS_ENDS), "{words}");
+    assert!(!lines[1].contains("presses Approve") && !lines[3].contains("presses Approve"), "{words}");
+}

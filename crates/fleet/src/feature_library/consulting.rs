@@ -14,16 +14,16 @@ use super::reading::Loaded;
 use crate::daemon::Fleet;
 
 /// How the link was found, as `feature_links.via` names it.
-const READ: &str = "read";
+pub(super) const READ: &str = "read";
 
 /// The most of a read's title and of its first sentence kept, so the two stay about 300 characters.
 const TITLE_MOST: usize = 100;
-const GIST_MOST: usize = 200;
+pub(super) const GIST_MOST: usize = 200;
 
 /// The most reads a write links: the newest, so a Job that read forty pages does not hang forty links on one file.
 const MOST_LINKED: usize = 20;
 
-fn cut(text: &str, most: usize) -> String {
+pub(super) fn cut(text: &str, most: usize) -> String {
     let one_line = text.split_whitespace().collect::<Vec<_>>().join(" ");
     match one_line.char_indices().nth(most) {
         Some((end, _)) => format!("{}…", one_line[..end].trim_end()),
@@ -53,7 +53,7 @@ where
         };
         // Where the result was not visible the read is named by what it was read by.
         let title = Some(cut(title, TITLE_MOST)).filter(|title| !title.is_empty()).unwrap_or_else(|| cut(&target, TITLE_MOST));
-        let read = KeptJobRead { job: job.to_string(), kind: kind.to_string(), target, title, gist: cut(gist, GIST_MOST), at: self.now().as_str().to_string() };
+        let read = KeptJobRead { job: job.to_string(), kind: kind.to_string(), target, title, gist: cut(gist, GIST_MOST), gist_by: String::new(), at: self.now().as_str().to_string() };
         store.keep_feature_job_read(&read).map(drop)
     }
 
@@ -86,6 +86,7 @@ where
                             via: READ.to_string(),
                             at: read.at.clone(),
                             gist: read.gist.clone(),
+                            gist_by: read.gist_by.clone(),
                         })?;
                     }
                 }

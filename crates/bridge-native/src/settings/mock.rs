@@ -54,6 +54,8 @@ pub struct MockFleet {
     pub stores: super::mock_store::MockStores,
     /// The presses of Settings › Account's Register on GitHub, and what Fleet answers them with.
     pub sign_in_app: super::sign_in_app::MockSignInApp,
+    /// The logins signed in on this Mac and the sign-in in flight (`mock_account.rs`).
+    pub accounts: super::mock_account::MockAccounts,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -147,11 +149,19 @@ impl MockFleet {
             lanes_from_text: false,
             stores: super::mock_store::MockStores::new(),
             sign_in_app: super::sign_in_app::MockSignInApp::new(),
+            accounts: super::mock_account::MockAccounts::new(),
             mods: crate::mock::mods(),
             sheets: crate::mock::mods().iter().filter(|row| row.enabled && row.valid).filter_map(|row| crate::mock::mod_sheet(&row.name).map(|css| (row.name.clone(), css.to_string()))).collect(),
         };
         fleet.seed_versions();
         fleet
+    }
+
+    /// The sign-in app has its client id, as Fleet writes it once GitHub sends the browser back.
+    pub fn sign_in_app_registered(&mut self) {
+        if let Some(one) = self.list.settings.iter_mut().find(|one| one.key == "account.clientId") {
+            one.value = SettingValue::Text("Iv1.8a61f9b3a7aba766".into());
+        }
     }
 
     pub fn settings(&self) -> Result<SettingsList, Refused> {

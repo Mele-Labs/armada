@@ -169,6 +169,14 @@ A link carries the title and the first sentence of what was read, and where Flee
 A link whose address no longer answers keeps what it said and reads as `gone`.
 The state is on the link; nothing checks yet.
 
+A Job may write a gist for a doc or ticket it read, at its end, as `gists` in its `write_feature_sections` call: `{target, gist}`, one line of what the doc says that bears on the feature, in its own words.
+It applies to the read links of that Job under every feature its projects hold, is cut to 200 characters on one line, and wins over the first sentence: a first sentence heard later does not replace it, and the page serves it with `gist_by_job`.
+A target the Job never read and linked is refused as `fleet.gist_not_read`, and a blank gist as `fleet.gist_blank`.
+Where `all_done` is refused for sections owed, and in the `owed` answer of `write_feature_sections`, Fleet names the docs the Job read under those features, eight at most, and says a gist is welcome.
+
+> **Rule.** A gist is never required, and no refusal of `all_done` rests on one.
+> Why: a Job that read nothing worth summarising should not be held for a line it has nothing to say in, and a gist written to clear a refusal would be worse than the first sentence.
+
 A Job whose mod is older than 0.3.78 tells Fleet no reads, and a hosted Job's writes are linked from the mod's report of them, as the files it wrote are credited to a feature.
 
 ## Holding a Job's end
@@ -468,7 +476,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |
-| `write_feature_sections` | The calling Job writes sections of a feature, and the glossary terms it introduced |
+| `write_feature_sections` | The calling Job writes sections of a feature, the glossary terms it introduced and its gists of the docs it read |
 | `get_glossary` | A project's glossary |
 | `upsert_features` | The Operator, or he from the Features screen, keeps areas and features |
 | `seed_features` | The Operator keeps Armada's own catalog from the seed Fleet carries |

@@ -8,6 +8,7 @@
 //! resize or a wheel turn re-renders once per step, not once per frame. The content's height is the same at every
 //! scale, so the scene lays out again once, when the first picture of a page arrives.
 
+use std::cell::Cell;
 use std::collections::{hash_map::DefaultHasher, HashMap, HashSet, VecDeque};
 use std::hash::{Hash, Hasher};
 use std::rc::Rc;
@@ -33,6 +34,9 @@ const DENSEST: f32 = 4.;
 const THINNEST: f32 = 0.5;
 /// The scales kept for a page: a zoom that moved on leaves the older ones to draw from until the new one is there.
 const SCALES_KEPT: usize = 3;
+/// The pages kept across the app, the least lately drawn let go past it. Above the most a screen draws at once, or the
+/// pages on screen would push each other out and be made again without end.
+const PAGES_KEPT: usize = 32;
 
 /// The page's appearance, as the web view's `prefers-color-scheme` answers it. The same two words as `web::render`'s.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -163,6 +167,8 @@ struct Drawn {
     height: f32,
     parts: Arc<Vec<PagePart>>,
     images: Vec<(u32, Arc<RenderImage>)>,
+    /// When it was last drawn, on `Pictures::tick`.
+    used: Cell<u64>,
 }
 
 /// The app's pictures of mock pages, for the run.
@@ -172,6 +178,8 @@ struct Pictures {
     port: Option<Rc<dyn Fn(&App) -> Option<u16>>>,
     kept: Arc<KeptCache>,
     pages: HashMap<PageKey, Drawn>,
+    /// Counts draws and arrivals, so the page least lately drawn is the one let go.
+    tick: Cell<u64>,
     /// A page the web view could not draw keeps its plain frame; it is asked again only when a painter is set.
     failed: HashSet<PageKey>,
     queue: Queue,
@@ -181,7 +189,7 @@ struct Pictures {
 
 impl Default for Pictures {
     fn default() -> Self {
-        Pictures { painter: None, port: None, kept: Arc::default(), pages: HashMap::new(), failed: HashSet::new(), queue: Queue::default(), wants: HashMap::new() }
+        Pictures { painter: None, port: None, kept: Arc::default(), pages: HashMap::new(), tick: Cell::new(0), failed: HashSet::new(), queue: Queue::default(), wants: HashMap::new() }
     }
 }
 
@@ -233,6 +241,8 @@ pub(super) fn picture(mock: &Rc<Mock>, width: f32, zoom: f32, dark: bool, window
     ask(key, mock, cx);
     let pictures = cx.global::<Pictures>();
     let drawn = pictures.pages.get(&key.page)?;
+    pictures.tick.set(pictures.tick.get() + 1);
+    drawn.used.set(pictures.tick.get());
     let near = |scale: u32| (f64::from(scale) / f64::from(key.scale)).ln().abs();
     drawn.images.iter().min_by(|a, b| near(a.0).total_cmp(&near(b.0))).map(|(_, image)| image.clone())
 }
@@ -315,13 +325,26 @@ fn finish(key: Key, made: Result<Picture, String>, cx: &mut App) {
     pictures.queue.done(key);
     match made {
         Ok((image, height, parts)) => {
-            let drawn = pictures.pages.entry(key.page).or_insert_with(|| Drawn { height, parts: parts.clone(), images: Vec::new() });
+            let drawn = pictures.pages.entry(key.page).or_insert_with(|| Drawn { height, parts: parts.clone(), images: Vec::new(), used: Cell::new(0) });
+            pictures.tick.set(pictures.tick.get() + 1);
+            drawn.used.set(pictures.tick.get());
             drawn.height = height;
             drawn.parts = parts;
-            drawn.images.retain(|(scale, _)| *scale != key.scale);
+            let (mut gone, kept): (Vec<_>, Vec<_>) = std::mem::take(&mut drawn.images).into_iter().partition(|(scale, _)| *scale == key.scale);
+            drawn.images = kept;
             drawn.images.push((key.scale, image));
             if drawn.images.len() > SCALES_KEPT {
-                drawn.images.remove(0);
+                gone.push(drawn.images.remove(0));
+            }
+            let mut gone: Vec<Arc<RenderImage>> = gone.into_iter().map(|(_, image)| image).collect();
+            if pictures.pages.len() > PAGES_KEPT {
+                let oldest = pictures.pages.iter().filter(|(page, _)| **page != key.page).min_by_key(|(_, drawn)| drawn.used.get()).map(|(page, _)| *page);
+                if let Some(drawn) = oldest.and_then(|page| pictures.pages.remove(&page)) {
+                    gone.extend(drawn.images.into_iter().map(|(_, image)| image));
+                }
+            }
+            for image in gone {
+                crate::web::let_go(image, cx);
             }
         }
         Err(why) => {
@@ -575,6 +598,78 @@ mod tests {
         cx.run_until_parked();
         assert_eq!(started.get(), 3, "one came, the next starts");
         assert_eq!(cx.update(|cx| height(&mocks[0], 80., false, cx)), Some(48.), "the page's height is the content's");
+    }
+
+    /// A zoom that moves on makes the page again at the new scale; the scale let go past `SCALES_KEPT` held its GPU texture
+    /// for the run until this.
+    #[gpui::test]
+    fn a_scale_let_go_leaves_the_gpu(cx: &mut TestAppContext) {
+        use gpui::Styled as _;
+        let made = Rc::new(RefCell::new(Vec::new()));
+        let painter: Painter = {
+            let made = made.clone();
+            Rc::new(move |_html, _width, _scale, _appearance, _cx: &mut App| {
+                let image = Arc::new(RenderImage::new(vec![image::Frame::new(image::RgbaImage::new(2, 2))]));
+                made.borrow_mut().push(image.clone());
+                Task::ready(Ok((image, 48., Arc::default())))
+            })
+        };
+        let page = mock("<b>zoomed</b>");
+        cx.update(|cx| set_painter(painter, cx));
+        let window = cx.add_empty_window();
+        for scale in [1., 1.25, 1.5625, 1.953125] {
+            window.update(|_, cx| ask(key_of(page_key(&page, 80., false), scale), &page, cx));
+            window.run_until_parked();
+            let image = made.borrow().last().cloned().expect("a picture was made");
+            window.draw(point(px(0.), px(0.)), size(px(100.), px(100.)), |_, _| gpui::img(image.clone()).size(px(2.)));
+        }
+        window.run_until_parked();
+        let made = made.borrow();
+        assert_eq!(made.len(), SCALES_KEPT + 1);
+        window.update(|window, _| {
+            assert!(!window.has_image_atlas_entry(&made[0]), "the oldest scale, no longer kept, leaves the GPU");
+            assert!(made[1..].iter().all(|image| window.has_image_atlas_entry(image)), "the scales kept stay drawable");
+        });
+    }
+
+    /// Every mock of every sketch opened kept its pictures for the run. Past `PAGES_KEPT` the page least lately drawn goes,
+    /// off the GPU too, and one drawn since is kept.
+    #[gpui::test]
+    fn past_the_pages_kept_the_least_lately_drawn_goes(cx: &mut TestAppContext) {
+        use gpui::{ParentElement as _, Styled as _};
+        let made = Rc::new(RefCell::new(HashMap::<String, Arc<RenderImage>>::new()));
+        let painter: Painter = {
+            let made = made.clone();
+            Rc::new(move |html: String, _width, _scale, _appearance, _cx: &mut App| {
+                let image = Arc::new(RenderImage::new(vec![image::Frame::new(image::RgbaImage::new(2, 2))]));
+                made.borrow_mut().insert(html, image.clone());
+                Task::ready(Ok((image, 48., Arc::default())))
+            })
+        };
+        let pages: Vec<_> = (0..=PAGES_KEPT).map(|n| mock(&format!("<i>page {n}</i>"))).collect();
+        let image_of = |n: usize| made.borrow().iter().find(|(html, _)| html.contains(&format!("<i>page {n}</i>"))).map(|(_, image)| image.clone()).expect("made");
+        cx.update(|cx| set_painter(painter, cx));
+        let window = cx.add_empty_window();
+        for one in &pages[..PAGES_KEPT] {
+            window.update(|_, cx| ask(key_of(page_key(one, 80., false), 2.), one, cx));
+            window.run_until_parked();
+        }
+        let (first, second) = (image_of(0), image_of(1));
+        window.draw(point(px(0.), px(0.)), size(px(100.), px(100.)), |_, _| gpui::div().child(gpui::img(first.clone()).size(px(2.))).child(gpui::img(second.clone()).size(px(2.))));
+        // The first page is drawn again, so the second is now the one least lately drawn.
+        window.update(|window, cx| picture(&pages[0], 80., 1., false, window, cx));
+        window.run_until_parked();
+        let last = &pages[PAGES_KEPT];
+        window.update(|_, cx| ask(key_of(page_key(last, 80., false), 2.), last, cx));
+        window.run_until_parked();
+        window.update(|window, cx| {
+            let pictures = cx.global::<Pictures>();
+            assert_eq!(pictures.pages.len(), PAGES_KEPT, "one page past the cap goes");
+            assert!(!pictures.pages.contains_key(&page_key(&pages[1], 80., false)), "the page least lately drawn goes");
+            assert!(pictures.pages.contains_key(&page_key(&pages[0], 80., false)), "a page drawn since stays");
+            assert!(!window.has_image_atlas_entry(&second), "the page let go leaves the GPU");
+            assert!(window.has_image_atlas_entry(&first));
+        });
     }
 
     #[gpui::test]

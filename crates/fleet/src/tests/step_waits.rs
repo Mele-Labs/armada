@@ -117,6 +117,7 @@ async fn a_step_ending_on_a_document_ends_only_when_he_approves_its_newest_revis
     let file = work.path().join(".armada/documents/plan.html");
     std::fs::create_dir_all(file.parent().unwrap()).unwrap();
     let path = file.to_string_lossy().into_owned();
+    let home = rig.fleet.page_home(id.as_str(), &path);
     // Each write waits for its revision, so the file holds the bytes its Write call meant.
     for (n, body) in ["first", "second"].into_iter().enumerate() {
         std::fs::write(&file, format!("<title>Plan</title><p>{body}</p>")).unwrap();
@@ -135,11 +136,11 @@ async fn a_step_ending_on_a_document_ends_only_when_he_approves_its_newest_revis
         let kept = (n + 1).to_string();
         eventually(|| async {
             let record = record(&rig, &id).await;
-            record.attachments.iter().any(|one| one.target == path && one.detail.get("revision") == Some(&kept))
+            record.attachments.iter().any(|one| one.target == home && one.detail.get("revision") == Some(&kept))
         })
         .await;
     }
-    let item = format!("document:{path}");
+    let item = format!("document:{home}");
     assert!(needs(&record(&rig, &id).await).contains(&(item.as_str(), "Plan")), "the newest revision waits on him");
 
     let read = |revision: &str| ipc::AnswerDocument {

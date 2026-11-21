@@ -1829,6 +1829,44 @@ destructive = false
 confirms = false
 notes = "Moves the cursor of a Job's Tokens tab to the next or the previous bucket of time, held at either end, and its tooltip names that bucket. Its own row because the graph is not a list of Jobs. Native only, 19 Nov 2026."
 
+# ------------------------------------------------------------------ api client
+
+[actions.api_client_environment]
+kind = "Action"
+tier = "Contextual"
+verb = "Next environment"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘E"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Cycles the environment of a Job's API Client tab: none, then each environment in the order Fleet lists them, then none again. The environment fills each `{{name}}` of the address, the headers and the body. Its scope is the tab, so the key means this only while the keys are inside it. The Send chord is `send_message`'s, which the tab's request line also answers while it has the keys, and `⌘L` and `⌘N` stay the Layout menu's and Dispatch's. Native only, 20 Nov 2026."
+
+[actions.api_client_part]
+kind = "Action"
+tier = "Contextual"
+verb = "Previous or next part"
+icon = ""
+icon_absent = "undecided"
+shortcut = "[ / ]"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Cycles the open request of a Job's API Client tab through its Headers, Body and Environment parts, `[` to the one before and `]` to the one after, round the end. A bare key, so it stands down while a text box has the keys. Native only, 20 Nov 2026."
+
+[actions.api_client_save]
+kind = "Action"
+tier = "Contextual"
+verb = "Save"
+icon = ""
+icon_absent = "undecided"
+shortcut = "⌘S"
+scope = "api client"
+destructive = false
+confirms = false
+notes = "Saves what is open in a Job's API Client tab. A saved request is written back into its collection, with the collection's other requests as they are. Any other request asks for a name and a collection on a row under the request line, and a second press saves it there. A collection open on the right writes its name and shared headers, and the Environment part writes the environment the keys were last in. Nothing is saved while the person's own requests file will not read, and the control says so. Its scope is the tab, so the key means this only while the keys are inside it; `⌘S` is the Kit file editor's own while that is up. Native only, 20 Nov 2026."
+
 [actions.usage_apply]
 kind = "Action"
 tier = "Contextual"
@@ -1994,3 +2032,14 @@ scope = "thread"
 destructive = false
 confirms = false
 notes = "Opens the list beside the contents rail on a Job's thread, which names each ask said in the thread in the order its first words come, the one in view marked. Up and Down move along it, Enter scrolls the thread to where the ask started and Esc puts the list away. A thread with no asks has no rail and the key does nothing. Read by the key's place on the keyboard, since Option changes the character T types; T is free in the thread beside ⌥E, ⌥R, ⌥X and ⌥K. Native only, 17 Nov 2026."
+
+[actions.ask_for_tool]
+kind = "Action"
+tier = "Global"
+verb = "Ask the agent for a tool"
+icon = "plus"
+shortcut = "⌘/"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the list of Armada's own tools over the open Job's message box, as its + button does: Sketch, Diagram, Takes, Document, Browser, Terminal and Features. Up and Down move, Enter or Tab puts the tool's chip at the caret, and Esc puts the list away with the keys still in the box. When the message is sent, Fleet tells the agent which tool to use. ⌘K is the palette's, so the key is ⌘/, beside the / that lists the agent's own commands. Native only, 19 Nov 2026."

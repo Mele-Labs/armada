@@ -18,3 +18,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 31 Oct 2026 for the walk `livelier-thread`. A pinned line is the one that rises to the front and stops at the top, which is the drawing the raised cap already uses. Tooltip `Pinned`. Refused: `pin`, reserved to the canvas rail and never a pinned row; `bookmark`, reserved to deferring a Studio node; `star`, a sketched favourite and never a pinned row. If the owner rules `pin` may mean this, it replaces this entry."
+
+  [[icons.arrow-up-to-line.usage]]
+    means = "The Job that is the person's one priority, on its row in the Cockpit's Jobs list, and Prioritise in the row's menu"
+    group = "Session"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 20 Nov 2026 for the walk `prioritise-a-job`. A priority is the Job that rises to the front and stops at the top, the drawing a pinned quick reply already uses. Tooltip `Prioritised: its builds run first when the machine is loaded`. Refused: `pin`, reserved to the canvas rail and never a pinned row; `star`, a sketched favourite; `flag`, reserved to Report."

@@ -30,6 +30,19 @@ impl Store {
         rows.collect::<Result<Vec<_>, _>>().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
+    /// Every live session, the one started first first: the order builds take turns in on a loaded
+    /// machine.
+    pub fn live_session_ids_oldest_first(&self) -> Result<Vec<String>, WriteError> {
+        let doing = "reading the live sessions, oldest first";
+        let mut statement = self
+            .conn
+            .prepare("SELECT id FROM sessions WHERE state = 'live' ORDER BY started_at, id")
+            .map_err(fault(doing))
+            .map_err(WriteError::Database)?;
+        let rows = statement.query_map([], |row| row.get::<_, String>(0)).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
     pub fn session_stop(&self, session: &str) -> Result<KeptStop, WriteError> {
         self.conn
             .query_row(

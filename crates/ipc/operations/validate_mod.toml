@@ -1,4 +1,5 @@
 [operations.validate_mod]
+ask_tool = "none"
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"

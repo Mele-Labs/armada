@@ -117,6 +117,16 @@ where
     /// [`Fleet::projects_reload`] told to nobody, and whether what is held moved. **For a caller that
     /// publishes itself**, and for the wire answer, which `projects_reload` would otherwise call back into.
     pub(crate) async fn projects_read(&self) -> (Arc<Projects>, bool) {
+        let (projects, moved) = self.projects_read_once().await;
+        // **A store named before a project picked a login takes the profile enrolled at it**, and what was written
+        // is read once more. Once, so a place that reads back what it was not given cannot loop.
+        if self.store_logins_carried(&projects).await {
+            return (self.projects_read_once().await.0, true);
+        }
+        (projects, moved)
+    }
+
+    async fn projects_read_once(&self) -> (Arc<Projects>, bool) {
         let rows: Vec<(String, String, Option<KeptPlace>)> = {
             let store = self.store().lock().await;
             let kept = store.projects().map(|kept| kept.projects).unwrap_or_default();

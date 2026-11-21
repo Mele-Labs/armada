@@ -606,6 +606,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "usage",
     "features",
     "tokens",
+    "api-client",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -695,6 +696,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // A Job's Tokens tab holds the keys while it has focus, so its arrows meet only the global ones.
   tokens: [
     "tokens",
+  ],
+  // A Job's API Client tab holds the keys while it has focus, so its keys meet only the global ones.
+  "api client": [
+    "api-client",
   ],
 };
 

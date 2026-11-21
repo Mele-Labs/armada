@@ -83,6 +83,8 @@ pub(crate) struct RailStep {
     /// What the step's `judge_checks` ask. Empty is a step nobody judges.
     pub criteria: Vec<JudgeCriterion>,
     pub fit: Option<Fit>,
+    /// The right-column tabs the step opens, front first. Empty for a step that lists none.
+    pub tabs: Vec<String>,
 }
 
 impl RailStep {
@@ -111,6 +113,23 @@ impl RailStep {
     pub(crate) fn waits_on_approval(&self) -> bool {
         self.ends_on.contains(&StepEnd::YouApproved)
     }
+
+    /// The step ends on the person's Approve of something he is shown: a plan that asks, a page, a sketch, a
+    /// draft, or his Approve of an item. **Not a walk**, which a push never passes, and not a lifecycle state or
+    /// a delivering step, which the world ends. Work that belongs to a later step passes such a step and flags it.
+    pub(crate) fn needs_approval(&self) -> bool {
+        if self.walks || self.delivers || self.has_lifecycle_end() || (self.records_plan && self.plan_unasked) {
+            return false;
+        }
+        self.records_plan
+            || matches!(self.gate, StepGate::PlanApproved | StepGate::SketchApproved | StepGate::DocumentApproved | StepGate::YouApproved)
+            || self.ends_on.iter().any(|end| {
+                matches!(
+                    end,
+                    StepEnd::WalkApproved | StepEnd::SketchApproved | StepEnd::DraftApproved | StepEnd::DocumentApproved | StepEnd::YouApproved
+                )
+            })
+    }
 }
 
 fn fit_of(step: &ResolvedStep) -> Option<Fit> {
@@ -133,7 +152,9 @@ pub(crate) fn step_ids(steps: &[RailStep]) -> Vec<String> {
     steps.iter().map(|step| step.id.clone()).collect()
 }
 
-/// The workflow's steps as the rail reads them.
+/// The workflow's steps as the rail reads them. **A step gated `plan_approved` records the plan, and one gated
+/// `walk_approved` walks**, as if it said so: the shipped workflows state their steps by gate alone, and a step the
+/// rail read no anchor on was never entered (33 Jobs stood on their first step to the merge, 9–13 Nov 2026).
 pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
     workflow
         .steps()
@@ -143,16 +164,17 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             label: step.label().to_string(),
             about: step.about().map(str::to_string),
             instructions: step.instructions().map(str::to_string),
-            records_plan: step.records_plan(),
+            records_plan: step.records_plan() || step.gate() == StepGate::PlanApproved,
             plan_unasked: step.plan_unasked(),
             follows_plan: step.follows_plan(),
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
-            walks: step.walks(),
+            walks: step.walks() || step.gate() == StepGate::WalkApproved,
             ends_on: ends_on_of(step),
             gate: step.gate(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
             fit: fit_of(step),
+            tabs: step.tabs().to_vec(),
         })
         .collect()
 }
@@ -329,7 +351,29 @@ impl Facts {
             Some(at) if self.skipped.has(at) && self.edited && !self.plan_approved => {
                 Facts { plan_recorded: true, plan_approved: true, ..self }
             }
+            // Work ahead of an unapproved plan reads as a plan approved, so the Job is placed where the work is. The
+            // step is flagged by [`passed_unapproved`], which reads the facts as they were.
+            Some(at) if self.run_past(steps, at) && !self.plan_approved => Facts { plan_recorded: true, plan_approved: true, ..self },
             _ => self,
+        }
+    }
+
+    /// Work that belongs to a later step was seen: a push, a pull request, or a merge.
+    fn work_ahead(&self) -> bool {
+        self.pushed || self.pr_opened || self.landed
+    }
+
+    /// The step at `at` waits on an Approve and work ahead has passed it: a later step delivers, so the work belongs
+    /// there. **The Job moves on and the step is flagged** (`passed_unapproved`), not held for good.
+    fn run_past(&self, steps: &[RailStep], at: usize) -> bool {
+        self.work_ahead() && steps[at].needs_approval() && steps[at + 1..].iter().any(|step| step.delivers)
+    }
+
+    /// Whether the Approve the step at `at` waits on was given, as the facts stand.
+    fn approved_honestly(&self, at: usize, step: &RailStep) -> bool {
+        match step.records_plan {
+            true => self.plan_approved || self.step_ended(at, step),
+            false => self.step_ended(at, step),
         }
     }
 
@@ -422,7 +466,7 @@ fn recorder(steps: &[RailStep]) -> Option<usize> {
 
 /// Whether the Session is past an anchor. A step that is no anchor is not in the way.
 fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
-    if facts.skipped.has(at) {
+    if facts.skipped.has(at) || facts.run_past(steps, at) {
         return true;
     }
     let step = &steps[at];
@@ -476,11 +520,11 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     }
     if step.delivers {
         // A step that lists its ends holds the Job past the push, as a walk holds a refine step; once
-        // one comes the delivering step after it is entered, push or not.
+        // one comes the delivering step after it is entered, push or not. So once a walk just before it is passed.
         let held = |earlier: usize| steps[earlier].holds() && !passed(steps, earlier, facts);
         let after_a_hold = at > 0
             && !steps[at - 1].has_lifecycle_end()
-            && steps[at - 1].holds()
+            && (steps[at - 1].holds() || steps[at - 1].walks)
             && (0..at).all(|one| passed(steps, one, facts));
         return after_a_hold || (pushed_past_walks(steps, at, facts) && !(0..at).any(held));
     }
@@ -501,8 +545,11 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
     // back behind the walk he approved, is told to show it again, and the new window voids his approval.
     let after_a_walk = at > 0 && steps[at - 1].walks && passed(steps, at - 1, facts);
+    // **The last step that lists nothing is entered once every step before it is passed**, and ends when the Job does.
+    // A step that fits a fact is placed by that fact, so a last step behind one is not entered for the fact's sake.
+    let last_after_an_anchor = at + 1 == steps.len() && at > 0 && steps[at - 1].fit.is_none() && before(at);
     let Some(fit) = step.fit else {
-        return after_a_wait || after_a_walk;
+        return after_a_wait || after_a_walk || last_after_an_anchor;
     };
     after_a_wait || after_a_walk || (facts.has(fit) && before(at) && !(at > 0 && steps[at - 1].fit == Some(fit)))
 }
@@ -526,6 +573,15 @@ pub(crate) fn current(steps: &[RailStep], facts: &Facts) -> Option<usize> {
         return None;
     }
     Some((0..steps.len()).rev().find(|at| entered(steps, *at, facts)).unwrap_or_else(|| standing(steps, facts)))
+}
+
+/// The steps before `current` that work ahead passed with the Approve they wait on never given, in order. **Read off the
+/// facts as the record has them**, before [`current`] reads a plan as approved for the work that is ahead of it.
+pub(crate) fn passed_unapproved(steps: &[RailStep], facts: &Facts, current: Option<usize>) -> Vec<usize> {
+    let before = current.unwrap_or(steps.len());
+    (0..before.min(steps.len()))
+        .filter(|at| !facts.skipped.has(*at) && facts.run_past(steps, *at) && !facts.approved_honestly(*at, &steps[*at]))
+        .collect()
 }
 
 /// Where no step is entered: the first step, or, past the person's skips, the first step neither

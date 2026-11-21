@@ -467,6 +467,8 @@ export type StepReading = {
   ends_any?: string[];
   /** When the step is passed over instead of walked. Absent on a step that is always done. */
   passed_over_when?: string;
+  /** Why the step as written cannot be placed or ended, for the editor to show. A warning: the definition still loads. Absent where there is nothing to say. */
+  warning?: string;
 };
 
 /**

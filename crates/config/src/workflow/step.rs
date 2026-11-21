@@ -59,6 +59,7 @@ const STEP_KEYS: &[&str] = &[
     "ends_on",
     "phase",
     "gate",
+    "tabs",
 ];
 
 /// **The schema's whole set, spelled out rather than sketched.** This held
@@ -170,6 +171,7 @@ pub struct Step {
     ends_on: Vec<StepEnd>,
     phase: Option<StepPhase>,
     gate: StepGate,
+    tabs: Vec<String>,
 }
 
 impl Step {
@@ -379,6 +381,12 @@ impl Step {
         self.gate
     }
 
+    /// The right-column tabs the step opens, the front one first. **Empty where the file leaves
+    /// the key out.** `workflowdef-fields.toml`.
+    pub fn tabs(&self) -> &[String] {
+        &self.tabs
+    }
+
     /// The phase the step declared. **`None` where the file leaves the key
     /// out**, which `core_model::StepPhase::of` reads off `delivers`.
     pub fn phase(&self) -> Option<StepPhase> {
@@ -558,6 +566,13 @@ pub(super) fn read(
             out,
         ),
     };
+    // **Absent is none, and an id outside `STEP_TABS` is a refusal**, so a misspelt tab is not a
+    // step that opens nothing.
+    let tabs_key = table.at("tabs");
+    let tabs = match table.optional("tabs") {
+        None => Some(Vec::new()),
+        Some(value) => tabs_read(&tabs_key, value, out),
+    };
     // **Required, and there is no default to fall back to.** A file that does
     // not say whether a step sends the work out has two readings and neither is
     // safe: taken as delivering, a workflow that produces a document opens a
@@ -707,6 +722,35 @@ pub(super) fn read(
         ends_on: ends_on?,
         phase,
         gate: plan_gate?,
+        tabs: tabs?,
+    })
+}
+
+/// The `tabs` list: each item an id of `core_model::STEP_TABS`, in the order written, a repeat kept once.
+fn tabs_read(key: &str, value: &Value, out: &mut Vec<Refusal>) -> Option<Vec<String>> {
+    let items = yaml::list(key, value, out)?;
+    let read: Vec<Option<String>> = items
+        .iter()
+        .map(|(at, item)| {
+            let id = yaml::text(at, item, out)?;
+            match core_model::is_step_tab(&id) {
+                true => Some(id),
+                false => {
+                    out.push(Refusal::new(at, Fault::NotInTheSchema { value: id, legal: core_model::STEP_TABS }));
+                    None
+                }
+            }
+        })
+        .collect();
+    let read: Option<Vec<String>> = read.into_iter().collect();
+    read.map(|tabs| {
+        let mut kept: Vec<String> = Vec::new();
+        for tab in tabs {
+            if !kept.contains(&tab) {
+                kept.push(tab);
+            }
+        }
+        kept
     })
 }
 

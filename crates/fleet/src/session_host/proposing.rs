@@ -196,13 +196,23 @@ pub(crate) fn workflow_groups(found: &ResolvedWorkflow, plan_block: &str) -> Str
         ));
         let told = step.instructions().map(|told| told.split_whitespace().collect::<Vec<_>>().join(" ")).unwrap_or_default();
         let block = if settles_a_plan(step) { plan_block } else { "" };
-        let said: Vec<&str> = [told.as_str(), block].into_iter().filter(|one| !one.is_empty()).collect();
+        let press = if ends_on_his_press(step) { PRESS_ENDS } else { "" };
+        let said: Vec<&str> = [told.as_str(), block, press].into_iter().filter(|one| !one.is_empty()).collect();
         if !said.is_empty() {
             words.push_str(": ");
             words.push_str(&said.join(" "));
         }
     }
     words
+}
+
+/// What a step that ends on his press of Approve tells the agent: the card is how it says the step is done, and the press
+/// is the fact Fleet reads. **Its word alone moves nothing.**
+pub(crate) const PRESS_ENDS: &str = "When you think this step is done, do not say so in the thread: raise one waiting_for item with approves: true that names the step. The step ends when he presses Approve on it, not on your word.";
+
+/// Whether the step ends on his Approve of an item the agent raised.
+fn ends_on_his_press(step: &config::ResolvedStep) -> bool {
+    step.gate() == core_model::StepGate::YouApproved || step.ends_on().contains(&core_model::StepEnd::YouApproved)
 }
 
 /// Whether the step ends on his approval of a plan, approach, sketch or page, or records the plan:

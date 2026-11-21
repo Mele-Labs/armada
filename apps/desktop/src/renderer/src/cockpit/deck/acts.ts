@@ -71,6 +71,12 @@ export async function remindLater(
   );
 }
 
+/** Prioritises a Session, or clears it where it holds the mark. Fleet moves the mark off any other, so only the pressed row is sent. */
+export const toggleSessionPrioritise = (
+  draft: SessionsDraft | undefined,
+  id: string,
+): Promise<boolean> | undefined => draft?.prioritise?.(id);
+
 /** Parks a Session, or sets a parked one going again. The row menu's Pause and Resume and the palette's all come here. */
 export const toggleSessionPause = (
   draft: SessionsDraft | undefined,

@@ -11,12 +11,13 @@
 //! **History is kept on this Mac**, beside the deck's columns, and only from the owner's Fleet: a walk
 //! leaves it as it was.
 
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui::{
     div, prelude::*, AnyElement, AnyWindowHandle, App, Context, Entity, FocusHandle, FontWeight, Global, Hsla, KeyDownEvent, Role, SharedString,
-    Stateful, Subscription, WeakEntity, Window,
+    Stateful, Subscription, Task, Toggled, WeakEntity, Window,
 };
 use ipc::operator_board::{DispatchWay, OperatorDispatched};
 use ipc::operator_page::{OperatorAnswer, OperatorTurnItem, OperatorTurnKind};
@@ -31,8 +32,9 @@ use crate::look::{token, ActiveLook, Look};
 use crate::operator::face;
 use crate::operator::page::{Arrived, OperatorPageView};
 use crate::operator::screen::{Front, OperatorScreen};
-use crate::operator::view::{kind_chip, press, Weight};
+use crate::operator::view::{kind_chip, press, pressed, Weight};
 use crate::refusal::{Refusal, Report};
+use crate::reviews::model::{ReviewAsk, ReviewTool};
 use crate::titlebar::parts::{glyph, icon_button, sans, tip};
 
 /// A toast's width: its three presses on one line, keys and all.
@@ -210,9 +212,154 @@ enum Opens {
     /// The Job the Operator started or folded into, or a button on a Job's page started.
     Job(String),
     Operator,
-    /// A pull request asked of him by name, in Reviews, under its call's key.
-    Review { key: String, asked: ipc::ReviewAsked },
+    /// A pull request asked of him by name, in Reviews, under its call's key, and how far a review started from its
+    /// toast has got.
+    Review { key: String, asked: ipc::ReviewAsked, stage: Stage },
+    /// A review started from a toast has ended: the pull request in Reviews, on Review comments.
+    Ready { asked: ipc::ReviewAsked },
 }
+
+/// A review asked of him, as its toast stands.
+#[derive(Clone)]
+enum Stage {
+    Asked,
+    /// Review… pressed: the repository's tools once read, else why they were not, and what is ticked.
+    Picking { tools: Option<Vec<ReviewTool>>, ask: ReviewAsk, why: Option<SharedString> },
+    /// Start review pressed: one run a ticked tool, until each ends. Closed, it is hidden and still raises the ready toast.
+    Running { tools: Vec<ReviewTool>, runs: Vec<Started>, hidden: bool },
+}
+
+/// One tool's run started from a toast: the head Fleet ran it at once known, and how it ended.
+#[derive(Clone)]
+struct Started {
+    tool: String,
+    head: Option<String>,
+    ended: Option<RunEnded>,
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+enum RunEnded {
+    Found(usize),
+    Failed,
+}
+
+/// How a run ended, where it has.
+fn run_ended(run: &ipc::ReviewRun) -> Option<RunEnded> {
+    match run.state {
+        ipc::ReviewRunState::Done => Some(RunEnded::Found(match &run.result {
+            Some(ipc::ReviewResult::Findings { findings }) => findings.len(),
+            _ => 0,
+        })),
+        ipc::ReviewRunState::Failed => Some(RunEnded::Failed),
+        ipc::ReviewRunState::Queued | ipc::ReviewRunState::Running => None,
+    }
+}
+
+/// A run Fleet told of lands on the toast's run of its tool, where it is one: a whole-pull-request tool run, at the head
+/// that run was started at once Fleet has said it.
+fn land_review_run(asked: &ipc::ReviewAsked, runs: &mut [Started], run: &ipc::ReviewRun) {
+    if run.manifest_id != asked.manifest_id || run.number != asked.number || run.kind != ipc::ReviewRunKind::Tool || run.since.is_some() {
+        return;
+    }
+    if let Some(one) = runs.iter_mut().find(|one| one.tool == run.name && one.ended.is_none() && one.head.as_ref().is_none_or(|head| *head == run.head)) {
+        one.head = Some(run.head.clone());
+        one.ended = run_ended(run);
+    }
+}
+
+/// `a`, `a and b`, `a, b and c`.
+fn joined(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+fn capitalised(words: &str) -> String {
+    let mut chars = words.chars();
+    chars.next().map_or_else(String::new, |first| first.to_uppercase().chain(chars).collect())
+}
+
+/// The tools of these runs, as a sentence says them after another word.
+fn tools_said<'a>(tools: &[ReviewTool], runs: impl Iterator<Item = &'a Started>) -> String {
+    let named: Vec<String> = runs.map(|one| tools.iter().find(|tool| tool.id == one.tool).map_or_else(|| one.tool.clone(), |tool| tool.said.clone())).collect();
+    joined(&named)
+}
+
+/// The running toast's line: `Possible bugs and risks on #2231. You'll get a notification when it's ready.`
+fn running_said(asked: &ipc::ReviewAsked, tools: &[ReviewTool], runs: &[Started]) -> String {
+    format!("{} on #{}. You'll get a notification when it's ready.", capitalised(&tools_said(tools, runs.iter())), asked.number)
+}
+
+/// The ready toast's line: what the tools found, then any that failed. `3 findings from possible bugs. Risks failed.`
+fn ready_said(tools: &[ReviewTool], runs: &[Started]) -> String {
+    let found: Vec<&Started> = runs.iter().filter(|one| matches!(one.ended, Some(RunEnded::Found(_)))).collect();
+    let failed: Vec<&Started> = runs.iter().filter(|one| one.ended == Some(RunEnded::Failed)).collect();
+    let mut said = Vec::new();
+    if !found.is_empty() {
+        let count: usize = found.iter().map(|one| if let Some(RunEnded::Found(count)) = one.ended { count } else { 0 }).sum();
+        let from = tools_said(tools, found.iter().copied());
+        said.push(match count {
+            0 => format!("No findings from {from}."),
+            1 => format!("1 finding from {from}."),
+            many => format!("{many} findings from {from}."),
+        });
+    }
+    if !failed.is_empty() {
+        said.push(format!("{} failed.", capitalised(&tools_said(tools, failed.iter().copied()))));
+    }
+    said.join(" ")
+}
+
+/// A ready review's banner is tagged with this before its call's key, so a press on it opens Review comments.
+pub const READY_TAG: &str = "review-ready:";
+
+/// The pull requests of the ready reviews' banners, by tag, for a press on one.
+#[derive(Default)]
+struct ReadyBanners(Vec<(String, ipc::ReviewAsked)>);
+
+impl Global for ReadyBanners {}
+
+/// The pull request a ready review's banner names, while this run of the app holds it.
+pub fn ready_asked(tag: &str, cx: &App) -> Option<ipc::ReviewAsked> {
+    cx.try_global::<ReadyBanners>()?.0.iter().find(|(held, _)| held == tag).map(|(_, asked)| asked.clone())
+}
+
+/// A review toast as it stands: its call's key, the pull request and the stage.
+fn review_of(key: u64, cx: &App) -> Option<(String, ipc::ReviewAsked, Stage)> {
+    cx.try_global::<Rulings>()?.0.iter().find(|one| one.key == key).and_then(|one| match &one.opens {
+        Opens::Review { key, asked, stage } => Some((key.clone(), asked.clone(), stage.clone())),
+        _ => None,
+    })
+}
+
+/// Change a review toast that still stands. The caller draws again.
+fn restage(key: u64, cx: &mut App, change: impl FnOnce(&mut Raised)) {
+    let mut rulings = cx.try_global::<Rulings>().map(|kept| kept.0.clone()).unwrap_or_default();
+    let Some(one) = rulings.iter_mut().find(|one| one.key == key && matches!(one.opens, Opens::Review { .. })) else { return };
+    change(one);
+    cx.set_global(Rulings(rulings));
+}
+
+/// The stage of a review toast, to change in place.
+fn stage_of(one: &mut Raised) -> Option<(&ipc::ReviewAsked, &mut Stage)> {
+    match &mut one.opens {
+        Opens::Review { asked, stage, .. } => Some((&*asked, stage)),
+        _ => None,
+    }
+}
+
+/// A test's stand-in for Fleet's review routes: the tools it lists, and each run asked of it.
+#[cfg(test)]
+#[derive(Default)]
+struct FakeReviews {
+    tools: Vec<ReviewTool>,
+    posted: Vec<(String, ipc::StartReviewRun)>,
+}
+
+#[cfg(test)]
+impl Global for FakeReviews {}
 
 /// What the Operator did with a dispatch, or a review asked of him, as a toast of its own: its state, the sentence it
 /// says, and what a press on it opens.
@@ -229,7 +376,12 @@ struct Raised {
 impl Raised {
     /// The Operator's own: held while its page is in front, since the page holds each item.
     fn operators(&self) -> bool {
-        !matches!(self.opens, Opens::Review { .. })
+        !matches!(self.opens, Opens::Review { .. } | Opens::Ready { .. })
+    }
+
+    /// A running review he closed: it raises the ready toast all the same.
+    fn hidden(&self) -> bool {
+        matches!(self.opens, Opens::Review { stage: Stage::Running { hidden: true, .. }, .. })
     }
 }
 
@@ -299,13 +451,14 @@ pub fn review_asked(key: &str, asked: ipc::ReviewAsked, said: &str, cx: &mut App
         return;
     }
     let sentence = SharedString::from(asked.title.clone());
-    raise(JobState::Waiting, Opens::Review { key: key.to_string(), asked }, sentence, Some(said.to_string().into()), cx);
+    raise(JobState::Waiting, Opens::Review { key: key.to_string(), asked, stage: Stage::Asked }, sentence, Some(said.to_string().into()), cx);
 }
 
-/// Fleet's calls moved: a review's toast goes once he has opened that pull request, here or anywhere else.
+/// Fleet's calls moved: a review's toast goes once he has opened that pull request, here or anywhere else. One with
+/// its picker open or a review running stays, as he started something on it.
 fn settle_reviews(settled: impl Fn(&str) -> bool, cx: &mut App) -> bool {
     let Some(kept) = cx.try_global::<Rulings>() else { return false };
-    let left: Vec<Raised> = kept.0.iter().filter(|one| !matches!(&one.opens, Opens::Review { key, .. } if settled(key))).cloned().collect();
+    let left: Vec<Raised> = kept.0.iter().filter(|one| !matches!(&one.opens, Opens::Review { key, stage: Stage::Asked, .. } if settled(key))).cloned().collect();
     if left.len() == kept.0.len() {
         return false;
     }
@@ -519,6 +672,8 @@ pub struct Toasts {
     lift: gpui::Pixels,
     /// The pointer is over the pile, so it fans out into a column.
     fanned: bool,
+    /// The review toasts' asks of Fleet in flight, by what they ask.
+    review_work: HashMap<String, Task<()>>,
     _subs: Vec<Subscription>,
 }
 
@@ -553,7 +708,7 @@ impl Toasts {
             subs.push(Self::hear_dispatches(&fleet, cx));
             subs.extend(Self::hear_reviews(&fleet, cx));
         }
-        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, _subs: subs }
+        Toasts { shelf, page, screen, history: false, unseen: false, focus: cx.focus_handle(), history_focus: cx.focus_handle(), back: None, file, lift: gpui::px(0.), fanned: false, review_work: HashMap::new(), _subs: subs }
     }
 
     fn hear_dispatches(fleet: &Entity<crate::fleet::FleetConnection>, cx: &mut Context<Self>) -> Subscription {
@@ -584,7 +739,213 @@ impl Toasts {
                     cx.notify();
                 }
             }),
+            cx.subscribe(fleet, |this, _, moved: &crate::fleet::ReviewRunsMoved, cx| this.review_runs_moved(moved, cx)),
         ]
+    }
+
+    // -- a review started from its toast -----------------------------------------------------------
+
+    fn review_port(&self, cx: &App) -> Result<u16, String> {
+        self.page.read(cx).fleet().and_then(|fleet| fleet.read(cx).held().port()).ok_or_else(|| "Fleet is not connected".to_string())
+    }
+
+    fn ask_tools(&self, manifest: String, cx: &mut Context<Self>) -> Task<Result<Vec<ReviewTool>, String>> {
+        #[cfg(test)]
+        {
+            if let Some(fake) = cx.try_global::<FakeReviews>() {
+                return Task::ready(Ok(fake.tools.clone()));
+            }
+        }
+        let port = self.review_port(cx);
+        cx.background_spawn(async move { crate::reviews::read_tools(port?, &manifest) })
+    }
+
+    fn ask_run(&self, manifest: String, run: ipc::StartReviewRun, cx: &mut Context<Self>) -> Task<Result<ipc::ReviewRun, String>> {
+        #[cfg(test)]
+        {
+            if cx.has_global::<FakeReviews>() {
+                let queued = ipc::ReviewRun {
+                    manifest_id: ipc::ManifestId::carried(&manifest),
+                    number: run.number,
+                    kind: run.kind,
+                    name: run.name.clone(),
+                    head: "f00d".into(),
+                    since: None,
+                    state: ipc::ReviewRunState::Queued,
+                    started_at: "2026-11-19T09:00:00.000Z".into(),
+                    finished_at: None,
+                    failed: None,
+                    result: None,
+                    cost_micros: None,
+                };
+                cx.global_mut::<FakeReviews>().posted.push((manifest, run));
+                return Task::ready(Ok(queued));
+            }
+        }
+        let port = self.review_port(cx);
+        cx.background_spawn(async move { crate::reviews::post_run(port?, &manifest, &run) })
+    }
+
+    /// Review…: the picker opens in the toast, ticked as he last asked on this repository once its tools are read.
+    fn review_pick(&mut self, key: u64, cx: &mut Context<Self>) {
+        let Some((_, asked, Stage::Asked)) = review_of(key, cx) else { return };
+        restage(key, cx, |one| {
+            if let Some((_, stage)) = stage_of(one) {
+                *stage = Stage::Picking { tools: None, ask: ReviewAsk::first(&[]), why: None };
+            }
+        });
+        let read = self.ask_tools(asked.manifest_id.as_str().to_string(), cx);
+        let task = cx.spawn(async move |this, cx| {
+            let answer = read.await;
+            let _ = this.update(cx, |this, cx| this.review_tools_read(key, answer, cx));
+        });
+        self.review_work.insert(format!("tools:{key}"), task);
+        cx.notify();
+    }
+
+    fn review_tools_read(&mut self, key: u64, answer: Result<Vec<ReviewTool>, String>, cx: &mut Context<Self>) {
+        let Some((_, asked, Stage::Picking { .. })) = review_of(key, cx) else { return };
+        let last = crate::reviews::last_ask(&asked.repository, cx);
+        restage(key, cx, |one| {
+            let Some((_, stage)) = stage_of(one) else { return };
+            match answer {
+                Ok(tools) => {
+                    let mut ask = last.unwrap_or_else(|| ReviewAsk::first(&tools));
+                    ask.tools.retain(|id| tools.iter().any(|tool| tool.id == *id));
+                    *stage = Stage::Picking { tools: Some(tools), ask, why: None };
+                }
+                Err(why) => {
+                    if let Stage::Picking { why: was, .. } = stage {
+                        *was = Some(why.into());
+                    }
+                }
+            }
+        });
+        cx.notify();
+    }
+
+    fn review_toggle(&mut self, key: u64, tool: &str, cx: &mut Context<Self>) {
+        restage(key, cx, |one| {
+            if let Some((_, Stage::Picking { tools: Some(tools), ask, .. })) = stage_of(one) {
+                ask.toggle(tool, tools);
+            }
+        });
+        cx.notify();
+    }
+
+    fn review_cancel(&mut self, key: u64, cx: &mut Context<Self>) {
+        restage(key, cx, |one| {
+            if let Some((_, stage)) = stage_of(one) {
+                *stage = Stage::Asked;
+            }
+        });
+        cx.notify();
+    }
+
+    /// Start review: the ask is kept for the repository, and one run a ticked tool is asked of Fleet over the whole pull
+    /// request, again where one is kept at an older head. He stays where he is.
+    fn review_start(&mut self, key: u64, cx: &mut Context<Self>) {
+        let Some((_, asked, Stage::Picking { tools: Some(tools), ask, .. })) = review_of(key, cx) else { return };
+        if ask.tools.is_empty() {
+            return;
+        }
+        crate::reviews::keep_ask(asked.repository.clone(), ask.clone(), cx);
+        let runs: Vec<Started> = ask.tools.iter().map(|tool| Started { tool: tool.clone(), head: None, ended: None }).collect();
+        let detail = running_said(&asked, &tools, &runs);
+        restage(key, cx, |one| {
+            one.state = JobState::Working;
+            one.sentence = "Review running in the background".into();
+            one.detail = Some(detail.into());
+            if let Some((_, stage)) = stage_of(one) {
+                *stage = Stage::Running { tools, runs, hidden: false };
+            }
+        });
+        for tool in ask.tools {
+            let run = ipc::StartReviewRun { number: asked.number, kind: ipc::ReviewRunKind::Tool, name: tool.clone(), again: true, place: None, finding: None, since: None };
+            let answer = self.ask_run(asked.manifest_id.as_str().to_string(), run, cx);
+            let name = tool.clone();
+            let task = cx.spawn(async move |this, cx| {
+                let answer = answer.await;
+                let _ = this.update(cx, |this, cx| this.review_run_answered(key, &name, answer, cx));
+            });
+            self.review_work.insert(format!("run:{key}:{tool}"), task);
+        }
+        cx.notify();
+    }
+
+    /// Fleet answered a run's start: the run as it stands, or a refusal, which ends that tool's run as failed.
+    fn review_run_answered(&mut self, key: u64, tool: &str, answer: Result<ipc::ReviewRun, String>, cx: &mut Context<Self>) {
+        restage(key, cx, |one| {
+            let Some((_, Stage::Running { runs, .. })) = stage_of(one) else { return };
+            let Some(started) = runs.iter_mut().find(|one| one.tool == tool && one.ended.is_none()) else { return };
+            match answer {
+                Ok(run) => {
+                    started.ended = run_ended(&run);
+                    started.head = Some(run.head);
+                }
+                Err(_) => started.ended = Some(RunEnded::Failed),
+            }
+        });
+        self.review_ended(key, cx);
+        cx.notify();
+    }
+
+    /// `review_run.changed`: each running review's runs land, and a gap reads theirs again.
+    fn review_runs_moved(&mut self, moved: &crate::fleet::ReviewRunsMoved, cx: &mut Context<Self>) {
+        let running: Vec<u64> = cx
+            .try_global::<Rulings>()
+            .map(|kept| kept.0.iter().filter(|one| matches!(one.opens, Opens::Review { stage: Stage::Running { .. }, .. })).map(|one| one.key).collect())
+            .unwrap_or_default();
+        if running.is_empty() {
+            return;
+        }
+        for key in running {
+            restage(key, cx, |one| {
+                if let Some((asked, Stage::Running { runs, .. })) = stage_of(one) {
+                    for run in &moved.runs {
+                        land_review_run(asked, runs, run);
+                    }
+                }
+            });
+            self.review_ended(key, cx);
+            if moved.lost {
+                self.review_reread(key, cx);
+            }
+        }
+        cx.notify();
+    }
+
+    fn review_reread(&mut self, key: u64, cx: &mut Context<Self>) {
+        let Some((_, asked, Stage::Running { .. })) = review_of(key, cx) else { return };
+        let Ok(port) = self.review_port(cx) else { return };
+        let manifest = asked.manifest_id.as_str().to_string();
+        let read = cx.background_spawn(async move { crate::reviews::read_runs(port, &manifest, asked.number) });
+        let task = cx.spawn(async move |this, cx| {
+            let Ok(runs) = read.await else { return };
+            let _ = this.update(cx, |this, cx| this.review_runs_moved(&crate::fleet::ReviewRunsMoved { runs, lost: false }, cx));
+        });
+        self.review_work.insert(format!("reread:{key}"), task);
+    }
+
+    /// Every run ended: the running toast goes and the ready one is raised, with a banner when no window of the app is
+    /// in front and `features.notifications` is on, as `notify` keeps.
+    fn review_ended(&mut self, key: u64, cx: &mut Context<Self>) {
+        let Some((call, asked, Stage::Running { tools, runs, .. })) = review_of(key, cx) else { return };
+        if runs.iter().any(|one| one.ended.is_none()) {
+            return;
+        }
+        unrule(key, cx);
+        let sentence = format!("Review ready: {}", asked.title);
+        let detail = ready_said(&tools, &runs);
+        raise(JobState::Waiting, Opens::Ready { asked: asked.clone() }, sentence.clone().into(), Some(detail.clone().into()), cx);
+        let notifications = self.page.read(cx).fleet().is_some_and(|fleet| fleet.read(cx).held().notifications);
+        if notifications && cx.active_window().is_none() {
+            let tag = format!("{READY_TAG}{call}");
+            let banners = &mut cx.default_global::<ReadyBanners>().0;
+            banners.retain(|(held, _)| *held != tag);
+            banners.push((tag.clone(), asked));
+            crate::banner::post(&tag, &sentence, &detail, crate::notify::sound_of(CallTone::Waiting));
+        }
     }
 
     fn arrived(&mut self, items: &[OperatorTurnItem], window: &mut Window, cx: &mut Context<Self>) {
@@ -664,13 +1025,18 @@ impl Toasts {
     /// A press on an Operator ruling's toast: the Job it started or took the work, or the Operator's page. The toast goes.
     fn open_ruling(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
         let Some(one) = cx.try_global::<Rulings>().and_then(|kept| kept.0.iter().find(|one| one.key == key).cloned()) else { return };
-        unrule(key, cx);
+        // A running review's toast stays until the ready one takes its place.
+        let running = matches!(one.opens, Opens::Review { stage: Stage::Running { .. }, .. });
+        if !running {
+            unrule(key, cx);
+        }
         self.history = false;
         self.back = None;
         if let Some(screen) = self.screen.upgrade() {
             screen.update(cx, |screen, cx| match &one.opens {
                 Opens::Job(job) => screen.open_job(job, window, cx),
                 Opens::Operator => screen.bring(Some(Front::Operator), window, cx),
+                Opens::Review { asked, stage: Stage::Running { .. }, .. } | Opens::Ready { asked } => screen.open_review_findings(asked, window, cx),
                 Opens::Review { asked, .. } => screen.open_review(Some(asked), window, cx),
             });
         }
@@ -680,7 +1046,16 @@ impl Toasts {
     /// He closed a ruling's toast: the Job or the page stays unopened.
     fn close_ruling(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
         let had_keys = self.focus.is_focused(window);
-        unrule(key, cx);
+        let running = review_of(key, cx).is_some_and(|(_, _, stage)| matches!(stage, Stage::Running { .. }));
+        if running {
+            restage(key, cx, |one| {
+                if let Some((_, Stage::Running { hidden, .. })) = stage_of(one) {
+                    *hidden = true;
+                }
+            });
+        } else {
+            unrule(key, cx);
+        }
         if had_keys {
             self.give_back(window, cx);
         }
@@ -833,13 +1208,12 @@ impl Toasts {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG) * 1.5)
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_DEFAULT))
+            .border_color(edge_of(toast.urgency, look))
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             // A press on a toast never reaches what is under it.
             .occlude()
             .font_family(sans(look))
-            .child(div().flex_none().w(gpui::px(3.)).bg(edge_of(toast.urgency, look)))
             .child(body);
         let frame = if newest {
             frame
@@ -899,13 +1273,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {}", notice.headline),
@@ -984,13 +1357,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {sentence}"),
@@ -1066,13 +1438,12 @@ impl Toasts {
                 .overflow_hidden()
                 .rounded(look.length(token::RADIUS_LG) * 1.5)
                 .border(look.length(token::BORDER_WIDTH))
-                .border_color(edge.opacity(0.6))
+                .border_color(edge)
                 .bg(look.color(token::BG_OVERLAY))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
                 // A press on a toast never reaches what is under it.
                 .occlude()
                 .font_family(sans(look))
-                .child(div().flex_none().w(gpui::px(3.)).bg(edge))
                 .child(body),
             Role::Alert,
             format!("Toast: {headline}"),
@@ -1138,6 +1509,7 @@ impl Toasts {
         let opens: SharedString = match one.opens {
             Opens::Job(_) => "Opens the Job".into(),
             Opens::Operator => "Opens the Operator".into(),
+            Opens::Review { stage: Stage::Running { .. }, .. } | Opens::Ready { .. } => "Opens it in Reviews, on Review comments".into(),
             Opens::Review { .. } => "Opens it in Reviews".into(),
         };
         let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
@@ -1175,17 +1547,23 @@ impl Toasts {
             Role::Button,
             "Close",
         );
+        let head = div().flex().items_start().gap(look.length(token::SPACE_2)).child(mark).child(press).child(close);
+        let below = match &one.opens {
+            Opens::Review { asked, stage: Stage::Asked, .. } => Some(self.review_button(key, asked, look, cx)),
+            Opens::Review { asked, stage: Stage::Picking { tools, ask, why }, .. } => Some(self.review_picker(key, asked, tools.as_deref(), ask, why.as_ref(), look, cx)),
+            _ => None,
+        };
         let body = div()
             .flex_1()
             .min_w_0()
             .flex()
-            .items_start()
+            .flex_col()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
-            .child(mark)
-            .child(press)
-            .child(close);
+            .child(head)
+            .children(below);
+        let picking = matches!(one.opens, Opens::Review { stage: Stage::Picking { .. }, .. });
         let frame = div()
             .id(SharedString::from(format!("toast-ruling-frame:{key}")))
             .w(gpui::px(WIDTH))
@@ -1193,13 +1571,12 @@ impl Toasts {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG) * 1.5)
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(ink.opacity(0.6))
+            .border_color(ink)
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             // A press on a toast never reaches what is under it.
             .occlude()
             .font_family(sans(look))
-            .child(div().flex_none().w(gpui::px(3.)).bg(ink))
             .child(body);
         // ⌥⌘J puts the keys on the newest toast: Enter opens it, Esc closes it.
         let frame = if newest {
@@ -1209,6 +1586,8 @@ impl Toasts {
                     return;
                 }
                 match pressed.key.as_str() {
+                    "enter" if picking => this.review_start(key, cx),
+                    "escape" if picking => this.review_cancel(key, cx),
                     "enter" => this.open_ruling(key, window, cx),
                     "escape" => this.close_ruling(key, window, cx),
                     _ => return,
@@ -1219,6 +1598,80 @@ impl Toasts {
             frame
         };
         labelled(frame, Role::Alert, format!("Toast: {}", one.sentence))
+    }
+
+    /// Review… under a review asked of him, at the trailing edge.
+    fn review_button(&self, key: u64, asked: &ipc::ReviewAsked, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let button = press(SharedString::from(format!("toast-review:{key}")), "Review…".into(), Some("bot"), None, Weight::Plain, look).tooltip(tip(format!("Picks review tools and starts a review of #{}", asked.number)));
+        div().flex().justify_end().child(labelled(pressed(button, cx, move |this, _, cx| this.review_pick(key, cx)), Role::Button, "Review…")).into_any_element()
+    }
+
+    /// The picker in the toast: a checkbox a review tool, then Cancel and Start review. Bones while the tools are read.
+    #[allow(clippy::too_many_arguments)]
+    fn review_picker(&self, key: u64, asked: &ipc::ReviewAsked, tools: Option<&[ReviewTool]>, ask: &ReviewAsk, why: Option<&SharedString>, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let muted = |id: String, said: String| labelled(div().id(SharedString::from(id)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said.clone()), Role::Label, said);
+        let mut list = div().flex().flex_col();
+        match (tools, why) {
+            (_, Some(why)) => list = list.child(muted(format!("toast-review-why:{key}"), format!("The review tools were not read: {why}"))),
+            (None, None) => {
+                let bone = |at: usize| div().id(SharedString::from(format!("toast-review-bone:{key}:{at}"))).flex().items_center().h(look.length(token::H_CONTROL)).child(div().h(look.length(token::SPACE_3)).w(gpui::relative(0.4 + 0.2 * at as f32)).rounded(look.length(token::RADIUS_SM)).bg(look.color(token::BG_HOVER)));
+                list = list.child(labelled(div().id(SharedString::from(format!("toast-review-reading:{key}"))).flex().flex_col().child(bone(0)).child(bone(1)), Role::Status, "Reading the review tools"));
+            }
+            (Some([]), None) => list = list.child(muted(format!("toast-review-none:{key}"), "No review tool is set up for this repository".into())),
+            (Some(tools), None) => {
+                for tool in tools {
+                    let on = ask.has(&tool.id);
+                    let ink = if on { look.color(token::ACCENT) } else { look.color(token::FG_MUTED) };
+                    let ring = look.edge(token::FOCUS_RING).map_or(look.color(token::ACCENT), |(_, colour)| colour);
+                    let id = tool.id.clone();
+                    let row = div()
+                        .id(SharedString::from(format!("toast-review-tool:{key}:{}", tool.id)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .h(look.length(token::H_CONTROL))
+                        .px(look.length(token::SPACE_1))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_color(gpui::transparent_black())
+                        .cursor_pointer()
+                        .focusable()
+                        .tab_stop(true)
+                        .focus_visible(move |style| style.border_color(ring))
+                        .text_size(look.length(token::TEXT_SM))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .aria_toggled(if on { Toggled::True } else { Toggled::False })
+                        .child(glyph(if on { "square-check" } else { "square" }, look.length(token::SPACE_4), ink))
+                        .child(SharedString::from(tool.name.clone()));
+                    list = list.child(labelled(pressed(row, cx, move |this, _, cx| this.review_toggle(key, &id, cx)), Role::CheckBox, tool.name.clone()));
+                }
+            }
+        }
+        let cancel = labelled(
+            pressed(press(SharedString::from(format!("toast-review-cancel:{key}")), "Cancel".into(), None, None, Weight::Bare, look).tooltip(tip("Closes the picker")), cx, move |this, _, cx| this.review_cancel(key, cx)),
+            Role::Button,
+            "Cancel",
+        );
+        let ready = tools.is_some_and(|tools| !tools.is_empty()) && !ask.tools.is_empty();
+        let start = press(SharedString::from(format!("toast-review-start:{key}")), "Start review".into(), Some("bot"), None, Weight::JobPick, look)
+            .tooltip(tip(if ready { format!("Starts the ticked tools on #{}", asked.number) } else { "Tick a tool to start a review".to_string() }));
+        let start = if ready { pressed(start, cx, move |this, _, cx| this.review_start(key, cx)) } else { start.opacity(0.5).cursor_default().tab_stop(false) };
+        let start = labelled(start, Role::Button, "Start review");
+        labelled(
+            div()
+                .id(SharedString::from(format!("toast-review-picker:{key}")))
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .pt(look.length(token::SPACE_2))
+                .border_t(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_DEFAULT))
+                .child(list)
+                .child(div().flex().justify_end().items_center().gap(look.length(token::SPACE_2)).child(cancel).child(start)),
+            Role::Group,
+            "Review tools",
+        )
+        .into_any_element()
     }
 
     /// How far to stand above the corner: from the corner to the top of the message box, where one is drawn under
@@ -1257,7 +1710,7 @@ impl Toasts {
                 .rounded(look.length(token::RADIUS_MD))
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                .child(div().flex_none().w(gpui::px(3.)).h(look.length(token::SPACE_4)).rounded_full().bg(edge_of(toast.urgency, look)))
+                .child(div().flex_none().size(look.length(token::SPACE_2)).rounded_full().bg(edge_of(toast.urgency, look)))
                 .child(kind_chip(face::kind_of(&toast.item), look))
                 .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(title.clone()))
                 .child(div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(said))
@@ -1334,7 +1787,7 @@ impl Render for Toasts {
         let ruled: Vec<Raised> = if reading {
             Vec::new()
         } else {
-            cx.try_global::<Rulings>().map(|kept| kept.0.iter().filter(|one| !on_page || !one.operators()).cloned().collect()).unwrap_or_default()
+            cx.try_global::<Rulings>().map(|kept| kept.0.iter().filter(|one| (!on_page || !one.operators()) && !one.hidden()).cloned().collect()).unwrap_or_default()
         };
         // Under the title bar at most: in a short window the oldest is cut at the top, never the bell.
         let mut cards: Vec<AnyElement> = Vec::new();
@@ -1844,5 +2297,113 @@ mod review_tests {
         let reviews = cx.update(|_, cx| crate::reviews::walked(cx)).expect("the reviews screen");
         assert_eq!(reviews.read_with(cx, |reviews, _| reviews.showing()), Some(2231), "on the pull request asked of him");
         assert!(raised(cx).is_empty(), "the pressed toast goes");
+    }
+
+    fn tools() -> Vec<ReviewTool> {
+        let tool = |id: &str, name: &str, said: &str, first: bool| ReviewTool { id: id.into(), name: name.into(), said: said.into(), first };
+        vec![tool("bugs", "Possible bugs", "possible bugs", true), tool("risks", "Risks", "risks", true), tool("api", "API breaking changes", "API breaking changes", false)]
+    }
+
+    /// The toasts hearing an idle Fleet, its review routes stood in for, with the review asked of him raised.
+    fn asked_toast(cx: &mut gpui::TestAppContext) -> (Entity<crate::fleet::FleetConnection>, Vec<Subscription>, &mut gpui::VisualTestContext) {
+        ready(cx);
+        cx.update(|cx| cx.set_global(FakeReviews { tools: tools(), posted: Vec::new() }));
+        let (root, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| OperatorPageView::mock(window, cx));
+            Root(Toasts::mount(&page, WeakEntity::new_invalid(), window, cx).into())
+        });
+        let toasts: Entity<Toasts> = root.read_with(cx, |root, _| root.0.clone().downcast().expect("the toasts"));
+        let fleet = cx.update(|_, cx| cx.new(crate::fleet::FleetConnection::idle));
+        let heard = cx.update(|_, cx| toasts.update(cx, |_, cx| Toasts::hear_reviews(&fleet, cx)));
+        cx.update(|_, cx| review_asked(KEY, asked(), SAID, cx));
+        redraw(cx);
+        (fleet, heard, cx)
+    }
+
+    fn press_on(cx: &mut gpui::VisualTestContext, role: Role, name: &str) {
+        let at = drawn(cx, role, name).unwrap_or_else(|| panic!("{name} is drawn"));
+        cx.simulate_click(at.center(), gpui::Modifiers::none());
+        redraw(cx);
+    }
+
+    fn stage(cx: &mut gpui::VisualTestContext) -> Option<Stage> {
+        cx.update(|_, cx| cx.global::<Rulings>().0.iter().find_map(|one| match &one.opens {
+            Opens::Review { stage, .. } => Some(stage.clone()),
+            _ => None,
+        }))
+    }
+
+    fn details(cx: &mut gpui::VisualTestContext) -> Vec<(String, String)> {
+        cx.update(|_, cx| cx.global::<Rulings>().0.iter().map(|one| (one.sentence.to_string(), one.detail.clone().unwrap_or_default().to_string())).collect())
+    }
+
+    /// A tool's run as Fleet tells it: `done` with this many findings, or `failed`.
+    fn run(tool: &str, found: Option<usize>) -> ipc::ReviewRun {
+        let finding = r#"{"title":"Retry can loop","body":"b","severity":"medium","at":{"path":"src/retry.rs","side":"right","start":3,"end":4}}"#;
+        let ended = match found {
+            Some(count) => format!(r#""state":"done","result":{{"shape":"findings","findings":[{}]}}"#, vec![finding; count].join(",")),
+            None => r#""state":"failed","failed":"the bay stopped""#.to_string(),
+        };
+        let run = format!(r#"{{"manifest_id":"ledger-api","number":2231,"kind":"tool","name":"{tool}","head":"f00d","started_at":"2026-11-19T09:00:00.000Z",{ended}}}"#);
+        ipc::decode("ReviewRun", run.as_bytes()).expect("the run decodes")
+    }
+
+    fn start_with_first_tools(cx: &mut gpui::VisualTestContext) {
+        press_on(cx, Role::Button, "Review…");
+        press_on(cx, Role::Button, "Start review");
+    }
+
+    #[gpui::test]
+    fn review_opens_the_picker_with_the_tools_he_used_last_on_that_repository_ticked(cx: &mut gpui::TestAppContext) {
+        let (_fleet, _heard, cx) = asked_toast(cx);
+        cx.update(|_, cx| crate::reviews::keep_ask("harbor/ledger-api".into(), ReviewAsk { tools: vec!["risks".into(), "api".into()], ..ReviewAsk::first(&[]) }, cx));
+        press_on(cx, Role::Button, "Review…");
+        for tool in ["Possible bugs", "Risks", "API breaking changes"] {
+            assert!(drawn(cx, Role::CheckBox, tool).is_some(), "{tool} has its checkbox in the toast");
+        }
+        assert!(drawn(cx, Role::Button, "Cancel").is_some() && drawn(cx, Role::Button, "Start review").is_some(), "Cancel and Start review under them");
+        let Some(Stage::Picking { ask, .. }) = stage(cx) else { panic!("the picker is open") };
+        assert_eq!(ask.tools, ["risks", "api"], "ticked as he last asked on ledger-api");
+    }
+
+    #[gpui::test]
+    fn start_review_asks_one_run_a_ticked_tool_and_says_it_runs_in_the_background(cx: &mut gpui::TestAppContext) {
+        let (fleet, _heard, cx) = asked_toast(cx);
+        start_with_first_tools(cx);
+        let posted = cx.update(|_, cx| cx.global::<FakeReviews>().posted.clone());
+        let asked: Vec<(&str, &str, bool, ipc::ReviewRunKind)> = posted.iter().map(|(manifest, run)| (manifest.as_str(), run.name.as_str(), run.again, run.kind)).collect();
+        assert_eq!(asked, [("ledger-api", "bugs", true, ipc::ReviewRunKind::Tool), ("ledger-api", "risks", true, ipc::ReviewRunKind::Tool)], "one run a ticked tool");
+        assert_eq!(details(cx), [("Review running in the background".to_string(), "Possible bugs and risks on #2231. You'll get a notification when it's ready.".to_string())]);
+        assert!(drawn(cx, Role::Image, "Working").is_some(), "the running state's glyph");
+        assert!(drawn(cx, Role::Button, "Review running in the background").is_some(), "the running toast is drawn");
+        fleet.update(cx, |fleet, cx| {
+            fleet.hold_calls(calls(true));
+            cx.notify();
+        });
+        redraw(cx);
+        assert_eq!(details(cx).len(), 1, "opening the pull request elsewhere leaves the running toast");
+    }
+
+    #[gpui::test]
+    fn every_run_ended_raises_the_ready_toast_with_its_findings_and_drops_the_running_one(cx: &mut gpui::TestAppContext) {
+        let (fleet, _heard, cx) = asked_toast(cx);
+        start_with_first_tools(cx);
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::ReviewRunsMoved { runs: vec![run("bugs", Some(2))], lost: false }));
+        redraw(cx);
+        assert_eq!(raised(cx), ["Review running in the background"], "one run still going");
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::ReviewRunsMoved { runs: vec![run("risks", Some(1))], lost: false }));
+        redraw(cx);
+        assert_eq!(details(cx), [(format!("Review ready: {TITLE}"), "3 findings from possible bugs and risks.".to_string())], "the ready toast alone");
+        assert!(drawn(cx, Role::Button, &format!("Review ready: {TITLE}")).is_some(), "it is drawn");
+    }
+
+    #[gpui::test]
+    fn a_failed_run_is_named_in_the_ready_line(cx: &mut gpui::TestAppContext) {
+        let (fleet, _heard, cx) = asked_toast(cx);
+        start_with_first_tools(cx);
+        fleet.update(cx, |_, cx| cx.emit(crate::fleet::ReviewRunsMoved { runs: vec![run("bugs", Some(1)), run("risks", None)], lost: false }));
+        redraw(cx);
+        let ready = details(cx).into_iter().find(|(sentence, _)| sentence.starts_with("Review ready")).map(|(_, line)| line);
+        assert_eq!(ready.as_deref(), Some("1 finding from possible bugs. Risks failed."));
     }
 }

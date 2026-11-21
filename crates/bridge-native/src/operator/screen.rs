@@ -688,6 +688,26 @@ pub fn link_fleet(cx: &App) -> Option<Entity<FleetConnection>> {
     cx.try_global::<Here>()?.0.upgrade()?.read(cx).fleet.clone()
 }
 
+impl OperatorScreen {
+    /// A ready review: the pull request in Reviews, on Review comments.
+    pub fn open_review_findings(&mut self, asked: &ipc::ReviewAsked, window: &mut Window, cx: &mut Context<Self>) {
+        self.bring(Some(Front::Reviews), window, cx);
+        if let Some(reviews) = &self.reviews {
+            reviews.update(cx, |reviews, cx| reviews.open_asked_findings(asked, window, cx));
+        }
+    }
+}
+
+/// A banner's press on a ready review: [`OperatorScreen::open_review_findings`] from outside the screen.
+pub fn open_findings(asked: ipc::ReviewAsked, cx: &mut App) {
+    let Some(Here(me, handle)) = cx.try_global::<Here>().map(|here| Here(here.0.clone(), here.1)) else { return };
+    cx.defer(move |cx| {
+        let _ = handle.update(cx, |_, window, cx| {
+            let _ = me.update(cx, |this, cx| this.open_review_findings(&asked, window, cx));
+        });
+    });
+}
+
 /// A banner's press on a review asked of him: [`OperatorScreen::open_review`] from outside the screen.
 pub fn open_asked(asked: Option<ipc::ReviewAsked>, cx: &mut App) {
     let Some(Here(me, handle)) = cx.try_global::<Here>().map(|here| Here(here.0.clone(), here.1)) else { return };
