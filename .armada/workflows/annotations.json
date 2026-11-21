@@ -1,11 +1,12 @@
-# Annotations, as the owner approved it on 12 Nov 2026: Quiz, Change and walk, Refresh preview and sign off,
-# Refine and land. A Job started from the notes he left on the app. The sign-off is a `you_approved` gate,
-# so it ends on his Approve in the running build, not when a refresh is pushed.
+# Annotations, as the owner approved it on 12 Nov 2026: Quiz, Change and walk, Refresh preview and sign off, Refine and
+# land. A Job started from the notes he left on the app. On 20 Nov 2026 the walk became a Try and the refresh step was
+# dropped: the Try is a `you_approved` gate, so it ends on his Looks good on the Ready to try card, not on a push, and the
+# Job never hands him `scripts/preview --restart`.
 {
   "version": 1,
   "workflow_id": "annotations",
-  "name": "Annotations: quiz, change, refresh preview, your sign-off, land",
-  "for_requests": "A Job dispatched from a set of annotations the owner left on the app: small changes to what he sees, made quickly, put into his running build with a preview refresh, and landed once he approves them there.",
+  "name": "Annotations: quiz, change and try, land",
+  "for_requests": "A Job dispatched from a set of annotations the owner left on the app: small changes to what he sees, made quickly, offered for his preview, and landed once he says Looks good on them there.",
   "steps": [
     {
       "id": "quiz",
@@ -19,22 +20,13 @@
       "advance_gate": "auto"
     },
     {
-      "id": "walk",
-      "label": "Change and walk",
+      "id": "try",
+      "label": "Change and try",
       "tabs": ["artifacts", "pulls"],
-      "about": "Makes the changes quickly and walks each part you would see. Ends when you approve the walk. Left out when nothing would be seen.",
-      "instructions": "Make the changes quickly, handing each change whose shape is decided to a subagent. For each part the person would see and that a walk can show, make a walk group with ids walk, walk_2 and so on, each gated walk_approved, and show it with show_window naming its group. Leave the walk groups out when nothing would be seen. Mark each annotation done with mark_annotation_done once its change is made.",
-      "gate": "walk_approved",
-      "delivers": false,
-      "advance_gate": "auto"
-    },
-    {
-      "id": "refresh",
-      "label": "Refresh preview and sign off",
-      "tabs": ["artifacts", "pulls"],
-      "about": "Puts the changes in your running build with a preview refresh, then asks whether you are good with them. Ends when you press Approve.",
-      "instructions": "Load the preview-app skill and offer the refresh as a waiting_for item whose act is a run of scripts/preview --restart. Do not restart it yourself. Once he has refreshed, raise a waiting_for item with approves: true asking whether he is good with the changes. If he asks for changes, make them, offer another refresh and raise a new approval item. His Approve closes this step's you_approved gate.",
+      "about": "Makes the changes quickly and offers the branch for your preview. Ends when you press Looks good on its Ready to try card. Left out when nothing would be seen.",
+      "instructions": "Make the changes quickly, handing each change whose shape is decided to a subagent. Mark each annotation done with mark_annotation_done once its change is made.\nMake one group for this step, id try, gated you_approved, and leave it out when nothing would be seen. Push the branch and offer it with offer_preview: `about` says in one line what the branch holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
       "gate": "you_approved",
+      "previews": true,
       "delivers": false,
       "advance_gate": "auto"
     },

@@ -645,7 +645,7 @@ where
     }
 
     async fn report_session_check(
-        &self,
+        self: Arc<Self>,
         call: ipc::SessionCheckCall,
     ) -> Result<ipc::SessionCheckAnswer, Refusal> {
         self.session_check_reported(call).await

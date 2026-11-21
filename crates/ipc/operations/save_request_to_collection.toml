@@ -1,5 +1,5 @@
 [operations.save_request_to_collection]
-ask_tool = "none"
+ask_tool = "api-client"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

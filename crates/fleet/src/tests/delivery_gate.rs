@@ -98,7 +98,7 @@ async fn the_answer_is_kept_on_the_job_and_sent_to_the_agent() {
     eventually(|| async { question(&rig, &id).await.is_some() }).await;
 
     let answered = Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(1), text: None, mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(1), text: None, mode: None, fixed: None, extras: Default::default() })
         .await
         .expect("answered");
     assert!(answered.waiting_for.iter().all(|one| one.source != WaitingSource::Delivery), "the question is gone");
@@ -125,7 +125,7 @@ async fn the_question_is_answered_with_one_of_the_three_and_never_dismissed() {
     eventually(|| async { question(&rig, &id).await.is_some() }).await;
 
     let words = Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: None, text: Some("whatever".into()), mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: None, text: Some("whatever".into()), mode: None, fixed: None, extras: Default::default() })
         .await;
     assert!(words.is_err(), "words alone are refused");
     let dismissed = Arc::clone(&rig.fleet)
@@ -138,7 +138,7 @@ async fn the_question_is_answered_with_one_of_the_three_and_never_dismissed() {
 async fn answered(rig: &Rig, id: &SessionId, choice: u32) {
     eventually(|| async { question(rig, id).await.is_some() }).await;
     Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(choice), text: None, mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() })
         .await
         .expect("answered");
 }

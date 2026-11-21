@@ -16,6 +16,13 @@ mod save;
 mod view;
 mod wire;
 
+#[cfg(test)]
+mod client_tests;
+#[cfg(test)]
+mod model_tests;
+#[cfg(test)]
+mod test_fixtures;
+
 use std::rc::Rc;
 
 use gpui::{prelude::*, Anchor, Context, DismissEvent, Entity, FocusHandle, Focusable, ListAlignment, ListState, Role, SharedString, Subscription, Task, WeakEntity, Window};

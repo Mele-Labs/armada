@@ -15,7 +15,7 @@ use crate::labels::labelled;
 use crate::look::{Look, Token};
 
 /// The list's heading, and its name to a screen reader.
-const ASK_FOR: &str = "Ask the agent for";
+pub(crate) const ASK_FOR: &str = "Ask the agent for";
 
 /// The key the registry gives `ask_for_tool`, for the button's tooltip.
 fn key() -> Option<gpui::Keystroke> {
@@ -36,7 +36,7 @@ pub(crate) fn painted(look: &Look) -> Vec<(&'static str, &'static str, gpui::Hsl
 }
 
 /// The list's rows, in the order `ask_tools.toml` lists them, the heading over the first.
-pub(super) fn rows() -> Vec<Row> {
+pub(crate) fn rows() -> Vec<Row> {
     ask_tools()
         .iter()
         .enumerate()
@@ -84,6 +84,27 @@ impl JobView {
     }
 }
 
+/// The + as another box draws it, for a view that is not a Job's: `keyed` puts the act's key in its tooltip, where the
+/// box's scope hears it.
+pub(crate) fn plus_button<T: 'static>(
+    look: &Look,
+    open: bool,
+    keyed: bool,
+    dress: impl FnOnce(gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div>,
+    cx: &Context<T>,
+    press: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    let key = if keyed { key() } else { None };
+    labelled(
+        dress(super::head::icon_frame(look, "ask-for-tool", "plus", open, false))
+            .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new("Ask the agent for a sketch, takes, a page").key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
+            .on_click(cx.listener(move |this, _: &gpui::ClickEvent, window, cx| press(this, window, cx))),
+        Role::Button,
+        "Ask the agent for a tool",
+    )
+    .into_any_element()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -92,8 +113,8 @@ mod tests {
     fn the_tools_are_listed_in_their_order_under_one_heading() {
         let rows = rows();
         let names: Vec<&str> = rows.iter().map(|row| row.name.as_str()).collect();
-        assert_eq!(names, ["Sketch", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features"]);
-        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None]);
+        assert_eq!(names, ["Sketch", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features", "API Client"]);
+        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None, None]);
         assert_eq!(rows[2].says, "options side by side; you pick one");
         assert_eq!(rows[2].pick, Pick::Tag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
     }
@@ -101,7 +122,7 @@ mod tests {
     #[test]
     fn each_tool_has_a_hue_and_a_glyph_no_other_tool_has() {
         let glyphs: Vec<&str> = ask_tools().iter().map(|tool| tool.glyph).collect();
-        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks"]);
+        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks", "arrow-right-left"]);
         let hues: std::collections::BTreeSet<&str> = ask_tools().iter().map(|tool| tool.hue).collect();
         assert_eq!(hues.len(), ask_tools().len(), "no two tools share a hue");
         assert!(hues.iter().all(|hue| hue.starts_with("--ask-")), "every hue is an ask tool's own, none a status's");

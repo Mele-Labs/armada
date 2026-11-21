@@ -62,7 +62,7 @@ where
                 return Ok(JobDispatched { session: None, operator: Some(id), parked: None });
             }
         }
-        let session = self.dispatch_started(dispatch).await?;
+        let session = Box::pin(self.dispatch_started(dispatch)).await?;
         Ok(JobDispatched { session: Some(session), operator: None, parked: None })
     }
 
@@ -106,7 +106,7 @@ where
         let words = start.request.clone().unwrap_or_default();
         let subject = start.title.clone().filter(|title| !title.trim().is_empty()).unwrap_or_else(|| first_line(&words));
         let found = self.found_elsewhere(&manifest, &subject, &words).await;
-        let record = Arc::clone(self).started_reading(start).await?;
+        let record = Box::pin(Arc::clone(self).started_reading(start)).await?;
         self.dispatch_sent(&record.id, then).await;
         // Told after his own words, so they stay his first message as he wrote them.
         self.elsewhere_told(record.id.as_str(), &manifest, &subject, &found).await;
@@ -137,14 +137,25 @@ where
     }
 
     /// `then`, sent into `session` in order. One that is refused is warned of and the rest go on.
+    ///
+    /// **Each send runs on a task of its own**, so it starts at the top of a worker's stack. Polled inline it ran
+    /// beneath every layer of the router and the whole start, and a note's send overflowed the stack and aborted
+    /// Fleet (21 Nov).
     async fn dispatch_sent(self: &Arc<Self>, session: &SessionId, then: Vec<DispatchThen>) {
         for send in then {
-            let sent = match send {
-                DispatchThen::Notes(notes) => Arc::clone(self).send_session_notes(SendSessionNotes { session_id: session.clone(), notes }).await.map(|_| ()),
-                DispatchThen::Message(message) => Arc::clone(self).send_session_message_aiming(message.to(session.clone()), None).await.map(|_| ()),
-            };
-            if let Err(why) = sent {
-                self.operator_warned("what followed a dispatch was not sent", format!("{why:?}"));
+            let fleet = Arc::clone(self);
+            let session = session.clone();
+            let sent = tokio::spawn(async move {
+                match send {
+                    DispatchThen::Notes(notes) => fleet.send_session_notes(SendSessionNotes { session_id: session, notes }).await.map(|_| ()),
+                    DispatchThen::Message(message) => fleet.send_session_message_aiming(message.to(session), None).await.map(|_| ()),
+                }
+            })
+            .await;
+            match sent {
+                Ok(Ok(())) => {}
+                Ok(Err(why)) => self.operator_warned("what followed a dispatch was not sent", format!("{why:?}")),
+                Err(why) => self.operator_warned("what followed a dispatch was not sent", why.to_string()),
             }
         }
     }

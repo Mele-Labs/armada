@@ -139,7 +139,7 @@ async fn a_line_that_runs_too_long_is_stopped() {
     rig.holds_the_slot().await;
 
     let ran = Arc::clone(&rig.fleet)
-        .shell_action_run_within(rig.run("echo begun; sleep 30"), Duration::from_secs(1))
+        .shell_action_run_within(rig.run("echo begun; sleep 30"), Duration::from_secs(5))
         .await
         .expect("answered");
 

@@ -80,7 +80,7 @@ async fn a_sketch_drawn_in_the_turn_still_running_takes_his_answer_on_its_card()
     let id = working(&rig).await;
     rig.fleet.show_sketch(None, drawn(&id)).await.unwrap();
 
-    let answer = ItemAnswer { session_id: id.clone(), item: "sketch:What changed".into(), how: ItemHow::Approve, notes: Vec::new() };
+    let answer = ItemAnswer { session_id: id.clone(), item: "sketch:What changed".into(), how: ItemHow::Approve, notes: Vec::new(), extras: Default::default() };
     let settled = Arc::clone(&rig.fleet).answer_items(AnswerItems { items: vec![answer] }, Vec::new()).await;
     assert_eq!(settled.outcomes[0].outcome, ItemSettled::Settled, "not raised yet, and answered all the same");
     turn_ended(&rig, &id).await;
