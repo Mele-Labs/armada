@@ -7,7 +7,7 @@ use std::path::Path;
 use ipc::{ChangeSet, ChangeSetKind, HunkRef, OverviewFinding, PracticeCheck, PracticeItem, PracticeVerdict};
 use serde::Deserialize;
 
-use crate::review_runs::{cut_to_limit, cut_to_sentences, file_in, nothing, place_holds, said, sentences_in};
+use crate::review_runs::{cut_to_limit, file_in, nothing, place_holds, said, sentences_in};
 
 /// Sets an answer may make. A change cut finer than this is a list of hunks, not a reading of it.
 pub(crate) const SETS_AT_MOST: usize = 12;
@@ -186,7 +186,7 @@ pub(crate) fn overview_of(json: &str, sets: &[String], changed: &[String]) -> Re
     for (at, finding) in out.findings.iter_mut().enumerate() {
         let what = format!("finding {}", at + 1);
         nothing(&format!("the title of {what}"), &finding.title)?;
-        finding.reason = cut_to_limit(&cut_to_sentences(&finding.reason, 1));
+        finding.reason = cut_to_limit(&finding.reason);
         one_sentence(&format!("the reason of {what}"), &finding.reason)?;
         if !sets.contains(&finding.set) {
             return Err(format!("{what} names {}, which is not one of the sets", finding.set));
