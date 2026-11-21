@@ -125,6 +125,11 @@ where
         Ok(own)
     }
 
+    /// Whether this Mac holds Job `job` itself: a row of its own that did not move to another Mac.
+    pub(crate) async fn holds_itself(&self, job: &str) -> bool {
+        self.store().lock().await.session(job).ok().flatten().is_some_and(|one| one.end_reason.as_deref() != Some(MOVED_TO_MAC))
+    }
+
     /// The Mac Job `job` is held from. **None where this Mac holds a Job by that id itself**, so another Mac
     /// can never stand in for one of this Mac's Jobs, unless it moved from here to that Mac.
     pub(crate) async fn mac_holding(&self, job: &str) -> Option<String> {
@@ -382,8 +387,14 @@ where
         let kept = rows.iter().map(|one| Ok((one.id.as_str().to_string(), self.encoded(one)?))).collect::<Result<Vec<_>, Refusal>>()?;
         store.replace_from_mac(FromMac::Sessions, &mac, &kept).map_err(|why| self.ledger_fault(why))?;
         drop(store);
-        let left_out = before.keys().filter(|id| !rows.iter().any(|one| one.id.as_str() == id.as_str()));
-        self.relay_removed(left_out.cloned().collect());
+        let mut left_out = Vec::new();
+        for id in before.keys().filter(|id| !rows.iter().any(|one| one.id.as_str() == id.as_str())) {
+            // An echo of this Mac's own Job, kept before echoes were turned away, goes quietly: Bridge's row is ours.
+            if !self.holds_itself(id).await {
+                left_out.push(id.clone());
+            }
+        }
+        self.relay_removed(left_out);
         // A row that is as it was is no news, so a Mac waking after a sleep rings for what changed while it slept.
         let changed: Vec<SessionRecord> = rows.into_iter().filter(|record| before.get(record.id.as_str()) != Some(record)).collect();
         self.calls_heard_from_mac(&changed, before.is_empty());
@@ -427,6 +438,9 @@ where
     async fn hold_other_mac_event(self: Arc<Self>, crossed: OtherMacEvent) -> Result<MacNamed, Refusal> {
         let mac = self.mac_named(&crossed.mac)?;
         let job = match &crossed.event {
+            // A row that Mac holds from another, this one among them, is not its to share: a build from before
+            // `share_event` turned them away echoes them back. Taken, and nothing done.
+            Event::SessionChanged(record) if record.mac.is_some() => return Ok(MacNamed { mac }),
             Event::SessionChanged(record) => {
                 let mut record = record.clone();
                 record.mac = Some(mac.clone());

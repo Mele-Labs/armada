@@ -96,7 +96,7 @@ async fn kept(rig: &Rig, id: &SessionId) -> Option<DeliveryChoice> {
 async fn answered(rig: &Rig, id: &SessionId, choice: u32) {
     eventually(|| async { question(rig, id).await.is_some() }).await;
     Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(choice), text: None, mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: "delivery".into(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() })
         .await
         .expect("answered");
 }

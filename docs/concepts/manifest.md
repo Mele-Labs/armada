@@ -531,6 +531,9 @@ Rules that follow:
   The load is read off `sysctl -n vm.loadavg` at most every ten seconds; a machine that will not say it gates nothing.
   Decided 14 Nov 2026, after every Job's brief carried a hand-written wait on the load: the owner's ruling was that Fleet deals with load and no agent does.
   Every Check already runs at utility priority (next section), so an agent needs no `taskpolicy` of its own.
+- **One Check per checkout at a time.** An `armada check` takes its checkout's lock, `checkout-<path>` in the same directory, before the machine's slots, and a second one in that checkout says `waiting for the Check already running in this checkout` and waits holding no slot.
+  Decided 21 Nov 2026: two Checks in one checkout share its build directory, so the second only queued on cargo's lock while it held a slot; 386 agent runs of 14 to 21 Nov, 26.3 h, were a second run of the same Check in the same slot.
+  A Check inside a Check skips it, as it skips the slots.
 - **A Check inside a Check runs under its parent's slots.** Each Check's command gets `ARMADA_CHECK_SLOTS_HELD`, so a suite that runs `armada check` on a fixture never waits on itself.
 - **A suite run bare takes no slot and no `${width}`.** Run it through `armada check <name>`, and one test through `armada check <name> <test>`.
 
@@ -612,7 +615,7 @@ Rules that follow:
 
 - **Absent means a test cannot be run by name.** A Check with no `one_test` gives no way to run one test, so a test named under it is refused.
 - **`{}` is the test's name, and a command without it is refused at load**, the way every template with nowhere to substitute is.
-- **A Check that declares `narrow.under` compiles only the members that declare the test.** `armada check` reads `fn <name>` or `mod <name>` in each member's source and appends every one that does as `narrow.each` spells it, so `armada check test a_test` is `-p fleet` for a fleet test and no longer builds every test binary in the workspace.
+- **A Check that declares `narrow.under` compiles only the members that declare the test.** `armada check` reads `fn <name>` or `mod <name>` in each member's test source (a file with a test attribute, or under a `tests` module) and appends every one that does as `narrow.each` spells it, so `armada check test a_test` is `-p fleet` for a fleet test and no longer builds every test binary in the workspace.
   That is why this `run` has no `--workspace`: cargo reads it beside `-p` as the whole workspace.
   `narrow.except` bars `acceptance` here as it does there.
   **A name no member declares is refused, saying so, rather than run against all of them.** The match is over source text, so a member may be compiled for a mention of the name and never missed for the want of one.

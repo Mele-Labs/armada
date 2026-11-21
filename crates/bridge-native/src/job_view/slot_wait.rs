@@ -115,7 +115,7 @@ impl JobView {
 
     /// Add: Fleet makes a slot and this Job takes it. A refusal is said as a toast; the card's own line says a failed make.
     fn slot_added(&mut self, job: SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let body = encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: SLOT_CHOICE.into(), choice: Some(1), text: None, mode: None, fixed: None });
+        let body = encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: SLOT_CHOICE.into(), choice: Some(1), text: None, mode: None, fixed: None, extras: Default::default() });
         self.post_with(job, "/sessions/waiting/answer", body, |_, why, cx| cx.defer(move |cx| crate::toasts::tell(why, cx)), window, cx);
     }
 

@@ -280,7 +280,7 @@ impl JobView {
     fn send_notes_back(&mut self, ix: usize, key: &str, text: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(notes) = self.workflow_notes(key, text, cx) else { return };
         let session_id = SessionId::carried(self.shown.clone().unwrap_or_default().to_string());
-        let body = AnswerWaiting { session_id, item_id: key.to_string(), choice: None, text: Some(notes.clone()), mode: None, fixed: None };
+        let body = AnswerWaiting { session_id, item_id: key.to_string(), choice: None, text: Some(notes.clone()), mode: None, fixed: None, extras: Default::default() };
         let body = ipc::encode(&body).map_err(|why| format!("{why:?}"));
         self.settle(ix, key.to_string(), Answer::SentBack(notes), "/sessions/waiting/answer", body, window, cx);
     }

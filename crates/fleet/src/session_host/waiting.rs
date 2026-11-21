@@ -1220,7 +1220,7 @@ where
             return Err(self.hosted_refusal(SESSION_WAITING_EMPTY, "an answer by parts needs at least one part"));
         }
         self.visit_kept(said.session_id.as_str()).await;
-        let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None };
+        let whole = AnswerWaiting { session_id: said.session_id, item_id: said.item_id, choice: None, text: None, mode: None, fixed: None, extras: Default::default() };
         Box::pin(self.settle_answer_picking(whole, Answerer::Him, &said.parts_picked, false)).await
     }
 
@@ -1319,8 +1319,8 @@ where
         let message = |body: String| SendSessionMessage {
             session_id: said.session_id.clone(),
             text: body,
-            attachments: Vec::new(),
-            mentions: Vec::new(),
+            attachments: said.extras.attachments.clone(),
+            mentions: said.extras.mentions.clone(),
             sketches: Vec::new(),
         };
         // The card routes answer through `answer_session_ask`, which enters its own; the rest are

@@ -245,7 +245,7 @@ pub(super) fn said_of(notes: &[ItemNote]) -> String {
 
 /// `answer_items` for one item: his verdict and its notes.
 pub(super) fn verdict(job: &str, item: &str, how: ItemHow, notes: Vec<ItemNote>) -> AnswerItems {
-    AnswerItems { items: vec![ItemAnswer { session_id: SessionId::carried(job.to_string()), item: item.to_string(), how, notes }] }
+    AnswerItems { items: vec![ItemAnswer { session_id: SessionId::carried(job.to_string()), item: item.to_string(), how, notes, extras: Default::default() }] }
 }
 
 /// The key the reader keeps a thing's notes under (`drafts.rs`).

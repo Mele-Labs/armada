@@ -296,6 +296,10 @@ where
         }
         // Its row here goes, and the row the other Mac shares stands in its place.
         self.publish(ipc::Event::SessionRemoved(ipc::SessionRemoved { session_id: settled.session_id.clone() }));
+        // That row may have come first, and Bridge holds one row an id, so the removal took it too: said again.
+        if let Some(theirs) = self.sessions_from_macs().await.unwrap_or_default().into_iter().find(|one| one.id.as_str() == id) {
+            self.events().relay(ipc::Event::SessionChanged(theirs));
+        }
         for turn in kept.iter().filter_map(|body| first_turn_of(body)) {
             let message = SendSessionMessage { session_id: settled.session_id.clone(), text: turn.text, attachments: Vec::new(), mentions: turn.tags, sketches: Vec::new() };
             let act = JobAct::Message(SendSessionMessageBody { message, aim: None });

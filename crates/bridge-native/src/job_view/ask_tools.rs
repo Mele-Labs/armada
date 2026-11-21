@@ -92,8 +92,8 @@ mod tests {
     fn the_tools_are_listed_in_their_order_under_one_heading() {
         let rows = rows();
         let names: Vec<&str> = rows.iter().map(|row| row.name.as_str()).collect();
-        assert_eq!(names, ["Sketch", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features"]);
-        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None]);
+        assert_eq!(names, ["Sketch", "Diagram", "Takes", "Document", "Browser", "Terminal", "Features", "API Client"]);
+        assert_eq!(rows.iter().map(|row| row.group).collect::<Vec<_>>(), [Some("Ask the agent for"), None, None, None, None, None, None, None]);
         assert_eq!(rows[2].says, "options side by side; you pick one");
         assert_eq!(rows[2].pick, Pick::Tag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
     }
@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn each_tool_has_a_hue_and_a_glyph_no_other_tool_has() {
         let glyphs: Vec<&str> = ask_tools().iter().map(|tool| tool.glyph).collect();
-        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks"]);
+        assert_eq!(glyphs, ["layout-template", "chart-network", "columns-2", "file-text", "globe", "monitor-play", "blocks", "arrow-right-left"]);
         let hues: std::collections::BTreeSet<&str> = ask_tools().iter().map(|tool| tool.hue).collect();
         assert_eq!(hues.len(), ask_tools().len(), "no two tools share a hue");
         assert!(hues.iter().all(|hue| hue.starts_with("--ask-")), "every hue is an ask tool's own, none a status's");

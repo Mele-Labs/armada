@@ -345,6 +345,7 @@ where
             text: words.map(str::to_string),
             mode: None,
             fixed: None,
+            extras: Default::default(),
         };
         Arc::clone(self).answer_waiting(said).await?;
         Ok(item.id)
@@ -352,8 +353,13 @@ where
 
     /// Send the Job `text` as his message.
     pub(super) async fn told_as_him(self: &Arc<Self>, id: &str, text: String) -> Result<(), Refusal> {
+        self.told_as_him_with(id, text, &ipc::AnswerExtras::default()).await
+    }
+
+    /// The same, with the pictures and tags his answer carried, which reach the Job as a message's do.
+    pub(super) async fn told_as_him_with(self: &Arc<Self>, id: &str, text: String, extras: &ipc::AnswerExtras) -> Result<(), Refusal> {
         let terminal = self.terminal_session(id).await?;
-        let told = SendSessionMessage { session_id: SessionId::carried(id), text, attachments: Vec::new(), mentions: Vec::new(), sketches: Vec::new() };
+        let told = SendSessionMessage { session_id: SessionId::carried(id), text, attachments: extras.attachments.clone(), mentions: extras.mentions.clone(), sketches: Vec::new() };
         Arc::clone(self).send_known(terminal, told).await.map(drop)
     }
 }

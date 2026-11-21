@@ -478,7 +478,7 @@ async fn his_edit_of_a_draft_becomes_its_rows_text_and_his_approve_says_it() {
           Use his text as the draft from now on."]
     );
 
-    let approve = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None, fixed: None };
+    let approve = AnswerWaiting { session_id: id.clone(), item_id: item, choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(approve).await.unwrap();
     let approved = sent(&rig.rows(&id).await).pop().unwrap();
     assert!(approved.ends_with(&format!("\n\n{his}")), "{approved}");

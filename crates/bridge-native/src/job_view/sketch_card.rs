@@ -779,7 +779,7 @@ impl JobView {
     }
 
     fn answer_sketch_with(&mut self, acts: &Acts, how: SketchHow, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
-        let body = ipc::encode(&AnswerSketch { session_id: self.sketch_session(), sketch: acts.sketch.clone(), drawn: acts.drawn.clone().unwrap_or_default(), how, words: words.clone() }).map_err(|why| format!("{why:?}"));
+        let body = ipc::encode(&AnswerSketch { session_id: self.sketch_session(), sketch: acts.sketch.clone(), drawn: acts.drawn.clone().unwrap_or_default(), how, words: words.clone(), extras: Default::default() }).map_err(|why| format!("{why:?}"));
         let answer = match words {
             Some(words) => Answer::SentBack(words),
             None => Answer::Approved,
