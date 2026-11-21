@@ -21,7 +21,7 @@ use gpui::{
     Context, DismissEvent, Entity, ExternalPaths, FocusHandle, Focusable, FontWeight, Image, ImageFormat, KeyDownEvent, KeyUpEvent, ModifiersChangedEvent, PathPromptOptions,
     Role, SharedString, Subscription, Task, Window,
 };
-use gpui_component::input::{Enter, Escape, IndentInline, InlineToken, InputContent, InputEvent, MoveDown, MoveUp, Textarea, TextareaState};
+use gpui_component::input::{Backspace, Enter, Escape, IndentInline, InlineToken, InputContent, InputEvent, MoveDown, MoveLeft, MoveRight, MoveUp, Textarea, TextareaState};
 use ipc::{
     ModelChoices, SendSessionMessage, SendSessionMessageBody, SentFile, SessionMode, SessionRow, SessionTag, SessionUpload,
     SessionVoice, ThreadItem, TuneSession,
@@ -456,7 +456,15 @@ pub(crate) fn words_area(input: &Entity<TextareaState>, look: &Look, on_paste: i
         .on_paste(on_paste)
         .token(move |drawn, _, _| match format_of(drawn.token().id()) {
             // One of Armada's tools is tinted in its hue, its glyph in the hue and its whole edge a hairline of it.
-            None => match super::offer::mention_of(drawn.token().id(), drawn.token().label()).filter(|tag| tag.kind == ipc::TagKind::Tool).and_then(|tag| tools.iter().find(|(id, ..)| *id == tag.id)) {
+            None => match super::offer::mention_of(drawn.token().id(), drawn.token().label()).and_then(|tag| {
+                // A request's chip takes its tool's glyph and hue.
+                let tool = match tag.kind {
+                    ipc::TagKind::Tool => tag.id.as_str(),
+                    ipc::TagKind::Request => super::ask_tools::API_CLIENT,
+                    _ => return None,
+                };
+                tools.iter().find(|(id, ..)| *id == tool)
+            }) {
                 Some((_, glyph, hue)) => gpui_component::input::InputToken::new(drawn)
                     .icon(gpui_component::Icon::empty().path(crate::assets::icon_path(glyph)).text_color(*hue))
                     .bg(hue.opacity(0.16))
@@ -989,6 +997,10 @@ impl JobView {
             return;
         }
         let keys = &event.keystroke;
+        if self.tools_typed(keys, cx) {
+            cx.stop_propagation();
+            return;
+        }
         if keys.modifiers.platform && keys.modifiers.shift && !keys.modifiers.alt && !keys.modifiers.control {
             if let Some(n) = keys.key.parse::<usize>().ok().filter(|n| (1..=9).contains(n)) {
                 if self.press_quick(n - 1, true, window, cx) {
@@ -1329,6 +1341,9 @@ impl JobView {
             }))
             .capture_action(cx.listener(|this, _: &MoveUp, window, cx| this.list_key("up", window, cx)))
             .capture_action(cx.listener(|this, _: &MoveDown, window, cx| this.list_key("down", window, cx)))
+            .capture_action(cx.listener(|this, _: &MoveRight, window, cx| this.list_key("right", window, cx)))
+            .capture_action(cx.listener(|this, _: &MoveLeft, window, cx| this.list_key("left", window, cx)))
+            .capture_action(cx.listener(|this, _: &Backspace, window, cx| this.list_key("backspace", window, cx)))
             .capture_action(cx.listener(|this, _: &Escape, window, cx| this.list_key("escape", window, cx)))
             .capture_action(cx.listener(|this, _: &IndentInline, window, cx| this.list_key("tab", window, cx)))
             .px(look.length(token::SPACE_4))
