@@ -536,7 +536,10 @@ mod tests {
         redraw(cx);
         let listed = standing_for_it(&view, cx);
         assert_eq!(listed.iter().map(|(_, kind)| *kind).collect::<Vec<_>>(), [Kind::Artifact], "one entry, the artifact, which holds every part: {listed:?}");
-        assert!(drawn(cx, Role::RadioButton, "Pick B \u{b7} Rail (Job's pick)"), "its takes are drawn, so a pick can be made");
+        // On the sheet the vote starts on the Job's pick; the thread behind holds one line for the sketch, not its takes.
+        assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.kind)), Some(Kind::Artifact), "the sheet opens on the artifact the row is");
+        let _ = take_bounds(cx, TAKES[1]);
+        assert!(drawn(cx, Role::RadioButton, &format!("Pick {}", TAKES[0])), "its takes are drawn, so a pick can be made");
     }
 
     #[gpui::test]
@@ -570,16 +573,6 @@ mod tests {
         });
     }
 
-    /// The artifact's card in the thread, holding the keys, with a second vote added under the first. Fleet holds an artifact
-    /// to one ask, so the review sheet draws one vote; the thread's card still sends several, for an artifact from before that.
-    fn opened_with_two_votes<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
-        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
-        add_side_vote(&view, cx);
-        view.update_in(cx, |view, window, cx| view.focus_card(ID, window, cx));
-        redraw(cx);
-        (view, cx)
-    }
-
     /// A second vote added under the first: "side", of two takes with no scene.
     fn add_side_vote(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext) {
         view.update(cx, |view, cx| {
@@ -598,80 +591,41 @@ mod tests {
         redraw(cx);
     }
 
-    fn note(view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext, key: &str, words: &str) {
+    /// Fleet holds an artifact to one ask, and the sheet is the one place an ask is answered (19 Nov): an artifact from before
+    /// that, with two votes still asking, is read only in its own tab, under the line that opens the sheet.
+    #[gpui::test]
+    fn an_artifact_of_two_votes_is_read_only_in_its_tab_and_enter_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        add_side_vote(&view, cx);
+        view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Region, "Reader: Step bar for Jobs, Revision 2"), "the tab reads it whole");
+        assert!(drawn(cx, Role::Button, "Step bar for Jobs"), "under one line naming it, which opens the sheet");
+        for answer in ["Send picks", "Send pick", "Dismiss", "Approve", "Ask for changes"] {
+            assert!(!drawn(cx, Role::Button, answer), "no {answer} in the tab");
+        }
+        assert!(!drawn(cx, Role::RadioButton, &format!("Pick {}", TAKES[0])), "no take is picked in the tab");
+        assert!(drawn(cx, Role::RadioButton, &format!("Take {}", TAKES[0])), "each take is named by its title alone");
+        // The keys on the tab's card, as it holds them.
         view.update_in(cx, |view, window, cx| {
-            let input = view.pages.get(JOB).and_then(|page| page.cards.parts.notes(key)).expect("the vote's words box");
-            input.update(cx, |input, cx| input.set_value(words, window, cx));
+            view.choose_take(&super::super::parts_card::part_key(ID, "bar"), 0, cx);
+            view.focus_card(ID, window, cx);
         });
+        redraw(cx);
+        cx.simulate_keystrokes("cmd-enter");
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.mock_part_posts().is_empty()), "no key sends a pick from the tab");
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "Enter opens the sheet");
+        assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.kind)), Some(Kind::Artifact), "on the artifact");
     }
 
     #[gpui::test]
-    fn several_votes_are_sent_by_one_send_picks_with_each_votes_own_note(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened_with_two_votes(cx);
-        let (bar, side) = (super::super::parts_card::part_key(ID, "bar"), super::super::parts_card::part_key(ID, "side"));
-        assert!(!drawn(cx, Role::Button, "Send pick"), "no vote has a Send pick of its own");
-        view.update_in(cx, |view, _, cx| {
-            view.choose_take(&bar, 1, cx);
-            view.choose_take(&side, 0, cx);
-        });
-        note(&view, cx, &bar, "Rail, but narrower.");
-        note(&view, cx, &side, "Left reads first.");
-        redraw(cx);
-        let send = bounds_of(cx, Role::Button, "Send picks").center();
-        cx.simulate_click(send, Modifiers::none());
-        redraw(cx);
-        view.read_with(cx, |view, _| {
-            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.as_str(), post.take.as_deref(), post.words.as_deref())).collect();
-            assert_eq!(posts, [("bar", Some("rail"), Some("Rail, but narrower.")), ("side", Some("left"), Some("Left reads first."))], "one answer to each vote, each with its own note");
-            let held = view.artifact_of(JOB, ID).expect("the artifact");
-            let state = |id: &str| held.parts.iter().find(|part| part.id == id).map(|part| part.state);
-            assert_eq!((state("bar"), state("side")), (Some(ipc::PartState::Picked), Some(ipc::PartState::Picked)), "both votes are answered");
-        });
-    }
-
-    #[gpui::test]
-    fn a_vote_with_no_pick_stays_asking_after_send_picks_and_the_button_waits_for_a_pick(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened_with_two_votes(cx);
-        let side = super::super::parts_card::part_key(ID, "side");
-        let send = bounds_of(cx, Role::Button, "Send picks").center();
-        cx.simulate_click(send, Modifiers::none());
-        redraw(cx);
-        assert!(view.read_with(cx, |view, _| view.mock_part_posts().is_empty()), "with no pick there is nothing to send");
-        view.update_in(cx, |view, _, cx| view.choose_take(&side, 1, cx));
-        redraw(cx);
-        let send = bounds_of(cx, Role::Button, "Send picks").center();
-        cx.simulate_click(send, Modifiers::none());
-        redraw(cx);
-        view.read_with(cx, |view, _| {
-            let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.as_str(), post.take.as_deref())).collect();
-            assert_eq!(posts, [("side", Some("right"))], "only the vote with a pick went");
-            let held = view.artifact_of(JOB, ID).expect("the artifact");
-            let state = |id: &str| held.parts.iter().find(|part| part.id == id).map(|part| part.state);
-            assert_eq!((state("bar"), state("side")), (Some(ipc::PartState::Open), Some(ipc::PartState::Picked)), "the other vote still asks");
-        });
-        assert!(drawn(cx, Role::Button, "Send pick"), "one vote left is a single vote again");
-    }
-
-    #[gpui::test]
-    fn cmd_enter_sends_every_pick_of_several_votes(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened_with_two_votes(cx);
-        let (bar, side) = (super::super::parts_card::part_key(ID, "bar"), super::super::parts_card::part_key(ID, "side"));
-        view.update_in(cx, |view, _, cx| {
-            view.choose_take(&bar, 0, cx);
-            view.choose_take(&side, 1, cx);
-        });
-        redraw(cx);
-        // The card's own key handler, as the card holding the keys hears ⌘↵.
-        let event = gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse("cmd-enter").expect("a keystroke"), is_held: false, prefer_character_input: false };
-        view.update_in(cx, |view, window, cx| view.parts_key(ID, &event, window, cx));
-        redraw(cx);
-        assert_eq!(view.read_with(cx, |view, _| view.mock_part_posts().len()), 2, "the key sends them all");
-    }
-
-    #[gpui::test]
-    fn one_takes_part_keeps_its_send_pick(cx: &mut gpui::TestAppContext) {
+    fn a_single_vote_is_answered_from_the_sheets_bar_and_nothing_draws_a_send_pick(cx: &mut gpui::TestAppContext) {
         let (_, cx) = opened(cx, 1400., 900.);
-        assert!(drawn(cx, Role::Button, "Send pick"), "a single vote has its own Send pick");
+        assert!(drawn(cx, Role::Button, "Pick B \u{b7} Rail"), "the bar's answer names the take chosen");
+        assert!(!drawn(cx, Role::Button, "Send pick"), "the thread behind holds one line, with no Send pick of its own");
         assert!(!drawn(cx, Role::Button, "Send picks"), "and no Send picks");
     }
 
@@ -680,7 +634,9 @@ mod tests {
         let (view, cx) = opened(cx, 1400., 900.);
         // The app's own keys: the registry binds ⌘↵ as Send everywhere, as main.rs installs it.
         cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
-        view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
+        // The sheet's own Ask for changes: its box in the bar holds the note for every part that asks.
+        let ask = bounds_of(cx, Role::Button, "Ask for changes").center();
+        cx.simulate_click(ask, Modifiers::none());
         redraw(cx);
         cx.simulate_input("Shorter, please.");
         redraw(cx);
@@ -688,19 +644,22 @@ mod tests {
         redraw(cx);
         view.read_with(cx, |view, _| {
             let posts: Vec<_> = view.mock_part_posts().iter().map(|post| (post.part.clone(), post.how, post.words.clone())).collect();
-            assert_eq!(posts, [("intro".to_string(), ipc::PartHow::SentBack, Some("Shorter, please.".to_string()))], "⌘↩ sends the note as Send does");
+            assert!(!posts.is_empty() && posts.iter().all(|(_, how, words)| *how == ipc::PartHow::SentBack && words.as_deref() == Some("Shorter, please.")), "⌘↩ sends the note as Send does: {posts:?}");
+            assert!(posts.iter().any(|(part, _, _)| part == "intro"), "the words go back with it: {posts:?}");
         });
     }
 
     #[gpui::test]
     fn escape_in_an_ask_for_changes_box_closes_the_box_and_the_next_one_closes_the_panel(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, 1400., 900.);
-        view.update_in(cx, |view, window, cx| view.part_ask_for_changes(ID, "intro", window, cx));
+        // The sheet's own box, in its bar: the thread behind holds one line for the artifact and no box of its own.
+        let ask = bounds_of(cx, Role::Button, "Ask for changes").center();
+        cx.simulate_click(ask, Modifiers::none());
         redraw(cx);
-        let boxed = |view: &gpui::Entity<JobView>, cx: &mut gpui::VisualTestContext| view.read_with(cx, |view, _| view.pages.get(JOB).is_some_and(|page| !page.cards.modes.is_empty()));
-        assert!(boxed(&view, cx), "the box is open");
+        assert!(drawn(cx, Role::TextInput, "Ask for changes"), "the box is open");
         cx.simulate_keystrokes("escape");
-        assert!(!boxed(&view, cx), "the first Esc closes the box");
+        redraw(cx);
+        assert!(!drawn(cx, Role::TextInput, "Ask for changes"), "the first Esc closes the box");
         assert!(view.read_with(cx, |view, _| view.review_open()), "and leaves the panel");
         cx.simulate_keystrokes("escape");
         assert!(!view.read_with(cx, |view, _| view.review_open()), "the next Esc closes the panel");
@@ -749,21 +708,20 @@ mod tests {
     }
 
     #[gpui::test]
-    fn escape_closes_the_panel_after_a_press_on_a_take_and_on_its_picture(cx: &mut gpui::TestAppContext) {
-        for name in [format!("Pick {}", TAKES[0]), format!("Picture: {}", TAKES[0])] {
-            let (view, cx) = opened(cx, 1400., 900.);
-            let at = bounds_of(cx, if name.starts_with("Pick") { Role::RadioButton } else { Role::Button }, &name).center();
-            cx.simulate_click(at, Modifiers::none());
-            redraw(cx);
-            assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none()), "a press on {name} opens nothing over the app");
+    fn escape_closes_the_panel_after_a_press_on_a_take(cx: &mut gpui::TestAppContext) {
+        // In the sheet a take's tile is its picture and its name, one press.
+        let (view, cx) = opened(cx, 1400., 900.);
+        let at = bounds_of(cx, Role::RadioButton, &format!("Pick {}", TAKES[0])).center();
+        cx.simulate_click(at, Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none()), "a press on the take opens nothing over the app");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        if view.read_with(cx, |view, _| view.review_open()) {
             cx.simulate_keystrokes("escape");
             redraw(cx);
-            if view.read_with(cx, |view, _| view.review_open()) {
-                cx.simulate_keystrokes("escape");
-                redraw(cx);
-            }
-            assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc closes the panel after a press on {name}");
         }
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "Esc closes the panel after a press on the take");
     }
 
     #[gpui::test]

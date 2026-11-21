@@ -94,6 +94,7 @@ fn has_page(thing: &Thing) -> bool {
     match thing {
         Thing::Ask(_) | Thing::Lapsed(_) => true,
         Thing::Row(row) => !row_options(row).is_empty() || kind_of(row).is_some(),
+        Thing::Sheet(_) => false,
     }
 }
 

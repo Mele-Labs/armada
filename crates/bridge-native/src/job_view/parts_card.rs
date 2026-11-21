@@ -385,7 +385,16 @@ impl JobView {
         page.extras.iter().position(|extra| matches!(extra, Extra::Parts(id, number) if id == artifact && *number == newest)).map(|at| page.items + at)
     }
 
-    fn parts_changed(&mut self, artifact: &str, cx: &mut Context<Self>) {
+    /// An artifact that still asks, and the sheet holds, is answered only there: in its own tab it is read only.
+    pub(super) fn reads_only(&self, artifact: &str, cx: &gpui::App) -> bool {
+        let Some(job) = self.shown.clone() else { return false };
+        let (Some(page), Some(held)) = (self.pages.get(&job), self.artifact_of(&job, artifact)) else { return false };
+        let parts: Vec<ArtifactPart> = held.parts.iter().map(|part| effective(part, &part_key(artifact, &part.id), &page.cards.parts)).collect();
+        let asking = page.cards.answers.get(artifact) != Some(&Answer::Withdrawn) && stand_of(&parts, held.state) == Stand::Asking;
+        asking && self.asking_item(&job, artifact, cx).and_then(|item| self.held_item(&job, &item, cx)).is_some()
+    }
+
+    pub(super) fn parts_changed(&mut self, artifact: &str, cx: &mut Context<Self>) {
         match self.parts_ix(artifact) {
             Some(ix) => self.card_changed(ix, cx),
             None => cx.notify(),
@@ -764,6 +773,26 @@ impl JobView {
             let fold = super::parts_fold::Fold { ix, artifact: id, title: &artifact.title, form: artifact.form, revision: last.map_or(1, |last| last.number), numbered: artifact.revisions.len() > 1, verdict, said };
             return Some(self.folded_parts(fold, page, look, cx));
         }
+        // In the thread, an artifact that asks is one line pointing to the sheet, where it is answered.
+        if !tab && !sheet {
+            if let Some(pointer) = self.parts_pointer("thread", id, look, cx) {
+                return Some(pointer);
+            }
+        }
+        // In its own tab it is read only, under the same line: no pick, verdict or Dismiss is drawn there.
+        let pointer = if tab && !sheet && self.reads_only(id, cx) { self.parts_pointer("reader", id, look, cx) } else { None };
+        let read_only = pointer.is_some();
+        let parts: Vec<ArtifactPart> = if read_only {
+            parts
+                .into_iter()
+                .map(|mut part| {
+                    part.asks = false;
+                    part
+                })
+                .collect()
+        } else {
+            parts
+        };
         let revision = last.map(|last| (last.number, revision_said(last.number, last.by, last.at.as_str())));
         let head = band(
             look,
@@ -798,7 +827,7 @@ impl JobView {
                 .children(blocks);
             return Some(labelled(column, Role::Region, named).into_any_element());
         }
-        let footer = Some(held_press(self.parts_footer(ix, id, &parts, asking, None, page, look, cx)));
+        let footer = (!read_only).then(|| held_press(self.parts_footer(ix, id, &parts, asking, None, page, look, cx)));
         // A press anywhere on the card that is not on one of its controls, and did not travel, grows it out over the app.
         let (opened, kept, store) = (id.to_string(), id.to_string(), self.pictures.cards.clone());
         let card = frame(look, self.band_narrow(look))
@@ -807,7 +836,15 @@ impl JobView {
             .track_focus(&spot.focus)
             .in_focus(|style| style.border_color(look.color(token::ACCENT)))
             .cursor_pointer()
-            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| this.parts_key(&artifact_id, event, window, cx)))
+            .on_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
+                // Read only, Enter opens the sheet on it and no key answers it here.
+                if !read_only {
+                    this.parts_key(&artifact_id, event, window, cx);
+                } else if !event.keystroke.modifiers.modified() && event.keystroke.key == "enter" {
+                    cx.stop_propagation();
+                    this.open_artifact_review(&artifact_id, window, cx);
+                }
+            }))
             .on_click(cx.listener(move |this, event: &ClickEvent, window, cx| {
                 if let ClickEvent::Mouse(press) = event {
                     let travel = press.up.position - press.down.position;
@@ -821,7 +858,11 @@ impl JobView {
             .child(head)
             .children(blocks)
             .children(footer);
-        Some(labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element())
+        let card = labelled(card, if tab { Role::Region } else { Role::Article }, named).into_any_element();
+        Some(match pointer {
+            Some(pointer) => div().w_full().flex().flex_col().gap(look.length(token::SPACE_2)).child(pointer).child(card).into_any_element(),
+            None => card,
+        })
     }
 
     /// The footer of the artifact in the review panel, pinned under its parts and read as the card would read it.
@@ -1243,7 +1284,14 @@ impl JobView {
     fn take_tile(&self, c: &Ctx, key: &str, at: usize, take: &PartTake, on: bool, open: bool, target: bool, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         let (title, marked) = pick_mark(&take.title);
-        let name = if on { format!("Chosen: {}", take.title) } else { format!("Pick {}", take.title) };
+        // A take that cannot be picked here is named by its title alone, so nothing reads as a pick he can make.
+        let name = if on {
+            format!("Chosen: {}", take.title)
+        } else if open {
+            format!("Pick {}", take.title)
+        } else {
+            format!("Take {}", take.title)
+        };
         let radio = div()
             .flex_none()
             .flex()
@@ -2117,6 +2165,8 @@ mod tests {
         view.update(cx, |view, cx| {
             let part = view.artifact_mut(JOB, "draft:Commit words").and_then(|one| one.parts.first_mut()).expect("the card holds its words");
             part.content = PartContent::Words { text: (1..=14).map(|line| format!("Line {line} of a long reply.")).collect::<Vec<_>>().join("\n\n") };
+            // Words that only inform stand on their card in the thread; words that ask are one line pointing to the sheet.
+            part.asks = false;
             view.parts_changed("draft:Commit words", cx);
         });
         redraw(cx);
@@ -2134,6 +2184,9 @@ mod tests {
     #[gpui::test]
     fn copy_on_words_puts_them_on_the_clipboard_and_reads_copied_for_a_moment(cx: &mut gpui::TestAppContext) {
         let (view, cx) = folds_job(cx, |_| {});
+        // Words that ask are read and answered in the review sheet; in the thread they are one line pointing there.
+        view.update_in(cx, |view, window, cx| view.open_artifact_review("draft:Commit words", window, cx));
+        redraw(cx);
         assert!(drawn(cx, gpui::Role::Button, "Copy"), "words carry Copy");
         assert!(!drawn(cx, gpui::Role::Button, "Copied"));
         let key = part_key("draft:Commit words", "commit");
@@ -2170,7 +2223,7 @@ mod tests {
         view.update_in(cx, |view, window, cx| view.answer_part("draft:Page title", &part, PartHow::SentBack, None, Some("Name it for the question.".into()), window, cx));
         redraw(cx);
         assert!(drawn(cx, gpui::Role::Status, "Page title: Sent back"), "revision 1 stands as one line");
-        assert!(drawn(cx, gpui::Role::Article, "Artifact: Page title, Revision 2"), "the Job's next drawing asks again, in a card of its own");
+        assert!(drawn(cx, gpui::Role::Button, "Page title"), "the Job's next drawing asks again, one line pointing to the sheet");
         view.read_with(cx, |view, cx| {
             let verdict = view.verdict_kept(JOB, "draft:Page title", 1, cx).expect("his words were kept under revision 1");
             assert_eq!(verdict.note.as_deref(), Some("Name it for the question."));

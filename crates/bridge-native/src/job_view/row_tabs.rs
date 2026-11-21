@@ -315,6 +315,15 @@ impl JobView {
         self.open_artifact_review(artifact, window, cx);
     }
 
+    /// An artifact of parts read whole in its own tab, as a tab kept from before comes back: in the thread its card is a line.
+    #[cfg(test)]
+    pub(super) fn open_artifact_reader(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(title) = self.artifact_of(&id, artifact).map(|one| one.title.clone()) else { return };
+        self.row_tabs_of(&id).focus(RowKind::Artifact, artifact, title);
+        self.row_tab_front(&id, RowKind::Artifact, artifact, window, cx);
+    }
+
     /// Subagent `subagent` of Job `id`, as its ledger holds it, else as the press on its row in the thread gave it.
     pub(super) fn subagent_held(&self, id: &str, subagent: &str, cx: &gpui::App) -> Option<ipc::ToolSubagent> {
         let ledger = self.record(id, cx).and_then(|record| record.attachments.iter().find(|one| one.kind == "subagent" && one.target == subagent)).map(super::ledger::subagent_of);

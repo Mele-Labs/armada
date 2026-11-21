@@ -3,6 +3,8 @@
 //! card's head brings the one before or after. A press on an option, or its number, answers at once as the band's
 //! buttons did (`answer_row`). Discuss stands where Answer in words stood: the panel folds and the caret goes in the
 //! Job's own box, which then answers the question (`dock.answering`) and sends nothing until he does.
+//! Since one ask, one place (19 Nov), a question the review sheet holds is one line in Needs you that opens the sheet
+//! on it (`ask_line`); the card draws only a question the sheet does not hold.
 
 use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Window};
 use ipc::{NeedsYouAct, NeedsYouDismiss, NeedsYouRow, WaitingSource};
@@ -233,7 +235,7 @@ mod tests {
     use super::super::parts_fold::{drawn, redraw};
     use super::super::JobView;
     use super::stepped;
-    use gpui::{prelude::*, Bounds, Focusable as _, Pixels, Role};
+    use gpui::{prelude::*, Bounds, Pixels, Role};
 
     /// The Job that asks two questions, while he answers with buttons.
     const JOB: &str = "mock-01";
@@ -303,83 +305,29 @@ mod tests {
         fresh(cx);
     }
 
+    /// One ask, one place (19 Nov): the review sheet answers a question, and Needs you lists it as one line that opens
+    /// the sheet on it. No card, option or stepper is drawn in the panel.
     #[gpui::test]
-    fn a_question_in_needs_you_is_drawn_on_the_operators_card_one_in_front(cx: &mut gpui::TestAppContext) {
+    fn a_question_in_needs_you_is_one_line_each_and_no_card_answers_it_there(cx: &mut gpui::TestAppContext) {
         let (_view, cx) = opened(cx);
-        assert!(drawn(cx, Role::Article, FIRST), "the question in front is the card");
-        assert!(drawn(cx, Role::Group, "Options"), "its options, as the card draws them");
-        assert!(drawn(cx, Role::Button, REDIRECT), "an option holds its name, the Job's mark taken off");
-        assert!(drawn(cx, Role::Button, "Discuss"));
-        assert!(!drawn(cx, Role::Button, "Answer in words"), "Discuss stands in its place");
-        assert!(!drawn(cx, Role::Article, SECOND), "the other waits behind it");
-        assert!(drawn(cx, Role::Status, "1 of 2"));
-        press(cx, "Next question");
-        assert!(drawn(cx, Role::Article, SECOND), "the stepper brings it to the front");
-        assert!(!drawn(cx, Role::Article, FIRST));
+        assert!(drawn(cx, Role::Button, FIRST), "the first question is its line");
+        assert!(drawn(cx, Role::Button, SECOND), "and the second its own, not behind it");
+        assert!(!drawn(cx, Role::Article, FIRST), "no card");
+        assert!(!drawn(cx, Role::Group, "Options"), "no options");
+        assert!(!drawn(cx, Role::Button, REDIRECT), "no option to press");
+        assert!(!drawn(cx, Role::Status, "1 of 2"), "no stepper");
     }
 
+    /// The Job's pick, among labels with no word on what each costs, is answered in the sheet too: a press on the line opens
+    /// it on that question, and the panel draws no option of it.
     #[gpui::test]
-    fn discuss_puts_the_caret_in_the_jobs_box_and_sends_nothing(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx);
-        press(cx, "Discuss");
-        let focused = cx.update(|window, cx| view.read(cx).composer.input.read(cx).focus_handle(cx).is_focused(window));
-        assert!(focused, "the caret is in the box");
-        view.read_with(cx, |view, cx| {
-            assert_eq!(view.answering_row(JOB, cx).map(|row| row.id.as_str()), Some("agent-1"), "the box answers the question");
-            assert!(!view.needs_up(JOB, cx), "the panel folds");
-            let dock = view.dock_of(JOB).expect("the Job's panel");
-            assert!(dock.hidden.is_empty(), "nothing was answered");
-            assert!(view.composer.input.read(cx).value().is_empty(), "nothing is typed for him");
-            assert_eq!(view.card_questions(JOB, cx).len(), 2, "both questions still wait");
-        });
-        assert!(drawn(cx, Role::TextInput, "Answer in words"));
-    }
-
-    #[gpui::test]
-    fn a_press_on_an_option_answers_and_the_next_question_comes_to_the_front(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx);
-        press(cx, REDIRECT);
-        view.read_with(cx, |view, cx| {
-            assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the question is answered and goes at once");
-            assert_eq!(view.front_question(JOB, cx).map(|row| row.id.as_str()), Some("agent-2"));
-        });
-        assert!(drawn(cx, Role::Article, SECOND));
-        assert!(!drawn(cx, Role::Status, "1 of 2"), "one question alone has no stepper");
-    }
-
-    #[gpui::test]
-    fn the_jobs_pick_answers_when_pressed(cx: &mut gpui::TestAppContext) {
+    fn a_press_on_the_line_of_a_question_with_a_pick_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened_with(cx, labels_only);
-        press(cx, PICK);
-        view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the pick's answer goes out"));
-    }
-
-    /// The pointer rests on the Job's pick long enough for its tooltip, then presses it, as a person does.
-    #[gpui::test]
-    fn the_jobs_pick_answers_when_pressed_after_the_pointer_rests_on_it(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened_with(cx, labels_only);
-        let at = bounds_of(cx, Role::Button, PICK).center();
-        cx.simulate_mouse_move(at, None, gpui::Modifiers::none());
-        fresh(cx);
-        cx.executor().advance_clock(std::time::Duration::from_millis(800));
-        fresh(cx);
-        cx.simulate_mouse_down(at, gpui::MouseButton::Left, gpui::Modifiers::none());
-        fresh(cx);
-        cx.simulate_mouse_up(at, gpui::MouseButton::Left, gpui::Modifiers::none());
-        fresh(cx);
-        view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.contains("agent-1")), "the pick's answer goes out"));
-    }
-
-    #[gpui::test]
-    fn a_number_answers_the_question_in_front(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = opened(cx);
-        press(cx, "Next question");
-        view.update_in(cx, |view, window, cx| view.pick_digit(2, window, cx));
-        fresh(cx);
-        view.read_with(cx, |view, _| {
-            let dock = view.dock_of(JOB).expect("the Job's panel");
-            assert!(dock.hidden.contains("agent-2") && !dock.hidden.contains("agent-1"), "2 answers the question in front, not the first listed");
-        });
+        assert!(!drawn(cx, Role::Button, PICK), "the pick is not pressed in the panel");
+        press(cx, FIRST);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("agent-1"), "the sheet opens on that question");
+        view.read_with(cx, |view, _| assert!(view.dock_of(JOB).is_some_and(|dock| dock.hidden.is_empty()), "nothing is answered by the press"));
     }
 
     #[test]

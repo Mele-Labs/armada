@@ -202,7 +202,29 @@ impl Notifier {
         }
         let opened = self.jobs.update(cx, |jobs, cx| jobs.open_job(session_id, cx)).unwrap_or(false);
         Note::info("a banner was pressed").field("opened", opened).emit();
+        // The Job's newest ask opens in the review sheet, the one place it is answered. A banner names no item, so the newest
+        // stands for what arrived.
+        let newest = self.jobs.upgrade().and_then(|jobs| jobs.read(cx).record(session_id).and_then(|record| newest_ask(&record.waiting_for)));
+        if let (true, Some(item)) = (opened, newest) {
+            let item = ipc::ItemRef { session_id: ipc::SessionId::carried(session_id.to_string()), item };
+            let _ = self.window.update(cx, |_, window, cx| crate::job_view::open_over(window, cx, item, None));
+        }
     }
+}
+
+/// The newest of a Job's items the review sheet answers: a plan, sketch, page or draft, a question with choices, or one that
+/// names an artifact.
+pub fn newest_ask(waiting: &[ipc::WaitingItem]) -> Option<String> {
+    use ipc::WaitingSource::*;
+    waiting
+        .iter()
+        .filter(|one| match one.source {
+            Plan | Sketch | Document | Draft | AskCard => true,
+            Agent => !one.options.is_empty() || one.artifact.is_some(),
+            _ => false,
+        })
+        .max_by(|a, b| a.since.as_str().cmp(b.since.as_str()))
+        .map(|one| one.id.clone())
 }
 
 #[cfg(test)]
@@ -313,5 +335,22 @@ mod tests {
         for tone in [CallTone::Blocked, CallTone::Waiting] {
             assert!(sounds.join(sound_of(tone)).is_file(), "{} is not in apps/desktop/sounds", sound_of(tone));
         }
+    }
+
+    #[test]
+    fn a_banner_opens_the_newest_ask_and_never_a_build_or_a_permission() {
+        let jobs = crate::mock::jobs("job-view").expect("decodes");
+        let mut one = jobs.iter().flat_map(|job| job.waiting_for.iter()).next().expect("a waiting item").clone();
+        one.options.clear();
+        one.artifact = None;
+        let at = |id: &str, source: ipc::WaitingSource, since: &str| ipc::WaitingItem { id: id.into(), source, since: ipc::Instant::carried(since), ..one.clone() };
+        let waiting = [
+            at("sketch:Chip", ipc::WaitingSource::Sketch, "2026-11-20T10:00:00Z"),
+            at("ask:call-1", ipc::WaitingSource::AskCard, "2026-11-20T11:00:00Z"),
+            at("try:branch@tip", ipc::WaitingSource::ReadyToTry, "2026-11-20T12:00:00Z"),
+            at("agent-note", ipc::WaitingSource::Agent, "2026-11-20T13:00:00Z"),
+        ];
+        assert_eq!(newest_ask(&waiting).as_deref(), Some("ask:call-1"), "a build to try and an agent's note with no choices are not asks");
+        assert_eq!(newest_ask(&waiting[2..]), None);
     }
 }

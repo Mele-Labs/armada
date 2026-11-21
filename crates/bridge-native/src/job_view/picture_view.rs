@@ -68,6 +68,12 @@ pub(super) fn take_of(at: usize, len: usize) -> String {
 }
 
 impl JobView {
+    /// Whether the view over the app answers the part of `key`: over the review sheet, or once its artifact no longer asks. From
+    /// the artifact's own tab it is read only, as the tab is.
+    fn answers_in_view(&self, key: &str, cx: &App) -> bool {
+        self.review_open() || super::parts_card::split_key(key).is_none_or(|(artifact, _)| !self.reads_only(artifact, cx))
+    }
+
     pub(super) fn open_picture(&mut self, image: Arc<Image>, natural: Size<f32>, name: SharedString, window: &mut Window, cx: &mut Context<Self>) {
         self.open_viewing(What::Raster { image, natural, name }, window, cx);
     }
@@ -302,6 +308,7 @@ impl JobView {
         let mut pick = None;
         if let What::Take { key, at } = &viewing.what {
             if let Some((takes, open, chosen)) = self.takes_of_key(key) {
+                let open = open && self.answers_in_view(key, cx);
                 let named = |to: usize| pick_mark(&takes[to].title).0.to_string();
                 let (before, after) = (stepped(*at, -1, takes.len()), stepped(*at, 1, takes.len()));
                 let (_, marked) = pick_mark(&takes[*at].title);
@@ -354,7 +361,8 @@ impl JobView {
         let head = self.picture_head(viewing, look, cx);
         let bar = |acts: AnyElement| div().flex_none().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_3)).border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_DEFAULT)).bg(look.color(token::BG_RAISED)).child(acts);
         let foot = match &viewing.what {
-            What::Take { key, .. } => self.part_acts(key, look, cx).map(bar).map(IntoElement::into_any_element),
+            What::Take { key, .. } | What::Drawing { key } if !self.answers_in_view(key, cx) => None,
+            What::Take { key, .. } =>self.part_acts(key, look, cx).map(bar).map(IntoElement::into_any_element),
             // A drawing keeps everything its card asks: its own Approve and Ask for changes, the pick, and Dismiss.
             What::Drawing { key } => {
                 let acts = self.part_acts(key, look, cx).map(bar);
@@ -508,9 +516,23 @@ mod tests {
 
     fn takes_view<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        // Over the review sheet, the one place the vote is answered.
+        view.update_in(cx, |view, window, cx| view.open_artifact_review(ID, window, cx));
+        redraw(cx);
         view.update_in(cx, |view, window, cx| view.open_take(&part_key(ID, "bar"), 1, window, cx));
         redraw(cx);
         (view, cx)
+    }
+
+    #[gpui::test]
+    fn a_take_opened_from_the_artifacts_own_tab_while_it_asks_is_read_only(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
+        redraw(cx);
+        view.update_in(cx, |view, window, cx| view.open_take(&part_key(ID, "bar"), 1, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Heading, B), "the take is drawn large");
+        assert!(!drawn(cx, Role::Button, "Pick") && !drawn(cx, Role::Button, "Send pick"), "with nothing to answer it by: the sheet answers it");
     }
 
     /// The last drawn with this role and name: with the review panel up, the thread behind draws its own beneath the panel's.
@@ -543,7 +565,7 @@ mod tests {
         assert!(drawn(cx, Role::Heading, B), "the head names the take by its own name");
         assert!(drawn(cx, Role::Button, A), "the take before it is named in the head");
         assert!(drawn(cx, Role::Button, "C \u{b7} Dots, set out in a row of three, a title long enough to run past a whole line of the strip and be cut after the second"), "and the take after");
-        assert!(drawn(cx, Role::Button, "Pick"), "Pick stands in the view");
+        assert!(drawn(cx, Role::Button, "Picked"), "the pick stands in the view, on the Job's pick, where the sheet's vote starts");
         assert!(drawn(cx, Role::Button, "Close"));
     }
 
@@ -571,33 +593,48 @@ mod tests {
     #[gpui::test]
     fn pick_marks_the_take_and_the_view_keeps_send_pick_at_its_foot(cx: &mut gpui::TestAppContext) {
         let (view, cx) = takes_view(cx);
-        assert!(!drawn(cx, Role::Button, "Picked"));
-        view.update_in(cx, |view, _, cx| view.choose_take(&part_key(ID, "bar"), 1, cx));
-        redraw(cx);
-        assert!(drawn(cx, Role::Button, "Picked"), "the pick is marked on the take he picked");
-        assert!(drawn(cx, Role::Button, "Send pick"), "and the vote's own act is reachable from the view");
+        assert!(drawn(cx, Role::Button, "Picked"), "over the sheet the vote starts on the Job's pick, the take shown");
         cx.simulate_keystrokes("right");
         redraw(cx);
         assert!(drawn(cx, Role::Button, "Pick"), "another take is not marked");
+        view.update_in(cx, |view, _, cx| view.choose_take(&part_key(ID, "bar"), 2, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Button, "Picked"), "the pick is marked on the take he picked");
+        assert!(drawn(cx, Role::Button, "Send pick"), "and the vote's own act is reachable from the view");
     }
 
     #[gpui::test]
     fn a_take_in_the_reader_fills_the_column_and_the_takes_stand_one_to_a_row(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
-        view.update_in(cx, |view, window, cx| view.open_artifact_tab(ID, window, cx));
+        // Read whole in its own tab: a press on the card opens the review sheet, which draws its takes as tiles.
+        view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
         redraw(cx);
         let (first, second) = (bounds_of(cx, Role::Button, &format!("Picture: {A}")), bounds_of(cx, Role::Button, &format!("Picture: {B}")));
         assert!(second.top() >= first.bottom(), "one take to a row: {first:?} then {second:?}");
-        let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {A}"));
+        let tile = bounds_of(cx, Role::RadioButton, &format!("Take {A}"));
         assert!(first.size.width >= tile.size.width - px(60.), "the picture takes the tile's width: {:?} in {:?}", first.size, tile.size);
         view.update_in(cx, |view, window, cx| view.open_take(&part_key(ID, "bar"), 0, window, cx));
         redraw(cx);
         assert!(drawn(cx, Role::Dialog, A), "a press on the picture opens it over the reader");
     }
 
+    /// The Job's thread with the step bar's card drawn whole: a card that asks is one line pointing to the sheet, so here its
+    /// parts only inform.
+    fn informing_card<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        view.update(cx, |view, cx| {
+            for part in view.artifact_mut(JOB, ID).map(|one| one.parts.iter_mut()).into_iter().flatten() {
+                part.asks = false;
+            }
+            view.parts_changed(ID, cx);
+        });
+        redraw(cx);
+        (view, cx)
+    }
+
     #[gpui::test]
     fn a_drawing_in_a_thread_card_fills_the_card_with_no_frame_of_its_own_and_a_press_opens_it_large(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let (view, cx) = informing_card(cx);
         let card = bounds_of(cx, Role::Article, "Artifact: Step bar for Jobs, Revision 2");
         let drawing = bounds_of(cx, Role::Button, "Drawing");
         let pad = cx.update(|_, cx| cx.look().length(token::SPACE_4));
@@ -614,7 +651,7 @@ mod tests {
 
     #[gpui::test]
     fn a_press_anywhere_on_the_card_grows_its_drawing_out_of_the_card_into_the_app_filling_view(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let (view, cx) = informing_card(cx);
         let card = bounds_of(cx, Role::Article, CARD);
         cx.simulate_click(card.origin + gpui::point(px(6.), px(6.)), gpui::Modifiers::none());
         redraw(cx);
@@ -633,15 +670,18 @@ mod tests {
     #[gpui::test]
     fn a_press_on_an_act_of_the_card_does_its_act_and_grows_nothing(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
-        let approve = bounds_of(cx, Role::Button, "Approve");
-        cx.simulate_click(approve.center(), gpui::Modifiers::none());
+        // The card's acts are answered in the review sheet: in the thread it is one line while it asks.
+        view.update_in(cx, |view, window, cx| view.open_artifact_review(ID, window, cx));
+        redraw(cx);
+        let act = bounds_of(cx, Role::Button, "Ask for changes");
+        cx.simulate_click(act.center(), gpui::Modifiers::none());
         redraw(cx);
         assert!(view.read_with(cx, |view, _| view.pictures.viewing.is_none()), "the act's press stays with the act");
     }
 
     #[gpui::test]
     fn a_right_press_on_a_part_of_the_grown_drawing_picks_it_for_a_note_on_the_artifact(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let (view, cx) = informing_card(cx);
         let card = bounds_of(cx, Role::Article, CARD);
         cx.simulate_click(card.origin + gpui::point(px(6.), px(6.)), gpui::Modifiers::none());
         cx.executor().advance_clock(std::time::Duration::from_secs(1));
@@ -673,10 +713,10 @@ mod tests {
 
     #[gpui::test]
     fn takes_in_a_thread_card_stand_one_a_row_fill_it_and_a_press_opens_that_take_large(cx: &mut gpui::TestAppContext) {
-        let (_, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(6000.)), |_| {});
+        let (_, cx) = informing_card(cx);
         let (first, second) = (bounds_of(cx, Role::Button, &format!("Picture: {A}")), bounds_of(cx, Role::Button, &format!("Picture: {B}")));
         assert!(second.top() >= first.bottom(), "a thread too narrow for 520 a take stands them one to a row: {first:?} then {second:?}");
-        let tile = bounds_of(cx, Role::RadioButton, &format!("Pick {A}"));
+        let tile = bounds_of(cx, Role::RadioButton, &format!("Take {A}"));
         assert!(first.size.width >= tile.size.width - px(60.), "the picture takes the tile's width: {:?} in {:?}", first.size, tile.size);
         let old_height = cx.update(|_, cx| cx.look().length(token::SPACE_12) * 2.);
         assert!(first.size.height != old_height, "its height is the scene's own shape, not the old fixed box: {first:?}");

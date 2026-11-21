@@ -326,6 +326,17 @@ fn for_text(line: Option<&ipc::ArtifactFor>) -> Option<String> {
     line.and_then(|line| line.text.clone()).filter(|text| !text.trim().is_empty())
 }
 
+/// Whether a question's options carry what the sheet does not draw yet, a still or a preview, so it stays on the Needs you
+/// card where they are drawn.
+fn shows_more(one: &WaitingItem, head: &ThreadHead) -> bool {
+    if one.options.iter().any(|option| option.picture.is_some()) {
+        return true;
+    }
+    let Some(asked) = head.asked.as_ref().filter(|asked| one.source == WaitingSource::AskCard && super::ask_line::of_card(&one.id, &asked.call.call)) else { return false };
+    let at = one.id.rsplit_once('#').and_then(|(_, at)| at.parse::<usize>().ok()).unwrap_or(0);
+    asked.call.questions.get(at).is_some_and(|question| question.options.iter().any(|option| !option.preview.trim().is_empty()))
+}
+
 /// Every item a Job has for the sheet, oldest first (`waitingOf`). **A waiting row the sheet has no body
 /// for is not built** and stays with the Needs you card.
 pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, thread: &[ThreadItem], has_groups: bool) -> Vec<Item> {
@@ -361,7 +372,7 @@ pub(super) fn build(job: &str, waiting: &[WaitingItem], head: &ThreadHead, threa
                     _ => None,
                 },
                 // A question with options and nothing to read is one ask; its title is the question itself.
-                WaitingSource::Agent | WaitingSource::AskCard if !one.options.is_empty() && one.artifact.is_none() => {
+                WaitingSource::Agent | WaitingSource::AskCard if !one.options.is_empty() && one.artifact.is_none() && !shows_more(one, head) => {
                     Some(item(Kind::Question, one.text.clone(), None, None, true))
                 }
                 // A Job's one Needs you row stands for each build still to try, which the loop after this one lists.
@@ -542,6 +553,10 @@ impl JobView {
                 item.since = one.since.as_str().to_string();
                 items.push(item);
             }
+        }
+        // One he answered goes at once, wherever he answered it, before Fleet's next list says so.
+        if let Some(dock) = self.dock_of(id) {
+            items.retain(|item| !dock.hidden.contains(&item.id));
         }
         items.sort_by_key(|item| instant(&item.since));
         items
@@ -769,7 +784,8 @@ impl JobView {
         let missing = pick.filter(|pick| !groups.iter().any(|group| group.job == id.as_ref() && group.items.iter().any(|item| item.id == *pick)));
         if let Some(pick) = missing {
             // The item is in no list: its artifact is read in the panel, if it names one the Job holds.
-            let named = self.record(&id, cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == pick).and_then(|one| one.artifact.clone()));
+            // A row whose id is the artifact's own names it too.
+            let named = self.record(&id, cx).and_then(|record| record.waiting_for.iter().find(|one| one.id == pick).and_then(|one| one.artifact.clone())).or_else(|| Some(pick.to_string()));
             if let Some(named) = named {
                 if self.artifact_of(&id, &named).is_some() {
                     self.open_review_with(scope, Some(&named), None, window, cx);
@@ -1199,13 +1215,23 @@ impl JobView {
         if let Some(review) = self.review_mut() {
             review.rows.insert(key.clone(), Row { verdict: Some(verdict), refused: None });
         }
-        let back = key.clone();
+        // It goes from Needs you and the thread's foot at once, as an answer given there does (`settle_row`).
+        let job = SharedString::from(item.job.clone());
+        if let Some(page) = self.pages.get_mut(&job) {
+            page.dock.hidden.insert(item.id.clone());
+        }
+        self.want_needs(&job, cx);
+        self.sync(&job, cx);
+        let (back, back_job, back_item) = (key.clone(), job.clone(), item.id.clone());
         let body = body.map_err(|why| format!("{why:?}"));
         self.post_with(
-            SharedString::from(item.job.clone()),
+            job,
             route,
             body,
             move |this, why, cx| {
+                if let Some(page) = this.pages.get_mut(&back_job) {
+                    page.dock.hidden.remove(&back_item);
+                }
                 if let Some(review) = this.review_mut() {
                     review.rows.insert(back, Row { verdict: None, refused: Some(why.to_string()) });
                 }
@@ -1226,6 +1252,16 @@ impl JobView {
                 review.rows.insert(key.clone(), Row { verdict: Some(verdict), refused: None });
             }
         }
+        // The thread's cards of each item fold to the verdict at once, as a press on the card folds it.
+        for item in &items {
+            let answer = match verdict {
+                Verdict::Approved => super::acts::Answer::Approved,
+                Verdict::ChangesAsked => super::acts::Answer::SentBack(self.review_notes_text(item, cx).trim().to_string()),
+                Verdict::Dismissed | Verdict::Answered => super::acts::Answer::Withdrawn,
+            };
+            self.sheet_settles(&item.job, &item.id, Some(answer), cx);
+        }
+        let pairs: Vec<(String, String)> = items.iter().map(|item| (item.job.clone(), item.id.clone())).collect();
         // A sent verdict's words are spent: the box is empty for the next time.
         if verdict != Verdict::Dismissed {
             for item in &items {
@@ -1243,6 +1279,12 @@ impl JobView {
         let landed = move |this: &mut JobView, answer: Result<Vec<u8>, String>, _window: &mut Window, cx: &mut Context<JobView>| {
             let outcomes = answer.and_then(|bytes| ipc::decode::<ItemsSettled>("ItemsSettled", &bytes).map(|settled| settled.outcomes).map_err(|why| why.to_string()));
             this.review_landed(&keys, verdict, outcomes, cx);
+            // One Fleet refused stands asking on its cards again.
+            for (job, item) in &pairs {
+                if this.review().and_then(|review| review.rows.get(&key_of(job, item))).is_some_and(|row| row.verdict.is_none()) {
+                    this.sheet_settles(job, item, None, cx);
+                }
+            }
         };
         if self.fleet.is_none() {
             // Mock data: Fleet's outcomes as the scenario has them.

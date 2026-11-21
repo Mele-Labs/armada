@@ -128,6 +128,8 @@ pub(super) enum Thing<'a> {
     Lapsed(&'a Lapsed),
     /// A row of Fleet's Needs you.
     Row(&'a NeedsYouRow),
+    /// An ask the review sheet holds: one line here, and a press opens the sheet on it. Nothing is answered in the panel.
+    Sheet(super::review::Item),
 }
 
 /// A section of the list as Fleet sent it, with its rows as things.
@@ -331,7 +333,49 @@ impl JobView {
                 None => groups.insert(0, Group { kind: Kind::Questions, label: "Questions", things: head }),
             }
         }
+        // What the sheet holds is one line each that opens it there: the one place an ask is answered (19 Nov).
+        // A card's questions come both as the head's ask and as Fleet's rows for each: each is listed once.
+        let mut listed: HashSet<String> = HashSet::new();
+        for group in &mut groups {
+            // The To review section is the band's Review already, one line that opens the sheet on its pages.
+            if group.kind == NeedsYouSectionKind::ToReview {
+                continue;
+            }
+            let things = std::mem::take(&mut group.things);
+            group.things = things
+                .into_iter()
+                .flat_map(|thing| self.held_by_sheet(id, thing, cx))
+                .filter(|thing| match thing {
+                    Thing::Sheet(item) => listed.insert(item.id.clone()),
+                    _ => true,
+                })
+                .collect();
+        }
+        groups.retain(|group| !group.things.is_empty());
         groups
+    }
+
+    /// A thing as the sheet's items where the sheet holds it: a row by its item, a card by each question that still waits.
+    /// A card to try, a handoff, a permission and a question that lapsed stay as they are.
+    fn held_by_sheet<'a>(&'a self, id: &str, thing: Thing<'a>, cx: &'a gpui::App) -> Vec<Thing<'a>> {
+        match thing {
+            Thing::Row(row) if !matches!(row.source, WaitingSource::ReadyToTry | WaitingSource::Handoff | WaitingSource::Permission) => match self.sheet_item(id, &row.id, cx) {
+                Some(item) => vec![Thing::Sheet(item)],
+                None => vec![thing],
+            },
+            Thing::Ask(ask) if !ask.call.questions.is_empty() => {
+                let items = self.card_sheet_items(id, &ask.call.call, cx);
+                // Once he has answered each question Fleet named, the card is gone, though its call has not ended yet.
+                let named: Vec<&str> = self.record(id, cx).map(|record| record.waiting_for.iter().filter(|one| super::ask_line::of_card(&one.id, &ask.call.call)).map(|one| one.id.as_str()).collect()).unwrap_or_default();
+                let answered = !named.is_empty() && self.dock_of(id).is_some_and(|dock| named.iter().all(|one| dock.hidden.contains(*one)));
+                if items.is_empty() && !answered {
+                    vec![thing]
+                } else {
+                    items.into_iter().map(Thing::Sheet).collect()
+                }
+            }
+            thing => vec![thing],
+        }
     }
 
     /// Whether the band offers the review sheet: where Fleet says so, and wherever a page waits on him at all. Fleet keeps a
@@ -403,6 +447,7 @@ impl JobView {
             Thing::Ask(ask) => format!("question:{}", ask.call.call),
             Thing::Lapsed(lapsed) => format!("question:{}", lapsed.id),
             Thing::Row(row) => format!("item:{}", row.id),
+            Thing::Sheet(item) => format!("sheet:{}", item.id),
         }
     }
 
@@ -419,7 +464,9 @@ impl JobView {
             things.iter().find_map(|thing| match thing {
                 Thing::Ask(ask) => Some(ask.call.call.clone()),
                 Thing::Lapsed(lapsed) => Some(lapsed.id.clone()),
-                Thing::Row(_) => None,
+                // An open card's question the sheet holds opens the panel once, as the card did, where its line points to the sheet.
+                Thing::Sheet(item) if item.kind == super::review::Kind::Question && item.id.starts_with("ask:") => Some(item.id.clone()),
+                Thing::Row(_) | Thing::Sheet(_) => None,
             })
         };
         let Some(key) = key else { return };
@@ -503,7 +550,7 @@ impl JobView {
                 Thing::Ask(ask) if on_a_row(&ask.call.call) => None,
                 Thing::Ask(ask) => Some(("message-circle-question-mark", ask_label(ask))),
                 Thing::Lapsed(_) => Some(("message-circle-question-mark", "Unanswered".to_string())),
-                Thing::Row(_) => None,
+                Thing::Row(_) | Thing::Sheet(_) => None,
             })
             .chain(view.into_iter().flat_map(|view| {
                 // Fleet's glyph for a Ready to try row is the row's own; the pinned card stands for it.
@@ -978,6 +1025,7 @@ impl JobView {
         let in_band = self.band_reviews(id, cx);
         let front = self.front_question(id, cx).map(|row| row.id.clone());
         let listed = |thing: &Thing| match thing {
+            Thing::Sheet(item) => Some(self.ask_pointer(&Self::thing_key(thing), item, super::ask_line::Stands::List, look, cx)),
             Thing::Row(row) if super::needs_card::on_card(row) => (front.as_deref() == Some(row.id.as_str())).then(|| self.needs_card(id, row, true, look, cx)),
             _ => Some(self.thing_row(id, thing, look, cx)),
         };
@@ -1047,6 +1095,7 @@ impl JobView {
     pub(super) fn thing_row(&self, id: &SharedString, thing: &Thing, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = Self::thing_key(thing);
         match thing {
+            Thing::Sheet(item) => self.ask_pointer(&key, item, super::ask_line::Stands::List, look, cx),
             Thing::Ask(ask) => {
                 let open = key.clone();
                 self.list_row(id, &key, "message-circle-question-mark", ask_label(ask).into(), ask_text(ask), Box::new(move |this, window, cx| this.set_needs(true, Some(open.clone()), window, cx)), None, look, cx)
@@ -1782,6 +1831,7 @@ impl JobView {
             "Back",
         );
         let body = match thing {
+            Thing::Sheet(item) => Pinned::body(self.ask_pointer(&Self::thing_key(thing), item, super::ask_line::Stands::List, look, cx)),
             Thing::Ask(ask) if ask.call.questions.is_empty() => self.permission(id, ask, look, cx),
             Thing::Ask(ask) => self.deck(id, &ask.call.call, &ask.call.questions, true, false, super::deck::Source::Call(ask.call.call.clone()), look, cx),
             Thing::Lapsed(lapsed) => self.deck(id, &lapsed.id, &lapsed.questions, true, false, super::deck::Source::Lapsed(lapsed.id.clone()), look, cx),
