@@ -558,14 +558,14 @@ fn an_arrangement_kept_without_story_opens_with_story_after_thread(cx: &mut Test
     let (kept, thread, top) = kept_with(false);
     let (view, cx) = job_with_kept_panes(kept, cx);
     assert_eq!(top_kinds(&view, &thread, cx), ["thread", "story"]);
-    assert_eq!(top_kinds(&view, &top, cx), ["now", "plan", "files"]);
+    assert_eq!(top_kinds(&view, &top, cx), ["artifacts", "pulls", "issues", "plan", "files"], "Now goes for what the Job produced, his own tabs stay");
 }
 
 #[gpui::test]
 fn an_arrangement_kept_with_story_keeps_its_own_place_for_it(cx: &mut TestAppContext) {
     let (kept, thread, top) = kept_with(true);
     let (view, cx) = job_with_kept_panes(kept, cx);
-    assert_eq!(top_kinds(&view, &top, cx), ["now", "plan", "files", "story"]);
+    assert_eq!(top_kinds(&view, &top, cx), ["artifacts", "pulls", "issues", "plan", "files", "story"]);
     assert_eq!(top_kinds(&view, &thread, cx), ["thread"]);
 }
 

@@ -17,7 +17,7 @@ pub(super) fn waits_of(on_him: &[String], step: &[String]) -> Option<String> {
 
 impl JobView {
     /// The Jobs this one started, in the order it started them.
-    fn children_of<'a>(&self, id: &str, cx: &'a gpui::App) -> Vec<&'a SessionRecord> {
+    pub(super) fn children_of<'a>(&self, id: &str, cx: &'a gpui::App) -> Vec<&'a SessionRecord> {
         let Some(job) = self.record(id, cx) else { return Vec::new() };
         let all = self.list.read(cx).records();
         job.attachments.iter().filter(|one| one.kind == "started_to").filter_map(|one| all.iter().find(|other| other.id.as_str() == one.target)).collect()

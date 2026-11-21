@@ -464,13 +464,17 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
     at
 }
 
+/// What a Job produced, in the order its column shows it. Child Jobs is the last, and comes only to a Job that started any.
+pub(crate) const PRODUCED: [&str; 4] = ["artifacts", "pulls", "issues", "children"];
+
 /// A new Job's arrangement: the thread with Story behind it as tabs of one pane, and to its right the column, one pane
-/// that holds Now. The progress strip and Needs you stand over the column as bands, not tabs (`column_bands.rs`); For you,
-/// Open, Done and Deferred are tabs + opens.
+/// that holds what the Job produced: Artifacts, Pull Requests and Issues. The progress strip and Needs you stand over the
+/// column as bands, not tabs (`column_bands.rs`); Now, For you, Open, Done and Deferred are tabs + opens.
 pub(crate) fn default_arrangement() -> Arrangement {
-    let mut arrangement = build(&Shape::split(Dir::Row, 0.62, Shape::pane(&["thread", "story"]), Shape::pane(&["now"])), None, &[]);
-    // Story is placed already, so one he closes before the store answers is not put back.
-    arrangement.offered.push("story".to_string());
+    let mut arrangement = build(&Shape::split(Dir::Row, 0.62, Shape::pane(&["thread", "story"]), Shape::pane(&PRODUCED[..3])), None, &[]);
+    // Story and Artifacts are placed already, so one he closes before the store answers is not put back; "made" is
+    // the move off Now (`panes_place::leave_now`), which a new Job has no need of.
+    arrangement.offered.extend(["story", "artifacts", "made"].map(String::from));
     arrangement
 }
 

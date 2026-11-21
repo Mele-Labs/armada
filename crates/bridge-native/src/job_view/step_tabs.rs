@@ -2,16 +2,17 @@
 //! and `now` beside them, which the zone list lacks. A zone added here without an id there is a tab
 //! a workflow file could not name.
 //!
-//! **A step's tabs open when the Job's step moves** ([`JobView::follow_steps`]): each the Job holds in no pane goes in beside his
-//! own, and the step's front tab comes to the front of its pane unless his pointer or his keys are in that pane. A step names
-//! Child Jobs `jobs`.
+//! **A step brings forward what the Job produced** ([`JobView::follow_steps`]): of its tabs the four the column is for
+//! (`pane_tree::PRODUCED`: Artifacts, Pull Requests, Issues, Child Jobs), each the Job holds in no pane goes in beside his own,
+//! and the first comes to the front of its pane, Artifacts where the step lists none, unless his pointer or his keys are in that
+//! pane. Any other tab a step lists opens nothing. A step names Child Jobs `jobs`.
 
 use std::borrow::Cow;
 use std::collections::HashSet;
 
 use gpui::{Context, Focusable as _, SharedString, Window};
 
-use super::pane_tree::{self as tree, Arrangement, Out};
+use super::pane_tree::{self as tree, Arrangement, Out, PRODUCED};
 use super::panes_place::{pane_for, put_behind};
 use super::side::Zone;
 use super::view_tabs::ViewPane;
@@ -26,10 +27,10 @@ pub(super) fn kind_of(id: &str) -> Option<&'static str> {
     }
 }
 
-/// The kinds of tab a step opens, the front one first, each once.
+/// The kinds of tab a step opens: the produced ones it lists, the front one first, each once.
 pub(super) fn kinds_of(tabs: &[String]) -> Vec<&'static str> {
     let mut kinds: Vec<&'static str> = Vec::new();
-    for kind in tabs.iter().filter_map(|id| kind_of(id)) {
+    for kind in tabs.iter().filter_map(|id| kind_of(id)).filter(|kind| PRODUCED.contains(kind)) {
         if !kinds.contains(&kind) {
             kinds.push(kind);
         }
@@ -37,20 +38,20 @@ pub(super) fn kinds_of(tabs: &[String]) -> Vec<&'static str> {
     kinds
 }
 
-/// The panes with the step's tabs opened beside his own. A kind no pane holds goes behind the tab its pane shows, Now in the
-/// column's foot and the rest in its top, as `open_kind` places them; one a pane holds stays where he keeps it. The front kind's tab
-/// comes to the front of its pane, unless `held` says he has the pointer or the keys in that pane.
+/// The panes with the step's produced tabs opened beside his own. A kind no pane holds goes behind the tab the column's top
+/// pane shows; one a pane holds stays where he keeps it. The front kind's tab, Artifacts where `kinds` has none, comes to the
+/// front of its pane, unless `held` says he has the pointer or the keys in that pane.
 pub(super) fn with_step_tabs<'a>(was: &'a Arrangement, kinds: &[&str], held: &dyn Fn(&str) -> bool) -> Out<'a> {
     let mut next = Cow::Borrowed(was);
     for kind in kinds {
-        if tree::has_kind(&next, kind) || super::tabs::laid_off(kind) {
+        if tree::has_kind(&next, kind) {
             continue;
         }
-        let place = if *kind == "now" { ViewPane::Bottom } else { ViewPane::Top };
-        let target = pane_for(&next, place).map(|pane| (pane, None));
+        let target = pane_for(&next, ViewPane::Top).map(|pane| (pane, None));
         next = Cow::Owned(put_behind(&next, kind, target));
     }
-    let front = kinds.first().and_then(|kind| tree::holder_of(&next, kind).and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == *kind).map(|tab| (pane.id.clone(), tab.id.clone()))));
+    let kind = kinds.first().copied().unwrap_or("artifacts");
+    let front = tree::holder_of(&next, kind).and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == kind).map(|tab| (pane.id.clone(), tab.id.clone())));
     if let Some((_, tab)) = front.filter(|(pane, _)| !held(pane)) {
         let shown = tree::activate(&next, &tab).into_owned();
         if shown != *next {
@@ -80,7 +81,7 @@ impl JobView {
             .collect()
     }
 
-    /// A Job's step moved since it was last seen here: its tabs open beside his own. A Job seen for the first time opens nothing, and
+    /// A Job's step moved since it was last seen here: the produced tabs it lists open beside his own. A Job seen for the first time opens nothing, and
     /// a move that comes before the store has answered for the Job's panes waits for the next record rather than replace what he kept.
     pub(super) fn follow_steps(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let ids: Vec<SharedString> = self.pages.keys().cloned().collect();
@@ -88,11 +89,17 @@ impl JobView {
             let Some(job) = self.record(&id, cx) else { continue };
             let step = job.workflow_step;
             let tabs = job.workflow_strip.as_ref().map(|strip| strip.tabs.clone()).unwrap_or_default();
+            // The Job's first child opens its Child Jobs tab, whichever step it was started in.
+            let unoffered = self.arrangement_of(&id).is_some_and(|arrangement| !arrangement.offered.iter().any(|one| one == "children"));
+            if unoffered {
+                let started = !self.children_of(&id, cx).is_empty();
+                self.offer_children(&id, started, cx);
+            }
             let seen = self.pages.get(&id).and_then(|page| page.side.stepped);
             if seen == Some(step) {
                 continue;
             }
-            if seen.is_some() && step.is_some() && !tabs.is_empty() {
+            if seen.is_some() && step.is_some() {
                 if !self.panes_answered(&id) {
                     continue;
                 }
@@ -128,15 +135,19 @@ mod tests {
     }
 
     #[test]
-    fn a_step_names_child_jobs_jobs_and_every_id_it_may_list_opens_a_tab() {
+    fn a_step_names_child_jobs_jobs_and_every_id_it_may_list_is_a_tab_the_column_draws() {
         assert_eq!(kind_of("jobs"), Some("children"));
         assert_eq!(kind_of("now"), Some("now"));
         assert_eq!(kind_of("plan"), Some("plan"));
-        assert_eq!(kind_of("walks"), Some("walks"));
-        assert_eq!(kinds_of(&words(&["walks", "artifacts", "now", "artifacts"])), ["walks", "artifacts", "now"], "front first, each once");
         for id in core_model::STEP_TABS {
             assert!(kind_of(id).is_some(), "`{id}` is a tab a step lists and the column draws");
         }
+    }
+
+    #[test]
+    fn only_the_four_the_column_is_for_are_a_step_s_tabs_to_open() {
+        assert_eq!(kinds_of(&words(&["walks", "pulls", "now", "artifacts", "pulls", "jobs", "plan"])), ["pulls", "artifacts", "children"], "front first, each once, the rest left out");
+        assert!(kinds_of(&words(&["plan", "qa", "now"])).is_empty());
     }
 
     fn kinds(arrangement: &Arrangement) -> Vec<String> {
@@ -148,27 +159,41 @@ mod tests {
     }
 
     #[test]
-    fn a_step_opens_the_tabs_no_pane_holds_beside_his_own_and_brings_the_front_one_forward() {
+    fn a_step_opens_the_produced_tabs_no_pane_holds_beside_his_own_and_brings_the_first_forward() {
         let was = tree::default_arrangement();
-        let tabs = kinds_of(&words(&["plan", "qa", "now"]));
-        let next = with_step_tabs(&was, &tabs, &|_| false).into_owned();
-        assert_eq!(kinds(&next), ["thread", "story", "now", "plan", "qa"], "behind the tab the column showed, Now not doubled");
-        assert_eq!(front(&next, "plan").as_deref(), Some("plan"), "the front one comes to the front");
+        let next = with_step_tabs(&was, &kinds_of(&words(&["issues", "jobs", "pulls"])), &|_| false).into_owned();
+        assert_eq!(kinds(&next), ["thread", "story", "artifacts", "pulls", "issues", "children"], "Child Jobs goes behind, nothing else is doubled");
+        assert_eq!(front(&next, "children").as_deref(), Some("issues"), "the first the step lists comes to the front");
         // His own tab is kept where he put it, and a step that lists a tab he has open adds none.
-        let own = tree::add_tab(&was, &tree::holder_of(&was, "now").expect("the column").id, "files", tree::Extras::default()).into_owned();
-        let again = with_step_tabs(&own, &kinds_of(&words(&["pulls", "files", "now"])), &|_| false).into_owned();
+        let own = tree::add_tab(&was, &tree::holder_of(&was, "pulls").expect("the column").id, "files", tree::Extras::default()).into_owned();
+        let again = with_step_tabs(&own, &kinds_of(&words(&["pulls", "files"])), &|_| false).into_owned();
         assert_eq!(kinds(&again).iter().filter(|kind| *kind == "files").count(), 1);
-        assert!(kinds(&again).contains(&"pulls".to_string()));
-        assert_eq!(with_step_tabs(&again, &kinds_of(&words(&["pulls", "files", "now"])), &|_| false).into_owned(), again, "a step already open changes nothing");
+        assert_eq!(with_step_tabs(&again, &kinds_of(&words(&["pulls", "files"])), &|_| false).into_owned(), again, "a step already open changes nothing");
+    }
+
+    #[test]
+    fn a_tab_of_a_step_s_list_outside_the_four_does_not_open_by_itself() {
+        let was = tree::default_arrangement();
+        let next = with_step_tabs(&was, &kinds_of(&words(&["plan", "qa", "now", "files"])), &|_| false).into_owned();
+        assert_eq!(kinds(&next), kinds(&was), "Plan, Q&A, Now and Files stay for + to open");
+    }
+
+    #[test]
+    fn a_step_that_lists_none_of_the_four_brings_artifacts_forward() {
+        let was = tree::default_arrangement();
+        let pulls = tree::holder_of(&was, "pulls").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "pulls")).map(|tab| tab.id.clone()).expect("the tab");
+        let on_pulls = tree::activate(&was, &pulls).into_owned();
+        assert_eq!(front(&on_pulls, "artifacts").as_deref(), Some("pulls"));
+        let next = with_step_tabs(&on_pulls, &kinds_of(&words(&["plan", "now"])), &|_| false).into_owned();
+        assert_eq!(front(&next, "artifacts").as_deref(), Some("artifacts"));
+        assert_eq!(with_step_tabs(&on_pulls, &[], &|_| false).into_owned(), next, "a step with no tabs does the same");
     }
 
     #[test]
     fn the_front_tab_stays_where_it_was_while_his_pointer_or_keys_are_in_that_pane() {
         let was = tree::default_arrangement();
-        let tabs = kinds_of(&words(&["plan", "now"]));
-        let next = with_step_tabs(&was, &tabs, &|_| true).into_owned();
-        assert!(kinds(&next).contains(&"plan".to_string()), "the tab still opens");
-        assert_eq!(front(&next, "plan").as_deref(), Some("now"), "what he was looking at stays in front");
+        let next = with_step_tabs(&was, &kinds_of(&words(&["issues"])), &|_| true).into_owned();
+        assert_eq!(front(&next, "issues").as_deref(), Some("artifacts"), "what he was looking at stays in front");
     }
 
     #[test]
@@ -197,14 +222,15 @@ mod tests {
         cx.run_until_parked();
         view.update_in(cx, |view, _, cx| view.open_kind("files", cx));
         fresh(cx);
-        move_step(cx, &view, 2, &["pulls", "plan", "now"]);
+        move_step(cx, &view, 2, &["issues", "plan", "now"]);
         view.read_with(cx, |view, _| {
             let arrangement = view.arrangement();
             let held = kinds(&arrangement);
-            for kind in ["files", "now", "pulls", "plan"] {
+            for kind in ["files", "artifacts", "pulls", "issues"] {
                 assert!(held.contains(&kind.to_string()), "{kind} is open: {held:?}");
             }
-            assert_eq!(front(&arrangement, "pulls").as_deref(), Some("pulls"), "the step's front tab is in front");
+            assert!(!held.contains(&"plan".to_string()) && !held.contains(&"now".to_string()), "a tab outside the four is not opened: {held:?}");
+            assert_eq!(front(&arrangement, "issues").as_deref(), Some("issues"), "the step's front tab is in front");
         });
     }
 
@@ -221,8 +247,7 @@ mod tests {
         move_step(cx, &view, 2, &["pulls", "plan", "now"]);
         view.read_with(cx, |view, _| {
             let arrangement = view.arrangement();
-            assert!(kinds(&arrangement).contains(&"pulls".to_string()), "the tabs open");
-            assert_eq!(front(&arrangement, "pulls").as_deref(), Some("now"), "what he had in front stays");
+            assert_eq!(front(&arrangement, "pulls").as_deref(), Some("artifacts"), "what he had in front stays");
         });
     }
 
@@ -230,6 +255,6 @@ mod tests {
     fn a_job_seen_for_the_first_time_opens_nothing(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, "mock-16");
         cx.run_until_parked();
-        view.read_with(cx, |view, _| assert_eq!(kinds(&view.arrangement()), ["thread", "story", "now"], "the step it came on screen at opened nothing"));
+        view.read_with(cx, |view, _| assert_eq!(kinds(&view.arrangement()), ["thread", "story", "artifacts", "pulls", "issues"], "the step it came on screen at opened nothing"));
     }
 }
