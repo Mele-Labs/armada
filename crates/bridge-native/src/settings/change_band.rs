@@ -138,6 +138,7 @@ fn step_of_change(one: &ChangeStep) -> Step {
         ends: one.ends_when.clone().unwrap_or_default(),
         ends_any: one.ends_any.clone(),
         passed_over: one.passed_over_when.clone(),
+        warning: None,
         words: one.instructions.clone().unwrap_or_default(),
     }
 }
@@ -155,7 +156,7 @@ fn steps_of_text(text: &str, known: &[Step]) -> Vec<Step> {
             let words = one.get("instructions").and_then(Json::text).unwrap_or_default().to_string();
             match had {
                 Some(had) => Step { label, words, ..had },
-                None => Step { glyph: glyph_of(&id), id, label, ends: String::new(), ends_any: Vec::new(), passed_over: None, words },
+                None => Step { glyph: glyph_of(&id), id, label, ends: String::new(), ends_any: Vec::new(), passed_over: None, warning: None, words },
             }
         })
         .collect()
@@ -1147,7 +1148,7 @@ mod tests {
     use super::*;
 
     fn step(id: &str, words: &str) -> Step {
-        Step { id: id.into(), label: id.to_uppercase(), glyph: None, ends: String::new(), ends_any: Vec::new(), passed_over: None, words: words.into() }
+        Step { id: id.into(), label: id.to_uppercase(), glyph: None, ends: String::new(), ends_any: Vec::new(), passed_over: None, warning: None, words: words.into() }
     }
 
     #[test]

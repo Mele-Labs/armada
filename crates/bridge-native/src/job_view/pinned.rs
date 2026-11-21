@@ -11,6 +11,17 @@ use super::{JobView, Page};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look};
 
+/// The subagents the thread says are running: what the card at its foot counts, and what Now lists.
+pub(super) fn running_subagents(items: &[ThreadItem]) -> Vec<&ToolSubagent> {
+    items
+        .iter()
+        .filter_map(|item| match item {
+            ThreadItem::Subagent { subagent, .. } if subagent.state == ToolSubagentState::Running => Some(subagent),
+            _ => None,
+        })
+        .collect()
+}
+
 impl JobView {
     /// The last card that stands in sight, the subagents running, what the Job waits on or what waits for its Mac, held in sight at the thread's foot while the rows scroll under it
     /// (`position: sticky; bottom: space-2`): where it stands in the thread it is drawn there, and while that
@@ -114,13 +125,7 @@ impl JobView {
 
     /// The subagents and background tasks running now: a card at the foot with what runs, and the list behind a press.
     pub(super) fn subagents_card(&self, ix: usize, items: &[ThreadItem], page: &Page, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
-        let running: Vec<&ToolSubagent> = items
-            .iter()
-            .filter_map(|item| match item {
-                ThreadItem::Subagent { subagent, .. } if subagent.state == ToolSubagentState::Running => Some(subagent),
-                _ => None,
-            })
-            .collect();
+        let running = running_subagents(items);
         let id = self.shown.clone().unwrap_or_default();
         let background: Vec<(usize, &RunningWork)> = self.background_tasks(&id, cx).collect();
         if running.is_empty() && background.is_empty() {

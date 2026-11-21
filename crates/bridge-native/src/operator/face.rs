@@ -105,6 +105,9 @@ pub fn feed_kind(kind: OperatorFeedKind) -> (&'static str, Token, &'static str) 
 /// A question: an Operator card's chip, and a Job's own question as Needs you draws it on the same card.
 pub const QUESTION: Kind = kind("Question", "message-circle-question-mark", REVIEW);
 
+/// The Approve a Job raises when it thinks its step is done, on a step that ends on his Approve: the card Needs you draws for it.
+pub const STEP_DONE: Kind = kind("Step done", "circle-check", REVIEW);
+
 pub fn kind_of(turn: &OperatorTurnItem) -> Kind {
     if returned(turn) {
         return kind("Did not settle", "circle-alert", FAILED);
