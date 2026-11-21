@@ -598,6 +598,7 @@ mod features_of_a_job {
             via: "trailer".into(),
             at: rig.fleet.now().as_str().into(),
             gist: String::new(),
+            gist_by: String::new(),
         };
         store.put_feature_link(&link).expect("linked");
     }

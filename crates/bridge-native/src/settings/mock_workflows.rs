@@ -310,6 +310,7 @@ fn readings(id: &str, tree: &Json) -> Vec<StepReading> {
                 ends_when: ends.map(|(_, said, ..)| said.to_string()),
                 ends_any: ends.map(|(_, _, any, _)| any.iter().map(|one| one.to_string()).collect()).unwrap_or_default(),
                 passed_over_when: ends.and_then(|(.., passed)| passed.map(String::from)),
+                warning: None,
             }
         })
         .collect()

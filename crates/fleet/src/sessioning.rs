@@ -44,6 +44,8 @@ pub(crate) struct LedgerReads {
     /// When the limit the session hit resets, while it is held for one.
     limited: Option<String>,
     snoozed: Option<String>,
+    /// The store names this Job as the prioritised one, whether or not it has ended.
+    prioritised: bool,
     /// When the person was last in the Job, as a client told it.
     viewed: Option<String>,
     /// A reply of the Job's answers a question of his he has not read.

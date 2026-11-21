@@ -660,7 +660,7 @@ pub(crate) async fn run_session_command<D: HostedSessions>(
     }
 }
 
-pub(crate) async fn close_session<D: HostedSessions>(
+pub(crate) async fn close_session<D: HostedSessions + OtherMacs>(
     State(served): State<Served<D>>,
     body: Bytes,
 ) -> Response {
@@ -668,6 +668,9 @@ pub(crate) async fn close_session<D: HostedSessions>(
         Ok(closed) => closed,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(closed.session_id.as_str()).await {
+        return across(&served, mac, ipc::JobAct::Close(closed)).await;
+    }
     match served.shared().close_session(closed).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
@@ -782,6 +785,20 @@ pub(crate) async fn snooze_session<D: HostedSessions>(
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().snooze_session(asked).await {
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn prioritise_session<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    body: Bytes,
+) -> Response {
+    let asked: ipc::PrioritiseSession = match ipc::decode_body("a job to prioritise", &body) {
+        Ok(asked) => asked,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().prioritise_session(asked).await {
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
     }

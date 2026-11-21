@@ -9,7 +9,7 @@ use ipc::{SessionId, SessionRow};
 use super::session_host::{eventually, rig_placing, Rig};
 use super::tmp::TempDir;
 use crate::session_host::document_page::{sketches_in, title_of};
-use crate::session_host::documents::{keep, revisions_in, sketches_that_will_not_draw};
+use crate::session_host::documents::{keep, page_name, revisions_in, sketches_that_will_not_draw};
 
 const GOOD: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 const BAD: &str = r#"{"nodes":[],"edges":[]}"#;
@@ -92,8 +92,19 @@ pub(super) async fn writes(rig: &Rig, at: usize, path: &str, call: &str, tool: &
     );
 }
 
+/// The Job's page of the file name `path` has, wherever it was written: a Job holds one a file name, at Fleet's copy.
+pub(super) fn page_row<'a>(record: &'a ipc::SessionRecord, path: &str) -> Option<&'a ipc::Attachment> {
+    let name = page_name(path);
+    record.attachments.iter().find(|one| one.kind == "artifact" && one.detail.get("form").is_some_and(|form| form == "document") && page_name(&one.target) == name)
+}
+
+/// The id of the Job's page of the file name `path` has: Fleet's copy, and `path` where the Job holds none.
+pub(super) fn page_id(record: &ipc::SessionRecord, path: &str) -> String {
+    page_row(record, path).map_or_else(|| path.to_string(), |one| one.target.clone())
+}
+
 pub(super) fn revisions_of(record: &ipc::SessionRecord, path: &str) -> Option<Vec<String>> {
-    let one = record.attachments.iter().find(|one| one.kind == "artifact" && one.target == path)?;
+    let one = page_row(record, path)?;
     assert_eq!(one.detail.get("form").map(String::as_str), Some("document"));
     Some(ipc::decode("revisions", one.detail.get("revisions")?.as_bytes()).expect("a list of paths"))
 }
@@ -126,7 +137,7 @@ async fn a_documents_writes_are_revisions_of_one_row_and_a_bad_sketch_is_told_on
     writes(&rig, 0, &path, "toolu_1", "Write", " +10").await;
     eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
     let record = record_of(&rig, &id).await;
-    let row = record.attachments.iter().find(|one| one.target == path).unwrap();
+    let row = page_row(&record, &path).unwrap();
     assert_eq!(row.detail["title"], "Lease expiry");
     assert_eq!(sketch_notices(&rig.rows(&id).await), 0);
 
@@ -141,7 +152,8 @@ async fn a_documents_writes_are_revisions_of_one_row_and_a_bad_sketch_is_told_on
     let kept = revisions_of(&record, &path).unwrap();
     assert!(std::fs::read_to_string(&kept[0]).unwrap().contains("Clock"));
     assert!(std::fs::read_to_string(&kept[1]).unwrap().contains("Empty"));
-    assert_eq!(record.attachments.iter().filter(|one| one.target == path).count(), 1);
+    let home = rig.fleet.page_home(id.as_str(), &path);
+    assert_eq!(record.attachments.iter().filter(|one| one.target == home).count(), 1);
 
     // A write that fixes it is a third revision and tells nothing more.
     std::fs::write(&file, page("Lease expiry", &[("Clock", GOOD), ("Empty", GOOD)])).unwrap();
@@ -305,10 +317,10 @@ async fn handed_on(rig: &Rig, old: &SessionId) -> (SessionId, usize) {
 /// Whether the page waits on him: by its own item, or as a part of the artifact that is one item of the Job's
 /// (`artifact_parts.rs`: one artifact is open per Job, so a second page that asks joins the first).
 pub(super) fn waits_on(record: &ipc::SessionRecord, path: &str) -> bool {
-    if record.waiting_for.iter().any(|one| one.id == format!("document:{path}")) {
+    if record.waiting_for.iter().any(|one| one.id == format!("document:{}", page_id(record, path))) {
         return true;
     }
-    let part = record.attachments.iter().find(|one| one.target == path);
+    let part = page_row(record, path);
     let asks = part.is_some_and(|one| one.detail.get("asked").map(String::as_str) == Some("true") && !one.detail.contains_key("settled"));
     let root = part.and_then(|one| one.detail.get(ipc::ARTIFACT_IN));
     asks && root.is_some_and(|root| record.waiting_for.iter().any(|one| &one.id == root))
@@ -334,7 +346,7 @@ async fn a_page_handed_on_keeps_its_revisions_and_answer_until_a_real_edit_asks_
     // Its first turn only read the page: it holds the second revision, answered, and nothing asks.
     turn_swept(&rig, &new, at, "zz.html").await;
     let record = record_of(&rig, &new).await;
-    let row = record.attachments.iter().find(|one| one.target == path).expect("the page came with the job");
+    let row = page_row(&record, &path).expect("the page came with the job");
     assert_eq!(row.detail.get("revision").map(String::as_str), Some("2"), "{:?}", row.detail);
     assert_eq!(row.detail.get("settled").map(String::as_str), Some("approved"), "{:?}", row.detail);
     assert!(!waits_on(&record, &path), "{:?}", record.waiting_for);
@@ -347,7 +359,7 @@ async fn a_page_handed_on_keeps_its_revisions_and_answer_until_a_real_edit_asks_
     let kept = revisions_of(&record, &path).unwrap();
     assert!(std::fs::read_to_string(&kept[1]).unwrap().contains("second"));
     assert!(std::fs::read_to_string(&kept[2]).unwrap().contains("third"));
-    assert!(!record.attachments.iter().find(|one| one.target == path).unwrap().detail.contains_key("settled"));
+    assert!(!page_row(&record, &path).unwrap().detail.contains_key("settled"));
     assert!(waits_on(&record, &path), "{:?}", record.waiting_for);
 }
 
@@ -383,7 +395,7 @@ async fn a_page_handed_on_unanswered_still_asks_and_one_dismissed_stays_dismisse
     std::fs::write(&dismissed, page("Dismissed", &[])).unwrap();
     writes(&rig, at, &dismissed_path, "toolu_2", "Write", " +10").await;
     eventually(|| async { revisions_of(&record_of(&rig, &old).await, &dismissed_path).is_some() }).await;
-    let dismiss = ipc::DismissWaiting { session_id: old.clone(), item_id: format!("document:{dismissed_path}"), reason: None, misread: false };
+    let dismiss = ipc::DismissWaiting { session_id: old.clone(), item_id: format!("document:{}", rig.fleet.page_home(old.as_str(), &dismissed_path)), reason: None, misread: false };
     std::sync::Arc::clone(&rig.fleet).dismiss_waiting(dismiss).await.expect("dismissed");
     let (asks, asks_path) = page_at_root(&rig, "asks.html");
     std::fs::write(&asks, page("Asks", &[])).unwrap();
@@ -427,7 +439,7 @@ fn a_page_asks_only_where_its_head_carries_the_review_mark() {
 }
 
 pub(super) fn asked(record: &ipc::SessionRecord, path: &str) -> Option<String> {
-    record.attachments.iter().find(|one| one.target == path)?.detail.get("asked").cloned()
+    page_row(record, path)?.detail.get("asked").cloned()
 }
 
 /// **A page is for reading unless it asks.** Its revision is kept and reaches the thread, but nothing waits on
@@ -489,4 +501,76 @@ async fn an_open_document_approved_gate_makes_an_unmarked_page_ask() {
     let record = record_of(&rig, &id).await;
     assert_eq!(asked(&record, &path).as_deref(), Some("true"));
     assert!(waits_on(&record, &path), "{:?}", record.waiting_for);
+}
+
+/// The claim of the slot move, written before the code: **a page that asks him is Fleet's, kept in its own folder,
+/// so the Job's slot given back and reset takes nothing from his Needs you list.**
+#[tokio::test]
+async fn a_page_waiting_on_him_still_waits_once_its_slot_is_given_back_and_reset() {
+    use api::Sessions;
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "right-column.html");
+    std::fs::write(&file, page("Right column", &[])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { waits_on(&record_of(&rig, &id).await, &path) }).await;
+
+    // The reset of a slot given back: `.armada/` is ignored by git, so the folder goes whole.
+    std::fs::remove_dir_all(file.parent().unwrap().parent().unwrap()).unwrap();
+    let record = record_of(&rig, &id).await;
+    assert!(waits_on(&record, &path), "{:?}", record.waiting_for);
+    let row = page_row(&record, &path).expect("the page is still the job's");
+    assert!(std::path::Path::new(&row.target).is_file(), "Fleet's copy is where the page lives: {}", row.target);
+    let answer = super::document_answers::answer(&id, &row.target, "1", ipc::DocumentHow::Approved, None);
+    std::sync::Arc::clone(&rig.fleet).answer_document(answer).await.expect("he can still approve it");
+}
+
+/// **A Job holds one page a file name**: the same name written from another checkout is the next revision of
+/// that page, never a second one beside it.
+#[tokio::test]
+async fn the_same_page_written_from_another_slot_is_the_next_revision_of_one_document() {
+    let rig = rig_placing(None);
+    let (id, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "right-column.html");
+    std::fs::write(&file, page("Right column", &[])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &path).is_some_and(|kept| kept.len() == 1) }).await;
+
+    let other = TempDir::new();
+    let moved = other.path().join(".armada/documents/right-column.html");
+    std::fs::create_dir_all(moved.parent().unwrap()).unwrap();
+    std::fs::write(&moved, page("Right column, revised", &[])).unwrap();
+    let moved_path = moved.to_string_lossy().into_owned();
+    writes(&rig, at, &moved_path, "toolu_2", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &id).await, &moved_path).is_some_and(|kept| kept.len() == 2) }).await;
+
+    let record = record_of(&rig, &id).await;
+    let pages: Vec<&ipc::Attachment> = record.attachments.iter().filter(|one| one.kind == "artifact" && page_name(&one.target) == "right-column.html").collect();
+    assert_eq!(pages.len(), 1, "{pages:?}");
+    assert_ne!(pages[0].target, path, "the id is not the slot it was first written in");
+    assert_ne!(pages[0].target, moved_path, "nor the slot it was last written in");
+    assert_eq!(record.waiting_for.iter().filter(|one| one.id.starts_with("document:")).count(), 1, "{:?}", record.waiting_for);
+}
+
+/// **A page outlasts its Job**: once the Job ends, and once another takes its place, its revisions and Fleet's
+/// copy still open, whatever became of the checkout.
+#[tokio::test]
+async fn a_page_and_its_revisions_still_open_after_its_job_ends_and_another_takes_its_place() {
+    let rig = rig_placing(None);
+    let (old, at) = a_job(&rig).await;
+    let (file, path) = page_at_root(&rig, "lease.html");
+    std::fs::write(&file, page("Lease", &[])).unwrap();
+    writes(&rig, at, &path, "toolu_1", "Write", " +10").await;
+    eventually(|| async { revisions_of(&record_of(&rig, &old).await, &path).is_some() }).await;
+
+    let (new, _) = handed_on(&rig, &old).await;
+    std::fs::remove_file(&file).unwrap();
+    for job in [&old, &new] {
+        let record = record_of(&rig, job).await;
+        let row = page_row(&record, &path).unwrap_or_else(|| panic!("{job:?} holds the page"));
+        assert!(std::path::Path::new(&row.target).is_file(), "{}", row.target);
+        let kept = revisions_of(&record, &path).unwrap();
+        assert!(std::fs::read_to_string(&kept[0]).unwrap().contains("Lease"));
+    }
+    assert!(waits_on(&record_of(&rig, &new).await, &path), "unanswered, it waits on the job that took the place");
 }

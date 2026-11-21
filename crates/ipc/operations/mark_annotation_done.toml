@@ -1,4 +1,5 @@
 [operations.mark_annotation_done]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

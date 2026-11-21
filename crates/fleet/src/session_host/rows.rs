@@ -120,14 +120,13 @@ where
     }
 }
 
-/// The line Fleet adds ahead of a message that names something. **Written for
-/// the agent**, and never shown on the thread, which keeps the person's words.
+/// The line Fleet adds ahead of a message that names something, and one line for each of Armada's
+/// tools it asks for. **Written for the agent**, and never shown on the thread, which keeps the
+/// person's words.
 pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<String> {
-    if tags.is_empty() {
-        return None;
-    }
     let named: Vec<String> = tags
         .iter()
+        .filter(|(tag, _)| tag.kind != TagKind::Tool)
         .map(|(tag, address)| match tag.kind {
             TagKind::Session => match address {
                 Some(address) => format!(
@@ -158,9 +157,21 @@ pub(crate) fn mention_line(tags: &[(SessionTag, Option<String>)]) -> Option<Stri
                 "terminal {} \"{}\" (pass {} as `terminal` to type_in_terminal or read_terminal)",
                 tag.id, tag.title, tag.id
             ),
+            TagKind::Tool => unreachable!("tools are said on lines of their own"),
         })
         .collect();
-    Some(format!("The person named: {}.", named.join("; ")))
+    let mut lines: Vec<String> = Vec::new();
+    if !named.is_empty() {
+        lines.push(format!("The person named: {}.", named.join("; ")));
+    }
+    lines.extend(
+        tags.iter()
+            .filter(|(tag, _)| tag.kind == TagKind::Tool)
+            // The tool's `line` in `ask_tools.toml` says how the agent answers. An id the file does not hold adds
+            // nothing: the person's words still say what they meant.
+            .filter_map(|(tag, _)| ipc::ask_tools::ask_tool(&tag.id).map(|tool| format!("The person asked for {}: {}.", tag.title, tool.line))),
+    );
+    (!lines.is_empty()).then(|| lines.join("\n"))
 }
 
 /// The title without the `#<id> ` Bridge puts in front of an issue's or a pull request's, so the

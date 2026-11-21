@@ -447,6 +447,9 @@ Measured on the owner's 12-core M2 Max (8 performance, 4 efficiency).
 Five `cargo` builds ran at once, in four agent slots and the base warm-up, each held to 3 jobs: 15 compiler jobs on 12 cores, at a load average of 28. Earlier, three jobs at no cap were 54 rustc jobs on 18 cores (12 Oct 2026).
 
 It is a GNU make jobserver on a named fifo, `build-slots.fifo` in Fleet's machine directory.
+**Where that path holds a space, the fifo is `/tmp/armada-<uid>/build-slots.fifo`**, since `MAKEFLAGS` splits on spaces, and the machine directory is under `Application Support`.
+Until 20 Nov 2026 Fleet refused the path instead, at every start on the owner's Mac, so the pool never existed there and every agent built at its own width: eight builds at once took the load average to 37.
+The directory is made for this user alone and refused if anyone else owns it; `/tmp` is emptied at a restart and the fifo made again.
 Cargo and rustc take a token before each job and give it back after.
 A named fifo, not an inherited pipe, because Fleet starts agents detached and an agent's builds begin long after its spawn.
 Fleet puts it in `MAKEFLAGS` for an agent, and for every Check it runs.
@@ -474,6 +477,36 @@ Rules that follow:
 - **A fifo found at start is kept**, with what builds still running hold of it, because a Fleet that crashed leaves its agents building.
   One that is missing, or not a fifo, is made again, now or at a later look.
 - **Nothing outside Fleet takes from it.** A build a person starts in a terminal is outside the pool, as it was outside every width.
+
+### Builds take turns on a loaded machine
+
+**While the fifteen-minute load is 24 or more, or memory is short, one Job's builds run and every other Job's wait stopped, in turns.**
+The owner's ask of 20 Nov 2026: that one Job keeps going rather than every Job standing still.
+That afternoon three code-editor background checks, two native-app builds an agent ran itself and a Check's test build ran at once on 12 cores, outside both the pool and the Check slots; the load stayed over 28 for an hour, one build ran for 1h39m, and a Check spent its fifteen minutes compiling three times over.
+
+Rules:
+
+- **Held is `SIGSTOP`, and let go is `SIGCONT`.** Nothing is ended, so no work is lost; a held build picks up where it stopped.
+- **What is held is a Job's `cargo`, `rustc` and `rustdoc`**: those in the agent's process tree, or carrying its `ARMADA_SESSION`.
+  A linker or build script they started finishes and waits on its stopped parent.
+- **A Check's builds are never held.** Checks already run one at a time on a loaded machine, and a held Check would spend its budget waiting, so its fifteen minutes count only while it runs.
+  A build outside every Job, such as a person's own, is not Fleet's to stop.
+- **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each.
+  A Job whose builds have ended gives its turn up at once to the next after it.
+  One Job at a time is prioritised, from its row's menu in Bridge (`prioritise_session`), and a second press clears it.
+- **Memory is short at a `kern.memorystatus_vm_pressure_level` of 2 (warn) or more**, and stays short for five minutes after it eases, so the builds a hold let swap out do not all start again at once.
+  Measured 20 Nov 2026 on a 32 GB Mac: each compile of the Fleet crate took 3 to 4 GB, swap stayed near full long after the pressure went, and `memory_pressure` said 30% free while the Mac thrashed.
+- **Fleet looks every five seconds**, so a compiler a held build starts is held within that.
+- **Under the limit, or with one Job building, everything held runs again**, and so it does when Fleet stops.
+  A Fleet that ended without letting go continues every stopped compiler of a Job at its first look.
+- **A Job is told when its builds are paused and when they run again** (`builds_held`), so its agent waits on a build that went quiet rather than starting it again.
+  The owner's choice of 20 Nov 2026, on hearing that an agent would otherwise not know.
+
+What it costs:
+
+- **A held build keeps the pool tokens it holds**, so the Job whose turn it is may get fewer than the whole pool until the turn comes round.
+- **The fifteen-minute average lags**: builds go on taking turns for up to that long after the machine is quiet again, and a hold does not start until it has been loaded that long.
+- **An agent's own foreground command keeps its own timeout**: a build held past it is ended by the agent, losing only what it was compiling at the time.
 
 ### How many Checks run at once
 

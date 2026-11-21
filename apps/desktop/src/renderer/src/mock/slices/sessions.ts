@@ -180,6 +180,10 @@ export const sessions: Slice<SessionsApi, SessionsState> = {
       ok: false,
       outcome: unanswered("/sessions/pause"),
     }),
+    prioritiseSession: async () => ({
+      ok: false,
+      outcome: unanswered("/sessions/prioritise"),
+    }),
     resumeSession: async () => ({
       ok: false,
       outcome: unanswered("/sessions/resume"),

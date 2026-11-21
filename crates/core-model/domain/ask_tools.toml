@@ -1,0 +1,73 @@
+# Armada's own tools a person asks the agent for from the message box: the +
+# in the native box's bar, or `ask_for_tool` (⌘/), lists them, and the one
+# picked rides in the message as a `tool` tag whose id is a key here.
+#
+# Authored here. This file is the one list: Bridge draws its rows in the order
+# they stand, and Fleet says a picked tool's `line` to the agent. Both read it
+# through `ipc::ask_tools`, built in.
+#
+# **Every operation an agent can reach names its place here.** `ask_tool` on
+# each file in `crates/ipc/operations/` names the tool that covers it, or
+# `none`, and the gate (*every operation an agent can reach has a place in the
+# message box's tools, or says none*) refuses an agent-reachable operation
+# without one. A new thing a person would ask for by name is a new row here.
+#
+# The table key is the tool's id, the wire value of the tag. One line a field,
+# each a plain quoted string: the readers split on lines and keep no escapes.
+#
+# Fields:
+#   name  - what the person reads in the list and on the chip
+#   says  - what it gives, the row's second line
+#   glyph - a glyph key in packages/icons/icons/
+#   hue   - its `--ask-*` token, declared in packages/tokens/src/ask-tools.css
+#           and light.css
+#   line  - what Fleet tells the agent, after "The person asked for <name>: "
+
+[tools.sketch]
+name = "Sketch"
+says = "a screen drawn as a mock"
+glyph = "layout-template"
+hue = "--ask-sketch"
+line = "draw it with `show_sketch` as a `mock` of the screen"
+
+[tools.diagram]
+name = "Diagram"
+says = "boxes and arrows: a flow or a map"
+glyph = "chart-network"
+hue = "--ask-diagram"
+line = "draw it with `show_sketch` as boxes and edges"
+
+[tools.takes]
+name = "Takes"
+says = "options side by side; you pick one"
+glyph = "columns-2"
+hue = "--ask-takes"
+line = "put the options to them with `add_part` of kind `takes`, one scene each, your pick first"
+
+[tools.document]
+name = "Document"
+says = "a page you read and approve"
+glyph = "file-text"
+hue = "--ask-document"
+line = "write it as an HTML page under `.armada/documents/`, as the `armada:writing-a-document` skill says"
+
+[tools.browser]
+name = "Browser"
+says = "open a page in this Job"
+glyph = "globe"
+hue = "--ask-browser"
+line = "open the page in the Job's browser with `show_window`"
+
+[tools.terminal]
+name = "Terminal"
+says = "a command you can watch run"
+glyph = "monitor-play"
+hue = "--ask-terminal"
+line = "run it in one of the Job's terminals, where they can watch it, with `show_terminal` or `type_in_terminal`"
+
+[tools.features]
+name = "Features"
+says = "the project's feature catalog"
+glyph = "blocks"
+hue = "--ask-features"
+line = "read the project's feature catalog with `list_features` and `get_feature_brief`, and answer from it"
