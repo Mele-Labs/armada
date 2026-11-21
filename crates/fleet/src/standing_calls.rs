@@ -310,6 +310,8 @@ impl Keeper {
                         tone: tone_of(*blocks),
                         kind: CallArrivalKind::Needs,
                         key: None,
+                        // The start card is no item of his list; a press on it opens the Job.
+                        item: (item != "start").then(|| item.clone()),
                     });
                 }
             }
@@ -324,6 +326,7 @@ impl Keeper {
                     tone: CallTone::Waiting,
                     kind: CallArrivalKind::Stopped,
                     key: None,
+                    item: None,
                 });
             }
         }
@@ -353,6 +356,7 @@ impl Keeper {
                     text: call.text,
                     tone: call.tone,
                     kind: CallArrivalKind::MacPairing,
+                    item: None,
                 });
             }
         }

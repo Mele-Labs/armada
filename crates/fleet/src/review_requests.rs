@@ -87,6 +87,7 @@ fn arrival_of(call: &StandingCall) -> CallArrival {
         text: call.text.clone(),
         tone: call.tone,
         kind: CallArrivalKind::ReviewRequested,
+        item: None,
     }
 }
 

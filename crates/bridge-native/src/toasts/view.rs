@@ -2212,7 +2212,7 @@ mod review_tests {
     }
 
     fn arrival() -> CallArrival {
-        CallArrival { session_id: SessionId::carried(KEY), title: TITLE.into(), text: SAID.into(), tone: CallTone::Waiting, kind: CallArrivalKind::ReviewRequested, key: Some(KEY.into()) }
+        CallArrival { session_id: SessionId::carried(KEY), title: TITLE.into(), text: SAID.into(), tone: CallTone::Waiting, kind: CallArrivalKind::ReviewRequested, key: Some(KEY.into()), item: None }
     }
 
     struct Root(gpui::AnyView);
