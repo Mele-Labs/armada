@@ -504,8 +504,12 @@ mod tests {
         use super::super::parts_fold::redraw;
         let (view, cx) = review_tab(cx);
         let running = run("bugs", "", "2026-11-20T10:00:00Z", ReviewRunState::Running);
-        let head = view.read_with(cx, |view, _| view.pull_panel().and_then(|panel| panel.page()).and_then(|page| page.head.clone())).unwrap_or_default();
-        let moved = |run: ReviewRun| crate::fleet::ReviewRunsMoved { runs: vec![ReviewRun { head: head.clone(), ..run }], lost: false };
+        // The run is for the open pull request, whatever manifest and head the panel holds.
+        let (manifest, number, head) = view.read_with(cx, |view, _| {
+            let panel = view.pull_panel().expect("a pull request is open");
+            (panel.pull.manifest.clone().expect("it has a manifest"), panel.pull.number, panel.page().and_then(|page| page.head.clone()).unwrap_or_default())
+        });
+        let moved = |run: ReviewRun| crate::fleet::ReviewRunsMoved { runs: vec![ReviewRun { manifest_id: ipc::ManifestId::carried(&manifest), number, head: head.clone(), ..run }], lost: false };
         view.update_in(cx, |view, window, cx| view.review_runs_moved(&moved(running), window, cx));
         redraw(cx);
         assert!(found(cx, Role::Status, "bugs running"), "a running run says so");
