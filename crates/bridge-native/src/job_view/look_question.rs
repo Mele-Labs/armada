@@ -416,7 +416,7 @@ impl JobView {
     /// An option taken whole: the normal answer, its choice the option's index.
     pub(super) fn look_take_whole(&mut self, item: &str, option: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string(), choice: Some(option as u32), text: None, mode: None, fixed: None });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.to_string(), choice: Some(option as u32), text: None, mode: None, fixed: None, extras: Default::default() });
         self.look_settle(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), Vec::new(), window, cx);
     }
 

@@ -124,7 +124,7 @@ impl JobView {
                     match &*subject {
                         Subject::Sketch { sketch, drawn } => (
                             "/sessions/sketch/answer",
-                            encoded(&AnswerSketch { session_id: session_id.clone(), sketch: sketch.clone(), drawn: drawn.clone().unwrap_or_default(), how, words }),
+                            encoded(&AnswerSketch { session_id: session_id.clone(), sketch: sketch.clone(), drawn: drawn.clone().unwrap_or_default(), how, words, extras: Default::default() }),
                         ),
                     }
                 }
@@ -911,7 +911,7 @@ impl JobView {
         Rc::new(move |this, act, window, cx| {
             let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
             let item = format!("draft:{id}");
-            let answer = |words: Option<String>| encoded(&AnswerWaiting { session_id: session.clone(), item_id: item.clone(), choice: words.is_none().then_some(0), text: words, mode: None, fixed: None });
+            let answer = |words: Option<String>| encoded(&AnswerWaiting { session_id: session.clone(), item_id: item.clone(), choice: words.is_none().then_some(0), text: words, mode: None, fixed: None, extras: Default::default() });
             match act {
                 Act::Approve => this.settle(ix, key.clone(), Answer::Approved, "/sessions/waiting/answer", answer(None), window, cx),
                 Act::Ask => this.ask_for_changes(ix, &key, window, cx),
@@ -959,7 +959,7 @@ impl JobView {
         let answer_body = {
             let (job, item) = (job.clone(), item.clone());
             move |choice: Option<u32>, words: Option<String>, fixed: Option<String>| {
-                encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.clone(), choice, text: words, mode: None, fixed })
+                encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.clone(), choice, text: words, mode: None, fixed, extras: Default::default() })
             }
         };
         let withdraw = {

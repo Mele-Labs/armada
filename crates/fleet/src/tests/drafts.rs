@@ -58,7 +58,7 @@ async fn drafting(rig: &Rig) -> (ipc::SessionId, String) {
 }
 
 fn answer(id: &ipc::SessionId, item: &str) -> AnswerWaiting {
-    AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: None, text: None, mode: None, fixed: None }
+    AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: None, text: None, mode: None, fixed: None, extras: Default::default() }
 }
 
 #[tokio::test]

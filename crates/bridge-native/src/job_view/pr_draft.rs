@@ -472,7 +472,7 @@ impl JobView {
             panel.draft.said = None;
         }
         cx.notify();
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(pull.job.clone()), item_id: format!("draft:{}", draft.draft), choice, text, mode: None, fixed });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(pull.job.clone()), item_id: format!("draft:{}", draft.draft), choice, text, mode: None, fixed, extras: Default::default() });
         let number = pull.number;
         self.post(
             "/sessions/waiting/answer".to_string(),

@@ -51,7 +51,7 @@ fn answered_events(rig: &Rig) -> Arc<Mutex<Vec<BrowserAskAnswered>>> {
 }
 
 fn choosing(job: &SessionId, choice: Option<u32>, text: Option<&str>) -> AnswerWaiting {
-    AnswerWaiting { session_id: job.clone(), item_id: ITEM.into(), choice, text: text.map(str::to_string), mode: None, fixed: None }
+    AnswerWaiting { session_id: job.clone(), item_id: ITEM.into(), choice, text: text.map(str::to_string), mode: None, fixed: None, extras: Default::default() }
 }
 
 /// What the agent has been sent, and how many rows its thread holds: neither moves for a page's ask.
