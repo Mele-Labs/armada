@@ -109,7 +109,7 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 ## In native Bridge
 
 **Settings › This Mac › Account is one page with three stacked sections, and the title bar's Account row opens it.**
-**Not built.**
+Built in #3977, and Kit's row after it.
 
 | Section | What it holds |
 | --- | --- |
