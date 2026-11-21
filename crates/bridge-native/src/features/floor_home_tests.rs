@@ -1,4 +1,4 @@
-use gpui::{Entity, Role, TestAppContext, VisualTestContext};
+use gpui::{AppContext, Entity, Role, TestAppContext, VisualTestContext};
 use ipc::FeatureLibrary;
 
 use super::floor_home::{cards, code_map};

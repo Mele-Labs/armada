@@ -148,6 +148,8 @@ fn view_label(scope: Scope, group: Group) -> String {
 }
 
 mod asleep_mac;
+#[cfg(test)]
+mod prioritise_tests;
 
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
@@ -156,6 +158,8 @@ struct Row {
     title: SharedString,
     project: SharedString,
     paused: bool,
+    /// The person's one prioritised Job (`SessionRecord.prioritised`): its builds run first on a loaded machine.
+    prioritised: bool,
     /// Paused and kept quiet until this time, when Fleet resumes it (`snoozed_until`).
     snoozed: Option<chrono::DateTime<chrono::Local>>,
     /// Waiting for a worktree slot, as its glyph's tooltip says it (`slot_wait`).
@@ -836,6 +840,7 @@ fn lines_grouped(
                 title: idea.title().to_string().into(),
                 project: idea_group(idea).1.into(),
                 paused: false,
+                prioritised: false,
                 snoozed: None,
                 slot_wait: None,
                 ended: false,
@@ -869,6 +874,7 @@ fn lines_grouped(
             title: title_of(job),
             project: group_of(job, names).1.into(),
             paused: paused(job),
+            prioritised: job.prioritised && job.state != SessionState::Ended,
             snoozed: job.snoozed_until.as_ref().and_then(crate::snooze::local_of),
             slot_wait: job.slot_wait.as_ref().map(|wait| crate::slot_wait::said(wait).into()),
             ended: job.state == SessionState::Ended,
@@ -2469,6 +2475,8 @@ impl JobsList {
         };
         let mut entries = vec![
             Entry::Item { id: pause, label: label.into(), icon: Some(icon), danger: false, key: Some("P".into()), off: off.clone() },
+            // Fleet moves the mark, or clears it where this Job holds it, and refuses an ended Job (`fleet.session_not_prioritisable`).
+            act("prioritise", if row.prioritised { "Stop prioritising" } else { "Prioritise" }, Some("arrow-up-to-line"), false),
             match crate::snooze::menu_item(row.snoozed.is_some()) {
                 Entry::Item { id, label, icon, danger, key, .. } => Entry::Item { id, label, icon, danger, key, off: off.clone() },
                 other => other,
@@ -2484,7 +2492,7 @@ impl JobsList {
             entries.remove(0);
         }
         // Move to the other Mac, or bring the Job here, under Snooze: the Job's own state acts stand together.
-        let mut after = if row.snoozed.is_some() { 1 } else { 2 };
+        let mut after = if row.snoozed.is_some() { 2 } else { 3 };
         if let Some(offer) = self.record(&id).and_then(|job| crate::move_to_mac::offer(job, crate::pairing::macs(cx))) {
             entries.insert(after, Entry::Item { id: "move", label: offer.label.into(), icon: None, danger: false, key: Some("M".into()), off: offer.off.map(Into::into) });
             after += 1;
@@ -2513,6 +2521,7 @@ impl JobsList {
             match *act {
                 "pause" => send(port, "/sessions/pause", encoded(ipc::encode(&ipc::PauseSession { session_id })), cx),
                 "resume" => send(port, "/sessions/resume", encoded(ipc::encode(&ipc::ResumeSession { session_id })), cx),
+                "prioritise" => send(port, "/sessions/prioritise", encoded(ipc::encode(&ipc::PrioritiseSession { session_id })), cx),
                 "snooze" => crate::dispatch::screen::snooze_ask(job.clone(), title.clone(), Some(at), cx),
                 "wake" => this.snooze(&job, None, cx),
                 "move" => this.move_to_mac(&job, cx),
@@ -3077,6 +3086,15 @@ impl JobsList {
                             .tooltip(tip("Handing off".into())),
                         Role::Image,
                         "Handing off",
+                    ))
+                }).when(row.prioritised, |slot| {
+                    slot.child(labelled(
+                        div()
+                            .id(SharedString::from(format!("prioritised-{}", row.id)))
+                            .child(svg().path(icon_path("arrow-up-to-line")).size(mark_glyph).text_color(look.color(token::ACCENT)))
+                            .tooltip(tip("Prioritised: its builds run first when the machine is loaded".into())),
+                        Role::Image,
+                        "Prioritised",
                     ))
                 }).children(quiet).children(slot_wait).children(earlier_mark.take()).children(mac_dot.take()).children(state.map(|((glyph, said), hue)| {
                     let said = moved_said.clone().unwrap_or(said);
