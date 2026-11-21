@@ -19,6 +19,16 @@ use crate::labels::labelled;
 use crate::look::{token, Look};
 use crate::web::reader as ask;
 
+/// The width beside the contents rail the page and its margin need for the margin to stand beside the page: the page
+/// keeps 440pt beside the 320pt margin. Under it, the margin folds below the page.
+pub(super) const MARGIN_BESIDE: f32 = 760.;
+
+/// Whether a page's margin stands beside it, by the width the reader has once the contents rail took its own.
+pub(super) fn margin_beside(held: &Reader, room: Room, look: &Look) -> bool {
+    let rail = if room.rail() { f32::from(look.length(token::SPACE_12) * 3. + look.length(token::SPACE_4)) } else { 0. };
+    f32::from(held.width.get()) - rail >= MARGIN_BESIDE
+}
+
 impl JobView {
     /// The page a reader shows.
     pub(super) fn reader_page(&self, id: &str, name: &str) -> Option<Entity<PageTab>> {
@@ -48,8 +58,9 @@ impl JobView {
             if !held.notes_on {
                 return div().flex_1().min_h_0().min_w_0().flex().child(view).into_any_element();
             }
-            let margin = self.margin_column(id, name, held, pins, look, cx);
-            if room.gutter() {
+            let beside = margin_beside(held, room, look);
+            let margin = self.margin_column(id, name, held, pins, beside, look, cx);
+            if beside {
                 return div().flex_1().min_h_0().min_w_0().flex().child(view).child(margin).into_any_element();
             }
             return div().flex_1().min_h_0().min_w_0().flex().flex_col().child(view).child(div().flex_none().max_h(look.length(token::SPACE_12) * 6.).flex().child(margin)).into_any_element();

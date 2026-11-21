@@ -40,6 +40,10 @@ pub(super) struct Margin {
     pub stamp: Option<String>,
     /// The comment he left half written is back.
     pub restored: bool,
+    /// The margin's own scroll, so a thread chosen from the Job's thread is brought into view.
+    pub scroll: gpui::ScrollHandle,
+    /// The thread to bring into view once the margin is drawn at the width it stands at.
+    pub reach: std::cell::RefCell<Option<String>>,
 }
 
 /// A comment begun on a passage.
@@ -110,6 +114,13 @@ impl Margin {
     /// The threads the Open tab lists.
     pub(super) fn open(&self) -> impl Iterator<Item = &MarginThread> {
         self.threads.iter().filter(|one| one.state != MarginState::Settled)
+    }
+
+    /// Where thread `thread` stands among the Open tab's children, as `margin_column` lays them out: the head, Fleet's
+    /// refusal, the held bar and the comment being written come before the threads.
+    pub(super) fn place_of(&self, thread: &str) -> Option<usize> {
+        let before = 1 + usize::from(self.said.is_some()) + usize::from(self.holds()) + usize::from(self.new.is_some());
+        self.open().position(|one| one.id == thread).map(|at| before + at)
     }
 
     /// Whether the caret is in a comment or a reply.
@@ -238,6 +249,7 @@ impl JobView {
     fn margin_took(&mut self, id: &SharedString, name: &str, read: Result<MarginThreads, String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(held) = self.reader_of(id, name) else { return };
         let page = held.key.clone();
+        let first = !held.margin.loaded;
         match read {
             Ok(read) => {
                 let open: Vec<String> = read.threads.iter().filter(|one| one.state != MarginState::Settled).map(|one| one.id.clone()).collect();
@@ -267,6 +279,10 @@ impl JobView {
             held.margin.busy = false;
         }
         self.margin_marks(id, name, cx);
+        // A thread chosen before the threads came in is brought into view now that they have.
+        if first {
+            self.margin_reach(id, name, cx);
+        }
         cx.notify();
     }
 
@@ -445,7 +461,7 @@ impl JobView {
         let his = self.row_tabs.get(id).and_then(|tabs| tabs.mock_kept.get(&page)).map(|kept| kept.his.clone()).unwrap_or_default();
         let Ok(html) = crate::mock::page_source(&page, shown, &his).or_else(|_| crate::mock::sealed_revision(&page, shown, &his, &[], &[])) else { return };
         self.row_tabs.entry(id.clone()).or_default().mock_kept.entry(page.clone()).or_default().his.push(html.replacen(&edit.0, &edit.1, 1));
-        self.edited_here(id, &page);
+        self.revised_here(id, &page, ipc::ArtifactBy::Agent);
         tab.update(cx, |tab, _| tab.keep_at(shown + 1));
         self.fetch_page(tab, window, cx);
     }
@@ -477,13 +493,20 @@ impl JobView {
         held.margin.on = Some(thread.to_string());
         held.margin.settled = false;
         held.notes_on = true;
-        let Some(one) = held.margin.threads.iter().find(|one| one.id == thread).cloned() else { return };
         self.margin_marks(id, name, cx);
+        self.margin_reach(id, name, cx);
+        cx.notify();
+    }
+
+    /// The thread he is on, brought into view: its passage in the page, and the thread in the margin.
+    fn margin_reach(&mut self, id: &SharedString, name: &str, cx: &mut Context<Self>) {
+        let Some(held) = self.reader_of(id, name) else { return };
+        let Some(one) = held.margin.on.as_ref().and_then(|on| held.margin.threads.iter().find(|one| &one.id == on)).cloned() else { return };
+        held.margin.reach.replace(Some(one.id.clone()));
         if let Some(tab) = self.reader_page(id, name) {
             let script = ask::reach(&one.id, &one.anchor.quote, one.anchor.block.as_deref().unwrap_or_default());
             tab.update(cx, |tab, cx| tab.run(script, cx));
         }
-        cx.notify();
     }
 
     /// Enter on the thread J and K are on: the caret goes into its reply.
@@ -504,7 +527,7 @@ impl JobView {
 
     /// ⇧⌘↵ sends what he holds on the page whose reader has the keys. False where no page's reader holds them.
     pub(super) fn margin_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if !act.is("queue_session") {
+        if !act.is("margin_send_held") {
             return false;
         }
         let Some(id) = self.shown.clone() else { return false };
@@ -565,5 +588,58 @@ mod tests {
         redraw(cx);
         assert!(view.read_with(cx, |view, _| view.review_open()), "Open goes to the review sheet");
         assert!(drawn(cx, Role::Dialog, "Review"), "which is drawn over the window");
+    }
+
+    #[gpui::test]
+    fn the_margin_stands_beside_a_wide_page_at_its_width_and_folds_under_a_narrow_one(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        redraw(cx);
+        let wide = all_of(cx, Role::Group, "Margin").pop().expect("the margin is drawn");
+        let width = f32::from(super::super::reader_talk::margin_width(&crate::look::Look::dark()));
+        assert!((f32::from(wide.size.width) - width).abs() < 1., "beside the page the margin is {width} wide, not {:?}", wide.size.width);
+        cx.simulate_resize(size(px(760.), px(1080.)));
+        redraw(cx);
+        redraw(cx);
+        let narrow = all_of(cx, Role::Group, "Margin").pop().expect("the margin is still drawn");
+        assert!(f32::from(narrow.size.width) > width + 1., "under the page the margin takes the page's width, {:?}", narrow.size.width);
+        assert!(narrow.top() > wide.top(), "and stands below the page");
+    }
+
+    #[gpui::test]
+    fn settle_sends_the_reply_as_the_outcome_or_none_and_takes_the_passage_mark_away(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", Some("m1"), None, window, cx));
+        redraw(cx);
+        let (id, name) = (gpui::SharedString::from("plan-job"), super::super::reader::reader_id(super::RowKind::Document, "quiet"));
+        let marked = |view: &super::JobView, thread: &str| view.reader_of(&id, &name).is_some_and(|held| held.margin.marks().iter().any(|mark| mark.thread == thread));
+        assert!(view.read_with(cx, |view, _| marked(view, "m1") && marked(view, "m2")), "the open threads mark their passages");
+        view.update_in(cx, |view, window, cx| view.margin_do(&id, &name, "m1", ipc::MarginAct::Settle { outcome: None }, window, cx));
+        redraw(cx);
+        let area = view.read_with(cx, |view, _| view.reader_of(&id, &name).and_then(|held| held.margin.replies.get("m2")).map(|(area, _)| area.clone())).expect("m2 has its reply box");
+        view.update_in(cx, |_, window, cx| area.update(cx, |area, cx| area.set_value("Quiet until my work start".to_string(), window, cx)));
+        view.update_in(cx, |view, window, cx| view.margin_do(&id, &name, "m2", ipc::MarginAct::Settle { outcome: None }, window, cx));
+        redraw(cx);
+        view.read_with(cx, |view, _| {
+            let held = view.reader_of(&id, &name).expect("the page's reader");
+            let outcome = |thread: &str| held.margin.threads.iter().find(|one| one.id == thread).map(|one| (one.state, one.outcome.clone()));
+            assert_eq!(outcome("m1"), Some((ipc::MarginState::Settled, None)), "an empty box sends no outcome, and Fleet asks the agent");
+            assert_eq!(outcome("m2"), Some((ipc::MarginState::Settled, Some("Quiet until my work start".to_string()))), "the box's words are the outcome");
+            assert!(!marked(view, "m1") && !marked(view, "m2"), "a settled thread marks nothing in the page");
+        });
+    }
+
+    #[gpui::test]
+    fn open_on_a_round_brings_its_first_thread_into_the_margins_view(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(560.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", Some("m5"), None, window, cx));
+        redraw(cx);
+        redraw(cx);
+        let on = view.read_with(cx, |view, _| view.reader_of("plan-job", &super::super::reader::reader_id(super::RowKind::Document, "quiet")).map(|held| (held.margin.on.clone(), held.margin.place_of("m5"))));
+        assert_eq!(on, Some((Some("m5".to_string()), Some(5))), "the round's thread is the one he is on");
+        let margin = all_of(cx, Role::Group, "Margin").pop().expect("the margin is drawn");
+        let thread = all_of(cx, Role::Group, "Thread on \u{201c}A Job asking a question waits until the next workday.\u{201d}").pop().expect("m5 is drawn");
+        assert!(margin.contains(&thread.origin) && thread.top() < margin.bottom(), "m5 stands in the margin's view: {thread:?} in {margin:?}");
     }
 }

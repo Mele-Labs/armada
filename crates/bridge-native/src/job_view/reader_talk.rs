@@ -7,7 +7,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Hsla, KeyDownEvent,
 use gpui_component::input::{Enter, Textarea};
 use ipc::{MarginAct, MarginRoundKind, MarginState, MarginThread, MarginVoice, SuggestionHow, ThreadMargin};
 
-use super::acts::{at_of, button, kbd, refusal, Tone};
+use super::acts::{button, kbd, refusal, Tone};
 use super::reader::Reader;
 use super::rows::tip;
 use super::sketch_card::mixed;
@@ -16,9 +16,14 @@ use crate::assets::icon_path;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
 
-/// The keys under a comment and on the held bar, as the chips on their buttons show them.
-const SEND_NOW: &str = "\u{2318}\u{21b5}";
-const SEND_HELD: &str = "\u{21e7}\u{2318}\u{21b5}";
+/// The acts whose keys the chips under a comment and on the held bar show, as he has them bound.
+const SEND_NOW: &str = "send_message";
+const SEND_HELD: &str = "margin_send_held";
+
+/// The margin's width, where it stands beside the page.
+pub(super) fn margin_width(look: &Look) -> gpui::Pixels {
+    look.length(token::SIDEBAR_MAX)
+}
 
 fn glyph(look: &Look, name: &str, ink: Hsla) -> gpui::Svg {
     gpui::svg().path(icon_path(name)).flex_none().size(look.length(token::TEXT_SM)).text_color(ink)
@@ -29,7 +34,7 @@ fn state_of(state: MarginState) -> (&'static str, &'static str, Token) {
     match state {
         MarginState::Open => ("message-square", "Sent, the agent has not answered", token::FG_MUTED),
         MarginState::Answered => ("message-square-text", "Answered, the page is unchanged", token::ACCENT),
-        MarginState::Suggested => ("diff", "A change waits for your Accept", token::YOU),
+        MarginState::Suggested => ("file-diff", "A change waits for your Accept", token::YOU),
         MarginState::Held => ("clock", "Held until you send held comments", token::YOU),
         MarginState::Settled => ("check", "Settled", token::STATUS_COMPLETED_SUCCESS),
     }
@@ -38,11 +43,11 @@ fn state_of(state: MarginState) -> (&'static str, &'static str, Token) {
 /// A round of talk, as a glyph and the words its tooltip says.
 fn round_of(kind: MarginRoundKind) -> (&'static str, &'static str) {
     match kind {
-        MarginRoundKind::Comments => ("messages-square", "Comments in the margin"),
-        MarginRoundKind::Change => ("diff", "A change to the page"),
+        MarginRoundKind::Comments => ("message-square", "Comments in the margin"),
+        MarginRoundKind::Change => ("file-diff", "A change to the page"),
         MarginRoundKind::Accepted => ("check", "A change accepted"),
-        MarginRoundKind::Rejected => ("x", "A change rejected"),
-        MarginRoundKind::Settled => ("circle-check", "Settled"),
+        MarginRoundKind::Rejected => ("ban", "A change rejected"),
+        MarginRoundKind::Settled => ("check", "Settled"),
         MarginRoundKind::SentBack => ("reply", "Sent back from the page"),
     }
 }
@@ -51,33 +56,26 @@ fn small(look: &Look, ink: Token, words: impl Into<SharedString>) -> gpui::Div {
     div().text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(ink)).child(words.into())
 }
 
-/// One line of a thread: who said it, when, and the words.
+/// One line of a thread: who said it, when, and the words. Who is the name alone: the registry keeps the human figure
+/// and the robot's head for other meanings.
 fn said(look: &Look, by: MarginVoice, at: &ipc::Instant, words: &str, held: bool) -> AnyElement {
-    let (name, icon, ink) = match by {
-        MarginVoice::You => ("You", "user", look.color(token::YOU)),
-        MarginVoice::Agent => ("Agent", "bot", look.color(token::ACCENT)),
+    let (name, ink) = match by {
+        MarginVoice::You => ("You", token::YOU),
+        MarginVoice::Agent => ("Agent", token::ACCENT),
     };
-    let when = at_of(at).map(|at| at.format("%H:%M").to_string()).unwrap_or_default();
+    let when = crate::settings::time::stamp_at(at.as_str()).unwrap_or_default();
     div()
         .flex()
-        .gap(look.length(token::SPACE_2))
-        .child(div().flex_none().h(look.length(token::LEADING_SM)).flex().items_center().child(glyph(look, icon, ink)))
+        .flex_col()
         .child(
             div()
-                .flex_1()
-                .min_w_0()
                 .flex()
-                .flex_col()
-                .child(
-                    div()
-                        .flex()
-                        .gap(look.length(token::SPACE_2))
-                        .child(small(look, token::FG_DEFAULT, name).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
-                        .child(small(look, token::FG_SUBTLE, when))
-                        .when(held, |line| line.child(small(look, token::YOU, "Held"))),
-                )
-                .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(words.to_string()))),
+                .gap(look.length(token::SPACE_2))
+                .child(small(look, ink, name).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))))
+                .child(small(look, token::FG_SUBTLE, when))
+                .when(held, |line| line.child(small(look, token::YOU, "Held"))),
         )
+        .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(words.to_string())))
         .into_any_element()
 }
 
@@ -131,8 +129,10 @@ fn typing_box(look: &Look, focused: bool) -> gpui::Div {
 
 impl JobView {
     /// The margin: Open and Settled at its head, the comments he holds, the comment he is writing, then a thread for
-    /// each passage. `pins` are notes he left on the page before it had a margin.
-    pub(super) fn margin_column(&self, id: &SharedString, name: &str, held: &Reader, pins: Vec<AnyElement>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// each passage. `pins` are notes he left on the page before it had a margin. `beside` the page it is a column of
+    /// its own width; under it, it takes the page's width.
+    #[allow(clippy::too_many_arguments)]
+    pub(super) fn margin_column(&self, id: &SharedString, name: &str, held: &Reader, pins: Vec<AnyElement>, beside: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let margin = &held.margin;
         let settled_tab = margin.settled;
         let tab = |which: bool, said: &'static str| {
@@ -223,21 +223,35 @@ impl JobView {
             body.extend(open.into_iter().map(|one| self.margin_thread(id, name, one, margin, look, cx)));
         }
         body.extend(pins);
+        // A thread chosen from the Job's thread scrolls into view. The scroll reads the margin's bounds from the frame
+        // before, so it is asked again each frame until that frame laid the margin out as this one does.
+        if f32::from(held.width.get()) > 0. && !settled_tab {
+            let place = margin.reach.borrow().as_deref().and_then(|thread| margin.place_of(thread));
+            if let Some(place) = place {
+                margin.scroll.scroll_to_item(place);
+                let was = f32::from(margin.scroll.bounds().size.width);
+                let settled = if beside { (was - f32::from(margin_width(look))).abs() < 1. } else { was > f32::from(margin_width(look)) + 1. };
+                if settled {
+                    margin.reach.replace(None);
+                }
+            }
+        }
 
         labelled(
             div()
                 .id(SharedString::from(format!("margin:{name}")))
                 .flex_none()
-                .w(look.length(token::W_DOCK))
+                .when(beside, |column| column.w(margin_width(look)).border_l(look.length(token::BORDER_WIDTH)))
+                .when(!beside, |column| column.w_full().border_t(look.length(token::BORDER_WIDTH)))
                 .min_h_0()
                 .flex()
                 .flex_col()
                 .gap(look.length(token::SPACE_3))
                 .p(look.length(token::SPACE_4))
-                .border_l(look.length(token::BORDER_WIDTH))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::BG_BASE))
                 .overflow_y_scroll()
+                .track_scroll(&margin.scroll)
                 .child(head)
                 .children(body),
             Role::Group,
@@ -250,7 +264,7 @@ impl JobView {
     fn margin_held_bar(&self, id: &SharedString, name: &str, busy: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let (job, reader) = (id.clone(), name.to_string());
         let send = labelled(
-            button(look, SharedString::from(format!("margin-send-held:{name}")), "Send held", Tone::Secondary, false, Some(SEND_HELD), !busy)
+            button(look, SharedString::from(format!("margin-send-held:{name}")), "Send held", Tone::Secondary, false, Some(&crate::keymap::shown(SEND_HELD)), !busy)
                 .tooltip(tip("Send every held comment on this page to the agent"))
                 .on_click(cx.listener(move |this, _, window, cx| this.margin_send_held(&job, &reader, window, cx))),
             Role::Button,
@@ -284,9 +298,9 @@ impl JobView {
     fn margin_send_row(&self, id: &SharedString, name: &str, key: &str, thread: Option<&str>, busy: bool, look: &Look, cx: &Context<Self>) -> AnyElement {
         let send = |hold: bool| {
             let (job, reader, thread) = (id.clone(), name.to_string(), thread.map(str::to_string));
-            let (said, tone, chip) = if hold { ("Hold", Tone::Secondary, None) } else { ("Send now", Tone::Primary, Some(SEND_NOW)) };
+            let (said, tone, chip) = if hold { ("Hold", Tone::Secondary, None) } else { ("Send now", Tone::Primary, Some(crate::keymap::shown(SEND_NOW))) };
             labelled(
-                button(look, SharedString::from(format!("margin-{}:{key}", if hold { "hold" } else { "send" })), said, tone, false, chip, !busy)
+                button(look, SharedString::from(format!("margin-{}:{key}", if hold { "hold" } else { "send" })), said, tone, false, chip.as_deref(), !busy)
                     .tooltip(tip(if hold { "Keep it until you send held comments" } else { "Send it to the agent now" }))
                     .on_click(cx.listener(move |this, _, window, cx| match &thread {
                         Some(thread) => this.margin_send_reply(&job, &reader, thread, hold, window, cx),
