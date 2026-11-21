@@ -520,6 +520,9 @@ pub struct ResolvedStep {
     /// Whether the step is the one where the person is shown the work and approves it before
     /// tests are written. **False** on every step that does not say so.
     walks: bool,
+    /// Whether the step is the one where the work is offered for his preview and he says looks good. **False** on
+    /// every step that does not say so, and on every row frozen before a step could.
+    previews: bool,
     /// What the person does that ends the step, any one of them. **Empty** on every step that lists
     /// none; `awaits_reply: true` is `[Replied]`.
     ends_on: Vec<StepEnd>,
@@ -586,6 +589,7 @@ impl ResolvedStep {
             plan_unasked: false,
             asks_delivery: false,
             walks: false,
+            previews: false,
             ends_on: Vec::new(),
             tabs: Vec::new(),
         }
@@ -686,6 +690,16 @@ impl ResolvedStep {
 
     pub fn walks(&self) -> bool {
         self.walks
+    }
+
+    /// Whether the step is where the work is offered for his preview, for the same reason.
+    pub fn previewing_the_work(mut self, previews: bool) -> ResolvedStep {
+        self.previews = previews;
+        self
+    }
+
+    pub fn previews(&self) -> bool {
+        self.previews
     }
 
     /// What the person does that ends the step, for the same reason.

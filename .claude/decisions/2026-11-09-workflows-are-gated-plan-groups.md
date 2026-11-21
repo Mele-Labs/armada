@@ -22,5 +22,6 @@
 | refactor | Splitting a 900-line file, nothing visible | Plan, then the diff | Plan approved, then a page summarising the diff, then the merge |
 | revert | Taking #3201 back out | "Absolutely depends on the project we're in", then ask me each time | The agent asks first whether he wants a plan; with a yes the plan group holds |
 | uat | 3 of 20 scenarios blocked before the run | Run 17, ask about 3 | One stop, at the results page; the four stages are the agent's own tasks |
+| feature, bug, annotations, prototype | 20 Nov 2026: the walk steps, once he previews work on Ready to try | "most of the workflows still have walks but we really do previews now with ready to try in the armada repo. can we change this. its throwing off my other machine." | Each walk step becomes a Try: the Job offers the branch with `offer_preview` and his Looks good on its Ready to try card is his Approve, a `you_approved` gate. `previews: true` marks the step, so a push never passes it. `feature` and `annotations` name it `try`, and `bug` and `prototype` keep `fix` and `build` as Fix and try, Build and try. The rows above that say walk are what each answered then, and Kit workflows for other repositories are unchanged |
 
 The workflow files in `.armada/workflows/` carry each answer in their header. The old rail's step placement, visits and step tools go in a later change.

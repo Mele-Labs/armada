@@ -1,6 +1,6 @@
 # Bug, as the owner settled it on 9 Nov 2026: Find the cause, Fix, Test and deliver.
 # Each step is a plan group, and `gate` names the fact Fleet sees for itself that ends it: his approval
-# of the plan, of a walk, of a sketch or of a page, Checks green at the pushed commit, the merge, or none.
+# of the plan, of a branch offered for his preview, of a sketch or of a page, Checks green at the pushed commit, the merge, or none.
 # Fleet sends the groups to the agent on its first turn and keeps only the gates; nothing moves a Job
 # backwards. `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has each answer and the
 # dry run behind it.
@@ -39,11 +39,12 @@
     },
     {
       "id": "fix",
-      "label": "Fix",
+      "label": "Fix and try",
       "tabs": ["artifacts", "pulls"],
-      "about": "Makes the fix and shows it to you as a short walk straight to the place. Ends when you approve the walk. Left out when nothing would be seen.",
-      "instructions": "Make the smallest change that addresses the cause, following the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nShow the fix as a short walk straight to the place with show_window, naming this group, and wait for the person's approval. Leave this group out of the plan when the project serves no walk or nothing would be seen.\nShow a walk once. Do not show one he approved again.",
-      "gate": "walk_approved",
+      "about": "Makes the fix and offers the branch for your preview. Ends when you press Looks good on its Ready to try card. Left out when nothing would be seen.",
+      "instructions": "Make the smallest change that addresses the cause, following the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nMake one group for this step, id fix, gated you_approved, and leave it out when the person would see nothing of the change. Push the branch and offer it with offer_preview: `about` says in one line what the branch holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
+      "gate": "you_approved",
+      "previews": true,
       "delivers": false,
       "advance_gate": "auto"
     },

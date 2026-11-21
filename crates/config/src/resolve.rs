@@ -382,6 +382,7 @@ fn resolve_step(
     .leaving_the_plan_unasked(step.plan_unasked())
     .asking_delivery(step.asks_delivery())
     .walking_the_work(step.walks())
+    .previewing_the_work(step.previews())
     .ending_on(step.ends_on().to_vec())
     .opening(step.tabs().to_vec())
 }

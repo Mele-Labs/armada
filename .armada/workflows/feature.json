@@ -1,12 +1,12 @@
-# Feature, as the owner settled it on 9 Nov 2026: Propose, one Walk per part he would see, Build and deliver.
+# Feature, as the owner settled it on 9 Nov 2026: Propose, a walk of each part he would see, Build and deliver. On 20 Nov 2026
+# the walk became a Try: the Job offers the branch for his preview and his Looks good on its Ready to try card ends the step.
 # Each step is a plan group, and `gate` names the fact Fleet sees for itself that ends it. Fleet sends the
 # groups to the agent on its first turn, and the agent records its plan with them.
 # `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has each answer and its dry run.
 #
-# **One walk stop per part** (dry run 1): approving one part's walk ends that part's group while another
-# part still waits, so the agent wires an approved part at once. A new walk for a part already approved,
-# after he changes its look, holds that part again (dry run 2), and the plan change needs no new approval
-# unless the agent asks for one.
+# **One Try stop for the branch** (20 Nov 2026, in place of one walk stop per part, dry runs 1 and 2): a push is how a
+# preview is made, so `previews: true` makes the rail hold the step until his Looks good, which closes the group's
+# `you_approved` gate. A branch offered again after he leaves notes holds it still.
 #
 # **Refine is folded into delivery** (9 Nov 2026): no stop between the wiring and the merge, ci decides.
 # A draft pull request goes up while the checks run locally. A test also red on main is not this Job's to
@@ -32,12 +32,13 @@
       "advance_gate": "auto"
     },
     {
-      "id": "walk",
-      "label": "Walk",
+      "id": "try",
+      "label": "Try",
       "tabs": ["artifacts", "pulls"],
-      "about": "Builds each part you would see as a mock and shows it to you as a walk. Each part is its own group and ends when you approve its walk. Left out when the project has no walks or nothing would be seen.",
-      "instructions": "Make one walk group per part the person would see, with ids walk, walk_2 and so on, each gated walk_approved. Leave the walk groups out when the project serves no walk or nothing would be seen.\nBuild each part as a mock and show it with show_window, naming its group. Show them together when you can.\nWire a part as soon as its walk is approved, while the others wait.\nWhen the person changes the look of a part he already approved, change it and show a new walk for that part's group: it holds again until he approves it. Record the changed plan without ask_again; pass ask_again only for a change of approach he did not ask for.\nShow a walk once. Do not show one he approved again.",
-      "gate": "walk_approved",
+      "about": "Builds the part you would see on the branch and offers it for your preview. Ends when you press Looks good on its Ready to try card. Left out when nothing would be seen.",
+      "instructions": "Make one group for this step, id try, gated you_approved. Leave it out when the person would see nothing of the change.\nBuild the part he would see on the branch and push it.\nOffer it with offer_preview: `about` says in one line what the branch holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
+      "gate": "you_approved",
+      "previews": true,
       "delivers": false,
       "advance_gate": "auto"
     },

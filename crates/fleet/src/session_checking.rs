@@ -10,6 +10,8 @@
 //! A run is a thread row on the Session, replaced by id as it ends, and a row on the Checks page.
 //! Each change publishes the Session whole, so a client replaces it as it does for any ledger fact.
 
+use std::sync::Arc;
+
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
 use ipc::{
@@ -34,6 +36,38 @@ const LOOKED_EVERY: std::time::Duration = std::time::Duration::from_millis(25);
 
 /// A call that cannot be a run's start or end.
 const UNNAMED: &str = "fleet.session_check_unnamed";
+
+/// Reds in a row of one Check that tell the Job. 80 streaks reached five from 7 to 21 Nov 2026, at a
+/// median compile of 90 s a run.
+const RED_STREAK: usize = 5;
+/// Failing tests a red streak's word names before it counts the rest.
+const NAMED_TESTS: usize = 3;
+
+/// Whether a Check's runs, newest first, show the run that makes five reds in a row: the newest
+/// five red and the one before them not, so the sixth red and later say nothing.
+fn fifth_red(states: &[&str]) -> bool {
+    let red = |state: &&str| *state == SessionCheckState::Failed.as_wire() || *state == SessionCheckState::TimedOut.as_wire();
+    states.len() >= RED_STREAK && states[..RED_STREAK].iter().all(red) && !states.get(RED_STREAK).is_some_and(red)
+}
+
+/// The word a red streak tells, naming the tests that kept failing, else where the log blames.
+pub(crate) fn red_streak_said(name: &str, tests: &[String], at: Option<&str>) -> String {
+    let mut named: Vec<String> = tests.iter().take(NAMED_TESTS).map(|test| format!("`{test}`")).collect();
+    match tests.len() - named.len() {
+        0 => {}
+        1 => named.push(String::from("1 other")),
+        more => named.push(format!("{more} others")),
+    }
+    let failing = match named.split_last() {
+        None => at.map(|at| format!(", failing at {at}")).unwrap_or_default(),
+        Some((last, [])) => format!(", failing {last}"),
+        Some((last, before)) => format!(", failing {} and {last}", before.join(", ")),
+    };
+    format!(
+        "`{name}` ended red five runs in a row{failing}. Each run is a full compile. \
+         Read the failure and change the code before you run it again."
+    )
+}
 
 /// The tail of `log` that fits one read, cut at a character.
 fn tail(log: &str) -> &str {
@@ -63,7 +97,7 @@ where
 
     /// `report_session_check`.
     pub(crate) async fn session_check_reported(
-        &self,
+        self: &Arc<Self>,
         call: SessionCheckCall,
     ) -> Result<SessionCheckAnswer, Refusal> {
         match call.act {
@@ -121,7 +155,7 @@ where
     }
 
     async fn session_check_ended(
-        &self,
+        self: &Arc<Self>,
         call: SessionCheckCall,
     ) -> Result<SessionCheckAnswer, Refusal> {
         let (Some(run), Some(outcome)) = (call.run.and_then(|run| i64::try_from(run).ok()), call.outcome)
@@ -132,6 +166,7 @@ where
             return Err(self.session_check_refusal(UNNAMED, "a Check run ends as passed, failed or timed out"));
         }
         let target = call.target.as_deref().map(str::trim).filter(|target| !target.is_empty());
+        let log = call.log.unwrap_or_default();
         let at = self.clock().now().as_str().to_string();
         let mut store = self.store().lock().await;
         let Some(kept) = store.session_check(run).map_err(|why| self.ledger_fault(why))? else {
@@ -143,7 +178,7 @@ where
                 outcome.as_wire(),
                 &at,
                 call.took_ms.unwrap_or_default(),
-                tail(call.log.as_deref().unwrap_or_default()),
+                tail(&log),
                 target,
             )
             .map_err(|why| self.ledger_fault(why))?;
@@ -151,17 +186,40 @@ where
         self.session_check_live().ended(run);
         if ended {
             let target = target.or(kept.target.as_deref());
-            let blame = match (outcome, call.log) {
-                (SessionCheckState::Failed, Some(log)) => self.blamed(&kept, log).await,
+            let blame = match (outcome, log.is_empty()) {
+                (SessionCheckState::Failed, false) => self.blamed(&kept, log.clone()).await,
                 _ => None,
             };
+            let blamed_at = blame.as_ref().map(|blame| match blame.line {
+                Some(line) => format!("{}:{line}", blame.path),
+                None => blame.path.clone(),
+            });
             self.session_check_row(&kept.session_id, &kept.name, target, blame, kept.tool_row.as_deref(), run, &kept.started_at, outcome)
                 .await?;
+            if outcome != SessionCheckState::Passed {
+                self.red_streak_told(&kept, run, &log, blamed_at.as_deref()).await;
+            }
         }
         Ok(SessionCheckAnswer {
             run: u64::try_from(run).ok(),
             stop: None,
         })
+    }
+
+    /// The Job is told once when this run makes five reds in a row of one Check, so its agent reads
+    /// the failure rather than paying another full compile to see it again. Fleet only tells: the
+    /// next run starts as any does. A read the store cannot answer tells nothing.
+    async fn red_streak_told(self: &Arc<Self>, kept: &store::KeptSessionCheck, run: i64, log: &str, at: Option<&str>) {
+        let Ok(runs) = self.store().lock().await.session_checks_up_to(&kept.session_id, &kept.name, run, RED_STREAK as u32 + 1)
+        else {
+            return;
+        };
+        let states: Vec<&str> = runs.iter().map(|run| run.state.as_str()).collect();
+        if !fifth_red(&states) {
+            return;
+        }
+        let text = red_streak_said(&kept.name, &checks_runner::failing_tests_in(log), at);
+        let _ = self.told_by_fleet(&kept.session_id, &text, ipc::Notice::RedStreak).await;
     }
 
     /// Where a failed run's log says it failed, read in the slot it ran in. Read once, here, and

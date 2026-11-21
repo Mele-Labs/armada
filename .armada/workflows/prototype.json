@@ -2,9 +2,9 @@
 # `gate` names the fact Fleet sees for itself that ends it. `bug.json` beside this file says where the
 # schema lives, and `.claude/decisions/2026-11-09-workflows-are-gated-plan-groups.md` has his answers.
 #
-# **Build ends on his approval of a walk**, never on finished tasks (dry run, 9 Nov): even a prototype with
-# nothing to see in Bridge is shown running. `evidence.walked` starts the repository's `walk` server in the
-# Job's worktree for it.
+# **Build ends on his Looks good on the branch offered**, never on finished tasks (dry run, 9 Nov): even a prototype
+# with nothing to see in Bridge is offered, with a step that says how to run it. It was a walk until 20 Nov 2026, so
+# `evidence.walked`, which started the repository's `walk` server for it, is gone.
 #
 # **What comes after the write-up is his to say**: some prototypes only answer his curiosity, and some
 # prove an idea he wants to move on now. The agent asks once he approves the page.
@@ -30,14 +30,12 @@
     },
     {
       "id": "build",
-      "label": "Build",
+      "label": "Build and try",
       "tabs": ["artifacts", "pulls"],
-      "about": "Builds a rough version to answer the question and shows it to you running. Ends when you approve the walk.",
-      "instructions": "Build the roughest version that answers the question. Show it running with show_window, naming this group: the app itself, or a small page of what it measured where nothing would be seen in the app. Wait for the person's approval.",
-      "gate": "walk_approved",
-      "evidence": {
-        "walked": true
-      },
+      "about": "Builds a rough version to answer the question and offers the branch for your preview. Ends when you press Looks good on its Ready to try card.",
+      "instructions": "Build the roughest version that answers the question, on the branch, and push it.\nMake one group for this step, id build, gated you_approved. Offer the branch with offer_preview: `about` says in one line what it holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does; where nothing is in the app, a step says the command that runs it or where what it measured is written. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
+      "gate": "you_approved",
+      "previews": true,
       "delivers": false,
       "advance_gate": "human_always"
     },
