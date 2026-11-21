@@ -132,6 +132,27 @@ fn a_name_is_a_whole_word_and_no_build_directory_is_source() {
 }
 
 #[test]
+fn a_plain_module_of_the_same_name_does_not_hold_a_test_a_tests_module_holds() {
+    let workspace = Workspace::with(&[
+        ("crates/api/src/lib.rs", "mod kit_files;\n#[cfg(test)]\nmod tests;\n"),
+        ("crates/api/src/kit_files.rs", "pub fn open() {}\n"),
+        ("crates/ipc/src/lib.rs", "mod kit_files;\n"),
+        ("crates/fleet/src/lib.rs", "mod kit_files;\n#[cfg(test)]\nmod tests;\n"),
+        ("crates/fleet/src/tests/mod.rs", "mod kit_files;\n"),
+        ("crates/fleet/src/tests/kit_files.rs", "#[tokio::test]\nasync fn a_kit_file_opens() {}\n"),
+        ("crates/store/src/lib.rs", "#[cfg(test)]\nmod tests {\n    #[test]\n    fn saved() {}\n}\n"),
+        ("crates/store/src/drawer/kit_files/mod.rs", "#[test]\nfn deep() {}\n"),
+    ]);
+    let found = |test: &str| holders(workspace.path(), "crates", test);
+    // `api` and `ipc` only name a module `kit_files`; `fleet` and `store` hold tests under it.
+    assert_eq!(found("kit_files"), ["fleet", "store"]);
+    assert_eq!(found("tests::kit_files::a_kit_file_opens"), ["fleet"]);
+    assert_eq!(found("saved"), ["store"]);
+    // A function no test source declares, as a macro's tests are, falls back to any declaration.
+    assert_eq!(found("open"), ["api"]);
+}
+
+#[test]
 fn one_test_names_the_members_it_compiles() {
     let workspace = a_workspace();
     assert_eq!(
