@@ -345,20 +345,26 @@ impl JobView {
         let bands = self.column_bands(&job, &one.id, look, cx);
         let body_marks = self.body_drop_mark(&one.id, look);
         let pane_marks = self.pane_drop_marks(&one.id, look);
-        let element = sized(pane(look).id(SharedString::from(format!("pane:{}", one.id))), share)
+        let banded = bands.is_some();
+        let framed = pane(look).id(SharedString::from(format!("pane:{}", one.id)));
+        // Under a band card the pane takes what the card leaves; the pair is sized as a whole below.
+        let element = if banded { framed.flex_1().min_h_0().w_full() } else { sized(framed, share) }
             .relative()
             .when(hosts, |pane| pane.key_context("thread").on_action(cx.listener(Self::on_act)).on_action(cx.listener(Self::on_search)).child(gpui_base::TextSelectionLayer))
             // A press in the pane makes it the one the keys act on.
             .on_any_mouse_down(cx.listener(move |this, _, _, cx| this.pane_pressed(&press, cx)))
-            .children(bands)
             .child(strip_el)
             .children(said)
             .child(div().flex_1().min_h_0().flex().flex_col().relative().children(body).child(self.mark_drawn(format!("body:{}", one.id))).children(body_marks))
             .children(pane_marks)
             .children(popups);
-        match region {
+        let pane_el = match region {
             Some(name) => labelled(element, Role::Region, name).into_any_element(),
             None => element.into_any_element(),
+        };
+        match bands {
+            Some(card) => sized(super::column_bands::stacked(look, &one.id, card, pane_el), share).into_any_element(),
+            None => pane_el,
         }
     }
 

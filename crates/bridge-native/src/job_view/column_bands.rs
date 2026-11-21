@@ -179,6 +179,12 @@ pub(super) fn band_frame(look: &Look, id: impl Into<gpui::ElementId>) -> gpui::S
         .bg(look.color(token::BG_RAISED))
 }
 
+/// The band card over a pane, as two blocks with the column's gap between them: the card and the pane in its own frame under it.
+/// The caller sizes the pair; the pane takes the height the card leaves.
+pub(super) fn stacked(look: &Look, pane_id: &str, card: AnyElement, pane: AnyElement) -> gpui::Stateful<gpui::Div> {
+    div().id(SharedString::from(format!("column-bands:{pane_id}"))).min_h_0().flex().flex_col().gap(look.length(token::GAP_PANEL)).child(card).child(pane)
+}
+
 impl JobView {
     /// Whether the column's bands are for this pane: the first pane of the column beside the thread.
     pub(super) fn bands_pane(&self, pane: &str) -> bool {
@@ -246,8 +252,8 @@ impl JobView {
         .into_any_element()
     }
 
-    /// The band over the column, for a pane that holds it: one card with the step line, and under a hairline Needs you. With nothing
-    /// waiting on him the card is the step line alone; with no step to say and nothing waiting, there is no card.
+    /// The band over the column, for a pane that holds it: one card of its own with the step line, and under a hairline Needs you. With
+    /// nothing waiting on him the card is the step line alone; with no step to say and nothing waiting, there is no card.
     pub(super) fn column_bands(&self, job: &SharedString, pane: &str, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
         if !self.bands_pane(pane) || !self.band_shown(Band::Column) {
             return None;
@@ -260,23 +266,13 @@ impl JobView {
             return None;
         }
         let hairline = (steps.is_some() && needs.is_some()).then(|| div().flex_none().border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)));
-        let card = labelled(
-            band_frame(look, SharedString::from(format!("band-column:{job}"))).children(steps.into_iter().flatten()).children(hairline).children(needs.into_iter().flatten()),
-            Role::Group,
-            Band::Column.word(),
-        );
         Some(
-            div()
-                .id(SharedString::from(format!("column-bands:{job}")))
-                .flex_none()
-                .flex()
-                .flex_col()
-                .p(look.length(token::SPACE_2))
-                .bg(look.color(token::BG_SUNKEN))
-                .border_b(look.length(token::BORDER_WIDTH))
-                .border_color(look.color(token::BORDER_GLASS))
-                .child(card)
-                .into_any_element(),
+            labelled(
+                band_frame(look, SharedString::from(format!("band-column:{job}"))).children(steps.into_iter().flatten()).children(hairline).children(needs.into_iter().flatten()),
+                Role::Group,
+                Band::Column.word(),
+            )
+            .into_any_element(),
         )
     }
 

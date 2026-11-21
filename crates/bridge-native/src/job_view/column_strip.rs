@@ -698,6 +698,25 @@ pub(super) mod tests {
             assert!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Needs").is_empty() && super::super::super::parts_fold::drawn_like(cx, Role::Button, "Hide Progress").is_empty(), "not one each");
         }
 
+        /// The band is a card of its own over the pane: the pane's frame, a region drawn on its own, lies under the card by the column's
+        /// gap and does not hold it, so the card is no part of the tab pane or its strip.
+        #[gpui::test]
+        fn the_band_is_its_own_card_over_the_tab_pane_and_outside_its_frame(cx: &mut gpui::TestAppContext) {
+            let (_, cx) = opened(cx, "mock-01");
+            let gap = cx.update(|_, cx| f32::from(crate::look::ActiveLook::look(cx).length(crate::look::token::GAP_PANEL)));
+            let (card, pane, held) = cx.update(|window, cx| {
+                let page = cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).to_vec();
+                let at = page.iter().position(|one| one.role == Role::Group && one.name == "Step and Needs you").expect("the band is drawn");
+                let card = page[at].bounds;
+                let below = page.iter().enumerate().filter(|(_, one)| one.role == Role::Region && one.bounds.origin.x == card.origin.x && one.bounds.origin.y >= card.bottom()).min_by(|a, b| a.1.bounds.origin.y.partial_cmp(&b.1.bounds.origin.y).unwrap());
+                let (pane_at, pane) = below.expect("a pane is drawn under the card");
+                (card, pane.bounds, crate::labels::holds(&page, pane_at, at) || page[at].path.iter().any(|name| *name == pane.name))
+            });
+            assert!(!held, "the card is not drawn inside the pane's frame");
+            assert_eq!(card.size.width, pane.size.width, "the two are as wide as each other");
+            assert!((f32::from(pane.origin.y - card.bottom()) - gap).abs() < 0.5, "the column's gap lies between them");
+        }
+
         /// With nothing waiting on him the card is the step line alone: no Needs you head, no list.
         #[gpui::test]
         fn with_nothing_waiting_the_card_is_the_step_line_alone(cx: &mut gpui::TestAppContext) {
