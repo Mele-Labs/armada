@@ -218,7 +218,8 @@ Enter / Space  open the row: the Jobs a kind hit, a setting's values, or a Job's
 a              apply the setting   (usage only)
 → / ←          move along a Job's tokens   (tokens only)
 ⌘E             next environment   (api client only)
-[ / ]          headers or body   (api client only)
+[ / ]          headers, body or environment   (api client only)
+⌘S             save the request   (api client only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
@@ -305,7 +306,8 @@ The first move from nowhere lands on the first bucket, or on the last going left
 
 **A Job's API Client tab has a scope of its own, `api client`, in the native Bridge.**
 `⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.
-`[` and `]` switch the open request to its Headers and its Body, and stand down while a text box has the keys.
+`[` and `]` step the open request through its Headers, Body and Environment, wrapping at the ends, and stand down while a text box has the keys.
+`⌘S` saves the open request into its collection, or asks for a name and a collection for one not saved yet.
 `⌘↵` is `send_message`'s chord, which the request line answers as Send while it has the keys; `⌘L` and `⌘N` stay the Layout menu's and Dispatch's, so the tab binds neither.
 `↑` and `↓` move through the list or the saved requests an address finds, `↵` opens the row, and `Esc` gives the keys back to the thread.
 
