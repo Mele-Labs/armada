@@ -286,6 +286,8 @@ pub enum ThreadItem {
     /// A branch the Job offered for his preview, as he tries it: one card a (branch, tip), placed at the offer,
     /// or where a reminder brought it back. Since 15 Nov 2026.
     ReadyToTry(crate::ThreadReadyToTry),
+    /// One round of margin talk on a page, in the place of the message it sent. Since 21 Nov 2026.
+    Margin(crate::ThreadMargin),
 }
 
 /// A sketch card. `drawing` is the scene the call drew, with the `kept` hash of each mock node the
@@ -394,6 +396,7 @@ impl ThreadItem {
             ThreadItem::Document(document) => &document.id,
             ThreadItem::Plan(plan) => &plan.id,
             ThreadItem::ReadyToTry(card) => &card.id,
+            ThreadItem::Margin(card) => &card.id,
         }
     }
 }

@@ -39,6 +39,7 @@ mod hosted_sessions;
 mod lifecycles;
 mod issues;
 mod logbook;
+mod margins;
 mod teaching;
 mod mods;
 mod other_macs;
@@ -69,6 +70,7 @@ pub use sessions::ShownFile;
 pub use issues::{Autopilots, Issues};
 pub use lifecycles::Lifecycles;
 pub use logbook::Logbook;
+pub use margins::Margins;
 pub use teaching::Teaching;
 pub use mods::Mods;
 pub use other_macs::{ActAnswered, ActBegun, ActTurn, OtherMacs, TerminalShared, CONVERSATION_PIECE};
@@ -123,7 +125,7 @@ use ipc::WireError;
 /// is a sixth and [`Retros`] a seventh, each for a reason its own module gives.
 /// [`Authoring`] is one more, for [`Retros`]' reason, and [`Sessions`] another,
 /// [`HostedSessions`] one more beside it, and [`Clashing`] and [`PullRequests`] two
-/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], [`JudgeReadings`] beside [`Sessions`], [`AppRuns`] beside [`Rehearsing`], [`Projects`] beside [`Issues`], [`Lifecycles`] beside [`Watches`], and [`OtherMacs`] beside [`Settings`].
+/// more, [`Rehearsing`] split out of [`Commands`], [`Mods`] and [`Settings`], and [`Accounts`] and [`Requests`] beside them, [`Logbook`] with them, [`Teaching`] beside it, [`Watches`], [`SharedHome`] beside [`Accounts`], [`JudgeReadings`] beside [`Sessions`], [`AppRuns`] beside [`Rehearsing`], [`Projects`] beside [`Issues`], [`Lifecycles`] beside [`Watches`], [`Margins`] beside them, and [`OtherMacs`] beside [`Settings`].
 pub trait Daemon:
     Queries
     + Commands
@@ -154,6 +156,7 @@ pub trait Daemon:
     + Watches
     + AppRuns
     + Lifecycles
+    + Margins
     + OtherMacs
     + Features
 {
@@ -189,6 +192,7 @@ impl<
             + Watches
             + AppRuns
             + Lifecycles
+            + Margins
             + OtherMacs
             + Features,
     > Daemon for D
