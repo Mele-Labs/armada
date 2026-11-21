@@ -71,6 +71,11 @@ fn first_message(text: String, mentions: Vec<SessionTag>, files: Vec<crate::job_
     ipc::DispatchMessage { text, attachments, mentions, sketches }
 }
 
+/// The first message's tags: the Job the words name, where nothing waits on it, then the tools picked from the +.
+fn first_mentions(named: Option<SessionTag>, tools: Vec<SessionTag>) -> Vec<SessionTag> {
+    named.into_iter().chain(tools).collect()
+}
+
 /// Fleet's reading of the words that tag `job`, as it came: the sentence is drawn from it and the hand over it.
 struct WaitRead {
     job: String,
@@ -638,8 +643,8 @@ impl DispatchScreen {
         }
         let plain = self.wait_read.as_ref().is_some_and(|read| read.reading.plain);
         let after = tagged.as_ref().filter(|_| !plain).and_then(|_| self.sheet.read(cx).wait.as_ref().map(live::after_of));
-        let mentions: Vec<SessionTag> =
-            tagged.filter(|_| plain).map(|tagged| SessionTag { kind: TagKind::Session, id: tagged.id.to_string(), title: tagged.title.to_string(), url: None }).into_iter().collect();
+        let named = tagged.filter(|_| plain).map(|tagged| SessionTag { kind: TagKind::Session, id: tagged.id.to_string(), title: tagged.title.to_string(), url: None });
+        let mentions = first_mentions(named, self.sheet.read(cx).tools_held());
         // A wait's request is the brief it starts on, and nothing is sent to it.
         let send = after.is_none();
         let start = ipc::StartSession {
@@ -1208,6 +1213,26 @@ mod tests {
         assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
         screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
         assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");
+    }
+
+    #[gpui::test]
+    fn a_picked_tool_leaves_in_the_first_message_mentions(cx: &mut gpui::TestAppContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (sheet, cx) = cx.add_window_view(|window, cx| DispatchSheet::new(crate::dispatch::scenes::rest(&[]), window, cx));
+        let tools = sheet.update_in(cx, |sheet, window, cx| {
+            // Takes is the third row; picked twice, it is held once.
+            for _ in 0..2 {
+                sheet.open_tools(window, cx);
+                sheet.pick_tool(2, window, cx);
+            }
+            sheet.tools_held()
+        });
+        let message = first_message("Fix the login".into(), first_mentions(None, tools), Vec::new(), &[]);
+        assert_eq!(message.mentions, [SessionTag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None }]);
     }
 
     #[test]
