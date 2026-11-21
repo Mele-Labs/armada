@@ -776,6 +776,14 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Get("/accounts".into()), "Accounts", cx))
     }
 
+    /// `GET /kit/link`: where his Kit stands against his linked Macs, for the Account page's Kit row.
+    pub fn kit_link(&mut self, cx: &App) -> Task<Result<ipc::KitLink, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(Ok(mock.accounts.kit.clone()));
+        }
+        self.port(cx).map_or_else(unreachable, |port| crate::kit::wire::link(port, cx))
+    }
+
     /// `POST /accounts/start_sign_in`, no body: Fleet answers with the code to type, and polls the forge itself.
     pub fn start_sign_in(&mut self, cx: &App) -> Task<Result<ipc::Accounts, Refused>> {
         if let Wire::Mock(mock) = self {

@@ -1,18 +1,18 @@
 //! Settings › This Mac › Account: one page of three stacked sections, the take the owner picked on 19 Nov 2026
 //! (`docs/concepts/account.md`, *In native Bridge*). Who you are: a card for each GitHub login with Sign out, and a
 //! dashed card that signs another in with the device code. Your devices: Settings › Macs' own parts (`macs.rs`). What
-//! it turns on: a row for each project with a store, naming the login that joins it, each opening its Claims store.
+//! it turns on: Kit's row first, saying whether it is in step with his other Macs and opening Kit, then a row for each
+//! project with a store, naming the login that joins it, each opening its Claims store.
 //!
 //! **Cancel is Bridge's own.** Fleet has no act that stops a sign-in, so Cancel puts the code away; Fleet polls the
 //! forge until the code runs out, and the next start replaces it.
-//! **Kit's row is not drawn yet**: its place is the first of What it turns on, once Kit's wire says what it is in
-//! step with.
+//! **Kit's row reads the link as Kit does**: `get_kit_link` while the page is open, and again on `kit.changed`.
 
 use std::collections::BTreeMap;
 use std::time::Duration;
 
 use gpui::{div, prelude::*, svg, Animation, AnimationExt, AnyElement, App, Context, FocusHandle, FontWeight, Hsla, Keystroke, Role, SharedString, Task, Window};
-use ipc::{AccountFlow, Accounts, ProjectStoreState, SignInOutcome};
+use ipc::{AccountFlow, Accounts, KitLink, KitMark, ProjectStoreState, SignInOutcome};
 
 use super::entries::Entry;
 use super::overlay::SettingsOverlay;
@@ -42,6 +42,8 @@ pub struct AccountPage {
     pub(super) accounts: Option<Result<Accounts, String>>,
     /// Each project's id, name and store, in the projects' order. `None` while they are read.
     pub(super) stores: Option<Vec<(String, String, ProjectStoreState)>>,
+    /// Kit over the Mac link, for its row. `None` while it is read.
+    pub(super) kit: Option<Result<KitLink, String>>,
     asked: bool,
     /// The code put away with Cancel: a sign-in showing it draws Add again.
     pub(super) cancelled: Option<String>,
@@ -55,6 +57,7 @@ pub struct AccountPage {
     copied: bool,
     pub(super) keys: BTreeMap<String, FocusHandle>,
     _reads: Vec<Task<()>>,
+    _kit: Option<Task<()>>,
     _act: Option<Task<()>>,
     _tick: Option<Task<()>>,
     _copied: Option<Task<()>>,
@@ -65,6 +68,7 @@ impl AccountPage {
         AccountPage {
             accounts: None,
             stores: None,
+            kit: None,
             asked: false,
             cancelled: None,
             expires_at: 0,
@@ -74,6 +78,7 @@ impl AccountPage {
             copied: false,
             keys: BTreeMap::new(),
             _reads: Vec::new(),
+            _kit: None,
             _act: None,
             _tick: None,
             _copied: None,
@@ -177,8 +182,61 @@ pub fn turns_on(stores: &[(String, String, ProjectStoreState)], accounts: Option
         .collect()
 }
 
+/// What Kit's row says of where his Kit stands against the Macs linked to this one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum KitSays {
+    /// Nothing differs and nothing clashes: the linked Macs' names.
+    InStep(Vec<String>),
+    /// Something differs or clashes: the names of the Macs it differs from.
+    Differs(Vec<String>),
+    /// No Mac is linked.
+    Alone,
+    /// Fleet would not say: its words.
+    Refused(String),
+}
+
+/// Kit's status from what was read, by `sync_status` and the Macs each row is apart from.
+pub fn kit_says(read: &Result<KitLink, String>) -> KitSays {
+    let link = match read {
+        Ok(link) => link,
+        Err(said) => return KitSays::Refused(said.clone()),
+    };
+    let Some(status) = crate::kit::sync_status(link) else { return KitSays::Alone };
+    if status.in_step {
+        return KitSays::InStep(status.macs);
+    }
+    let apart: Vec<String> = link
+        .macs
+        .iter()
+        .filter(|mac| link.rows.iter().flat_map(|row| row.against.iter()).any(|one| one.mac == mac.mac && matches!(one.mark, KitMark::Differs | KitMark::Clash)))
+        .map(|mac| mac.name.clone())
+        .collect();
+    KitSays::Differs(if apart.is_empty() { status.macs } else { apart })
+}
+
+/// Names read aloud: `Studio`, `Studio and Work`, `Studio, Work and Home`.
+fn named(names: &[String]) -> String {
+    match names {
+        [] => String::new(),
+        [one] => one.clone(),
+        [rest @ .., last] => format!("{} and {last}", rest.join(", ")),
+    }
+}
+
+impl KitSays {
+    /// The row's sentence.
+    pub fn said(&self) -> String {
+        match self {
+            KitSays::InStep(macs) => format!("In step with {}", named(macs)),
+            KitSays::Differs(macs) => format!("Differs from {}", named(macs)),
+            KitSays::Alone => "Stays on this Mac".to_string(),
+            KitSays::Refused(said) => said.clone(),
+        }
+    }
+}
+
 impl SettingsOverlay {
-    fn account_shown(&self, cx: &App) -> bool {
+    pub(super) fn account_shown(&self, cx: &App) -> bool {
         self.open && self.shown(cx).is_some_and(|one| one.id == "fleet:account")
     }
 
@@ -189,6 +247,7 @@ impl SettingsOverlay {
         }
         self.account.asked = true;
         self.read_accounts(window, cx);
+        self.read_kit(cx);
         let projects = self.wire.projects_now(cx);
         self.account._reads.push(cx.spawn_in(window, async move |this, cx| {
             let projects = projects.await.map(|all| all.projects).unwrap_or_default();
@@ -202,6 +261,18 @@ impl SettingsOverlay {
             }
             let _ = this.update(cx, |this, cx| {
                 this.account.stores = Some(stores);
+                cx.notify();
+            });
+        }));
+    }
+
+    /// `GET /kit/link`, for Kit's row: read when the page opens and again on `kit.changed`.
+    pub(super) fn read_kit(&mut self, cx: &mut Context<Self>) {
+        let read = self.wire.kit_link(cx);
+        self.account._kit = Some(cx.spawn(async move |this, cx| {
+            let answer = read.await;
+            let _ = this.update(cx, |this, cx| {
+                this.account.kit = Some(answer.map_err(|refused| refused.said));
                 cx.notify();
             });
         }));
@@ -260,7 +331,7 @@ impl SettingsOverlay {
     // ---- keys -----------------------------------------------------------------------------------
 
     pub(super) fn account_keys(&mut self, cx: &mut Context<Self>) {
-        let mut names: Vec<String> = ["add", "open-address", "copy-code", "cancel", "again"].into_iter().map(String::from).collect();
+        let mut names: Vec<String> = ["add", "open-address", "copy-code", "cancel", "again", "kit"].into_iter().map(String::from).collect();
         if let Some(accounts) = self.account.held() {
             names.extend(accounts.profiles.iter().map(|one| format!("sign-out:{}", one.account_id)));
         }
@@ -273,7 +344,7 @@ impl SettingsOverlay {
     }
 
     /// The page's stops, in the order it draws them: the logins, the sign-in app while none is registered, the
-    /// devices, then each store's row.
+    /// devices, Kit's row, then each store's row.
     pub(super) fn account_stops(&self, cx: &App) -> Vec<FocusHandle> {
         let page = &self.account;
         let key = |name: &str| page.keys.get(name).cloned();
@@ -293,6 +364,7 @@ impl SettingsOverlay {
             }
         }
         stops.extend(self.macs_stops());
+        stops.extend(key("kit"));
         let rows = page.stores.as_deref().map(|stores| turns_on(stores, page.held())).unwrap_or_default();
         stops.extend(rows.iter().filter_map(|row| key(&format!("store:{}", row.project))));
         stops
@@ -319,6 +391,7 @@ impl SettingsOverlay {
                 }
             }
             "copy-code" => self.copy_code(window, cx),
+            "kit" => self.open_kit(window, cx),
             _ => {
                 if let Some(id) = name.strip_prefix("sign-out:").and_then(|id| id.parse::<u64>().ok()) {
                     self.sign_out(id, window, cx);
@@ -421,6 +494,14 @@ impl SettingsOverlay {
         cx.notify();
     }
 
+    /// Settings shuts and Kit comes to the front.
+    fn open_kit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.close(window, cx);
+        if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
+            (sink.0)(&crate::titlebar::Asked::Place("kit"), cx);
+        }
+    }
+
     /// Settings › Claims store, with the project picked.
     fn open_store(&mut self, project: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(name) = self.account.stores.as_ref().and_then(|stores| stores.iter().find(|(id, _, _)| *id == project)).map(|(_, name, _)| name.clone()) else { return };
@@ -442,7 +523,7 @@ impl SettingsOverlay {
             None => String::new(),
         };
         let mut sections = vec![self.who_section(look, window, cx), section(look, "account-devices", "cpu", look.color(token::STATUS_RUNNING), "Your devices", self.render_macs(look, window, cx))];
-        sections.extend(self.turns_on_section(look, window, cx));
+        sections.push(self.turns_on_section(look, window, cx));
         self.rows_page(entry, this_mac.into(), false, Vec::new(), sections, look, window, cx)
     }
 
@@ -571,22 +652,61 @@ impl SettingsOverlay {
         }
     }
 
-    /// What it turns on: a row for each project with a store. None while no project names one.
-    fn turns_on_section(&self, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+    /// What it turns on: Kit's row, then a row for each project with a store.
+    fn turns_on_section(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
         let page = &self.account;
         let rows: Vec<AnyElement> = match &page.stores {
             None => (0..2).map(|n| labelled(div().id(SharedString::from(format!("account-store-bone-{n}"))).child(store_row_frame(look).child(bone(look, look.length(token::SPACE_4), look.length(token::SPACE_4))).child(bone(look, look.length(token::SPACE_12) * 4., look.length(token::LEADING_SM)))), Role::Image, "Loading").into_any_element()).collect(),
-            Some(stores) => {
-                // Kit's row goes first here once Kit's wire says what this Mac is in step with.
-                let rows = turns_on(stores, page.held());
-                if rows.is_empty() {
-                    return None;
-                }
-                rows.iter().map(|row| self.store_row(row, look, window, cx)).collect()
-            }
+            Some(stores) => turns_on(stores, page.held()).iter().map(|row| self.store_row(row, look, window, cx)).collect(),
         };
-        let list = labelled(div().id("account-turns-on").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Project stores");
-        Some(section(look, "account-turns-on-section", "layers", look.color(token::KIND_DELIVERY), "What it turns on", vec![list.into_any_element()]))
+        let list = (!rows.is_empty()).then(|| labelled(div().id("account-turns-on").flex().flex_col().gap(look.length(token::SPACE_2)).children(rows), Role::List, "Project stores"));
+        let body = div().flex().flex_col().gap(look.length(token::SPACE_2)).child(self.kit_row(look, window, cx)).children(list);
+        section(look, "account-turns-on-section", "layers", look.color(token::KIND_DELIVERY), "What it turns on", vec![body.into_any_element()])
+    }
+
+    /// Kit's row: where his Kit stands against his other Macs. Pressing it opens Kit.
+    fn kit_row(&self, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
+        let Some(read) = &self.account.kit else {
+            return labelled(div().id("account-kit-bone").child(store_row_frame(look).child(bone(look, look.length(token::SPACE_4), look.length(token::SPACE_4))).child(bone(look, look.length(token::SPACE_12) * 4., look.length(token::LEADING_SM)))), Role::Image, "Loading").into_any_element();
+        };
+        let Some(focus) = self.account.keys.get("kit").cloned() else { return div().into_any_element() };
+        let says = kit_says(read);
+        let said = says.said();
+        // The same hues as a store's row: green where it is as it should be, the caution colour where it is not.
+        let (ink, glyph, why) = match &says {
+            KitSays::InStep(_) => (look.color(token::STATUS_COMPLETED_SUCCESS), "check", "Kit here matches what the linked Macs keep"),
+            KitSays::Differs(_) => (look.color(token::STATUS_AWAITING_REVIEW), "triangle-alert", "Something in Kit differs between this Mac and a linked Mac"),
+            KitSays::Alone => (look.color(token::FG_MUTED), "laptop", "No other Mac is linked, so Kit stays here"),
+            KitSays::Refused(_) => (look.color(token::STATUS_AWAITING_REVIEW), "triangle-alert", "Fleet would not say where Kit stands"),
+        };
+        let line_ink = if matches!(says, KitSays::Differs(_) | KitSays::Refused(_)) { ink } else { look.color(token::FG_MUTED) };
+        let status = div()
+            .id("account-kit-status")
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .text_color(line_ink)
+            .tooltip(tip(why))
+            .child(svg().flex_none().path(icon_path(glyph)).size(look.length(token::SPACE_3)).text_color(ink))
+            .child(div().min_w_0().truncate().child(SharedString::from(said.clone())));
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Kit"))
+            .child(status);
+        let row = store_row_frame(look)
+            .id("account-kit")
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .on_click(cx.listener(|this, _, window, cx| this.press_account("kit", window, cx)))
+            .child(svg().flex_none().path(icon_path("briefcase")).size(look.length(token::SPACE_4)).text_color(ink))
+            .child(words)
+            .child(div().flex_none().w(look.length(token::SPACE_12) * 2.5).flex().justify_end().child(svg().flex_none().path(icon_path("chevron-right")).size(look.length(token::SPACE_4)).text_color(look.color(token::FG_MUTED))));
+        labelled(ringed(look, row, &focus, window).track_focus(&focus), Role::Button, format!("Kit, {said}")).into_any_element()
     }
 
     fn store_row(&self, row: &TurnsOn, look: &Look, window: &Window, cx: &Context<Self>) -> AnyElement {
@@ -982,14 +1102,84 @@ mod tests {
         });
     }
 
+    fn kit_link(linked: crate::kit::mock::Linked) -> KitLink {
+        crate::kit::mock::MockKit::linked(linked).link
+    }
+
+    #[test]
+    fn kits_row_says_in_step_differs_or_stays_from_the_link() {
+        use crate::kit::mock::{Linked, WORK_MAC};
+        let work = WORK_MAC.1.to_string();
+        assert_eq!(kit_says(&Ok(kit_link(Linked::InStep))), KitSays::InStep(vec![work.clone()]));
+        assert_eq!(kit_says(&Ok(kit_link(Linked::InStep))).said(), "In step with Work Mac");
+        assert_eq!(kit_says(&Ok(kit_link(Linked::Apart))), KitSays::Differs(vec![work]));
+        assert_eq!(kit_says(&Ok(kit_link(Linked::Apart))).said(), "Differs from Work Mac");
+        assert_eq!(kit_says(&Ok(kit_link(Linked::Unlinked))), KitSays::Alone);
+        assert_eq!(kit_says(&Ok(kit_link(Linked::Unlinked))).said(), "Stays on this Mac");
+        assert_eq!(kit_says(&Err("Fleet is not connected".into())).said(), "Fleet is not connected", "a read that failed says the refusal's words");
+    }
+
+    #[test]
+    fn kits_row_names_every_linked_mac_without_counting_them_and_only_those_it_differs_from() {
+        use crate::kit::mock::Linked;
+        let mac = |id: &str, name: &str| ipc::KitLinkedMac { mac: id.into(), name: name.into(), crossed_at: None, kinds: Vec::new(), items: Vec::new() };
+        let mut together = kit_link(Linked::InStep);
+        together.macs.push(mac("mac-studio", "Studio"));
+        together.macs.push(mac("mac-home", "Home"));
+        assert_eq!(kit_says(&Ok(together)).said(), "In step with Work Mac, Studio and Home");
+        // Studio is linked and in step; only the Work Mac differs.
+        let mut apart = kit_link(Linked::Apart);
+        apart.macs.push(mac("mac-studio", "Studio"));
+        assert_eq!(kit_says(&Ok(apart)).said(), "Differs from Work Mac");
+    }
+
+    #[gpui::test]
+    fn kits_row_says_what_differs_in_its_name(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, |mock| mock.accounts.kit = kit_link(crate::kit::mock::Linked::Apart));
+        assert!(on_page(&overlay, Role::Button, "Kit, Differs from Work Mac", cx));
+        assert!(on_page(&overlay, Role::Link, "Claims store for Armada", cx), "the store rows stay under it");
+    }
+
+    #[gpui::test]
+    fn kits_row_says_in_step_in_its_name(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, |mock| mock.accounts.kit = kit_link(crate::kit::mock::Linked::InStep));
+        assert!(on_page(&overlay, Role::Button, "Kit, In step with Work Mac", cx));
+    }
+
+    #[gpui::test]
+    fn kits_row_says_it_stays_where_no_mac_is_linked(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, |mock| mock.accounts.kit = kit_link(crate::kit::mock::Linked::Unlinked));
+        assert!(on_page(&overlay, Role::Button, "Kit, Stays on this Mac", cx));
+    }
+
+    #[gpui::test]
+    fn kits_row_says_the_refusals_words_where_the_read_failed(cx: &mut TestAppContext) {
+        let (overlay, cx) = opened(cx, |_| {});
+        overlay.update(cx, |this, _| this.account.kit = Some(Err("Fleet answered 500".into())));
+        assert!(on_page(&overlay, Role::Button, "Kit, Fleet answered 500", cx));
+    }
+
+    #[gpui::test]
+    fn pressing_kits_row_shuts_settings_and_asks_for_kit(cx: &mut TestAppContext) {
+        use std::cell::RefCell;
+        use std::rc::Rc;
+        let (overlay, cx) = opened(cx, |_| {});
+        let heard: Rc<RefCell<Vec<crate::titlebar::Asked>>> = Rc::default();
+        let sink = heard.clone();
+        cx.update(|_, cx| cx.set_global(crate::titlebar::AskedSink(Rc::new(move |one: &crate::titlebar::Asked, _: &mut gpui::App| sink.borrow_mut().push(one.clone())))));
+        press(&overlay, "kit", cx);
+        assert_eq!(*heard.borrow(), [crate::titlebar::Asked::Place("kit")]);
+        assert!(!overlay.read_with(cx, |this, _| this.open), "Settings shut");
+    }
+
     #[gpui::test]
     fn the_keys_reach_every_press_in_the_order_drawn(cx: &mut TestAppContext) {
         let (overlay, cx) = opened(cx, |_| {});
         overlay.read_with(cx, |this, cx| {
             let stops = this.account_stops(cx);
             let at = |name: &str| this.account.keys.get(name).and_then(|key| stops.iter().position(|stop| stop == key));
-            let (first, second, add, ledger) = (at(&format!("sign-out:{PERSONAL}")), at(&format!("sign-out:{WORK}")), at("add"), at("store:ledger"));
-            assert!(first < second && second < add && add < ledger, "{first:?} {second:?} {add:?} {ledger:?}");
+            let (first, second, add, kit, ledger) = (at(&format!("sign-out:{PERSONAL}")), at(&format!("sign-out:{WORK}")), at("add"), at("kit"), at("store:ledger"));
+            assert!(first < second && second < add && add < kit && kit < ledger, "{first:?} {second:?} {add:?} {kit:?} {ledger:?}");
             assert!(at("cancel").is_none(), "no code waits");
         });
     }
