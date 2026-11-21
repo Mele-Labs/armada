@@ -282,3 +282,28 @@ fn an_unread_load_gates_nothing() {
     assert!(slots.try_take(1).expect("writable").is_ok());
     drop(one);
 }
+
+#[tokio::test]
+async fn a_second_check_in_one_checkout_waits_for_the_first_and_another_checkout_does_not() {
+    let dir = Dir::new("one-per-checkout");
+    let slots = CheckSlots::at(dir.0.join("slots"), 4);
+    let (one, two) = (dir.0.join("one"), dir.0.join("two"));
+    std::fs::create_dir_all(&one).expect("the directory is writable");
+    std::fs::create_dir_all(&two).expect("the directory is writable");
+
+    let first = slots.take_checkout(&one, || panic!("nothing holds it yet")).await.expect("writable");
+    // Another checkout is its own, so it does not wait.
+    let _other = slots.take_checkout(&two, || panic!("another checkout never waits")).await.expect("writable");
+
+    let told = std::cell::Cell::new(0);
+    let second = slots.take_checkout(&one, || told.set(told.get() + 1));
+    tokio::pin!(second);
+    let waited = tokio::time::timeout(Duration::from_millis(600), &mut second).await;
+    assert!(waited.is_err(), "the second Check in one checkout waits while the first holds it");
+    drop(first);
+    let _second = tokio::time::timeout(Duration::from_secs(5), second)
+        .await
+        .expect("it starts once the first lets go")
+        .expect("writable");
+    assert_eq!(told.get(), 1, "it says once that it waits");
+}

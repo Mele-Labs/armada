@@ -264,6 +264,15 @@ pub async fn execute_told(
     // holds a place for them.
     let _held = match (registry, slots) {
         (Registry::Checks, Some(slots)) => {
+            // One Check per checkout, taken before the machine's slots.
+            let waiting = || eprintln!("waiting for the Check already running in this checkout");
+            let checkout = match slots.take_checkout(root, waiting).await {
+                Ok(held) => Some(held),
+                Err(why) => {
+                    eprintln!("running beside this checkout's other Checks, since its lock could not be taken: {why}");
+                    None
+                }
+            };
             let places = manifest
                 .check(name)
                 .map_or(1, |check| check.places().get() as usize);
@@ -276,10 +285,10 @@ pub async fn execute_told(
                 }
             };
             match slots.take(places, waiting).await {
-                Ok(held) => Some(held),
+                Ok(held) => Some((checkout, Some(held))),
                 Err(why) => {
                     eprintln!("running without a Check slot, which could not be taken: {why}");
-                    None
+                    Some((checkout, None))
                 }
             }
         }
