@@ -221,9 +221,39 @@ pub(super) fn margin(look: &Look) -> AnyElement {
                         .items_center()
                         .justify_between()
                         .child(div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child("Not sent"))
-                        .child(button(look, "talk-send:group", "Comment", Tone::Primary, false, Some("\u{2318}\u{21b5}"), true)),
+                        .child(
+                            div()
+                                .flex()
+                                .gap(look.length(token::SPACE_2))
+                                .child(button(look, "talk-hold:group", "Hold", Tone::Secondary, false, None, true))
+                                .child(button(look, "talk-send:group", "Send now", Tone::Primary, false, Some("\u{2318}\u{21b5}"), true)),
+                        ),
                 ),
         );
+
+    // A comment he held: it waits with the others until he sends them together.
+    let held = card(look, "sound", false)
+        .child(quote(look, "The sound stays off until the first notice after 9:00."))
+        .child(said(look, Who::You, "10:52", "Could the sound come back at my work start too?"))
+        .child(div().flex().child(chip(look, "clock", "Held", token::YOU)));
+
+    // The comments he held, sent in one go: the agent answers them together.
+    let batch = div()
+        .id("talk-batch")
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_MD))
+        .bg(mixed(look, token::YOU, 0.12))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(mixed(look, token::YOU, 0.4))
+        .text_size(look.length(token::TEXT_SM))
+        .text_color(look.color(token::FG_DEFAULT))
+        .child(glyph(look, "clock", look.color(token::YOU)))
+        .child(div().flex_1().min_w_0().truncate().child("1 comment held"))
+        .child(button(look, "talk-send-held", "Send held", Tone::Secondary, false, Some("\u{21e7}\u{2318}\u{21b5}"), true));
 
     let settled = div()
         .flex()
@@ -261,9 +291,11 @@ pub(super) fn margin(look: &Look) -> AnyElement {
         .bg(look.color(token::BG_BASE))
         .overflow_y_scroll()
         .child(head)
+        .child(batch)
         .child(asked)
         .child(suggested)
         .child(drafting)
+        .child(held)
         .child(settled)
         .into_any_element()
 }
@@ -298,6 +330,9 @@ pub(super) fn newer_strip(look: &Look) -> AnyElement {
 /// whole note, and Open, which goes to that spot. Fleet's line for the agent and the page's path are never shown.
 /// `None` where `text` is not a note sent from a page.
 pub(super) fn sent_card(look: &Look, id: &str, text: &str) -> Option<AnyElement> {
+    if let Some(card) = round_card(look, id, text) {
+        return Some(card);
+    }
     let mut lines = text.lines();
     let first = lines.next()?;
     let rest = first.strip_prefix("Sent back document: ")?;
@@ -361,4 +396,32 @@ pub(super) fn sent_card(look: &Look, id: &str, text: &str) -> Option<AnyElement>
                 .child(div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(note.join("\n").trim().to_string()))),
         );
     Some(div().w_full().flex().justify_end().child(card).into_any_element())
+}
+
+/// One round of the talk in a page's margin, as the margin mock draws it in the thread: one line, the page, what came of
+/// the round, and Open, which goes to the margin. The talk itself stays in the margin. `None` where `text` is not a round.
+fn round_card(look: &Look, id: &str, text: &str) -> Option<AnyElement> {
+    let mut lines = text.lines();
+    let title = lines.next()?.strip_prefix("Margin round: ")?;
+    let summary = lines.next().unwrap_or("");
+    let waiting = lines.next().is_some_and(|state| state.trim() == "waiting");
+    let (icon, ink) = if waiting { ("messages-square", token::YOU) } else { ("circle-check", token::STATUS_COMPLETED_SUCCESS) };
+    let line = div()
+        .id(SharedString::from(format!("round-card:{id}")))
+        .w_full()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_2))
+        .px(look.length(token::SPACE_3))
+        .py(look.length(token::SPACE_2))
+        .rounded(look.length(token::RADIUS_LG))
+        .border(look.length(token::BORDER_WIDTH))
+        .border_color(if waiting { mixed(look, token::YOU, 0.45) } else { look.color(token::BORDER_SUBTLE) })
+        .bg(if waiting { mixed(look, token::YOU, 0.10) } else { look.color(token::BG_RAISED) })
+        .text_size(look.length(token::TEXT_SM))
+        .child(glyph(look, icon, look.color(ink)))
+        .child(div().flex_none().font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(title.to_string())))
+        .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_MUTED)).child(SharedString::from(summary.to_string())))
+        .child(button(look, SharedString::from(format!("round-open:{id}")), "Open", if waiting { Tone::Secondary } else { Tone::Ghost }, false, None, true));
+    Some(line.into_any_element())
 }

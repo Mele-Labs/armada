@@ -39,12 +39,24 @@
      "kind": "row",
      "row": {
       "kind": "message",
-      "id": "m-2",
-      "at": "2026-11-20T10:31:00Z",
+      "id": "r-1",
+      "at": "2026-11-20T10:25:00Z",
       "from": {
        "kind": "you"
       },
-      "text": "Sent back document: Quiet hours for notices, revision 2\nSection: How it works\nPassage: Notices that arrive wait until 9:00\nWhy 9:00? I start at 8, and on Fridays I want the digest at 7:30 so I can clear it before standup.\nRevise the page at /work/slots/slot-3/.armada/documents/quiet-hours.html and write it again."
+      "text": "Margin round: Quiet hours for notices\nSettled: weekends are quiet all day, now in Decisions\nsettled"
+     }
+    },
+    {
+     "kind": "row",
+     "row": {
+      "kind": "message",
+      "id": "r-2",
+      "at": "2026-11-20T10:41:00Z",
+      "from": {
+       "kind": "you"
+      },
+      "text": "Margin round: Quiet hours for notices\nYour comments are answered in the margin, and a change waits for your Accept\nwaiting"
      }
     },
     {
@@ -52,11 +64,11 @@
      "row": {
       "kind": "message",
       "id": "m-3",
-      "at": "2026-11-20T10:34:00Z",
+      "at": "2026-11-20T10:42:00Z",
       "from": {
        "kind": "agent"
       },
-      "text": "I answered your two comments in the page's margin and suggested one change there. Nothing on the page moved."
+      "text": "Answered in the margin. The page has not moved; the change to failed checks waits for you there."
      }
     }
    ]
