@@ -108,6 +108,7 @@ pub(super) fn began(item: &ThreadItem) -> Option<&ipc::Instant> {
         | ThreadItem::NotStarted { at, .. }
         | ThreadItem::Judged { at, .. } => Some(at),
         ThreadItem::ReadyToTry(card) => Some(&card.at),
+        ThreadItem::Margin(card) => Some(&card.at),
         ThreadItem::Sketch(_) | ThreadItem::Document(_) | ThreadItem::Plan(_) => None,
     }
 }
@@ -758,6 +759,8 @@ impl JobView {
             ThreadItem::Change { id, at, what, from, to } => self.change(id, at, *what, from, to, look, now, cx),
             ThreadItem::NotStarted { id, at, cause, log } => self.not_started(ix, id, at, cause, log, page, look, now, cx),
             ThreadItem::ReadyToTry(card) => return self.ready_card(card, look, now, page),
+            // A round of margin talk is not drawn here yet.
+            ThreadItem::Margin(_) => return None,
         })
     }
 

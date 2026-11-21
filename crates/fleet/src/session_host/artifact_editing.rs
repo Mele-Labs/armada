@@ -147,11 +147,7 @@ where
     async fn page_edit_kept(self: Arc<Self>, id: &str, artifact: &JobArtifact, html: String) -> Result<(), Refusal> {
         let path = artifact.id.clone();
         let (_, held) = self.document_held(id, &path).await?;
-        // The file the Job last wrote it at takes his words too, where that checkout is still there.
-        // An earlier build kept the page at that file.
-        let written = held.as_ref().and_then(|page| {
-            page.detail.get(super::documents::DOCUMENT_WRITTEN_AT).cloned().or_else(|| (self.page_home(id, &page.target) != page.target).then(|| page.target.clone()))
-        });
+        let written = held.as_ref().and_then(|page| self.written_at(id, page));
         let newest = held.and_then(|page| revisions_named(&page.detail).pop()).ok_or_else(|| self.unkept("the revision he edited is not kept"))?;
         let base = tokio::task::spawn_blocking(move || std::fs::read_to_string(newest))
             .await
@@ -167,9 +163,31 @@ where
             changes.iter().map(|one| format!("- {}: \"{}\" → \"{}\"", one.section, quoted(&one.old), quoted(&one.new))).collect();
         let then = format!("The page at {} holds his words. Build on them.", super::documents::shown_page(&path));
         self.told_of_edit(id, edited_told(&artifact.title, number + 1, &lines, &then)).await?;
-        let folder = self.documents_of(id).join(folder_of(&path));
-        let (checkout, bytes) = (written.clone(), html.clone().into_bytes());
-        let kept = tokio::task::spawn_blocking(move || {
+        let kept = self
+            .page_rewritten(id, &path, written.clone(), &html)
+            .await
+            .ok_or_else(|| self.unkept("his Edit was sent to the job, and his page could not be written"))?;
+        self.his_revision(id, &path, kept.len() as u32).await?;
+        // Problems with its sketches were the agent's to hear about on its own revision, and his Edit changed none.
+        let home = self.page_home(id, &path);
+        let _ = self.page_kept(id, &home, written.as_deref(), &html, &kept, false).await;
+        Ok(())
+    }
+
+    /// The file in a checkout the Job last wrote a page at, where his words go back to. An earlier build kept the page
+    /// at that file.
+    pub(super) fn written_at(&self, id: &str, page: &ipc::Attachment) -> Option<String> {
+        page.detail.get(super::documents::DOCUMENT_WRITTEN_AT).cloned().or_else(|| (self.page_home(id, &page.target) != page.target).then(|| page.target.clone()))
+    }
+
+    /// `html` written to the page's file in the checkout `written` names, where that checkout is still there, so the
+    /// agent's next write builds on it, and kept as the page's next revision, which [`Self::page_kept`] then puts on
+    /// its row. The turn's end reads the same bytes as the newest revision, so it keeps nothing more. The revisions,
+    /// oldest first, or `None` where it could not be written or holds the newest revision's bytes.
+    pub(super) async fn page_rewritten(&self, id: &str, path: &str, written: Option<String>, html: &str) -> Option<Vec<std::path::PathBuf>> {
+        let folder = self.documents_of(id).join(folder_of(path));
+        let (checkout, bytes) = (written, html.as_bytes().to_vec());
+        tokio::task::spawn_blocking(move || {
             if let Some(file) = checkout.filter(|file| std::path::Path::new(file).parent().is_some_and(std::path::Path::is_dir)) {
                 std::fs::write(&file, &bytes)?;
             }
@@ -179,12 +197,6 @@ where
         .ok()
         .and_then(Result::ok)
         .flatten()
-        .ok_or_else(|| self.unkept("his Edit was sent to the job, and his page could not be written"))?;
-        self.his_revision(id, &path, kept.len() as u32).await?;
-        // Problems with its sketches were the agent's to hear about on its own revision, and his Edit changed none.
-        let home = self.page_home(id, &path);
-        let _ = self.page_kept(id, &home, written.as_deref(), &html, &kept, false).await;
-        Ok(())
     }
 
     /// The draft he edited, kept as its next text, his, and put on its open row, so an Approve applies his words.

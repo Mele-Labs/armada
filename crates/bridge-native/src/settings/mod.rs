@@ -26,6 +26,7 @@ mod mods;
 mod prefs;
 pub mod overlay;
 mod project;
+mod review_offer;
 pub mod screen;
 mod theme;
 pub mod time;

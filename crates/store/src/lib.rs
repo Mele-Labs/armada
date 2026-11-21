@@ -110,6 +110,8 @@ mod page_presses;
 mod page_votes;
 /// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
 mod artifact_seen;
+/// His margin threads on a Job's pages, and the rounds of margin talk sent to the Job.
+mod margin_threads;
 /// A Job's page moved to its own id, with everything kept by the old one.
 mod page_moves;
 /// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
@@ -203,6 +205,7 @@ pub mod settings_file;
 mod linked_told;
 /// Each write-clash notice Fleet sent a Job, so a restart does not send it again.
 mod clash_told;
+mod review_offered;
 /// Each claim Fleet told a Job another holds, so a restart does not tell it again.
 mod claims_told;
 /// A Job's terminals: their numbers, names, and the shell its agent last saw in each.
@@ -312,6 +315,7 @@ pub use artifact_owner_revisions::KeptOwnerRevision;
 pub use page_presses::KeptPress;
 pub use page_votes::KeptVote;
 pub use artifact_seen::KeptArtifactSeen;
+pub use margin_threads::{KeptMarginMessage, KeptMarginNote, KeptMarginRound, KeptMarginSuggestion, KeptMarginThread};
 pub use for_you::{KeptForYouAdded, KeptForYouMark, NewForYouAdded};
 pub use job_repairs::KeptRepair;
 pub use job_values::KeptValue;
