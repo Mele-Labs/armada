@@ -176,6 +176,10 @@ impl JobView {
     /// page the Job holds no card or artifact for opens nothing.
     pub(super) fn open_document(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
+        // The mocks of planning on a page read it in a tab of the Job, where the talk and the thread stand beside it.
+        if crate::mock::scenario_is("planning-margin") || crate::mock::scenario_is("planning-side") {
+            return self.open_document_tab(page, window, cx);
+        }
         if self.artifact_item(&job, page).is_none() && self.document_item(&job, page, cx).is_none() {
             return;
         }

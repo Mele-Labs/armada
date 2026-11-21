@@ -184,7 +184,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // One Job with an open draft and a workflow draft, near the thread's end.
         "drafts" | "reader" | "reader-sketches" => include_bytes!("../fixtures/jobs-drafts.json"),
         // One Job planning quiet hours with him on a page: talked in the page's margin, or beside its thread.
-        "planning-margin" | "planning-side" => include_bytes!("../fixtures/jobs-planning.json"),
+        "planning-margin" | "planning-side" | "planning-today" => include_bytes!("../fixtures/jobs-planning.json"),
         // Two Jobs past their context limit: one asking whether it carries on in a new Job with a long brief,
         // one that was answered with a figure to be asked again at.
         "handoff-card" => include_bytes!("../fixtures/jobs-handoff-card.json"),
@@ -678,7 +678,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // One Job holding a long draft that replaced an earlier one, and a page, both put to him: what the reader reads.
         "reader" => include_bytes!("../fixtures/reader-threads.json"),
         "planning-margin" => include_bytes!("../fixtures/planning-margin-threads.json"),
-        "planning-side" => include_bytes!("../fixtures/planning-side-threads.json"),
+        "planning-side" | "planning-today" => include_bytes!("../fixtures/planning-side-threads.json"),
         // One Job holding a page whose own drawing and whose vote's takes each hold a sketch.
         "reader-sketches" => include_bytes!("../fixtures/reader-sketches-threads.json"),
         "handoff-card" => include_bytes!("../fixtures/handoff-card-threads.json"),

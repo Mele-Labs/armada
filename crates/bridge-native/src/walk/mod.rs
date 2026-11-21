@@ -1819,9 +1819,22 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "planning-side",
         steps: &[
-            press_on("A Job planning quiet hours with him", "row", "Plan quiet hours", "article", "Document: Quiet hours for notices, Revision 2"),
+            press_on("A Job planning quiet hours with him", "row", "Plan quiet hours", "region", "Thread"),
+            step("The page's card stands above his notes", Verb::Wheel("region", "Thread", -900), "article", "Document: Quiet hours for notices, Revision 2"),
             step("Open reads the page beside the thread", Verb::OpenIn("Document: Quiet hours for notices, Revision 2", "Open"), "region", "Reader: Quiet hours for notices"),
             step("The page keeps his place while the thread goes on", Verb::Look, "region", "Reader: Quiet hours for notices"),
+        ],
+    },
+    Walk {
+        name: "planning-today",
+        title: "Planning on a page as it is today",
+        screen: Screen::Jobs,
+        scenario: "planning-today",
+        steps: &[
+            press_on("A Job planning quiet hours with him", "row", "Plan quiet hours", "region", "Thread"),
+            step("The page's card stands above his notes", Verb::Wheel("region", "Thread", -900), "article", "Document: Quiet hours for notices, Revision 2"),
+            step("Open reads the page in the review panel, over the thread", Verb::OpenIn("Document: Quiet hours for notices, Revision 2", "Open"), "region", "Quiet hours for notices"),
+            step("The thread is behind it", Verb::Look, "region", "Quiet hours for notices"),
         ],
     },
     Walk {
