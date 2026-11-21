@@ -27,16 +27,27 @@ fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> Option<gpui::Bou
     cx.update(|window, cx| cx.try_global::<crate::labels::LabelBook>().and_then(|book| book.find(window.window_handle().window_id(), role, name)).map(|one| one.bounds))
 }
 
+/// A window that draws the screen as the app does: its root clears the labels before each frame, so a label of
+/// something no longer drawn is gone from the book.
+struct Hosted(Entity<OperatorScreen>);
+
+impl gpui::Render for Hosted {
+    fn render(&mut self, _: &mut gpui::Window, _: &mut gpui::Context<Self>) -> impl gpui::IntoElement {
+        crate::labels::label_root(gpui::div().size_full().child(self.0.clone()))
+    }
+}
+
 /// The Cockpit on the walk's Jobs holding `library`, the Operator switched off or left on.
 fn cockpit(library: FeatureLibrary, off: bool, cx: &mut TestAppContext) -> (Entity<OperatorScreen>, &mut VisualTestContext) {
     ready(cx);
-    let (screen, cx) = cx.add_window_view(|window, cx| {
+    let (host, cx) = cx.add_window_view(|window, cx| {
         let records = crate::mock::jobs("jobs-many").expect("the fixture decodes");
         let list = cx.new(|cx| JobsList::mock(&records, cx));
         let threads = crate::operator::scenes::page_threads().expect("the threads decode");
         let jobs = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
-        OperatorScreen::mock_cockpit_holding(jobs, library, window, cx)
+        Hosted(cx.new(|cx| OperatorScreen::mock_cockpit_holding(jobs, library, window, cx)))
     });
+    let screen = host.read_with(cx, |host, _| host.0.clone());
     redraw(cx);
     if off {
         screen.read_with(cx, |screen, _| screen.page.clone()).update(cx, |page, cx| page.scene("off", cx).expect("the off scene"));
