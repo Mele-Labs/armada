@@ -11,6 +11,7 @@ use gpui_component::input::Textarea;
 
 use super::face::{Glyph, Kind, Mentions, Part, Reading, Row};
 use super::sheet::DispatchSheet;
+use crate::job_view::ask_tools::{plus_button, ASK_FOR};
 use crate::job_view::composer::{attach_button, tray};
 use crate::job_view::sketch_pad::{drawn_tiles, sketch_button};
 use crate::keymap::{self, Act};
@@ -74,9 +75,10 @@ impl Render for DispatchSheet {
                     .flex()
                     .flex_col()
                     .on_drop(cx.listener(|this, paths: &gpui::ExternalPaths, _, cx| this.take_paths(paths.paths().to_vec(), cx)))
-                    .children(self.tray(cx))
+                    .children(self.tray(window, cx))
                     .child(self.line(cx))
                     .children(self.menu_view(cx))
+                    .children(self.tool_list(cx))
                     .child(self.tools(window, cx)),
             )
             .child(self.drawer(window, cx));
@@ -346,7 +348,7 @@ impl DispatchSheet {
     }
 
     /// What goes with the request, as tiles over the words: files as a Job's box shows them, then sketches.
-    fn tray(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+    fn tray(&self, window: &Window, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         if !self.holds() {
             return None;
         }
@@ -357,7 +359,8 @@ impl DispatchSheet {
                 let _ = this.update(cx, |this, cx| this.remove_file(key, window, cx));
             })
         };
-        let drawn = drawn_tiles(&self.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx));
+        let mut drawn = drawn_tiles(&self.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx));
+        drawn.extend(self.tool_chips(window, cx));
         // A Job that waits starts with no message, so what is held is said not to go.
         let unsent = (!self.takes_files()).then(|| {
             labelled(
@@ -375,8 +378,8 @@ impl DispatchSheet {
         Some(div().px(look.length(token::SPACE_2)).child(tray(&self.files, drawn, look, remove)).children(unsent).into_any_element())
     }
 
-    /// The request box's tools under the words, over a hairline as a Job's box has them: a place kept for Tools, then
-    /// Attach and Draw sketch, and Talk at the right.
+    /// The request box's tools under the words, over a hairline as a Job's box has them: the + that lists Armada's
+    /// tools, Attach and Draw sketch, and Talk at the right.
     fn tools(&self, window: &Window, cx: &Context<Self>) -> impl IntoElement {
         let look = cx.look();
         let radius = look.length(token::RADIUS_MD);
@@ -394,14 +397,122 @@ impl DispatchSheet {
             .py(look.length(token::SPACE_2))
             .border_t(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            // Tools goes here once it lands in a Job's box.
-            .child(div().flex_none().size(look.length(token::H_CONTROL)))
             .when(self.takes_files(), |row| {
-                row.child(attach_button(look, None, dress(&self.attach_key), cx, |this: &mut Self, window, cx| this.attach_files(window, cx)))
+                // ⌘/ is heard in a Job's thread and not here, so the tooltip shows no key.
+                row.child(plus_button(look, self.tools_open.is_some(), false, dress(&self.tools_key), cx, |this: &mut Self, window, cx| this.open_tools(window, cx)))
+                    .child(attach_button(look, None, dress(&self.attach_key), cx, |this: &mut Self, window, cx| this.attach_files(window, cx)))
                     .child(sketch_button(look, None, dress(&self.sketch_key), cx, |this: &mut Self, window, cx| this.open_sketch(window, cx)))
             })
             .child(div().flex_1())
             .child(crate::job_view::talk::render_with(self, look, dress(&self.talk_key), cx))
+    }
+
+    /// The tools the + lists, under the words as the `@` menu hangs: the heading, then each tool's glyph in its hue,
+    /// its name and what it gives.
+    fn tool_list(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
+        let active = self.tools_open.filter(|_| self.takes_files())?;
+        let look = cx.look();
+        let mut items: Vec<gpui::AnyElement> = Vec::new();
+        for (at, row) in crate::job_view::ask_tools::rows().into_iter().enumerate() {
+            if let Some(group) = row.group {
+                items.push(
+                    div()
+                        .px(look.length(token::SPACE_4))
+                        .py(look.length(token::SPACE_1))
+                        .text_size(look.length(token::TEXT_2XS))
+                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child(group.to_uppercase())
+                        .into_any_element(),
+                );
+            }
+            let hue = match &row.pick {
+                crate::job_view::offer::Pick::Tag { id, .. } => crate::job_view::ask_tools::hue(id),
+                _ => None,
+            };
+            let name: SharedString = format!("{} {}", row.name, row.says).into();
+            items.push(
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("tool-{at}")))
+                        .h(look.length(token::H_MENU_ITEM))
+                        .px(look.length(token::SPACE_4))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .text_size(look.length(token::TEXT_XS))
+                        .bg(if at == active { look.color(token::BG_HOVER) } else { gpui::transparent_black() })
+                        .cursor_pointer()
+                        .on_mouse_down(
+                            gpui::MouseButton::Left,
+                            cx.listener(move |this, _, window, cx| {
+                                window.prevent_default();
+                                cx.stop_propagation();
+                                this.pick_tool(at, window, cx);
+                            }),
+                        )
+                        .child(glyph(row.glyph, look.length(token::SPACE_3), look.color(hue.unwrap_or(token::FG_MUTED))))
+                        .child(div().flex_none().text_color(look.color(token::FG_DEFAULT)).child(row.name))
+                        .child(div().flex_1().min_w_0().truncate().text_color(look.color(token::FG_MUTED)).child(row.says)),
+                    Role::ListBoxOption,
+                    name,
+                )
+                .into_any_element(),
+            );
+        }
+        Some(
+            labelled(
+                div()
+                    .id("dispatch-tool-list")
+                    .flex()
+                    .flex_col()
+                    .py(look.length(token::SPACE_1))
+                    .border_t(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_DEFAULT))
+                    .bg(look.color(token::BG_OVERLAY))
+                    .children(items),
+                Role::ListBox,
+                ASK_FOR,
+            )
+            .into_any_element(),
+        )
+    }
+
+    /// Each tool held, as a chip of its hue beside the tiles: a press, or Enter or Space on it, removes it.
+    fn tool_chips(&self, window: &Window, cx: &Context<Self>) -> Vec<gpui::AnyElement> {
+        let look = cx.look();
+        let painted = crate::job_view::ask_tools::painted(look);
+        self.tools
+            .iter()
+            .map(|one| {
+                let (icon, hue) = painted.iter().find(|(id, ..)| *id == one.tag.id).map_or(("plus", look.color(token::FG_MUTED)), |(_, icon, hue)| (*icon, *hue));
+                let id = one.tag.id.clone();
+                let said = format!("Remove {}", one.tag.title);
+                let chip = div()
+                    .id(SharedString::from(format!("tool-chip-{}", one.tag.id)))
+                    .track_focus(&one.key)
+                    .flex_none()
+                    .self_center()
+                    .h(look.length(token::H_CONTROL))
+                    .px(look.length(token::SPACE_2))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_1))
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(hue.opacity(0.6))
+                    .bg(hue.opacity(0.16))
+                    .text_size(look.length(token::TEXT_XS))
+                    .text_color(look.color(token::FG_DEFAULT))
+                    .cursor_pointer()
+                    .tooltip(tip(said.clone()))
+                    .on_click(cx.listener(move |this, _, window, cx| this.remove_tool(&id, window, cx)))
+                    .child(glyph(icon, look.length(token::SPACE_3), hue))
+                    .child(one.tag.title.clone())
+                    .child(glyph("x", look.length(token::SPACE_3), look.color(token::FG_MUTED)));
+                labelled(ringed(look, chip, one.key.is_focused(window), look.length(token::RADIUS_MD)), Role::Button, said).into_any_element()
+            })
+            .collect()
     }
 
     fn menu_view(&self, cx: &Context<Self>) -> Option<gpui::AnyElement> {
