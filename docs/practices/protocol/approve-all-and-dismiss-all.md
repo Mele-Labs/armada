@@ -2,9 +2,9 @@
 
 **Part of:** [Protocol: the Fleet/Bridge seam](../protocol.md).
 
-Since 13 Nov 2026. His review panel answers or dismisses every item with an Approve, across Jobs, in one press. `docs/concepts/artifact.md`, *Several at once*.
+Since 13 Nov 2026. His review panel once answered or dismissed every item with an Approve, across Jobs, in one press. On 19 Nov 2026 he removed Approve all and Dismiss all, so the review sheet answers each ask on its own through these two calls with one item. `docs/concepts/artifact.md`, *Several at once*.
 **Additive only**: two operations, two routes and their body and answer types. No field of an existing type, no event kind and no error kind is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call them, and native's review panel calls them later.
+Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call them. Native's review sheet calls them with one item each: A answers the chosen ask and D dismisses it.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -19,6 +19,6 @@ Any other refusal is one item's, and the call still answers 200.
 **A Job another of his Macs holds is refused, not sent on.** A single answer is relayed whole to that Mac, and a batch is not split by Mac.
 
 **The event stream.** No new event: each item publishes `session.changed` on its Job, as its own answer does.
-One press of Approve all is as many presses as it has items, in one burst, so the unmeasured sink risk is a little worse and stays unmeasured.
+A call of several items is as many presses as it has items, in one burst, so the unmeasured sink risk is a little worse and stays unmeasured. The review sheet sends one at a time.
 
 **Skew.** The routes are new, so the protocol ID moves and a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
