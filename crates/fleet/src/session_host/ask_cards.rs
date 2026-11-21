@@ -112,7 +112,7 @@ where
 
     /// His answer to question `at` of the card `asked`, held: his pick, with his words as an entry of their own.
     /// **Every answer, in the order asked, once each question has one**, and `None` while one is still open.
-    pub(super) fn card_picked(&self, id: &str, asked: &CallInFlight, at: usize, picked: Option<&str>, words: Option<&str>) -> Option<Vec<QuestionAnswer>> {
+    pub(super) fn question_picked(&self, id: &str, asked: &CallInFlight, at: usize, picked: Option<&str>, words: Option<&str>) -> Option<Vec<QuestionAnswer>> {
         let question = asked.questions.get(at)?;
         let chosen = match (picked, words) {
             (Some(pick), Some(words)) => vec![pick.to_string(), words.to_string()],

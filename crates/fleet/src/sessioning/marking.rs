@@ -100,7 +100,7 @@ fn state_of(record: &SessionRecord, thread: &Thread, read: bool) -> JobState {
         });
         if command || thread.checks_running {
             // A reply that asks beside a command it left running is his to answer first.
-            return if owes.iter().all(|one| reading(one)) { JobState::Running } else { JobState::Waiting };
+            return if owes.is_empty() { JobState::Running } else { JobState::Waiting };
         }
         return JobState::Working;
     }

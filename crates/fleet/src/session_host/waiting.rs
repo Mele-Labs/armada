@@ -1306,7 +1306,7 @@ where
                     match (picked.as_deref().or(words), asked.questions.get(at)) {
                         // One question of several: his pick is held, and the call is answered once every one has one.
                         (Some(_), Some(_)) if asked.questions.len() > 1 => {
-                            let Some(answers) = self.card_picked(&id, &asked, at, picked.as_deref(), words) else {
+                            let Some(answers) = self.question_picked(&id, &asked, at, picked.as_deref(), words) else {
                                 keep_answer(Arc::clone(&self), id.clone()).await;
                                 return self.published_hosted(&id).await;
                             };

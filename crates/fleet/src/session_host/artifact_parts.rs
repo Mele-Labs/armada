@@ -645,16 +645,16 @@ where
         let sketch_how = if said.how == PartHow::Approved { SketchHow::Approved } else { SketchHow::SentBack };
         match (&part.content, kind) {
             (PartContent::Drawing { .. }, _) => {
-                let answer = AnswerSketch { session_id: said.session_id.clone(), sketch: part.id.clone(), drawn: part.drawn.clone(), how: sketch_how, words };
+                let answer = AnswerSketch { session_id: said.session_id.clone(), sketch: part.id.clone(), drawn: part.drawn.clone(), how: sketch_how, words: words.clone() };
                 Arc::clone(&self).sketch_answered(answer).await?;
             }
             (PartContent::Page { path }, _) => {
                 let how = if said.how == PartHow::Approved { DocumentHow::Approved } else { DocumentHow::SentBack };
-                let answer = AnswerDocument { session_id: said.session_id.clone(), document: path.clone(), revision: part.drawn.clone(), how, words };
+                let answer = AnswerDocument { session_id: said.session_id.clone(), document: path.clone(), revision: part.drawn.clone(), how, words: words.clone() };
                 Arc::clone(&self).document_answered(answer).await?;
             }
             (PartContent::Words { .. }, _) if part.id.starts_with(DRAFT_PREFIX) => {
-                Arc::clone(&self).member_draft_answered(&id, &part, said.how, words).await?;
+                Arc::clone(&self).member_draft_answered(&id, &part, said.how, words.clone()).await?;
             }
             (PartContent::Words { .. }, _) => {
                 Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone()).await?;
