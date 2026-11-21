@@ -1,5 +1,6 @@
 //! Builds taking turns on a loaded machine, against real processes: each Job a shell running a
-//! stand-in `rustc`, the process table read as Fleet reads it, and the signals really sent.
+//! stand-in `rustc` or `cargo`, the process table read as Fleet reads it, and the signals really
+//! sent.
 
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command};
@@ -13,10 +14,49 @@ use crate::tests::tmp::TempDir;
 /// (`Killed: 9`). Not `/bin/sleep`: on Ubuntu 26.04 that is a multi-call binary that reads its
 /// name and refuses `rustc`.
 fn stand_in(dir: &Path) -> PathBuf {
-    let rustc = dir.join("rustc");
+    stand_in_named(dir, "rustc")
+}
+
+fn stand_in_named(dir: &Path, name: &str) -> PathBuf {
+    let link = dir.join(name);
     let this = std::env::current_exe().expect("the test binary");
-    std::os::unix::fs::symlink(this, &rustc).expect("the test binary links");
-    rustc
+    std::os::unix::fs::symlink(this, &link).expect("the test binary links");
+    link
+}
+
+/// A shell running `program` as [`a_stand_in_compiler`], and the pid of that child once it runs.
+fn started(program: &Path) -> (Child, u32) {
+    let shell = Command::new("/bin/sh")
+        .arg("-c")
+        .arg(format!(
+            "'{}' tests::build_turns::a_stand_in_compiler --exact --ignored >/dev/null 2>&1; :",
+            program.display()
+        ))
+        .spawn()
+        .expect("the shell starts");
+    let root = shell.id();
+    let begun = Instant::now();
+    loop {
+        if let Some((pid, ..)) = build_turns::rows_for_test(&listing()).into_iter().find(|(_, parent, ..)| *parent == root) {
+            return (shell, pid);
+        }
+        assert!(begun.elapsed() < Duration::from_secs(5), "the stand-in never started");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+fn stopped(pid: u32, expected: bool) -> bool {
+    let begun = Instant::now();
+    loop {
+        let stopped = build_turns::rows_for_test(&listing())
+            .into_iter()
+            .find(|(one, ..)| *one == pid)
+            .is_some_and(|(_, _, stopped, _)| stopped);
+        if stopped == expected || begun.elapsed() > Duration::from_secs(2) {
+            return stopped;
+        }
+        std::thread::sleep(Duration::from_millis(20));
+    }
 }
 
 /// The compiler [`stand_in`] names: sleeps until it is killed. Ignored, so a run of the suite
@@ -35,26 +75,8 @@ struct Job {
 
 impl Job {
     fn building(rustc: &Path) -> Job {
-        let shell = Command::new("/bin/sh")
-            .arg("-c")
-            .arg(format!(
-                "'{}' tests::build_turns::a_stand_in_compiler --exact --ignored >/dev/null 2>&1; :",
-                rustc.display()
-            ))
-            .spawn()
-            .expect("the shell starts");
-        let root = shell.id();
-        let started = Instant::now();
-        loop {
-            let found = build_turns::rows_for_test(&listing())
-                .into_iter()
-                .find(|(_, parent, _, compiler)| *parent == root && *compiler);
-            if let Some((pid, ..)) = found {
-                return Job { shell, rustc: pid };
-            }
-            assert!(started.elapsed() < Duration::from_secs(5), "the stand-in compiler never started");
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        let (shell, rustc) = started(rustc);
+        Job { shell, rustc }
     }
 
     fn as_contender(&self, job: &str, prioritised: bool) -> Contender {
@@ -63,17 +85,7 @@ impl Job {
 
     /// Whether its compiler is stopped, once the signal has landed.
     fn held(&self, expected: bool) -> bool {
-        let started = Instant::now();
-        loop {
-            let stopped = build_turns::rows_for_test(&listing())
-                .into_iter()
-                .find(|(pid, ..)| *pid == self.rustc)
-                .is_some_and(|(_, _, stopped, _)| stopped);
-            if stopped == expected || started.elapsed() > Duration::from_secs(2) {
-                return stopped;
-            }
-            std::thread::sleep(Duration::from_millis(20));
-        }
+        stopped(self.rustc, expected)
     }
 }
 
@@ -142,6 +154,47 @@ fn with_a_job_prioritised_its_builds_run_while_the_oldest_jobs_are_held() {
     assert!(oldest.held(true));
 }
 
+/// The cargo of a held Job, as `cargo metadata` under an editor's language server or a build
+/// resolving its packages: it holds the package-cache lock every other Job's cargo waits on.
+struct Cargo {
+    shell: Child,
+    pid: u32,
+}
+
+impl Drop for Cargo {
+    fn drop(&mut self) {
+        build_turns::send(&[Signal::Continue(self.pid)]);
+        let _ = Command::new("kill").args(["-9", &self.pid.to_string()]).status();
+        let _ = self.shell.kill();
+        let _ = self.shell.wait();
+    }
+}
+
+#[test]
+fn a_held_jobs_cargo_keeps_running_so_the_package_cache_lock_it_holds_never_starves_another_build() {
+    let dir = TempDir::new();
+    let rustc = stand_in(dir.path());
+    let first = Job::building(&rustc);
+    let second = Job::building(&rustc);
+    let (shell, pid) = started(&stand_in_named(dir.path(), "cargo"));
+    let cargo = Cargo { shell, pid };
+    let jobs = [
+        first.as_contender("first", false),
+        Contender { job: "second".into(), roots: vec![second.shell.id(), cargo.shell.id()], prioritised: false },
+    ];
+    let mut turns = Turns::default();
+
+    look(&mut turns, true, &jobs, Instant::now());
+    assert!(second.held(true), "the second Job's compiler is held");
+    assert!(!stopped(cargo.pid, false), "its cargo runs on, so the lock it holds is let go");
+
+    // A cargo an earlier Fleet stopped holds the lock until it runs: the next look lets it go.
+    build_turns::send(&[Signal::Stop(cargo.pid)]);
+    assert!(stopped(cargo.pid, true));
+    look(&mut Turns::default(), true, &jobs, Instant::now());
+    assert!(!stopped(cargo.pid, false), "a stopped cargo in a Job's tree is continued");
+}
+
 #[test]
 fn a_fleet_that_stops_lets_every_build_it_held_go() {
     let dir = TempDir::new();
@@ -168,7 +221,7 @@ fn a_checks_build_and_a_lone_jobs_build_are_never_held() {
     let listing = "\
   10     1 S    /usr/bin/agent
   11    10 S    /bin/zsh
-  12    11 R    /Users/user/.rustup/toolchains/stable/bin/cargo
+  12    11 R    /Users/user/.rustup/toolchains/stable/bin/rustc
   20     1 S    /usr/bin/agent
   21    20 S    /Users/user/Library/Application Support/Armada/armada
   22    21 R    /Users/user/.rustup/toolchains/stable/bin/rustc
@@ -193,8 +246,8 @@ fn a_checks_build_and_a_lone_jobs_build_are_never_held() {
 fn a_compiler_outside_every_jobs_tree_is_the_job_whose_id_it_carries() {
     let listing = "\
   10     1 S    /usr/bin/agent
-  11    10 R    /bin/cargo
-  40     1 R    /bin/cargo
+  11    10 R    /bin/rustc
+  40     1 R    /bin/rustc
 ";
     let jobs = [
         Contender { job: "a".into(), roots: vec![10], prioritised: false },
@@ -208,11 +261,11 @@ fn a_compiler_outside_every_jobs_tree_is_the_job_whose_id_it_carries() {
 fn a_job_that_stops_building_gives_its_turn_up_at_once() {
     let both = "\
   10     1 S    /usr/bin/agent
-  11    10 R    /bin/cargo
+  11    10 R    /bin/rustc
   20     1 S    /usr/bin/agent
-  21    20 R    /bin/cargo
+  21    20 R    /bin/rustc
   30     1 S    /usr/bin/agent
-  31    30 R    /bin/cargo
+  31    30 R    /bin/rustc
 ";
     let jobs = [
         Contender { job: "a".into(), roots: vec![10], prioritised: false },
@@ -233,9 +286,9 @@ fn a_job_that_stops_building_gives_its_turn_up_at_once() {
 fn each_job_held_is_named_while_held_so_it_is_told_both_ways() {
     let both = "\
   10     1 S    /usr/bin/agent
-  11    10 R    /bin/cargo
+  11    10 R    /bin/rustc
   20     1 S    /usr/bin/agent
-  21    20 R    /bin/cargo
+  21    20 R    /bin/rustc
 ";
     let jobs = [
         Contender { job: "a".into(), roots: vec![10], prioritised: false },
