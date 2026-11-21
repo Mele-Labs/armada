@@ -11,14 +11,13 @@
 //! sketches and the pickers, which belong to a running Job's message.
 
 use std::path::PathBuf;
-use std::sync::Arc;
 use std::time::Duration;
 
 use gpui::{div, prelude::*, App, ClickEvent, ClipboardItem, Context, Entity, EventEmitter, ExternalPaths, SharedString, Subscription, Task, Window};
 use gpui_component::input::{Enter, Escape, IndentInline, InputEvent, MoveDown, MoveUp, TextareaState};
 use ipc::AnswerExtras;
 
-use super::composer::{clipped, encoded_files, preview_of, read_files, tray, words_area, Attached, Kept, KeptTag};
+use super::composer::{attached, clipped_keyed, encoded_files, read_files, tray, words_area, Attached, Kept, KeptTag};
 use super::format::{draw, enter_in, sent_text};
 use super::offer::{at_rows, mention_of, offer_list_at, put_pick, token_at, Offer, Row};
 use super::JobView;
@@ -239,8 +238,7 @@ impl RichNote {
 
     pub fn add_file(&mut self, name: String, media_type: String, bytes: Vec<u8>, cx: &mut Context<Self>) {
         self.next_key += 1;
-        let preview = preview_of(&media_type, &bytes);
-        self.files.push(Attached { key: self.next_key, name, media_type, bytes: Arc::new(bytes), preview });
+        self.files.push(attached(self.next_key, name, media_type, bytes));
         cx.emit(Resized);
         cx.notify();
     }
@@ -255,12 +253,7 @@ impl RichNote {
 
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     pub fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
-        let mut next = self.next_key;
-        let taken = clipped(item, || {
-            next += 1;
-            next
-        });
-        self.next_key = next;
+        let taken = clipped_keyed(item, &mut self.next_key);
         for (name, media_type, bytes) in taken.files.iter().cloned() {
             self.add_file(name, media_type, bytes, cx);
         }
