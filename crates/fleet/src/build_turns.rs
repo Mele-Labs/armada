@@ -5,8 +5,12 @@
 //! picks it up where it was. Eight builds sharing twelve cores at a load of 37 each crawled for
 //! over an hour (20 Nov 2026); one running alone finishes, and the next takes its turn.
 //!
-//! **What is held is a Job's compilers and nothing else**: `cargo`, `rustc` and `rustdoc` in the
-//! Job's process tree or carrying its `ARMADA_SESSION`. A Check's are left running, as Checks
+//! **What is held is a Job's compilers and nothing else**: `rustc`, `rustdoc` and `clippy-driver`
+//! in the Job's process tree or carrying its `ARMADA_SESSION`. **Never `cargo`**: it holds the
+//! package-cache lock while it resolves, and a stopped one held it for every Job's cargo until
+//! their Checks spent 900 seconds on `Blocking waiting for file lock on package cache` (21 Nov
+//! 2026). A cargo whose compilers are stopped waits on them, holding nothing another build needs,
+//! and a stopped cargo in a Job's tree, which only an earlier Fleet stopped, is continued. A Check's are left running, as Checks
 //! already run one at a time under load and a held one would spend its budget waiting. A build
 //! outside every Job, such as one a person started, is not Fleet's to stop.
 //!
@@ -29,9 +33,12 @@ pub(crate) const TURN: Duration = Duration::from_secs(5 * 60);
 /// How often Fleet looks: a compiler a running build starts is held within this.
 pub(crate) const EVERY: Duration = Duration::from_secs(5);
 
-/// The processes held: a build's driver and its compilers. A linker or build script they started
-/// finishes what it is doing and waits on its stopped parent.
-const COMPILERS: [&str; 3] = ["cargo", "rustc", "rustdoc"];
+/// The processes held: a build's compilers. A linker or build script they started finishes what it
+/// is doing and waits on its stopped parent, and the cargo that started them waits on them.
+const COMPILERS: [&str; 3] = ["rustc", "rustdoc", "clippy-driver"];
+
+/// The build driver, never held: stopped, it keeps the package-cache lock from every other build.
+const DRIVER: &str = "cargo";
 
 /// How far up the parent chain a compiler is followed to its Job: an agent's shell, a package
 /// runner, a test runner and cargo itself sit between them.
@@ -60,6 +67,7 @@ struct Row {
     ppid: u32,
     stopped: bool,
     compiler: bool,
+    driver: bool,
 }
 
 /// `kern.memorystatus_vm_pressure_level` at which memory is short: 1 is normal, 2 warn, 4
@@ -88,7 +96,7 @@ fn rows(listing: &str) -> Vec<Row> {
             let stat = fields.next()?;
             let comm = fields.collect::<Vec<_>>().join(" ");
             let name = comm.rsplit('/').next().unwrap_or_default();
-            Some(Row { pid, ppid, stopped: stat.starts_with('T'), compiler: COMPILERS.contains(&name) })
+            Some(Row { pid, ppid, stopped: stat.starts_with('T'), compiler: COMPILERS.contains(&name), driver: name == DRIVER })
         })
         .collect()
 }
@@ -146,6 +154,12 @@ impl Turns {
             .iter()
             .flat_map(|one| one.roots.iter().map(move |root| (*root, one.job.as_str())))
             .collect();
+        // A cargo an earlier Fleet stopped, as this one never stops one.
+        let mut said: Vec<Signal> = rows
+            .iter()
+            .filter(|row| row.driver && row.stopped && by_descent(row.pid, &parents, &roots).is_some())
+            .map(|row| Signal::Continue(row.pid))
+            .collect();
         let compilers: Vec<(&Row, &str)> = rows
             .iter()
             .filter(|row| row.compiler)
@@ -163,7 +177,6 @@ impl Turns {
         let alive: BTreeSet<u32> = compilers.iter().map(|(row, _)| row.pid).collect();
         self.held.retain(|pid, _| alive.contains(pid));
 
-        let mut said = Vec::new();
         for (row, job) in compilers {
             let runs = leader.as_deref().is_none_or(|leader| leader == job);
             if runs {
