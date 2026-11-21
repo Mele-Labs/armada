@@ -115,6 +115,17 @@ fn terminal_place(picked: Option<String>, scoped: Option<(Option<SharedString>, 
     Some((Place::Repository(place), project.map(|id| id.to_string())))
 }
 
+/// A dispatch of notes Fleet stopped partway through: Fleet may have made the Job before it stopped, and the layer
+/// still holds the notes, so the toast says both.
+fn stopped_mid_start(why: crate::refusal::Failed) -> crate::refusal::Failed {
+    match why {
+        crate::refusal::Failed::Unanswered(said) if said == crate::transport::STOPPED => {
+            crate::refusal::Failed::Unanswered(format!("{said}. The Job may have started; the notes are still held"))
+        }
+        other => other,
+    }
+}
+
 /// Where ⌘T would start a Job, as the card under the sheet names it: the project the title bar is scoped
 /// to, else its repository, else the place one last started. None where ⌘T cannot start one.
 fn here_name(cx: &App) -> Option<SharedString> {
@@ -874,7 +885,7 @@ impl DispatchScreen {
                     annotate::live::deliver(port, job.id.as_ref(), outgoing, ink).map_err(|why| (title.clone(), why))?;
                     Ok::<_, (String, crate::refusal::Failed)>(Sent::Into { session: job.id.to_string(), title })
                 }
-                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), why))? {
+                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), stopped_mid_start(why)))? {
                     annotate::live::Dispatched::Started { id, title } => Ok(Sent::Started { session: id, title }),
                     annotate::live::Dispatched::Kept { id, title } => Ok(Sent::Kept { dispatch: id, title }),
                 },
@@ -1130,6 +1141,13 @@ impl Render for DispatchScreen {
 mod tests {
     use super::*;
     use crate::titlebar::scenes;
+
+    #[test]
+    fn notes_fleet_stopped_on_say_the_job_may_have_started_and_they_are_held() {
+        let said = stopped_mid_start(crate::transport::STOPPED.to_string().into()).to_string();
+        assert_eq!(said, "Fleet stopped before it answered. The Job may have started; the notes are still held");
+        assert_eq!(stopped_mid_start("no answer in 30 seconds".to_string().into()).to_string(), "no answer in 30 seconds");
+    }
 
     fn storefront() -> titlebar::Face {
         let mut face = scenes::rest();
