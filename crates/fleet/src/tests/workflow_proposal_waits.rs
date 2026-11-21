@@ -50,7 +50,7 @@ async fn a_held_proposal_waits_as_a_draft_offering_approve_and_dismiss() {
     let (rig, _, id, _) = proposing().await;
     let items = waiting(&rig, &id).await;
     let item = proposal(&items).unwrap_or_else(|| panic!("nothing waits: {items:?}"));
-    assert_eq!(item.text, "Workflow fresh");
+    assert_eq!(item.text, "Approve \"Workflow fresh\"?");
     assert_eq!(item.options.iter().map(|one| one.label.as_str()).collect::<Vec<_>>(), ["Approve", "Dismiss"]);
     assert!(item.act.as_ref().is_some_and(|act| act.target == item.id));
 }
