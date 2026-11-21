@@ -62,6 +62,7 @@ mod phone;
 mod showing_file;
 mod sketching;
 mod sketch_answers;
+mod answer_attachments;
 mod sketch_asks;
 mod sketch_styles;
 mod sketch_takes;

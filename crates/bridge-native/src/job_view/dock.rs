@@ -1648,7 +1648,7 @@ impl JobView {
     /// A button pressed: the option goes to Fleet as the whole pick and the row goes at once.
     pub(super) fn answer_row(&mut self, item: &str, at: usize, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: u32::try_from(at).ok(), text: None, mode: None, fixed: None, extras: Default::default() });
         self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }
 
@@ -1660,7 +1660,7 @@ impl JobView {
             return;
         }
         self.keep_words(&format!("waiting:{id}:{item}"), "", cx);
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: None, text: Some(words), mode: None, fixed: None });
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(id.to_string()), item_id: item.to_string(), choice: None, text: Some(words), mode: None, fixed: None, extras: Default::default() });
         self.settle_row(item, "/sessions/waiting/answer", body.map_err(|why| format!("{why:?}")), window, cx);
     }
 

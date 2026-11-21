@@ -137,7 +137,7 @@ where
             }
         }
         if let Some(choice) = choice_of(doing.item, doing.pick) {
-            let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None };
+            let said = AnswerWaiting { session_id: SessionId::carried(doing.session), item_id: id.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() };
             return match Arc::clone(self).settle_waiting(said).await {
                 Ok(_) => Ok(Done::default()),
                 Err(refused) => Err(Fault::NotDone(refused.error().message.clone())),

@@ -53,4 +53,7 @@ pub struct AnswerDocument {
     /// The note, which `sent_back` needs. Words with an approval are passed on too.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub words: Option<String>,
+    /// Pictures and tags that go with the words.
+    #[serde(default, skip_serializing_if = "crate::AnswerExtras::is_empty")]
+    pub extras: crate::AnswerExtras,
 }

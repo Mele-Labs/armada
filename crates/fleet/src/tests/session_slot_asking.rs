@@ -35,6 +35,7 @@ async fn choose(rig: &Rig, id: &SessionId, choice: u32) {
             text: None,
             mode: None,
             fixed: None,
+            extras: Default::default(),
         })
         .await
         .expect("answered");
