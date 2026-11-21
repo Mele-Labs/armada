@@ -46,8 +46,10 @@ fn written(rig: &Rig, file: &std::path::Path, html: &str, call: &str) {
 }
 
 /// How many lines Fleet sent the Job's process that hold `containing`.
+/// The lines sent to the Job's process holding `containing`, as they read encoded on the wire.
 fn told(rig: &Rig, id: &SessionId, containing: &str) -> usize {
-    rig.stand_in.process_of(id.as_str()).map_or(0, |process| process.sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count())
+    let encoded = containing.replace('"', "\\\"");
+    rig.stand_in.process_of(id.as_str()).map_or(0, |process| process.sent.lock().unwrap().iter().filter(|line| line.contains(&encoded)).count())
 }
 
 fn on_passage(id: &SessionId, quote: &str, text: &str, hold: bool) -> CommentMargin {

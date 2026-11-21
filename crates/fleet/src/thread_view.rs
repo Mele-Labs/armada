@@ -80,7 +80,7 @@ pub(crate) fn folded_cut(thread: &SessionThread, timeline: &[TimelineEvent], rev
         plan: None,
         sketch: None,
     };
-    (head, items_of(thread, timeline, revisions, &[], None, false))
+    (head, items_of(thread, timeline, revisions, (&[], &[]), None, false))
 }
 
 /// Every revision path the sketches of a record name, which [`folded`] draws once each is in [`Revisions`].
