@@ -137,3 +137,46 @@ async fn a_kind_sets_no_workflow_and_the_job_starts_as_it_does_with_none() {
     }
     assert_eq!(plain, None, "he named none, so the proposer reads it");
 }
+
+/// Notes from the annotation layer ride a dispatch as `then`. Posted through the router on a worker of `stack` bytes,
+/// as Fleet serves it: on 21 Nov the note's send ran beneath every layer of the router and the whole start, overflowed
+/// the worker's stack in `sqlite3Prepare`, and aborted Fleet with the Job made and the notes lost.
+fn notes_dispatched_through_the_router_on_a_worker_of(stack: usize) {
+    use axum::body::Body;
+    use axum::http::Request;
+    use tower::ServiceExt;
+
+    let runtime = tokio::runtime::Builder::new_multi_thread().worker_threads(1).thread_stack_size(stack).enable_all().build().expect("a runtime");
+    runtime.block_on(async {
+        let rig = rig_placing(None);
+        let mut dispatch = the_dispatch(&rig);
+        let placeholder = SessionId::carried("placeholder".to_string());
+        dispatch.then = vec![DispatchThen::Notes(vec![super::session_notes::note(&placeholder, "Other commands", None).note])];
+        let body = ipc::encode(&dispatch).expect("encoded");
+        let events = rig.fleet.events();
+        let app = api::router(api::Served::sharing(Arc::clone(&rig.fleet), ipc::RunId::carried("01RUN"), events));
+        let peer: std::net::SocketAddr = "127.0.0.1:52010".parse().expect("an address");
+        let request = Request::builder()
+            .method("POST")
+            .uri("/sessions/dispatch")
+            .header("content-type", "application/json")
+            .header("x-armada-caller", "bridge")
+            .extension(axum::extract::ConnectInfo(peer))
+            .body(Body::from(body))
+            .expect("a well-formed request");
+
+        let response = tokio::spawn(app.oneshot(request)).await.expect("the worker kept its stack").expect("an answer");
+
+        assert!(response.status().is_success(), "{:?}", response.status());
+        let ids = jobs_but(&rig, &placeholder).await;
+        let [job] = &ids[..] else { panic!("one Job: {ids:?}") };
+        eventually(|| async { thread(&rig, job).await.contains(super::session_notes::SAID) }).await;
+    });
+}
+
+/// A debug build's start needs about 1 MiB of its own, so 1.5 MiB holds it and its sends; with the notes' send polled
+/// beneath the router and the start, as it was, this worker overflowed.
+#[test]
+fn a_dispatch_carrying_notes_through_the_router_fits_a_one_and_a_half_megabyte_worker() {
+    notes_dispatched_through_the_router_on_a_worker_of(1536 * 1024);
+}
