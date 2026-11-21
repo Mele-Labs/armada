@@ -167,7 +167,7 @@ async fn sketch_approved(rig: &super::session_host::Rig, id: &SessionId) {
     let shown = rig.fleet.show_sketch(None, drawing).await.expect("drawn");
     let drawn = shown.attachments.iter().find(|one| one.target == "sketch:Flow").and_then(|one| one.detail.get("drawn")).cloned().expect("drawn");
     Arc::clone(&rig.fleet)
-        .answer_sketch(AnswerSketch { session_id: id.clone(), sketch: "sketch:Flow".into(), drawn, how: SketchHow::Approved, words: None })
+        .answer_sketch(AnswerSketch { session_id: id.clone(), sketch: "sketch:Flow".into(), drawn, how: SketchHow::Approved, words: None, extras: Default::default() })
         .await
         .expect("approved");
 }

@@ -33,7 +33,7 @@ pub(super) async fn items(rig: &Rig, job: &SessionId) -> Vec<WaitingItem> {
 }
 
 fn choosing(job: &SessionId, item: &str, choice: u32) -> AnswerWaiting {
-    AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
+    AnswerWaiting { session_id: job.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() }
 }
 
 pub(super) async fn pressed(rig: &Rig, job: &SessionId, item: &str, choice: u32) -> Result<(), api::Refusal> {

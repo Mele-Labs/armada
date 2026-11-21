@@ -127,7 +127,7 @@ async fn an_offer_carries_his_words_its_pictures_and_what_he_approved_and_a_re_o
     let shown = rig.fleet.show_sketch(None, drawing).await.expect("drawn");
     let drawn = shown.attachments.iter().find(|one| one.target == "sketch:Card").and_then(|one| one.detail.get("drawn")).cloned().expect("drawn");
     Arc::clone(&rig.fleet)
-        .answer_sketch(AnswerSketch { session_id: id.clone(), sketch: "sketch:Card".into(), drawn, how: SketchHow::Approved, words: None })
+        .answer_sketch(AnswerSketch { session_id: id.clone(), sketch: "sketch:Card".into(), drawn, how: SketchHow::Approved, words: None, extras: Default::default() })
         .await
         .expect("approved");
 
@@ -385,7 +385,7 @@ async fn an_open_card_waits_in_needs_you_until_answered_and_comes_back_with_its_
     let raised = tries(&rig, &session).await;
     let [item] = raised.as_slice() else { panic!("one item for the Job: {raised:?}") };
     assert_eq!((item.id.as_str(), item.text.as_str(), item.artifact.as_deref()), (id.as_str(), "Ready to try", Some(id.as_str())));
-    let said = ipc::AnswerWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), choice: None, text: Some("Fine".into()), mode: None, fixed: None };
+    let said = ipc::AnswerWaiting { session_id: SessionId::carried(session.as_str()), item_id: id.clone(), choice: None, text: Some("Fine".into()), mode: None, fixed: None, extras: Default::default() };
     let refused = Arc::clone(&rig.fleet).settle_waiting(said).await;
     assert_eq!(code(refused), "fleet.session_waiting_empty", "answered on its card, not here");
 

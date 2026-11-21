@@ -1,5 +1,5 @@
 [operations.send_requests]
-ask_tool = "none"
+ask_tool = "api-client"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

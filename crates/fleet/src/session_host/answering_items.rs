@@ -116,7 +116,7 @@ where
         let session_id = SessionId::carried(&id);
         let settled = match item.source {
             // An artifact is answered part by part, each as it would be on its own.
-            WaitingSource::Sketch => match Arc::clone(&self).artifact_answered_all(&id, &item.id, approve, words).await {
+            WaitingSource::Sketch => match Arc::clone(&self).artifact_answered_all(&id, &item.id, approve, words, one.extras.clone()).await {
                 Ok(_) => self.published_hosted(&id).await,
                 Err(refusal) => Err(refusal),
             },
@@ -127,7 +127,8 @@ where
                     Err(refusal) => return refused(&refusal),
                 };
                 let how = if approve { DocumentHow::Approved } else { DocumentHow::SentBack };
-                self.document_answered(AnswerDocument { session_id, document: item.id.clone(), revision, how, words }).await
+                let answer = AnswerDocument { session_id, document: item.id.clone(), revision, how, words, extras: one.extras.clone() };
+                self.document_answered_noted(answer, &one.notes).await
             }
             WaitingSource::Plan => match plan_version(&item.id) {
                 Some(version) if approve && notes.is_empty() => self.plan_approved(ApprovePlan { session_id, version }).await,
@@ -135,12 +136,12 @@ where
                 None => return refused_as(ITEMS_NOT_WAITING, format!("`{}` names no plan version", item.id)),
             },
             // A draft's Approve is its first option, and words alone send it back.
-            WaitingSource::Draft => self.settle_verdict(waiting_answer(session_id, &item, approve.then_some(0), words), false).await,
-            WaitingSource::Walk => self.settle_verdict(waiting_answer(session_id, &item, None, words), approve).await,
+            WaitingSource::Draft => self.settle_verdict(waiting_answer(session_id, &item, approve.then_some(0), words, one.extras.clone()), false).await,
+            WaitingSource::Walk => self.settle_verdict(waiting_answer(session_id, &item, None, words, one.extras.clone()), approve).await,
             _ => {
                 let label = if approve { APPROVE } else { ASK_FOR_CHANGES };
                 let choice = item.options.iter().position(|option| option.label == label).map(|at| at as u32);
-                self.settle_verdict(waiting_answer(session_id, &item, choice, words), false).await
+                self.settle_verdict(waiting_answer(session_id, &item, choice, words, one.extras.clone()), false).await
             }
         };
         match settled {
@@ -241,6 +242,6 @@ where
 }
 
 /// The `answer_waiting` an item's own Approve or Ask for changes would send.
-fn waiting_answer(session_id: SessionId, item: &WaitingItem, choice: Option<u32>, words: Option<String>) -> AnswerWaiting {
-    AnswerWaiting { session_id, item_id: item.id.clone(), choice, text: words, mode: None, fixed: None }
+fn waiting_answer(session_id: SessionId, item: &WaitingItem, choice: Option<u32>, words: Option<String>, extras: ipc::AnswerExtras) -> AnswerWaiting {
+    AnswerWaiting { session_id, item_id: item.id.clone(), choice, text: words, mode: None, fixed: None, extras }
 }

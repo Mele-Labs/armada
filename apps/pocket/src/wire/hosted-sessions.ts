@@ -72,6 +72,16 @@ export type SessionUpload = {
   data: string;
 };
 
+/**
+ * What an answer to a card, a page part, a document or a question carries beside its words: the
+ * pictures and files he attached, and what he tagged. They reach the Job as a message's do
+ * (`SendSessionMessage`), and the answer's row on the thread keeps them.
+ */
+export type AnswerExtras = {
+  attachments?: SessionUpload[];
+  mentions?: SessionTag[];
+};
+
 /** `send_session_message`. It takes a turn. */
 export type SendSessionMessage = {
   session_id: SessionId;

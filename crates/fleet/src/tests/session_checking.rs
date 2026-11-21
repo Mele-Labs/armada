@@ -2,6 +2,8 @@
 //! lease there, a thread row and a Checks page row that move as the run ends, and its log read by
 //! run id.
 
+use std::sync::Arc;
+
 use api::Sessions;
 use ipc::{
     SessionCheckAct, SessionCheckAnswer, SessionCheckCall, SessionCheckState, SessionCheckStop, SessionFact,
@@ -33,7 +35,7 @@ fn call(act: SessionCheckAct, cwd: &str) -> SessionCheckCall {
 #[tokio::test]
 async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let root = fleet.repositories().first().expect("served").root().to_string();
     let slot = leased(&root, 2, "fleet/topic", By::Job("s1"));
     fleet
@@ -79,7 +81,7 @@ async fn a_session_check_row_carries_what_the_run_was_narrowed_to() {
     assert_eq!(target_of(plain), None);
 }
 
-async fn a_running_check(fleet: &Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>, root: &str) -> (String, u64) {
+async fn a_running_check(fleet: &Arc<Fleet<testkit::FakeHarness, testkit::FakeVcs, FakeWorkProduct>>, root: &str) -> (String, u64) {
     let slot = leased(root, 2, "fleet/topic", By::Job("s1"));
     fleet
         .report_session(SessionReport {
@@ -107,7 +109,7 @@ async fn a_running_check(fleet: &Fleet<testkit::FakeHarness, testkit::FakeVcs, F
 #[tokio::test]
 async fn a_running_session_checks_follow_yields_lines_before_end() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let root = fleet.repositories().first().expect("served").root().to_string();
     let (slot, run) = a_running_check(&fleet, &root).await;
 
@@ -141,7 +143,7 @@ async fn a_running_session_checks_follow_yields_lines_before_end() {
 #[tokio::test]
 async fn each_stop_route_is_answered_to_the_runs_next_chunk_and_force_outranks() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let root = fleet.repositories().first().expect("served").root().to_string();
     let (slot, run) = a_running_check(&fleet, &root).await;
     let beat = || {
@@ -180,7 +182,7 @@ async fn each_stop_route_is_answered_to_the_runs_next_chunk_and_force_outranks()
 #[tokio::test]
 async fn a_run_that_timed_out_is_kept_and_drawn_as_timed_out_with_no_blame() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let root = fleet.repositories().first().expect("served").root().to_string();
     let (slot, run) = a_running_check(&fleet, &root).await;
     let file = std::path::Path::new(&slot).join("crates/store/src/reads.rs");
@@ -211,7 +213,7 @@ async fn a_run_that_timed_out_is_kept_and_drawn_as_timed_out_with_no_blame() {
 #[tokio::test]
 async fn a_failed_runs_row_carries_its_blame_and_a_passed_runs_does_not() {
     let home = TempDir::new();
-    let fleet = a_fleet(&home, FakeWorkProduct::changed(&[]));
+    let fleet = Arc::new(a_fleet(&home, FakeWorkProduct::changed(&[])));
     let root = fleet.repositories().first().expect("served").root().to_string();
     let (slot, failed) = a_running_check(&fleet, &root).await;
     let file = std::path::Path::new(&slot).join("crates/store/src/reads.rs");

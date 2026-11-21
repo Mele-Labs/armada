@@ -17,6 +17,7 @@ export type * from "./job-thread";
 export type * from "./judge";
 export type * from "./lifecycles";
 export type * from "./loadout";
+export type * from "./margin";
 export type * from "./plan-usage";
 export type * from "./preview";
 export type * from "./pull-requests";

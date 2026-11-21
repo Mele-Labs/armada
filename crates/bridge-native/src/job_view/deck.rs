@@ -484,7 +484,7 @@ impl JobView {
             }
             Source::Waiting(item) => {
                 let choice = answers.first().and_then(|(_, chosen)| chosen.first()).and_then(|label| self.waiting_choice(id, item, label, cx));
-                ("/sessions/waiting/answer", encoded(&AnswerWaiting { session_id, item_id: item.clone(), choice, text: None, mode: None, fixed: None }))
+                ("/sessions/waiting/answer", encoded(&AnswerWaiting { session_id, item_id: item.clone(), choice, text: None, mode: None, fixed: None, extras: Default::default() }))
             }
         };
         if let Source::Lapsed(lapse) = source {

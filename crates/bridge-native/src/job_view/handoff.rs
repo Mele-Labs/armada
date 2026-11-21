@@ -413,7 +413,7 @@ impl JobView {
         }
         self.want_needs(&job, cx);
         self.handoff_changed(place, cx);
-        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: key.clone(), choice: u32::try_from(choice).ok(), text: None, mode: None, fixed: None })
+        let body = ipc::encode(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: key.clone(), choice: u32::try_from(choice).ok(), text: None, mode: None, fixed: None, extras: Default::default() })
             .map_err(|why| format!("{why:?}"));
         let back = job.clone();
         self.post_with(

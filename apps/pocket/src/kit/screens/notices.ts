@@ -46,6 +46,7 @@ export const NOTICES = [
   "gate_closed",
   "gate_hold",
   "claims",
+  "red_streak",
 ] as const;
 
 export type Notice = (typeof NOTICES)[number];

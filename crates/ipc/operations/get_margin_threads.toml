@@ -1,0 +1,12 @@
+[operations.get_margin_threads]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "Read the margin threads on one of a Job's pages"
+notes = """
+`GET /sessions/margin?session_id=&document=`: the page by its file name under `.armada/documents/`, or its path. Answered with `MarginThreads`: each thread oldest first, with its anchor (`quote`, `block`, `section`), messages, `state` (`open`, `answered`, `suggested`, `held` or `settled`), `gone`, `suggestion` and `outcome`.
+
+**`gone` is read off each revision the page keeps**: where the newest no longer holds the quote, the thread keeps the quote and says it is gone; a later revision that holds it again clears it. A page the Job holds none of is 422 `fleet.margin_no_page`; a blank `session_id` or `document` is 400.
+
+`agent_access` is `No`: Bridge reads it for the page's margin.
+"""

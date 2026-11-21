@@ -312,6 +312,8 @@ mod style_sources;
 mod design_catalogue;
 /// A Job's document put to the person, and his answer.
 mod document_answer;
+/// His comments in a page's margin, and the agent's answers and suggested edits.
+mod margin;
 /// His verdict, or none, on several waiting items at once. `answer_items`, `dismiss_items`.
 mod answer_items;
 /// What a Job waits on the person for, grouped once. `get_needs_you`.
@@ -500,7 +502,7 @@ pub use holding::{
 };
 pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerExtras, AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,
@@ -780,6 +782,11 @@ pub use macs::{
 pub use show_file::{ShowFile, ShownText, ShownVideo};
 pub use test_map::{ReachingCheck, ReachingTest, RecordedLap, RecordedLaps, TestsReaching};
 pub use answer_items::{AnswerItems, DismissItems, ItemAnswer, ItemHow, ItemNote, ItemOutcome, ItemRef, ItemSettled, ItemsSettled, NoteOn};
+pub use margin::{
+    ActOnMargin, AnswerThread, CommentMargin, GetMarginThreads, MarginAct, MarginAnchor, MarginMessage, MarginOn, MarginRoundKind, MarginState,
+    MarginSuggestion, MarginThread, MarginThreads, MarginVoice, SendHeldMargin, SuggestEdit, SuggestionDecided, SuggestionHow, ThreadMargin,
+    ThreadMarginNote,
+};
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
     DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,

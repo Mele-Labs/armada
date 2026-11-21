@@ -196,6 +196,7 @@ async fn where_nothing_is_found_the_person_is_asked_once_and_the_answer_is_the_a
         text: Some(text.to_string()),
         mode: None,
         fixed: None,
+        extras: Default::default(),
     };
     let other = (item.options.len() - 1) as u32;
     let refused = Arc::clone(&rig.fleet).answer_waiting(answer("https://x.example/browse/", other)).await.expect_err("no {match}");
@@ -221,7 +222,7 @@ async fn an_address_another_repository_has_is_offered_and_picking_it_writes_it()
     assert_eq!(item.options[0].label, "https://acme.example.net/browse/{match}");
     assert_eq!(item.options[0].description.as_deref(), Some("elsewhere"));
     Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: session.clone(), item_id: item.id.clone(), choice: Some(0), text: None, mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: session.clone(), item_id: item.id.clone(), choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() })
         .await
         .expect("answered");
     assert_eq!(rules(&rig, None).await, ["https://acme.example.net/browse/{match}"]);
