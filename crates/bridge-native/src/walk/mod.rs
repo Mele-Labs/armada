@@ -847,7 +847,7 @@ pub static WALKS: &[Walk] = &[
             right_on("Its menu has Hide Open group", "button", "Open", "menuitem", "Hide Open group"),
             press_on("Hide it", "menuitem", "Hide Open group", "button", "Present the walk"),
             step("⌥2 opens the current step: the open work stands there instead", Verb::Key("alt-2"), "list", "Not landed"),
-            press_on("Shut the Spine", "button", "Close Spine", "tab", "Job column: Now"),
+            press_on("Shut the Spine: the column's own tabs are what the Job produced", "button", "Close Spine", "tab", "Job column: Artifacts"),
             press_on("+ offers Done", "button", "Add tab: Done", "menuitem", "Done"),
             press_on("Done opens in the column", "menuitem", "Done", "tab", "Job column: Done"),
             press_on("Done alone: the finished steps", "tab", "Job column: Done", "button", "Build"),
