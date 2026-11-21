@@ -2,7 +2,7 @@
 //!
 //! | Part | Draws |
 //! |---|---|
-//! | Header band | The kind's tile, the title at text-xl, the revision picker, where it stands, the Edit switch, the For line, and Dismiss, Ask for changes and Approve |
+//! | Header band | The kind's tile, the title at text-xl, the revision picker, where it stands, the Edit switch, the For line, and Dismiss, Ask for changes and Approve. A page in its Job's tab is answered in the review sheet alone: its header says it waits, with Open |
 //! | Contents | The headings, on the left where there is room, else a menu above the words |
 //! | Words | A draft's blocks with a note's words marked in his colour, a moved block with a running edge |
 //! | Gutter | Each note pinned beside its block; a table takes the whole width and its notes stand under it; in a narrow reader every note stands under its paragraph |
@@ -114,7 +114,10 @@ impl JobView {
         .top_0()
         .left_0()
         .size_full();
-        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
+        // A page in its Job's tab is answered in the review sheet alone, so A, C and D answer nothing here.
+        let pointer = tab.kind == super::row_tabs::RowKind::Document;
+        let (job, key_name, asking, editable, page) = (id.clone(), name.clone(), subject.asking && !earlier && !pointer, !subject.closed && !earlier, subject.form == ArtifactForm::Page);
+        let waits = pointer && subject.asking;
         let (job_c, name_c) = (id.clone(), name.clone());
         let body = div()
             .id("reader-body")
@@ -125,7 +128,7 @@ impl JobView {
             .children(rail)
             .child(div().flex_1().min_w_0().flex().flex_col().children(strip).child(words))
             .child(measure);
-        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier).map(|(area, _)| self.reader_ask_box(id, &name, held, area, look, cx));
+        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !pointer).map(|(area, _)| self.reader_ask_box(id, &name, held, area, look, cx));
         let said = held.said.clone().map(|why| div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)).child(super::acts::refusal(look, "reader", why)));
         labelled(
             div()
@@ -155,6 +158,9 @@ impl JobView {
                         return;
                     }
                     let Some(act) = key_of(event.keystroke.key.as_str(), asking, editable, page) else { return };
+                    if waits && act == RKey::Act(RAct::Archive) {
+                        return;
+                    }
                     cx.stop_propagation();
                     this.reader_key(&job, &key_name, act, window, cx);
                 }))
@@ -188,8 +194,10 @@ impl JobView {
         let picker = self.reader_picker(id, name, shown, look, cx);
         let switch = (!subject.closed && !earlier && matches!(subject.form, ArtifactForm::Draft | ArtifactForm::Page)).then(|| self.reader_switch(id, name, editing, look, cx));
         let (words, discard, save) = if editing { self.reader_edit_acts(id, name, held, look, cx) } else { (None, None, None) };
+        // A page in its Job's tab is answered in the review sheet alone: the tab says it waits, with Open to the sheet.
+        let pointer = held.kind == super::row_tabs::RowKind::Document;
         // While Ask for changes is open under the words, its box holds the answer and the header holds none.
-        let asking = subject.asking && !earlier && !editing && held.ask.is_none();
+        let asking = subject.asking && !earlier && !editing && held.ask.is_none() && !pointer;
         let go = |which: RAct, label: &'static str, key: &'static str, said: &'static str, kind: Kind| -> AnyElement {
             let (job, name_c) = (id.clone(), name.to_string());
             labelled(
@@ -230,7 +238,9 @@ impl JobView {
             .children((!editing).then(|| state_chip(look, format!("reader-state:{name}"), subject.stand, subject.words.as_deref(), None)))
             .children(answers_at_top);
         // What he can do besides answering: Edit, and putting it away.
-        let away = if subject.asking && !earlier && !editing {
+        let away = if subject.asking && pointer {
+            None
+        } else if subject.asking && !earlier && !editing {
             Some(go(RAct::Dismiss, "Dismiss", "D", "Put it away with no answer", Kind::Ghost))
         } else if !subject.archived && !earlier && !editing && !subject.asking {
             Some(go(RAct::Archive, "Archive", "D", "Fold it away from your list", Kind::Ghost))
@@ -261,6 +271,31 @@ impl JobView {
             .children(under_acts.2)
             .children(shared)
             .children(share);
+        let waits = (pointer && subject.asking && !earlier && !editing).then(|| {
+            let page = held.key.clone();
+            let said: &'static str = "This page waits on your Approve";
+            let open = labelled(
+                act(look, format!("reader-waits-open:{name}"), "Open", Kind::Secondary, "", true)
+                    .tooltip(tip("Answer it in the review sheet"))
+                    .on_click(cx.listener(move |this, _, window, cx| {
+                        this.set_needs(false, None, window, cx);
+                        this.open_review_at(Some(&page), window, cx);
+                    })),
+                Role::Button,
+                "Open",
+            );
+            labelled(
+                div()
+                    .id(SharedString::from(format!("reader-waits:{name}")))
+                    .flex()
+                    .items_center()
+                    .gap(look.length(token::SPACE_2))
+                    .child(div().flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(said))
+                    .child(open),
+                Role::Group,
+                said,
+            )
+        });
         let foot = pinned.then(|| {
             labelled(
                 div()
@@ -297,6 +332,7 @@ impl JobView {
             .border_color(edge)
             .child(top)
             .child(under)
+            .children(waits)
             .into_any_element();
         (head, foot)
     }

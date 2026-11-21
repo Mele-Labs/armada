@@ -535,3 +535,35 @@ impl JobView {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use gpui::{px, size, Bounds, Modifiers, Pixels, Role};
+
+    use super::super::parts_fold::{drawn, redraw, rooted_job};
+
+    /// Every place a `role` named `name` is drawn, the latest last.
+    fn all_of(cx: &mut gpui::VisualTestContext, role: Role, name: &str) -> Vec<Bounds<Pixels>> {
+        cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name == name).map(|one| one.bounds).collect())
+    }
+
+    #[gpui::test]
+    fn a_page_in_its_tab_says_it_waits_on_his_approve_and_open_goes_to_the_review_sheet(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::Group, "Margin"), "the page reads in its tab with the margin");
+        let line = all_of(cx, Role::Group, "This page waits on your Approve").pop().expect("the tab says the page waits on him");
+        for answer in ["Approve", "Ask for changes", "Dismiss"] {
+            assert!(!drawn(cx, Role::Button, answer), "{answer} is the review sheet's, not the tab's");
+        }
+        cx.simulate_keystrokes("a");
+        redraw(cx);
+        assert!(!view.read_with(cx, |view, _| view.review_open()), "A answers nothing in the tab");
+        let open = all_of(cx, Role::Button, "Open").into_iter().find(|one| line.contains(&one.center())).expect("Open stands on the line");
+        cx.simulate_click(open.center(), Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "Open goes to the review sheet");
+        assert!(drawn(cx, Role::Dialog, "Review"), "which is drawn over the window");
+    }
+}

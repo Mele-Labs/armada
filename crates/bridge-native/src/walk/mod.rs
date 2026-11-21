@@ -1824,6 +1824,7 @@ pub static WALKS: &[Walk] = &[
             step("Accept writes the change into the page: the next revision comes in where he was reading", Verb::PressWithin("group", "Thread on \u{201c}A failed check still interrupts.\u{201d}", "Accept"), "group", "Thread on \u{201c}A failed check on main still interrupts; one on a branch waits for the digest.\u{201d}"),
             step("Settle closes a thread", Verb::PressWithin("group", "Thread on \u{201c}Notices that arrive wait until 9:00 and come in as one digest\u{201d}", "Settle"), "tab", "Settled"),
             press_on("Settled lists what came of it, kept in the page's Decisions", "tab", "Settled", "group", "Notices that arrive wait until 9:00 and come in as one digest"),
+            step("The page's Approve is answered in the review sheet alone: its tab says the page waits, and Open goes there", Verb::PressWithin("group", "This page waits on your Approve", "Open"), "dialog", "Review"),
         ],
     },
     Walk {
