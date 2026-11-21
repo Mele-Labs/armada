@@ -326,6 +326,7 @@ where
             text: None,
             mode: None,
             fixed: None,
+            extras: Default::default(),
         };
         match item.source {
             WaitingSource::Plan => {

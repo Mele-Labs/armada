@@ -82,7 +82,7 @@ async fn answering_what_a_job_waits_on_is_a_visit() {
     let item_id = replied(&Arc::clone(&rig.fleet).get_session(id.clone()).await.unwrap().session).expect("the item");
     assert_eq!(viewed_at(&rig, &id).await, None);
 
-    let said = AnswerWaiting { session_id: id.clone(), item_id, choice: None, text: Some("yes, land it".into()), mode: None, fixed: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id, choice: None, text: Some("yes, land it".into()), mode: None, fixed: None, extras: Default::default() };
     let after = Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered");
     assert!(after.viewed_at.is_some(), "the answer carries the visit");
 }

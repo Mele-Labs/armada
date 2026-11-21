@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "Approve, or send back with notes, several items that ask for his approval, across Jobs, in one press"
 notes = """
-`POST /sessions/items/answer`, body `AnswerItems`: `items`, each `{ session_id, item, how, notes? }`, `how` `approve` or `send_back`, `notes` each `{ text, on? }` and `on` `{ quote, block }`. Answered 200 with `ItemsSettled` `{ outcomes }`, one `{ session_id, item, outcome }` per item in the order asked, `outcome` `{ kind: "settled" }` or `{ kind: "refused", code, message }`. A body that does not decode is a 422 and nothing is settled.
+`POST /sessions/items/answer`, body `AnswerItems`: `items`, each `{ session_id, item, how, notes? }`, `how` `approve` or `send_back`, `notes` each `{ text, on? }` and `on` `{ quote, block }`. Answered 200 with `ItemsSettled` `{ outcomes }`, one `{ session_id, item, outcome }` per item in the order asked, `outcome` `{ kind: "settled" }` or `{ kind: "refused", code, message }`. A body that does not decode is a 422 and nothing is settled. Each item may carry `extras` (`attachments` and `mentions`), which go with its words as `answer_sketch` and `answer_document` pass them on; an artifact with several parts that ask sends them once, with the first part told.
 
 **Only an item with an Approve is answered here**: a sketch, a page that asks, a plan, a draft, a walk, and an agent item raised with `approves: true`. Anything else, a question or a permission prompt among them, is refused `fleet.items_not_approvable`, and keeps its own answer.
 

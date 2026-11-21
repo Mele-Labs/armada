@@ -714,7 +714,7 @@ impl JobView {
             Rc::new(move |this, act, window, cx| {
                 let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
                 let answer = |how: DocumentHow, words: Option<String>| {
-                    ipc::encode(&AnswerDocument { session_id: session.clone(), document: format!("document:{page_name}"), revision: revision.to_string(), how, words }).map_err(|why| format!("{why:?}"))
+                    ipc::encode(&AnswerDocument { session_id: session.clone(), document: format!("document:{page_name}"), revision: revision.to_string(), how, words, extras: Default::default() }).map_err(|why| format!("{why:?}"))
                 };
                 match act {
                     Act::Approve => this.settle(ix, id.clone(), Answer::Approved, "/sessions/document/answer", answer(DocumentHow::Approved, None), window, cx),

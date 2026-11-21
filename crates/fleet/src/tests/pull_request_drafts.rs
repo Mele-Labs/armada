@@ -132,6 +132,7 @@ async fn approving_the_draft_drops_its_link() {
         text: None,
         mode: None,
         fixed: None,
+        extras: Default::default(),
     };
     let after = Arc::clone(&rig.fleet).answer_waiting(said).await.unwrap();
 
@@ -152,6 +153,7 @@ async fn a_draft_sent_back_drops_its_link_and_the_next_one_is_its_second_revisio
         text: Some("Say what it fixes.".into()),
         mode: None,
         fixed: None,
+        extras: Default::default(),
     };
     let after = Arc::clone(&rig.fleet).answer_waiting(note).await.unwrap();
     assert!(after.pull_request_drafts.is_empty(), "{:?}", after.pull_request_drafts);

@@ -33,7 +33,7 @@ async fn waiting(rig: &Rig, id: &SessionId, items: Vec<WaitingInput>) -> Session
 async fn answered(rig: &Rig, id: &SessionId, item: &str, choice: Option<u32>, text: Option<&str>) {
     // The clock reads milliseconds: let the answer land after the rows before it.
     tokio::time::sleep(std::time::Duration::from_millis(5)).await;
-    let said = AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice, text: text.map(str::to_string), mode: None, fixed: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice, text: text.map(str::to_string), mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered");
 }
 
@@ -106,7 +106,7 @@ async fn an_answer_in_his_place_is_refused_on_an_item_that_asks_for_his_approval
     let id = running(&rig).await;
     recorded(&rig, plan(&id, vec![gated("Design", PlanGate::YouApproved)])).await;
     waiting(&rig, &id, vec![asking("design", true, &[]), asking("plain", false, &["Yes", "No"])]).await;
-    let said = |item: &str| AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice: Some(0), text: None, mode: None, fixed: None };
+    let said = |item: &str| AnswerWaiting { session_id: id.clone(), item_id: item.into(), choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() };
 
     assert!(Arc::clone(&rig.fleet).settle_waiting(said("design")).await.is_err(), "the Operator cannot approve for him");
     assert_eq!(labels(&read(&rig, &id).await, "design"), ["Approve", "Ask for changes"], "and the item still waits on him");
