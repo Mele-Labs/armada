@@ -97,46 +97,37 @@ pub(crate) fn thread_of(kept: &KeptMarginThread) -> MarginThread {
     }
 }
 
-fn counted(count: usize, one: &str, many: &str) -> String {
-    match count {
-        1 => format!("1 {one}"),
-        _ => format!("{count} {many}"),
-    }
-}
-
 /// The line of a round, and whether it waits on him: an answer or a suggested edit in it that no later round names.
 fn summary_of(round: &KeptMarginRound, threads: &[&KeptMarginThread], newest: &dyn Fn(&str) -> bool) -> (String, bool) {
     let waits = threads.iter().any(|one| newest(&one.id) && matches!(state_of(&one.state), MarginState::Answered | MarginState::Suggested));
     let first = threads.first();
     let summary = match kind_of(&round.kind) {
+        // No tallies (the owner's rule): the line says where the round stands, and the card lists the passages.
         Some(MarginRoundKind::Comments) => {
-            let answered = threads.iter().filter(|one| one.messages.iter().any(|said| said.voice == "agent")).count();
-            let gone = threads.iter().filter(|one| one.gone).count();
-            let mut said = counted(round.notes.len().max(threads.len()), "comment", "comments");
-            if answered > 0 {
-                said.push_str(&format!(", {answered} answered"));
-            }
-            if gone > 0 {
-                said.push_str(&format!(", {} gone from the page", counted(gone, "passage", "passages")));
+            let answered = threads.iter().any(|one| one.messages.iter().any(|said| said.voice == "agent"));
+            let gone = threads.iter().any(|one| one.gone);
+            let mut said = String::from(if answered { "Your comments are answered in the margin" } else { "Your comments are with the agent" });
+            if gone {
+                said.push_str(", and a passage you commented on is gone from the page");
             }
             said
         }
         Some(MarginRoundKind::Change) => match first.and_then(|one| one.suggestion.as_ref()) {
-            Some(suggestion) if suggestion.decided.as_deref() == Some("accepted") => String::from("Change asked, accepted"),
-            Some(suggestion) if suggestion.decided.as_deref() == Some("rejected") => String::from("Change asked, rejected"),
-            Some(_) => String::from("Change suggested"),
-            None => String::from("Change asked"),
+            Some(suggestion) if suggestion.decided.as_deref() == Some("accepted") => String::from("You accepted the change"),
+            Some(suggestion) if suggestion.decided.as_deref() == Some("rejected") => String::from("You rejected the change"),
+            Some(_) => String::from("A change waits for your Accept"),
+            None => String::from("You asked for a change"),
         },
         Some(MarginRoundKind::Accepted) => match first.and_then(|one| one.suggestion.as_ref()).and_then(|one| one.decided_revision) {
-            Some(revision) => format!("Change accepted, revision {revision}"),
-            None => String::from("Change accepted"),
+            Some(revision) => format!("The change is in revision {revision}"),
+            None => String::from("The change is in the page"),
         },
-        Some(MarginRoundKind::Rejected) => String::from("Change rejected"),
+        Some(MarginRoundKind::Rejected) => String::from("You rejected the change"),
         Some(MarginRoundKind::Settled) => match first.and_then(|one| one.outcome.as_deref()) {
             Some(outcome) => format!("Settled: {outcome}"),
             None => String::from("Settled"),
         },
-        Some(MarginRoundKind::SentBack) => format!("Sent back with {}", counted(round.notes.len(), "note", "notes")),
+        Some(MarginRoundKind::SentBack) => String::from("Sent back with your notes"),
         None => String::new(),
     };
     let waits = waits && matches!(kind_of(&round.kind), Some(MarginRoundKind::Comments | MarginRoundKind::Change));

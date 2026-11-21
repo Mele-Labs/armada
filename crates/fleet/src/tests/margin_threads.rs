@@ -188,9 +188,9 @@ async fn margin_threads_carry_his_comments_the_agents_answers_and_only_his_accep
     assert_eq!(
         cards,
         [
-            (MarginRoundKind::Comments, "2 comments, 1 answered, 1 passage gone from the page"),
-            (MarginRoundKind::Change, "Change asked, accepted"),
-            (MarginRoundKind::Accepted, "Change accepted, revision 2"),
+            (MarginRoundKind::Comments, "Your comments are answered in the margin, and a passage you commented on is gone from the page"),
+            (MarginRoundKind::Change, "You accepted the change"),
+            (MarginRoundKind::Accepted, "The change is in revision 2"),
             (MarginRoundKind::Settled, "Settled: Notices wait until eleven."),
         ]
     );
