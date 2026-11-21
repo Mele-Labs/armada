@@ -103,6 +103,15 @@ fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
 }
 
 #[test]
+fn the_api_client_names_each_requests_tool_the_agent_can_call() {
+    let line = mention_line(&[tag(TagKind::Tool, "api-client", "API Client", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for API Client: send it with `send_request` or `send_requests`, save it with `save_request_to_collection`, and read saved requests and their runs with `get_requests`, `list_request_runs` and `get_request_run`.")
+    );
+}
+
+#[test]
 fn a_tool_follows_what_the_message_names_and_an_unknown_tool_says_nothing() {
     let line = mention_line(&[tag(TagKind::Tool, "sketch", "Sketch", None), tag(TagKind::Issue, "219", "#219 Walk it", None)]);
     assert_eq!(
