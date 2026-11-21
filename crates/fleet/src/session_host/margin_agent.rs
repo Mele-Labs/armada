@@ -121,7 +121,7 @@ where
     }
 
     /// A page sent back with his notes is kept as a round, each note with its passage and the section that holds it,
-    /// so the Job's thread draws it as the notes he wrote and not as the message the agent read.
+    /// so the Job's thread carries it as the notes he wrote beside the message the agent read.
     pub(super) async fn sent_back_kept(&self, id: &str, path: &str, at: &Instant, said: &str, words: &str, notes: &[ItemNote]) {
         let Ok(page) = self.margin_page(id, path).await else { return };
         let html = match &page.newest {

@@ -1,5 +1,5 @@
 //! Rounds of margin talk: each message Fleet sends a Job for his margin threads, kept with the row it wrote, and
-//! the one line the Job's thread draws for it in that row's place. **The line is built from the kept round and the
+//! the one line the Job's thread carries beside that row, for a screen to draw in its place. **The line is built from the kept round and the
 //! threads it names**, never read off the message. `docs/concepts/document.md`, *Margin threads*.
 
 use std::sync::Arc;
@@ -153,7 +153,8 @@ pub(super) fn cards_of(rounds: &[KeptMarginRound], threads: &[KeptMarginThread])
             let newest = |thread: &str| !rounds.iter().any(|later| later.seq > round.seq && later.threads.iter().any(|one| one == thread));
             let (summary, waits_on_you) = summary_of(round, &named, &newest);
             Some(ThreadMargin {
-                id: round.row.clone().unwrap_or_else(|| format!("margin:{}", round.seq)),
+                id: format!("margin:{}", round.seq),
+                replaces: round.row.clone(),
                 at: Instant::carried(&round.at),
                 page: round.document.clone(),
                 title: round.title.clone(),

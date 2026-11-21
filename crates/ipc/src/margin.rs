@@ -225,11 +225,16 @@ pub struct ThreadMarginNote {
     pub note: String,
 }
 
-/// One round of margin talk in a Job's thread, in the place of the message it sent: built from the record,
-/// never from the message's words. Since 21 Nov 2026.
+/// One round of margin talk in a Job's thread: built from the record, never from the message's words. **It
+/// stands just after the message row it sent, which stays in the thread**, and names it in `replaces`, so a
+/// screen that draws the card draws it in that row's place. Since 21 Nov 2026.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ThreadMargin {
+    /// `margin:<n>`, the round's number in the Job.
     pub id: String,
+    /// The id of the message row the round sent, where the thread holds it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub replaces: Option<String>,
     pub at: Instant,
     /// The page's file name.
     pub page: String,

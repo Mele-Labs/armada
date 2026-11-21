@@ -207,18 +207,18 @@ pub(super) fn with_ready(entries: &mut Vec<Entry<'_>>, ready: &[ipc::ThreadReady
     }
 }
 
-/// Each round of margin talk in the place of the message row it sent, which it stands for; one whose row is not
-/// found is placed by when it was sent.
+/// Each round of margin talk just after the message row it sent, which stays; one whose row is not found is
+/// placed by when it was sent.
 pub(super) fn with_margins(entries: &mut Vec<Entry<'_>>, margins: &[ipc::ThreadMargin]) {
     for card in margins {
-        let sent = entries.iter().position(|entry| matches!(entry.piece, Piece::Row(row @ ipc::SessionRow::Message { .. }) if row.id() == card.id));
-        match sent {
-            Some(at) => entries[at].piece = Piece::Card(ThreadItem::Margin(card.clone())),
-            None => {
-                let at = place(entries, &card.at);
-                entries.insert(at, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::Margin(card.clone())) });
-            }
-        }
+        let sent = card.replaces.as_deref().and_then(|replaces| {
+            entries.iter().position(|entry| matches!(entry.piece, Piece::Row(row @ ipc::SessionRow::Message { .. }) if row.id() == replaces))
+        });
+        let at = match sent {
+            Some(sent) => sent + 1,
+            None => place(entries, &card.at),
+        };
+        entries.insert(at, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::Margin(card.clone())) });
     }
 }
 

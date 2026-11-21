@@ -3,7 +3,7 @@
 //! nothing on the page. Make this change asks for an edit; the agent's suggested edit waits on his Accept, and only
 //! Accept writes the page, as its next revision. A later revision without the passage keeps the thread's quote and
 //! marks it gone, and Settle closes the thread and asks the agent to add the outcome to Decisions. The Job's thread
-//! draws one line per round of margin talk, in place of the message the round sent.**
+//! carries one line per round of margin talk, just after the message the round sent, which stays.**
 //! `crates/ipc/operations/comment_margin.toml` and its neighbours, `docs/concepts/document.md`, *Margin threads*.
 
 use std::sync::Arc;
@@ -192,16 +192,16 @@ async fn margin_threads_carry_his_comments_the_agents_answers_and_only_his_accep
             (MarginRoundKind::Settled, "Settled: Notices wait until eleven."),
         ]
     );
-    let rounds = rig.fleet.margin_cards_of(id.as_str()).await;
-    assert!(rounds.iter().all(|card| !card.id.starts_with("margin:")), "each round found its row: {rounds:?}");
-    let drawn: Vec<&str> = items
-        .iter()
-        .filter_map(|item| match item {
-            ThreadItem::Row { row: SessionRow::Message { id, .. } } => Some(id.as_str()),
-            _ => None,
-        })
-        .collect();
-    assert!(drawn.iter().all(|row| rounds.iter().all(|card| card.id != *row)), "a round's row is drawn as its line: {drawn:?}");
+    // Each card stands just after the message row it sent, which stays in the thread for a screen that draws no card.
+    for (at, item) in items.iter().enumerate() {
+        let ThreadItem::Margin(card) = item else { continue };
+        let replaces = card.replaces.as_deref().unwrap_or_else(|| panic!("round {} found its row", card.id));
+        assert!(
+            matches!(items.get(at.wrapping_sub(1)), Some(ThreadItem::Row { row: SessionRow::Message { id, .. } }) if id == replaces),
+            "{} stands after {replaces}",
+            card.id
+        );
+    }
 }
 
 #[test]
