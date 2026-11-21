@@ -360,7 +360,7 @@ impl OperatorComposer {
             return;
         }
         let current = self.offer.as_ref().filter(|held| held.label == label).map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.offer = Some(Offer { label, rows, current, from, to: cursor, query, loading: false });
+        self.offer = Some(Offer { label, rows, current, from, to: cursor, query, loading: false, within: None });
     }
 
     /// Read the repository's issues once, for `#`. The walk's own are the fixture's.

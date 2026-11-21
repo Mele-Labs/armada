@@ -103,6 +103,15 @@ fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
 }
 
 #[test]
+fn the_api_client_names_each_requests_tool_the_agent_can_call() {
+    let line = mention_line(&[tag(TagKind::Tool, "api-client", "API Client", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for API Client: send it with `send_request` or `send_requests`, save it with `save_request_to_collection`, and read saved requests and their runs with `get_requests`, `list_request_runs` and `get_request_run`.")
+    );
+}
+
+#[test]
 fn a_tool_follows_what_the_message_names_and_an_unknown_tool_says_nothing() {
     let line = mention_line(&[tag(TagKind::Tool, "sketch", "Sketch", None), tag(TagKind::Issue, "219", "#219 Walk it", None)]);
     assert_eq!(
@@ -110,4 +119,42 @@ fn a_tool_follows_what_the_message_names_and_an_unknown_tool_says_nothing() {
         Some("The person named: issue #219 \"Walk it\".\nThe person asked for Sketch: draw it with `show_sketch` as a `mock` of the screen.")
     );
     assert_eq!(mention_line(&[tag(TagKind::Tool, "kettle", "Kettle", None)]), None);
+}
+
+#[test]
+fn a_saved_request_is_said_by_its_collection_and_request_to_load_and_send() {
+    let line = mention_line(&[tag(TagKind::Request, "c1/r7", "List orders", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person tagged the saved request \"List orders\": load it with `get_requests` (collection `c1`, request `r7`) and send it with `send_request` by that id.")
+    );
+}
+
+#[test]
+fn a_new_request_is_said_as_one_to_build_send_and_save() {
+    let line = mention_line(&[tag(TagKind::Request, "new", "New request", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for a new request: build it, send it with `send_request`, and save it with `save_request_to_collection`.")
+    );
+}
+
+#[test]
+fn a_request_whose_id_has_an_empty_half_says_nothing() {
+    for id in ["/r7", "c1/", "/", "c1"] {
+        assert_eq!(mention_line(&[tag(TagKind::Request, id, "List orders", None)]), None, "{id}");
+    }
+}
+
+#[test]
+fn a_request_follows_what_the_message_names_and_a_tool_comes_before_it() {
+    let line = mention_line(&[
+        tag(TagKind::Request, "c1/r7", "List orders", None),
+        tag(TagKind::Tool, "sketch", "Sketch", None),
+        tag(TagKind::Issue, "219", "#219 Walk it", None),
+    ]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person named: issue #219 \"Walk it\".\nThe person asked for Sketch: draw it with `show_sketch` as a `mock` of the screen.\nThe person tagged the saved request \"List orders\": load it with `get_requests` (collection `c1`, request `r7`) and send it with `send_request` by that id.")
+    );
 }

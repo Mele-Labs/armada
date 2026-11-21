@@ -43,6 +43,8 @@ pub(crate) struct Offer {
     pub query: String,
     /// The files have not been answered for yet.
     pub loading: bool,
+    /// The tools list one level in, on API Client's saved requests.
+    pub within: Option<super::ask_tools::Within>,
 }
 
 /// The word under the caret and its trigger (`tokenAt`): `/` only at the very start, `@` and `#` at
@@ -116,9 +118,12 @@ pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
         TagKind::Report => "report",
         TagKind::Terminal => "terminal",
         TagKind::Tool => "tool",
+        TagKind::Request => "request",
     };
     let one_line = title.replace(['\n', '\r'], " ");
-    InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(one_line)
+    // A request's chip reads its tool and its name; the words it stands for are `@<name>`, which the thread finds it by.
+    let label = if kind == "request" { super::ask_tools::request_words(&one_line) } else { one_line.clone() };
+    InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(label)
 }
 
 /// The mention a chip stands for, read back from its id and label.
@@ -132,11 +137,13 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
         "report" => TagKind::Report,
         "terminal" => TagKind::Terminal,
         "tool" => TagKind::Tool,
+        "request" => TagKind::Request,
         _ => return None,
     };
     let tag_id = parts.next()?.to_string();
     let url = parts.next().filter(|url| !url.is_empty()).map(str::to_string);
-    Some(ipc::SessionTag { kind, id: tag_id, title: label.to_string(), url })
+    let title = if kind == TagKind::Request { super::ask_tools::request_title(label) } else { label };
+    Some(ipc::SessionTag { kind, id: tag_id, title: title.to_string(), url })
 }
 
 impl JobView {
@@ -220,7 +227,7 @@ impl JobView {
             return;
         }
         let current = self.composer.offer.as_ref().filter(|held| held.label == label).map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading });
+        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading, within: None });
     }
 
     /// Ask Fleet for the files a query names, 150 ms after the last key (`LOOKUP_MS`).
@@ -287,6 +294,9 @@ impl JobView {
 
     /// A key while a list is open: it is the list's, and the box does not see it. True where taken.
     pub(super) fn offer_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.tools_key(key, cx) {
+            return true;
+        }
         let Some(offer) = self.composer.offer.as_mut() else { return false };
         let last = offer.rows.len().saturating_sub(1);
         let was = offer.current;
@@ -363,25 +373,39 @@ impl JobView {
 /// each row's press.
 pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>) -> gpui::AnyElement {
     let mut rows: Vec<gpui::AnyElement> = Vec::new();
+    let heading = |text: &str| {
+        div()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_2XS))
+            .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(text.to_uppercase())
+            .into_any_element()
+    };
+    // API Client's items: the heading over a search that takes the keys, and each row's method in front of its name.
+    if offer.within.is_some() {
+        rows.push(heading(offer.label));
+        rows.push(super::ask_tools::search(look, &offer.query));
+    }
     for (at, row) in offer.rows.iter().enumerate() {
         if let Some(group) = row.group {
-            rows.push(
-                div()
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_1))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(group.to_uppercase())
-                    .into_any_element(),
-            );
+            rows.push(heading(group));
         }
-        let name: SharedString = if row.says.is_empty() { row.name.clone().into() } else { format!("{} {}", row.name, row.says).into() };
+        let method = offer.within.as_ref().and_then(|within| within.method_of(&row.pick));
+        let name: SharedString = match (method, row.says.is_empty()) {
+            (Some(method), _) => format!("{method} {} {}", row.name, row.says).into(),
+            (None, true) => row.name.clone().into(),
+            (None, false) => format!("{} {}", row.name, row.says).into(),
+        };
         // A tool's glyph takes its hue and its name the box's own face; a command's or a file's name is code.
         let hue = match &row.pick {
             Pick::Tag { kind: TagKind::Tool, id, .. } => super::ask_tools::hue(id),
+            Pick::Tag { kind: TagKind::Request, .. } => super::ask_tools::hue(super::ask_tools::API_CLIENT),
             _ => None,
         };
+        // The sign that → opens API Client's items, on its row alone.
+        let opens = offer.within.is_none() && matches!(&row.pick, Pick::Tag { kind: TagKind::Tool, id, .. } if id == super::ask_tools::API_CLIENT);
         let mono = if hue.is_some() { None } else { look.font_stack(token::FONT_MONO).into_iter().next() };
         rows.push(
             labelled(
@@ -396,11 +420,15 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
                     .text_size(look.length(token::TEXT_XS))
                     .when(offer.current == at, |row| row.bg(look.color(token::BG_HOVER)))
                     .cursor_pointer()
-                    .child(
-                        div().flex_none().mr(look.length(token::SPACE_2)).child(
-                            svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(hue.unwrap_or(token::FG_MUTED))),
-                        ),
-                    )
+                    .child(if offer.within.is_some() {
+                        super::ask_tools::lead(look, method, row.glyph)
+                    } else {
+                        div()
+                            .flex_none()
+                            .mr(look.length(token::SPACE_2))
+                            .child(svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(hue.unwrap_or(token::FG_MUTED))))
+                            .into_any_element()
+                    })
                     .child(div().flex_none().when_some(mono, |name, mono| name.font_family(mono)).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
                     .child(
                         div()
@@ -408,9 +436,18 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
                             .min_w_0()
                             .truncate()
                             .ml(look.length(token::SPACE_3))
-                            .text_color(look.color(token::FG_MUTED))
+                            .when(offer.within.is_some(), |says| says.text_right().text_color(look.color(token::FG_SUBTLE)))
+                            .when(offer.within.is_none(), |says| says.text_color(look.color(token::FG_MUTED)))
                             .child(row.says.clone()),
                     )
+                    .when(opens, |row| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .ml(look.length(token::SPACE_2))
+                                .child(svg().path(icon_path("chevron-right")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED))),
+                        )
+                    })
                     .on_click(choose(at)),
                 Role::ListItem,
                 name,

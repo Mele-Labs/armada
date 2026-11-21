@@ -45,7 +45,14 @@ export type TagKind =
    * `crates/core-model/domain/ask_tools.toml`, `title` its name. Fleet says which tool to
    * call; an `id` it does not know adds nothing to the line.
    */
-  | "tool";
+  | "tool"
+  /**
+   * One of the Job's saved API Client requests, or a request the person asks for. Saved: `id` is
+   * `<collection id>/<request id>` (a request id is unique only within its collection), `title` its
+   * name. New: `id` is `new`, which has no slash and so is never a saved one, `title` `New request`.
+   * An `id` with a slash that leaves either half empty adds nothing to the line.
+   */
+  | "request";
 
 /**
  * Something a message names: another session, a pull request, an issue, a reported bug, a
