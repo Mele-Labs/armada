@@ -71,3 +71,10 @@ says = "the project's feature catalog"
 glyph = "blocks"
 hue = "--ask-features"
 line = "read the project's feature catalog with `list_features` and `get_feature_brief`, and answer from it"
+
+[tools.api-client]
+name = "API Client"
+says = "an HTTP request and its answer"
+glyph = "arrow-right-left"
+hue = "--ask-api-client"
+line = "send it with `send_request` or `send_requests`, save it with `save_request_to_collection`, and read saved requests and their runs with `get_requests`, `list_request_runs` and `get_request_run`"

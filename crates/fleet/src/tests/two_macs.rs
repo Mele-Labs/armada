@@ -127,7 +127,19 @@ struct OneMac {
     serving: Arc<Mutex<Option<pocket::Gateway>>>,
     port: u16,
     running: Option<(oneshot::Sender<()>, JoinHandle<()>, JoinHandle<()>)>,
+    /// Bound to `port` and never listening, for the Mac's whole life, so no other socket on this machine is handed
+    /// the port while the Gateway is stopped and [`OneMac::restart`] always gets it back.
+    _holding: tokio::net::TcpSocket,
     _gateway_home: TempDir,
+}
+
+/// A loopback socket on `port` that shares it with the others this file opens, as the one holding it does.
+fn sharing(port: u16) -> std::io::Result<tokio::net::TcpSocket> {
+    let socket = tokio::net::TcpSocket::new_v4()?;
+    socket.set_reuseaddr(true)?;
+    socket.set_reuseport(true)?;
+    socket.bind(std::net::SocketAddr::from((std::net::Ipv4Addr::LOCALHOST, port)))?;
+    Ok(socket)
 }
 
 impl OneMac {
@@ -160,7 +172,8 @@ impl OneMac {
         let mut store = store::Store::open_migrated_copy(&home.path().join("armada.db")).expect("the Gateway's store");
         let this = store::ThisMac { id: id.clone(), name: name.to_string(), colour: "teal".into(), minted_at: 1 };
         store.this_mac_or(&this).expect("this Mac");
-        let port = pocket::bind(0).await.expect("a loopback port").local_addr().expect("bound").port();
+        let holding = sharing(0).expect("a loopback port");
+        let port = holding.local_addr().expect("bound").port();
         let address = format!("http://127.0.0.1:{port}");
         let keys = Arc::new(pocket::MemoryMacKeys::default());
         let gateway = pocket::Gateway {
@@ -173,14 +186,15 @@ impl OneMac {
         };
         let serving = Arc::new(Mutex::new(None));
         rig.fleet.switching_phone_with(Arc::new(Switch(Arc::clone(&serving))));
-        let mut mac = OneMac { id, rig, fleet, gateway, keys, serving, port, running: None, _gateway_home: home };
+        let mut mac = OneMac { id, rig, fleet, gateway, keys, serving, port, running: None, _holding: holding, _gateway_home: home };
         mac.start();
         mac
     }
 
     /// Serve and link, as `pocketing` starts the Gateway.
     fn start(&mut self) {
-        let listener = pocket::bind_now(self.port).expect("the Gateway's port");
+        // Loopback as `pocket::bind_now` is, and shared with `_holding`, so the port is never another socket's.
+        let listener = sharing(self.port).and_then(|socket| socket.listen(1024)).expect("the Gateway's port");
         let (stop, stopped) = oneshot::channel::<()>();
         let app = pocket::router(self.gateway.clone());
         let serving = tokio::spawn(async move {
