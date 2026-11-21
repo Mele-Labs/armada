@@ -13,6 +13,13 @@ publish = false
 # except the sites `xtask/src/rules_unsafe.rs` names one at a time, each
 # carrying an explicit `#[allow]` and a `SAFETY:` note. Recorded as a deviation
 # rather than made silently.
+# **No doctests, so no second build of the library.** `cargo test` builds the
+# library a second time, beside its test harness, for rustdoc to link doctests
+# against; this crate has none. 994 of 1,175 agent runs that compiled `fleet`
+# from 14 to 21 Nov 2026 built both.
+[lib]
+doctest = false
+
 [lints.rust]
 unsafe_code = "deny"
 

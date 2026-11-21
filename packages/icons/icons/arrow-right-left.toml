@@ -19,3 +19,10 @@
     size = "12px"
     status = "Proposed"
     notes = "Proposed 21 Oct 2026 with Requests in Share's packages. The band reads `Requests`, and the card lists the collections and environments it holds. A secret travels as its name."
+
+  [[icons.arrow-right-left.usage]]
+    means = "API Client, the Armada tool a message asks the agent for, in the message box's Ask the agent for list and its chip"
+    group = "Ask tools"
+    size = "12px"
+    status = "Proposed"
+    notes = "Proposed 20 Nov 2026 for the message box's + list, for the owner to rule on. The tool asks the agent to send a request through Fleet and read its answer, which is the reservation's own claim, and the same glyph heads the API Client's pane tab."

@@ -383,7 +383,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.compile != '' && needs.plan.outputs.compile != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
     # The same as `test`, whose cache this restores.
     env:
       RUSTC_WORKSPACE_WRAPPER: ${{ github.workspace }}/.github/ci/rustc-threads.sh
@@ -893,7 +893,7 @@ jobs:
     needs: plan
     if: needs.plan.outputs.native == 'true'
     runs-on: macos-15
-    timeout-minutes: 45
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       # The crate has a `target` of its own, named so it is cached.

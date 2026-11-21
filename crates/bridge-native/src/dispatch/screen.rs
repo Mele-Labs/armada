@@ -64,6 +64,13 @@ struct Begin {
     held: bool,
 }
 
+/// The first message of a Job started from the sheet: its words and tags, with the files and sketches the request holds.
+fn first_message(text: String, mentions: Vec<SessionTag>, files: Vec<crate::job_view::composer::Attached>, drawn: &[crate::sketch::DrawnSketch]) -> ipc::DispatchMessage {
+    let sketches = drawn.iter().map(|one| ipc::SentSketch { id: one.id.clone(), title: one.title.clone() }).collect();
+    let attachments = crate::job_view::composer::encoded_files(files).into_iter().chain(drawn.iter().map(crate::sketch_png::upload)).collect();
+    ipc::DispatchMessage { text, attachments, mentions, sketches }
+}
+
 /// Fleet's reading of the words that tag `job`, as it came: the sentence is drawn from it and the hand over it.
 struct WaitRead {
     job: String,
@@ -113,6 +120,17 @@ fn terminal_place(picked: Option<String>, scoped: Option<(Option<SharedString>, 
     // A project of several repositories, none picked: the first, as ⌘T has always started it.
     let place = picked.or_else(|| names.first().map(|name| name.to_string()))?;
     Some((Place::Repository(place), project.map(|id| id.to_string())))
+}
+
+/// A dispatch of notes Fleet stopped partway through: Fleet may have made the Job before it stopped, and the layer
+/// still holds the notes, so the toast says both.
+fn stopped_mid_start(why: crate::refusal::Failed) -> crate::refusal::Failed {
+    match why {
+        crate::refusal::Failed::Unanswered(said) if said == crate::transport::STOPPED => {
+            crate::refusal::Failed::Unanswered(format!("{said}. The Job may have started; the notes are still held"))
+        }
+        other => other,
+    }
 }
 
 /// Where ⌘T would start a Job, as the card under the sheet names it: the project the title bar is scoped
@@ -377,6 +395,9 @@ impl DispatchScreen {
     fn open_sheet(&mut self, add: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.refresh_face(window, cx);
         let here = here_name(cx);
+        let voice = self.jobs.read(cx).view().read(cx).voice();
+        let live = self.jobs.read(cx).list.read(cx).fleet().is_some();
+        self.sheet.update(cx, |sheet, _| sheet.set_voice(voice, live));
         self.sheet.update(cx, |sheet, cx| sheet.set_here(here, cx));
         self.sheet.update(cx, |sheet, cx| sheet.show(add, window, cx));
         cx.notify();
@@ -638,15 +659,19 @@ impl DispatchScreen {
         };
         // His own work goes to Fleet as a dispatch: with the Operator on it may rule on it, and what follows the
         // start (his words as the first message) goes in `then`, so nothing is lost whoever starts the Job.
-        let then = if send {
-            vec![ipc::DispatchThen::Message(ipc::DispatchMessage { text: begin.words.clone(), attachments: Vec::new(), mentions, sketches: Vec::new() })]
-        } else {
-            Vec::new()
-        };
-        let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"));
+        let (files, drawn) = self.sheet.read(cx).held();
+        let first = send.then(|| (begin.words.clone(), mentions));
         let words = begin.words;
         cx.spawn_in(window, async move |this, cx| {
-            let answer = cx.background_executor().spawn(async move { live::ask(port, "/sessions/dispatch".into(), Some(body?)) }).await;
+            // Files and sketches are read and drawn off the main thread, and go with the first message.
+            let answer = cx
+                .background_executor()
+                .spawn(async move {
+                    let then = first.map(|(text, mentions)| ipc::DispatchThen::Message(first_message(text, mentions, files, &drawn))).into_iter().collect();
+                    let body = ipc::encode(&ipc::DispatchJob { start, kind: None, then }).map_err(|why| format!("{why:?}"))?;
+                    live::ask(port, "/sessions/dispatch".into(), Some(body))
+                })
+                .await;
             let _ = this.update_in(cx, |this, window, cx| this.dispatched(answer, &words, window, cx));
         })
         .detach();
@@ -874,7 +899,7 @@ impl DispatchScreen {
                     annotate::live::deliver(port, job.id.as_ref(), outgoing, ink).map_err(|why| (title.clone(), why))?;
                     Ok::<_, (String, crate::refusal::Failed)>(Sent::Into { session: job.id.to_string(), title })
                 }
-                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), why))? {
+                (None, Some(manifest)) => match annotate::live::dispatch(port, manifest, words, outgoing, ink).map_err(|why| ("a new Job".to_string(), stopped_mid_start(why)))? {
                     annotate::live::Dispatched::Started { id, title } => Ok(Sent::Started { session: id, title }),
                     annotate::live::Dispatched::Kept { id, title } => Ok(Sent::Kept { dispatch: id, title }),
                 },
@@ -1131,6 +1156,13 @@ mod tests {
     use super::*;
     use crate::titlebar::scenes;
 
+    #[test]
+    fn notes_fleet_stopped_on_say_the_job_may_have_started_and_they_are_held() {
+        let said = stopped_mid_start(crate::transport::STOPPED.to_string().into()).to_string();
+        assert_eq!(said, "Fleet stopped before it answered. The Job may have started; the notes are still held");
+        assert_eq!(stopped_mid_start("no answer in 30 seconds".to_string().into()).to_string(), "no answer in 30 seconds");
+    }
+
     fn storefront() -> titlebar::Face {
         let mut face = scenes::rest();
         face.scoped = Some(1);
@@ -1176,5 +1208,18 @@ mod tests {
         assert!(!layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "the walk's layer has none until it goes live");
         screen.update_in(cx, |screen, window, cx| screen.live_notes(window, cx));
         assert!(layer.read_with(cx, |layer, cx| layer.has_feature_source(cx)), "a note's card reads its features from Fleet");
+    }
+
+    #[test]
+    fn the_first_message_carries_the_files_and_sketches() {
+        let file = crate::job_view::composer::attached(1, "notes.md".into(), "text/markdown".into(), b"hi".to_vec());
+        let sketch = crate::sketch::DrawnSketch { id: "d1".into(), title: "Login form".into(), drawing: Default::default() };
+        let message = first_message("Fix the login".into(), Vec::new(), vec![file], &[sketch]);
+        assert_eq!(message.text, "Fix the login");
+        assert_eq!(message.sketches, [ipc::SentSketch { id: "d1".into(), title: "Login form".into() }]);
+        let names: Vec<&str> = message.attachments.iter().map(|one| one.name.as_str()).collect();
+        assert_eq!(names.len(), 2, "the file, then the sketch's picture: {names:?}");
+        assert_eq!(names[0], "notes.md");
+        assert_eq!(message.attachments[0].data, "aGk=");
     }
 }
