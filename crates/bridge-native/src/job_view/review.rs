@@ -1185,6 +1185,7 @@ impl JobView {
             text: words,
             mode: None,
             fixed: None,
+            extras: Default::default(),
         });
         self.keep_words(&note_key(&item.job, &item.id), "", cx);
         self.review_waiting(item, Verdict::Answered, "/sessions/waiting/answer", body, window, cx);
