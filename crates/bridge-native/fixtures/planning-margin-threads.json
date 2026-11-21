@@ -48,6 +48,19 @@
      }
     },
     {
+     "kind": "margin",
+     "id": "margin:1",
+     "replaces": "r-1",
+     "at": "2026-11-20T10:25:00Z",
+     "page": "quiet",
+     "title": "Quiet hours for notices",
+     "round": "settled",
+     "summary": "Settled: Weekends are quiet all day",
+     "threads": [
+      "m4"
+     ]
+    },
+    {
      "kind": "row",
      "row": {
       "kind": "message",
@@ -60,6 +73,21 @@
      }
     },
     {
+     "kind": "margin",
+     "id": "margin:2",
+     "replaces": "r-2",
+     "at": "2026-11-20T10:31:00Z",
+     "page": "quiet",
+     "title": "Quiet hours for notices",
+     "round": "comments",
+     "summary": "Your comments are answered in the margin, and a passage you commented on is gone from the page",
+     "waits_on_you": true,
+     "threads": [
+      "m1",
+      "m5"
+     ]
+    },
+    {
      "kind": "row",
      "row": {
       "kind": "message",
@@ -70,6 +98,20 @@
       },
       "text": "Make this change on \"A failed check still interrupts.\" in Quiet hours for notices"
      }
+    },
+    {
+     "kind": "margin",
+     "id": "margin:3",
+     "replaces": "r-3",
+     "at": "2026-11-20T10:40:00Z",
+     "page": "quiet",
+     "title": "Quiet hours for notices",
+     "round": "change",
+     "summary": "A change waits for your Accept",
+     "waits_on_you": true,
+     "threads": [
+      "m2"
+     ]
     },
     {
      "kind": "row",

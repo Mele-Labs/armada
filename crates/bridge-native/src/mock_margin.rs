@@ -1,7 +1,7 @@
 //! The mock Fleet's margin threads: the quiet hours page's, and his comments, Send held and acts on them, kept as
 //! Fleet keeps them (`crates/fleet/src/session_host/margin.rs`). The agent answers nothing here.
 
-use ipc::{Instant, JobThread, MarginAct, MarginRoundKind, ThreadItem, ThreadMargin, ThreadMarginNote, MarginAnchor, MarginMessage, MarginOn, MarginState, MarginThread, MarginThreads, MarginVoice, SessionId, SuggestionDecided, SuggestionHow};
+use ipc::{Instant, MarginAct, MarginAnchor, MarginMessage, MarginOn, MarginState, MarginThread, MarginThreads, MarginVoice, SessionId, SuggestionDecided, SuggestionHow};
 
 /// The threads the mock Fleet holds on page `page` of Job `job`: the quiet hours page's, and none on any other.
 pub fn threads(job: &str, page: &str) -> MarginThreads {
@@ -116,59 +116,6 @@ pub fn act(kept: &mut MarginThreads, named: &str, act: &MarginAct, newest: u32) 
     }
 }
 
-/// The rounds of talk on the quiet hours page, as Fleet folds them into the Job's thread: each card just after the
-/// message that sent it. Built here rather than read from JSON, as a margin card's `kind` field and the item's tag share
-/// one key.
-pub fn rounds(scenario: &str, thread: &mut JobThread) {
-    let note = |section: &str, passage: &str, words: &str| ThreadMarginNote { thread: None, section: Some(section.into()), passage: Some(passage.into()), note: words.into() };
-    let cards: Vec<(&str, MarginRoundKind, bool, Vec<&str>, &str, Vec<ThreadMarginNote>)> = match scenario {
-        "planning-margin" => vec![
-            ("r-1", MarginRoundKind::Settled, false, vec!["m4"], "Settled: Weekends are quiet all day", Vec::new()),
-            ("r-2", MarginRoundKind::Comments, true, vec!["m1", "m5"], "Your comments are answered in the margin, and a passage you commented on is gone from the page", Vec::new()),
-            ("r-3", MarginRoundKind::Change, true, vec!["m2"], "A change waits for your Accept", Vec::new()),
-        ],
-        "planning-today" => vec![
-            (
-                "m-2",
-                MarginRoundKind::SentBack,
-                false,
-                Vec::new(),
-                "Sent back with your notes",
-                vec![note("How it works", "Notices that arrive wait until 9:00 and come in as one digest", "Why 9:00? I start at 8, and on Fridays I want the digest at 7:30 so I can clear it before standup.")],
-            ),
-            (
-                "m-4",
-                MarginRoundKind::SentBack,
-                false,
-                Vec::new(),
-                "Sent back with your notes",
-                vec![
-                    note("How it works", "Notices that arrive wait until 9:00 and come in as one digest", "Yes, tie it to my work start."),
-                    note("How it works", "A failed check still interrupts.", "Should a failed check on a branch wake me? I only care about main."),
-                ],
-            ),
-        ],
-        _ => return,
-    };
-    for (at, (row, kind, waits_on_you, threads, summary, notes)) in cards.into_iter().enumerate() {
-        let Some(place) = thread.items.iter().position(|item| matches!(item, ThreadItem::Row { row: one } if one.id() == row)) else { continue };
-        let ThreadItem::Row { row: one } = &thread.items[place] else { continue };
-        let card = ThreadMargin {
-            id: format!("margin:{}", at + 1),
-            replaces: Some(row.to_string()),
-            at: one.at().clone(),
-            page: "quiet".into(),
-            title: "Quiet hours for notices".into(),
-            kind,
-            summary: summary.into(),
-            waits_on_you,
-            threads: threads.into_iter().map(str::to_string).collect(),
-            notes,
-        };
-        thread.items.insert(place + 1, ThreadItem::Margin(card));
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -210,5 +157,23 @@ mod tests {
         act(&mut kept, "m1", &MarginAct::Settle { outcome: Some(" Quiet hours end at your work start ".into()) }, 3).expect("m1 is open");
         assert_eq!(state_of(&kept, "m1"), MarginState::Settled);
         assert!(act(&mut kept, "m1", &MarginAct::MakeChange, 3).is_err(), "a settled thread takes nothing more");
+    }
+
+    /// The rounds come from JSON as the live app reads them: each card just after the row it replaces.
+    #[test]
+    fn the_planning_threads_read_their_rounds_from_json_each_after_the_row_it_replaces() {
+        for (scenario, rounds) in [("planning-margin", 3), ("planning-today", 2)] {
+            let read = crate::mock::threads(scenario).expect("the threads decode");
+            let thread = read.get("plan-job").expect("the planning Job's thread");
+            let mut seen = 0;
+            for (at, item) in thread.items.iter().enumerate() {
+                let ipc::ThreadItem::Margin(card) = item else { continue };
+                seen += 1;
+                let before = at.checked_sub(1).and_then(|one| thread.items.get(one));
+                assert!(matches!(before, Some(ipc::ThreadItem::Row { row }) if Some(row.id()) == card.replaces.as_deref()), "{} stands after {:?}", card.id, card.replaces);
+                assert_eq!(card.title, "Quiet hours for notices");
+            }
+            assert_eq!(seen, rounds, "{scenario}");
+        }
     }
 }

@@ -48,6 +48,23 @@
      }
     },
     {
+     "kind": "margin",
+     "id": "margin:1",
+     "replaces": "m-2",
+     "at": "2026-11-20T10:31:00Z",
+     "page": "quiet",
+     "title": "Quiet hours for notices",
+     "round": "sent_back",
+     "summary": "Sent back with your notes",
+     "notes": [
+      {
+       "section": "How it works",
+       "passage": "Notices that arrive wait until 9:00 and come in as one digest",
+       "note": "Why 9:00? I start at 8, and on Fridays I want the digest at 7:30 so I can clear it before standup."
+      }
+     ]
+    },
+    {
      "kind": "row",
      "row": {
       "kind": "message",
@@ -70,6 +87,28 @@
       },
       "text": "Sent back \"Quiet hours for notices\" with your notes.\nYes, tie it to my work start. And should a failed check on a branch wake me? I only care about main."
      }
+    },
+    {
+     "kind": "margin",
+     "id": "margin:2",
+     "replaces": "m-4",
+     "at": "2026-11-20T10:33:00Z",
+     "page": "quiet",
+     "title": "Quiet hours for notices",
+     "round": "sent_back",
+     "summary": "Sent back with your notes",
+     "notes": [
+      {
+       "section": "How it works",
+       "passage": "Notices that arrive wait until 9:00 and come in as one digest",
+       "note": "Yes, tie it to my work start."
+      },
+      {
+       "section": "How it works",
+       "passage": "A failed check still interrupts.",
+       "note": "Should a failed check on a branch wake me? I only care about main."
+      }
+     ]
     },
     {
      "kind": "row",

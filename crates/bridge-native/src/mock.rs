@@ -693,9 +693,6 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     };
     let read = ipc::decode::<Threads>("job threads", bytes).map_err(|why| why.to_string())?;
     let mut all: HashMap<String, JobThread> = read.threads.into_iter().map(|thread| (thread.session_id.as_str().to_string(), thread)).collect();
-    if let Some(thread) = all.get_mut("plan-job") {
-        crate::mock_margin::rounds(scenario, thread);
-    }
     if scenario == "artifact-folds" {
         if let Some(thread) = all.get_mut(crate::mock_parts::JOB) {
             crate::mock_parts::extend_thread(thread);
