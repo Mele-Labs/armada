@@ -5,9 +5,11 @@
 //! The list hangs over the box. ↑ and ↓ move, Enter and Tab choose, Esc closes. A Job or a number
 //! chosen becomes one atomic chip in the text; a file or a command is plain text.
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, Context, Role, SharedString, Window};
+use gpui::{div, prelude::*, svg, Context, Role, ScrollHandle, SharedString, Window};
 use gpui_component::input::InlineToken;
 use ipc::TagKind;
 
@@ -33,6 +35,13 @@ pub(crate) struct Row {
     pub pick: Pick,
 }
 
+/// What the list holds between frames: where it is scrolled, and whether a press outside it is waiting to put it away.
+#[derive(Clone, Default)]
+pub(crate) struct Held {
+    pub scroll: ScrollHandle,
+    pub away: Rc<Cell<bool>>,
+}
+
 pub(crate) struct Offer {
     pub label: &'static str,
     pub rows: Vec<Row>,
@@ -45,6 +54,21 @@ pub(crate) struct Offer {
     pub loading: bool,
     /// The tools list one level in, on API Client's saved requests.
     pub within: Option<super::ask_tools::Within>,
+    pub held: Held,
+}
+
+impl Offer {
+    /// Scroll the list so the marked row is in view. The headings and the search are children of the list too, so the row's
+    /// place among them is counted; the first row brings the top with it.
+    pub fn keep_marked_in_view(&self) {
+        if self.current == 0 {
+            self.held.scroll.scroll_to_top_of_item(0);
+            return;
+        }
+        let headings = self.rows.iter().take(self.current + 1).filter(|row| row.group.is_some()).count();
+        let search = if self.within.is_some() { 2 } else { 0 };
+        self.held.scroll.scroll_to_item(self.current + headings + search);
+    }
 }
 
 /// The word under the caret and its trigger (`tokenAt`): `/` only at the very start, `@` and `#` at
@@ -227,7 +251,7 @@ impl JobView {
             return;
         }
         let current = self.composer.offer.as_ref().filter(|held| held.label == label).map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading, within: None });
+        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading, within: None, held: Held::default() });
     }
 
     /// Ask Fleet for the files a query names, 150 ms after the last key (`LOOKUP_MS`).
@@ -319,6 +343,9 @@ impl JobView {
         if self.composer.offer.as_ref().is_some_and(|offer| offer.current != was) && matches!(key, "up" | "down") {
             crate::ui_sounds::moved();
         }
+        if let Some(offer) = self.composer.offer.as_ref().filter(|_| matches!(key, "up" | "down")) {
+            offer.keep_marked_in_view();
+        }
         cx.notify();
         true
     }
@@ -360,18 +387,53 @@ impl JobView {
     /// The list over the box (`.armada-mention`): rows with a glyph, a name and its words, in groups.
     pub(super) fn render_offer(&self, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let offer = self.composer.offer.as_ref()?;
-        Some(offer_list(offer, look, |at| {
-            let this = cx.entity().downgrade();
-            Box::new(move |_, window, cx| {
-                let _ = this.update(cx, |this, cx| this.choose(at, window, cx));
-            })
-        }))
+        let away = offer.held.away.clone();
+        let this = cx.entity().downgrade();
+        // A press outside the list puts it away once the press has been through every element, unless the + took it as its own.
+        let outside: Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)> = Box::new(move |_, _, cx| {
+            away.set(true);
+            let this = this.clone();
+            cx.defer(move |cx| {
+                let _ = this.update(cx, |this, cx| this.leave_offer(cx));
+            });
+        });
+        Some(offer_list(
+            offer,
+            look,
+            |at| {
+                let this = cx.entity().downgrade();
+                Box::new(move |_, window, cx| {
+                    let _ = this.update(cx, |this, cx| this.pressed(at, window, cx));
+                })
+            },
+            Some(outside),
+        ))
+    }
+
+    /// A press on a row: API Client's row in the tools list opens its items, as → does, and any other row is picked, as Enter does.
+    fn pressed(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.open_api_client_items(at, cx) {
+            self.choose(at, window, cx);
+        }
+    }
+
+    /// Put the list away where a press outside it is still waiting.
+    fn leave_offer(&mut self, cx: &mut Context<Self>) {
+        if self.composer.offer.as_ref().is_some_and(|offer| offer.held.away.get()) {
+            self.composer.offer = None;
+            cx.notify();
+        }
     }
 }
 
 /// The list over a box (`.armada-mention`): rows with a glyph, a name and its words, in groups. `choose` makes
-/// each row's press.
-pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>) -> gpui::AnyElement {
+/// each row's press, and `outside` a press anywhere else.
+pub(crate) fn offer_list(
+    offer: &Offer,
+    look: &Look,
+    choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>,
+    outside: Option<Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)>>,
+) -> gpui::AnyElement {
     let mut rows: Vec<gpui::AnyElement> = Vec::new();
     let heading = |text: &str| {
         div()
@@ -485,6 +547,7 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
             .max_w_full()
             .max_h(look.length(token::H_CONTROL) * 8.)
             .overflow_y_scroll()
+            .track_scroll(&offer.held.scroll)
             .flex()
             .flex_col()
             .p(look.length(token::SPACE_1))
@@ -494,6 +557,7 @@ pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> B
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             .occlude()
+            .when_some(outside, |list, outside| list.on_mouse_down_out(outside))
             .children(rows),
         Role::List,
         offer.label,

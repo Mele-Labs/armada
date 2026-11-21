@@ -38,7 +38,7 @@ use crate::fleet::FleetConnection;
 use crate::job_view::composer::{clipped, encoded_files, read_files, send_face, tray, words_area, Attached, Kept, KeptTag};
 use crate::job_view::format::sent_text;
 use crate::job_view::head::{icon_button, tip};
-use crate::job_view::offer::{chip_of, mention_of, numbers_for, offer_list, token_at, Offer, Pick, Row};
+use crate::job_view::offer::{chip_of, mention_of, numbers_for, offer_list, token_at, Held, Offer, Pick, Row};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::titlebar::parts::glyph;
@@ -360,7 +360,7 @@ impl OperatorComposer {
             return;
         }
         let current = self.offer.as_ref().filter(|held| held.label == label).map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.offer = Some(Offer { label, rows, current, from, to: cursor, query, loading: false, within: None });
+        self.offer = Some(Offer { label, rows, current, from, to: cursor, query, loading: false, within: None, held: Held::default() });
     }
 
     /// Read the repository's issues once, for `#`. The walk's own are the fixture's.
@@ -409,6 +409,9 @@ impl OperatorComposer {
         }
         if self.offer.as_ref().is_some_and(|offer| offer.current != was) && matches!(key, "up" | "down") {
             crate::ui_sounds::moved();
+        }
+        if let Some(offer) = self.offer.as_ref().filter(|_| matches!(key, "up" | "down")) {
+            offer.keep_marked_in_view();
         }
         cx.notify();
         true
@@ -812,7 +815,7 @@ impl Render for OperatorComposer {
                 Box::new(move |_, window, cx| {
                     let _ = this.update(cx, |this, cx| this.choose(at, window, cx));
                 })
-            })
+            }, None)
         });
         // The same name as the Job's box has, so what stands over the foot of a page, a toast, lifts clear of it.
         let frame = labelled(

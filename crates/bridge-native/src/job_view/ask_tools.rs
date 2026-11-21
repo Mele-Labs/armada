@@ -11,7 +11,7 @@ use gpui::{prelude::*, AnyElement, Context, Keystroke, Role, SharedString, Task,
 use ipc::ask_tools::{ask_tool, ask_tools};
 use ipc::{Requests, TagKind};
 
-use super::offer::{Offer, Pick, Row};
+use super::offer::{Held, Offer, Pick, Row};
 pub(crate) use requests::{lead, search, Within};
 use super::JobView;
 use crate::labels::labelled;
@@ -88,7 +88,7 @@ impl JobView {
             self.composer.offer = None;
         } else {
             let at = self.composer.input.read(cx).cursor();
-            self.composer.offer = Some(Offer { label: ASK_FOR, rows: rows(), current: 0, from: at, to: at, query: String::new(), loading: false, within: None });
+            self.composer.offer = Some(Offer { label: ASK_FOR, rows: rows(), current: 0, from: at, to: at, query: String::new(), loading: false, within: None, held: Held::default() });
         }
         self.composer.input.update(cx, |input, cx| input.focus(window, cx));
         cx.notify();
@@ -100,16 +100,13 @@ impl JobView {
         let Some(offer) = self.composer.offer.as_mut().filter(|offer| is_tools(offer.label)) else { return false };
         match (key, offer.within.is_some()) {
             ("right", false) => {
-                let on_api_client = offer.rows.get(offer.current).is_some_and(|row| matches!(&row.pick, Pick::Tag { kind: TagKind::Tool, id, .. } if id == API_CLIENT));
-                if !on_api_client {
-                    return false;
-                }
-                *offer = Offer { label: ASK_FOR_API_CLIENT, rows: Within::default().rows(""), current: 0, query: String::new(), loading: true, within: Some(Within::default()), ..*offer };
-                self.want_requests(cx);
+                let current = offer.current;
+                return self.open_api_client_items(current, cx);
             }
             ("left", true) if offer.query.is_empty() => {
                 let marked = rows().iter().position(|row| matches!(&row.pick, Pick::Tag { id, .. } if id == API_CLIENT)).unwrap_or_default();
-                *offer = Offer { label: ASK_FOR, rows: rows(), current: marked, query: String::new(), loading: false, within: None, ..*offer };
+                *offer = Offer { label: ASK_FOR, rows: rows(), current: marked, query: String::new(), loading: false, within: None, held: Held::default(), ..*offer };
+                offer.keep_marked_in_view();
             }
             // The search holds the keys while the items are open: a letter taken back, and a caret that has nowhere to go.
             ("left", true) => {}
@@ -121,6 +118,18 @@ impl JobView {
             ("enter" | "tab", true) if offer.rows.is_empty() => {}
             _ => return false,
         }
+        cx.notify();
+        true
+    }
+
+    /// Open API Client's items over the tools list, from its row `at`: → on it, or a press. False where `at` is not that row.
+    pub(super) fn open_api_client_items(&mut self, at: usize, cx: &mut Context<Self>) -> bool {
+        let Some(offer) = self.composer.offer.as_mut().filter(|offer| offer.label == ASK_FOR && offer.within.is_none()) else { return false };
+        if !offer.rows.get(at).is_some_and(|row| matches!(&row.pick, Pick::Tag { kind: TagKind::Tool, id, .. } if id == API_CLIENT)) {
+            return false;
+        }
+        *offer = Offer { label: ASK_FOR_API_CLIENT, rows: Within::default().rows(""), current: 0, query: String::new(), loading: true, within: Some(Within::default()), held: Held::default(), ..*offer };
+        self.want_requests(cx);
         cx.notify();
         true
     }
@@ -142,6 +151,7 @@ impl JobView {
         let Some(within) = offer.within.as_ref() else { return };
         offer.rows = within.rows(&offer.query);
         offer.current = 0;
+        offer.keep_marked_in_view();
     }
 
     /// Read the Job's saved requests, off the main thread, for the items to list.
@@ -180,8 +190,15 @@ impl JobView {
         let open = self.composer.offer.as_ref().is_some_and(|offer| is_tools(offer.label));
         let said: SharedString = off.clone().unwrap_or_else(|| "Ask the agent for a sketch, takes, a page".into());
         let key = if off.is_none() { key() } else { None };
+        // A press on the + is its own, so the list's wait to put itself away on a press outside is dropped.
+        let away = self.composer.offer.as_ref().map(|offer| offer.held.away.clone());
         labelled(
             super::head::icon_frame(look, "ask-for-tool", "plus", open, off.is_some())
+                .on_mouse_down(gpui::MouseButton::Left, move |_, _, _| {
+                    if let Some(away) = &away {
+                        away.set(false);
+                    }
+                })
                 .tooltip(move |window, cx| gpui_component::tooltip::Tooltip::new(said.clone()).key_binding(key.clone().map(gpui_component::kbd::Kbd::new)).build(window, cx))
                 .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.open_tools(window, cx)))),
             Role::Button,
