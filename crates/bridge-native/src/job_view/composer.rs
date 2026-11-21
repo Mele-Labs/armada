@@ -165,6 +165,40 @@ pub(crate) fn media_type_of(name: &str) -> &'static str {
     }
 }
 
+/// A file taken into a box, with its picture where it is one.
+pub(crate) fn attached(key: u64, name: String, media_type: String, bytes: Vec<u8>) -> Attached {
+    let preview = preview_of(&media_type, &bytes);
+    Attached { key, name, media_type, bytes: Arc::new(bytes), preview }
+}
+
+/// The Mac's own file picker; what it answers with goes to `take`.
+pub(crate) fn pick_files<T: 'static>(window: &mut Window, cx: &mut Context<T>, take: impl FnOnce(&mut T, Vec<PathBuf>, &mut Context<T>) + 'static) {
+    let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
+    cx.spawn_in(window, async move |this, cx| {
+        if let Ok(Ok(Some(paths))) = picked.await {
+            let _ = this.update(cx, |this, cx| take(this, paths, cx));
+        }
+    })
+    .detach();
+}
+
+/// The paperclip in a box's bar, `dress`ed by that box; `off` says why it cannot be pressed.
+pub(crate) fn attach_button<T: 'static>(
+    look: &Look,
+    off: Option<SharedString>,
+    dress: impl FnOnce(gpui::Stateful<gpui::Div>) -> gpui::Stateful<gpui::Div>,
+    cx: &Context<T>,
+    press: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    labelled(
+        dress(icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some()))
+            .when(off.is_none(), |button| button.on_click(cx.listener(move |this, _: &ClickEvent, window, cx| press(this, window, cx)))),
+        Role::Button,
+        "Attach file",
+    )
+    .into_any_element()
+}
+
 pub(crate) fn preview_of(media_type: &str, bytes: &[u8]) -> Option<Arc<Image>> {
     let format = match media_type {
         "image/png" => ImageFormat::Png,
@@ -397,6 +431,14 @@ pub(crate) fn clipped(item: &ClipboardItem, mut snippet: impl FnMut() -> u64) ->
         }
     }
     taken
+}
+
+/// [`clipped`], with each snippet named by the next of a box's keys.
+pub(crate) fn clipped_keyed(item: &ClipboardItem, next_key: &mut u64) -> Clipped {
+    clipped(item, || {
+        *next_key += 1;
+        *next_key
+    })
 }
 
 /// Files named by a drop or a paste are read off the main thread, and `add` takes each one as it arrives.
@@ -1005,13 +1047,7 @@ impl JobView {
             }
             return;
         }
-        let picked = cx.prompt_for_paths(PathPromptOptions { files: true, directories: false, multiple: true, prompt: None });
-        cx.spawn_in(window, async move |this, cx| {
-            if let Ok(Ok(Some(paths))) = picked.await {
-                let _ = this.update(cx, |this, cx| this.take_paths(paths, cx));
-            }
-        })
-        .detach();
+        pick_files(window, cx, |this, paths, cx| this.take_paths(paths, cx));
     }
 
     /// Files named by a drop or a paste are read off the main thread and attached to the Job in view.
@@ -1023,8 +1059,7 @@ impl JobView {
     fn add_file(&mut self, id: &SharedString, name: String, media_type: String, bytes: Vec<u8>, cx: &mut Context<Self>) {
         self.composer.next_key += 1;
         let key = self.composer.next_key;
-        let preview = preview_of(&media_type, &bytes);
-        self.composer.box_of(id).files.push(Attached { key, name, media_type, bytes: Arc::new(bytes), preview });
+        self.composer.box_of(id).files.push(attached(key, name, media_type, bytes));
         cx.notify();
     }
 
@@ -1039,12 +1074,7 @@ impl JobView {
     /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
     fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
         let Some(id) = self.box_key() else { return false };
-        let mut next = self.composer.next_key;
-        let taken = clipped(item, || {
-            next += 1;
-            next
-        });
-        self.composer.next_key = next;
+        let taken = clipped_keyed(item, &mut self.composer.next_key);
         for (name, media_type, bytes) in taken.files.iter().cloned() {
             self.add_file(&id, name, media_type, bytes, cx);
         }
@@ -1271,13 +1301,7 @@ impl JobView {
 
     pub(super) fn attach_button(&self, look: &Look, cx: &Context<Self>) -> gpui::AnyElement {
         let off = self.off_shown_to(MESSAGE, cx);
-        labelled(
-            icon_button(look, "attach", "paperclip", off.clone().unwrap_or_else(|| "Attach a file or a picture".into()), false, off.is_some())
-                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.attach(window, cx)))),
-            Role::Button,
-            "Attach file",
-        )
-        .into_any_element()
+        attach_button(look, off, |button| button, cx, |this: &mut Self, window, cx| this.attach(window, cx))
     }
 
     /// The box's words: the one text box, with the keys a list over it takes first.

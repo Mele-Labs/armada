@@ -4,7 +4,7 @@
 
 use super::{answer, press_on, step, Step, Verb};
 
-pub static STEPS: [Step; 50] = [
+pub static STEPS: [Step; 53] = [
     step("⌘N opens the sheet over the screen, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("The Job's glyph stands at the start of the line", Verb::Look, "img", "Job"),
     step("The project is one picker at the start of the band; Model and Effort sit by the act and show their default", Verb::Look, "combobox", "Project"),
@@ -42,12 +42,15 @@ pub static STEPS: [Step; 50] = [
     step("Esc shuts it", Verb::Key("escape"), "combobox", "Project"),
     answer("A project removed since the window picked it: Fleet's refusal, in its own words, over the band", "refuse-member", "alert", "there is no project storefront"),
     step("Esc shuts the sheet", Verb::Key("escape"), "heading", "armada"),
-    // Tab: the request, the project, Model, Effort, Queue for later, Draft, Start, then the card under the sheet.
+    // Tab: the request, its Attach, Draw sketch and Talk, the project, Model, Effort, Queue for later, Draft, Start, then the card under the sheet.
     step("The sheet again from rest, to walk the order Tab takes", Verb::Fresh, "heading", "armada"),
     step("⌘N opens the sheet, and the keys are in the request", Verb::Key("cmd-n"), "dialog", "Dispatch"),
     step("A request that names a repository", Verb::Typed("Fix the flaky login test in sample-api"), "img", "Project, finding"),
     answer("Fleet found sample-api in the words", "found", "combobox", "Project Storefront, sample-api"),
-    step("Tab goes from the request to the project", Verb::Key("tab"), "combobox", "Project Storefront, sample-api"),
+    step("Tab goes from the request to Attach, in the request's tools", Verb::Key("tab"), "button", "Attach file"),
+    step("Tab goes on to Draw sketch", Verb::Key("tab"), "button", "Draw sketch"),
+    step("Tab goes on to Talk", Verb::Key("tab"), "button", "Talk"),
+    step("Tab goes on to the project", Verb::Key("tab"), "combobox", "Project Storefront, sample-api"),
     step("Tab goes on to Model", Verb::Key("tab"), "combobox", "Model"),
     step("Tab goes on to Effort", Verb::Key("tab"), "combobox", "Effort"),
     step("Tab goes on to Queue for later", Verb::Key("tab"), "button", "Queue for later"),

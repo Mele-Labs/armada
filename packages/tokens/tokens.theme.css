@@ -157,6 +157,7 @@
   --color-ask-browser: var(--ask-browser);
   --color-ask-terminal: var(--ask-terminal);
   --color-ask-features: var(--ask-features);
+  --color-ask-api-client: var(--ask-api-client);
   --font-weight-body: var(--weight-body);
   --font-weight-medium: var(--weight-medium);
   --font-weight-heading: var(--weight-heading);
