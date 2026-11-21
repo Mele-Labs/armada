@@ -22,6 +22,7 @@ mod proposer_choices;
 mod feature_decisions;
 mod feature_library;
 mod librarian;
+mod librarian_gists;
 mod doc_drift;
 mod upkeep;
 mod floor_plan;
