@@ -560,10 +560,13 @@ mod tests {
         });
     }
 
-    /// The panel open on the artifact with a second vote added under the first: "side", of two takes with no scene.
+    /// The artifact's card in the thread, holding the keys, with a second vote added under the first. Fleet holds an artifact
+    /// to one ask, so the review sheet draws one vote; the thread's card still sends several, for an artifact from before that.
     fn opened_with_two_votes<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
         add_side_vote(&view, cx);
+        view.update_in(cx, |view, window, cx| view.focus_card(ID, window, cx));
+        redraw(cx);
         (view, cx)
     }
 
@@ -618,26 +621,7 @@ mod tests {
 
     #[gpui::test]
     fn a_vote_with_no_pick_stays_asking_after_send_picks_and_the_button_waits_for_a_pick(cx: &mut gpui::TestAppContext) {
-        // Neither vote carries a Job's pick, so neither starts chosen when the panel opens.
-        let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
-        view.update(cx, |view, cx| {
-            view.mock_parts_tuned(
-                ID,
-                |artifact| {
-                    for part in &mut artifact.parts {
-                        if let ipc::PartContent::Takes { takes, .. } = &mut part.content {
-                            for take in takes {
-                                take.title = take.title.replace(" (Job's pick)", "");
-                            }
-                        }
-                    }
-                },
-                cx,
-            )
-        });
-        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
-        redraw(cx);
-        add_side_vote(&view, cx);
+        let (view, cx) = opened_with_two_votes(cx);
         let side = super::super::parts_card::part_key(ID, "side");
         let send = bounds_of(cx, Role::Button, "Send picks").center();
         cx.simulate_click(send, Modifiers::none());
@@ -667,7 +651,9 @@ mod tests {
             view.choose_take(&side, 1, cx);
         });
         redraw(cx);
-        cx.simulate_keystrokes("cmd-enter");
+        // The card's own key handler, as the card holding the keys hears ⌘↵.
+        let event = gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse("cmd-enter").expect("a keystroke"), is_held: false, prefer_character_input: false };
+        view.update_in(cx, |view, window, cx| view.parts_key(ID, &event, window, cx));
         redraw(cx);
         assert_eq!(view.read_with(cx, |view, _| view.mock_part_posts().len()), 2, "the key sends them all");
     }
@@ -809,18 +795,23 @@ mod tests {
 
     #[gpui::test]
     fn prose_keeps_its_measure_while_pictures_take_the_detail_width(cx: &mut gpui::TestAppContext) {
-        let (_, cx) = opened(cx, 2400., 1500.);
+        let (_, cx) = opened_drawings_at(cx, 2400., 1500.);
         let words = bounds_of(cx, Role::Group, "Words");
-        let takes = bounds_of(cx, Role::Group, "Takes");
+        let drawing = bounds_of(cx, Role::Group, "Drawing");
         let pill = bounds_of(cx, Role::Label, "Asks you");
         assert!(f32::from(pill.right() - words.left()) < 800., "the words' caption stands at the measure: {pill:?} {words:?}");
-        assert!(f32::from(takes.size.width) > 1200., "while the takes run the detail's width: {takes:?}");
-        assert_eq!(words.left(), takes.left(), "prose and pictures share a left edge");
+        assert!(f32::from(drawing.size.width) > 1200., "while the drawing runs the detail's width: {drawing:?}");
+        assert_eq!(words.left(), drawing.left(), "prose and pictures share a left edge");
     }
 
     /// The artifact opened in the panel with its takes taken out, so it asks as a drawing and the sheet draws its parts.
     fn opened_drawings<'a>(cx: &'a mut gpui::TestAppContext) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
-        let (view, cx) = opened(cx, 1400., 900.);
+        opened_drawings_at(cx, 1400., 900.)
+    }
+
+    /// The same, at `width` by `height`.
+    fn opened_drawings_at<'a>(cx: &'a mut gpui::TestAppContext, width: f32, height: f32) -> (gpui::Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = opened(cx, width, height);
         view.update(cx, |view, cx| view.mock_parts_tuned(ID, |artifact| artifact.parts.retain(|part| !matches!(part.content, ipc::PartContent::Takes { .. })), cx));
         redraw(cx);
         (view, cx)

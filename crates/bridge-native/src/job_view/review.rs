@@ -2661,16 +2661,23 @@ mod tests {
                 view.review_primary_label(&item, view.ask_of(&item), cx).1
             })
         };
-        assert!(!ready(&view, cx), "Send pick waits for a pick");
+        assert!(ready(&view, cx), "the vote starts on the Job's pick, so its answer is one press");
         cx.simulate_keystrokes("1");
         super::super::parts_fold::redraw(cx);
-        assert!(ready(&view, cx), "a digit picks a take of the other Job's vote");
+        let first = view.read_with(cx, |view, _| {
+            let item = view.review_chosen().expect("chosen");
+            let vote = view.sheet_vote(&item).expect("the other Job's vote");
+            let (takes, _, chosen) = view.takes_of_key_in("mock-01", &vote).expect("its takes");
+            assert_eq!(chosen, Some(0), "a digit picks a take of the other Job's vote");
+            takes[0].id.clone()
+        });
+        assert!(ready(&view, cx), "and the answer still sends");
         view.update_in(cx, |view, window, cx| view.review_primary(window, cx));
         super::super::parts_fold::redraw(cx);
         let sent: Vec<(String, Option<String>)> = view.read_with(cx, |view, _| view.mock_part_posts().iter().map(|one| (one.session_id.as_str().to_string(), one.take.clone())).collect());
         assert_eq!(sent.len(), 1, "one pick is sent: {sent:?}");
         assert_eq!(sent[0].0, "mock-01", "to the vote's own Job");
-        assert!(sent[0].1.is_some(), "carrying the take");
+        assert_eq!(sent[0].1.as_deref(), Some(first.as_str()), "carrying the take he picked");
         view.read_with(cx, |view, _| {
             assert_eq!(view.shown.as_deref(), Some("mock-04"));
             assert_ne!(view.review().and_then(|review| review.at.clone()).as_deref(), Some(key.as_str()), "the next ask comes up");
