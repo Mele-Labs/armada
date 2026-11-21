@@ -75,6 +75,8 @@ pub(crate) struct RailStep {
     pub asks_delivery: bool,
     /// The step where the person is shown the work and approves it before tests are written.
     pub walks: bool,
+    /// The step where the work is offered for his preview and his Looks good ends it. **An anchor, as a walk is.**
+    pub previews: bool,
     /// What the person does that ends the step, any one of them. Empty for a step that lists none.
     pub ends_on: Vec<StepEnd>,
     /// The fact that ends the step's plan group, as its `gate` names it. Said by `rail_ends` only:
@@ -101,7 +103,7 @@ impl RailStep {
     /// The step lists what ends it, or its `gate` is a fact the rail reads ([`Facts::gate_met`]), and no anchor
     /// places it, so it holds the Job until one comes.
     pub(crate) fn holds(&self) -> bool {
-        (!self.ends_on.is_empty() || self.gate_holds()) && !(self.records_plan || self.walks || self.follows_plan || self.delivers)
+        (!self.ends_on.is_empty() || self.gate_holds()) && !(self.records_plan || self.walks || self.previews || self.follows_plan || self.delivers)
     }
 
     /// The step's `gate` is one whose fact the rail reads, and so ends it. The other gates are `rail_ends`'s to say only.
@@ -115,10 +117,10 @@ impl RailStep {
     }
 
     /// The step ends on the person's Approve of something he is shown: a plan that asks, a page, a sketch, a
-    /// draft, or his Approve of an item. **Not a walk**, which a push never passes, and not a lifecycle state or
-    /// a delivering step, which the world ends. Work that belongs to a later step passes such a step and flags it.
+    /// draft, or his Approve of an item. **Not a walk or a preview**, which a push never passes, and not a lifecycle
+    /// state or a delivering step, which the world ends. Work that belongs to a later step passes such a step and flags it.
     pub(crate) fn needs_approval(&self) -> bool {
-        if self.walks || self.delivers || self.has_lifecycle_end() || (self.records_plan && self.plan_unasked) {
+        if self.walks || self.previews || self.delivers || self.has_lifecycle_end() || (self.records_plan && self.plan_unasked) {
             return false;
         }
         self.records_plan
@@ -170,6 +172,7 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
             delivers: step.delivers(),
             asks_delivery: step.asks_delivery(),
             walks: step.walks() || step.gate() == StepGate::WalkApproved,
+            previews: step.previews(),
             ends_on: ends_on_of(step),
             gate: step.gate(),
             criteria: step.judge_checks().iter().flat_map(|check| check.criteria().to_vec()).collect(),
@@ -179,11 +182,11 @@ pub(crate) fn steps_of(workflow: &ResolvedWorkflow) -> Vec<RailStep> {
         .collect()
 }
 
-/// What ends the step: what it lists, and his Approve where its gate is `you_approved`, so the step
+/// What ends the step: what it lists, and his Approve where its gate is `you_approved` or it previews, so the step
 /// reads as ending when he approves and not on the push after it.
 fn ends_on_of(step: &ResolvedStep) -> Vec<StepEnd> {
     let mut ends = step.ends_on().to_vec();
-    if step.gate() == StepGate::YouApproved && !ends.contains(&StepEnd::YouApproved) {
+    if (step.gate() == StepGate::YouApproved || step.previews()) && !ends.contains(&StepEnd::YouApproved) {
         ends.push(StepEnd::YouApproved);
     }
     ends
@@ -219,6 +222,8 @@ pub(crate) struct Extra {
     pub idea_picked: bool,
     /// The recorded plan names a walk or says the person would see the change.
     pub plan_expects_walk: bool,
+    /// The Job offered a branch for his preview, and the offer is kept even once withdrawn or moved past.
+    pub offered: bool,
     /// The steps the person wrote on after they began: a message passes a step that waits on a lifecycle.
     pub messaged: StepBits,
     /// A pull request of the Job merged, as its ledger holds it. **The build forgets a merge once more
@@ -275,6 +280,8 @@ pub(crate) struct Facts {
     pub draft_approved: bool,
     pub idea_picked: bool,
     pub plan_expects_walk: bool,
+    /// [`Extra::offered`].
+    pub offered: bool,
     /// The steps whose `you_approved` gate has closed: their own plan group's, or any one's where no group carries the step's id.
     pub you_approved: StepBits,
     /// The steps the person skipped.
@@ -332,6 +339,7 @@ impl Facts {
             draft_approved: extra.draft_approved,
             idea_picked: extra.idea_picked,
             plan_expects_walk: extra.plan_expects_walk,
+            offered: extra.offered,
             skipped: Skipped::of(&record.skipped_steps),
             messaged: extra.messaged,
             ..Facts::default()
@@ -391,6 +399,13 @@ impl Facts {
     pub(crate) fn walk_passed(&self, walk: &RailStep) -> bool {
         self.walk_approved
             || (self.plan_approved && !self.walk_expected() && (!walk.follows_plan || !self.tasks_open || self.pushed))
+    }
+
+    /// A previewing step is passed over as a walk is when nothing would be seen: the plan was approved saying the
+    /// person would see none of it, the Job offered no branch, and it has pushed. **A plan that says `seen` or an offer
+    /// holds it for his Looks good**, and no push passes it then.
+    pub(crate) fn preview_passed_over(&self) -> bool {
+        self.plan_approved && !self.plan_expects_walk && !self.offered && self.pushed
     }
 
     /// Whether `end`, listed by the step at `at`, holds. **A lifecycle end holds when it has come, or
@@ -476,6 +491,9 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if step.walks {
         return facts.walk_passed(step);
     }
+    if step.previews {
+        return facts.you_approved.has(at) || facts.preview_passed_over();
+    }
     if step.follows_plan {
         return facts.plan_approved && !facts.tasks_open;
     }
@@ -491,10 +509,12 @@ fn passed(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
 
 /// Whether the Job pushed toward the step at `at`. **A walk before it holds the push**: none counts
 /// while one stands, and once he approved it only a push at or after his Approve does, since one made
-/// while he walked was the walk's own (Job 355c64b4 was put on Deliver unapproved, 31 Oct 2026).
+/// while he walked was the walk's own (Job 355c64b4 was put on Deliver unapproved, 31 Oct 2026). **A previewing step
+/// holds it too, until his Looks good**: a push is how a preview is made, so none of them is the step's end.
 fn pushed_past_walks(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     let walks: Vec<usize> = (0..at).filter(|one| steps[*one].walks && !facts.skipped.has(*one)).collect();
-    if walks.iter().any(|one| !passed(steps, *one, facts)) {
+    let previews = (0..at).filter(|one| steps[*one].previews && !facts.skipped.has(*one));
+    if walks.iter().copied().chain(previews).any(|one| !passed(steps, one, facts)) {
         return false;
     }
     facts.pushed && (walks.is_empty() || !facts.walk_approved || facts.pushed_since_walk)
@@ -514,9 +534,18 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     if step.walks {
         return facts.plan_approved && !facts.walk_passed(step);
     }
+    // **Entered when the plan is approved and the step before it is passed, or when the Job offers a branch**, and left
+    // only by his Looks good. A withdrawn offer, or a push, leaves the step where it is.
+    if step.previews {
+        let reached = facts.offered || (facts.plan_approved && (0..at).all(|one| passed(steps, one, facts)));
+        return reached && !passed(steps, at, facts);
+    }
     if step.follows_plan {
         return facts.plan_approved
-            && steps[..at].iter().enumerate().all(|(earlier, one)| !one.walks || passed(steps, earlier, facts));
+            && steps[..at]
+                .iter()
+                .enumerate()
+                .all(|(earlier, one)| !(one.walks || one.previews) || passed(steps, earlier, facts));
     }
     if step.delivers {
         // A step that lists its ends holds the Job past the push, as a walk holds a refine step; once
@@ -524,7 +553,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
         let held = |earlier: usize| steps[earlier].holds() && !passed(steps, earlier, facts);
         let after_a_hold = at > 0
             && !steps[at - 1].has_lifecycle_end()
-            && (steps[at - 1].holds() || steps[at - 1].walks)
+            && (steps[at - 1].holds() || steps[at - 1].walks || steps[at - 1].previews)
             && (0..at).all(|one| passed(steps, one, facts));
         return after_a_hold || (pushed_past_walks(steps, at, facts) && !(0..at).any(held));
     }
@@ -544,7 +573,7 @@ fn entered(steps: &[RailStep], at: usize, facts: &Facts) -> bool {
     let after_a_wait = at > 0 && steps[at - 1].holds() && before(at);
     // **The step after a walk is entered once the walk is passed**, as after a wait: else the Job falls
     // back behind the walk he approved, is told to show it again, and the new window voids his approval.
-    let after_a_walk = at > 0 && steps[at - 1].walks && passed(steps, at - 1, facts);
+    let after_a_walk = at > 0 && (steps[at - 1].walks || steps[at - 1].previews) && passed(steps, at - 1, facts);
     // **The last step that lists nothing is entered once every step before it is passed**, and ends when the Job does.
     // A step that fits a fact is placed by that fact, so a last step behind one is not entered for the fact's sake.
     let last_after_an_anchor = at + 1 == steps.len() && at > 0 && steps[at - 1].fit.is_none() && before(at);

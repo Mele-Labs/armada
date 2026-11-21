@@ -1,0 +1,16 @@
+[operations.comment_margin]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Comment on a passage of a Job's page, which starts a margin thread on it, or reply on a thread, sent to the Job now or held"
+notes = """
+`POST /sessions/margin/comment`, body `CommentMargin`: `session_id`, `document` (the page's file name under `.armada/documents/`, or its path), `on` and `text`, and `hold`. `on` is `{ kind: "passage", anchor: { quote, block?, section? } }` for a new thread, or `{ kind: "thread", thread }` for his reply on one. Answered with `MarginThreads`, every thread on the page; `SessionChanged` is published, and a client holding the Job's thread gets `job_thread.tail`.
+
+**A new thread** is `m1`, `m2` and on, one count a Job. Its section is the `h2` the quote stands under in the newest revision, else the anchor's; a quote the newest revision does not hold opens the thread `gone`.
+
+**Sent now** (`hold` false or absent), the comment goes to the Job as its own round: one message, which the Job's thread keeps as his words and the passage with no path, and which the agent reads with the page's path, the thread id, the section and quote, and that `answer_thread` answers it. The thread is `open`. **Held**, nothing is sent and the thread is `held` until `send_held_margin`. A thread holding a suggested edit stays `suggested` either way.
+
+Refused with 422: `fleet.margin_empty` for blank words or a blank quote, `fleet.margin_no_page` for a page the Job holds none of, `fleet.margin_no_thread` for a thread the Job has none of or one on another page, and `fleet.margin_settled` for a settled thread.
+
+`agent_access` is `No`: the comment is the person's.
+"""

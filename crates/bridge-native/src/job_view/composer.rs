@@ -30,7 +30,7 @@ use serde::{Deserialize, Serialize};
 
 use super::head::{drawn, icon_button, tip, Confirm};
 use super::keys;
-use super::format::{enter_at, format_of, marks_of, Enter as BlockEnter, Format};
+use super::format::{format_of, Format};
 use super::offer::{mention_of, Offer};
 use super::quick::Quick;
 use super::tune::{effort_meter, effort_place, trigger_name, TunePicker, Tuned};
@@ -575,51 +575,15 @@ impl JobView {
         if self.composer.setting {
             return;
         }
-        let input = self.composer.input.clone();
-        let (text, spans, caret) = {
-            let box_ = input.read(cx);
-            (box_.value().to_string(), box_.tokens().to_vec(), box_.selected_range())
-        };
-        let stale: Vec<_> = spans
-            .iter()
-            .filter(|span| matches!(format_of(span.token().id()), Some(Format::Quote | Format::Item)) && span.range().start != 0 && !text[..span.range().start].ends_with('\n'))
-            .map(|span| (span.range(), span.token().text().to_string()))
-            .collect();
-        let taken: Vec<_> = spans.iter().map(|span| span.range()).filter(|range| !stale.iter().any(|(gone, _)| gone == range)).collect();
-        let marks = marks_of(&text, &taken);
-        if stale.is_empty() && marks.is_empty() {
-            return;
-        }
-        input.update(cx, |box_, cx| {
-            for (range, words) in stale {
-                box_.set_selected_range(range, cx);
-                box_.replace(words, window, cx);
-            }
-            for (range, token) in marks {
-                let _ = box_.replace_range_with_token(range, token, window, cx);
-            }
-            box_.set_selected_range(caret, cx);
-        });
+        super::format::draw(&self.composer.input.clone(), window, cx);
     }
 
     /// Enter in a quote or a list goes on with it or leaves it (`enterInBlock`). Returns whether it did;
     /// anywhere else the key is the box's own.
     fn enter_in_block(&mut self, shift: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        let input = self.composer.input.clone();
-        let (text, caret) = {
-            let box_ = input.read(cx);
-            (box_.value().to_string(), box_.selected_range())
-        };
-        let act = if caret.is_empty() { enter_at(&text, caret.start, shift) } else { None };
-        match act {
-            Some(BlockEnter::Insert(words)) => input.update(cx, |box_, cx| box_.insert(words, window, cx)),
-            Some(BlockEnter::Leave(marker)) => input.update(cx, |box_, cx| {
-                box_.set_selected_range(marker, cx);
-                box_.replace("", window, cx);
-            }),
-            None => return false,
+        if !super::format::enter_in(&self.composer.input.clone(), shift, window, cx) {
+            return false;
         }
-        self.draw_format(window, cx);
         self.typed(cx);
         true
     }
@@ -782,6 +746,12 @@ impl JobView {
             if kept.text.trim().is_empty() {
                 return;
             }
+            // What the box holds beside words goes with them, as the panel's own box sends it.
+            let extras = ipc::AnswerExtras {
+                attachments: encoded_files(self.composer.files_of(&id).to_vec()),
+                mentions: kept.tags.iter().filter_map(|tag| mention_of(&tag.id, &tag.label)).collect(),
+            };
+            self.composer.box_of(&id).files.clear();
             self.set_box(&Kept::default(), window, cx);
             if self.composer.drafts.set(&id, Kept::default()) {
                 self.keep_soon(cx);
@@ -789,7 +759,7 @@ impl JobView {
             if let Some(dock) = self.dock_mut() {
                 dock.answering = None;
             }
-            self.answer_row_words(&item, kept.text, window, cx);
+            self.answer_row_words(&item, super::format::sent_text(kept.text.trim()), extras, window, cx);
             self.to_composer(window, cx);
             return;
         }

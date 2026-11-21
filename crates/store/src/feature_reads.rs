@@ -74,4 +74,28 @@ impl Store {
         }
         Ok(linked)
     }
+
+    /// Keep `gist` as the librarian's of the doc at `target` in `project`: on each of its read links that has no gist and
+    /// is not a Job's, and on the reads behind them. **A link that already says something is left as it was**, and a Job's
+    /// gist written later replaces this one. How many links it was kept on.
+    pub fn keep_feature_librarian_gist(&mut self, project: &str, target: &str, gist: &str) -> Result<usize, WriteError> {
+        let doing = "keeping the librarian's gist of a doc";
+        let by = crate::feature_gist_by::LIBRARIAN;
+        let open = "l.kind = 'doc' AND l.via = 'read' AND l.target = ?2 AND l.gist = '' AND l.gist_by != 'job' AND l.feature_id IN (SELECT id FROM features WHERE project = ?1)";
+        self.conn
+            .execute(
+                &format!(
+                    "UPDATE feature_job_reads SET gist = ?3, gist_by = '{by}' WHERE target = ?2 AND gist = '' AND gist_by != 'job' \
+                     AND job IN (SELECT l.job FROM feature_links l WHERE {open})"
+                ),
+                params![project, target, gist],
+            )
+            .map_err(failed(doing))?;
+        self.conn
+            .execute(
+                &format!("UPDATE feature_links SET gist = ?3, gist_by = '{by}' WHERE rowid IN (SELECT l.rowid FROM feature_links l WHERE {open})"),
+                params![project, target, gist],
+            )
+            .map_err(failed(doing))
+    }
 }

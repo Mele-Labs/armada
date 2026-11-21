@@ -169,6 +169,7 @@ where
         let numbers: Vec<u64> = listed.iter().map(|pull| pull.number).collect();
         let left = self.pulls_that_left(served.root(), &numbers).await;
         self.owners_deleted(served.root(), left).await;
+        self.review_offers_raised(served, &numbers).await;
         let mut owners = self.owners_read(served.root(), numbers).await;
         let read: Vec<OpenPulled> = listed
             .into_iter()

@@ -38,6 +38,11 @@ export type ValuesSet = {
    * are the `workflows.off` setting, and Kit's values refuse one. Off wins, so a project adds to those lists.
    */
   workflows_off?: string[];
+  /**
+   * The review tools, by id, Fleet offers to run on a pull request it has not seen before in one of the project's
+   * repositories. A project's only: Kit's values refuse one. Absent offers nothing.
+   */
+  review_on_new_pr?: string[];
 };
 
 /** `off`, `review` or `review_and_approve`; for `walks` only `off` or `review`. A word that is not one is refused 422 `fleet.project_values_refused`. */

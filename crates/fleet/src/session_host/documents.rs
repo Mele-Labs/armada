@@ -146,6 +146,8 @@ where
         // A page he dismissed waits again once it is revised, as a sketch drawn again does.
         let item = format!("{DOCUMENT_ITEM_PREFIX}{path}");
         let _ = self.store().lock().await.restore_waiting(id, &item);
+        // His margin threads read the new revision before the row that says so goes out.
+        self.margins_found_again(id, path, html).await;
         let _ = self
             .report_session(SessionReport {
                 harness: String::from(adapters::HOSTED_HARNESS),

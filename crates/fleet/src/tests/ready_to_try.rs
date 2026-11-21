@@ -493,3 +493,27 @@ async fn an_answered_card_stays_answered_when_its_branch_is_withdrawn() {
 
     assert_eq!(card(&rig, &session, &tip).await.state, ReadyState::Answered);
 }
+
+/// What the rail reads of a Job's offers, for a workflow with a previewing step.
+async fn offered_as_the_rail_reads_it(rig: &Rig, session: &str) -> bool {
+    let steps = vec![crate::rail::RailStep { previews: true, ..super::session_rail::step("Try") }];
+    let store = rig.fleet.store().lock().await;
+    let kept = store.session(session).ok().flatten().expect("the Job");
+    crate::rail_keeping::rail_read(&store, &kept, true, steps).expect("read").extra.offered
+}
+
+/// **An offer is a fact the rail keeps**: it is read once the Job offers, and a withdrawal does not take it back, so
+/// a previewing step stays held until his Looks good and not until the offer is gone.
+#[tokio::test]
+async fn the_rail_reads_an_offer_once_made_and_a_withdrawal_does_not_take_it_back() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    let (session, _tip) = a_job_offering(&rig, BRANCH, "crates/x/one.rs", "1").await;
+    assert!(!offered_as_the_rail_reads_it(&rig, &session).await, "nothing offered yet");
+
+    offer(&rig, offered(&session)).await.expect("offered");
+    assert!(offered_as_the_rail_reads_it(&rig, &session).await, "offered");
+
+    Arc::clone(&rig.fleet).withdraw_preview(None, WithdrawPreview { session_id: Some(SessionId::carried(session.as_str())), branch: None }).await.expect("withdrawn");
+    assert!(offered_as_the_rail_reads_it(&rig, &session).await, "withdrawn: the note is kept, so the step stays held");
+}

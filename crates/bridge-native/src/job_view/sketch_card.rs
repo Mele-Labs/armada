@@ -288,7 +288,7 @@ impl JobView {
     fn folded_sketch(&self, ix: usize, card: &ThreadSketch, standing: Standing, words: Option<&str>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = card.id.clone();
         if self.holds_kept(&key) && !page.cards.modes.contains_key(&key) {
-            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, false));
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, false, true));
         }
         let ink = look.color(standing.ink());
         let verdict = div()
@@ -627,7 +627,7 @@ impl JobView {
         let key = acts.key.as_str();
         let noting = acts.asking && page.cards.modes.get(key) == Some(&Mode::Note);
         if (!acts.asking || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
-            page.cards.kept_seen.borrow_mut().push((key.to_string(), acts.ix, acts.asking));
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), acts.ix, acts.asking, true));
         }
         let mut footer = div()
             .flex()
@@ -729,7 +729,8 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .children(reveal)
             .capture_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
-                if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                // A list open over the words is closed by Esc first; the box itself shuts on the next.
+                if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() && !this.note_offering(cx) {
                     cx.stop_propagation();
                     this.shut_sketch_note(&esc, window, cx);
                 }
@@ -779,7 +780,9 @@ impl JobView {
     }
 
     fn answer_sketch_with(&mut self, acts: &Acts, how: SketchHow, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
-        let body = ipc::encode(&AnswerSketch { session_id: self.sketch_session(), sketch: acts.sketch.clone(), drawn: acts.drawn.clone().unwrap_or_default(), how, words: words.clone(), extras: Default::default() }).map_err(|why| format!("{why:?}"));
+        // Read before `settle` lets the box go.
+        let extras = if words.is_some() { self.extras_of(&acts.key, Mode::Note, cx) } else { Default::default() };
+        let body = ipc::encode(&AnswerSketch { session_id: self.sketch_session(), sketch: acts.sketch.clone(), drawn: acts.drawn.clone().unwrap_or_default(), how, words: words.clone(), extras }).map_err(|why| format!("{why:?}"));
         let answer = match words {
             Some(words) => Answer::SentBack(words),
             None => Answer::Approved,
@@ -796,8 +799,8 @@ impl JobView {
     }
 
     fn ask_changes(&mut self, acts: &Acts, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_box(acts.ix, &acts.key, Mode::Note, "", window, cx);
-        // `open_box` reveals the card at the height it had; the note makes it taller, so it is revealed again once drawn.
+        self.open_note(acts.ix, &acts.key, "What should change?", window, cx);
+        // `open_note` reveals the card at the height it had; the note makes it taller, so it is revealed again once drawn.
         if let Some(cards) = self.cards_mut() {
             cards.reveal.insert(acts.key.clone(), std::rc::Rc::new(std::cell::Cell::new(true)));
         }

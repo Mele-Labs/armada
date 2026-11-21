@@ -12,6 +12,8 @@ pub(super) const READ_MERGES: &str = "read_merges";
 pub(super) const CHECK_DRIFT: &str = "check_drift";
 /// The retire and links parts' one step, free: features and linked docs read against the code. Its id is neither part's name.
 pub(super) const CHECK_UPKEEP: &str = "check_upkeep";
+/// The gists part's step, which asks a model. Its id is not the part's name.
+pub(super) const WRITE_GISTS: &str = "write_gists";
 /// The last step: the catalog read through the newest merge, and the run's record kept.
 pub(super) const READ_THROUGH: &str = "read_through";
 /// What a step skipped for a press of Stop says.
@@ -21,23 +23,38 @@ pub(super) const NOTHING_NEW: &str = "Nothing new since the last run, so no call
 /// The most pull requests the first step's detail names. The rest are counted.
 const MOST_NAMED: usize = 5;
 
+/// What the steps read, counted from the store: the documents linked to features, the features the upkeep step reads, and
+/// the linked docs that have no gist.
+#[derive(Clone, Copy, Debug)]
+pub(super) struct Counts {
+    pub(super) docs: usize,
+    pub(super) features: usize,
+    pub(super) gaps: usize,
+}
+
 /// What a built part's step is called. `None` for a part with no work behind it, which has no step.
 fn title_of(part: LibrarianPart) -> Option<&'static str> {
     match part {
         LibrarianPart::SinceYouLooked => Some("Write the Since you looked paragraph"),
         LibrarianPart::Drift => Some("Check docs against the code"),
         LibrarianPart::Retire | LibrarianPart::Links => Some("Check features and links against the code"),
+        LibrarianPart::Gists => Some("Write missing gists"),
         _ => None,
     }
 }
 
 /// The steps a run would take now: what merged, each of `parts` that is `built`, then reading through. `spent` is what
-/// tonight's runs took of `share`, `docs` is how many documents are linked to features, which the drift step reads, and
-/// `features` how many features the upkeep step reads. **Retire and links are one step**, where the first of them stands.
-pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32, docs: usize, features: usize) -> Vec<LibrarianStep> {
+/// tonight's runs took of `share`, and `counts` what the steps read. **Retire and links are one step**, where the first of them stands. **Gists come after every other part**, whatever order `parts` names.
+pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: &LibrarianState, share: u32, spent: u32, counts: Counts) -> Vec<LibrarianStep> {
+    let Counts { docs, features, gaps } = counts;
     let mut steps = vec![LibrarianStep { id: READ_MERGES.to_string(), title: "Read what merged".to_string(), detail: merges_detail(state), model: false }];
-    for part in parts.iter().copied().filter(|part| built.contains(part)) {
+    let (gists, others): (Vec<LibrarianPart>, Vec<LibrarianPart>) = parts.iter().copied().filter(|part| built.contains(part)).partition(|part| *part == LibrarianPart::Gists);
+    for part in others.into_iter().chain(gists) {
         let Some(title) = title_of(part) else { continue };
+        if part == LibrarianPart::Gists {
+            steps.push(LibrarianStep { id: WRITE_GISTS.to_string(), title: title.to_string(), detail: gists_detail(gaps, share, spent), model: true });
+            continue;
+        }
         if part == LibrarianPart::Drift {
             steps.push(LibrarianStep { id: CHECK_DRIFT.to_string(), title: title.to_string(), detail: drift_detail(docs), model: false });
             continue;
@@ -55,6 +72,34 @@ pub(super) fn steps_of(parts: &[LibrarianPart], built: &[LibrarianPart], state: 
     let newest = state.merged_since.last().copied().or(state.read_through);
     steps.push(LibrarianStep { id: READ_THROUGH.to_string(), title: "Mark the catalog read".to_string(), detail: through_said(newest), model: false });
     steps
+}
+
+/// What the gists step reads: `8 linked docs have no gist; about 1 model call`.
+fn gists_detail(gaps: usize, share: u32, spent: u32) -> String {
+    if gaps == 0 {
+        return GISTS_NONE.to_string();
+    }
+    let calls = gaps.div_ceil(10);
+    match share.saturating_sub(spent) {
+        0 => format!("Skipped: {}", share_spent(share)),
+        _ => format!("{} no gist; about {calls} model call{}", if gaps == 1 { "1 linked doc has".to_string() } else { format!("{gaps} linked docs have") }, if calls == 1 { "" } else { "s" }),
+    }
+}
+
+/// What the gists step says where every linked doc has a gist, so no call is made.
+pub(super) const GISTS_NONE: &str = "No linked doc lacks a gist";
+
+/// What the gists step says where docs lack a gist and none of them is a file it could read, so no call is made.
+pub(super) const GISTS_UNREAD: &str = "No doc without a gist could be read";
+
+/// What the gists step wrote, and the calls tonight once it asked.
+pub(super) fn gists_said(wrote: usize, used: u32, share: u32) -> String {
+    format!("Wrote {}, {used} of {share} calls tonight", counted(wrote as u64, "gist"))
+}
+
+/// The gists step asked and no doc got a gist.
+pub(super) fn gists_failed_said(used: u32, share: u32) -> String {
+    format!("The model wrote no gists, {used} of {share} calls tonight")
 }
 
 /// What the drift step reads, from the count of documents linked to features.

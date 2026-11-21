@@ -130,7 +130,7 @@ impl JobView {
             .children(rail)
             .child(div().flex_1().min_w_0().flex().flex_col().children(strip).child(words))
             .child(measure);
-        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !in_sheet).map(|(area, _)| self.reader_ask_box(id, &name, held, area, look, cx));
+        let ask = held.ask.as_ref().filter(|_| subject.asking && !earlier && !in_sheet).map(|(_, _, note)| self.reader_ask_box(id, &name, held, note, look, cx));
         let said = held.said.clone().map(|why| div().px(look.length(token::SPACE_4)).py(look.length(token::SPACE_2)).child(super::acts::refusal(look, "reader", why)));
         labelled(
             div()
@@ -813,7 +813,7 @@ impl JobView {
     }
 
     /// Ask for changes, open under the words: the notes already on the words, then what should change, Cancel and Send back.
-    fn reader_ask_box(&self, id: &SharedString, name: &str, held: &super::reader::Reader, area: &gpui::Entity<gpui_component::input::TextareaState>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn reader_ask_box(&self, id: &SharedString, name: &str, held: &super::reader::Reader, note: &gpui::Entity<super::rich_note::RichNote>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let warn = look.color(token::STATUS_AWAITING_REVIEW);
         let noted: Vec<AnyElement> = held
             .kept_notes(cx)
@@ -870,7 +870,9 @@ impl JobView {
                 .border_color(warn.opacity(0.6))
                 .bg(look.color(token::BG_SUNKEN))
                 .capture_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
-                    if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
+                    // A list open over the words is closed by Esc first; the box itself shuts on the next.
+                    let listing = this.reader_of(&job3, &name_c).and_then(|held| held.ask.as_ref()).is_some_and(|(_, _, note)| note.read(cx).offering());
+                    if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() && !listing {
                         cx.stop_propagation();
                         this.reader_ask_cancel(&job3, &name_c, window, cx);
                     }
@@ -888,7 +890,7 @@ impl JobView {
                         .key_context(crate::keymap::TEXT_BOX)
                         .text_size(look.length(token::TEXT_SM))
                         .text_color(look.color(token::FG_DEFAULT))
-                        .child(Textarea::new(area).appearance(false).aria_label("What should change?")),
+                        .child(note.clone()),
                     Role::TextInput,
                     "What should change?",
                 ))

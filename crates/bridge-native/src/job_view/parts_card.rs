@@ -467,6 +467,10 @@ impl JobView {
 
     /// Esc in a part's box: an open Ask for changes box closes, its words kept as drafts, and the card has the keys again.
     pub(super) fn close_parts_boxes(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        // A list open over the words goes first; the box shuts on the next Esc.
+        if self.close_note_lists(cx) {
+            return;
+        }
         let prefix = format!("{artifact}{JOIN}");
         let open: Vec<String> = self.shown.as_ref().and_then(|job| self.pages.get(job)).map(|page| page.cards.modes.keys().filter(|key| key.starts_with(&prefix)).cloned().collect()).unwrap_or_default();
         // Parts read in the review panel stand on its own place, not a card's in the thread.
@@ -484,6 +488,8 @@ impl JobView {
     fn answer_part(&mut self, artifact: &str, part: &ArtifactPart, how: PartHow, take: Option<String>, words: Option<String>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let key = part_key(artifact, &part.id);
+        // Read before the box goes.
+        let extras = self.extras_of(&key, Mode::Note, cx);
         if let Some(ix) = self.parts_ix(artifact) {
             self.close_box(ix, &key, cx);
         }
@@ -506,7 +512,7 @@ impl JobView {
             self.keep_settled(&job, artifact, &parts, words.as_deref(), cx);
         }
         self.parts_changed(artifact, cx);
-        let said = AnswerPart { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), part: part.id.clone(), drawn: part.drawn.clone(), how, take, words, notes: BTreeMap::new(), extras: Default::default() };
+        let said = AnswerPart { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), part: part.id.clone(), drawn: part.drawn.clone(), how, take, words, notes: BTreeMap::new(), extras };
         let body = ipc::encode(&said).map_err(|why| format!("{why:?}"));
         let back = job.clone();
         self.post_with(job, ANSWER_PART, body, move |this, why, cx| this.part_refused(&back, &key, why, cx), window, cx);
@@ -642,7 +648,7 @@ impl JobView {
     /// Ask for changes on a part: its note box opens under it.
     pub(super) fn part_ask_for_changes(&mut self, artifact: &str, part: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(ix) = self.review_open().then_some(super::acts::SHEET).or_else(|| self.parts_ix(artifact)) else { return };
-        self.ask_for_changes(ix, &part_key(artifact, part), window, cx);
+        self.ask_in_note(ix, &part_key(artifact, part), window, cx);
     }
 
     /// The keys go back to the card, once its box has shut: the card in the thread, or the reader's own in a tab.

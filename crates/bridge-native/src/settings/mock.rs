@@ -56,6 +56,8 @@ pub struct MockFleet {
     pub sign_in_app: super::sign_in_app::MockSignInApp,
     /// The logins signed in on this Mac and the sign-in in flight (`mock_account.rs`).
     pub accounts: super::mock_account::MockAccounts,
+    /// The review tools every repository defines, as `GET /review_tools/:repository` lists them.
+    pub review_tools: Vec<crate::reviews::model::ReviewTool>,
 }
 
 /// What Fleet runs on All, as Classic's Workflows page is walked on (`mock/workflows-managed.ts`): Armada's four,
@@ -139,7 +141,9 @@ impl MockFleet {
             reviews: Some(ipc::ReviewsSet { pull_requests: Some("review".into()), ..ipc::ReviewsSet::default() }),
             ..ValuesSet::default()
         };
+        let tool = |id: &str, name: &str| crate::reviews::model::ReviewTool { id: id.into(), name: name.into(), said: name.to_lowercase(), first: false };
         let mut fleet = MockFleet {
+            review_tools: vec![tool("bugs", "Possible bugs"), tool("risks", "Risks"), tool("user-impact", "User impact")],
             kit, list: with_models(settings()), models: kit_models(), workflows: settings_workflows(), definitions: super::mock_workflows::definitions(), changes: Vec::new(), drafts: Default::default(), versions: Default::default(), repositories: crate::mock::repositories(), projects, connected: true, opened: 0, saves: Vec::new(),
             preferences: ipc::Preferences::default(),
             refuses: Vec::new(),
@@ -564,6 +568,14 @@ impl MockFleet {
             autonomy: Vec::new(),
             workflows,
         }
+    }
+
+    /// `GET /review_tools/:repository`, the same for every repository.
+    pub fn review_tools(&self) -> Result<Vec<crate::reviews::model::ReviewTool>, Refused> {
+        if !self.connected {
+            return Err(Refused::said("Fleet is not connected"));
+        }
+        Ok(self.review_tools.clone())
     }
 
     /// Kit's values kept whole, as Fleet does. Kit names no tracker.

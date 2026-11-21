@@ -49,6 +49,7 @@ fn every_key_reads_and_writes_back() {
         agent_starts: Some(AgentStarts::AskMe),
         delivery: Some(DeliverySetting::KeepLocal),
         workflows_off: vec!["bug".into(), "chore".into()],
+        review_on_new_pr: vec!["security".into(), "style".into()],
     };
     let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(all.clone());
     let written = project_text(&project).expect("text");
@@ -153,6 +154,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         agent_starts: None,
         delivery: None,
         workflows_off: Vec::new(),
+        review_on_new_pr: Vec::new(),
     }
 }
 
@@ -357,4 +359,13 @@ fn a_projects_delivery_beats_kits_and_the_answer_names_the_layer() {
     assert_eq!((both.delivery.value, both.delivery.from), (Some(DeliverySetting::AutoLand), Layer::Project));
     let kit_only = resolve(&layers(&[(Layer::Kit, kit)]));
     assert_eq!((kit_only.delivery.value, kit_only.delivery.from), (Some(DeliverySetting::KeepLocal), Layer::Kit));
+}
+
+#[test]
+fn a_projects_review_on_new_pr_reads_and_kit_refuses_the_key() {
+    assert_eq!(values_of("values:\n  review_on_new_pr: [security, ' style ']\n").review_on_new_pr, ["security", "style"]);
+    assert!(values_of("values:\n  review_on_new_pr: []\n").review_on_new_pr.is_empty());
+    assert!(refused("values:\n  review_on_new_pr: security\n").contains("values.review_on_new_pr"), "a list, not a word");
+    let said = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  review_on_new_pr: [security]\n").expect_err("refused").to_string();
+    assert!(said.contains("values.review_on_new_pr"), "{said}");
 }
