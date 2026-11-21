@@ -3,14 +3,17 @@
 //! `SketchPad`). Boxes hold words, joins run between two of them, and the pen draws by hand; the
 //! rail holds the pen, Undo and Add a box over the view's Zoom out, Zoom in and Fit, as
 //! `GraphCanvas` draws them.
+//!
+//! The pad is an entity of its own, so any box can hold one: a Job's box keys it on the Job, the
+//! New Job request on the request. It tells its box through [`PadEvent`].
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::rc::Rc;
 
 use gpui::{
-    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Bounds, Context, FocusHandle, FontWeight, Hsla, KeyDownEvent, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, Pixels, Role, ScrollEvent, SharedString, Stateful, Subscription, Window,
+    anchored, canvas, deferred, div, point, prelude::*, px, Anchor, AnyElement, Bounds, ClickEvent, Context, Div, EventEmitter, FocusHandle, FontWeight, Hsla, KeyDownEvent,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, PathBuilder, Pixels, Role, ScrollEvent, SharedString, Stateful, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Textarea, TextareaState};
 
@@ -37,9 +40,8 @@ enum Grab {
     Pan { from: gpui::Point<Pixels>, was: (f32, f32) },
 }
 
-/// The pad of one Job, kept while its sheet is shut, as Electron's sheet keeps its drawing.
-pub(super) struct Pad {
-    job: SharedString,
+/// The pad of one box, kept while its sheet is shut, as Electron's sheet keeps its drawing.
+struct Pad {
     drawing: Drawing,
     areas: HashMap<String, (gpui::Entity<TextareaState>, Subscription)>,
     picked: Vec<String>,
@@ -55,9 +57,8 @@ pub(super) struct Pad {
 }
 
 impl Pad {
-    fn new(job: SharedString, cx: &mut Context<JobView>) -> Pad {
+    fn new(cx: &mut Context<SketchPad>) -> Pad {
         Pad {
-            job,
             drawing: Drawing::default(),
             areas: HashMap::new(),
             picked: Vec::new(),
@@ -142,34 +143,176 @@ impl Pad {
     }
 }
 
+/// What the pad tells the box that holds it.
+#[derive(Clone)]
+pub(crate) enum PadEvent {
+    /// Attach sketch: the drawing goes with the box's next message.
+    Attached(sketch::DrawnSketch),
+    /// The sheet shut: Close, Esc, the scrim, or Attach sketch.
+    Closed,
+}
+
+/// The Draw sketch sheet over one box's pad.
+pub(crate) struct SketchPad {
+    pad: Pad,
+    open: bool,
+}
+
+impl EventEmitter<PadEvent> for SketchPad {}
+
+impl Render for SketchPad {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+        self.render_sketch(window, cx).unwrap_or_else(|| div().into_any_element())
+    }
+}
+
 impl JobView {
     /// The pencil-ruler under the box: the sheet opens on the Job's pad, as it was left.
     pub(super) fn open_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        if self.pad.as_ref().is_none_or(|pad| pad.job != job) {
-            self.pad = Some(Pad::new(job, cx));
+        if self.pad.as_ref().is_none_or(|(on, ..)| *on != job) {
+            let pad = cx.new(SketchPad::new);
+            let to = job.clone();
+            let told = cx.subscribe_in(&pad, window, move |this, _, event: &PadEvent, window, cx| match event {
+                PadEvent::Attached(drawn) => this.composer.box_of(&to).drawn.push(drawn.clone()),
+                PadEvent::Closed => {
+                    this.sketch_open = false;
+                    this.to_composer(window, cx);
+                    cx.notify();
+                }
+            });
+            self.pad = Some((job, pad, told));
         }
         self.sketch_open = true;
-        if let Some(pad) = &self.pad {
-            window.focus(&pad.focus, cx);
+        if let Some((_, pad, _)) = &self.pad {
+            pad.update(cx, |pad, cx| pad.open(window, cx));
         }
         cx.notify();
     }
 
-    fn close_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.sketch_open = false;
-        if let Some(pad) = self.pad.as_mut() {
-            pad.grab = None;
-            pad.ink = None;
-        }
-        self.to_composer(window, cx);
+    /// The sheet while it is up, laid over the Job.
+    pub(super) fn render_sketch(&self) -> Option<AnyElement> {
+        self.pad.as_ref().filter(|_| self.sketch_open).map(|(_, pad, _)| pad.clone().into_any_element())
+    }
+
+    pub(super) fn remove_drawn(&mut self, id: &str, cx: &mut Context<Self>) {
+        let Some(job) = self.box_key() else { return };
+        self.composer.box_of(&job).drawn.retain(|one| one.id != id);
+        cx.notify();
+    }
+
+    /// The pencil-ruler beside Attach in the box's bar.
+    pub(super) fn sketch_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
+        // A sketch goes with a message, so it is drawn wherever a message goes.
+        let off = self.off_shown_to(super::composer::MESSAGE, cx);
+        sketch_button(look, off, |button| button, cx, |this: &mut Self, window, cx| this.open_sketch(window, cx))
+    }
+
+    /// The tray's chips for the sketches waiting to go with the Job's message.
+    pub(super) fn drawn_tiles(&self, id: &str, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        let Some(held) = self.composer.boxes.get(id) else { return Vec::new() };
+        drawn_tiles(&held.drawn, look, cx, |this: &mut Self, gone, cx| this.remove_drawn(gone, cx))
+    }
+}
+
+/// The pencil-ruler beside Attach in a box's bar, `dress`ed by that box; `off` says why it cannot be pressed.
+pub(crate) fn sketch_button<T: 'static>(
+    look: &Look,
+    off: Option<SharedString>,
+    dress: impl FnOnce(Stateful<Div>) -> Stateful<Div>,
+    cx: &Context<T>,
+    press: impl Fn(&mut T, &mut Window, &mut Context<T>) + 'static,
+) -> AnyElement {
+    labelled(
+        dress(super::head::icon_button(look, "draw-sketch", "pencil-ruler", off.clone().unwrap_or_else(|| "Draw a sketch to send with the message".into()), false, off.is_some()))
+            .when(off.is_none(), |button| button.on_click(cx.listener(move |this, _: &ClickEvent, window, cx| press(this, window, cx)))),
+        Role::Button,
+        "Draw sketch",
+    )
+    .into_any_element()
+}
+
+/// The tray's chip for each sketch waiting to go: its title, and Sketch where a file says its kind.
+pub(crate) fn drawn_tiles<T: 'static>(drawn: &[sketch::DrawnSketch], look: &Look, cx: &Context<T>, remove: impl Fn(&mut T, &str, &mut Context<T>) + Clone + 'static) -> Vec<AnyElement> {
+    drawn
+        .iter()
+        .map(|one| {
+            let name: SharedString = one.title.clone().into();
+            let gone = one.id.clone();
+            let remove = remove.clone();
+            let remove = labelled(
+                super::head::icon_button(look, "remove-drawn", "trash", format!("Remove {}", one.title).into(), false, false)
+                    .absolute()
+                    .top(look.length(token::SPACE_1))
+                    .right(look.length(token::SPACE_1))
+                    .size(look.length(token::SPACE_6))
+                    .rounded_full()
+                    .bg(look.color(token::BG_OVERLAY))
+                    .on_click(cx.listener(move |this, _, _, cx| remove(this, &gone, cx))),
+                Role::Button,
+                format!("Remove {}", one.title),
+            );
+            labelled(
+                div()
+                    .id(SharedString::from(format!("drawn-{}", one.id)))
+                    .relative()
+                    .flex_none()
+                    .h(look.length(token::SPACE_12) + look.length(token::SPACE_4))
+                    .w(look.length(token::SPACE_12) * 3.)
+                    .overflow_hidden()
+                    .rounded(look.length(token::RADIUS_MD))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .bg(look.color(token::BG_RAISED))
+                    .child(
+                        div()
+                            .size_full()
+                            .flex()
+                            .flex_col()
+                            .justify_between()
+                            .px(look.length(token::SPACE_3))
+                            .py(look.length(token::SPACE_2))
+                            .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).overflow_hidden().child(name.clone()))
+                            .child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_SUBTLE)).child("Sketch")),
+                    )
+                    .child(remove)
+                    .tooltip(tip(name.clone())),
+                Role::ListItem,
+                name,
+            )
+            .into_any_element()
+        })
+        .collect()
+}
+
+impl SketchPad {
+    pub(crate) fn new(cx: &mut Context<Self>) -> Self {
+        SketchPad { pad: Pad::new(cx), open: false }
+    }
+
+    pub(crate) fn is_open(&self) -> bool {
+        self.open
+    }
+
+    /// The sheet opens on the pad as it was left, with the keys on it.
+    pub(crate) fn open(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.open = true;
+        window.focus(&self.pad.focus, cx);
+        cx.notify();
+    }
+
+    fn close_sketch(&mut self, _window: &mut Window, cx: &mut Context<Self>) {
+        self.open = false;
+        self.pad.grab = None;
+        self.pad.ink = None;
+        cx.emit(PadEvent::Closed);
         cx.notify();
     }
 
     /// A box with these words, where there is room for it; the pen is put down, as a box is typed in.
     fn add_box(&mut self, body: String, window: &mut Window, cx: &mut Context<Self>) {
         let wide = f32::from(cx.look().length(token::W_SKETCH_BOX));
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         pad.pen = false;
         let (x, y) = pad.spot(wide);
         let id = pad.drawing.next_shape_id();
@@ -183,9 +326,7 @@ impl JobView {
         let typed = cx.subscribe_in(&area, window, move |this, area, event: &InputEvent, _, cx| {
             if matches!(event, InputEvent::Change) {
                 let body = area.read(cx).value().to_string();
-                if let Some(pad) = this.pad.as_mut() {
-                    pad.drawing.with_body(&typed_in, &body);
-                }
+                this.pad.drawing.with_body(&typed_in, &body);
                 cx.notify();
             }
         });
@@ -200,7 +341,7 @@ impl JobView {
     }
 
     fn pad_act(&mut self, act: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         match act {
             "draw" => pad.pen = !pad.pen,
             "undo" => pad.drawing.without_last_stroke(),
@@ -233,7 +374,7 @@ impl JobView {
     /// The whole drawing in view, at no more than React Flow's largest zoom.
     fn fit_pad(&mut self, cx: &mut Context<Self>) {
         let wide = f32::from(cx.look().length(token::W_SKETCH_BOX));
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         let mut seen: Vec<(f32, f32)> = Vec::new();
         for one in &pad.drawing.shapes {
             let (w, h) = pad.size_of(&one.id, wide);
@@ -256,7 +397,7 @@ impl JobView {
 
     /// Attach sketch: the drawing goes in the box's tray as a chip, and the pad starts again.
     fn attach_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         if !pad.drawing.is_drawn() {
             return;
         }
@@ -265,21 +406,14 @@ impl JobView {
         pad.picked.clear();
         pad.placed.borrow_mut().clear();
         let id = format!("d{}", chrono::Utc::now().timestamp_millis());
-        let job = pad.job.clone();
-        self.composer.box_of(&job).drawn.push(sketch::attach(&drawing, id));
+        cx.emit(PadEvent::Attached(sketch::attach(&drawing, id)));
         self.close_sketch(window, cx);
-    }
-
-    pub(super) fn remove_drawn(&mut self, id: &str, cx: &mut Context<Self>) {
-        let Some(job) = self.box_key() else { return };
-        self.composer.box_of(&job).drawn.retain(|one| one.id != id);
-        cx.notify();
     }
 
     // ---- the pointer on the pad -------------------------------------------------------------
 
     fn pad_down(&mut self, event: &MouseDownEvent, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         window.focus(&pad.focus, cx);
         if pad.pen {
             pad.ink = Some(vec![pad.to_pad(event.position)]);
@@ -291,7 +425,7 @@ impl JobView {
     }
 
     fn box_down(&mut self, id: &str, event: &MouseDownEvent, grips: bool, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         // ⌘ or ⌃ held, a box joins the pick rather than replacing it, which is how two are picked to join.
         if event.modifiers.platform || event.modifiers.control {
             if let Some(at) = pad.picked.iter().position(|one| one == id) {
@@ -311,7 +445,7 @@ impl JobView {
     }
 
     fn pad_move(&mut self, event: &MouseMoveEvent, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         if let Some(ink) = pad.ink.as_mut() {
             let pane = pad.pane.get();
             let at = Point { x: (f32::from(event.position.x - pane.origin.x) - pad.pan.0) / pad.zoom, y: (f32::from(event.position.y - pane.origin.y) - pad.pan.1) / pad.zoom };
@@ -339,7 +473,7 @@ impl JobView {
     }
 
     fn pad_up(&mut self, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         if let Some(points) = pad.ink.take() {
             pad.drawing.with_stroke(points);
         }
@@ -352,7 +486,7 @@ impl JobView {
     }
 
     fn pad_wheel(&mut self, event: &ScrollEvent, cx: &mut Context<Self>) {
-        let Some(pad) = self.pad.as_mut() else { return };
+        let pad = &mut self.pad;
         let dy = f32::from(event.delta.pixel_delta(px(16.)).y);
         let pane = pad.pane.get();
         let about = (f32::from(event.position.x - pane.origin.x), f32::from(event.position.y - pane.origin.y));
@@ -367,7 +501,7 @@ impl JobView {
             cx.stop_propagation();
             return self.close_sketch(window, cx);
         }
-        let on_pad = self.pad.as_ref().is_some_and(|pad| pad.focus.is_focused(window));
+        let on_pad = self.pad.focus.is_focused(window);
         if on_pad && keys.key == "v" && keys.modifiers.platform {
             if let Some(text) = cx.read_from_clipboard().and_then(|item| item.text()).filter(|text| !text.trim().is_empty()) {
                 cx.stop_propagation();
@@ -378,78 +512,12 @@ impl JobView {
 
     // ---- drawing --------------------------------------------------------------------------
 
-    /// The pencil-ruler beside Attach in the box's bar.
-    pub(super) fn sketch_button(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
-        // A sketch goes with a message, so it is drawn wherever a message goes.
-        let off = self.off_shown_to(super::composer::MESSAGE, cx);
-        labelled(
-            super::head::icon_button(look, "draw-sketch", "pencil-ruler", off.clone().unwrap_or_else(|| "Draw a sketch to send with the message".into()), false, off.is_some())
-                .when(off.is_none(), |button| button.on_click(cx.listener(|this, _, window, cx| this.open_sketch(window, cx)))),
-            Role::Button,
-            "Draw sketch",
-        )
-        .into_any_element()
-    }
-
-    /// The tray's chip for a sketch waiting to go: its title, and Sketch where a file says its kind.
-    pub(super) fn drawn_tiles(&self, id: &str, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
-        let Some(held) = self.composer.boxes.get(id) else { return Vec::new() };
-        held.drawn
-            .iter()
-            .map(|one| {
-                let name: SharedString = one.title.clone().into();
-                let gone = one.id.clone();
-                let remove = labelled(
-                    super::head::icon_button(look, "remove-drawn", "trash", format!("Remove {}", one.title).into(), false, false)
-                        .absolute()
-                        .top(look.length(token::SPACE_1))
-                        .right(look.length(token::SPACE_1))
-                        .size(look.length(token::SPACE_6))
-                        .rounded_full()
-                        .bg(look.color(token::BG_OVERLAY))
-                        .on_click(cx.listener(move |this, _, _, cx| this.remove_drawn(&gone, cx))),
-                    Role::Button,
-                    format!("Remove {}", one.title),
-                );
-                labelled(
-                    div()
-                        .id(SharedString::from(format!("drawn-{}", one.id)))
-                        .relative()
-                        .flex_none()
-                        .h(look.length(token::SPACE_12) + look.length(token::SPACE_4))
-                        .w(look.length(token::SPACE_12) * 3.)
-                        .overflow_hidden()
-                        .rounded(look.length(token::RADIUS_MD))
-                        .border(look.length(token::BORDER_WIDTH))
-                        .border_color(look.color(token::BORDER_SUBTLE))
-                        .bg(look.color(token::BG_RAISED))
-                        .child(
-                            div()
-                                .size_full()
-                                .flex()
-                                .flex_col()
-                                .justify_between()
-                                .px(look.length(token::SPACE_3))
-                                .py(look.length(token::SPACE_2))
-                                .child(div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_DEFAULT)).overflow_hidden().child(name.clone()))
-                                .child(div().text_size(look.length(token::TEXT_2XS)).font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM))).text_color(look.color(token::FG_SUBTLE)).child("Sketch")),
-                        )
-                        .child(remove)
-                        .tooltip(tip(name.clone())),
-                    Role::ListItem,
-                    name,
-                )
-                .into_any_element()
-            })
-            .collect()
-    }
-
     /// The sheet, over the app from under the title bar and at the right, as a floating wide `Sheet`.
-    pub(super) fn render_sketch(&self, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
-        if !self.sketch_open {
+    fn render_sketch(&self, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
+        if !self.open {
             return None;
         }
-        let pad = self.pad.as_ref()?;
+        let pad = &self.pad;
         let look = cx.look();
         let room = crate::room::of(window, cx);
         let viewport = room.size;
@@ -756,7 +824,7 @@ impl JobView {
 }
 
 /// One act on the rail: a small icon button with its tooltip, lit while it is on.
-fn rail_button(look: &Look, act: &'static str, icon: &'static str, said: &'static str, on: bool, off: bool, cx: &Context<JobView>) -> AnyElement {
+fn rail_button(look: &Look, act: &'static str, icon: &'static str, said: &'static str, on: bool, off: bool, cx: &Context<SketchPad>) -> AnyElement {
     let name = match act {
         "draw" => "Draw",
         "undo" => "Undo",
@@ -776,7 +844,7 @@ fn rail_button(look: &Look, act: &'static str, icon: &'static str, said: &'stati
 }
 
 /// Zoom out and Zoom in, which draw their sign rather than a glyph.
-fn rail_sign(look: &Look, act: &'static str, sign: &'static str, said: &'static str, cx: &Context<JobView>) -> AnyElement {
+fn rail_sign(look: &Look, act: &'static str, sign: &'static str, said: &'static str, cx: &Context<SketchPad>) -> AnyElement {
     labelled(
         rail_frame(look, act, false, false)
             .tooltip(tip(said))

@@ -56,10 +56,10 @@ mod keys;
 mod lines;
 mod menus;
 pub(crate) mod offer;
-mod ask_tools;
+pub(crate) mod ask_tools;
 mod perm;
 mod picture_view;
-mod pictures;
+pub(crate) mod pictures;
 mod pinned;
 mod thread_rail;
 mod place;
@@ -152,7 +152,7 @@ pub use on_page::ready_sent_on_page;
 pub use mod_panel::{ModPanel, ModPanelAsked, OpenJobFrom};
 pub use teach::notice_name;
 mod runs;
-mod talk;
+pub(crate) mod talk;
 mod tool_icons;
 mod tune;
 pub(crate) mod wire;
@@ -507,7 +507,8 @@ pub struct JobView {
     reporting: Option<report::Report>,
     /// The Draw sketch sheet is up, over the Job's pad.
     sketch_open: bool,
-    pad: Option<sketch_pad::Pad>,
+    /// The pad the sheet draws on, for the Job it was opened in.
+    pad: Option<(SharedString, Entity<sketch_pad::SketchPad>, Subscription)>,
     /// The Workflow tab's canvas: where each Job's lanes are looked at, and whether the keys are on it.
     lanes: lanes::Lanes,
     /// The Teach panel, while it is open, Fleet's refusal of its last call, and the count that tells its answers apart.
@@ -1437,7 +1438,7 @@ impl Render for JobView {
         popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
-        popups.extend(self.render_sketch(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_sketch());
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));
         let panes = self.render_panes(&id, thread_body, popups, window, cx);

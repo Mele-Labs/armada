@@ -293,6 +293,36 @@ impl CheckSlots {
         }
     }
 
+    /// The checkout at `root`, held for one Check at a time, waiting as long as
+    /// it takes. Taken before the machine's slots, so a second Check in a
+    /// checkout waits holding none of them.
+    ///
+    /// **One Check per checkout**, since two in one checkout share its build
+    /// directory and the second only queues on cargo's lock while holding a
+    /// slot the machine could give another. 386 agent runs of 14 to 21 Nov
+    /// 2026, 26.3 h, were a second run of the same Check in the same slot.
+    ///
+    /// `waiting` hears once that another Check holds it. Safe to drop while
+    /// waiting: nothing is held until it returns.
+    pub async fn take_checkout(&self, root: &Path, mut waiting: impl FnMut()) -> io::Result<Held> {
+        std::fs::create_dir_all(&self.dir)?;
+        let file = OpenOptions::new()
+            .create(true)
+            .truncate(false)
+            .write(true)
+            .open(self.dir.join(checkout_file(root)))?;
+        let mut said = false;
+        loop {
+            match file.try_lock() {
+                Ok(()) => return Ok(Held { _files: vec![file] }),
+                Err(TryLockError::WouldBlock) if !std::mem::replace(&mut said, true) => waiting(),
+                Err(TryLockError::WouldBlock) => {}
+                Err(TryLockError::Error(why)) => return Err(why),
+            }
+            tokio::time::sleep(LOOK_AGAIN).await;
+        }
+    }
+
     fn ahead_file(&self) -> io::Result<File> {
         std::fs::create_dir_all(&self.dir)?;
         OpenOptions::new()
@@ -324,4 +354,16 @@ impl CheckSlots {
             }
         }
     }
+}
+
+/// The file that holds the checkout at `root`: its path, made a file name, so
+/// every clone and worktree has its own beside the machine's slots.
+fn checkout_file(root: &Path) -> String {
+    let root = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let name: String = root
+        .to_string_lossy()
+        .chars()
+        .map(|c| if c.is_alphanumeric() || c == '-' || c == '.' { c } else { '_' })
+        .collect();
+    format!("checkout-{name}")
 }

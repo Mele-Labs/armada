@@ -645,23 +645,23 @@ where
         let sketch_how = if said.how == PartHow::Approved { SketchHow::Approved } else { SketchHow::SentBack };
         match (&part.content, kind) {
             (PartContent::Drawing { .. }, _) => {
-                let answer = AnswerSketch { session_id: said.session_id.clone(), sketch: part.id.clone(), drawn: part.drawn.clone(), how: sketch_how, words: words.clone() };
+                let answer = AnswerSketch { session_id: said.session_id.clone(), sketch: part.id.clone(), drawn: part.drawn.clone(), how: sketch_how, words: words.clone(), extras: said.extras.clone() };
                 Arc::clone(&self).sketch_answered(answer).await?;
             }
             (PartContent::Page { path }, _) => {
                 let how = if said.how == PartHow::Approved { DocumentHow::Approved } else { DocumentHow::SentBack };
-                let answer = AnswerDocument { session_id: said.session_id.clone(), document: path.clone(), revision: part.drawn.clone(), how, words: words.clone() };
+                let answer = AnswerDocument { session_id: said.session_id.clone(), document: path.clone(), revision: part.drawn.clone(), how, words: words.clone(), extras: said.extras.clone() };
                 Arc::clone(&self).document_answered(answer).await?;
             }
             (PartContent::Words { .. }, _) if part.id.starts_with(DRAFT_PREFIX) => {
-                Arc::clone(&self).member_draft_answered(&id, &part, said.how, words.clone()).await?;
+                Arc::clone(&self).member_draft_answered(&id, &part, said.how, words.clone(), &said.extras).await?;
             }
             (PartContent::Words { .. }, _) => {
-                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone()).await?;
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone(), &said.extras).await?;
             }
             // Ask for changes on takes: none of them, and his words say what to draw instead.
             (PartContent::Takes { .. }, _) if said.how == PartHow::SentBack => {
-                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone()).await?;
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone(), &said.extras).await?;
             }
             (PartContent::Takes { .. }, _) => {
                 let Some(take) = said.take.as_deref().map(str::trim).filter(|take| !take.is_empty()) else {
@@ -700,12 +700,14 @@ where
     /// Every part of the artifact still asking, answered one after another the same way: his Approve of the artifact,
     /// or his note sent back on each. **A takes part is answered with a pick, so an artifact that holds one is not
     /// approved whole.** Each part is told to the Job as its own answer.
-    pub(crate) async fn artifact_answered_all(self: Arc<Self>, id: &str, root: &str, approve: bool, words: Option<String>) -> Result<JobArtifact, Refusal> {
+    pub(crate) async fn artifact_answered_all(self: Arc<Self>, id: &str, root: &str, approve: bool, words: Option<String>, extras: ipc::AnswerExtras) -> Result<JobArtifact, Refusal> {
         let artifact = self.artifact_held(id, root).await?;
         let open: Vec<ArtifactPart> = artifact.parts.iter().filter(|part| part.is_open_ask()).cloned().collect();
         if let Some(takes) = open.iter().find(|part| approve && part.content.kind() == PartKind::Takes) {
             return Err(self.hosted_refusal(PART_HOW, &format!("`{}` holds a pick, `{}`, which is a vote: send a pick on it with the take he chose, which no Approve of the whole stands in for", artifact.title, takes.id)));
         }
+        // His pictures and tags go with the first part told, so each is sent once and not once for every part.
+        let mut extras = Some(extras);
         for part in open {
             let said = AnswerPart {
                 session_id: SessionId::carried(id),
@@ -716,6 +718,7 @@ where
                 take: None,
                 words: words.clone(),
                 notes: BTreeMap::new(),
+                extras: extras.take().unwrap_or_default(),
             };
             Box::pin(Arc::clone(&self).part_answered(said)).await?;
         }
@@ -723,7 +726,7 @@ where
     }
 
     /// A draft that joined an artifact, approved or sent back as its own card would, the Job told first.
-    async fn member_draft_answered(self: Arc<Self>, id: &str, part: &ArtifactPart, how: PartHow, words: Option<String>) -> Result<(), Refusal> {
+    async fn member_draft_answered(self: Arc<Self>, id: &str, part: &ArtifactPart, how: PartHow, words: Option<String>, extras: &ipc::AnswerExtras) -> Result<(), Refusal> {
         let row = part.drawn.clone();
         let title = part.id.strip_prefix(DRAFT_PREFIX).unwrap_or(&part.id).to_string();
         let _settling = self
@@ -745,7 +748,7 @@ where
             }
             _ => (super::drafting::sent_back(&title, words.as_deref().unwrap_or_default()), DraftHow::SentBack),
         };
-        self.told_as_him(id, body).await?;
+        self.told_as_him_with(id, body, extras).await?;
         self.draft_settled(id, &row, settled, words).await?;
         if how == PartHow::Approved {
             let record = self.published_hosted(id).await?;
@@ -755,7 +758,7 @@ where
     }
 
     /// A words part, approved or sent back, the Job told first and naming the artifact and the part.
-    async fn stored_words_answered(self: Arc<Self>, id: &str, artifact: &JobArtifact, part: &ArtifactPart, how: PartHow, words: Option<String>) -> Result<(), Refusal> {
+    async fn stored_words_answered(self: Arc<Self>, id: &str, artifact: &JobArtifact, part: &ArtifactPart, how: PartHow, words: Option<String>, extras: &ipc::AnswerExtras) -> Result<(), Refusal> {
         let _settling = self
             .hosts()
             .settling(id, &format!("{}#{}", artifact.id, part.id))
@@ -773,7 +776,7 @@ where
             body.push('\n');
             body.push_str(words);
         }
-        self.told_as_him(id, body).await?;
+        self.told_as_him_with(id, body, extras).await?;
         let state = if how == PartHow::Approved { PartState::Approved } else { PartState::SentBack };
         let answer = PartAnswer { words, at: Some(self.instant()), ..PartAnswer::default() };
         self.stored_part_settled(id, &artifact.id, &part.id, &part.drawn, state, answer).await?;

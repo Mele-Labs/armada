@@ -46,7 +46,7 @@ async fn card_of(rig: &Rig, id: &SessionId) -> ipc::WaitingItem {
 async fn pressed(rig: &Rig, id: &SessionId, label: &str) -> ipc::SessionRecord {
     let card = card_of(rig, id).await;
     let choice = card.options.iter().position(|one| one.label == label).unwrap_or_else(|| panic!("{label} on {card:?}"));
-    let said = AnswerWaiting { session_id: id.clone(), item_id: card.id, choice: Some(choice as u32), text: None, mode: None, fixed: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id: card.id, choice: Some(choice as u32), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered")
 }
 

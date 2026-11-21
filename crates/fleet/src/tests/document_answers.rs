@@ -71,6 +71,7 @@ pub(super) fn answer(id: &SessionId, path: &str, revision: &str, how: DocumentHo
         revision: revision.into(),
         how,
         words: words.map(str::to_string),
+        extras: Default::default(),
     }
 }
 

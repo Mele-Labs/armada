@@ -527,3 +527,74 @@ async fn a_jobs_row_and_window_go_out_only_for_a_shared_job_and_are_refused_as_f
     let refused = Arc::clone(&rig.fleet).share_job_session(in_none.clone(), Some(window(2, None))).await.expect_err("still none");
     assert_eq!(said(&refused, in_none.as_str()), said(&missing, nobody.as_str()));
 }
+
+/// Job `job`'s row here ended as `moved_away` leaves it, the Mac it went to holding it now.
+async fn moved_to_work(rig: &Rig, job: &SessionId) {
+    let mut ledger = rig.fleet.store().lock().await;
+    let mut row = ledger.session(job.as_str()).expect("read").expect("this Mac's row");
+    row.state = store::SessionState::Ended;
+    row.end_reason = Some("moved_to_mac".into());
+    ledger.keep_session(&row).expect("kept");
+}
+
+#[tokio::test]
+async fn a_job_that_moved_to_another_mac_is_never_sent_back_to_it() {
+    let rig = rig_placing(None);
+    let shop = project(&rig, "Shop").await;
+    shared(&rig, &shop, true).await;
+    let job = job_in(&rig, Some(&shop)).await;
+    let mut there = record_of(&rig, &job).await;
+    there.state = SessionState::Live;
+    moved_to_work(&rig, &job).await;
+    hold(&rig, vec![there.clone()]).await;
+
+    let held = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions;
+    let held = held.into_iter().find(|one| one.id == job).expect("Work's row");
+    assert_eq!((held.state, held.mac.as_deref()), (SessionState::Live, Some(WORK)), "Work's live row stands for it");
+    // Each Mac relays what the other says of it, so either sending it back makes the two echo it for good.
+    assert!(rig.fleet.share_event(Event::SessionChanged(held)).await.is_none(), "Work's own row went back to Work");
+    let moved = Event::JobThreadChanged(JobThreadChanged { session_id: job.clone(), from: "r1".into() });
+    assert!(rig.fleet.share_event(moved).await.is_none(), "Work's thread news went back to Work");
+
+    // Ended there, the row that says so is kept and reaches Bridge, and no older one is sent to stand over it.
+    let mut watching = rig.fleet.events().subscribe();
+    let mut ended = there.clone();
+    ended.state = SessionState::Ended;
+    ended.end_reason = Some("closed".into());
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: Event::SessionChanged(ended) }).await.expect("kept");
+    let told = sent(&mut watching).await;
+    assert!(told.iter().any(|one| matches!(one, Event::SessionChanged(row) if row.id == job && row.state == SessionState::Ended && row.mac.as_deref() == Some(WORK))));
+    let listed = rig.fleet.list_sessions(None, None, None).await.expect("listed").sessions;
+    let listed = listed.into_iter().find(|one| one.id == job).expect("Work's row");
+    assert_eq!((listed.state, listed.end_reason.as_deref()), (SessionState::Ended, Some("closed")));
+}
+
+#[tokio::test]
+async fn another_macs_row_of_a_job_this_mac_holds_itself_is_never_kept_or_told_to_bridge() {
+    let rig = rig_placing(None);
+    let mine = job_in(&rig, None).await;
+    let template = record_of(&rig, &mine).await;
+    let mut watching = rig.fleet.events().subscribe();
+    let held = || async { rig.fleet.store().lock().await.held_from_macs(store::FromMac::Sessions).expect("read") };
+
+    // The echo of this Mac's own row, as a Mac on an older build sends it back: its copy, held from this Mac.
+    let mut echoed = theirs(&template, mine.as_str(), "An older title");
+    echoed.mac = Some("mac-home".into());
+    let echo = Event::SessionChanged(echoed);
+    Arc::clone(&rig.fleet).hold_other_mac_event(OtherMacEvent { mac: WORK.into(), event: echo }).await.expect("taken, and nothing done");
+    assert!(held().await.is_empty(), "kept as Work's");
+    // One an older build kept goes with the next replace, and Bridge, whose row is this Mac's own, is told nothing.
+    let body = ipc::encode(&theirs(&template, mine.as_str(), "An older title")).expect("encoded");
+    rig.fleet.store().lock().await.keep_from_mac(store::FromMac::Sessions, WORK, mine.as_str(), &body).expect("kept");
+    hold(&rig, Vec::new()).await;
+    assert!(held().await.is_empty(), "the replace kept it");
+
+    let about_mine = |one: &Event| match one {
+        Event::SessionChanged(row) => row.id == mine,
+        Event::SessionRemoved(gone) => gone.session_id == mine,
+        Event::JobThreadChanged(changed) => changed.session_id == mine,
+        _ => false,
+    };
+    let told = sent(&mut watching).await;
+    assert!(!told.iter().any(about_mine), "Bridge's own row was stood over or taken away: {told:?}");
+}

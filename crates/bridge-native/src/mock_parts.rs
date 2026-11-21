@@ -330,7 +330,7 @@ mod tests {
     use super::*;
 
     fn said(part: &str, drawn: &str, how: PartHow, take: Option<&str>, words: Option<&str>) -> AnswerPart {
-        AnswerPart { session_id: ipc::SessionId::carried(JOB), artifact: ID.into(), part: part.into(), drawn: drawn.into(), how, take: take.map(str::to_string), words: words.map(str::to_string), notes: BTreeMap::new() }
+        AnswerPart { session_id: ipc::SessionId::carried(JOB), artifact: ID.into(), part: part.into(), drawn: drawn.into(), how, take: take.map(str::to_string), words: words.map(str::to_string), notes: BTreeMap::new(), extras: Default::default() }
     }
 
     #[test]

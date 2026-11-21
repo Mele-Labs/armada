@@ -54,6 +54,7 @@ async fn a_pick_on_takes_is_filed_under_the_feature_they_name_and_no_other() {
         take: Some("b".into()),
         words: Some("Right reads better.".into()),
         notes: Default::default(),
+        extras: Default::default(),
     };
     Arc::clone(&rig.fleet).answer_part(pick).await.unwrap();
 
@@ -74,7 +75,7 @@ async fn a_verdict_on_a_sketch_naming_no_feature_is_filed_under_the_features_the
 
     let record = rig.fleet.show_sketch(None, drawn(&job, "Vote results", None)).await.unwrap();
     let drawing = record.attachments.iter().find(|one| one.target == "sketch:Vote results").and_then(|one| one.detail.get("drawn").cloned()).unwrap();
-    let said = AnswerSketch { session_id: job.clone(), sketch: "sketch:Vote results".into(), drawn: drawing, how: SketchHow::SentBack, words: Some("Fewer columns.".into()) };
+    let said = AnswerSketch { session_id: job.clone(), sketch: "sketch:Vote results".into(), drawn: drawing, how: SketchHow::SentBack, words: Some("Fewer columns.".into()), extras: Default::default() };
     Arc::clone(&rig.fleet).answer_sketch(said).await.unwrap();
 
     let filed = decisions(&rig, &project, VOTING).await;
@@ -96,7 +97,7 @@ async fn hearing_an_answer_again_files_it_once() {
 
     let record = rig.fleet.show_sketch(None, drawn(&job, "Vote results", None)).await.unwrap();
     let drawing = record.attachments.iter().find(|one| one.target == "sketch:Vote results").and_then(|one| one.detail.get("drawn").cloned()).unwrap();
-    let said = AnswerSketch { session_id: job.clone(), sketch: "sketch:Vote results".into(), drawn: drawing, how: SketchHow::Approved, words: None };
+    let said = AnswerSketch { session_id: job.clone(), sketch: "sketch:Vote results".into(), drawn: drawing, how: SketchHow::Approved, words: None, extras: Default::default() };
     let settled = Arc::clone(&rig.fleet).answer_sketch(said).await.unwrap();
 
     // Fleet hears the same settled sketch again, as it does each time the Job's record is reported.

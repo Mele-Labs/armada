@@ -497,7 +497,7 @@ impl JobView {
             self.keep_settled(&job, artifact, &parts, words.as_deref(), cx);
         }
         self.parts_changed(artifact, cx);
-        let said = AnswerPart { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), part: part.id.clone(), drawn: part.drawn.clone(), how, take, words, notes: BTreeMap::new() };
+        let said = AnswerPart { session_id: SessionId::carried(job.to_string()), artifact: artifact.to_string(), part: part.id.clone(), drawn: part.drawn.clone(), how, take, words, notes: BTreeMap::new(), extras: Default::default() };
         let body = ipc::encode(&said).map_err(|why| format!("{why:?}"));
         let back = job.clone();
         self.post_with(job, ANSWER_PART, body, move |this, why, cx| this.part_refused(&back, &key, why, cx), window, cx);

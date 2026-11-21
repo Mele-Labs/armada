@@ -371,7 +371,7 @@ async fn proposal_waiting(rig: &Rig, id: &SessionId) -> Option<ipc::WaitingItem>
 
 async fn answered(rig: &Rig, id: &SessionId, item: &str, choice: u32) -> Result<ipc::SessionRecord, Refusal> {
     Arc::clone(&rig.fleet)
-        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None })
+        .answer_waiting(AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() })
         .await
 }
 

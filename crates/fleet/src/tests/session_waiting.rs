@@ -195,6 +195,7 @@ fn answer(id: &ipc::SessionId, item: &str) -> AnswerWaiting {
         text: None,
         mode: None,
         fixed: None,
+        extras: Default::default(),
     }
 }
 

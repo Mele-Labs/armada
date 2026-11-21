@@ -583,4 +583,7 @@ pub struct AnswerPart {
     /// `picked`: his words on any take, by its id.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub notes: BTreeMap<String, String>,
+    /// Pictures and tags that go with the words.
+    #[serde(default, skip_serializing_if = "crate::AnswerExtras::is_empty")]
+    pub extras: crate::AnswerExtras,
 }

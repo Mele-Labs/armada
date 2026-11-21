@@ -183,6 +183,7 @@ async fn his_answer_to_a_part_of_a_job_another_mac_holds_is_taken_on_that_mac() 
         take: None,
         words: None,
         notes: BTreeMap::new(),
+        extras: Default::default(),
     };
     let (status, body) = post(&home, "/sessions/artifacts/part/answer", encoded(&answer)).await;
     assert_eq!(status, axum::http::StatusCode::OK, "{body}");

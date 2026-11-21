@@ -502,7 +502,7 @@ pub use holding::{
 };
 pub use job_dispatch::{DispatchJob, DispatchKind, DispatchMessage, DispatchThen, JobDispatched, ParkedIdea, ParkedIdeas, RemoveParkedIdea};
 pub use hosted_sessions::{
-    AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
+    AnswerExtras, AnswerSessionAsk, BeginSession, ChosenHold, CloseSession, DraftHow, DraftSettled, EditSessionMessage, HandoffPick, ForkFrom, GateAnswer, GateHold, HeldCommand,
     HoldKept, HoldMoved, HostedFacts, LinkedEvent, MessagesHeld, MoveSession,
     ReleaseSessionHolds, RunSessionCommand, SendSessionMessage, SendSessionMessageBody, SentFile, SentSketch, SessionAskState,
     SessionGate, SessionHoldsReleased, SessionMode, SessionRow, SessionRowChanged, SessionSubagentChanged, SessionTag,

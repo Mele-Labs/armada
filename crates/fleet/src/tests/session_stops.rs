@@ -214,7 +214,7 @@ async fn a_shown_walk_is_him_to_act_and_no_stop() {
 async fn a_job_waiting_in_the_slot_line_has_no_stop() {
     let (rig, _holder) = super::session_queue::with_slot_one_held().await;
     let (id, _) = super::session_queue::queued_and_idle(&rig, "change a file").await;
-    let wait = ipc::AnswerWaiting { session_id: id.clone(), item_id: "slot-choice".into(), choice: Some(0), text: None, mode: None, fixed: None };
+    let wait = ipc::AnswerWaiting { session_id: id.clone(), item_id: "slot-choice".into(), choice: Some(0), text: None, mode: None, fixed: None, extras: Default::default() };
     Arc::clone(&rig.fleet).answer_waiting(wait).await.expect("he chose to wait");
     aged(&rig, &id).await;
     let row = record(&rig, &id).await;

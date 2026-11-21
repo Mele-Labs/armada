@@ -7,7 +7,7 @@
 import type { BuildSource } from "./building";
 import type { ForLink } from "./job-artifacts";
 import type { CallInFlight } from "./calls";
-import type { DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
+import type { AnswerExtras, DeliveryChoice, HostedFacts, SessionMode } from "./hosted-sessions";
 import type { ContextBreakdown } from "./context-breakdown";
 import type { LoadoutItems, LoadoutSummary, LoadoutUse } from "./loadout";
 import type { TurnUsage } from "./turn-usage";
@@ -915,6 +915,7 @@ export type AnswerWaiting = {
   text?: string;
   mode?: "best" | "quick";
   fixed?: string;
+  extras?: AnswerExtras;
 };
 
 /**
@@ -1330,6 +1331,7 @@ export type AnswerSketch = {
   drawn: string;
   how: SketchHow;
   words?: string;
+  extras?: AnswerExtras;
 };
 
 /**
@@ -1413,6 +1415,7 @@ export type AnswerDocument = {
   revision: string;
   how: DocumentHow;
   words?: string;
+  extras?: AnswerExtras;
 };
 
 /**

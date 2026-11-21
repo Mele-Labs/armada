@@ -462,7 +462,7 @@ pub(super) fn answer_batch(items: &[&Item], how: ItemHow, notes: impl Fn(&Item) 
     AnswerItems {
         items: items
             .iter()
-            .map(|item| ItemAnswer { session_id: SessionId::carried(item.job.clone()), item: item.id.clone(), how, notes: notes_of(&notes(item)) })
+            .map(|item| ItemAnswer { session_id: SessionId::carried(item.job.clone()), item: item.id.clone(), how, notes: notes_of(&notes(item)), extras: Default::default() })
             .collect(),
     }
 }

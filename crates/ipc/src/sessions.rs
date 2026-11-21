@@ -1268,6 +1268,9 @@ pub struct AnswerWaiting {
     /// an item of any other source.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub fixed: Option<String>,
+    /// Pictures and tags that go with `text`, sent to the agent as a message's are.
+    #[serde(default, skip_serializing_if = "crate::AnswerExtras::is_empty")]
+    pub extras: crate::AnswerExtras,
 }
 
 /// `answer_waiting_parts`: the person answers an item by picking parts across its options' pictures, which asks

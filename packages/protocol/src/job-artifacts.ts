@@ -4,6 +4,8 @@
 // The header rules in `protocol.ts` hold here. Nothing is published: Bridge reads again on a `session.changed`,
 // which an archive, a restore, his Edit, a press, a vote and a mark that moved `seen` publish.
 
+import type { AnswerExtras } from "./hosted-sessions";
+
 /** What an artifact is. A page is a document under `.armada/documents/`. */
 export type ArtifactForm = "sketch" | "draft" | "page";
 
@@ -200,6 +202,7 @@ export type AnswerPart = {
   take?: string;
   words?: string;
   notes?: Record<string, string>;
+  extras?: AnswerExtras;
 };
 
 /**
@@ -424,6 +427,7 @@ export type ItemAnswer = {
   item: string;
   how: ItemHow;
   notes?: ItemNote[];
+  extras?: AnswerExtras;
 };
 
 /**

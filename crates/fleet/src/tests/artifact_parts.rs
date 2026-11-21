@@ -55,6 +55,7 @@ fn answer(id: &SessionId, artifact: &str, part: &str, drawn: &str, how: PartHow)
         take: None,
         words: (how == PartHow::SentBack).then(|| String::from("Change it.")),
         notes: Default::default(),
+        extras: Default::default(),
     }
 }
 
@@ -203,7 +204,7 @@ async fn takes_are_answered_by_one_pick_and_approve_of_the_whole_never_stands_in
     let wrong = refused(Arc::clone(&rig.fleet).answer_part(answer(&id, "sketch:Catalog", "layout", &layout.drawn, PartHow::Approved)).await);
     assert_eq!(wrong.code, "fleet.part_how");
     assert!(wrong.message.contains("send how `picked`"), "it says what to send: {}", wrong.message);
-    let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Catalog".into(), how: ipc::ItemHow::Approve, notes: Vec::new() };
+    let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Catalog".into(), how: ipc::ItemHow::Approve, notes: Vec::new(), extras: Default::default() };
     let whole = Arc::clone(&rig.fleet).answer_items(ipc::AnswerItems { items: vec![item] }, Vec::new()).await;
     let ipc::ItemSettled::Refused { message, .. } = &whole.outcomes[0].outcome else { panic!("an Approve of the whole is refused while a pick is open") };
     assert!(message.contains("send a pick"), "{message}");
@@ -300,7 +301,7 @@ async fn a_sketch_a_draft_a_page_and_a_part_shown_while_the_first_still_asks_are
     assert_eq!(items, wanted, "{list:?}");
 
     // Answering one leaves the others as they stand.
-    let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Request flow".into(), how: ipc::ItemHow::Approve, notes: Vec::new() };
+    let item = ipc::ItemAnswer { session_id: id.clone(), item: "sketch:Request flow".into(), how: ipc::ItemHow::Approve, notes: Vec::new(), extras: Default::default() };
     let settled = Arc::clone(&rig.fleet).answer_items(ipc::AnswerItems { items: vec![item] }, Vec::new()).await;
     assert_eq!(settled.outcomes.len(), 1);
     assert_eq!(his_list(&rig, &id).await.len(), 3);

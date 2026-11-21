@@ -91,6 +91,19 @@ async fn connect(port: u16) -> Result<TcpStream, String> {
         .map_err(|why| why.to_string())
 }
 
+/// What a request ended on when Fleet closed the connection before its answer was whole.
+pub const STOPPED: &str = "Fleet stopped before it answered";
+
+/// A request's failure as a person reads it: a connection Fleet closed mid-answer is Fleet stopping, which hyper's
+/// own words do not say; anything else keeps hyper's.
+fn dropped(why: hyper::Error) -> String {
+    if why.is_incomplete_message() || why.is_canceled() {
+        STOPPED.to_string()
+    } else {
+        why.to_string()
+    }
+}
+
 /// GET `path`; the status and the bytes, nothing interpreted.
 pub async fn get(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
     let io = TokioIo::new(connect(port).await?);
@@ -104,9 +117,9 @@ pub async fn get(port: u16, path: &str) -> Result<(u16, Vec<u8>), String> {
         .body(Empty::<Bytes>::new())
         .map_err(|why| why.to_string())?;
     let read = async {
-        let response = sender.send_request(request).await.map_err(|why| why.to_string())?;
+        let response = sender.send_request(request).await.map_err(dropped)?;
         let status = response.status().as_u16();
-        let body = response.into_body().collect().await.map_err(|why| why.to_string())?;
+        let body = response.into_body().collect().await.map_err(dropped)?;
         Ok((status, body.to_bytes().to_vec()))
     };
     noted(timeout(ANSWER_PATIENCE, read).await, ANSWER_PATIENCE)
@@ -164,9 +177,9 @@ async fn send(method: &str, port: u16, path: &str, body: Option<String>, patienc
     }
     .map_err(|why| why.to_string())?;
     let read = async {
-        let response = sender.send_request(request).await.map_err(|why| why.to_string())?;
+        let response = sender.send_request(request).await.map_err(dropped)?;
         let status = response.status().as_u16();
-        let body = response.into_body().collect().await.map_err(|why| why.to_string())?;
+        let body = response.into_body().collect().await.map_err(dropped)?;
         Ok((status, body.to_bytes().to_vec()))
     };
     noted(timeout(patience, read).await, patience)
@@ -213,6 +226,25 @@ mod tests {
         assert!(slowness.standing());
         slowness.answered();
         assert!(!slowness.standing(), "one answer and the run starts again");
+    }
+
+    /// Fleet aborted while it handled a dispatch (21 Nov, a stack overflow): the socket closed with the request read
+    /// and nothing written back, and the toast said hyper's "connection closed before message completed".
+    #[tokio::test]
+    async fn a_connection_closed_before_the_answer_reads_as_fleet_stopping() {
+        use tokio::io::AsyncReadExt;
+        let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bound");
+        let port = listener.local_addr().expect("addr").port();
+        tokio::spawn(async move {
+            let (mut socket, _) = listener.accept().await.expect("accepted");
+            let mut read = [0u8; 4096];
+            let _ = socket.read(&mut read).await;
+            drop(socket);
+        });
+
+        let failed = post(port, "/sessions/dispatch", "{}".to_string()).await.expect_err("no answer");
+
+        assert_eq!(failed, STOPPED);
     }
 
     #[test]

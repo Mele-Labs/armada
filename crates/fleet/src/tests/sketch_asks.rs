@@ -90,7 +90,7 @@ async fn his_note_on_a_sketch_that_asks_nothing_reaches_the_job_and_leaves_it_as
     // There is nothing to approve or send back, and nothing is told to the job.
     let before = told(&rig.rows(&id).await);
     for how in [SketchHow::Approved, SketchHow::SentBack] {
-        let answer = AnswerSketch { session_id: id.clone(), sketch: TARGET.into(), drawn: drawn.clone(), how, words: Some(note.into()) };
+        let answer = AnswerSketch { session_id: id.clone(), sketch: TARGET.into(), drawn: drawn.clone(), how, words: Some(note.into()), extras: Default::default() };
         let refused = Arc::clone(&rig.fleet).answer_sketch(answer).await.expect_err("it asks nothing");
         assert!(format!("{refused:?}").contains("fleet.sketch_not_open"), "{refused:?}");
     }

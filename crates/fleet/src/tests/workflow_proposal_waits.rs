@@ -42,7 +42,7 @@ fn proposal(items: &[WaitingItem]) -> Option<&WaitingItem> {
 }
 
 fn answering(id: &ipc::SessionId, item: &str, choice: u32) -> AnswerWaiting {
-    AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None }
+    AnswerWaiting { session_id: id.clone(), item_id: item.to_string(), choice: Some(choice), text: None, mode: None, fixed: None, extras: Default::default() }
 }
 
 #[tokio::test]
@@ -93,7 +93,7 @@ async fn a_dismiss_from_the_workflows_page_clears_the_item_too() {
 async fn words_on_a_proposal_send_it_back_to_be_proposed_again_and_put_the_change_aside() {
     let (rig, planted, id, change) = proposing().await;
     let item = proposal(&waiting(&rig, &id).await).unwrap().id.clone();
-    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: None, text: Some("Add a review step.".into()), mode: None, fixed: None };
+    let said = AnswerWaiting { session_id: id.clone(), item_id: item, choice: None, text: Some("Add a review step.".into()), mode: None, fixed: None, extras: Default::default() };
 
     Arc::clone(&rig.fleet).answer_waiting(said).await.expect("answered");
 

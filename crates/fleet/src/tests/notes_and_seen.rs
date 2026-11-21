@@ -27,7 +27,7 @@ async fn sent_back_with(notes: Vec<ItemNote>) -> String {
     let (id, _at) = a_job(&rig).await;
     let body = format!(r#"{{"title":"Bay flow","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
     rig.fleet.show_sketch(None, ipc::decode::<ShowSketch>("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
-    let answer = ItemAnswer { session_id: id.clone(), item: "sketch:Bay flow".into(), how: ItemHow::SendBack, notes };
+    let answer = ItemAnswer { session_id: id.clone(), item: "sketch:Bay flow".into(), how: ItemHow::SendBack, notes, extras: Default::default() };
     let settled = Arc::clone(&rig.fleet).answer_items(AnswerItems { items: vec![answer] }, Vec::new()).await;
     assert_eq!(settled.outcomes[0].outcome, ItemSettled::Settled);
     sent(&rig.rows(&id).await).pop().expect("the Job was told")

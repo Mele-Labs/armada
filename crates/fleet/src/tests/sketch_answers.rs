@@ -43,6 +43,7 @@ fn answer(id: &SessionId, drawn: &str, how: SketchHow, words: Option<&str>) -> A
         drawn: drawn.into(),
         how,
         words: words.map(str::to_string),
+        extras: Default::default(),
     }
 }
 
@@ -415,4 +416,46 @@ fn an_answered_sketch_never_stays_first_so_the_pin_moves_to_the_newest_still_ope
     assert_eq!(listed(&[older.clone(), newest]), ["sketch:Older"]);
     let newest = asked("Newest", "abcd1234-20261104T151426339Z-2", "2026-11-04T15:14:26Z", None);
     assert_eq!(listed(&[older, newest]), ["sketch:Newest", "sketch:Older"], "newest drawn first, whatever changed later");
+}
+
+/// What he attached and tagged with an answer, as the row on the thread keeps it.
+fn extras() -> ipc::AnswerExtras {
+    ipc::AnswerExtras {
+        attachments: vec![ipc::SessionUpload { name: "shot.png".into(), media_type: "image/png".into(), data: "aGVsbG8=".into() }],
+        mentions: vec![ipc::SessionTag { kind: ipc::TagKind::Branch, id: "armada/other".into(), title: "armada/other".into(), url: None }],
+    }
+}
+
+/// His row, the last he wrote: the picture and the tag it keeps.
+fn his_row(rows: &[SessionRow]) -> (Vec<ipc::SentFile>, Vec<ipc::SessionTag>) {
+    rows.iter()
+        .rev()
+        .find_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, files, tags, .. } => Some((files.clone(), tags.clone())),
+            _ => None,
+        })
+        .expect("his message is on the thread")
+}
+
+#[tokio::test]
+async fn a_picture_and_a_tag_sent_with_a_note_reach_the_job_and_stay_on_his_row() {
+    let rig = rig_placing(None);
+    let (id, drawn) = shown(&rig).await;
+    let mut said = answer(&id, &drawn, SketchHow::SentBack, Some("Match this picture."));
+    said.extras = extras();
+    Arc::clone(&rig.fleet).answer_sketch(said).await.unwrap();
+
+    let (files, tags) = his_row(&rig.rows(&id).await);
+    assert_eq!(files.iter().map(|one| one.name.as_str()).collect::<Vec<_>>(), ["shot.png"], "the picture rides with the answer");
+    assert_eq!(tags.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["armada/other"], "the tag rides with the answer");
+}
+
+#[tokio::test]
+async fn an_answer_with_nothing_attached_keeps_a_plain_row() {
+    let rig = rig_placing(None);
+    let (id, drawn) = shown(&rig).await;
+    Arc::clone(&rig.fleet).answer_sketch(answer(&id, &drawn, SketchHow::SentBack, Some("Plain note."))).await.unwrap();
+
+    let (files, tags) = his_row(&rig.rows(&id).await);
+    assert!(files.is_empty() && tags.is_empty(), "{files:?} {tags:?}");
 }

@@ -2018,4 +2018,4 @@ shortcut = "⌘/"
 scope = "thread"
 destructive = false
 confirms = false
-notes = "Opens the list of Armada's own tools over the open Job's message box, as its + button does: Sketch, Diagram, Takes, Document, Browser, Terminal and Features. Up and Down move, Enter or Tab puts the tool's chip at the caret, and Esc puts the list away with the keys still in the box. When the message is sent, Fleet tells the agent which tool to use. ⌘K is the palette's, so the key is ⌘/, beside the / that lists the agent's own commands. Native only, 19 Nov 2026."
+notes = "Opens the list of Armada's own tools over the open Job's message box, as its + button does: Sketch, Diagram, Takes, Document, Browser, Terminal, Features and API Client. Up and Down move, Enter or Tab puts the tool's chip at the caret, and Esc puts the list away with the keys still in the box. When the message is sent, Fleet tells the agent which tool to use. ⌘K is the palette's, so the key is ⌘/, beside the / that lists the agent's own commands. Native only, 19 Nov 2026."

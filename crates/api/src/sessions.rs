@@ -1420,7 +1420,7 @@ pub(crate) async fn report_session_check<D: Sessions>(
         Ok(call) => call,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().report_session_check(call).await {
+    match served.shared().report_session_check(call).await {
         Ok(answered) => answer(StatusCode::OK, &answered, served.run_id()),
         Err(refusal) => refused(refusal),
     }
