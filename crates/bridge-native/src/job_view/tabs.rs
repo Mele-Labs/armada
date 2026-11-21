@@ -40,6 +40,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("jobs", "Jobs", "link"),
     ("ledger", "Ledger", "files"),
     ("files", "Files", "folder-tree"),
+    (crate::api_client::KIND, crate::api_client::NAME, "arrow-right-left"),
     ("subagents", "Subagents", "zap"),
     ("checks", "Checks", "shield-check"),
     ("workflow", "Workflow", "workflow"),
@@ -90,6 +91,10 @@ impl JobView {
             let target = pane.to_string();
             if self.rearrange(None, false, move |arrangement| tree::add_tab(arrangement, &target, kind, Extras::default()), cx) {
                 self.focus_in_pane(pane, window, cx);
+                // The API Client takes the keys in its address, where the others leave them on their tab.
+                if kind == crate::api_client::KIND {
+                    self.focus_api_client(window, cx);
+                }
             }
         }
         self.want_pane_reads(window, cx);

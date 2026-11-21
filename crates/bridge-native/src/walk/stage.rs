@@ -177,6 +177,12 @@ impl Stage {
                 if walk.name == crate::settings::walk::MACS_SETUP {
                     over.update(cx, |over, cx| over.fresh_mac(cx));
                 }
+                if [crate::settings::walk::ACCOUNT, crate::settings::walk::ACCOUNT_ENDED, crate::settings::walk::ACCOUNT_REPOSITORIES].contains(&walk.name) {
+                    over.update(cx, |over, cx| over.sign_in_app_registered(cx));
+                }
+                if walk.name == crate::settings::walk::ACCOUNT_ENDED {
+                    over.update(cx, |over, cx| over.sign_in_ended(cx));
+                }
                 if walk.name == crate::settings::walk::SIGN_IN_APP {
                     over.update(cx, |over, cx| over.registration_takes_a_while(cx));
                 }

@@ -1,4 +1,5 @@
 [operations.fork_this_session]
+ask_tool = "none"
 kind = "command"
 transport = "HTTP"
 agent_access = "Yes"

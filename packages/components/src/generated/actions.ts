@@ -39,6 +39,7 @@ export type ActionTier = "Global" | "Contextual";
  */
 export type ActionScope =
   | "anywhere"
+  | "api client"
   | "call"
   | "dashboard"
   | "deck"
@@ -2040,6 +2041,45 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
+    id: "api_client_environment",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Next environment",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌘E",
+    scope: "api client",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "api_client_part",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Previous or next part",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "[ / ]",
+    scope: "api client",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "api_client_save",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Save",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "⌘S",
+    scope: "api client",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
     id: "usage_apply",
     kind: "Action",
     tier: "Contextual",
@@ -2216,6 +2256,19 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "⌥T",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "ask_for_tool",
+    kind: "Action",
+    tier: "Global",
+    verb: "Ask the agent for a tool",
+    icon: Plus,
+    iconAbsent: null,
+    shortcut: "⌘/",
     scope: "thread",
     destructive: false,
     confirms: false,

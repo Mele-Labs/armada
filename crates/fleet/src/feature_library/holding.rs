@@ -6,7 +6,9 @@
 use std::collections::BTreeSet;
 
 use ipc::FeatureSectionKind;
-use store::{feature_link_kind, Holder, SessionState, Store, WriteError};
+use store::{feature_gist_by, feature_link_kind, Holder, SessionState, Store, WriteError};
+
+use super::consulting::READ;
 
 /// The code of the refusal.
 pub(crate) const OWED: &str = "fleet.feature_sections_owed";
@@ -44,6 +46,30 @@ pub(super) fn owed_by(store: &Store, job: &str) -> Result<Vec<(String, Vec<Featu
     Ok(owed)
 }
 
+/// The most docs named as welcome a gist, so a Job that read forty pages is not handed forty lines.
+const MOST_GISTS_ASKED: usize = 8;
+
+/// A doc or ticket this Job read that is linked under a feature it owes, and has no gist of its own: the feature's slug,
+/// the address it was read by and its title. Each address once, under the first feature that holds it, at most eight.
+pub(super) fn gists_welcome(store: &Store, job: &str, owed: &[(String, Vec<FeatureSectionKind>)]) -> Result<Vec<(String, String, String)>, WriteError> {
+    let mut named: Vec<(String, String, String)> = Vec::new();
+    for kind in [feature_link_kind::DOC, feature_link_kind::TICKET] {
+        for link in store.feature_links_of_job(job, kind)? {
+            if link.via != READ || link.gist_by == feature_gist_by::JOB || named.iter().any(|(_, target, _)| *target == link.target) {
+                continue;
+            }
+            let Some(feature) = store.feature_by_id(&link.feature_id)? else {
+                continue;
+            };
+            if owed.iter().any(|(slug, _)| *slug == feature.slug) {
+                named.push((feature.slug, link.target, link.title));
+            }
+        }
+    }
+    named.truncate(MOST_GISTS_ASKED);
+    Ok(named)
+}
+
 /// What `all_done` is told while the Job owes sections, naming each feature and its sections. `None` where nothing is
 /// owed, the Job pushed nothing, or it has ended: the person's End job never asks.
 pub(crate) fn sections_owed_text(store: &Store, job: &str) -> Result<Option<String>, WriteError> {
@@ -65,8 +91,16 @@ pub(crate) fn sections_owed_text(store: &Store, job: &str) -> Result<Option<Stri
         .iter()
         .map(|(feature, sections)| format!("{feature}: {}", sections.iter().map(|one| one.name()).collect::<Vec<_>>().join(", ")))
         .collect();
+    let docs = gists_welcome(store, job, &owed)?;
+    let welcome = if docs.is_empty() {
+        String::new()
+    } else {
+        let lines: Vec<String> =
+            docs.iter().map(|(_, target, title)| if title == target { format!("- {target}") } else { format!("- {target}: {title}") }).collect();
+        format!("\n\nDocs you read, linked under these features. A gist is welcome, never required: give `gists`, `{{target, gist}}` with one line of what the doc says that bears on the feature, in the same call.\n\n{}", lines.join("\n"))
+    };
     Ok(Some(format!(
-        "Feature sections owed, because your commits named these features:\n\n{}\n\nWrite each with write_feature_sections: the test, runs, observe and debt text of one feature in one call. Rewrite a section that is still true as it stands.",
+        "Feature sections owed, because your commits named these features:\n\n{}\n\nWrite each with write_feature_sections: the test, runs, observe and debt text of one feature in one call. Rewrite a section that is still true as it stands.{welcome}",
         lines.join("\n")
     )))
 }

@@ -12,7 +12,7 @@ use super::slot_leases::{lease_record, By};
 const FILE: &str = "crates/pages/voting/ranks.rs";
 
 /// The Job's mod tells Fleet a read: the call, what it named, and the cut of its result.
-async fn read(rig: &Rig, id: &SessionId, tool: &str, target: &str, title: &str, gist: &str) {
+pub(super) async fn read(rig: &Rig, id: &SessionId, tool: &str, target: &str, title: &str, gist: &str) {
     told(rig, id, SessionFact::Consulted { tool: tool.into(), target: target.into(), title: title.into(), gist: gist.into() }).await;
 }
 
@@ -24,7 +24,7 @@ fn held(rig: &Rig, id: &SessionId, slot: u32) {
 }
 
 /// The Job writes a file of the voting feature, from the slot it holds.
-async fn edit(rig: &Rig, id: &SessionId, slot: u32) {
+pub(super) async fn edit(rig: &Rig, id: &SessionId, slot: u32) {
     let root = rig.fleet.repositories().first().expect("served").root().to_string();
     told(rig, id, SessionFact::Touched { paths: vec![format!("{}/{FILE}", adapter_traits::slot_path(&root, slot))], by: None, act: None }).await;
 }
@@ -35,7 +35,7 @@ async fn told(rig: &Rig, id: &SessionId, fact: SessionFact) {
 }
 
 /// A project that holds the voting feature, and a Job on it that holds slot 4.
-async fn a_job(rig: &Rig) -> (String, SessionId) {
+pub(super) async fn a_job(rig: &Rig) -> (String, SessionId) {
     let project = a_project(rig).await;
     rig.fleet.upsert_features(None, seeded(&project)).await.expect("seeded");
     let id = an_agent_for(rig, &project).await;
@@ -43,7 +43,7 @@ async fn a_job(rig: &Rig) -> (String, SessionId) {
     (project, id)
 }
 
-async fn page(rig: &Rig, project: &str, slug: &str) -> FeaturePage {
+pub(super) async fn page(rig: &Rig, project: &str, slug: &str) -> FeaturePage {
     rig.fleet.get_feature_page(None, Some(project.to_string()), slug.to_string(), None, false).await.expect("the page")
 }
 

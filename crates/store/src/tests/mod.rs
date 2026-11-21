@@ -31,6 +31,7 @@ mod on_your_words;
 mod side_job_renamed;
 mod slot_strandings;
 mod plan_reading;
+mod session_priority;
 mod ports;
 mod preferences;
 mod rebuilding;

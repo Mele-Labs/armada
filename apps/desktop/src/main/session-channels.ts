@@ -801,6 +801,9 @@ export function handleSessions({ ipc, connection, windowIdOf, pages, terminals }
   ipc.handle(CHANNELS.pauseSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.pause(sessionId) ?? unsent) : unread,
   );
+  ipc.handle(CHANNELS.prioritiseSession, (_event, sessionId: string) =>
+    text(sessionId) ? (connection()?.sessions.prioritise(sessionId) ?? unsent) : unread,
+  );
   ipc.handle(CHANNELS.resumeSession, (_event, sessionId: string) =>
     text(sessionId) ? (connection()?.sessions.resume(sessionId) ?? unsent) : unread,
   );

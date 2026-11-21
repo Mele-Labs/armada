@@ -36,6 +36,17 @@
 #                 implied: `fleet::on_your_words::RESERVED`
 #                 `Operator` is offered to the Operator's own session alone, at
 #                 the door it stands at with no Manifest
+#   ask_tool    - where an operation an agent may reach stands in the message
+#                 box's list of Armada's tools: the id of the tool in
+#                 `crates/core-model/domain/ask_tools.toml` that covers it, a
+#                 list of ids where it covers several, or `none`. `none` means
+#                 an agent may call it, and it is not something a person asks
+#                 for by name in the message box. Every row whose
+#                 `agent_access` is `Yes`, `On your words` or `Operator`
+#                 carries it and no other row does; the gate refuses either way,
+#                 so a new thing an agent can do is placed when it is added.
+#                 It goes first, on the line under the table's header, so it
+#                 sits away from `description`, which other changes rewrite
 #   description - what the operation returns or does, in one line
 #   unbuilt     - an event declared here and not yet sent, naming the issue
 #                 that will send it. Absent means the event is sent. The

@@ -18,7 +18,7 @@ pub const NO_FUNNEL: &str = "native-settings-no-funnel";
 
 pub static NO_FUNNEL_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Macs", "region", "Tunnel"),
+    press_on("Account: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Account", "region", "Tunnel"),
     step("With no Funnel, phones and the other Macs both wait on the tunnel, and its press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
     press_on("A press downloads cloudflared and waits on the sign-in, and the one press opens Cloudflare's page", "button", "Set up tunnel", "button", "Open Cloudflare sign-in"),
     step("Once he has signed in there, phones and the other Macs reach this Mac at the tunnel's address", Verb::Later(5500), "button", "Copy address"),
@@ -45,7 +45,7 @@ pub const MACS_SETUP: &str = "native-settings-macs-setup";
 
 pub static MACS_SETUP_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Nothing set up yet: two ways to start", "button", "Macs", "button", "Find my Mac"),
+    press_on("Account: nothing set up yet, two ways to start", "button", "Account", "button", "Find my Mac"),
     press_on("Find my Mac turns the Gateway on and signs in to Cloudflare", "button", "Find my Mac", "button", "Open it again"),
     step("Once he has signed in, the tunnel is made and it waits", Verb::Later(12000), "status", "Waiting for your other Mac"),
     press_on("A link pairs them instead", "button", "Pair with a link instead", "button", "Claim"),
@@ -58,7 +58,7 @@ pub const MACS_PHONE: &str = "native-settings-macs-phone";
 
 pub static MACS_PHONE_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: Devices has Pair a Mac and Pair a phone", "button", "Macs", "button", "Pair a phone"),
+    press_on("Account: Devices has Pair a Mac and Pair a phone", "button", "Account", "button", "Pair a phone"),
     press_on("Pair a phone: a QR code for the camera, and the link", "button", "Pair a phone", "img", "QR code for the pairing link"),
     step("The link, with Copy link and how long it has left", Verb::Look, "button", "Copy link"),
     step("The phone opens it and waits on Confirm here", Verb::Later(4500), "button", "Confirm"),
@@ -138,7 +138,7 @@ pub const MACS_CLAIM: &str = "native-settings-macs-claim";
 
 pub static MACS_CLAIM_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: no claim from the other Mac yet", "button", "Macs", "list", "Devices"),
+    press_on("Account: no claim from the other Mac yet", "button", "Account", "list", "Devices"),
     step("The other Mac claims while the page is open", Verb::Later(5000), "button", "Confirm Mac Pro"),
     step("Its row turns up with Confirm, and Settings was never reopened", Verb::Wheel("region", "Devices", 600), "button", "Confirm Mac Pro"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
@@ -150,7 +150,7 @@ pub const MACS_BUILD: &str = "native-settings-macs-build";
 
 pub static MACS_BUILD_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: a Mac on an older build and one on a newer build, each edged in amber", "button", "Macs", "list", "Devices"),
+    press_on("Account: a Mac on an older build and one on a newer build, each edged in amber", "button", "Account", "list", "Devices"),
     step("Update takes the place of Forget on both rows", Verb::Wheel("region", "Devices", 600), "button", "Update Mac mini"),
     press_on("Update moves Mac mini onto this Mac's build", "button", "Update Mac mini", "button", "Updating Mac mini"),
     step("Once the list reads it on the same build, its row is linked", Verb::Later(5500), "button", "Forget Mac mini"),
@@ -165,7 +165,7 @@ pub const MACS_MODELS: &str = "native-settings-macs-models";
 
 pub static MACS_MODELS_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: This Mac and Tunnel are on the left and Devices on the right", "button", "Macs", "list", "Devices"),
+    press_on("Account: This Mac and Tunnel are on the left and Devices on the right", "button", "Account", "list", "Devices"),
     press_on("Models: each row is a name, its version and a plain switch", "button", "Models", "region", "Default models"),
     press_on("A press on a row picks it and gives the list the keys", "button", "Fable", "article", "Fable"),
     step("↓ picks Sonnet: its detail and the default models fill the right side", Verb::Key("down"), "article", "Sonnet"),
@@ -177,7 +177,7 @@ pub const MACS_LONG: &str = "native-settings-macs-long";
 
 pub static MACS_LONG_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: a name stops in an ellipsis at the edge of its card, and a tooltip holds the whole name", "button", "Macs", "list", "Devices"),
+    press_on("Account: a name stops in an ellipsis at the edge of its card, and a tooltip holds the whole name", "button", "Account", "list", "Devices"),
     step("The tunnel's address stops in an ellipsis on its own line, and Copy address copies all of it", Verb::Look, "button", "Copy address"),
     step("A Mac found nearby stops in an ellipsis too, with its chip and its Pair in their columns", Verb::Look, "list", "Found Macs"),
     press_on("Pair a phone: its link stops on one line, and Copy link copies all of it", "button", "Pair a phone", "button", "Copy link"),
@@ -192,7 +192,7 @@ pub const MACS_NEARBY: &str = "native-nearby-macs";
 
 pub static MACS_NEARBY_STEPS: &[Step] = &[
     step("⌘, opens Settings", Verb::Key("cmd-,"), "dialog", "Settings"),
-    press_on("Macs: the paired Macs come first", "button", "Macs", "list", "Devices"),
+    press_on("Account: the paired Macs come first", "button", "Account", "list", "Devices"),
     step("Work MacBook is paired and on this network, so it carries a green Nearby", Verb::Wheel("region", "Devices", 600), "label", "Work MacBook is nearby"),
     step("Found Macs follow: one on this network, one on his account, one asleep, each with one chip and a Pair", Verb::Look, "list", "Found Macs"),
     step("Pair is off while a Mac is asleep, and its tooltip says why", Verb::Hover, "button", "Pair Old iMac"),
@@ -693,8 +693,8 @@ pub static STEPS: &[Step] = &[
     step("The sample under the switches is now, as they write it", Verb::Look, "switch", "24-hour clock"),
     press_on("24-hour clock off writes the 12-hour clock", "switch", "24-hour clock", "switch", "24-hour clock"),
     press_on("Date adds the day", "switch", "Date", "switch", "Date"),
-    step("Macs is with the pages every project shares, at the top of the list", Verb::Wheel("button", "Time", -2000), "button", "Macs"),
-    press_on("Macs: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Macs", "region", "Tunnel"),
+    step("Account holds this Mac's devices, under This Mac", Verb::Wheel("button", "Time", -2000), "button", "Account"),
+    press_on("Account: this Mac, its tunnel, then every Mac and phone that reaches it", "button", "Account", "region", "Tunnel"),
     step("Tailscale Funnel already reaches phones, and Copy address copies where", Verb::Look, "button", "Copy address"),
     step("The other Macs need the tunnel, and its press is Set up tunnel", Verb::Look, "button", "Set up tunnel"),
     press_on("A press Cloudflare refuses says why under it; cloudflared is downloaded by then", "button", "Set up tunnel", "alert", "Cloudflare did not answer the sign-in request."),
@@ -751,7 +751,7 @@ pub static STEPS: &[Step] = &[
     step("A cell that follows every project is a row of words, and a press on one sets it for Armada", Verb::PressWithin("radiogroup", "Walks for Armada", "Review"), "button", "Clear Walks for Armada"),
     press_on("Starting Jobs: whether a Job that a Job or the Operator starts runs at once, or waits on his start card", "button", "Starting Jobs", "radiogroup", "Jobs a Job or the Operator starts for Armada"),
     step("Ask me sets it for Armada: what a Job or the Operator starts there waits on his start card", Verb::PressWithin("radiogroup", "Jobs a Job or the Operator starts for Armada", "Ask me"), "button", "Clear Jobs a Job or the Operator starts for Armada"),
-    press_on("Macs: Armada's share switch, over this Mac's own", "button", "Macs", "switch", "Share with your other Macs"),
+    press_on("Other Macs: Armada's share switch", "button", "Other Macs", "switch", "Share with your other Macs"),
     press_on("A press turns it on; the switch takes what Fleet answers", "switch", "Share with your other Macs", "switch", "Share with your other Macs"),
     press_on("Workflows, editing Armada", "button", "Workflows", "region", "Workflow"),
     step("F goes to the list: Armada's own copies are a group named for it, above Yours", LIST, "group", "Armada project"),
@@ -805,6 +805,56 @@ pub static CLAIMS_STORE_STEPS: &[Step] = &[
     step("And the team", Verb::Type("acme/platform"), "textbox", "Team"),
     press_on("Join is refused", "button", "Join", "alert", "GitHub says you are not a member of acme/platform."),
     step("Fleet's words stand under the press, the press is back, and what was typed is kept", Verb::Wheel("region", "Claims store", 600), "alert", "GitHub says you are not a member of acme/platform."),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-account`: the title bar's Account row opens Settings on Account. Two logins signed in, Add a GitHub login
+/// with its code and Cancel, the devices, and each project's store with the login that joins it, opening its Claims
+/// store, where Joins as and a repository's own login are picked.
+pub const ACCOUNT: &str = "native-account";
+
+pub static ACCOUNT_STEPS: &[Step] = &[
+    press_on("The menu at the top right holds Account", "button", "Menu", "menuitem", "Account"),
+    press_on("Account opens Settings on Account: who he is, his devices, and what signing in turns on", "menuitem", "Account", "region", "Who you are"),
+    step("A card for each GitHub login, signed in here, each with Sign out in the same place", Verb::Look, "button", "Sign out nmele-work"),
+    step("Signed in says so under the pointer", Verb::Hover, "status", "Signed in"),
+    step("Its tooltip", Verb::Later(800), "status", "Signed in"),
+    press_on("Add a GitHub login: the address to type the code at, the code with Copy, and its time left", "button", "Add a GitHub login", "button", "Copy the code"),
+    press_on("Copy puts the code on the clipboard and reads Copied", "button", "Copy the code", "button", "Copied"),
+    press_on("Cancel puts the code away", "button", "Cancel", "button", "Add a GitHub login"),
+    step("Your devices: this Mac, its tunnel, and every Mac and phone that reaches it", Verb::Wheel("region", "Account", 500), "region", "Your devices"),
+    step("What it turns on: each project's store, the login that joins it, and whether this Mac has joined", Verb::Wheel("region", "Account", 2000), "list", "Project stores"),
+    step("Ledger picks no login, so it has not joined, and the store's sentence says why", Verb::Hover, "status", "Not joined"),
+    step("Its tooltip", Verb::Later(800), "status", "Not joined"),
+    press_on("Its row opens Ledger's Claims store", "link", "Claims store for Ledger", "combobox", "Joins as, none picked"),
+    press_on("Joins as lists the logins signed in here", "combobox", "Joins as, none picked", "menu", "Joins as, none picked"),
+    step("Picking one joins the store as it", Verb::Keys(&["down", "enter"]), "combobox", "Joins as nickmele"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-account-repositories`: Armada's Claims store, opened from its row on Account. Armada joins as one login and
+/// its repository claims as the other, which a press changes.
+pub const ACCOUNT_REPOSITORIES: &str = "native-account-repositories";
+
+pub static ACCOUNT_REPOSITORIES_STEPS: &[Step] = &[
+    press_on("The menu at the top right holds Account", "button", "Menu", "menuitem", "Account"),
+    press_on("Account opens Settings on Account", "menuitem", "Account", "region", "Who you are"),
+    step("What it turns on", Verb::Wheel("region", "Account", 2000), "list", "Project stores"),
+    press_on("Armada's row opens its Claims store", "link", "Claims store for Armada", "combobox", "Joins as nickmele"),
+    step("Armada joins as nickmele; its repository armada claims as nmele-work", Verb::Look, "combobox", "armada joins as nmele-work"),
+    press_on("Its press lists the logins, and None", "combobox", "armada joins as nmele-work", "menu", "armada joins as nmele-work"),
+    step("Picking nickmele makes it claim as the project's login", Verb::Keys(&["down", "enter"]), "combobox", "armada joins as nickmele"),
+    step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
+];
+
+/// `native-account-ended`: the last sign-in's code ran out. Fleet's sentence and Try again stand in the dashed card,
+/// and Try again shows a new code.
+pub const ACCOUNT_ENDED: &str = "native-account-ended";
+
+pub static ACCOUNT_ENDED_STEPS: &[Step] = &[
+    press_on("The menu at the top right holds Account", "button", "Menu", "menuitem", "Account"),
+    press_on("The last sign-in ended: Fleet's sentence, and Try again, in the dashed card", "menuitem", "Account", "status", super::mock_account::EXPIRED_SAID),
+    press_on("Try again shows a new code", "button", "Try again", "button", "Copy the code"),
     step("Esc closes Settings", Verb::Key("escape"), "button", "Menu"),
 ];
 

@@ -113,3 +113,11 @@ fn a_message_can_tag_a_terminal() {
     assert_eq!(written, r#"{"kind":"terminal","id":"t2","title":"dev server"}"#);
     assert_eq!(decode::<SessionTag>("a tag", written.as_bytes()).unwrap(), tag);
 }
+
+#[test]
+fn a_message_can_ask_for_one_of_armadas_tools() {
+    let tag = SessionTag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None };
+    let written = encode(&tag).unwrap();
+    assert_eq!(written, r#"{"kind":"tool","id":"takes","title":"Takes"}"#);
+    assert_eq!(decode::<SessionTag>("a tag", written.as_bytes()).unwrap(), tag);
+}
