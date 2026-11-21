@@ -32,3 +32,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Main thread ran past 300k context`. Stands in a square of the sketch amber hue at 16%, drawn in that hue: a request the Job's own thread made with more than 300k held. A bubble with words in it is the thread, as the note glyph above says."
+
+[[icons.message-square-text.usage]]
+  means = "A thread in a page's margin the agent answered, the page unchanged"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-margin`. A bubble with words in it, the agent's answer beside his comment. Tooltip `Answered, the page is unchanged`."

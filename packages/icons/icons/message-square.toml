@@ -4,3 +4,10 @@
   size = "16px"
   status = "Specified"
   notes = "No nautical iconography. A wheel or compass is decoration, and metaphor is confined to proper nouns."
+
+[[icons.message-square.usage]]
+  means = "A thread in a page's margin he sent and the agent has not answered, and a round of his margin comments in the Job's thread"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walks `planning-margin` and `planning-today`. A comment sent, which is this glyph's meaning. Tooltips `Sent, the agent has not answered` on the thread and `Comments in the margin` on the round. Refused: `messages-square`, reserved to what he and the Operator are discussing."

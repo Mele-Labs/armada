@@ -67,3 +67,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 18 Nov 2026 for the native Usage page, tooltip `Cold cache after a pause`. Stands in a square of the sketch blue hue at 16%, drawn in that hue: a wake after the cache ran out. Nobody acted in time, which is the clock's claim."
+
+[[icons.clock.usage]]
+  means = "A comment he holds in a page's margin until he sends held comments, on its thread and the held bar"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-margin`. Nothing goes to the agent until he says, which is the clock's claim. Tooltip `Held until you send held comments`; the bar's words say `Held comments`."

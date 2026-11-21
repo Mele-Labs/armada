@@ -103,3 +103,10 @@
   size = "12px"
   status = "Proposed"
   notes = "Proposed 15 Nov 2026 for the walk `native-for-you`. In the section's success hue, tooltip `Pull request open`; the row's number and title follow it."
+
+[[icons.check.usage]]
+  means = "A thread in a page's margin he settled, and the rounds that accepted a change or settled a thread in the Job's thread"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-margin`. Bare check in `--status-completed-success` on a thread, tooltip `Settled`; on a round, tooltips `A change accepted` and `Settled`. Check means yes, and Accept is a yes. Refused: `circle-check`, reserved to Judge verdicts and closed tickets."

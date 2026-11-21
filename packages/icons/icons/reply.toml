@@ -12,3 +12,10 @@
   size = "16px"
   status = "Proposed"
   notes = "Proposed 26 Oct 2026 for the draft card (`propose_draft`). His note goes back to the agent, which is this glyph's meaning. Tooltip `Sent back`, with his note quoted under the draft."
+
+[[icons.reply.usage]]
+  means = "A page he sent back with notes from its margin, on its card in the Job's thread"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-today`. His notes go back to the agent, as a draft sent back does. Tooltip `Sent back from the page`."

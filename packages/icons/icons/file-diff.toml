@@ -5,3 +5,10 @@
   status = "Specified"
   reserved = "Reading what one produced file changed. Never a Check result, which is the shield-* family; never a submission that landed, which is file-check; and never the change count on a row, which is text — a Job row already reads `3 files · +94 −31` and a glyph there would say it twice."
   notes = "Added 2026-08-31 for job detail's Produced chips, where a file a step produced opens its diff. The file-* family means evidence throughout and a produced file is evidence, so the diff takes a member of that family rather than a new silhouette: file-check says a submission arrived and claims nothing about its content, and this is the one that opens the content. It carries more interior detail than any other member — a plus and a minus on the page's face rather than one mark at its edge — so it is drawn at 12px and never smaller, which is the size both the palette row and the chip use."
+
+[[icons.file-diff.usage]]
+  means = "A change the agent suggested to a page, waiting on his Accept in the margin, and its round in the Job's thread"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-margin`. Reading what the page would change, which is this glyph's reservation; the words struck and added are drawn beside it. Tooltips `A change waits for your Accept` and `A change to the page`. Refused: `diff`, reserved to an edited issue."

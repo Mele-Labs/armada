@@ -81,3 +81,10 @@
   size = "20px"
   status = "Proposed"
   notes = "Proposed 16 Nov 2026 for the native PR tab's status plate, `Merging is blocked`, in the failed hue. The forge's own refusal, which is the circle and diagonal. A muted line under it says what stands in the way."
+
+[[icons.ban.usage]]
+  means = "A change the agent suggested to a page that he rejected, on its round in the Job's thread"
+  group = "Page margin"
+  size = "14px"
+  status = "Proposed"
+  notes = "Proposed 21 Nov 2026 for the walk `planning-margin`. He declined it, a person's decision. Tooltip `A change rejected`. Refused: `x`, reserved to a system failure."
