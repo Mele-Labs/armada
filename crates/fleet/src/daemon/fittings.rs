@@ -383,6 +383,7 @@ where
             repairs,
             timeline,
             rule_acts: Default::default(),
+            build_turns: Default::default(),
             operator: Default::default(),
             machine: fittings.machine,
             headroom: std::sync::Mutex::new(in_force.headroom),

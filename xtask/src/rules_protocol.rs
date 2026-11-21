@@ -351,6 +351,7 @@ fn published_event_kinds(source: &str) -> Vec<String> {
         .collect()
 }
 
+pub mod ask_tools;
 pub mod id;
 pub mod nulls;
 pub mod unserved;

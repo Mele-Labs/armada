@@ -18,7 +18,7 @@
 
 use std::fs::{File, OpenOptions};
 use std::io::{self, Read, Write};
-use std::os::unix::fs::{FileTypeExt, OpenOptionsExt};
+use std::os::unix::fs::{DirBuilderExt, FileTypeExt, MetadataExt, OpenOptionsExt};
 use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::atomic::{AtomicU32, Ordering};
@@ -108,12 +108,7 @@ impl BuildSlots {
         cores: u32,
         compiler_running: impl FnOnce() -> bool,
     ) -> io::Result<BuildSlots> {
-        if path.to_string_lossy().contains(char::is_whitespace) {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidInput,
-                "a jobserver path with a space cannot be written into MAKEFLAGS",
-            ));
-        }
+        let path = &without_a_space(path)?;
         let tokens = cores.saturating_sub(HEADROOM).max(1);
         let reused = make_fifo(path)?;
         let held = open_held(path)?;
@@ -261,6 +256,48 @@ fn names_a_compiler(listing: &str) -> bool {
 #[cfg(test)]
 pub(crate) fn names_a_compiler_for_test(listing: &str) -> bool {
     names_a_compiler(listing)
+}
+
+/// `path`, or where a space in it would split `MAKEFLAGS`, the same file name
+/// under `/tmp/armada-<uid>`, a directory only this user may enter.
+///
+/// **Fleet's machine directory is under `Application Support`**, so the pool
+/// was refused at every start on the owner's Mac until 20 Nov 2026 and every
+/// build kept its own width: eight at once took the load average to 37.
+/// `/tmp` is emptied at a restart, and [`BuildSlots::settle`] makes a fifo
+/// that went missing again.
+#[allow(unsafe_code)]
+fn without_a_space(path: &Path) -> io::Result<PathBuf> {
+    if !path.to_string_lossy().contains(char::is_whitespace) {
+        return Ok(path.to_path_buf());
+    }
+    let name = path
+        .file_name()
+        .filter(|name| !name.to_string_lossy().contains(char::is_whitespace))
+        .ok_or_else(|| {
+            io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "a jobserver file name with a space cannot be written into MAKEFLAGS",
+            )
+        })?;
+    // SAFETY: `getuid` takes nothing and cannot fail.
+    let uid = unsafe { libc::getuid() };
+    let dir = PathBuf::from(format!("/tmp/armada-{uid}"));
+    match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::AlreadyExists => {}
+        Err(error) => return Err(error),
+    }
+    // Another user could have made it first, or put a link there: take only
+    // a real directory that is this user's and nobody else's.
+    let held = std::fs::symlink_metadata(&dir)?;
+    if !held.is_dir() || held.uid() != uid || held.mode() & 0o077 != 0 {
+        return Err(io::Error::new(
+            io::ErrorKind::PermissionDenied,
+            format!("{} is not this user's own directory", dir.display()),
+        ));
+    }
+    Ok(dir.join(name))
 }
 
 fn is_fifo(path: &Path) -> bool {

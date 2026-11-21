@@ -11,6 +11,10 @@
 //! that login unless it overrides it (`crate::repository_profiles`). A project that picks none sends
 //! nothing, **unless exactly one profile here already enrolled at its store**: `store_logins_carried` writes that
 //! one in. Projects naming one store with two different logins pick none between them.
+//!
+//! **A copy of another Mac's project counts as a project here** for these rules: its repositories on this Mac call
+//! its store as the login it carries, with this Mac's own profile for that login, enrolled here and never written to
+//! the file the other Mac keeps.
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -118,6 +122,16 @@ fn state_read(reaching: &dyn Reaching, signing: &SigningIn, roots: &[String], st
     }
 }
 
+/// The store a repository calls, and as whom.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct StoreCalled {
+    pub address: StoreAddress,
+    /// The login the projects naming it picked, where they agree on one.
+    pub login: Option<u64>,
+    /// A copy of another Mac's project names it, so this Mac enrols itself where it has not.
+    pub from_copy: bool,
+}
+
 /// What the projects holding one repository say of its store.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum StoreOf {
@@ -161,29 +175,41 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// What the projects holding the repository at `root` **as Fleet holds them now** say of its store.
-    fn store_of_held(&self, root: &str) -> (Option<core_model::ManifestId>, StoreOf) {
-        let Some(manifest) = self.manifest_id_at(root) else { return (None, StoreOf::None) };
+    /// What the projects holding the repository at `root` **as Fleet holds them now** say of its store: this Mac's
+    /// own, and the copies of his other Macs' that list it. Whether a copy names the store the answer is.
+    async fn store_of_held(&self, root: &str) -> (Option<core_model::ManifestId>, StoreOf, bool) {
+        let Some(manifest) = self.manifest_id_at(root) else { return (None, StoreOf::None, false) };
         let manifest = core_model::ManifestId::carried(core_model::Ulid::carried(manifest));
-        let of = store_of(self.projects_held().running(), &manifest);
-        (Some(manifest), of)
+        let held = self.projects_held();
+        let copies = self.copies_read().await;
+        // A project of this Mac's with a copy's id is the copy's Mac's own, so it is read once.
+        let copies: Vec<&core_model::Project> = copies.iter().filter(|copy| held.get(copy.id()).is_none()).collect();
+        let of = store_of(held.running().chain(copies.iter().copied()), &manifest);
+        let from_copy = match &of {
+            StoreOf::One(address, _) => copies.iter().any(|copy| copy.holds(&manifest) && copy.store().is_some_and(|store| &store.address == address)),
+            StoreOf::None | StoreOf::Differs => false,
+        };
+        (Some(manifest), of, from_copy)
     }
 
-    /// The login the projects holding the repository at `root` picked for the store it calls, for
-    /// [`SigningIn::profile_for`]. Not said on the log: [`Self::store_of_root`] says it for every call.
+    /// The login this Mac's own projects holding the repository at `root` picked for the store it calls, for
+    /// [`SigningIn::profile_for`]. Not said on the log: [`Self::store_of_root`] says it for every call. **Copies are
+    /// not read**: it is asked with the store locked (`feature_library::handoff`), and a copy's read takes that lock.
     pub(crate) fn project_login_of_root(&self, root: &str) -> Option<u64> {
-        match self.store_of_held(root).1 {
+        let manifest = core_model::ManifestId::carried(core_model::Ulid::carried(self.manifest_id_at(root)?));
+        match store_of(self.projects_held().running(), &manifest) {
             StoreOf::One(_, login) => login,
             StoreOf::None | StoreOf::Differs => None,
         }
     }
 
     /// The store the repository at `root` calls and the login its projects picked for it, from the
-    /// projects that hold it **as Fleet holds them now**. `None` makes no call.
-    pub(crate) fn store_of_root(&self, root: &str) -> Option<(StoreAddress, Option<u64>)> {
-        let (manifest, of) = self.store_of_held(root);
+    /// projects that hold it **as Fleet holds them now**, copies of his other Macs' projects included.
+    /// `None` makes no call.
+    pub(crate) async fn store_of_root(&self, root: &str) -> Option<StoreCalled> {
+        let (manifest, of, from_copy) = self.store_of_held(root).await;
         match of {
-            StoreOf::One(address, login) => Some((address, login)),
+            StoreOf::One(address, login) => Some(StoreCalled { address, login, from_copy }),
             StoreOf::None => None,
             StoreOf::Differs => {
                 self.values_warned(
@@ -194,6 +220,25 @@ where
                 None
             }
         }
+    }
+
+    /// **Enrol this Mac's profiles for the store a copy names**, as a join of a project of this Mac's would: the
+    /// login the copy carries and each login a repository at `roots` overrides it with. Nothing is written to any
+    /// project file, since the file is the holder's. **Nothing is asked of the store** where this Mac is not signed
+    /// in as the login, or every profile it would join as is enrolled already.
+    pub(crate) async fn copy_store_joined(&self, roots: Vec<String>, address: &StoreAddress, login: Option<u64>) -> Result<(), Refusal> {
+        let signing = self.signing_in().clone();
+        let (pending_roots, at) = (roots.clone(), address.clone());
+        let pending = tokio::task::spawn_blocking(move || {
+            bound_profiles(&signing, &pending_roots, login)
+                .is_ok_and(|bound| bound.iter().any(|profile| !matches!(adapters::device_id(&store_directory(&profile.directory, &at)), Ok(Some(_)))))
+        })
+        .await
+        .unwrap_or(false);
+        if !pending {
+            return Ok(());
+        }
+        self.store_joined(roots, address, login).await
     }
 
     /// Every store the projects here name that this Mac joined, in project order, each once. Reads files only.
@@ -261,6 +306,13 @@ where
         let deploying = self.deploying().clone();
         let store = held.store().cloned();
         let named = store.clone();
+        // **A copy's store is joined here when the state is read**: this Mac's own profile enrols as the login the
+        // copy carries, since no one on this Mac can join it by hand. Why it could not is said where the Macs are.
+        let copied = self.copy_of_project(Some(project)).await?.is_some();
+        let join_said = match (&store, copied) {
+            (Some(store), true) => self.copy_store_joined(roots.clone(), &store.address, store.account_id).await.err().map(|refused| refused.error().message.clone()),
+            _ => None,
+        };
         let ((joined_here, macs, macs_unread, can_join), deploy) = tokio::task::spawn_blocking(move || {
             (state_read(reaching.as_ref(), &signing, &roots, named.as_ref()), deploying.readiness())
         })
@@ -270,7 +322,7 @@ where
             project: project.to_string(),
             store: store.as_ref().map(store_on_the_wire),
             macs,
-            macs_unread,
+            macs_unread: join_said.or(macs_unread),
             joined_here,
             deploy,
             join: if can_join { ipc::StoreJoin::Ready } else { ipc::StoreJoin::NoProfile },
@@ -289,7 +341,7 @@ where
                 let address = StoreAddress::new(&join.address).map_err(|why| self.store_malformed(&why))?;
                 let team = join.team.as_deref().map(StoreTeam::new).transpose().map_err(|why| self.store_malformed(&why))?;
                 let login = join.account_id.or_else(|| held.store().and_then(|kept| kept.account_id));
-                self.store_joined(&held, &address, login).await?;
+                self.store_joined(self.project_roots(&held), &address, login).await?;
                 let store = match held.store() {
                     // The same store as before keeps what its deploy wrote.
                     Some(kept) if kept.address == address && kept.team == team => kept.clone(),
@@ -329,14 +381,13 @@ where
         let store =
             ProjectStore { address: address.clone(), team, worker: Some(name), deployed: Some(self.now()), joins_unlimited: !up.limited, account_id: login };
         self.project_store_written(project, Some(store)).await?;
-        let join_said = self.store_joined(&held, &address, login).await.err().map(|refused| refused.error().message.clone());
+        let join_said = self.store_joined(self.project_roots(&held), &address, login).await.err().map(|refused| refused.error().message.clone());
         Ok(ipc::StoreDeployed::Deployed { state: self.project_store_state(project).await?, join_said })
     }
 
-    /// Join this Mac to the store at `address` as `login`, the project's, and each login a repository of
-    /// `held` overrides it with. **Stops at the first refusal**; a profile already joined is left as it is.
-    async fn store_joined(&self, held: &core_model::Project, address: &StoreAddress, login: Option<u64>) -> Result<(), Refusal> {
-        let roots = self.project_roots(held);
+    /// Join this Mac to the store at `address` as `login`, the project's, and each login a repository at
+    /// `roots` overrides it with. **Stops at the first refusal**; a profile already joined is left as it is.
+    async fn store_joined(&self, roots: Vec<String>, address: &StoreAddress, login: Option<u64>) -> Result<(), Refusal> {
         let signing = self.signing_in().clone();
         let configured: String = self.machine_settings().now().get(keys::MACHINE_NAME);
         let address = address.clone();

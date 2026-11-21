@@ -38,6 +38,7 @@ mod session_focus;
 mod session_viewed;
 mod session_rail;
 mod session_limit;
+mod session_priority;
 mod session_snooze;
 mod session_open_turn;
 mod session_loadout;
@@ -109,6 +110,8 @@ mod page_presses;
 mod page_votes;
 /// The newest revision he opened of each artifact a Job made, kept apart from their attachments.
 mod artifact_seen;
+/// A Job's page moved to its own id, with everything kept by the old one.
+mod page_moves;
 /// What was said on top of a Job's For you: order, lines, withdrawals and added rows.
 mod for_you;
 /// The runs of a saved request, by the owner or a Job's agent, kept after the Job ends.

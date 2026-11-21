@@ -1,4 +1,5 @@
 [operations.list_servers]
+ask_tool = "none"
 kind = "query"
 transport = "HTTP"
 agent_access = "Yes"

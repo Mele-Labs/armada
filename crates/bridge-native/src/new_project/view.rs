@@ -19,7 +19,7 @@ impl Render for NewProjectSheet {
         }
         let look = cx.look();
         let view = crate::room::of(window, cx).size;
-        let width = look.length(token::PALETTE_WIDTH).min(view.width - look.length(token::SPACE_6) * 2.);
+        let width = (look.length(token::PALETTE_WIDTH) * 1.7).min(view.width - look.length(token::SPACE_6) * 2.);
         let top = (view.height * 0.06).max(look.length(token::H_TITLE_BAR));
         let frame = div()
             .id("new-project-frame")
@@ -29,7 +29,7 @@ impl Render for NewProjectSheet {
             // A press on the sheet is not a press on the scrim.
             .on_mouse_down(gpui::MouseButton::Left, |_, _, cx| cx.stop_propagation())
             .w(width)
-            .max_h(view.height - top - look.length(token::SPACE_6))
+            .h((view.height - top - look.length(token::SPACE_6)).min(look.length(token::PALETTE_WIDTH) * 1.4))
             .flex()
             .flex_col()
             .overflow_hidden()
@@ -41,21 +41,20 @@ impl Render for NewProjectSheet {
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
             .child(self.head(look))
-            .child(
+            .child({
+                // Members on the left, settings on the right; each scrolls on its own, left first in Tab order.
+                let column = |id: &'static str| {
+                    div().id(id).flex_1().min_w_0().h_full().overflow_y_scroll().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_4))
+                };
                 div()
                     .id("new-project-body")
                     .flex_1()
                     .min_h_0()
-                    .overflow_y_scroll()
-                    .p(look.length(token::SPACE_4))
                     .flex()
-                    .flex_col()
-                    .gap(look.length(token::SPACE_4))
-                    .child(self.name_section(window, cx))
-                    .child(self.repositories(window, cx))
-                    .child(self.place_section(window, cx))
-                    .child(self.settings(window, cx)),
-            )
+                    .child(column("new-project-members").child(self.name_section(window, cx)).child(self.repositories(window, cx)).child(self.place_section(window, cx)))
+                    .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h_full().bg(look.color(token::BORDER_DEFAULT)))
+                    .child(column("new-project-settings").child(self.settings(window, cx)))
+            })
             .child(self.foot(window, cx));
         let scrim = div()
             .id("new-project-scrim")
@@ -748,7 +747,7 @@ impl NewProjectSheet {
             }))
             .when(inherited, |pick| pick.tooltip(tip("What every project uses")))
             .map(|pick| match &shown {
-                Some((word, _)) => pick.child(key.said(word, &self.models)),
+                Some((word, _)) => pick.child(key.said(word, &self.models, &self.layouts)),
                 None => pick.child(bone(look, look.length(token::SPACE_12))),
             })
             .child(glyph("chevron-down", look.length(token::SPACE_3), look.color(token::FG_SUBTLE)));
@@ -759,7 +758,12 @@ impl NewProjectSheet {
                 format!("{} set for this project", key.label()),
             )
         });
-        Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label())).into_any_element()
+        let row = Self::set_row(look, key.label(), key.note()).children(dot).child(labelled(pick, Role::Button, key.label()));
+        if key == Key::Tracker && shown.as_ref().is_some_and(|(word, _)| word == values::CUSTOM) {
+            let describe = field(look, self.boxes.tracker.focus_handle(cx).is_focused(window)).h_auto().min_h(look.length(token::H_CONTROL) * 2.).child(text_box(&self.boxes.tracker));
+            return div().flex().flex_col().gap(look.length(token::SPACE_2)).child(row).child(labelled(describe.id("np-tracker-describe"), Role::TextInput, "Describe the tracker to build")).into_any_element();
+        }
+        row.into_any_element()
     }
 
     fn share_row(&self, window: &Window, cx: &Context<Self>) -> AnyElement {
