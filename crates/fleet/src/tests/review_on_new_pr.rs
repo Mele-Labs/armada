@@ -5,11 +5,13 @@
 use std::path::Path;
 use std::time::Duration;
 
-use adapter_traits::{FromOutside, OpenPull};
+use adapter_traits::{FromOutside, OpenPull, PullRequestFacts, PullRequestStanding};
 use api::PullRequestPanel;
 use ipc::operator_page::{OperatorAnswer, OperatorAnswerPress, OperatorTurnItem};
 
 use super::operator_sources::on;
+use super::pull_request_panel::a_page;
+use super::review_runs::HEAD;
 use super::session_host::{rig_quiet_after, Rig};
 use crate::tests::tmp::TempDir;
 
@@ -84,6 +86,20 @@ async fn run_starts_one_review_run_for_each_tool() {
     look(&rig, &[7]).await;
     look(&rig, &[7, 8]).await;
     let one = items(&rig).await.remove(0);
+    // What the forge says of pull request 8, so a run can start on it.
+    rig.fleet.vcs().now_pull_request(Some(PullRequestFacts {
+        merge_state: adapter_traits::MergeState::Unknown,
+        standing: PullRequestStanding::Open,
+        branch: "feature/8".into(),
+        base: "main".into(),
+        auto_merge: false,
+        title: "Pull request 8".into(),
+        url: "https://forge.invalid/armada/pull/8".into(),
+        body: None,
+        closes: Vec::new(),
+    }));
+    rig.fleet.vcs().now_pull_request_page(Some(a_page()));
+    rig.fleet.vcs().reading_pull_requests_at(HEAD);
 
     rig.fleet.operator_answered(press(&one, "Run")).await.expect("answered");
 
