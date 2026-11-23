@@ -3,7 +3,7 @@
 //! sets a sign-in that waits on its code or one that ended. Fleet's sentences are copied from what the routes answer
 //! with (`crates/ipc/operations/start_sign_in.toml`, `sign_out.toml`, `set_repository_profile.toml`).
 
-use ipc::{AccountFlow, Accounts, BoundHow, BoundRepository, Profile, ProfileHome, SignInEnded, SignInOutcome, SignedOut};
+use ipc::{AccountFlow, Accounts, BoundHow, BoundRepository, KitLink, Profile, ProfileHome, SignInEnded, SignInOutcome, SignedOut};
 
 use super::wire::Refused;
 
@@ -31,6 +31,8 @@ pub enum AccountCall {
 
 pub struct MockAccounts {
     pub accounts: Accounts,
+    /// Kit over the Mac link, as `get_kit_link` answers it for the Account page's Kit row: Kit's own mock link.
+    pub kit: KitLink,
     pub calls: Vec<AccountCall>,
     /// A sentence the next start is refused with, as Fleet refuses one the forge would not begin.
     pub start_refusal: Option<String>,
@@ -54,7 +56,7 @@ impl MockAccounts {
         let mut work = profile(WORK, "nmele-work", &["acme"], true);
         work.repositories.push(BoundRepository { root: "/Users/user/Development/armada".into(), name: "armada".into(), how: BoundHow::Chosen });
         let accounts = Accounts { profiles: vec![profile(PERSONAL, "nickmele", &[], false), work], unmatched: Vec::new(), flow: AccountFlow::Idle { ended: None } };
-        MockAccounts { accounts, calls: Vec::new(), start_refusal: None }
+        MockAccounts { accounts, kit: crate::kit::mock::MockKit::new().link, calls: Vec::new(), start_refusal: None }
     }
 
     /// A sign-in waits on its code.

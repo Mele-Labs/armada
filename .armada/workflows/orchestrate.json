@@ -22,7 +22,7 @@
     {
       "id": "plan",
       "label": "Plan",
-      "tabs": ["plan", "qa"],
+      "tabs": ["artifacts"],
       "about": "Reads the pile of work, checks each item against main, and proposes one Job per piece as a plan. Ends when you approve the plan; no Job starts before then.",
       "instructions": "Read the work you were handed and every link in it. Check each item against main: done, partial or missing, with a path. Leave out what main already does, and say so.\nGroup what is left into pieces one Job can land as one pull request. Put pieces that touch the same files in one group, or order them.\nRecord the orchestration plan with record_plan: these workflow groups first, then under Dispatch and oversee one task per Job, each with the subagent type, paths, and what it gives. Say which run together and which wait.\nWait for the person to approve the plan. Start no Job before then. Edit nothing.",
       "gate": "plan_approved",
@@ -32,7 +32,7 @@
     {
       "id": "oversee",
       "label": "Dispatch and oversee",
-      "tabs": ["jobs", "pulls", "now"],
+      "tabs": ["jobs", "pulls"],
       "about": "Starts a Job for each piece, two at a time, and follows them, stepping in when one is stuck. Ends when every Job it started has merged or been ended.",
       "instructions": "Start a Job for each piece with start_another_job. At most two run at once: start each of the rest with `after` on an earlier one, `pr_lands` where it builds on that Job's work, `ends` otherwise.\nFleet tells you when a Job you started ends or merges. End your turn between notices; never poll.\nWhen a Job is stuck, failing, or has asked you something, read its thread and message it. End it and start another only when it cannot recover. Start another Job whenever the work shows one is needed, and tell the person why in a line.\nWhen only Jobs waiting on the person are left, say in your thread which ones and what each waits on, once, then wait. Do not repeat their questions as your own.\nEdit nothing and open no pull request yourself.",
       "gate": "jobs_ended",
