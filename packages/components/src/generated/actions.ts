@@ -53,6 +53,7 @@ export type ActionScope =
   | "open studio"
   | "plan"
   | "projects"
+  | "prototype"
   | "report"
   | "review"
   | "review sheet"
@@ -163,7 +164,7 @@ export const ACTIONS: readonly Action[] = [
     icon: SquareArrowOutUpRight,
     iconAbsent: null,
     shortcut: "⌥⌘P",
-    scope: "anywhere",
+    scope: "prototype",
     destructive: false,
     confirms: false,
     unbuilt: null,
