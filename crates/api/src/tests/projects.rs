@@ -318,3 +318,22 @@ async fn a_projects_store_is_read_joined_and_deployed_on_its_own_routes() {
         assert!(text.contains("fleet.no_such_project"), "{text}");
     }
 }
+
+#[tokio::test]
+async fn a_project_board_is_read_none_and_saved_whole_with_a_kind_this_build_does_not_know() {
+    let (status, answer) = call("GET", "/projects/project/p7/board", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let board: ipc::ProjectBoard = ipc::decode("project board", &answer).expect("the board");
+    assert_eq!((board.project.as_str(), board.layout), ("p7", None), "a project that saved none answers none");
+
+    let saved = r#"{"layout":{"blocks":[{"kind":"needs","x":0,"y":0,"w":3,"h":2,"view":"list"},{"kind":"errors","x":3,"y":0,"w":3,"h":2,"view":"cards"}]}}"#;
+    let (status, answer) = call("POST", "/projects/project/p7/board", saved).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let board: ipc::ProjectBoard = ipc::decode("project board", &answer).expect("the board");
+    let kinds: Vec<&str> = board.layout.as_ref().expect("a layout").blocks.iter().map(|one| one.kind.as_str()).collect();
+    assert_eq!(kinds, ["needs", "errors"]);
+
+    let (status, text) = refused("GET", "/projects/project/nope/board", "").await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert!(text.contains("fleet.no_such_project"), "{text}");
+}

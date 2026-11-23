@@ -72,6 +72,7 @@ mod pairing;
 mod palette;
 mod paste_link;
 mod pasteboard;
+mod project_board;
 mod point;
 mod queued;
 mod refusal;

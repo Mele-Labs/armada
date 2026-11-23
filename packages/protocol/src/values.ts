@@ -1,6 +1,8 @@
 // The values a person sets for how work behaves, and what each comes to once the layers are laid over each
 // other. `crates/ipc/src/values.rs`, `docs/practices/protocol/projects.md`, *Values*.
 
+import type { BoardLayout } from "./project-board";
+
 /**
  * What one layer sets, a project's or Kit's: only the keys it sets, each absent where it says nothing.
  * `auto_merge` is `never`, `checks-pass` or `always`, and a word that is not one is refused 422 `fleet.project_values_refused`.
@@ -57,6 +59,8 @@ export type LookSet = {
   layout?: string;
   theme?: string;
   density?: string;
+  /** Where each block of the project's dashboard stands. A project's own: absent is none saved, and Bridge draws its preset. */
+  board?: BoardLayout;
 };
 
 /**

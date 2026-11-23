@@ -118,7 +118,7 @@ primitive, not the alias. Keep body text at 4.5 to 1 against the layer it sits o
   --border-strong: #9AA6B5;
   --fg-default: #FFFFFF;
   --fg-muted: #D0D7E0;
-  --accent: #A8B8FF;
+  --accent: #B8C4FF;
 }
 ```
 

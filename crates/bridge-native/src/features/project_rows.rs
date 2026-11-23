@@ -51,8 +51,13 @@ impl FeaturesScreen {
                     ProjectPageEvent::Pull { repository, number } => this.open_pull(repository, *number, cx),
                     ProjectPageEvent::Job(id) => this.open_job(id.clone(), cx),
                     ProjectPageEvent::Escape if this.stacked => this.back(window, cx),
+                    // Drawn alone as a tab, the page has no list to give the keys to.
+                    ProjectPageEvent::Escape if this.alone() => {}
                     ProjectPageEvent::Escape => this.focus_list(window, cx),
                 }));
+                if self.alone() {
+                    page.update(cx, |page, cx| page.focus_body(window, cx));
+                }
                 self.project_page = Some(page);
                 self.tune_project_page(cx);
             }
@@ -61,7 +66,7 @@ impl FeaturesScreen {
     }
 
     /// A row of a project page was pressed: the feature opens in its place and has the keys, as the list's own Enter has it.
-    fn open_from_project(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn open_from_project(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
         if self.listed.find(&slug).is_none() {
             return;
         }
