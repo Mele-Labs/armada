@@ -1906,7 +1906,7 @@ impl JobsList {
         } else if act.is("job_judge") {
             // `⌥⌘L` on the row under the keys, as the menu's Judge.
             match self.focused.clone().filter(|id| self.rows().any(|row| &row.id == id && row.queued.is_none() && !row.ended)) {
-                Some(id) => self.judge_job(&id, cx),
+                Some(id) => self.judge_job(&id, window, cx),
                 None => cx.propagate(),
             }
         } else if act.is("deck_search") {
@@ -2226,7 +2226,7 @@ impl JobsList {
                         this.open_project_picker(ids, Some(at), from_keys, None, window, cx);
                     });
                 }
-                "judge" => this.judge_job(&job, cx),
+                "judge" => this.judge_job(&job, window, cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => {
