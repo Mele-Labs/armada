@@ -348,9 +348,11 @@ describe("the keys on a Job's thread cards", () => {
     ).toBeNull();
   });
 
-  it("lists the four, the Needs you sheet's key, its fold key, the find keys, the question keys, the hand off band's r and d, the message kind key, the contents rail key and the tools key under Job thread", () => {
+  it("lists the two Judge keys, the four, the Needs you sheet's key, its fold key, the find keys, the question keys, the hand off band's r and d, the message kind key, the contents rail key and the tools key under Job thread", () => {
     const group = KEYMAP_GROUPS.find((one) => one.title === "Job thread");
     expect(actsInGroup(group!).map((act) => act.id)).toEqual([
+      "selection_judge",
+      "card_judge",
       "thread_yes",
       "thread_change",
       "thread_send_back",
