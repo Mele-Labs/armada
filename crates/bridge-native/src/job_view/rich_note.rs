@@ -155,7 +155,7 @@ impl RichNote {
         }
         let label = "Tag a Job or a file";
         let current = self.offer.as_ref().map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.put_offer(Some(Offer { label, rows, current, from, to: cursor, query, loading }), cx);
+        self.put_offer(Some(Offer { label, rows, current, from, to: cursor, query, loading, within: None, held: super::offer::Held::default() }), cx);
     }
 
     fn put_offer(&mut self, offer: Option<Offer>, cx: &mut Context<Self>) {
@@ -307,6 +307,7 @@ impl gpui::Render for RichNote {
                         let _ = this.update(cx, |this, cx| this.choose(at, window, cx));
                     })
                 },
+                None,
                 false,
             )
         });

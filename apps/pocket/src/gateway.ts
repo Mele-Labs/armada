@@ -113,9 +113,9 @@ export type PhoneSession = {
    * the Job is doing now. A row draws nothing for one that is absent.
    */
   mark?: {
-    state: SessionState;
-    lamp: "needs" | "failed" | "running" | "done" | "idle";
-    group: "needs" | "working" | "held" | "done";
+    state: SessionState | "ready";
+    lamp: "needs" | "ready" | "failed" | "running" | "done" | "idle";
+    group: "needs" | "ready" | "working" | "held" | "done";
   };
   project?: string;
   last_turn_at?: string;

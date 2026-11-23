@@ -5,9 +5,11 @@
 //! The list hangs over the box. ↑ and ↓ move, Enter and Tab choose, Esc closes. A Job or a number
 //! chosen becomes one atomic chip in the text; a file or a command is plain text.
 
+use std::cell::Cell;
+use std::rc::Rc;
 use std::time::Duration;
 
-use gpui::{div, prelude::*, svg, Context, Role, SharedString, Window};
+use gpui::{div, prelude::*, svg, Context, Role, ScrollHandle, SharedString, Window};
 use gpui_component::input::{InlineToken, TextareaState};
 use ipc::TagKind;
 
@@ -33,6 +35,13 @@ pub(crate) struct Row {
     pub pick: Pick,
 }
 
+/// What the list holds between frames: where it is scrolled, and whether a press outside it is waiting to put it away.
+#[derive(Clone, Default)]
+pub(crate) struct Held {
+    pub scroll: ScrollHandle,
+    pub away: Rc<Cell<bool>>,
+}
+
 pub(crate) struct Offer {
     pub label: &'static str,
     pub rows: Vec<Row>,
@@ -43,6 +52,23 @@ pub(crate) struct Offer {
     pub query: String,
     /// The files have not been answered for yet.
     pub loading: bool,
+    /// The tools list one level in, on API Client's saved requests.
+    pub within: Option<super::ask_tools::Within>,
+    pub held: Held,
+}
+
+impl Offer {
+    /// Scroll the list so the marked row is in view. The headings and the search are children of the list too, so the row's
+    /// place among them is counted; the first row brings the top with it.
+    pub fn keep_marked_in_view(&self) {
+        if self.current == 0 {
+            self.held.scroll.scroll_to_top_of_item(0);
+            return;
+        }
+        let headings = self.rows.iter().take(self.current + 1).filter(|row| row.group.is_some()).count();
+        let search = if self.within.is_some() { 2 } else { 0 };
+        self.held.scroll.scroll_to_item(self.current + headings + search);
+    }
 }
 
 /// The word under the caret and its trigger (`tokenAt`): `/` only at the very start, `@` and `#` at
@@ -116,9 +142,12 @@ pub(crate) fn chip_of(kind: TagKind, id: &str, title: &str, url: Option<&str>) -
         TagKind::Report => "report",
         TagKind::Terminal => "terminal",
         TagKind::Tool => "tool",
+        TagKind::Request => "request",
     };
     let one_line = title.replace(['\n', '\r'], " ");
-    InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(one_line)
+    // A request's chip reads its tool and its name; the words it stands for are `@<name>`, which the thread finds it by.
+    let label = if kind == "request" { super::ask_tools::request_words(&one_line) } else { one_line.clone() };
+    InlineToken::new(format!("{kind}\u{1f}{id}\u{1f}{}", url.unwrap_or_default()), format!("@{one_line}")).with_label(label)
 }
 
 /// The mention a chip stands for, read back from its id and label.
@@ -132,11 +161,13 @@ pub(crate) fn mention_of(id: &str, label: &str) -> Option<ipc::SessionTag> {
         "report" => TagKind::Report,
         "terminal" => TagKind::Terminal,
         "tool" => TagKind::Tool,
+        "request" => TagKind::Request,
         _ => return None,
     };
     let tag_id = parts.next()?.to_string();
     let url = parts.next().filter(|url| !url.is_empty()).map(str::to_string);
-    Some(ipc::SessionTag { kind, id: tag_id, title: label.to_string(), url })
+    let title = if kind == TagKind::Request { super::ask_tools::request_title(label) } else { label };
+    Some(ipc::SessionTag { kind, id: tag_id, title: title.to_string(), url })
 }
 
 /// What `@` offers: the Jobs whose titles hold the query, at most five, then the files `found` for it, at most five.
@@ -256,7 +287,7 @@ impl JobView {
             return;
         }
         let current = self.composer.offer.as_ref().filter(|held| held.label == label).map_or(0, |held| held.current.min(rows.len().saturating_sub(1)));
-        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading });
+        self.composer.offer = Some(Offer { label, rows, current, from, to, query, loading, within: None, held: Held::default() });
     }
 
     /// Ask Fleet for the files a query names, 150 ms after the last key (`LOOKUP_MS`).
@@ -323,6 +354,9 @@ impl JobView {
 
     /// A key while a list is open: it is the list's, and the box does not see it. True where taken.
     pub(super) fn offer_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.tools_key(key, cx) {
+            return true;
+        }
         let Some(offer) = self.composer.offer.as_mut() else { return false };
         let last = offer.rows.len().saturating_sub(1);
         let was = offer.current;
@@ -345,6 +379,9 @@ impl JobView {
         if self.composer.offer.as_ref().is_some_and(|offer| offer.current != was) && matches!(key, "up" | "down") {
             crate::ui_sounds::moved();
         }
+        if let Some(offer) = self.composer.offer.as_ref().filter(|_| matches!(key, "up" | "down")) {
+            offer.keep_marked_in_view();
+        }
         cx.notify();
         true
     }
@@ -364,44 +401,99 @@ impl JobView {
     /// The list over the box (`.armada-mention`): rows with a glyph, a name and its words, in groups.
     pub(super) fn render_offer(&self, look: &Look, cx: &Context<Self>) -> Option<gpui::AnyElement> {
         let offer = self.composer.offer.as_ref()?;
-        Some(offer_list(offer, look, |at| {
-            let this = cx.entity().downgrade();
-            Box::new(move |_, window, cx| {
-                let _ = this.update(cx, |this, cx| this.choose(at, window, cx));
-            })
-        }))
+        let away = offer.held.away.clone();
+        let this = cx.entity().downgrade();
+        // A press outside the list puts it away once the press has been through every element, unless the + took it as its own.
+        let outside: Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)> = Box::new(move |_, _, cx| {
+            away.set(true);
+            let this = this.clone();
+            cx.defer(move |cx| {
+                let _ = this.update(cx, |this, cx| this.leave_offer(cx));
+            });
+        });
+        Some(offer_list(
+            offer,
+            look,
+            |at| {
+                let this = cx.entity().downgrade();
+                Box::new(move |_, window, cx| {
+                    let _ = this.update(cx, |this, cx| this.pressed(at, window, cx));
+                })
+            },
+            Some(outside),
+        ))
+    }
+
+    /// A press on a row: API Client's row in the tools list opens its items, as → does, and any other row is picked, as Enter does.
+    fn pressed(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.open_api_client_items(at, cx) {
+            self.choose(at, window, cx);
+        }
+    }
+
+    /// Put the list away where a press outside it is still waiting.
+    fn leave_offer(&mut self, cx: &mut Context<Self>) {
+        if self.composer.offer.as_ref().is_some_and(|offer| offer.held.away.get()) {
+            self.composer.offer = None;
+            cx.notify();
+        }
     }
 }
 
 /// The list over a box (`.armada-mention`): rows with a glyph, a name and its words, in groups. `choose` makes
-/// each row's press.
-pub(crate) fn offer_list(offer: &Offer, look: &Look, choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>) -> gpui::AnyElement {
-    offer_list_at(offer, look, choose, true)
+/// each row's press, and `outside` a press anywhere else.
+pub(crate) fn offer_list(
+    offer: &Offer,
+    look: &Look,
+    choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>,
+    outside: Option<Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)>>,
+) -> gpui::AnyElement {
+    offer_list_at(offer, look, choose, outside, true)
 }
 
 /// The same list, floating over the box or, where `floating` is false, standing in the flow above its words: a card
 /// that cuts what runs past its edge would cut a floating one.
-pub(crate) fn offer_list_at(offer: &Offer, look: &Look, choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>, floating: bool) -> gpui::AnyElement {
+pub(crate) fn offer_list_at(
+    offer: &Offer,
+    look: &Look,
+    choose: impl Fn(usize) -> Box<dyn Fn(&gpui::ClickEvent, &mut Window, &mut gpui::App)>,
+    outside: Option<Box<dyn Fn(&gpui::MouseDownEvent, &mut Window, &mut gpui::App)>>,
+    floating: bool,
+) -> gpui::AnyElement {
     let mut rows: Vec<gpui::AnyElement> = Vec::new();
+    let heading = |text: &str| {
+        div()
+            .px(look.length(token::SPACE_3))
+            .py(look.length(token::SPACE_1))
+            .text_size(look.length(token::TEXT_2XS))
+            .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_SUBTLE))
+            .child(text.to_uppercase())
+            .into_any_element()
+    };
+    // API Client's items: the heading over a search that takes the keys, and each row's method in front of its name.
+    if offer.within.is_some() {
+        rows.push(heading(offer.label));
+        rows.push(super::ask_tools::search(look, &offer.query));
+    }
     for (at, row) in offer.rows.iter().enumerate() {
         if let Some(group) = row.group {
-            rows.push(
-                div()
-                    .px(look.length(token::SPACE_3))
-                    .py(look.length(token::SPACE_1))
-                    .text_size(look.length(token::TEXT_2XS))
-                    .font_weight(gpui::FontWeight(look.number(token::WEIGHT_HEADING)))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(group.to_uppercase())
-                    .into_any_element(),
-            );
+            rows.push(heading(group));
         }
-        let name: SharedString = if row.says.is_empty() { row.name.clone().into() } else { format!("{} {}", row.name, row.says).into() };
+        let method = offer.within.as_ref().and_then(|within| within.method_of(&row.pick));
+        let name: SharedString = match (method, row.says.is_empty()) {
+            (Some(method), _) => format!("{method} {} {}", row.name, row.says).into(),
+            (None, true) => row.name.clone().into(),
+            (None, false) => format!("{} {}", row.name, row.says).into(),
+        };
         // A tool's glyph takes its hue and its name the box's own face; a command's or a file's name is code.
         let hue = match &row.pick {
             Pick::Tag { kind: TagKind::Tool, id, .. } => super::ask_tools::hue(id),
+            Pick::Tag { kind: TagKind::Request, .. } => super::ask_tools::hue(super::ask_tools::API_CLIENT),
             _ => None,
         };
+        // The sign that → opens API Client's items, on its row alone.
+        let opens = offer.within.is_none() && matches!(&row.pick, Pick::Tag { kind: TagKind::Tool, id, .. } if id == super::ask_tools::API_CLIENT);
         let mono = if hue.is_some() { None } else { look.font_stack(token::FONT_MONO).into_iter().next() };
         rows.push(
             labelled(
@@ -416,11 +508,15 @@ pub(crate) fn offer_list_at(offer: &Offer, look: &Look, choose: impl Fn(usize) -
                     .text_size(look.length(token::TEXT_XS))
                     .when(offer.current == at, |row| row.bg(look.color(token::BG_HOVER)))
                     .cursor_pointer()
-                    .child(
-                        div().flex_none().mr(look.length(token::SPACE_2)).child(
-                            svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(hue.unwrap_or(token::FG_MUTED))),
-                        ),
-                    )
+                    .child(if offer.within.is_some() {
+                        super::ask_tools::lead(look, method, row.glyph)
+                    } else {
+                        div()
+                            .flex_none()
+                            .mr(look.length(token::SPACE_2))
+                            .child(svg().path(icon_path(row.glyph)).size(look.length(token::SPACE_3)).text_color(look.color(hue.unwrap_or(token::FG_MUTED))))
+                            .into_any_element()
+                    })
                     .child(div().flex_none().when_some(mono, |name, mono| name.font_family(mono)).text_color(look.color(token::FG_DEFAULT)).child(row.name.clone()))
                     .child(
                         div()
@@ -428,9 +524,18 @@ pub(crate) fn offer_list_at(offer: &Offer, look: &Look, choose: impl Fn(usize) -
                             .min_w_0()
                             .truncate()
                             .ml(look.length(token::SPACE_3))
-                            .text_color(look.color(token::FG_MUTED))
+                            .when(offer.within.is_some(), |says| says.text_right().text_color(look.color(token::FG_SUBTLE)))
+                            .when(offer.within.is_none(), |says| says.text_color(look.color(token::FG_MUTED)))
                             .child(row.says.clone()),
                     )
+                    .when(opens, |row| {
+                        row.child(
+                            div()
+                                .flex_none()
+                                .ml(look.length(token::SPACE_2))
+                                .child(svg().path(icon_path("chevron-right")).size(look.length(token::SPACE_3)).text_color(look.color(token::FG_MUTED))),
+                        )
+                    })
                     .on_click(choose(at)),
                 Role::ListItem,
                 name,
@@ -465,6 +570,7 @@ pub(crate) fn offer_list_at(offer: &Offer, look: &Look, choose: impl Fn(usize) -
             .max_w_full()
             .max_h(look.length(token::H_CONTROL) * 8.)
             .overflow_y_scroll()
+            .track_scroll(&offer.held.scroll)
             .flex()
             .flex_col()
             .p(look.length(token::SPACE_1))
@@ -474,6 +580,7 @@ pub(crate) fn offer_list_at(offer: &Offer, look: &Look, choose: impl Fn(usize) -
             .bg(look.color(token::BG_OVERLAY))
             .shadow(look.shadows(token::SHADOW_OVERLAY))
             .occlude()
+            .when_some(outside, |list, outside| list.on_mouse_down_out(outside))
             .children(rows),
         Role::List,
         offer.label,
@@ -528,5 +635,17 @@ mod tests {
         assert_eq!((chip.text().as_ref(), chip.label().as_ref()), ("@Takes", "Takes"));
         let tag = mention_of(chip.id(), chip.label()).expect("a mention");
         assert_eq!(tag, ipc::SessionTag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
+    }
+
+    #[test]
+    fn a_request_chip_reads_api_client_and_its_name_and_reads_back_as_the_request() {
+        let chip = chip_of(TagKind::Request, "service/health", "Health", None);
+        assert_eq!(chip.label().as_ref(), "API Client · Health", "the chip names its tool and the request");
+        assert_eq!(chip.text().as_ref(), "@Health", "the words it stands for are the request's name");
+        let tag = mention_of(chip.id(), chip.label()).expect("a mention");
+        assert_eq!(tag, ipc::SessionTag { kind: TagKind::Request, id: "service/health".into(), title: "Health".into(), url: None }, "the wire title is the name alone");
+        let new = chip_of(TagKind::Request, "new", "New request", None);
+        assert_eq!(new.label().as_ref(), "API Client · New request");
+        assert_eq!(mention_of(new.id(), new.label()).map(|tag| (tag.id, tag.title)), Some(("new".to_string(), "New request".to_string())));
     }
 }

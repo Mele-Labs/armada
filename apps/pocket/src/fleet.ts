@@ -328,7 +328,8 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
           ...(session.mark === undefined || session.mark.state === read.state
             ? {}
             : {
-                state: session.mark.state,
+                // Ready for him draws as Waiting until Pocket has a look of its own.
+                state: session.mark.state === "ready" ? "waiting" : session.mark.state,
               }),
         };
       }),

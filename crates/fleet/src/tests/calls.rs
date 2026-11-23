@@ -134,7 +134,7 @@ async fn a_paused_job_tells_nothing_and_resuming_it_does_not_tell_what_it_held()
 }
 
 #[tokio::test]
-async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
+async fn every_needs_you_item_is_told_blocked() {
     let rig = rig_placing(None);
     let mut record = row(&rig).await;
     let mut keeper = seeded(&record);
@@ -150,11 +150,34 @@ async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
         told.arrived,
         [
             CallArrival { item: Some("perm:1".into()), ..arrival(&record, "Run the tests?", CallTone::Blocked, CallArrivalKind::Needs) },
-            CallArrival { item: Some("replied:2".into()), ..arrival(&record, "Land it?", CallTone::Waiting, CallArrivalKind::Needs) },
-            // A fleet call holds the turn for a call, but a banner tells it as it tells any other.
-            CallArrival { item: Some("call:3".into()), ..arrival(&record, "A notice", CallTone::Waiting, CallArrivalKind::Needs) },
+            // Every Needs you item is told with the blocked tone, a reply that asks and a fleet call included.
+            CallArrival { item: Some("replied:2".into()), ..arrival(&record, "Land it?", CallTone::Blocked, CallArrivalKind::Needs) },
+            CallArrival { item: Some("call:3".into()), ..arrival(&record, "A notice", CallTone::Blocked, CallArrivalKind::Needs) },
         ]
     );
+}
+
+#[tokio::test]
+async fn built_work_to_look_at_is_no_call_and_no_news_but_a_need_beside_it_is() {
+    let rig = rig_placing(None);
+    let mut record = row(&rig).await;
+    let mut keeper = seeded(&record);
+    keeper.changed(&nowhere, now());
+
+    record.waiting_for = vec![
+        item("try:job", "Ready to try", WaitingSource::ReadyToTry, 1),
+        item("walk:http://localhost:5173/", "Findings", WaitingSource::Walk, 2),
+        item("read:a.html", "Read: A page", WaitingSource::Document, 3),
+    ];
+    keeper.hear(&record);
+    assert_eq!(keeper.changed(&nowhere, now()), None, "Ready for him is not Needs you: nothing counts, sounds or pushes");
+    assert!(keeper.standing(&nowhere, now()).is_empty());
+
+    record.waiting_for.push(item("ask:1", "Which clock?", WaitingSource::AskCard, 4));
+    keeper.hear(&record);
+    let told = keeper.changed(&nowhere, now()).expect("the question is news");
+    assert_eq!(told.arrived, [CallArrival { item: Some("ask:1".into()), ..arrival(&record, "Which clock?", CallTone::Blocked, CallArrivalKind::Needs) }]);
+    assert_eq!(told.calls.len(), 1, "{:?}", told.calls);
 }
 
 #[tokio::test]
@@ -525,7 +548,7 @@ async fn a_job_that_asks_him_is_told_once_and_a_visit_takes_its_call_off_the_lis
     let arrivals = |told: &Arc<Mutex<Vec<ipc::CallsChanged>>>| told.lock().unwrap().iter().flat_map(|one| one.arrived.clone()).collect::<Vec<_>>();
     eventually(|| async { !arrivals(&told).is_empty() }).await;
     let first = arrivals(&told);
-    assert_eq!((first.len(), first[0].kind, first[0].tone, &first[0].session_id), (1, CallArrivalKind::Needs, CallTone::Waiting, &id), "{first:?}");
+    assert_eq!((first.len(), first[0].kind, first[0].tone, &first[0].session_id), (1, CallArrivalKind::Needs, CallTone::Blocked, &id), "{first:?}");
     let standing = rig.fleet.get_calls().await.expect("the calls");
     assert_eq!(standing.calls.len(), 1, "{standing:?}");
     assert_eq!(standing.calls[0].owner, format!("session:{}", id.as_str()));
