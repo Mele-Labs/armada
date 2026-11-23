@@ -341,15 +341,16 @@ The project's Dashboard lists the open issues nobody is assigned to, that no Job
 | Way | An issue matches a feature when |
 |---|---|
 | Files of a pull request | An open pull request of the same repository names the issue in its title, and one of its files is the feature's by the rules in [Which feature owns a file](#which-feature-owns-a-file) |
-| Label | A label equals the feature's slug, or its area's |
-| Title | The feature's slug or title stands in the issue's title as whole words |
+| Label | A label equals the feature's slug, or its area's, with case and separators ignored |
+| Title | The feature's slug or title stands in the issue's title as whole words, with case and separators ignored |
 
-> **Rule.** A row is ranked by how many of the owner's Jobs filed a file under the features it matched in the last 30 days, each Job counted once, then the newest first.
+> **Rule.** A row is ranked by how many of the owner's Jobs filed a file under the features it matched in the last 30 days, each Job counted once, then the most recently updated first.
 > Why: the work he has been doing lately is the work he is most likely to pick up next, and a Job on two matched features is still one Job.
 
 An issue that matched no feature comes after every issue that did, and the row names each feature it matched and by which way, so the screen can say why it is there.
 A pending feature is never matched.
-The same answer lists the open pull requests that are not his, mapped by their own files and ranked the same way, as the ones he might be interested in.
+The same answer lists the open pull requests that are not his, mapped by their own files, as the ones he might be interested in.
+They are ranked as the issues are, the ones that matched a feature first, then the most Jobs, then the highest number.
 It is empty where Armada does not know who he is on the forge, since then nobody can be called somebody else.
 
 ## Seeding

@@ -268,6 +268,79 @@ Unlinking lets a `held` task go back to `open`.
 After the Job ends, the question stays on the cards, and he answers it there.
 A task no Job holds is asked the same way when a linked pull request merges, on the cards alone.
 
+## The Project place and its Dashboard
+
+**In the native Bridge the place that was Features is Project, and it opens on the project's Dashboard.**
+Its tabs are Dashboard, Features, Since you looked, Who's on what and Settings, and Dashboard is the one it opens on.
+The three in the middle are the [Feature catalog](feature-catalog.md)'s screens, drawn in a mode each over one library.
+Settings is the project's sheet, members and values, drawn as a page.
+
+**The Dashboard is a board of blocks on a grid six columns wide, as tall as its blocks.**
+No two blocks overlap and none has room above it: a move or a resize pins the block it is about, and the others rise to the first row where they fit.
+
+| Block | What it draws |
+|---|---|
+| Needs you | The Jobs of the project waiting on him, then the Operator's cards no listed Job stands for |
+| Run | The project's servers and runs, started and stopped on the checkout the header names |
+| Reviews | The pull requests requested of him, assigned to him and his own, and under them the open pull requests of others he might be interested in |
+| Issues | The issues assigned to him, and under them the ones he might pick up |
+| Features | What moved since he looked, and in its Picture the rooms of the code map. A feature opens on the Features tab |
+| Checks and commands | The Checks and Commands of its manifests, run in the main checkout |
+
+The might-pick-up and might-be-interested rows are Fleet's ranking, which [Feature catalog](feature-catalog.md), *Ranking the issues he might pick up*, owns.
+
+**Each block has a view switch, and it offers only the views the block's data fits.**
+Needs you is a List or Cards, Run a List, Table or Cards, Reviews Cards, List or Table, Issues a Table, List or Cards, Features Cards, List or Picture, and Checks and commands a List or Table.
+The first of a block's views is the one it starts in.
+
+**Edit turns the blocks into things to arrange.**
+While it is on, dragging a block's header moves it and dragging its corner resizes it, and the arrow keys move the block that has the keys by a cell and Shift with the arrows grows or shrinks it.
+A block is least two columns wide and one row tall, and most six rows tall.
+Edit also offers Hide on each block, and Add block lists the kinds that are not on the board, so a hidden block is never lost.
+Add block puts a kind in the first free cells.
+
+### Where a board starts, and where it is kept
+
+> **Rule.** A project that has saved no board draws the preset for its kind, and one he has arranged keeps what he arranged.
+> Why: the preset is a guess from the project's manifests, and a guess must not move a block he placed.
+
+The kind is read from the manifest kinds the code map already names, so no second reading is made.
+
+| Project | Manifest kinds it holds | The preset puts first |
+|---|---|---|
+| Web | `npm` | Run, then Needs you |
+| Compiled | `cargo`, `go`, `gradle`, `maven`, `dotnet` or `swift`, and no `npm` | Checks and commands, then Needs you |
+| Unknown | None of those, or the map not read yet | The web board |
+
+The layout is kept in the project's own file as `look.board`, and no other layer sets it ([Projects](../practices/protocol/projects.md), *The board*).
+A drag or a run of arrow keys is one save, sent once the board has stood still a moment.
+Reset board, on the Settings tab, has Fleet forget the layout, and the board draws the preset again.
+
+A block's kind and view are plain text on the wire.
+A kind a later Bridge adds crosses without a wire break, and a block of a kind this build does not draw is kept and sent back as it was saved.
+
+### The header
+
+The header is the same on every tab.
+
+| Part | What it does |
+|---|---|
+| Project chips | A press shows that project |
+| Ask the librarian | A box that keeps what is typed. While it has the keys it offers example asks, and a press on one fills the box. Sending is not built |
+| Edit | Turns editing the board on and off, and with it Add block, on the Dashboard tab |
+| Members and Settings | Open the Settings tab. Members puts the keys in the list of members |
+| Start | Starts the project's run on the checkout beside it |
+
+The checkout menu beside Start lists Main and the worktree of each live Job of the project on this Mac, so a run can be started on work not yet landed.
+Run and Start both act on the checkout it names.
+
+**A Command marked `confirm: true` asks before the board runs it.**
+Run and Cancel are asked over the board, the keys are on Cancel, and nothing runs until Run.
+Any other Command runs on a press ([Manifest](manifest.md), *Commands*).
+
+**The Dashboard is the native Bridge's alone.**
+Classic is unchanged.
+
 ## What a person sees
 
 | Surface | What it draws |
@@ -278,6 +351,9 @@ A task no Job holds is asked the same way when a linked pull request merges, on 
 | The add fields | Take `#` for an issue or a pull request and `@` for a Job or a file, as the composer does. They are how a task is linked. The key that goes to the task field sits inside it, at its right edge, and in the composer at the right of its tool row. The task field grows into a composer with a button for each, and a file stays in the words as `@path`. The composer also names the repository, required, and the project, optional; a pane fixes the one it is open on |
 | The search | A field above the views, focused by `/`. Words in it list every task and subtask whose title, notes or linked issue reference or title match, in all projects and repositories, grouped by project as a view is. Done tasks are listed only while they are shown. Esc clears it and the view that was open is back; while it is on, the column marks nothing as open |
 | The command palette | Words typed in it can be added as a task or a project. It also finds any task or subtask by title, with its project (or No project) and repository under it, and choosing one opens its project, or All tasks, with done shown where it is done, and its card in focus |
+| The Project place | Opens on the Dashboard, a snapping grid of blocks, over the tabs Features, Since you looked, Who's on what and Settings. [The Project place and its Dashboard](#the-project-place-and-its-dashboard) |
+| A block | A card with a header, a view switch for the views its data fits, and its rows. While the board is edited the header drags it, its corner resizes it and a Hide button takes it off the board |
+| The header | The project chips, the Ask the librarian box, Edit, Members, Settings, the checkout menu and Start |
 
 The palette's rows and the keys on the tab are in [Keyboard and command palette](../contracts/design-system/keyboard-and-command-palette.md).
 
@@ -291,3 +367,6 @@ The palette's rows and the keys on the tab are in [Keyboard and command palette]
 | The switch in the native Bridge | The native Bridge |
 | A Job on one Mac linked to a task on the other | Acts across Macs, a later stage of two Macs as one Armada |
 | Sharing a project with teammates | Not built. A project's file is on this Mac, in a synced folder or in the cloud its owner chose |
+| The System, Docs and Errors blocks | Each is a later Job. Block kinds are plain text, so they add without a wire break |
+| Sending the Ask the librarian box | A later Job. The box keeps what is typed and offers examples, and sends nothing |
+| The librarian choosing the preset | A later Job. The preset follows the manifest kinds alone |
