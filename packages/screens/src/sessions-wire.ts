@@ -976,9 +976,9 @@ export function trailOfRecord(record: SessionRecord): SessionTrail {
   };
 }
 
-// One of Armada's tools gets no chip here, only the native Bridge draws one: its words stay as typed.
+// One of Armada's tools, or a saved request, gets no chip here, only the native Bridge draws one: its words stay as typed.
 const tagOf = (tag: WireTag): SessionTag[] =>
-  tag.kind === "tool"
+  tag.kind === "tool" || tag.kind === "request"
     ? []
     : [
         {
