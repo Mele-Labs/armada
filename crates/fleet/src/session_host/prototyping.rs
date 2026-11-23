@@ -11,10 +11,14 @@ use std::sync::{Arc, PoisonError};
 use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
-use api::Refusal;
-use ipc::{CheckedPart, PartContent, PartState, PrototypePart, SceneFixture, SessionId, SessionRecord, ShowPrototype, MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, SCENES_DIR};
+use api::{Refusal, Sessions};
+use ipc::{
+    ArtifactFor, AttachmentReport, CheckedPart, PartContent, PartState, PrototypePart, SceneFixture, SessionFact, SessionId, SessionRecord, SessionReport, ShowPrototype,
+    MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, SCENES_DIR,
+};
 
-use super::artifact_parts::{stored, PART_REFUSED};
+use super::artifact_parts::{is_sketch, stored, PART_REFUSED, PART_UNNAMED};
+use super::sketching::TARGET_PREFIX;
 use crate::daemon::Fleet;
 
 /// How long the scratch folders stay quiet before a save is read again, so a write that lands as several events, or
@@ -125,13 +129,57 @@ where
     /// `show_prototype`: the scene read now, put as a part that asks, under the scene's file name.
     pub(crate) async fn prototype_shown(self: Arc<Self>, caller: Option<api::Caller>, show: ShowPrototype) -> Result<SessionRecord, Refusal> {
         let checked = show.checked().map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
-        let (id, harness) = self.part_job(caller, show.session_id.as_ref()).await?;
+        let (id, harness) = self.prototype_job(caller, show.session_id.as_ref()).await?;
         // Watched before it is read, so a save between the two is heard.
         self.scenes_watched();
         let prototype = prototype_read(&self.scratch_of(&id), &checked.scene, checked.state)
             .map_err(|why| self.hosted_refusal(PART_REFUSED, &format!("the prototype was not shown: {why}")))?;
         let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: true };
-        self.part_placed(&id, &harness, &part, checked.said).await
+        self.prototype_placed(&id, &harness, &part, checked.said).await
+    }
+
+    /// The job the call places and its harness. Mirrors the lookup in `part_added`.
+    async fn prototype_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<(String, String), Refusal> {
+        let id = caller
+            .and_then(|caller| self.session_holding(&caller))
+            .or_else(|| named.map(|named| named.as_str().trim().to_string()))
+            .filter(|id| !id.is_empty())
+            .ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a part needs a job to go on, and this call places none"))?;
+        let harness = {
+            let store = self.store().lock().await;
+            store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a job Fleet knows"))?.harness
+        };
+        Ok((id, harness))
+    }
+
+    /// `part` put where it goes: the artifact that holds the scene already, else a new one. Mirrors the placement in
+    /// `part_added`.
+    async fn prototype_placed(&self, id: &str, harness: &str, part: &CheckedPart, said: Option<ArtifactFor>) -> Result<SessionRecord, Refusal> {
+        let held = self.held_rows(id).await?;
+        let earlier = held.iter().filter(|one| is_sketch(one)).find(|one| stored(&one.detail).iter().any(|held| held.id == part.id)).map(|one| one.target.clone());
+        let target = match earlier {
+            Some(target) => target,
+            None => self.prototype_container(id, harness, &part.title, &held).await?,
+        };
+        self.part_put(id, harness, &target, part, said).await
+    }
+
+    /// A scene-less artifact titled `title`, with a target unique among the Job's. Mirrors `container_made`.
+    async fn prototype_container(&self, id: &str, harness: &str, title: &str, held: &[ipc::Attachment]) -> Result<String, Refusal> {
+        let mut target = format!("{TARGET_PREFIX}{title}");
+        let mut again = 1;
+        while held.iter().any(|one| one.target == target) {
+            again += 1;
+            target = format!("{TARGET_PREFIX}{title} ({again})");
+        }
+        let detail = [("form", "sketch"), ("by", "agent"), ("title", title)].into_iter().map(|(key, word)| (key.to_string(), word.to_string())).collect();
+        self.report_session(SessionReport {
+            harness: harness.to_string(),
+            session_id: SessionId::carried(id),
+            fact: SessionFact::Attached { attachment: AttachmentReport { kind: String::from("artifact"), target: target.clone(), detail } },
+        })
+        .await?;
+        Ok(target)
     }
 
     /// **Every Job's scratch folder watched for a write under its `scenes/`**, from the first prototype shown. A save
@@ -209,9 +257,9 @@ where
             return;
         }
         let Ok(held) = self.held_rows(id).await else { return };
-        let Ok((_, harness)) = self.part_job(None, Some(&SessionId::carried(id))).await else { return };
+        let Ok((_, harness)) = self.prototype_job(None, Some(&SessionId::carried(id))).await else { return };
         let scratch = self.scratch_of(id);
-        for row in held.iter().filter(|one| super::artifact_parts::is_sketch(one)) {
+        for row in held.iter().filter(|one| is_sketch(one)) {
             for part in stored(&row.detail) {
                 let PartContent::Prototype(was) = &part.content else { continue };
                 if !matches!(part.state, PartState::Open | PartState::SentBack) {

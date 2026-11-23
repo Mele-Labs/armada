@@ -373,14 +373,14 @@ pub fn prototype_trouble() -> JobArtifact {
 
 /// The artifacts the scenario's Job holds when it opens.
 pub fn initial() -> Option<Vec<JobArtifact>> {
+    if crate::mock::scenario_is("artifact-asides") {
+        return Some(vec![asides()]);
+    }
     if crate::mock::scenario_is("prototype") {
         return Some(vec![prototype()]);
     }
     if crate::mock::scenario_is("prototype-trouble") {
         return Some(vec![prototype_trouble()]);
-    }
-    if crate::mock::scenario_is("artifact-asides") {
-        return Some(vec![asides()]);
     }
     match scenario() {
         Some(answered) => Some(vec![artifact(answered)]),

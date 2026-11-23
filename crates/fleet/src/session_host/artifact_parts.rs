@@ -28,7 +28,7 @@ use super::sketching::TARGET_PREFIX;
 use crate::daemon::Fleet;
 
 pub(crate) const PART_REFUSED: &str = "fleet.part_refused";
-const PART_UNNAMED: &str = "fleet.part_unnamed";
+pub(crate) const PART_UNNAMED: &str = "fleet.part_unnamed";
 const PART_UNKNOWN: &str = "fleet.part_unknown";
 const PART_NOT_OPEN: &str = "fleet.part_not_open";
 pub(crate) const PART_REDRAWN: &str = "fleet.part_redrawn";
@@ -406,39 +406,27 @@ where
     pub(crate) async fn part_added(&self, caller: Option<api::Caller>, add: AddPart) -> Result<SessionRecord, Refusal> {
         let checked = add.checked().map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
         let said = add.for_checked().map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
-        let (id, harness) = self.part_job(caller, add.session_id.as_ref()).await?;
-        let checked = self.takes_styled(&id, checked).await?;
-        self.part_placed(&id, &harness, &checked, said).await
-    }
-
-    /// The job a part call places, by its connection, else by the `session_id` it names, and its harness.
-    pub(crate) async fn part_job(&self, caller: Option<api::Caller>, named: Option<&SessionId>) -> Result<(String, String), Refusal> {
         let id = caller
             .and_then(|caller| self.session_holding(&caller))
-            .or_else(|| named.map(|named| named.as_str().trim().to_string()))
+            .or_else(|| add.session_id.map(|named| named.as_str().trim().to_string()))
             .filter(|id| !id.is_empty())
             .ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a part needs a job to go on, and this call places none"))?;
         let harness = {
             let store = self.store().lock().await;
             store.session(&id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a job Fleet knows"))?.harness
         };
-        Ok((id, harness))
-    }
-
-    /// `checked` put where it goes: the part's own artifact where the Job put it before, else the artifact that asks
-    /// him, else a new one.
-    pub(crate) async fn part_placed(&self, id: &str, harness: &str, checked: &ipc::CheckedPart, said: Option<ipc::ArtifactFor>) -> Result<SessionRecord, Refusal> {
-        let held = self.held_rows(id).await?;
+        let checked = self.takes_styled(&id, checked).await?;
+        let held = self.held_rows(&id).await?;
         // A part the Job put before is revised where it stands.
         let earlier = held.iter().filter(|one| is_sketch(one)).find(|one| stored(&one.detail).iter().any(|part| part.id == checked.id)).map(|one| one.target.clone());
         let target = match earlier {
             Some(target) => target,
-            None => match self.artifact_joined(id, harness, "", &checked.title, false).await? {
+            None => match self.artifact_joined(&id, &harness, "", &checked.title, false).await? {
                 Some(root) => root,
-                None => self.container_made(id, harness, &checked.title).await?,
+                None => self.container_made(&id, &harness, &checked.title).await?,
             },
         };
-        self.part_put(id, harness, &target, checked, said).await
+        self.part_put(&id, &harness, &target, &checked, said).await
     }
 
     /// `checked` with each take's mocks kept with their style set, as `show_sketch` keeps a sketch's. Without it a
@@ -586,7 +574,7 @@ where
         if (said.how == PartHow::Picked) != (kind == PartKind::Takes) {
             return Err(wrong(match kind {
                 PartKind::Takes => "a takes part is answered by a vote, never an Approve or a note: send a pick, with how `picked` and the take he chose",
-                _ => "only a takes part is answered with a pick. Words, a drawing, a page and a prototype are approved or sent back",
+                _ => "only a takes part is answered with a pick. Words, a drawing and a page are approved or sent back",
             }));
         }
         if let PartContent::Takes { form, .. } = &part.content {
@@ -608,7 +596,7 @@ where
             (PartContent::Words { .. }, _) if part.id.starts_with(DRAFT_PREFIX) => {
                 Arc::clone(&self).member_draft_answered(&id, &part, said.how, words, &said.extras).await?;
             }
-            (PartContent::Words { .. } | PartContent::Prototype(_), _) => {
+            (PartContent::Words { .. }, _) => {
                 Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words, &said.extras).await?;
             }
             (PartContent::Takes { .. }, _) => {
@@ -617,6 +605,10 @@ where
                 };
                 let result = ipc::VoteResult::Pick { take: take.to_string(), notes: said.notes.clone() };
                 Arc::clone(&self).part_voted(&id, &artifact, &part, part.revision, result, words).await?;
+            }
+            // A prototype is approved or sent back with words, as a drawing is.
+            (PartContent::Prototype(_), _) => {
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone(), &said.extras).await?;
             }
             (PartContent::Buttons { .. }, _) => {
                 return Err(not_open(format!("`{}` holds buttons, which act when he presses them", part.id)));
