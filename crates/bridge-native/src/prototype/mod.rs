@@ -35,6 +35,18 @@ pub struct Source {
     pub trouble: Option<String>,
 }
 
+impl From<&ipc::PrototypePart> for Source {
+    fn from(part: &ipc::PrototypePart) -> Source {
+        Source {
+            scene: part.scene.clone(),
+            markup: part.markup.clone(),
+            fixtures: part.fixtures.iter().map(|fixture| (fixture.name.clone(), fixture.text.clone())).collect(),
+            state: part.scene_state.clone(),
+            trouble: part.trouble.clone(),
+        }
+    }
+}
+
 /// What the view asks of whoever holds it.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PrototypeEvent {

@@ -93,7 +93,7 @@ impl<'a> Walk<'a> {
             Some(word)
         } else {
             self.trouble.push(format!("<{}> {name}=\"{word}\" is no registry glyph", node.tag));
-            Some("circle-help".to_string())
+            Some("circle-question-mark".to_string())
         }
     }
 
