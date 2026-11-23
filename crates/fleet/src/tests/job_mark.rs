@@ -163,6 +163,15 @@ async fn a_stopped_job_fleet_gave_up_on_reads_stopped_asks_and_needs_him() {
     assert_eq!(mark(&rig, &id).await, reads(JobState::StoppedAsks, JobLamp::Needs, JobGroup::Needs));
 }
 
+/// A Job that called `all_done` waits only for him to end it: it reads Done in the Done group, and asks nothing.
+#[tokio::test]
+async fn a_job_that_said_it_is_done_reads_done_in_done_and_does_not_need_him() {
+    let rig = rig_placing(None);
+    let id = replied(&rig, "It merged.").await;
+    rig.fleet.all_done(None, ipc::AllDone { session_id: Some(id.clone()), summary: None }).await.expect("done");
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Done, JobLamp::Done, JobGroup::Done));
+}
+
 #[tokio::test]
 async fn an_ended_job_reads_ended_and_done() {
     let rig = rig_placing(None);

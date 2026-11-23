@@ -86,6 +86,21 @@ async fn an_offer_is_an_open_card_in_its_jobs_thread_at_the_offer() {
 }
 
 #[tokio::test]
+async fn keep_on_the_build_closes_the_first_open_you_approved_gate_as_looks_good_does() {
+    let rig = a_rig();
+    let (session, tip) = an_offered_job(&rig).await;
+    holding(&rig, &[(BRANCH, &tip)]);
+    planned_on_his_approve(&rig, &session).await;
+    super::building::kept_in(&rig.support(), &crate::kept_builds::fleet_label(), &[BRANCH], &[]);
+
+    rig.fleet.keep_fleet_build_now().await.expect("kept");
+
+    let facts = closed_gates(&rig, &session).await;
+    assert_eq!(facts.iter().map(Option::is_some).collect::<Vec<_>>(), [true, false, false], "the first open you_approved gate and no other");
+    assert!(facts[0].as_deref().is_some_and(|fact| fact.contains("Kept in your build")), "{facts:?}");
+}
+
+#[tokio::test]
 async fn a_card_whose_tip_is_on_main_under_the_running_build_is_in_the_build() {
     let rig = a_rig();
     let (session, tip) = an_offered_job(&rig).await;

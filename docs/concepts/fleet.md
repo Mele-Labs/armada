@@ -705,6 +705,10 @@ Every compile runs at utility priority.
 Fleet drops an offer on the sweep when its branch moved (the Job is told), its tip is on main, or its Job has ended (nothing is said).
 
 **`Armada/preview-offered` is what `scripts/preview` reads.** Written whole and renamed into place each time the set of ready offers changes: a line `<branch>`, `<tip>`, `<session id>`, `<about>` separated by tabs for each ready offer, oldest first, and an empty file for none.
+**A refresh starts from what the owner is on.** Before the offers come the branches the running preview holds, at the tips it holds them and in the order it merged them, then the branches he picked for a build (`Armada/preview-picked`) that it does not hold, at their tip here or on origin.
+Their session and about are the note of that (branch, tip), and empty where none here has one.
+A ready offer of the same branch brings its own tip in place of the held one.
+A held branch leaves the refresh only where its Job withdrew that tip with `withdraw_preview` (kept in `preview_withdrawn` until the branch is offered again), or where `scripts/preview` cannot take it, which it names: already on main, a conflict, or not building.
 **It holds the ready offers of every Mac, not only this one's.**
 Each Mac shares its own ready offers with its paired Mac (`share_preview_offers`, held as `FromMac::PreviewOffers`), and each offer carries the Mac it lives on.
 The line a partner's offer adds is the same four fields, and `scripts/preview` merges the tip where it holds it and fetches origin for one it does not.
@@ -712,9 +716,10 @@ An own offer is shared only once its branch is on origin: Fleet pushes the tip t
 Where the same branch is offered on both Macs, this Mac's own wins.
 **One check runs both Macs' offers together**, ordered by when each was offered and then by branch name, so the later of two that clash fails with its files and its Job is told.
 Both Macs run the same rule and reach the same answer, which relies on their clocks being close.
-Only a Mac that is linked, awake and on this build counts.
-Any other is named in `left_out` with a sentence of why, and the Refresh line says its offers were left out.
-**`get_preview_offers` is what Bridge draws**: every offer with its state and its Mac, one Refresh row while a ready offer is not in the running build, and `left_out`.
+Every linked Mac counts, asleep or on another build, since a wire that differs does not stop a branch building here.
+An offer of another Mac that cannot build here is named in `left_out` with a sentence of why, and the Refresh line says so: one whose tip is neither here nor on origin, or one the check failed.
+**`get_preview_offers` is what Bridge draws**: every offer with its state and its Mac, one Refresh row while a ready offer or a pick is not in the running build, and `left_out`.
+The row's `branches` are what Refresh brings in, and its `keeps` the branches of the running build it carries forward, each with the title of the Job that held it last.
 `in_build` is true where the running build commit's own merges hold the branch at that tip (`Armada/preview-held` where the commit shows none), or where the tip is already under the build commit, as when the branch landed on the main the build was cut from.
 Git is asked once per build commit and tip.
 The row's id hashes the ready set, `skip_preview_refresh` keeps it, and a different set brings the row back.

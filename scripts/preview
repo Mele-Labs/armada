@@ -20,7 +20,8 @@
 #       that commit, fetched from `origin <ref>` when this repository lacks it
 #
 # **What is offered is `Armada/preview-offered`**, which Fleet writes: a line of
-# `branch<TAB>tip sha<TAB>session id<TAB>about` for each offer Fleet checked, oldest first;
+# `branch<TAB>tip sha<TAB>session id<TAB>about` for each branch the running preview holds and
+# each he picked, then each offer Fleet checked, oldest first;
 # `#` lines and blank lines are ignored and no file is no offers. Each offered branch is
 # merged at its offered tip, never its head, and the table says so when the head has moved.
 # A tip already on main, or unknown to the repository, is left out and named. With no offers

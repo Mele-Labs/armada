@@ -62,6 +62,7 @@ What makes them one is that every place folds the chain:
 | A parent's thread | The row that tells the parent of the hand carries `replaces` and is not drawn: the row that started the old Job stands for both, and opens the new one. Its agent is still told the new Job's id |
 | A wait, or a change to one, naming the old Job | It names the last Job of the chain (`job_now`), so a wait made after the hand is not refused as closed |
 | What the person chose for the Job | Auto land, the workflow and how it was started carry to the new Job (`settings_carried`) |
+| Its plan and the gates it closed | The new Job keeps the old one's plan, first recorded when the old Job recorded it, and every gate it closed (`plan_carried`), so what he approved stays approved and the workflow is not told afresh. A new Job with no plan asked him to approve a page he had approved (23 Nov 2026) |
 
 **The Operator reads a red pull request only off a reading taken after the turn ended.**
 A new Job usually pushes a fix in its first turn, and the reading a minute old still says failed.

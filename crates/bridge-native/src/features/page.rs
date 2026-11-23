@@ -28,6 +28,8 @@ pub enum FeaturePageEvent {
     Story { session_id: SessionId, ask_id: String },
     /// A Designs row: the Job that made the artifact, and the artifact to open in it, by its id.
     Design { job: String, artifact: String },
+    /// The owner retired the feature: it left the catalog, so the list that holds it reads again.
+    Retired,
 }
 
 enum Source {
@@ -42,8 +44,21 @@ pub(super) enum Load<T> {
     Failed(String),
 }
 
-/// The parts of a page the keys can be in: the card they are on, the filter chips of the asks, the rows of the card, and the
-/// button that starts a Job on the feature.
+/// Where the answer to a retire proposal stands, kept apart from what Fleet says so a read of the page does not undo it.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub(super) enum Retiring {
+    #[default]
+    Idle,
+    /// The answer is in flight.
+    Working,
+    /// Fleet refused it, in its own words.
+    Failed(String),
+    /// The feature left the catalog.
+    Retired,
+}
+
+/// The parts of a page the keys can be in: the card they are on, the filter chips of the asks, the rows of the card, the two
+/// buttons that answer a proposal to retire the feature, and the button that starts a Job on it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Region {
     Rail,
@@ -51,6 +66,10 @@ pub(super) enum Region {
     Rows,
     /// The command wells of a written card, which Enter copies.
     Well,
+    /// The Retire button of a proposal to retire the feature.
+    Retire,
+    /// The Keep button of the same.
+    Keep,
     Start,
 }
 
@@ -61,6 +80,12 @@ pub struct FeaturePageView {
     pub(super) rows: FocusHandle,
     pub(super) well: FocusHandle,
     pub(super) start: FocusHandle,
+    pub(super) retire: FocusHandle,
+    pub(super) keep: FocusHandle,
+    /// Where the answer to the proposal to retire the feature stands.
+    pub(super) retiring: Retiring,
+    /// What the mock answers a retire press with, in place of Fleet: a refusal's sentence, or none.
+    pub(super) mock_refusal: Option<String>,
     /// The command well the keys are on, among those of the open card.
     pub(super) well_at: usize,
     /// The floor plan, laid out again only when the plan read differs from the one it was laid out for.
@@ -108,6 +133,7 @@ pub struct FeaturePageView {
     /// The port the last read asked, so a connection that came back reads again.
     read_port: Option<u16>,
     work: Option<Task<()>>,
+    answering: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
 
@@ -155,6 +181,10 @@ impl FeaturePageView {
             rows: cx.focus_handle(),
             well: cx.focus_handle(),
             start: cx.focus_handle(),
+            retire: cx.focus_handle(),
+            keep: cx.focus_handle(),
+            retiring: Retiring::Idle,
+            mock_refusal: None,
             well_at: 0,
             floor: page_model::Floor::Empty(page_model::NO_PLAN),
             floor_of: None,
@@ -183,6 +213,7 @@ impl FeaturePageView {
             looked,
             read_port: None,
             work: None,
+            answering: None,
             _subs: Vec::new(),
         }
     }
@@ -339,6 +370,8 @@ impl FeaturePageView {
     fn refold(&mut self, cx: &mut Context<Self>) {
         self.items = match &self.body {
             Body::Rows(rows) => page_model::items(self.section, rows.len(), self.unfolded.contains(&self.section)),
+            Body::Reads(rows) => page_model::items(self.section, rows.len(), false),
+            Body::Decisions(rows) => page_model::items(self.section, rows.len(), false),
             _ => Vec::new(),
         };
         let count = self.items.len();
@@ -351,6 +384,8 @@ impl FeaturePageView {
     pub(super) fn present(&self, section: Section) -> bool {
         match self.cards.get(&section) {
             Some(Body::Rows(rows)) => !rows.is_empty(),
+            Some(Body::Reads(rows)) => !rows.is_empty(),
+            Some(Body::Decisions(rows)) => !rows.is_empty(),
             Some(Body::Code(code)) => !(code.paths.is_empty() && code.entry_points.is_empty() && code.files.is_empty()),
             Some(Body::Written(written)) => written.is_some(),
             None => false,
@@ -526,6 +561,73 @@ impl FeaturePageView {
         }
     }
 
+    // ---- the proposal to retire ----------------------------------------------------------------
+
+    /// Whether the librarian proposes retiring the feature and the owner has not answered it: the row and its two buttons are drawn.
+    pub(super) fn proposes_retire(&self) -> bool {
+        matches!((&self.page, &self.retiring), (Load::Read(page), Retiring::Idle | Retiring::Working | Retiring::Failed(_)) if page_model::retire_evidence(page).is_some())
+    }
+
+    /// Retire, or Keep: send the owner's answer. A refusal stays on the row in Fleet's words. Keep reads the page again, where the
+    /// proposal is gone; Retire says the feature left the catalog, and tells the list that holds it.
+    pub(super) fn answer_retire(&mut self, retire: bool, window: &mut Window, cx: &mut Context<Self>) {
+        if self.retiring == Retiring::Working || !self.proposes_retire() {
+            return;
+        }
+        self.engaged = true;
+        let body = ipc::AnswerRetire { project: self.project.clone(), slug: self.slug.clone(), retire };
+        let ask = match &self.source {
+            Source::Live(_) => match self.port(cx) {
+                Some(port) => wire::retire(port, &body, cx),
+                None => Task::ready(Err(Refused::said("Fleet is not connected"))),
+            },
+            Source::Mock => Task::ready(match self.mock_refusal.clone() {
+                Some(said) => Err(Refused::said(said)),
+                None => Ok(ipc::RetireAnswered { project: body.project.clone(), slug: body.slug.clone(), retired: retire }),
+            }),
+        };
+        self.retiring = Retiring::Working;
+        self.answering = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = ask.await;
+            let _ = this.update_in(cx, |this, window, cx| this.answered(answer, window, cx));
+        }));
+        cx.notify();
+    }
+
+    fn answered(&mut self, answer: Result<ipc::RetireAnswered, Refused>, window: &mut Window, cx: &mut Context<Self>) {
+        // The buttons go with the answer, and the keys were on one of them.
+        let on_buttons = matches!(self.region_in(window), Region::Retire | Region::Keep);
+        match answer {
+            Ok(answered) if answered.retired => {
+                self.retiring = Retiring::Retired;
+                cx.emit(FeaturePageEvent::Retired);
+                if on_buttons {
+                    self.focus_region(Region::Rail, window, cx);
+                }
+                cx.notify();
+            }
+            Ok(_) => {
+                self.retiring = Retiring::Idle;
+                if on_buttons {
+                    self.focus_region(Region::Rail, window, cx);
+                }
+                match &mut self.page {
+                    // The mock has no Fleet to read again: the proposal is gone from what it holds.
+                    Load::Read(page) if matches!(self.source, Source::Mock) => {
+                        page.feature.retire = None;
+                        self.rebuild(cx);
+                    }
+                    _ => self.read(cx),
+                }
+                cx.notify();
+            }
+            Err(why) => {
+                self.retiring = Retiring::Failed(why.said);
+                cx.notify();
+            }
+        }
+    }
+
     /// The parts of the page that hold something, in the order Tab goes through them.
     pub(super) fn regions(&self) -> Vec<Region> {
         let mut regions = vec![Region::Rail];
@@ -537,6 +639,10 @@ impl FeaturePageView {
         }
         if !self.wells().is_empty() {
             regions.push(Region::Well);
+        }
+        if self.proposes_retire() {
+            regions.push(Region::Retire);
+            regions.push(Region::Keep);
         }
         if matches!(self.page, Load::Read(_)) {
             regions.push(Region::Start);
@@ -551,6 +657,10 @@ impl FeaturePageView {
             Region::Rows
         } else if self.well.is_focused(window) {
             Region::Well
+        } else if self.retire.is_focused(window) {
+            Region::Retire
+        } else if self.keep.is_focused(window) {
+            Region::Keep
         } else if self.start.is_focused(window) {
             Region::Start
         } else {
@@ -572,6 +682,8 @@ impl FeaturePageView {
             Region::Chips => &self.chips,
             Region::Rows => &self.rows,
             Region::Well => &self.well,
+            Region::Retire => &self.retire,
+            Region::Keep => &self.keep,
             Region::Start => &self.start,
         };
         window.focus(handle, cx);
@@ -622,7 +734,7 @@ impl FeaturePageView {
                         }
                         cx.notify();
                     }
-                    Region::Chips | Region::Start => {}
+                    Region::Chips | Region::Retire | Region::Keep | Region::Start => {}
                 }
             }
             "features_chip" if region == Region::Chips => self.step_chip(if act.slot == 0 { -1 } else { 1 }, cx),
@@ -631,6 +743,8 @@ impl FeaturePageView {
                 Region::Rail => self.next_region(1, window, cx),
                 Region::Rows => self.press_row(cx),
                 Region::Well => self.copy_well(cx),
+                Region::Retire => self.answer_retire(true, window, cx),
+                Region::Keep => self.answer_retire(false, window, cx),
                 Region::Start => self.start_job(cx),
             },
             "features_story" if region == Region::Rows => {

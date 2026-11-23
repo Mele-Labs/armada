@@ -23,6 +23,7 @@ Fleet keeps a `session_gates` row when it sees the fact, and never works it out 
 His approval of a plan closes every `plan_approved` gate for the version that asked for it, and a version recorded again stands on that approval: it draws no card, raises no item and reopens no gate, unless the agent passes `ask_again: true` on `record_plan`, which puts that version to him as the first was (owner, 8 Nov 2026).
 Any other fact closes the first open gate of its kind in plan order, and no other: his approval of a page's newest revision or of a sketch, and his Approve once every walk shown with no `group` stands approved.
 **His Looks good on a Ready to try card closes the first open `you_approved` gate, as his Approve of an `approves` item does** (`crates/fleet/src/build_noting.rs`, owner bug report, 17 Nov 2026).
+His Keep on the build he is trying does the same for each Job whose branch it kept (`keep_fleet_build_now`, 23 Nov 2026): Keep alone left finished Jobs asking him to approve what he had kept.
 A Job that offered its preview raised no item of its own, because the card already asked him, and its gate stayed open after he said it looked good.
 A preview names no plan group, so the answer is never tied to one; Needs rework and Remind me close nothing, and a Looks good given before the plan was recorded is no gate's.
 **A merge closes only the `merged` gate of the group Fleet ties it to** (`crates/fleet/src/gate_merges.rs`, armada-ffus).

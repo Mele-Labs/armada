@@ -269,12 +269,12 @@ async fn turning_stopped_for_good_arrives_as_stopped_and_stays_a_call_he_has_not
 #[tokio::test]
 async fn a_job_that_needs_him_without_asking_is_a_call_until_he_has_been_in_it() {
     let rig = rig_placing(None);
-    let mut record = marked(row(&rig).await, JobState::Done);
+    let mut record = marked(row(&rig).await, JobState::Stuck);
     record.last_turn_at = Some(at(4));
     let key = format!("session:{}:needs:{}", record.id.as_str(), at(4).as_str());
 
     let unseen = seeded(&record).standing(&nowhere, now());
-    assert_eq!((unseen.len(), unseen[0].key.as_str(), unseen[0].text.as_str(), unseen[0].since.clone(), unseen[0].opened), (1, key.as_str(), "Done", at(4), false));
+    assert_eq!((unseen.len(), unseen[0].key.as_str(), unseen[0].text.as_str(), unseen[0].since.clone(), unseen[0].opened), (1, key.as_str(), "Stuck", at(4), false));
 
     record.viewed_at = Some(at(5));
     let seen = seeded(&record).standing(&nowhere, now());
@@ -284,6 +284,16 @@ async fn a_job_that_needs_him_without_asking_is_a_call_until_he_has_been_in_it()
     record.hosted.as_mut().expect("hosted").turn = SessionTurn::Working { woken_by: None };
     let working = seeded(&marked(record, JobState::Working)).standing(&nowhere, now());
     assert!(working.is_empty(), "{working:?}");
+}
+
+/// A Job that said it is done waits only for him to end it: no dock count, banner or sound.
+#[tokio::test]
+async fn a_job_that_said_it_is_done_is_no_call() {
+    let rig = rig_placing(None);
+    let mut record = marked(row(&rig).await, JobState::Done);
+    record.last_turn_at = Some(at(4));
+    let calls = seeded(&record).standing(&nowhere, now());
+    assert!(calls.is_empty(), "{calls:?}");
 }
 
 #[tokio::test]

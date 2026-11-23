@@ -1,0 +1,10 @@
+[operations.save_project_board]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep the layout of a project's dashboard board, or forget it"
+notes = """
+`POST /projects/project/:project/board`, body `SaveProjectBoard { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it so the project draws the preset again. **Nothing else of the project's values changes.** It is written as `edit_project` writes `values`, as `values.look.board` in the project's file, so it publishes `projects.changed` and, for a copy of another Mac's project, is sent to that Mac. Answers `ProjectBoard` as `get_project_board` does. A block's `kind` and `view` are kept as written, known or not. `docs/practices/protocol/projects.md`, *The board*.
+
+A 404 `fleet.no_such_project` for a project he has none of. A 422 `fleet.project_values_refused` for a block with a blank `kind` or `view`, and nothing is written. A 422 `fleet.project_unwritable` where the project's file did not read; a 500 under the same code where it could not be written.
+"""
