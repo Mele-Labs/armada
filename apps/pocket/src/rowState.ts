@@ -150,7 +150,9 @@ export type Lamp = "needs" | "failed" | "running" | "done" | "idle";
 
 /** The row's lamp: Fleet's where the Gateway sends its mark, else read off the state as Fleet reads it. */
 export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
-  if (item.session.mark !== undefined) return item.session.mark.lamp;
+  // Ready for him draws as Needs you until Pocket has a look of its own.
+  if (item.session.mark !== undefined)
+    return item.session.mark.lamp === "ready" ? "needs" : item.session.mark.lamp;
   const { state } = item;
   if (state === "failing" || state === "unstarted") return "failed";
   if (state === "done") return "done";
@@ -164,8 +166,9 @@ export function standingOf(item: Pick<Item, "session" | "state">): [
   number,
 ] {
   const lamp = lampOf(item);
+  const marked = item.session.mark?.group;
   const group =
-    item.session.mark?.group ??
+    (marked === "ready" ? "needs" : marked) ??
     (bucketOf(item.state) === "needs"
       ? "needs"
       : bucketOf(item.state) === "working"

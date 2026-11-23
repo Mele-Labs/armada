@@ -109,7 +109,7 @@ pub(crate) fn document_items<'a>(
 }
 
 /// What a reading page's Needs you item id is its page's path behind.
-pub(crate) const READ_ITEM_PREFIX: &str = "read:";
+pub(crate) const READ_ITEM_PREFIX: &str = ipc::READ_ITEM_PREFIX;
 /// The key of a document's `detail` that says its newest revision is the Job's own and asks nothing, so it waits
 /// on him to read it: `"true"`, and absent otherwise. His Edit and a page that buried its ask never write it.
 pub(crate) const DOCUMENT_READS: &str = "reads";

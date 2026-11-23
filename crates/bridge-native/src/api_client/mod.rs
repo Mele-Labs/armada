@@ -39,6 +39,14 @@ use crate::keymap::Act;
 use model::{Filter, Line};
 use wire::{Answered, ToSend};
 
+/// The Job's saved requests as Fleet answers them, for the message box's tools list to offer.
+pub(crate) use wire::read;
+
+/// The same on mock data, where no Fleet answers.
+pub(crate) fn mock_read(job: &str) -> Requests {
+    mock::Store::new(job).read()
+}
+
 pub use model::{SentLine, Start};
 
 /// The tab's kind in a Job's panes, Classic's name for it.

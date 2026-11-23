@@ -22,7 +22,7 @@ use std::sync::{Arc, Mutex};
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, Sessions};
 use ipc::{
-    CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MacClaimWaiting, MainView, MergeLineViews, OpenStandingCall, SessionRecord,
+    owed_kind, CallArrival, CallArrivalKind, CallTone, CallsChanged, Event, Instant, JobState, MacClaimWaiting, MainView, MergeLineViews, OpenStandingCall, OwedKind, SessionRecord,
     SessionTurn, StandingCall, StandingCallKind, StandingCalls, StopReason, WaitingItem, WaitingSource,
 };
 use tokio::sync::mpsc;
@@ -31,7 +31,8 @@ use tokio::task::JoinHandle;
 use crate::daemon::Fleet;
 
 /// What holds a turn open on him: an agent mid-turn on one of these is waiting, not at work. `BLOCKING`.
-fn holds_the_turn(source: WaitingSource) -> bool {
+/// Every one is Needs kind (`owed_kind`), and a test holds it to that.
+pub(crate) fn holds_the_turn(source: WaitingSource) -> bool {
     use WaitingSource::*;
     matches!(
         source,
@@ -39,10 +40,9 @@ fn holds_the_turn(source: WaitingSource) -> bool {
     )
 }
 
-/// The sources that hold a turn on him, as a banner tells it. `BLOCKED`.
-fn blocked(source: WaitingSource) -> bool {
-    use WaitingSource::*;
-    matches!(source, AskCard | Permission | WindowAsk | Plan | SlotChoice | Delivery | TaskDone | BrowserAsk)
+/// Whether a banner tells the item with the blocked tone: every Needs you item does (`owed_kind`). `BLOCKED`.
+fn blocked(item: &WaitingItem) -> bool {
+    owed_kind(item) == OwedKind::Needs
 }
 
 fn tone_of(blocks: bool) -> CallTone {
@@ -112,6 +112,7 @@ fn said_without_repair(record: &SessionRecord, state: JobState) -> String {
         JobState::Stuck => "Stuck".into(),
         JobState::Stopped | JobState::StoppedAsks => record.stopped.as_ref().map(stopped).unwrap_or_default(),
         JobState::Waiting => "Waiting on you".into(),
+        JobState::Ready => "Ready for you".into(),
         JobState::Replied => "Unread reply".into(),
         JobState::Done => "Done".into(),
         JobState::Failing => format!("Checks failed on #{}", failing().map(|one| one.target.as_str()).unwrap_or_default()),
@@ -400,10 +401,12 @@ impl Keeper {
 
     /// What a live Job waits on as a banner tells it, in `waitsOf`'s order: the start card it is held on, then
     /// the list's own. Each as its id, whether it holds the turn, and its words.
+    /// Built work waiting to be looked at (`OwedKind::Ready`) is no call: only Needs you counts, sounds and pushes.
     fn waits_of(record: &SessionRecord) -> Vec<(String, bool, String)> {
         let held = record.hosted.as_ref().is_some_and(|one| one.start.is_some());
         let start = held.then(|| ("start".to_string(), true, "Not started".to_string()));
-        start.into_iter().chain(record.waiting_for.iter().map(|one| (one.id.clone(), blocked(one.source), one.text.clone()))).collect()
+        let calling = record.waiting_for.iter().filter(|one| owed_kind(one) != OwedKind::Ready);
+        start.into_iter().chain(calling.map(|one| (one.id.clone(), blocked(one), one.text.clone()))).collect()
     }
 
     /// `pullOwner`: the first Job that holds pull request `number`, or a branch of that name. An ended Job
@@ -456,7 +459,7 @@ impl Keeper {
         let before = calls.len();
         // A paused Job is parked by him: nothing it waits on calls until he resumes it.
         let items = if job.paused { Vec::new() } else { job.waits() };
-        for item in items {
+        for item in items.into_iter().filter(|one| owed_kind(one) != OwedKind::Ready) {
             if job.working && !holds_the_turn(item.source) {
                 continue;
             }
@@ -471,7 +474,7 @@ impl Keeper {
                 session_id: Some(ipc::SessionId::carried(id)),
                 title: job.name(id),
                 text: item.text.clone(),
-                tone: tone_of(blocked(item.source)),
+                tone: tone_of(blocked(&item)),
                 opened: opened(&item.since),
                 since: item.since,
                 mac: job.mac.clone(),
