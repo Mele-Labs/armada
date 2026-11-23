@@ -7,6 +7,10 @@
 //! **A story is read again when Fleet says it moved** (`session.story`, as `StoryMoved`, for this Job), when the Job's record
 //! changes and when the keys arrive. The last two are kept: they catch a story whose word was missed.
 //!
+//! **The library's names land after the story**: the titles of the features its asks are filed under and the order of the
+//! areas come from `list_features`, read once for every tab of the project (`story/library.rs`), so a row reads by its slug
+//! until they land.
+//!
 //! **The features the Job is on** head the tab, above the asks: Up from the first ask reaches them, and a row opens its
 //! feature as a Filed under row does.
 //!
@@ -22,12 +26,13 @@ use super::JobView;
 use crate::features::overlay::{FeatureOverlay, OverlayEvent, Source as OverlaySource};
 use crate::features::page_model::Titles;
 use crate::features::story_link;
-use crate::fleet::{FleetConnection, StoryMoved};
+use crate::fleet::{FleetConnection, LibrarianStepsMoved, StoryMoved};
 use crate::keymap::Act;
 use crate::settings::wire::{request, Ask, Refused};
 use model::{Built, Features};
 
 pub(crate) mod lead;
+pub(crate) mod library;
 pub(crate) mod mock;
 pub(crate) mod model;
 #[allow(dead_code)]
@@ -89,6 +94,8 @@ pub struct StoryTab {
     /// The slugs of the library's areas in its order, which give a feature's hue as the Features list draws it.
     pub(crate) areas: Vec<String>,
     pub(crate) built: Built,
+    /// The read of the library's names the tab holds, as [`library::names`] counts them.
+    names_at: u64,
     /// The ask whose rows show, by id. One at a time.
     pub(crate) unfolded: Option<String>,
     /// Whether an ask has been unfolded by default or by him, so a read again does not unfold one he folded.
@@ -134,6 +141,16 @@ impl StoryTab {
             }
         });
         this._subs.push(told);
+        // A step of the project's librarian did its work: its names may have moved, and the tabs of the project take them when they land.
+        let librarian = cx.subscribe(fleet, |this, _, told: &LibrarianStepsMoved, cx| {
+            let (Some(project), Some(port)) = (this.project(cx), this.port(cx)) else { return };
+            if told.0.iter().any(|moved| moved.project == project && moved.state == ipc::LibrarianStepState::Done) {
+                library::librarian_moved(&project, port, cx);
+            }
+        });
+        this._subs.push(librarian);
+        let names = cx.observe_global::<library::Libraries>(|this, cx| this.names_landed(cx));
+        this._subs.push(names);
         this.titles = this.held_titles(cx);
         this.refresh(cx);
         this
@@ -163,6 +180,7 @@ impl StoryTab {
             features: Features::new(),
             areas: Vec::new(),
             built: Built::default(),
+            names_at: 0,
             unfolded: None,
             chosen: false,
             cursor: None,
@@ -256,32 +274,54 @@ impl StoryTab {
             }
             return;
         };
+        // The story draws as soon as it is read; the library's names land on it after, read once for every tab of the project.
+        self.want_names(port, cx);
         let story = read_story(port, &self.job, cx);
-        let library = self.project(cx).map(|project| crate::features::wire::library(port, &project, cx));
         self.work = Some(cx.spawn(async move |this, cx| {
             let story = story.await;
-            let titles: Option<(Features, Vec<String>)> = match library {
-                Some(read) => read.await.ok().map(|library| {
-                    (library.areas.iter().flat_map(|area| &area.features).map(|row| (row.slug.clone(), row.title.clone())).collect(), library.areas.iter().map(|area| area.slug.clone()).collect())
-                }),
-                None => None,
-            };
-            let _ = this.update(cx, |this, cx| this.took(story, titles, cx));
+            let _ = this.update(cx, |this, cx| this.took(story, cx));
         }));
     }
 
-    fn took(&mut self, story: Result<JobStory, Refused>, library: Option<(Features, Vec<String>)>, cx: &mut Context<Self>) {
-        if let Some((features, areas)) = library {
-            self.features = features;
-            self.areas = areas;
-        }
+    fn took(&mut self, story: Result<JobStory, Refused>, cx: &mut Context<Self>) {
         match story {
             Ok(story) => self.story = Load::Read(story),
             // A read that failed keeps what was read before, where there was one.
             Err(why) if !matches!(self.story, Load::Read(_)) => self.story = Load::Failed(why.said),
             Err(_) => {}
         }
+        if let Some(port) = self.read_port {
+            self.want_names(port, cx);
+        }
+        self.take_names(cx);
         self.rebuild(cx);
+    }
+
+    /// The library's names are asked for where they are due, for the features the story read names.
+    fn want_names(&self, port: u16, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        let named: Vec<String> = match &self.story {
+            Load::Read(story) => story.asks.iter().flat_map(|one| one.ask.features.iter().cloned()).collect(),
+            _ => Vec::new(),
+        };
+        library::want(&project, port, named.iter().map(String::as_str), cx);
+    }
+
+    /// The library's names, where a read of them landed that the tab does not hold yet. Whether they were taken.
+    fn take_names(&mut self, cx: &App) -> bool {
+        let Some(project) = self.project(cx) else { return false };
+        let Some((landed, names)) = library::names(&project, cx).filter(|(landed, _)| *landed != self.names_at) else { return false };
+        self.names_at = landed;
+        self.features = names.features.clone();
+        self.areas = names.areas.clone();
+        true
+    }
+
+    /// A read of the library's names landed: the tab draws them where they are new to it.
+    fn names_landed(&mut self, cx: &mut Context<Self>) {
+        if self.take_names(cx) {
+            self.rebuild(cx);
+        }
     }
 
     /// The cards from what is held, and the list drawn again.

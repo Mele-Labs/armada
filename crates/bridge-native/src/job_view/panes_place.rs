@@ -263,12 +263,28 @@ pub(super) fn offer_beside_now<'a>(was: &'a Arrangement, kind: &str) -> Out<'a> 
     Cow::Owned(next)
 }
 
-/// Story is a fixed kind of a Job's panes. One a Job lacks is put in once on its own, behind, right after Thread in the
-/// pane that holds Thread, and the front tab of every pane and the focus stay. Where no pane holds Thread, none is put in
+/// The pane that holds what the Job produced (Artifacts, Pull Requests or Issues), and the place after the last of them in it.
+fn after_produced(arrangement: &Arrangement) -> Option<(String, Option<usize>)> {
+    let pane = tree::PRODUCED[..3].iter().find_map(|kind| tree::holder_of(arrangement, kind))?;
+    let at = pane.tabs.iter().rposition(|tab| tree::PRODUCED[..3].contains(&tab.kind.as_str())).map(|at| at + 1);
+    Some((pane.id.clone(), at))
+}
+
+/// Story is a fixed kind of a Job's panes, a tab of the column with what the Job produced. One a Job lacks is put in once on
+/// its own, behind, after Issues in the pane that holds Artifacts, Pull Requests and Issues, else right after Thread in the
+/// pane that holds Thread, and the front tab of every pane and the focus stay. Where no pane holds either, none is put in
 /// and nothing is marked, so it comes when Thread does. A Story tab the view-tab API kept (a shell named `story:<job>`)
 /// becomes the kind in its place. Once placed it is marked offered, so one he closed stays closed, and one he already has
-/// keeps its place.
+/// keeps its place but for the one move of [`story_to_column`].
 pub(super) fn offer_story(was: &Arrangement) -> Out<'_> {
+    let placed = place_story(was);
+    if let Cow::Owned(moved) = story_to_column(&placed) {
+        return Cow::Owned(moved);
+    }
+    placed
+}
+
+fn place_story(was: &Arrangement) -> Out<'_> {
     if was.offered.iter().any(|one| one == "story") {
         return Cow::Borrowed(was);
     }
@@ -280,12 +296,47 @@ pub(super) fn offer_story(was: &Arrangement) -> Out<'_> {
         }
     });
     if !tree::has_kind(&next, "story") {
-        let Some(after_thread) = tree::holder_of(&next, "thread").map(|pane| (pane.id.clone(), pane.tabs.iter().position(|tab| tab.kind == "thread").map(|at| at + 1))) else {
+        let after_thread = tree::holder_of(&next, "thread").map(|pane| (pane.id.clone(), pane.tabs.iter().position(|tab| tab.kind == "thread").map(|at| at + 1)));
+        let Some(target) = after_produced(&next).or(after_thread) else {
             return Cow::Borrowed(was);
         };
-        next = put_behind(&next, "story", Some(after_thread));
+        next = put_behind(&next, "story", Some(target));
+        // Put in where it belongs now, so it is not moved again.
+        next.offered.push("story_column".to_string());
     }
     next.offered.push("story".to_string());
+    Cow::Owned(next)
+}
+
+/// Story beside Thread, where Jobs had it before it was a tab of the column, goes once after Issues in the pane that holds
+/// what the Job produced, behind, and the front tab of every pane and the focus stay; where Story was in front of Thread's
+/// pane, Thread is. A Story he closed stays closed and one he put in another pane stays there. The move is marked either way.
+pub(super) fn story_to_column(was: &Arrangement) -> Out<'_> {
+    let offered = |kind: &str| was.offered.iter().any(|one| one == kind);
+    if !offered("story") || offered("story_column") {
+        return Cow::Borrowed(was);
+    }
+    let mut next = was.clone();
+    let thread = tree::holder_of(was, "thread");
+    let story = thread.and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "story")).map(|tab| tab.id.clone());
+    let column = after_produced(was).filter(|(pane, _)| thread.is_none_or(|thread| thread.id != *pane));
+    if let (Some(thread), Some(story), Some((pane, at))) = (thread, story, column) {
+        next = tree::move_tab_to_pane(&next, &story, &pane, at).into_owned();
+        for held in tree::panes_of(&was.root) {
+            let shown = held.active.clone().or_else(|| front_of(held).map(|tab| tab.id.clone()));
+            let shown = match shown {
+                Some(tab) if tab == story => thread.tabs.iter().find(|tab| tab.kind == "thread").map(|tab| tab.id.clone()),
+                shown => shown,
+            };
+            if let Some(shown) = shown {
+                next = tree::activate(&next, &shown).into_owned();
+            }
+        }
+        if tree::pane_by_id(&next, &was.focus).is_some() {
+            next.focus = was.focus.clone();
+        }
+    }
+    next.offered.push("story_column".to_string());
     Cow::Owned(next)
 }
 
@@ -875,7 +926,7 @@ mod tests {
         arrangement
     }
 
-    /// A new Job: the thread with Story behind it, then one column pane that holds what the Job produced. The strip and Needs you are bands over it, not tabs.
+    /// A new Job: the thread, then one column pane that holds what the Job produced and Story after it. The strip and Needs you are bands over it, not tabs.
     #[test]
     fn a_new_job_starts_with_a_column_of_what_it_produced() {
         let arrangement = tree::default_arrangement();
@@ -883,12 +934,13 @@ mod tests {
         assert_eq!(root.dir, Dir::Row);
         assert!((root.ratio - 0.62).abs() < 1e-9);
         let (Node::Pane(thread), Node::Pane(column)) = (&*root.a, &*root.b) else { panic!("the column is not one pane") };
-        assert_eq!(kinds(thread), ["thread", "story"]);
-        assert_eq!(kinds(column), ["artifacts", "pulls", "issues"], "Child Jobs comes with the first Job it starts");
+        assert_eq!(kinds(thread), ["thread"]);
+        assert_eq!(kinds(column), ["artifacts", "pulls", "issues", "story"], "Child Jobs comes with the first Job it starts");
+        assert_eq!(front_of(column).map(|tab| tab.kind.as_str()), Some("artifacts"));
         for gone in ["now", "children", "for_you", "open", "done", "deferred"] {
             assert!(!tree::has_kind(&arrangement, gone), "{gone} is opened from +, not placed");
         }
-        assert_eq!(arrangement.offered, ["story", "artifacts", "made"], "none of the three is put back once closed");
+        assert_eq!(arrangement.offered, ["story", "story_column", "artifacts", "made"], "none is put back or moved once closed");
         assert_eq!(arrangement.focus, thread.id);
         assert_eq!([slot_of(&thread.id), slot_of(&column.id)], [Slot::Thread, Slot::Top]);
         // The one pane is the top and the foot of the column, so a view tab asking for either lands in it.
@@ -1048,16 +1100,18 @@ mod tests {
         tree::holder_of(arrangement, "thread").expect("a pane holds the thread")
     }
 
-    /// A new Job's panes have Story right after Thread in the thread's pane, with Thread in front.
+    /// A new Job's panes have Story after Issues in the column, behind Artifacts, with Thread in front of its pane and the focus.
     #[test]
-    fn the_default_has_thread_then_story_with_thread_in_front() {
-        let arrangement = two_panes();
+    fn the_default_has_story_after_issues_behind_with_thread_in_front() {
+        let arrangement = tree::default_arrangement();
         let pane = thread_pane(&arrangement);
-        assert_eq!(kinds(pane), ["thread", "story"]);
-        let front = pane.active.as_ref().and_then(|id| pane.tabs.iter().find(|tab| &tab.id == id)).expect("a front tab");
-        assert_eq!(front.kind, "thread");
+        assert_eq!(kinds(pane), ["thread"]);
+        assert_eq!(front_of(pane).map(|tab| tab.kind.as_str()), Some("thread"));
         assert_eq!(arrangement.focus, pane.id);
-        assert!(offer_story(&arrangement).into_owned().offered == ["story"], "it is only marked offered");
+        let column = tree::holder_of(&arrangement, "story").expect("a pane holds Story");
+        assert_eq!(kinds(column), ["artifacts", "pulls", "issues", "story"]);
+        assert_eq!(front_of(column).map(|tab| tab.kind.as_str()), Some("artifacts"));
+        assert!(matches!(offer_story(&arrangement), Cow::Borrowed(_)), "it is neither put in nor moved");
     }
 
     /// A pane kept with no front tab shows its first one, so a tab put in behind must leave that one in front: a Job whose
@@ -1081,10 +1135,10 @@ mod tests {
         }
     }
 
-    /// An arrangement kept before Story was a kind has none: it gains Story right after Thread, behind, with the front tab
-    /// of every pane and the focus where they were, and what else the pane holds stays after it.
+    /// An arrangement kept before Story was a kind has none: with no pane holding what the Job produced, it gains Story right
+    /// after Thread, behind, with the front tab of every pane and the focus where they were, and what else the pane holds stays after it.
     #[test]
-    fn an_old_arrangement_gains_story_right_after_thread() {
+    fn an_old_arrangement_with_no_column_of_what_was_produced_gains_story_right_after_thread() {
         let (old, top) = kept_without_story();
         let left = thread_pane(&old).id.clone();
         let opened = offer_story(&old).into_owned();
@@ -1094,7 +1148,7 @@ mod tests {
             assert_eq!(tree::pane_by_id(&opened, &pane.id).and_then(|one| one.active.clone()), pane.active, "the front tab of {} stays", pane.id);
         }
         assert_eq!(opened.focus, old.focus);
-        assert_eq!(opened.offered, ["story"]);
+        assert_eq!(opened.offered, ["story_column", "story"], "put in, it is not moved after");
         // With another tab after Thread, Story goes between them.
         let beside = tree::add_tab(&old, &left, "browser", Extras::default()).into_owned();
         assert_eq!(kinds(tree::pane_by_id(&offer_story(&beside).into_owned(), &left).expect("the thread's pane")), ["thread", "story", "browser"]);
@@ -1111,7 +1165,7 @@ mod tests {
         assert_eq!(kinds(tree::pane_by_id(&opened, &top).expect("the top")), ["for_you", "open", "thread", "story", "done", "deferred", "plan", "files"]);
         assert_eq!(tree::pane_by_id(&opened, &top).and_then(|pane| pane.active.clone()), tree::pane_by_id(&moved, &top).and_then(|pane| pane.active.clone()), "the front tab stays");
         assert_eq!(opened.focus, moved.focus);
-        assert_eq!(opened.offered, ["story"]);
+        assert_eq!(opened.offered, ["story_column", "story"]);
     }
 
     /// With no pane holding Thread there is nowhere to put Story, so it is not put in and nothing is marked offered.
@@ -1140,21 +1194,21 @@ mod tests {
             let again = offer_story(&kept);
             assert!(matches!(again, Cow::Borrowed(_)));
             assert!(!tree::has_kind(&again, "story"));
-            assert_eq!(again.offered, ["story"]);
+            assert_eq!(again.offered, ["story_column", "story"]);
         }
     }
 
     /// A new Job's default is already marked offered, so a Story he closes before the store answers is not put back.
     #[test]
     fn a_story_closed_on_a_new_job_before_the_store_answers_stays_closed() {
-        let fresh = two_panes();
-        assert_eq!(fresh.offered, ["story"], "the default carries it");
+        let fresh = tree::default_arrangement();
+        assert!(fresh.offered.iter().any(|one| one == "story"), "the default carries it");
         let closed = tree::close_tab(&fresh, &story_tab(&fresh)).into_owned();
         assert!(!tree::has_kind(&closed, "story"));
         let again = offer_story(&closed);
         assert!(matches!(again, Cow::Borrowed(_)), "nothing is put in");
         assert!(!tree::has_kind(&again, "story"));
-        assert_eq!(again.offered, ["story"]);
+        assert_eq!(again.offered, fresh.offered);
     }
 
     /// A Job that has Story already keeps its own place for it, in whichever pane, and it is only marked offered.
@@ -1166,7 +1220,7 @@ mod tests {
         assert_eq!(kinds(tree::pane_by_id(&kept, &top).expect("the top")), ["for_you", "open", "done", "deferred", "plan", "files", "story"]);
         assert_eq!(kinds(thread_pane(&kept)), ["thread"], "it is not put in a second time");
         assert_eq!(kept.root, at_the_end.root);
-        assert_eq!(kept.offered, ["story"]);
+        assert_eq!(kept.offered, ["story", "story_column"]);
         let default = two_panes();
         let moved = tree::move_tab_to_pane(&default, &story_tab(&default), &column(&default).1.id, Some(1)).into_owned();
         let kept = offer_story(&moved).into_owned();
@@ -1186,6 +1240,91 @@ mod tests {
         assert!(pane.tabs.iter().all(|tab| tab.terminal.as_deref() != Some("story:job-a")));
         assert_eq!(pane.tabs.iter().filter(|tab| tab.kind == "terminal").count(), 1, "a real shell is left alone");
         assert_eq!(kinds(thread_pane(&opened)), ["thread"], "none is put in beside Thread as well");
+    }
+
+    /// A Job kept with Story beside Thread, as Jobs had it before Story was a tab of the column: what the default was then.
+    fn kept_beside_thread() -> Arrangement {
+        let mut kept = tree::build(&tree::Shape::split(Dir::Row, 0.62, tree::Shape::pane(&["thread", "story"]), tree::Shape::pane(&tree::PRODUCED[..3])), None, &[]);
+        kept.offered.extend(["story", "artifacts", "made"].map(String::from));
+        tree::revive(&serde_json::to_value(&kept).expect("json")).expect("an arrangement")
+    }
+
+    fn column_pane(arrangement: &Arrangement) -> &Pane {
+        tree::holder_of(arrangement, "artifacts").expect("a pane holds Artifacts")
+    }
+
+    /// Story beside Thread goes once after Issues in the column, behind: the front tab of every pane and the focus stay, and a
+    /// tab he put after Issues stays after Story.
+    #[test]
+    fn story_kept_beside_thread_moves_once_after_issues_behind() {
+        let was = kept_beside_thread();
+        let column = column_pane(&was).id.clone();
+        let was = tree::add_tab(&was, &column, "plan", Extras::default()).into_owned();
+        let was = tree::activate(&was, &thread_pane(&was).tabs[0].id.clone()).into_owned();
+        let moved = offer_story(&was).into_owned();
+        assert_eq!(kinds(thread_pane(&moved)), ["thread"]);
+        assert_eq!(kinds(column_pane(&moved)), ["artifacts", "pulls", "issues", "story", "plan"]);
+        for pane in tree::panes_of(&was.root) {
+            assert_eq!(front_of(tree::pane_by_id(&moved, &pane.id).expect("the pane")).map(|tab| tab.id.clone()), front_of(pane).map(|tab| tab.id.clone()), "the front tab of {} stays", pane.id);
+        }
+        assert_eq!(moved.focus, was.focus);
+        assert!(moved.offered.iter().any(|one| one == "story_column"));
+        assert!(matches!(offer_story(&moved), Cow::Borrowed(_)), "it moves once");
+        // Put back beside Thread by him, it stays there.
+        let back = tree::move_tab_to_pane(&moved, &story_tab(&moved), &thread_pane(&moved).id.clone(), None).into_owned();
+        assert!(matches!(offer_story(&back), Cow::Borrowed(_)));
+    }
+
+    /// Where Story was in front of Thread's pane, Thread is once it moves.
+    #[test]
+    fn story_in_front_of_threads_pane_leaves_thread_in_front() {
+        let was = kept_beside_thread();
+        let in_front = tree::activate(&was, &story_tab(&was)).into_owned();
+        let moved = offer_story(&in_front).into_owned();
+        assert_eq!(front_of(thread_pane(&moved)).map(|tab| tab.kind.as_str()), Some("thread"));
+        assert_eq!(front_of(column_pane(&moved)).map(|tab| tab.kind.as_str()), Some("artifacts"), "the column keeps its front tab");
+        assert_eq!(moved.focus, in_front.focus);
+    }
+
+    /// A Story he closed stays closed, and one he put in a pane of his own stays there; the move is marked either way.
+    #[test]
+    fn a_closed_story_or_one_put_elsewhere_is_not_moved() {
+        let was = kept_beside_thread();
+        let closed = tree::close_tab(&was, &story_tab(&was)).into_owned();
+        let after = offer_story(&closed).into_owned();
+        assert!(!tree::has_kind(&after, "story"));
+        assert_eq!(after.root, closed.root);
+        assert!(after.offered.iter().any(|one| one == "story_column"));
+        let split = tree::split_pane(&was, &column_pane(&was).id.clone(), SplitInto::Right).into_owned();
+        let own = split.focus.clone();
+        let elsewhere = tree::move_tab_to_pane(&split, &story_tab(&split), &own, None).into_owned();
+        let kept = offer_story(&elsewhere).into_owned();
+        assert_eq!(kept.root, elsewhere.root, "it stays where he put it");
+        assert!(kept.offered.iter().any(|one| one == "story_column"));
+    }
+
+    /// With no pane holding what the Job produced, Story stays after Thread and the move is marked.
+    #[test]
+    fn with_no_column_of_what_was_produced_story_stays_after_thread() {
+        let was = two_panes();
+        let kept = offer_story(&was).into_owned();
+        assert_eq!(kinds(thread_pane(&kept)), ["thread", "story"]);
+        assert_eq!(kept.root, was.root);
+        assert_eq!(kept.offered, ["story", "story_column"]);
+    }
+
+    /// An arrangement kept before Story was a kind, with the column of what the Job produced, gains Story after Issues there.
+    #[test]
+    fn an_old_arrangement_with_the_column_gains_story_after_issues() {
+        let was = kept_beside_thread();
+        let mut old = tree::close_tab(&was, &story_tab(&was)).into_owned();
+        old.offered.clear();
+        let opened = offer_story(&old).into_owned();
+        assert_eq!(kinds(thread_pane(&opened)), ["thread"]);
+        assert_eq!(kinds(column_pane(&opened)), ["artifacts", "pulls", "issues", "story"]);
+        assert_eq!(front_of(column_pane(&opened)).map(|tab| tab.kind.as_str()), Some("artifacts"));
+        assert_eq!(opened.focus, old.focus);
+        assert_eq!(opened.offered, ["story_column", "story"]);
     }
 
     #[test]
@@ -1430,7 +1569,7 @@ mod tests {
     fn the_first_child_job_opens_child_jobs_after_the_three_once() {
         let was = tree::default_arrangement();
         let opened = offer_children_tab(&was).into_owned();
-        assert_eq!(column_kinds(&opened), ["artifacts", "pulls", "issues", "children"]);
+        assert_eq!(column_kinds(&opened), ["artifacts", "pulls", "issues", "story", "children"]);
         let first = tree::holder_of(&opened, "artifacts").and_then(front_of).map(|tab| tab.kind.clone());
         assert_eq!(first.as_deref(), Some("artifacts"), "what he had in front stays");
         assert!(matches!(offer_children_tab(&opened), Cow::Borrowed(_)));
