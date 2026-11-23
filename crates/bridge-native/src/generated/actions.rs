@@ -218,7 +218,7 @@ pub const ACTIONS: &[Act] = &[
         kind: ActionKind::Action,
         tier: ActionTier::Global,
         verb: "Pop out",
-        glyph: Some("square-arrow-out-up-right"),
+        glyph: Some("maximize-2"),
         icon_absent: None,
         shortcut: "⌥⌘P",
         scope: ActionScope::Prototype,

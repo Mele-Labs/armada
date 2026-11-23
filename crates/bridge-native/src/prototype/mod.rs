@@ -194,7 +194,7 @@ impl PrototypeView {
             .collect();
         let pop = (self.home == Home::Tab).then(|| {
             labelled(
-                parts::button::button(look, "prototype-pop-out", Kind::Secondary, Some("square-arrow-out-up-right"), "Pop out", false)
+                parts::button::button(look, "prototype-pop-out", Kind::Secondary, Some("maximize-2"), "Pop out", false)
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(PrototypeEvent::PopOut))),
                 Role::Button,
                 "Pop out",

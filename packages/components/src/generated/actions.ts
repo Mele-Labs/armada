@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { Bell, BellRing, Bot, Briefcase, ChartNoAxesGantt, Check, ChevronDown, ChevronLeft, ChevronUp, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, RefreshCw, Search, Settings, Shapes, SquareArrowOutUpRight, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bell, BellRing, Bot, Briefcase, ChartNoAxesGantt, Check, ChevronDown, ChevronLeft, ChevronUp, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, RefreshCw, Search, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -161,7 +161,7 @@ export const ACTIONS: readonly Action[] = [
     kind: "Action",
     tier: "Global",
     verb: "Pop out",
-    icon: SquareArrowOutUpRight,
+    icon: Maximize2,
     iconAbsent: null,
     shortcut: "⌥⌘P",
     scope: "prototype",
