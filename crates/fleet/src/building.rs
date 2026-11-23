@@ -812,7 +812,7 @@ where
     /// The title of the Job that held each of `branches` last, ended Jobs included, off the ledger's
     /// `branch` rows, which outlive the Job: one standing first, else the latest settled. A branch no
     /// Job here ever held is not here.
-    async fn titles_of_last(&self, checkout: Option<&Path>, branches: &[&str]) -> BTreeMap<String, String> {
+    pub(crate) async fn titles_of_last(&self, checkout: Option<&Path>, branches: &[&str]) -> BTreeMap<String, String> {
         let Some(root) = checkout.map(|one| one.to_string_lossy().into_owned()) else {
             return BTreeMap::new();
         };
