@@ -640,7 +640,7 @@ impl JobView {
         let box_key = format!("judge:{key}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
         let area = held.unwrap_or_else(|| {
-            cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8).submit_on_enter(true).placeholder("existing sign-ins survive the switch"))
+            cx.new(|cx| TextareaState::new(window, cx).auto_grow(3, 8).submit_on_enter(true))
         });
         if let Some(page) = self.pages.get_mut(&job) {
             page.cards.boxes.insert(box_key, area.clone());
