@@ -602,12 +602,12 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "terminal",
     "dispatch",
     "review-sheet",
+    "prototype",
     "kit",
     "usage",
     "features",
     "tokens",
     "api-client",
-    "prototype",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -674,6 +674,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   terminal: [
     "terminal",
   ],
+  // A Job's Prototype tab, and its pop-out window, hold the keys while they have focus, so ⌥⌘P meets only the global ones.
+  prototype: [
+    "prototype",
+  ],
   // The Dispatch panel holds the keys while it is up, so its keys meet only the global ones.
   dispatch: [
     "dispatch",
@@ -701,10 +705,6 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // A Job's API Client tab holds the keys while it has focus, so its keys meet only the global ones.
   "api client": [
     "api-client",
-  ],
-  // A Job's Prototype tab, and its pop-out window, hold the keys while they have focus, so ⌥⌘P meets only the global ones.
-  prototype: [
-    "prototype",
   ],
 };
 

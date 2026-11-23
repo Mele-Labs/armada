@@ -69,13 +69,13 @@ const SCOPES: &[&str] = &[
     "thread",
     "terminal",
     "dispatch",
+    "tokens",
+    "api client",
+    "prototype",
     "review sheet",
     "kit",
     "usage",
     "features",
-    "tokens",
-    "api client",
-    "prototype",
 ];
 
 /// The QWERTY rows, for the one safety rule that is a fact about the layout:
