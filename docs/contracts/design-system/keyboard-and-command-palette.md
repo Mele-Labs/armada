@@ -710,9 +710,13 @@ Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin r
 
 | Setting | The empty query shows |
 |---|---|
-| Pinned and recent | Pinned, then Recent; the full list while both are empty |
+| Pinned and recent | Pinned, then Recent; the full list while both are empty. The native Bridge opens as below |
 | This page first | The full list, headed by the open page's commands |
 | Everything | The full list without the open page's commands |
+
+> **Rule.** In the native Bridge, Pinned and recent opens on five blocks in order: Pinned; Recent, five rows; Needs you, the live Jobs waiting on him, failed or stuck, each saying why; Jobs, the other live Jobs, six, the latest turn first; and Go to, the places with Usage and Settings.
+> A row stands once, in the first block that holds it, and a snoozed Job is not under Needs you.
+> Why: as Raycast opens, the first look offers what he used, what asks him, what is running and where he can go, before he types.
 
 > **Rule.** The Settings section *Command palette* holds that setting and a table of every row that holds a pin, an alias or a hotkey, each editable in place.
 > Why: what was given in a panel needs one place to be read together and changed without finding the row.

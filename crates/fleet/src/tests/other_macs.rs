@@ -598,3 +598,38 @@ async fn another_macs_row_of_a_job_this_mac_holds_itself_is_never_kept_or_told_t
     let told = sent(&mut watching).await;
     assert!(!told.iter().any(about_mine), "Bridge's own row was stood over or taken away: {told:?}");
 }
+
+/// The connection of the first agent the stand-in starts, pid 1000: the sender's.
+fn sender_caller() -> api::Caller {
+    api::Caller::at("127.0.0.1:50999".parse().unwrap())
+}
+
+#[tokio::test]
+async fn a_message_to_a_job_that_moved_to_another_mac_goes_to_the_mac_holding_it() {
+    let peers = crate::tests::peer::Placing::nothing();
+    peers.holding(1000, 50999, 12345);
+    let rig = rig_placing(Some(peers));
+    let shop = project(&rig, "Shop").await;
+    shared(&rig, &shop, true).await;
+    let (sender, job) = (job_in(&rig, Some(&shop)).await, job_in(&rig, Some(&shop)).await);
+    rig.send(&sender, "go").await;
+    rig.stand_in.init(0);
+    rig.stand_in.finishes(0, "ready");
+    let mut there = record_of(&rig, &job).await;
+    there.state = SessionState::Live;
+    moved_to_work(&rig, &job).await;
+    hold(&rig, vec![there.clone()]).await;
+
+    let to = crate::session_host::address_of(job.as_str());
+    let ask = |words: &str| ipc::MessageTo { to: to.clone(), message: Some(words.to_string()) };
+    let reach = Arc::clone(&rig.fleet).message_reach(sender_caller(), ask("Please review")).await.expect("answered");
+    assert!(matches!(&reach, ipc::MessageReach::Queued { message } if message.contains("his other Mac")), "passed on to Work, not refused: {reach:?}");
+
+    // A Job that really ended on Work is still refused as ended.
+    let mut ended = there;
+    ended.state = SessionState::Ended;
+    ended.end_reason = Some("closed".into());
+    hold(&rig, vec![ended]).await;
+    let reach = Arc::clone(&rig.fleet).message_reach(sender_caller(), ask("Too late")).await.expect("answered");
+    assert!(matches!(&reach, ipc::MessageReach::Refused { message } if message.contains("that Job has ended")), "{reach:?}");
+}
