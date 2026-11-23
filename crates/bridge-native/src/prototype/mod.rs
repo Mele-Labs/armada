@@ -13,6 +13,7 @@
 pub mod draw;
 pub mod fixtures;
 pub mod markup;
+pub mod shots;
 pub mod style;
 pub mod window;
 

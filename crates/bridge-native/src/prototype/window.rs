@@ -72,6 +72,14 @@ impl PrototypeWindow {
         PrototypeWindow { view, layer, area, job, fleet, focus: cx.focus_handle(), _subs: subs }
     }
 
+    pub(super) fn view(&self) -> &Entity<PrototypeView> {
+        &self.view
+    }
+
+    pub(super) fn layer(&self) -> &Entity<Layer> {
+        &self.layer
+    }
+
     /// The prototype saved again while the window is up.
     pub fn set_source(&mut self, source: Source, cx: &mut Context<Self>) {
         self.view.update(cx, |view, cx| view.set_source(source, cx));
