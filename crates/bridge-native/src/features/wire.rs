@@ -62,3 +62,8 @@ pub fn since(port: u16, project: &str, since: chrono::DateTime<chrono::Utc>, cx:
 pub fn who(port: u16, project: &str, cx: &App) -> Task<Result<ipc::WhosOnWhat, Refused>> {
     request(port, Ask::Get(format!("/features/who?project={}", crate::link::percent_encoded(project))), "WhosOnWhat", cx)
 }
+
+/// `POST /features/retire`: the owner's answer to the librarian's proposal to retire a feature. `crates/ipc/operations/answer_retire.toml`.
+pub fn retire(port: u16, body: &ipc::AnswerRetire, cx: &App) -> Task<Result<ipc::RetireAnswered, Refused>> {
+    request(port, Ask::Post("/features/retire".into(), crate::settings::wire::body(body)), "RetireAnswered", cx)
+}

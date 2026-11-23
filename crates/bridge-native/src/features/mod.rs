@@ -26,6 +26,7 @@ mod project_page;
 mod project_rows;
 mod project_view;
 mod projects;
+mod read_rows;
 // Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
 #[allow(dead_code)]
 pub mod shots;
@@ -442,6 +443,8 @@ impl FeaturesScreen {
                     FeaturePageEvent::Escape => this.focus_list(window, cx),
                     FeaturePageEvent::Story { session_id, ask_id } => this.open_story(session_id.clone(), ask_id.clone(), cx),
                     FeaturePageEvent::Design { job, artifact } => artifact_link::open(job.clone(), artifact.clone(), cx),
+                    // The feature left the catalog: the list that held it reads again.
+                    FeaturePageEvent::Retired => this.read(cx),
                 }));
                 self.page = Some(page);
                 self.opened = Some(slug);

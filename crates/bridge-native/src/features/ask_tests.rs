@@ -144,6 +144,7 @@ fn open(cx: &mut TestAppContext) -> (gpui::Entity<FeaturePageView>, Heard, &mut 
             FeaturePageEvent::Story { session_id, ask_id } => sink.borrow_mut().push((session_id.as_str().to_string(), ask_id.clone())),
             FeaturePageEvent::Escape => sink.borrow_mut().push(("escape".into(), String::new())),
             FeaturePageEvent::Design { job, artifact } => sink.borrow_mut().push((format!("design {job}"), artifact.clone())),
+            FeaturePageEvent::Retired => sink.borrow_mut().push(("retired".into(), String::new())),
         })
         .detach();
     });
