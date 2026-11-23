@@ -21,6 +21,12 @@ export type PieceToCommit =
       kind: "review_tool";
       id: string;
     }
+  /** A judge type from Kit's `~/.armada/judges/`, or `~/.armada/judges/projects/<project>/` where `project` names one, by its dashed id, into `.armada/judges/`. */
+  | {
+      kind: "judge_type";
+      id: string;
+      project?: string;
+    }
   /** The person's own `armada.yml` for the repository, from where their Kit keeps it, to the workspace root. */
   | {
       kind: "manifest";

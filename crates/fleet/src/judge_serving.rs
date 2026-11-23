@@ -19,8 +19,8 @@ use adapter_traits::{AgentHarness, Ask, Delivery, Reading, Vcs, WorkProduct};
 use api::{JudgeReadings, Refusal};
 use core_model::{Component, Envelope, FieldValue, Level};
 use ipc::{
-    AskJudge, DismissJudgeNote, JudgeNoteHow, JudgeReading, ManifestId, MarkJudgeRead, SendJudgeNote, SendSessionMessage,
-    SessionId, SessionRow, SessionVoice, WireError,
+    AskJudge, DeleteJudgeType, DismissJudgeNote, JudgeNoteHow, JudgeReading, JudgeTypes, ManifestId, MarkJudgeRead, SaveJudgeType,
+    SendJudgeNote, SendSessionMessage, SessionId, SessionRow, SessionVoice, WireError,
 };
 use store::{KeptHosting, KeptJudgeNote, KeptJudgeReading, KeptSession};
 
@@ -61,7 +61,7 @@ where
     /// is replaced by a fresh reading with a fresh `id`.
     pub(crate) async fn judge_asked(self: Arc<Self>, ask: AskJudge) -> Result<JudgeReading, Refusal> {
         let id = ask.session_id.as_str().trim().to_string();
-        let (session, _) = self.judged_job(&id).await?;
+        let (session, hosting) = self.judged_job(&id).await?;
         if session.state == store::SessionState::Ended {
             return Err(self.closed(&id));
         }
@@ -75,6 +75,11 @@ where
             kept = self.died(kept);
             self.judge_kept(&id, &kept).await;
         }
+        // The type the press reads as, named and worded now, so an id nobody defines refuses the ask and a type
+        // edited while the call runs changes nothing it was asked.
+        let root = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?.root().to_string();
+        let project = self.project_of_job(&id).await;
+        let chosen = self.judge_type_chosen(&root, project.as_deref(), ask.judge.as_deref())?;
         if !self.review_going().lock().await.insert(key.clone()) {
             // Another press started it between the read and here.
             let kept = self.store().lock().await.judge_reading_of(&id, kind, &artifact).ok().flatten();
@@ -88,6 +93,8 @@ where
             artifact_id: artifact,
             title: ask.artifact.title.trim().to_string(),
             prompt: ask.prompt.trim().to_string(),
+            judge: Some(chosen.id.clone()),
+            judge_name: Some(chosen.name.clone()),
             state: READING.to_string(),
             asked_at: self.now().as_str().to_string(),
             finished_at: None,
@@ -98,7 +105,7 @@ where
         };
         self.judge_kept(&id, &reading).await;
         let answer = reading_of(&reading);
-        tokio::spawn(async move { self.judge_driven(id, reading, key).await });
+        tokio::spawn(async move { self.judge_driven(id, reading, key, chosen.prompt).await });
         Ok(answer)
     }
 
@@ -168,8 +175,8 @@ where
 
     /// The call, from the brief to the kept answer. **Whatever happens the reading ends**, so nothing is
     /// left reading.
-    async fn judge_driven(self: Arc<Self>, id: String, mut reading: KeptJudgeReading, key: String) {
-        match self.judge_read(&id, &reading).await {
+    async fn judge_driven(self: Arc<Self>, id: String, mut reading: KeptJudgeReading, key: String, looks_for: String) {
+        match self.judge_read(&id, &reading, &looks_for).await {
             Ok((notes, cost)) => {
                 reading.state = DONE.to_string();
                 reading.notes = notes;
@@ -187,7 +194,7 @@ where
     }
 
     /// One call on `models.review`, shown the person's words, the artifact's and the repository's rules.
-    async fn judge_read(&self, id: &str, reading: &KeptJudgeReading) -> Read {
+    async fn judge_read(&self, id: &str, reading: &KeptJudgeReading, looks_for: &str) -> Read {
         let spent = |said: &str| (said.to_string(), None);
         let reviewing = self.reviewing().map_err(|why| (format!("no agent could be asked: {why:?}"), None))?;
         let (session, hosting) = self.judged_job(id).await.map_err(|_| spent("the Job is gone"))?;
@@ -209,7 +216,7 @@ where
         let content = self.judge_content(id, &session, &hosting, &served, &rows, &artifact).await.map_err(|why| spent(&why))?;
         let cap = self.tuned(|dials| dials.standing_rules_bytes);
         let standing = crate::judging::standing(served.manifest(), served.root(), cap).told(&self.prompts().wording());
-        let asked = brief(&Shown { request: &request, later: &later, artifact: &content, prompt: &reading.prompt, standing: &standing });
+        let asked = brief(&Shown { request: &request, later: &later, artifact: &content, looks_for, prompt: &reading.prompt, standing: &standing });
 
         // The model the Job froze for a review, else `models.review`.
         let model = match self.review_model_of_job(id).await {
@@ -313,5 +320,17 @@ where
 
     async fn mark_judge_read(self: Arc<Self>, read: MarkJudgeRead) -> Result<JudgeReading, Refusal> {
         self.judge_marked_read(read).await
+    }
+
+    async fn list_judge_types(self: Arc<Self>, manifest_id: ManifestId, project: Option<String>) -> Result<JudgeTypes, Refusal> {
+        self.judge_types_read(manifest_id, project).await
+    }
+
+    async fn save_judge_type(self: Arc<Self>, manifest_id: ManifestId, save: SaveJudgeType) -> Result<JudgeTypes, Refusal> {
+        self.judge_type_saved(manifest_id, save).await
+    }
+
+    async fn delete_judge_type(self: Arc<Self>, manifest_id: ManifestId, delete: DeleteJudgeType) -> Result<JudgeTypes, Refusal> {
+        self.judge_type_deleted(manifest_id, delete).await
     }
 }

@@ -17,7 +17,7 @@ use super::session_host::{eventually, rig_fitted, Rig};
 use super::session_plan::{group, plan, recorded};
 
 /// Every brief opens with it, so the double answers this call and no other.
-const ASKED: &str = "You are the Judge";
+pub(super) const ASKED: &str = "You are the Judge";
 const REQUEST: &str = "Rotate the keys every night, and never leave two rotations on one day.";
 const LATER: &str = "Keep the previous key readable for a day.";
 const AGENT_SAID: &str = "I checked everything and the lock is already there.";
@@ -37,7 +37,7 @@ const NOTES: &str = r#"{"notes": [
      "cites": ["crates/store/src/keys.rs"]}
 ]}"#;
 
-fn answered_with(answer: &str) -> (Rig, Arc<FakeJudge>) {
+pub(super) fn answered_with(answer: &str) -> (Rig, Arc<FakeJudge>) {
     answered_by(FakeJudge::answering(&[(ASKED, answer)]).costing(0.4))
 }
 
@@ -61,7 +61,7 @@ fn the_plan(id: &SessionId) -> ipc::RecordPlan {
 }
 
 /// A Job the person asked something of, whose agent answered, who said more, and which recorded a plan.
-async fn a_job_with_a_plan(rig: &Rig) -> SessionId {
+pub(super) async fn a_job_with_a_plan(rig: &Rig) -> SessionId {
     let id = rig.start().await;
     rig.send(&id, REQUEST).await;
     rig.stand_in.init(0);
@@ -72,7 +72,7 @@ async fn a_job_with_a_plan(rig: &Rig) -> SessionId {
     id
 }
 
-fn the_plan_artifact() -> JudgeArtifact {
+pub(super) fn the_plan_artifact() -> JudgeArtifact {
     JudgeArtifact { kind: JudgeKind::Plan, id: "1".into(), title: "The plan".into() }
 }
 
@@ -80,22 +80,22 @@ fn artifact(kind: JudgeKind, id: &str, title: &str) -> JudgeArtifact {
     JudgeArtifact { kind, id: id.into(), title: title.into() }
 }
 
-async fn ask(rig: &Rig, id: &SessionId, artifact: JudgeArtifact, prompt: &str) -> Result<JudgeReading, Refusal> {
-    Arc::clone(&rig.fleet).ask_judge(AskJudge { session_id: id.clone(), artifact, prompt: prompt.into() }).await
+pub(super) async fn ask(rig: &Rig, id: &SessionId, artifact: JudgeArtifact, prompt: &str) -> Result<JudgeReading, Refusal> {
+    Arc::clone(&rig.fleet).ask_judge(AskJudge { session_id: id.clone(), artifact, prompt: prompt.into(), judge: None }).await
 }
 
-async fn readings(rig: &Rig, id: &SessionId) -> Vec<JudgeReading> {
+pub(super) async fn readings(rig: &Rig, id: &SessionId) -> Vec<JudgeReading> {
     Arc::clone(&rig.fleet).get_session(id.clone()).await.expect("read").session.judge_readings
 }
 
 /// The Job's reading of `kind` once it has ended.
-async fn ended(rig: &Rig, id: &SessionId, kind: JudgeKind) -> JudgeReading {
+pub(super) async fn ended(rig: &Rig, id: &SessionId, kind: JudgeKind) -> JudgeReading {
     let held = |readings: Vec<JudgeReading>| readings.into_iter().find(|one| one.artifact.kind == kind);
     eventually(|| async { held(readings(rig, id).await).is_some_and(|one| one.state != JudgeState::Reading) }).await;
     held(readings(rig, id).await).expect("a reading")
 }
 
-fn asked_of(judge: &FakeJudge) -> Vec<(String, Option<String>)> {
+pub(super) fn asked_of(judge: &FakeJudge) -> Vec<(String, Option<String>)> {
     judge.asked().into_iter().zip(judge.directories()).filter(|(asked, _)| asked.starts_with(ASKED)).collect()
 }
 
@@ -103,7 +103,7 @@ fn told(rig: &Rig, containing: &str) -> usize {
     rig.stand_in.process(0).sent.lock().unwrap().iter().filter(|line| line.contains(containing)).count()
 }
 
-fn code(refusal: Refusal) -> String {
+pub(super) fn code(refusal: Refusal) -> String {
     refusal.error().code.clone()
 }
 
@@ -478,6 +478,8 @@ async fn a_reading_left_going_by_a_fleet_that_stopped_reads_as_failed_and_a_pres
         artifact_id: "1".into(),
         title: "The plan".into(),
         prompt: String::new(),
+        judge: None,
+        judge_name: None,
         state: "reading".into(),
         asked_at: "2026-10-31T09:00:00.000Z".into(),
         finished_at: None,

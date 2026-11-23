@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use gpui::{App, AppContext as _, Task};
-use ipc::{DeleteJudgeType, JudgeReading, JudgeType, ReviewToolScope, SaveJudgeType};
+use ipc::{DeleteJudgeType, JudgeReading, JudgeType, SaveJudgeType};
 
 use crate::link::percent_encoded;
 use crate::settings::wire::{body, request, Ask, Refused};
@@ -36,11 +36,6 @@ pub fn save(port: u16, repository: &str, save: SaveJudgeType, cx: &App) -> Task<
 pub fn delete(port: u16, repository: &str, one: DeleteJudgeType, cx: &App) -> Task<Result<(), Refused>> {
     let read = request::<serde::de::IgnoredAny>(port, Ask::Post(format!("{}/delete", route(repository)), body(&one)), "DeleteJudgeType", cx);
     cx.background_spawn(async move { read.await.map(|_| ()) })
-}
-
-/// Where a Kit type is kept, for the save and delete bodies.
-pub fn kit() -> ReviewToolScope {
-    ReviewToolScope::Kit
 }
 
 /// The key a list is held under: the repository and the project it was read for.

@@ -45,6 +45,8 @@ fn reading(id: &str, state: JudgeState, artifact: JudgeArtifact, notes: Vec<Judg
         id: id.into(),
         artifact,
         prompt: String::new(),
+        judge: None,
+        judge_name: None,
         state,
         asked_at: at(),
         finished_at: (state != JudgeState::Reading).then(at),

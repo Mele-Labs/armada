@@ -654,6 +654,30 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| cx.background_spawn(async move { crate::reviews::read_tools(port, &manifest).map_err(Refused::said) }))
     }
 
+    /// `GET /judge_types/:repository?project=`: the judge types a project sees in one repository.
+    pub fn judge_types(&mut self, manifest: &str, project: Option<&str>, cx: &App) -> Task<Result<Vec<ipc::JudgeType>, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.judge_types(project));
+        }
+        self.port(cx).map_or_else(unreachable, |port| crate::judge_types::list(port, manifest, project, cx))
+    }
+
+    /// `POST /judge_types/:repository`: Kit's copy of a type, or the repository's.
+    pub fn save_judge_type(&mut self, manifest: &str, save: ipc::SaveJudgeType, cx: &App) -> Task<Result<(), Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.save_judge_type(save));
+        }
+        self.port(cx).map_or_else(unreachable, |port| crate::judge_types::save(port, manifest, save, cx))
+    }
+
+    /// `POST /judge_types/:repository/delete`: Kit's copy of a type, or the repository's.
+    pub fn delete_judge_type(&mut self, manifest: &str, delete: ipc::DeleteJudgeType, cx: &App) -> Task<Result<(), Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.delete_judge_type(delete));
+        }
+        self.port(cx).map_or_else(unreachable, |port| crate::judge_types::delete(port, manifest, delete, cx))
+    }
+
     /// `GET /projects`, read fresh before a project's values are written whole.
     pub fn projects_now(&mut self, cx: &App) -> Task<Result<Projects, Refused>> {
         if let Wire::Mock(mock) = self {

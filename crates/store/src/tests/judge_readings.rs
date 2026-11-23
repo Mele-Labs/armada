@@ -25,6 +25,8 @@ fn reading(id: &str, kind: &str, artifact: &str, asked: &str, state: &str, notes
         artifact_id: artifact.into(),
         title: format!("The {kind}"),
         prompt: String::new(),
+        judge: None,
+        judge_name: None,
         state: state.into(),
         asked_at: asked.into(),
         finished_at: (state != "reading").then(|| "2026-10-31T09:01:00.000Z".into()),

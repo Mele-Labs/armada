@@ -5,6 +5,9 @@
 // The header rules in `protocol.ts` hold here. Only a press starts one, and a note reaches the agent only if the person
 // sends it. A Job's readings are `SessionRecord.judge_readings`, so they arrive with every `session.changed` and no event
 // carries them. The Judge replaces the old Session judge (concerns in `waiting_for`) and the plan's adversarial review.
+// Judge types are what a press reads as: Armada's five and the person's own, kept like review tools.
+
+import type { ReviewToolLeftOut, ReviewToolScope, ReviewToolSource } from "./review-runs";
 
 /** What kind of thing was read. */
 export type JudgeKind =
@@ -72,8 +75,11 @@ export type JudgeReading = {
   /** Fleet's. A reading asked again for the same artifact is a new id. */
   id: string;
   artifact: JudgeArtifact;
-  /** What the person asked. Empty asks what was missed. */
+  /** What the person asked. Empty adds no line to verify. */
   prompt: string;
+  /** The judge type it read as, by id and by the name it had then. Absent on a reading kept before judge types, which read as `adversarial`. */
+  judge?: string;
+  judge_name?: string;
   state: JudgeState;
   asked_at: string;
   finished_at?: string;
@@ -94,7 +100,10 @@ export type JudgeReading = {
 export type AskJudge = {
   session_id: string;
   artifact: JudgeArtifact;
+  /** A line the person wants verified. Empty adds none. */
   prompt?: string;
+  /** The judge type's id. Absent reads as `adversarial`. An id nobody defines is a 422 `fleet.judge_type_unknown`. */
+  judge?: string;
 };
 
 /** `send_judge_note`'s body (`POST /sessions/judge/send`): the note goes to the agent as the person's message. Answers the reading. 404 `fleet.no_such_judge_reading`, `fleet.no_such_judge_note`; a note already settled is answered as it stands. */
@@ -115,4 +124,46 @@ export type DismissJudgeNote = {
 export type MarkJudgeRead = {
   session_id: string;
   reading: string;
+};
+
+/**
+ * One judge type, resolved for one project: the most specific place that defines its id. Kit's for this project
+ * (`~/.armada/judges/projects/<project>/`) replaces Kit's for all projects (`~/.armada/judges/`), which replaces the
+ * repository's (`.armada/judges/`), and any replaces Armada's.
+ */
+export type JudgeType = {
+  /** The name lower cased with its words joined by a dash, which is also the file's stem. */
+  id: string;
+  name: string;
+  /** What this judge looks for. The shape of its answer is Fleet's: notes, as every reading has. */
+  prompt: string;
+  source: ReviewToolSource;
+  /** Where `source` is Kit: the one project it applies to. Absent, all projects. */
+  project?: string;
+  replaces?: ReviewToolSource;
+  hides?: ReviewToolSource;
+};
+
+/** `list_judge_types` (`GET /judge_types/:repository?project=`), and what a save or delete answers: Armada's first in the order it carries them, then the others as added. */
+export type JudgeTypes = {
+  types: JudgeType[];
+  left_out?: ReviewToolLeftOut[];
+};
+
+/** `save_judge_type`'s body (`POST /judge_types/:repository`). A Kit save of an Armada id is how a built-in prompt is edited. The repository's scope is a 422 `fleet.judge_type_misplaced`: its types arrive by `commit_to_repository`. */
+export type SaveJudgeType = {
+  scope: ReviewToolScope;
+  /** With scope `kit`: the one project it applies to. Absent, all projects. */
+  project?: string;
+  name: string;
+  prompt: string;
+  /** Replace the file already holding this id in `scope`. Without it that is a 422. */
+  overwrite?: boolean;
+};
+
+/** `delete_judge_type`'s body (`POST /judge_types/:repository/delete`). Deleting Kit's copy of an Armada id brings Armada's prompt back. */
+export type DeleteJudgeType = {
+  scope: ReviewToolScope;
+  project?: string;
+  id: string;
 };

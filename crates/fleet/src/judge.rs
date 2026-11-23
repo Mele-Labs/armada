@@ -90,7 +90,9 @@ pub struct Shown<'a> {
     /// His messages after it, oldest first. The brief keeps the latest [`LATER_KEPT`].
     pub later: &'a [String],
     pub artifact: &'a Content,
-    /// His "verify that" line. Empty asks what was missed.
+    /// What the judge type asked for looks for: its prompt, which sits under "What to look for".
+    pub looks_for: &'a str,
+    /// His "verify that" line, laid after the type's prompt. Empty adds nothing.
     pub prompt: &'a str,
     /// The repository's standing rules, as a step judge's brief lays them. Empty where it names none.
     pub standing: &'a str,
@@ -124,14 +126,11 @@ pub fn brief(shown: &Shown<'_>) -> String {
         "" => String::new(),
         rules => format!("## The repository's standing rules\n\n{rules}\n\n"),
     };
-    let look_for = match shown.prompt.trim() {
-        "" => String::from(
-            "## What to look for\n\nFind what the person or the agent missed in this work: where it will not do \
-             what the person asked, where it breaks a rule this repository keeps, and what it leaves out that \
-             the work needs.\n\n",
-        ),
+    let verify = match shown.prompt.trim() {
+        "" => String::new(),
         line => format!("## What the person asked you to verify\n\n{}\n\n", line.replace('\n', "\n  ")),
     };
+    let look_for = format!("## What to look for\n\n{}\n\n{verify}", shown.looks_for.trim());
     format!(
         "You are the Judge, reading {what} before anyone acts on it. You are a critic and decide nothing; the \
          person reads what you find and chooses what the agent hears.\n\n\

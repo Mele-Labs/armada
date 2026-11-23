@@ -197,6 +197,8 @@ pub mod judge;
 mod judge_content;
 /// A reading between the store's rows and the wire, and the message a sent note is.
 mod judge_keeping;
+/// The judge types a person has, and writing and deleting one.
+mod judge_types;
 /// Kit against the shared home, and what this machine syncs. `docs/concepts/kit.md`.
 pub mod home;
 /// Kit over the Mac link: what crosses to his other Macs, and the last-agreed marker that tells a clash.

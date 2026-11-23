@@ -46,6 +46,7 @@ pub(crate) const PULL_REQUEST_NOT_OPENED: &str = "fleet.commit_pull_request_not_
 /// The repository's own folders, relative to its root.
 const WORKFLOWS: &str = ".armada/workflows";
 const REVIEW_TOOLS: &str = ".armada/review-tools";
+const JUDGES: &str = ".armada/judges";
 /// The Manifest, at the workspace root.
 const MANIFEST: &str = "armada.yml";
 
@@ -104,6 +105,7 @@ where
             PieceToCommit::FlightControls { job, deck } => self.tiles_copied(&root, &main, job, deck, asked.overwrite).await?,
             PieceToCommit::Workflow { workflow_id } => self.workflow_copied(&root, &main, workflow_id.as_str(), asked.overwrite)?,
             PieceToCommit::ReviewTool { id } => self.review_tool_copied(&main, id, asked.overwrite)?,
+            PieceToCommit::JudgeType { id, project } => self.judge_type_copied(&main, id, project.as_deref(), asked.overwrite)?,
             PieceToCommit::Manifest => self.manifest_copied(&root, &main, asked.overwrite).await?,
             PieceToCommit::Requests { collections, environments } => {
                 self.requests_copied(&root, &main, collections, environments, asked.overwrite).await?
@@ -269,6 +271,21 @@ where
             .and_then(|path| path.strip_prefix(in_tree).ok().map(|path| path.to_string_lossy().to_string()));
         let path = self.free_or_overwritten(held, format!("{REVIEW_TOOLS}/{id}.md"), id, tree, overwrite)?;
         Ok(Copy { files: vec![(path, text)], removals: Vec::new(), message: format!("Add the review tool {id}"), title: format!("Commit the review tool {id}") })
+    }
+
+    /// A judge type from the person's Kit (for one project where `project` names it, else for all), as its
+    /// file is written, into `.armada/judges/`. **Only a Kit copy is read**: Armada's own and the repository's
+    /// are not the person's to commit.
+    fn judge_type_copied(&self, tree: &JobTree, id: &str, project: Option<&str>, overwrite: bool) -> Result<Copy, Refusal> {
+        let kit = self.judge_kit_folder(project)?;
+        let Some((_, text)) = crate::judge_types::judge_type_defined(&kit, id) else {
+            return Err(self.commit_refusal(NOT_YOURS, format!("Your Kit holds no judge type `{id}`.")));
+        };
+        let in_tree = Path::new(&tree.path);
+        let held = crate::judge_types::judge_type_held(&in_tree.join(JUDGES), id)
+            .and_then(|path| path.strip_prefix(in_tree).ok().map(|path| path.to_string_lossy().to_string()));
+        let path = self.free_or_overwritten(held, format!("{JUDGES}/{id}.md"), id, tree, overwrite)?;
+        Ok(Copy { files: vec![(path, text)], removals: Vec::new(), message: format!("Add the judge type {id}"), title: format!("Commit the judge type {id}") })
     }
 
     /// The person's own `armada.yml` for the repository, from the place their Kit keeps it, as the
