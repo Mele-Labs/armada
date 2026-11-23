@@ -64,14 +64,21 @@ fn decode(kind: Option<&str>, text: &str) -> Result<Value, String> {
     ipc::decode::<Value>("fixture", bytes).map_err(said)
 }
 
+/// Why a path named no words: nothing is there, or what is there is more than one value.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Gap {
+    Nothing,
+    Many(String),
+}
+
 /// The words at `path` in `value`: object keys and array places, joined by dots.
-pub fn at(value: &Value, path: &str) -> Result<String, String> {
+pub fn at(value: &Value, path: &str) -> Result<String, Gap> {
     let mut here = value;
     for step in path.split('.').filter(|step| !step.is_empty()) {
         here = match here {
-            Value::Object(map) => map.get(step).ok_or_else(|| format!("no field {step}"))?,
-            Value::Array(items) => step.parse::<usize>().ok().and_then(|place| items.get(place)).ok_or_else(|| format!("no place {step}"))?,
-            _ => return Err(format!("{step} is inside a plain value")),
+            Value::Object(map) => map.get(step).ok_or(Gap::Nothing)?,
+            Value::Array(items) => step.parse::<usize>().ok().and_then(|place| items.get(place)).ok_or(Gap::Nothing)?,
+            _ => return Err(Gap::Nothing),
         };
     }
     match here {
@@ -79,7 +86,7 @@ pub fn at(value: &Value, path: &str) -> Result<String, String> {
         Value::Number(number) => Ok(number.to_string()),
         Value::Bool(yes) => Ok(yes.to_string()),
         Value::Null => Ok(String::new()),
-        Value::Array(_) | Value::Object(_) => Err(format!("{path} holds more than one value")),
+        Value::Array(_) | Value::Object(_) => Err(Gap::Many(format!("{path} holds more than one value"))),
     }
 }
 
@@ -119,8 +126,8 @@ impl<'a> Scope<'a> {
     }
 
     /// The words `text` holds with each `{name.path}` replaced by what it names. A binding that
-    /// names nothing stays as it was written, so it is seen, and its reason is in the list.
-    pub fn bind(&self, text: &str, missing: &mut Vec<String>) -> String {
+    /// names nothing is replaced by nothing, and each one is listed in `reads` for the caller to judge.
+    pub fn bind(&self, text: &str, reads: &mut Vec<Read>) -> String {
         let mut out = String::with_capacity(text.len());
         let mut rest = text;
         while let Some(open) = rest.find('{') {
@@ -129,13 +136,14 @@ impl<'a> Scope<'a> {
             match tail.find('}') {
                 Some(close) if is_path(&tail[..close]) => {
                     let whole = &tail[..close];
-                    match self.root_of(whole).ok_or_else(|| self.why_no_root(whole)).and_then(|(root, path)| at(root, path)) {
-                        Ok(words) => out.push_str(&words),
-                        Err(why) => {
-                            missing.push(format!("{{{whole}}}: {why}"));
-                            out.push_str(&rest[open..open + close + 2]);
-                        }
-                    }
+                    let name = whole.split('.').next().unwrap_or_default();
+                    let local = self.locals.iter().any(|(local, _)| local == name).then(|| name.to_string());
+                    let words = match self.root_of(whole) {
+                        None => Err(Gap::Many(self.why_no_root(whole))),
+                        Some((root, path)) => at(root, path),
+                    };
+                    reads.push(Read { whole: whole.to_string(), local, fixture: name.to_string(), gap: words.as_ref().err().cloned() });
+                    out.push_str(&words.unwrap_or_default());
                     rest = &tail[close + 1..];
                 }
                 _ => {
@@ -151,11 +159,21 @@ impl<'a> Scope<'a> {
     fn why_no_root(&self, whole: &str) -> String {
         let name = whole.split('.').next().unwrap_or_default();
         if self.fixtures.has(name) {
-            format!("fixture {name} did not decode")
+            format!("reads fixture {name}, which did not decode")
         } else {
-            format!("no fixture or item named {name}")
+            format!("names no fixture or item called {name}")
         }
     }
+}
+
+/// One binding read: its path, the list item it starts at (if it starts at one), the name it
+/// starts with, and why it named nothing.
+#[derive(Debug)]
+pub struct Read {
+    pub whole: String,
+    pub local: Option<String>,
+    pub fixture: String,
+    pub gap: Option<Gap>,
 }
 
 /// A binding reads as `word.word.0`: letters, digits, dashes and underscores between dots. Braces

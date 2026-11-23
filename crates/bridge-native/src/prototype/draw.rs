@@ -9,7 +9,7 @@
 use gpui::{div, prelude::*, AnyElement, Div, ElementId, Hsla, Role, SharedString, Stateful, WeakEntity};
 use serde_json::Value;
 
-use super::fixtures::{Fixtures, Scope};
+use super::fixtures::{Fixtures, Gap, Read, Scope};
 use super::markup::{Kid, Node, Scene};
 use super::style::{self, Align, Justify, Size, Style, Trouble};
 use super::PrototypeView;
@@ -28,21 +28,30 @@ pub struct Walk<'a> {
     /// Who a press is told: the view the scene is drawn in.
     view: Option<WeakEntity<PrototypeView>>,
     locals: Vec<(String, &'a Value)>,
+    /// The lists being walked, innermost last: which bindings of a list's items found a field on some item.
+    lists: Vec<Walked>,
     /// Whether the part being drawn sits in a column: a small part then keeps its own width, as it does in HTML's inline flow.
     in_col: bool,
     pub trouble: Trouble,
 }
 
+/// A list being walked: the name its items take, the fixture it reads, and each binding on an item with whether any item had it.
+struct Walked {
+    local: String,
+    source: String,
+    seen: Vec<(String, bool)>,
+}
+
 /// The scene, drawn in `state`, and the trouble it had.
 pub fn draw<'a>(look: &'a Look, scene: &'a Scene, fixtures: &'a Fixtures, state: &'a str, view: WeakEntity<PrototypeView>) -> (AnyElement, Trouble) {
-    let mut walk = Walk { look, scene, fixtures, state, check: false, view: Some(view), locals: Vec::new(), in_col: false, trouble: Trouble::default() };
+    let mut walk = Walk { look, scene, fixtures, state, check: false, view: Some(view), locals: Vec::new(), lists: Vec::new(), in_col: false, trouble: Trouble::default() };
     let drawn = walk.node(&scene.root, "n", 0).unwrap_or_else(|| div().into_any_element());
     (drawn, walk.trouble)
 }
 
 /// The trouble the scene would have drawn, in any state.
 pub fn check(look: &Look, scene: &Scene, fixtures: &Fixtures) -> Trouble {
-    let mut walk = Walk { look, scene, fixtures, state: "", check: true, view: None, locals: Vec::new(), in_col: false, trouble: Trouble::default() };
+    let mut walk = Walk { look, scene, fixtures, state: "", check: true, view: None, locals: Vec::new(), lists: Vec::new(), in_col: false, trouble: Trouble::default() };
     let _ = walk.node(&scene.root, "n", 0);
     walk.trouble
 }
@@ -65,14 +74,34 @@ impl<'a> Walk<'a> {
         super::fixtures::value_at(root, rest)
     }
 
-    /// `text` with its bindings read; what a binding could not name is trouble.
+    /// `text` with its bindings read. A binding that names nothing draws nothing: on one item of a list
+    /// that is only that item's data, and it is trouble only where no item of the list has the field.
     fn bind(&mut self, text: &str) -> String {
-        let mut missing = Vec::new();
-        let bound = self.scope().bind(text, &mut missing);
-        for line in missing {
-            self.trouble.push(line);
+        let mut reads = Vec::new();
+        let bound = self.scope().bind(text, &mut reads);
+        for read in reads {
+            self.read(read);
         }
         bound
+    }
+
+    fn read(&mut self, read: Read) {
+        let in_list = read.local.as_ref().and_then(|local| self.lists.iter().rposition(|walked| &walked.local == local));
+        match (read.gap, in_list) {
+            (None, Some(at)) => self.note_seen(at, read.whole, true),
+            (Some(Gap::Nothing), Some(at)) => self.note_seen(at, read.whole, false),
+            (Some(Gap::Nothing), None) => self.trouble.push(format!("`{{{}}}` matches no field in {}", read.whole, read.fixture)),
+            (Some(Gap::Many(why)), _) => self.trouble.push(format!("`{{{}}}` {why}", read.whole)),
+            (None, None) => {}
+        }
+    }
+
+    fn note_seen(&mut self, at: usize, whole: String, found: bool) {
+        let seen = &mut self.lists[at].seen;
+        match seen.iter_mut().find(|(one, _)| *one == whole) {
+            Some((_, hit)) => *hit |= found,
+            None => seen.push((whole, found)),
+        }
     }
 
     fn attr(&mut self, node: &Node, name: &str) -> Option<String> {
@@ -123,6 +152,9 @@ impl<'a> Walk<'a> {
                 }
                 Kid::Text(words) => {
                     let said = self.bind(words);
+                    if said.is_empty() {
+                        continue;
+                    }
                     drawn.push(parts::text::text(self.look, ElementId::Name(format!("{path}.{at}").into()), TextStyle::Body, said).into_any_element());
                 }
             }
@@ -171,8 +203,8 @@ impl<'a> Walk<'a> {
                 Some(self.finish(card, node, &style, Role::Group, name.or(title).filter(|name| !name.is_empty()), String::new()))
             }
             "row" => {
-                let title = self.attr(node, "title");
-                let says = self.attr(node, "says");
+                let title = self.attr(node, "title").filter(|title| !title.is_empty());
+                let says = self.attr(node, "says").filter(|says| !says.is_empty());
                 let glyph = self.glyph_attr(node, "glyph").map(|glyph| (glyph, self.tone(node, Tone::Neutral)));
                 let controls = self.kids(node, path);
                 let row = parts::row::row(look, id(), seen == 0, glyph.as_ref().map(|(glyph, ink)| (glyph.as_str(), *ink)), title.clone().map(SharedString::from), says.map(SharedString::from), controls);
@@ -182,6 +214,9 @@ impl<'a> Walk<'a> {
                 let ink = self.tone(node, Tone::Neutral);
                 let glyph = self.glyph_attr(node, "glyph");
                 let words = self.words(node);
+                if words.is_empty() {
+                    return None;
+                }
                 let chip = parts::chip::chip(look, id(), ink, glyph.as_deref(), words.clone());
                 Some(self.finish(chip, node, &style, Role::Status, name, words))
             }
@@ -210,6 +245,9 @@ impl<'a> Walk<'a> {
             "list" => Some(self.list(node, path, &style, name)),
             "text" => {
                 let words = self.words(node);
+                if words.is_empty() {
+                    return None;
+                }
                 let kind = match node.attr("style") {
                     None => TextStyle::Body,
                     Some(word) => TextStyle::named(word).unwrap_or_else(|| {
@@ -268,13 +306,19 @@ impl<'a> Walk<'a> {
                 let items = self.value_of(&whole);
                 match items {
                     Some(Value::Array(items)) => {
-                        let take = if self.check { 1 } else { limit.unwrap_or(items.len()) };
-                        for (at, item) in items.iter().take(take).enumerate() {
+                        let source = whole.split('.').next().unwrap_or_default().to_string();
+                        self.lists.push(Walked { local: local.clone(), source, seen: Vec::new() });
+                        for (at, item) in items.iter().take(limit.unwrap_or(items.len())).enumerate() {
                             self.locals.push((local.clone(), item));
                             let drawn = self.kids(node, &format!("{path}#{at}"));
                             self.locals.pop();
                             let group = div().id(ElementId::Name(format!("{path}#{at}").into())).flex().flex_col().children(drawn);
                             entries.push(parts::list::entry(look, at == 0, group.into_any_element()).into_any_element());
+                        }
+                        if let Some(walked) = self.lists.pop() {
+                            for (whole, _) in walked.seen.into_iter().filter(|(_, hit)| !hit) {
+                                self.trouble.push(format!("`{{{whole}}}` matches no field in {}", walked.source));
+                            }
                         }
                     }
                     _ => self.trouble.push(format!("<list> each=\"{whole}\" names no array")),

@@ -15,6 +15,8 @@ pub mod fixtures;
 pub mod markup;
 pub mod shots;
 pub mod style;
+#[cfg(test)]
+mod tests;
 pub mod window;
 
 use gpui::{div, prelude::*, Context, EventEmitter, FocusHandle, Focusable, IntoElement, Render, Role, SharedString, Window};
