@@ -29,7 +29,7 @@ fn bound(fixtures: &Fixtures, item: &Value, text: &str) -> String {
 #[test]
 fn a_field_missing_on_one_item_draws_empty_and_is_no_trouble() {
     let (scene, fixtures, _) = scene(r#"<list each="jobs.jobs" as="job"><row title="{job.title}" says="{job.so_far}"></row></list>"#);
-    let without: Value = serde_json::from_str(r#"{"title":"Second"}"#).unwrap();
+    let without: Value = serde_json::json!({"title": "Second"});
     assert_eq!(bound(&fixtures, &without, "{job.so_far}"), "");
     assert_eq!(bound(&fixtures, &without, "Now {job.so_far}."), "Now .");
     let trouble = draw::check(&Look::dark(), &scene, &fixtures).into_lines();

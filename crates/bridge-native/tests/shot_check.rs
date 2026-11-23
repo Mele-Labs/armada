@@ -26,7 +26,7 @@ fn check(dir: &Path, extra: &[&str]) -> (bool, serde_json::Value) {
         .output()
         .expect("the app runs");
     let report = std::fs::read_to_string(out.join("report.json")).unwrap_or_else(|_| panic!("no report.json: {}", String::from_utf8_lossy(&run.stderr)));
-    (run.status.success(), serde_json::from_str(&report).expect("the report is JSON"))
+    (run.status.success(), ipc::decode("report.json", report.as_bytes()).expect("the report is JSON"))
 }
 
 #[test]
