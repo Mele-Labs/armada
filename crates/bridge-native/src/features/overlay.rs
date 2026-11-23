@@ -107,6 +107,8 @@ impl FeatureOverlay {
             FeaturePageEvent::Escape => this.back(window, cx),
             FeaturePageEvent::Story { session_id, ask_id } => this.push_story(session_id.clone(), ask_id.clone(), window, cx),
             FeaturePageEvent::Design { job, artifact } => super::artifact_link::open(job.clone(), artifact.clone(), cx),
+            // The overlay holds no list of the library.
+            FeaturePageEvent::Retired => {}
         });
         let focus = page.read(cx).within.clone();
         self.stack.push(Layer { title, from, content: Content::Page(page), _sub: sub });
