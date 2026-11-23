@@ -214,6 +214,8 @@ pub fn bind(cx: &mut App) {
 /// words not yet taken by Fleet, and the working line (A1.4).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Extra {
+    /// The Judged card of selected words while the Judge reads them: the reading's id (`judge_cards`).
+    Judging(String),
     Plan(PlanCardState),
     Sketch(String),
     Pending(usize),
@@ -242,8 +244,6 @@ pub(crate) enum Extra {
     Ready,
     /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
     Parts(String, u32),
-    /// The Judged card of selected words while the Judge reads them: the reading's id (`judge_cards`).
-    Judging(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -1070,12 +1070,13 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let mut cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
-        // Words the Judge is reading stand at the thread's end as the card their reading will be.
-        cards.extend(self.judging_words(id, cx));
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
         if ready_compact::asks(&held.items) {
             cards.push(Extra::Ready);
         }
+        // Words the Judge is reading stand at the thread's end as the card their reading will be, ahead of the builds.
+        let reading = cards.iter().position(|card| matches!(card, Extra::Ready)).unwrap_or(cards.len());
+        cards.splice(reading..reading, self.judging_words(id, cx));
         // A background task Fleet lists is a row of the running card, so the card stands while one runs.
         if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
             extras.push(Extra::Subagents);
