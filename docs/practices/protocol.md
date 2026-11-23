@@ -243,6 +243,7 @@ WebSocket event stream, read this first.
 | [The forge's merge verdict, and one commit's files: `merge_state`, `get_pull_request_commit_patches`](protocol/the-forges-merge-verdict-and-one-commits-files.md) |
 | [A question and the reply that answers it: `list_job_questions`, `mark_answer_read`, `SessionRecord.answer_unread`](protocol/a-question-and-the-reply-that-answers-it.md) |
 | [A message asks for one of Armada's tools: `TagKind::Tool`](protocol/a-message-asks-for-one-of-armadas-tools.md) |
+| [A message tags a request: `TagKind::Request`](protocol/a-message-tags-a-request.md) |
 | [Open questions](#open-questions) |
 
 ## A pinned note, sent whole: `send_session_note`

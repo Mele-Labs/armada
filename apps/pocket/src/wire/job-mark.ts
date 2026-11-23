@@ -10,6 +10,8 @@ export type JobState =
   | "stopped"
   | "stopped_asks"
   | "waiting"
+  /** Built work waits for him to look at; nothing blocks on him. Waiting is the Job that cannot go on without him. */
+  | "ready"
   | "replied"
   | "done"
   | "failing"
@@ -23,9 +25,10 @@ export type JobState =
   | "paused"
   | "unstarted";
 
-/** The row's lamp: needs him, failed, running, done; anything else is idle. */
+/** The row's lamp: needs him, ready for him, failed, running, done; anything else is idle. */
 export type JobLamp =
   | "needs"
+  | "ready"
   | "failed"
   | "running"
   | "done"
@@ -34,6 +37,7 @@ export type JobLamp =
 /** The group a list files the row under. */
 export type JobGroup =
   | "needs"
+  | "ready"
   | "working"
   | "held"
   | "done";

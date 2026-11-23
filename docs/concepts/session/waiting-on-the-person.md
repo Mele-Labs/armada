@@ -263,6 +263,61 @@ It weighs the same on the first call and the thousandth.
 Bridge's routes and the mod's hook, which are not the door, are answered the row.
 Nothing reads these four answers today.
 
+## Needs you and Ready for you
+
+**A waiting Job is one of two things.**
+Needs you means the Job cannot go on without him.
+Ready for you means built work waits for him to look at it, and nothing is blocked on his answer.
+`owed_kind` in `crates/ipc/src/job_mark.rs` is the one function that says which, with a match on the source that has no fallback, so a new source is not built until it is placed.
+The Job's mark, the standing calls and Pocket's push all read it.
+
+An item is Ready for you only when it shows built work.
+Every other item is Needs you, and `done` is neither, since it never counted as owed.
+
+| Source | State |
+|---|---|
+| `ready_to_try` | Ready for you |
+| `walk` | Ready for you |
+| `agent` | Needs you, and Ready for you when its act is a walk |
+| `document` | Needs you, and Ready for you when it is only to read (`read:<path>`) |
+| `replied` | Needs you, and Ready for you when it names a pull request to open |
+| `ask_card` | Needs you |
+| `permission` | Needs you |
+| `window_ask` | Needs you |
+| `browser_ask` | Needs you |
+| `handoff` | Needs you |
+| `words_address` | Needs you |
+| `first_message` | Needs you |
+| `plan` | Needs you |
+| `sketch` | Needs you |
+| `draft` | Needs you |
+| `fleet_call` | Needs you |
+| `slot_choice` | Needs you |
+| `delivery` | Needs you |
+| `task_done` | Needs you |
+| `watch_not_ours` | Needs you |
+| `held_child` | Needs you |
+| `job_held` | Needs you |
+| `job_conflict` | Needs you |
+| `gate` | Needs you |
+| `rule_act` | Needs you |
+| `operator_suggestion` | Needs you |
+| `operator_undone` | Needs you |
+| `preview_offer` | Needs you: Fleet no longer raises it |
+| `done` | Neither |
+
+An agent item with a run, steps, answer, message, `approve_pr` or done act, and a restart, is Needs you.
+
+**The Job's mark carries it.**
+`JobState::Ready`, `JobLamp::Ready` and `JobGroup::Ready` mark a Job whose every owed item is Ready for you, once it rests and its question has not lapsed.
+A Job with one Needs you item beside any number of Ready for you ones is Waiting, with the Needs lamp and group.
+A Job still at work keeps its working state, and a walk it owes marks its lamp and group Ready.
+A failing pull request is his to look at before any built work, so it keeps a Job in Needs.
+
+**Only Needs you counts, sounds and pushes.**
+A Ready for you item raises no standing call, so the dock count and the banner sound leave it out, and Pocket sends no push for it.
+The row still lists it in the Job's band.
+
 ## A reply that asks
 
 **A reply raises one Needs you item for each sentence of its close that asks the person.**

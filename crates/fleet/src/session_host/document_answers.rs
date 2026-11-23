@@ -104,7 +104,7 @@ pub(crate) fn document_items<'a>(
             creating_since: None,
             create_refused: None,
             operator_read: None,
-            artifact: Some(one.target.clone()),
+            artifact: None,
         })
 }
 

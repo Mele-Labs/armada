@@ -1,7 +1,8 @@
 //! What pushes: Fleet's `/events`, narrowed to what a Job newly needs from the person.
 //!
 //! **Only Needs you.** A push goes out when a Job's `waiting_for` gains an item id it
-//! did not have and it is still open [`SETTLE`] later. A Stuck Job sends nothing: Fleet
+//! did not have and it is still open [`SETTLE`] later. An item that is Ready for him, built work
+//! to look at (`ipc::owed_kind`), pushes nothing. A Stuck Job sends nothing: Fleet
 //! repairs it without the person.
 //!
 //! **A new item settles first.** Several items one Job raises inside the window go out as
@@ -18,7 +19,7 @@
 use std::collections::{HashMap, HashSet};
 use std::time::Duration;
 
-use ipc::{Event, StreamMessage, WaitingItem, WaitingSource};
+use ipc::{owed_kind, Event, OwedKind, StreamMessage, WaitingItem};
 use serde::Serialize;
 use tokio::time::Instant;
 
@@ -104,7 +105,9 @@ impl Watch {
             let title = record.title.clone().unwrap_or_else(|| id.clone());
             // Marked seen now, so a repeat of this event queues nothing
             // while the first is held or its push retries on its own task.
-            let raised: Vec<&WaitingItem> = record.waiting_for.iter().filter(|item| known.insert(item.id.clone())).collect();
+            // A Ready item is marked seen too, so it never pushes, but is not raised.
+            let raised: Vec<&WaitingItem> =
+                record.waiting_for.iter().filter(|item| known.insert(item.id.clone()) && owed_kind(item) != OwedKind::Ready).collect();
             // What left before its hold ended is never pushed.
             if let Some(waiting) = self.pending.get_mut(&id) {
                 waiting.items.retain(|(item, _)| open.contains(item));
@@ -185,14 +188,9 @@ impl Watch {
     }
 }
 
-/// What the push says: the item's text, except where it is not a sentence.
+/// What the push says: the item's text.
 fn body(item: &WaitingItem) -> String {
-    let text = item.text.trim();
-    if item.source == WaitingSource::Walk && (text.is_empty() || text.contains("://")) {
-        "A walk is ready".to_string()
-    } else {
-        text.to_string()
-    }
+    item.text.trim().to_string()
 }
 
 /// Where a push to an iPhone goes. iOS ends a subscription whose pushes show nothing, so a clear skips it.
