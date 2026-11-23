@@ -147,6 +147,11 @@
   --status-not-started: #8C97A6;        /* dormant, queued */
   --status-running: #4FB8D9;            /* active, in flight */
   --status-awaiting-review: #E5A93D;    /* needs you, not urgent */
+  /* Ready for you: built work waits for him to try, walk or read, and nothing blocks on him.
+     Blue violet, hue 229, 34 degrees from --status-running's cyan and 44 from --status-rejected.
+     Added 22 Nov 2026 with the split of Needs you from Ready for you. Measured 7.65:1 as text on
+     --bg-base and 4.84:1 on its own 12% tint over --bg-hover, the lowest of the five grounds. */
+  --status-ready: #8FA2F7;
   --status-escalated: #EE8450;          /* needs you, urgent */
   --status-completed-success: #4FAF7C;  /* landed */
   --status-completed-failed: #E97878;   /* system failure */
@@ -172,6 +177,7 @@
   --status-not-started-bg: color-mix(in srgb, var(--status-not-started) 12%, transparent);
   --status-running-bg: color-mix(in srgb, var(--status-running) 12%, transparent);
   --status-awaiting-review-bg: color-mix(in srgb, var(--status-awaiting-review) 12%, transparent);
+  --status-ready-bg: color-mix(in srgb, var(--status-ready) 12%, transparent);
   --status-escalated-bg: color-mix(in srgb, var(--status-escalated) 12%, transparent);
   --status-completed-success-bg: color-mix(in srgb, var(--status-completed-success) 12%, transparent);
   --status-completed-failed-bg: color-mix(in srgb, var(--status-completed-failed) 12%, transparent);
@@ -1246,6 +1252,9 @@
   --status-not-started: #555F6D;
   --status-running: #1B657C;
   --status-awaiting-review: #7D5711;
+  /* Ready for you, hue 228 as the dark set's. 6.05:1 as text on --bg-base and 4.60:1 on its own
+     12% tint over --bg-hover, the lowest of the four grounds. */
+  --status-ready: #3A55C2;
   --status-escalated: #A03F10;
   --status-completed-success: #2F694A;
   --status-completed-failed: #B51D1D;

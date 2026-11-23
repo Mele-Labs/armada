@@ -633,6 +633,11 @@ where
             let sender = store.session(from).ok().flatten();
             (found, sender.map(|session| (session.title, session.manifest_id)).unwrap_or_default())
         };
+        // A Job that moved to another Mac is written to there, not started here.
+        let found = match found {
+            Some(hosting) if !self.has_moved_to_mac(&hosting.session_id).await => Some(hosting),
+            _ => None,
+        };
         let title = named.0.clone().unwrap_or_else(|| address_of(from));
         let Some(hosting) = found else {
             self.delivered_across(from, to, (title, named), message).await;

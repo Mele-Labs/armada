@@ -835,6 +835,27 @@ fn a_row_with_none_of_them_leaves_their_keys_out() {
     }
 }
 
+#[test]
+fn a_row_carries_what_he_does_for_what_it_owes() {
+    let idle = r#","hosted":{"turn":{"state":"idle"},"mode":"auto","running":true}"#;
+    let acting = |id: &str, kind: &str, target: &str| {
+        format!(r#"{{"id":"{id}","text":"Owed {id}","since":"2026-10-08T02:00:00.000Z","source":"agent","act":{{"kind":"{kind}","target":"{target}"}}}}"#)
+    };
+    let row = |items: &[String]| row_with(&format!("{idle}{}", owing(items)), &[]);
+    // A question and a command: Needs you, so Answer then Run, once each.
+    let needs = row(&[owed("ask:c1", "ask_card", "02:00"), acting("a1", "run", "pnpm test"), owed("ask:c2", "ask_card", "02:05")]);
+    assert!(needs.contains(r#""owes":["answer","run"]"#), "{needs}");
+    // A build, a walk and a page only to read: Ready for you, in the order the items stand.
+    let ready = row(&[owed("try:1", "ready_to_try", "02:00"), owed("walk:u", "walk", "02:05"), owed("read:docs/a.html", "document", "02:10")]);
+    assert!(ready.contains(r#""owes":["try","walk","read"]"#), "{ready}");
+    // Both kinds: the row is Needs you, and its chip is what he does for those.
+    let both = row(&[owed("try:1", "ready_to_try", "02:00"), owed("plan:1", "plan", "02:05")]);
+    assert!(both.contains(r#""owes":["approve"]"#), "{both}");
+    // An item whose kind is none of the six adds none, and a row with none leaves the key out.
+    let none = row(&[owed("delivery", "delivery", "02:00")]);
+    assert!(!none.contains("owes"), "{none}");
+}
+
 /// One signed call through the Gateway, with the `Content-Type` it came back as: `send` drops it.
 async fn typed(app: &App, method: Method, path: &str, body: &str) -> (StatusCode, String, String) {
     use tower::ServiceExt;
