@@ -2043,3 +2043,50 @@ scope = "thread"
 destructive = false
 confirms = false
 notes = "Opens the list of Armada's own tools over the open Job's message box, as its + button does: Sketch, Diagram, Takes, Document, Browser, Terminal, Features and API Client. Up and Down move, Enter or Tab puts the tool's chip at the caret, and Esc puts the list away with the keys still in the box. When the message is sent, Fleet tells the agent which tool to use. ⌘K is the palette's, so the key is ⌘/, beside the / that lists the agent's own commands. Native only, 19 Nov 2026."
+
+# ---------------------------------------------------------------- dashboard (the Project place's board)
+
+[actions.dashboard_edit]
+kind = "Action"
+tier = "Contextual"
+verb = "Edit the board"
+icon = "pencil"
+shortcut = "e"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Turns the project's board between drawn and edited. While it is edited a block's header is a handle that moves it, its corner resizes it, and the arrows below act on the block that has focus. Native only, 23 Nov 2026."
+
+[actions.dashboard_move]
+kind = "Motion"
+tier = "Contextual"
+verb = "Move a block"
+icon = ""
+shortcut = "← / → / ↑ / ↓"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Moves the block that has focus one cell on the board's six-column grid, while the board is edited. The blocks it meets settle round it. Its own row because a drag moves a block to any cell and the arrows move it by one. Native only, 23 Nov 2026."
+
+[actions.dashboard_resize]
+kind = "Motion"
+tier = "Contextual"
+verb = "Resize a block"
+icon = ""
+shortcut = "⇧← / ⇧→ / ⇧↑ / ⇧↓"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Narrows, widens, shortens or lengthens the block that has focus by one cell, while the board is edited, between two columns and the grid's width. Native only, 23 Nov 2026."
+
+[actions.dashboard_block_view]
+kind = "Action"
+tier = "Contextual"
+verb = "Change the view of a block"
+icon = ""
+icon_absent = "undecided"
+shortcut = "v"
+scope = "dashboard"
+destructive = false
+confirms = false
+notes = "Shows the block that has focus in the next of the views its data fits: List, Table, Cards or Picture, and round again. Native only, 23 Nov 2026."
