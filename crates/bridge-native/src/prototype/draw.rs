@@ -28,19 +28,21 @@ pub struct Walk<'a> {
     /// Who a press is told: the view the scene is drawn in.
     view: Option<WeakEntity<PrototypeView>>,
     locals: Vec<(String, &'a Value)>,
+    /// Whether the part being drawn sits in a column: a small part then keeps its own width, as it does in HTML's inline flow.
+    in_col: bool,
     pub trouble: Trouble,
 }
 
 /// The scene, drawn in `state`, and the trouble it had.
 pub fn draw<'a>(look: &'a Look, scene: &'a Scene, fixtures: &'a Fixtures, state: &'a str, view: WeakEntity<PrototypeView>) -> (AnyElement, Trouble) {
-    let mut walk = Walk { look, scene, fixtures, state, check: false, view: Some(view), locals: Vec::new(), trouble: Trouble::default() };
+    let mut walk = Walk { look, scene, fixtures, state, check: false, view: Some(view), locals: Vec::new(), in_col: false, trouble: Trouble::default() };
     let drawn = walk.node(&scene.root, "n", 0).unwrap_or_else(|| div().into_any_element());
     (drawn, walk.trouble)
 }
 
 /// The trouble the scene would have drawn, in any state.
 pub fn check(look: &Look, scene: &Scene, fixtures: &Fixtures) -> Trouble {
-    let mut walk = Walk { look, scene, fixtures, state: "", check: true, view: None, locals: Vec::new(), trouble: Trouble::default() };
+    let mut walk = Walk { look, scene, fixtures, state: "", check: true, view: None, locals: Vec::new(), in_col: false, trouble: Trouble::default() };
     let _ = walk.node(&scene.root, "n", 0);
     walk.trouble
 }
@@ -98,6 +100,18 @@ impl<'a> Walk<'a> {
     }
 
     fn kids(&mut self, node: &Node, path: &str) -> Vec<AnyElement> {
+        let was = self.in_col;
+        self.in_col = match node.tag.as_str() {
+            "scene" | "state" | "pane" | "card" | "list" => true,
+            "box" => node.attr("dir") != Some("row"),
+            _ => false,
+        };
+        let drawn = self.kids_in(node, path);
+        self.in_col = was;
+        drawn
+    }
+
+    fn kids_in(&mut self, node: &Node, path: &str) -> Vec<AnyElement> {
         let mut drawn = Vec::new();
         let mut seen: Vec<&str> = Vec::new();
         for (at, kid) in node.kids.iter().enumerate() {
@@ -280,6 +294,9 @@ impl<'a> Walk<'a> {
     fn finish(&mut self, drawn: Stateful<Div>, node: &Node, style: &Style, role: Role, name: Option<String>, words: String) -> AnyElement {
         let look = self.look;
         let mut drawn = apply(drawn, style, look);
+        if self.in_col && style.align.is_none() && matches!(node.tag.as_str(), "chip" | "button" | "tabs" | "glyph") {
+            drawn = drawn.self_start();
+        }
         let goes = node.attr("goes").map(str::to_string);
         if let Some(target) = &goes {
             if !self.scene.states.iter().any(|state| state == target) {
@@ -292,13 +309,11 @@ impl<'a> Walk<'a> {
                     .focusable()
                     .tab_stop(true)
                     .cursor_pointer()
-                    .on_click(move |_, _, cx| {
-                        let _ = view.update(cx, |this, cx| this.go(&target, cx));
-                    })
-                    .on_key_down(move |event, _, cx| {
+                    .on_click(move |_, window, cx| go(&view, &target, window, cx))
+                    .on_key_down(move |event, window, cx| {
                         let key = event.keystroke.key.as_str();
                         if (key == "enter" || key == "space") && !event.keystroke.modifiers.modified() {
-                            let _ = key_view.update(cx, |this, cx| this.go(&key_target, cx));
+                            go(&key_view, &key_target, window, cx);
                             cx.stop_propagation();
                         }
                     });
@@ -309,6 +324,16 @@ impl<'a> Walk<'a> {
             Some(label) => labelled(drawn, role, label).into_any_element(),
             None => drawn.into_any_element(),
         }
+    }
+}
+
+/// A press on a part that goes to `state`. The part may be gone once the state is drawn, so the keys go back to the scene's own root.
+fn go(view: &WeakEntity<PrototypeView>, state: &str, window: &mut gpui::Window, cx: &mut gpui::App) {
+    if let Ok(keys) = view.update(cx, |this, cx| {
+        this.go(state, cx);
+        this.focus.clone()
+    }) {
+        window.focus(&keys, cx);
     }
 }
 

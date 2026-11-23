@@ -71,7 +71,7 @@ pub struct PrototypeView {
     /// The state drawn.
     state: Option<String>,
     home: Home,
-    focus: FocusHandle,
+    pub(crate) focus: FocusHandle,
 }
 
 impl PrototypeView {
@@ -236,7 +236,7 @@ impl PrototypeView {
             div()
                 .id("prototype-trouble")
                 .flex_none()
-                .max_h(look.length(token::SPACE_12) * 2.)
+                .max_h(look.length(token::SPACE_12) * 4.)
                 .overflow_y_scroll()
                 .flex()
                 .flex_col()
@@ -274,6 +274,7 @@ impl Render for PrototypeView {
         let look = cx.look();
         div()
             .id("prototype")
+            .track_focus(&self.focus)
             .size_full()
             .flex()
             .flex_col()

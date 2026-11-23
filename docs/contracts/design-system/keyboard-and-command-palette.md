@@ -61,6 +61,7 @@ is the back-fill by hand that this section existed to prevent.
 ⌥X       no to a card waiting in the Job's thread: Deny, Skip, Dismiss  (confirms)
 ⇧⌘Y      open Needs you: the review sheet where the open Job has a plan, sketch, draft or document waiting, else fold its card
 ⌥⌘Y      fold Needs you: shut or open the open Job's card, to read the thread
+⌥⌘P      pop out the Job's prototype: the scene in a window of its own with the note capture over it, in the native Bridge only
 ⌘F       find in thread: a bar over the open Job's thread, in the native Bridge only
 ⌘G       next match of the thread's find bar, in the native Bridge only
 ⇧⌘G      previous match of the thread's find bar, in the native Bridge only
