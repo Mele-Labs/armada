@@ -1196,16 +1196,16 @@ mod tests {
     }
 
     #[test]
-    fn the_cockpit_strip_is_cockpit_reviews_kit_and_features_with_no_operator_or_jobs_place() {
+    fn the_cockpit_strip_is_cockpit_reviews_kit_and_project_with_no_operator_or_jobs_place() {
         let held = Face::bare();
         let face = with_places(held, Front::Cockpit, true, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["cockpit", "reviews", "kit", "features"]);
+        assert_eq!(ids, ["cockpit", "reviews", "kit", "project"]);
         assert_eq!((face.places[0].label, face.here), ("Cockpit", Some("cockpit")));
         // A bar that already holds Operator and Jobs, as the walk's mock bar does, loses them.
         let before = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let after = with_places(before, Front::Cockpit, true, true, true, true);
-        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "reviews", "kit", "features"]);
+        assert_eq!(after.places.iter().map(|place| place.id).collect::<Vec<_>>(), ["cockpit", "reviews", "kit", "project"]);
     }
 
     #[gpui::test]
