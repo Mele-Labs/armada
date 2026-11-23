@@ -287,9 +287,9 @@ mod tests {
         assert!(!hidden("rail", "features"), "shown again");
         let rail = REGIONS.iter().find(|region| region.id == "rail").expect("the rail");
         let ids: Vec<_> = rail.rows.iter().map(|one| one.id).collect();
-        assert_eq!(ids.iter().position(|id| *id == "features"), ids.iter().position(|id| *id == "kit").map(|at| at + 1), "Features follows Kit");
+        assert_eq!(ids.iter().position(|id| *id == "features"), ids.iter().position(|id| *id == "kit").map(|at| at + 1), "Project follows Kit, under the id its saved layout has always used");
         let row = rail.rows.iter().find(|one| one.id == "features").expect("a row");
-        assert_eq!((row.label, row.icon, row.hideable), ("Features", "library", true));
+        assert_eq!((row.label, row.icon, row.hideable), ("Project", "layout-dashboard", true));
     }
 
     #[test]
