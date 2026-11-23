@@ -23,7 +23,7 @@
     {
       "id": "propose",
       "label": "Propose",
-      "tabs": ["plan", "qa", "now"],
+      "tabs": ["artifacts"],
       "about": "Asks what is unclear, then puts a plan to you, with a sketch inside where it helps. Ends when you approve the plan.",
       "instructions": "Read the request and every link in it, and the code it touches. Ask what is unclear, one question at a time.\nThen record the plan with record_plan and wait for the person to approve it. Put a sketch inside it where a picture helps. Edit nothing on the branch but a mock before the approval.\nIn the plan: a summary of a few lines in the person's own words saying what he gets, and a gives line per group. Say `seen: true` when the person would see any piece of the change.\nSeparate what already exists from what is new: for each piece say done, partial or missing, with a path.\nName the files you expect to touch, and end with what you could not settle, each with file:line evidence.\nIf he says he is not ready for a plan, keep talking and record no plan until he asks for one.",
       "gate": "plan_approved",
@@ -34,7 +34,7 @@
     {
       "id": "try",
       "label": "Try",
-      "tabs": ["for_you", "changes", "now"],
+      "tabs": ["artifacts", "pulls"],
       "about": "Builds the part you would see on the branch and offers it for your preview. Ends when you press Looks good on its Ready to try card. Left out when nothing would be seen.",
       "instructions": "Make one group for this step, id try, gated you_approved. Leave it out when the person would see nothing of the change.\nBuild the part he would see on the branch and push it.\nOffer it with offer_preview: `about` says in one line what the branch holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
       "gate": "you_approved",
@@ -45,7 +45,7 @@
     {
       "id": "deliver",
       "label": "Build and deliver",
-      "tabs": ["pulls", "checks", "now"],
+      "tabs": ["pulls", "artifacts"],
       "about": "Wires the change, writes the tests and delivers it the way you chose. Ends at the merge.",
       "instructions": "Wire it to the real thing and write the tests. Every new test is shown failing without the change, then passing.\nFollow the plan. A small correction is yours to make and to say; a change of approach goes to the person.\nPush the branch and open a draft pull request while the checks run locally. Fix what is red. A test that is also red on main is not this Job's to fix: look up who is fixing main, say so, and carry on.\nDeliver by the delivery the person chose, and do not ask again. Auto land: mark the pull request ready and merge it on a green ci. Open PR: leave it open; the Job stays until it merges, so what the person finds comes back here. Keep local: push nothing, and record this group's gate as none.\nReport the branch, what is on it, and what the person needs before merging.",
       "gate": "merged",

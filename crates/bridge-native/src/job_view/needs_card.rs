@@ -29,6 +29,13 @@ pub(super) fn on_card(row: &NeedsYouRow) -> bool {
         && row_options(row).iter().all(|option| option.picture.is_none())
 }
 
+/// Whether the row is the Approve that ends the Job's step: an item the agent raised with `approves`, on a step whose end is that
+/// Approve (`ends_when` says `you approve`). The agent's word never ends a step; his press on this card does.
+pub(super) fn is_step_done(job: &ipc::SessionRecord, row: &str) -> bool {
+    let ends_on_it = job.workflow_strip.as_ref().is_some_and(|strip| strip.ends_when.iter().any(|end| end == "you approve"));
+    ends_on_it && job.waiting_for.iter().any(|item| item.id == row && item.source == WaitingSource::Agent && item.approves)
+}
+
 /// The question `by` steps from `at` among `count`, held at either end.
 pub(super) fn stepped(at: usize, by: isize, count: usize) -> usize {
     (at as isize + by).clamp(0, count.saturating_sub(1) as isize) as usize
@@ -205,7 +212,7 @@ impl JobView {
         });
         let card = Card {
             id: row.id.clone(),
-            kind: face::QUESTION,
+            kind: if self.record(id, cx).is_some_and(|job| is_step_done(job, &row.id)) { face::STEP_DONE } else { face::QUESTION },
             title: row.text.clone().into(),
             names: self.question_names(id, row, look, cx).into_iter().chain(misread).collect(),
             stepper: if stepper { self.question_stepper(at, questions.len(), look, cx) } else { None },
@@ -303,6 +310,24 @@ mod tests {
         let at = bounds_of(cx, Role::Button, name).center();
         cx.simulate_click(at, gpui::Modifiers::none());
         fresh(cx);
+    }
+
+    /// The agent's Approve on a step that ends on it reads as the step done; the same item on a step that ends otherwise, or any other item, is a question.
+    #[test]
+    fn the_approve_a_step_ends_on_reads_as_the_step_done_and_no_other_item_does() {
+        let mut job = crate::mock::jobs("ways-buttons").expect("the fixture decodes").into_iter().find(|job| job.id.as_str() == JOB).expect("the Job");
+        let item = job.waiting_for.iter().position(|one| one.id == "agent-1").expect("the first question");
+        assert!(!super::is_step_done(&job, "agent-1"), "a question of the Job's own, on a Job with no step reading");
+        job.workflow_strip = Some(ipc::WorkflowStrip { ends_when: vec!["you approve".into()], ..ipc::WorkflowStrip::default() });
+        assert!(!super::is_step_done(&job, "agent-1"), "the item asks no Approve");
+        job.waiting_for[item].approves = true;
+        assert!(super::is_step_done(&job, "agent-1"), "his press on it ends the step");
+        assert!(!super::is_step_done(&job, "agent-2"), "another item is not it");
+        job.workflow_strip = Some(ipc::WorkflowStrip { ends_when: vec!["you approve the plan".into()], ..ipc::WorkflowStrip::default() });
+        assert!(!super::is_step_done(&job, "agent-1"), "a step that ends on something else is not ended by it");
+        job.workflow_strip = Some(ipc::WorkflowStrip { ends_when: vec!["you approve".into()], ..ipc::WorkflowStrip::default() });
+        job.waiting_for[item].source = ipc::WaitingSource::Walk;
+        assert!(!super::is_step_done(&job, "agent-1"), "only the agent's own item");
     }
 
     #[gpui::test]

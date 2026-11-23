@@ -242,6 +242,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if matches!(scenario, "job-now" | "job-open" | "job-watching" | "job-spine" | "job-workflow" | "job-lanes" | "job-lanes-marks") {
         for one in &mut sessions {
             one.last_heard_at = one.last_heard_at.as_ref().map(|at| shifted(NOW_ANCHOR, at));
+            for visit in &mut one.workflow_visits {
+                visit.since = shifted(NOW_ANCHOR, &visit.since);
+            }
             if let Some(held) = one.plan.as_mut().and_then(|plan| plan.held.as_mut()) {
                 held.since = shifted(NOW_ANCHOR, &held.since);
             }
@@ -795,6 +798,21 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         if let Some(thread) = all.get_mut("mock-04") {
             let row = ipc::decode::<ipc::ThreadItem>("walk row", br#"{"kind":"row","row":{"kind":"window","id":"win-wf-1","at":"2026-11-09T14:20:00Z","title":"The new docs index","url":"armada://walk/docsIndex"}}"#).map_err(|why| why.to_string())?;
             thread.items.push(row);
+        }
+        // The Job on the Walk step: one walk he approved at 10:42 and one that waits on him, as the right column's Walks tab lists them.
+        if let Some(mut thread) = all.get("mock-04").cloned() {
+            thread.session_id = ipc::SessionId::carried("mock-16");
+            thread.head.open_call = None;
+            thread.head.fleet_acts.clear();
+            thread.items = [
+                br#"{"kind":"row","row":{"kind":"window","id":"win-wk-1","at":"2026-11-09T10:20:00Z","title":"Keys for each pane","url":"armada://walk/keysForEachPane","ended_at":"2026-11-09T10:42:00Z"}}"#.as_slice(),
+                br#"{"kind":"row","row":{"kind":"message","id":"msg-wk-1","at":"2026-11-09T10:42:00Z","from":{"kind":"you"},"text":"Approved: armada://walk/keysForEachPane"}}"#.as_slice(),
+                br#"{"kind":"row","row":{"kind":"window","id":"win-wk-2","at":"2026-11-09T10:50:00Z","title":"Settings overlay","url":"armada://walk/settingsOverlay"}}"#.as_slice(),
+            ]
+            .into_iter()
+            .map(|json| ipc::decode::<ipc::ThreadItem>("walk row", json).map_err(|why| why.to_string()))
+            .collect::<Result<_, _>>()?;
+            all.insert("mock-16".to_string(), thread);
         }
     }
     // As Fleet folds two open sketches: the newest is the head's pin and its card no item, the other keeps its card asked.

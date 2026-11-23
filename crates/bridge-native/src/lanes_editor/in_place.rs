@@ -31,6 +31,8 @@ const HEADS: f32 = 144.;
 const NODE_PER_GAP: f32 = 6.;
 /// The most lines the Words grow to before they scroll, so the fields have a height to place by.
 const WORDS_ROWS: usize = 4;
+/// The lines a step's warning is given under its fields.
+const WARNING_ROWS: usize = 3;
 
 /// The lanes with where the workflow ends moved a column past its last step. The canvas keeps its pans inside what it
 /// lays out, so the column is room it pans to; nothing stands in it, and the empty box that adds a step at the end is
@@ -510,13 +512,22 @@ impl LanesEditor {
 
     /// The panel's height with the Words this many lines tall: padding and border, a label over each field, the
     /// Name's line and the Words. A state's Name is one label and its field; a name to read, one label and one line.
-    fn panel_tall(look: &Look, shape: Shape, rows: usize) -> Pixels {
+    fn panel_tall(look: &Look, shape: Shape, rows: usize, warned: bool) -> Pixels {
         let label = look.length(token::LEADING_2XS) + look.length(token::SPACE_1);
         let shell = look.length(token::SPACE_3) * 2. + look.length(token::BORDER_WIDTH) * 2.;
-        match shape {
+        let warning = if warned { look.length(token::SPACE_3) + look.length(token::LEADING_SM) * WARNING_ROWS as f32 } else { px(0.) };
+        warning + match shape {
             Shape::NameAndWords => shell + look.length(token::SPACE_3) + label * 2. + look.length(token::SPACE_8) + look.length(token::LEADING_SM) * rows as f32 + look.length(token::SPACE_4),
             Shape::Name => shell + label + look.length(token::SPACE_8),
             Shape::Read => shell + label + look.length(token::LEADING_SM),
+        }
+    }
+
+    /// What Fleet warns of the step the fields are open on, where it warns of one.
+    pub(super) fn warning_of(&self, one: &InPlace) -> Option<&String> {
+        match &one.fields {
+            Some(Fields { what: Editing::Step(step), .. }) => self.warnings.get(step),
+            _ => None,
         }
     }
 
@@ -541,7 +552,8 @@ impl LanesEditor {
         let shape = Shape::of(one);
         let wide = look.length(token::SPACE_12) * 6.;
         let wide = if wide > area.size.width { area.size.width.max(px(0.)) } else { wide };
-        let full = Self::panel_tall(look, shape, WORDS_ROWS);
+        let warned = self.warning_of(one).is_some();
+        let full = Self::panel_tall(look, shape, WORDS_ROWS, warned);
         let clamp = |at: Pixels, low: Pixels, high: Pixels| if at > high { high } else { at }.max(low);
         let x = clamp(node.left(), area.left(), area.right() - wide);
         let below = area.bottom() - (node.bottom() + gap);
@@ -560,12 +572,12 @@ impl LanesEditor {
             return Some((at(x, clamp(node.top(), area.top(), area.bottom() - full), full), WORDS_ROWS));
         }
         let rows = if shape == Shape::NameAndWords {
-            let spare = area.size.height - Self::panel_tall(look, shape, 0);
+            let spare = area.size.height - Self::panel_tall(look, shape, 0, warned);
             ((spare / look.length(token::LEADING_SM)).floor() as usize).clamp(1, WORDS_ROWS)
         } else {
             WORDS_ROWS
         };
-        let tall = Self::panel_tall(look, shape, rows);
+        let tall = Self::panel_tall(look, shape, rows, warned);
         let y = if below >= above { node.bottom() + gap } else { node.top() - gap - tall };
         Some((at(x, clamp(y, area.top(), area.bottom() - tall), tall), rows))
     }
@@ -588,7 +600,7 @@ impl LanesEditor {
         let node = self.open_node()?;
         let frame = self.frame.get();
         let gap = look.length(token::SPACE_2);
-        let tall = node.size.height + (gap * 2. + Self::panel_tall(look, Shape::of(one), WORDS_ROWS));
+        let tall = node.size.height + (gap * 2. + Self::panel_tall(look, Shape::of(one), WORDS_ROWS, self.warning_of(one).is_some()));
         Some(Bounds { origin: point(node.left() - frame.left(), node.top() - frame.top()), size: gpui::size(node.size.width, tall) })
     }
 
@@ -620,6 +632,7 @@ impl LanesEditor {
             )
             .into_any_element()],
         };
+        let rows: Vec<AnyElement> = rows.into_iter().chain(self.warning_of(one).map(|warning| crate::settings::workflow_detail::warning_line(look, &one.node, warning))).collect();
         let panel = div()
             .id("lanes-in-place")
             .absolute()
