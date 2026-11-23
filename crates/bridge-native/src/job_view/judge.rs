@@ -624,18 +624,17 @@ impl JobView {
         }
     }
 
-    /// Open the Judge's box, with what was typed in it before, and put the caret there.
-    pub(super) fn open_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
-        self.open_judge_at(ix, key, artifact, false, window, cx);
-    }
-
     /// Open the box over the thread for what a list of the Job's parts chose, which has no press to hang from.
     pub(super) fn open_judge_sheet(&mut self, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let key = format!("choice:{:?}:{}", artifact.kind, artifact.id);
-        self.open_judge_at(super::acts::SHEET, &key, artifact, true, window, cx);
+        self.open_judge(super::acts::SHEET, &key, artifact, window, cx);
+        if let Some(open) = self.judge.as_mut() {
+            open.sheet = true;
+        }
     }
 
-    fn open_judge_at(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, sheet: bool, window: &mut Window, cx: &mut Context<Self>) {
+    /// Open the Judge's box, with what was typed in it before, and put the caret there.
+    pub(super) fn open_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         let box_key = format!("judge:{key}:Judge");
         let held = self.pages.get(&job).and_then(|page| page.cards.boxes.get(&box_key).cloned());
@@ -659,7 +658,7 @@ impl JobView {
             stops: [cx.focus_handle(), cx.focus_handle()],
             chips: cx.focus_handle().tab_stop(true),
             chosen: crate::judge_types::DEFAULT.to_string(),
-            sheet,
+            sheet: false,
             _enter: enter,
         });
         self.read_judge_types(window, cx);
@@ -675,10 +674,10 @@ impl JobView {
         }
         if refocus {
             let spot = self.shown.as_ref().and_then(|job| self.pages.get(job)).and_then(|page| page.keys.spot_of(&format!("judge-press:{key}")));
-            match spot {
-                Some(spot) => window.focus(&spot.focus, cx),
-                None if sheet => window.focus(&self.focus, cx),
-                None => {}
+            if let Some(spot) = spot {
+                window.focus(&spot.focus, cx);
+            } else if sheet {
+                window.focus(&self.focus, cx);
             }
         }
         self.card_changed(ix, cx);
