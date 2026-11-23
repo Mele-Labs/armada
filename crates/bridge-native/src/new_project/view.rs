@@ -17,6 +17,9 @@ impl Render for NewProjectSheet {
         if !self.is_open() {
             return div().into_any_element();
         }
+        if self.inline {
+            return self.render_inline(window, cx);
+        }
         let look = cx.look();
         let view = crate::room::of(window, cx).size;
         let width = (look.length(token::PALETTE_WIDTH) * 1.7).min(view.width - look.length(token::SPACE_6) * 2.);
@@ -41,20 +44,7 @@ impl Render for NewProjectSheet {
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
             .child(self.head(look))
-            .child({
-                // Members on the left, settings on the right; each scrolls on its own, left first in Tab order.
-                let column = |id: &'static str| {
-                    div().id(id).flex_1().min_w_0().h_full().overflow_y_scroll().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_4))
-                };
-                div()
-                    .id("new-project-body")
-                    .flex_1()
-                    .min_h_0()
-                    .flex()
-                    .child(column("new-project-members").child(self.name_section(window, cx)).child(self.repositories(window, cx)).child(self.place_section(window, cx)))
-                    .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h_full().bg(look.color(token::BORDER_DEFAULT)))
-                    .child(column("new-project-settings").child(self.settings(window, cx)))
-            })
+            .child(self.columns(window, cx))
             .child(self.foot(window, cx));
         let scrim = div()
             .id("new-project-scrim")
@@ -65,6 +55,46 @@ impl Render for NewProjectSheet {
             .on_mouse_down(gpui::MouseButton::Left, cx.listener(|this, _, window, cx| this.close(window, cx)));
         let column = div().absolute().top(top).left((view.width - width) / 2.).child(frame);
         labelled(div().id("new-project").absolute().inset_0().child(scrim).child(column).children(self.popup()), Role::Dialog, if self.is_editing() { "Edit project" } else { "New project" }).into_any_element()
+    }
+}
+
+impl NewProjectSheet {
+    /// Members on the left, settings on the right; each scrolls on its own, left first in Tab order.
+    fn columns(&self, window: &Window, cx: &Context<Self>) -> gpui::Stateful<Div> {
+        let look = cx.look();
+        let column = |id: &'static str| div().id(id).flex_1().min_w_0().h_full().overflow_y_scroll().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_4));
+        div()
+            .id("new-project-body")
+            .flex_1()
+            .min_h_0()
+            .flex()
+            .child(column("new-project-members").child(self.name_section(window, cx)).child(self.repositories(window, cx)).child(self.place_section(window, cx)))
+            .child(div().flex_none().w(look.length(token::BORDER_WIDTH)).h_full().bg(look.color(token::BORDER_DEFAULT)))
+            .child(column("new-project-settings").child(self.settings(window, cx)))
+    }
+
+    /// The sheet as a page of the Project place: the members and the settings across the room, Cancel and Save under them, no
+    /// scrim and no title, since the tab names it.
+    fn render_inline(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
+        let look = cx.look();
+        let frame = div()
+            .id("new-project-frame")
+            .key_context("new_project")
+            .track_focus(&self.at.frame)
+            .on_action(cx.listener(|this, key: &Act, window, cx| this.on_act(key, window, cx)))
+            .size_full()
+            .flex()
+            .flex_col()
+            .overflow_hidden()
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_RAISED))
+            .text_color(look.color(token::FG_DEFAULT))
+            .font_family(sans(look))
+            .child(self.columns(window, cx))
+            .child(self.foot(window, cx));
+        labelled(div().id("new-project").relative().size_full().child(frame).children(self.popup()), Role::Form, "Project settings").into_any_element()
     }
 }
 
