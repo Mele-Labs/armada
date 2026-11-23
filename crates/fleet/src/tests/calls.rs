@@ -547,7 +547,7 @@ async fn a_job_that_asks_him_is_told_once_and_a_visit_takes_its_call_off_the_lis
     let arrivals = |told: &Arc<Mutex<Vec<ipc::CallsChanged>>>| told.lock().unwrap().iter().flat_map(|one| one.arrived.clone()).collect::<Vec<_>>();
     eventually(|| async { !arrivals(&told).is_empty() }).await;
     let first = arrivals(&told);
-    assert_eq!((first.len(), first[0].kind, first[0].tone, &first[0].session_id), (1, CallArrivalKind::Needs, CallTone::Waiting, &id), "{first:?}");
+    assert_eq!((first.len(), first[0].kind, first[0].tone, &first[0].session_id), (1, CallArrivalKind::Needs, CallTone::Blocked, &id), "{first:?}");
     let standing = rig.fleet.get_calls().await.expect("the calls");
     assert_eq!(standing.calls.len(), 1, "{standing:?}");
     assert_eq!(standing.calls[0].owner, format!("session:{}", id.as_str()));
