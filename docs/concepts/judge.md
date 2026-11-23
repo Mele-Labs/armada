@@ -87,6 +87,7 @@ The Judge of the whole Job has no artifact to stand in, so its press opens a Jud
 
 **The artifact is shown by its words and no ids, so a note can never name one.** A note that said *Task W2* would mean nothing to the person reading it.
 **The agent's testimony is withheld, because a critic that reads the defendant's account is not independent of it.**
+One bend, for `excerpt` and `reply` only: the words a person presses Judge on are shown as the claim under test, never as evidence, and nothing else of the agent's reaches the brief.
 
 **It may read the repository, and only the repository.** The call reads the checkout Fleet serves, read-only, for a few turns, so it learns what the repository requires of a change the way an agent does: from CLAUDE.md, the docs and the skills.
 The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused.

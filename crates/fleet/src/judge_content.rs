@@ -18,11 +18,15 @@
 //! | `subagent` | the thread's row of the subagent and what it last said |
 //! | `issue` | the title and body the ledger keeps |
 //! | `note` | the note's words |
+//! | `excerpt` | the selected words, as a claim to check, where the thread's row still holds them |
+//! | `draft` | the draft's text, and the text it replaces |
+//! | `branch` | the offered branch against the base, from the checkout |
+//! | `reply` | the agent's reply, as a claim to check |
 
 use std::path::Path;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct, Worktree};
-use ipc::{JudgeArtifact, JudgeKind, SessionRow};
+use ipc::{JudgeArtifact, JudgeKind, SessionRow, SessionVoice};
 use store::{Holder, KeptAttachment, KeptHosting, KeptSession};
 
 use crate::daemon::Fleet;
@@ -41,6 +45,16 @@ fn cut(text: &str) -> String {
 
 fn detail<'a>(held: &'a KeptAttachment, key: &str) -> Option<&'a str> {
     held.detail.get(key).map(String::as_str).map(str::trim).filter(|said| !said.is_empty())
+}
+
+/// Words as one line, so a selection that crossed a line break still finds its place in the row.
+fn one_line(words: &str) -> String {
+    words.split_whitespace().collect::<Vec<_>>().join(" ")
+}
+
+/// How a claim is put to the Judge: **under test, never evidence**.
+fn claim(words: &str) -> String {
+    format!("The claim under test. It is not evidence of anything: check it against the repository.\n\n{}", cut(words.trim()))
 }
 
 fn form<'a>(held: &'a KeptAttachment) -> Option<&'a str> {
@@ -296,6 +310,64 @@ where
                     .ok_or_else(|| unheld("note"))?;
                 let text = detail(note, "text").ok_or_else(|| "the note holds no words".to_string())?;
                 Ok(named(text.to_string()))
+            }
+            JudgeKind::Excerpt => {
+                let words = one_line(&artifact.title);
+                let row = artifact.id.trim().rsplit_once('/').map_or(artifact.id.trim(), |(row, _hash)| row);
+                let said = rows.iter().find_map(|one| match one {
+                    SessionRow::Message { id: found, text, .. } if found == row => Some(text),
+                    _ => None,
+                });
+                let said = said.ok_or_else(|| unheld("message"))?;
+                if words.is_empty() || !one_line(said).contains(&words) {
+                    return Err("The selected words are no longer in that message.".into());
+                }
+                Ok(Content { kind: artifact.kind, title: String::from("Selected words"), plan: None, text: claim(&words) })
+            }
+            JudgeKind::Reply => {
+                let row = artifact.id.trim();
+                let said = rows.iter().find_map(|one| match one {
+                    SessionRow::Message { id: found, from: SessionVoice::Agent, text, .. } if found == row => Some(text),
+                    _ => None,
+                });
+                let said = said.ok_or_else(|| unheld("reply"))?;
+                if said.trim().is_empty() {
+                    return Err("the reply holds no words".into());
+                }
+                Ok(Content { kind: artifact.kind, title: String::from("An agent's reply"), plan: None, text: claim(said) })
+            }
+            JudgeKind::Draft => {
+                let row = artifact.id.trim().trim_start_matches("draft:");
+                let drafted = rows.iter().find_map(|one| match one {
+                    SessionRow::Draft { id: found, title: head, text, before, .. } if found == row => Some((head, text, before)),
+                    _ => None,
+                });
+                let (head, text, before) = drafted.ok_or_else(|| unheld("draft"))?;
+                let before = before
+                    .as_deref()
+                    .map(str::trim)
+                    .filter(|said| !said.is_empty())
+                    .map(|said| format!("\n\nThe text it replaces:\n{}", cut(said)))
+                    .unwrap_or_default();
+                let title = if title.is_empty() { head.trim().to_string() } else { title.clone() };
+                Ok(Content { kind: artifact.kind, title, plan: None, text: format!("The draft:\n{}{before}", cut(text.trim())) })
+            }
+            JudgeKind::Branch => {
+                let branch = artifact.id.trim();
+                let offered = self
+                    .store()
+                    .lock()
+                    .await
+                    .preview_offered_of(id, branch)
+                    .map_err(|why| format!("the Job's offers would not read: {why}"))?;
+                if offered.is_none() {
+                    return Err(unheld("offered branch"));
+                }
+                let diff = self.judge_branch_diff(served, session, hosting, branch)?;
+                if diff.trim().is_empty() {
+                    return Err(format!("the branch {branch} changes nothing against the base"));
+                }
+                Ok(named(diff))
             }
         }
     }

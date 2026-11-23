@@ -47,6 +47,21 @@ fn an_artifact_kind_crosses_as_its_snake_case_name() {
 }
 
 #[test]
+fn the_four_newer_artifact_kinds_cross_as_their_snake_case_names() {
+    for (kind, word) in [
+        (JudgeKind::Excerpt, "excerpt"),
+        (JudgeKind::Draft, "draft"),
+        (JudgeKind::Branch, "branch"),
+        (JudgeKind::Reply, "reply"),
+    ] {
+        let one = JudgeArtifact { kind, id: "x".into(), title: "y".into() };
+        let text = encode(&one).expect("encodes");
+        assert_eq!(text, format!(r#"{{"kind":"{word}","id":"x","title":"y"}}"#));
+        assert_eq!(decode::<JudgeArtifact>("an artifact", text.as_bytes()).expect("decodes"), one);
+    }
+}
+
+#[test]
 fn a_reading_with_nothing_to_add_leaves_no_null_keys_but_keeps_what_the_card_always_reads() {
     let text = encode(&a_reading()).expect("encodes");
     for absent in ["finished_at", "failed", "cost_micros", "null"] {
