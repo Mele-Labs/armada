@@ -27,6 +27,7 @@ mod modules;
 mod of_job;
 mod pending;
 mod project_pages;
+pub(crate) mod ranking;
 mod reading;
 mod retiring;
 mod seeding;

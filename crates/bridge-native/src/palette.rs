@@ -222,13 +222,13 @@ fn place_entries() -> Vec<Entry> {
         place("nav:place:operator", "Operator", "bot", Some("⌘J")),
         place("nav:place:jobs", "Jobs", "box", None),
         place("nav:place:reviews", "Reviews", "git-pull-request", None),
-        place("nav:place:features", "Features", "library", None),
+        place("nav:place:project", "Project", "layout-dashboard", None),
         place("nav:settings", "Settings", "settings", Some("⌘,")),
     ]
 }
 
 /// Go to, in the title bar's order: Kit is its own act, and Usage is offered only where the app holds it.
-const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:features", "nav:usage", "nav:settings"];
+const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:project", "nav:usage", "nav:settings"];
 
 /// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
 /// has no row for them. Root Jobs only reads On while the switch is.
@@ -1127,7 +1127,7 @@ impl Palette {
                     "nav:place:operator" => Some(crate::titlebar::Asked::Place("operator")),
                     "nav:place:jobs" => Some(crate::titlebar::Asked::Place("jobs")),
                     "nav:place:reviews" => Some(crate::titlebar::Asked::Place("reviews")),
-                    "nav:place:features" => Some(crate::titlebar::Asked::Place("features")),
+                    "nav:place:project" => Some(crate::titlebar::Asked::Place("project")),
                     _ => None,
                 };
                 if let (Some(asked), Some(sink)) = (asked, cx.try_global::<crate::titlebar::AskedSink>().cloned()) {

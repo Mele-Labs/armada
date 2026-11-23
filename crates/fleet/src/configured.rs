@@ -40,6 +40,7 @@ where
                 .filter_map(|check| check.name().map(str::to_string))
                 .collect(),
             commands: held.command_names(),
+            confirm_commands: held.confirm_names(),
             servers: held.server_names(),
             ports: held.port_names(),
             exclude_paths: held
