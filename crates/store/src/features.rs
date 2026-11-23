@@ -108,6 +108,8 @@ pub struct KeptFeatureLink {
 pub mod gist_by {
     /// The Job that read the doc wrote it at its end.
     pub const JOB: &str = "job";
+    /// The librarian wrote it where no Job had and the doc's first sentence said nothing.
+    pub const LIBRARIAN: &str = "librarian";
 }
 
 /// A file a Job wrote while its work was filed under a feature.

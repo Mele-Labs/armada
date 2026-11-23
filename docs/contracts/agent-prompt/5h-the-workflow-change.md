@@ -57,7 +57,10 @@ fields can say, read in this order, the first that fits:
 - `records_plan: true`, or a submitted evidence `type` of `plan`: it ends when the person approves
 the plan, or anything its `ends_on` lists, or, with `plan_unasked: true`, when a plan is recorded.
 - `walks: true`: it ends when the person approves every walk they are shown, and it is passed over
-when nothing would be seen. No other step is ever passed over.
+when nothing would be seen.
+- `previews: true`: it ends when the person says Looks good on the branch the Job offered for his
+preview, and it is passed over when nothing would be seen and nothing was offered. No other step is
+ever passed over.
 - A step before the one that records the plan ends when a plan is recorded, or, with `awaits_reply:
 true`, when the person replies.
 - Any other step ends when the next step is entered, and the next step's fields say when that is: it

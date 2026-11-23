@@ -290,7 +290,7 @@ impl Sessions for FakeDaemon {
     }
 
     async fn report_session_check(
-        &self,
+        self: std::sync::Arc<Self>,
         call: ipc::SessionCheckCall,
     ) -> Result<ipc::SessionCheckAnswer, Refusal> {
         Ok(ipc::SessionCheckAnswer { run: call.run.or(Some(1)), stop: None })

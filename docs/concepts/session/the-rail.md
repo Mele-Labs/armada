@@ -26,6 +26,11 @@ The step after it is entered once it is passed, whatever fact would have entered
 A delivering step right after a walk is entered then too, with no push.
 Fleet reads these from the thread's window rows and his Approve messages, and from the plan; the agent's word is never an input.
 
+**A `previews` step** (20 Nov 2026) is an anchor as a walk is, with his Looks good on the Ready to try card in place of a window's Approve: [Workflow](../workflow.md#walks-and-replies) says when it is passed over.
+It is entered once the plan is approved and the step before it is passed, or once the Job offers a branch, and ended only by the `you_approved` gate his Looks good closes.
+Fleet keeps a note for each offer, so a withdrawn offer, or a branch that moved, leaves the step held.
+The delivering step after it is entered once it ends, push or not.
+
 **A step that ends on a lifecycle state** (29 Oct 2026, "Workspaces, lifecycles and rules") is entered once the Job holds an instance of that lifecycle and left when the state is reached.
 `pr: approved` needs every pull request the Job holds, `any pr: approved` the first; `job: landed` needs every Job it started.
 Fleet reads the moves it already keeps for the Job's instances, so nothing polls: a kept move redraws the row of a Job whose step waits, the rail moves it, and `rail_acted_on` sends the agent one message saying what got there.
@@ -42,7 +47,7 @@ Before this, such a step was never entered, and orchestrate and refactor Jobs st
 **Work ahead of a step that waits on his Approve moves the Job on and flags the step** (20 Nov 2026, the owner's answer on *The Job's right column, by workflow step*).
 A push, a pull request or a merge is work for a later step, so where a later step delivers, a step that waits on his Approve of a plan, a page, a sketch, a draft or an item he was never given is passed, and the Job stands where the work is.
 The passed step is listed in `workflow_strip.passed_unapproved`, and the column draws it `passed without your Approve` until he gives the Approve.
-**A walk is not passed this way**: a push never passes a walk, so a Job whose plan expects one stands on it with the plan flagged.
+**A walk is not passed this way**, nor a step that `previews`: a push never passes a walk, and it is how a preview is made, so a Job whose plan expects one stands on it with the plan flagged.
 A workflow with no delivering step passes nothing, since its push belongs to no step.
 Before this, Propose stood from the plan to the merge on 41 Jobs that held a pull request.
 

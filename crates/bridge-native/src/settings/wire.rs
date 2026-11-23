@@ -645,6 +645,15 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/kit/values".into(), said), "KitValuesSaved", cx))
     }
 
+    /// `GET /review_tools/:repository`: the review tools a repository defines, read as the pull request page reads them.
+    pub fn review_tools(&mut self, manifest: &str, cx: &App) -> Task<Result<Vec<crate::reviews::model::ReviewTool>, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(mock.review_tools());
+        }
+        let manifest = manifest.to_string();
+        self.port(cx).map_or_else(unreachable, |port| cx.background_spawn(async move { crate::reviews::read_tools(port, &manifest).map_err(Refused::said) }))
+    }
+
     /// `GET /projects`, read fresh before a project's values are written whole.
     pub fn projects_now(&mut self, cx: &App) -> Task<Result<Projects, Refused>> {
         if let Wire::Mock(mock) = self {

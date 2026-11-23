@@ -10,6 +10,7 @@
 /// An empty optional field leaves no key rather than a `null`.
 mod absent;
 mod page_messages;
+mod margin_wire;
 mod bug_reports;
 mod debug_report;
 mod features;

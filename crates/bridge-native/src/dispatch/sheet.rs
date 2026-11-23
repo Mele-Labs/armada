@@ -8,16 +8,24 @@
 //! state and keys; `view.rs` draws it.
 
 use std::cell::Cell;
+use std::path::PathBuf;
 use std::rc::Rc;
 
 use gpui::{
-    point, AppContext, Anchor, App, Bounds, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, Pixels,
+    point, AppContext, Anchor, App, Bounds, ClipboardItem, Context, DismissEvent, Entity, EventEmitter, FocusHandle, Focusable, KeyDownEvent, Pixels,
     SharedString, Subscription, Window,
 };
 use gpui_component::input::{InputEvent, Position, TextareaState};
+use ipc::SessionTag;
 
 use super::face::{Face, Mark, Offered, Part, Reading, Row, Trigger, Wait};
 use crate::dropdown::{Dropdown, Entry, Picked};
+use crate::job_view::composer::{attached, clipped_keyed, pick_files, read_files, Attached};
+use crate::job_view::offer::Pick;
+use crate::job_view::sketch_pad::{PadEvent, SketchPad};
+use crate::job_view::talk::{self, Hears, Talk};
+use crate::sketch::DrawnSketch;
+use crate::voice::{Engine, Source};
 use crate::keymap::Act;
 use crate::look::{token, ActiveLook};
 use crate::titlebar::id_of;
@@ -61,6 +69,12 @@ pub(super) struct Menu {
     pub active: usize,
 }
 
+/// A tool picked from the +: it goes as a `tool` tag with the first message, and its chip is a stop that removes it.
+pub(super) struct HeldTool {
+    pub tag: SessionTag,
+    pub key: FocusHandle,
+}
+
 /// The popover a trigger in the drawer opens.
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Pop {
@@ -87,7 +101,17 @@ pub struct DispatchSheet {
     pub(super) open: bool,
     pub(super) request: Entity<TextareaState>,
     _typed: Subscription,
-    pub(super) attached: Vec<SharedString>,
+    /// Files attached to the request: they go with its first message.
+    pub(super) files: Vec<Attached>,
+    /// Sketches drawn on the request's own pad, going with its first message as pictures.
+    pub(super) drawn: Vec<DrawnSketch>,
+    next_key: u64,
+    pub(super) pad: Entity<SketchPad>,
+    _pad: Subscription,
+    pub(super) talk: Talk,
+    /// The voice Talk hears with, as the Job's box has it, and whether Fleet is live or the walks' mock is.
+    voice: Engine,
+    live: bool,
     /// The act is out: Start is pending.
     pub(super) sending: bool,
     /// The act out is Draft: the button reads Drafting, and a start waiting on the repository stays a draft.
@@ -98,6 +122,10 @@ pub struct DispatchSheet {
     /// The act is waiting for the repository read to answer.
     waiting: bool,
     pub(super) menu: Option<Menu>,
+    /// The tools the + lists are open, with the active row.
+    pub(super) tools_open: Option<usize>,
+    /// The tools picked, in the order picked, one of each.
+    pub(super) tools: Vec<HeldTool>,
     /// The Job menu on the sentence, with its active row.
     pub(super) wait_menu: Option<usize>,
     /// The Job the words tag, by id and title.
@@ -121,6 +149,10 @@ pub struct DispatchSheet {
     pub(super) queue_key: FocusHandle,
     pub(super) draft_key: FocusHandle,
     pub(super) act_key: FocusHandle,
+    pub(super) tools_key: FocusHandle,
+    pub(super) attach_key: FocusHandle,
+    pub(super) sketch_key: FocusHandle,
+    pub(super) talk_key: FocusHandle,
 }
 
 impl Focusable for DispatchSheet {
@@ -136,19 +168,39 @@ impl DispatchSheet {
             InputEvent::Change => this.typed(request, window, cx),
             _ => {}
         });
+        let pad = cx.new(SketchPad::new);
+        let told = cx.subscribe_in(&pad, window, |this, _, event: &PadEvent, window, cx| {
+            match event {
+                PadEvent::Attached(drawn) => this.drawn.push(drawn.clone()),
+                PadEvent::Closed => {
+                    let focus = this.request.focus_handle(cx);
+                    window.focus(&focus, cx);
+                }
+            }
+            cx.notify();
+        });
         DispatchSheet {
             wait: face.wait.clone(),
             face,
             open: false,
             request,
             _typed: typed,
-            attached: Vec::new(),
+            files: Vec::new(),
+            drawn: Vec::new(),
+            next_key: 0,
+            pad,
+            _pad: told,
+            talk: Talk::default(),
+            voice: Engine::Apple,
+            live: false,
             sending: false,
             drafting: false,
             queueing: false,
             asking: false,
             waiting: false,
             menu: None,
+            tools_open: None,
+            tools: Vec::new(),
             wait_menu: None,
             tagged: None,
             model: None,
@@ -167,7 +219,17 @@ impl DispatchSheet {
             queue_key: cx.focus_handle(),
             draft_key: cx.focus_handle(),
             act_key: cx.focus_handle(),
+            tools_key: cx.focus_handle(),
+            attach_key: cx.focus_handle(),
+            sketch_key: cx.focus_handle(),
+            talk_key: cx.focus_handle(),
         }
+    }
+
+    /// The voice Talk hears with, and whether a live Fleet is behind the sheet; on the walks' mock, Attach adds samples.
+    pub fn set_voice(&mut self, voice: Engine, live: bool) {
+        self.voice = voice;
+        self.live = live;
     }
 
     /// The project or repository the card under the sheet starts a Job in.
@@ -258,9 +320,11 @@ impl DispatchSheet {
         self.open = false;
         self.intercept = None;
         self.menu = None;
+        self.tools_open = None;
         self.wait_menu = None;
         self.popup = None;
         self.asking = false;
+        self.talk.leave();
         if let Some(keys) = self.keys_were.take() {
             window.focus(&keys, cx);
         }
@@ -278,7 +342,28 @@ impl DispatchSheet {
     }
 
     pub(super) fn worded(&self, cx: &App) -> bool {
-        !self.words(cx).trim().is_empty() || !self.attached.is_empty()
+        !self.words(cx).trim().is_empty() || self.holds()
+    }
+
+    /// The request holds something besides words: a file, a sketch, or a tool.
+    pub(super) fn holds(&self) -> bool {
+        !self.files.is_empty() || !self.drawn.is_empty() || !self.tools.is_empty()
+    }
+
+    /// A Job that waits starts with no first message, so nothing can go with it: Attach and Draw sketch
+    /// are put away while a wait is tagged, and paste and drop leave files where they are.
+    pub(super) fn takes_files(&self) -> bool {
+        self.wait.is_none()
+    }
+
+    /// What goes with the request's first message: its files and its sketches.
+    pub(super) fn held(&self) -> (Vec<Attached>, Vec<DrawnSketch>) {
+        (self.files.clone(), self.drawn.clone())
+    }
+
+    /// The tools picked, as the tags the first message carries.
+    pub(super) fn tools_held(&self) -> Vec<SessionTag> {
+        self.tools.iter().map(|one| one.tag.clone()).collect()
     }
 
     // -- the words ----------------------------------------------------------------------------
@@ -293,6 +378,7 @@ impl DispatchSheet {
         // A start waiting on the repository read stays what was pressed.
         self.drafting = self.drafting && self.waiting;
         let cursor = request.read(cx).cursor().min(words.len());
+        self.tools_open = None;
         self.menu = self.mention(&words, cursor).filter(|menu| !menu.rows.is_empty());
         self.reread(&words, cx);
         cx.notify();
@@ -452,7 +538,8 @@ impl DispatchSheet {
 
     /// Queue for later: the idea is saved here and the sheet goes.
     pub(super) fn queue(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if !self.face.connected || self.sending || self.queueing || !self.face.queue || self.words(cx).trim().is_empty() {
+        // A queued idea keeps words only, so nothing attached is dropped by queueing it.
+        if !self.face.connected || self.sending || self.queueing || !self.face.queue || self.holds() || self.words(cx).trim().is_empty() {
             return;
         }
         let Some(repository) = self.repository() else {
@@ -477,7 +564,9 @@ impl DispatchSheet {
         self.queueing = false;
         self.waiting = false;
         crate::drafts::clear(KEEP_REQUEST, cx);
-        self.attached.clear();
+        self.files.clear();
+        self.drawn.clear();
+        self.tools.clear();
         self.wait = None;
         self.tagged = None;
         self.request.update(cx, |state, cx| state.set_value("", window, cx));
@@ -511,6 +600,7 @@ impl DispatchSheet {
         }
         if let Some(wait) = self.face.wait.clone() {
             self.wait = Some(wait);
+            self.tools_open = None;
         }
         if self.waiting && self.face.reading != Reading::Detecting {
             self.waiting = false;
@@ -523,13 +613,119 @@ impl DispatchSheet {
 
     /// What Fleet read of the brief's tag: the sentence over the request, or none where the tag names no wait.
     pub fn set_wait(&mut self, wait: Option<Wait>, cx: &mut Context<Self>) {
+        if wait.is_some() {
+            self.tools_open = None;
+        }
         self.wait = wait;
         cx.notify();
     }
 
     /// A pasted snippet kept as a file.
     pub fn attach(&mut self, name: &str, cx: &mut Context<Self>) {
-        self.attached.push(name.to_string().into());
+        self.add_file(name.to_string(), "text/plain".into(), Vec::new(), cx);
+    }
+
+    // -- what goes with the request ----------------------------------------------------------------
+
+    /// Attach opens the Mac's own picker. On the walks' mock there is none to answer, so it adds samples, as a Job's box does.
+    pub(super) fn attach_files(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
+        if !self.live {
+            self.add_file("sample.rs".into(), "text/plain".into(), b"fn main() {}\n".to_vec(), cx);
+            if let Some(picture) = crate::job_view::pictures::mock_picture("Pasted file.png") {
+                self.add_file("Pasted file.png".into(), "image/png".into(), picture, cx);
+            }
+            return;
+        }
+        pick_files(window, cx, |this, paths, cx| this.take_paths(paths, cx));
+    }
+
+    /// Files named by a drop or a paste are read off the main thread and attached.
+    pub(super) fn take_paths(&mut self, paths: Vec<PathBuf>, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
+        read_files(paths, cx, |this, name, media_type, bytes, cx| this.add_file(name, media_type, bytes, cx));
+    }
+
+    fn add_file(&mut self, name: String, media_type: String, bytes: Vec<u8>, cx: &mut Context<Self>) {
+        self.next_key += 1;
+        self.files.push(attached(self.next_key, name, media_type, bytes));
+        cx.notify();
+    }
+
+    pub(super) fn remove_file(&mut self, key: u64, window: &mut Window, cx: &mut Context<Self>) {
+        self.files.retain(|one| one.key != key);
+        // The caret goes back to the request where the chip was.
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    pub(super) fn remove_drawn(&mut self, id: &str, cx: &mut Context<Self>) {
+        self.drawn.retain(|one| one.id != id);
+        cx.notify();
+    }
+
+    /// A paste with a picture or files on the clipboard attaches them; a long text becomes a file.
+    pub(super) fn paste(&mut self, item: &ClipboardItem, cx: &mut Context<Self>) -> bool {
+        if !self.takes_files() {
+            return false;
+        }
+        let taken = clipped_keyed(item, &mut self.next_key);
+        for (name, media_type, bytes) in taken.files.iter().cloned() {
+            self.add_file(name, media_type, bytes, cx);
+        }
+        let any = taken.taken();
+        if !taken.paths.is_empty() {
+            self.take_paths(taken.paths, cx);
+        }
+        any
+    }
+
+    /// Draw sketch: the sheet opens on the request's own pad, as it was left.
+    pub(super) fn open_sketch(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
+        self.pad.update(cx, |pad, cx| pad.open(window, cx));
+        cx.notify();
+    }
+
+    /// The + opens Armada's tools under the words, the first marked, with the keys in the request so the list takes
+    /// them; pressed again it shuts them. A wait takes no message, so nothing opens while one is tagged.
+    pub(super) fn open_tools(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.takes_files() {
+            return;
+        }
+        self.tools_open = if self.tools_open.is_some() { None } else { Some(0) };
+        self.menu = None;
+        self.wait_menu = None;
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    /// The tool at `at` in the list is held, once however often it is picked, and the keys stay in the request.
+    pub(super) fn pick_tool(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools_open = None;
+        if let Some(Pick::Tag { kind, id, title, url }) = crate::job_view::ask_tools::rows().into_iter().nth(at).map(|row| row.pick) {
+            if !self.tools.iter().any(|one| one.tag.id == id) {
+                self.tools.push(HeldTool { tag: SessionTag { kind, id, title, url }, key: cx.focus_handle() });
+            }
+        }
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
+        cx.notify();
+    }
+
+    /// A tool's chip removed: it does not go, and the caret goes back to the request.
+    pub(super) fn remove_tool(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.tools.retain(|one| one.tag.id != id);
+        let focus = self.request.focus_handle(cx);
+        window.focus(&focus, cx);
         cx.notify();
     }
 
@@ -581,6 +777,32 @@ impl DispatchSheet {
         let mods = &event.keystroke.modifiers;
         let plain = !mods.platform && !mods.control && !mods.alt;
         let in_request = self.request.focus_handle(cx).is_focused(window);
+        if in_request && talk::key_down(self, event, window, cx) {
+            cx.stop_propagation();
+            return;
+        }
+        // The tools, as the `@` menu: arrows wrap, ↵ or ⇥ pick, Esc closes them with the keys in the request.
+        if let Some(active) = self.tools_open {
+            let len = crate::job_view::ask_tools::rows().len().max(1);
+            match key {
+                "down" | "up" => {
+                    self.tools_open = Some(if key == "down" { (active + 1) % len } else { (active + len - 1) % len });
+                    if len > 1 {
+                        crate::ui_sounds::moved();
+                    }
+                }
+                "enter" | "tab" if plain => self.pick_tool(active, window, cx),
+                "escape" => {
+                    self.tools_open = None;
+                    let focus = self.request.focus_handle(cx);
+                    window.focus(&focus, cx);
+                }
+                _ => return,
+            }
+            cx.stop_propagation();
+            cx.notify();
+            return;
+        }
         // The `@` menu: arrows wrap, ↵ or ⇥ choose, Esc closes it and nothing else.
         if let Some(menu) = &mut self.menu {
             let len = menu.rows.len().max(1);
@@ -605,7 +827,7 @@ impl DispatchSheet {
         }
         match key {
             "escape" => {
-                if self.wait_menu.take().is_some() || self.popup.take().is_some() {
+                if talk::put_away(self, cx) || self.wait_menu.take().is_some() || self.popup.take().is_some() {
                     // Only the menu closes.
                 } else if self.asking {
                     self.asking = false;
@@ -637,21 +859,26 @@ impl DispatchSheet {
         self.face.connected && !self.queueing && self.worded(cx) && !self.sending
     }
 
-    /// Every stop Tab visits, in order: the wait sentence's parts when there is one, the request, the
-    /// repository, Model, Effort, Queue for later, Draft, Start, then the card under the sheet. A
-    /// control that is off, or has no card to draw, has no stop.
+    /// Every stop Tab visits, in order: the wait sentence's parts when there is one, the tools held, the request,
+    /// its +, Attach, Draw sketch and Talk, the repository, Model, Effort, Queue for later, Draft, Start, then
+    /// the card under the sheet. A control that is off, or has no card to draw, has no stop.
     pub(super) fn stops(&self, cx: &App) -> Vec<FocusHandle> {
         let mut stops = Vec::new();
         if let Some(wait) = &self.wait {
             let parts = if wait.needs.is_some() { 4 } else { 3 };
             stops.extend(self.parts[..parts].iter().cloned());
         }
+        stops.extend(self.tools.iter().map(|one| one.key.clone()));
         stops.push(self.request.focus_handle(cx));
+        if self.takes_files() {
+            stops.extend([self.tools_key.clone(), self.attach_key.clone(), self.sketch_key.clone()]);
+        }
+        stops.push(self.talk_key.clone());
         if self.face.connected {
             stops.extend([self.row.clone(), self.model_key.clone(), self.effort_key.clone()]);
         }
         let act = self.act_live(cx);
-        if self.face.queue && self.attached.is_empty() && self.queue_live(cx) {
+        if self.face.queue && !self.holds() && self.queue_live(cx) {
             stops.push(self.queue_key.clone());
         }
         if self.wait.is_none() && act {
@@ -822,6 +1049,36 @@ impl DispatchSheet {
     }
 }
 
+impl Hears for DispatchSheet {
+    fn talk(&mut self) -> &mut Talk {
+        &mut self.talk
+    }
+
+    fn talk_now(&self) -> &Talk {
+        &self.talk
+    }
+
+    fn talk_box(&self) -> Entity<TextareaState> {
+        self.request.clone()
+    }
+
+    fn talk_source(&mut self, _cx: &mut Context<Self>) -> Option<(Engine, Source)> {
+        Some((self.voice, talk::source_for(self.voice, !self.live, Default::default)))
+    }
+
+    /// Heard words join the request; nothing is started by them.
+    fn heard_words(&mut self, words: Vec<String>, window: &mut Window, cx: &mut Context<Self>) {
+        let next = talk::joined_all(self.words(cx), &words);
+        self.request.update(cx, |state, cx| {
+            state.set_value(next.clone(), window, cx);
+            end_of(state, &next, window, cx);
+        });
+        // Setting the value says nothing to the field's watchers: the draft and the reads follow here.
+        let request = self.request.clone();
+        self.typed(&request, window, cx);
+    }
+}
+
 /// The stop after `now` among `len`, wrapping at both ends. Keys on nothing in the order start at its first stop, or its last going back.
 fn next_stop(len: usize, now: Option<usize>, back: bool) -> usize {
     match (now, back) {
@@ -885,6 +1142,16 @@ mod tests {
                     "start"
                 } else if is(&sheet.here_key) {
                     "card"
+                } else if is(&sheet.tools_key) {
+                    "tools"
+                } else if sheet.tools.iter().any(|one| is(&one.key)) {
+                    "tool"
+                } else if is(&sheet.attach_key) {
+                    "attach"
+                } else if is(&sheet.sketch_key) {
+                    "sketch"
+                } else if is(&sheet.talk_key) {
+                    "talk"
                 } else if sheet.parts.iter().any(is) {
                     "part"
                 } else {
@@ -913,7 +1180,7 @@ mod tests {
     #[gpui::test]
     fn tab_goes_round_the_sheet_and_shift_tab_goes_back_the_same_way(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), Some("sample-api"), cx);
-        let order = ["request", "repository", "model", "effort", "queue", "draft", "start", "card"];
+        let order = ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start", "card"];
         sheet.update_in(cx, |sheet, window, cx| {
             assert_eq!(named(sheet, cx), order);
             assert_eq!(at(sheet, window, cx), "request");
@@ -933,11 +1200,11 @@ mod tests {
     fn a_stop_that_cannot_act_is_left_out(cx: &mut TestAppContext) {
         let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            assert_eq!(named(sheet, cx), ["request", "repository", "model", "effort", "queue", "draft", "start"], "no card where the title bar names nowhere");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort", "queue", "draft", "start"], "no card where the title bar names nowhere");
             sheet.request.update(cx, |state, cx| state.set_value("", window, cx));
-            assert_eq!(named(sheet, cx), ["request", "repository", "model", "effort"], "nothing to start or queue");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk", "repository", "model", "effort"], "nothing to start or queue");
             sheet.face.connected = false;
-            assert_eq!(named(sheet, cx), ["request"], "Fleet unreachable: everything else is off");
+            assert_eq!(named(sheet, cx), ["request", "tools", "attach", "sketch", "talk"], "Fleet unreachable: only the request and its own tools");
         });
     }
 
@@ -984,10 +1251,143 @@ mod tests {
         let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
         let (sheet, cx) = open(face, Some("sample-api"), cx);
         sheet.update_in(cx, |sheet, window, cx| {
-            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft");
+            assert_eq!(named(sheet, cx), ["part", "part", "part", "part", "request", "talk", "repository", "model", "effort", "queue", "start", "card"], "a wait has no Draft, +, Attach or Draw sketch");
             sheet.step_focus(true, window, cx);
             assert_eq!(at(sheet, window, cx), "part", "Shift-Tab from the request enters the sentence");
             assert!(sheet.parts[3].is_focused(window));
+        });
+    }
+
+    #[gpui::test]
+    fn the_tools_button_is_no_stop_while_a_wait_is_tagged(cx: &mut TestAppContext) {
+        let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
+        let (sheet, cx) = open(face, Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(!named(sheet, cx).contains(&"tools"), "a Job that waits starts with no message");
+            sheet.open_tools(window, cx);
+            assert_eq!(sheet.tools_open, None, "the list does not open");
+            sheet.set_wait(None, cx);
+            assert_eq!(&named(sheet, cx)[..2], ["request", "tools"], "with no wait the + follows the request");
+        });
+    }
+
+    fn held_tools(sheet: &DispatchSheet) -> Vec<String> {
+        sheet.tools_held().into_iter().map(|tag| tag.id).collect()
+    }
+
+    #[gpui::test]
+    fn a_removed_tool_chip_is_not_sent(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            // Sketch is the first row, Takes the third.
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(0, window, cx);
+            sheet.open_tools(window, cx);
+            sheet.pick_tool(2, window, cx);
+            assert_eq!(held_tools(sheet), ["sketch", "takes"]);
+            assert_eq!(&named(sheet, cx)[..3], ["tool", "tool", "request"], "each chip is a stop over the request");
+            assert!(!named(sheet, cx).contains(&"queue"), "Queue for later keeps nothing but words");
+            sheet.remove_tool("sketch", window, cx);
+            assert_eq!(held_tools(sheet), ["takes"]);
+            assert!(sheet.request.focus_handle(cx).is_focused(window), "the caret goes back to the request");
+        });
+    }
+
+    fn names(sheet: &DispatchSheet) -> Vec<String> {
+        sheet.files.iter().map(|one| one.name.clone()).collect()
+    }
+
+    fn drawn(id: &str) -> crate::sketch::DrawnSketch {
+        crate::sketch::DrawnSketch { id: id.into(), title: "Sketch".into(), drawing: Default::default() }
+    }
+
+    #[gpui::test]
+    fn attach_adds_a_chip_and_remove_drops_it(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            // Mock data has no picker to answer, so Attach adds the samples a Job's box adds.
+            sheet.attach_files(window, cx);
+            assert_eq!(names(sheet), ["sample.rs", "Pasted file.png"]);
+            let key = sheet.files[0].key;
+            sheet.remove_file(key, window, cx);
+            assert_eq!(names(sheet), ["Pasted file.png"]);
+            assert!(sheet.request.focus_handle(cx).is_focused(window), "the caret goes back to the request");
+        });
+    }
+
+    #[gpui::test]
+    fn a_wait_takes_no_files_or_sketches(cx: &mut TestAppContext) {
+        let face = crate::dispatch::scenes::waiting(crate::dispatch::scenes::rest(&[]), None);
+        let (sheet, cx) = open(face, Some("sample-api"), cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(!sheet.takes_files(), "a Job that waits starts with no message");
+            sheet.attach_files(window, cx);
+            let picture = gpui::Image::from_bytes(gpui::ImageFormat::Png, vec![1, 2, 3]);
+            assert!(!sheet.paste(&ClipboardItem::new_image(&picture), cx), "the paste is left to the words");
+            sheet.take_paths(vec![std::path::PathBuf::from("/tmp/dropped.txt")], cx);
+            assert!(names(sheet).is_empty(), "nothing attaches while a wait is tagged");
+            sheet.open_sketch(window, cx);
+            assert!(!sheet.pad.read(cx).is_open(), "Draw sketch does not open");
+        });
+    }
+
+    #[gpui::test]
+    fn a_pasted_picture_attaches(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, _, cx| {
+            let picture = gpui::Image::from_bytes(gpui::ImageFormat::Png, vec![1, 2, 3]);
+            assert!(sheet.paste(&ClipboardItem::new_image(&picture), cx), "the paste is taken, not typed");
+            assert_eq!(names(sheet), ["Pasted file.png"]);
+            assert!(!sheet.paste(&ClipboardItem::new_string("a few words".into()), cx), "short words are typed");
+            assert_eq!(sheet.files.len(), 1);
+        });
+    }
+
+    #[gpui::test]
+    fn dropped_files_attach(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        let dir = std::env::temp_dir().join(format!("dispatch-drop-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("a folder");
+        let file = dir.join("notes.md");
+        std::fs::write(&file, "# Notes").expect("a file");
+        sheet.update(cx, |sheet, cx| sheet.take_paths(vec![file.clone()], cx));
+        cx.run_until_parked();
+        sheet.update(cx, |sheet, _| {
+            assert_eq!(names(sheet), ["notes.md"]);
+            assert_eq!(sheet.files[0].bytes.as_slice(), b"# Notes");
+        });
+        let _ = std::fs::remove_dir_all(&dir);
+    }
+
+    #[gpui::test]
+    fn a_sketch_drawn_on_the_request_is_held_and_hides_queue(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            assert!(named(sheet, cx).contains(&"queue"));
+            sheet.open_sketch(window, cx);
+            assert!(sheet.pad.read(cx).is_open(), "Draw sketch opens the request's own pad");
+        });
+        let pad = sheet.read_with(cx, |sheet, _| sheet.pad.clone());
+        pad.update(cx, |_, cx| cx.emit(PadEvent::Attached(drawn("d1"))));
+        sheet.update_in(cx, |sheet, _, cx| {
+            let (files, sketches) = sheet.held();
+            assert!(files.is_empty());
+            assert_eq!(sketches.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["d1"]);
+            assert!(!named(sheet, cx).contains(&"queue"), "Queue for later keeps nothing but words");
+            sheet.remove_drawn("d1", cx);
+            assert!(sheet.held().1.is_empty());
+            assert!(named(sheet, cx).contains(&"queue"));
+        });
+    }
+
+    #[gpui::test]
+    fn files_and_sketches_leave_with_the_answer(cx: &mut TestAppContext) {
+        let (sheet, cx) = open(crate::dispatch::scenes::rest(&[]), None, cx);
+        sheet.update_in(cx, |sheet, window, cx| {
+            sheet.attach("pasted-snippet.txt", cx);
+            sheet.drawn.push(drawn("d1"));
+            sheet.answered(window, cx);
+            assert!(!sheet.holds(), "a Job started takes them; the next sheet starts empty");
         });
     }
 }

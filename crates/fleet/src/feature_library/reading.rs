@@ -435,19 +435,31 @@ fn decision_on_the_wire(kept: KeptFeatureDecision) -> FeatureDecision {
     FeatureDecision { question: kept.question, choice: kept.choice, note: Some(kept.note).filter(|note| !note.is_empty()), job: kept.job, at: instant(&kept.at) }
 }
 
+/// Whose words a gist is, in the order they win: a Job's, then the librarian's, then a first sentence.
+fn gist_rank(by: &str) -> u8 {
+    match by {
+        store::feature_gist_by::JOB => 2,
+        store::feature_gist_by::LIBRARIAN => 1,
+        _ => 0,
+    }
+}
+
 /// The docs or tickets of `kind` the links hold, newest first, **each once by what it was read by**: the newest read of it
-/// names the Job, and the gist is a Job's where any of them wrote one. A read in two Jobs is one entry.
+/// names the Job, and the gist is a Job's where any of them wrote one, and else the librarian's. A read in two Jobs is one entry.
 fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
     let mut reads: Vec<FeatureRead> = Vec::new();
+    let mut ranks: Vec<u8> = Vec::new();
     for link in links.iter().rev().filter(|link| link.kind == kind) {
-        if let Some(held) = reads.iter_mut().find(|read| read.target == link.target) {
-            // A gist a Job wrote wins over the newest read's first sentence.
-            if !held.gist_by_job && link.gist_by == store::feature_gist_by::JOB {
-                held.gist = link.gist.clone();
-                held.gist_by_job = true;
+        if let Some(at) = reads.iter().position(|read| read.target == link.target) {
+            // A gist a Job wrote wins over the librarian's, and the librarian's over a first sentence heard later.
+            if gist_rank(&link.gist_by) > ranks[at] {
+                reads[at].gist = link.gist.clone();
+                reads[at].gist_by_job = link.gist_by == store::feature_gist_by::JOB;
+                ranks[at] = gist_rank(&link.gist_by);
             }
             continue;
         }
+        ranks.push(gist_rank(&link.gist_by));
         reads.push(FeatureRead {
             target: link.target.clone(),
             title: Some(link.title.clone()).filter(|title| !title.is_empty()).unwrap_or_else(|| link.target.clone()),

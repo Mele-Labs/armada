@@ -49,6 +49,11 @@ pub struct ValuesSet {
     /// `fleet.project_values_refused`. Off wins, so a project adds to those lists and never takes one away.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub workflows_off: Vec<String>,
+    /// The review tools, by id, Fleet offers to run on a pull request it has not seen before in one of the project's
+    /// repositories. **A project's only**, and Fleet refuses one in Kit's values, 422 `fleet.project_values_refused`.
+    /// Absent offers nothing. A tool the repository does not define is left out of the offer.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub review_on_new_pr: Vec<String>,
 }
 
 /// How each kind of work is reviewed: `off`, `review` or `review_and_approve`, and for `walks` only `off` or

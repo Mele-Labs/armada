@@ -487,8 +487,11 @@ That afternoon three code-editor background checks, two native-app builds an age
 Rules:
 
 - **Held is `SIGSTOP`, and let go is `SIGCONT`.** Nothing is ended, so no work is lost; a held build picks up where it stopped.
-- **What is held is a Job's `cargo`, `rustc` and `rustdoc`**: those in the agent's process tree, or carrying its `ARMADA_SESSION`.
-  A linker or build script they started finishes and waits on its stopped parent.
+- **What is held is a Job's `rustc`, `rustdoc` and `clippy-driver`**: those in the agent's process tree, or carrying its `ARMADA_SESSION`.
+  A linker or build script they started finishes and waits on its stopped parent, and the `cargo` that started them waits on them.
+- **`cargo` is never held**, as it holds the package-cache lock while it resolves.
+  On 21 Nov 2026 a held `cargo metadata` under an editor's language server kept that lock, and another Job's Check spent its 900 seconds three times on `Blocking waiting for file lock on package cache` at a load of 6.
+  A stopped `cargo` in a Job's tree, which only an earlier Fleet stopped, is continued at the next look.
 - **A Check's builds are never held.** Checks already run one at a time on a loaded machine, and a held Check would spend its budget waiting, so its fifteen minutes count only while it runs.
   A build outside every Job, such as a person's own, is not Fleet's to stop.
 - **The turn goes to the prioritised Job while it builds**, and otherwise round the Jobs that are building, oldest first, five minutes each.

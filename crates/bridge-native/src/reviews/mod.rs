@@ -14,6 +14,15 @@ mod rail_width;
 mod tabs;
 pub mod walk;
 
+/// What a pull request panel's Review tab draws with the Reviews screen's own pieces: the run landing, the
+/// tools Fleet lists, the markdown a finding reads in, and the mock's tools.
+pub(crate) mod shared {
+    pub(crate) use super::live::land_run;
+    pub(crate) use super::live::map::tools_of;
+    pub(crate) use super::markdown::body as markdown;
+    pub(crate) use super::mock::review_tools as mock_tools;
+}
+
 use std::cell::Cell;
 use std::collections::{HashMap, HashSet};
 use std::rc::Rc;
