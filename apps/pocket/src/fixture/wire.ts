@@ -2119,6 +2119,106 @@ ${Array.from(
 }
 
 /**
+ * Jobs marked as Fleet marks them for the list's Needs you and Ready for you groups: a question and a command to run, a
+ * build to try and a walk, and one at work. Added to the studio Mac by the fixture server only, so the list the tests count
+ * is unchanged.
+ */
+export function markedJobs(now: number): PhoneSession[] {
+  const needs = {
+    state: "waiting",
+    lamp: "needs",
+    group: "needs",
+  } as const;
+  const ready = {
+    state: "ready",
+    lamp: "ready",
+    group: "ready",
+  } as const;
+  const base = {
+    repository: "armada",
+    kind: "hosted",
+    working: false,
+  } as const;
+  return [
+    phone({
+      ...base,
+      id: "m1",
+      title: "Pick the retry budget for pushes",
+      mark: needs,
+      owes: "answer",
+      waiting: true,
+      started_at: ago(now, 64),
+      waiting_since: ago(now, 6),
+      ask: {
+        ask_id: "m1-ask",
+        tool: "AskUserQuestion",
+        questions: [
+          {
+            question: "How many times should a push retry?",
+            multi_select: false,
+            options: [
+              {
+                label: "Three",
+              },
+              {
+                label: "Five",
+              },
+            ],
+          },
+        ],
+        offers: [],
+      },
+    }),
+    phone({
+      ...base,
+      id: "m2",
+      title: "Restart the preview on the new build",
+      mark: needs,
+      owes: "run",
+      waiting: true,
+      started_at: ago(now, 41),
+      waiting_since: ago(now, 19),
+    }),
+    phone({
+      ...base,
+      id: "m3",
+      title: "Settings page, Account tab",
+      mark: ready,
+      owes: "try",
+      pull: 4012,
+      waiting: true,
+      started_at: ago(now, 88),
+      waiting_since: ago(now, 3),
+    }),
+    phone({
+      ...base,
+      id: "m4",
+      title: "Redraw the Job card's lamp",
+      mark: ready,
+      owes: "walk",
+      waiting: true,
+      started_at: ago(now, 52),
+      waiting_since: ago(now, 27),
+    }),
+    phone({
+      ...base,
+      id: "m5",
+      title: "Index the librarian's gists",
+      mark: {
+        state: "working",
+        lamp: "running",
+        group: "working",
+      },
+      step: "build",
+      now: "Running pnpm exec vitest run",
+      working: true,
+      waiting: false,
+      started_at: ago(now, 22),
+    }),
+  ];
+}
+
+/**
  * A Job whose artifact holds one part of every kind and still asks, one it answered, and a build ready to try. Added to
  * the studio Mac by the fixture server, and by the tests that read it, so the list the other tests count is unchanged.
  */

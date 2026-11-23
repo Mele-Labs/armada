@@ -3,7 +3,7 @@
 // started folds under it; folded, its starter carries one glyph per state its sub-Jobs are in.
 
 import type { CSSProperties } from "react";
-import { ChevronDown, ChevronRight, Link as Linked, PowerOff, Unplug } from "lucide-react";
+import { ChevronDown, ChevronRight, Eye, Link as Linked, PowerOff, Unplug } from "lucide-react";
 import {
   bucketOf,
   sessionGlyphOf,
@@ -14,7 +14,7 @@ import { Stamp } from "./kit/components/primitives/Stamp/Stamp";
 import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
 import type { Item, Line, Mac } from "./fleet";
-import { lampOf, standingOf } from "./rowState";
+import { lampOf, owesOf, readyOf, standingOf, type Owes } from "./rowState";
 import { MAC_HUES } from "./Notch";
 
 /** The words a state's glyph says, as native's `glyph_of` gives them. */
@@ -22,7 +22,7 @@ const WORDS: Record<SessionState, string> = {
   working: "Working",
   running: "Running",
   subagent: "Subagent working",
-  waiting: "Waiting on you",
+  waiting: "Needs you",
   stopped_asks: "Waiting on you",
   done: "Done",
   stuck: "Stuck",
@@ -41,23 +41,27 @@ const WORDS: Record<SessionState, string> = {
   paused: "Paused",
 };
 
-/** A state's glyph in its bucket's hue, named by its tooltip. */
+const READY = "Ready for you";
+
+/** A state's glyph in its bucket's hue, named by its tooltip. Ready for him is an eye in blue violet, not a state of its own. */
 export function StateGlyph({
   state,
+  ready = false,
   said,
   size = 16,
 }: {
   state: SessionState;
+  ready?: boolean;
   said?: string;
   size?: number;
 }) {
-  const Glyph = sessionGlyphOf(state);
-  const words = said ?? WORDS[state];
+  const Glyph = ready ? Eye : sessionGlyphOf(state);
+  const words = said ?? (ready ? READY : WORDS[state]);
   return (
     <Tooltip label={words}>
       <span
         className="pk-glyph"
-        data-bucket={state === "paused" ? "idle" : bucketOf(state)}
+        data-bucket={ready ? "ready" : state === "paused" ? "idle" : bucketOf(state)}
         role="img"
         aria-label={words}
       >
@@ -83,9 +87,25 @@ export function MacDot({ mac, macs }: { mac: Mac; macs: readonly Mac[] }) {
   );
 }
 
+/** What he does for the one thing a row waits on, as a chip's words. */
+const DOES: Record<Owes, string> = {
+  answer: "Answer",
+  run: "Run",
+  approve: "Approve",
+  try: "Try",
+  walk: "Walk",
+  read: "Read",
+};
+
+type Chip = {
+  text: string;
+  /** A chip that says what he does wears the hue of the group its row is in. */
+  look?: "needs" | "ready";
+};
+
 /** What a row's second line says, where it has one. */
 function secondOf(item: Item): {
-  chips: string[];
+  chips: Chip[];
   says: string;
 } {
   const { session, state, said } = item;
@@ -99,16 +119,29 @@ function secondOf(item: Item): {
       chips: [],
       says: said,
     };
-  const chips = [
+  const owes = owesOf(item);
+  const chips: Chip[] = [
+    ...(owes === undefined
+      ? []
+      : [
+          {
+            text: DOES[owes],
+            look: readyOf(item) ? ("ready" as const) : ("needs" as const),
+          },
+        ]),
     ...(session.pull === undefined
       ? []
       : [
-          `#${session.pull}`,
+          {
+            text: `#${session.pull}`,
+          },
         ]),
     ...(session.issue === undefined
       ? []
       : [
-          session.issue.number,
+          {
+            text: session.issue.number,
+          },
         ]),
   ];
   return {
@@ -124,20 +157,30 @@ function secondOf(item: Item): {
 
 /** The glyphs a folded starter carries: one per state its sub-Jobs are in, Needs you first, each naming them. */
 function Strip({ kids }: { kids: readonly Item[] }) {
-  const states: SessionState[] = [];
+  const states: {
+    state: SessionState;
+    ready: boolean;
+  }[] = [];
   for (const kid of [
     ...kids,
-  ].sort((a, b) => standingOf(a)[0] - standingOf(b)[0]))
-    if (!states.includes(kid.state)) states.push(kid.state);
+  ].sort((a, b) => standingOf(a)[0] - standingOf(b)[0])) {
+    const ready = readyOf(kid);
+    if (!states.some((one) => one.state === kid.state && one.ready === ready))
+      states.push({
+        state: kid.state,
+        ready,
+      });
+  }
   return (
     <span className="pk-strip">
-      {states.map((state) => (
+      {states.map(({ state, ready }) => (
         <StateGlyph
-          key={state}
+          key={`${state} ${ready}`}
           state={state}
+          ready={ready}
           size={12}
-          said={`${WORDS[state]}: ${kids
-            .filter((kid) => kid.state === state)
+          said={`${ready ? READY : WORDS[state]}: ${kids
+            .filter((kid) => kid.state === state && readyOf(kid) === ready)
             .map((kid) => kid.session.title ?? "")
             .join(", ")}`}
         />
@@ -171,6 +214,7 @@ export function JobRow({
   const lamp = lampOf(item);
   const { chips, says } = secondOf(item);
   const title = session.title ?? "";
+  const ready = readyOf(item);
   const glyphSaid =
     session.mark === undefined && state !== "done" && state !== "idle" ? said : WORDS[state];
   return (
@@ -263,13 +307,13 @@ export function JobRow({
               </Tooltip>
             )}
             {several ? <MacDot mac={item.mac} macs={macs} /> : null}
-            <StateGlyph state={state} said={glyphSaid} />
+            <StateGlyph state={state} ready={ready} said={ready ? READY : glyphSaid} />
           </span>
           {chips.length === 0 && says === "" ? null : (
             <span className="pk-job__second">
               {chips.map((chip) => (
-                <span key={chip} className="pk-job__chip">
-                  {chip}
+                <span key={chip.text} className="pk-job__chip" data-look={chip.look}>
+                  {chip.text}
                 </span>
               ))}
               {says === "" ? null : <span className="pk-job__says">{says}</span>}

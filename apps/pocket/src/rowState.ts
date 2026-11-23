@@ -104,7 +104,7 @@ export function rowStateOf(session: PhoneSession): {
   if (session.waiting)
     return {
       state: "waiting",
-      said: "Waiting on you",
+      said: "Needs you",
     };
   if (session.standing === "stuck")
     return {
@@ -146,18 +146,30 @@ export function rowStateOf(session: PhoneSession): {
   };
 }
 
-export type Lamp = "needs" | "failed" | "running" | "done" | "idle";
+export type Lamp = "needs" | "ready" | "failed" | "running" | "done" | "idle";
 
 /** The row's lamp: Fleet's where the Gateway sends its mark, else read off the state as Fleet reads it. */
 export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
-  // Ready for him draws as Needs you until Pocket has a look of its own.
-  if (item.session.mark !== undefined)
-    return item.session.mark.lamp === "ready" ? "needs" : item.session.mark.lamp;
+  if (item.session.mark !== undefined) return item.session.mark.lamp;
   const { state } = item;
   if (state === "failing" || state === "unstarted") return "failed";
   if (state === "done") return "done";
   const bucket = bucketOf(state);
   return bucket === "needs" ? "needs" : bucket === "working" ? "running" : "idle";
+}
+
+/** Built work waits for him to try, walk or read, and nothing blocks on him: Fleet's mark says so. */
+export const readyOf = (item: Pick<Item, "session">): boolean => item.session.mark?.lamp === "ready";
+
+/** What he does for the one thing a row waits on. Absent for a Job that is neither Needs you nor Ready for you. */
+export type Owes = NonNullable<PhoneSession["owes"]>;
+
+export function owesOf(item: Pick<Item, "session" | "state">): Owes | undefined {
+  const { session } = item;
+  if (!readyOf(item) && item.state !== "waiting") return undefined;
+  if (session.owes !== undefined) return session.owes;
+  if (readyOf(item) || session.ask === undefined) return undefined;
+  return (session.ask.questions ?? []).length > 0 ? "answer" : "approve";
 }
 
 /** Where a Job stands in its project, as native's `standing_of`: Needs you first, then the loudest inside it. */
@@ -166,9 +178,8 @@ export function standingOf(item: Pick<Item, "session" | "state">): [
   number,
 ] {
   const lamp = lampOf(item);
-  const marked = item.session.mark?.group;
   const group =
-    (marked === "ready" ? "needs" : marked) ??
+    item.session.mark?.group ??
     (bucketOf(item.state) === "needs"
       ? "needs"
       : bucketOf(item.state) === "working"
@@ -179,9 +190,10 @@ export function standingOf(item: Pick<Item, "session" | "state">): [
   return [
     {
       needs: 0,
-      working: 1,
-      held: 2,
-      done: 3,
+      ready: 1,
+      working: 2,
+      held: 3,
+      done: 4,
     }[group],
     lamp === "failed" ? 0 : lamp === "needs" ? 1 : 2,
   ];
