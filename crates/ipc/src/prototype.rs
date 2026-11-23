@@ -10,8 +10,9 @@ use crate::{ArtifactFor, SessionId, MOST_PART_ID_CHARS};
 
 /// Most bytes a scene file may weigh.
 pub const MOST_SCENE_BYTES: usize = 64 * 1024;
-/// Most bytes all the fixtures a scene names may weigh together.
-pub const MOST_FIXTURE_BYTES: usize = 512 * 1024;
+/// Most bytes a prototype part may weigh, the scene and every fixture it names together. **Its own cap**: every other
+/// part of an artifact is held to [`MOST_PART_BYTES`](crate::MOST_PART_BYTES).
+pub const MOST_PROTOTYPE_BYTES: usize = 256 * 1024;
 /// Most characters in a state's name.
 pub const MOST_STATE_CHARS: usize = 80;
 /// The folder under a Job's scratch folder that holds its scenes.

@@ -485,7 +485,7 @@ pub trait HostedSessions: Send + Sync + 'static {
     /// that still asks him. `caller` places a hosted session as `add_part`'s does. Answers with the row.
     /// [`Refusal::Unacceptable`] for a call that breaks a rule, a file Fleet cannot read, or a call that places no job.
     fn show_prototype(
-        &self,
+        self: Arc<Self>,
         caller: Option<crate::Caller>,
         show: ipc::ShowPrototype,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;

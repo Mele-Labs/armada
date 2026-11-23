@@ -581,7 +581,7 @@ where
         self.part_added(caller, add).await
     }
 
-    async fn show_prototype(&self, caller: Option<api::Caller>, show: ipc::ShowPrototype) -> Result<SessionRecord, Refusal> {
+    async fn show_prototype(self: Arc<Self>, caller: Option<api::Caller>, show: ipc::ShowPrototype) -> Result<SessionRecord, Refusal> {
         self.prototype_shown(caller, show).await
     }
 

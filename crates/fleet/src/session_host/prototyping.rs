@@ -5,14 +5,21 @@
 //!
 //! The part keeps the text it read, so the revision he approved outlives the scratch folder, which goes with the Job.
 
-use std::path::Path;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
+use std::sync::{Arc, PoisonError};
+use std::time::Duration;
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
-use ipc::{CheckedPart, PartContent, PartState, PrototypePart, SceneFixture, SessionId, SessionRecord, ShowPrototype, MOST_FIXTURE_BYTES, MOST_SCENE_BYTES, SCENES_DIR};
+use ipc::{CheckedPart, PartContent, PartState, PrototypePart, SceneFixture, SessionId, SessionRecord, ShowPrototype, MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, SCENES_DIR};
 
 use super::artifact_parts::{stored, PART_REFUSED};
 use crate::daemon::Fleet;
+
+/// How long the scratch folders stay quiet before a save is read again, so a write that lands as several events, or
+/// a scene and its fixtures saved one after the other, is one revision.
+const QUIET: Duration = Duration::from_millis(150);
 
 /// The `src` of each `<fixture>` element in `markup`, in order and once each. A light scan: an element it cannot
 /// find a quoted `src` in names nothing, and native decides what the scene means.
@@ -71,7 +78,7 @@ fn text_of(folder: &Path, name: &str, most: usize) -> Result<String, String> {
         return Err(format!("{shown} is not a file"));
     }
     if meta.len() as usize > most {
-        return Err(format!("{shown} weighs {} bytes and at most {most} are read. Cut it down", meta.len()));
+        return Err(format!("{shown} weighs {} bytes and at most {most} are read here, a scene and its fixtures weighing at most {MOST_PROTOTYPE_BYTES} together. Cut it down", meta.len()));
     }
     let bytes = std::fs::read(&path).map_err(|why| format!("{shown} could not be read: {why}"))?;
     String::from_utf8(bytes).map_err(|_| format!("{shown} is not UTF-8 text"))
@@ -84,22 +91,20 @@ pub(crate) fn prototype_read(scratch: &Path, scene: &str, scene_state: Option<St
     let markup = text_of(&folder, scene, MOST_SCENE_BYTES)?;
     let mut problems = Vec::new();
     let mut fixtures = Vec::new();
-    let mut weight = 0usize;
+    // The scene and its fixtures weigh at most one cap together, so each fixture may use what the rest left.
+    let mut left = MOST_PROTOTYPE_BYTES.saturating_sub(markup.len());
     for src in fixture_sources(&markup) {
         if let Err(why) = ipc::file_name_checked(&src) {
             problems.push(format!("fixture `src` {why}. A fixture is a plain file name beside the scene"));
             continue;
         }
-        match text_of(&folder, &src, MOST_FIXTURE_BYTES) {
+        match text_of(&folder, &src, left) {
             Ok(text) => {
-                weight += text.len();
+                left -= text.len();
                 fixtures.push(SceneFixture { name: src, text });
             }
             Err(why) => problems.push(why),
         }
-    }
-    if weight > MOST_FIXTURE_BYTES {
-        problems.push(format!("the fixtures weigh {weight} bytes together and at most {MOST_FIXTURE_BYTES} are read. Cut them down"));
     }
     if !problems.is_empty() {
         return Err(problems.join("; "));
@@ -118,13 +123,69 @@ where
     W::Error: std::error::Error + Send + Sync + 'static,
 {
     /// `show_prototype`: the scene read now, put as a part that asks, under the scene's file name.
-    pub(crate) async fn prototype_shown(&self, caller: Option<api::Caller>, show: ShowPrototype) -> Result<SessionRecord, Refusal> {
+    pub(crate) async fn prototype_shown(self: Arc<Self>, caller: Option<api::Caller>, show: ShowPrototype) -> Result<SessionRecord, Refusal> {
         let checked = show.checked().map_err(|why| self.hosted_refusal(PART_REFUSED, &why))?;
         let (id, harness) = self.part_job(caller, show.session_id.as_ref()).await?;
+        // Watched before it is read, so a save between the two is heard.
+        self.scenes_watched();
         let prototype = prototype_read(&self.scratch_of(&id), &checked.scene, checked.state)
             .map_err(|why| self.hosted_refusal(PART_REFUSED, &format!("the prototype was not shown: {why}")))?;
         let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: true };
         self.part_placed(&id, &harness, &part, checked.said).await
+    }
+
+    /// **Every Job's scratch folder watched for a write under its `scenes/`**, from the first prototype shown. A save
+    /// is a hint: after a quiet moment the files are read again by [`Self::scenes_touched`], so a scene redraws
+    /// whatever mod the Job runs, and one the mod never reported (a path outside the Job's folder) is heard. The
+    /// task holds Fleet weakly, so it ends with it.
+    fn scenes_watched(self: &Arc<Self>) {
+        let mut held = self.hosts().scene_watch.lock().unwrap_or_else(PoisonError::into_inner);
+        if held.is_some() {
+            return;
+        }
+        let root = crate::scratch::scratch_under(Path::new(&self.host().attachments_dir), "");
+        let _ = std::fs::create_dir_all(&root);
+        let (send, mut heard) = tokio::sync::mpsc::unbounded_channel::<Vec<PathBuf>>();
+        *held = adapters::FolderWatch::start(&root, move |paths| {
+            // A scratch folder holds a browser's profile and a test run's output: only what is under a `scenes/` goes on.
+            let scenes: Vec<PathBuf> = paths.into_iter().filter(|path| path.components().any(|part| part.as_os_str() == SCENES_DIR)).collect();
+            if !scenes.is_empty() {
+                let _ = send.send(scenes);
+            }
+        });
+        if held.is_none() {
+            return;
+        }
+        let canonical = root.canonicalize().unwrap_or_else(|_| root.clone());
+        let fleet = Arc::downgrade(self);
+        tokio::spawn(async move {
+            while let Some(mut paths) = heard.recv().await {
+                while let Ok(Some(more)) = tokio::time::timeout(QUIET, heard.recv()).await {
+                    paths.extend(more);
+                }
+                let Some(fleet) = fleet.upgrade() else { return };
+                fleet.scenes_heard(&root, &canonical, paths).await;
+            }
+        });
+    }
+
+    /// What the watch heard, each path named as `<scratch>/<job>/scenes/<file>` as Fleet names it (the file system
+    /// says the real path, which is not the one a folder was named by where a link is in it), and told to the Job
+    /// it is under.
+    async fn scenes_heard(&self, root: &Path, canonical: &Path, paths: Vec<PathBuf>) {
+        let mut by_job: BTreeMap<String, Vec<String>> = BTreeMap::new();
+        for path in paths {
+            let Ok(inside) = path.strip_prefix(canonical).or_else(|_| path.strip_prefix(root)) else { continue };
+            let parts: Vec<&str> = inside.iter().filter_map(|part| part.to_str()).collect();
+            if let [job, scenes, _file] = parts.as_slice() {
+                if *scenes == SCENES_DIR {
+                    by_job.entry((*job).to_string()).or_default().push(root.join(inside).to_string_lossy().into_owned());
+                }
+            }
+        }
+        for (job, paths) in by_job {
+            self.scenes_touched(&job, &paths).await;
+        }
     }
 
     /// **Redraw on save.** `paths` are what the Job wrote; each one under its scratch `scenes/` folder that is the

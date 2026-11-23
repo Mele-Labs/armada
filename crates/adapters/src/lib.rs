@@ -59,6 +59,8 @@ pub mod check_blame;
 mod checkout_send;
 mod ci_workflows;
 pub mod clash;
+mod folder_watch;
+pub use folder_watch::FolderWatch;
 pub mod feature_commits;
 mod cloning;
 mod commit;

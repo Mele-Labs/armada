@@ -19,7 +19,7 @@ use api::{Refusal, Sessions};
 use ipc::{
     AddPart, AnswerDocument, AnswerPart, AnswerSketch, ArtifactForm, ArtifactPart, ArtifactState, AttachmentReport, DocumentHow, DraftHow, Instant,
     JobArtifact, PartAnswer, PartContent, PartHow, PartKind, PartState, SessionFact, SessionId, SessionRecord, SessionReport, SketchHow, WireError,
-    ARTIFACT_IN, ARTIFACT_PARTS, MOST_PARTS, MOST_PART_BYTES, SKETCH_ASKED, SKETCH_SETTLED, SKETCH_WITHDRAWN,
+    ARTIFACT_IN, ARTIFACT_PARTS, MOST_PARTS, MOST_PART_BYTES, MOST_PROTOTYPE_BYTES, SKETCH_ASKED, SKETCH_SETTLED, SKETCH_WITHDRAWN,
 };
 
 use super::artifact_for::with_for;
@@ -55,8 +55,19 @@ fn store_parts(detail: &mut BTreeMap<String, String>, parts: &[ArtifactPart]) ->
         return Ok(());
     }
     let written = ipc::encode(&parts).map_err(|why| why.to_string())?;
-    if written.len() > MOST_PART_BYTES {
-        return Err(format!("the parts it holds weigh {} bytes and an artifact keeps at most {MOST_PART_BYTES}. Add less, or put it in a new revision of a part", written.len()));
+    // A prototype has a cap of its own, so what it weighs does not count against the rest.
+    let (prototypes, others): (Vec<&ArtifactPart>, Vec<&ArtifactPart>) = parts.iter().partition(|part| part.content.kind() == PartKind::Prototype);
+    let others_weigh = if prototypes.is_empty() { written.len() } else { ipc::encode(&others).map_err(|why| why.to_string())?.len() };
+    if others_weigh > MOST_PART_BYTES {
+        return Err(format!("the parts it holds weigh {others_weigh} bytes and an artifact keeps at most {MOST_PART_BYTES}. Add less, or put it in a new revision of a part"));
+    }
+    for part in prototypes {
+        if let PartContent::Prototype(held) = &part.content {
+            let weight = held.markup.len() + held.fixtures.iter().map(|one| one.text.len()).sum::<usize>();
+            if weight > MOST_PROTOTYPE_BYTES {
+                return Err(format!("the prototype `{}` holds {weight} bytes and a prototype keeps at most {MOST_PROTOTYPE_BYTES}. Add less, or put it in a new revision of a part", part.id));
+            }
+        }
     }
     detail.insert(ARTIFACT_PARTS.into(), written);
     Ok(())

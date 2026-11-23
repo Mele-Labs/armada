@@ -997,7 +997,7 @@ pub(crate) async fn show_prototype<D: HostedSessions>(
         Ok(show) => show,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
-    match served.daemon().show_prototype(crate::acting::asking(), show.clone()).await {
+    match served.shared().show_prototype(crate::acting::asking(), show.clone()).await {
         Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::prototype(&record, &show), served.run_id()),
         Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
         Err(refusal) => refused(refusal),
