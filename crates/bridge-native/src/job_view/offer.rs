@@ -636,4 +636,16 @@ mod tests {
         let tag = mention_of(chip.id(), chip.label()).expect("a mention");
         assert_eq!(tag, ipc::SessionTag { kind: TagKind::Tool, id: "takes".into(), title: "Takes".into(), url: None });
     }
+
+    #[test]
+    fn a_request_chip_reads_api_client_and_its_name_and_reads_back_as_the_request() {
+        let chip = chip_of(TagKind::Request, "service/health", "Health", None);
+        assert_eq!(chip.label().as_ref(), "API Client · Health", "the chip names its tool and the request");
+        assert_eq!(chip.text().as_ref(), "@Health", "the words it stands for are the request's name");
+        let tag = mention_of(chip.id(), chip.label()).expect("a mention");
+        assert_eq!(tag, ipc::SessionTag { kind: TagKind::Request, id: "service/health".into(), title: "Health".into(), url: None }, "the wire title is the name alone");
+        let new = chip_of(TagKind::Request, "new", "New request", None);
+        assert_eq!(new.label().as_ref(), "API Client · New request");
+        assert_eq!(mention_of(new.id(), new.label()).map(|tag| (tag.id, tag.title)), Some(("new".to_string(), "New request".to_string())));
+    }
 }

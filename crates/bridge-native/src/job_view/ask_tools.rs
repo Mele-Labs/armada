@@ -259,4 +259,215 @@ mod tests {
         let same: Vec<&str> = crate::generated::actions::ACTIONS.iter().filter(|one| one.shortcut == "⌘/").map(|one| one.id).collect();
         assert_eq!(same, ["ask_for_tool"], "no other act has the chord");
     }
+
+    use gpui::{point, Entity, Modifiers, MouseButton, TestAppContext, VisualTestContext};
+
+    use super::super::parts_fold::redraw;
+    use crate::job_view::offer::mention_of;
+
+    /// A Job on the mock Fleet with its box drawn, so the + is on screen and a click can land.
+    fn open<'a>(cx: &'a mut TestAppContext) -> (Entity<JobView>, &'a mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+        });
+        let jobs = crate::mock::jobs("job-for-you").expect("the fixture decodes");
+        let threads = crate::mock::threads("job-for-you").expect("the threads decode");
+        let list = cx.new(|cx| crate::jobs::JobsList::mock(&jobs, cx));
+        let (view, cx) = cx.add_window_view({
+            let list = list.clone();
+            move |window, cx| JobView::new(list, Some(threads), window, cx)
+        });
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(900.)));
+        list.update(cx, |list, cx| list.open("mock-01".to_string().into(), cx));
+        redraw(cx);
+        (view, cx)
+    }
+
+    /// The tools list open, as the + opens it.
+    fn open_list(view: &Entity<JobView>, cx: &mut VisualTestContext) {
+        view.update_in(cx, |view, window, cx| view.open_tools(window, cx));
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.composer.offer.as_ref().is_some_and(|offer| offer.label == ASK_FOR)), "the tools list is open");
+    }
+
+    fn api_client_at() -> usize {
+        rows().iter().position(|row| matches!(&row.pick, Pick::Tag { id, .. } if id == API_CLIENT)).expect("API Client is listed")
+    }
+
+    fn mark(view: &Entity<JobView>, at: usize, cx: &mut VisualTestContext) {
+        view.update(cx, |view, _| view.composer.offer.as_mut().expect("a list").current = at);
+    }
+
+    fn key(view: &Entity<JobView>, key: &'static str, cx: &mut VisualTestContext) -> bool {
+        let taken = view.update_in(cx, |view, window, cx| view.offer_key(key, window, cx));
+        redraw(cx);
+        taken
+    }
+
+    /// The level the list is at: its heading, whether the items are open, the search, and the names of its rows.
+    fn level(view: &Entity<JobView>, cx: &mut VisualTestContext) -> (&'static str, bool, String, Vec<String>) {
+        view.read_with(cx, |view, _| {
+            let offer = view.composer.offer.as_ref().expect("a list");
+            (offer.label, offer.within.is_some(), offer.query.clone(), offer.rows.iter().map(|row| row.name.clone()).collect())
+        })
+    }
+
+    /// The chips the box holds, read back as the mentions they send.
+    fn chips(view: &Entity<JobView>, cx: &mut VisualTestContext) -> Vec<ipc::SessionTag> {
+        view.read_with(cx, |view, cx| view.kept(cx).tags.iter().filter_map(|tag| mention_of(&tag.id, &tag.label)).collect())
+    }
+
+    fn type_in(view: &Entity<JobView>, typed: &str, cx: &mut VisualTestContext) -> bool {
+        let keys = Keystroke { modifiers: Default::default(), key: typed.to_string(), key_char: Some(typed.to_string()) };
+        view.update(cx, |view, cx| view.tools_typed(&keys, cx))
+    }
+
+    #[gpui::test]
+    fn the_right_arrow_on_the_api_client_row_opens_its_items_and_on_no_other_row_does_not(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        for at in (0..rows().len()).filter(|at| *at != api_client_at()) {
+            mark(&view, at, cx);
+            assert!(!key(&view, "right", cx), "row {at} is not API Client's");
+            let (label, within, query, names) = level(&view, cx);
+            assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8), "→ left the tools list where it was");
+        }
+        mark(&view, api_client_at(), cx);
+        assert!(key(&view, "right", cx));
+        let (label, within, query, names) = level(&view, cx);
+        assert_eq!((label, within, query.as_str()), (ASK_FOR_API_CLIENT, true, ""));
+        assert_eq!(names, ["New request", "Health", "List users", "Create user"]);
+    }
+
+    #[gpui::test]
+    fn the_left_arrow_with_nothing_searched_goes_back_to_the_tools_with_api_client_marked(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        mark(&view, api_client_at(), cx);
+        key(&view, "right", cx);
+        view.update(cx, |view, _| view.composer.offer.as_mut().expect("a list").current = 2);
+        assert!(key(&view, "left", cx));
+        let (label, within, query, names) = level(&view, cx);
+        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR, false, "", 8));
+        assert_eq!(view.read_with(cx, |view, _| view.composer.offer.as_ref().map(|offer| offer.current)), Some(api_client_at()), "the row he came in by is marked");
+    }
+
+    #[gpui::test]
+    fn the_left_arrow_with_a_search_leaves_the_level_alone_and_backspace_takes_back_a_letter(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        mark(&view, api_client_at(), cx);
+        key(&view, "right", cx);
+        assert!(type_in(&view, "l", cx));
+        assert!(type_in(&view, "i", cx));
+        assert_eq!(level(&view, cx).3, ["List users"], "the letters narrowed the items");
+        assert!(key(&view, "left", cx), "the search takes the key");
+        let (label, within, query, names) = level(&view, cx);
+        assert_eq!((label, within, query.as_str()), (ASK_FOR_API_CLIENT, true, "li"), "← did nothing to the level or the search");
+        assert_eq!(names, ["List users"]);
+        assert!(key(&view, "backspace", cx));
+        assert_eq!(level(&view, cx).2, "l");
+        key(&view, "backspace", cx);
+        let (label, within, query, names) = level(&view, cx);
+        assert_eq!((label, within, query.as_str(), names.len()), (ASK_FOR_API_CLIENT, true, "", 4), "an empty search lists every item again");
+    }
+
+    #[gpui::test]
+    fn the_search_in_the_items_finds_new_request_by_its_words(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        mark(&view, api_client_at(), cx);
+        key(&view, "right", cx);
+        for typed in ["n", "e", "w"] {
+            type_in(&view, typed, cx);
+        }
+        assert_eq!(level(&view, cx).3, ["New request"]);
+        type_in(&view, "x", cx);
+        assert!(level(&view, cx).3.is_empty(), "a word nothing has leaves no rows");
+        assert!(key(&view, "enter", cx), "with nothing to pick, Enter is still the list's");
+        assert!(view.read_with(cx, |view, _| view.composer.offer.is_some()), "and it leaves the list open");
+    }
+
+    #[gpui::test]
+    fn enter_on_the_api_client_row_in_the_tools_list_gives_the_plain_tool_chip(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        mark(&view, api_client_at(), cx);
+        assert!(key(&view, "enter", cx));
+        assert!(view.read_with(cx, |view, _| view.composer.offer.is_none()), "the list is put away");
+        assert_eq!(chips(&view, cx), [ipc::SessionTag { kind: TagKind::Tool, id: "api-client".into(), title: "API Client".into(), url: None }]);
+    }
+
+    #[gpui::test]
+    fn enter_on_a_saved_request_in_the_items_gives_a_request_chip_that_reads_api_client_and_its_name(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        mark(&view, api_client_at(), cx);
+        key(&view, "right", cx);
+        key(&view, "down", cx);
+        assert!(key(&view, "enter", cx));
+        assert!(view.read_with(cx, |view, _| view.composer.offer.is_none()));
+        assert_eq!(chips(&view, cx), [ipc::SessionTag { kind: TagKind::Request, id: "service/health".into(), title: "Health".into(), url: None }]);
+        let label = view.read_with(cx, |view, cx| view.kept(cx).tags[0].label.clone());
+        assert_eq!(label, "API Client · Health", "the chip reads its tool and the request");
+    }
+
+    #[gpui::test]
+    fn a_press_on_the_api_client_row_opens_its_items_and_a_press_on_another_row_picks_it(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        // The list holds eight rows under a heading and scrolls, so a row is pressed where it shows: marked, it is scrolled into view.
+        let at = |view: &Entity<JobView>, cx: &mut VisualTestContext, name: &str| {
+            view.update(cx, |view, _| {
+                let offer = view.composer.offer.as_mut().expect("a list");
+                offer.current = offer.rows.iter().position(|row| row.name == name).expect("the row is listed");
+                offer.keep_marked_in_view();
+            });
+            redraw(cx);
+            // The book keeps every frame's elements, oldest first; the row's place is where the last frame drew it.
+            cx.update(|window, cx| {
+                let book = cx.global::<crate::labels::LabelBook>();
+                book.drawn(window.window_handle().window_id()).iter().rev().find(|one| one.role == Role::ListItem && one.name.starts_with(name)).map(|one| one.shown.center())
+            })
+            .expect("the row is drawn")
+        };
+        let api = at(&view, cx, "API Client");
+        cx.simulate_click(api, Modifiers::none());
+        redraw(cx);
+        let (label, within, query, names) = level(&view, cx);
+        assert_eq!((label, within, query.as_str()), (ASK_FOR_API_CLIENT, true, ""), "the press opened the items");
+        assert_eq!(names.first().map(String::as_str), Some("New request"));
+        assert!(chips(&view, cx).is_empty(), "and picked nothing");
+
+        let (view, cx) = open_fresh(view, cx);
+        let sketch = at(&view, cx, "Sketch");
+        cx.simulate_click(sketch, Modifiers::none());
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.composer.offer.is_none()), "a press on another row puts the list away");
+        assert_eq!(chips(&view, cx), [ipc::SessionTag { kind: TagKind::Tool, id: "sketch".into(), title: "Sketch".into(), url: None }]);
+    }
+
+    /// Put the list away and open the tools again, from the top.
+    fn open_fresh<'a>(view: Entity<JobView>, cx: &'a mut VisualTestContext) -> (Entity<JobView>, &'a mut VisualTestContext) {
+        view.update(cx, |view, _| view.composer.offer = None);
+        open_list(&view, cx);
+        (view, cx)
+    }
+
+    #[gpui::test]
+    fn a_press_outside_the_list_puts_it_away_and_a_press_on_the_plus_leaves_it(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        open_list(&view, cx);
+        let plus = cx
+            .update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), Role::Button, "Ask the agent for a tool").map(|one| one.bounds.center()))
+            .expect("the + is drawn");
+        cx.simulate_mouse_down(plus, MouseButton::Left, Modifiers::none());
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |view, _| view.composer.offer.as_ref().is_some_and(|offer| !offer.held.away.get())), "the + took the press as its own: the list stays and nothing waits");
+
+        cx.simulate_mouse_down(point(gpui::px(2.), gpui::px(2.)), MouseButton::Left, Modifiers::none());
+        cx.run_until_parked();
+        assert!(view.read_with(cx, |view, _| view.composer.offer.is_none()), "a press anywhere else puts the list away");
+    }
 }

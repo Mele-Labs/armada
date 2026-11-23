@@ -123,3 +123,57 @@ pub(crate) fn lead(look: &Look, method: Option<&str>, glyph: &'static str) -> An
         None => column.child(svg().path(icon_path(glyph)).size(look.length(token::SPACE_3)).text_color(hue)).into_any_element(),
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The Job's saved requests as the mock Fleet reads them: Health and List users (GET) and Create user (POST), in the Service collection.
+    fn saved() -> Within {
+        Within::of(&crate::api_client::mock_read("mock-01"))
+    }
+
+    fn names(rows: &[Row]) -> Vec<&str> {
+        rows.iter().map(|row| row.name.as_str()).collect()
+    }
+
+    #[test]
+    fn with_nothing_searched_new_request_comes_first_and_then_every_saved_request() {
+        let rows = saved().rows("");
+        assert_eq!(names(&rows), ["New request", "Health", "List users", "Create user"]);
+        assert_eq!(rows[0].pick, Pick::Tag { kind: TagKind::Request, id: "new".into(), title: "New request".into(), url: None });
+        assert_eq!(rows[1].pick, Pick::Tag { kind: TagKind::Request, id: "service/health".into(), title: "Health".into(), url: None });
+        assert_eq!(rows[3].pick, Pick::Tag { kind: TagKind::Request, id: "service/make-user".into(), title: "Create user".into(), url: None });
+        assert_eq!(rows[1].says, "Service", "a saved row says which collection keeps it");
+        assert_eq!(names(&saved().rows("   ")), names(&rows), "a search of spaces is no search");
+    }
+
+    #[test]
+    fn the_search_matches_a_requests_name_method_or_collection_in_any_case() {
+        let within = saved();
+        assert_eq!(names(&within.rows("USER")), ["List users", "Create user"], "by name");
+        assert_eq!(names(&within.rows("post")), ["Create user"], "by method");
+        assert_eq!(names(&within.rows("Get")), ["Health", "List users"], "by method, either case");
+        assert_eq!(names(&within.rows("serv")), ["Health", "List users", "Create user"], "by collection");
+        assert!(within.rows("nothing like it").is_empty());
+    }
+
+    #[test]
+    fn new_request_shows_under_a_search_only_when_the_words_match_it() {
+        let within = saved();
+        assert_eq!(names(&within.rows("new")), ["New request"]);
+        assert_eq!(names(&within.rows("REQ")), ["New request"]);
+        assert_eq!(names(&within.rows("health")), ["Health"], "a search for another request leaves New request out");
+        assert_eq!(names(&within.rows("get")), ["Health", "List users"]);
+    }
+
+    #[test]
+    fn a_saved_row_has_its_method_and_new_request_has_none() {
+        let within = saved();
+        let rows = within.rows("");
+        let methods: Vec<Option<&str>> = rows.iter().map(|row| within.method_of(&row.pick)).collect();
+        assert_eq!(methods, [None, Some("GET"), Some("GET"), Some("POST")]);
+        let tool = Pick::Tag { kind: TagKind::Tool, id: "service/health".into(), title: "Health".into(), url: None };
+        assert_eq!(within.method_of(&tool), None, "only a request's pick has a method");
+    }
+}
