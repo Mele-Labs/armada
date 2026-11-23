@@ -1008,6 +1008,17 @@ button.pk-send__title {
 .pk-group:first-child .pk-group__head {
   margin-top: var(--space-2);
 }
+/* Needs you and Ready for you head the list in their own hue and a size up from a project's name. */
+.pk-group__head[data-look="needs"] {
+  border-bottom-color: color-mix(in srgb, var(--status-awaiting-review) 40%, var(--border-subtle));
+  color: var(--status-awaiting-review);
+  font-size: var(--text-2xs);
+}
+.pk-group__head[data-look="ready"] {
+  border-bottom-color: color-mix(in srgb, var(--status-ready) 40%, var(--border-subtle));
+  color: var(--status-ready);
+  font-size: var(--text-2xs);
+}
 .pk-jobs {
   display: flex;
   flex-direction: column;
@@ -1067,6 +1078,10 @@ button.pk-send__title {
   --pk-lamp: var(--status-awaiting-review);
   --pk-wash: 6%;
   animation: pk-job-needs 1.6s ease-in-out infinite;
+}
+.pk-job__card[data-lamp="ready"] {
+  --pk-lamp: var(--status-ready);
+  --pk-wash: 6%;
 }
 .pk-job__card[data-lamp="failed"] {
   --pk-lamp: var(--status-completed-failed);
@@ -1172,6 +1187,14 @@ button.pk-send__title {
   font-family: var(--font-mono);
   font-size: var(--text-2xs);
 }
+.pk-job__chip[data-look="needs"] {
+  background: var(--status-awaiting-review-bg);
+  color: var(--status-awaiting-review);
+}
+.pk-job__chip[data-look="ready"] {
+  background: var(--status-ready-bg);
+  color: var(--status-ready);
+}
 .pk-strip {
   display: flex;
   flex: none;
@@ -1184,6 +1207,9 @@ button.pk-send__title {
 }
 .pk-glyph[data-bucket="needs"] {
   color: var(--status-awaiting-review);
+}
+.pk-glyph[data-bucket="ready"] {
+  color: var(--status-ready);
 }
 .pk-glyph[data-bucket="working"] {
   color: var(--status-running);

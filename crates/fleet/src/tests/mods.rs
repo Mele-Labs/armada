@@ -405,7 +405,7 @@ async fn the_theme_is_a_preference_that_defaults_to_dark_and_refuses_what_a_mod_
 #[test]
 fn the_two_examples_a_session_is_taught_from_pass() {
     let warmer = ":root {\n  --bg-base: #17130F;\n  --bg-sunken: #110E0B;\n  --bg-raised: #1F1A15;\n  --bg-overlay: #29231C;\n  --bg-hover: #322B23;\n  --border-subtle: #2E2820;\n  --border-default: #40372C;\n  --fg-default: #EFE6DA;\n  --fg-muted: #B1A292;\n  --accent: #7C6FD8;\n  --accent-hover: #8F84E0;\n}\n";
-    let contrast = ":root {\n  --bg-base: #000000;\n  --bg-raised: #0B0B0B;\n  --border-default: #6B7684;\n  --border-strong: #9AA6B5;\n  --fg-default: #FFFFFF;\n  --fg-muted: #D0D7E0;\n  --accent: #A8B8FF;\n}\n";
+    let contrast = ":root {\n  --bg-base: #000000;\n  --bg-raised: #0B0B0B;\n  --border-default: #6B7684;\n  --border-strong: #9AA6B5;\n  --fg-default: #FFFFFF;\n  --fg-muted: #D0D7E0;\n  --accent: #B8C4FF;\n}\n";
     for css in [warmer, contrast] {
         assert_eq!(stylesheet::problems(css), Vec::<String>::new(), "{css}");
     }
