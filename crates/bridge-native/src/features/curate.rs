@@ -290,6 +290,9 @@ impl super::FeaturesScreen {
             cycle(&stops, back, window, cx);
             return true;
         }
+        if self.tab_librarian(back, window, cx) {
+            return true;
+        }
         let stops = self.row_stops();
         match stops.iter().position(|stop| stop.is_focused(window)) {
             None if !back && !stops.is_empty() && self.list_focus.is_focused(window) => window.focus(&stops[0], cx),
@@ -333,7 +336,7 @@ impl super::FeaturesScreen {
             self.close_form(window, cx);
             return true;
         }
-        false
+        self.escape_librarian(window, cx)
     }
 
     // ---- the editors --------------------------------------------------------------------------

@@ -442,12 +442,15 @@ The facts then wait: the part's next run reads from the last run that did it.
 `after_merges` and `nightly` start a run from Fleet's tick, and only where the owner has set them.
 A word Fleet cannot read means `on_press`.
 
-**The Catch up card shows a run's steps before he presses, and each as it moves.**
+**The Catch up card shows a run's steps, each as it moves.**
 `list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `write_gists` last among them where `gists` is on, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.
 One run of a project goes at a time, and a press while one runs is refused.
+Bridge's card is one closed line until he presses its button, which reads Catch up, Update where the library is current, or Steps where a run is going.
+A press opens the card and starts the run, a run begun elsewhere opens it only on that press, and he closes it once the run has ended.
+The open card is at most a fifth of the window high, and its steps scroll.
 
 ## Glossary
 
