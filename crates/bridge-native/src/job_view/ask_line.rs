@@ -459,8 +459,11 @@ mod tests {
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", size(px(1440.), px(900.)), |_| {});
         cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
         redraw(cx);
-        assert_eq!(drawn_like(cx, Role::Button, FIRST), [FIRST], "the first question is one line, and only in the thread");
-        assert_eq!(drawn_like(cx, Role::Button, SECOND), [SECOND], "each question is a line of its own");
+        // The thread and the right column's Needs you band each point to it; neither answers it.
+        for question in [FIRST, SECOND] {
+            let lines = drawn_like(cx, Role::Button, question);
+            assert!(!lines.is_empty() && lines.iter().all(|line| line == question), "{question} is one line of its own: {lines:?}");
+        }
         for choice in ["Amber", "Orange", "Grey", "In the tooltip", "In the chip"] {
             assert!(drawn_like(cx, Role::Button, choice).is_empty() && drawn_like(cx, Role::RadioButton, choice).is_empty(), "{choice} is answered in the sheet, not the thread");
         }

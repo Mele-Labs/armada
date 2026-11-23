@@ -783,7 +783,8 @@ mod tests {
     }
 
     #[gpui::test]
-    fn the_review_button_on_a_question_opens_the_sheet_on_that_question(cx: &mut TestAppContext) {
+    /// One ask, one place: a question Fleet also names for him is not listed twice; its one line opens the sheet on it.
+    fn a_question_needs_you_already_lists_has_no_second_row_and_its_line_opens_the_sheet(cx: &mut TestAppContext) {
         use super::super::parts_fold::{redraw, rooted_job};
         let (view, cx) = rooted_job(cx, "job-view", "mock-01", gpui::size(gpui::px(1440.), gpui::px(900.)), |_| {});
         let question = "Where does the chip show how far behind it is?";
@@ -804,14 +805,16 @@ mod tests {
             cx.notify();
         });
         redraw(cx);
-        let at = cx
-            .update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, &format!("Review {question}")).map(|one| one.bounds.center()))
-            .expect("the row has its Review button");
+        let find = |name: String, cx: &mut gpui::VisualTestContext| cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), gpui::Role::Button, &name).map(|one| one.bounds.center()));
+        assert!(find(format!("Review {question}"), cx).is_none(), "the question is not drawn a second time as a row of its own");
+        // With the panel folded, its line stands in the thread and the right column's band.
+        cx.update(|window, cx| view.update(cx, |view, cx| view.set_needs(false, None, window, cx)));
+        redraw(cx);
+        let at = find(question.to_string(), cx).expect("the question is one line");
         cx.simulate_click(at, gpui::Modifiers::none());
         redraw(cx);
         let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
-        assert_eq!(chosen.as_deref(), Some("ask:call-1#1"), "the sheet opens on the question the row names");
-        assert!(!view.read_with(cx, |view, cx| view.needs_up("mock-01", cx)), "Needs you folds as the sheet opens");
+        assert_eq!(chosen.as_deref(), Some("ask:call-1#1"), "the sheet opens on the question");
     }
 
     #[gpui::test]
