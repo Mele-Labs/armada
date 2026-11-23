@@ -217,6 +217,7 @@ j / k / ↓ / ↑  move between kinds of waste   (usage only)
 Enter / Space  open the row: the Jobs a kind hit, a setting's values, or a Job's Tokens tab   (usage only)
 a              apply the setting   (usage only)
 → / ←          move along a Job's tokens   (tokens only)
+⌥⌘P            pop out the Job's prototype: the scene in a window of its own with the note capture over it   (prototype only)
 ⌘E             next environment   (api client only)
 [ / ]          headers, body or environment   (api client only)
 ⌘S             save the request   (api client only)
@@ -303,6 +304,10 @@ The keys go on down the open panel's Jobs, and `Enter` or `Space` on one opens t
 **A Job's Tokens tab has a scope of its own, `tokens`, in the native Bridge.**
 `→` and `←` move the cursor along the buckets of time, held at either end, and the tooltip follows it.
 The first move from nowhere lands on the first bucket, or on the last going left.
+
+**A Job's Prototype tab has a scope of its own, `prototype`, in the native Bridge.**
+`⌥⌘P` pops the scene out into a window of its own, where it is the same scope, so the note capture works over it.
+The key is not global because `⌥⌘P` is the palette's Move to project everywhere else.
 
 **A Job's API Client tab has a scope of its own, `api client`, in the native Bridge.**
 `⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.

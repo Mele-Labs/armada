@@ -1690,6 +1690,30 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-prototype",
+        title: "A prototype the Job saved: its scene in a tab of its own, two states a press apart",
+        screen: Screen::Jobs,
+        scenario: "prototype",
+        steps: &[
+            press_on("The Job saved a scene: it arrives as a Prototype tab beside the thread", "row", "Edit the merge line", "tab", "Job tab: Jobs list"),
+            press_on("The tab draws the scene from the app's own parts: a list of Jobs, each a row with its state chip", "tab", "Job tab: Jobs list", "row", "Job row"),
+            step("The head names the scene and a chip for each state, the one shown marked", Verb::Look, "button", "list, shown"),
+            step("Pop out is in the head, for a window of its own with the note capture over it", Verb::Look, "button", "Pop out"),
+            press_on("A press on a row goes to the scene's detail state", "row", "Job row", "button", "detail, shown"),
+            press_on("The detail is a card with its Back press, which goes back to the list", "button", "Back button", "button", "list, shown"),
+        ],
+    },
+    Walk {
+        name: "native-prototype-trouble",
+        title: "A prototype with mistakes: each is marked where it is drawn and listed under the head",
+        screen: Screen::Jobs,
+        scenario: "prototype-trouble",
+        steps: &[
+            press_on("The Job saved a scene with mistakes", "row", "Edit the merge line", "tab", "Job tab: Jobs list, with mistakes"),
+            press_on("It draws what it can: each mistake is marked where it is, and the trouble line lists them under the head", "tab", "Job tab: Jobs list, with mistakes", "heading", "Jobs list, with mistakes"),
+        ],
+    },
+    Walk {
         name: "native-artifact-scroll",
         title: "An artifact of several parts scrolls, and Ask for changes brings its box and Send into view",
         screen: Screen::Jobs,

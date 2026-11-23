@@ -70,9 +70,11 @@ mod notify;
 mod operator;
 mod pairing;
 mod palette;
+mod parts;
 mod paste_link;
 mod pasteboard;
 mod point;
+mod prototype;
 mod queued;
 mod refusal;
 mod restart_fleet;
@@ -133,6 +135,7 @@ const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
        bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
+       bridge-native --prototype-shots <dir>
        bridge-native --list-walks
 
 With no flags it opens on the Fleet this Mac runs.
@@ -146,12 +149,13 @@ With no flags it opens on the Fleet this Mac runs.
   --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
+  --prototype-shots <dir>  draw the mock prototype with no window on screen, keep a picture of each state in <dir>, print how long it took to draw, and exit
   --list-walks        print the name of every walk this build plays, one a line, and exit
   -h, --help          print this and exit
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 11] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
+const VALUED: [&str; 12] = ["--prototype-shots", "--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
 const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
@@ -160,6 +164,8 @@ enum Mode {
     /// Fleet asks which walks the build behind his preview plays, before a Job may show one.
     Walks,
     Live,
+    /// The mock prototype drawn headless into a directory, and timed.
+    Prototype(PathBuf),
     Mock(String),
     Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
@@ -181,6 +187,9 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
         return Ok(Mode::Walks);
     }
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
+    if let Some(dir) = value("--prototype-shots").transpose()? {
+        return Ok(Mode::Prototype(PathBuf::from(dir)));
+    }
     if let Some(name) = value("--walk").transpose()? {
         let fleet = match (value("--job").transpose()?, value("--url").transpose()?, value("--fleet-port").transpose()?) {
             (Some(job), Some(url), Some(port)) => {
@@ -265,6 +274,15 @@ fn main() -> ExitCode {
         walk::WALKS.iter().for_each(|walk| println!("{}", walk.name));
         return ExitCode::SUCCESS;
     }
+    if let Mode::Prototype(dir) = &mode {
+        return match prototype::shots::run(dir, 9) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                log::Note::warn("the prototype was not drawn").field("why", why).emit();
+                ExitCode::FAILURE
+            }
+        };
+    }
     if let Mode::Walk { name, check: true, shots, hold, pace, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
@@ -336,7 +354,7 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help | Mode::Walks => Ok(()),
+            Mode::Help | Mode::Walks | Mode::Prototype(_) => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     ui_sounds::allow();
