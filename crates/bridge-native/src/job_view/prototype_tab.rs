@@ -49,8 +49,22 @@ impl JobView {
                     let key = artifact.clone();
                     let popped = cx.subscribe(&view, move |this, _, event: &PrototypeEvent, cx| match event {
                         PrototypeEvent::PopOut => this.pop_out_prototype(&key, cx),
+                        PrototypeEvent::OpenTab => {}
                     });
                     self.row_tabs.entry(job.clone()).or_default().protos.insert(artifact.clone(), (view, popped));
+                }
+            }
+            let sheet = self.row_tabs.get(job).and_then(|tabs| tabs.sheets.get(&artifact)).map(|(view, _)| view.clone());
+            match sheet {
+                Some(view) => view.update(cx, |view, cx| view.set_source(source.clone(), cx)),
+                None => {
+                    let view = cx.new(|cx| PrototypeView::new(source.clone(), Home::Sheet, cx));
+                    let key = artifact.clone();
+                    let told = cx.subscribe(&view, move |this, _, event: &PrototypeEvent, cx| match event {
+                        PrototypeEvent::PopOut => this.pop_out_prototype(&key, cx),
+                        PrototypeEvent::OpenTab => this.open_prototype_from_sheet(&key, cx),
+                    });
+                    self.row_tabs.entry(job.clone()).or_default().sheets.insert(artifact.clone(), (view, told));
                 }
             }
             if self.row_tabs.entry(job.clone()).or_default().arrive_prototype(&artifact, title) {
@@ -63,6 +77,30 @@ impl JobView {
         if arrived {
             self.sync_row_tabs_into_panes(job, cx);
         }
+    }
+
+    /// A press on Open tab in the review sheet: the sheet gives way and this scene's tab comes to the front, as a page's does.
+    fn open_prototype_from_sheet(&mut self, artifact: &str, cx: &mut Context<Self>) {
+        let (this, artifact) = (cx.weak_entity(), artifact.to_string());
+        cx.spawn(async move |_, cx| {
+            let _ = cx.update(|cx| {
+                let Some(window) = cx.active_window() else { return };
+                let _ = window.update(cx, |_, window, cx| {
+                    let _ = this.update(cx, |this, cx| this.open_prototype_artifact(&artifact, window, cx));
+                });
+            });
+        })
+        .detach();
+    }
+
+    fn open_prototype_artifact(&mut self, artifact: &str, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let Some((title, _)) = self.prototype_source(&job, artifact) else { return };
+        if self.review_open() {
+            self.close_review(window, cx);
+        }
+        self.row_tabs.entry(job.clone()).or_default().focus_prototype(artifact, title);
+        self.row_tab_front(&job, RowKind::Prototype, artifact, window, cx);
     }
 
     /// The Prototype tab from the + menu: the Job's newest scene, in front. A Job that has none opens nothing.

@@ -112,6 +112,8 @@ pub(super) struct RowTabs {
     pub(super) readers: HashMap<String, super::reader::Reader>,
     /// The drawn scene under each prototype tab, by its artifact: kept while the Job holds the artifact, so a press on a state stays.
     pub(super) protos: HashMap<String, (Entity<crate::prototype::PrototypeView>, Subscription)>,
+    /// The scene drawn in the review sheet for each prototype artifact, kept beside the tab's own so the two never share one element.
+    pub(super) sheets: HashMap<String, (Entity<crate::prototype::PrototypeView>, Subscription)>,
     /// The windows a prototype was popped out to, by artifact: each is told when the scene is saved again.
     pub(super) pops: Vec<(String, gpui::WeakEntity<crate::prototype::window::PrototypeWindow>)>,
 }

@@ -355,7 +355,7 @@ pub fn prototype() -> JobArtifact {
         scene_state: None,
         trouble: None,
     };
-    single(PROTOTYPE_ID, "Jobs list", ArtifactForm::Sketch, &[0], part("jobs-list", PartContent::Prototype(scene), false, 0), ArtifactState::Reading)
+    single(PROTOTYPE_ID, "Jobs list", ArtifactForm::Sketch, &[0], part("jobs-list", PartContent::Prototype(scene), true, 0), ArtifactState::Asking)
 }
 
 /// A prototype with the mistakes an agent makes: a token misspelt, a field that is not there, a glyph and a part that do not exist,

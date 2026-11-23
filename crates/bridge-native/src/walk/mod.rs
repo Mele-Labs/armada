@@ -1704,6 +1704,20 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-prototype-sheet",
+        title: "A prototype in the review sheet: the scene drawn there, with Open tab and Pop out in its head",
+        screen: Screen::Jobs,
+        scenario: "prototype",
+        steps: &[
+            press_on("The Job saved a scene that asks", "row", "Edit the merge line", "region", "Thread"),
+            press_on("A press on the question about it opens the review sheet", "button", "Open sketch Jobs list", "dialog", "Review"),
+            step("The review sheet draws the scene itself, with a chip for each state", Verb::Look, "button", "list, shown"),
+            step("Open tab and Pop out stand in its head", Verb::Look, "button", "Open tab"),
+            press_on("A press on a row goes to the scene's detail state", "row", "Job row", "button", "detail, shown"),
+            press_on("Open tab gives the sheet way to the Job's Prototype tab", "button", "Open tab", "tab", "Job tab: Jobs list"),
+        ],
+    },
+    Walk {
         name: "native-prototype-trouble",
         title: "A prototype with mistakes: each is marked where it is drawn and listed under the head",
         screen: Screen::Jobs,

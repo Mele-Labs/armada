@@ -54,14 +54,17 @@ impl From<&ipc::PrototypePart> for Source {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum PrototypeEvent {
     PopOut,
+    /// The Job's Prototype tab for this scene, in front.
+    OpenTab,
 }
 
 impl EventEmitter<PrototypeEvent> for PrototypeView {}
 
-/// Whether the view is a tab of a Job, with Pop out, or is the pop-out window itself.
+/// Whether the view is a tab of a Job, with Pop out, a part in the review sheet, with Open tab as well, or is the pop-out window itself.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Home {
     Tab,
+    Sheet,
     Window,
 }
 
@@ -194,7 +197,15 @@ impl PrototypeView {
                 )
             })
             .collect();
-        let pop = (self.home == Home::Tab).then(|| {
+        let open = (self.home == Home::Sheet).then(|| {
+            labelled(
+                parts::button::button(look, "prototype-open-tab", Kind::Secondary, Some("app-window"), "Open tab", false)
+                    .on_click(cx.listener(|_, _, _, cx| cx.emit(PrototypeEvent::OpenTab))),
+                Role::Button,
+                "Open tab",
+            )
+        });
+        let pop = (self.home != Home::Window).then(|| {
             labelled(
                 parts::button::button(look, "prototype-pop-out", Kind::Secondary, Some("maximize-2"), "Pop out", false)
                     .on_click(cx.listener(|_, _, _, cx| cx.emit(PrototypeEvent::PopOut))),
@@ -213,6 +224,7 @@ impl PrototypeView {
             .border_color(look.color(token::BORDER_SUBTLE))
             .child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title()))
             .child(div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).children(chips))
+            .children(open)
             .children(pop)
     }
 
@@ -278,6 +290,15 @@ impl Render for PrototypeView {
         div()
             .id("prototype")
             .track_focus(&self.focus)
+            .when(self.home != Home::Window, |view| {
+                view.key_context("prototype").on_action(cx.listener(|_, act: &crate::keymap::Act, _, cx| {
+                    if act.is("prototype_pop_out") {
+                        cx.emit(PrototypeEvent::PopOut);
+                    } else {
+                        cx.propagate();
+                    }
+                }))
+            })
             .size_full()
             .flex()
             .flex_col()
