@@ -427,7 +427,7 @@ fn every_shipped_step_lists_tabs_and_the_first_is_the_front_one() {
     };
     assert_eq!(
         read("feature"),
-        vec![vec!["plan", "qa", "now"], vec!["for_you", "changes", "now"], vec!["pulls", "checks", "now"]],
-        "the design page's table, Propose, Try, Deliver"
+        vec![vec!["artifacts"], vec!["artifacts", "pulls"], vec!["pulls", "artifacts"]],
+        "Propose, Try, Deliver: the rail shows what the Job produced"
     );
 }

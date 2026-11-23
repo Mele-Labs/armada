@@ -178,8 +178,16 @@ fn approved_name(address: &str, rows: &[SessionRow]) -> String {
     "a walk".to_string()
 }
 
+/// The address an approval of a walk quotes, where these words are one.
+pub(super) fn approved_address(text: &str) -> Option<&str> {
+    match act_of(text)? {
+        Act::Approved(address) => Some(address),
+        _ => None,
+    }
+}
+
 /// The walk an address opens: `?walk=` in a page's address, or the name after `armada://walk/`.
-fn walk_of(address: &str) -> Option<&str> {
+pub(super) fn walk_of(address: &str) -> Option<&str> {
     query(address, "walk").or_else(|| address.strip_prefix("armada://walk/").map(|rest| rest.split(['?', '#']).next().unwrap_or(rest)))
 }
 

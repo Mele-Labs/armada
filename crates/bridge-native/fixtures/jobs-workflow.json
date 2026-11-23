@@ -1301,6 +1301,603 @@
       "usage": {},
       "attachments": [],
       "standing": "idle"
+    },
+    {
+      "id": "mock-16",
+      "mark": {
+        "state": "working",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Show the stale chip in the Jobs list",
+      "workflow": "feature",
+      "workflow_step": 1,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "propose",
+            "label": "Propose",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build-and-deliver",
+            "label": "Build and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T09:10:00Z"
+        },
+        {
+          "step": 1,
+          "since": "2026-11-09T11:30:00Z"
+        }
+      ],
+      "workflow_waiting_on": [
+        "Waiting on the walk: Approved"
+      ],
+      "workflow_strip": {
+        "tabs": [
+          "walks",
+          "artifacts",
+          "now"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve every walk"
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-09T09:10:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "working"
+    },
+    {
+      "id": "mock-17",
+      "mark": {
+        "state": "working",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Add the pause marker column",
+      "workflow": "feature",
+      "workflow_step": 2,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "propose",
+            "label": "Propose",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build-and-deliver",
+            "label": "Build and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T08:00:00Z"
+        },
+        {
+          "step": 1,
+          "since": "2026-11-09T09:20:00Z"
+        },
+        {
+          "step": 2,
+          "since": "2026-11-09T12:45:00Z"
+        }
+      ],
+      "workflow_waiting_on": [
+        "Waiting on PR #3402: Approved",
+        "Waiting on PR #3402: Merged"
+      ],
+      "workflow_strip": {
+        "tabs": [
+          "pulls",
+          "plan",
+          "now"
+        ],
+        "usual_secs": 2700,
+        "ends_when": [
+          "it is merged"
+        ],
+        "passed_unapproved": [
+          0
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-09T08:00:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "pr",
+          "manifest_id": "armada",
+          "target": "3402",
+          "state": "standing",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        }
+      ],
+      "standing": "working",
+      "waiting_for": [
+        {
+          "id": "plan:1",
+          "text": "Plan: Pane keys",
+          "since": "2026-11-09T08:30:00Z",
+          "source": "plan"
+        }
+      ]
+    },
+    {
+      "id": "mock-18",
+      "mark": {
+        "state": "stuck",
+        "lamp": "needs",
+        "group": "needs"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "sample-web",
+      "cwd": "/repos/sample-web",
+      "title": "Cart total rounds the wrong way",
+      "workflow": "bug",
+      "workflow_step": 0,
+      "workflow_copy": {
+        "id": "bug",
+        "name": "Bug",
+        "version": 1,
+        "manifest_id": "sample-web",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "find-the-cause",
+            "label": "Find the cause",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "fix",
+            "label": "Fix",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "test-and-deliver",
+            "label": "Test and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T07:50:00Z"
+        }
+      ],
+      "workflow_waiting_on": [
+        "Waiting on the plan: Approved"
+      ],
+      "workflow_strip": {
+        "tabs": [
+          "now",
+          "plan"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve a plan"
+        ],
+        "stalled": {
+          "since": "2026-11-09T08:50:00Z",
+          "cause": "The step waits on a plan from the Job, and none is recorded."
+        }
+      },
+      "state": "live",
+      "started_at": "2026-11-09T07:50:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [],
+      "standing": "working"
+    },
+    {
+      "id": "mock-19",
+      "mark": {
+        "state": "working",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Move the review sheet into its own pane",
+      "workflow": "orchestrate",
+      "workflow_step": 1,
+      "workflow_copy": {
+        "id": "orchestrate",
+        "name": "Orchestrate",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "plan",
+            "label": "Plan",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "dispatch-and-oversee",
+            "label": "Dispatch and oversee",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "summarise",
+            "label": "Summarise",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T08:30:00Z"
+        },
+        {
+          "step": 1,
+          "since": "2026-11-09T09:15:00Z"
+        }
+      ],
+      "workflow_waiting_on": [
+        "Waiting on Draw the child rows: Ended"
+      ],
+      "workflow_strip": {
+        "tabs": [
+          "jobs",
+          "pulls",
+          "now"
+        ],
+        "usual_secs": 7200,
+        "ends_when": [
+          "every Job it started is merged or ended"
+        ]
+      },
+      "state": "live",
+      "started_at": "2026-11-09T08:30:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "started_to",
+          "manifest_id": "armada",
+          "target": "mock-20",
+          "state": "standing",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        },
+        {
+          "kind": "started_to",
+          "manifest_id": "armada",
+          "target": "mock-21",
+          "state": "standing",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        },
+        {
+          "kind": "started_to",
+          "manifest_id": "armada",
+          "target": "mock-22",
+          "state": "standing",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        }
+      ],
+      "standing": "working"
+    },
+    {
+      "id": "mock-20",
+      "mark": {
+        "state": "running",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Draw the child rows",
+      "workflow": "feature",
+      "workflow_step": 0,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "propose",
+            "label": "Propose",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build-and-deliver",
+            "label": "Build and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T09:15:00Z"
+        }
+      ],
+      "state": "live",
+      "started_at": "2026-11-09T09:15:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "started_by",
+          "manifest_id": "armada",
+          "target": "mock-19",
+          "state": "spent",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        }
+      ],
+      "standing": "working"
+    },
+    {
+      "id": "mock-21",
+      "mark": {
+        "state": "running",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Fix the child row count",
+      "workflow": "bug",
+      "workflow_step": 1,
+      "workflow_copy": {
+        "id": "bug",
+        "name": "Bug",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "find-the-cause",
+            "label": "Find the cause",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "fix",
+            "label": "Fix",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "test-and-deliver",
+            "label": "Test and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T09:20:00Z"
+        },
+        {
+          "step": 1,
+          "since": "2026-11-09T10:40:00Z"
+        }
+      ],
+      "state": "live",
+      "started_at": "2026-11-09T09:20:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "started_by",
+          "manifest_id": "armada",
+          "target": "mock-19",
+          "state": "spent",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        }
+      ],
+      "standing": "working"
+    },
+    {
+      "id": "mock-22",
+      "mark": {
+        "state": "running",
+        "lamp": "running",
+        "group": "working"
+      },
+      "harness": "claude-code",
+      "origin": "bridge",
+      "manifest_id": "armada",
+      "cwd": "/repos/armada",
+      "title": "Deliver the child tab",
+      "workflow": "feature",
+      "workflow_step": 2,
+      "workflow_copy": {
+        "id": "feature",
+        "name": "Feature",
+        "version": 1,
+        "manifest_id": "armada",
+        "lands": "pull_request",
+        "steps": [
+          {
+            "step_id": "propose",
+            "label": "Propose",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "walk",
+            "label": "Walk",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          },
+          {
+            "step_id": "build-and-deliver",
+            "label": "Build and deliver",
+            "checks": [],
+            "judge_checks": [],
+            "advance_gate": "auto",
+            "phase": "work"
+          }
+        ]
+      },
+      "workflow_visits": [
+        {
+          "step": 0,
+          "since": "2026-11-09T09:25:00Z"
+        },
+        {
+          "step": 1,
+          "since": "2026-11-09T10:05:00Z"
+        },
+        {
+          "step": 2,
+          "since": "2026-11-09T11:50:00Z"
+        }
+      ],
+      "workflow_waiting_on": [
+        "Waiting on checks: Green"
+      ],
+      "workflow_strip": {
+        "tabs": [
+          "now",
+          "plan"
+        ],
+        "usual_secs": 3600,
+        "ends_when": [
+          "you approve the plan"
+        ],
+        "stalled": {
+          "since": "2026-11-09T10:15:00Z",
+          "cause": "The step waits on the checks of its pull request, and Fleet has seen none run."
+        }
+      },
+      "state": "live",
+      "started_at": "2026-11-09T09:25:00Z",
+      "last_seen_at": "2026-11-09T14:40:00Z",
+      "usage": {},
+      "attachments": [
+        {
+          "kind": "started_by",
+          "manifest_id": "armada",
+          "target": "mock-19",
+          "state": "spent",
+          "since": "2026-11-09T09:00:00Z",
+          "changed_at": "2026-11-09T09:00:00Z"
+        }
+      ],
+      "standing": "working"
     }
   ]
 }
