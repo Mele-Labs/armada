@@ -5,7 +5,7 @@
 //! The order of the checks is the rule, so a change to one side is a change to the other until
 //! Electron reads this too.
 
-use ipc::{AttachmentState, JobGroup, JobLamp, JobMark, JobState, SessionRecord, SessionStanding, SessionTurn, WaitingActKind, WaitingSource};
+use ipc::{owed_kind, AttachmentState, JobGroup, JobLamp, JobMark, JobState, OwedKind, SessionRecord, SessionStanding, SessionTurn, WaitingSource};
 
 /// What the thread says that the record does not.
 pub(super) struct Thread {
@@ -111,7 +111,9 @@ fn state_of(record: &SessionRecord, thread: &Thread, read: bool) -> JobState {
         return JobState::Blank;
     }
     if !owes.is_empty() || thread.lapsed {
-        return JobState::Waiting;
+        // Built work he has only to look at is Ready; a lapsed question, or anything that cannot go on without him, is Waiting.
+        let only_built_work = !thread.lapsed && owes.iter().all(|one| owed_kind(one) == OwedKind::Ready);
+        return if only_built_work { JobState::Ready } else { JobState::Waiting };
     }
     if !record.held_open_by.is_empty() {
         return JobState::Held;
@@ -179,6 +181,8 @@ fn bucket_of(state: JobState) -> Bucket {
 #[derive(Clone, Copy, PartialEq)]
 enum Tone {
     Ask,
+    /// Built work waits for him: the row is calm but not idle, and asks nothing.
+    Ready,
     Calm,
     /// `sessionMark` never says it, so `failed` and the quiet rule in `tone_of` are not reached for a Job
     /// today. Kept, as Bridge keeps them, for the day a mark does.
@@ -209,20 +213,24 @@ fn tone_and_phase(record: &SessionRecord, state: JobState) -> (Tone, Phase) {
     let dead = matches!(state, JobState::Ended | JobState::Quiet);
     // A paused Job is calm: nothing is asked of him.
     let own = if state != JobState::Paused && bucket == Bucket::Needs { Tone::Ask } else { Tone::Calm };
-    // A walk he has not approved calls on the row as its own question does. A Custom tab's Mod Job that
-    // asks does too in Bridge; mods come after the switch to the native app.
-    let walk = record.waiting_for.iter().any(|one| one.source == WaitingSource::Walk && one.act.as_ref().is_some_and(|act| act.kind == WaitingActKind::Walk));
-    let tone = if own == Tone::Calm && walk && !dead { Tone::Ask } else { own };
+    // Built work he has not looked at marks a calm row Ready: the Job's state is Ready when nothing else waits,
+    // and a walk he has not approved marks a Job that is still working. It asks nothing, so it is not Needs.
+    let ready = state == JobState::Ready || record.waiting_for.iter().any(|one| one.source == WaitingSource::Walk && owed_kind(one) == OwedKind::Ready);
+    let mut tone = if own == Tone::Calm && ready && !dead { Tone::Ready } else { own };
     let phase = if dead {
         Phase::Done
     } else {
-        let needs = tone == Tone::Ask;
         let stuck = state == JobState::Stuck;
         // Its own pull request: the first that has not merged, else the first.
         let red_pr = pulls(record).find(|(merged, _)| !merged).is_some_and(|(_, failed)| failed);
         let paused = state == JobState::Paused;
         // A paused Job is parked by him: a red pull request on it alarms nothing until he resumes it.
         let alarm = !paused && (tone == Tone::Bad || (red_pr && !working(record)));
+        // A failing pull request is his to look at before any built work waits.
+        if tone == Tone::Ready && alarm {
+            tone = Tone::Ask;
+        }
+        let needs = tone == Tone::Ask;
         if needs || (alarm && !stuck) {
             Phase::Needs
         } else if stuck || paused || record.waits.is_some() {
@@ -253,12 +261,14 @@ fn reading_of(record: &SessionRecord, state: JobState, now: Option<i64>) -> JobM
     };
     let group = match (tone, phase) {
         (Tone::Ask | Tone::Bad, _) => JobGroup::Needs,
+        (Tone::Ready, _) => JobGroup::Ready,
         (_, Phase::Needs | Phase::Done) => JobGroup::Done,
         (_, Phase::Working) => JobGroup::Working,
         (_, Phase::Held) => JobGroup::Held,
     };
     let lamp = match (tone, group) {
         (Tone::Ask, _) => JobLamp::Needs,
+        (Tone::Ready, _) => JobLamp::Ready,
         (Tone::Bad, _) => JobLamp::Failed,
         (_, JobGroup::Working) => JobLamp::Running,
         (_, JobGroup::Done) => JobLamp::Done,

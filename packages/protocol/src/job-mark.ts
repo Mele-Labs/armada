@@ -11,6 +11,7 @@ export type JobState =
   | "stopped"
   | "stopped_asks"
   | "waiting"
+  | "ready"
   | "replied"
   | "done"
   | "failing"
@@ -24,11 +25,11 @@ export type JobState =
   | "paused"
   | "unstarted";
 
-/** The row's lamp: needs him, failed, running, done; anything else is idle. */
-export type JobLamp = "needs" | "failed" | "running" | "done" | "idle";
+/** The row's lamp: needs him, ready for him, failed, running, done; anything else is idle. */
+export type JobLamp = "needs" | "ready" | "failed" | "running" | "done" | "idle";
 
 /** The group a list files the row under. */
-export type JobGroup = "needs" | "working" | "held" | "done";
+export type JobGroup = "needs" | "ready" | "working" | "held" | "done";
 
 /** How a Job's row reads: its state, lamp and group. */
 export type JobMark = {

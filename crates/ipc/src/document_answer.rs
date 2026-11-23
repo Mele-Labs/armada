@@ -20,6 +20,8 @@ pub const DOCUMENT_SETTLED_AT: &str = "settled_at";
 pub const DOCUMENT_WORDS: &str = "words";
 /// What a document's Needs you item id is its page's path behind.
 pub const DOCUMENT_ITEM_PREFIX: &str = "document:";
+/// What the Needs you item of a page that only waits to be read has its path behind: no verdict is asked.
+pub const READ_ITEM_PREFIX: &str = "read:";
 
 /// How the person answered a document put to him.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]

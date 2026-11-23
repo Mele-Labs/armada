@@ -15,6 +15,7 @@ use ipc::{
 use super::document_answers::{one_page, record_of, revision_kept, sent, waits, written};
 use super::session_host::{rig_placing, Rig};
 use crate::session_host::needs_you::{needs_you_of, refused_dismissal};
+use ipc::{owed_kind, OwedKind};
 
 const JOB: &str = "job-1";
 
@@ -199,6 +200,101 @@ fn needs_you_table_in_the_doc_says_what_the_code_does_for_each_source() {
         let section = if one.by_act { "by act" } else { wire(one.section) };
         assert!(cells[2].contains(section), "{name}: section `{section}` in {line}");
         assert!(cells[3].contains(dismiss_word(one.dismiss)), "{name}: dismiss `{}` in {line}", dismiss_word(one.dismiss));
+    }
+}
+
+/// What each source asks of him, as the doc's second table says. An item that is none of it, `done`, is `Neither`.
+fn owed_table() -> Vec<(Source, OwedKind)> {
+    use OwedKind::{Needs, Neither, Ready};
+    vec![
+        (Source::Agent, Needs),
+        (Source::AskCard, Needs),
+        (Source::Walk, Ready),
+        (Source::Permission, Needs),
+        (Source::WindowAsk, Needs),
+        (Source::Draft, Needs),
+        (Source::Sketch, Needs),
+        (Source::Document, Needs),
+        (Source::FirstMessage, Needs),
+        (Source::Replied, Needs),
+        (Source::Done, Neither),
+        (Source::Plan, Needs),
+        (Source::SlotChoice, Needs),
+        (Source::Delivery, Needs),
+        (Source::WordsAddress, Needs),
+        (Source::FleetCall, Needs),
+        (Source::TaskDone, Needs),
+        (Source::WatchNotOurs, Needs),
+        (Source::HeldChild, Needs),
+        (Source::PreviewOffer, Needs),
+        (Source::RuleAct, Needs),
+        (Source::OperatorSuggestion, Needs),
+        (Source::BrowserAsk, Needs),
+        (Source::Gate, Needs),
+        (Source::Handoff, Needs),
+        (Source::OperatorUndone, Needs),
+        (Source::JobConflict, Needs),
+        (Source::JobHeld, Needs),
+        (Source::ReadyToTry, Ready),
+    ]
+}
+
+/// The claim: only an item showing built work is Ready for him, and every other source is Needs you.
+#[test]
+fn owed_kind_names_every_source_needs_you_or_ready_for_you_as_the_table_says() {
+    let table = owed_table();
+    assert_eq!(table.len(), cases().len(), "a source is missing from the table");
+    for one in cases() {
+        let (_, want) = table.iter().find(|(source, _)| *source == one.item.source).unwrap_or_else(|| panic!("{:?} is not in the table", one.item.source));
+        assert_eq!(owed_kind(&one.item), *want, "{:?}", one.item.source);
+    }
+}
+
+/// The three sources read by what the item carries: an agent's walk, a page only to read, a reply that names a pull request.
+#[test]
+fn owed_kind_reads_an_agents_act_a_pages_reading_and_a_replys_pull_request() {
+    use WaitingActKind as Act;
+    let kind = |id: &str, source: Source, act: Option<(Act, &str)>| owed_kind(&item(id, source, act, &[], &[]));
+    assert_eq!(kind("a", Source::Agent, Some((Act::Walk, "http://localhost:5173/"))), OwedKind::Ready);
+    for act in [Act::Run, Act::Answer, Act::ApprovePr, Act::Message] {
+        assert_eq!(kind("a", Source::Agent, Some((act, "x"))), OwedKind::Needs, "{act:?}");
+    }
+    assert_eq!(kind("a", Source::Agent, None), OwedKind::Needs);
+    assert_eq!(kind("read:/w/a.html", Source::Document, None), OwedKind::Ready, "a page only to read");
+    assert_eq!(kind("document:/w/a.html", Source::Document, None), OwedKind::Needs, "a page that asks for his verdict");
+    assert_eq!(kind("replied:1", Source::Replied, Some((Act::ApprovePr, "12"))), OwedKind::Ready, "a pull request to open");
+    assert_eq!(kind("replied:1", Source::Replied, None), OwedKind::Needs, "a reply that asks");
+    assert_eq!(kind("replied:1", Source::Replied, Some((Act::Answer, "x"))), OwedKind::Needs);
+}
+
+/// What holds a turn open on him is something the Job cannot go on without.
+#[test]
+fn every_source_that_holds_a_turn_is_needs_you() {
+    let mut named = 0;
+    for one in cases() {
+        if crate::standing_calls::holds_the_turn(one.item.source) {
+            named += 1;
+            assert_eq!(owed_kind(&one.item), OwedKind::Needs, "{:?} holds the turn but is not Needs you", one.item.source);
+        }
+    }
+    assert!(named > 0, "no source named, so nothing was held to it");
+}
+
+/// The doc's second table says the same, a source to a line, its first word the answer for the plain item.
+#[test]
+fn owed_kind_table_in_the_doc_says_what_the_code_does_for_each_source() {
+    let doc = include_str!("../../../../docs/concepts/session/waiting-on-the-person.md");
+    let section = doc.split("## Needs you and Ready for you").nth(1).expect("the doc has the section");
+    for (source, want) in owed_table() {
+        let name = ipc::encode(&source).unwrap().trim_matches('"').to_string();
+        let line = section.lines().find(|line| line.starts_with(&format!("| `{name}` |"))).unwrap_or_else(|| panic!("the section's table has a row for `{name}`"));
+        let cells: Vec<&str> = line.split('|').map(str::trim).collect();
+        let said = match want {
+            OwedKind::Needs => "Needs you",
+            OwedKind::Ready => "Ready for you",
+            OwedKind::Neither => "Neither",
+        };
+        assert!(cells[2].starts_with(said), "{name}: `{said}` in {line}");
     }
 }
 
