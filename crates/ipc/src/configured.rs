@@ -29,6 +29,10 @@ pub struct ManifestConfig {
     pub proved_after_a_merge: Vec<String>,
     /// Commands a Drone may be granted, by name.
     pub commands: Vec<String>,
+    /// The Commands and servers the Manifest flags `confirm: true`, by name: Bridge asks before it runs one from the
+    /// dashboard, and a name not here runs on a press. Empty is the ordinary case.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub confirm_commands: Vec<String>,
     /// Servers the Manifest declares, by name. What `start_server` may name.
     pub servers: Vec<String>,
     /// Port spans the Manifest names, which a server's `${port.NAME}` resolves

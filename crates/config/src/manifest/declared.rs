@@ -162,6 +162,7 @@ impl Check {
 pub struct Command {
     pub(super) run: String,
     pub(super) destructive: bool,
+    pub(super) confirm: bool,
 }
 
 impl Command {
@@ -177,6 +178,12 @@ impl Command {
     /// many to catch the few.
     pub fn is_destructive(&self) -> bool {
         self.destructive
+    }
+
+    /// Whether Bridge asks the person before it runs this from the dashboard.
+    /// **Not a gate on an agent**, which `destructive` is; absent means `false`.
+    pub fn confirms(&self) -> bool {
+        self.confirm
     }
 }
 

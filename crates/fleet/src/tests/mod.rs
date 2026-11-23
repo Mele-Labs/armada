@@ -123,6 +123,7 @@ mod kit_pieces;
 mod listener;
 mod manifest_proposals;
 mod mods;
+mod manifest_confirm;
 mod tracker_per_manifest;
 mod tracker_words;
 mod tracker_mods;
