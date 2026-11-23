@@ -81,6 +81,7 @@ impl Scope {
 }
 
 mod asleep_mac;
+mod judging;
 
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
@@ -1901,6 +1902,12 @@ impl JobsList {
         } else if act.is("close") && !self.selected.is_empty() {
             // Esc lets go of the selection while there is one, and otherwise means what it means everywhere.
             self.clear_selection(cx);
+        } else if act.is("job_judge") {
+            // `⌥⌘L` on the row under the keys, as the menu's Judge.
+            match self.focused.clone().filter(|id| self.rows().any(|row| &row.id == id && row.queued.is_none() && !row.ended)) {
+                Some(id) => self.judge_job(&id, cx),
+                None => cx.propagate(),
+            }
         } else if act.is("deck_search") {
             self.to_search(window, cx);
         } else if act.is("deck_reorder") {
@@ -2169,6 +2176,7 @@ impl JobsList {
             act("name", "Name it for me", Some("wand-sparkles"), false),
             Entry::Act { id: "teach", label: "Teach".into(), icon: Some("graduation-cap"), danger: false },
             act("try", "Try it in your app", None, false),
+            act("judge", "Judge", Some("scale"), false),
             act("close", "Close", Some("x"), true),
             Entry::Rule,
         ];
@@ -2217,6 +2225,7 @@ impl JobsList {
                         this.open_project_picker(ids, Some(at), from_keys, None, window, cx);
                     });
                 }
+                "judge" => this.judge_job(&job, cx),
                 "name" => send(port, "/sessions/name", encoded(ipc::encode(&ipc::NameSession { session_id })), cx),
                 "teach" => crate::dispatch::screen::teach_row(title.to_string(), cx),
                 "try" => {
@@ -2777,6 +2786,7 @@ impl JobsList {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_1))
+            .children(self.judge_mark(&row.id, &row.title, look, cx))
             .children(strip_of)
             .when(view.on("view:conflicts"), |marks| marks.child(crate::clash_mark::ClashMark::in_row(row.id.clone())))
             // The time stands right against the state; the glyphs end at the row's edge, so they

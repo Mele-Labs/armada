@@ -346,7 +346,7 @@ impl JobView {
     }
 
     /// The command palette's Judge…: a menu of what can be judged, and the choice is asked at once.
-    fn judge_choose(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+    pub(super) fn judge_choose(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
         let choices = self.judgeable(&job, cx);
         let entries: Vec<Entry> = choices
@@ -394,4 +394,41 @@ fn quoted_words(look: &Look, words: &str) -> AnyElement {
 /// One quiet line in a card's body.
 fn plain(look: &Look, said: String, ink: crate::look::Token) -> AnyElement {
     div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(ink)).child(SharedString::from(said)).into_any_element()
+}
+
+/// The Job whose Judge tab is asked to come forward when it comes on screen: a press on a Jobs row's dot or check.
+#[derive(Default)]
+struct JudgeTabAsked(Option<String>);
+
+impl gpui::Global for JudgeTabAsked {}
+
+/// Open the Job's Judge tab in front, now where the Job is on screen and else when it comes to be.
+pub fn ask_judge_tab(job: &str, window: &mut Window, cx: &mut gpui::App) {
+    cx.default_global::<JudgeTabAsked>().0 = Some(job.to_string());
+    let Some(view) = cx.try_global::<super::view_tabs::LiveJobView>().and_then(|live| live.0.upgrade()) else { return };
+    let shown = view.read(cx).shown.as_ref().is_some_and(|shown| shown.as_ref() == job);
+    if shown {
+        view.update(cx, |view, cx| view.front_judge_tab(window, cx));
+    }
+}
+
+impl JobView {
+    /// The Judge tab comes forward on the Job shown when a press asked for it.
+    pub(super) fn front_judge_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(shown) = self.shown.clone() else { return };
+        let asked = cx.try_global::<JudgeTabAsked>().and_then(|asked| asked.0.clone());
+        if asked.as_deref() != Some(shown.as_ref()) {
+            return;
+        }
+        cx.default_global::<JudgeTabAsked>().0 = None;
+        self.open_judge_pane(window, cx);
+    }
+}
+
+/// The command palette's Judge…, on the Job on screen: a menu of what can be judged.
+pub fn choose_to_judge(window: &mut Window, cx: &mut gpui::App) {
+    let Some(view) = cx.try_global::<super::view_tabs::LiveJobView>().and_then(|live| live.0.upgrade()) else { return };
+    view.update(cx, |view, cx| {
+        view.judge_choose(window, cx);
+    });
 }

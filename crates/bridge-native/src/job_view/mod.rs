@@ -151,6 +151,7 @@ mod tokens_tab;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
+pub use judge_cards::{ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
@@ -976,6 +977,7 @@ impl JobView {
         let on = window.is_window_active().then(|| to.clone()).flatten();
         self.visit(on, cx);
         self.tell_job_shown(window, cx);
+        self.front_judge_tab(window, cx);
         cx.notify();
     }
 
