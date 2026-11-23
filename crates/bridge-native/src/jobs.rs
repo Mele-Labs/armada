@@ -28,6 +28,8 @@ use crate::labels::labelled;
 use crate::log::Note;
 use crate::look::{token, ActiveLook, Look};
 
+mod judging;
+
 actions!(jobs, [RowMenu, Earlier, FoldRow, UnfoldRow]);
 
 /// The list's keys the registry does not carry yet: Shift+F10 for a row's menu, as Electron binds
@@ -81,7 +83,6 @@ impl Scope {
 }
 
 mod asleep_mac;
-mod judging;
 
 /// A Job as its row and its card draw it.
 #[derive(Clone, Debug, PartialEq)]
