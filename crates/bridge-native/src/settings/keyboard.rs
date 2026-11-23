@@ -60,7 +60,7 @@ fn slot_names(id: &str) -> &'static [&'static str] {
 /// Where an act's keys are heard, so two acts meet only where both listen (`PLACES`).
 fn places(scope: ActionScope) -> &'static [&'static str] {
     match scope {
-        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "usage", "features", "tokens", "api-client"],
+        ActionScope::Anywhere => &["board", "detail", "studio", "dashboard", "deck", "review", "call", "logbook", "issues", "report", "projects", "plan", "thread", "terminal", "dispatch", "review-sheet", "kit", "usage", "features", "tokens", "api-client", "prototype"],
         ActionScope::List => &["board", "dashboard", "deck"],
         ActionScope::ListAndDetail => &["board", "detail", "dashboard"],
         ActionScope::OpenStudio => &["studio"],
@@ -82,6 +82,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::Tokens => &["tokens"],
         ActionScope::ApiClient => &["api-client"],
         ActionScope::Features => &["features"],
+        ActionScope::Prototype => &["prototype"],
     }
 }
 

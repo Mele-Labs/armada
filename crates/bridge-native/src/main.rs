@@ -278,7 +278,7 @@ fn main() -> ExitCode {
         return match prototype::shots::run(dir, 9) {
             Ok(()) => ExitCode::SUCCESS,
             Err(why) => {
-                eprintln!("{why}");
+                log::Note::warn("the prototype was not drawn").field("why", why).emit();
                 ExitCode::FAILURE
             }
         };

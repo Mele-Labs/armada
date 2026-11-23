@@ -105,8 +105,10 @@ pub fn run(dir: &Path, runs: usize) -> Result<(), String> {
         reads.push(millis(read));
         frames.push(millis(started.elapsed()));
     }
-    println!("runs: {runs}");
-    println!("read, ms (markup parsed, fixtures decoded, scene checked): {}", list(&reads));
-    println!("markup to a drawn frame, ms: {}", list(&frames));
+    crate::log::Note::info("a prototype scene drawn headless")
+        .field("runs", runs)
+        .field("read_ms", list(&reads))
+        .field("markup_to_frame_ms", list(&frames))
+        .emit();
     Ok(())
 }
