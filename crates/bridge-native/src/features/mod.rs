@@ -7,14 +7,14 @@
 
 pub mod artifact_link;
 pub(crate) mod asks;
-mod chosen;
+pub(crate) mod chosen;
 mod curate;
 mod curate_view;
 mod dossier;
 mod floor_map;
 pub(crate) mod floor_home;
 mod librarian;
-mod looked;
+pub(crate) mod looked;
 pub(crate) mod mock;
 mod model;
 pub mod of_path;
@@ -22,11 +22,12 @@ pub mod overlay;
 pub mod page;
 pub(crate) mod page_model;
 mod page_view;
-mod project_model;
+pub(crate) mod project_model;
 mod project_page;
 mod project_rows;
 mod project_view;
 mod projects;
+mod read_rows;
 // Pictures for a Job to look at, taken from a temporary hook in `main()`, which is not kept.
 #[allow(dead_code)]
 pub mod shots;
@@ -53,6 +54,19 @@ use project_page::ProjectPageView;
 
 /// The area colours the list draws, for a Job's Story tab to draw the same.
 pub(crate) use dossier::{hue_among, hue_square};
+/// The chip a row of Since you looked wears, for the Project place's board to draw the same.
+pub(crate) use project_model::tag_mark;
+
+/// Which tab of the Project place the screen is drawn for. None is the screen on its own, as it was before it became a tab.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum Section {
+    /// The list of features with a feature's page beside it.
+    Features,
+    /// Since you looked, across the whole width.
+    Since,
+    /// Who's on what, across the whole width.
+    Who,
+}
 
 /// Where the list reads from.
 enum Source {
@@ -89,6 +103,10 @@ pub struct FeaturesScreen {
     opened: Option<String>,
     /// That page, and what it says to this screen.
     page: Option<Entity<FeaturePageView>>,
+    /// The tab of the Project place this screen is drawn for, where it is one.
+    section: Option<Section>,
+    /// A feature the Dashboard asked to open before the library was read: it opens as soon as the library holds it.
+    want_open: Option<String>,
     /// The window is narrower than `model::STACKED_BELOW`: the list and the page take turns at the full width.
     stacked: bool,
     /// Stacked: the page is the one drawn, full width, and the list is under it. Never set at a width where they sit side by side.
@@ -190,6 +208,8 @@ impl FeaturesScreen {
             window: window.window_handle(),
             opened: None,
             page: None,
+            section: None,
+            want_open: None,
             stacked: window.viewport_size().width < gpui::px(model::STACKED_BELOW),
             showing: false,
             page_sub: None,
@@ -337,6 +357,18 @@ impl FeaturesScreen {
         }
         self.preview(cx);
         self.tune_page(cx);
+        if self.want_open.as_deref().is_some_and(|slug| self.listed.find(slug).is_some()) {
+            let (me, handle) = (cx.entity(), self.window);
+            cx.defer(move |cx| {
+                let _ = handle.update(cx, |_, window, cx| {
+                    me.update(cx, |this, cx| {
+                        if let Some(slug) = this.want_open.take() {
+                            this.open_from_project(slug, window, cx);
+                        }
+                    })
+                });
+            });
+        }
         cx.notify();
     }
 
@@ -404,12 +436,14 @@ impl FeaturesScreen {
     fn step(&mut self, by: isize, cx: &mut Context<Self>) {
         let count = self.listed.shown.len() as isize;
         // The project rows come before the first feature: Overview is place -3, Since you looked -2, Who's on what -1.
+        // On the Features tab the rows over the features are not drawn, so the keys stop at the first feature.
+        let floor = if self.section == Some(Section::Features) { 0 } else { ProjectPage::Overview.place() };
         let at = match (self.on_project, self.cursor_at()) {
             (Some(which), _) => which.place(),
             (None, Some(at)) => at as isize,
-            (None, None) => if by > 0 { ProjectPage::Overview.place() - 1 } else { count },
+            (None, None) => if by > 0 { floor - 1 } else { count },
         };
-        let next = (at + by).clamp(ProjectPage::Overview.place(), count - 1);
+        let next = (at + by).clamp(floor, count - 1);
         if next != at {
             crate::ui_sounds::moved();
         }
@@ -452,6 +486,8 @@ impl FeaturesScreen {
                     FeaturePageEvent::Escape => this.focus_list(window, cx),
                     FeaturePageEvent::Story { session_id, ask_id } => this.open_story(session_id.clone(), ask_id.clone(), cx),
                     FeaturePageEvent::Design { job, artifact } => artifact_link::open(job.clone(), artifact.clone(), cx),
+                    // The feature left the catalog: the list that held it reads again.
+                    FeaturePageEvent::Retired => this.read(cx),
                 }));
                 self.page = Some(page);
                 self.opened = Some(slug);
@@ -525,7 +561,7 @@ impl FeaturesScreen {
     /// The window grew past or shrank under the width the list and the page share. Narrowing puts the open page away so
     /// the list is alone; widening draws the page of the row the keys are on beside the list again.
     fn resized(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let stacked = window.viewport_size().width < gpui::px(model::STACKED_BELOW);
+        let stacked = self.narrow(window);
         if stacked == self.stacked {
             return;
         }
@@ -578,6 +614,58 @@ impl FeaturesScreen {
         self.filter.read(cx).focus_handle(cx).is_focused(window)
     }
 
+    // ---- the Project place's tabs ------------------------------------------------------------
+
+    /// Whether the page fills the width with no list beside it: Since you looked and Who's on what, as tabs.
+    fn alone(&self) -> bool {
+        matches!(self.section, Some(Section::Since | Section::Who))
+    }
+
+    /// Whether the window is too narrow for the list and the page side by side. A page drawn alone never stacks.
+    fn narrow(&self, window: &Window) -> bool {
+        !self.alone() && window.viewport_size().width < gpui::px(model::STACKED_BELOW)
+    }
+
+    /// The tab of the Project place this screen is drawn for. Since you looked and Who's on what open that page, and the
+    /// Features tab draws the list and the page of the feature the keys are on.
+    pub fn set_section(&mut self, section: Section, window: &mut Window, cx: &mut Context<Self>) {
+        self.section = Some(section);
+        self.stacked = self.narrow(window);
+        self.showing = false;
+        match section {
+            Section::Since => self.open_project(ProjectPage::Since, window, cx),
+            Section::Who => self.open_project(ProjectPage::Who, window, cx),
+            Section::Features => {
+                if self.on_project.is_some() {
+                    self.on_project = None;
+                    self.close_page(cx);
+                }
+                self.preview(cx);
+            }
+        }
+        cx.notify();
+    }
+
+    /// Show the project `project`, by Fleet's id, as a press on its chip does.
+    pub fn show_project(&mut self, project: String, cx: &mut Context<Self>) {
+        self.choose(project, cx);
+    }
+
+    /// The project the library on screen belongs to, or the one asked for until it arrives.
+    pub fn project_shown(&self, cx: &gpui::App) -> Option<String> {
+        self.shown_project(cx)
+    }
+
+    /// A feature of the library opens in its page, with the keys on it.
+    pub fn open_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
+        if self.listed.find(&slug).is_some() {
+            self.open_from_project(slug, window, cx);
+        } else {
+            // The library is not read yet, or is another project's: the feature opens when it holds it.
+            self.want_open = Some(slug);
+        }
+    }
+
     // ---- entering ----------------------------------------------------------------------------
 
     /// Brought to the front: the keys go to the list, and Fleet is read again.
@@ -586,7 +674,10 @@ impl FeaturesScreen {
         match (self.project_page.clone().filter(|_| self.showing), self.page.clone().filter(|_| self.showing)) {
             (Some(page), _) => page.update(cx, |page, cx| page.focus_body(window, cx)),
             (None, Some(page)) => page.update(cx, |page, cx| page.focus_rail(window, cx)),
-            (None, None) => self.focus_list(window, cx),
+            (None, None) => match self.project_page.clone().filter(|_| self.alone()) {
+                Some(page) => page.update(cx, |page, cx| page.focus_body(window, cx)),
+                None => self.focus_list(window, cx),
+            },
         }
         if let Some(page) = &self.page {
             page.update(cx, |page, cx| page.enter(cx));

@@ -147,6 +147,21 @@ impl Projects for FakeDaemon {
         Ok(echoed(&project, format!("set_project_workflow {} {}", set.workflow, if set.on { "on" } else { "off" })))
     }
 
+    async fn get_project_board(&self, project: String) -> Result<ipc::ProjectBoard, Refusal> {
+        held(&project)?;
+        Ok(ipc::ProjectBoard { project, layout: None })
+    }
+
+    async fn save_project_board(&self, project: String, save: ipc::SaveProjectBoard) -> Result<ipc::ProjectBoard, Refusal> {
+        held(&project)?;
+        Ok(ipc::ProjectBoard { project, layout: save.layout })
+    }
+
+    async fn list_ranked_issues(&self, project: String) -> Result<ipc::RankedIssues, Refusal> {
+        held(&project)?;
+        Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new() })
+    }
+
     async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
         held(&project)?;
         Ok(store_state(&project, None))

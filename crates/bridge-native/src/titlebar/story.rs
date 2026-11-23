@@ -85,15 +85,16 @@ fn and_list(names: &[String]) -> String {
     }
 }
 
-/// What Refresh builds: latest main with every ready offer, each Job named once. Where offers come from more than one
-/// Mac each is named with its Mac, and the Macs Fleet left out say why, in Fleet's own sentence.
+/// What Refresh builds: latest main with every ready offer and each pick not yet built, each Job named once, keeping
+/// what the running build holds. Where offers come from more than one Mac each is named with its Mac, and what Fleet
+/// left out says why, in Fleet's own sentence.
 pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
     let ready: Vec<&ipc::PreviewOfferRow> = offers.map_or(&[][..], |offers| offers.offers.as_slice()).iter().filter(|offer| offer.state == PreviewState::Ready).collect();
     let this = macs.iter().find(|mac| mac.this_mac);
     let from_other = |offer: &ipc::PreviewOfferRow| offer.mac.as_deref().is_some_and(|id| this.is_none_or(|this| this.id != id));
     let across = ready.iter().any(|offer| from_other(offer));
     let mut names: Vec<String> = Vec::new();
-    for offer in ready {
+    for &offer in &ready {
         let name = if offer.title.trim().is_empty() { offer.branch.clone() } else { offer.title.clone() };
         let owner = if from_other(offer) { offer.mac.as_deref().and_then(|id| macs.iter().find(|mac| mac.id == id)) } else { this };
         let said = match owner.filter(|_| across) {
@@ -104,8 +105,23 @@ pub fn refresh_said(offers: Option<&PreviewOffers>, macs: &[Mac]) -> String {
             names.push(said);
         }
     }
+    let refresh = offers.and_then(|offers| offers.refresh.as_ref());
+    // A pick is a branch no offer names, so it is named by its branch.
+    for branch in refresh.map_or(&[][..], |refresh| refresh.branches.as_slice()) {
+        if !ready.iter().any(|offer| offer.branch == *branch) && !names.contains(branch) {
+            names.push(branch.clone());
+        }
+    }
+    let mut kept: Vec<String> = Vec::new();
+    for one in refresh.map_or(&[][..], |refresh| refresh.keeps.as_slice()) {
+        if !kept.contains(&one.title) {
+            kept.push(one.title.clone());
+        }
+    }
     let on = if across { "Restarts both Macs" } else { "Restarts Fleet" };
-    let mut said = if names.is_empty() { format!("{on} on latest main.") } else { format!("{on} on latest main with {}.", and_list(&names)) };
+    let with = if names.is_empty() { String::new() } else { format!(" with {}", and_list(&names)) };
+    let keeping = if kept.is_empty() { String::new() } else { format!(", keeping {}", and_list(&kept)) };
+    let mut said = format!("{on} on latest main{with}{keeping}.");
     for out in offers.map_or(&[][..], |offers| offers.left_out.as_slice()) {
         said.push(' ');
         said.push_str(&out.why);
@@ -222,6 +238,17 @@ mod tests {
         format!(
             r#"{{"branch":"{branch}","tip":"abc","session_id":"s-1","title":"{title}","about":"x","offered_at":"2026-11-14T04:00:00Z","state":"ready","in_build":false{mac}}}"#
         )
+    }
+
+    #[test]
+    fn refresh_names_what_it_keeps_of_the_running_build_after_what_it_adds() {
+        let json = format!(
+            r#"{{"offers":[{}],"refresh":{{"id":"r1","branches":["a","native/picked"],"keeps":[{{"branch":"c","title":"C"}},{{"branch":"d","title":"d"}}]}}}}"#,
+            offer_on("a", "A", None)
+        );
+        assert_eq!(refresh_said(Some(&offers(&json)), &[]), "Restarts Fleet on latest main with A and native/picked, keeping C and d.");
+        let only_kept = offers(r#"{"offers":[],"refresh":{"id":"r1","branches":[],"keeps":[{"branch":"c","title":"C"}]}}"#);
+        assert_eq!(refresh_said(Some(&only_kept), &[]), "Restarts Fleet on latest main, keeping C.");
     }
 
     #[test]

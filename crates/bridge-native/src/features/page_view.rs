@@ -4,15 +4,16 @@
 use gpui::{div, prelude::*, px, relative, AnyElement, ClipboardItem, Div, ElementId, FontWeight, Hsla, IntoElement, Pixels, Render, Role, SharedString, Stateful, Toggled, Window};
 
 use super::asks::{self, Spot};
+use super::read_rows;
 use super::dossier::{button, hue_of_name, pill, pill_area, tint};
-use super::page::{FeaturePageView, Load, Region};
+use super::page::{FeaturePageView, Load, Region, Retiring};
 use super::floor_map::{Ink, Laid, HEIGHT, WIDTH};
-use super::page_model::{Body, Chip, Code, Floor, Item, Row, Section, Written};
+use super::page_model::{Body, Chip, Code, DecisionRow, Floor, Item, ReadRow, Row, Section, Written};
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::reviews::{card_inner_radius, panel_inner_radius};
-use crate::settings::view::{bone, ring_colour, tip};
-use crate::titlebar::parts::{mono, sans};
+use crate::settings::view::{bone, refusal, ring_colour, tip};
+use crate::titlebar::parts::{glyph, mono, sans};
 
 /// What a card holds: the Jobs on the feature, the asks of its three kinds together, or a section.
 #[derive(Clone, Copy, PartialEq)]
@@ -29,17 +30,17 @@ fn side(look: &Look) -> Pixels {
     look.length(token::SPACE_6) + look.length(token::SPACE_1)
 }
 
-/// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs and asks, how it is tested and runs
-/// and its designs, then its code and what is stale or owed. In two or three columns the floor plan is not among them: it spans
+/// The cards in columns of `count` (`.col`), the way the take stands them at three: Jobs, asks and decisions, how it is tested and
+/// runs, its designs and docs, then its code, tickets and what is stale or owed. In two or three columns the floor plan is not among them: it spans
 /// the page under them, so the right column does not carry it.
 fn columns(count: usize) -> Vec<Vec<Card>> {
     use Card::{Asks, Floor, Who};
-    use Section::{Code, Debt, Designs, Observe, Runs, Test};
+    use Section::{Code, Debt, Decisions, Designs, Docs, Observe, Runs, Test, Tickets};
     let s = Card::Section;
     match count {
-        3 => vec![vec![Who, Asks], vec![s(Test), s(Runs), s(Designs)], vec![s(Code), s(Observe), s(Debt)]],
-        2 => vec![vec![Who, Asks, s(Designs)], vec![s(Test), s(Runs), s(Code), s(Observe), s(Debt)]],
-        _ => vec![vec![Who, Asks, s(Test), s(Runs), s(Designs), s(Code), Floor, s(Observe), s(Debt)]],
+        3 => vec![vec![Who, Asks, s(Decisions)], vec![s(Test), s(Runs), s(Designs), s(Docs)], vec![s(Code), s(Tickets), s(Observe), s(Debt)]],
+        2 => vec![vec![Who, Asks, s(Decisions), s(Designs), s(Docs)], vec![s(Test), s(Runs), s(Code), s(Tickets), s(Observe), s(Debt)]],
+        _ => vec![vec![Who, Asks, s(Decisions), s(Test), s(Runs), s(Designs), s(Docs), s(Code), Floor, s(Tickets), s(Observe), s(Debt)]],
     }
 }
 
@@ -102,6 +103,9 @@ pub(super) fn said_empty(key: &str) -> &'static str {
         "designs" => "No sketch, page or walk names this feature yet. One shows here when a Job draws it for this feature.",
         "code" => "No files mapped to this feature yet. Files map in from the code graph and each commit's Feature line.",
         "observe" => "Not written yet. The next Job that changes this feature's files writes how to observe it before it ends.",
+        "docs" => "No Job read a document before it changed a file of this feature.",
+        "tickets" => "No Job read a ticket before it changed a file of this feature.",
+        "decisions" => "Nothing you settled in a Job is filed under this feature.",
         _ => "None written. The next Job that changes this feature's files writes any debt it leaves.",
     }
 }
@@ -157,6 +161,8 @@ impl FeaturePageView {
             _ => None,
         };
         let current = read.and_then(super::page_model::current_as_of);
+        let health = read.and_then(super::page_model::health);
+        let planned = read.is_some_and(|page| page.feature.planned);
         let summary = read.map(|page| page.feature.summary.clone()).filter(|summary| !summary.is_empty());
         let start = labelled(
             button(look, "feature-start", "Start a Job on it", true, true, read.is_none(), Some(&self.start)).tooltip(tip("Open the dispatch panel to start a Job")).on_click(cx.listener(|this, _, window, cx| {
@@ -214,16 +220,96 @@ impl FeaturePageView {
                     .child(
                         div()
                             .flex()
+                            .flex_wrap()
                             .items_center()
-                            .gap(look.length(token::SPACE_2))
+                            .gap_x(look.length(token::SPACE_2))
+                            .gap_y(look.length(token::SPACE_1))
                             .mt(look.length(token::SPACE_3) - px(2.))
                             .children(area.map(|area| labelled(pill_area(look, hue, area.clone()).id("feature-area"), Role::Label, format!("Area: {area}"))))
-                            .children(current.map(|current| div().id("feature-current").text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(current)))),
+                            .children(current.map(|current| div().id("feature-current").text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).whitespace_nowrap().child(SharedString::from(current))))
+                            .children(planned.then(|| mark_chip(look, "feature-planned", "circle-dashed", "Planned", token::STATUS_NOT_STARTED, token::STATUS_NOT_STARTED_BG, super::page_model::PLANNED_TIP, "Planned".into())))
+                            .children(health.as_ref().map(|health| {
+                                let (ink, wash) = if health.mark == ipc::HealthMark::Poor { (token::STATUS_COMPLETED_FAILED, token::STATUS_COMPLETED_FAILED_BG) } else { (token::STATUS_AWAITING_REVIEW, token::STATUS_AWAITING_REVIEW_BG) };
+                                mark_chip(look, "feature-health", health.glyph, health.word, ink, wash, &health.tip, format!("Health: {}", health.word))
+                            }))
+                            .children(health.filter(|health| !health.line.is_empty()).map(|health| {
+                                labelled(div().id("feature-health-reasons").text_size(look.length(token::TEXT_2XS)).line_height(look.length(token::LEADING_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(health.line.clone())), Role::Label, health.line)
+                            })),
                     ),
             )
             .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).child(start));
         // The hue rule follows the panel's curve: the band's own ground sits a rule's width inside a coloured one.
         labelled(div().id("feature-band").flex_none().rounded_t(outer).bg(look.color(hue)).pt(look.length(token::EDGE_ACTIVE)).child(band), Role::Region, "Feature band")
+    }
+
+    // ---- the proposal to retire --------------------------------------------------------------
+
+    /// The row under the band where the librarian proposes retiring the feature (`.retire`): the question, the evidence it rests on,
+    /// and the two buttons. A refusal stands on the row in Fleet's words. Once retired, the row says the feature left the catalog.
+    fn render_retire(&self, look: &Look, cx: &mut gpui::Context<Self>) -> Option<AnyElement> {
+        let Load::Read(page) = &self.page else { return None };
+        let hue = token::STATUS_AWAITING_APPROVAL;
+        let row = div()
+            .id("feature-retire")
+            .w_full()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .mb(look.length(token::SPACE_4))
+            .px(look.length(token::SPACE_3) + px(2.))
+            .py(look.length(token::SPACE_2) + px(1.))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(hue))
+            .bg(look.color(token::STATUS_AWAITING_APPROVAL_BG))
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS));
+        if self.retiring == Retiring::Retired {
+            let said = "Retired. It left the catalog.";
+            let row = row.child(glyph("circle-check", look.length(token::SPACE_4), look.color(token::STATUS_COMPLETED_SUCCESS))).child(div().flex_1().min_w_0().text_color(look.color(token::FG_MUTED)).child(said));
+            return Some(labelled(row, Role::Status, said).into_any_element());
+        }
+        let evidence = super::page_model::retire_evidence(page)?;
+        let working = self.retiring == Retiring::Working;
+        let words = div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .flex_col()
+            .child(
+                div()
+                    .flex()
+                    .flex_wrap()
+                    .items_baseline()
+                    .gap_x(look.length(token::SPACE_2))
+                    .child(div().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Retire this feature?"))
+                    .child(div().text_color(look.color(token::FG_MUTED)).child(SharedString::from(evidence.to_string()))),
+            )
+            .children(match &self.retiring {
+                Retiring::Failed(why) => Some(labelled(div().id("feature-retire-refused").mt(look.length(token::SPACE_1)).child(refusal(look, why.clone())), Role::Label, why.clone())),
+                _ => None,
+            });
+        let retire = labelled(
+            button(look, "feature-retire-yes", "Retire", false, false, working, Some(&self.retire)).tooltip(tip("Take it out of the catalog")).on_click(cx.listener(|this, _, window, cx| {
+                this.focus_region(Region::Retire, window, cx);
+                this.answer_retire(true, window, cx);
+            })),
+            Role::Button,
+            "Retire",
+        );
+        let keep = labelled(
+            button(look, "feature-retire-no", "Keep", false, false, working, Some(&self.keep)).tooltip(tip("Keep it; the librarian asks again only if its evidence changes")).on_click(cx.listener(|this, _, window, cx| {
+                this.focus_region(Region::Keep, window, cx);
+                this.answer_retire(false, window, cx);
+            })),
+            Role::Button,
+            "Keep",
+        );
+        let row = row
+            .child(div().flex_none().self_start().mt(px(1.)).child(glyph("circle-question-mark", look.length(token::SPACE_4), look.color(hue))))
+            .child(words)
+            .child(div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).child(retire).child(keep));
+        Some(labelled(row, Role::Region, "Retire this feature?").into_any_element())
     }
 
     // ---- rows --------------------------------------------------------------------------------
@@ -583,6 +669,41 @@ impl FeaturePageView {
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 
+    /// The docs or tickets a Job read, or the decisions he settled, as rows of a card. With none, the card says why.
+    fn render_plain(&self, section: Section, look: &Look, window: &Window, cx: &mut gpui::Context<Self>) -> AnyElement {
+        let count = match self.cards.get(&section) {
+            Some(Body::Reads(rows)) => rows.len(),
+            Some(Body::Decisions(rows)) => rows.len(),
+            _ => 0,
+        };
+        if count == 0 {
+            return empty_card(look, section.id(), section.title());
+        }
+        let ring = self.under_keys(&[section], window);
+        let mut list = div().id(SharedString::from(format!("feature-rows-{}", section.id()))).w_full().flex().flex_col();
+        if self.section == section {
+            list = list.track_focus(&self.rows);
+        }
+        for at in 0..count {
+            let picked = self.section == section && self.row_at == Some(at);
+            let id = SharedString::from(format!("feature-row-{}-{at}", section.id()));
+            let spot = Spot { picked, first: at == 0, bug: false, divider: None };
+            let (row, name) = match self.cards.get(&section) {
+                Some(Body::Reads(rows)) => (read_rows::read(look, id, &rows[at], spot), rows[at].title.clone()),
+                Some(Body::Decisions(rows)) => (read_rows::decision(look, id, &rows[at], spot), rows[at].question.clone()),
+                _ => continue,
+            };
+            let row = row.on_click(cx.listener(move |this, _, window, cx| {
+                this.select(section, cx);
+                this.pick_row(at, cx);
+                this.focus_region(Region::Rows, window, cx);
+            }));
+            list = list.child(labelled(row, Role::ListBoxOption, name));
+        }
+        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).child(head(look, section.id(), section.title(), false, true)).child(labelled(list, Role::ListBox, section.title()));
+        labelled(card, Role::Region, section.title()).into_any_element()
+    }
+
     // ---- the floor plan ----------------------------------------------------------------------
 
     /// The code map as a card: every module a plot sized by its bytes, its files pills inside sized by theirs, the contracts the
@@ -605,6 +726,7 @@ impl FeaturePageView {
             Card::Asks => self.render_asks(look, window, cx),
             Card::Floor => self.render_floor(look, false),
             Card::Section(Section::Designs) => self.render_designs(look, window, cx),
+            Card::Section(section @ (Section::Docs | Section::Tickets | Section::Decisions)) => self.render_plain(section, look, window, cx),
             Card::Section(section) => match self.cards.get(&section) {
                 Some(Body::Code(code)) if self.present(section) => self.render_code(code, look, window),
                 Some(Body::Written(Some(written))) => self.render_written(section, written, look, window),
@@ -652,6 +774,7 @@ impl Render for FeaturePageView {
     fn render(&mut self, window: &mut Window, cx: &mut gpui::Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
         let top = self.render_top(&look, cx);
+        let retire = self.render_retire(&look, cx);
         let content = match &self.page {
             Load::Reading => self.render_loading(&look),
             Load::Failed(why) => shell(&look, "feature-not-read", false, false).child(self.not_read(&look, why)).into_any_element(),
@@ -680,9 +803,34 @@ impl Render for FeaturePageView {
                     .px(side(&look))
                     .pt(look.length(token::SPACE_4) + px(2.))
                     .pb(look.length(token::SPACE_6))
+                    .children(retire)
                     .child(content),
             )
     }
+}
+
+/// A chip in the band with a glyph before its word, filled with its state's wash: Watch, Poor, Planned. Its tooltip says why.
+fn mark_chip(look: &Look, id: &'static str, name: &'static str, words: &'static str, ink: Token, wash: Token, why: &str, said: String) -> AnyElement {
+    let ink = look.color(ink);
+    let chip = div()
+        .id(id)
+        .flex_none()
+        .flex()
+        .items_center()
+        .gap(look.length(token::SPACE_1))
+        .h(look.length(token::H_BADGE))
+        .px(look.length(token::SPACE_2))
+        .rounded(look.length(token::H_BADGE) / 2.)
+        .bg(look.color(wash))
+        .text_size(look.length(token::TEXT_2XS))
+        .line_height(look.length(token::LEADING_2XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .text_color(ink)
+        .whitespace_nowrap()
+        .tooltip(tip(why.to_string()))
+        .child(glyph(name, look.length(token::SPACE_3), ink))
+        .child(words);
+    labelled(chip, Role::Status, said).into_any_element()
 }
 
 /// The colours the floor plan paints with, read from the look before the paint, which has none.

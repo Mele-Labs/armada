@@ -108,7 +108,9 @@ Remove `.armada/preview/crates/bridge-native/target/release/incremental` and run
 `scripts/restart-build` does this itself, once, when the log says `incremental compilation`, `dep graph` or `dep-graph`, or `unstable fingerprints`.
 
 **The preview merges slot branches only, and by default only those a Job offered** and
-Fleet checked, at the tips offered. `--all` takes every slot branch.
+Fleet checked, at the tips offered, on top of what the running preview already holds and
+what he picked: a refresh never drops a branch he is on because another was offered.
+`--all` takes every slot branch.
 A branch in a plain worktree under `.claude/worktrees/` is not in it, and nothing says so. With every slot held,
 `git worktree remove` it, `armada worktree add`, then
 `armada worktree lease --existing <branch>`. Confirmed 8 Oct 2026: one dry run

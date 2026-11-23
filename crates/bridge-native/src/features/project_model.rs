@@ -132,12 +132,12 @@ pub fn overview(read: &ProjectOverview, areas: &[AreaHue]) -> OverviewModel {
     }
 }
 
-/// The chip's words and its hue: New green, Changed blue, Needs you amber.
+/// The chip's words and its hue: New green, Changed blue, To confirm amber. A feature waits on him for its Confirm.
 pub fn tag_mark(tag: LookedTag) -> (&'static str, Token) {
     match tag {
         LookedTag::New => ("New", token::STATUS_COMPLETED_SUCCESS),
         LookedTag::Changed => ("Changed", token::STATUS_RUNNING),
-        LookedTag::NeedsYou => ("Needs you", token::STATUS_AWAITING_REVIEW),
+        LookedTag::NeedsYou => ("To confirm", token::STATUS_AWAITING_REVIEW),
     }
 }
 

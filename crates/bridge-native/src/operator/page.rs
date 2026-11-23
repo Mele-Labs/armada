@@ -441,6 +441,11 @@ impl OperatorPageView {
         self.track(task);
     }
 
+    /// The cards waiting on him as Fleet's page last said them, for the Project place's Needs you block.
+    pub fn turn(&self) -> &[OperatorTurnItem] {
+        self.page.as_ref().map_or(&[], |page| page.turn.as_slice())
+    }
+
     /// Fleet's page replaces the one held. The card in front stays where it is still there, and a card not seen before
     /// is told once. A card he settled here stays out of the queue, though Fleet keeps one whose act it left to him
     /// to open until he does it.

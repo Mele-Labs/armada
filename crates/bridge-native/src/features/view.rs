@@ -243,10 +243,11 @@ impl FeaturesScreen {
             .h_full()
             .flex()
             .flex_col()
-            .children(self.render_chips(look, cx))
+            // As a tab of the Project place the chips are drawn over the tabs, and the pages over the features are tabs of their own.
+            .children(if self.section.is_some() { None } else { self.render_chips(look, cx) })
             .child(self.render_find(look))
             .children(self.render_librarian(look, cx))
-            .child(self.render_project_rows(look, self.list_focus.is_focused(window), cx))
+            .children(if self.section.is_some() { None } else { Some(self.render_project_rows(look, self.list_focus.is_focused(window), cx)) })
             .child(div().flex_1().min_h_0().child(body))
     }
 
@@ -290,6 +291,8 @@ impl Render for FeaturesScreen {
             .font_family(sans(&look))
             .text_color(look.color(token::FG_DEFAULT))
             .map(|screen| match (self.stacked, self.showing) {
+                // Since you looked and Who's on what as tabs: the page alone, across the width.
+                _ if self.alone() => screen.child(self.render_page_slot(&look, cx)),
                 // Narrow: one panel at a time, each the full width. The page has a Back row over it, as the overlay's page has.
                 (true, true) => screen.child(self.render_page_slot(&look, cx)),
                 (true, false) => screen.child(self.render_list(&look, window, cx)),

@@ -105,7 +105,7 @@ pub(crate) fn replace_note(old_title: Option<&str>, old: &str, when: &str, conte
     format!(
         "This job took the place of {title}({old}) at {when}, and that job has ended. You are a new job: \
          you start without its conversation, and what it left for you is below. The slots, branches, \
-         pull requests and pages it held were handed to you and are yours: carry on in them. Nothing else it started \
+         pull requests, pages and plan it held were handed to you and are yours: carry on in them. Nothing else it started \
          is yours: its subagents, background tasks and shells, windows and peer jobs stay its own. A \
          task-notification about its background work belongs to it: do not act on it, relaunch that work, \
          or report it to the owner as yours. If it held no slot, your first write leases one.\n\n{context}"
@@ -325,6 +325,7 @@ where
             return Err(why);
         }
         self.pages_carried(old, &new).await;
+        self.plan_carried(old, &new).await;
         let _ = self.published_hosted(old).await;
         let _ = self.published_hosted(&new).await;
         let handed = self
@@ -380,6 +381,18 @@ where
         // The values it froze, so a hand does not take the layers as they stand now.
         if let Some(frozen) = store.job_values(&old.session_id).ok().filter(|frozen| !frozen.is_empty()) {
             let _ = store.keep_job_values(new, &frozen);
+        }
+    }
+
+    /// The old Job's plan and the gates it closed, kept on the new one, so what he approved stays approved.
+    /// The plan keeps its first recording, which is what a gate counts facts from. A new Job that started
+    /// with no plan was told its workflow afresh and asked him to approve a page he had approved (23 Nov 2026).
+    async fn plan_carried(&self, old: &str, new: &str) {
+        let mut store = self.store().lock().await;
+        let Ok(Some(plan)) = store.session_plan(old) else { return };
+        let _ = store.keep_session_plan(new, &plan);
+        for gate in store.session_gates(old).unwrap_or_default() {
+            let _ = store.close_session_gate(new, &gate);
         }
     }
 

@@ -227,6 +227,10 @@ Your own **manual** invocation via Bridge doesn't require a second approval step
 **A declared teardown Command is the escape hatch** for a process handed to another supervisor — `launchctl`, a systemd unit, a deliberate double-fork.
 Everything Armada spawned that stayed in its own tree is killed by process group with no declaration needed, and containers are handled by the Docker adapter, so a declared Command covers only what neither reaches.
 
+**A Command can be flagged `confirm: true`.**
+Bridge's dashboard asks before it runs one, and runs any other on a press.
+It gates nothing else: an agent is held by `destructive`, not by this, and `get_manifest` names the flagged Commands and servers in `confirm_commands`.
+
 ### Commands that keep running
 
 A Command with `serve` is a server: it stays up until something stops it.

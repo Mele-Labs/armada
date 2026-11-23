@@ -30,7 +30,7 @@ pub enum Front {
     Reviews,
     /// The owner's Claude Code setup, kind by kind.
     Kit,
-    /// The project's feature library, on the project the bar is scoped to.
+    /// The project's place: its dashboard and its feature library, on the project the bar is scoped to.
     Features,
     /// Where the burn was wasted. No place in the strip: it is reached by name from the palette.
     Usage,
@@ -44,7 +44,7 @@ impl Front {
             Front::Cockpit => "cockpit",
             Front::Reviews => "reviews",
             Front::Kit => "kit",
-            Front::Features => "features",
+            Front::Features => "project",
             Front::Usage => "usage",
         }
     }
@@ -59,7 +59,7 @@ pub struct OperatorScreen {
     pub within: FocusHandle,
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
-    features: Option<Entity<crate::features::FeaturesScreen>>,
+    features: Option<Entity<crate::project_board::ProjectScreen>>,
     /// The Cockpit's floor plan, in the page's place while the Operator is off.
     floor: Option<Entity<crate::features::floor_home::Floor>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
@@ -112,13 +112,14 @@ fn with_places(mut face: Face, here: Front, cockpit: bool, reviews: bool, kit: b
     if kit && !face.places.iter().any(|place| place.id == "kit") {
         face.places.push(Place { id: "kit", label: "Kit", glyph: "briefcase", shown: true, hideable: true });
     }
-    // Issues has no native screen yet, so Features follows the last place there is.
-    if features && !face.places.iter().any(|place| place.id == "features") {
-        face.places.push(Place { id: "features", label: "Features", glyph: "library", shown: true, hideable: true });
+    // Issues has no native screen yet, so Project follows the last place there is.
+    if features && !face.places.iter().any(|place| place.id == "project") {
+        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
     }
-    // Settings > Layout's choice for a place that has a row there, read each time the places are drawn.
-    for place in face.places.iter_mut().filter(|place| matches!(place.id, "kit" | "features")) {
-        place.shown = !crate::settings::layout::hidden("rail", place.id);
+    // Settings > Layout's choice for a place that has a row there, read each time the places are drawn. Project's row is still
+    // kept under `features`, the id the saved layout has always used for it.
+    for place in face.places.iter_mut().filter(|place| matches!(place.id, "kit" | "project")) {
+        place.shown = !crate::settings::layout::hidden("rail", if place.id == "project" { "features" } else { place.id });
     }
     face.here = Some(here.id());
     face
@@ -129,7 +130,7 @@ impl OperatorScreen {
         let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
         let kit = cx.new(|cx| crate::kit::KitScreen::live(fleet, window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
+        let features = cx.new(|cx| crate::project_board::ProjectScreen::live(fleet, Some(reviews.clone()), window, cx));
         let usage = cx.new(|cx| crate::usage_page::UsageScreen::live(fleet, cx));
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
@@ -168,7 +169,7 @@ impl OperatorScreen {
             reviews
         });
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::mock(window, cx));
+        let features = cx.new(|cx| crate::project_board::ProjectScreen::mock(Some(reviews.clone()), window, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
@@ -190,7 +191,7 @@ impl OperatorScreen {
             reviews
         });
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::mock_holding(library, window, cx));
+        let features = cx.new(|cx| crate::project_board::ProjectScreen::mock_holding(Some(reviews.clone()), library, window, cx));
         let mut this = Self::new(jobs, page, Front::Cockpit, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
@@ -210,7 +211,7 @@ impl OperatorScreen {
         front: Front,
         reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
         kit: Option<Entity<crate::kit::KitScreen>>,
-        features: Option<Entity<crate::features::FeaturesScreen>>,
+        features: Option<Entity<crate::project_board::ProjectScreen>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -280,7 +281,7 @@ impl OperatorScreen {
                 Asked::Place("jobs") => Some(Some(Front::Jobs)),
                 Asked::Place("reviews") => Some(Some(Front::Reviews)),
                 Asked::Place("kit") => Some(Some(Front::Kit)),
-                Asked::Place("features") => Some(Some(Front::Features)),
+                Asked::Place("project") => Some(Some(Front::Features)),
                 Asked::Place("usage") => Some(Some(Front::Usage)),
                 _ => None,
             };
@@ -317,8 +318,9 @@ impl OperatorScreen {
                 cx.stop_propagation();
             }
         }));
-        let floor = features.clone().filter(|_| cockpit).map(|features| {
-            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), features, list.clone(), cx));
+        let floor = features.clone().filter(|_| cockpit).map(|project| {
+            let library = project.read(cx).library_screen();
+            let floor = cx.new(|cx| crate::features::floor_home::Floor::new(page.clone(), library, list.clone(), cx));
             jobs.update(cx, |jobs, cx| jobs.set_floor(floor.clone(), cx));
             floor
         });
@@ -875,22 +877,22 @@ mod tests {
     }
 
     fn entered(screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext) -> bool {
-        screen.read_with(cx, |screen, cx| screen.features.as_ref().expect("the screen holds Features").read(cx).entered())
+        screen.read_with(cx, |screen, cx| screen.features.as_ref().expect("the screen holds the Project place").read(cx).entered(cx))
     }
 
     #[test]
-    fn features_is_a_place_of_its_own_after_the_last_one_and_may_be_hidden() {
+    fn project_is_a_place_of_its_own_after_the_last_one_and_may_be_hidden() {
         let face = with_places(Face::bare(), Front::Jobs, false, true, true, true);
         let ids: Vec<_> = face.places.iter().map(|place| place.id).collect();
-        assert_eq!(ids, ["operator", "jobs", "reviews", "kit", "features"], "no place before it moves a digit");
+        assert_eq!(ids, ["operator", "jobs", "reviews", "kit", "project"], "no place before it moves a digit");
         let place = face.places.last().expect("a place");
-        assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Features", "library", true, true));
-        assert!(face.may_hide("features"));
-        assert_eq!(with_places(Face::bare(), Front::Jobs, false, true, true, false).places.len(), 4, "a screen without Features draws no place for it");
+        assert_eq!((place.label, place.glyph, place.shown, place.hideable), ("Project", "layout-dashboard", true, true));
+        assert!(face.may_hide("project"));
+        assert_eq!(with_places(Face::bare(), Front::Jobs, false, true, true, false).places.len(), 4, "a screen without the Project place draws no place for it");
     }
 
     #[test]
-    fn settings_layout_hides_features_from_the_strip_as_it_hides_kit() {
+    fn settings_layout_hides_project_from_the_strip_as_it_hides_kit() {
         let drawn_ids = |face: &Face| face.drawn_places().map(|place| place.id).collect::<Vec<_>>();
         crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["features"]}}"#);
         let hidden = with_places(Face::bare(), Front::Jobs, false, true, true, true);
@@ -898,30 +900,34 @@ mod tests {
         // Places already in the bar are read again, so a layout saved after they were first drawn takes hold.
         crate::settings::layout::hold(r#"{"version":1,"rail":{"hidden":["kit"]}}"#);
         let swapped = with_places(hidden, Front::Jobs, false, true, true, true);
-        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "features"], "Features is back and Kit is gone");
+        assert_eq!(drawn_ids(&swapped), ["operator", "jobs", "reviews", "project"], "Project is back and Kit is gone");
         crate::settings::layout::hold("");
-        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "reviews", "kit", "features"]);
+        assert_eq!(drawn_ids(&with_places(swapped, Front::Jobs, false, true, true, true)), ["operator", "jobs", "reviews", "kit", "project"]);
     }
 
     #[gpui::test]
-    fn features_is_a_tab_named_features_and_a_press_brings_it_to_the_front_and_reads_the_library(cx: &mut TestAppContext) {
+    fn project_is_a_tab_named_project_and_a_press_brings_it_to_the_front_and_its_features_tab_reads_the_library(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
             OperatorScreen::mock_reviews(jobs, window, cx)
         });
         redraw(cx);
-        let tab = drawn(cx, Role::Tab, "Features").expect("the strip draws Features, named as the person reads it");
+        let tab = drawn(cx, Role::Tab, "Project").expect("the strip draws Project, named as the person reads it");
         assert!(!entered(&screen, cx));
         cx.simulate_click(tab.center(), gpui::Modifiers::default());
         redraw(cx);
         assert_eq!(screen.read_with(cx, |screen, _| screen.front), Front::Features);
         assert!(entered(&screen, cx), "the screen follows Fleet once it is in front");
+        assert!(drawn(cx, Role::Region, "Needs you").is_some(), "the place opens on its Dashboard");
+        let features = drawn(cx, Role::Tab, "Features").expect("the Project place draws its Features tab");
+        cx.simulate_click(features.center(), gpui::Modifiers::default());
+        redraw(cx);
         assert!(drawn(cx, Role::ListBoxOption, "Start a Job").is_some(), "the library's features are drawn, each named");
     }
 
     #[gpui::test]
-    fn another_place_taking_the_front_has_features_leave(cx: &mut TestAppContext) {
+    fn another_place_taking_the_front_has_project_leave(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
@@ -931,14 +937,14 @@ mod tests {
         cx.update(|window, cx| screen.update(cx, |screen, cx| screen.bring(Some(Front::Features), window, cx)));
         assert!(entered(&screen, cx));
         cx.update(|window, cx| screen.update(cx, |screen, cx| screen.bring(Some(Front::Kit), window, cx)));
-        assert!(!entered(&screen, cx), "Kit in front, Features stops following Fleet");
+        assert!(!entered(&screen, cx), "Kit in front, Project stops following Fleet");
         cx.update(|window, cx| screen.update(cx, |screen, cx| screen.bring(Some(Front::Features), window, cx)));
         cx.update(|window, cx| screen.update(cx, |screen, cx| screen.bring(Some(Front::Jobs), window, cx)));
         assert!(!entered(&screen, cx), "so does Jobs in front");
     }
 
     #[gpui::test]
-    fn command_5_is_features_with_operator_jobs_reviews_and_kit_before_it(cx: &mut TestAppContext) {
+    fn command_5_is_project_with_operator_jobs_reviews_and_kit_before_it(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
@@ -955,7 +961,7 @@ mod tests {
     }
 
     #[gpui::test]
-    fn a_live_features_screen_reads_its_library_when_it_comes_to_the_front(cx: &mut TestAppContext) {
+    fn a_live_project_screen_reads_its_library_when_it_comes_to_the_front(cx: &mut TestAppContext) {
         ready(cx);
         let (screen, cx) = cx.add_window_view(|window, cx| {
             let jobs = jobs_screen(window, cx);
@@ -963,7 +969,7 @@ mod tests {
             OperatorScreen::live(jobs, &fleet, window, cx)
         });
         let not_read = |screen: &Entity<OperatorScreen>, cx: &mut VisualTestContext| {
-            screen.read_with(cx, |screen, cx| screen.features.as_ref().and_then(|features| features.read(cx).not_read().map(str::to_string)))
+            screen.read_with(cx, |screen, cx| screen.features.as_ref().and_then(|features| features.read(cx).not_read(cx)))
         };
         assert_eq!(not_read(&screen, cx), None, "nothing is asked of Fleet before the screen is in front");
         cx.update(|window, cx| screen.update(cx, |screen, cx| screen.bring(Some(Front::Features), window, cx)));

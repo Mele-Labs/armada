@@ -270,6 +270,11 @@ The Job's mark, the standing calls and Pocket's push all read it.
 An item is Ready for you only when it shows built work.
 Every other item is Needs you, and `done` is neither, since it never counted as owed.
 
+**A Job that said it is done is neither either.**
+Once it calls `all_done` its mark reads Done in the Done group, with no dock count, banner, sound or push, until he ends it.
+The owner, 23 Nov 2026: "Jobs where the agent has said they are done and its ready to end should be in its own group."
+Native draws them as their own Done group, last, behind a Done Jobs switch in the list's view menu.
+
 | Source | State |
 |---|---|
 | `ready_to_try` | Ready for you |

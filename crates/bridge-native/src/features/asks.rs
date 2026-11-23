@@ -55,7 +55,7 @@ fn mark(look: &Look, row: &Row, bug: bool) -> impl IntoElement {
 }
 
 /// The frame every row shares: its hairline above, and the accent at 12% where the keys are on it.
-fn frame(look: &Look, id: impl Into<ElementId>, spot: Spot) -> Stateful<Div> {
+pub(super) fn frame(look: &Look, id: impl Into<ElementId>, spot: Spot) -> Stateful<Div> {
     let edge = spot.divider.unwrap_or_else(|| look.color(token::BORDER_SUBTLE));
     div()
         .id(id.into())
