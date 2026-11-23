@@ -1,0 +1,18 @@
+[operations.act_on_margin_thread]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Make this change, Accept, Reject or Settle on one margin thread of a Job's page"
+notes = """
+`POST /sessions/margin/act`, body `ActOnMargin`: `session_id`, `thread` and `act`, one of `{ kind: "make_change" }`, `{ kind: "accept" }`, `{ kind: "reject" }` and `{ kind: "settle", outcome? }`. Answered with `MarginThreads`; `SessionChanged` is published, and a client holding the Job's thread gets `job_thread.tail`. **Each act sends the Job one message**, a round of its own, before anything is kept, so a send that fails changes nothing.
+
+**Make this change** asks the agent to turn its answer into an edit with `suggest_edit`, and not to write the page. The thread is `open` until the edit arrives.
+
+**Accept** applies the suggested edit to the newest revision, `struck` read as `added` in one run of text, tells the Job which revision holds it, then writes the page **through the path his Edit takes**: the file in the checkout the Job last wrote it at, where that is still there, and Fleet's copy, kept as the page's next revision. The page's Needs you item and the Accept hold one lock, so they never cross. The thread's quote reads as edited, and the thread is `answered`, the suggestion `accepted` with the revision. 422 `fleet.margin_no_suggestion` where no suggestion waits, or the newest revision no longer holds `struck`; 422 `fleet.margin_busy` while the page is being answered.
+
+**Reject** tells the Job the page is as it was. The suggestion is `rejected` and the thread `answered`.
+
+**Settle** closes the thread and asks the agent to add its outcome to the page's Decisions section and write the page again: his `outcome` where he gave one, else the outcome as the thread reached it. The thread is `settled`, keeps `outcome`, and takes no more comments or acts (422 `fleet.margin_settled`).
+
+`agent_access` is `No`: each is the person's.
+"""

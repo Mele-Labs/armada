@@ -79,6 +79,7 @@ mod workflow_drafts;
 mod notice_mutes;
 mod word_asks;
 mod job_renames;
+mod margin_threads;
 mod request_runs;
 mod lifecycle_instances;
 mod job_copy_edits;

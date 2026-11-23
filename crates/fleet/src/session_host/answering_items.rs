@@ -127,7 +127,8 @@ where
                     Err(refusal) => return refused(&refusal),
                 };
                 let how = if approve { DocumentHow::Approved } else { DocumentHow::SentBack };
-                self.document_answered(AnswerDocument { session_id, document: item.id.clone(), revision, how, words, extras: one.extras.clone() }).await
+                let answer = AnswerDocument { session_id, document: item.id.clone(), revision, how, words, extras: one.extras.clone() };
+                self.document_answered_noted(answer, &one.notes).await
             }
             WaitingSource::Plan => match plan_version(&item.id) {
                 Some(version) if approve && notes.is_empty() => self.plan_approved(ApprovePlan { session_id, version }).await,

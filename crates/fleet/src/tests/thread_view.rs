@@ -101,6 +101,7 @@ pub(super) fn kinds(items: &[ThreadItem]) -> Vec<&'static str> {
             ThreadItem::Plan(_) => "plan",
             ThreadItem::Judged { .. } => "judged",
             ThreadItem::ReadyToTry(_) => "ready_to_try",
+            ThreadItem::Margin(_) => "margin",
         })
         .collect()
 }
@@ -345,7 +346,7 @@ fn a_ready_card_stands_at_its_offer_though_an_early_row_was_rewritten_later() {
     let card = r#"{"id":"try:b@t","at":"2026-11-03T10:10:00.000Z","offered_at":"2026-11-03T10:10:00.000Z","branch":"b","tip":"t","about":"One","in_build":false,"state":"open"}"#;
     let card: ipc::ThreadReadyToTry = ipc::decode("a card", card.as_bytes()).expect("a card");
     let rows = vec![agent("a", 0, "x"), rewritten, agent("b", 5, "y"), agent("c", 20, "z")];
-    let found = folded_with(&thread(rows), &[], &Revisions::new(), &[card]).1;
+    let found = folded_with(&thread(rows), &[], &Revisions::new(), &[card], &[]).1;
     assert_eq!(ids(&found), ["a", "ask", "b", "try:b@t", "c"]);
 }
 

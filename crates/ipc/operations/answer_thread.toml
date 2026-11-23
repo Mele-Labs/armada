@@ -1,0 +1,15 @@
+[operations.answer_thread]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Yes"
+description = "Answer the owner's comment in a margin thread on your page. The answer changes nothing on the page. Body: thread, the id his message names (m1), and text"
+notes = """
+`POST /sessions/margin/answer`, body `AnswerThread`: `thread`, `text` and an optional `session_id`. Answered with the `MarginThread`; `SessionChanged` is published, and a client holding the Job's thread gets `job_thread.tail`.
+
+**The job is the one whose process holds the connection** when Fleet hosts it, whatever the body says; `session_id` is read only for a job in a terminal. **The page is not touched**: the answer is kept in the thread as the agent's, and an `open` thread is `answered`. A thread whose edit waits on him stays `suggested`.
+
+Refused with 422: `fleet.margin_empty` for blank words, `fleet.margin_no_thread` for a thread the job has none of, `fleet.margin_settled` for a settled one, `fleet.margin_not_sent` for one he holds and has not sent, and `fleet.margin_unnamed` for a call that places no job.
+
+`agent_access` is `Yes`: the agent answers his margin comments with it, in place of writing the page again.
+"""
