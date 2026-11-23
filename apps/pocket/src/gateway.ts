@@ -126,6 +126,12 @@ export type PhoneSession = {
   };
   step?: string;
   now?: string;
+  /**
+   * What the owner does for what a row owes (`PhoneOwes` in `crates/pocket/src/phone_sessions.rs`): the kinds of its Needs
+   * you items, else of its Ready for you items, once each. Absent where none is one of the six, and the row then reads an
+   * `ask` for Answer or Approve.
+   */
+  owes?: ("answer" | "run" | "approve" | "try" | "walk" | "read")[];
 };
 
 export type PhoneHold =

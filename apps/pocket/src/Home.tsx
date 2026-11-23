@@ -1,6 +1,6 @@
 // Home: every paired Mac's live Jobs in one list, drawn as native's Jobs list: under the notch bar, a search, a project
-// and a scope, then a heading per project and its Jobs, Needs you first, each Job another started folded under its
-// starter. A Job in no project is listed only under All, headed by its repository.
+// and a scope, then Needs you and Ready for you over every project, then a heading per project and its Jobs, each Job
+// another started folded under its starter. A Job in no project is listed only under All, headed by its repository.
 // A Mac that forgot the phone, or is not answering, is a row of its own at the top.
 
 import { useRef, useState } from "react";
@@ -10,6 +10,7 @@ import { bucketOf } from "./kit/components/compositions/SessionFrame/SessionFram
 import { actsOn } from "./jobState";
 import { homeOf, useFleet, type Item, type Line } from "./fleet";
 import { JobRow, MacRow } from "./JobList";
+import { readyOf } from "./rowState";
 import { Notch } from "./Notch";
 import { draftPath, go, jobPath, pairPath } from "./router";
 
@@ -27,7 +28,7 @@ const inScope = (scope: Scope, item: Item): boolean => {
   const draft = item.session.held || item.session.blank === true;
   switch (scope) {
     case "needs":
-      return bucketOf(item.state) === "needs" && item.state !== "paused";
+      return bucketOf(item.state) === "needs" && item.state !== "paused" && !readyOf(item);
     case "active":
       return item.state !== "paused";
     case "paused":
@@ -87,7 +88,7 @@ function shownOf(lines: readonly Line[], folded: ReadonlySet<string>) {
 
 export function Home() {
   const fleet = useFleet();
-  const { several, repositories, troubled } = homeOf(fleet);
+  const { several, needs, ready, repositories, troubled } = homeOf(fleet);
   const [scope, setScope] = useState<Scope>("active");
   const [words, setWords] = useState("");
   const [project, setProject] = useState<string | undefined>(undefined);
@@ -129,6 +130,35 @@ export function Home() {
         : shownOf(one.lines, folded),
     }))
     .filter((one) => one.shown.length > 0);
+  /** Needs you, then Ready for you: each Job on its own line, under the project filter and the scope. */
+  const lifted = [
+    {
+      look: "needs",
+      name: "Needs you",
+      items: needs,
+    },
+    {
+      look: "ready",
+      name: "Ready for you",
+      items: ready,
+    },
+  ]
+    .map((group) => ({
+      ...group,
+      shown: group.items
+        .filter((item) => project === undefined || item.session.project === project)
+        .filter(match)
+        .map((item) => ({
+          line: {
+            item,
+            depth: 0,
+            through: [],
+            last: true,
+          },
+          kids: [],
+        })),
+    }))
+    .filter((group) => group.shown.length > 0);
   return (
     <section className="pk-screen" aria-label="Home">
       <Notch
@@ -199,9 +229,17 @@ export function Home() {
             ))}
           </ul>
         )}
-        {groups.map((group) => (
+        {[
+          ...lifted,
+          ...groups.map((group) => ({
+            ...group,
+            look: undefined,
+          })),
+        ].map((group) => (
           <section key={group.name} className="pk-group" aria-label={group.name}>
-            <h2 className="pk-group__head">{group.name}</h2>
+            <h2 className="pk-group__head" data-look={group.look}>
+              {group.name}
+            </h2>
             <ul className="pk-jobs">
               {group.shown.map(({ line, kids }) => {
                 const { session } = line.item;
