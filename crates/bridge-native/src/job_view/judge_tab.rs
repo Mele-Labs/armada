@@ -305,7 +305,7 @@ impl JobView {
             .flex_col()
             .gap(look.length(token::SPACE_2))
             .child(what("A Judge reads this Job once on the strongest model, read-only. It sees what you asked for, the work and the repository, and never the agent's account of it. A note reaches the agent only if you send it."))
-            .child(what("Pick a judge, then say what to look at in particular. Left empty, it looks for what was missed."))
+            .child(what("Say what to look at in particular. Left empty, it looks for what was missed."))
             .children(self.judge_chips(KEY, super::judge::Chips::Tab, look, cx))
             .child(composer);
         Some(

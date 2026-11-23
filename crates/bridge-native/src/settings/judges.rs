@@ -1,7 +1,7 @@
 //! Settings › This Mac › Judges: the judge types a project sees, and the ones he keeps in Kit. The list stands on the left, the
 //! picked type on the right: an Armada type read only with the two ways to copy it into his Kit, one of his own to edit,
 //! reset or delete. A type is saved in Kit on this Mac, for all projects or for one; the repository's copy is a file in its own
-//! `.armada/judges/`, and committing one there is a Job Fleet starts, which this page asks for and does not yet get.
+//! `.armada/judges/`, and committing one there is a Job Fleet starts, which this page asks for.
 
 use std::cell::Cell;
 use std::collections::BTreeMap;
@@ -400,9 +400,35 @@ impl SettingsOverlay {
         cx.notify();
     }
 
-    /// Commit to the repository starts a Job Fleet has no route for yet.
-    fn judge_commit(&mut self, cx: &mut Context<Self>) {
-        cx.defer(|cx| crate::toasts::tell("Commit to repository is not built yet", cx));
+    /// Commit the picked type to the project's repository: Fleet starts a Job that adds the file and opens a pull request.
+    fn judge_commit(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.judges.saving || !self.live {
+            return;
+        }
+        let Some(one) = self.judge_picked().filter(|one| one.source == ReviewToolSource::Kit).cloned() else { return };
+        let Some(root) = self.judge_manifests().into_iter().next().and_then(|manifest| self.wire.repository_root(&manifest, cx)) else {
+            self.judges.refused = Some("The repository is not one Fleet serves".to_string());
+            return;
+        };
+        let project = self.judges.project.as_ref().map_or_else(String::new, |(_, name)| name.clone());
+        let task = self.wire.commit_judge_type(&root, &one.id, one.project.as_deref(), cx);
+        self.judges.saving = true;
+        self.judges.refused = None;
+        self.judges._write = Some(cx.spawn_in(window, async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update_in(cx, |this, _, cx| {
+                this.judges.saving = false;
+                match answer {
+                    Err(why) => this.judges.refused = Some(why.said),
+                    Ok(_) => {
+                        let said = format!("Committing {} to {project}'s repository in a Job", one.name);
+                        cx.defer(move |cx| crate::toasts::tell(said, cx));
+                    }
+                }
+                cx.notify();
+            });
+        }));
+        cx.notify();
     }
 
     /// A control pressed, by its key's name.
@@ -414,7 +440,7 @@ impl SettingsOverlay {
             "applies:one" => self.judges.all_projects = false,
             "save" => self.judge_save(window, cx),
             "reset" => self.judge_reset(window, cx),
-            "commit" => self.judge_commit(cx),
+            "commit" => self.judge_commit(window, cx),
             "edit:one" => self.judge_copy(false, window, cx),
             "edit:all" => self.judge_copy(true, window, cx),
             _ => {}

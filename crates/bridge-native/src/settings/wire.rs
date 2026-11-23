@@ -654,6 +654,28 @@ impl Wire {
         self.port(cx).map_or_else(unreachable, |port| cx.background_spawn(async move { crate::reviews::read_tools(port, &manifest).map_err(Refused::said) }))
     }
 
+    /// The root of the repository a Manifest names, which `commit_to_repository` is asked in.
+    pub fn repository_root(&self, manifest: &str, cx: &App) -> Option<String> {
+        let held = match self {
+            Wire::Live(fleet) => fleet.read(cx).held().repositories.clone()?,
+            Wire::Mock(mock) => mock.repositories.clone(),
+        };
+        held.into_iter().find(|one| one.manifest.as_ref().is_some_and(|found| found.id.as_str() == manifest)).map(|one| one.root)
+    }
+
+    /// `POST /repositories/commit` for a judge type of Kit's: a Job of its own adds the file to the repository.
+    pub fn commit_judge_type(&mut self, root: &str, id: &str, project: Option<&str>, cx: &App) -> Task<Result<ipc::CommittedToRepository, Refused>> {
+        if let Wire::Mock(mock) = self {
+            return Task::ready(if mock.connected {
+                Ok(ipc::CommittedToRepository { repository: root.to_string(), session_id: ipc::SessionId::carried("mock-commit"), branch: format!("armada/commit-{id}"), paths: vec![format!(".armada/judges/{id}.md")] })
+            } else {
+                Err(Refused::said("Fleet is not connected"))
+            });
+        }
+        let said = body(&ipc::CommitToRepository { repository: root.to_string(), piece: ipc::PieceToCommit::JudgeType { id: id.to_string(), project: project.map(str::to_string) }, overwrite: false, remove: false });
+        self.port(cx).map_or_else(unreachable, |port| request(port, Ask::Post("/repositories/commit".into(), said), "CommittedToRepository", cx))
+    }
+
     /// `GET /judge_types/:repository?project=`: the judge types a project sees in one repository.
     pub fn judge_types(&mut self, manifest: &str, project: Option<&str>, cx: &App) -> Task<Result<Vec<ipc::JudgeType>, Refused>> {
         if let Wire::Mock(mock) = self {
