@@ -259,7 +259,7 @@ pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, Shar
         JobState::Working => ("circle-dot", "Working"),
         JobState::Running => ("square-terminal", "Running"),
         JobState::Subagent => ("split", "Subagent working"),
-        JobState::Waiting | JobState::StoppedAsks => (if state == JobState::Waiting { "eye" } else { "octagon-alert" }, "Waiting on you"),
+        JobState::Waiting | JobState::Ready | JobState::StoppedAsks => (if state == JobState::StoppedAsks { "octagon-alert" } else { "eye" }, "Waiting on you"),
         JobState::Done => ("power", "Done"),
         JobState::Stuck => ("clock", "Stuck"),
         JobState::Failing => return ("shield-x", pr.map_or("Checks failed".into(), |pr| format!("Checks failed on {pr}").into())),
@@ -282,7 +282,7 @@ pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, Shar
 /// The hue a state's glyph takes: one per bucket (`SessionFrame.css`, `data-bucket`).
 pub(crate) fn hue_of(state: JobState) -> crate::look::Token {
     match state {
-        JobState::Waiting | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
+        JobState::Waiting | JobState::Ready | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
             token::STATUS_AWAITING_REVIEW
         }
         JobState::Working | JobState::Running | JobState::Subagent => token::STATUS_RUNNING,
@@ -297,7 +297,7 @@ const HULL: f32 = 0.06;
 
 fn lamp_of(lamp: JobLamp) -> crate::look::Token {
     match lamp {
-        JobLamp::Needs => token::STATUS_AWAITING_REVIEW,
+        JobLamp::Needs | JobLamp::Ready => token::STATUS_AWAITING_REVIEW,
         JobLamp::Failed => token::STATUS_COMPLETED_FAILED,
         JobLamp::Running => token::STATUS_RUNNING,
         JobLamp::Done => token::STATUS_COMPLETED_SUCCESS,
@@ -310,7 +310,7 @@ fn lamp_of(lamp: JobLamp) -> crate::look::Token {
 fn standing_of(job: &SessionRecord) -> (u8, u8) {
     let Some(mark) = job.mark else { return (4, 2) };
     let group = match mark.group {
-        JobGroup::Needs => 0,
+        JobGroup::Needs | JobGroup::Ready => 0,
         JobGroup::Working => 1,
         JobGroup::Held => 2,
         JobGroup::Done => 3,
@@ -732,7 +732,7 @@ fn fold_lines(lines: Vec<Line>, folds: &Folds) -> Vec<Line> {
             }
             // Needs you first, then failed, then running, then the rest as they stand.
             strip.sort_by_key(|sub| match sub.mark.lamp {
-                JobLamp::Needs => 0,
+                JobLamp::Needs | JobLamp::Ready => 0,
                 JobLamp::Failed => 1,
                 JobLamp::Running => 2,
                 _ => 3,

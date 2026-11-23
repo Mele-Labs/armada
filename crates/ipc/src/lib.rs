@@ -516,7 +516,7 @@ pub use session_mcp::{
 };
 pub use session_quick::SessionQuick;
 pub use merge_line_view::{MainRedJob, MainView, MergeLineView, MergeLineViews, PullTone, PullView};
-pub use job_mark::{JobGroup, JobLamp, JobMark, JobState};
+pub use job_mark::{owed_kind, JobGroup, JobLamp, JobMark, JobState, OwedKind};
 pub use job_compact::{CompactHow, CompactOff, CompactOffer};
 pub use job_lanes::{
     JobLanesHeld, JobLanesView, LaneAutonomy, LaneCarriedTicket, LaneChange, LaneCopy, LaneEdge, LaneFired, LaneFiredAct,
@@ -789,7 +789,7 @@ pub use margin::{
 };
 pub use document_answer::{
     AnswerDocument, DocumentHow, DOCUMENT_ASKED, DOCUMENT_ITEM_PREFIX, DOCUMENT_KEPT_AT, DOCUMENT_REVISION, DOCUMENT_SETTLED,
-    DOCUMENT_SETTLED_AT, DOCUMENT_WORDS,
+    DOCUMENT_SETTLED_AT, DOCUMENT_WORDS, READ_ITEM_PREFIX,
 };
 pub use artifact::{
     ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,

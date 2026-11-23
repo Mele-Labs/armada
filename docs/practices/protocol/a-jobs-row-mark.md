@@ -19,9 +19,9 @@ Bridge's half is `packages/protocol/src/job-mark.ts`, written by hand, field for
 | `JobMark` | Fleet writes | `{ state, lamp, group }` |
 | `SessionRecord.viewed_at` | Fleet writes, Bridge reads | the last instant he was in the Job; absent where never |
 | `view_session` | Bridge writes | `POST /sessions/view`, `ViewSession { session_id, on }`, answered with the `SessionRecord` |
-| `JobState` | | Bridge's `SessionState`, value for value |
-| `JobLamp` | | `needs`, `failed`, `running`, `done`, `idle` |
-| `JobGroup` | | `needs`, `working`, `held`, `done` |
+| `JobState` | | Bridge's `SessionState`, value for value, and `ready`, which Electron's reading has no word for |
+| `JobLamp` | | `needs`, `ready`, `failed`, `running`, `done`, `idle` |
+| `JobGroup` | | `needs`, `ready`, `working`, `held`, `done` |
 
 ## What Fleet reads
 
@@ -38,7 +38,13 @@ Fleet takes them from what the ledger already read: the lapsed question is the o
 Where Fleet's reading differs from Bridge's:
 
 - **Its own pull request** is read from the Job's `pr` attachments, which Fleet's pull reading fills. Bridge prefers the merge line's listing of the same pull request where it has one.
-- **An owed walk** is a `walk` item in `waiting_for`. Bridge also counts a mock walk he has not approved, which only Bridge keeps.
+- **An owed walk** is a `walk` item in `waiting_for`.
+  Bridge also counts a mock walk he has not approved, which only Bridge keeps.
+  Bridge's row asks for it; Fleet's is Ready, since a walk is built work to look at.
+- **Ready for him** is a state Bridge's reading does not have.
+  A resting Job whose owed items all show built work (`owed_kind` in `crates/ipc/src/job_mark.rs`) reads `ready`, with the Ready lamp and group, where Bridge reads `waiting`.
+  One item that is Needs you, or a lapsed question, keeps it `waiting`.
+  The rule is in `docs/concepts/session/waiting-on-the-person.md`.
 - **A Custom tab's Mod Job that asks** does not mark the Jobs that hold the tab. Mods come after the switch to the native app.
 - **A lapsed question** is read from the whole thread, where Bridge reads it only from a thread it has open.
 - **A blank Job** counts every attachment that is not given back, where Bridge leaves out a kind it has no screen for, and takes a title of only space as none.

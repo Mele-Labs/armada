@@ -157,6 +157,29 @@ async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
 }
 
 #[tokio::test]
+async fn built_work_to_look_at_is_no_call_and_no_news_but_a_need_beside_it_is() {
+    let rig = rig_placing(None);
+    let mut record = row(&rig).await;
+    let mut keeper = seeded(&record);
+    keeper.changed(&nowhere, now());
+
+    record.waiting_for = vec![
+        item("try:job", "Ready to try", WaitingSource::ReadyToTry, 1),
+        item("walk:http://localhost:5173/", "Findings", WaitingSource::Walk, 2),
+        item("read:a.html", "Read: A page", WaitingSource::Document, 3),
+    ];
+    keeper.hear(&record);
+    assert_eq!(keeper.changed(&nowhere, now()), None, "Ready for him is not Needs you: nothing counts, sounds or pushes");
+    assert!(keeper.standing(&nowhere, now()).is_empty());
+
+    record.waiting_for.push(item("ask:1", "Which clock?", WaitingSource::AskCard, 4));
+    keeper.hear(&record);
+    let told = keeper.changed(&nowhere, now()).expect("the question is news");
+    assert_eq!(told.arrived, [arrival(&record, "Which clock?", CallTone::Blocked, CallArrivalKind::Needs)]);
+    assert_eq!(told.calls.len(), 1, "{:?}", told.calls);
+}
+
+#[tokio::test]
 async fn a_job_held_on_its_start_card_is_news_as_not_started() {
     let rig = rig_placing(None);
     let mut record = row(&rig).await;

@@ -226,7 +226,7 @@ fn tone_of(state: JobState) -> Tone {
     match state {
         JobState::Working | JobState::Running | JobState::Subagent => Tone::Running,
         JobState::Stuck | JobState::Failing | JobState::Unstarted => Tone::Failed,
-        JobState::Waiting => Tone::Escalated,
+        JobState::Waiting | JobState::Ready => Tone::Escalated,
         JobState::Replied | JobState::Done => Tone::Done,
         JobState::Ended | JobState::Quiet | JobState::Stopped | JobState::StoppedAsks => Tone::Stopped,
         JobState::Idle | JobState::Blank | JobState::Limited | JobState::After | JobState::Draft | JobState::Held | JobState::Paused => Tone::Pending,
