@@ -159,7 +159,8 @@ export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
 }
 
 /** Built work waits for him to try, walk or read, and nothing blocks on him: Fleet's mark says so. */
-export const readyOf = (item: Pick<Item, "session">): boolean => item.session.mark?.lamp === "ready";
+export const readyOf = (item: Pick<Item, "session">): boolean =>
+  item.session.mark?.lamp === "ready";
 
 /** What he does for what a row waits on, for its chips. None for a Job that is neither Needs you nor Ready for you. */
 export type Owes = NonNullable<PhoneSession["owes"]>[number];

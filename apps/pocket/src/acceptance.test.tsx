@@ -16,6 +16,7 @@ import {
   artifactsJob,
   everyState,
   fixtureMacs,
+  markedJobs,
   partsJob,
   type FixtureMac,
 } from "./fixture/wire";
@@ -646,6 +647,84 @@ describe("the phone draws as Bridge does", {
       "Armada",
       "store",
     ]);
+  });
+
+  it("heads the list with Needs you and Ready for you, draws a chip for what he does on each row, and keeps Ready for you out of the Needs you scope", async () => {
+    const [, command, , walk] = markedJobs(NOW);
+    const { owes: _unsaid, ...unsaid } = command!;
+    macs[STUDIO]!.live.unshift(
+      ...markedJobs(NOW),
+      {
+        ...command!,
+        id: "m6",
+        title: "Approve the retry plan",
+        owes: [
+          "approve",
+        ],
+      },
+      {
+        ...walk!,
+        id: "m7",
+        title: "Read the librarian notes",
+        owes: [
+          "read",
+        ],
+      },
+      {
+        ...unsaid,
+        id: "m8",
+        title: "Unknown kind of wait",
+      },
+    );
+    await open("/");
+    await vi.waitFor(() => expect(job("Settings page, Account tab")).not.toBeNull());
+    const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
+    expect(headings.slice(0, 2)).toEqual([
+      "Needs you",
+      "Ready for you",
+    ]);
+    expect(titles("Needs you")).toEqual(
+      expect.arrayContaining([
+        "Pick the retry budget for pushes",
+        "Restart the preview on the new build",
+        "Approve the retry plan",
+        "Unknown kind of wait",
+      ]),
+    );
+    expect(titles("Ready for you")).toEqual([
+      "Settings page, Account tab",
+      "Redraw the Job card's lamp",
+      "Read the librarian notes",
+    ]);
+    const chips = (title: string) =>
+      Array.from(job(title)!.querySelectorAll(".pk-job__chip[data-look]")).map(
+        (one) => one.textContent,
+      );
+    expect(chips("Pick the retry budget for pushes")).toEqual([
+      "Answer",
+    ]);
+    expect(chips("Restart the preview on the new build")).toEqual([
+      "Run",
+    ]);
+    expect(chips("Approve the retry plan")).toEqual([
+      "Approve",
+    ]);
+    expect(chips("Settings page, Account tab")).toEqual([
+      "Try",
+    ]);
+    expect(chips("Redraw the Job card's lamp")).toEqual([
+      "Walk",
+    ]);
+    expect(chips("Read the librarian notes")).toEqual([
+      "Read",
+    ]);
+    expect(chips("Unknown kind of wait")).toEqual([]);
+    expect(lamp("Settings page, Account tab")).toBe("ready");
+    expect(lamp("Pick the retry budget for pushes")).toBe("needs");
+    await scope("needs");
+    expect(job("Pick the retry budget for pushes")).not.toBeNull();
+    expect(job("Settings page, Account tab")).toBeNull();
+    expect(job("Redraw the Job card's lamp")).toBeNull();
   });
 
   it("steps a Job another started in under its starter, one step for each starter above it, and names the starter on each Job stepped in", async () => {
