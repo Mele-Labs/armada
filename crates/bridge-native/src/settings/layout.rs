@@ -57,7 +57,7 @@ pub const REGIONS: [Region; 3] = [
             row("overview", "Cockpit", "layout-dashboard", false),
             row("sessions", "Jobs", "square-terminal", true),
             row("kit", "Kit", "briefcase", true),
-            row("features", "Features", "library", true),
+            row("features", "Project", "layout-dashboard", true),
             row("mods", "Mods", "puzzle", false),
             row("settings", "Settings", "settings", false),
             row("guides", "Guides", "book-open", true),

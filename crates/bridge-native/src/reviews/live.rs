@@ -233,7 +233,7 @@ impl ReviewsScreen {
         }
     }
 
-    fn manifest_of(&self, number: u64) -> Option<String> {
+    pub(super) fn manifest_of(&self, number: u64) -> Option<String> {
         self.live.as_ref()?.pulls.get(&number).map(|pull| pull.row.manifest.clone())
     }
 

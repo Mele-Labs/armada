@@ -26,7 +26,7 @@ pub enum Front {
     Reviews,
     /// The owner's Claude Code setup, kind by kind.
     Kit,
-    /// The project's feature library, on the project the bar is scoped to.
+    /// The project's place: its dashboard and its feature library, on the project the bar is scoped to.
     Features,
     /// Where the burn was wasted. No place in the strip: it is reached by name from the palette.
     Usage,
@@ -39,7 +39,7 @@ impl Front {
             Front::Jobs => "jobs",
             Front::Reviews => "reviews",
             Front::Kit => "kit",
-            Front::Features => "features",
+            Front::Features => "project",
             Front::Usage => "usage",
         }
     }
@@ -52,7 +52,7 @@ pub struct OperatorScreen {
     pub within: FocusHandle,
     reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
     kit: Option<Entity<crate::kit::KitScreen>>,
-    features: Option<Entity<crate::features::FeaturesScreen>>,
+    features: Option<Entity<crate::project_board::ProjectScreen>>,
     usage: Option<Entity<crate::usage_page::UsageScreen>>,
     toasts: Entity<crate::toasts::Toasts>,
     /// The Fleet whose repositories a pasted pull request link is read against; the walks' own where none.
@@ -95,13 +95,14 @@ fn with_places(mut face: Face, here: Front, reviews: bool, kit: bool, features: 
     if kit && !face.places.iter().any(|place| place.id == "kit") {
         face.places.push(Place { id: "kit", label: "Kit", glyph: "briefcase", shown: true, hideable: true });
     }
-    // Issues has no native screen yet, so Features follows the last place there is.
-    if features && !face.places.iter().any(|place| place.id == "features") {
-        face.places.push(Place { id: "features", label: "Features", glyph: "library", shown: true, hideable: true });
+    // Issues has no native screen yet, so Project follows the last place there is.
+    if features && !face.places.iter().any(|place| place.id == "project") {
+        face.places.push(Place { id: "project", label: "Project", glyph: "layout-dashboard", shown: true, hideable: true });
     }
-    // Settings > Layout's choice for a place that has a row there, read each time the places are drawn.
-    for place in face.places.iter_mut().filter(|place| matches!(place.id, "kit" | "features")) {
-        place.shown = !crate::settings::layout::hidden("rail", place.id);
+    // Settings > Layout's choice for a place that has a row there, read each time the places are drawn. Project's row is still
+    // kept under `features`, the id the saved layout has always used for it.
+    for place in face.places.iter_mut().filter(|place| matches!(place.id, "kit" | "project")) {
+        place.shown = !crate::settings::layout::hidden("rail", if place.id == "project" { "features" } else { place.id });
     }
     face.here = Some(here.id());
     face
@@ -112,7 +113,7 @@ impl OperatorScreen {
         let page = cx.new(|cx| OperatorPageView::live(fleet, window, cx));
         let reviews = cx.new(|cx| crate::reviews::ReviewsScreen::live(fleet, window, cx));
         let kit = cx.new(|cx| crate::kit::KitScreen::live(fleet, window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::live(fleet, None, window, cx));
+        let features = cx.new(|cx| crate::project_board::ProjectScreen::live(fleet, Some(reviews.clone()), window, cx));
         let usage = cx.new(|cx| crate::usage_page::UsageScreen::live(fleet, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
@@ -151,7 +152,7 @@ impl OperatorScreen {
             reviews
         });
         let kit = cx.new(|cx| crate::kit::KitScreen::mock(window, cx));
-        let features = cx.new(|cx| crate::features::FeaturesScreen::mock(window, cx));
+        let features = cx.new(|cx| crate::project_board::ProjectScreen::mock(Some(reviews.clone()), window, cx));
         let mut this = Self::new(jobs, page, Front::Jobs, Some(reviews), Some(kit), Some(features), window, cx);
         this.usage = Some(usage);
         this.name_jobs(cx);
@@ -171,7 +172,7 @@ impl OperatorScreen {
         front: Front,
         reviews: Option<Entity<crate::reviews::ReviewsScreen>>,
         kit: Option<Entity<crate::kit::KitScreen>>,
-        features: Option<Entity<crate::features::FeaturesScreen>>,
+        features: Option<Entity<crate::project_board::ProjectScreen>>,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> Self {
@@ -221,7 +222,7 @@ impl OperatorScreen {
                 Asked::Place("jobs") => Some(Some(Front::Jobs)),
                 Asked::Place("reviews") => Some(Some(Front::Reviews)),
                 Asked::Place("kit") => Some(Some(Front::Kit)),
-                Asked::Place("features") => Some(Some(Front::Features)),
+                Asked::Place("project") => Some(Some(Front::Features)),
                 Asked::Place("usage") => Some(Some(Front::Usage)),
                 _ => None,
             };
