@@ -73,6 +73,8 @@ const SCOPES: &[&str] = &[
     "kit",
     "usage",
     "features",
+    "tokens",
+    "api client",
     "project board",
 ];
 
