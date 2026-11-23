@@ -950,17 +950,24 @@ where
 
     /// `keep_fleet_build`. **Marks Keep first**, so `trying` empties even where no Job can be told,
     /// then tells the live Job holding each branch that was being tried. A branch no live Job holds,
-    /// and a Job that could not be told, are skipped; each Job named once.
+    /// and a Job that could not be told, are skipped; each Job named once. **His Keep is his Looks good**
+    /// on each branch kept: it closes the holding Job's first open `you_approved` gate, as the Ready to try
+    /// card's does. Keep alone left finished Jobs asking him to approve what he had kept (23 Nov 2026).
     pub(crate) async fn keep_fleet_build_now(self: &Arc<Self>) -> Result<FleetBuildKept, Refusal> {
         let support = crate::runtime::support_dir(&self.host().home);
         let branches = kept_builds::kept_tried(&support)
             .map_err(|why| Refusal::Fault(WireError::raised(NOT_KEPT, why.to_string(), self.run_id())))?;
         let holders = self.holders_of_held(self.build_checkout().as_deref()).await;
+        let at = self.now().as_str().to_string();
         let mut told = Vec::new();
         for branch in branches {
             let Some((session, title)) = holders.get(&branch) else {
                 continue;
             };
+            let approval = store::KeptApproval { item_id: format!("kept:{branch}"), text: format!("Kept in your build: {branch}"), at: at.clone() };
+            if self.store().lock().await.keep_approval(session, &approval).is_ok() {
+                self.gates_kept(session).await;
+            }
             let text = format!("The person kept {branch} in the app they use. Land it: finish its pull request and let it merge.");
             if matches!(self.told_news_by_fleet(session, &text, ipc::Notice::BuildMoved).await, Ok(true)) && !told.contains(title) {
                 told.push(title.clone());
