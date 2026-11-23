@@ -84,7 +84,7 @@ pub fn jobs(scenario: &str) -> Result<Vec<SessionRecord>, String> {
 pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     let bytes: &[u8] = match scenario {
         // `jobs-snoozed` is the same Jobs with the first snoozed, on a clock of its own (`fixed_now`).
-        "jobs-many" | "jobs-snoozed" | "job-view" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
+        "jobs-many" | "jobs-snoozed" | "job-view" | "judge-cards" | "job-for-you" | "job-questions" | "job-reasoning" | "run-commands" | "workflow-card" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Usage page on mock waste: a week with six kinds, the reading not answered yet, and a window with no burn.
@@ -384,6 +384,9 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
+    if scenario == "judge-cards" {
+        judge_readings(&mut sessions)?;
+    }
     if scenario == "slot-wait" {
         slot_wait(&mut sessions);
     }
@@ -396,6 +399,58 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         }
     }
     Ok(sessions)
+}
+
+/// What the Judge has read on `judge-cards`. The first Job holds a reading of words with two notes, one of a sketch with a note
+/// inside its card, and a clean one of a document. Three Jobs of the list hold a reading of the Job: going, with notes unread, and clean.
+fn judge_readings(sessions: &mut [SessionRecord]) -> Result<(), String> {
+    const FIRST: &str = r#"[
+        {"id":"reading-words","artifact":{"kind":"excerpt","id":"m-007/3f9a21c4","title":"The chip takes its colour from the state it reads."},"prompt":"","state":"done","asked_at":"2026-11-09T13:51:00Z","finished_at":"2026-11-09T13:51:40Z","read":false,
+         "notes":[{"id":"w1","claim":"The colour comes from the row's state, not from the stale flag","where":"apps/desktop/src/renderer/src/chip.tsx:41","expected":"The stale flag sets the colour","found":"The state sets it"},
+                  {"id":"w2","claim":"A branch with no upstream has no state to read"}]},
+        {"id":"reading-sketch","artifact":{"kind":"sketch","id":"Chip states","title":"Chip states"},"prompt":"","state":"done","asked_at":"2026-11-09T13:52:00Z","finished_at":"2026-11-09T13:52:30Z","read":false,
+         "notes":[{"id":"s1","claim":"The stale state has no word beside its colour","where":"Sketch, Chip states"}]},
+        {"id":"reading-page","artifact":{"kind":"doc","id":"design","title":"Stale branch design"},"prompt":"","state":"done","asked_at":"2026-11-09T13:53:00Z","finished_at":"2026-11-09T13:53:20Z","read":true,"notes":[]}
+    ]"#;
+    let job = |reading: &str, state: &str, notes: &str, id: &str| {
+        format!(r#"{{"id":"{reading}","artifact":{{"kind":"job","id":"{id}","title":"the Job"}},"prompt":"","state":"{state}","asked_at":"2026-11-09T13:55:00Z","read":false,"notes":[{notes}]}}"#)
+    };
+    let readings = [
+        ("mock-01", FIRST.to_string()),
+        ("mock-02", format!("[{}]", job("reading-job-2", "reading", "", "mock-02"))),
+        ("mock-03", format!("[{}]", job("reading-job-3", "done", r#"{"id":"j1","claim":"The plan names no test for the new state"}"#, "mock-03"))),
+        ("mock-04", format!("[{}]", job("reading-job-4", "done", "", "mock-04"))),
+    ];
+    for (id, wire) in readings {
+        let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == id) else { continue };
+        let held = ipc::decode::<Vec<ipc::JudgeReading>>("judge readings", wire.as_bytes()).map_err(|why| why.to_string())?;
+        one.judge_readings.extend(held);
+    }
+    Ok(())
+}
+
+/// The thread of the first Job on `judge-cards`: its sketch asks again, and each finished reading stands at the thread's end
+/// as the Judged card it makes.
+fn judged_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
+    let Some(thread) = all.get_mut("mock-01") else { return Ok(()) };
+    for item in &mut thread.items {
+        if let ipc::ThreadItem::Sketch(card) = item {
+            if card.id == "sk-1" {
+                card.settled = None;
+                card.asked = true;
+            }
+        }
+    }
+    let judged = [
+        ("reading-words", "excerpt", "m-007/3f9a21c4", "The chip takes its colour from the state it reads.", "2026-11-09T13:51:40Z", false),
+        ("reading-sketch", "sketch", "Chip states", "Chip states", "2026-11-09T13:52:30Z", false),
+        ("reading-page", "doc", "design", "Stale branch design", "2026-11-09T13:53:20Z", true),
+    ];
+    for (reading, kind, id, title, at, clean) in judged {
+        let wire = format!(r#"{{"kind":"judged","id":"judged:{reading}","at":"{at}","artifact":{{"kind":"{kind}","id":"{id}","title":"{title}"}},"clean":{clean}}}"#);
+        thread.items.push(ipc::decode("judged item", wire.as_bytes()).map_err(|why| why.to_string())?);
+    }
+    Ok(())
 }
 
 /// The claims walk's waits by Job, each moved to the run's clock so it reads as long as it was written.
@@ -541,6 +596,9 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
     if all.is_empty() {
         return Ok(all);
     }
+    if scenario == "judge-cards" {
+        judged_cards(&mut all)?;
+    }
     // The first Job's thread ends on a question of his that nothing has answered yet.
     if scenario == "job-questions" {
         if let Some(thread) = all.get_mut("mock-01") {
@@ -620,7 +678,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
     }
     let bytes: &[u8] = match scenario {
         "jobs-screens" | "jobs-pairing" | "jobs-other-mac" => return screens_threads(),
-        "job-view" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
+        "job-view" | "judge-cards" | "job-for-you" | "job-questions" | "review-palette" | "side-job" | "new-project" | "project-filter" => include_bytes!("../fixtures/job-threads.json"),
         "review-grouped" => include_bytes!("../fixtures/review-grouped-threads.json"),
         "option-pictures" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the first Job's agent showing three commands to run.
