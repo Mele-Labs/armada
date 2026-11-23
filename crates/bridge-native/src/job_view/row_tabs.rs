@@ -420,20 +420,22 @@ impl JobView {
 
     /// The walks the shown Job owes him get their tabs; a closed thread comes back when one arrives
     /// (`reopenThread`). A draft or page whose row has gone from the thread takes its tab away, as a
-    /// settled walk does.
+    /// settled walk does. So does a page or an artifact of parts while it asks: the review sheet is where he reads and
+    /// answers it, and a tab kept from before would show it twice (his note, 23 Nov).
     pub(super) fn sync_walk_tabs(&mut self, id: &SharedString, cx: &mut Context<Self>) {
         let mut subagents: HashSet<String> = self.record(id, cx).map_or_else(HashSet::new, |record| record.attachments.iter().filter(|one| one.kind == "subagent").map(|one| one.target.clone()).collect());
         subagents.extend(self.subagents_opened.keys().filter_map(|key| key.strip_prefix(id.as_ref()).and_then(|rest| rest.strip_prefix('/')).map(str::to_string)));
         if let Some(held) = self.thread(id, cx) {
+            let asks = |key: &str| self.asking_item(id, key, cx).is_some();
             let rows: HashSet<(RowKind, String)> = self.row_tabs.get(id).map_or_else(HashSet::new, |tabs| {
                 tabs.tabs
                     .iter()
                     .filter(|tab| match tab.kind {
                         RowKind::Draft => super::review::draft_row(&held.items, &tab.key).is_some(),
-                        RowKind::Document => super::review::document_card(&held.items, &tab.key).is_some(),
+                        RowKind::Document => super::review::document_card(&held.items, &tab.key).is_some() && !asks(&tab.key),
                         RowKind::Walk => true,
                         RowKind::Subagent => subagents.contains(&tab.key),
-                        RowKind::Artifact => self.artifact_of(id, &tab.key).is_some_and(|one| !one.parts.is_empty()),
+                        RowKind::Artifact => self.artifact_of(id, &tab.key).is_some_and(|one| !one.parts.is_empty()) && !asks(&tab.key),
                     })
                     .map(|tab| (tab.kind, tab.key.clone()))
                     .collect()
@@ -567,6 +569,10 @@ impl JobView {
             return;
         }
         let Some((kind, key)) = self.place.wants_row.remove(id) else { return };
+        // A page or an artifact of parts that asks is read in the review sheet, not a tab.
+        if matches!(kind.as_str(), "document" | "artifact") && self.asking_item(id, &key, cx).is_some() {
+            return;
+        }
         let held = self.thread(id, cx).map(|held| &held.items);
         let (kind, title) = match kind.as_str() {
             "draft" => match held.and_then(|items| super::review::draft_row(items, &key)) {
@@ -789,6 +795,34 @@ mod tests {
 
     fn tab(kind: RowKind, key: &str) -> RowTab {
         RowTab { kind, key: key.into(), title: key.into(), seen: false }
+    }
+
+    /// His note of 23 Nov: a page's tab kept from before stood open while the page asked, with no answer on it.
+    #[gpui::test]
+    fn a_tab_kept_for_a_page_that_asks_is_let_go_and_the_sheet_alone_holds_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = super::super::parts_fold::rooted_job_with(
+            cx,
+            "job-view",
+            "mock-01",
+            gpui::size(gpui::px(1440.), gpui::px(900.)),
+            |jobs| {
+                let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("the fixture has mock-01");
+                let item = br#"{"id":"document:design","text":"Approve Stale branch design?","since":"2026-11-09T13:50:00Z","source":"document"}"#;
+                job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).expect("the page item decodes"));
+            },
+            |_| {},
+        );
+        let job: SharedString = "mock-01".into();
+        view.update(cx, |view, _| view.row_tabs_of(&job).focus(RowKind::Document, "design", "Stale branch design".into()));
+        view.update(cx, |view, cx| view.sync_walk_tabs(&job, cx));
+        super::super::parts_fold::redraw(cx);
+        let kept = view.read_with(cx, |view, _| view.row_tab_list("mock-01").iter().any(|tab| tab.kind == RowKind::Document));
+        assert!(!kept, "the page that asks has no tab of its own");
+        // A press on it in Artifacts opens the page as a page opens: in the sheet, to read and answer.
+        view.update_in(cx, |view, window, cx| view.open_document("design", window, cx));
+        super::super::parts_fold::redraw(cx);
+        let chosen = view.read_with(cx, |view, _| view.review_open().then(|| view.review_chosen()).flatten().map(|item| item.id));
+        assert_eq!(chosen.as_deref(), Some("document:design"), "the sheet opens on the page");
     }
 
     #[test]

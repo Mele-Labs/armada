@@ -591,34 +591,20 @@ mod tests {
         redraw(cx);
     }
 
-    /// Fleet holds an artifact to one ask, and the sheet is the one place an ask is answered (19 Nov): an artifact from before
-    /// that, with two votes still asking, is read only in its own tab, under the line that opens the sheet.
+    /// Fleet holds an artifact to one ask, and the sheet is the one place an ask is answered (19 Nov). An artifact from before
+    /// that, with two votes still asking, keeps no tab of its own (his note, 23 Nov): a press on it opens the sheet on it.
     #[gpui::test]
-    fn an_artifact_of_two_votes_is_read_only_in_its_tab_and_enter_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
+    fn an_artifact_of_two_votes_keeps_no_tab_and_a_press_opens_the_sheet_on_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
         add_side_vote(&view, cx);
         view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
         redraw(cx);
-        assert!(drawn(cx, Role::Region, "Reader: Step bar for Jobs, Revision 2"), "the tab reads it whole");
-        assert!(drawn(cx, Role::Button, "Step bar for Jobs"), "under one line naming it, which opens the sheet");
-        for answer in ["Send picks", "Send pick", "Dismiss", "Approve", "Ask for changes"] {
-            assert!(!drawn(cx, Role::Button, answer), "no {answer} in the tab");
-        }
-        assert!(!drawn(cx, Role::RadioButton, &format!("Pick {}", TAKES[0])), "no take is picked in the tab");
-        assert!(drawn(cx, Role::RadioButton, &format!("Take {}", TAKES[0])), "each take is named by its title alone");
-        // The keys on the tab's card, as it holds them.
-        view.update_in(cx, |view, window, cx| {
-            view.choose_take(&super::super::parts_card::part_key(ID, "bar"), 0, cx);
-            view.focus_card(ID, window, cx);
-        });
+        assert!(!drawn(cx, Role::Region, "Reader: Step bar for Jobs, Revision 2"), "no tab reads it while it asks");
+        view.update_in(cx, |view, window, cx| assert!(view.open_named(ID, window, cx)));
         redraw(cx);
-        cx.simulate_keystrokes("cmd-enter");
-        redraw(cx);
-        assert!(view.read_with(cx, |view, _| view.mock_part_posts().is_empty()), "no key sends a pick from the tab");
-        cx.simulate_keystrokes("enter");
-        redraw(cx);
-        assert!(view.read_with(cx, |view, _| view.review_open()), "Enter opens the sheet");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "a press opens the sheet");
         assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.kind)), Some(Kind::Artifact), "on the artifact");
+        assert!(drawn(cx, Role::Toolbar, "Answer"), "where it is answered");
     }
 
     #[gpui::test]

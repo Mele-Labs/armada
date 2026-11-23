@@ -524,15 +524,15 @@ mod tests {
         (view, cx)
     }
 
+    /// His note of 23 Nov: an artifact that asks is read and answered in the sheet alone, so a tab kept for it is let go.
     #[gpui::test]
-    fn a_take_opened_from_the_artifacts_own_tab_while_it_asks_is_read_only(cx: &mut gpui::TestAppContext) {
+    fn an_artifact_that_asks_keeps_no_tab_of_its_own(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
         view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
         redraw(cx);
-        view.update_in(cx, |view, window, cx| view.open_take(&part_key(ID, "bar"), 1, window, cx));
-        redraw(cx);
-        assert!(drawn(cx, Role::Heading, B), "the take is drawn large");
-        assert!(!drawn(cx, Role::Button, "Pick") && !drawn(cx, Role::Button, "Send pick"), "with nothing to answer it by: the sheet answers it");
+        let tabbed = view.read_with(cx, |view, _| view.row_tab_list(JOB).iter().any(|tab| tab.key == ID));
+        assert!(!tabbed, "the tab is let go while the artifact asks");
+        assert!(!drawn(cx, Role::Region, "Reader: Step bar for Jobs, Revision 2"), "and nothing reads it outside the sheet");
     }
 
     /// The last drawn with this role and name: with the review panel up, the thread behind draws its own beneath the panel's.
@@ -606,7 +606,13 @@ mod tests {
     #[gpui::test]
     fn a_take_in_the_reader_fills_the_column_and_the_takes_stand_one_to_a_row(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "artifact-parts", JOB, size(px(1400.), px(900.)), |_| {});
-        // Read whole in its own tab: a press on the card opens the review sheet, which draws its takes as tiles.
+        // Read whole in its own tab once it asks nothing: while it asks, the sheet alone holds it.
+        view.update(cx, |view, cx| {
+            for part in view.artifact_mut(JOB, ID).map(|one| one.parts.iter_mut()).into_iter().flatten() {
+                part.asks = false;
+            }
+            view.parts_changed(ID, cx);
+        });
         view.update_in(cx, |view, window, cx| view.open_artifact_reader(ID, window, cx));
         redraw(cx);
         let (first, second) = (bounds_of(cx, Role::Button, &format!("Picture: {A}")), bounds_of(cx, Role::Button, &format!("Picture: {B}")));

@@ -1009,7 +1009,13 @@ mod tests {
     fn a_long_take_title_never_runs_over_the_buttons_of_the_row_under_it(cx: &mut gpui::TestAppContext) {
         let (view, cx) = parts_job(cx);
         let held = crate::mock_parts::ID;
-        // The card is read whole in its own tab: in the thread it is one line while it asks, and the sheet has no larger take.
+        // The card is read whole in its own tab once it asks nothing: while it asks, the sheet alone holds it.
+        view.update(cx, |view, cx| {
+            for part in view.artifact_mut(crate::mock_parts::JOB, held).map(|one| one.parts.iter_mut()).into_iter().flatten() {
+                part.asks = false;
+            }
+            view.parts_changed(held, cx);
+        });
         view.update_in(cx, |view, window, cx| view.open_artifact_reader(held, window, cx));
         cx.run_until_parked();
         let key = super::super::parts_card::part_key(held, "bar");
