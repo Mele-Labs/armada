@@ -298,9 +298,11 @@ fn place_said(source: &str) -> &'static str {
 /// A definition step by step, with what ends each as Fleet's rail reads it.
 fn readings(id: &str, tree: &Json) -> Vec<StepReading> {
     let Some(Json::List(steps)) = tree.get("steps") else { return Vec::new() };
+    let last = steps.len().saturating_sub(1);
     steps
         .iter()
-        .map(|one| {
+        .enumerate()
+        .map(|(at, one)| {
             let step = one.get("id").and_then(Json::text).unwrap_or_default();
             let ends = ENDS.iter().find(|(key, ..)| *key == format!("{id}/{step}")).or_else(|| ENDS.iter().find(|(key, ..)| *key == step));
             StepReading {
@@ -310,7 +312,8 @@ fn readings(id: &str, tree: &Json) -> Vec<StepReading> {
                 ends_when: ends.map(|(_, said, ..)| said.to_string()),
                 ends_any: ends.map(|(_, _, any, _)| any.iter().map(|one| one.to_string()).collect()).unwrap_or_default(),
                 passed_over_when: ends.and_then(|(.., passed)| passed.map(String::from)),
-                warning: None,
+                // As Fleet warns: a step in the middle that nothing Fleet observes ends.
+                warning: (at < last && ends.is_none()).then(|| "Nothing ends this step that Fleet can see, so the Job passes through it at once. Give it a `gate` or an `ends_on`.".to_string()),
             }
         })
         .collect()
@@ -1014,6 +1017,21 @@ mod tests {
         let propose = fleet.workflow_steps("feature", "armada", "armada").expect("read").steps.remove(0);
         assert_eq!((propose.ends_when.as_deref(), propose.ends_any.len()), (Some("you approve what it shows"), 6));
         assert!(fleet.delete_workflow("armada", copy("feature", "armada")).is_err());
+    }
+
+    /// The one mock workflow with a middle step nothing ends is warned of, and only on that step: Fleet's own words.
+    #[test]
+    fn a_middle_step_nothing_ends_is_warned_of_in_the_mock_and_no_other_step_is() {
+        let fleet = MockFleet::new();
+        let warned = |id: &str, source: &str| -> Vec<(String, Option<String>)> {
+            fleet.workflow_steps(id, source, "armada").expect("read").steps.into_iter().map(|one| (one.id.as_str().to_string(), one.warning)).collect()
+        };
+        let kit = warned("docs_only", "kit");
+        assert_eq!(kit.iter().filter(|(_, warning)| warning.is_some()).map(|(id, _)| id.as_str()).collect::<Vec<_>>(), ["read_through"]);
+        assert!(kit[1].1.as_deref().is_some_and(|said| said.starts_with("Nothing ends this step that Fleet can see")));
+        for (id, source) in [("feature", "armada"), ("bug", "armada"), ("design_plan", "armada"), ("prototype", "armada")] {
+            assert!(warned(id, source).iter().all(|(_, warning)| warning.is_none()), "{id} warns of nothing");
+        }
     }
 
     #[test]

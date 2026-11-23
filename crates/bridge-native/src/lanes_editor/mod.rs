@@ -333,6 +333,8 @@ pub struct LanesEditor {
     busy: bool,
     /// Armada changed this workflow since it was copied: a band over the draft says so.
     armada_changed: bool,
+    /// What Fleet warns of each step as written, by step id: shown under the step when its fields are open.
+    warnings: std::collections::HashMap<String, String>,
     /// Choose what to take, while it is open: Armada's lanes beside his, with what Armada changed.
     side: Option<Entity<side::Side>>,
     /// What the open view is laid on, for Take: the text the copy began from, Armada's now and each difference.
@@ -440,6 +442,7 @@ impl LanesEditor {
             stale: false,
             busy: false,
             armada_changed: false,
+            warnings: std::collections::HashMap::new(),
             side: None,
             taking: None,
             choosing: None,
@@ -491,6 +494,15 @@ impl LanesEditor {
     pub fn offer_project(&mut self, project: Option<(String, String)>, cx: &mut Context<Self>) {
         if self.subject.project != project {
             self.subject.project = project;
+            cx.notify();
+        }
+    }
+
+    /// What Fleet warns of each step as written (`StepReading::warning`), step id and words: the step's open fields say it.
+    pub fn offer_warnings(&mut self, warnings: Vec<(String, String)>, cx: &mut Context<Self>) {
+        let warnings: std::collections::HashMap<String, String> = warnings.into_iter().collect();
+        if self.warnings != warnings {
+            self.warnings = warnings;
             cx.notify();
         }
     }
@@ -2151,6 +2163,24 @@ mod tests {
         assert_eq!(history(&editor, cx), [person("Renamed Plan to Think")], "a pick let go lands what was typed");
         assert!(editor.read_with(cx, |editor, _| editor.in_place.is_none()));
         assert!(fleet.publishes.borrow().is_empty() && fleet.piece_publishes.borrow().is_empty(), "nothing is written before Publish");
+    }
+
+    /// A step Fleet warns of says so in its open fields, in Fleet's words and as an alert; the step it does not warn of says nothing,
+    /// and the panel the warned step opens in is taller by the room the warning takes.
+    #[gpui::test]
+    fn the_open_fields_of_a_step_carry_what_fleet_warns_of_it(cx: &mut TestAppContext) {
+        let (editor, _, _, cx) = open(cx, false);
+        let said = "Nothing ends this step that Fleet can see, so the Job passes through it at once. Give it a `gate` or an `ends_on`.";
+        editor.update(cx, |editor, cx| editor.offer_warnings(vec![("build".into(), said.into())], cx));
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/build".into())), window, cx)));
+        let warned = editor.read_with(cx, |editor, _| editor.in_place.as_ref().and_then(|one| editor.warning_of(one)).cloned());
+        assert_eq!(warned.as_deref(), Some(said));
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/plan".into())), window, cx)));
+        let none = editor.read_with(cx, |editor, _| editor.in_place.as_ref().and_then(|one| editor.warning_of(one)).cloned());
+        assert_eq!(none, None, "a step Fleet does not warn of has no line");
+        editor.update(cx, |editor, cx| editor.offer_warnings(Vec::new(), cx));
+        cx.update(|window, cx| editor.update(cx, |editor, cx| editor.lanes_picked(&"".into(), Some(Pick::Node("workflow/build".into())), window, cx)));
+        assert_eq!(editor.read_with(cx, |editor, _| editor.in_place.as_ref().and_then(|one| editor.warning_of(one)).cloned()), None, "taken back, the line goes");
     }
 
     #[gpui::test]

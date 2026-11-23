@@ -13,7 +13,7 @@ use gpui::{div, prelude::*, px, AnyElement, App, Context, Entity, FocusHandle, R
 
 use super::overlay::SettingsOverlay;
 use super::view::{bone, ghost_with, ringed, small};
-use super::workflow_detail::wire_of;
+use super::workflow_detail::{wire_of, StepsRead};
 use super::workflows::{Listed, Place};
 use crate::labels::labelled;
 use crate::lanes_editor::{EditorEvent, EditorWire, LanesEditor, Place as PublishedAt, Refused, Subject, Target};
@@ -209,7 +209,15 @@ impl SettingsOverlay {
         let row = one.clone();
         let sub = cx.subscribe_in(&editor, window, move |this, _, event: &EditorEvent, window, cx| this.editor_said(&row, event, window, cx));
         self.lanes.editors.insert(key.clone(), editor);
-        self.lanes._subs.insert(key, sub);
+        self.lanes._subs.insert(key.clone(), sub);
+        self.offer_step_warnings(&key, cx);
+    }
+
+    /// What Fleet warns of each step of the row's workflow, to its editor, once the steps are read.
+    pub(super) fn offer_step_warnings(&self, key: &str, cx: &mut Context<Self>) {
+        let (Some(editor), Some(StepsRead::Read(steps))) = (self.lanes.editors.get(key), self.workflows.detail.reads.get(key)) else { return };
+        let warnings = steps.iter().filter_map(|step| step.warning.clone().map(|warning| (step.id.clone(), warning))).collect();
+        editor.update(cx, |editor, cx| editor.offer_warnings(warnings, cx));
     }
 
     /// Whether Fleet says Armada changed this copy's workflow since it was copied, as its list row carries.

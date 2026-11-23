@@ -1,5 +1,5 @@
-//! The For you tab, in the look the owner approved on 15 Nov 2026: three sections, each a card per row with a stripe in
-//! the section's hue. Waiting on you lists what the Job owes him, numbered, in the order Fleet gives; Being built the
+//! The For you tab, in the look the owner approved on 15 Nov 2026 less its stripe, which he ruled out on 19 Nov: three sections,
+//! each a card per row, tinted and outlined in the section's hue. Waiting on you lists what the Job owes him, numbered, in the order Fleet gives; Being built the
 //! Jobs it started, drawn in the state their row in the Jobs list has; Landing on green its own pull requests still open.
 //! Fleet's `get_for_you` is the whole list, read again where `session.for_you` says it moved. **Nothing here sorts it.**
 //!
@@ -14,6 +14,7 @@ use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Hsla, KeyDownEvent,
 use ipc::{ForYou, ForYouChanged, ForYouItem, ForYouOpens, OrderForYou, SessionId, SessionStanding, WithdrawForYou};
 
 use super::artifacts_tab::step;
+use super::dock::Thing;
 use super::keys::Spot;
 use super::menus::Pick;
 use super::pulls::{pull_of, Pull, PullChecks, PullState};
@@ -61,7 +62,7 @@ impl Part {
         }
     }
 
-    /// The hue of its stripes and its head: the warning hue for what waits on him, the running hue, the success hue.
+    /// The hue of its cards' tint and outline, and its head: the warning hue for what waits on him, the running hue, the success hue.
     fn hue(self) -> Token {
         match self {
             Part::Waiting => token::STATUS_AWAITING_REVIEW,
@@ -123,6 +124,17 @@ fn ordered(read: &mut ForYou, ids: &[String]) {
     read.waiting = held;
 }
 
+/// Whether Needs you's own rows hold the item: it opens a row they list, or it is the question the thread carries.
+fn held_by_a_row(item: &ForYouItem, things: &[Thing]) -> bool {
+    let ForYouOpens::Waiting { id } = &item.opens else { return false };
+    things.iter().any(|thing| match thing {
+        Thing::Row(row) => row.id == *id,
+        Thing::Ask(_) => id.starts_with("ask:") || id.starts_with("perm:"),
+        Thing::Lapsed(_) => false,
+        Thing::Sheet(item) => item.id == *id,
+    })
+}
+
 fn empty(job: &str) -> ForYou {
     ForYou { job: SessionId::carried(job.to_string()), waiting: Vec::new(), building: Vec::new(), landing: Vec::new() }
 }
@@ -144,7 +156,9 @@ impl JobView {
 
     /// Read the shown Job's list the first time its tab is in front. Called as the view draws, never from a row.
     pub(super) fn sync_for_you(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        if self.for_you.read.contains_key(id.as_ref()) || !self.zones_shown().contains(&Zone::ForYou) {
+        // Needs you's Open chip lists these rows too, so the band reads them as the tab does.
+        let wanted = self.zones_shown().contains(&Zone::ForYou) || self.band_shown(super::column_bands::Band::Column);
+        if self.for_you.read.contains_key(id.as_ref()) || !wanted {
             return;
         }
         self.for_you.read.insert(id.to_string(), None);
@@ -380,6 +394,68 @@ impl JobView {
 
     // ---- the tab -------------------------------------------------------------------------
 
+    /// What the tab lists under Waiting on you that Needs you's own rows do not already hold: the items Fleet added (a
+    /// document, a plan, a preview, a sketch) and any the agent stated that the rows left out. Needs you's Open chip lists
+    /// these after its rows, so it holds everything the tab does.
+    pub(super) fn for_you_beyond_rows(&self, id: &str, cx: &gpui::App) -> Vec<&ForYouItem> {
+        let Some(read) = self.for_you.read.get(id).and_then(Option::as_ref) else { return Vec::new() };
+        let (things, _) = self.things(id, cx);
+        read.waiting.iter().filter(|item| !held_by_a_row(item, &things)).collect()
+    }
+
+    /// Those rows as Open draws them: the title, and Review, which presses as the tab's own does.
+    pub(super) fn for_you_beyond_row_views(&self, job: &SharedString, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+        self.for_you_beyond_rows(job, cx)
+            .into_iter()
+            .map(|item| {
+                let (press, review) = ((job.to_string(), Rowed::Waiting(item.id.clone())), (job.to_string(), Rowed::Waiting(item.id.clone())));
+                let button = labelled(
+                    div()
+                        .id(SharedString::from(format!("needs-for-you-review:{}", item.id)))
+                        .flex_none()
+                        .flex()
+                        .items_center()
+                        .h(look.length(token::H_CONTROL_SM))
+                        .px(look.length(token::SPACE_3))
+                        .rounded(look.length(token::RADIUS_MD))
+                        .bg(look.color(token::ACCENT))
+                        .text_color(look.color(token::TEXT_ON_ACCENT))
+                        .text_size(look.length(token::TEXT_XS))
+                        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .cursor_pointer()
+                        .tab_index(0)
+                        .hover(|style| style.bg(look.color(token::ACCENT_HOVER)))
+                        .focus_visible(|style| style.border_1().border_color(look.color(token::FG_DEFAULT)))
+                        .on_click(cx.listener(move |this, _, window, cx| {
+                            cx.stop_propagation();
+                            this.for_you_open(&review.0, &review.1, window, cx);
+                        }))
+                        .child("Review"),
+                    Role::Button,
+                    format!("Review {}", item.title),
+                );
+                labelled(
+                    div()
+                        .id(SharedString::from(format!("needs-for-you:{}", item.id)))
+                        .flex()
+                        .items_center()
+                        .gap(look.length(token::SPACE_2))
+                        .min_h(look.length(token::H_ROW))
+                        .text_size(look.length(token::TEXT_XS))
+                        .line_height(look.length(token::LEADING_XS))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .cursor_pointer()
+                        .on_click(cx.listener(move |this, _, window, cx| this.for_you_open(&press.0, &press.1, window, cx)))
+                        .child(div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())))
+                        .child(button),
+                    Role::ListItem,
+                    item.title.clone(),
+                )
+                .into_any_element()
+            })
+            .collect()
+    }
+
     /// The tab: its sections, or its shapes while Fleet has not answered. None where there is nothing to say.
     pub(super) fn pane_for_you(&self, id: &SharedString, look: &Look, window: &Window, cx: &Context<Self>) -> Option<AnyElement> {
         let page = self.pages.get(id)?;
@@ -414,7 +490,7 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .gap(look.length(token::SPACE_2))
-                    .child(labelled(eyebrow(look, part.word()).id(SharedString::from(format!("for-you-head:{}", part.word()))).px(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH) * 2.).text_color(hue), Role::Heading, part.word()))
+                    .child(labelled(eyebrow(look, part.word()).id(SharedString::from(format!("for-you-head:{}", part.word()))).px(look.length(token::SPACE_3) + look.length(token::BORDER_WIDTH)).text_color(hue), Role::Heading, part.word()))
                     .children(cards),
                 Role::Group,
                 part.word(),
@@ -438,12 +514,11 @@ impl JobView {
         )
     }
 
-    /// The card every row is: filled, edged in its section's hue, with the stripe taking the card's inner left corner,
-    /// since gpui clips to the rectangle and not to the radius.
+    /// The card every row is: a tint of its section's hue, with a full hairline outline in the hue and no stripe down one side.
     fn for_you_card(&self, key: &str, spot: &Spot, on: bool, hue: Hsla, look: &Look) -> gpui::Stateful<gpui::Div> {
         let edge = look.length(token::BORDER_WIDTH);
         let fill = look.color(token::BG_HOVER);
-        let tinted = fill.blend(hue.opacity(0.12));
+        let tinted = fill.blend(hue.opacity(0.16));
         div()
             .id(SharedString::from(format!("for-you-row:{key}")))
             .track_focus(&spot.focus)
@@ -453,18 +528,16 @@ impl JobView {
             .items_start()
             .gap(look.length(token::SPACE_3))
             .py(look.length(token::SPACE_2))
-            .pl(look.length(token::SPACE_3) + edge * 2.)
-            .pr(look.length(token::SPACE_3))
+            .px(look.length(token::SPACE_3))
             .border(edge)
-            .border_color(if on { look.color(token::ACCENT) } else { look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)) })
+            .border_color(if on { look.color(token::ACCENT) } else { look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55)) })
             .rounded(look.length(token::RADIUS_MD))
-            .bg(if on { tinted } else { fill })
+            .bg(if on { tinted } else { fill.blend(hue.opacity(0.08)) })
             .hover(move |style| style.bg(tinted))
             .cursor_pointer()
             .text_size(look.length(token::TEXT_SM))
             .line_height(look.length(token::LEADING_SM))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
     }
 
     /// A row's title, and under it the muted line where there is one.
@@ -648,6 +721,33 @@ mod tests {
         assert!(rows(&read).is_empty());
     }
 
+    /// The band's Open chip holds what the tab lists under Waiting on you: a document Fleet added is a row of it, Open is
+    /// the chip Needs you stands on, and it presses as the tab's Review does.
+    #[gpui::test]
+    fn open_lists_the_fleet_added_document_the_for_you_tab_lists(cx: &mut TestAppContext) {
+        let (view, cx) = open(cx);
+        let ids = view.read_with(cx, |view, cx| view.for_you_beyond_rows(JOB, cx).into_iter().map(|one| one.id.clone()).collect::<Vec<_>>());
+        assert!(ids.contains(&"document:design".to_string()), "the document waiting on him is in Open, got {ids:?}");
+        let held = view.read_with(cx, |view, cx| view.needs_held(&SharedString::from(JOB), cx));
+        assert!(held.open, "with a Fleet-added item waiting, Open holds a row");
+        assert_eq!(super::super::column_bands::standing(None, held), Some(super::super::column_bands::Chip::Open), "so the band stands on Open, not Deferred");
+        let drawn = view.update_in(cx, |view, _, cx| {
+            use crate::look::ActiveLook;
+            let look = cx.look().clone();
+            view.for_you_beyond_row_views(&SharedString::from(JOB), &look, cx).len()
+        });
+        assert_eq!(drawn, ids.len(), "one row each");
+    }
+
+    /// A For you card is a tint and a full outline in its section's hue, and nothing is laid along one edge of it.
+    #[test]
+    fn a_for_you_card_has_no_stripe_down_one_side() {
+        let source = include_str!("for_you_tab.rs");
+        let card = &source[source.find("fn for_you_card(").expect("the card")..source.find("fn for_you_words(").expect("its end")];
+        assert!(!card.contains(".absolute()") && !card.contains("rounded_l(") && !card.contains("border_l("), "nothing is laid along the card's edge");
+        assert!(card.contains(".border(edge)") && card.contains("hue.opacity("), "a full outline and a tint, both in the hue");
+    }
+
     #[gpui::test]
     fn option_down_on_the_first_waiting_row_posts_every_waiting_id_in_the_new_order(cx: &mut TestAppContext) {
         let (view, cx) = open(cx);
@@ -776,7 +876,8 @@ mod tests {
     fn for_you_is_a_tab_a_pane_can_hold_the_plus_offers_and_a_zone_that_draws_it() {
         assert!(super::super::pane_tree::is_tab_kind("for_you"));
         assert_eq!(super::super::panes_place::zone_of("for_you").map(Zone::id), Some("for_you"));
-        let top = super::super::pane_tree::default_arrangement();
+        // A Job kept before the column's bands has it first in the column, before Now.
+        let top = super::super::pane_tree::legacy_arrangement();
         let panes = super::super::pane_tree::panes_of(&top.root);
         assert_eq!(panes[1].tabs.first().map(|tab| tab.kind.as_str()), Some("for_you"), "first in the column, before Now");
     }
