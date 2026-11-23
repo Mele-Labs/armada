@@ -282,16 +282,24 @@ async fn a_snoozed_job_whose_items_all_left_pushes_nothing_when_it_wakes() {
 }
 
 #[tokio::test]
-async fn a_walk_item_says_a_walk_is_ready_and_no_url() {
+async fn an_item_that_is_ready_for_him_pushes_nothing_but_one_that_needs_him_beside_it_does() {
     let service = service().await;
     let (mut watch, _rig, _) = watching(&service.url).await;
-    watch.observe(&needs("s2", &[("walk:armada://walk/pocket", "armada://walk/pocket", "walk")])).await;
+    // Built work to look at: a walk, a Ready to try card, a page only to read.
+    let ready = [("walk:armada://walk/pocket", "armada://walk/pocket", "walk"), ("try:s2", "Ready to try", "ready_to_try"), ("read:/w/a.html", "Read: A", "document")];
+    watch.observe(&needs("s2", &ready)).await;
+    watch.settle().await;
+    assert_eq!(watch.pushes_started(), 0);
+    assert_eq!(service.got.lock().unwrap().len(), 0);
+
+    // A question next to them is what pushes, and it says itself.
+    let mut both = ready.to_vec();
+    both.push(("a", "Which branch?", "agent"));
+    watch.observe(&needs("s2", &both)).await;
     watch.settle().await;
     let got = service.got.lock().unwrap();
     assert_eq!(got.len(), 1);
-    let said = opened(&got[0].body);
-    assert!(said.contains(r#""reason":"A walk is ready""#), "{said}");
-    assert!(!said.contains("armada://"), "{said}");
+    assert!(opened(&got[0].body).contains(r#""reason":"Which branch?""#));
 }
 
 #[tokio::test]

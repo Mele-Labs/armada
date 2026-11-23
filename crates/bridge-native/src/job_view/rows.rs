@@ -178,8 +178,16 @@ fn approved_name(address: &str, rows: &[SessionRow]) -> String {
     "a walk".to_string()
 }
 
+/// The address an approval of a walk quotes, where these words are one.
+pub(super) fn approved_address(text: &str) -> Option<&str> {
+    match act_of(text)? {
+        Act::Approved(address) => Some(address),
+        _ => None,
+    }
+}
+
 /// The walk an address opens: `?walk=` in a page's address, or the name after `armada://walk/`.
-fn walk_of(address: &str) -> Option<&str> {
+pub(super) fn walk_of(address: &str) -> Option<&str> {
     query(address, "walk").or_else(|| address.strip_prefix("armada://walk/").map(|rest| rest.split(['?', '#']).next().unwrap_or(rest)))
 }
 
@@ -1528,6 +1536,7 @@ pub(super) fn tag_kind(kind: TagKind) -> &'static str {
         TagKind::Report => "Reported bug",
         TagKind::Terminal => "Terminal",
         TagKind::Tool => "Tool",
+        TagKind::Request => "Request",
     }
 }
 
@@ -1624,7 +1633,13 @@ impl MarkdownPlugin for TagPlugin {
         let paint = self.paint;
         let link = tag.kind == TagKind::Session;
         let ink = if link { paint.accent } else { paint.ink };
-        let tool = (tag.kind == TagKind::Tool).then(|| self.tools.iter().find(|(id, ..)| *id == tag.id)).flatten();
+        let tool = match tag.kind {
+            TagKind::Tool => self.tools.iter().find(|(id, ..)| *id == tag.id),
+            TagKind::Request => self.tools.iter().find(|(id, ..)| *id == super::ask_tools::API_CLIENT),
+            _ => None,
+        };
+        // A request's chip reads its tool and its name.
+        let words = if tag.kind == TagKind::Request { super::ask_tools::request_words(&tag.title) } else { tag.title.clone() };
         let glyph = tool.map_or(tag_glyph(tag.kind), |(_, glyph, _)| *glyph);
         let (edge, fill, glyph_ink) = match tool {
             Some((_, _, hue)) => (hue.opacity(0.6), hue.opacity(0.16), *hue),
@@ -1647,11 +1662,11 @@ impl MarkdownPlugin for TagPlugin {
             .text_decoration_color(gpui::transparent_black())
             .whitespace_nowrap()
             .child(svg().path(icon_path(glyph)).flex_none().size(paint.icon).text_color(glyph_ink))
-            .child(tag.title.clone());
+            .child(words.clone());
         let chip = if link {
-            labelled(chip.cursor_pointer().tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title))), Role::Link, tag.title.clone()).into_any_element()
+            labelled(chip.cursor_pointer().tooltip(tip(format!("{} · {}", tag_kind(tag.kind), tag.title))), Role::Link, words).into_any_element()
         } else {
-            labelled(chip, Role::Group, tag.title.clone()).into_any_element()
+            labelled(chip, Role::Group, words).into_any_element()
         };
         Some(InlineElement::new(chip))
     }
@@ -1667,6 +1682,7 @@ fn tag_glyph(kind: TagKind) -> &'static str {
         TagKind::Report => "bug",
         TagKind::Terminal => "terminal",
         TagKind::Tool => "wrench",
+        TagKind::Request => "arrow-right-left",
     }
 }
 

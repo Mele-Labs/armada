@@ -25,6 +25,7 @@ use api::{Caller, Refusal};
 use ipc::{MessageReach, QuietJob, QuietJobs, QuietWhy, SessionRecord};
 
 use super::address_of;
+use super::to_other_mac::MOVED_TO_MAC;
 use crate::daemon::Fleet;
 
 /// Why a `SendMessage` to a Job address is refused.
@@ -149,6 +150,10 @@ where
             let hostings = store.hostings().ok()?;
             hostings.into_iter().find(|hosting| address_of(&hosting.session_id) == to)
         };
+        let hosting = match hosting {
+            Some(hosting) if !self.has_moved_to_mac(&hosting.session_id).await => Some(hosting),
+            _ => None,
+        };
         let Some(hosting) = hosting else {
             return self.unreachable_across(from, to).await.ok().map(|_| Carrier::Fleet(Kept::OtherMac));
         };
@@ -159,6 +164,11 @@ where
             Some(why) => Carrier::Fleet(Kept::Quiet(why)),
             None => Carrier::Cli,
         })
+    }
+
+    /// Whether Job `id` moved to another Mac: its hosting here is parked, and the Mac holding it is the one to write to.
+    pub(super) async fn has_moved_to_mac(&self, id: &str) -> bool {
+        self.store().lock().await.session(id).ok().flatten().is_some_and(|one| one.end_reason.as_deref() == Some(MOVED_TO_MAC))
     }
 
     /// Why no process of a hosted Job runs for the CLI to reach, or None where one does.
@@ -243,12 +253,16 @@ where
         };
         let store = self.store().lock().await;
         let named = store.sessions_beginning(prefix).map_err(|why| self.ledger_fault(why))?;
-        let mut named = named.into_iter().filter(|session| address_of(&session.id) == to).peekable();
-        if named.peek().is_none() {
+        let named: Vec<_> = named.into_iter().filter(|session| address_of(&session.id) == to).collect();
+        if named.is_empty() {
             return Ok(Some(Unreachable::Unknown));
         }
-        if named.any(|session| session.state != store::SessionState::Ended) {
+        if named.iter().any(|session| session.state != store::SessionState::Ended) {
             return Ok(None);
+        }
+        // A row that only moved to another Mac is not an ended Job: the Mac holding it says whether it lives.
+        if named.iter().all(|session| session.end_reason.as_deref() == Some(MOVED_TO_MAC)) {
+            return Ok(Some(Unreachable::Unknown));
         }
         Ok(Some(Unreachable::Ended))
     }

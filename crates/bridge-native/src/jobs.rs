@@ -118,6 +118,8 @@ struct Row {
     issue: Option<(SharedString, SharedString)>,
     /// The Job's workflow by name, and the step it is at, or the name again where Fleet gives none.
     flow: Option<(SharedString, SharedString)>,
+    /// The Job's steps as bars, the step it is on and how long it has been on it.
+    track: Option<crate::job_view::column_strip::Track>,
     /// What the Job is doing now, or last said.
     now: Option<SharedString>,
     /// Not a Job: an idea saved to start later, drawn dashed with Start and Remove (`QueuedRow`).
@@ -232,7 +234,7 @@ const VIEW_FIELDS: [(&str, &str); 7] = [
 struct View([bool; 7]);
 
 impl View {
-    const DEFAULT: View = View([false, false, false, false, true, true, false]);
+    const DEFAULT: View = View([false, false, false, false, true, true, true]);
 
     fn on(self, id: &str) -> bool {
         VIEW_FIELDS.iter().position(|(field, _)| *field == id).is_some_and(|at| self.0[at])
@@ -259,7 +261,7 @@ pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, Shar
         JobState::Working => ("circle-dot", "Working"),
         JobState::Running => ("square-terminal", "Running"),
         JobState::Subagent => ("split", "Subagent working"),
-        JobState::Waiting | JobState::StoppedAsks => (if state == JobState::Waiting { "eye" } else { "octagon-alert" }, "Waiting on you"),
+        JobState::Waiting | JobState::Ready | JobState::StoppedAsks => (if state == JobState::StoppedAsks { "octagon-alert" } else { "eye" }, "Waiting on you"),
         JobState::Done => ("power", "Done"),
         JobState::Stuck => ("clock", "Stuck"),
         JobState::Failing => return ("shield-x", pr.map_or("Checks failed".into(), |pr| format!("Checks failed on {pr}").into())),
@@ -282,7 +284,7 @@ pub(crate) fn glyph_of(state: JobState, pr: Option<&str>) -> (&'static str, Shar
 /// The hue a state's glyph takes: one per bucket (`SessionFrame.css`, `data-bucket`).
 pub(crate) fn hue_of(state: JobState) -> crate::look::Token {
     match state {
-        JobState::Waiting | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
+        JobState::Waiting | JobState::Ready | JobState::Done | JobState::Unstarted | JobState::StoppedAsks | JobState::Stuck | JobState::Failing => {
             token::STATUS_AWAITING_REVIEW
         }
         JobState::Working | JobState::Running | JobState::Subagent => token::STATUS_RUNNING,
@@ -297,7 +299,7 @@ const HULL: f32 = 0.06;
 
 fn lamp_of(lamp: JobLamp) -> crate::look::Token {
     match lamp {
-        JobLamp::Needs => token::STATUS_AWAITING_REVIEW,
+        JobLamp::Needs | JobLamp::Ready => token::STATUS_AWAITING_REVIEW,
         JobLamp::Failed => token::STATUS_COMPLETED_FAILED,
         JobLamp::Running => token::STATUS_RUNNING,
         JobLamp::Done => token::STATUS_COMPLETED_SUCCESS,
@@ -310,7 +312,7 @@ fn lamp_of(lamp: JobLamp) -> crate::look::Token {
 fn standing_of(job: &SessionRecord) -> (u8, u8) {
     let Some(mark) = job.mark else { return (4, 2) };
     let group = match mark.group {
-        JobGroup::Needs => 0,
+        JobGroup::Needs | JobGroup::Ready => 0,
         JobGroup::Working => 1,
         JobGroup::Held => 2,
         JobGroup::Done => 3,
@@ -346,9 +348,17 @@ struct Names {
     /// A copy of another Mac's project, by id, to this Mac's own project of the same name: **one project on two
     /// Macs is one group**, merged or not, as the switcher lists only this Mac's own.
     same: HashMap<String, String>,
+    /// Every workflow Fleet holds, which a row's step bars are read from.
+    flows: Vec<ipc::WorkflowSummary>,
 }
 
 impl Names {
+    /// The same names, with the workflows a row's steps are read from.
+    fn with_flows(mut self, flows: Option<&[ipc::WorkflowSummary]>) -> Names {
+        self.flows = flows.map(<[_]>::to_vec).unwrap_or_default();
+        self
+    }
+
     fn of(served: &[ipc::RepositorySummary], projects: Option<&ipc::Projects>) -> Names {
         let named = crate::titlebar::repositories_of(served, &[]);
         let id_of = |one: &ipc::RepositorySummary| one.manifest.as_ref().map(|manifest| &manifest.id).or(one.implicit_id.as_ref()).map(|id| id.as_str().to_string());
@@ -358,6 +368,7 @@ impl Names {
             projects: all.iter().map(|one| (one.id.clone(), one.name.clone())).collect(),
             repositories: served.iter().zip(named).filter_map(|(one, named)| Some((id_of(one)?, named.name.to_string()))).collect(),
             same: all.iter().filter(|one| one.mac.is_some()).filter_map(|one| Some((one.id.clone(), own(&one.name)?))).collect(),
+            flows: Vec::new(),
         }
     }
 
@@ -628,6 +639,7 @@ fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], s
                 mark: None,
                 issue: None,
                 flow: None,
+                track: None,
                 now: None,
                 queued: Some((*idea).clone()),
                 place: false,
@@ -666,6 +678,7 @@ fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], s
                 (number.into(), title.into())
             }),
             flow: flow_of(job),
+            track: crate::job_view::column_strip::track_of(job, &names.flows, chrono::Utc::now()),
             now: now_of(job).map(Into::into),
             queued: None,
             place: places.contains(job.id.as_str()),
@@ -732,7 +745,7 @@ fn fold_lines(lines: Vec<Line>, folds: &Folds) -> Vec<Line> {
             }
             // Needs you first, then failed, then running, then the rest as they stand.
             strip.sort_by_key(|sub| match sub.mark.lamp {
-                JobLamp::Needs => 0,
+                JobLamp::Needs | JobLamp::Ready => 0,
                 JobLamp::Failed => 1,
                 JobLamp::Running => 2,
                 _ => 3,
@@ -1020,7 +1033,7 @@ impl JobsList {
             // A project Fleet no longer lists takes the bar back to All, which the list follows.
             this.follow_scope(cx);
             let held = fleet.read(cx).held();
-            let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
+            let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref()).with_flows(held.workflows.as_deref());
             // The Operator's own session is never a Job in the list: its page is the Operator's. Compared before it is
             // cloned: Fleet moves several times a second and the list holds hundreds of Jobs.
             let unmoved = names == this.names && this.holds_already(held.jobs.iter().filter(|job| !job.operator));
@@ -1052,7 +1065,7 @@ impl JobsList {
         let (scope, order) = read_deck();
         crate::queued::begin(true, cx);
         let held = fleet.read(cx).held();
-        let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref());
+        let names = Names::of(held.repositories.as_deref().unwrap_or_default(), held.projects.as_ref()).with_flows(held.workflows.as_deref());
         let jobs = held.jobs.iter().filter(|job| !job.operator).cloned().collect();
         Self::with(jobs, names, scope, order, read_view(), true, Some(fleet.clone()), Some(watch), cx)
     }
@@ -1060,7 +1073,7 @@ impl JobsList {
     /// The list on mock Jobs, which never change, with the View as a first start has it, so a walk shows what he will.
     pub fn mock(jobs: &[SessionRecord], cx: &mut Context<Self>) -> Self {
         crate::queued::begin(false, cx);
-        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects()));
+        let names = Names::of(&crate::mock::repositories(), Some(&crate::mock::projects())).with_flows(Some(crate::mock::workflows().as_slice()));
         Self::with(jobs.to_vec(), names, Scope::Active, Vec::new(), View::DEFAULT, false, None, None, cx)
     }
 
@@ -2537,14 +2550,48 @@ impl JobsList {
             chip(format!("issue-{}", row.id), number, said.into())
         });
         let pr = row.pr.clone().filter(|_| view.on("view:pr")).map(|pr| chip(format!("pr-{}", row.id), pr.clone(), format!("Pull request {pr}").into()));
-        let flow = row.flow.clone().filter(|_| view.on("view:workflow")).map(|(name, step)| {
-            meta(look)
-                .id(SharedString::from(format!("flow-{}", row.id)))
-                .min_w_0()
-                .truncate()
-                .text_color(look.color(token::FG_MUTED))
-                .child(step.clone())
-                .tooltip(tip(format!("{name}: {step}").into()))
+        // The workflow as a chip, its steps as bars and the step with how long the Job has been on it; a dashed chip where the Job follows none.
+        let flow = view.on("view:workflow").then(|| {
+            let line = meta(look).id(SharedString::from(format!("flow-{}", row.id))).flex().items_center().gap(look.length(token::SPACE_2)).min_w_0();
+            match row.flow.clone() {
+                Some((name, step)) => {
+                    let said: SharedString = format!("{name}: {step}").into();
+                    let step_words = match row.track.as_ref().and_then(|track| track.time.clone()) {
+                        Some(time) => format!("{step} \u{b7} {time}"),
+                        None => step.to_string(),
+                    };
+                    // A step with no move for longer than its usual time reads in amber, and its tooltip gives Fleet's cause.
+                    let cause = row.track.as_ref().and_then(|track| track.stalled.clone());
+                    let pips_said: SharedString = match &cause {
+                        Some(cause) => format!("{said}: {cause}").into(),
+                        None => said.clone(),
+                    };
+                    line.child(chip(format!("flow-chip-{}", row.id), name, said.clone()))
+                        .children(row.track.as_ref().filter(|track| !track.pips.is_empty()).map(|track| crate::job_view::column_strip::pips_bar(look, SharedString::from(format!("flow-pips-{}", row.id)), &track.pips, pips_said)))
+                        .child(
+                            div()
+                                .id(SharedString::from(format!("flow-step-{}", row.id)))
+                                .min_w_0()
+                                .truncate()
+                                .text_color(look.color(if cause.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED }))
+                                .child(SharedString::from(step_words))
+                                .when_some(cause, |words, cause| words.tooltip(tip(cause.into()))),
+                        )
+                }
+                None => line.child(
+                    meta(look)
+                        .id(SharedString::from(format!("flow-none-{}", row.id)))
+                        .flex_none()
+                        .px(look.length(token::SPACE_1))
+                        .rounded(look.length(token::RADIUS_SM))
+                        .border(look.length(token::BORDER_WIDTH))
+                        .border_dashed()
+                        .border_color(look.color(token::BORDER_DEFAULT))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child("No workflow")
+                        .tooltip(tip("No workflow".into())),
+                ),
+            }
         });
         let now = row.now.clone().filter(|_| view.on("view:now")).map(|now| {
             meta(look).min_w_0().truncate().text_color(look.color(if row.paused { token::FG_SUBTLE } else { token::FG_MUTED })).child(now)
@@ -2781,7 +2828,10 @@ impl JobsList {
         let dragged = DraggedRow { id: row.id.clone(), title: row.title.clone() };
         // A selected row wears an accent edge over a faint accent fill: the open row's fill is the stronger one.
         let selected = self.selected.contains(&row.id);
+        let amber = look.color(token::STATUS_AWAITING_REVIEW);
+        let stalled = row.track.as_ref().is_some_and(|track| track.stalled.is_some());
         let strip = row_card(look, SharedString::from(format!("job-{}", row.id)), opened, focused, !row.place && !selected, pad)
+            .when(stalled && !opened && !selected, |strip| strip.border_color(amber).bg(look.color(token::BG_SUNKEN).blend(amber.opacity(0.10))))
             .when(selected && !opened, |strip| strip.border_color(look.color(token::ACCENT)).bg(look.color(token::ACCENT_FAINT)))
             .when(movable, |strip| strip.on_drag(dragged, |dragged, _, _, cx| cx.new(|_| RowGhost(dragged.title.clone()))))
             .when(lifted, |strip| strip.opacity(0.55))
@@ -4191,6 +4241,24 @@ mod tests {
         assert_eq!(first.now.as_deref(), Some("Plan to approve"));
         // What it is doing now comes before what it last summed up.
         assert_eq!(row("Native Bridge foundation").now.as_deref(), Some("Editing jobs.rs"));
+    }
+
+    /// A row on a step that stands past its usual time carries Fleet's cause for the amber and its tooltip; a row inside its time carries none.
+    #[test]
+    fn a_row_on_a_step_that_is_not_moving_carries_fleets_cause() {
+        let names = Names { flows: crate::mock::workflows(), ..Names::default() };
+        let lines = lines_of(&crate::mock::jobs("job-workflow").expect("the fixture decodes"), &[], Scope::Active, "", &[], &names);
+        let cause = |title: &str| {
+            lines
+                .iter()
+                .find_map(|line| match line {
+                    Line::Job(row) if row.title == title => Some(row.track.as_ref().and_then(|track| track.stalled.clone())),
+                    _ => None,
+                })
+                .expect(title)
+        };
+        assert!(cause("Cart total rounds the wrong way").is_some_and(|cause| cause.contains("plan")), "the stuck bug's row says why");
+        assert_eq!(cause("Show the stale chip in the Jobs list"), None, "a step inside its time stays as it was");
     }
 
     #[test]

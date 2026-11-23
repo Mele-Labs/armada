@@ -89,10 +89,9 @@ impl JobView {
                     .flex()
                     .flex_col()
                     .border(edge)
-                    .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)))
+                    .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55)))
                     .rounded(look.length(token::RADIUS_MD))
-                    .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.06)))
-                    .child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).rounded_l(look.length(token::RADIUS_MD) - edge).bg(hue))
+                    .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.10)))
                     .child(toggle)
                     .children(list),
                 Role::Group,
@@ -104,7 +103,7 @@ impl JobView {
 
     /// Each follow-up kept and not yet settled: a card in its own pane (`flat`), a plain row in the
     /// Spine's frame.
-    fn deferred_rows(&self, id: &SharedString, flat: bool, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
+    pub(super) fn deferred_rows(&self, id: &SharedString, flat: bool, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let Some(job) = self.record(id, cx) else { return Vec::new() };
         let hue = look.color(token::TOOL_LOOK);
         let edge = look.length(token::BORDER_WIDTH);
@@ -150,9 +149,9 @@ impl JobView {
                         row.py(look.length(token::SPACE_2))
                             .px(look.length(token::SPACE_3))
                             .border(edge)
-                            .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.4)))
+                            .border_color(look.color(token::BORDER_SUBTLE).blend(hue.opacity(0.55)))
                             .rounded(look.length(token::RADIUS_MD))
-                            .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.07)))
+                            .bg(look.color(token::BG_RAISED).blend(hue.opacity(0.10)))
                     })
                     .when(!flat, |row| row.pt(look.length(token::SPACE_2)))
                     .text_size(look.length(token::TEXT_XS))
@@ -175,7 +174,6 @@ impl JobView {
                             }
                         }
                     }))
-                    .when(flat, |row| row.child(div().absolute().left_0().top_0().bottom_0().w(edge * 3.).bg(hue)))
                     .child(div().flex_1().min_w_0().child(SharedString::from(later.sentence.clone())))
                     .child(div().flex_none().w(cell).child(act(format!("remind:{later_id}"), "bell-ring", "Remind", Box::new(move |this, window, cx| this.send_line(remind_text(&remind), window, cx)))))
                     .child(
@@ -214,7 +212,7 @@ impl JobView {
         );
     }
 
-    fn later_settled(&self, later: &str) -> bool {
+    pub(super) fn later_settled(&self, later: &str) -> bool {
         self.shown.as_ref().and_then(|id| self.pages.get(id.as_str())).is_some_and(|page| page.side.settled.contains(later))
     }
 
@@ -258,5 +256,28 @@ impl JobView {
     fn later_refused(&mut self, job: &SharedString, later: &str, why: SharedString, cx: &mut Context<Self>) {
         self.later_settle(job, later, false, cx);
         cx.defer(move |cx| crate::toasts::tell(why, cx));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    /// A card in the Needs you band has a tint fill and a full hairline in its hue, and no coloured stripe down one edge (his ruling:
+    /// "I hate these little edge borders"). The card's own source is the only place a stripe could be drawn from, so it is read.
+    #[test]
+    fn a_deferred_card_in_the_band_has_no_stripe_on_one_side() {
+        let source = include_str!("deferred.rs");
+        let card = &source[source.find("let row = div()").expect("the card")..source.find("labelled(row, Role::Group").expect("its end")];
+        assert!(!card.contains(".absolute()"), "nothing is laid along the card's edge");
+        assert!(!card.contains("border_l("), "no border on one side");
+        assert!(card.contains(".border(edge)") && card.contains("hue.opacity("), "a full outline and a tint, both in the hue");
+    }
+
+    /// The Spine's Deferred block is a tint and a full outline in the hue too, with nothing laid along its edge.
+    #[test]
+    fn the_spines_deferred_block_has_no_stripe_on_one_side() {
+        let source = include_str!("deferred.rs");
+        let block = &source[source.find(".id(\"later-block\")").expect("the block")..source.find("\"Deferred\",\n            )").expect("its end")];
+        assert!(!block.contains(".absolute()") && !block.contains("rounded_l(") && !block.contains("border_l("), "nothing is laid along the block's edge");
+        assert!(block.contains(".border(edge)") && block.contains("hue.opacity("), "a full outline and a tint, both in the hue");
     }
 }

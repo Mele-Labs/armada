@@ -117,14 +117,37 @@ async fn a_turn_ending_after_his_visit_reads_replied_again() {
     assert_eq!(mark(&rig, &id).await, reads(JobState::Replied, JobLamp::Done, JobGroup::Done));
 }
 
-/// A walk he has not approved calls on the row as its own question does, though the turn runs on.
+fn walk_window(id: &SessionId) -> ShowWindow {
+    ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() }
+}
+
+/// A walk he has not approved is built work to look at: the row is marked Ready, not Needs, though the turn runs on.
 #[tokio::test]
-async fn an_owed_walk_makes_a_working_job_need_him() {
+async fn an_owed_walk_marks_a_working_job_ready_and_leaves_it_working() {
     let rig = rig_placing(None);
     let id = working(&rig).await;
-    let window = ShowWindow { url: "http://localhost:5173/".into(), title: Some("Findings".into()), session_id: Some(id.clone()), variations: Vec::new(), ..Default::default() };
-    rig.fleet.show_window(None, window).await.expect("shown");
-    assert_eq!(mark(&rig, &id).await, reads(JobState::Working, JobLamp::Needs, JobGroup::Needs));
+    rig.fleet.show_window(None, walk_window(&id)).await.expect("shown");
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Working, JobLamp::Ready, JobGroup::Ready));
+}
+
+/// Only built work waits: nothing blocks on him, so the Job reads Ready in lamp and group too.
+#[tokio::test]
+async fn a_resting_job_owing_only_a_walk_reads_ready() {
+    let rig = rig_placing(None);
+    let id = replied(&rig, "Built it.").await;
+    rig.fleet.show_window(None, walk_window(&id)).await.expect("shown");
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Ready, JobLamp::Ready, JobGroup::Ready));
+}
+
+/// One thing the Job cannot go on without is enough: the built work beside it does not soften it.
+#[tokio::test]
+async fn a_resting_job_owing_a_walk_and_a_question_reads_waiting_and_needs_him() {
+    let rig = rig_placing(None);
+    let id = replied(&rig, "Built it.").await;
+    rig.fleet.show_window(None, walk_window(&id)).await.expect("shown");
+    let ask = ipc::WaitingInput { id: "which".into(), text: "Which branch?".into(), act: None, options: Vec::new(), approves: false, steps: Vec::new(), artifact: None };
+    rig.fleet.waiting_for(None, ipc::SetWaitingFor { items: vec![ask], session_id: Some(id.clone()) }).await.expect("stated");
+    assert_eq!(mark(&rig, &id).await, reads(JobState::Waiting, JobLamp::Needs, JobGroup::Needs));
 }
 
 #[tokio::test]

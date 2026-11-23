@@ -11,7 +11,7 @@
     {
       "id": "quiz",
       "label": "Quiz",
-      "tabs": ["plan", "qa", "now"],
+      "tabs": ["artifacts"],
       "about": "Asks you about each annotation, one question at a time, until you agree on what each asks for. Ends when you approve the short plan.",
       "instructions": "Read every annotation in the request and the code each points at. Quiz the person one question at a time until you and he agree on what each annotation asks for. Edit nothing before then. Then record a short plan with record_plan saying what he gets, with seen: true where he would see it, and wait for his approval.",
       "gate": "plan_approved",
@@ -22,7 +22,7 @@
     {
       "id": "try",
       "label": "Change and try",
-      "tabs": ["for_you", "changes", "now"],
+      "tabs": ["artifacts", "pulls"],
       "about": "Makes the changes quickly and offers the branch for your preview. Ends when you press Looks good on its Ready to try card. Left out when nothing would be seen.",
       "instructions": "Make the changes quickly, handing each change whose shape is decided to a subagent. Mark each annotation done with mark_annotation_done once its change is made.\nMake one group for this step, id try, gated you_approved, and leave it out when nothing would be seen. Push the branch and offer it with offer_preview: `about` says in one line what the branch holds, `look` says in one line what to look at, and `steps` take him there, each aimed at an act in the registry where one does. `about` and each step's `say` are at most 120 characters, and `look` at most 300.\nWait for his Looks good on the Ready to try card: it is his Approve and it ends this step. Offer again after the branch moves or he leaves notes on it.\nShow no walks, and raise no waiting_for item with approves for what the card asks.\nA state only the native Bridge draws, which no live Fleet can reach, may still get a native walk, as the session-habits skill says.",
       "gate": "you_approved",
@@ -33,7 +33,7 @@
     {
       "id": "deliver",
       "label": "Refine and land",
-      "tabs": ["pulls", "checks", "now"],
+      "tabs": ["pulls", "artifacts"],
       "about": "Refines the approved work, writes the tests and lands it through a pull request merged on a green ci.",
       "instructions": "Refine the approved work: simplify it and write the tests, each new test shown failing without the change, then passing. Push the branch and open a pull request. Fix what is red; a test also red on main is not this Job's to fix, say so and carry on. Mark the pull request ready and merge it on a green ci. Report the branch and what is on it.",
       "gate": "merged",
