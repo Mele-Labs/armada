@@ -233,13 +233,13 @@ test("Record hotkey takes the next chord, and hands it on spelled as the palette
       }),
     )
     .toHaveFocus();
-  await userEvent.keyboard("{Meta>}{Shift>}j{/Shift}{/Meta}");
+  await userEvent.keyboard("{Meta>}{Shift>}u{/Shift}{/Meta}");
   expect(given(chosen, "hotkey")).toEqual([
     {
       of: "on",
       target: "session:q1",
       action: "hotkey",
-      value: "⇧⌘J",
+      value: "⇧⌘U",
     },
   ]);
 });
@@ -292,11 +292,11 @@ for (const [what, press, why] of REFUSED) {
 test("another row's key is refused naming that row, and a free one pressed after it is kept", async () => {
   const { chosen } = palette({
     hotkeys: {
-      "session:pk1": "⇧⌘J",
+      "session:pk1": "⇧⌘U",
     },
   });
   await act("cache key", "Record hotkey");
-  await userEvent.keyboard("{Meta>}{Shift>}j{/Shift}{/Meta}");
+  await userEvent.keyboard("{Meta>}{Shift>}u{/Shift}{/Meta}");
   await expect
     .element(page.getByRole("alert"))
     .toHaveTextContent("Bound to Migration notes for Pocket");
@@ -315,7 +315,7 @@ test("another row's key is refused naming that row, and a free one pressed after
 test("a row that holds a key offers Remove hotkey, which hands it on", async () => {
   const { chosen } = palette({
     hotkeys: {
-      "session:q1": "⇧⌘J",
+      "session:q1": "⇧⌘U",
     },
   });
   await type("cache key");

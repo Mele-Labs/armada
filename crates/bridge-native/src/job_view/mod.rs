@@ -46,6 +46,7 @@ mod handoff;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
+mod judge_cards;
 mod look_dock;
 mod run_mac;
 mod look_done;
@@ -150,6 +151,7 @@ mod tokens_tab;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
+pub use judge_cards::{ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
@@ -212,6 +214,8 @@ pub fn bind(cx: &mut App) {
 /// words not yet taken by Fleet, and the working line (A1.4).
 #[derive(Clone, Debug, PartialEq)]
 pub(crate) enum Extra {
+    /// The Judged card of selected words while the Judge reads them: the reading's id (`judge_cards`).
+    Judging(String),
     Plan(PlanCardState),
     Sketch(String),
     Pending(usize),
@@ -973,6 +977,7 @@ impl JobView {
         let on = window.is_window_active().then(|| to.clone()).flatten();
         self.visit(on, cx);
         self.tell_job_shown(window, cx);
+        self.front_judge_tab(window, cx);
         cx.notify();
     }
 
@@ -1069,6 +1074,9 @@ impl JobView {
         if ready_compact::asks(&held.items) {
             cards.push(Extra::Ready);
         }
+        // Words the Judge is reading stand at the thread's end as the card their reading will be, ahead of the builds.
+        let reading = cards.iter().position(|card| matches!(card, Extra::Ready)).unwrap_or(cards.len());
+        cards.splice(reading..reading, self.judging_words(id, cx));
         // A background task Fleet lists is a row of the running card, so the card stands while one runs.
         if !extras.iter().any(|extra| matches!(extra, Extra::Subagents)) && self.background_tasks(id, cx).next().is_some() {
             extras.push(Extra::Subagents);

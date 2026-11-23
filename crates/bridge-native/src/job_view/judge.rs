@@ -123,12 +123,15 @@ pub(super) struct Pinned<'a> {
     known: HashSet<&'a str>,
     /// The reading is of an earlier plan version: only its notes still waiting stand, each marked with its version.
     carried: bool,
+    /// The notes are the Judged card's copy of a reading whose notes also stand inside the card it read: each note is
+    /// there twice and one act settles both, so the copy's rows take keys of their own.
+    twin: bool,
 }
 
 impl<'a> Pinned<'a> {
     pub fn new(ix: usize, key: &'a str, reading: Option<&'a JudgeReading>, plan: &'a SessionPlan) -> Option<Self> {
         let reading = reading.filter(|one| one.state == JudgeState::Done)?;
-        Some(Self { ix, key, reading, known: Self::parts_of(plan), carried: false })
+        Some(Self { ix, key, reading, known: Self::parts_of(plan), carried: false, twin: false })
     }
 
     fn parts_of(plan: &'a SessionPlan) -> HashSet<&'a str> {
@@ -138,13 +141,18 @@ impl<'a> Pinned<'a> {
     /// Everything the plan card draws notes from: the current version's reading, then the earlier versions' open notes.
     /// A note about a part the current plan still holds stands at that part; any other stands with the plan's own.
     pub fn on_card(ix: usize, key: &'a str, reading: Option<&'a JudgeReading>, earlier: &[&'a JudgeReading], plan: &'a SessionPlan) -> Vec<Self> {
-        let carried = earlier.iter().map(|one| Self { ix, key, reading: *one, known: Self::parts_of(plan), carried: true });
+        let carried = earlier.iter().map(|one| Self { ix, key, reading: *one, known: Self::parts_of(plan), carried: true, twin: false });
         Self::new(ix, key, reading, plan).into_iter().chain(carried).collect()
     }
 
     /// The notes of a reading of the whole Job: every one stands as a note on the whole.
     pub fn whole_job(ix: usize, key: &'a str, reading: &'a JudgeReading) -> Option<Self> {
-        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new(), carried: false })
+        (reading.state == JudgeState::Done).then(|| Self { ix, key, reading, known: HashSet::new(), carried: false, twin: false })
+    }
+
+    /// These notes are the Judged card's copy of the ones inside the card.
+    pub fn twin(self) -> Self {
+        Self { twin: true, ..self }
     }
 
     /// The plan version a carried note was raised on, as the card's band writes it.
@@ -266,7 +274,7 @@ impl JobView {
     /// The box under the press: what to verify, and Judge.
     #[allow(clippy::too_many_arguments)]
     #[allow(clippy::too_many_arguments)]
-    fn judge_pop(&self, ix: usize, key: &str, plan: bool, side: gpui::Pixels, noted: bool, anchor: &std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn judge_pop(&self, ix: usize, key: &str, plan: bool, side: gpui::Pixels, noted: bool, anchor: &std::rc::Rc<std::cell::Cell<gpui::Bounds<gpui::Pixels>>>, look: &Look, cx: &Context<Self>) -> AnyElement {
         let Some(open) = self.judge.as_ref() else { return div().into_any_element() };
         let (close_key, notes_key, out_key) = (key.to_string(), key.to_string(), key.to_string());
         let anchor = anchor.clone();
@@ -377,6 +385,22 @@ impl JobView {
         .into_any_element()
     }
 
+    /// Whether the Judge's box is open under the press `key` of the Job shown.
+    pub(super) fn judge_open_at(&self, key: &str) -> bool {
+        let job = self.shown.clone().unwrap_or_default();
+        self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key)
+    }
+
+    /// Whether the Judge's box is open for the words selected in the thread.
+    pub(super) fn judge_open_for_words(&self) -> bool {
+        self.judge.as_ref().is_some_and(|open| open.artifact.kind == JudgeKind::Excerpt)
+    }
+
+    /// Put the box away without a reading, as an outside press does.
+    pub(super) fn drop_judge(&mut self) {
+        self.judge = None;
+    }
+
     fn toggle_judge(&mut self, ix: usize, key: &str, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
         if self.judge.as_ref().is_some_and(|open| open.job == job && open.key == key) {
@@ -426,6 +450,7 @@ impl JobView {
     fn run_judge(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(open) = self.judge.take() else { return };
         let Open { job, key, artifact, area, .. } = open;
+        let words = artifact.kind == JudgeKind::Excerpt;
         let prompt = area.read(cx).value().trim().to_string();
         let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
         // A row has no place in the thread's list: the list measures again, as for a card on the sheet.
@@ -435,14 +460,47 @@ impl JobView {
             page.cards.boxes.remove(&format!("judge:{key}:Judge"));
             page.cards.answers.insert(mark.clone(), Answer::Judging(held));
             page.cards.said.remove(&key);
-            if let Some(spot) = page.keys.spot_of(&format!("judge-press:{key}")) {
+            // The selection's bar goes with the press: there is nothing left to give focus back to.
+            if let Some(spot) = page.keys.spot_of(&format!("judge-press:{key}")).filter(|_| !words) {
                 window.focus(&spot.focus, cx);
             }
+        }
+        if words {
+            self.fork_done(window, cx);
         }
         if let Some(ix) = ix {
             self.card_changed(ix, cx);
         }
         let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt });
+        let back = job.clone();
+        self.post_with(
+            job,
+            "/sessions/judge",
+            body,
+            move |this, why, cx| {
+                if let Some(page) = this.pages.get_mut(&back) {
+                    page.cards.answers.remove(&mark);
+                    page.cards.said.insert(key, why);
+                }
+                cx.notify();
+            },
+            window,
+            cx,
+        );
+    }
+
+    /// Ask the Judge to read what the command palette's list chose, with no box: it asks what was missed.
+    pub(super) fn ask_chosen(&mut self, artifact: JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        let key = format!("choice:{:?}:{}", artifact.kind, artifact.id);
+        let held = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)).map(|one| one.id.clone());
+        let mark = format!("judge:{key}");
+        if let Some(page) = self.pages.get_mut(&job) {
+            page.cards.answers.insert(mark.clone(), Answer::Judging(held));
+            page.cards.said.remove(&key);
+        }
+        cx.notify();
+        let body = encoded(&AskJudge { session_id: SessionId::carried(job.to_string()), artifact, prompt: String::new() });
         let back = job.clone();
         self.post_with(
             job,
@@ -491,6 +549,9 @@ impl JobView {
 
     /// Open a row at its notes, which stand under it: the first note still waiting takes focus.
     pub(super) fn show_row_notes(&mut self, artifact: &JudgeArtifact, window: &mut Window, cx: &mut Context<Self>) {
+        if super::judge_cards::in_thread(artifact.kind) {
+            return self.show_card_notes(artifact, window, cx);
+        }
         let Some(job) = self.shown.clone() else { return };
         let Some(page) = self.pages.get(&job) else { return };
         let Some(reading) = self.record(&job, cx).and_then(|record| reading_of(record, artifact.kind, &artifact.id)) else { return };
@@ -553,7 +614,11 @@ impl JobView {
         if let Some(page) = self.pages.get_mut(&job) {
             let all = page.keys.found_all();
             let at = all.iter().position(|one| one == found);
-            let next = at.and_then(|at| all.get(at + 1).or_else(|| at.checked_sub(1).and_then(|before| all.get(before)))).and_then(|one| page.keys.spot_of(&one.key));
+            // A note drawn twice, in its card and on the Judged card, is one note: focus passes to a different one.
+            let same = |one: &Found| one.reading == found.reading && one.note == found.note;
+            let others: Vec<&Found> = all.iter().filter(|one| !same(one)).collect();
+            let before = at.map_or(0, |at| all[..at].iter().filter(|one| !same(one)).count());
+            let next = at.and_then(|_| others.get(before).or_else(|| before.checked_sub(1).and_then(|back| others.get(back)))).and_then(|one| page.keys.spot_of(&one.key));
             page.cards.judged.insert(mark.clone(), how);
             page.cards.said.remove(plan_key);
             match next {
@@ -591,7 +656,8 @@ impl JobView {
         let plan = record.plan.as_ref().and_then(|plan| plan_reading(record, plan.version));
         let earlier = record.plan.as_ref().map(|plan| earlier_plan_readings(record, plan.version)).unwrap_or_default();
         let rows_drawn = matches!(self.zone_shown(), Some(super::side::Zone::Ledger | super::side::Zone::Pulls | super::side::Zone::Subagents));
-        let rows = record.judge_readings.iter().filter(|one| rows_drawn && !matches!(one.artifact.kind, JudgeKind::Job | JudgeKind::Plan));
+        // A reading of a card or of words in the thread has its notes in the thread, which is drawn while the Job is.
+        let rows = record.judge_readings.iter().filter(|one| (rows_drawn && !matches!(one.artifact.kind, JudgeKind::Job | JudgeKind::Plan)) || super::judge_cards::in_thread(one.artifact.kind));
         let unread: Vec<String> = whole.into_iter().chain(plan).chain(earlier).chain(rows).filter(|one| one.state == JudgeState::Done && !one.read && !one.notes.is_empty()).map(|one| one.id.clone()).collect();
         let port = self.fleet.as_ref().and_then(|fleet| fleet.read(cx).held().port());
         let Some(page) = self.pages.get_mut(job) else { return };
@@ -650,7 +716,7 @@ impl JobView {
     }
 
     fn finding_row(&self, at: &Pinned, note: &JudgeNote, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let found = Found { key: format!("finding:{}:{}", at.reading.id, note.id), reading: at.reading.id.clone(), note: note.id.clone() };
+        let found = Found { key: format!("finding:{}:{}{}", at.reading.id, note.id, if at.twin { ":judged" } else { "" }), reading: at.reading.id.clone(), note: note.id.clone() };
         let spot = page.keys.spot(&found.key, cx);
         page.keys.found(found.clone());
         let hue = look.color(token::STATUS_AWAITING_REVIEW);
