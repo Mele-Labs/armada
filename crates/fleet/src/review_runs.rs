@@ -940,6 +940,27 @@ pub(crate) fn cut_to_limit(text: &str) -> String {
     format!("{}…", kept.trim_end())
 }
 
+/// A text with more than `at_most` sentences, cut after the last one that fits, so a finding that
+/// says a sentence too much is kept rather than refusing the run. One that fits is only trimmed.
+pub(crate) fn cut_to_sentences(text: &str, at_most: usize) -> String {
+    let text = text.trim();
+    let chars: Vec<(usize, char)> = text.char_indices().collect();
+    let is_end = |c: char| matches!(c, '.' | '!' | '?');
+    let mut ended = 0;
+    for (at, (byte, c)) in chars.iter().enumerate() {
+        let next = chars.get(at + 1).map(|(_, next)| *next);
+        // A run of end marks ends one sentence, at its last mark.
+        let closes = is_end(*c) && next.is_none_or(|next| next.is_whitespace());
+        if closes {
+            ended += 1;
+            if ended == at_most {
+                return text[..byte + c.len_utf8()].to_string();
+            }
+        }
+    }
+    text.to_string()
+}
+
 /// A finding's comment as the rule has it: something to say, and at most
 /// [`COMMENT_SENTENCES_AT_MOST`] sentences. Its length is [`cut_to_limit`]'s, before this.
 pub(crate) fn comment_holds(comment: &str, what: &str) -> Result<(), String> {
@@ -1067,7 +1088,7 @@ fn read_answer(
                 return Err(format!("it has {} findings, and at most {FINDINGS_AT_MOST} are kept", out.findings.len()));
             }
             for finding in &mut out.findings {
-                finding.comment = cut_to_limit(&finding.comment);
+                finding.comment = cut_to_limit(&cut_to_sentences(&finding.comment, COMMENT_SENTENCES_AT_MOST));
             }
             for (at, finding) in out.findings.iter().enumerate() {
                 let what = format!("finding {}", at + 1);

@@ -18,7 +18,7 @@ fn messages(count: u32) -> Vec<SessionRow> {
 async fn held_with(rows: Vec<SessionRow>) -> (Held, Vec<ThreadItem>) {
     let held = Held::default();
     held.begin("s1").await;
-    let (_, items) = held.read_through("s1", thread(rows), Vec::new(), Vec::new()).await;
+    let (_, items) = held.read_through("s1", thread(rows), Vec::new(), Vec::new(), Vec::new()).await;
     (held, items)
 }
 
@@ -92,7 +92,7 @@ async fn what_is_heard_while_a_read_is_made_is_in_the_read_and_not_told_twice() 
     let held = Held::default();
     held.begin("s1").await;
     assert!(held.changed("s1", vec![Change::Row(you("late", 9, "hi"))]).await.is_empty(), "buffered for the read");
-    let (_, items) = held.read_through("s1", thread(vec![agent("a", 1, "x")]), Vec::new(), Vec::new()).await;
+    let (_, items) = held.read_through("s1", thread(vec![agent("a", 1, "x")]), Vec::new(), Vec::new(), Vec::new()).await;
     assert_eq!(ids(&items), ["a", "late"]);
     assert!(held.changed("s1", vec![Change::Row(you("late", 9, "hi"))]).await.is_empty());
 }

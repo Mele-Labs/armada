@@ -42,6 +42,7 @@ fn started(item: &ThreadItem) -> Option<&Instant> {
         ThreadItem::Sketch(card) => Some(&card.at),
         ThreadItem::Document(card) => Some(&card.at),
         ThreadItem::ReadyToTry(card) => Some(&card.at),
+        ThreadItem::Margin(card) => Some(&card.at),
         ThreadItem::Plan(_) => None,
     }
 }

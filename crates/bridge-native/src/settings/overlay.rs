@@ -175,6 +175,8 @@ pub struct SettingsOverlay {
     pub lanes: super::lanes::WorkflowLanes,
     /// Settings → Workflows.
     pub workflows: super::workflows::WorkflowsPage,
+    /// Pull requests › the review tools offered on a new pull request.
+    pub review_offer: super::review_offer::ReviewOffer,
     /// Where each slider's track was drawn last frame, by key, so a press reads as a figure.
     pub tracks: Rc<RefCell<BTreeMap<String, Bounds<Pixels>>>>,
     /// The press on a meter that has not been let go, so a click and a drag are told apart.
@@ -239,7 +241,16 @@ impl SettingsOverlay {
         // Settings Fleet publishes while this is open (the sign-in app's client id, written from the browser) are read again.
         if let Wire::Live(fleet) = &wire {
             let mut seen = fleet.read(cx).held().settings_stamp;
+            let mut kit_seen = fleet.read(cx).held().kit_moved;
             typing.push(cx.observe_in(fleet, window, move |this, fleet, window, cx| {
+                // `kit.changed`, folded: the Account page's Kit row reads the link again while it is open.
+                let kit_now = fleet.read(cx).held().kit_moved;
+                if kit_now != kit_seen {
+                    kit_seen = kit_now;
+                    if this.account_shown(cx) {
+                        this.read_kit(cx);
+                    }
+                }
                 let now = fleet.read(cx).held().settings_stamp;
                 if now != seen {
                     seen = now;
@@ -283,6 +294,7 @@ impl SettingsOverlay {
             ways: super::ways::WaysPage::new(cx),
             lanes,
             workflows: super::workflows::WorkflowsPage::new(window, cx),
+            review_offer: Default::default(),
             tracks: Rc::default(),
             meter: None,
             keys: None,
@@ -744,11 +756,13 @@ impl SettingsOverlay {
                 Some(read) => Some(read.await),
                 None => None,
             };
-            let _ = this.update_in(cx, |this, _, cx| {
-                let scope = &mut this.scope;
+            let _ = this.update_in(cx, |this, window, cx| {
                 if let Ok(projects) = projects {
-                    scope.projects = Some(projects);
+                    this.scope.projects = Some(projects);
+                    this.read_review_tools(window, cx);
+                    this.make_review_stops(cx);
                 }
+                let scope = &mut this.scope;
                 match every {
                     Ok(every) => scope.every = Some(every),
                     Err(why) => scope.refused = Some(why.said),
@@ -1211,6 +1225,9 @@ impl SettingsOverlay {
     /// A grid cell's keys: Enter and Space open its choices, or flip the share switch; Backspace and Delete clear a
     /// value the project sets; the arrows move between cells. ← from the first column is the sidebar's.
     fn grid_key(&mut self, key: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if matches!(key, "enter" | "space" | "up" | "down") && self.review_tool_key(key, window, cx) {
+            return true;
+        }
         let Some(cell) = self.cell_focused(window) else { return false };
         match key {
             "enter" | "space" if cell.0 == Key::Shared => self.flip_shared(window, cx),

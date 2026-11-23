@@ -67,6 +67,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         agent_starts: values.agent_starts.map(|starts| starts.as_wire().to_string()),
         delivery: values.delivery.map(|delivery| delivery.as_wire().to_string()),
         workflows_off: values.workflows_off.clone(),
+        review_on_new_pr: values.review_on_new_pr.clone(),
     })
 }
 
@@ -316,8 +317,17 @@ where
                 _ => {}
             }
         }
+        let mut review_on_new_pr: Vec<String> = Vec::new();
+        for id in &written.review_on_new_pr {
+            match id.trim() {
+                "" => return Err(self.values_refused("review_on_new_pr names a blank review tool, and a tool is named by its id".to_string())),
+                id if !review_on_new_pr.iter().any(|held| held == id) => review_on_new_pr.push(id.to_string()),
+                _ => {}
+            }
+        }
         Ok(Values {
             workflows_off,
+            review_on_new_pr,
             tracker,
             reviews,
             agent_starts,
@@ -387,6 +397,7 @@ where
             agent_starts: None,
             delivery: None,
             workflows_off: Vec::new(),
+            review_on_new_pr: Vec::new(),
         }
     }
 
@@ -564,6 +575,9 @@ where
         }
         if !save.values.workflows_off.is_empty() {
             return Err(self.values_refused("Kit switches no workflow off: the machine's and each repository's are the workflows.off setting, and a project's are its own".to_string()));
+        }
+        if !save.values.review_on_new_pr.is_empty() {
+            return Err(self.values_refused("Kit offers no review on a new pull request: that is a project's".to_string()));
         }
         let values = self.values_read(&save.values)?;
         let path = self.kit_folder().join(KIT_FILE);

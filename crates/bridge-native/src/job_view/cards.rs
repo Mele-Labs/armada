@@ -102,7 +102,7 @@ impl JobView {
         let noting = open && page.cards.modes.get(key) == Some(&Mode::Note);
         let note_blank = self.typed_in(key, Mode::Note, cx).trim().is_empty();
         if (!open || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
-            page.cards.kept_seen.borrow_mut().push((key.to_string(), ix, open));
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), ix, open, true));
         }
         let subject = std::rc::Rc::new(subject);
         let job = self.shown.clone().unwrap_or_default();
@@ -120,11 +120,11 @@ impl JobView {
         if open {
             let answer = {
                 let (subject, session_id) = (subject.clone(), session_id.clone());
-                move |how: SketchHow, words: Option<String>| -> (&'static str, Result<String, String>) {
+                move |how: SketchHow, words: Option<String>, extras: ipc::AnswerExtras| -> (&'static str, Result<String, String>) {
                     match &*subject {
                         Subject::Sketch { sketch, drawn } => (
                             "/sessions/sketch/answer",
-                            encoded(&AnswerSketch { session_id: session_id.clone(), sketch: sketch.clone(), drawn: drawn.clone().unwrap_or_default(), how, words, extras: Default::default() }),
+                            encoded(&AnswerSketch { session_id: session_id.clone(), sketch: sketch.clone(), drawn: drawn.clone().unwrap_or_default(), how, words, extras }),
                         ),
                     }
                 }
@@ -141,7 +141,7 @@ impl JobView {
                     Some(std::rc::Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
                         let note = this.typed_in(&commit_key, Mode::Note, cx).trim().to_string();
                         if !note.is_empty() {
-                            let (route, body) = commit_answer(SketchHow::SentBack, Some(note.clone()));
+                            let (route, body) = commit_answer(SketchHow::SentBack, Some(note.clone()), this.extras_of(&commit_key, Mode::Note, cx));
                             this.settle(ix, commit_key.clone(), Answer::SentBack(note), route, body, window, cx);
                         }
                     })),
@@ -151,7 +151,7 @@ impl JobView {
                         button(look, SharedString::from(format!("send-back:{key}")), "Send back", Tone::Primary, true, None, !note_blank).when(!note_blank, |b| {
                             b.on_click(cx.listener(move |this, _, window, cx| {
                                 let note = this.typed_in(&send_key, Mode::Note, cx).trim().to_string();
-                                let (route, body) = answer(SketchHow::SentBack, Some(note.clone()));
+                                let (route, body) = answer(SketchHow::SentBack, Some(note.clone()), this.extras_of(&send_key, Mode::Note, cx));
                                 this.settle(ix, send_key.clone(), Answer::SentBack(note), route, body, window, cx);
                             }))
                         }),
@@ -174,7 +174,7 @@ impl JobView {
                     .child(labelled(
                         button(look, SharedString::from(format!("approve:{key}")), "Approve", Tone::Primary, true, None, true).on_click(cx.listener(
                             move |this, _, window, cx| {
-                                let (route, body) = answer(SketchHow::Approved, None);
+                                let (route, body) = answer(SketchHow::Approved, None, Default::default());
                                 this.settle(ix, approve_key.clone(), Answer::Approved, route, body, window, cx);
                             },
                         )),
@@ -183,7 +183,7 @@ impl JobView {
                     ))
                     .child(labelled(
                         button(look, SharedString::from(format!("note:{key}")), "Send back", Tone::Secondary, true, None, true)
-                            .on_click(cx.listener(move |this, _, window, cx| this.open_box(ix, &note_key, Mode::Note, "", window, cx))),
+                            .on_click(cx.listener(move |this, _, window, cx| this.open_note(ix, &note_key, "Note", window, cx))),
                         Role::Button,
                         "Send back",
                     ))
@@ -637,7 +637,7 @@ impl JobView {
         let editing = open && mode == Mode::Edit;
         let noting = open && mode == Mode::Note;
         if (!open || mode == Mode::Read) && self.holds_kept(&key) {
-            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open));
+            page.cards.kept_seen.borrow_mut().push((key.clone(), ix, open, false));
         }
         let target = self.is_target(&key);
         // A draft is a card in the Band look; a proposed workflow change keeps its own card.
@@ -911,14 +911,15 @@ impl JobView {
         Rc::new(move |this, act, window, cx| {
             let session = SessionId::carried(this.shown.clone().unwrap_or_default().to_string());
             let item = format!("draft:{id}");
-            let answer = |words: Option<String>| encoded(&AnswerWaiting { session_id: session.clone(), item_id: item.clone(), choice: words.is_none().then_some(0), text: words, mode: None, fixed: None, extras: Default::default() });
+            let answer = |words: Option<String>, extras: ipc::AnswerExtras| encoded(&AnswerWaiting { session_id: session.clone(), item_id: item.clone(), choice: words.is_none().then_some(0), text: words, mode: None, fixed: None, extras });
             match act {
-                Act::Approve => this.settle(ix, key.clone(), Answer::Approved, "/sessions/waiting/answer", answer(None), window, cx),
-                Act::Ask => this.ask_for_changes(ix, &key, window, cx),
+                Act::Approve => this.settle(ix, key.clone(), Answer::Approved, "/sessions/waiting/answer", answer(None, Default::default()), window, cx),
+                Act::Ask => this.ask_in_note(ix, &key, window, cx),
                 Act::Send => {
                     let note = this.typed_in(&key, Mode::Note, cx).trim().to_string();
                     if !note.is_empty() {
-                        this.settle(ix, key.clone(), Answer::SentBack(note.clone()), "/sessions/waiting/answer", answer(Some(note)), window, cx);
+                        let extras = this.extras_of(&key, Mode::Note, cx);
+                        this.settle(ix, key.clone(), Answer::SentBack(note.clone()), "/sessions/waiting/answer", answer(Some(note), extras), window, cx);
                     }
                 }
                 Act::Cancel => this.shut_band_note(ix, &key, window, cx),
@@ -958,8 +959,8 @@ impl JobView {
         let word_withdraw = if kind == DraftKind::Workflow { "Dismiss" } else { "Withdraw" };
         let answer_body = {
             let (job, item) = (job.clone(), item.clone());
-            move |choice: Option<u32>, words: Option<String>, fixed: Option<String>| {
-                encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.clone(), choice, text: words, mode: None, fixed, extras: Default::default() })
+            move |choice: Option<u32>, words: Option<String>, fixed: Option<String>, extras: ipc::AnswerExtras| {
+                encoded(&AnswerWaiting { session_id: SessionId::carried(job.to_string()), item_id: item.clone(), choice, text: words, mode: None, fixed, extras })
             }
         };
         let withdraw = {
@@ -981,9 +982,9 @@ impl JobView {
                         Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
                             let words = this.typed_in(&k1, Mode::Edit, cx);
                             if words == original {
-                                this.settle(ix, k1.clone(), Answer::Approved, "/sessions/waiting/answer", answer1(Some(0), None, None), window, cx);
+                                this.settle(ix, k1.clone(), Answer::Approved, "/sessions/waiting/answer", answer1(Some(0), None, None, Default::default()), window, cx);
                             } else {
-                                this.settle(ix, k1.clone(), Answer::Fixed(words.clone()), "/sessions/waiting/answer", answer1(None, None, Some(words)), window, cx);
+                                this.settle(ix, k1.clone(), Answer::Fixed(words.clone()), "/sessions/waiting/answer", answer1(None, None, Some(words), Default::default()), window, cx);
                             }
                         }) as super::keys::Run,
                     )
@@ -994,7 +995,7 @@ impl JobView {
                 Some((
                     approve_word.to_string(),
                     Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
-                        this.settle(ix, k2.clone(), Answer::Approved, "/sessions/waiting/answer", answer2(Some(0), None, None), window, cx)
+                        this.settle(ix, k2.clone(), Answer::Approved, "/sessions/waiting/answer", answer2(Some(0), None, None, Default::default()), window, cx)
                     }) as super::keys::Run,
                 ))
             };
@@ -1002,7 +1003,7 @@ impl JobView {
                 ("Edit".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k3, Mode::Edit, &edit_text, window, cx)) as super::keys::Run)
             });
             let send_back: Option<(String, super::keys::Run)> = (!editing && !noting && kind != DraftKind::Workflow).then(|| {
-                ("Note".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_box(ix, &k4, Mode::Note, "", window, cx)) as super::keys::Run)
+                ("Note".to_string(), Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| this.open_note(ix, &k4, "Note", window, cx)) as super::keys::Run)
             });
             let send_back = send_back.or_else(|| self.workflow_send_back_key(ix, key, text, cx));
             let no: Option<(String, super::keys::Run)> = (!editing).then(|| {
@@ -1024,7 +1025,8 @@ impl JobView {
                 Some(Rc::new(move |this: &mut JobView, window: &mut gpui::Window, cx: &mut Context<JobView>| {
                     let words = this.typed_in(&k6, Mode::Note, cx).trim().to_string();
                     if !words.is_empty() {
-                        this.settle(ix, k6.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer3(None, Some(words), None), window, cx);
+                        let extras = this.extras_of(&k6, Mode::Note, cx);
+                        this.settle(ix, k6.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer3(None, Some(words), None, extras), window, cx);
                     }
                 }))
             } else {
@@ -1071,7 +1073,7 @@ impl JobView {
                 row.children((!headed).then(|| {
                     labelled(
                         button_at("Approve", Tone::Primary, yes, true).on_click(cx.listener(move |this, _, window, cx| {
-                            this.settle(ix, approve_key.clone(), Answer::Approved, "/sessions/waiting/answer", approve_body(Some(0), None, None), window, cx)
+                            this.settle(ix, approve_key.clone(), Answer::Approved, "/sessions/waiting/answer", approve_body(Some(0), None, None, Default::default()), window, cx)
                         })),
                         Role::Button,
                         "Approve",
@@ -1087,7 +1089,7 @@ impl JobView {
                     .children((!headed).then(|| {
                         labelled(
                             button_at("Note", Tone::Secondary, back, true)
-                                .on_click(cx.listener(move |this, _, window, cx| this.open_box(ix, &note_key, Mode::Note, "", window, cx))),
+                                .on_click(cx.listener(move |this, _, window, cx| this.open_note(ix, &note_key, "Note", window, cx))),
                             Role::Button,
                             "Note",
                         )
@@ -1115,9 +1117,9 @@ impl JobView {
                         b.on_click(cx.listener(move |this, _, window, cx| {
                             let words = this.typed_in(&go_key, Mode::Edit, cx);
                             if words == original {
-                                this.settle(ix, go_key.clone(), Answer::Approved, "/sessions/waiting/answer", answer_body(Some(0), None, None), window, cx);
+                                this.settle(ix, go_key.clone(), Answer::Approved, "/sessions/waiting/answer", answer_body(Some(0), None, None, Default::default()), window, cx);
                             } else {
-                                this.settle(ix, go_key.clone(), Answer::Fixed(words.clone()), "/sessions/waiting/answer", answer_body(None, None, Some(words)), window, cx);
+                                this.settle(ix, go_key.clone(), Answer::Fixed(words.clone()), "/sessions/waiting/answer", answer_body(None, None, Some(words), Default::default()), window, cx);
                             }
                         }))
                     }),
@@ -1137,7 +1139,8 @@ impl JobView {
                     button_at("Send back", Tone::Primary, None, !blank).when(!blank, |b| {
                         b.on_click(cx.listener(move |this, _, window, cx| {
                             let words = this.typed_in(&go_key, Mode::Note, cx).trim().to_string();
-                            this.settle(ix, go_key.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer_body(None, Some(words), None), window, cx);
+                            let extras = this.extras_of(&go_key, Mode::Note, cx);
+                            this.settle(ix, go_key.clone(), Answer::SentBack(words.clone()), "/sessions/waiting/answer", answer_body(None, Some(words), None, extras), window, cx);
                         }))
                     }),
                     Role::Button,

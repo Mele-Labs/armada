@@ -817,7 +817,7 @@ impl JobView {
         let key = foot.key.as_str();
         let mut column = div().flex().flex_col().gap(look.length(token::SPACE_2));
         if !page.cards.modes.contains_key(key) && self.holds_kept(key) {
-            page.cards.kept_seen.borrow_mut().push((key.to_string(), foot.ix, true));
+            page.cards.kept_seen.borrow_mut().push((key.to_string(), foot.ix, true, false));
         }
         if let Some(why) = page.cards.said.get(key) {
             column = column.child(refusal(look, key, why.clone()));

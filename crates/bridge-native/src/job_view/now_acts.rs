@@ -185,8 +185,19 @@ mod tests {
         assert_eq!(idle_since(Some("not a time"), &[]), None);
     }
 
+    /// He opens Now from + in the Job's column, in front, as a press of + does once the Job's panes are placed.
+    fn open_now(view: &gpui::Entity<JobView>, job: &str, cx: &mut gpui::VisualTestContext) {
+        use super::super::pane_tree as tree;
+        cx.run_until_parked();
+        view.update(cx, |view, cx| {
+            let column = tree::holder_of(view.arrangement_of(job).expect("the Job is placed"), "artifacts").expect("the column").id.clone();
+            view.rearrange_in(&job.to_string().into(), None, true, |at| tree::add_tab(at, &column, "now", tree::Extras::default()), cx);
+        });
+        super::super::parts_fold::redraw(cx);
+    }
+
     /// His Jobs keep the column they were started with: For you, Open, Done and Deferred as tabs over Now. Opened so, the four tabs go out
-    /// of it and the Now below draws no lamp on a row of its own and no empty row with acts: its words, or nothing.
+    /// of it and Now gives way to what the Job produced. Now opened from + draws no lamp on a row of its own and no empty row with acts.
     #[gpui::test]
     fn a_job_kept_with_the_old_column_opens_without_the_four_tabs_and_with_no_lone_dot(cx: &mut gpui::TestAppContext) {
         use super::super::parts_fold::{drawn, drawn_like, redraw};
@@ -210,10 +221,15 @@ mod tests {
             for gone in ["for_you", "open", "done", "deferred"] {
                 assert!(!super::super::pane_tree::has_kind(arrangement, gone), "{gone} is the band's now");
             }
-            assert!(super::super::pane_tree::has_kind(arrangement, "now") && super::super::pane_tree::has_kind(arrangement, "thread"), "the rest of his layout stays");
+            assert!(super::super::pane_tree::has_kind(arrangement, "thread"), "the rest of his layout stays");
+            assert!(!super::super::pane_tree::has_kind(arrangement, "now"), "the thread shows what the Job is doing");
+            for made in ["artifacts", "pulls", "issues"] {
+                assert!(super::super::pane_tree::has_kind(arrangement, made), "{made} is what the column shows");
+            }
         });
         assert!(drawn(cx, gpui::Role::Group, "Step and Needs you"), "the band is there once");
         assert!(drawn_like(cx, gpui::Role::Tab, "Job column: For you").is_empty() && drawn_like(cx, gpui::Role::Tab, "Job column: Open").is_empty(), "and no second pane of tabs under it");
+        open_now(&view, "mock-01", cx);
         super::super::column_strip::tests::drawn::fresh(cx);
         let column: Vec<(gpui::Role, String)> = cx.update(|window, cx| {
             cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.bounds.origin.x > gpui::px(872.)).map(|one| (one.role, one.name.to_string())).collect()
@@ -287,6 +303,7 @@ mod tests {
         let mut quiet = None;
         for job in ["mock-02", "mock-03", "mock-04", "mock-10", "mock-12", "mock-05", "mock-06"] {
             list.update(cx, |list, cx| list.open(job.into(), cx));
+            open_now(&view, job, cx);
             fresh(cx);
             if drawn_like(cx, gpui::Role::Label, "Idle since").len() == 1 {
                 quiet = Some(job);
