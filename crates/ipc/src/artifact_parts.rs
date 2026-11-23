@@ -45,6 +45,8 @@ pub enum PartKind {
     Buttons,
     /// A page the Job wrote under `.armada/documents/`.
     Page,
+    /// A scene file the Job wrote under its `scenes/` folder, drawn by native as a live prototype.
+    Prototype,
 }
 
 impl PartKind {
@@ -55,6 +57,7 @@ impl PartKind {
             PartKind::Takes => "takes",
             PartKind::Buttons => "buttons",
             PartKind::Page => "page",
+            PartKind::Prototype => "prototype",
         }
     }
 }
@@ -147,6 +150,36 @@ pub enum PartContent {
     Buttons { actions: Vec<PartAction> },
     /// The page's path. The part's `revision` is the page's newest.
     Page { path: String },
+    /// A scene the Job saved and its fixtures, as read at this revision.
+    Prototype(PrototypePart),
+}
+
+/// One fixture file a scene names, read beside it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SceneFixture {
+    /// The file name as the scene's `src` gives it, e.g. `jobs.json`.
+    pub name: String,
+    /// The file's text, raw JSON.
+    pub text: String,
+}
+
+/// A prototype part: the scene text and what it names, read when the Job showed it or saved it again. **Fleet reads
+/// the files and native parses them**, so `trouble` says only what Fleet could not read.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PrototypePart {
+    /// The file name under the Job's `scenes/` folder, e.g. `ready.html`.
+    pub scene: String,
+    /// The scene's text at this revision.
+    pub markup: String,
+    /// Each fixture file the scene names, read beside it.
+    pub fixtures: Vec<SceneFixture>,
+    /// The state the Job last set. Absent means the scene's first. **Not `state`: the part is flattened into
+    /// [`ArtifactPart`], whose own `state` is where the part stands, and two keys of one name read neither.**
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub scene_state: Option<String>,
+    /// What Fleet could not read, in Fleet's words.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub trouble: Option<String>,
 }
 
 impl PartContent {
@@ -157,6 +190,7 @@ impl PartContent {
             PartContent::Takes { .. } => PartKind::Takes,
             PartContent::Buttons { .. } => PartKind::Buttons,
             PartContent::Page { .. } => PartKind::Page,
+            PartContent::Prototype(_) => PartKind::Prototype,
         }
     }
 }
