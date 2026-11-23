@@ -134,7 +134,9 @@ where
         self.scenes_watched();
         let prototype = prototype_read(&self.scratch_of(&id), &checked.scene, checked.state)
             .map_err(|why| self.hosted_refusal(PART_REFUSED, &format!("the prototype was not shown: {why}")))?;
-        let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: true };
+        // The rest at their defaults, so a field another branch adds to `CheckedPart` needs nothing here.
+        #[allow(clippy::needless_update)]
+        let part = CheckedPart { title: checked.title, id: checked.scene, content: PartContent::Prototype(prototype), asks: true, ..CheckedPart::default() };
         self.prototype_placed(&id, &harness, &part, checked.said).await
     }
 
@@ -274,7 +276,9 @@ where
                 if now == *was {
                     continue;
                 }
-                let put = CheckedPart { title: String::new(), id: part.id.clone(), content: PartContent::Prototype(now), asks: part.asks };
+                // The rest at their defaults, so a field another branch adds to `CheckedPart` needs nothing here.
+                #[allow(clippy::needless_update)]
+                let put = CheckedPart { title: String::new(), id: part.id.clone(), content: PartContent::Prototype(now), asks: part.asks, ..CheckedPart::default() };
                 // The record is published whole and an artifact's parts weigh at most so much: a save that grew past it
                 // keeps the last text and says so.
                 if self.part_put(id, &harness, &row.target, &put, None).await.is_err() && read_whole {

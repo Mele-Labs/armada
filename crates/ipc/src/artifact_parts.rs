@@ -165,7 +165,7 @@ pub struct SceneFixture {
 
 /// A prototype part: the scene text and what it names, read when the Job showed it or saved it again. **Fleet reads
 /// the files and native parses them**, so `trouble` says only what Fleet could not read.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PrototypePart {
     /// The file name under the Job's `scenes/` folder, e.g. `ready.html`.
     pub scene: String,
@@ -180,6 +180,14 @@ pub struct PrototypePart {
     /// What Fleet could not read, in Fleet's words.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub trouble: Option<String>,
+}
+
+/// An empty prototype, only so a `CheckedPart` can be built from the fields it names with the rest left at their
+/// defaults. No part is ever sent holding it.
+impl Default for PartContent {
+    fn default() -> Self {
+        PartContent::Prototype(PrototypePart::default())
+    }
 }
 
 impl PartContent {
@@ -316,7 +324,7 @@ pub struct NewTake {
 }
 
 /// An `add_part` that passed every rule.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct CheckedPart {
     pub title: String,
     /// The part's id: the one given, else its kind.
