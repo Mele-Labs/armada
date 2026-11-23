@@ -75,6 +75,8 @@ pub struct Scene {
     pub title: String,
     /// The state drawn first, where the scene names one.
     pub first: Option<String>,
+    /// The walk that shows the built screen, which `shot_check` plays to compare it with this scene.
+    pub walk: Option<String>,
     pub fixtures: Vec<FixtureDecl>,
     /// The ids of the `<state>` parts, in the order they are written.
     pub states: Vec<String>,
@@ -104,6 +106,7 @@ pub fn parse(markup: &str) -> Result<Scene, String> {
     Ok(Scene {
         title: root.attr("title").unwrap_or_default().to_string(),
         first: root.attr("first").map(str::to_string),
+        walk: root.attr("walk").map(str::to_string),
         fixtures,
         states,
         root,

@@ -84,7 +84,7 @@ Words written directly inside a part draw as body text.
 
 | Part | Attributes | Draws |
 |---|---|---|
-| `scene` | `title`, `first` | The root; `first` names the state shown first |
+| `scene` | `title`, `first`, `walk` | The root; `first` names the state shown first, and `walk` the walk that shows the built screen, for the shot check |
 | `fixture` | `name`, `src`, `type` | Nothing; binds a JSON file to `name` |
 | `state` | `id` | Its children, while it is the state shown |
 | `pane` | `title` | A titled region |
@@ -186,6 +186,45 @@ Each also adds one line to the red band under the head, with Fleet's own trouble
 ```
 
 The mock sample, with its fixture, is `crates/bridge-native/fixtures/prototype-scene.html`.
+
+## Shot check before an offer
+
+**Rule.** A Job that built the screen of a scene the owner approved runs the shot check before `offer_preview`, and offers the branch only when every state matches.
+Why: a build that has drifted from the approved scene reaches the Job first, and not the owner on his preview.
+
+Three things pair the scene with the build:
+
+1. The scene names the walk that shows the built screen: `<scene title="Jobs list" walk="jobs-list" first="list">`.
+2. The walk has a step for each state, and the step carries the state's id: `step(…).id("list")` in the walk's source (`Step::id` in `crates/bridge-native/src/walk/mod.rs`).
+   Most steps carry none.
+3. The Job runs `armada check crates/bridge-native:shot_check <scene>`, where `<scene>` is the file in `$ARMADA_SCRATCH/scenes` without `.html`.
+   The bare Check runs every scene there that names a walk, and passes where none does, so it is also what the pre-PR run asks for.
+
+The command underneath is `bridge-native --shot-check <scene.html> --out <dir> [--fixtures-dir <dir>]`.
+It plays the walk headless on its mock data, draws each state of the scene alone, and sets each state against the walk's step of that id.
+Both are drawn at the size the walk gives its screen, at the same scale, and the walk's picture is cut to the screen without its own bar.
+It writes `report.json` and, for each state, `<state>-side-by-side.png` (the scene, then the build) and `<state>-difference.png` to `--out`.
+
+| State | Meaning | Fails the check |
+|---|---|---|
+| matched | The two pictures are within tolerance | No |
+| drifted | Past tolerance, with its score | Yes |
+| missing | No step of the walk carries the state's id | Yes |
+
+A scene that names no walk, or one this build does not play, stops the check with the reason and no report.
+
+**Rule.** The comparison averages each picture down to a grid 32 cells across, and a pair has drifted when the mean difference passes 0.003 or more than 0.5% of the cells differ by over 0.02.
+Why: antialiasing and a shift of a point or two wash out, and a changed tone, a moved part or a missing one does not.
+The figures are measured: [the scene draw time spike](../spikes/scene-draw-time.md), *Shot check tolerance*.
+It can miss a change smaller than a cell where nothing around it moves, such as one glyph changing tone, so the difference picture is what to read.
+
+What a Job does on a drift:
+
+- Read the difference picture, then fix the build to match the scene.
+- Where the scene was wrong, that is the owner's to change: say so in the offer, and do not edit an approved scene to make the check pass.
+
+`--against <other.html>` draws another scene's states in the walk's place.
+It is how the tolerance was measured, and how a revised scene is set against the approved one.
 
 ## Shared parts
 

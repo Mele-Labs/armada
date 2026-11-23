@@ -66,6 +66,8 @@ pub enum Home {
     Tab,
     Sheet,
     Window,
+    /// The scene alone, with no head and no trouble line: what the shot check draws to set against a built screen.
+    Shot,
 }
 
 pub struct PrototypeView {
@@ -151,6 +153,11 @@ impl PrototypeView {
             self.state = Some(state.to_string());
             cx.notify();
         }
+    }
+
+    /// The ids of the states the scene declares, in the order it writes them.
+    pub fn declared(&self) -> Vec<String> {
+        self.scene.as_ref().map(|scene| scene.states.clone()).unwrap_or_default()
     }
 
     pub fn title(&self) -> String {
@@ -284,8 +291,9 @@ impl Render for PrototypeView {
             Ok(scene) => draw::draw(look, scene, &self.fixtures, self.state.as_deref().unwrap_or_default(), cx.entity().downgrade()).0,
             Err(_) => div().into_any_element(),
         };
-        let head = self.head(cx);
-        let trouble = self.trouble_line(cx);
+        let shot = self.home == Home::Shot;
+        let head = (!shot).then(|| self.head(cx));
+        let trouble = if shot { None } else { self.trouble_line(cx) };
         let look = cx.look();
         div()
             .id("prototype")
@@ -303,7 +311,7 @@ impl Render for PrototypeView {
             .flex()
             .flex_col()
             .bg(look.color(token::BG_BASE))
-            .child(head)
+            .children(head)
             .children(trouble)
             .child(div().id("prototype-scene").flex_1().min_h_0().overflow_y_scroll().child(body))
     }

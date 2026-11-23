@@ -194,9 +194,21 @@ pub struct Target {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Step {
+    /// The scene state this step's picture stands for, where a prototype of the screen was approved: `shot_check`
+    /// pairs each `<state id>` of the scene with the step of the same id. Most steps carry none.
+    pub id: Option<&'static str>,
     pub say: &'static str,
     pub verb: Verb,
     pub target: Target,
+}
+
+impl Step {
+    /// This step, named for the scene state its picture stands for.
+    #[allow(dead_code)]
+    pub const fn id(mut self, id: &'static str) -> Step {
+        self.id = Some(id);
+        self
+    }
 }
 
 /// One walk: the screen it plays on, the mock data it starts from, and its steps.
@@ -236,46 +248,46 @@ pub enum Screen {
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Scene(name), target: Target { role, name: target } }
 }
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
-    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+    Step { id: None, say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn right_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
-    Step { say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
+    Step { id: None, say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Marks(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Marks(name), target: Target { role, name: target } }
 }
 
 const fn pairing(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Pairing(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Pairing(name), target: Target { role, name: target } }
 }
 
 const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Answer(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Answer(name), target: Target { role, name: target } }
 }
 
 const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Fresh, target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Fresh, target: Target { role, name: target } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 /// A step that presses inside the page a Job's page tab draws, or only looks where `press` is false; the tab's own page
 /// region is ringed.
 const fn in_page(say: &'static str, role: &'static str, name: &'static str, within: Option<(&'static str, &'static str)>, press: bool) -> Step {
-    Step { say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
+    Step { id: None, say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
 }
 
 /// A step that selects the words of an element inside the page, as a person drags over them.
 const fn in_page_select(say: &'static str, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb: Verb::InPageSelect(PageAim { role, name, within: None, press: false }), target: Target { role: "region", name: "Page" } }
+    Step { id: None, say, verb: Verb::InPageSelect(PageAim { role, name, within: None, press: false }), target: Target { role: "region", name: "Page" } }
 }
 
 /// The hand off marks, played alone and in today's walk.
@@ -334,7 +346,7 @@ const fn joined<const N: usize>(parts: &[&[Step]]) -> [Step; N] {
 static TODAY: [Step; total(TODAY_PARTS)] = joined(TODAY_PARTS);
 
 const fn part(say: &'static str, screen: Screen, scenario: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::FreshIn(screen, scenario), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::FreshIn(screen, scenario), target: Target { role, name: target } }
 }
 
 /// The states hard to reach by using the app, each part on its own mock, a step or two each.
@@ -2206,9 +2218,9 @@ pub static WALKS: &[Walk] = &[
             press_on("A press on the chevron folds that parent's sub-Jobs away", "button", "Fold sub-Jobs of Fix the walk at 820", "img", "Needs you: Re-take the shots"),
             step("Its row keeps one glyph for each state its sub-Jobs are in, in the state's hue. Needs you stays amber and first, so folding hides no need, and the tooltip names the sub-Jobs in that state", Verb::Hover, "img", "Needs you: Re-take the shots"),
             step("The chevron points right, and a press unfolds it", Verb::Look, "button", "Unfold sub-Jobs of Fix the walk at 820"),
-            Step { say: "⌥ and a press on a chevron folds every parent", verb: Verb::AltPressOn("button", "Fold sub-Jobs of Land the native stack"), target: Target { role: "button", name: "Unfold sub-Jobs of Jobs across home and work Macs" } },
+            Step { id: None, say: "⌥ and a press on a chevron folds every parent", verb: Verb::AltPressOn("button", "Fold sub-Jobs of Land the native stack"), target: Target { role: "button", name: "Unfold sub-Jobs of Jobs across home and work Macs" } },
             step("Land the native stack shows needs you, failed and working, one glyph each", Verb::Look, "img", "Needs you: Re-take the shots"),
-            Step { say: "⌥ and a press on a folded chevron unfolds every parent", verb: Verb::AltPressOn("button", "Unfold sub-Jobs of Land the native stack"), target: Target { role: "row", name: "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada" } },
+            Step { id: None, say: "⌥ and a press on a folded chevron unfolds every parent", verb: Verb::AltPressOn("button", "Unfold sub-Jobs of Land the native stack"), target: Target { role: "row", name: "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada" } },
             step("← on a highlighted parent folds it", Verb::Key("left"), "button", "Unfold sub-Jobs of Land the native stack"),
             step("→ unfolds it", Verb::Key("right"), "button", "Fold sub-Jobs of Land the native stack"),
             step("A right press on a parent: Fold sub-Jobs and Fold all sub-Jobs", Verb::RightPress("Land the native stack"), "menuitem", "Fold all sub-Jobs"),
@@ -3535,17 +3547,17 @@ pub static WALKS: &[Walk] = &[
         scenario: "ways-listen",
         steps: &[
             step("A Job that ended: a press on its row opens its thread", Verb::Press, "row", "Settings window"),
-            Step { say: "Its done summary is spoken, and the card in the thread shows how far it is", verb: Verb::Listen("job-ends"), target: Target { role: "timer", name: "0:06 / 0:11" } },
+            Step { id: None, say: "Its done summary is spoken, and the card in the thread shows how far it is", verb: Verb::Listen("job-ends"), target: Target { role: "timer", name: "0:06 / 0:11" } },
             step("The card names the voice that speaks", Verb::Look, "label", "Zoe, Premium"),
             step("Another Job: a press on its row opens its thread", Verb::Press, "row", "Endpoint cleanup"),
-            Step { say: "A question arrives and is spoken: the Job's name, the question, then its options", verb: Verb::Listen("asks"), target: Target { role: "timer", name: "0:02 / 0:08" } },
-            Step { say: "A second question waits behind it and is not spoken yet", verb: Verb::Listen("asks-more"), target: Target { role: "img", name: "Queued" } },
+            Step { id: None, say: "A question arrives and is spoken: the Job's name, the question, then its options", verb: Verb::Listen("asks"), target: Target { role: "timer", name: "0:02 / 0:08" } },
+            Step { id: None, say: "A second question waits behind it and is not spoken yet", verb: Verb::Listen("asks-more"), target: Target { role: "img", name: "Queued" } },
             step("Pause stops the line where it is", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Pause"), "button", "Play"),
             step("Play says it again from its start", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Play"), "button", "Pause"),
-            Step { say: "When the first ends the second is spoken, and the two never overlap", verb: Verb::Listen("first-ends"), target: Target { role: "timer", name: "0:02 / 0:05" } },
+            Step { id: None, say: "When the first ends the second is spoken, and the two never overlap", verb: Verb::Listen("first-ends"), target: Target { role: "timer", name: "0:02 / 0:05" } },
             step("Again says the first card once more, and the second goes back behind it", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Again"), "timer", "0:00 / 0:08"),
-            Step { say: "Without Armada Voice the words stay and a fact says why", verb: Verb::Listen("helper-missing"), target: Target { role: "status", name: "Armada Voice is missing" } },
-            Step { say: "With take in set to read, a new question is not spoken and has no card", verb: Verb::Listen("read"), target: Target { role: "region", name: "Thread" } },
+            Step { id: None, say: "Without Armada Voice the words stay and a fact says why", verb: Verb::Listen("helper-missing"), target: Target { role: "status", name: "Armada Voice is missing" } },
+            Step { id: None, say: "With take in set to read, a new question is not spoken and has no card", verb: Verb::Listen("read"), target: Target { role: "region", name: "Thread" } },
             step("No card is drawn for it", Verb::Absent("article", "Endpoint cleanup asks: Delete the old docs? Yes or No?"), "region", "Thread"),
         ],
     },
