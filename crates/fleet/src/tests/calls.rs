@@ -133,7 +133,7 @@ async fn a_paused_job_tells_nothing_and_resuming_it_does_not_tell_what_it_held()
 }
 
 #[tokio::test]
-async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
+async fn every_needs_you_item_is_told_blocked() {
     let rig = rig_placing(None);
     let mut record = row(&rig).await;
     let mut keeper = seeded(&record);
@@ -149,9 +149,9 @@ async fn a_source_that_holds_the_turn_is_blocked_and_any_other_is_waiting() {
         told.arrived,
         [
             arrival(&record, "Run the tests?", CallTone::Blocked, CallArrivalKind::Needs),
-            arrival(&record, "Land it?", CallTone::Waiting, CallArrivalKind::Needs),
-            // A fleet call holds the turn for a call, but a banner tells it as it tells any other.
-            arrival(&record, "A notice", CallTone::Waiting, CallArrivalKind::Needs),
+            // Every Needs you item is told with the blocked tone, a reply that asks and a fleet call included.
+            arrival(&record, "Land it?", CallTone::Blocked, CallArrivalKind::Needs),
+            arrival(&record, "A notice", CallTone::Blocked, CallArrivalKind::Needs),
         ]
     );
 }

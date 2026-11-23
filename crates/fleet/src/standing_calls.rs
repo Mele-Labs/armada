@@ -40,10 +40,9 @@ pub(crate) fn holds_the_turn(source: WaitingSource) -> bool {
     )
 }
 
-/// The sources that hold a turn on him, as a banner tells it. `BLOCKED`.
-fn blocked(source: WaitingSource) -> bool {
-    use WaitingSource::*;
-    matches!(source, AskCard | Permission | WindowAsk | Plan | SlotChoice | Delivery | TaskDone | BrowserAsk)
+/// Whether a banner tells the item with the blocked tone: every Needs you item does (`owed_kind`). `BLOCKED`.
+fn blocked(item: &WaitingItem) -> bool {
+    owed_kind(item) == OwedKind::Needs
 }
 
 fn tone_of(blocks: bool) -> CallTone {
@@ -407,7 +406,7 @@ impl Keeper {
         let held = record.hosted.as_ref().is_some_and(|one| one.start.is_some());
         let start = held.then(|| ("start".to_string(), true, "Not started".to_string()));
         let calling = record.waiting_for.iter().filter(|one| owed_kind(one) != OwedKind::Ready);
-        start.into_iter().chain(calling.map(|one| (one.id.clone(), blocked(one.source), one.text.clone()))).collect()
+        start.into_iter().chain(calling.map(|one| (one.id.clone(), blocked(one), one.text.clone()))).collect()
     }
 
     /// `pullOwner`: the first Job that holds pull request `number`, or a branch of that name. An ended Job
@@ -475,7 +474,7 @@ impl Keeper {
                 session_id: Some(ipc::SessionId::carried(id)),
                 title: job.name(id),
                 text: item.text.clone(),
-                tone: tone_of(blocked(item.source)),
+                tone: tone_of(blocked(&item)),
                 opened: opened(&item.since),
                 since: item.since,
                 mac: job.mac.clone(),
