@@ -467,6 +467,36 @@ const ROUTES: &[Route] = &[
         path: "/sessions/withdraw_document",
     },
     Route {
+        operation: "comment_margin",
+        method: "POST",
+        path: "/sessions/margin/comment",
+    },
+    Route {
+        operation: "send_held_margin",
+        method: "POST",
+        path: "/sessions/margin/send_held",
+    },
+    Route {
+        operation: "act_on_margin_thread",
+        method: "POST",
+        path: "/sessions/margin/act",
+    },
+    Route {
+        operation: "get_margin_threads",
+        method: "GET",
+        path: "/sessions/margin",
+    },
+    Route {
+        operation: "answer_thread",
+        method: "POST",
+        path: "/sessions/margin/answer",
+    },
+    Route {
+        operation: "suggest_edit",
+        method: "POST",
+        path: "/sessions/margin/suggest",
+    },
+    Route {
         operation: "show_sketch",
         method: "POST",
         path: "/sessions/sketch",

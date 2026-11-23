@@ -175,6 +175,9 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "withdraw_window",
     "withdraw_sketch",
     "withdraw_document",
+    // His margin threads on its pages, answered in the thread.
+    "answer_thread",
+    "suggest_edit",
     "archive_artifact",
     "restore_artifact",
     "add_part",

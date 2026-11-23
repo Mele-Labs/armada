@@ -366,7 +366,7 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked`, the free part of `drift`, `retire` and `links` are built so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built so far, and a run does nothing else but keep its record.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
@@ -389,6 +389,21 @@ A first run has no earlier run, so every feature reads as new, and the prompt na
 
 > **Rule.** Where nothing moved since the last run, the part makes no call and writes no paragraph.
 > Why: the model runs only where words must be written, and a paragraph about nothing would be words for the sake of words.
+
+**`gists` writes a one-line gist for a linked doc that has none.**
+It reads the docs linked by a Job's read that are files of the project's repository at `HEAD`, where no link of the doc has a gist: no Job wrote one, and the first sentence was empty because the result was not visible.
+It takes the oldest links first, thirty docs a run at most, and reads the first 4000 bytes of each from disk; an address or a doc it cannot read is left out.
+It puts up to ten docs in one call to the small model that sorts his messages, each as a numbered item with its path and opening text, and asks for one line a number: a plain fact of at most twenty words about what the doc covers, with no advice and no dashes.
+Fleet reads the reply by number, cuts each line to 200 characters on one line, and keeps it on the doc's read links with `gist_by` `librarian`, so the page serves it in `gist`.
+A number the reply lacks leaves that doc as it was, and the next run asks about it again.
+Each call is spent from the night's share, and where the share runs out the rest wait and the run lists `gists` in `skipped_for_share`.
+The step is `write_gists`, after every other part.
+
+> **Rule.** The model writes a gist only where none exists.
+> Why: a Job's own words or the doc's first sentence already say it for free, so a call there would spend the share on a line the page has.
+
+> **Rule.** A Job's gist replaces the librarian's, and a first sentence heard later does not.
+> Why: a Job's words are about what it changed, and a first sentence is the weakest account of a doc.
 
 **`drift` flags a document that names what the code no longer has.**
 Its free part reads the documents linked to the project's features that are files of its repository, up to two hundred a run, and costs no model.
@@ -428,7 +443,7 @@ The facts then wait: the part's next run reads from the last run that did it.
 A word Fleet cannot read means `on_press`.
 
 **The Catch up card shows a run's steps before he presses, and each as it moves.**
-`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, then `read_through`.
+`list_features` carries the steps a run would take now, each free or model with one line on what it reads or spends: `read_merges`, `check_drift` where `drift` is on, `check_upkeep` where `retire` or `links` is on, a step for each model part that is on and built, `write_gists` last among them where `gists` is on, then `read_through`.
 A run tells each step on the stream as `librarian.step`, running and then done, skipped or failed, with a line of what it did.
 While a run goes, `list_features` also carries it with each step it has reached so far, so a Bridge that opens mid-run redraws the steps and Stop.
 `stop_librarian` stops a run between steps: the steps after the one running are skipped, the run keeps its record marked stopped, and the catalog stays read through where the run before left it.

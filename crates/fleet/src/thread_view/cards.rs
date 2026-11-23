@@ -207,6 +207,21 @@ pub(super) fn with_ready(entries: &mut Vec<Entry<'_>>, ready: &[ipc::ThreadReady
     }
 }
 
+/// Each round of margin talk just after the message row it sent, which stays; one whose row is not found is
+/// placed by when it was sent.
+pub(super) fn with_margins(entries: &mut Vec<Entry<'_>>, margins: &[ipc::ThreadMargin]) {
+    for card in margins {
+        let sent = card.replaces.as_deref().and_then(|replaces| {
+            entries.iter().position(|entry| matches!(entry.piece, Piece::Row(row @ ipc::SessionRow::Message { .. }) if row.id() == replaces))
+        });
+        let at = match sent {
+            Some(sent) => sent + 1,
+            None => place(entries, &card.at),
+        };
+        entries.insert(at, Entry { at: card.at.clone(), from_row: false, piece: Piece::Card(ThreadItem::Margin(card.clone())) });
+    }
+}
+
 /// What a timeline entry that changed a Job's workflow, model or effort says: the value's name and what
 /// it was and became.
 pub(super) fn change_of_event(kind: TimelineKind, says: &str) -> Option<(ChangedValue, String, String)> {
