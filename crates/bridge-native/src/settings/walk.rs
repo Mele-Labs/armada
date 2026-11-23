@@ -826,6 +826,7 @@ pub static ACCOUNT_STEPS: &[Step] = &[
     press_on("Cancel puts the code away", "button", "Cancel", "button", "Add a GitHub login"),
     step("Your devices: this Mac, its tunnel, and every Mac and phone that reaches it", Verb::Wheel("region", "Account", 500), "region", "Your devices"),
     step("What it turns on: each project's store, the login that joins it, and whether this Mac has joined", Verb::Wheel("region", "Account", 2000), "list", "Project stores"),
+    step("Kit comes first: whether his Kit is in step with his other Macs, and pressing it opens Kit", Verb::Look, "button", "Kit, Differs from Work Mac"),
     step("Ledger picks no login, so it has not joined, and the store's sentence says why", Verb::Hover, "status", "Not joined"),
     step("Its tooltip", Verb::Later(800), "status", "Not joined"),
     press_on("Its row opens Ledger's Claims store", "link", "Claims store for Ledger", "combobox", "Joins as, none picked"),

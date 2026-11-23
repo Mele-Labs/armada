@@ -241,7 +241,16 @@ impl SettingsOverlay {
         // Settings Fleet publishes while this is open (the sign-in app's client id, written from the browser) are read again.
         if let Wire::Live(fleet) = &wire {
             let mut seen = fleet.read(cx).held().settings_stamp;
+            let mut kit_seen = fleet.read(cx).held().kit_moved;
             typing.push(cx.observe_in(fleet, window, move |this, fleet, window, cx| {
+                // `kit.changed`, folded: the Account page's Kit row reads the link again while it is open.
+                let kit_now = fleet.read(cx).held().kit_moved;
+                if kit_now != kit_seen {
+                    kit_seen = kit_now;
+                    if this.account_shown(cx) {
+                        this.read_kit(cx);
+                    }
+                }
                 let now = fleet.read(cx).held().settings_stamp;
                 if now != seen {
                     seen = now;

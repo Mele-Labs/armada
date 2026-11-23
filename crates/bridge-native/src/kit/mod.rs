@@ -7,7 +7,7 @@
 
 mod add;
 mod file;
-mod mock;
+pub(crate) mod mock;
 mod model;
 mod sync;
 mod sync_view;
@@ -16,8 +16,7 @@ pub mod walk;
 pub(crate) mod wire;
 
 pub(crate) use model::source_path;
-// The Account page's Kit row reads where Kit stands from here; nothing outside Kit calls it yet.
-#[allow(unused_imports)]
+// The Account page's Kit row reads where Kit stands from here.
 pub use sync::{sync_status, SyncStatus};
 
 use std::collections::HashMap;

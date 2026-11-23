@@ -109,13 +109,13 @@ The glyphs are registry entries marked Proposed: `packages/icons/icons/user-chec
 ## In native Bridge
 
 **Settings › This Mac › Account is one page with three stacked sections, and the title bar's Account row opens it.**
-**Not built.**
+Built in #3977, and Kit's row after it.
 
 | Section | What it holds |
 | --- | --- |
 | Who you are | A card for each login, with Sign in through the device code and Sign out, and an Add a GitHub login card |
 | Your devices | This Mac with its address and tunnel, the linked Macs and the phones, each with Link and Forget. Moved here from Settings › Bridge › Macs |
-| What it turns on | A Kit status row naming the Mac it is in step with, and one row for each project store naming the login that joins it, each opening where it is set |
+| What it turns on | A Kit status row first, and one row for each project store naming the login that joins it, each opening where it is set. Kit's row says In step with the linked Macs' names, Differs from the Macs it differs from in the caution colour, or Stays on this Mac where none is linked, and opens Kit. It reads the Mac link as Kit does, [Kit](kit.md), *Over the Mac link* |
 
 Sign-in is the device code above, once per login, and a project's store row is where the project's pick and a repository's override are set, [Which login a project joins as](#which-login-a-project-joins-as).
 Linking a Mac is as [Native Bridge](native-bridge.md), *Macs found*, says of Settings › Macs, and its list moves to this page.
