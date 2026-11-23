@@ -1,6 +1,6 @@
 //! The preview across two Macs: what Air shares of its ready offers is held here, checked together with this
-//! Mac's own, written for `scripts/preview` and listed with its Mac. A Mac that is asleep or on another build is
-//! left out and named. A ready offer is pushed to origin once another Mac is paired. **One repository stands in
+//! Mac's own, written for `scripts/preview` and listed with its Mac. A Mac that is asleep or on another build still
+//! counts; an offer that cannot build here is left out and named. A ready offer is pushed to origin once another Mac is paired. **One repository stands in
 //! for both Macs' checkouts**, so a tip Air names is already here, and origin is a bare repository beside it.
 
 use std::fs;
@@ -124,37 +124,34 @@ async fn airs_ready_offer_is_held_here_written_to_the_file_and_listed_with_its_m
 }
 
 #[tokio::test]
-async fn a_partner_that_is_asleep_or_on_another_build_is_left_out_and_named() {
+async fn a_partner_that_is_asleep_or_on_another_build_still_counts_and_an_offer_not_on_origin_is_named() {
     let rig = a_rig();
     a_previewable_repository(&rig);
     let one = branch_with(&rig, "armada/air-one", &base(&rig), "crates/x/one.rs", "1");
     let two = branch_with(&rig, "armada/air-two", &base(&rig), "crates/x/two.rs", "2");
     let sent = vec![theirs("armada/air-one", &one, "air-job-1", EARLIER), theirs("armada/air-two", &two, "air-job-2", EARLIER)];
+    let lines = format!("armada/air-one\t{one}\tair-job-1\tAbout armada/air-one\narmada/air-two\t{two}\tair-job-2\tAbout armada/air-two\n");
 
-    paired(&rig, air(Some(1), Some(ipc::ProtocolId::current().as_str().to_string()))).await;
+    // Asleep, and on another wire: neither stops its branches building here.
+    paired(&rig, air(Some(1), Some("another-wire".into()))).await;
     held(&rig, sent.clone()).await;
     checked(&rig).await;
+    let other = read(&rig).await;
+    assert_eq!(other.offers.iter().map(|one| one.state).collect::<Vec<_>>(), [PreviewState::Ready, PreviewState::Ready]);
+    assert_eq!(file(&rig), lines);
+    assert!(other.left_out.is_empty(), "{:?}", other.left_out);
 
-    let asleep = read(&rig).await;
-    assert!(asleep.offers.is_empty(), "{:?}", branches(&asleep));
-    assert_eq!(file(&rig), "");
-    let why = "Air is asleep. Its 2 offers are left out of this refresh.";
-    assert_eq!(asleep.left_out, [PreviewLeftOut { mac: AIR.into(), name: "Air".into(), why: why.into() }]);
-
-    paired(&rig, air(None, Some("another-wire".into()))).await;
-    held(&rig, sent[..1].to_vec()).await;
+    // A tip neither here nor on origin cannot build here, and is the one thing left out.
+    let gone = "0123456789abcdef0123456789abcdef01234567";
+    let mut more = sent.clone();
+    more.push(theirs("armada/air-gone", gone, "air-job-3", EARLIER));
+    held(&rig, more).await;
     checked(&rig).await;
-
-    let frozen = read(&rig).await;
-    assert!(frozen.offers.is_empty());
-    assert_eq!(frozen.left_out.iter().map(|one| one.why.as_str()).collect::<Vec<_>>(), ["Air runs another build. Its 1 offer is left out of this refresh."]);
-
-    paired_awake(&rig).await;
-    held(&rig, sent[..1].to_vec()).await;
-    checked(&rig).await;
-    let awake = read(&rig).await;
-    assert_eq!(awake.offers.len(), 1);
-    assert!(awake.left_out.is_empty(), "a Mac that is back is not left out");
+    let read = read(&rig).await;
+    assert_eq!(read.offers.iter().find(|one| one.branch == "armada/air-gone").map(|one| one.state), Some(PreviewState::Failed));
+    assert_eq!(file(&rig), lines);
+    let why = "Air's armada/air-gone is left out of this refresh: its tip is not on origin.";
+    assert_eq!(read.left_out, [PreviewLeftOut { mac: AIR.into(), name: "Air".into(), why: why.into() }]);
 }
 
 #[tokio::test]
@@ -217,6 +214,8 @@ async fn a_partner_offer_that_clashes_with_an_earlier_own_offer_fails_with_the_f
     );
     assert_eq!(read.offers[1].files, ["crates/x/shared.rs"]);
     assert_eq!(file(&rig), format!("armada/own\t{own}\t{session}\tMine\n"));
+    assert_eq!(read.left_out.len(), 1);
+    assert!(read.left_out[0].why.starts_with("Air's armada/air is left out of this refresh: it does not build here, "), "{}", read.left_out[0].why);
     let shared = rig.fleet.share_preview_offers().await.expect("shared");
     assert_eq!(shared.offers.iter().map(|one| one.branch.as_str()).collect::<Vec<_>>(), ["armada/own"]);
     assert_eq!(rig.thread_of(&session).await.len(), 1, "its own Job is told of its own offer alone");

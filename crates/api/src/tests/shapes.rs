@@ -76,7 +76,7 @@ pub fn preview_offers() -> ipc::PreviewOffers {
             in_build: false,
             mac: None,
         }],
-        refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")] }),
+        refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")], keeps: Vec::new() }),
         left_out: Vec::new(),
     }
 }

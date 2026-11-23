@@ -91,6 +91,7 @@ mod build_turns;
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.
 mod previewing;
+mod preview_carried;
 mod preview_macs;
 /// The notes of the build the owner runs: read, marked looked at, and answered.
 mod build_noting;
