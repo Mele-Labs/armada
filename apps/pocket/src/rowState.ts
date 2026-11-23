@@ -161,15 +161,17 @@ export function lampOf(item: Pick<Item, "session" | "state">): Lamp {
 /** Built work waits for him to try, walk or read, and nothing blocks on him: Fleet's mark says so. */
 export const readyOf = (item: Pick<Item, "session">): boolean => item.session.mark?.lamp === "ready";
 
-/** What he does for the one thing a row waits on. Absent for a Job that is neither Needs you nor Ready for you. */
-export type Owes = NonNullable<PhoneSession["owes"]>;
+/** What he does for what a row waits on, for its chips. None for a Job that is neither Needs you nor Ready for you. */
+export type Owes = NonNullable<PhoneSession["owes"]>[number];
 
-export function owesOf(item: Pick<Item, "session" | "state">): Owes | undefined {
+export function owesOf(item: Pick<Item, "session" | "state">): Owes[] {
   const { session } = item;
-  if (!readyOf(item) && item.state !== "waiting") return undefined;
+  if (!readyOf(item) && item.state !== "waiting") return [];
   if (session.owes !== undefined) return session.owes;
-  if (readyOf(item) || session.ask === undefined) return undefined;
-  return (session.ask.questions ?? []).length > 0 ? "answer" : "approve";
+  if (readyOf(item) || session.ask === undefined) return [];
+  return [
+    (session.ask.questions ?? []).length > 0 ? "answer" : "approve",
+  ];
 }
 
 /** Where a Job stands in its project, as native's `standing_of`: Needs you first, then the loudest inside it. */

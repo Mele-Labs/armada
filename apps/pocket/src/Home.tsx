@@ -10,6 +10,7 @@ import { bucketOf } from "./kit/components/compositions/SessionFrame/SessionFram
 import { actsOn } from "./jobState";
 import { homeOf, useFleet, type Item, type Line } from "./fleet";
 import { JobRow, MacRow } from "./JobList";
+import { readyOf } from "./rowState";
 import { Notch } from "./Notch";
 import { draftPath, go, jobPath, pairPath } from "./router";
 
@@ -27,7 +28,7 @@ const inScope = (scope: Scope, item: Item): boolean => {
   const draft = item.session.held || item.session.blank === true;
   switch (scope) {
     case "needs":
-      return bucketOf(item.state) === "needs" && item.state !== "paused";
+      return bucketOf(item.state) === "needs" && item.state !== "paused" && !readyOf(item);
     case "active":
       return item.state !== "paused";
     case "paused":

@@ -2119,6 +2119,40 @@ ${Array.from(
 }
 
 /**
+ * Marks every Job the list would draw as asking him, as Fleet marks it, as the fixture server lists them: a waiting one, a
+ * stuck one and one stopped for good are Needs you. One held, parked or at work is none. Done on the server's copy only, so
+ * the tests' lists stay as they are.
+ */
+export function markWaiting(jobs: PhoneSession[]): void {
+  for (const job of jobs) {
+    if (job.mark !== undefined) continue;
+    const parked =
+      job.held ||
+      job.paused === true ||
+      job.starts_when !== undefined ||
+      job.start_failed !== undefined ||
+      job.limited_until !== undefined;
+    if (parked) continue;
+    const state =
+      job.stopped !== undefined
+        ? job.stopped.gave_up === true
+          ? "stopped_asks"
+          : undefined
+        : job.standing === "stuck"
+          ? "stuck"
+          : job.waiting && !job.working
+            ? "waiting"
+            : undefined;
+    if (state !== undefined)
+      job.mark = {
+        state,
+        lamp: "needs",
+        group: "needs",
+      };
+  }
+}
+
+/**
  * Jobs marked as Fleet marks them for the list's Needs you and Ready for you groups: a question and a command to run, a
  * build to try and a walk, and one at work. Added to the studio Mac by the fixture server only, so the list the tests count
  * is unchanged.
@@ -2145,7 +2179,9 @@ export function markedJobs(now: number): PhoneSession[] {
       id: "m1",
       title: "Pick the retry budget for pushes",
       mark: needs,
-      owes: "answer",
+      owes: [
+        "answer",
+      ],
       waiting: true,
       started_at: ago(now, 64),
       waiting_since: ago(now, 6),
@@ -2174,7 +2210,9 @@ export function markedJobs(now: number): PhoneSession[] {
       id: "m2",
       title: "Restart the preview on the new build",
       mark: needs,
-      owes: "run",
+      owes: [
+        "run",
+      ],
       waiting: true,
       started_at: ago(now, 41),
       waiting_since: ago(now, 19),
@@ -2184,7 +2222,9 @@ export function markedJobs(now: number): PhoneSession[] {
       id: "m3",
       title: "Settings page, Account tab",
       mark: ready,
-      owes: "try",
+      owes: [
+        "try",
+      ],
       pull: 4012,
       waiting: true,
       started_at: ago(now, 88),
@@ -2195,7 +2235,9 @@ export function markedJobs(now: number): PhoneSession[] {
       id: "m4",
       title: "Redraw the Job card's lamp",
       mark: ready,
-      owes: "walk",
+      owes: [
+        "walk",
+      ],
       waiting: true,
       started_at: ago(now, 52),
       waiting_since: ago(now, 27),

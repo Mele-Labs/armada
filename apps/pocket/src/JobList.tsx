@@ -119,16 +119,11 @@ function secondOf(item: Item): {
       chips: [],
       says: said,
     };
-  const owes = owesOf(item);
   const chips: Chip[] = [
-    ...(owes === undefined
-      ? []
-      : [
-          {
-            text: DOES[owes],
-            look: readyOf(item) ? ("ready" as const) : ("needs" as const),
-          },
-        ]),
+    ...owesOf(item).map((owes) => ({
+      text: DOES[owes],
+      look: readyOf(item) ? ("ready" as const) : ("needs" as const),
+    })),
     ...(session.pull === undefined
       ? []
       : [

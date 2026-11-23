@@ -409,12 +409,15 @@ describe("homeOf", () => {
       "Armada",
     ]);
     const lines = home.repositories[0]!.lines;
-    // Failed first, then those that need him, then working, then held and paused, then the draft.
+    // The two that ask him, with no mark, are Needs you and leave their project.
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "x-stuck",
+      "x-gave-up",
+    ]);
+    // Failed first, then working, then held and paused, then the draft.
     expect(lines.map((one) => one.item.session.id)).toEqual([
       "x-failing",
       "x-unstarted",
-      "x-stuck",
-      "x-gave-up",
       "x-reading",
       "x-queue",
       "x-checks",
@@ -426,9 +429,13 @@ describe("homeOf", () => {
       "x-paused",
       "x-blank",
     ]);
-    expect(lines).toHaveLength(live.length);
+    expect(lines).toHaveLength(live.length - home.needs.length);
     expect(lines.every((one) => one.depth === 0)).toBe(true);
-    const state = (id: string) => lines.find((one) => one.item.session.id === id)!.item.state;
+    const state = (id: string) =>
+      [
+        ...lines.map((one) => one.item),
+        ...home.needs,
+      ].find((one) => one.session.id === id)!.state;
     expect(state("x-blank")).toBe("blank");
     expect(state("x-stuck")).toBe("stuck");
     expect(state("x-paused")).toBe("paused");
@@ -717,13 +724,9 @@ describe("homeOf", () => {
         }),
       ],
     });
-    expect(tree(home)).toEqual([
-      {
-        name: "armada",
-        lines: [
-          "a/a1",
-        ],
-      },
+    expect(tree(home)).toEqual([]);
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "a1",
     ]);
     expect(home.troubled.map((one) => one.machine.origin)).toEqual([
       "https://b",
@@ -788,10 +791,6 @@ describe("homeOf", () => {
       ]),
     ).toEqual([
       [
-        "a1",
-        "waiting",
-      ],
-      [
         "a2",
         "working",
       ],
@@ -806,6 +805,15 @@ describe("homeOf", () => {
       [
         "a3",
         "idle",
+      ],
+    ]);
+    expect(home.needs.map((one) => [
+      one.session.id,
+      one.state,
+    ])).toEqual([
+      [
+        "a1",
+        "waiting",
       ],
     ]);
   });

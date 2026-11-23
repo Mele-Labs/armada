@@ -10,7 +10,7 @@ import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, OperatorDispatched, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { homeWhenBack } from "./router";
-import { rowStateOf, standingOf } from "./rowState";
+import { lampOf, rowStateOf, standingOf } from "./rowState";
 import { events } from "./sse";
 
 export type Mac = {
@@ -339,7 +339,10 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
       }),
     );
   /** Fleet's mark files a Job under Needs you or Ready for you, and the list lifts it out of its project. */
-  const needs = all.filter((one) => one.session.mark?.group === "needs");
+  // A Gateway that sends no mark: a row with the Needs you lamp (waiting, stuck, stopped and asking) is Needs you.
+  const needs = all.filter((one) =>
+    one.session.mark === undefined ? lampOf(one) === "needs" : one.session.mark.group === "needs",
+  );
   const ready = all.filter((one) => one.session.mark?.group === "ready");
   const rest = all.filter((one) => !needs.includes(one) && !ready.includes(one));
   const repositories: Home["repositories"] = [];
