@@ -696,7 +696,7 @@ impl Board {
 impl Render for Board {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        let root = div().id("dashboard").relative().key_context(ActionScope::Dashboard.key_context().unwrap_or_default()).track_focus(&self.root).on_action(cx.listener(Self::on_act)).size_full().font_family(sans(&look));
+        let root = div().id("dashboard").relative().key_context(ActionScope::ProjectBoard.key_context().unwrap_or_default()).track_focus(&self.root).on_action(cx.listener(Self::on_act)).size_full().font_family(sans(&look));
         let Some(project) = self.project(cx) else { return root.into_any_element() };
         let ready = self.layout_ready(&project.id);
         let layout = self.layout(&project.id).clone();

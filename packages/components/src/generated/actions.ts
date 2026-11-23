@@ -52,6 +52,7 @@ export type ActionScope =
   | "logbook"
   | "open studio"
   | "plan"
+  | "project board"
   | "projects"
   | "report"
   | "review"
@@ -2282,7 +2283,7 @@ export const ACTIONS: readonly Action[] = [
     icon: Pencil,
     iconAbsent: null,
     shortcut: "e",
-    scope: "dashboard",
+    scope: "project board",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -2295,7 +2296,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: null,
     shortcut: "← / → / ↑ / ↓",
-    scope: "dashboard",
+    scope: "project board",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -2308,7 +2309,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: null,
     shortcut: "⇧← / ⇧→ / ⇧↑ / ⇧↓",
-    scope: "dashboard",
+    scope: "project board",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -2321,7 +2322,7 @@ export const ACTIONS: readonly Action[] = [
     icon: null,
     iconAbsent: "undecided",
     shortcut: "v",
-    scope: "dashboard",
+    scope: "project board",
     destructive: false,
     confirms: false,
     unbuilt: null,
