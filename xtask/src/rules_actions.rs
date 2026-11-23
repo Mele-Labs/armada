@@ -69,8 +69,6 @@ const SCOPES: &[&str] = &[
     "thread",
     "terminal",
     "dispatch",
-    "tokens",
-    "api client",
     "prototype",
     "review sheet",
     "kit",
