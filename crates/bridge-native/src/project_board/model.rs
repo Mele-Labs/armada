@@ -4,7 +4,8 @@
 
 use chrono::{DateTime, Utc};
 use ipc::{
-    AppRun, AppRunDraft, AppRunState, JobLamp, LookedTag, ManifestConfig, ProjectOverview, SessionRecord, SessionState, SinceYouLooked, TrackedIssue,
+    AppRun, AppRunDraft, AppRunState, JobLamp, LookedTag, ManifestConfig, ProjectOverview, RankedIssue, RankedPull, SessionRecord, SessionState, SinceYouLooked,
+    TrackedIssue,
 };
 
 use super::layout::BlockKind;
@@ -55,8 +56,8 @@ pub enum Press {
     Logs { server: String, title: String },
     /// Fleet proposes a run for a repository that declares none.
     Draft { manifest: String },
-    /// One Check or Command of the manifest, run in the main checkout.
-    Command { manifest: String, name: String },
+    /// One Check or Command of the manifest, run in the main checkout. A Command flagged `confirm: true` asks first.
+    Command { manifest: String, name: String, confirm: bool },
 }
 
 /// A button on a row. A row's buttons stand in fixed columns, so a row without one leaves its place empty.
@@ -85,13 +86,15 @@ pub struct Item {
     /// A chip with a fill: what kind of row it is.
     pub tag: Option<(String, Token)>,
     pub press: Option<Press>,
+    /// A heading drawn above this row and the rows after it, up to the next that has one.
+    pub section: Option<String>,
     /// One slot for each column of buttons the block has.
     pub buttons: Vec<Option<Button>>,
 }
 
 impl Item {
     pub(super) fn new(key: impl Into<String>, glyph: &'static str, hue: Token, said: impl Into<String>, title: impl Into<String>) -> Item {
-        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, buttons: Vec::new() }
+        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, section: None, buttons: Vec::new() }
     }
 
     pub(super) fn meta(mut self, meta: impl Into<String>) -> Item {
@@ -107,6 +110,11 @@ impl Item {
 
     pub(super) fn press(mut self, press: Press) -> Item {
         self.press = Some(press);
+        self
+    }
+
+    pub(super) fn section(mut self, heading: impl Into<String>) -> Item {
+        self.section = Some(heading.into());
         self
     }
 
@@ -293,20 +301,40 @@ pub fn reviews(rows: &[(Option<String>, &InboxRow)], project: &Project) -> Vec<I
 
 // ---- Issues ----------------------------------------------------------------------------------------------------------
 
-/// Where "might pick up" stands: open issues nobody is assigned and no Job holds. Fleet ranks them by feature in a later
-/// step, and that ranking replaces this function and nothing else.
-pub fn might_pick_up(issue: &TrackedIssue) -> bool {
-    issue.state == ipc::IssueState::Open && issue.assignees.is_empty() && issue.holders.is_empty() && !issue.linked_pull_request
+/// The features a ranked row matched, by name, for the column that names them.
+fn feature_names(features: &[ipc::MatchedFeature]) -> String {
+    features.iter().map(|one| one.title.as_str()).collect::<Vec<_>>().join(", ")
 }
 
-/// The issues assigned to him, then the ones he might pick up, each once.
-pub fn issues(mine: &[TrackedIssue], open: &[TrackedIssue]) -> Vec<Item> {
+/// The issues assigned to him, then the ones Fleet ranked as ones he might pick up, in its order and each once. The chip says
+/// which kind a row is, and the column beside it names the features a ranked one matched.
+pub fn issues(mine: &[TrackedIssue], ranked: &[RankedIssue]) -> Vec<Item> {
     let mut items: Vec<Item> = mine
         .iter()
-        .map(|issue| Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_TEAL, "Assigned to you", format!("{} {}", issue.reference, issue.title)).meta("Yours").tag("Yours", token::SKETCH_TEAL).press(Press::Url(issue.url.clone())))
+        .map(|issue| Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_TEAL, "Assigned to you", format!("{} {}", issue.reference, issue.title)).tag("Yours", token::SKETCH_TEAL).press(Press::Url(issue.url.clone())))
         .collect();
-    for issue in open.iter().filter(|issue| might_pick_up(issue) && !mine.iter().any(|one| one.reference == issue.reference)) {
-        items.push(Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_GREY, "Open and unassigned", format!("{} {}", issue.reference, issue.title)).meta("Might pick up").tag("Might pick up", token::SKETCH_GREY).press(Press::Url(issue.url.clone())));
+    for one in ranked.iter().filter(|one| !mine.iter().any(|mine| mine.reference == one.issue.reference)) {
+        let issue = &one.issue;
+        items.push(
+            Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_GREY, "Open and unassigned", format!("{} {}", issue.reference, issue.title))
+                .meta(feature_names(&one.features))
+                .tag("Might pick up", token::SKETCH_GREY)
+                .press(Press::Url(issue.url.clone())),
+        );
+    }
+    items
+}
+
+/// The pull requests of other people Fleet ranked, each once, as the second section of Reviews. One a list of Reviews already
+/// holds is left to that list.
+pub fn interested(pulls: &[RankedPull], held: &[Item]) -> Vec<Item> {
+    let mut items: Vec<Item> = Vec::new();
+    for pull in pulls.iter().filter(|pull| !held.iter().any(|one| one.key == format!("pull-{}", pull.number))) {
+        let item = Item::new(format!("interested-{}", pull.number), "git-pull-request", token::SKETCH_GREY, "Open pull request of someone else", format!("#{} {}", pull.number, pull.title))
+            .meta(feature_names(&pull.features))
+            .tag("Might be interested", token::SKETCH_GREY)
+            .press(Press::Pull { repository: pull.repository.clone(), number: pull.number });
+        items.push(if items.is_empty() { item.section("Might be interested") } else { item });
     }
     items
 }
@@ -365,12 +393,12 @@ pub fn checks(project: &Project, manifests: &[ManifestConfig]) -> Vec<Item> {
     for config in manifests {
         let manifest = config.id.as_str().to_string();
         let of = if many { project.repository_name(&manifest).map(str::to_string) } else { None };
-        let run = |name: &str| Some(Button { glyph: "play", name: format!("Run {name}"), press: Press::Command { manifest: manifest.clone(), name: name.to_string() } });
+        let run = |name: &str, confirm: bool| Some(Button { glyph: "play", name: format!("Run {name}"), press: Press::Command { manifest: manifest.clone(), name: name.to_string(), confirm } });
         for name in &config.checks_as_written {
-            items.push(Item::new(format!("check-{manifest}-{name}"), "list-checks", token::SKETCH_GREY, "Check", name.clone()).meta(of.clone().unwrap_or_default()).tag("Check", token::SKETCH_GREY).buttons(vec![run(name)]));
+            items.push(Item::new(format!("check-{manifest}-{name}"), "list-checks", token::SKETCH_GREY, "Check", name.clone()).meta(of.clone().unwrap_or_default()).tag("Check", token::SKETCH_GREY).buttons(vec![run(name, false)]));
         }
         for name in &config.commands {
-            items.push(Item::new(format!("command-{manifest}-{name}"), "terminal", token::SKETCH_BLUE, "Command", name.clone()).meta(of.clone().unwrap_or_default()).tag("Command", token::SKETCH_BLUE).buttons(vec![run(name)]));
+            items.push(Item::new(format!("command-{manifest}-{name}"), "terminal", token::SKETCH_BLUE, "Command", name.clone()).meta(of.clone().unwrap_or_default()).tag("Command", token::SKETCH_BLUE).buttons(vec![run(name, config.confirm_commands.contains(name))]));
         }
         for name in &config.servers {
             items.push(Item::new(format!("server-{manifest}-{name}"), "square-terminal", token::SKETCH_GREEN, "Server", name.clone()).meta(of.clone().unwrap_or_default()).tag("Server", token::SKETCH_GREEN).buttons(vec![None]));

@@ -4,7 +4,10 @@
 
 use std::collections::BTreeMap;
 
-use ipc::{AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunList, AppRunOpensIn, AppRunProcess, AppRunState, Instant, IssueState, ManifestId, RunPlace, ServerLink, TrackedIssue};
+use ipc::{
+    AppRun, AppRunCheckout, AppRunDraft, AppRunDraftProcess, AppRunList, AppRunOpensIn, AppRunProcess, AppRunState, Instant, IssueState, ManifestId, MatchedBy, MatchedFeature, RankedIssue, RankedIssues, RankedPull,
+    RunPlace, ServerLink, TrackedIssue,
+};
 
 use super::board::{Checkout, IssuesRead};
 use super::model::{Button, Item, Press, Project, Repository};
@@ -23,6 +26,19 @@ pub fn project(id: &str, name: &str) -> Project {
     Project { id: id.to_string(), name: name.to_string(), repositories }
 }
 
+/// The projects the mock Fleet of the Settings tab holds, so the page has a project to edit for each chip: the same ids and members
+/// the board draws.
+pub fn projects() -> Vec<ipc::Project> {
+    crate::features::mock::projects()
+        .into_iter()
+        .map(|(id, name)| {
+            let shown = project(&id, &name);
+            let members = shown.repositories.iter().map(|one| ipc::ProjectMember { manifest_id: ManifestId::carried(one.id.clone()), folder: None }).collect();
+            ipc::Project { id, name, members, ..ipc::Project::default() }
+        })
+        .collect()
+}
+
 /// Jobs waiting on him and a card of the Operator's.
 pub fn needs() -> Vec<Item> {
     let row = |key: &str, glyph: &'static str, hue, said: &str, title: &str, meta: &str, tag: &str, press: Press| {
@@ -38,10 +54,11 @@ pub fn needs() -> Vec<Item> {
 
 /// The Checks and Commands of a manifest, each with a Run button.
 pub fn checks() -> Vec<Item> {
-    let run = |name: &str| Some(Button { glyph: "play", name: format!("Run {name}"), press: Press::Command { manifest: ARMADA.into(), name: name.into() } });
-    let check = |name: &str| Item::new(format!("check-{name}"), "list-checks", token::SKETCH_GREY, "Check", name).tag("Check", token::SKETCH_GREY).buttons(vec![run(name)]);
-    let command = |name: &str| Item::new(format!("command-{name}"), "terminal", token::SKETCH_BLUE, "Command", name).tag("Command", token::SKETCH_BLUE).buttons(vec![run(name)]);
-    vec![check("test"), check("verify-foundations"), check("format"), command("preview"), command("restart")]
+    let run = |name: &str, confirm: bool| Some(Button { glyph: "play", name: format!("Run {name}"), press: Press::Command { manifest: ARMADA.into(), name: name.into(), confirm } });
+    let check = |name: &str| Item::new(format!("check-{name}"), "list-checks", token::SKETCH_GREY, "Check", name).tag("Check", token::SKETCH_GREY).buttons(vec![run(name, false)]);
+    let command = |name: &str, confirm: bool| Item::new(format!("command-{name}"), "terminal", token::SKETCH_BLUE, "Command", name).tag("Command", token::SKETCH_BLUE).buttons(vec![run(name, confirm)]);
+    // `restart` is flagged `confirm: true` in the mock's armada.yml, so a press on it asks first.
+    vec![check("test"), check("verify-foundations"), check("format"), command("preview", false), command("restart", true)]
 }
 
 /// A Job's worktree the Start menu lists.
@@ -132,9 +149,37 @@ fn issue(reference: &str, title: &str, assignees: &[&str]) -> TrackedIssue {
     }
 }
 
-/// One issue assigned to him and two open ones nobody holds.
+fn feature(slug: &str, title: &str, by: MatchedBy, jobs: u32) -> MatchedFeature {
+    MatchedFeature { slug: slug.into(), title: title.into(), by: vec![by], jobs }
+}
+
+/// One issue assigned to him, two ranked ones nobody holds (the first matched two features, the second none), and one pull request
+/// of someone else.
 pub fn issues() -> IssuesRead {
     let mine = vec![issue("armada-a3f2", "Slot GC leaks", &["you"])];
-    let open = vec![issue("armada-a3f2", "Slot GC leaks", &["you"]), issue("armada-9efp", "Library sync", &[]), issue("armada-71cc", "Pocket offline", &[])];
-    IssuesRead { mine, open }
+    let ranked = RankedIssues {
+        project: crate::features::mock::PROJECT.into(),
+        days: 30,
+        fetched_at: None,
+        might_pick_up: vec![
+            RankedIssue {
+                manifest_id: Some(ManifestId::carried(ARMADA)),
+                issue: issue("armada-9efp", "Library sync", &[]),
+                features: vec![feature("feature-library", "Feature library", MatchedBy::PullRequestFiles, 4), feature("project-board", "Project board", MatchedBy::Label, 2)],
+                jobs: 6,
+            },
+            RankedIssue { manifest_id: Some(ManifestId::carried(ARMADA)), issue: issue("armada-71cc", "Pocket offline", &[]), features: Vec::new(), jobs: 0 },
+        ],
+        might_be_interested: vec![RankedPull {
+            manifest_id: ManifestId::carried(ARMADA),
+            repository: "mele-labs/armada".into(),
+            number: 4021,
+            title: "Rank issues by feature".into(),
+            author: "ada".into(),
+            draft: false,
+            features: vec![feature("feature-library", "Feature library", MatchedBy::Files, 4)],
+            jobs: 4,
+        }],
+    };
+    IssuesRead { mine, ranked }
 }

@@ -4,6 +4,7 @@
 //! The grid is six columns wide and as tall as its blocks. A move or a resize pins the block it is about and settles the
 //! rest around it: every other block rises as far as it can and drops below whatever stands in its way.
 
+use ipc::{BoardBlock, BoardLayout};
 use serde::{Deserialize, Serialize};
 
 /// The columns of the grid.
@@ -55,6 +56,11 @@ impl BlockKind {
         }
     }
 
+    /// The kind Fleet's word names, or none for one a later Bridge adds.
+    pub fn from_slug(slug: &str) -> Option<BlockKind> {
+        BlockKind::ALL.into_iter().find(|kind| kind.slug() == slug)
+    }
+
     /// The views its data fits, the first being the one it starts in.
     pub fn views(self) -> &'static [View] {
         match self {
@@ -90,6 +96,21 @@ impl View {
         }
     }
 
+    /// The word Fleet keeps for it.
+    pub fn slug(self) -> &'static str {
+        match self {
+            View::List => "list",
+            View::Table => "table",
+            View::Cards => "cards",
+            View::Graph => "graph",
+            View::Picture => "picture",
+        }
+    }
+
+    pub fn from_slug(slug: &str) -> Option<View> {
+        [View::List, View::Table, View::Cards, View::Graph, View::Picture].into_iter().find(|view| view.slug() == slug)
+    }
+
     /// What a press on it says, as its tooltip.
     pub fn said(self) -> &'static str {
         match self {
@@ -118,7 +139,7 @@ impl Placed {
         Placed { kind, x, y, w, h, view }
     }
 
-    fn overlaps(&self, other: &Placed) -> bool {
+    pub(super) fn overlaps(&self, other: &Placed) -> bool {
         self.x < other.x + other.w && other.x < self.x + self.w && self.y < other.y + other.h && other.y < self.y + self.h
     }
 }
@@ -129,9 +150,70 @@ pub struct Layout {
     pub blocks: Vec<Placed>,
 }
 
+/// How big a block is drawn when it is added, in columns and rows: the size the presets give each.
+const ADDED_W: u8 = 3;
+const ADDED_H: u8 = 2;
+
 impl Layout {
+    /// The board Fleet kept, and the blocks of it this build has no kind for, which go back as they came.
+    /// A block of a kind that stands twice keeps its first, one of a view its kind does not draw takes the kind's first, and
+    /// a size or place outside the grid is brought inside it. The blocks are then settled, as every edit leaves them.
+    pub fn from_wire(kept: &BoardLayout) -> (Layout, Vec<BoardBlock>) {
+        let mut layout = Layout { blocks: Vec::new() };
+        let mut unknown = Vec::new();
+        for block in &kept.blocks {
+            let Some(kind) = BlockKind::from_slug(&block.kind) else {
+                unknown.push(block.clone());
+                continue;
+            };
+            if layout.block(kind).is_some() {
+                continue;
+            }
+            let w = block.w.clamp(LEAST_W, COLUMNS);
+            let view = View::from_slug(&block.view).filter(|view| kind.views().contains(view)).unwrap_or(kind.views()[0]);
+            layout.blocks.push(Placed { kind, x: block.x.min(COLUMNS - w), y: block.y, w, h: block.h.clamp(LEAST_H, MOST_H), view });
+        }
+        layout.settle(None);
+        (layout, unknown)
+    }
+
+    /// What Fleet keeps for this board: its blocks, then the ones of kinds this build does not know.
+    pub fn to_wire(&self, unknown: &[BoardBlock]) -> BoardLayout {
+        let known = self.blocks.iter().map(|one| BoardBlock { kind: one.kind.slug().to_string(), x: one.x, y: one.y, w: one.w, h: one.h, view: one.view.slug().to_string() });
+        BoardLayout { blocks: known.chain(unknown.iter().cloned()).collect() }
+    }
+
     pub fn block(&self, kind: BlockKind) -> Option<&Placed> {
         self.blocks.iter().find(|one| one.kind == kind)
+    }
+
+    /// The kinds that are not on the board, in the order the board lists them.
+    pub fn missing(&self) -> Vec<BlockKind> {
+        BlockKind::ALL.into_iter().filter(|kind| self.block(*kind).is_none()).collect()
+    }
+
+    /// The block is taken off the board, and the rest rise into the room it leaves.
+    pub fn hide(&mut self, kind: BlockKind) {
+        self.blocks.retain(|one| one.kind != kind);
+        self.settle(None);
+    }
+
+    /// The block goes on the board in the first cells, reading along each row from the top, that are free for its size.
+    pub fn add(&mut self, kind: BlockKind) {
+        if self.block(kind).is_some() {
+            return;
+        }
+        let mut placed = Placed::new(kind, 0, 0, ADDED_W, ADDED_H, kind.views()[0]);
+        'rows: for y in 0..=self.rows() {
+            for x in 0..=COLUMNS - ADDED_W {
+                placed.x = x;
+                placed.y = y;
+                if !self.blocks.iter().any(|other| placed.overlaps(other)) {
+                    break 'rows;
+                }
+            }
+        }
+        self.blocks.push(placed);
     }
 
     /// The rows the board is as tall as.

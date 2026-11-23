@@ -10,7 +10,7 @@ use std::time::Duration;
 
 use chrono::Utc;
 use gpui::{AnyWindowHandle, App, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
-use ipc::{AppRunDraft, AppRunList, AppRunState, ManifestConfig, ProjectOverview, SinceYouLooked, TrackedIssue};
+use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
 
 use super::layout::{BlockKind, Layout, View};
 use super::model::{self, Fill, Item, Press, Project, Repository, Shown};
@@ -19,8 +19,10 @@ use super::{mock, wire};
 use crate::features::chosen;
 use crate::fleet::FleetConnection;
 use crate::reviews::ReviewsScreen;
-use crate::settings::wire::Refused;
 use crate::titlebar;
+
+/// How long the board stands still after a change before it is sent to Fleet, so a drag or a run of arrow keys is one save.
+pub(super) const SAVE_AFTER: Duration = Duration::from_millis(600);
 
 /// How many lines of a server's output the Run block keeps.
 const TAIL_LINES: usize = 80;
@@ -61,17 +63,36 @@ impl Checkout {
     }
 }
 
-/// A project's board as it stands on this Mac. The layout is one plain struct, so Fleet can keep it later.
+/// A project's board as it stands on this Mac, and what of it Fleet has not been told.
 struct Stored {
     layout: Layout,
-    /// He moved or resized a block: the preset no longer applies when the project's kind is read.
+    /// He changed it, or Fleet kept one: the preset no longer applies when the project's kind is read.
     edited: bool,
+    /// The blocks Fleet kept of kinds this build does not draw, sent back as they came.
+    unknown: Vec<BoardBlock>,
+    /// Counts the changes, so an answer to a save tells whether a later change is still to go.
+    rev: u32,
 }
 
-/// The issues the Issues block draws from.
+impl Stored {
+    fn preset(kind: Kind, rev: u32) -> Stored {
+        Stored { layout: presets::preset(kind), edited: false, unknown: Vec::new(), rev }
+    }
+}
+
+/// The issues the Issues block draws from: his own, and the ones Fleet ranked with the pull requests of others.
 pub struct IssuesRead {
     pub mine: Vec<TrackedIssue>,
-    pub open: Vec<TrackedIssue>,
+    pub ranked: RankedIssues,
+}
+
+/// A Command flagged `confirm: true` that has been pressed and waits for Run.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Asking {
+    pub manifest: String,
+    pub name: String,
+    /// The repository it is in, said only where the project has more than one.
+    pub repository: Option<String>,
 }
 
 /// The tail of one server's output, under the Run block's rows.
@@ -97,7 +118,22 @@ pub struct Board {
     /// The project a chip chose, over the one he chose last and the one the bar is scoped to.
     pub(super) explicit: Option<String>,
     layouts: HashMap<String, Stored>,
+    /// The projects whose kept layout Fleet has answered for, or could not.
+    layout_read: HashSet<String>,
+    /// The projects whose layout changed here and has not been answered by a save.
+    unsaved: HashSet<String>,
+    /// A change waits for the board to stand still, then goes: one task for each project.
+    saves: HashMap<String, Task<()>>,
+    sending: HashMap<String, Task<()>>,
+    /// What the mock Fleet keeps of each project's layout, for a board that has none of its own.
+    pub(super) kept: HashMap<String, BoardLayout>,
     pub(super) edit: bool,
+    /// A Command that asks before it runs, pressed and not answered; its keys are Run, then Cancel.
+    pub(super) asking: Option<Asking>,
+    pub(super) run_stop: FocusHandle,
+    pub(super) cancel_stop: FocusHandle,
+    /// What a mock board was told to run.
+    pub(super) ran: Vec<(String, String)>,
     /// A focus handle for each block, so every block is a stop of the keys.
     pub(super) handles: Vec<(BlockKind, FocusHandle)>,
     pub(super) root: FocusHandle,
@@ -150,7 +186,16 @@ impl Board {
             window: window.window_handle(),
             explicit: None,
             layouts: HashMap::new(),
+            layout_read: HashSet::new(),
+            unsaved: HashSet::new(),
+            saves: HashMap::new(),
+            sending: HashMap::new(),
+            kept: HashMap::new(),
             edit: false,
+            asking: None,
+            run_stop: cx.focus_handle().tab_stop(true),
+            cancel_stop: cx.focus_handle().tab_stop(true),
+            ran: Vec::new(),
             handles: BlockKind::ALL.into_iter().map(|kind| (kind, cx.focus_handle().tab_stop(true))).collect(),
             root: cx.focus_handle(),
             grab: None,
@@ -231,29 +276,127 @@ impl Board {
 
     // ---- the layout --------------------------------------------------------------------------
 
-    /// The board of the project on screen, made from the preset for its kind the first time it is asked for.
+    /// The board of the project on screen: what Fleet kept, else the preset for its kind.
     pub fn layout(&mut self, project: &str) -> &Layout {
         let kind = self.kind();
-        &self.layouts.entry(project.to_string()).or_insert_with(|| Stored { layout: presets::preset(kind), edited: false }).layout
+        &self.layouts.entry(project.to_string()).or_insert_with(|| Stored::preset(kind, 0)).layout
     }
 
-    fn kind(&self) -> Kind {
+    /// Whether the board of `project` is known: Fleet has said what it kept, so what is drawn is not a guess.
+    pub(super) fn layout_ready(&self, project: &str) -> bool {
+        matches!(self.source, Source::Mock) || self.layout_read.contains(project)
+    }
+
+    pub(super) fn kind(&self) -> Kind {
         match &self.overview {
             Some(Ok(read)) => presets::kind_of(read.rooms.iter().map(|room| room.kind.as_str())),
             _ => Kind::Unknown,
         }
     }
 
-    /// Change the board of `project`; he has edited it from here on, so the preset no longer applies.
+    /// Fleet said what `project` kept, or that it kept none. A board changed here and not yet sent is left as it is.
+    pub(super) fn apply_kept(&mut self, project: &str, kept: Option<BoardLayout>, cx: &mut Context<Self>) {
+        self.layout_read.insert(project.to_string());
+        if self.unsaved.contains(project) {
+            return;
+        }
+        let kind = self.kind();
+        let rev = self.layouts.get(project).map_or(0, |stored| stored.rev);
+        let stored = match kept {
+            Some(kept) => {
+                let (layout, unknown) = Layout::from_wire(&kept);
+                Stored { layout, edited: true, unknown, rev }
+            }
+            None => Stored::preset(kind, rev),
+        };
+        self.layouts.insert(project.to_string(), stored);
+        cx.notify();
+    }
+
+    /// Change the board of `project`; he has edited it from here on, so the preset no longer applies, and Fleet is told once
+    /// the board has stood still.
     pub(super) fn edit_layout(&mut self, project: &str, change: impl FnOnce(&mut Layout), cx: &mut Context<Self>) {
         let kind = self.kind();
-        let stored = self.layouts.entry(project.to_string()).or_insert_with(|| Stored { layout: presets::preset(kind), edited: false });
+        let stored = self.layouts.entry(project.to_string()).or_insert_with(|| Stored::preset(kind, 0));
         let before = stored.layout.clone();
         change(&mut stored.layout);
         if stored.layout != before {
             stored.edited = true;
+            stored.rev += 1;
+            self.keep_soon(project, cx);
             cx.notify();
         }
+    }
+
+    /// Put the project's board back to the preset for its kind, and have Fleet forget the one it kept.
+    pub fn reset_layout(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        let kind = self.kind();
+        let rev = self.layouts.get(&project.id).map_or(0, |stored| stored.rev) + 1;
+        self.layouts.insert(project.id.clone(), Stored::preset(kind, rev));
+        self.keep_soon(&project.id, cx);
+        cx.notify();
+    }
+
+    /// A change is waiting to be sent: it goes when no other has come for `SAVE_AFTER`.
+    fn keep_soon(&mut self, project: &str, cx: &mut Context<Self>) {
+        self.unsaved.insert(project.to_string());
+        let asked = project.to_string();
+        self.saves.insert(
+            project.to_string(),
+            cx.spawn(async move |this, cx| {
+                cx.background_executor().timer(SAVE_AFTER).await;
+                let _ = this.update(cx, |this, cx| this.keep_now(&asked, cx));
+            }),
+        );
+    }
+
+    /// Send the board as it stands: its layout, or none where it is the preset, which has Fleet forget what it kept.
+    fn keep_now(&mut self, project: &str, cx: &mut Context<Self>) {
+        let Some(stored) = self.layouts.get(project) else { return };
+        let (layout, sent) = (stored.edited.then(|| stored.layout.to_wire(&stored.unknown)), stored.rev);
+        let Source::Live(_) = &self.source else {
+            match layout {
+                Some(layout) => self.kept.insert(project.to_string(), layout),
+                None => self.kept.remove(project),
+            };
+            self.unsaved.remove(project);
+            return;
+        };
+        let Some(port) = self.port(cx) else { return };
+        let task = wire::save_board(port, project, layout, cx);
+        let asked = project.to_string();
+        self.sending.insert(
+            project.to_string(),
+            cx.spawn(async move |this, cx| {
+                let answer = task.await;
+                let _ = this.update(cx, |this, cx| match answer {
+                    Ok(_) => {
+                        // A change made while this one was on its way is still to be sent.
+                        if this.layouts.get(&asked).is_some_and(|stored| stored.rev == sent) {
+                            this.unsaved.remove(&asked);
+                        }
+                    }
+                    Err(why) => crate::toasts::tell(why.said, cx),
+                });
+            }),
+        );
+    }
+
+    fn read_layout(&mut self, cx: &mut Context<Self>) {
+        let (Some(port), Some(project)) = (self.port(cx), self.project(cx)) else { return };
+        let task = wire::board(port, &project.id, cx);
+        let asked = project.id.clone();
+        self.tasks.insert("board", cx.spawn(async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update(cx, |this, cx| match answer {
+                Ok(board) => this.apply_kept(&asked, board.layout, cx),
+                Err(why) => {
+                    crate::log::Note::warn("the board was not read").field("why", why.said).emit();
+                    this.apply_kept(&asked, None, cx);
+                }
+            });
+        }));
     }
 
     pub fn toggle_edit(&mut self, cx: &mut Context<Self>) {
@@ -330,6 +473,7 @@ impl Board {
             self.runs.clear();
             self.drafts.clear();
         }
+        self.read_layout(cx);
         self.read_features(cx);
         self.read_runs(cx);
         self.read_configs(cx);
@@ -413,35 +557,16 @@ impl Board {
         }));
     }
 
-    /// The open issues of the tracker the project names, else of each repository's; and what is assigned to him, which is each
-    /// tracker's own Assigned to me run as one query.
+    /// The issues Fleet ranked for the project, and what is assigned to him, which is each tracker's own Assigned to me run as
+    /// one query.
     fn read_issues(&mut self, cx: &mut Context<Self>) {
         let (Some(port), Some(project)) = (self.port(cx), self.project(cx)) else { return };
         let manifests: Vec<String> = project.repositories.iter().take(MOST_REPOSITORIES).map(|one| one.id.clone()).collect();
-        let whole = wire::project_issues(port, &project.id, cx);
-        let each: Vec<_> = manifests.iter().map(|id| wire::repository_issues(port, id, cx)).collect();
+        let ranked = wire::ranked_issues(port, &project.id, cx);
         let queries: Vec<_> = manifests.iter().map(|id| (id.clone(), wire::issue_queries(port, id, cx))).collect();
         let project_id = project.id.clone();
         self.tasks.insert("issues", cx.spawn(async move |this, cx| {
-            let open: Result<Vec<TrackedIssue>, Refused> = match whole.await {
-                Ok(list) => Ok(list.issues),
-                // A project that names no tracker of its own has the repositories' own.
-                Err(why) if why.is("fleet.project_no_tracker") => {
-                    let mut all = Vec::new();
-                    let mut failed = None;
-                    for task in each {
-                        match task.await {
-                            Ok(list) => all.extend(list.issues),
-                            Err(why) => failed = Some(why),
-                        }
-                    }
-                    match (all.is_empty(), failed) {
-                        (true, Some(why)) => Err(why),
-                        _ => Ok(all),
-                    }
-                }
-                Err(why) => Err(why),
-            };
+            let ranked = ranked.await;
             let mut mine: Vec<TrackedIssue> = Vec::new();
             for (manifest, task) in queries {
                 let Some(query) = task.await.ok().and_then(|read| read.guide).map(|guide| guide.assigned_to_me) else { continue };
@@ -452,7 +577,7 @@ impl Board {
             }
             let _ = this.update(cx, |this, cx| {
                 if this.project(cx).is_some_and(|now| now.id == project_id) {
-                    this.issues = Some(open.map(|open| IssuesRead { mine, open }).map_err(|why| why.said));
+                    this.issues = Some(ranked.map(|ranked| IssuesRead { mine, ranked }).map_err(|why| why.said));
                     cx.notify();
                 }
             });
@@ -474,13 +599,21 @@ impl Board {
             },
             BlockKind::Run => self.run_fill(project),
             BlockKind::Reviews => match &self.reviews {
-                Some(reviews) if reviews.read(cx).lists_read() || matches!(self.source, Source::Mock) => Fill::items(model::reviews(&reviews.read(cx).listed_rows(), project)),
+                Some(reviews) if reviews.read(cx).lists_read() || matches!(self.source, Source::Mock) => {
+                    let mut items = model::reviews(&reviews.read(cx).listed_rows(), project);
+                    // The pull requests of others Fleet ranked stand under his own, where there are any.
+                    if let Some(Ok(read)) = &self.issues {
+                        let more = model::interested(&read.ranked.might_be_interested, &items);
+                        items.extend(more);
+                    }
+                    Fill::items(items)
+                }
                 _ => Fill::Reading,
             },
             BlockKind::Issues => match &self.issues {
                 None => Fill::Reading,
                 Some(Err(why)) => Fill::Failed(why.clone()),
-                Some(Ok(read)) => Fill::items(model::issues(&read.mine, &read.open)),
+                Some(Ok(read)) => Fill::items(model::issues(&read.mine, &read.ranked.might_pick_up)),
             },
             BlockKind::Features => match (&self.overview, &self.since) {
                 (Some(overview), Some(since)) => match (overview, since) {
@@ -619,7 +752,36 @@ impl Board {
             Press::RunStop { manifest, name } => self.run_act("/app_runs/stop", manifest, name, cx),
             Press::Logs { server, title } => self.read_tail(server, title, cx),
             Press::Draft { manifest } => self.read_draft(manifest, cx),
-            Press::Command { manifest, name } => self.run_command(manifest, name, cx),
+            Press::Command { manifest, name, confirm: true } => self.ask_run(manifest, name, cx),
+            Press::Command { manifest, name, confirm: false } => self.run_command(manifest, name, cx),
+        }
+    }
+
+    /// A Command flagged `confirm: true`: Run and Cancel are asked, the keys on Cancel, and nothing runs until Run.
+    fn ask_run(&mut self, manifest: String, name: String, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        let repository = (project.repositories.len() > 1).then(|| project.repository_name(&manifest).map(str::to_string)).flatten();
+        self.asking = Some(Asking { manifest, name, repository });
+        let (window, cancel) = (self.window, self.cancel_stop.clone());
+        cx.defer(move |cx| {
+            let _ = window.update(cx, |_, window, cx| window.focus(&cancel, cx));
+        });
+        cx.notify();
+    }
+
+    /// Run: the Command he was asked about runs in the main checkout.
+    pub fn confirm_run(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(asking) = self.asking.take() else { return };
+        window.focus(&self.root, cx);
+        self.run_command(asking.manifest, asking.name, cx);
+        cx.notify();
+    }
+
+    /// Cancel, Esc and a press outside the card: nothing runs, and the keys go back to the board.
+    pub fn cancel_run(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.asking.take().is_some() {
+            window.focus(&self.root, cx);
+            cx.notify();
         }
     }
 
@@ -717,7 +879,12 @@ impl Board {
 
     fn run_command(&mut self, manifest: String, name: String, cx: &mut Context<Self>) {
         let held = format!("command:{manifest}:{name}");
-        let Some(port) = self.port(cx) else { return };
+        let Some(port) = self.port(cx) else {
+            if matches!(self.source, Source::Mock) {
+                self.ran.push((manifest, name));
+            }
+            return;
+        };
         if !self.acting.insert(held.clone()) {
             return;
         }
@@ -737,13 +904,14 @@ impl Board {
 
     // ---- the mock ----------------------------------------------------------------------------
 
-    fn fill_mock(&mut self, cx: &mut Context<Self>) {
+    pub(super) fn fill_mock(&mut self, cx: &mut Context<Self>) {
         let Some(project) = self.project(cx) else { return };
         self.overview = Some(Ok(crate::features::mock::overview()));
         self.since = Some(Ok(crate::features::mock::since(Utc::now() - chrono::Duration::days(crate::features::mock::SINCE_DAYS_AGO))));
         self.runs = mock::runs(&project, self.checkout.job().is_some());
         self.drafts.clear();
         self.issues = Some(Ok(mock::issues()));
+        self.apply_kept(&project.id, self.kept.get(&project.id).cloned(), cx);
         self.apply_preset(&project.id);
         cx.notify();
     }
@@ -760,7 +928,7 @@ impl Board {
         match press {
             Press::RunStart { manifest, name } => Some(format!("/app_runs/start:{manifest}:{name}")),
             Press::RunStop { manifest, name } => Some(format!("/app_runs/stop:{manifest}:{name}")),
-            Press::Command { manifest, name } => Some(format!("command:{manifest}:{name}")),
+            Press::Command { manifest, name, .. } => Some(format!("command:{manifest}:{name}")),
             _ => None,
         }
     }

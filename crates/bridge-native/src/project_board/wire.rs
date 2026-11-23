@@ -1,8 +1,8 @@
-//! The board's routes, each a request off the main thread on the port the Fleet connection read. None is new: the runs,
-//! the manifest, the issues and the review lists are Fleet's own, and the board only asks.
+//! The board's routes, each a request off the main thread on the port the Fleet connection read: the runs, the manifest, the
+//! issue searches and the review lists Fleet already served, and the layout and the ranked issues of the project.
 
 use gpui::{App, AppContext as _, Task};
-use ipc::{AppRun, AppRunDraft, AppRunList, IssueList, IssueQueries, ManifestConfig, NamedAppRun, ProjectIssueList, SearchIssues};
+use ipc::{AppRun, AppRunDraft, AppRunList, BoardLayout, IssueList, IssueQueries, ManifestConfig, NamedAppRun, ProjectBoard, RankedIssues, SaveProjectBoard, SearchIssues};
 
 use crate::link::percent_encoded;
 use crate::settings::wire::{body, request, scoped, Ask, Refused};
@@ -32,14 +32,21 @@ pub fn manifest(port: u16, manifest: &str, cx: &App) -> Task<Result<ManifestConf
     request(port, Ask::Get(format!("/manifests/{}", percent_encoded(manifest))), "ManifestConfig", cx)
 }
 
-/// `GET /projects/project/:id/issues`: the open issues of the tracker a project names.
-pub fn project_issues(port: u16, project: &str, cx: &App) -> Task<Result<ProjectIssueList, Refused>> {
-    request(port, Ask::Get(format!("/projects/project/{}/issues", percent_encoded(project))), "ProjectIssueList", cx)
+/// `GET /projects/project/:id/board`: the layout the project kept, none where it kept none.
+pub fn board(port: u16, project: &str, cx: &App) -> Task<Result<ProjectBoard, Refused>> {
+    request(port, Ask::Get(format!("/projects/project/{}/board", percent_encoded(project))), "ProjectBoard", cx)
 }
 
-/// `GET /issues/:repository`: a repository's open issues, read when the project names no tracker of its own.
-pub fn repository_issues(port: u16, manifest: &str, cx: &App) -> Task<Result<IssueList, Refused>> {
-    request(port, Ask::Get(format!("/issues/{}", percent_encoded(manifest))), "IssueList", cx)
+/// `POST /projects/project/:id/board`: keep the layout, whole, or forget it with none.
+pub fn save_board(port: u16, project: &str, layout: Option<BoardLayout>, cx: &App) -> Task<Result<ProjectBoard, Refused>> {
+    let path = format!("/projects/project/{}/board", percent_encoded(project));
+    request(port, Ask::Post(path, body(&SaveProjectBoard { layout })), "ProjectBoard", cx)
+}
+
+/// `GET /projects/project/:id/ranked_issues`: the open issues nobody holds and the pull requests of others, each with the
+/// features it matched.
+pub fn ranked_issues(port: u16, project: &str, cx: &App) -> Task<Result<RankedIssues, Refused>> {
+    request(port, Ask::Get(format!("/projects/project/{}/ranked_issues", percent_encoded(project))), "RankedIssues", cx)
 }
 
 /// `GET /issue_queries/:repository`: the tracker's own Assigned to me, among what its guide says.

@@ -13,7 +13,7 @@ use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ring_colour};
-use crate::titlebar::parts::{glyph, sans, spinner, tip};
+use crate::titlebar::parts::{card, glyph, sans, spinner, tip, Btn, Weight};
 
 /// A block being moved or resized, as the drag carries it.
 #[derive(Clone)]
@@ -43,7 +43,7 @@ fn hue_of(kind: BlockKind) -> Token {
     }
 }
 
-fn mark_of(kind: BlockKind) -> &'static str {
+pub(super) fn mark_of(kind: BlockKind) -> &'static str {
     match kind {
         BlockKind::Needs => "bell",
         BlockKind::Run => "play",
@@ -112,6 +112,10 @@ impl Board {
             cx.propagate();
             return;
         }
+        // Run or Cancel is asked: the keys are the card's.
+        if self.asking.is_some() {
+            return;
+        }
         let Some(project) = self.project(cx) else { return };
         let (dx, dy) = match act.slot % 4 {
             0 => (-1, 0),
@@ -145,6 +149,19 @@ impl Board {
             let grab = *self.grab.get_or_insert((cell.0 - i16::from(now.x), cell.1 - i16::from(now.y)));
             self.edit_layout(&project.id, |layout| layout.move_to(drag.kind, cell.0 - grab.0, cell.1 - grab.1), cx);
         }
+    }
+
+    /// The block comes off the board, the rest rise into its room, and the keys go back to the board.
+    fn hide_block(&mut self, kind: BlockKind, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.edit_layout(&project.id, |layout| layout.hide(kind), cx);
+        window.focus(&self.root, cx);
+    }
+
+    /// A kind that was off the board goes on it, in the first free cells.
+    pub fn add_block(&mut self, kind: BlockKind, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.edit_layout(&project.id, |layout| layout.add(kind), cx);
     }
 
     // ---- a block ----------------------------------------------------------------------------
@@ -189,6 +206,36 @@ impl Board {
             labelled(group, Role::Group, format!("View of {}", kind.title()))
         });
         let editing = self.edit;
+        let hide = editing.then(|| {
+            let side = look.length(token::H_BADGE);
+            labelled(
+                div()
+                    .id(SharedString::from(format!("{slug}-hide")))
+                    .flex_none()
+                    .size(side)
+                    .flex()
+                    .items_center()
+                    .justify_center()
+                    .rounded(look.length(token::RADIUS_SM))
+                    .border(look.length(token::BORDER_WIDTH))
+                    .border_color(gpui::transparent_black())
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
+                    .focusable()
+                    .tab_stop(true)
+                    .focus_visible(move |style| style.border_color(ring))
+                    .tooltip(tip(format!("Hide {} from the board", kind.title())))
+                    // A press on it is not the start of a drag of the block.
+                    .on_mouse_down(MouseButton::Left, |_, window, cx| {
+                        cx.stop_propagation();
+                        window.prevent_default();
+                    })
+                    .on_click(cx.listener(move |this, _, window, cx| this.hide_block(kind, window, cx)))
+                    .child(glyph("eye-off", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
+                Role::Button,
+                format!("Hide {}", kind.title()),
+            )
+        });
         let header = div()
             .id(SharedString::from(format!("{slug}-head")))
             .flex_none()
@@ -206,7 +253,8 @@ impl Board {
             .child(glyph(mark_of(kind), look.length(token::SPACE_4), look.color(hue)))
             .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(kind.title()))
             .child(div().flex_1())
-            .children(switch);
+            .children(switch)
+            .children(hide);
         let header = if editing { labelled(header, Role::Group, format!("Move {}", kind.title())).into_any_element() } else { header.into_any_element() };
         let body = self.body(kind, placed.view, &fill, look, cx);
         let corner = editing.then(|| {
@@ -285,17 +333,43 @@ impl Board {
 
     fn rows(&self, kind: BlockKind, view: View, shown: &Shown, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let columns = model::button_columns(kind);
-        match view {
-            View::Picture if !shown.tiles.is_empty() => self.picture(&shown.tiles, look),
-            View::Cards => div()
-                .grid()
-                .grid_cols(2)
-                .gap(look.length(token::SPACE_2))
-                .children(shown.items.iter().map(|item| self.card(item, look, cx)))
-                .into_any_element(),
-            View::Table => div().flex().flex_col().children(shown.items.iter().enumerate().map(|(at, item)| self.line(item, true, at > 0, columns, look, cx))).into_any_element(),
-            _ => div().flex().flex_col().children(shown.items.iter().map(|item| self.line(item, false, false, columns, look, cx))).into_any_element(),
+        if view == View::Picture && !shown.tiles.is_empty() {
+            return self.picture(&shown.tiles, look);
         }
+        // The rows stand in groups, a heading over each row that carries one and the rows after it.
+        let mut groups: Vec<(Option<&str>, Vec<&Item>)> = Vec::new();
+        for item in &shown.items {
+            match (&item.section, groups.last_mut()) {
+                (None, Some(group)) => group.1.push(item),
+                (heading, _) => groups.push((heading.as_deref(), vec![item])),
+            }
+        }
+        let slug = kind.slug();
+        let drawn: Vec<AnyElement> = groups
+            .into_iter()
+            .enumerate()
+            .map(|(at, (heading, items))| {
+                let body = match view {
+                    View::Cards => div().grid().grid_cols(2).gap(look.length(token::SPACE_2)).children(items.iter().map(|item| self.card(item, look, cx))).into_any_element(),
+                    View::Table => div().flex().flex_col().children(items.iter().enumerate().map(|(at, item)| self.line(item, true, at > 0, columns, look, cx))).into_any_element(),
+                    _ => div().flex().flex_col().children(items.iter().map(|item| self.line(item, false, false, columns, look, cx))).into_any_element(),
+                };
+                let heading = heading.map(|words| {
+                    labelled(
+                        div()
+                            .id(SharedString::from(format!("{slug}-section-{at}")))
+                            .text_size(look.length(token::TEXT_2XS))
+                            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+                            .text_color(look.color(token::FG_SUBTLE))
+                            .child(SharedString::from(words.to_string())),
+                        Role::Heading,
+                        words.to_string(),
+                    )
+                });
+                div().flex().flex_col().gap(look.length(token::SPACE_1)).children(heading).child(body).into_any_element()
+            })
+            .collect();
+        div().flex().flex_col().gap(look.length(token::SPACE_2)).children(drawn).into_any_element()
     }
 
     /// A row's state glyph, its hue, with the words of the state in its tooltip.
@@ -525,11 +599,106 @@ impl Board {
     }
 }
 
+impl Board {
+    /// A block's place while Fleet has not said where the board stands: the card, with bones where its rows will be.
+    fn skeleton(&self, placed: &Placed, grid: Grid, look: &Look) -> AnyElement {
+        let bones = (0..3).map(|at| bone(look, look.length(token::SPACE_12) * (3.0 - at as f32 * 0.5), look.length(token::SPACE_3)));
+        div()
+            .id(SharedString::from(format!("block-loading-{}", placed.kind.slug())))
+            .absolute()
+            .left(grid.left(placed.x))
+            .top(grid.top(placed.y))
+            .w(grid.wide(placed.w))
+            .h(grid.tall(placed.h))
+            .flex()
+            .flex_col()
+            .gap(look.length(token::SPACE_2))
+            .p(look.length(token::SPACE_3))
+            .rounded(look.length(token::RADIUS_LG))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(look.color(token::BORDER_DEFAULT))
+            .bg(look.color(token::BG_RAISED))
+            .shadow(look.shadows(token::SHADOW_CARD))
+            .children(bones)
+            .into_any_element()
+    }
+
+    /// The question over the board before a flagged Command runs: its name, then Run and Cancel, the keys on Cancel.
+    fn confirm_card(&self, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let asking = self.asking.as_ref()?;
+        let said = SharedString::from(format!("Run {}?", asking.name));
+        let (run, stay) = (self.run_stop.clone(), self.cancel_stop.clone());
+        let run_button = labelled(
+            Btn::new("dashboard-run", "Run", Weight::Primary)
+                .draw(look, cx)
+                .track_focus(&run)
+                .tooltip(tip("Run it in the main checkout"))
+                .on_click(cx.listener(|this, _, window, cx| this.confirm_run(window, cx))),
+            Role::Button,
+            "Run",
+        );
+        let cancel_button = labelled(
+            Btn::new("dashboard-run-cancel", "Cancel", Weight::Secondary)
+                .draw(look, cx)
+                .track_focus(&stay)
+                .tooltip(tip("Leave it"))
+                .on_click(cx.listener(|this, _, window, cx| this.cancel_run(window, cx))),
+            Role::Button,
+            "Cancel",
+        );
+        let body = card(look)
+            .id("dashboard-confirm")
+            .occlude()
+            .w_full()
+            .max_w(look.length(token::W_DIALOG))
+            .gap(look.length(token::SPACE_4))
+            .p(look.length(token::PAD_CARD))
+            // A press inside the card is not a press on the scrim.
+            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+            .child(div().text_size(look.length(token::TEXT_BASE)).line_height(look.length(token::LEADING_BASE)).child(said.clone()))
+            .children(asking.repository.clone().map(|name| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(name))))
+            .child(div().flex().gap(look.length(token::SPACE_2)).child(run_button).child(cancel_button));
+        Some(
+            div()
+                .id("dashboard-confirm-scrim")
+                .absolute()
+                .top_0()
+                .left_0()
+                .size_full()
+                .flex()
+                .items_center()
+                .justify_center()
+                .p(look.length(token::SPACE_6))
+                .bg(look.color(token::SCRIM))
+                .occlude()
+                .on_mouse_down(MouseButton::Left, cx.listener(|this, _, window, cx| {
+                    this.cancel_run(window, cx);
+                    cx.stop_propagation();
+                }))
+                // Tab and the arrows go between the two buttons, Esc leaves; Enter and Space press the one the keys are on.
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, window, cx| {
+                    match event.keystroke.key.as_str() {
+                        "escape" => this.cancel_run(window, cx),
+                        "tab" | "left" | "right" | "up" | "down" => {
+                            let to = if stay.is_focused(window) { &run } else { &stay };
+                            window.focus(to, cx);
+                        }
+                        _ => return,
+                    }
+                    cx.stop_propagation();
+                }))
+                .child(labelled(body, Role::Dialog, said))
+                .into_any_element(),
+        )
+    }
+}
+
 impl Render for Board {
     fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look().clone();
-        let root = div().id("dashboard").key_context(ActionScope::Dashboard.key_context().unwrap_or_default()).track_focus(&self.root).on_action(cx.listener(Self::on_act)).size_full().font_family(sans(&look));
+        let root = div().id("dashboard").relative().key_context(ActionScope::Dashboard.key_context().unwrap_or_default()).track_focus(&self.root).on_action(cx.listener(Self::on_act)).size_full().font_family(sans(&look));
         let Some(project) = self.project(cx) else { return root.into_any_element() };
+        let ready = self.layout_ready(&project.id);
         let layout = self.layout(&project.id).clone();
         let gap = look.length(token::SPACE_3);
         let width = window.viewport_size().width - gap * 2.0;
@@ -538,7 +707,11 @@ impl Render for Board {
         let rows = f32::from(layout.rows());
         let height = grid.row * rows + gap * (rows - 1.0).max(0.0);
         let pitch = (grid.col + gap, grid.row + gap);
-        let blocks: Vec<AnyElement> = layout.blocks.iter().map(|placed| self.block(placed, &project, grid, &look, window, cx)).collect();
+        let blocks: Vec<AnyElement> = if ready {
+            layout.blocks.iter().map(|placed| self.block(placed, &project, grid, &look, window, cx)).collect()
+        } else {
+            layout.blocks.iter().map(|placed| self.skeleton(placed, grid, &look)).collect()
+        };
         let board = div()
             .id("dashboard-grid")
             .relative()
@@ -546,6 +719,6 @@ impl Render for Board {
             .h(height.max(px(0.)))
             .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<BlockDrag>, _, cx| this.dragged(event, pitch, cx)))
             .children(blocks);
-        root.child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board")).into_any_element()
+        root.child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board")).children(self.confirm_card(&look, cx)).into_any_element()
     }
 }
