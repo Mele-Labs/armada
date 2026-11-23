@@ -302,6 +302,8 @@ mod package_manifest;
 mod artifact;
 /// An artifact's parts. `add_part`, `answer_part`.
 mod artifact_parts;
+/// A scene a Job wrote, shown as a live prototype. `show_prototype`.
+mod prototype;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -799,6 +801,7 @@ pub use artifact_parts::{
     AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake, PrototypePart, SceneFixture,
     ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
 };
+pub use prototype::{file_name_checked, CheckedPrototype, ShowPrototype, MOST_FIXTURE_BYTES, MOST_SCENE_BYTES, MOST_STATE_CHARS, SCENES_DIR};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,

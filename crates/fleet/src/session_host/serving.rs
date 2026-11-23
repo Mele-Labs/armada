@@ -581,6 +581,10 @@ where
         self.part_added(caller, add).await
     }
 
+    async fn show_prototype(&self, caller: Option<api::Caller>, show: ipc::ShowPrototype) -> Result<SessionRecord, Refusal> {
+        self.prototype_shown(caller, show).await
+    }
+
     async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
         self.part_answered(answer).await
     }

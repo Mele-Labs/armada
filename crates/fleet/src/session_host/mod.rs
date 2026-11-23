@@ -36,6 +36,7 @@ pub(crate) mod draft_document;
 pub(crate) mod draft_page;
 mod artifact_for;
 pub(crate) mod artifact_parts;
+mod prototyping;
 mod artifacts;
 mod archiving;
 mod answering_items;

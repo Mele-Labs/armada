@@ -312,6 +312,10 @@ impl HostedSessions for FakeDaemon {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.part_unnamed", format!("no job for `{}`", add.title), run_id())))
     }
 
+    async fn show_prototype(&self, _caller: Option<crate::Caller>, show: ipc::ShowPrototype) -> Result<SessionRecord, Refusal> {
+        Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.part_unnamed", format!("no job for `{}`", show.title), run_id())))
+    }
+
     async fn answer_part(self: Arc<Self>, answer: ipc::AnswerPart) -> Result<ipc::JobArtifact, Refusal> {
         Err(Refusal::Unacceptable(ipc::WireError::raised("fleet.artifact_not_held", format!("no artifact `{}`", answer.artifact), run_id())))
     }

@@ -481,6 +481,15 @@ pub trait HostedSessions: Send + Sync + 'static {
         add: ipc::AddPart,
     ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
 
+    /// `show_prototype`: the Job shows a scene it wrote under its `scenes/` folder, as one more part of the artifact
+    /// that still asks him. `caller` places a hosted session as `add_part`'s does. Answers with the row.
+    /// [`Refusal::Unacceptable`] for a call that breaks a rule, a file Fleet cannot read, or a call that places no job.
+    fn show_prototype(
+        &self,
+        caller: Option<crate::Caller>,
+        show: ipc::ShowPrototype,
+    ) -> impl Future<Output = Result<SessionRecord, Refusal>> + Send;
+
     /// `answer_part`: he answers one asking part of an artifact on its own, and the Job is told as his message.
     /// Answers with the artifact. [`Refusal::IllegalMove`] for a part put again since he read it,
     /// [`Refusal::Unacceptable`] for one not open to an answer, a way the part does not take, or a send back with no note.
