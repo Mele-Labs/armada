@@ -33,6 +33,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Usage", &[ActionScope::Usage]),
     ("Tokens", &[ActionScope::Tokens]),
     ("API Client", &[ActionScope::ApiClient]),
+    ("Prototype", &[ActionScope::Prototype]),
     ("Features", &[ActionScope::Features]),
     ("Issues", &[ActionScope::Issues, ActionScope::Report]),
     ("Projects", &[ActionScope::Projects]),
