@@ -46,6 +46,7 @@ mod handoff;
 pub(crate) mod format;
 pub(crate) mod head;
 mod judge;
+mod judge_cards;
 mod look_dock;
 mod run_mac;
 mod look_done;
@@ -240,6 +241,8 @@ pub(crate) enum Extra {
     Ready,
     /// The card of one revision of an artifact that holds parts, at the foot of the thread: the artifact's id and the revision (`parts_card`).
     Parts(String, u32),
+    /// The Judged card of selected words while the Judge reads them: the reading's id (`judge_cards`).
+    Judging(String),
 }
 
 /// The person's words, drawn in the thread the moment they are sent and until Fleet's own row for
@@ -1065,6 +1068,8 @@ impl JobView {
         let kept: Vec<(String, u32, ipc::Instant)> = self.parts_artifacts(id).iter().flat_map(|one| one.revisions.iter().map(|revision| (one.id.clone(), revision.number, revision.at.clone()))).collect();
         let (anchors, tail) = parts_fold::place(&held.items, &kept);
         let mut cards: Vec<Extra> = tail.into_iter().map(|(artifact, revision)| Extra::Parts(artifact, revision)).collect();
+        // Words the Judge is reading stand at the thread's end as the card their reading will be.
+        cards.extend(self.judging_words(id, cx));
         // The builds still to try are one compact card at the thread's end, so pressing one never takes him up into the history.
         if ready_compact::asks(&held.items) {
             cards.push(Extra::Ready);
