@@ -196,7 +196,7 @@ impl FeaturesScreen {
     }
 
     /// The card over the list (`.lib`): the closed line until a press opens it, and then the card itself.
-    pub(super) fn render_librarian(&self, look: &Look, window: &Window, cx: &mut Context<Self>) -> Option<AnyElement> {
+    pub(super) fn render_librarian(&self, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
         let card = self.librarian_card()?;
         let (hue, name, why) = card.mark();
         let ink = look.color(hue);
@@ -227,8 +227,8 @@ impl FeaturesScreen {
                 }
             }));
         let shell = if self.card_open(&card) {
-            // At most a fifth of the window: the title row stays, and what is under it scrolls.
-            let cap = window.viewport_size().height * 0.2;
+            // At most a fifth of the list's column, which spans the window: the title row stays, and what is under it scrolls.
+            let cap = gpui::relative(0.2);
             let press = card.button().map(|(words, primary, off)| {
                 let pill = button(look, "features-librarian-press", words, primary, false, off, None);
                 let pill = if off { pill } else { pill.on_click(cx.listener(|this, _, _, cx| this.catch_up(cx))) };

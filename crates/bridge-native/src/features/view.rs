@@ -245,7 +245,7 @@ impl FeaturesScreen {
             .flex_col()
             .children(self.render_chips(look, cx))
             .child(self.render_find(look))
-            .children(self.render_librarian(look, window, cx))
+            .children(self.render_librarian(look, cx))
             .child(self.render_project_rows(look, self.list_focus.is_focused(window), cx))
             .child(div().flex_1().min_h_0().child(body))
     }
