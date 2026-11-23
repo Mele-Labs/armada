@@ -449,7 +449,12 @@ fn stand_in(job: &SessionRecord) -> Stand {
     }
     let Some(mark) = mark_of(job) else { return Stand::Idle };
     let open = || job.waiting_for.iter().filter(|item| item.source != WaitingSource::Done);
-    if mark.lamp == JobLamp::Needs && open().next().is_some() && open().all(|item| item.source == WaitingSource::ReadyToTry) {
+    // Fleet marks a Job whose every owed item is built work for him to look at Ready; an older Fleet marks it Needs, and
+    // the items say the same.
+    if mark.lamp == JobLamp::Ready
+        || mark.group == JobGroup::Ready
+        || (mark.lamp == JobLamp::Needs && open().next().is_some() && open().all(|item| item.source == WaitingSource::ReadyToTry))
+    {
         return Stand::Ready;
     }
     if matches!(mark.lamp, JobLamp::Needs | JobLamp::Failed) {
@@ -466,6 +471,7 @@ fn stand_in(job: &SessionRecord) -> Stand {
     }
     match mark.group {
         JobGroup::Needs => Stand::Needs,
+        JobGroup::Ready => Stand::Ready,
         JobGroup::Working => Stand::Working,
         JobGroup::Held => Stand::Held,
         JobGroup::Done => Stand::Idle,
@@ -5248,6 +5254,20 @@ mod tests {
         let ready = asking.iter_mut().find(|job| job.id.as_str() == "mock-14").expect("the Ready to try Job");
         ready.waiting_for.push(ipc::decode::<ipc::WaitingItem>("WaitingItem", item.as_bytes()).expect("an item"));
         assert!(under(&grouped(&asking, Group::State, &[]), "Needs you").contains(&"mock-14".to_string()));
+    }
+
+    /// Fleet marks a Job whose owed work is all built `Ready`, by lamp or by group, and By state stands it under Ready to try.
+    #[test]
+    fn a_job_fleet_marks_ready_stands_under_ready_to_try_by_its_lamp_or_its_group() {
+        for (state, lamp, group) in [(JobState::Ready, JobLamp::Ready, JobGroup::Ready), (JobState::Working, JobLamp::Ready, JobGroup::Ready), (JobState::Working, JobLamp::Running, JobGroup::Ready)] {
+            let mut jobs = standing_jobs();
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-02").expect("a working Job");
+            job.waiting_for = Vec::new();
+            job.mark = Some(JobMark { state, lamp, group });
+            let lines = grouped(&jobs, Group::State, &[]);
+            assert!(under(&lines, "Ready to try").contains(&"mock-02".to_string()), "{lamp:?} {group:?}: {:?}", under(&lines, "Ready to try"));
+            assert!(!under(&lines, "Needs you").contains(&"mock-02".to_string()), "{lamp:?} {group:?} is not Needs you");
+        }
     }
 
     #[test]
