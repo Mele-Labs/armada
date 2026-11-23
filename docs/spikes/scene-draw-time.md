@@ -50,3 +50,45 @@ Most of it is a debug build's unoptimised layout, and a release build is expecte
 A saved scene is on screen in about two frames at 60 Hz in the slowest build, and the sample is small.
 The sample holds 4 list rows, so a scene with a few hundred rows is not covered, and `<list limit>` exists to keep one in bounds.
 The agent's own wait is Fleet's part send and the artifact listing that carries it to Bridge, which this does not measure.
+
+## Shot check tolerance
+
+The shot check (`docs/concepts/scenes.md`, *Shot check before an offer*) sets a scene's picture of a state against the built screen's, and needs a threshold for "the same".
+This measures it on the sample scene, drawn at 960 by 720 points at scale 2, in a debug build.
+
+Each picture is averaged to a grid 32 cells across, 60 pixels square here.
+A cell differs when its mean colour is over 0.02 from the other picture's, as a share of full scale.
+A pair has drifted when the mean difference over the grid passes 0.003, or when more than 0.005 of the cells differ.
+
+The variants were made by editing the sample's markup and set against it with `bridge-native --shot-check <sample> --against <variant>`.
+
+| Variant of the sample | State | Mean | Cells over | Result |
+|---|---|---|---|---|
+| The sample against itself | list, detail | 0 | 0 | matched |
+| The four chips' tone, running to danger | list | 0.00095 | 0.0156 | drifted |
+| The card's tone, accent to warning | detail | 0.00443 | 0.0833 | drifted |
+| The two buttons swapped | detail | 0.00330 | 0.0260 | drifted |
+| The list padded by one space step | list | 0.00702 | 0.0951 | drifted |
+| The Open button removed | detail | 0.00049 | 0.0104 | drifted |
+| The list's limit from 4 rows to 3 | list | 0.00126 | 0.0104 | drifted |
+
+A spacer in the markup moves the list about 12 points, not one pixel, so the small shifts were made on the sample's own picture, in a script that moves it by whole pixels.
+The grid and thresholds are the same as above.
+
+| Shift in pixels, across and down | List mean | List cells over | Detail mean | Detail cells over |
+|---|---|---|---|---|
+| 1, 0 | 0.00012 | 0 | 0.00009 | 0 |
+| 1, 1 | 0.00031 | 0 | 0.00043 | 0 |
+| 2, 2 | 0.00062 | 0.0013 | 0.00085 | 0 |
+| 4, 4 | 0.00125 | 0.0169 | 0.00232 | 0.0221 |
+
+The threshold is 0.003 on the mean and 0.005 on the cells over.
+A shift of up to two pixels each way matches, and one of four drifts, on the share of cells.
+The mean alone cannot tell a missing button (0.00049) from a two pixel shift (0.00085), so the share carries it.
+The coarser grids tried before, 64 and 128 cells across, scored a one pixel shift higher and a missing button lower, so they separate the two less.
+At 64 cells and a cell threshold of 0.04, the first tried, a changed chip tone, a missing button and a missing row all passed.
+
+A walk's picture is never pixel-equal to a scene's, since the scene is a sketch of the screen.
+These thresholds were set on pictures drawn by the same code, so they say what a drift of a part looks like and not how close a real build gets.
+Run one real pair, and read its difference picture, before trusting a threshold on it.
+A scene drawn against a real walk, with the walk's step ids added by hand, scored 0.016 and 0.024 on the mean, which is the distance between the sample and the Jobs screen, and drifted in both.

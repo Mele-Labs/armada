@@ -28,7 +28,7 @@ fn sample() -> Result<Source, String> {
         .ok_or_else(|| "the mock artifact holds no prototype".to_string())
 }
 
-fn draw(cx: &mut HeadlessAppContext, handle: AnyWindowHandle, times: usize) -> Result<(), String> {
+pub(crate) fn draw(cx: &mut HeadlessAppContext, handle: AnyWindowHandle, times: usize) -> Result<(), String> {
     for _ in 0..times {
         cx.run_until_parked();
         cx.update_window(handle, |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
