@@ -22,9 +22,11 @@ use ipc::{
 
 use super::acts::{button, kbd, Tone, SHEET};
 use super::cards::glass;
+use super::judge::{plan_artifact, plan_readings, Pinned};
 use super::rows::{glyph, tip, Size};
 use super::{JobView, Page};
 use crate::dropdown::{under, Entry};
+use crate::generated::actions::ActionScope;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 
@@ -1533,6 +1535,10 @@ impl JobView {
 
     /// Esc and Tab, caught before anything inside the sheet hears them.
     fn review_key(&mut self, event: &KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) {
+        // The Judge's box over the bar hears its own Esc and Tab: Esc shuts the box alone, and Tab goes round it.
+        if matches!(event.keystroke.key.as_str(), "escape" | "tab") && self.judge_box_focused(window, cx) {
+            return;
+        }
         match event.keystroke.key.as_str() {
             // One Esc leaves from any depth, and the keys go back to what opened the sheet. The picture zoomer, drawn over it
             // with its own focus, hears its Esc first.
@@ -1604,6 +1610,8 @@ impl JobView {
                     stops.push(focus.changes.clone());
                 }
                 stops.push(focus.dismiss.clone());
+                let press = self.sheet_plan(&item, cx).and_then(|(key, _)| self.pages.get(item.job.as_str())?.keys.spot_of(&format!("judge-press:{key}")));
+                stops.extend(press.map(|spot| spot.focus));
             }
         }
         let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
@@ -1748,6 +1756,14 @@ impl JobView {
         // What a picture and a row of takes are sized to: the detail's own room.
         self.sheet.set(gpui::size((wide - list_w - look.length(token::BORDER_WIDTH) * 2.).max(px(1.)), tall));
         let detail = current.as_ref().map(|item| self.review_detail(item, review, look, cx));
+        // On a plan the Judge's keys are heard anywhere in the sheet, as on the thread's card. Deeper than the sheet's own
+        // scope, they hand a key on to it wherever no note has focus.
+        let judged = current.as_ref().and_then(|item| self.sheet_plan(item, cx));
+        let inner = div().size_full().flex().child(list).children(detail).when_some(judged, |inner, (key, version)| {
+            inner
+                .key_context(ActionScope::Plan.key_context().unwrap_or_default())
+                .on_action(cx.listener(move |this, act: &crate::keymap::Act, window, cx| this.plan_act(act, SHEET, &key, version, true, window, cx)))
+        });
         let sheet = labelled(
             div()
                 .id("review-sheet")
@@ -1765,8 +1781,7 @@ impl JobView {
                 .border_color(look.color(token::BORDER_DEFAULT))
                 .bg(look.color(token::BG_RAISED))
                 .shadow(look.shadows(token::SHADOW_OVERLAY))
-                .child(list)
-                .children(detail),
+                .child(inner),
             Role::Dialog,
             "Review",
         );
@@ -2176,10 +2191,25 @@ impl JobView {
                     .when(self.review_offers_edit(item, cx), |row| row.child(self.review_button(look, "review-edit-open", "Edit".into(), Tone::Secondary, None, Some("E"), &focus.edit, true, Self::review_open_edit, cx)))
                     .when(second, |row| row.child(self.review_button(look, "review-changes", ask.second().into(), Tone::Secondary, None, Some("C"), &focus.changes, true, Self::review_open_changes, cx)))
                     .child(div().flex_1())
-                    .child(self.review_button(look, "review-dismiss", "Dismiss".into(), Tone::Ghost, None, Some("D"), &focus.dismiss, true, Self::review_dismiss, cx)),
+                    .child(self.review_button(look, "review-dismiss", "Dismiss".into(), Tone::Ghost, None, Some("D"), &focus.dismiss, true, Self::review_dismiss, cx))
+                    .children(self.review_judge(item, look, cx)),
             )
         };
         Some(labelled(bar, Role::Toolbar, "Answer").into_any_element())
+    }
+
+    /// The card key and version of the plan an ask puts to him, while it is the plan the Job has recorded.
+    fn sheet_plan(&self, item: &Item, cx: &gpui::App) -> Option<(String, u32)> {
+        let card = self.thread(&item.job, cx)?.head.plan.as_ref().filter(|_| item.kind == Kind::Plan)?;
+        self.record(&item.job, cx)?.plan.as_ref().filter(|plan| plan.version == card.version).map(|plan| (card.id.clone(), plan.version))
+    }
+
+    /// The Judge's press at the bar's end, on a plan: its box opens over the bar, and Read the notes goes to them in the body.
+    fn review_judge(&self, item: &Item, look: &Look, cx: &Context<Self>) -> Option<AnyElement> {
+        let (key, version) = self.sheet_plan(item, cx)?;
+        let page = self.pages.get(item.job.as_str())?;
+        let (reading, earlier) = plan_readings(self.record(&item.job, cx)?, version);
+        Some(self.judge_press(SHEET, &key, plan_artifact(version), reading, &earlier, page, look, cx))
     }
 
     /// The body of the chosen ask, by kind: what its card shows, without its answers.
@@ -2196,12 +2226,18 @@ impl JobView {
             Kind::Question => self.review_question(item, look, cx),
             Kind::Plan => {
                 let card = held.head.plan.as_ref();
-                match card.and_then(|card| self.record(job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version).map(|plan| (card, plan))) {
-                    // A plan being revised keeps the card's body, which marks what changed; else the sheet's own reading.
-                    Some((card, plan)) if plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty()) => {
-                        div().w_full().child(self.plan_body(SHEET, &card.id, plan, false, &[], page, look, cx)).into_any_element()
+                let record = self.record(job, cx);
+                match card.and_then(|card| record.and_then(|record| record.plan.as_ref().filter(|plan| plan.version == card.version).map(|plan| (card, record, plan)))) {
+                    // The Judge's notes stand where the thread's card pinned them, as the plan is answered here alone.
+                    Some((card, record, plan)) => {
+                        let pinned = Pinned::of_plan(SHEET, &card.id, record, plan);
+                        // A plan being revised keeps the card's body, which marks what changed; else the sheet's own reading.
+                        if plan.version >= 2 && plan.changes.as_ref().is_some_and(|changes| !changes.is_empty()) {
+                            div().w_full().child(self.plan_body(SHEET, &card.id, plan, false, &pinned, page, look, cx)).into_any_element()
+                        } else {
+                            self.review_plan(&card.id, plan, &pinned, page, look, cx)
+                        }
                     }
-                    Some((card, plan)) => self.review_plan(&card.id, plan, page, look, cx),
                     None => self.review_skeleton(look),
                 }
             }
@@ -2265,8 +2301,10 @@ impl JobView {
     }
 
     /// A plan as the sheet reads it: its summary, then each group straight under it, its title, its tasks' marks and what it
-    /// gives. Where a group's work lands and who does it are the thread card's to show.
-    fn review_plan(&self, key: &str, plan: &ipc::SessionPlan, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    /// gives. Where a group's work lands and who does it are the thread card's to show. The Judge's notes on the whole plan
+    /// stand under its summary, and those on a group or a task under what the group gives.
+    #[allow(clippy::too_many_arguments)]
+    fn review_plan(&self, key: &str, plan: &ipc::SessionPlan, pinned: &[Pinned], page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let groups = plan.groups.iter().map(|group| {
             let marks = group.tasks.iter().map(|task| {
                 let (icon, ink, said) = super::plan::task_look(task.state);
@@ -2299,6 +2337,7 @@ impl JobView {
                     .children(gives.map(|gives| {
                         div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(gives))
                     }))
+                    .children(self.group_findings(pinned, group, page, look, cx))
                     .children(self.plan_sketches(key, plan, Some((&group.id, &group.title)), page, look, cx)),
                 Role::ListItem,
                 group.title.clone(),
@@ -2313,6 +2352,7 @@ impl JobView {
                 div().text_size(look.length(token::TEXT_SM)).line_height(look.length(token::LEADING_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(summary.to_string()))
             }))
             .children(self.plan_sketches(key, plan, None, page, look, cx))
+            .children(self.plan_notes(pinned, page, look, cx))
             .child(labelled(div().id("review-plan-groups").flex().flex_col().gap(look.length(token::SPACE_4)).children(groups), Role::List, "Groups"))
             .into_any_element()
     }
@@ -2872,6 +2912,70 @@ mod tests {
             assert_eq!(view.item_row(&item, review, cx).verdict, Some(Verdict::Approved));
             assert_ne!(review.at.as_deref(), Some(key.as_str()), "the next ask comes up");
         });
+    }
+
+    /// `jobs-screens`' mock-01 with the review sheet open on its plan v2, which a judge has read. `tune` changes the record first.
+    fn plan_sheet<'a>(cx: &'a mut gpui::TestAppContext, tune: impl FnOnce(&mut Vec<ipc::SessionRecord>)) -> (Entity<JobView>, &'a mut gpui::VisualTestContext) {
+        let (view, cx) = super::super::parts_fold::rooted_job(cx, "jobs-screens", "mock-01", gpui::size(px(1440.), px(900.)), tune);
+        let item = ItemRef { session_id: SessionId::carried("mock-01".to_string()), item: "plan:2".to_string() };
+        view.update_in(cx, |view, window, cx| view.open_review_for(item, None, window, cx));
+        super::super::parts_fold::redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.kind)), Some(Kind::Plan), "the sheet opens on the plan");
+        (view, cx)
+    }
+
+    const UNANCHORED: &str = "Finding: Nothing says what the chip shows when the branch has no upstream";
+    const ON_A_TASK: &str = "Finding: The tooltip names a figure no row carries yet";
+    const ON_A_GROUP: &str = "Finding: behind_by counts commits on a branch with no merge base as zero";
+    const PUT_AWAY: &str = "Finding dismissed: A row refreshed mid-press shows the old colour";
+
+    #[gpui::test]
+    fn a_waiting_plan_in_the_sheet_carries_the_judges_notes_and_their_keys(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::{drawn, redraw};
+        let (_view, cx) = plan_sheet(cx, |_| {});
+        for note in [UNANCHORED, ON_A_TASK, ON_A_GROUP, PUT_AWAY] {
+            assert!(drawn(cx, Role::Group, note), "the revised plan in the sheet draws {note}");
+        }
+        let sheet = drawn_at(cx, Role::Dialog, "Review");
+        let list = drawn_at(cx, Role::List, "Asks");
+        let note = drawn_at(cx, Role::Group, UNANCHORED);
+        assert!(note.left() >= list.right() && note.right() <= sheet.right() + px(1.), "the note stands in the sheet beside its list: {note:?} {sheet:?}");
+        assert!(drawn(cx, Role::Button, "Judge plan"), "the Judge's press stands in the bar");
+
+        cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
+        cx.simulate_keystrokes("r");
+        redraw(cx);
+        assert!(drawn(cx, Role::Dialog, "Judge"), "R opens the Judge's box from the sheet");
+        cx.simulate_keystrokes("escape");
+        redraw(cx);
+        assert!(!drawn(cx, Role::Dialog, "Judge"), "Esc shuts the box");
+        assert!(drawn(cx, Role::Dialog, "Review"), "and leaves the sheet up");
+
+        let note = drawn_at(cx, Role::Group, UNANCHORED);
+        cx.simulate_click(note.center(), Modifiers::none());
+        redraw(cx);
+        cx.simulate_keystrokes("enter");
+        redraw(cx);
+        assert!(drawn(cx, Role::Group, "Finding sent: Nothing says what the chip shows when the branch has no upstream"), "Enter sends the note in focus");
+        assert!(drawn(cx, Role::Dialog, "Review"), "and the sheet stays on the plan");
+    }
+
+    #[gpui::test]
+    fn a_plan_the_sheet_reads_whole_pins_each_note_where_the_card_did(cx: &mut gpui::TestAppContext) {
+        use super::super::parts_fold::drawn;
+        let (_view, cx) = plan_sheet(cx, |jobs| {
+            let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-01").expect("mock-01 is in the fixture");
+            job.plan.as_mut().expect("mock-01 holds a plan").changes = None;
+        });
+        assert!(drawn(cx, Role::List, "Groups"), "an unrevised plan is the sheet's own reading");
+        for note in [UNANCHORED, ON_A_TASK, ON_A_GROUP, PUT_AWAY] {
+            assert!(drawn(cx, Role::Group, note), "the sheet's reading draws {note}");
+        }
+        let group = drawn_at(cx, Role::ListItem, "Fleet reports how far behind");
+        let on_group = drawn_at(cx, Role::Group, ON_A_GROUP);
+        assert!(on_group.top() >= group.top() && on_group.bottom() <= group.bottom() + px(1.), "a group's note stands in its group: {on_group:?} {group:?}");
+        let groups = drawn_at(cx, Role::List, "Groups");
+        assert!(drawn_at(cx, Role::Group, UNANCHORED).bottom() <= groups.top() + px(1.), "a note on the whole plan stands above the groups");
     }
 
     #[gpui::test]

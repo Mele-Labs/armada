@@ -17,7 +17,7 @@ use std::rc::Rc;
 
 use super::acts::{button, refusal, Answer, Mode, Tone};
 use super::dock::first_line;
-use super::judge::{earlier_plan_readings, plan_reading, Pinned};
+use super::judge::{plan_readings, Pinned};
 use super::keys::{Card, Run};
 use super::rows::{eyebrow, glyph, mono, tip, Size};
 use super::{JobView, Page};
@@ -80,9 +80,7 @@ impl JobView {
         let job = self.shown.clone().unwrap_or_default();
         let record = self.record(&job, cx).and_then(|record| record.plan.as_ref()).filter(|plan| plan.version == card.version);
         let answer = page.cards.answers.get(&key);
-        let reading = self.record(&job, cx).and_then(|record| plan_reading(record, card.version));
-        // Only the card of the plan now recorded carries the notes the Judge raised on its earlier versions.
-        let earlier = self.record(&job, cx).filter(|_| record.is_some()).map(|held| earlier_plan_readings(held, card.version)).unwrap_or_default();
+        let (reading, earlier) = self.record(&job, cx).map(|held| plan_readings(held, card.version)).unwrap_or_default();
         let approved = card.state == PlanCardState::Approved || matches!(answer, Some(Answer::Approved | Answer::Going));
         let going = matches!(answer, Some(Answer::Going));
         let aside = !approved && (card.state == PlanCardState::SetAside || matches!(answer, Some(Answer::SetAside)));
