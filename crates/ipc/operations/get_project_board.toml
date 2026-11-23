@@ -1,0 +1,10 @@
+[operations.get_project_board]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "The layout of a project's dashboard board, kept with the look values it sets"
+notes = """
+`GET /projects/project/:project/board`. Answers `ProjectBoard { project, layout? }`, `layout` being `{ blocks: [{ kind, x, y, w, h, view }] }` in the grid's columns and rows. **A project that saved none answers no `layout`**, and Bridge draws its preset. `kind` and `view` are text as Bridge spells them (`needs`, `run`, `reviews`, `issues`, `features`, `checks`; `list`, `table`, `cards`, `graph`, `picture`), so a block kind a later Bridge adds crosses without a wire change, and a kind this build does not know is read back as it was saved. `docs/practices/protocol/projects.md`, *The board*.
+
+A copy of another Mac's project answers what that Mac's copy shows. 404 `fleet.no_such_project` for a project he has none of. 422 `fleet.project_unreadable` where its file did not read.
+"""

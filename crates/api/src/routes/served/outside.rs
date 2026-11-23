@@ -154,6 +154,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/project/:project/workflow",
     },
     Route {
+        operation: "get_project_board",
+        method: "GET",
+        path: "/projects/project/:project/board",
+    },
+    Route {
+        operation: "save_project_board",
+        method: "POST",
+        path: "/projects/project/:project/board",
+    },
+    Route {
+        operation: "list_ranked_issues",
+        method: "GET",
+        path: "/projects/project/:project/ranked_issues",
+    },
+    Route {
         operation: "get_project_store",
         method: "GET",
         path: "/projects/project/:project/store",

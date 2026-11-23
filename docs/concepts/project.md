@@ -195,6 +195,7 @@ The phone passes the same filter: it sees a Job in a shared project, or one held
 **Behaviour is a project's to set, key by key over Kit.**
 How a repository runs (its commands, Checks, ports and setup) stays the repository's `armada.yml`.
 How work behaves is a value: pull request mode, auto merge, autonomy, the review model, reviews, how a Job's work lands (`delivery`) and the look (layout, theme, density).
+The look also holds the project's Dashboard board, where each block stands, kept in the project's own file and by no other layer.
 
 | Layer, furthest first | Says |
 |---|---|
