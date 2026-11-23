@@ -70,7 +70,15 @@ pub(crate) async fn list_judge_types<D: JudgeReadings>(
     Path(repository): Path<String>,
     Query(scope): Query<InProject>,
 ) -> Response {
-    types_answered(served.shared().list_judge_types(ManifestId::carried(repository), scope.project).await, served.run_id())
+    types_answered(served.shared().list_judge_types(Some(ManifestId::carried(repository)), scope.project).await, served.run_id())
+}
+
+/// The types a Job in a folder with no Manifest sees: Armada's and Kit's.
+pub(crate) async fn list_judge_types_unplaced<D: JudgeReadings>(
+    State(served): State<Served<D>>,
+    Query(scope): Query<InProject>,
+) -> Response {
+    types_answered(served.shared().list_judge_types(None, scope.project).await, served.run_id())
 }
 
 /// 422 for a blank or wordless name, a blank prompt, an id the place already defines, and a project named

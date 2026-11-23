@@ -216,7 +216,8 @@ async fn his_line_reaches_the_brief_and_without_one_the_question_is_what_was_mis
     eventually(|| async { asked_of(&judge).len() == 2 }).await;
 
     let asked = asked_of(&judge);
-    assert!(asked[0].0.contains(line) && !asked[0].0.contains("what the person or the agent missed"), "{}", asked[0].0);
+    // His line is laid after the type's prompt and no longer replaces it.
+    assert!(asked[0].0.contains(line) && asked[0].0.contains("what the person or the agent missed"), "{}", asked[0].0);
     assert!(asked[1].0.contains("what the person or the agent missed") && !asked[1].0.contains(line), "{}", asked[1].0);
 }
 

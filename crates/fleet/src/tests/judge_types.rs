@@ -25,7 +25,7 @@ fn plant(path: &Path, text: &str) {
 }
 
 async fn listed(rig: &Rig, project: Option<&str>) -> Result<JudgeTypes, Refusal> {
-    Arc::clone(&rig.fleet).list_judge_types(rig.manifest.clone(), project.map(str::to_string)).await
+    Arc::clone(&rig.fleet).list_judge_types(Some(rig.manifest.clone()), project.map(str::to_string)).await
 }
 
 fn saving(name: &str, prompt: &str, overwrite: bool) -> SaveJudgeType {
@@ -161,4 +161,32 @@ async fn a_projects_folder_answers_for_that_project_only_and_a_file_that_does_no
     let other = listed(&rig, Some("backoffice")).await.expect("listed");
     assert_eq!(other.types.iter().find(|one| one.id == "design").expect("design").prompt, "Kit's design.");
     assert_eq!(code(listed(&rig, Some("../outside")).await.expect_err("not a folder")), "fleet.judge_type_misplaced");
+}
+
+#[tokio::test]
+async fn a_job_in_a_folder_with_no_manifest_sees_armadas_types_and_kits_and_no_repositorys() {
+    let (rig, _) = answered_with(NOTHING);
+    plant(&Path::new(&rig.root).join(".armada/judges/design.md"), "---\nname: Design\n---\nThe repository's design.\n");
+    plant(&kit_judges(&rig).join("mine.md"), "---\nname: Mine\n---\nKit's own.\n");
+    plant(&kit_judges(&rig).join("projects/storefront/mine.md"), "---\nname: Mine\n---\nThe storefront's own.\n");
+
+    let unplaced = Arc::clone(&rig.fleet).list_judge_types(None, None).await.expect("listed with no repository");
+    let ids: Vec<&str> = unplaced.types.iter().map(|one| one.id.as_str()).collect();
+    assert_eq!(ids, ["adversarial", "code", "design", "system-design", "api-review", "mine"]);
+    let design = unplaced.types.iter().find(|one| one.id == "design").expect("design");
+    assert_eq!(design.source, ReviewToolSource::Armada, "the repository's copy is not read where there is no repository");
+    assert_eq!(unplaced.types.iter().find(|one| one.id == "mine").expect("mine").prompt, "Kit's own.");
+    let storefront = Arc::clone(&rig.fleet).list_judge_types(None, Some("storefront".into())).await.expect("listed");
+    assert_eq!(storefront.types.iter().find(|one| one.id == "mine").expect("mine").prompt, "The storefront's own.");
+
+    // The Job's own record names no Manifest, and an ask resolves its type the same way.
+    let job = a_job_with_a_plan(&rig).await;
+    let mut hosting = rig.fleet.store().lock().await.hosting(job.as_str()).expect("read").expect("hosted");
+    hosting.manifest_id = String::new();
+    rig.fleet.store().lock().await.keep_hosting(&hosting).expect("kept");
+    let reading = asked_as(&rig, &job, Some("mine"), "").await.expect("a Kit type answers for it");
+    assert_eq!((reading.judge.as_deref(), reading.judge_name.as_deref()), (Some("mine"), Some("Mine")));
+    ended(&rig, &job, ipc::JudgeKind::Plan).await;
+    let none = asked_as(&rig, &job, Some("nope"), "").await.expect_err("refused");
+    assert_eq!(code(none), "fleet.judge_type_unknown");
 }

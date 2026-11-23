@@ -77,9 +77,13 @@ where
         }
         // The type the press reads as, named and worded now, so an id nobody defines refuses the ask and a type
         // edited while the call runs changes nothing it was asked.
-        let root = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?.root().to_string();
+        // A Job in a folder with no Manifest has no repository, so only Armada's and Kit's answer for it.
+        let root = match hosting.manifest_id.is_empty() {
+            true => None,
+            false => Some(self.served_named(Some(&ManifestId::carried(&hosting.manifest_id)))?.root().to_string()),
+        };
         let project = self.project_of_job(&id).await;
-        let chosen = self.judge_type_chosen(&root, project.as_deref(), ask.judge.as_deref())?;
+        let chosen = self.judge_type_chosen(root.as_deref(), project.as_deref(), ask.judge.as_deref())?;
         if !self.review_going().lock().await.insert(key.clone()) {
             // Another press started it between the read and here.
             let kept = self.store().lock().await.judge_reading_of(&id, kind, &artifact).ok().flatten();
@@ -322,7 +326,7 @@ where
         self.judge_marked_read(read).await
     }
 
-    async fn list_judge_types(self: Arc<Self>, manifest_id: ManifestId, project: Option<String>) -> Result<JudgeTypes, Refusal> {
+    async fn list_judge_types(self: Arc<Self>, manifest_id: Option<ManifestId>, project: Option<String>) -> Result<JudgeTypes, Refusal> {
         self.judge_types_read(manifest_id, project).await
     }
 

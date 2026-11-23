@@ -43,10 +43,11 @@ pub trait JudgeReadings: Send + Sync + 'static {
 
     /// `list_judge_types` — the types one project sees for a repository, resolved most specific first: Kit's for
     /// the project, Kit's for all, the repository's, Armada's. Read from the folders each time.
+    /// With no repository named, the types a Job in a folder with no Manifest sees: Armada's and Kit's.
     /// [`Refusal`] for a repository Fleet does not serve.
     fn list_judge_types(
         self: std::sync::Arc<Self>,
-        manifest_id: ManifestId,
+        manifest_id: Option<ManifestId>,
         project: Option<String>,
     ) -> impl Future<Output = Result<JudgeTypes, Refusal>> + Send;
 

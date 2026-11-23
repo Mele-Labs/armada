@@ -43,6 +43,11 @@ pub(super) const ROUTES: &[Route] = &[
     Route {
         operation: "list_judge_types",
         method: "GET",
+        path: "/judge_types",
+    },
+    Route {
+        operation: "list_judge_types",
+        method: "GET",
         path: "/judge_types/:repository",
     },
     Route {

@@ -85,10 +85,12 @@ where
 
     /// The four places merged for `project`, the one the person is in: Armada's, then the repository's, then
     /// Kit's, then Kit's for the project.
-    pub(crate) fn judge_types_resolved(&self, root: &str, project: Option<&str>) -> types::Resolved {
+    pub(crate) fn judge_types_resolved(&self, root: Option<&str>, project: Option<&str>) -> types::Resolved {
         let mut all = types::carried();
-        for (path, text) in files_in(&Path::new(root).join(".armada").join(FOLDER)) {
-            all.push(Written::in_repository(path, text));
+        if let Some(root) = root {
+            for (path, text) in files_in(&Path::new(root).join(".armada").join(FOLDER)) {
+                all.push(Written::in_repository(path, text));
+            }
         }
         if let Ok(folder) = self.judge_kit_folder(None) {
             for (path, text) in files_in(&folder) {
@@ -103,7 +105,7 @@ where
         types::resolve(all)
     }
 
-    fn judge_types_listed(&self, root: &str, project: Option<&str>) -> JudgeTypes {
+    fn judge_types_listed(&self, root: Option<&str>, project: Option<&str>) -> JudgeTypes {
         let resolved = self.judge_types_resolved(root, project);
         let project_of = |place: Place| (place == Place::KitProject).then(|| project.map(str::to_string)).flatten();
         JudgeTypes {
@@ -129,18 +131,21 @@ where
     }
 
     /// `list_judge_types`.
-    pub(crate) async fn judge_types_read(&self, manifest_id: ManifestId, project: Option<String>) -> Result<JudgeTypes, Refusal> {
-        let served = self.served_named(Some(&manifest_id))?;
+    pub(crate) async fn judge_types_read(&self, manifest_id: Option<ManifestId>, project: Option<String>) -> Result<JudgeTypes, Refusal> {
+        let root = match &manifest_id {
+            Some(named) => Some(self.served_named(Some(named))?.root().to_string()),
+            None => None,
+        };
         let project = project.map(|project| project.trim().to_string()).filter(|project| !project.is_empty());
         if let Some(project) = &project {
             self.judge_kit_folder(Some(project))?;
         }
-        Ok(self.judge_types_listed(served.root(), project.as_deref()))
+        Ok(self.judge_types_listed(root.as_deref(), project.as_deref()))
     }
 
     /// The type an ask reads as: `judge` by id, or Adversarial where there is none, resolved for the
     /// repository at `root` and the Job's `project`. An id nobody defines is refused, naming it.
-    pub(crate) fn judge_type_chosen(&self, root: &str, project: Option<&str>, judge: Option<&str>) -> Result<Def, Refusal> {
+    pub(crate) fn judge_type_chosen(&self, root: Option<&str>, project: Option<&str>, judge: Option<&str>) -> Result<Def, Refusal> {
         let wanted = judge.map(str::trim).filter(|id| !id.is_empty()).unwrap_or(ADVERSARIAL);
         let resolved = self.judge_types_resolved(root, project);
         resolved.get(wanted).cloned().ok_or_else(|| {
@@ -201,7 +206,7 @@ where
         std::fs::write(&staged, types::file_of(&save.name, &save.prompt))
             .and_then(|()| std::fs::rename(&staged, &path))
             .map_err(unwritable)?;
-        Ok(self.judge_types_listed(&root, project))
+        Ok(self.judge_types_listed(Some(&root), project))
     }
 
     /// `delete_judge_type`: remove the file that defines `id` in Kit's folder, then answer what the places come
@@ -216,7 +221,7 @@ where
         std::fs::remove_file(&path).map_err(|why| {
             Refusal::Fault(self.judge_type_refused(UNWRITABLE, format!("{} could not be removed: {why}", path.display())))
         })?;
-        Ok(self.judge_types_listed(&root, project))
+        Ok(self.judge_types_listed(Some(&root), project))
     }
 }
 

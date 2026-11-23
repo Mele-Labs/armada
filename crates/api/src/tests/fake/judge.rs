@@ -92,7 +92,7 @@ impl JudgeReadings for FakeDaemon {
         })
     }
 
-    async fn list_judge_types(self: std::sync::Arc<Self>, _: ManifestId, _: Option<String>) -> Result<JudgeTypes, Refusal> {
+    async fn list_judge_types(self: std::sync::Arc<Self>, _: Option<ManifestId>, _: Option<String>) -> Result<JudgeTypes, Refusal> {
         Ok(JudgeTypes { types: Vec::new(), left_out: Vec::new() })
     }
 
