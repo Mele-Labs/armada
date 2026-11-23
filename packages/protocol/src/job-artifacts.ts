@@ -159,7 +159,28 @@ export type PartContent =
       kind: "page";
       /** The page's path. The part's `revision` is the page's newest. */
       path: string;
-    };
+    }
+  | ({
+      kind: "prototype";
+    } & PrototypePart);
+
+/** One fixture file a scene names, read beside it. `text` is raw JSON. */
+export type SceneFixture = {
+  name: string;
+  text: string;
+};
+
+/** A scene the Job saved under its `scenes/` folder, as Fleet read it at this revision. Native draws it. */
+export type PrototypePart = {
+  /** The file name under the Job's `scenes/` folder. */
+  scene: string;
+  markup: string;
+  fixtures: SceneFixture[];
+  /** The state the Job last set. Absent means the scene's first. Not `state`, which is the part's own. */
+  scene_state?: string;
+  /** What Fleet could not read, in Fleet's words. */
+  trouble?: string;
+};
 
 /** How he answered a part. */
 export type PartAnswer = {

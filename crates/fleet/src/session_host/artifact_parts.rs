@@ -237,7 +237,7 @@ pub(crate) fn part_of(artifact: &JobArtifact, one: &store::KeptAttachment, draft
 /// `form` for a client that reads no parts: the first part's kind.
 fn form_of_first(part: &ArtifactPart) -> ArtifactForm {
     match part.content.kind() {
-        PartKind::Drawing | PartKind::Takes => ArtifactForm::Sketch,
+        PartKind::Drawing | PartKind::Takes | PartKind::Prototype => ArtifactForm::Sketch,
         PartKind::Words => ArtifactForm::Draft,
         PartKind::Buttons | PartKind::Page => ArtifactForm::Page,
     }
@@ -563,7 +563,7 @@ where
         if (said.how == PartHow::Picked) != (kind == PartKind::Takes) {
             return Err(wrong(match kind {
                 PartKind::Takes => "a takes part is answered by a vote, never an Approve or a note: send a pick, with how `picked` and the take he chose",
-                _ => "only a takes part is answered with a pick. Words, a drawing and a page are approved or sent back",
+                _ => "only a takes part is answered with a pick. Words, a drawing, a page and a prototype are approved or sent back",
             }));
         }
         if let PartContent::Takes { form, .. } = &part.content {
@@ -585,7 +585,7 @@ where
             (PartContent::Words { .. }, _) if part.id.starts_with(DRAFT_PREFIX) => {
                 Arc::clone(&self).member_draft_answered(&id, &part, said.how, words, &said.extras).await?;
             }
-            (PartContent::Words { .. }, _) => {
+            (PartContent::Words { .. } | PartContent::Prototype(_), _) => {
                 Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words, &said.extras).await?;
             }
             (PartContent::Takes { .. }, _) => {

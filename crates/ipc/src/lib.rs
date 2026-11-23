@@ -796,7 +796,7 @@ pub use artifact::{
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
 pub use artifact_parts::{
-    AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
+    AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake, PrototypePart, SceneFixture,
     ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
 };
 pub use sketch::{

@@ -56,6 +56,7 @@ const KIND: Record<ArtifactPart["kind"], string> = {
   takes: "Takes",
   buttons: "Buttons",
   page: "Page",
+  prototype: "Prototype",
 };
 
 /** How a part he answered stands, as `ApprovalAnswers` draws it. */
@@ -538,6 +539,9 @@ function PartBlock({
       ) : null}
       {part.kind === "page" ? (
         <PagePart machine={machine} id={id} artifact={artifact} part={part} reread={reread} />
+      ) : null}
+      {part.kind === "prototype" ? (
+        <Prose text="This prototype opens in the native app." />
       ) : null}
       {part.kind === "takes" || part.kind === "buttons" ? null : (
         <Answers part={part} keep={keep} acts={acts} onSaid={setSays} />
