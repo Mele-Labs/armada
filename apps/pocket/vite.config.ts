@@ -16,6 +16,8 @@ import {
   artifactsJob,
   everyState,
   fixtureMacs,
+  markedJobs,
+  markWaiting,
   mediaJob,
   partsJob,
   type FixtureMac,
@@ -182,6 +184,9 @@ function fixtureGateway(): Plugin {
   macs["studio"]!.tries = {
     [PARTS_JOB]: parts.tries,
   };
+  // Jobs marked for the list's Needs you and Ready for you groups.
+  macs["studio"]!.live.unshift(...markedJobs(now));
+  for (const mac of Object.values(macs)) markWaiting(mac.live);
   const media = mediaJob(now);
   macs["studio"]!.live.unshift(media.listed);
   macs["studio"]!.threads[media.listed.id] = media.thread;

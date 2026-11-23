@@ -8,9 +8,9 @@
 //! and the answer route read it there.
 
 use ipc::{
-    AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, JobMark, CallAnswer, CallInFlight, PullRequestWait,
-    SessionOrigin, SessionRecord, SessionStanding, SessionState, SessionStopped, SessionTurn, SessionWait, StartCondition,
-    StopReason, StopRepair, StopRestart, WaitingItem, WaitingSource,
+    owed_kind, AskedChoice, AskedQuestion, AttachmentState, FleetAway, HeldOpenBy, JobMark, CallAnswer, CallInFlight, OwedKind,
+    PullRequestWait, SessionOrigin, SessionRecord, SessionStanding, SessionState, SessionStopped, SessionTurn, SessionWait, StartCondition,
+    StopReason, StopRepair, StopRestart, WaitingActKind, WaitingItem, WaitingSource,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -175,6 +175,62 @@ pub struct PhoneSession {
     /// What it is doing now, else what it last said, else what it has done so far.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub now: Option<String>,
+    /// What he does for what the row owes, for the chip on its second line: the kinds of its Needs you items, else of its
+    /// Ready for you items. An item whose kind is not one of these adds none.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub owes: Vec<PhoneOwes>,
+}
+
+/// What he does for one owed item.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PhoneOwes {
+    Answer,
+    Run,
+    Approve,
+    Try,
+    Walk,
+    Read,
+}
+
+/// What he does for one item, by `ipc::owed_kind`, its source and its act. `None` where the item is none of the six.
+fn owes_of(item: &WaitingItem) -> Option<PhoneOwes> {
+    let act = item.act.as_ref().map(|act| act.kind);
+    match owed_kind(item) {
+        OwedKind::Neither => None,
+        OwedKind::Ready => match item.source {
+            WaitingSource::ReadyToTry => Some(PhoneOwes::Try),
+            WaitingSource::Walk => Some(PhoneOwes::Walk),
+            WaitingSource::Agent if act == Some(WaitingActKind::Walk) => Some(PhoneOwes::Walk),
+            WaitingSource::Document => Some(PhoneOwes::Read),
+            _ => None,
+        },
+        OwedKind::Needs => match item.source {
+            _ if act == Some(WaitingActKind::Run) => Some(PhoneOwes::Run),
+            WaitingSource::AskCard | WaitingSource::WindowAsk | WaitingSource::BrowserAsk => Some(PhoneOwes::Answer),
+            WaitingSource::Agent if act == Some(WaitingActKind::Answer) => Some(PhoneOwes::Answer),
+            WaitingSource::Permission | WaitingSource::Plan | WaitingSource::Draft | WaitingSource::Sketch | WaitingSource::Document => {
+                Some(PhoneOwes::Approve)
+            }
+            WaitingSource::Agent if item.approves => Some(PhoneOwes::Approve),
+            _ => None,
+        },
+    }
+}
+
+/// The kinds the chip names, once each in the order of the items: those of its Needs you items, and only where it has none,
+/// those of its Ready for you items.
+fn owes(items: &[&WaitingItem]) -> Vec<PhoneOwes> {
+    let kind = if items.iter().any(|one| owed_kind(one) == OwedKind::Needs) { OwedKind::Needs } else { OwedKind::Ready };
+    let mut kinds = Vec::new();
+    for item in items.iter().filter(|one| owed_kind(one) == kind) {
+        if let Some(one) = owes_of(item) {
+            if !kinds.contains(&one) {
+                kinds.push(one);
+            }
+        }
+    }
+    kinds
 }
 
 #[derive(Debug, Serialize)]
@@ -393,6 +449,7 @@ impl PhoneSession {
                 title: one.detail.get("title").cloned().unwrap_or_default(),
             }),
             step: step(record),
+            owes: if parked { Vec::new() } else { owes(&owed) },
             now: record
                 .activity
                 .as_ref()
