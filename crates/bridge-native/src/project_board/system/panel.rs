@@ -132,7 +132,7 @@ pub(super) fn draw(this: &mut SystemBlock, look: &Look, stacked: bool, window: &
     };
     let frame = div().id("system-panel").flex_none().border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_SUNKEN)).p(look.length(token::SPACE_4));
     // Beside the graph the panel scrolls on its own; under it, it is as tall as it is and the block scrolls.
-    let frame = if stacked { frame.w_full().border_t(look.length(token::BORDER_WIDTH)) } else { frame.w(look.length(token::W_DOCK)).h_full().min_h_0().overflow_y_scroll().border_l(look.length(token::BORDER_WIDTH)) };
+    let frame = if stacked { frame.w_full().border_t(look.length(token::BORDER_WIDTH)) } else { frame.w(look.length(token::W_DOCK_MIN)).h_full().min_h_0().overflow_y_scroll().border_l(look.length(token::BORDER_WIDTH)) };
     labelled(
         frame.child(header).children(sections),
         Role::Region,
@@ -206,7 +206,7 @@ fn head(this: &SystemBlock, look: &Look, mark: &'static str, hue: Token, name: S
                         .items_center()
                         .justify_center()
                         .rounded(look.length(token::RADIUS_LG))
-                        .bg(ink.opacity(0.18))
+                        .bg(ink.opacity(super::graph::tint::TILE_LIT))
                         .child(glyph(mark, look.length(token::SPACE_4) + look.length(token::SPACE_1) / 2., ink)),
                 )
                 .child(
@@ -374,7 +374,7 @@ fn sections(this: &SystemBlock, part: &SystemPart, answers: &SystemPartAnswers, 
     }
     for feature in &answers.features {
         let slug = feature.slug.clone();
-        let tile = div().flex_none().size(look.length(token::SPACE_6)).flex().items_center().justify_center().rounded(look.length(token::RADIUS_MD)).bg(hue.opacity(0.16)).child(glyph("layers", look.length(token::SPACE_4) - look.length(token::SPACE_1), hue));
+        let tile = div().flex_none().size(look.length(token::SPACE_6)).flex().items_center().justify_center().rounded(look.length(token::RADIUS_MD)).bg(hue.opacity(super::graph::tint::TILE)).child(glyph("layers", look.length(token::SPACE_4) - look.length(token::SPACE_1), hue));
         let row = div()
             .flex()
             .items_center()

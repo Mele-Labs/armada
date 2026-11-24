@@ -55,13 +55,15 @@ pub struct Metrics {
     /// Between two columns inside the boundary.
     pub col_gap: f32,
     pub bottom: f32,
+    /// What a character of a link's label is wide, to leave room for the label in the gap it sits in.
+    pub char: f32,
     /// The least a part's column is wide: a block narrower than what its columns need scrolls across instead of squeezing names away.
     pub column: f32,
 }
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20., column: 170. }
+        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20., char: 7., column: 170. }
     }
 }
 
@@ -96,6 +98,9 @@ pub struct Node {
     /// The librarian added it and he has not kept it.
     pub librarian: bool,
 }
+
+/// The least a curve leaves its part straight before it bends.
+const PULL_LEAST: f32 = 36.;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 enum Side {
@@ -205,9 +210,9 @@ fn lane_key(part: &SystemPart) -> String {
 
 fn node_height(part: &SystemPart, files: usize, metrics: &Metrics) -> f32 {
     if files > 0 {
-        return metrics.node_plain + metrics.file * files as f32 + 6.;
+        return metrics.node_plain + metrics.file * files as f32 + metrics.gap;
     }
-    if part.paths.is_empty() {
+    if part.paths.is_empty() && !matches!(part.origin, ipc::PartOrigin::Librarian { .. }) {
         metrics.node_plain
     } else {
         metrics.node
@@ -320,13 +325,46 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
     // A person's and an outside part's column is narrower than a part's, since each holds a name and little else.
     let weight_of = |lane: usize| -> f32 {
         match (deep, lane_titles[lane].1, lane_titles[lane].0.as_str()) {
-            (false, LaneKind::Band, _) => 0.7,
+            (false, LaneKind::Band, _) => 0.8,
             (true, LaneKind::Band, _) => 0.9,
             _ => 1.,
         }
     };
-    let inner_gaps: usize = cols_in_lane.iter().map(|count| count.saturating_sub(1)).sum();
-    let room = width - metrics.lane_gap * lane_count.saturating_sub(1) as f32 - metrics.lane_pad * 2. * lane_count as f32 - metrics.col_gap * inner_gaps as f32;
+    // The gap after a column, inside its lane: wide enough for the longest label of a link that crosses it.
+    let mut gap_after = vec![0f32; total_cols];
+    for lane in 0..lane_count {
+        for col in 0..cols_in_lane[lane].saturating_sub(1) {
+            let at = first_col[lane] + col;
+            let longest = map
+                .links
+                .iter()
+                .filter(|link| {
+                    let (Some(&from), Some(&to)) = (index.get(link.from.as_str()), index.get(link.to.as_str())) else { return false };
+                    (col_of[from], col_of[to]) == (at, at + 1) || (col_of[from], col_of[to]) == (at + 1, at)
+                })
+                .map(|link| link.label.as_deref().map_or(0, |label| label.chars().count()))
+                .max()
+                .unwrap_or(0);
+            gap_after[at] = metrics.col_gap.max(longest as f32 * metrics.char + metrics.gap * 2.);
+        }
+    }
+    // The gap after a lane: wide enough, with the lanes' own padding, for the longest label of a link between it and the next.
+    let lane_gaps: Vec<f32> = (0..lane_count)
+        .map(|lane| {
+            let longest = map
+                .links
+                .iter()
+                .filter(|link| {
+                    let (Some(&from), Some(&to)) = (index.get(link.from.as_str()), index.get(link.to.as_str())) else { return false };
+                    (lane_of[from].0, lane_of[to].0) == (lane, lane + 1) || (lane_of[from].0, lane_of[to].0) == (lane + 1, lane)
+                })
+                .map(|link| link.label.as_deref().map_or(0, |label| label.chars().count()))
+                .max()
+                .unwrap_or(0);
+            metrics.lane_gap.max(longest as f32 * metrics.char + metrics.gap * 3. - metrics.lane_pad * 2.)
+        })
+        .collect();
+    let room = width - lane_gaps.iter().take(lane_count.saturating_sub(1)).sum::<f32>() - metrics.lane_pad * 2. * lane_count as f32 - gap_after.iter().sum::<f32>();
     let weights: f32 = (0..lane_count).map(|lane| weight_of(lane) * cols_in_lane[lane] as f32).sum::<f32>().max(0.1);
     let unit = (room / weights).max(metrics.column);
 
@@ -342,16 +380,14 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             col_x[at] = x;
             col_w[at] = weight_of(lane) * unit;
             x += col_w[at];
-            if col + 1 < cols_in_lane[lane] {
-                x += metrics.col_gap;
-            }
+            x += gap_after[at];
         }
         x += metrics.lane_pad;
         lane_rects.push((start, x - start));
-        x += metrics.lane_gap;
+        x += lane_gaps[lane];
     }
 
-    let extent = (x - metrics.lane_gap).max(width);
+    let extent = (x - lane_gaps.last().copied().unwrap_or(0.)).max(width);
 
     // ---- vertical order and place ---------------------------------------------------------------------------------------
     let mut stack: Vec<Vec<usize>> = vec![Vec::new(); total_cols];
@@ -408,12 +444,12 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         })
         .collect();
     let lanes: Vec<Lane> = lane_rects.iter().zip(&lane_titles).map(|(&(x, w), (title, kind))| Lane { rect: Rect { x, y: 0., w, h: height }, title: title.clone(), kind: *kind }).collect();
-    let edges = join(map, &index, &nodes);
+    let edges = join(map, &index, &nodes, metrics);
     Arranged { lanes, nodes, edges, width: extent, height }
 }
 
 /// Each link as a curve between a port on one part's side and a port on the other's.
-fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node]) -> Vec<Edge> {
+fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node], metrics: &Metrics) -> Vec<Edge> {
     let links: Vec<(usize, usize, usize)> = map
         .links
         .iter()
@@ -461,21 +497,45 @@ fn join(map: &SystemMap, index: &HashMap<&str, usize>, nodes: &[Node]) -> Vec<Ed
             ports.insert((link, source), at);
         }
     }
-    links
+    let mut edges = links
         .iter()
         .enumerate()
         .map(|(at, &(wire, from, to))| {
             let (a, b) = (ports[&(at, true)], ports[&(at, false)]);
             let (out, into) = (sides[at].0.normal(), sides[at].1.normal());
             let reach = if sides[at].0.vertical() { (b.y - a.y).abs() } else { (b.x - a.x).abs() };
-            let pull = (reach * 0.5).max(36.);
+            let pull = (reach * 0.5).max(PULL_LEAST);
             let c1 = Pt { x: a.x + out.x * pull, y: a.y + out.y * pull };
             let c2 = Pt { x: b.x + into.x * pull, y: b.y + into.y * pull };
             let mut edge = Edge { from, to, label: map.links[wire].label.clone().filter(|label| !label.is_empty()), step: map.links[wire].step, a, c1, c2, b, mid: a };
-            edge.mid = edge.at(0.5);
             edge
         })
-        .collect()
+        .collect::<Vec<Edge>>();
+    // Each pill takes the first place along its curve that is clear of every part and of the pills already set.
+    let mut placed: Vec<(Pt, f32)> = Vec::new();
+    for edge in &mut edges {
+        edge.mid = label_spot(edge, nodes, &placed, metrics);
+        if edge.label.is_some() || edge.step.is_some() {
+            placed.push((edge.mid, label_width(edge, metrics)));
+        }
+    }
+    edges
+}
+
+fn label_width(edge: &Edge, metrics: &Metrics) -> f32 {
+    let chars = edge.label.as_deref().map_or(0, |label| label.chars().count()) as f32 + if edge.step.is_some() { 2. } else { 0. };
+    chars * metrics.char + metrics.gap * 2.
+}
+
+/// Where along its curve a link's pill stands: the middle, or the nearest place that is clear of every part, so a curve that
+/// passes over a column does not put its label on a part in it.
+fn label_spot(edge: &Edge, nodes: &[Node], placed: &[(Pt, f32)], metrics: &Metrics) -> Pt {
+    let (wide, high) = (label_width(edge, metrics), metrics.node_plain / 2.);
+    let clear = |at: Pt| {
+        nodes.iter().all(|node| at.x + wide / 2. <= node.rect.x || at.x - wide / 2. >= node.rect.right() || at.y + high / 2. <= node.rect.y || at.y - high / 2. >= node.rect.bottom())
+            && placed.iter().all(|(other, other_wide)| (at.x - other.x).abs() >= (wide + other_wide) / 2. || (at.y - other.y).abs() >= high)
+    };
+    [0.5, 0.88, 0.12, 0.72, 0.28, 0.62, 0.38, 0.8, 0.2].into_iter().map(|t| edge.at(t)).find(|at| clear(*at)).unwrap_or_else(|| edge.at(0.5))
 }
 
 /// What `hover` lights: the links that touch a part and the parts at their ends, on level one; on a deeper level everything the

@@ -16,6 +16,30 @@ use crate::project_board::layout::View;
 use crate::settings::view::{bone, ring_colour};
 use crate::titlebar::parts::{glyph, kbd, mono, sans, tip, Btn, Weight};
 
+/// How strongly a hue is laid on a surface, the strengths the board's own chips and tiles use, named for where they go.
+pub(super) mod tint {
+    /// A chip or a glyph tile.
+    pub const TILE: f32 = 0.16;
+    /// A glyph tile on a part that is lit.
+    pub const TILE_LIT: f32 = 0.18;
+    /// A part's fill when it is lit, and when it is not.
+    pub const PART_LIT: f32 = 0.14;
+    pub const PART: f32 = 0.08;
+    /// A selected row of a list.
+    pub const ROW_SELECTED: f32 = 0.12;
+    /// A person's outline.
+    pub const OUTLINE: f32 = 0.45;
+    /// A band's ground over the block's.
+    pub const BAND: f32 = 0.7;
+    /// What is not lit while something is: a curve, a label, a part.
+    pub const DIM_CURVE: f32 = 0.18;
+    pub const DIM_LABEL: f32 = 0.15;
+    pub const DIM_PART: f32 = 0.28;
+}
+
+/// How wide a character of the mono face is, in ems.
+const MONO_ADVANCE: f32 = 0.6;
+
 /// The sizes the arrangement is made of, from the tokens.
 pub(super) fn metrics(look: &Look) -> Metrics {
     let len = |token| f32::from(look.length(token));
@@ -26,10 +50,11 @@ pub(super) fn metrics(look: &Look) -> Metrics {
         gap: len(token::SPACE_4),
         lane_head: len(token::H_ROW_ACTION),
         lane_pad: len(token::SPACE_4) + len(token::SPACE_1),
-        lane_gap: len(token::SPACE_8) + len(token::SPACE_2),
+        lane_gap: len(token::SPACE_6),
         col_gap: len(token::SPACE_12) + len(token::SPACE_4),
         bottom: len(token::SPACE_4) + len(token::SPACE_1),
-        column: len(token::SPACE_12) * 3.5,
+        char: len(token::TEXT_2XS) * MONO_ADVANCE,
+        column: len(token::SPACE_12) * 3.,
     }
 }
 
@@ -84,7 +109,7 @@ pub(super) fn chip(look: &Look, hue: Token, words: impl Into<SharedString>) -> g
         .h(look.length(token::H_BADGE))
         .px(look.length(token::SPACE_2))
         .rounded(look.length(token::RADIUS_SM))
-        .bg(look.color(hue).opacity(0.16))
+        .bg(look.color(hue).opacity(tint::TILE))
         .text_size(look.length(token::TEXT_2XS))
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .text_color(look.color(hue))
@@ -267,7 +292,7 @@ fn skeleton(look: &Look) -> AnyElement {
             .gap(look.length(token::SPACE_3))
             .p(look.length(token::SPACE_4))
             .rounded(look.length(token::RADIUS_LG))
-            .bg(look.color(token::BG_SUNKEN).opacity(0.7))
+            .bg(look.color(token::BG_SUNKEN).opacity(tint::BAND))
             .children((0..bones).map(|at| bone(look, look.length(token::SPACE_12) * (3.5 - at as f32 * 0.4), look.length(token::H_ROW_UNIT))))
     };
     labelled(
@@ -297,8 +322,8 @@ fn stage(this: &SystemBlock, arranged: &Arranged, map: &SystemMap, top: Option<&
         .h(px(arranged.height))
         .children(lanes)
         .child(drawn)
-        .children(pills)
         .children(nodes)
+        .children(pills)
         .with_animation(SharedString::from(format!("system-level-{}", this.gen())), Animation::new(look.duration(token::DURATION_ENTER)).with_easing(gpui::ease_out_quint()), |stage, at| stage.opacity(at))
         .into_any_element()
 }
@@ -307,7 +332,7 @@ fn lane_box(lane: &Lane, look: &Look) -> AnyElement {
     let rect = lane.rect;
     let frame = div().absolute().left(px(rect.x)).top(px(rect.y)).w(px(rect.w)).h(px(rect.h)).rounded(look.length(token::RADIUS_LG));
     let frame = match lane.kind {
-        LaneKind::Band => frame.bg(look.color(token::BG_SUNKEN).opacity(0.7)),
+        LaneKind::Band => frame.bg(look.color(token::BG_SUNKEN).opacity(tint::BAND)),
         LaneKind::Boundary => frame.border(look.length(token::BORDER_WIDTH)).border_dashed().border_color(look.color(token::BORDER_STRONG)),
     };
     frame
@@ -334,7 +359,8 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
     let edges: Vec<Drawn> = arranged.edges.iter().enumerate().map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
     let (base, bright) = (look.color(token::BORDER_STRONG), look.color(token::ACCENT));
     let (plain, bold) = (f32::from(look.length(token::BORDER_WIDTH)) * 1.5, f32::from(look.length(token::BORDER_WIDTH)) * 2.);
-    let faint = 0.18;
+    let faint = tint::DIM_CURVE;
+    let (dash, head) = ((f32::from(look.length(token::SPACE_1)) * 1.5, f32::from(look.length(token::SPACE_1)) * 1.25), (f32::from(look.length(token::SPACE_2)), f32::from(look.length(token::SPACE_1))));
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
@@ -344,7 +370,7 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
                 let edge = &drawn.edge;
                 let mut line = PathBuilder::stroke(px(if drawn.lit { bold } else { plain }));
                 if drawn.lit {
-                    for (from, to) in dashes(edge, 6., 5.) {
+                    for (from, to) in dashes(edge, dash.0, dash.1) {
                         line.move_to(at(from));
                         line.line_to(at(to));
                     }
@@ -355,7 +381,7 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
                 if let Ok(path) = line.build() {
                     window.paint_path(path, ink);
                 }
-                let (long, half) = (7., 4.5);
+                let (long, half) = head;
                 let (h, tip) = (edge.heading(), edge.b);
                 let mut head = PathBuilder::fill();
                 head.add_polygon(&[at(tip), at(Pt { x: tip.x - h.x * long - h.y * half, y: tip.y - h.y * long + h.x * half }), at(Pt { x: tip.x - h.x * long + h.y * half, y: tip.y - h.y * long - h.x * half })], true);
@@ -432,7 +458,7 @@ fn pill(edge: &Edge, lit: bool, dimming: bool, look: &Look) -> AnyElement {
         .w(width)
         .flex()
         .justify_center()
-        .when(dimming && !lit, |pill| pill.opacity(0.15))
+        .when(dimming && !lit, |pill| pill.opacity(tint::DIM_LABEL))
         .child(inner)
         .into_any_element()
 }
@@ -454,7 +480,7 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
         .items_center()
         .justify_center()
         .rounded(look.length(token::RADIUS_LG))
-        .bg(hue.opacity(0.18))
+        .bg(hue.opacity(tint::TILE_LIT))
         .child(glyph(glyph_of(kind), look.length(token::SPACE_4), hue));
     let text = div()
         .flex_1()
@@ -467,9 +493,9 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
                 .flex()
                 .items_center()
                 .gap(look.length(token::SPACE_1))
-                .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(node.name.clone())))
-                .children(node.librarian.then(|| chip(look, token::SKETCH_AMBER, "librarian"))),
+                .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(node.name.clone()))),
         )
+        .children(node.librarian.then(|| div().flex().child(chip(look, token::SKETCH_AMBER, "librarian"))))
         .children(node.meta.clone().map(|meta| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta))))
         .children((!node.files.is_empty()).then(|| {
             div().flex().flex_col().pt(look.length(token::SPACE_1)).children(node.files.iter().map(|file| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.clone()))))
@@ -491,17 +517,17 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
         .when(!person, |part| part.rounded(look.length(token::RADIUS_LG)))
         .border(look.length(token::BORDER_WIDTH))
         .when(node.librarian, |part| part.border_dashed())
-        .border_color(if bright { hue } else if person { hue.opacity(0.45) } else { look.color(token::BORDER_DEFAULT) })
+        .border_color(if bright { hue } else if person { hue.opacity(tint::OUTLINE) } else { look.color(token::BORDER_DEFAULT) })
         .bg(if selected {
-            hue.opacity(0.14)
+            hue.opacity(tint::PART_LIT)
         } else if bright {
-            hue.opacity(0.08)
+            hue.opacity(tint::PART)
         } else if person || node.librarian {
             gpui::transparent_black()
         } else {
             look.color(token::BG_OVERLAY)
         })
-        .when(dim, |part| part.opacity(0.28))
+        .when(dim, |part| part.opacity(tint::DIM_PART))
         .cursor_pointer()
         .when(!summary.is_empty(), |part| part.tooltip(tip(summary)))
         .aria_selected(selected)
@@ -546,7 +572,7 @@ fn list(this: &SystemBlock, map: &SystemMap, top: Option<&SystemMap>, look: &Loo
                 .rounded(look.length(token::RADIUS_MD))
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(if selected { hue } else { gpui::transparent_black() })
-                .bg(if selected { hue.opacity(0.12) } else { gpui::transparent_black() })
+                .bg(if selected { hue.opacity(tint::ROW_SELECTED) } else { gpui::transparent_black() })
                 .text_size(look.length(token::TEXT_XS))
                 .cursor_pointer()
                 .hover(|style| style.bg(look.color(token::BG_HOVER)))
