@@ -15,12 +15,17 @@ use crate::Instant;
 pub const METRIC_EVERY_SECS: u32 = 60;
 
 /// One call, as a tracker mod's call is written. `{credential}` in a field is filled with the token, and only in the
-/// fields that take it: `env`, `arguments`, `headers` and `body`, never `argv`, `server` or `url`.
+/// fields that take it: `env` of a cli or an mcp call, `arguments`, `headers` and `body`, never `argv`, `server` or `url`.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "transport", rename_all = "snake_case")]
 pub enum MetricCall {
-    /// A program and its arguments, run with no shell.
-    Cli { argv: Vec<String> },
+    /// A program and its arguments, run with no shell, and the environment variables set on it. A token is passed in `env`,
+    /// which a process list does not show, and never in `argv`.
+    Cli {
+        argv: Vec<String>,
+        #[serde(default, skip_serializing_if = "Vec::is_empty")]
+        env: Vec<MetricHeader>,
+    },
     Http {
         method: String,
         url: String,

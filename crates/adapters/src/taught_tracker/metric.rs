@@ -44,7 +44,7 @@ pub fn problem_with(recipe: &MetricRecipe) -> Option<String> {
         return Some("the call uses `{credential}` and the recipe names no credential".to_string());
     }
     match &recipe.call {
-        MetricCall::Cli { argv } => match argv.first() {
+        MetricCall::Cli { argv, .. } => match argv.first() {
             Some(program) if !program.trim().is_empty() => None,
             _ => Some("a cli call names its program".to_string()),
         },
@@ -67,7 +67,7 @@ pub fn problem_with(recipe: &MetricRecipe) -> Option<String> {
 /// The texts a placeholder is filled into, and the ones it is not.
 fn filled_and_not(call: &MetricCall) -> (Vec<&str>, Vec<&str>) {
     match call {
-        MetricCall::Cli { argv } => (Vec::new(), argv.iter().map(String::as_str).collect()),
+        MetricCall::Cli { argv, env } => (env.iter().map(|one| one.value.as_str()).collect(), argv.iter().map(String::as_str).collect()),
         MetricCall::Http { url, headers, body, .. } => {
             let mut here: Vec<&str> = headers.iter().map(|one| one.value.as_str()).collect();
             here.extend(body.as_deref());
@@ -83,7 +83,9 @@ fn filled_and_not(call: &MetricCall) -> (Vec<&str>, Vec<&str>) {
 
 fn transport_of(call: &MetricCall) -> Transport {
     match call {
-        MetricCall::Cli { argv } => Transport::Cli { argv: argv.clone() },
+        MetricCall::Cli { argv, env } => {
+            Transport::Cli { argv: argv.clone(), env: env.iter().map(|one| (one.name.clone(), one.value.clone())).collect() }
+        }
         MetricCall::Http { method, url, headers, body } => Transport::Http {
             method: method.to_ascii_uppercase(),
             url: url.clone(),

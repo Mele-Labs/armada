@@ -19,7 +19,7 @@ fn signed_in(call: MetricCall, map: &str) -> MetricRecipe {
 }
 
 fn echo(text: &str) -> MetricCall {
-    MetricCall::Cli { argv: vec!["/bin/echo".into(), text.into()] }
+    MetricCall::Cli { argv: vec!["/bin/echo".into(), text.into()], env: Vec::new() }
 }
 
 const ROWS: &str = r#"{rows: [{label: "open", value: .data.n, unit: "issues"}]}"#;
@@ -62,7 +62,7 @@ fn a_token_goes_in_the_header_and_is_in_no_refusal() {
 
 #[test]
 fn a_token_may_not_go_where_a_process_list_or_a_log_would_show_it() {
-    let argv = signed_in(MetricCall::Cli { argv: vec!["/bin/echo".into(), "{credential}".into()] }, ".");
+    let argv = signed_in(MetricCall::Cli { argv: vec!["/bin/echo".into(), "{credential}".into()], env: Vec::new() }, ".");
     let said = run_metric(&argv, Some(&Secret::new(SECRET.to_string()))).expect_err("refused before it runs");
     assert!(said.contains("never `argv`"), "{said}");
     let url = signed_in(MetricCall::Http { method: "GET".into(), url: "https://t.example/?k={credential}".into(), headers: vec![], body: None }, ".");
@@ -71,4 +71,25 @@ fn a_token_may_not_go_where_a_process_list_or_a_log_would_show_it() {
     assert!(run_metric(&unnamed, None).expect_err("refused").contains("names no credential"));
     let plain = recipe(MetricCall::Http { method: "GET".into(), url: "http://t.example/".into(), headers: vec![], body: None }, ".");
     assert!(run_metric(&plain, None).expect_err("refused").contains("https"), "a remote host is over TLS");
+}
+
+fn with_token_in_env(script: &str) -> MetricRecipe {
+    let call = MetricCall::Cli {
+        argv: vec!["/bin/sh".into(), "-c".into(), script.into()],
+        env: vec![MetricHeader { name: "TOK".into(), value: "{credential}".into() }],
+    };
+    signed_in(call, ".")
+}
+
+#[test]
+fn a_cli_recipe_reads_its_token_from_the_environment_and_a_failing_run_is_scrubbed_of_it() {
+    let token = Secret::new(SECRET.to_string());
+    let reads = with_token_in_env(r#"test "$TOK" = 'tok-s3cret/+' && echo '{"rows":[{"label":"signed in","value":1}]}'"#);
+    let read = run_metric(&reads, Some(&token)).expect("the variable reached the program with the token in it");
+    assert_eq!(read.rows[0].label, "signed in");
+
+    let fails = with_token_in_env(r#"echo "rejected token $TOK" >&2; exit 2"#);
+    let said = run_metric(&fails, Some(&token)).expect_err("the program failed");
+    assert!(said.contains("rejected token [credential]"), "{said}");
+    assert!(!said.contains(SECRET), "the token is never said: {said}");
 }

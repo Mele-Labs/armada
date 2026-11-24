@@ -56,7 +56,7 @@ fn counting(id: &str, calls: &Path) -> MetricRecipe {
     MetricRecipe {
         id: id.to_string(),
         title: id.to_string(),
-        call: MetricCall::Cli { argv: vec!["/bin/sh".into(), "-c".into(), script] },
+        call: MetricCall::Cli { argv: vec!["/bin/sh".into(), "-c".into(), script], env: Vec::new() },
         map: r#"{rows: [{label: "open", value: .data.n}]}"#.to_string(),
         every_secs: Some(30),
         credential: None,
@@ -97,7 +97,7 @@ async fn a_recipe_is_kept_in_the_projects_file_and_read_back_after_the_file_is_r
 #[tokio::test]
 async fn a_recipe_that_cannot_read_is_refused_and_not_kept() {
     let rig = a_rig().await;
-    let broken = MetricRecipe { call: MetricCall::Cli { argv: vec!["/bin/sh".into(), "-c".into(), "echo it is down >&2; exit 3".into()] }, ..counting("down", &calls_file(&rig)) };
+    let broken = MetricRecipe { call: MetricCall::Cli { argv: vec!["/bin/sh".into(), "-c".into(), "echo it is down >&2; exit 3".into()], env: Vec::new() }, ..counting("down", &calls_file(&rig)) };
     let refused = rig.fleet.save_metric(rig.project.clone(), ask(broken)).await.expect_err("it cannot read");
     assert_eq!(refused.status(), 422);
     assert_eq!(refused.error().code, "fleet.metric_unreadable");

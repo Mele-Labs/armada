@@ -10,7 +10,7 @@ use crate::yaml::{self, Table};
 
 const RECIPE: &[&str] = &["id", "title", "call", "map", "every_secs", "credential"];
 const CREDENTIAL: &[&str] = &["name", "how", "url"];
-const CLI: &[&str] = &["transport", "argv"];
+const CLI: &[&str] = &["transport", "argv", "env"];
 const HTTP: &[&str] = &["transport", "method", "url", "headers", "body"];
 const MCP: &[&str] = &["transport", "server", "env", "tool", "arguments"];
 const TRANSPORTS: &[&str] = &["cli", "http", "mcp"];
@@ -64,8 +64,9 @@ fn read_call(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Option<MetricCa
     let call = match transport.as_str() {
         "cli" => {
             let argv = words(&mut table, "argv", out);
+            let env = pairs(&mut table, "env", out);
             table.close(CLI, out);
-            MetricCall::Cli { argv: argv? }
+            MetricCall::Cli { argv: argv?, env }
         }
         "http" => {
             let method_at = table.at("method");
@@ -133,9 +134,12 @@ pub(crate) fn metrics_value(recipes: &[MetricRecipe]) -> Value {
                 written.insert(text("title"), text(&recipe.title));
                 let mut call = Mapping::new();
                 match &recipe.call {
-                    MetricCall::Cli { argv } => {
+                    MetricCall::Cli { argv, env } => {
                         call.insert(text("transport"), text("cli"));
                         call.insert(text("argv"), list_of(argv));
+                        if !env.is_empty() {
+                            call.insert(text("env"), map_of(env));
+                        }
                     }
                     MetricCall::Http { method, url, headers, body } => {
                         call.insert(text("transport"), text("http"));

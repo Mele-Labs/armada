@@ -125,7 +125,7 @@ pub(crate) fn recipe_wire(recipe: &core_model::MetricRecipe) -> MetricRecipe {
         id: recipe.id.clone(),
         title: recipe.title.clone(),
         call: match &recipe.call {
-            Held::Cli { argv } => ipc::MetricCall::Cli { argv: argv.clone() },
+            Held::Cli { argv, env } => ipc::MetricCall::Cli { argv: argv.clone(), env: headers(env) },
             Held::Http { method, url, headers: held, body } => {
                 ipc::MetricCall::Http { method: method.clone(), url: url.clone(), headers: headers(held), body: body.clone() }
             }
@@ -154,7 +154,7 @@ fn recipe_held(recipe: &MetricRecipe) -> core_model::MetricRecipe {
         id: recipe.id.trim().to_string(),
         title: recipe.title.trim().to_string(),
         call: match &recipe.call {
-            ipc::MetricCall::Cli { argv } => Held::Cli { argv: argv.clone() },
+            ipc::MetricCall::Cli { argv, env } => Held::Cli { argv: argv.clone(), env: pairs(env) },
             ipc::MetricCall::Http { method, url, headers, body } => {
                 Held::Http { method: method.clone(), url: url.clone(), headers: pairs(headers), body: body.clone() }
             }

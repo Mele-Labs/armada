@@ -56,7 +56,8 @@ pub(crate) struct Call {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) enum Transport {
     /// A program and its arguments, run with no shell.
-    Cli { argv: Vec<String> },
+    /// `env` is a metric's: a tracker's file names none.
+    Cli { argv: Vec<String>, env: Vec<(String, String)> },
     Http { method: String, url: String, headers: Vec<(String, String)>, body: Option<String> },
     /// A server started on standard input and output, and one tool called on it. `arguments` is
     /// JSON text, so a placeholder is filled into it as it is into an HTTP body.
@@ -224,7 +225,7 @@ pub(super) fn transport_of(
         Some(Value::String(word)) => match word.as_str() {
             "cli" => {
                 unknown_keys(name, table, &keys(CLI_KEYS), "a cli call", problems);
-                argv_of(name, table, "argv", problems).map(|argv| Transport::Cli { argv })
+                argv_of(name, table, "argv", problems).map(|argv| Transport::Cli { argv, env: Vec::new() })
             }
             "http" => {
                 unknown_keys(name, table, &keys(HTTP_KEYS), "an http call", problems);
@@ -270,7 +271,7 @@ pub(super) fn transport_of(
             problems.push(format!("`[{name}]` never uses `{{{needed}}}`, so every call would ask the same"));
         }
     }
-    if let Transport::Cli { argv } = &transport {
+    if let Transport::Cli { argv, .. } = &transport {
         if argv.first().is_some_and(|program| !placeholders_in(program).is_empty()) {
             problems.push(format!("`[{name}]` names its program with a placeholder; the program is written as it is"));
         }
@@ -468,7 +469,7 @@ fn strings_of(name: &str, key: &str, value: &Value, problems: &mut Vec<String>) 
 /// Every text a call fills a placeholder into.
 pub(crate) fn texts_of(transport: &Transport) -> Vec<&str> {
     match transport {
-        Transport::Cli { argv } => argv.iter().map(String::as_str).collect(),
+        Transport::Cli { argv, env } => argv.iter().map(String::as_str).chain(env.iter().map(|(_, value)| value.as_str())).collect(),
         Transport::Http { url, headers, body, .. } => {
             let mut all = vec![url.as_str()];
             all.extend(headers.iter().map(|(_, value)| value.as_str()));

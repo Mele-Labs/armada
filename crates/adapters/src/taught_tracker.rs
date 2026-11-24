@@ -109,9 +109,10 @@ impl TaughtTracker {
 /// names an issue. **Every refusal is scrubbed of the credential.** A tracker's call and a metric's are run by this alone.
 fn answer_of(transport: &Transport, fills: &Fills<'_>, doing: &'static str, within: Duration) -> Result<Option<Vec<u8>>, NotTracked> {
     let answer = match transport {
-        Transport::Cli { argv } => {
+        Transport::Cli { argv, env } => {
             let filled: Vec<String> = argv.iter().map(|one| fills.fill(one, Escape::Plain)).collect();
-            let ran = running::run(&filled, None).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
+            let env: Vec<(String, String)> = env.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect();
+            let ran = running::run_with_env(&filled, &env, None).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
             if !ran.succeeded {
                 return Err(NotTracked::of(doing, fills.scrubbed(&failed_with(&ran))));
             }
