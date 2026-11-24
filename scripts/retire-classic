@@ -1,0 +1,85 @@
+#!/usr/bin/env bash
+#
+# Remove what Armada Classic, the Electron Bridge, left on this Mac: its launchd job
+# (`<fleet label>.bridge`), the plist that job was loaded from, and an installed
+# `Armada Classic.app`. Nothing launches Classic any more, so none of it has a use.
+# Run by `scripts/restart` on every restart, and safe to run again: where none of it
+# is there it does nothing.
+#
+# **Everything is derived from `$HOME`**, as in `scripts/restart`, so a test against a scratch
+# home never reaches the owner's job or apps. `ARMADA_FLEET_LABEL` follows the override for the
+# same reason. `scripts/install.sh` puts the app in `/Applications`, or in `~/Applications` where
+# that is not writable, so both are looked in; `/Applications` only when `$HOME` is the account's
+# own home, since it is not under any scratch one.
+#
+# A Classic somebody started by hand from a terminal is not ours to stop and is not touched.
+#
+# Usage: scripts/retire-classic [--dry-run]
+
+set -euo pipefail
+
+dry_run=false
+case "${1:-}" in
+  "") ;;
+  --dry-run) dry_run=true ;;
+  *) echo "retire-classic: unknown argument $1 — usage: scripts/retire-classic [--dry-run]" >&2; exit 1 ;;
+esac
+
+home="${HOME:?HOME must be set}"
+support="$home/Library/Application Support/Armada"
+label="${ARMADA_FLEET_LABEL:-com.armada.fleet}"
+bridge_label="$label.bridge"
+bridge_plist="$support/$bridge_label.plist"
+domain="gui/$(id -u)"
+bridge_service="$domain/$bridge_label"
+
+apps=("$home/Applications")
+[[ "$home" == "$(id -P | cut -d: -f9)" ]] && apps+=("/Applications")
+
+say() { printf '\n\033[1m%s\033[0m\n' "$*" >&2; }
+
+found=false
+
+if [[ -f "$bridge_plist" ]] || launchctl print "$bridge_service" >/dev/null 2>&1; then
+  found=true
+  if $dry_run; then
+    echo "would boot $bridge_service out if it is loaded and delete $bridge_plist: Armada Classic is no longer launched"
+  else
+    say "Retiring $bridge_service: Armada Classic is no longer launched"
+    launchctl bootout "$bridge_service" 2>/dev/null || true
+    for _ in $(seq 40); do
+      launchctl print "$bridge_service" >/dev/null 2>&1 || break
+      sleep 0.25
+    done
+    rm -f "$bridge_plist"
+  fi
+fi
+
+for dir in "${apps[@]}"; do
+  app="$dir/Armada Classic.app"
+  [[ -e "$app" ]] || continue
+  found=true
+  if $dry_run; then
+    echo "would quit Armada Classic and delete $app"
+  else
+    say "Removing $app"
+    osascript -e 'quit app "Armada Classic"' >/dev/null 2>&1 || true
+    rm -rf "$app"
+  fi
+done
+
+# The Electron runtime and node_modules kept builds used to copy beside Fleet for Classic; nothing reads them now.
+for kept in "$support/electron" "$support/node_modules"; do
+  [[ -e "$kept" ]] || continue
+  found=true
+  if $dry_run; then
+    echo "would delete $kept: only Armada Classic read it"
+  else
+    say "Removing $kept"
+    rm -rf "$kept"
+  fi
+done
+
+if $dry_run && ! $found; then
+  echo "Armada Classic has left nothing here to remove"
+fi

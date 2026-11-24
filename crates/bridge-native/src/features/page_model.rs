@@ -289,6 +289,10 @@ pub struct ReadRow {
     pub gone: bool,
     /// The last line: the Job that read it and the day.
     pub last: String,
+    /// What a press of Check found it disagreeing with in the code, where he has not dismissed it.
+    pub flag: Option<ipc::DocDisagreement>,
+    /// `Checked 24 Nov: agrees with the code`, where the last check found them agreeing.
+    pub checked: Option<String>,
 }
 
 /// One thing he settled, as the Decisions card draws it.
@@ -676,6 +680,14 @@ fn by_line(job: &str, at: &Instant, titles: &Titles) -> String {
     }
 }
 
+/// The last line of a doc a press of Check found agreeing with the code.
+pub(crate) fn checked_line(at: &Instant) -> String {
+    match when(at).map(day) {
+        Some(date) => format!("Checked {date}: agrees with the code"),
+        None => "Checked: agrees with the code".to_string(),
+    }
+}
+
 /// Whether a read's target is an address on the web or an MCP server's, and not a path in the repository.
 fn is_address(target: &str) -> bool {
     target.contains("://") || target.starts_with("mcp")
@@ -701,6 +713,8 @@ fn reads(list: &[ipc::FeatureRead], ticket: bool, titles: &Titles) -> Vec<ReadRo
             drifted: if ticket { Vec::new() } else { read.drifted.clone() },
             gone: read.state == "gone",
             last: by_line(&read.job, &read.at, titles),
+            flag: read.check.as_ref().filter(|check| !check.dismissed).and_then(|check| check.disagrees.clone()),
+            checked: read.check.as_ref().filter(|check| check.disagrees.is_none()).map(|check| checked_line(&check.at)),
         })
         .collect()
 }

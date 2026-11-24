@@ -953,6 +953,9 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/write_sections", post(crate::features::write_feature_sections::<D>))
         .route("/features/upsert", post(crate::features::upsert_features::<D>))
         .route("/features/retire", post(crate::features::answer_retire::<D>))
+        .route("/features/docs/check", post(crate::features::check_docs::<D>))
+        .route("/features/docs/dismiss", post(crate::features::dismiss_doc_flag::<D>))
+        .route("/features/docs/job", post(crate::features::start_doc_job::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
         .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/librarian/stop", post(crate::features::stop_librarian::<D>))
@@ -969,6 +972,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/projects/project/:project/board",
             get(crate::projects::get_project_board::<D>).post(crate::projects::save_project_board::<D>),
         )
+        .route(
+            "/projects/project/:project/metrics",
+            get(crate::projects::read_metrics::<D>).post(crate::projects::save_metric::<D>),
+        )
+        .route("/projects/project/:project/metrics/try", post(crate::projects::try_metric::<D>))
+        .route("/projects/project/:project/metrics/token", post(crate::projects::save_metric_token::<D>))
+        .route("/projects/project/:project/metrics/:id/remove", post(crate::projects::remove_metric::<D>))
         .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
         .route(
             "/projects/project/:project/store",

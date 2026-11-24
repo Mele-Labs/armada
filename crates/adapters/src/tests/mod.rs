@@ -112,6 +112,7 @@ mod cloudflare_api;
 mod cloudflare_tokens;
 mod store;
 mod store_vector;
+mod metric_runs;
 mod taught_tracker;
 mod taught_tracker_http;
 mod taught_tracker_links;

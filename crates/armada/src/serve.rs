@@ -791,6 +791,8 @@ fn assemble(
             sender: Arc::new(adapters::HttpRequests::within(fleet::requesting::TIMEOUT)),
             secrets: Arc::new(adapters::KeychainSecrets::in_default_keychain()),
         },
+        // A project's metric tokens: one keychain item per tool, never in a file.
+        metric_tokens: Arc::new(adapters::KeychainSecrets::metric_tokens_in_default_keychain()),
     });
     Ok(fleet)
 }

@@ -67,3 +67,18 @@ pub fn who(port: u16, project: &str, cx: &App) -> Task<Result<ipc::WhosOnWhat, R
 pub fn retire(port: u16, body: &ipc::AnswerRetire, cx: &App) -> Task<Result<ipc::RetireAnswered, Refused>> {
     request(port, Ask::Post("/features/retire".into(), crate::settings::wire::body(body)), "RetireAnswered", cx)
 }
+
+/// `POST /features/docs/check`: put each doc of a feature to the model against its code. `crates/ipc/operations/check_docs.toml`.
+pub fn check_docs(port: u16, body: &ipc::CheckDocs, cx: &App) -> Task<Result<ipc::DocsChecked, Refused>> {
+    request(port, Ask::Post("/features/docs/check".into(), crate::settings::wire::body(body)), "DocsChecked", cx)
+}
+
+/// `POST /features/docs/dismiss`: quiet a doc's flag until the doc or the code changes. `crates/ipc/operations/dismiss_doc_flag.toml`.
+pub fn dismiss_doc_flag(port: u16, body: &ipc::DocFlag, cx: &App) -> Task<Result<ipc::DocFlag, Refused>> {
+    request(port, Ask::Post("/features/docs/dismiss".into(), crate::settings::wire::body(body)), "DocFlag", cx)
+}
+
+/// `POST /features/docs/job`: start a Job that asks him whether the doc or the code is right. `crates/ipc/operations/start_doc_job.toml`.
+pub fn start_doc_job(port: u16, body: &ipc::DocFlag, cx: &App) -> Task<Result<ipc::DocJobStarted, Refused>> {
+    request(port, Ask::Post("/features/docs/job".into(), crate::settings::wire::body(body)), "DocJobStarted", cx)
+}

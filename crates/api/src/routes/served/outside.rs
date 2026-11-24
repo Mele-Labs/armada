@@ -164,6 +164,31 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/projects/project/:project/board",
     },
     Route {
+        operation: "read_metrics",
+        method: "GET",
+        path: "/projects/project/:project/metrics",
+    },
+    Route {
+        operation: "save_metric",
+        method: "POST",
+        path: "/projects/project/:project/metrics",
+    },
+    Route {
+        operation: "try_metric",
+        method: "POST",
+        path: "/projects/project/:project/metrics/try",
+    },
+    Route {
+        operation: "save_metric_token",
+        method: "POST",
+        path: "/projects/project/:project/metrics/token",
+    },
+    Route {
+        operation: "remove_metric",
+        method: "POST",
+        path: "/projects/project/:project/metrics/:id/remove",
+    },
+    Route {
         operation: "list_ranked_issues",
         method: "GET",
         path: "/projects/project/:project/ranked_issues",
