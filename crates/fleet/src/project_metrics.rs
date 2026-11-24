@@ -372,6 +372,7 @@ where
     }
 
     /// The recipe `id` and why it last failed to read, for the Librarian Job's fix. `None` where the project keeps none by that id.
+    #[allow(dead_code, reason = "the librarian's ask calls it once its op lands")]
     pub(crate) async fn metric_for_fix(&self, project: &str, id: &str) -> Option<(MetricRecipe, Option<String>)> {
         let held = self.project_held(project).await.ok()?;
         let recipe = held.values().look.metrics.iter().find(|one| one.id == id).map(recipe_wire)?;
