@@ -631,7 +631,7 @@ fn a_broken_block_says_why_and_its_fix_puts_the_words_in_the_ask_box(cx: &mut Te
     assert!(drawn(cx, Role::Button, "Fix Queue depth with the librarian"));
     press(cx, Role::Button, "Fix Queue depth with the librarian");
     assert_eq!(asked(&screen, cx), "Fix Queue depth");
-    let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask.read(cx), cx));
+    let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask_box.read(cx).input.read(cx), cx));
     assert!(cx.update(|window, _| focused.is_focused(window)), "the box has the keys");
 }
 

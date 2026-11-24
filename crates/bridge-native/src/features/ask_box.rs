@@ -222,7 +222,6 @@ impl AskBox {
 
     /// Another screen's "Fix with the librarian": `words` are in the box, the next ask goes with `context`, and the box has the
     /// keys. A send or Esc puts the box's own context back.
-    #[allow(dead_code)] // Live metrics' "Fix with the librarian" calls it.
     pub fn prefill(&mut self, words: &str, context: &str, window: &mut Window, cx: &mut Context<Self>) {
         self.once = (context != self.context).then(|| context.to_string());
         self.input.update(cx, |state, cx| {

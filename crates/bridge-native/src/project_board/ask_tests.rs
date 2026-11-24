@@ -105,7 +105,7 @@ fn a_board_act_is_drawn_at_once_and_undo_puts_the_board_back(cx: &mut TestAppCon
     assert!(!drawn(cx, Role::Button, "Undo"), "and offers nothing more");
     assert_eq!(board_layout(&screen, cx), before, "the board as it was");
     let kind = screen.read_with(cx, |screen, cx| screen.board.read(cx).kind());
-    assert_eq!(before, presets::preset(kind));
+    assert!(before.blocks.starts_with(&presets::preset(kind).blocks), "the preset, with the project's metric blocks after it");
 }
 
 #[gpui::test]
