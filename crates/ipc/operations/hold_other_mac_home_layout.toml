@@ -1,0 +1,8 @@
+[operations.hold_other_mac_home_layout]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Another Mac's Cockpit home layout, handed in by this Mac's Phone Gateway, taken where its save is the later"
+notes = """
+`PUT /other_macs/home_layout`, body `OtherMacHomeLayout { mac, home }`, `home` being `HomeLayout { layout?, saved_at? }`, answered with `MacNamed`. **The later save wins**: it replaces the layout here, with its stamp, only where its `saved_at` is later than the one kept here. A layout with no stamp never replaces one, and any stamped one replaces an unstamped one. Two saves of one instant are settled by their text, so both Macs pick the same. A forgetting is a stamp with no `layout`, and it replaces an earlier layout. Nothing is told onward and no `home_layout.changed` follows, so two Macs do not echo it; `settings.changed` follows as any write of settings.json does. 422 `fleet.unacceptable_home_layout` for a block with a blank `kind` or `view` or more than 64 blocks, and 422 `fleet.other_mac_unnamed` for a blank `mac`. Called on the port from inside a Job it is a 403 `api.the_persons_own`. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
+"""

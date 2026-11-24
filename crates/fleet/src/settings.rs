@@ -187,6 +187,11 @@ pub(crate) fn checked_whole(document: &SettingsDocument, base: &Resolved) -> Res
             return Err(refused(keys::TIME_FORMAT.name(), format!("could not be read: {first}")));
         }
     }
+    if let Some(home) = saved.get(keys::HOME_LAYOUT.name()).filter(|value| **value != SettingValue::Null) {
+        if let Some(first) = ipc::home_layout::problems(&home.to_json_text()).first() {
+            return Err(refused(keys::HOME_LAYOUT.name(), format!("could not be read: {first}")));
+        }
+    }
     // A roster that switches a model off while a setting still names it is a Job that
     // would be refused at its first step, so it is refused here, naming the setting.
     if saved.get(keys::MODELS_ROSTER.name()).is_some() {

@@ -1,0 +1,8 @@
+[operations."home_layout.changed"]
+kind = "event"
+transport = "WebSocket"
+agent_access = "Bridge only"
+description = "A save of the Cockpit home's layout was made on this Mac"
+notes = """
+Carries `HomeLayoutChanged {}`, nothing. It crosses to every linked Mac, whose Gateway reads `share_home_layout` again and hands it in as `hold_other_mac_home_layout`, and it is not handed to their Fleets as an event. Published by `save_home_layout` only, never for a layout taken from another Mac, so two Macs do not tell each other forever. Bridge has no need to read it: `settings.changed` and `get_home_layout` say what it draws.
+"""

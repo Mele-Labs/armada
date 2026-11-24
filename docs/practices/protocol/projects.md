@@ -34,6 +34,8 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `set_project_workflow` | Bridge calls | `POST /projects/project/:project/workflow`, body `SetProjectWorkflow { workflow, on }`: one workflow switched off for the project's Jobs, or back on, and nothing else of its values changed. Written as `edit_project` writes `values`, so it answers `Projects` and publishes `projects.changed`. 422 `fleet.project_blank` for a blank `workflow` |
 | `get_project_board` | Bridge calls | `GET /projects/project/:project/board`. Answers `ProjectBoard { project, layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`. **A project that saved none answers no `layout`**, and Bridge draws its preset. `kind` and `view` are text, so a block kind a later Bridge adds crosses without a wire change and one this build does not know is read back as saved. See *The board*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
 | `save_project_board` | Bridge calls | `POST /projects/project/:project/board`, body `SaveProjectBoard { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Nothing else of the project's values changes. Written as `edit_project` writes `values`, so it publishes `projects.changed`, and for a copy of another Mac's project it is sent to that Mac. Answers `ProjectBoard`. 422 `fleet.project_values_refused` for a block with a blank `kind` or `view` |
+| `get_home_layout` | Bridge calls | `GET /home/layout`. Answers `HomeLayout { layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`, the project board's shape. **A user who saved none answers no `layout`**, and Bridge draws its preset. See *The Cockpit home's layout* |
+| `save_home_layout` | Bridge calls | `POST /home/layout`, body `SaveHomeLayout { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Kept as `bridge.homeLayout` in settings.json, so it publishes `settings.changed`. Answers `HomeLayout`. 422 `fleet.unacceptable_home_layout` for a block with a blank `kind` or `view`, or more than 64 blocks, and nothing is written |
 | `read_metrics` | Bridge calls | `GET /projects/project/:project/metrics`. Answers `MetricReadings { project, readings }`, a `MetricReading { id, title, state, answer?, read_at?, kept }` for each recipe the project keeps, in the file's order. Fleet fetches a recipe only where its last attempt is older than its `every_secs`. `state` is `read`, `no_token` or `broken`. See *Metrics*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
 | `try_metric` | Bridge calls | `POST /projects/project/:project/metrics/try`, body `TryMetric { recipe }`. Runs the recipe once with this Mac's token and answers its `MetricReading`, keeping nothing. 404 `fleet.no_such_project` |
 | `save_metric` | Bridge calls | `POST /projects/project/:project/metrics`, body `TryMetric { recipe }`. Tries the recipe and keeps it as `look.metrics` where it read or only this Mac's token is missing, with a `metric:<id>` block at the bottom of a saved board. Answers `MetricSaved { project, recipe, reading }`. 404 `fleet.no_such_project`, 422 `fleet.metric_unreadable`, 422 `fleet.project_values_refused` |
@@ -278,6 +280,25 @@ A project that saved none has none, and Bridge draws its preset.
 A layer other than the project's ignores `board`: it is never laid over another.
 The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
 
+## The Cockpit home's layout
+
+The Cockpit home, the right side of Bridge while no Job is selected, keeps one layout per user, as `bridge.homeLayout` in Fleet's settings.json.
+It is `BoardLayout`, the project board's own shape, so Bridge draws both with one grid: `{ blocks: [{ kind, x, y, w, h, view }] }`.
+`get_home_layout` and `save_home_layout` read and change it alone, and a save publishes `settings.changed` as any key of the file does.
+A user who saved none has none, and Bridge draws its preset.
+`kind` and `view` are Bridge's words, kept as written, so a kind this build does not know is passed back as it was saved.
+
+**It follows him across his Macs, the latest save winning.**
+`HomeLayout` carries an additive `saved_at`, the time of the save that made it, and `bridge.homeLayout` keeps it beside the blocks as `{ saved_at, layout? }`.
+A forgetting is a stamp with no `layout`, so it beats an earlier layout on another Mac; a bare layout written by hand has no stamp and loses to any stamped one.
+Bridge reads `layout` as before and need not read `saved_at`.
+It crosses on the channel Kit uses: `save_home_layout` publishes `home_layout.changed`, which carries nothing and crosses to the linked Macs, whose Gateways read `share_home_layout` (`GET /other_mac/home_layout`, answered `HomeLayout`) and hand it to their Fleets as `hold_other_mac_home_layout` (`PUT /other_macs/home_layout`, body `OtherMacHomeLayout { mac, home }`).
+A Gateway also reads it when its link opens and on every resync, so a Mac that was asleep catches up.
+A Fleet replaces its layout only where the one handed in has the later `saved_at`; two saves of one instant are settled by their text, so both Macs pick the same.
+A layout taken is kept with its stamp and is not told on, so two Macs settle and stop; `settings.changed` tells Bridge as for any write.
+A Mac on a build from before this answers 404 to the read, and the link stays up without it.
+Clocks are the order: two Macs whose clocks differ by more than the time between his saves can take the earlier save for the later.
+The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
 ## Metrics
 
 A project's Dashboard can show live metric blocks, and Fleet reads each one with no model.

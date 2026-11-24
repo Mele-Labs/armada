@@ -1,0 +1,8 @@
+[operations.share_home_layout]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "This Mac's Cockpit home layout, for this Mac's Phone Gateway to send his other Macs"
+notes = """
+`GET /other_mac/home_layout`, answered with `HomeLayout { layout?, saved_at? }` as `get_home_layout` answers it. `saved_at` is the stamp of the save that made the layout, or of the save that forgot it, and the Mac that reads it takes the layout only where that stamp is later than its own. A Mac on a build from before the layout followed him answers 404, and the link stays up without it. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
+"""

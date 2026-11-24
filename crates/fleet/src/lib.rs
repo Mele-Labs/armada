@@ -241,6 +241,8 @@ pub mod places;
 pub mod ports;
 /// A person's Bridge preferences, five keys of settings.json in their older shape.
 mod preferences;
+/// The Cockpit home's layout, one per user, kept as a key of settings.json.
+mod home_layout;
 /// How the owner works with Jobs, said to a Job: the start note, the plan block and the checks' words.
 mod ways;
 pub mod preparing;

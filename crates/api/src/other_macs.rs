@@ -33,6 +33,8 @@ pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessi
         .route("/other_mac/refresh_claim", post(hold_refresh_claim::<D>))
         .route("/other_mac/kit", get(share_kit::<D>))
         .route("/other_mac/kit_settle", post(kit_settle_from_mac::<D>))
+        .route("/other_mac/home_layout", get(share_home_layout::<D>))
+        .route("/other_macs/home_layout", put(hold_other_mac_home_layout::<D>))
         .route("/other_macs/kit", put(hold_other_mac_kit::<D>).layer(DefaultBodyLimit::max(MOST_A_MAC_LIST_MAY_BE)))
         .route("/other_mac/conversation", get(crate::mac_acts::share_job_conversation::<D>))
         .route("/sessions/move_to_mac", post(crate::mac_acts::move_job_to_mac::<D>))
@@ -124,6 +126,24 @@ async fn hold_other_mac_kit<D: OtherMacs>(State(served): State<Served<D>>, body:
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
     match served.shared().hold_other_mac_kit(held).await {
+        Ok(named) => answer(StatusCode::OK, &named, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn share_home_layout<D: OtherMacs>(State(served): State<Served<D>>) -> Response {
+    match served.daemon().share_home_layout().await {
+        Ok(home) => answer(StatusCode::OK, &home, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+async fn hold_other_mac_home_layout<D: OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let held: ipc::OtherMacHomeLayout = match ipc::decode_body("another Mac's home layout", &body) {
+        Ok(held) => held,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().hold_other_mac_home_layout(held).await {
         Ok(named) => answer(StatusCode::OK, &named, served.run_id()),
         Err(refusal) => refused(refusal),
     }

@@ -423,6 +423,14 @@ where
         self.kit_held(held).await
     }
 
+    async fn share_home_layout(&self) -> Result<ipc::HomeLayout, Refusal> {
+        Ok(self.home_layout_shared())
+    }
+
+    async fn hold_other_mac_home_layout(&self, held: ipc::OtherMacHomeLayout) -> Result<MacNamed, Refusal> {
+        self.home_layout_held(held).await
+    }
+
     async fn kit_settle_from_mac(&self, mac: String, settled: ipc::KitSettled) -> Result<(), Refusal> {
         self.kit_settle_held(mac, settled).await
     }
