@@ -532,7 +532,12 @@ fn the_token_field_is_masked_keeps_no_draft_and_goes_when_the_token_is_sent(cx: 
     assert!(drawn(cx, Role::TextInput, "Token for Deploys this week"), "the credential's block has a field");
     assert!(drawn(cx, Role::Link, "Make a token for Deploys this week"), "the credential names where it is made");
     let input = board.read_with(cx, |board, _| board.token_fields.get("deploys-week").map(|field| field.input.clone())).expect("a field for the recipe with no token");
-    cx.update(|window, cx| input.update(cx, |state, cx| state.set_value("sk-live-secret", window, cx)));
+    // Typed, not set: typing is what tells the box a change was made, which is what a draft would be kept on.
+    cx.update(|window, cx| {
+        window.activate_window();
+        input.update(cx, |state, cx| state.focus(window, cx));
+    });
+    cx.simulate_input("sk-live-secret");
     redraw(cx);
     assert!(cx.update(|_, cx| input.read(cx).value() == "sk-live-secret"), "the field holds what was pasted");
     assert!(!cx.update(|_, cx| crate::drafts::holds("sk-live-secret", cx)), "a secret is never kept as a draft");
