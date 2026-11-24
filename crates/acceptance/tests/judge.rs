@@ -71,7 +71,9 @@ fn a_document() -> Content {
 }
 
 fn brief_of(artifact: &Content, prompt: &str) -> String {
-    brief(&Shown { request: REQUEST, later: &[LATER.to_string()], artifact, prompt, standing: STANDING })
+    let types = config::judge_types::resolve(config::judge_types::carried());
+    let looks_for = &types.get(config::judge_types::ADVERSARIAL).expect("Armada carries the adversarial type").prompt;
+    brief(&Shown { request: REQUEST, later: &[LATER.to_string()], artifact, looks_for, prompt, standing: STANDING })
 }
 
 fn answer(notes: &str) -> String {
