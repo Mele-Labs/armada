@@ -1,6 +1,6 @@
-//! The step line over a Job's right column: the workflow, the step of its steps and the time on it, with each step a small bar
-//! on the same line, and under it what the step waits on. The step under way is in the accent. A Job on no workflow shows its
-//! own plan's groups as the bars.
+//! The step line over a Job's right column, on one line: the features the Job is on as chips, the workflow as a button that opens
+//! its menu, the step under way and the time on it, then each step a small bar; under it what the step waits on. The step under
+//! way is in the accent, and `Step 2 of 3` is said by its bar. A Job on no workflow shows its own plan's groups as the bars.
 //!
 //! What it says is worked out from the record by [`strip_of`] and [`own_plan_strip`], which draw nothing, so what a
 //! step reads can be tested without a window. [`JobView::strip_parts`] draws it, for the band's card
@@ -17,7 +17,9 @@ use super::rows::{glyph, tip, Size};
 use super::side::Stands;
 use super::JobView;
 use crate::labels::labelled;
-use crate::look::{token, Look};
+use super::workflow::PICKS;
+use crate::dropdown::Entry;
+use crate::look::{token, Look, Token};
 use crate::operator::view::{press, pressed, Weight};
 
 /// What one cell of the strip says of its step.
@@ -40,6 +42,17 @@ impl PipState {
         matches!(self, PipState::Now | PipState::Stalled)
     }
 }
+
+/// A feature the Job is on, as a chip of the line says it: its slug for the page it opens, its title and its area's hue.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct StripFeature {
+    pub slug: String,
+    pub title: String,
+    pub hue: Token,
+}
+
+/// How many feature chips the line draws before `+N`.
+pub(super) const CHIPS: usize = 2;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(super) struct Pip {
@@ -65,6 +78,8 @@ pub(super) struct Strip {
     pub waits: Vec<String>,
     /// The step has stood past its usual time with no move: why, and the acts that move it.
     pub stalled: Option<Stalled>,
+    /// The features the Job is on, most touched first. Held by the Story tab, so [`strip_of`] leaves it empty.
+    pub features: Vec<StripFeature>,
 }
 
 /// A step that is not moving, as the strip's amber box says it.
@@ -146,7 +161,7 @@ pub(super) fn strip_of(name: &str, steps: &[String], at: Option<usize>, visits: 
         Some((spoken(minutes_between(since, now)?), word))
     });
     let time = on_step.as_ref().map(|(span, word)| format!("{span} on {word}"));
-    Strip { flow: name.to_string(), place, time, step_time: on_step.map(|(span, _)| span), pips, waits: waits.to_vec(), stalled: None }
+    Strip { flow: name.to_string(), place, time, step_time: on_step.map(|(span, _)| span), pips, waits: waits.to_vec(), stalled: None, features: Vec::new() }
 }
 
 /// An amber box in the strip: a mark that names the state, the words, and the acts under them.
@@ -180,6 +195,26 @@ fn amber_box(look: &Look, id: String, said: &'static str, words: String, acts: V
 }
 
 impl Strip {
+    /// The chips the line draws, and how many features are left for `+N`.
+    pub(super) fn chips(&self) -> (&[StripFeature], usize) {
+        let shown = CHIPS.min(self.features.len());
+        (&self.features[..shown], self.features.len() - shown)
+    }
+
+    /// What a bar says: its step, its state, and on the step under way where it stands among the steps.
+    pub(super) fn step_said(&self, at: usize) -> String {
+        let pip = &self.pips[at];
+        match (pip.state.is_now(), self.place.is_empty()) {
+            (true, false) => format!("{}, {} \u{b7} {}", pip.name, pip_said(pip.state), self.place),
+            _ => format!("{}, {}", pip.name, pip_said(pip.state)),
+        }
+    }
+
+    /// The step under way, and how long the Job has been on it, as the line says them after the workflow.
+    pub(super) fn now(&self) -> (Option<&str>, Option<&str>) {
+        (self.pips.iter().find(|pip| pip.state.is_now()).map(|pip| pip.name.as_str()), self.step_time.as_deref().or(self.time.as_deref()))
+    }
+
     /// Fleet's reading of the step laid over the strip: a step done that work ahead passed is amber, and the step under way
     /// is amber with its cause where it stands past its usual time. A Job Fleet sent no reading of is left as it is.
     pub(super) fn read_by(mut self, wire: Option<&ipc::WorkflowStrip>) -> Strip {
@@ -215,7 +250,7 @@ pub(super) fn own_plan_strip(groups: &[(String, Stands)], started: Option<&str>,
         })
         .collect();
     let place = if pips.is_empty() { String::new() } else { "own plan".to_string() };
-    Strip { flow: "No workflow".to_string(), place, time: started.and_then(|since| minutes_between(since, now)).map(spoken), step_time: None, pips, waits: Vec::new(), stalled: None }
+    Strip { flow: "No workflow".to_string(), place, time: started.and_then(|since| minutes_between(since, now)).map(spoken), step_time: None, pips, waits: Vec::new(), stalled: None, features: Vec::new() }
 }
 
 /// What a Jobs list row says of the Job's steps: a bar for each, the step it is on and how long it has been on it.
@@ -289,7 +324,8 @@ impl JobView {
         let job = self.record(id, cx)?;
         let work = self.work(job, cx);
         let now = Utc::now();
-        match work.name.as_deref().filter(|_| !work.off) {
+        let features = self.story_features(id, cx);
+        let strip = match work.name.as_deref().filter(|_| !work.off) {
             Some(name) => Some(strip_of(name, &work.steps, work.at, &work.visits, &work.skipped, &job.workflow_waiting_on, now).read_by(job.workflow_strip.as_ref())),
             None => {
                 let place = super::side::placed(job);
@@ -297,7 +333,8 @@ impl JobView {
                 // No workflow and no plan: nothing to say of steps, so no step line.
                 Some(own_plan_strip(&groups, Some(job.started_at.as_str()), now)).filter(|strip| !strip.pips.is_empty())
             }
-        }
+        };
+        strip.map(|strip| Strip { features, ..strip })
     }
 
     /// The step line and what hangs under it, as parts of the band's card (`column_bands.rs` frames and joins them): one slim line of
@@ -305,13 +342,16 @@ impl JobView {
     /// on, and the amber boxes where they apply. What does not fit on the line is left off its end, whole, never cut short.
     pub(super) fn strip_parts(&self, id: &SharedString, strip: &Strip, look: &Look, cx: &Context<Self>) -> Vec<AnyElement> {
         let text = |size: crate::look::Token| div().text_size(look.length(size)).line_height(look.length(token::LEADING_XS)).whitespace_nowrap();
-        let step = match (strip.place.is_empty(), strip.pips.iter().find(|pip| pip.state.is_now())) {
-            (true, _) => None,
-            (false, Some(pip)) => Some(format!("{} \u{b7} {}", strip.place, pip.name)),
-            (false, None) => Some(strip.place.clone()),
-        };
-        let time = strip.step_time.clone().or_else(|| strip.time.clone());
+        let (now_step, now_time) = strip.now();
         let pips = (!strip.pips.is_empty()).then(|| self.strip_pips(id, strip, look));
+        let (chips, more) = strip.chips();
+        let chips: Vec<AnyElement> = chips.iter().map(|feature| self.feature_chip(id, feature, look, cx)).collect();
+        let more = (more > 0).then(|| {
+            let hidden: Vec<&str> = strip.features.iter().skip(CHIPS).map(|feature| feature.title.as_str()).collect();
+            let said = format!("{} more: {}", more, hidden.join(", "));
+            labelled(text(token::TEXT_XS).id(SharedString::from(format!("strip-more:{id}"))).flex_none().text_color(look.color(token::FG_MUTED)).tooltip(tip(said.clone())).child(SharedString::from(format!("+{more}"))), Role::Group, said)
+        });
+        let flow = self.flow_button(id, strip, look, cx);
         // Wrapped on a line one row high with the rest hidden: an item that does not fit goes to the row below, out of sight, whole.
         let line = div()
             .id(SharedString::from(format!("strip-line:{id}")))
@@ -323,9 +363,11 @@ impl JobView {
             .flex_wrap()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .child(text(token::TEXT_XS).flex_none().font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(strip.flow.clone())))
-            .children(step.map(|step| text(token::TEXT_XS).flex_none().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(step))))
-            .children(time.map(|time| text(token::TEXT_XS).flex_none().text_color(look.color(if strip.stalled.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED })).child(SharedString::from(time))))
+            .children(chips)
+            .children(more)
+            .child(flow)
+            .children(now_step.map(|step| text(token::TEXT_XS).flex_none().text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(format!("\u{b7} {step}")))))
+            .children(now_time.map(|time| text(token::TEXT_XS).flex_none().text_color(look.color(if strip.stalled.is_some() { token::STATUS_AWAITING_REVIEW } else { token::FG_MUTED })).child(SharedString::from(time.to_string()))))
             .children(pips);
         let head = div().flex().items_center().gap(look.length(token::SPACE_2)).child(line).child(self.band_hide(id, Band::Column, look, cx));
         let waits = strip.waits.iter().enumerate().map(|(at, said)| {
@@ -346,11 +388,119 @@ impl JobView {
         std::iter::once(head.into_any_element()).chain(waits).chain(stalled).chain(self.moved_past_box(id, strip, look, cx)).collect()
     }
 
+    /// A feature the Job is on: its area's square and its title, which opens the feature's page.
+    fn feature_chip(&self, id: &SharedString, feature: &StripFeature, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let slug = feature.slug.clone();
+        let said = format!("Feature {}", feature.title);
+        let chip = div()
+            .id(SharedString::from(format!("strip-feature:{id}:{}", feature.slug)))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .h(look.length(token::LEADING_XS))
+            .px(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_SM))
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .whitespace_nowrap()
+            .cursor_pointer()
+            .focusable()
+            .tab_stop(true)
+            .hover(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            .focus_visible(|style| style.bg(look.color(token::BG_HOVER)).text_color(look.color(token::FG_DEFAULT)))
+            .tooltip(tip(format!("Open {}", feature.title)))
+            .child(crate::features::hue_square(look, feature.hue, look.length(token::SPACE_2)))
+            .child(SharedString::from(feature.title.clone()));
+        labelled(pressed(chip, cx, move |this, window, cx| this.open_story_feature(slug.clone(), window, cx)), Role::Button, said).into_any_element()
+    }
+
+    /// The workflow's name with a caret, which opens the menu of the workflows Fleet holds for the Job's repository, none, and the
+    /// Job's own steps. Where the picker is not offered (a Job Fleet does not host) it is the name alone.
+    fn flow_button(&self, id: &SharedString, strip: &Strip, look: &Look, cx: &Context<Self>) -> AnyElement {
+        let name = div()
+            .flex_none()
+            .whitespace_nowrap()
+            .text_size(look.length(token::TEXT_XS))
+            .line_height(look.length(token::LEADING_XS))
+            .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
+            .text_color(look.color(token::FG_DEFAULT))
+            .child(SharedString::from(strip.flow.clone()));
+        let picking = self.record(id, cx).is_some_and(|job| self.work(job, cx).picking);
+        if !picking {
+            return div().id(SharedString::from(format!("strip-flow:{id}"))).flex_none().tooltip(tip("Workflow")).child(name).into_any_element();
+        }
+        let said = format!("Workflow {}", strip.flow);
+        let open = self.pop.as_ref().is_some_and(|pop| pop.menu.read(cx).name().as_ref() == "Workflow");
+        let button = div()
+            .id(SharedString::from(format!("strip-flow:{id}")))
+            .flex_none()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .h(look.length(token::LEADING_XS))
+            .px(look.length(token::SPACE_1))
+            .rounded(look.length(token::RADIUS_SM))
+            .cursor_pointer()
+            .focusable()
+            .tab_stop(true)
+            .when(open, |button| button.bg(look.color(token::BG_HOVER)))
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .focus_visible(|style| style.bg(look.color(token::BG_HOVER)))
+            .aria_expanded(open)
+            .tooltip(tip("Workflow"))
+            .child(name)
+            .child(glyph(look, "chevron-down", Size::Small, look.color(token::FG_SUBTLE)))
+            .on_key_down(cx.listener({
+                let said = said.clone();
+                move |this, event: &gpui::KeyDownEvent, window, cx| {
+                    if event.keystroke.key == "down" && !event.keystroke.modifiers.modified() {
+                        cx.stop_propagation();
+                        this.strip_flow_menu(&said, window, cx);
+                    }
+                }
+            }));
+        let opens = said.clone();
+        labelled(pressed(button, cx, move |this, window, cx| this.strip_flow_menu(&opens, window, cx)), Role::Button, said).into_any_element()
+    }
+
+    /// The menu under the workflow button: each workflow of the Job's repository, ticked where the Job follows it, then none, and
+    /// where the Job follows one, a rule and its own steps, which are edited in the Workflow tab.
+    fn strip_flow_menu(&mut self, button: &str, window: &mut gpui::Window, cx: &mut Context<Self>) {
+        let Some(id) = self.shown.clone() else { return };
+        let Some(job) = self.record(&id, cx).cloned() else { return };
+        let work = self.work(&job, cx);
+        if !work.picking {
+            return;
+        }
+        let ids: Vec<String> = work.choices.iter().take(PICKS.len()).map(|(id, _)| id.clone()).collect();
+        let mut entries: Vec<Entry> = work.choices.iter().take(PICKS.len()).enumerate().map(|(at, (one, name))| Entry::Choice { id: PICKS[at], label: name.clone().into(), on: work.chosen.as_deref() == Some(one.as_str()) }).collect();
+        entries.push(Entry::Choice { id: "none", label: "No workflow".into(), on: work.chosen.is_none() });
+        if work.chosen.is_some() && job.lanes.is_some() {
+            entries.push(Entry::Rule);
+            entries.push(Entry::Act { id: "edit", label: "Edit steps for this Job\u{2026}".into(), icon: None, danger: false });
+        }
+        let at = super::head::drawn(window, cx, Role::Button, button).map_or_else(|| window.mouse_position(), super::head::below_left);
+        let back = window.focused(cx);
+        self.open_button_menu(
+            "Workflow",
+            entries,
+            at,
+            back,
+            move |this, picked, window, cx| match picked {
+                "edit" => this.lanes_forward(window, cx),
+                _ => this.choose_workflow(PICKS.iter().position(|one| *one == picked).and_then(|at| ids.get(at).cloned()), window, cx),
+            },
+            window,
+            cx,
+        );
+    }
+
     /// The steps as small bars on the step line, each in its state's hue and each saying its step's name in its tooltip.
     fn strip_pips(&self, id: &SharedString, strip: &Strip, look: &Look) -> AnyElement {
         labelled(
             div().id(SharedString::from(format!("strip-steps:{id}"))).flex_none().flex().items_center().gap(look.length(token::SPACE_1) / 2.).children(strip.pips.iter().enumerate().map(|(at, pip)| {
-                let said = format!("{}, {}", pip.name, pip_said(pip.state));
+                let said = strip.step_said(at);
                 labelled(
                     div()
                         .id(SharedString::from(format!("strip-step:{id}:{at}")))
@@ -542,6 +692,41 @@ pub(super) mod tests {
         assert_eq!(track.step.as_deref(), job.workflow_step.and_then(|at| def.steps.get(at as usize)).map(|step| step.label.as_str()));
         let none = jobs.iter().find(|job| job.workflow.is_none());
         assert!(none.is_none_or(|job| track_of(job, &held, Utc::now()).is_none()), "no workflow, no track");
+    }
+
+    fn feature(slug: &str) -> StripFeature {
+        StripFeature { slug: slug.into(), title: slug.to_uppercase(), hue: token::ACCENT }
+    }
+
+    /// Two chips and `+N` for the rest; a Job on no feature has neither, and nothing stands in their place.
+    #[test]
+    fn the_line_draws_two_feature_chips_and_counts_the_rest() {
+        let steps = words(&["Propose", "Walk"]);
+        let mut strip = strip_of("feature", &steps, Some(0), &[], &HashSet::new(), &[], at(11, 0));
+        assert_eq!(strip.chips(), (&[][..], 0), "no features, no chips and no +N");
+        strip.features = vec![feature("a")];
+        assert_eq!(strip.chips(), (&strip.features[..1], 0));
+        strip.features = vec![feature("a"), feature("b")];
+        assert_eq!(strip.chips(), (&strip.features[..2], 0), "two fit without a +N");
+        strip.features = ["a", "b", "c", "d"].map(feature).to_vec();
+        assert_eq!(strip.chips(), (&strip.features[..2], 2), "the most touched two, then +2");
+    }
+
+    /// `Step 2 of 3` is no longer a word of the line: the bar of the step under way says it, and the others say their state alone.
+    #[test]
+    fn the_place_is_said_by_the_step_under_ways_bar() {
+        let steps = words(&["Propose", "Walk", "Deliver"]);
+        let visits = [visit(0, 10, 0), visit(1, 10, 25)];
+        let strip = strip_of("feature", &steps, Some(1), &visits, &HashSet::new(), &[], at(11, 5));
+        assert_eq!(strip.step_said(0), "Propose, Done");
+        assert_eq!(strip.step_said(1), "Walk, Under way \u{b7} Step 2 of 3");
+        assert_eq!(strip.step_said(2), "Deliver, Not started");
+        assert_eq!(strip.now(), (Some("Walk"), Some("40m")));
+        let own = own_plan_strip(&[("Quiz".to_string(), Stands::Working)], Some(&at(10, 0).to_rfc3339()), at(11, 10));
+        assert_eq!(own.step_said(0), "Quiz, Under way \u{b7} own plan");
+        assert_eq!(own.now(), (Some("Quiz"), Some("1h 10m")));
+        let done = strip_of("feature", &steps, None, &visits, &HashSet::new(), &[], at(12, 0));
+        assert_eq!(done.now(), (None, None), "a finished Job names no step");
     }
 
     #[test]
@@ -743,6 +928,24 @@ pub(super) mod tests {
             assert!(!drawn(cx, Role::Group, "Step and Needs you"));
             assert!(!drawn(cx, Role::RadioGroup, "Needs you"));
             view.read_with(cx, |view, _| assert!(!view.band_shown(super::super::super::column_bands::Band::Column)));
+        }
+
+        /// The Job on three features draws two chips and a +1, each chip a button named for its feature. A Job whose
+        /// story is not read draws no chip.
+        #[gpui::test]
+        fn the_line_draws_the_jobs_features_two_chips_and_a_count(cx: &mut gpui::TestAppContext) {
+            let (view, cx) = opened(cx, JOB);
+            assert!(!drawn(cx, Role::Button, "Feature Start a Job"), "no story read, no chip");
+            view.update_in(cx, |view, window, cx| {
+                view.story_of(JOB, window, cx);
+            });
+            fresh(cx);
+            assert!(drawn(cx, Role::Button, "Feature Start a Job"));
+            assert!(drawn(cx, Role::Button, "Feature Thread and composer"));
+            assert!(!drawn(cx, Role::Button, "Feature Reviews"), "the third is behind +1");
+            assert!(drawn(cx, Role::Group, "1 more: Reviews"));
+            // The mock Job is not hosted by Fleet, so no picker is offered: the name stands alone, as the Spine head draws it.
+            assert!(super::super::super::parts_fold::drawn_like(cx, Role::Button, "Workflow ").is_empty());
         }
 
         #[gpui::test]

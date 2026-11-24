@@ -558,12 +558,16 @@ pub fn init(cx: &mut App) {
     super::kind_chip::init(cx);
     super::thread_rail::init(cx);
     super::on_job_shown(
-        |job, _, cx| {
+        |job, window, cx| {
             cx.default_global::<Stories>().0.retain(|held, _| job.as_deref() == Some(held.as_str()));
             let Some(job) = job else { return };
             lead::shown(&job, cx);
             if let Some(view) = JobView::live(cx) {
-                view.update(cx, |view, cx| view.open_for_link(&job, cx));
+                // The strip over the column names the Job's features, so the story is read as the Job comes on screen.
+                view.update(cx, |view, cx| {
+                    view.story_of(&job, window, cx);
+                    view.open_for_link(&job, cx);
+                });
             }
         },
         cx,
@@ -616,7 +620,7 @@ impl JobView {
     }
 
     /// Job `job`'s Story tab, made where there is none.
-    fn story_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> Entity<StoryTab> {
+    pub(super) fn story_of(&mut self, job: &str, window: &mut Window, cx: &mut Context<Self>) -> Entity<StoryTab> {
         if let Some(tab) = cx.default_global::<Stories>().0.get(job) {
             return tab.clone();
         }
@@ -626,6 +630,24 @@ impl JobView {
             None => StoryTab::mock(named.clone(), false, window, cx),
         });
         cx.default_global::<Stories>().0.insert(job.to_string(), tab.clone());
+        // The strip over the column draws the tab's features, so it draws again when the tab does.
+        cx.observe(&tab, |_, _, cx| cx.notify()).detach();
         tab
+    }
+
+    /// The features Job `job` is on as its Story tab holds them, most touched first, each with the hue the Features list gives
+    /// its area. None are held until the tab has read the story.
+    pub(super) fn story_features(&self, job: &str, cx: &App) -> Vec<super::column_strip::StripFeature> {
+        let Some(tab) = cx.try_global::<Stories>().and_then(|held| held.0.get(job)) else { return Vec::new() };
+        let tab = tab.read(cx);
+        tab.built.features.iter().map(|line| super::column_strip::StripFeature { slug: line.slug.clone(), title: line.title.clone(), hue: crate::features::hue_among(tab.areas.iter().map(String::as_str), &line.area) }).collect()
+    }
+
+    /// A feature chip of the strip pressed: the Story tab comes forward and the feature's page opens over it, as a Filed under row's does.
+    pub(super) fn open_story_feature(&mut self, slug: String, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(job) = self.shown.clone() else { return };
+        self.open_kind("story", cx);
+        let tab = self.story_of(&job, window, cx);
+        tab.update(cx, |tab, cx| tab.open_feature(slug, window, cx));
     }
 }
