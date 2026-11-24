@@ -182,6 +182,9 @@ pub struct Look {
     /// Where each block of the project's dashboard stands. **A project's own and none of the layers' to lay over**:
     /// a project that saved none has none, and Bridge draws its preset.
     pub board: Option<Board>,
+    /// The live metrics the project's dashboard reads, in the file's order. **A project's own**, as the board is: empty
+    /// is none kept.
+    pub metrics: alloc::vec::Vec<crate::MetricRecipe>,
 }
 
 /// A project's dashboard board, as it is kept.

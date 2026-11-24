@@ -7,6 +7,8 @@
 
 mod board;
 mod layout;
+mod metric;
+mod metric_view;
 mod mock;
 mod model;
 mod presets;
@@ -202,6 +204,7 @@ impl ProjectScreen {
                 this.show(Tab::Features, window, cx);
                 this.features.update(cx, |features, cx| features.open_feature(slug.clone(), window, cx));
             }
+            BoardEvent::FixMetric { id, title } => this.fix_with_librarian(title, id, window, cx),
         }));
         // The header and the tabs draw from what the board and the library hold, and an ask goes with the board on screen.
         subs.push(cx.observe(&board, |this, _, cx| {
@@ -286,6 +289,8 @@ impl ProjectScreen {
             return;
         }
         self.tab = tab;
+        // The metrics are asked for only while the Dashboard is the tab in front.
+        self.board.update(cx, |board, cx| board.set_front(tab == Tab::Dashboard, cx));
         match tab {
             Tab::Settings => self.keep_settings(window, cx),
             Tab::Dashboard => window.focus(&self.board.read(cx).root.clone(), cx),
@@ -376,7 +381,7 @@ impl ProjectScreen {
 
     fn open_add(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(project) = self.board.read(cx).project(cx) else { return };
-        let choices = self.board.update(cx, |board, _| board.layout(&project.id).missing());
+        let choices = self.board.update(cx, |board, _| board.addable(&project.id));
         if choices.is_empty() {
             return;
         }
@@ -429,7 +434,7 @@ impl ProjectScreen {
         let editing = self.board.read(cx).edit;
         let on_board = self.tab == Tab::Dashboard;
         let started = self.board.read(cx).starting();
-        let free = self.board.update(cx, |board, cx| board.project(cx).map_or(0, |project| board.layout(&project.id).missing().len()));
+        let free = self.board.update(cx, |board, cx| board.project(cx).map_or(0, |project| board.addable(&project.id).len()));
         let button = |id: &'static str, text: &'static str, mark: &'static str, weight: Weight, said: &'static str| {
             Btn::new(id, text, weight).icon(mark).draw(look, cx).tooltip(tip(said))
         };
@@ -539,7 +544,8 @@ impl ProjectScreen {
         let menu = self.adding.as_ref()?;
         let ring = ring_colour(look);
         let from = bounds_of(window, cx, Role::Button, "Add block").map(|bounds| bounds.bottom_left()).unwrap_or_default();
-        let rows = menu.choices.iter().enumerate().map(|(at, kind)| {
+        let titles: Vec<String> = menu.choices.iter().map(|kind| self.board.read(cx).title_of(*kind)).collect();
+        let rows = menu.choices.iter().zip(titles).enumerate().map(|(at, (kind, title))| {
             let on = at == menu.at;
             labelled(
                 div()
@@ -557,9 +563,9 @@ impl ProjectScreen {
                     .focus_visible(move |style| style.border_color(ring))
                     .on_click(cx.listener(move |this, _, window, cx| this.pick_block(at, window, cx)))
                     .child(glyph(view::mark_of(*kind), look.length(token::SPACE_4), look.color(token::FG_MUTED)))
-                    .child(div().min_w_0().truncate().child(kind.title())),
+                    .child(div().min_w_0().truncate().child(SharedString::from(title.clone()))),
                 Role::MenuItem,
-                kind.title(),
+                title,
             )
         });
         Some(

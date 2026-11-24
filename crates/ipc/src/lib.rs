@@ -150,6 +150,7 @@ mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
 mod project_store;
+mod metrics;
 mod project_board;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
@@ -574,6 +575,10 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use values_merging::VALUE_KEYS;
+pub use metrics::{
+    MetricAnswer, MetricCall, MetricCredential, MetricHeader, MetricPoint, MetricReading, MetricReadings, MetricRecipe, MetricRow, MetricSaved,
+    MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
+};
 pub use projects::MergeProjects;
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,

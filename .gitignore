@@ -29,8 +29,10 @@ electron.vite.config.*.mjs
 # two very different things.
 release/
 
-# Armada Voice, built by `apps/desktop/native/voice/build.mjs` before Bridge is.
+# Armada Voice, built by `crates/bridge-native/native/voice/build.mjs` before Bridge is, and by
+# `apps/desktop/native/voice/build.mjs` for the Electron app.
 apps/desktop/native/voice/build/
+crates/bridge-native/native/voice/build/
 
 # The gallery's own intermediate bundle. `out/` above does not match a leading
 # dot, so this was tracked: a 400kB generated file re-committed by anyone who

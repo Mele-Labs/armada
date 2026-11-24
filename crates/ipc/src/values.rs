@@ -81,6 +81,10 @@ pub struct LookSet {
     /// is none saved, and Bridge draws its preset. `get_project_board` and `save_project_board` read and change this alone.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub board: Option<crate::BoardLayout>,
+    /// The live metrics the project's dashboard reads, **a project's own** as the board is: absent is none kept.
+    /// `save_metric` and `remove_metric` change this alone. `docs/practices/protocol/projects.md`, *Metrics*.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metrics: Option<Vec<crate::MetricRecipe>>,
 }
 
 /// The layer a value came from, from the furthest to the nearest: `default`, `machine`, `kit`,

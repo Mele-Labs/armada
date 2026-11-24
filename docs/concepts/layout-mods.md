@@ -90,7 +90,7 @@ An entry a list does not name keeps its default place after the named ones.
 > Why: the folder is written by anything on the machine, so the accepted language is a whitelist.
 
 Fleet checks the file with `ipc::layout` and Bridge reads the text it returns with `parseLayout`, so the two apply one set of rules written twice.
-`packages/shell/layout-registry.json` lists the regions, ids, which can be hidden and which can be ordered; Fleet reads its regions from it, and a test on the Bridge side fails when it and `LAYOUT` disagree.
+`crates/ipc/layout-registry.json` lists the regions, ids, which can be hidden and which can be ordered; Fleet reads its regions from it, and a test on the Bridge side fails when it and `LAYOUT` disagree.
 
 | Input | Result |
 |---|---|
@@ -149,7 +149,7 @@ The mods stay installed.
 | Piece | Home |
 |---|---|
 | Registry, `parseLayout`, `serializeLayout`, `resolveLayout`, `LayoutSource` | `packages/shell/src/layout.tsx` |
-| The regions and ids both sides check | `packages/shell/layout-registry.json` |
+| The regions and ids both sides check | `crates/ipc/layout-registry.json` |
 | Fleet's check of `layout.json` | `crates/ipc/src/layout.rs` |
 | Fleet's list, scaffold, validation and promotion for `kind = "layout"` | `crates/fleet/src/mods/` |
 | Cockpit panels, Job panels and places | Read `useLayout(region)` |

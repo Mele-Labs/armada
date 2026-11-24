@@ -902,6 +902,26 @@ where
         self.project_board_saved(project, save).await
     }
 
+    async fn read_metrics(&self, project: String) -> Result<ipc::MetricReadings, Refusal> {
+        self.metrics_read_for(project).await
+    }
+
+    async fn try_metric(&self, project: String, ask: ipc::TryMetric) -> Result<ipc::MetricReading, Refusal> {
+        self.metric_tried_for(project, ask).await
+    }
+
+    async fn save_metric(&self, project: String, ask: ipc::TryMetric) -> Result<ipc::MetricSaved, Refusal> {
+        self.metric_saved(project, ask).await
+    }
+
+    async fn remove_metric(&self, project: String, id: String) -> Result<ipc::MetricReadings, Refusal> {
+        self.metric_removed(project, id).await
+    }
+
+    async fn save_metric_token(&self, project: String, save: ipc::SaveMetricToken) -> Result<ipc::MetricReadings, Refusal> {
+        self.metric_token_saved(project, save).await
+    }
+
     async fn list_ranked_issues(&self, project: String) -> Result<ipc::RankedIssues, Refusal> {
         self.ranked_issues_read(project).await
     }

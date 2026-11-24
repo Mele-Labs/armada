@@ -1,0 +1,10 @@
+[operations.save_metric_token]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep a metric tool's API token in this Mac's keychain"
+notes = """
+`POST /projects/project/:project/metrics/token`, body `SaveMetricToken { credential, token }`. The token is kept in this Mac's keychain under the credential's name, **one per tool** (two recipes naming `sentry` share it), and never leaves this Mac: it is in no file, answer, reading or log, and the recipes that name it are read at the next ask whatever their interval. Answers `MetricReadings` read again. `docs/practices/protocol/projects.md`, *Metrics*.
+
+404 `fleet.no_such_project`. 422 `fleet.metric_token_refused` for a blank or malformed credential name, or a token that is not one line of printable text or that the keychain would not keep.
+"""

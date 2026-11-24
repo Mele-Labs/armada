@@ -248,10 +248,6 @@ fn build_reverted() -> ExitCode {
         Ok(reverted) => {
             println!("Fleet runs {}, built {} from {}", reverted.to.name, reverted.to.built_at, reverted.to.commit);
             println!("{} is kept as the previous build", reverted.from.name);
-            match reverted.bridge_reopened {
-                true => println!("Bridge reopened on it"),
-                false => println!("Bridge holds the same build, so it was left open"),
-            }
             if reverted.native_reopened {
                 println!("The native Bridge reopened on it");
             }

@@ -275,6 +275,9 @@ pub struct Fittings<H, V, W> {
     /// What sends a request from Requests and the Keychain its secrets are kept in. **A seam so
     /// a test plants both** and never touches the login keychain — [`crate::requesting`].
     pub requests: crate::requesting::Requesting,
+    /// The keychain a project's metric tokens are kept in, one item per tool. **A seam so a test plants one in memory**
+    /// and never touches the login keychain — [`crate::project_metrics`].
+    pub metric_tokens: Arc<dyn adapter_traits::RequestSecrets + Send + Sync>,
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -417,6 +420,8 @@ where
             native_walks: crate::native_walks::NativeWalks::default(),
             peers: fittings.peers,
             requests: fittings.requests,
+            metric_tokens: fittings.metric_tokens,
+            metric_readings: Default::default(),
             merge_end: Mutex::new(()),
             disk: Default::default(),
             building: crate::building::Building::default(),
