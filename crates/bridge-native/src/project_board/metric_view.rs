@@ -2,7 +2,7 @@
 //! field for this Mac's token or the words of what broke. What is drawn is worked out in `metric.rs`; List, Table and Cards are
 //! the board's own (`view.rs`).
 
-use gpui::{canvas, div, point, prelude::*, px, size, AnyElement, Bounds, Context, Corners, FontWeight, ObjectFit, PathBuilder, Role, SharedString};
+use gpui::{canvas, div, point, prelude::*, px, size, AnyElement, Bounds, Context, Corners, FontWeight, PathBuilder, Role, SharedString};
 use gpui_component::input::Input;
 use ipc::{MetricAnswer, MetricCredential, MetricReading, MetricState};
 
@@ -140,30 +140,36 @@ impl Board {
         labelled(div().id(SharedString::from(format!("metric-{}-graph", reading.id))).flex().flex_col().gap(look.length(token::SPACE_1)).tooltip(tip(source)).child(drawing).child(ends), Role::Image, format!("Graph of {}", reading.title)).into_any_element()
     }
 
-    /// The picture the tool rendered. An address opens in the browser.
+    /// The picture the tool rendered, as a card with the address's host and an open glyph; a press opens it in the browser.
+    /// Inline drawing waits on an image client, which Bridge does not have yet.
     fn metric_picture(&self, reading: &MetricReading, answer: &MetricAnswer, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let Some(picture) = answer.picture.clone() else { return div().into_any_element() };
         let ring = ring_colour(look);
-        let frame = div()
+        let host = metric::host(&picture);
+        let said = format!("Open the picture of {} from {host}", reading.title);
+        let card = div()
             .id(SharedString::from(format!("metric-{}-picture", reading.id)))
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_2))
+            .h(look.length(token::H_ROW_ACTION))
+            .px(look.length(token::SPACE_3))
             .rounded(look.length(token::RADIUS_MD))
             .border(look.length(token::BORDER_WIDTH))
             .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_SUNKEN))
-            .overflow_hidden()
-            .child(gpui::img(SharedString::from(picture.clone())).w_full().h(look.length(token::H_ROW_UNIT) * 3.0).object_fit(ObjectFit::Contain));
-        if picture.starts_with("http") {
-            let frame = frame
-                .cursor_pointer()
-                .focusable()
-                .tab_stop(true)
-                .focus_visible(move |style| style.border_color(ring))
-                .tooltip(tip("Open the picture in the browser"))
-                .on_click(cx.listener(move |this, _, _, cx| this.press(Press::Url(picture.clone()), cx)));
-            labelled(frame, Role::Button, format!("Open the picture of {}", reading.title)).into_any_element()
-        } else {
-            labelled(frame, Role::Image, format!("Picture of {}", reading.title)).into_any_element()
-        }
+            .bg(look.color(token::BG_OVERLAY))
+            .text_size(look.length(token::TEXT_XS))
+            .cursor_pointer()
+            .hover(|style| style.bg(look.color(token::BG_HOVER)))
+            .focusable()
+            .tab_stop(true)
+            .focus_visible(move |style| style.border_color(ring))
+            .tooltip(tip(format!("Open {picture} in the browser")))
+            .on_click(cx.listener(move |this, _, _, cx| this.press(Press::Url(picture.clone()), cx)))
+            .child(glyph("image", look.length(token::SPACE_4), look.color(token::SKETCH_BLUE)))
+            .child(div().flex_1().min_w_0().truncate().child(SharedString::from(host)))
+            .child(glyph("external-link", look.length(token::SPACE_4), look.color(token::FG_MUTED)));
+        labelled(card, Role::Button, said).into_any_element()
     }
 
     /// What the credential is and where it is made, and the field to paste it in. The field is masked and kept nowhere.

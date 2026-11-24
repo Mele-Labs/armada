@@ -77,6 +77,12 @@ pub fn show_number(value: f64) -> String {
     text.trim_end_matches('0').trim_end_matches('.').to_string()
 }
 
+/// The host of an address: `grafana.example.com` for `https://grafana.example.com/render?id=3`.
+pub fn host(address: &str) -> String {
+    let rest = address.split_once("://").map_or(address, |(_, rest)| rest);
+    rest.split(['/', '?', '#']).next().unwrap_or(rest).to_string()
+}
+
 /// A row's value with its unit.
 pub fn show_row(row: &MetricRow) -> String {
     let value = match &row.value {

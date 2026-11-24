@@ -579,3 +579,46 @@ fn a_broken_block_says_why_and_its_fix_puts_the_words_in_the_ask_box(cx: &mut Te
     let focused = screen.read_with(cx, |screen, cx| gpui::Focusable::focus_handle(screen.ask.read(cx), cx));
     assert!(cx.update(|window, _| focused.is_focused(window)), "the box has the keys");
 }
+
+#[gpui::test]
+fn a_saved_layout_with_no_block_for_a_recipe_leaves_it_off_and_the_add_menu_offers_it(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("run", 0, 0, 3, 2, "list")] };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    assert!(layout_of(&board, cx).blocks.iter().all(|one| one.kind.metric_id().is_none()), "Fleet adds a recipe's block when it saves the recipe, so one with none was taken off");
+    assert!(!drawn(cx, Role::Region, "Queue depth"));
+    let offered = board.update(cx, |board, _| board.addable(PROJECT));
+    assert!(offered.contains(&BlockKind::metric("queue-depth")), "the Add block menu has it");
+    board.update(cx, |board, cx| board.add_block(BlockKind::metric("queue-depth"), cx));
+    redraw(cx);
+    assert!(drawn(cx, Role::Region, "Queue depth"), "and a pick puts it on the board");
+}
+
+#[gpui::test]
+fn hiding_a_metric_block_saves_the_layout_without_it_and_it_stays_off(cx: &mut TestAppContext) {
+    let (board, cx) = board_keeping(cx, None);
+    board.update(cx, |board, cx| board.toggle_edit(cx));
+    redraw(cx);
+    press(cx, Role::Button, "Hide Queue depth");
+    cx.executor().advance_clock(SAVE_AFTER);
+    cx.run_until_parked();
+    let sent = kept_of(&board, cx).expect("the board is kept");
+    assert!(sent.blocks.iter().all(|one| one.kind != "metric:queue-depth"), "saved without it, like any other block");
+    assert!(sent.blocks.iter().any(|one| one.kind == "metric:errors-24h"), "the others are on it");
+    board.update(cx, |board, cx| board.apply_readings(super::mock::readings(PROJECT), cx));
+    redraw(cx);
+    assert!(layout_of(&board, cx).block(BlockKind::metric("queue-depth")).is_none(), "the next reading does not put it back");
+    assert!(!drawn(cx, Role::Region, "Queue depth"));
+}
+
+#[test]
+fn the_host_of_a_picture_is_the_address_without_its_scheme_and_path() {
+    assert_eq!(metric::host("https://grafana.example.com/render/d?id=3#top"), "grafana.example.com");
+    assert_eq!(metric::host("https://example.com"), "example.com");
+}
+
+#[gpui::test]
+fn the_picture_view_is_a_card_with_the_host_that_opens_the_address(cx: &mut TestAppContext) {
+    let (_board, cx) = board_keeping(cx, None);
+    press(cx, Role::Button, "Picture view of Build time");
+    assert!(drawn(cx, Role::Button, "Open the picture of Build time from example.com"));
+}

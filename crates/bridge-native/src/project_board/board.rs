@@ -167,9 +167,6 @@ pub struct Board {
     pub(super) tail: Option<Tail>,
     /// What each recipe of the project on screen read, as Fleet last said.
     pub(super) metrics: Option<MetricReadings>,
-    /// The metric blocks he took off a board, by project and recipe: Fleet keeps no word for a hidden block, so these are not
-    /// put back at the bottom when the readings come again.
-    pub(super) dismissed: HashSet<(String, String)>,
     /// The paste field of each recipe that has no token, by recipe id.
     pub(super) token_fields: HashMap<String, TokenField>,
     /// The tokens on their way to Fleet, by recipe id.
@@ -237,7 +234,6 @@ impl Board {
             acting: HashSet::new(),
             tail: None,
             metrics: None,
-            dismissed: HashSet::new(),
             token_fields: HashMap::new(),
             saving_tokens: HashMap::new(),
             front: true,
@@ -309,20 +305,22 @@ impl Board {
     // ---- the layout --------------------------------------------------------------------------
 
     /// The board of the project on screen: what Fleet kept, else the preset for its kind.
-    /// A recipe the project keeps that the board has no block for is put at the bottom of it, so a metric the librarian adds
-    /// shows without his placing it. This changes nothing he has saved: the block is kept once he changes the board.
+    /// On the preset, a recipe the project keeps is put at the bottom of the board. **A saved layout is left as it is**: Fleet puts
+    /// a new recipe's block on it when the recipe is saved, so a recipe with no block there was taken off, and stays off.
     pub fn layout(&mut self, project: &str) -> &Layout {
         let kind = self.kind();
         let new: Vec<BlockKind> = match &self.metrics {
-            Some(read) if read.project == project => read.readings.iter().filter(|one| !self.dismissed.contains(&(project.to_string(), one.id.clone()))).map(|one| BlockKind::metric(&one.id)).collect(),
+            Some(read) if read.project == project => read.readings.iter().map(|one| BlockKind::metric(&one.id)).collect(),
             _ => Vec::new(),
         };
         let stored = self.layouts.entry(project.to_string()).or_insert_with(|| Stored::preset(kind, 0));
-        stored.layout.append_below(&new);
+        if !stored.edited {
+            stored.layout.append_below(&new);
+        }
         &stored.layout
     }
 
-    /// The kinds that are not on the board of `project`: the fixed ones, then the metrics he took off it.
+    /// The kinds that are not on the board of `project`: the fixed ones, then the recipes with no block.
     pub(super) fn addable(&mut self, project: &str) -> Vec<BlockKind> {
         let on: Vec<BlockKind> = self.layout(project).blocks.iter().map(|one| one.kind).collect();
         let mut all = self.layout(project).missing();

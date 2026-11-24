@@ -158,9 +158,6 @@ impl Board {
     /// The block comes off the board, the rest rise into its room, and the keys go back to the board.
     fn hide_block(&mut self, kind: BlockKind, window: &mut Window, cx: &mut Context<Self>) {
         let Some(project) = self.project(cx) else { return };
-        if let Some(id) = kind.metric_id() {
-            self.dismissed.insert((project.id.clone(), id.to_string()));
-        }
         self.edit_layout(&project.id, |layout| layout.hide(kind), cx);
         window.focus(&self.root, cx);
     }
@@ -168,9 +165,6 @@ impl Board {
     /// A kind that was off the board goes on it, in the first free cells.
     pub fn add_block(&mut self, kind: BlockKind, cx: &mut Context<Self>) {
         let Some(project) = self.project(cx) else { return };
-        if let Some(id) = kind.metric_id() {
-            self.dismissed.remove(&(project.id.clone(), id.to_string()));
-        }
         self.edit_layout(&project.id, |layout| layout.add(kind), cx);
     }
 
