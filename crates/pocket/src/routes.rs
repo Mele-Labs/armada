@@ -171,6 +171,8 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/sessions/repository_file", get(forward::forward))
         .route("/api/sessions/ready_to_try/answer", post(forward::forward))
         .route("/api/plan_usage", get(forward::forward))
+        // Refresh preview: Fleet's own refusals and its both-Macs refresh, as they are.
+        .route("/api/fleet/build/change", post(forward::forward))
         // Bridge's model list reads Fleet's `/models` too, so the path maps as it is.
         .route("/api/models", get(forward::forward))
         // A long Job's thread is mostly repeated JSON: gzip takes its newest rows from 768 KB to 96 KB.

@@ -24,6 +24,7 @@ mod feature_library;
 mod librarian;
 mod librarian_gists;
 mod doc_drift;
+mod doc_checks;
 mod upkeep;
 mod floor_plan;
 mod project_pages;

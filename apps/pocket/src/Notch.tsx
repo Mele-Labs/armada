@@ -2,14 +2,26 @@
 // a notch holding the place and search, then the plan's rings, the Fleet dot and the menu. On the narrow bar native's
 // project chip, Operator and dispatch move into the menu, and so they do here.
 
-import { useEffect, useState, type ReactNode } from "react";
-import { Bot, Box, ChevronLeft, FileText, Globe, Layers, Menu, Plus, Search } from "lucide-react";
+import { Fragment, useEffect, useState, type ReactNode } from "react";
+import {
+  Bot,
+  Box,
+  ChevronLeft,
+  FileText,
+  Globe,
+  Layers,
+  Menu,
+  Plus,
+  RefreshCw,
+  Search,
+} from "lucide-react";
 import { ArmadaMark } from "@armada/brand";
 import { Tooltip } from "./kit/components/primitives/Tooltip/Tooltip";
 
-import { getJson } from "./client";
+import { getJson, refusal } from "./client";
 import type { Mac } from "./fleet";
 import type { PlanUsageBody } from "./gateway";
+import { refreshPreview } from "./refresh";
 import { go, pairPath } from "./router";
 
 const LIMITS = [
@@ -174,6 +186,20 @@ export type Notched = {
 export function Notch({ macs, at, place, onSearch, projects }: Notched) {
   const usage = usePlanUsage(macs, at);
   const [open, setOpen] = useState(false);
+  // What the last Refresh preview press came to, by Mac: asked, or the sentence Fleet refused with.
+  const [refreshed, setRefreshed] = useState<Record<string, string>>({});
+  const refresh = (mac: Mac) => {
+    setRefreshed((was) => ({
+      ...was,
+      [mac.machine.origin]: "Refreshing",
+    }));
+    refreshPreview(mac.machine).catch((why: unknown) =>
+      setRefreshed((was) => ({
+        ...was,
+        [mac.machine.origin]: refusal(why, mac.machine),
+      })),
+    );
+  };
   useEffect(() => {
     if (!open) return;
     const away = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
@@ -309,6 +335,30 @@ export function Notch({ macs, at, place, onSearch, projects }: Notched) {
                 Drafts
               </Item>
             )}
+            {macs
+              .filter((mac) => mac.paired && mac.error === undefined)
+              .map((mac) => {
+                const said = refreshed[mac.machine.origin];
+                return (
+                  <Fragment key={mac.machine.origin}>
+                    {mac === macs.find((one) => one.paired && one.error === undefined) ? (
+                      <hr className="pk-menu__rule" />
+                    ) : null}
+                    <Item
+                      icon={<RefreshCw size={16} aria-hidden="true" />}
+                      end={said ?? (macs.length > 1 ? name(mac) : undefined)}
+                      onPress={() => said !== "Refreshing" && refresh(mac)}
+                    >
+                      Refresh preview
+                    </Item>
+                    {said === undefined || said === "Refreshing" ? null : (
+                      <p className="pk-menu__head" role="alert">
+                        {said}
+                      </p>
+                    )}
+                  </Fragment>
+                );
+              })}
           </div>
         </>
       )}

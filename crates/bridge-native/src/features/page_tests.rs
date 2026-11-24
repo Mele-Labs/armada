@@ -194,8 +194,8 @@ fn reads_of(section: Section, page: &ipc::FeaturePage) -> Vec<page_model::ReadRo
 fn a_doc_is_a_file_or_a_globe_by_its_target_and_a_ticket_is_a_ticket_newest_first_with_the_job_named_by_its_title() {
     let page = mock::page(SLUG);
     let docs = reads_of(Section::Docs, &page);
-    assert_eq!(docs.iter().map(|row| row.title.as_str()).collect::<Vec<_>>(), ["The start card", "Starting a Job spec", "Start card board"]);
-    assert_eq!(docs.iter().map(|row| row.glyph).collect::<Vec<_>>(), ["file-text", "globe", "globe"], "a path is a file, an address a globe");
+    assert_eq!(docs.iter().map(|row| row.title.as_str()).collect::<Vec<_>>(), ["The start card", "Starting a Job spec", "Start card board", "Dispatch"]);
+    assert_eq!(docs.iter().map(|row| row.glyph).collect::<Vec<_>>(), ["file-text", "globe", "globe", "file-text"], "a path is a file, an address a globe");
     assert_eq!(docs[0].last, format!("Add the model picker to the start card, {}", page_model::day(at(14))), "the Job's title and the day, never its id");
     let tickets = reads_of(Section::Tickets, &page);
     assert!(tickets.iter().all(|row| row.glyph == "ticket" && row.drifted.is_empty()), "a ticket has no drift line");
@@ -576,7 +576,7 @@ fn the_new_cards_draw_their_rows_by_name_with_the_marks_a_row_carries(cx: &mut T
     page.update(cx, |page, cx| page.select(Section::Docs, cx));
     cx.update(|window, cx| page.update(cx, |page, cx| page.focus_region(Region::Rows, window, cx)));
     cx.simulate_keystrokes("j");
-    assert_eq!(page.read_with(cx, |page, _| (page.section(), page.row_at, page.row_count())), (Section::Docs, Some(1), 3));
+    assert_eq!(page.read_with(cx, |page, _| (page.section(), page.row_at, page.row_count())), (Section::Docs, Some(1), 4));
 }
 
 fn press(page: &gpui::Entity<FeaturePageView>, region: Region, cx: &mut VisualTestContext) {

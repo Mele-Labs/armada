@@ -1,0 +1,17 @@
+[operations.start_doc_job]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Start a Job on a doc of a feature that disagrees with its code: it opens by quoting both and asks the owner which is right. Give the project, the feature's slug and the doc's target"
+notes = """
+`POST /features/docs/job`, body `DocFlag`: `project`, `slug` and `target`. Answered with `DocJobStarted`: `project`, `slug`, `target`, `session_id`, `title`, `brief` and `send_failed?`.
+
+**The Job is started as `start_session` starts one**: hosted, in `auto` mode on the machine's Job model, in the feature's repository (else the project's first served one), in the project, and titled `Doc or code: ` and the feature's title. Fleet then **sends the brief as its first message at once**, by the road `start_lesson_session` takes, so the Job shows in Jobs and runs like any other. Fleet writes the brief from what it kept of the check, never from Bridge: it names the feature, quotes the doc with its path and the code with its `path:line`, and asks the Job to ask him which is right before it changes anything.
+
+**A first message that is refused** cannot be taken back, since the Job exists: the answer is still 200 and `send_failed` holds Fleet's words. Each press starts a Job. The flag stays until he dismisses it or a check finds them agreeing.
+
+Refused 409 `fleet.doc_not_flagged` where no disagreement stands on that doc, 404 `fleet.feature_unknown` for an unknown slug, 422 `fleet.feature_no_repository` where no repository of the project is served.
+
+**The Operator and Bridge reach it**, as `answer_retire` is reached. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""
