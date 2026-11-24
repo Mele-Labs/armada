@@ -305,6 +305,8 @@ mod package_manifest;
 mod artifact;
 /// An artifact's parts. `add_part`, `answer_part`.
 mod artifact_parts;
+/// His answer to one ask, as its thread card shows it.
+mod ask_answers;
 mod sketch;
 /// A sketch's scene read whole, as a client draws it.
 mod sketch_scene;
@@ -808,9 +810,10 @@ pub use artifact::{
     ArtifactArchived, ArtifactBy, ArtifactFor, ArtifactForm, ArtifactLink, ArtifactLinkKind, ArtifactRef, ArtifactRevision, ArtifactSeen, ArtifactState, CastPageVote, ForLink, HostToPage, JobArtifact, MarkArtifactSeen, PageAct, PageMessage, PageMessages, PagePress, PageToHost, PressDid, PressPageAction, SaveArtifactEdit, VoteCast, VoteForm, VoteMark, VoteResult,
     ARTIFACT_FOR, ARTIFACT_WITHDRAWN_BY, MOST_FOR_CHARS, MOST_FOR_LINKS,
 };
+pub use ask_answers::{AnswerHow, AnsweredAsk};
 pub use artifact_parts::{
     AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
-    ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
+    question_checked, ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_QUESTION_CHARS, MOST_TAKES,
 };
 pub use artifact_parts::{PrototypePart, SceneFixture};
 pub use prototype::{file_name_checked, CheckedPrototype, ShowPrototype, MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, MOST_STATE_CHARS, SCENES_DIR};

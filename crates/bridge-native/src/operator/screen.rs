@@ -1081,7 +1081,8 @@ mod tests {
         assert!(view.read_with(cx, |view, _| view.review_up()), "the panel is up");
         assert!(drawn(cx, Role::Dialog, "Review").is_some(), "it is drawn over the page");
         assert!(drawn(cx, Role::Group, "Operator").is_some(), "with what the Operator read of the plan");
-        assert!(drawn(cx, Role::Heading, "Operator").is_some() && drawn(cx, Role::Button, "Backlog report for armada").is_some(), "the Operator's report page is listed under Operator");
+        assert!(drawn(cx, Role::Heading, "Operator").is_some(), "the Operator heads its pages in the list");
+        assert!(drawn(cx, Role::ListItem, "Backlog report for armada").is_none(), "a report page only informs, so the list does not hold it");
         assert!(list.read_with(cx, |list, _| list.records().iter().all(|record| !record.operator)), "and the Operator is no Job in the list");
         cx.simulate_keystrokes("escape");
         redraw(cx);

@@ -121,6 +121,10 @@ pub struct ShowSketch {
     /// waits on him and has no Approve, and his note on it reaches the Job as a message. Left out while `true`.
     #[serde(default = "asks", skip_serializing_if = "is_asking")]
     pub asks: bool,
+    /// The question the sketch puts to him, in plain words ending with `?`, which titles his item. **Required on a
+    /// sketch that asks**, but for one the pending plan names, which asks with the plan.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
 }
 
 fn asks() -> bool {

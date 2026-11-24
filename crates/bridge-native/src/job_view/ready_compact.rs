@@ -588,7 +588,8 @@ mod tests {
         view.read_with(cx, |view, cx| {
             let (things, review) = view.things("tool-edit", cx);
             assert!(review.is_empty(), "no page waits for review");
-            assert!(matches!(things.as_slice(), [Thing::Row(row)] if row.id == "pick"), "only the question is listed");
+            // The sheet holds the question, so it is listed as one line that opens the sheet on it.
+            assert!(matches!(things.as_slice(), [Thing::Sheet(item)] if item.id == "pick"), "only the question is listed");
             assert!(!view.band_reviews("tool-edit", cx), "the card alone is no reason for the review sheet");
         });
         assert!(drawn(cx, Role::Button, "Needs you"), "the question keeps the band");
@@ -664,8 +665,8 @@ mod tests {
         view.update_in(cx, |view, window, cx| view.open_artifact("tool-edit", "try:tool-edit", window, cx));
         redraw(cx);
         assert_eq!(panel_of(&view, cx), Some((id_of(&view, BARE, cx), 3)), "the three open builds are listed, the newest chosen");
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {BARE}")), "its detail is the build drawn whole");
-        for answer in ["Looks good", "Needs rework"] {
+        assert!(drawn(cx, Role::Region, BARE), "its detail stands in the panel");
+        for answer in ["Looks good", "Ask for changes"] {
             assert!(drawn(cx, Role::Button, answer), "with its answer {answer}");
         }
         cx.simulate_keystrokes("escape");
@@ -684,7 +685,7 @@ mod tests {
         assert!(view.update_in(cx, |view, window, cx| view.open_named(&shot, window, cx)));
         redraw(cx);
         assert_eq!(panel_of(&view, cx), Some((shot, 3)), "a build's own id chooses it");
-        assert!(drawn(cx, Role::Article, &format!("Ready to try: {SHOT}")));
+        assert!(drawn(cx, Role::Region, SHOT), "its detail stands in the panel");
         view.update_in(cx, |view, window, cx| view.close_review(window, cx));
         assert!(!view.update_in(cx, |view, window, cx| view.open_named("try:native/gone@0000", window, cx)), "a build the thread no longer holds opens nothing");
         assert_eq!(panel_of(&view, cx), None);

@@ -1,6 +1,6 @@
 //! `mark_artifact_seen`: the newest revision of an artifact he opened. **Nothing is sent to the Job**: it is what
-//! Bridge reads to tell him what changed since he last looked, and what closes a page's `read:<path>` item, which
-//! `document_answers::read_items` derives off it. `docs/concepts/artifact.md`, *Seen and anchored notes*.
+//! Bridge reads to tell him what changed since he last looked. `docs/concepts/artifact.md`, *Seen and anchored
+//! notes*.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::Refusal;
