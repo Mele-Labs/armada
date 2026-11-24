@@ -134,7 +134,7 @@ impl Ground<'_> {
     pub(super) fn level_one(&self) -> SystemMap {
         let mut parts = vec![SystemPart {
             id: "people".to_string(),
-            name: "People".to_string(),
+            name: "You".to_string(),
             kind: SystemPartKind::Person,
             summary: "Whoever uses it.".to_string(),
             within: None,

@@ -11,6 +11,9 @@ pub(super) struct Entry {
     pub(super) what: String,
     #[serde(default)]
     pub(super) screen: bool,
+    /// An app whatever else depends on it.
+    #[serde(default)]
+    pub(super) strong: bool,
 }
 
 #[derive(Deserialize)]

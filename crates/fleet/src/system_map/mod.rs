@@ -17,7 +17,7 @@ mod repo;
 mod scanning;
 mod tables;
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock, PoisonError};
 
@@ -79,6 +79,24 @@ fn kit_of(repo: &Repo, parts: &[Part]) -> Vec<(usize, KitServer)> {
     out
 }
 
+/// The modules of the HTTP servers nobody runs from here that no other part reaches by a route or by its crate's name.
+fn unheard_apis(det: &detect::Detected, pieces: &[model::Piece], edges: &[model::Edge]) -> BTreeSet<usize> {
+    let mut out = BTreeSet::new();
+    for (at, part) in det.parts.iter().enumerate().filter(|(_, part)| part.api) {
+        let heard = edges.iter().any(|edge| {
+            let to = match edge.to {
+                model::Node::Piece(piece) => pieces[piece].part,
+                model::Node::Part(part) => part,
+            };
+            to == at && pieces[edge.from].part != at && !det.parts[pieces[edge.from].part].api
+        });
+        if !heard {
+            out.extend(part.modules.iter().copied());
+        }
+    }
+    out
+}
+
 /// The map of one repository, held per `HEAD`. **Blocking**: the caller runs it off the main thread.
 fn mapped(member: &Member) -> Arc<Mapped> {
     let key = member.root.to_string_lossy().into_owned();
@@ -91,9 +109,16 @@ fn mapped(member: &Member) -> Arc<Mapped> {
         }
     }
     let repo = Repo::read(&member.manifest, &member.root, member.kit.clone());
-    let mut det = detect::detect(&repo);
-    let pieces = pieces::pieces(&repo, &mut det);
-    let reach = edges::reach(&repo, &det, &pieces);
+    let mut det = detect::detect(&repo, &BTreeSet::new());
+    let mut pieces = pieces::pieces(&repo, &mut det);
+    let mut reach = edges::reach(&repo, &det, &pieces);
+    // An HTTP server no client names a route of is the code of whatever runs it, so it is read again as a library.
+    let unheard = unheard_apis(&det, &pieces, &reach.edges);
+    if !unheard.is_empty() {
+        det = detect::detect(&repo, &unheard);
+        pieces = pieces::pieces(&repo, &mut det);
+        reach = edges::reach(&repo, &det, &pieces);
+    }
     let kit = kit_of(&repo, &det.parts);
     let mut parts = det.parts;
     // A server nobody runs from here is named for the service that serves it.

@@ -122,7 +122,10 @@ impl Repo {
             .filter_map(|(path, _)| text_at(root, path, 200_000).map(|text| composed_in(path, &text)))
             .flatten()
             .collect();
-        Repo { manifest: manifest.to_string(), root: root.to_path_buf(), layout, sources, kit, composed }
+        let mut repo = Repo { manifest: manifest.to_string(), root: root.to_path_buf(), layout, sources, kit, composed };
+        let dev = super::detect::dev_uses(&repo);
+        repo.layout.uses.extend(dev);
+        repo
     }
 
     pub(super) fn has(&self, path: &str) -> bool {
