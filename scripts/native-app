@@ -10,8 +10,7 @@
 # ships one, and a second recipe would let the two differ.
 #
 # The binary is renamed to `Contents/MacOS/Armada`, because the Dock and the app
-# switcher read the executable's file name (`scripts/armada-electron` has the
-# measurement). The icon is the brand's, from beside this script unless one is
+# switcher read the executable's file name, not the plist's. The icon is the brand's, from beside this script unless one is
 # given. The two notification tones go in Resources beside it. Armada Voice, the helper Talk hears and speaks
 # through, goes in `Contents/Helpers`, built first when it is missing or stale. A caller that adds
 # to the bundle afterwards signs it again: writing into a signed bundle breaks the seal.

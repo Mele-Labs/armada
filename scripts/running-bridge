@@ -5,16 +5,14 @@
 # and by its dry run, which only reads.
 #
 #   scripts/running-bridge native  --support <dir> --service <launchd job> --want <protocol id>
-#   scripts/running-bridge classic --support <dir> --want <protocol id>
 #
 # Prints one line, `reopen<TAB>why` or `leave<TAB>why`.
 #
 # **Read off the live process, never off the build before.** A restart that died
 # after it moved `builds/current` leaves the next one comparing the new build with
 # itself, and a Bridge still on the old protocol looked current. The process says what it
-# runs: the native Bridge's binary, and the classic Bridge's working directory, are
-# paths `launchd` and the kernel resolved when it started, so a link moved since
-# does not change them. Each sits in `<support>/builds/<stamp>-<short>/`, whose
+# runs: the native Bridge's binary is a path `launchd` and the kernel resolved when it
+# started, so a link moved since does not change it. It sits in `<support>/builds/<stamp>-<short>/`, whose
 # `build.toml` holds `protocol_id`.
 #
 # Nothing running leaves it closed, which is a quit the person meant. Running on
@@ -95,22 +93,6 @@ def native_protocols(support, service, runner=run):
     return found
 
 
-def classic_protocols(support, runner=run):
-    """One protocol (or UNREADABLE) for each Bridge running a kept build, none if there is none.
-    A Bridge run from a tree, started by hand, is not a kept build and is not this to judge."""
-    rows = processes(runner)
-    if rows is None:
-        return []
-    here = re.escape(support)
-    kept = re.compile(rf"^{here}/.*\.app/Contents/MacOS/[^/]+ {here}/builds/[^/]+/bridge$")
-    found = []
-    for pid, _, command in rows:
-        if kept.match(command):
-            paths = lsof_names(pid, "cwd", runner) or []
-            found.append((paths and build_protocol(support, paths[0])) or UNREADABLE)
-    return found
-
-
 def decide(running, want):
     """(reopen, why) for the protocols each running Bridge was built for, against the one the new Fleet speaks."""
     if not running:
@@ -125,17 +107,14 @@ def decide(running, want):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("kind", choices=("native", "classic"))
+    ap.add_argument("kind", choices=("native",))
     ap.add_argument("--support", required=True)
     ap.add_argument("--service")
     ap.add_argument("--want", required=True)
     args = ap.parse_args()
-    if args.kind == "native":
-        if not args.service:
-            ap.error("native needs --service")
-        running = native_protocols(args.support, args.service)
-    else:
-        running = classic_protocols(args.support)
+    if not args.service:
+        ap.error("native needs --service")
+    running = native_protocols(args.support, args.service)
     reopen, why = decide(running, args.want)
     print(f"{'reopen' if reopen else 'leave'}\t{why}")
 

@@ -426,9 +426,9 @@ fn a_preview_that_left_branches_out(support: &Path) {
 /// build `old` holds a stand-in `armada` that writes down what it was run with, in its working directory.
 pub(super) fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
     let builds = support.join(BUILDS);
-    for (name, bridge, jobs) in [("new", "b2", new_jobs), ("old", "b1", old_jobs)] {
+    for (name, native, jobs) in [("new", "n2", new_jobs), ("old", "n1", old_jobs)] {
         fs::create_dir_all(builds.join(name)).unwrap();
-        let mut text = format!("built_at = \"2026-11-05T1{}:20:00Z\"\ncommit = \"{name}{SHA}\"\nsource = \"preview\"\nbridge = \"{bridge}\"\n", if name == "new" { 7 } else { 6 });
+        let mut text = format!("built_at = \"2026-11-05T1{}:20:00Z\"\ncommit = \"{name}{SHA}\"\nsource = \"preview\"\nnative = \"{native}\"\n", if name == "new" { 7 } else { 6 });
         for branch in jobs {
             text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
         }
@@ -577,7 +577,7 @@ async fn an_undo_that_will_not_start_leaves_no_status_behind() {
 fn snapshot_in(support: &Path, jobs: &[&str]) {
     let snap = support.join(BUILDS).join("snap");
     fs::create_dir_all(&snap).unwrap();
-    let mut text = format!("built_at = \"2026-11-05T18:20:00Z\"\ncommit = \"snap{SHA}\"\nsource = \"preview\"\nbridge = \"b3\"\n");
+    let mut text = format!("built_at = \"2026-11-05T18:20:00Z\"\ncommit = \"snap{SHA}\"\nsource = \"preview\"\nnative = \"n3\"\n");
     for branch in jobs {
         text.push_str(&format!("\n[[job]]\nbranch = \"{branch}\"\ntip = \"0123\"\n"));
     }
@@ -607,7 +607,7 @@ async fn the_report_reads_each_snapshot_state_from_the_files() {
     assert_eq!(ready.state, SnapshotState::Ready);
     assert_eq!((ready.built_at.as_ref().map(|at| at.as_str()), ready.commit), (Some("2026-11-05T18:20:00Z"), Some(format!("snap{SHA}"))));
     assert_eq!(ready.jobs, ["armada/a", "armada/s"], "branches here; Fleet names them by Job");
-    assert!(ready.bridge_reopens, "b3 against b2");
+    assert!(ready.bridge_reopens, "n3 against n2");
     assert_eq!((ready.stage, ready.failed), (None, None));
 
     fs::write(support.path().join("snapshot.status"), "running\nsnapshot\nbuilding_bridge\n").unwrap();
