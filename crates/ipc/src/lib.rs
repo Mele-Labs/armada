@@ -4,12 +4,11 @@
 //! a redaction decision nobody made.**
 //!
 //! `ProtocolId` is a hash `build.rs` takes of these types, the operation
-//! inventory, the route table and Bridge's mirror of them, and
-//! `apps/desktop/codegen/protocol-id.mjs` takes the same hash for Bridge.
+//! inventory and the route table, and `scripts/protocol-id` takes the same hash
+//! from a tree that has not been built.
 //! Pocket's TypeScript for the types it reads is generated from this crate by
 //! `cargo xtask verify-wire` and checked in under `apps/pocket/src/wire/`, so a
-//! change here that leaves it stale fails the gate. Bridge's own mirror in
-//! `packages/protocol` is still written by hand.
+//! change here that leaves it stale fails the gate.
 //! This is one of two crates permitted to deserialize.
 //!
 //! **The conversion lives here rather than in Fleet.** The *decision* is

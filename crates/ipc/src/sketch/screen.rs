@@ -1,6 +1,5 @@
-//! The layout tree of a `screen` node, checked against `readScreen` in
-//! `packages/components/src/compositions/SketchScene/screen.ts`. `tests/sketch.rs` reads that file
-//! and fails when the types, their fields, the readers or the enums below differ from it.
+//! The layout tree of a `screen` node, checked element by element against the types, fields, readers
+//! and enums below.
 
 use serde_json::{Map, Value};
 
@@ -36,7 +35,7 @@ pub enum Read {
     Whole(u8, u8),
     Size,
     /// The name of the list in `screen.ts` and the list.
-    Choice(&'static str, &'static [&'static str]),
+    Choice(&'static [&'static str]),
     Icon,
     Act,
     Many(&'static Read),
@@ -53,19 +52,19 @@ pub struct Spec {
     pub required: &'static [&'static str],
 }
 
-const GAP: Read = Read::Choice("SCREEN_GAPS", &SCREEN_GAPS);
+const GAP: Read = Read::Choice(&SCREEN_GAPS);
 const ACTS: Read = Read::Many(&Read::Act);
 const TEXTS: Read = Read::Many(&Read::Text);
 
 /// What every element takes.
 pub const BASE: [(&str, Read); 4] =
-    [("id", Read::Text), ("step", Read::Number), ("size", Read::Size), ("align", Read::Choice("SCREEN_ALIGNS", &SCREEN_ALIGNS))];
+    [("id", Read::Text), ("step", Read::Number), ("size", Read::Size), ("align", Read::Choice(&SCREEN_ALIGNS))];
 pub const LAYOUT: [(&str, Read); 4] = [("gap", GAP), ("pad", GAP), ("border", Read::Flag), ("children", Read::Children)];
 const ACT_FIELDS: [(&str, Read); 2] = [("text", Read::Text), ("icon", Read::Icon)];
 pub const ROW_FIELDS: [(&str, Read); 4] =
     [("text", Read::Text), ("meta", Read::Text), ("icon", Read::Icon), ("selected", Read::Flag)];
 pub const MESSAGE_FIELDS: [(&str, Read); 2] =
-    [("from", Read::Choice("", &FROMS)), ("text", Read::Text)];
+    [("from", Read::Choice(&FROMS)), ("text", Read::Text)];
 
 pub const SPECS: [Spec; 19] = [
     Spec { name: "row", layout: true, fields: &[], required: &["children"] },
@@ -75,7 +74,7 @@ pub const SPECS: [Spec; 19] = [
         name: "window",
         layout: false,
         fields: &[
-            ("chrome", Read::Choice("SCREEN_CHROMES", &SCREEN_CHROMES)),
+            ("chrome", Read::Choice(&SCREEN_CHROMES)),
             ("title", Read::Text),
             ("url", Read::Text),
             ("children", Read::Children),
@@ -100,7 +99,7 @@ pub const SPECS: [Spec; 19] = [
     Spec {
         name: "button",
         layout: false,
-        fields: &[("text", Read::Text), ("variant", Read::Choice("SCREEN_VARIANTS", &SCREEN_VARIANTS)), ("icon", Read::Icon)],
+        fields: &[("text", Read::Text), ("variant", Read::Choice(&SCREEN_VARIANTS)), ("icon", Read::Icon)],
         required: &[],
     },
     Spec {
@@ -108,7 +107,7 @@ pub const SPECS: [Spec; 19] = [
         layout: false,
         fields: &[
             ("label", Read::Text),
-            ("kind", Read::Choice("SCREEN_FIELDS", &SCREEN_FIELDS)),
+            ("kind", Read::Choice(&SCREEN_FIELDS)),
             ("value", Read::Text),
             ("placeholder", Read::Text),
         ],
@@ -117,7 +116,7 @@ pub const SPECS: [Spec; 19] = [
     Spec {
         name: "text",
         layout: false,
-        fields: &[("style", Read::Choice("SCREEN_TEXTS", &SCREEN_TEXTS)), ("text", Read::Text), ("lines", Read::Whole(1, 12))],
+        fields: &[("style", Read::Choice(&SCREEN_TEXTS)), ("text", Read::Text), ("lines", Read::Whole(1, 12))],
         required: &[],
     },
     Spec { name: "image", layout: false, fields: &[("label", Read::Text)], required: &[] },
@@ -192,7 +191,7 @@ fn field(read: Read, value: &Value, at: &str, depth: usize, problems: &mut Vec<S
             Value::String(said) => said == "auto" || said == "fill",
             other => other.as_f64().is_some_and(|n| n > 0.0),
         },
-        Read::Choice(_, list) => value.as_str().is_some_and(|said| list.contains(&said)),
+        Read::Choice(list) => value.as_str().is_some_and(|said| list.contains(&said)),
         Read::Icon => value.as_str().is_some_and(|said| SCREEN_ICONS.contains(&said)),
         Read::Act => match value {
             Value::String(_) => true,
@@ -228,7 +227,7 @@ fn field(read: Read, value: &Value, at: &str, depth: usize, problems: &mut Vec<S
     };
     if !fits {
         let allowed = match read {
-            Read::Choice(_, list) => Some(list),
+            Read::Choice(list) => Some(list),
             Read::Icon => Some(SCREEN_ICONS),
             _ => None,
         };
@@ -247,7 +246,7 @@ fn wants(read: Read) -> String {
         Read::Number => String::from("a number"),
         Read::Whole(least, most) => format!("a whole number from {least} to {most}"),
         Read::Size => String::from("`auto`, `fill` or a number above 0"),
-        Read::Choice(_, list) => format!("one of {}", list.join(", ")),
+        Read::Choice(list) => format!("one of {}", list.join(", ")),
         Read::Icon => format!("one of {}", SCREEN_ICONS.join(", ")),
         Read::Act => String::from("a string or an object with `text` and `icon`"),
         Read::Row => String::from("an object with `text` and, optionally, `meta`, `icon`, `selected`"),

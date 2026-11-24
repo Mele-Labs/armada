@@ -1285,13 +1285,19 @@ class RestartAdopt(unittest.TestCase):
         self.assertEqual(code, 0, said)
         self.assertIn("out if it is loaded, then bootstrap it from", said)
 
+    def wire_id(self, wire):
+        """The tree's `scripts/protocol-id`, which `restart` runs to ask what its wire files hash to."""
+        scripts = os.path.join(self.tree, "scripts")
+        os.makedirs(scripts, exist_ok=True)
+        path = os.path.join(scripts, "protocol-id")
+        with open(path, "w") as f:
+            f.write(f"#!/bin/sh\necho {wire}\n")
+        os.chmod(path, 0o755)
+
     def built_native(self, built_for="wire1"):
         """A native Bridge built for `built_for`, stamped after every source, in a tree whose wire
         files hash to `wire1`."""
-        desktop = os.path.join(self.tree, "apps", "desktop")
-        os.makedirs(os.path.join(desktop, "codegen"), exist_ok=True)
-        with open(os.path.join(desktop, "codegen", "protocol-id.mjs"), "w") as f:
-            f.write('console.log("wire1")\n')
+        self.wire_id("wire1")
         release = os.path.join(self.tree, "crates", "bridge-native", "target", "release")
         os.makedirs(release)
         open(os.path.join(release, "bridge-native"), "w").close()
@@ -1326,9 +1332,7 @@ class RestartAdopt(unittest.TestCase):
     def test_the_native_bridge_is_built_optimised_and_incremental(self):
         record = self.native_cargo()
         open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
-        os.makedirs(os.path.join(self.tree, "apps", "desktop", "codegen"))
-        with open(os.path.join(self.tree, "apps", "desktop", "codegen", "protocol-id.mjs"), "w") as f:
-            f.write('console.log("wire1")\n')
+        self.wire_id("wire1")
         self.fleet({})
         # `--keep-only` stops at keeping the build, which the scratch root has no script for.
         code, said = self.restart("--keep-only")

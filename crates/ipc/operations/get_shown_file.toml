@@ -4,7 +4,7 @@ transport = "HTTP"
 agent_access = "No"
 description = "A file a job showed with show_file, or a revision it kept of a document, read for the phone: its text, a picture's bytes, or a video's type and size"
 notes = """
-`GET /sessions/shown?session_id=&path=`, `path` the absolute path the job's `show_file` kept, as its attachment's `target` holds it, or one its document's `revisions` names. Pocket v2: the phone cannot read the Mac's disk, as Bridge's panel does (`apps/desktop/src/main/file-panel.ts`), so Fleet reads it.
+`GET /sessions/shown?session_id=&path=`, `path` the absolute path the job's `show_file` kept, as its attachment's `target` holds it, or one its document's `revisions` names. Pocket v2: the phone cannot read the Mac's disk, as Bridge's panel does, so Fleet reads it.
 
 **Only a file the job showed, or a revision it kept**: an attachment of kind `artifact`, either `form` `file` carrying `shown`, or `form` `document` whose `revisions` lists the path. Any other path, a job Fleet does not know, or a file gone since it was shown is a 404, `fleet.shown_file_not_shown` or `fleet.shown_file_gone`. A file the job wrote and never showed is refused like any other path, and so are a document's page in the worktree and a revision another job kept.
 
