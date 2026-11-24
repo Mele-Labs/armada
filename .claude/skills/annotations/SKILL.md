@@ -5,11 +5,10 @@ description: Work through the notes the owner left on Bridge with the annotation
 
 # Working through annotations
 
-**A note is a file.** The annotation layer (⌥⌘A in Bridge under `pnpm dev`, or in
-`pnpm -C apps/desktop mock`) writes one JSON file per note under
+**A note is a file.** The annotation layer (⌥⌘A in the native Bridge) writes one JSON file per note under
 `.armada/annotations/` at the repository root, gitignored. In a worktree it is
 that worktree's root, so read the checkout the owner ran Bridge from — usually
-the main one. The shape is `Annotation` in `apps/desktop/src/shared/annotations.ts`.
+the main one. `crates/bridge-native/src/annotate/store.rs` reads and writes them, and holds a field it does not draw as it found it.
 A note with `scope: "window"` is on the whole window rather than one element:
 its `<id>.png` is the window, and its `context` names the open Job and
 Doctor's read — start from those, not from `selector`, which is just `body`.
@@ -35,9 +34,9 @@ setopt nullglob; ls .armada/annotations/ .armada/preview/.armada/annotations/ .a
 Without `nullglob`, no worktree holding notes means `no matches found` and not
 even the main folder is listed. Confirmed 1 Oct 2026: it cost a second call.
 
-**Every worktree's folder, not only the main checkout's.** A mock started from
-a worktree writes its notes into that worktree, so a note pinned on a job's
-review mock is invisible from the main checkout. Confirmed 29 Sep 2026: the
+**Every worktree's folder, not only the main checkout's.** A Bridge run from
+a worktree's build writes its notes into that worktree, so a note pinned on a job's
+review is invisible from the main checkout. Confirmed 29 Sep 2026: the
 owner pinned a note on the Workflow mock (`:41060`, run from
 `.claude/worktrees/workflow-board-pass`), the next `/annotations` read only the
 main folder, and he had to ask where his note had gone. A note in a worktree's
@@ -72,11 +71,11 @@ A note read from a file, with no Candidates, uses these fields:
 | Field | What it tells you |
 |---|---|
 | `text` | What the owner wants. The only field he wrote |
-| `source` | The file and line of the JSX that drew the element, from the repository root. **Open this first** — it is the exact line, where the layer had it. A note left in Bridge under `pnpm dev` has no `source`: only the mock's build stamps it |
-| `component`, `owners` | Search for these names where there is no `source`. `ownersFrom: "parent"` (Bridge under `pnpm dev`) is the tree it sits in, not who rendered it — walk it outward until a name is a component this repository defines |
+| `source` | The file and line of the JSX that drew the element, on a note Classic's layer wrote. **Open this first** where it is there. A note from the native layer has none |
+| `component`, `owners` | Search for these names where there is no `source`. `ownersFrom: "parent"` is the tree the element sits in, not who rendered it — walk it outward until a name is a component this repository defines |
 | `element.text`, `selector` | Confirms you found the right instance, where a component draws in several places |
 | `screenshot` | `<id>.png` beside the note: the element as the owner saw it when he saved the note. **Look at it before the live screen**, which may have moved since. Absent on a note from before screenshots were kept, and on one left in a browser |
-| `screen`, `layer`, `scenario` | Where to look at it: `pnpm -C apps/desktop mock` with `?scenario=` reproduces a mock note exactly |
+| `screen`, `layer`, `scenario` | Where to look at it. `scenario` is a Classic mock's, and the native app has none |
 
 **Look before changing anything.** A note is a reaction to what was on screen,
 and the screen may have moved since. If the element is gone or already reads the
@@ -102,7 +101,7 @@ in this job first, and the brief carries his answer as a given.
 reads, asks, briefs, verifies and marks done. The agent builds.
 
 **One agent per change**: a note, or a group of notes on one component.
-`bridge-engineer` for anything under `apps/` or `packages/`, in a leased slot
+`gpui-engineer` for a note on the native Bridge, `bridge-engineer` for anything under `apps/` or `packages/`, in a leased slot
 (`agent-worktrees`: the preview sees only slots).
 Briefing is `orchestrate-milestone`, *The brief*, and `session-habits`,
 *Briefing agents*; `work-issue`, *Dispatching several agents at once*, has the
@@ -113,14 +112,14 @@ The brief is the only context the agent has, so it carries:
 | | |
 |---|---|
 | The note | Its file path under `.armada/annotations/` in the main checkout, and the owner's `text` verbatim |
-| Where it is | The component and file already found in step 2, and the mock `?scenario=` that reproduces it |
+| Where it is | The component and file already found in step 2, and the screen that reproduces it |
 | The decision | The option the owner picked, and its stated cost, word for word |
-| The proof | `armada-components`: a story `play` or a mock test through `App`, run once against the change broken on purpose. A screenshot is how it is looked at, not the proof |
-| The evidence | For a visual change, a walk under `mock/walks/` covering every surface it changed, on fixture data that shows the change, in a file named for this change alone. The report names the walk and the slot's absolute path, so the mock can be served from it |
+| The proof | A test through the code the note touches, run once against the change broken on purpose. A screenshot is how it is looked at, not the proof |
+| The evidence | For a visual change, what `session-habits`, *Walks*, says: the branch offered for his preview. The report names the branch and the slot's absolute path |
 | The landing | Open a PR and **do not merge**; the rest of the landing is in the brief's own list (push as it goes, foreground runs, one `**QUESTION:**` line) |
 
 **Verify what comes back yourself.** Read the diff, rerun the tests it added,
-and look at the screen in the mock. **The whole suite the change reaches is run
+and look at the screen. **The whole suite the change reaches is run
 by `ci` on the pull request, and nowhere on the owner's Mac.** The agent runs
 the tests it added or touched, by filter, with `CARGO_BUILD_JOBS=2`, and its one
 walk; the brief says so (8 Oct 2026: agents briefed to run whole crates and all
@@ -134,31 +133,18 @@ agent measuring paste shapes overwrote his clipboard and opened Finder, Safari
 and Terminal on his screen. Playwright's own clipboard answers the same question. An agent's report of green has been wrong here.
 
 **A visual change gets its pull request only after the owner has looked at it.**
-It ships with a walk committed under
-`apps/desktop/src/renderer/src/mock/walks/` covering every surface it changed, on
-fixture data that shows the change (`docs/practices/running-locally.md`,
-*Walks*). Serve the mock from the agent's slot (`pnpm -C <slot>/apps/desktop
-mock`), send him `?walk=<name>` on it, and wait for his OK before you open the
-pull request. The rules for showing it are `session-habits`, *Walks*. A renderer
-change with no screen to reach yet sends a Storybook story link instead
-(1 Oct 2026: five agents were dispatched on the markdown change and the plan had
-no step where he saw the app).
+It is offered for his preview, and the rules for showing it are `session-habits`,
+*Walks*. Wait for his OK before you open the pull request.
 
-**A walk shows the primitive its branch was cut from.** When a shared component
+**A shared piece lands before its callers are shown.** When a shared component
 and its callers are dispatched in parallel, land the component first and merge
-it into each caller before sending their walks. Confirmed 1 Oct 2026: four
-call-site walks still drew the old `Prose`, so his only look at the new styles
-was in Storybook, and he had to ask what was left to walk after all four landed.
-Two of those agents also named their walk file alike, and the second was refused
-by the merge line on the clash.
+it into each caller before showing them (1 Oct 2026: four call-site walks still
+drew the old `Prose`, so his only look at the new styles was elsewhere).
 
 **Any other green change is offered for the preview and goes up as a
 pull request, with no question in between** (`work-issue`, step 6); report the
 pull request. It merges once `ci` passes, and the worktree goes back after, as
 `work-issue` and `agent-worktrees` say.
-
-**A component change is still a component change.** `armada-components` applies:
-the contract wins, and the proof is a story or a mock test, not a screenshot.
 
 ### 5. Mark it done
 
@@ -171,11 +157,11 @@ turned on, so the pin is gone there and the numbering closes over it — the bar
 says how many are done and shows them again on request. **Never delete a note**,
 unless the owner says to. He deletes his own.
 
-**A note left on a worktree's mock lives in that worktree, and removing the
+**A note left on a worktree's Bridge lives in that worktree, and removing the
 worktree deletes it.** `.armada/` is gitignored, so nothing carries it over.
 Before giving a worktree back, move its notes into the main checkout's
 `.armada/annotations/`, with the done ones marked. Confirmed 29 Sep 2026: the
-Record's review ran on a mock served from its own worktree, and 24 of the
+Record's review ran on a Bridge served from its own worktree, and 24 of the
 owner's notes were in that worktree when the cleanup commands were printed.
 
 ### 6. Report

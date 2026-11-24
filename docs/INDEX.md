@@ -405,7 +405,6 @@ can find them.
 | Working a milestone step end to end | `milestone-step` |
 | Adding or editing a document | `armada-documents` |
 | Filing, citing or answering an open question | `armada-open-questions` |
-| Building or changing a component | `armada-components` |
 | Writing a commit message | `commit-message` |
 | Writing anything a person reads on a surface | `armada-voice` |
 | Starting, checking or cleaning up a local Fleet | `armada-local` |

@@ -324,7 +324,7 @@ says it all. A table and a sketch are enough for most pages.
 - Set a colour or a size from a class and a rule in `<style>`, not from a
   `style="..."` attribute.
 - The page must read complete before any script runs. The card's small
-  picture, the PDF, the old (Classic) Bridge and the phone show it with scripts
+  picture, the PDF and the phone show it with scripts
   off, so the first state is real HTML: tables, text and a default diagram in
   the markup. The script only reveals other states. Hide a control that does
   nothing without a script with `html:not(.js)`, and add `js` to
