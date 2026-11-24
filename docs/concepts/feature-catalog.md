@@ -333,6 +333,26 @@ A page handed to a Job names each open pull request by someone else that changes
 Where Fleet does not know the owner's login nobody can be called a teammate, so the page says nothing of the kind.
 The pull requests are those the Reviews lists name, so the screen shows none until Reviews has been read once.
 
+## Ranking the issues he might pick up
+
+The project's Dashboard lists the open issues nobody is assigned to, that no Job holds and that no pull request already closes, as the ones he might pick up.
+`list_ranked_issues` maps each to the features it touches, three ways, and uses no model and asks the forge for nothing: it reads the issue lists Fleet holds, the open pull requests the Reviews lists left with their files, and the Jobs the library recorded.
+
+| Way | An issue matches a feature when |
+|---|---|
+| Files of a pull request | An open pull request of the same repository names the issue in its title, and one of its files is the feature's by the rules in [Which feature owns a file](#which-feature-owns-a-file) |
+| Label | A label equals the feature's slug, or its area's, with case and separators ignored |
+| Title | The feature's slug or title stands in the issue's title as whole words, with case and separators ignored |
+
+> **Rule.** A row is ranked by how many of the owner's Jobs filed a file under the features it matched in the last 30 days, each Job counted once, then the most recently updated first.
+> Why: the work he has been doing lately is the work he is most likely to pick up next, and a Job on two matched features is still one Job.
+
+An issue that matched no feature comes after every issue that did, and the row names each feature it matched and by which way, so the screen can say why it is there.
+A pending feature is never matched.
+The same answer lists the open pull requests that are not his, mapped by their own files, as the ones he might be interested in.
+They are ranked as the issues are, the ones that matched a feature first, then the most Jobs, then the highest number.
+It is empty where Armada does not know who he is on the forge, since then nobody can be called somebody else.
+
 ## Seeding
 
 Armada's own catalog is kept once from a data file Fleet carries, `crates/fleet/src/feature_library/seed/armada.toml`: the eighteen areas and the features the owner approved on 16 Nov 2026, each with its path prefixes and entry points.
@@ -491,6 +511,7 @@ A Job whose turns were read before searches were counted is in no week until its
 | `get_project_overview` | A project's README sentence, code map with areas, busiest features and glossary |
 | `get_since_you_looked` | What is new, changed or waiting on him in a project since he last looked |
 | `get_whos_on_what` | Who has an open pull request or a running Job on which feature of a project |
+| `list_ranked_issues` | A project's open, unassigned issues and other people's open pull requests, each with the features it matched, ranked by his recent Jobs on them |
 | `get_features_of_path` | The features a file belongs to |
 | `check_commit_feature` | The mod's hook asks whether a commit names its feature, and Fleet refuses it with the features its files belong to |
 | `hand_over_features` | The mod's hook asks which pages a Job is owed for a read or a brief, each once |

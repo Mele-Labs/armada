@@ -27,7 +27,7 @@ fn same(arrangement: &Arrangement) -> Out<'_> {
 pub(crate) const JOB_TAB_KINDS: &[&str] = &[
     "thread", "browser", "terminal", "done", "now", "open", "deferred", "plan", "story", "changes", "pulls", "issues", "jobs", "ledger", "files", "request",
     "subagents", "checks", "workflow", "system", "bays", "spine", "judge", "artifacts", "for_you", "qa", "children", "walks", "custom", "draft", "walk", "document", "subagent", "artifact",
-    "loadout", "loadout_item", "tokens",
+    "loadout", "loadout_item", "tokens", "prototype",
 ];
 /// A pull request's tabs on the Reviews page (Classic's `PR_TAB_KINDS`).
 pub(crate) const PR_TAB_KINDS: [&str; 8] = ["pr-overview", "pr-files", "pr-checks", "pr-commits", "pr-review", "pr-tool", "pr-comments", "pr-ask"];

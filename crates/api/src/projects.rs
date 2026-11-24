@@ -110,6 +110,31 @@ pub(crate) async fn set_project_workflow<D: Projects>(
     answered(&served, result)
 }
 
+pub(crate) async fn get_project_board<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().get_project_board(project).await {
+        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_project_board<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let save: ipc::SaveProjectBoard = match decoded(&served, "a project's board", &body) {
+        Ok(save) => save,
+        Err(response) => return response,
+    };
+    match served.daemon().save_project_board(project, save).await {
+        Ok(board) => answer(StatusCode::OK, &board, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn list_ranked_issues<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().list_ranked_issues(project).await {
+        Ok(ranked) => answer(StatusCode::OK, &ranked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn get_project_store<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
     match served.daemon().get_project_store(project).await {
         Ok(state) => answer(StatusCode::OK, &state, served.run_id()),

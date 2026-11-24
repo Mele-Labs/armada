@@ -54,6 +54,14 @@ pub struct Edited {
 
 impl EventEmitter<Edited> for NewProjectSheet {}
 
+/// A sheet drawn in a page of its own was left by Cancel or Esc: the page shows the project as Fleet holds it again.
+#[derive(Clone, Debug)]
+pub struct Left {
+    pub project: String,
+}
+
+impl EventEmitter<Left> for NewProjectSheet {}
+
 /// What an edit starts from, kept so Save sends back what the sheet cannot show.
 struct Original {
     id: String,
@@ -198,6 +206,9 @@ pub struct NewProjectSheet {
     pub making: Option<&'static str>,
     /// Set where the sheet edits a project: the same sheet, filled from it, saved with `edit_project`.
     editing: Option<Original>,
+    /// The sheet is a page of the Project place and not a layer over the window: it takes no scrim, it stays after a save, and
+    /// Tab leaves it at either end.
+    inline: bool,
     popup: Option<Popup>,
     keys_were: Option<FocusHandle>,
     intercept: Option<Subscription>,
@@ -309,6 +320,7 @@ impl NewProjectSheet {
             sending: false,
             making: None,
             editing: None,
+            inline: false,
             popup: None,
             keys_were: None,
             intercept: None,
@@ -373,6 +385,28 @@ impl NewProjectSheet {
         true
     }
 
+    /// `show_edit` for a page of the Project place: the sheet is filled from the project and the keys stay where they were.
+    pub fn show_inline(&mut self, project: &str, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.open && self.inline && self.editing.as_ref().is_some_and(|one| one.id == project) {
+            return true;
+        }
+        self.close(window, cx);
+        self.inline = true;
+        let shown = self.show_edit(project, window, cx);
+        self.inline = shown;
+        shown
+    }
+
+    /// Where the keys go for Members in the Project place: the list of members, while the sheet is open as a page.
+    pub fn members_handle(&self) -> Option<FocusHandle> {
+        (self.open && self.inline).then(|| self.at.list.clone())
+    }
+
+    /// Whether the sheet is open as a page of the Project place, and on which project.
+    pub fn inline_on(&self) -> Option<&str> {
+        self.editing.as_ref().filter(|_| self.open && self.inline).map(|one| one.id.as_str())
+    }
+
     fn begin(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.keys_were = window.focused(cx);
         self.open = true;
@@ -400,8 +434,10 @@ impl NewProjectSheet {
     fn start(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.read(cx);
         self.want_forge(cx);
-        let name = self.boxes.name.clone();
-        window.defer(cx, move |window, cx| name.update(cx, |name, cx| name.focus(window, cx)));
+        if !self.inline {
+            let name = self.boxes.name.clone();
+            window.defer(cx, move |window, cx| name.update(cx, |name, cx| name.focus(window, cx)));
+        }
         cx.notify();
     }
 
@@ -413,6 +449,8 @@ impl NewProjectSheet {
         self.open = false;
         self.intercept = None;
         self.popup = None;
+        let inline = std::mem::take(&mut self.inline);
+        let left = self.editing.as_ref().filter(|_| inline).map(|one| one.id.clone());
         if self.editing.take().is_some() {
             self.picks.clear();
             self.picked.clear();
@@ -421,8 +459,12 @@ impl NewProjectSheet {
             self.place = Place::Mac;
             self.opened = None;
         }
-        if let Some(keys) = self.keys_were.take() {
-            window.focus(&keys, cx);
+        match self.keys_were.take() {
+            Some(keys) if !inline => window.focus(&keys, cx),
+            _ => {}
+        }
+        if let Some(project) = left {
+            cx.emit(Left { project });
         }
         cx.notify();
     }
@@ -801,6 +843,10 @@ impl NewProjectSheet {
                 let stops = self.stops(cx);
                 let here = stops.iter().position(|stop| stop.contains_focused(window, cx));
                 let len = stops.len();
+                // A page of the Project place is left by Tab past its last stop and by Shift Tab before its first.
+                if self.inline && ((here == Some(len - 1) && !key.modifiers.shift) || (here == Some(0) && key.modifiers.shift)) {
+                    return;
+                }
                 let next = match (here, key.modifiers.shift) {
                     (Some(at), false) => (at + 1) % len,
                     (Some(at), true) => (at + len - 1) % len,
@@ -1202,12 +1248,24 @@ impl NewProjectSheet {
                 Ok(projects) => {
                     let served = this.wire.repositories(cx).unwrap_or_default();
                     this.sending = false;
-                    this.close(window, cx);
+                    if this.inline {
+                        this.saved_inline(&projects);
+                    } else {
+                        this.close(window, cx);
+                    }
                     cx.emit(Edited { served, projects });
                 }
                 Err(why) => this.refuse(why.into(), cx),
             });
         }));
+    }
+
+    /// A save the page stays open after: what a later save sends back of what the sheet has no control for is what Fleet now holds.
+    fn saved_inline(&mut self, projects: &Projects) {
+        let Some(id) = self.editing.as_ref().map(|one| one.id.clone()) else { return };
+        if let Some(one) = projects.projects.iter().find(|one| one.id == id) {
+            self.editing = Some(Original { id, place: one.place.clone(), values: one.values.clone() });
+        }
     }
 
     /// Each repository picked, whole or by its folders, in the order the list shows them.
@@ -1270,6 +1328,10 @@ fn edit_values(original: Option<ipc::ValuesSet>, set: Option<ipc::ValuesSet>) ->
     let mut set = set.unwrap_or_default();
     let Some(original) = original else { return set };
     set.workflows_off = original.workflows_off;
+    // The board's layout is the project's own, kept in its look: the sheet has no control for it, and an edit replaces the whole block.
+    if let Some(board) = original.look.and_then(|look| look.board) {
+        set.look.get_or_insert_with(Default::default).board = Some(board);
+    }
     if let (Some(kept), Some(now)) = (original.tracker, set.tracker.as_mut()) {
         for (key, word) in kept {
             now.entry(key).or_insert(word);
@@ -1379,6 +1441,20 @@ fn create_body(name: String, members: Vec<ProjectMember>, place: Option<ProjectP
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn an_edit_sends_back_the_board_the_project_kept_in_its_look() {
+        let board = ipc::BoardLayout { blocks: vec![ipc::BoardBlock { kind: "run".into(), x: 0, y: 0, w: 3, h: 2, view: "list".into() }] };
+        let original = ipc::ValuesSet { look: Some(ipc::LookSet { density: Some("roomy".into()), board: Some(board.clone()), ..ipc::LookSet::default() }), ..ipc::ValuesSet::default() };
+        // Defaults chosen in the sheet: it sends no look of its own, and the edit replaces the whole block.
+        let sent = edit_values(Some(original.clone()), None);
+        assert_eq!(sent.look.and_then(|look| look.board), Some(board.clone()), "the layout is kept though the sheet names none");
+        // A look the sheet does set is its own, and the layout is still kept beside it.
+        let own = ipc::ValuesSet { look: Some(ipc::LookSet { theme: Some("night".into()), ..ipc::LookSet::default() }), ..ipc::ValuesSet::default() };
+        let sent = edit_values(Some(original), Some(own)).look.expect("a look");
+        assert_eq!((sent.theme.as_deref(), sent.density.as_deref(), sent.board), (Some("night"), None, Some(board)));
+        assert_eq!(edit_values(None, None), ipc::ValuesSet::default(), "a project that kept no board sends none");
+    }
 
     #[test]
     fn create_sends_the_customized_values_in_the_same_call_and_use_defaults_sends_none() {

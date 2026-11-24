@@ -206,7 +206,7 @@ fn this_repository_covers(paths: &[&str]) -> Vec<String> {
 #[test]
 fn a_path_in_the_native_bridge_names_its_own_test_and_none_of_the_roots() {
     let covered = this_repository_covers(&["crates/bridge-native/src/keymap.rs"]);
-    assert_eq!(covered, ["crates/bridge-native:test"]);
+    assert_eq!(covered, ["crates/bridge-native:test", "crates/bridge-native:shot_check"]);
 }
 
 #[test]

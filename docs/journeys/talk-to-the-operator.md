@@ -10,6 +10,8 @@
 
 ## Flow
 
+In the native Bridge the Operator's page is the right side of the Cockpit, with the Jobs list on the left.
+
 A card is in front → you press an option, or press Discuss and talk → the card settles or the Operator puts up a new one → the next card in Next up comes forward.
 
 | You do | What you see |
@@ -20,6 +22,8 @@ A card is in front → you press an option, or press Discuss and talk → the ca
 | Send in the composer | The card folds to one line and the talk runs below it |
 | Keep talking | The Operator answers in the talk, may revise the card, and ends by settling it or putting up a new card |
 | Press Snooze (`S`) | The card goes back until its time and is hidden until then |
+| Press a Job in the list at the left | The Job takes the whole right side. Esc, the Cockpit tab pressed again, or the same row pressed again brings the Operator's page back |
+| Press ⌘J | The caret goes to the Operator's box. With a Job open it stays in the Job's chat |
 | Open Next up on the right | The cards queued behind, then the ideas the Operator kept. Pressing one brings it to the front |
 | Read the feed on the right | What happened since you last looked: what the Operator dispatched, merges, Jobs ended, and what Jobs asked or told it |
 

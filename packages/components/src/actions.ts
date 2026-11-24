@@ -121,6 +121,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   thread: [],
   // A terminal's keys, in the native Bridge only: found from Settings → Keyboard and the tooltip on New shell.
   terminal: [],
+  // A Job's Prototype tab keys, in the native Bridge only: found from Settings → Keyboard and the tab's Pop out.
+  prototype: [],
   // The Dispatch panel's keys, in the native Bridge only: found from Settings → Keyboard and the panel's own buttons.
   dispatch: [],
   // The review sheet's keys, in the native Bridge only: found from Settings → Keyboard and the sheet's own buttons.
@@ -135,6 +137,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   "api client": [],
   // The Features tab's keys, in the native Bridge only: found from Settings → Keyboard.
   features: [],
+  // The Project place's board keys, in the native Bridge only: found from Settings → Keyboard.
+  "project board": [],
 };
 
 /**

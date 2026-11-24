@@ -8,7 +8,7 @@ pub static STEPS: [Step; 11] = [
     step("A live Job in Armada has the keys", Verb::Look, "row", "Fix the merge line freshness chip"),
     step("⇧↓ selects it and the next one with it", Verb::Key("shift-down"), "row", "Native Bridge foundation"),
     step("Shift+F10 opens the row's menu: Move to project is in it", Verb::Key("shift-f10"), "menuitem", "Move to project"),
-    step("Move to project opens the picker: his projects, then No project", Verb::Keys(&["down", "down", "enter"]), "searchbox", "Find a project"),
+    step("Move to project opens the picker: his projects, then No project", Verb::Keys(&["down", "down", "down", "enter"]), "searchbox", "Find a project"),
     step("Typing finds Storefront", Verb::Keys(&["s", "t", "o"]), "searchbox", "Find a project"),
     step("Enter moves both Jobs: the first now stands under Storefront", Verb::Key("enter"), "row", "Fix the merge line freshness chip"),
     step("And the second stands beside it", Verb::Look, "row", "Native Bridge foundation"),

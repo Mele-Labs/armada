@@ -202,7 +202,7 @@ mod tests {
         lines
             .iter()
             .map(|line| match line {
-                Line::Project(name) => format!("project {name}"),
+                Line::Group(head) => format!("project {}", head.name),
                 Line::Job(row) => format!("job {}", row.id),
                 Line::Asleep(shelf) => format!("asleep {} {}", shelf.mac, if shelf.open { "open" } else { "shut" }),
             })

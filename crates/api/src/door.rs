@@ -181,6 +181,7 @@ const WITHOUT_A_MANIFEST_OFFERS: &[&str] = &[
     "archive_artifact",
     "restore_artifact",
     "add_part",
+    "show_prototype",
     "show_sketch",
     "show_file",
     "record_plan",

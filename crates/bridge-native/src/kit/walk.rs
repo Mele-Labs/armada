@@ -4,7 +4,7 @@
 use crate::walk::{Screen, Step, Target, Verb};
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 const LOCK: &str = "Comes with the design-kit plugin. Remove the plugin under Plugins.";
@@ -34,7 +34,7 @@ pub static STEPS: [Step; 21] = [
 ];
 
 const fn part(say: &'static str, scenario: &'static str) -> Step {
-    Step { say, verb: Verb::FreshIn(Screen::Reviews, scenario), target: Target { role: "tab", name: "Kit" } }
+    Step { id: None, say, verb: Verb::FreshIn(Screen::Reviews, scenario), target: Target { role: "tab", name: "Kit" } }
 }
 
 /// The `kit-sync` walk: Kit over the Mac link with no Mac linked, with every row the same, and with a row in every

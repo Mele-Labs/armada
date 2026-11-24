@@ -28,6 +28,7 @@ pub struct Server {
     pub(super) links: Vec<Link>,
     pub(super) dir: Option<String>,
     pub(super) destructive: bool,
+    pub(super) confirm: bool,
 }
 
 impl Server {
@@ -64,6 +65,11 @@ impl Server {
     /// needs no second approval, as for any Command.
     pub fn is_destructive(&self) -> bool {
         self.destructive
+    }
+
+    /// Whether Bridge asks the person before it starts this from the dashboard.
+    pub fn confirms(&self) -> bool {
+        self.confirm
     }
 }
 
@@ -118,6 +124,10 @@ pub(super) fn entry(
         .optional("destructive")
         .and_then(|value| yaml::flag(&table.at("destructive"), value, out))
         .unwrap_or(false);
+    let confirm = table
+        .optional("confirm")
+        .and_then(|value| yaml::flag(&table.at("confirm"), value, out))
+        .unwrap_or(false);
     let ready = table
         .optional("ready")
         .and_then(|value| yaml::text(&table.at("ready"), value, out));
@@ -143,6 +153,7 @@ pub(super) fn entry(
         return Some(CommandEntry::Runs(Command {
             run: run?,
             destructive,
+            confirm,
         }));
     }
     Some(CommandEntry::Serves(Server {
@@ -152,6 +163,7 @@ pub(super) fn entry(
         links: links.unwrap_or_default(),
         dir,
         destructive,
+        confirm,
     }))
 }
 

@@ -148,6 +148,7 @@ mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
 mod project_store;
+mod project_board;
 mod projects;
 /// The values a person sets for how work behaves, and each with the layer it came from.
 mod values;
@@ -307,6 +308,8 @@ mod sketch;
 mod sketch_scene;
 /// A screen node's layout tree read whole, as a client draws it.
 mod sketch_screen;
+/// A scene a Job wrote, shown as a live prototype. `show_prototype`.
+mod prototype;
 mod style_sources;
 /// What a Job draws a `mock` with, read once. `get_design_catalogue`.
 mod design_catalogue;
@@ -423,7 +426,7 @@ pub use building::{
 };
 pub use preview::{
     BuildNote, BuildNoteFeedbackSent, BuildNotes, MarkBuildNoteLookedAt, NoteVerdict, SendBuildNoteFeedback, PreviewStep,
-    OfferPreview, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
+    OfferPreview, PreviewKept, PreviewOfferRow, PreviewOffered, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState,
     PreviewWithdrawn, SkipPreviewRefresh, WithdrawPreview, OfferApproved, PICTURES_AT_MOST, ThreadReadyToTry, ReadyApproved,
     ReadyState, AnswerReadyToTry, ReadyAnswer, OtherMacPreviewOffers, PreviewLeftOut,
 };
@@ -568,6 +571,9 @@ pub use issue_queries::{
 };
 pub use values_merging::VALUE_KEYS;
 pub use projects::MergeProjects;
+pub use project_board::{
+    BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,
+};
 pub use values::{KitValuesSaved, LookSet, ResolvedAutonomy, ResolvedReviews, ResolvedTracker, ResolvedValue, ResolvedValues, ResolvedWorkflow, ReviewsSet, SaveKitValues, SetProjectWorkflow, ValueLayer, ValuesSet};
 pub use project_store::{ClaimsHolder, ClaimsWait, DeployProjectStore, HeldClaim, HeldClaimKind, JoinStore, ProjectClaims, ProjectStoreState, SetProjectStore, StoreDeploy, StoreDeployed, StoreJoin};
 pub use projects::{
@@ -799,6 +805,8 @@ pub use artifact_parts::{
     AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
     ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_TAKES,
 };
+pub use artifact_parts::{PrototypePart, SceneFixture};
+pub use prototype::{file_name_checked, CheckedPrototype, ShowPrototype, MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, MOST_STATE_CHARS, SCENES_DIR};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,

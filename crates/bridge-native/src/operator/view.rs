@@ -3,7 +3,7 @@
 //! card and the box at the foot, all one width. The right panel holds Next up and the feed Since you last looked. Roomier
 //! than the sketch: controls a step taller, corners rounder, as the native screens are.
 
-use gpui::{canvas, div, prelude::*, AnyElement, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window};
+use gpui::{canvas, div, prelude::*, px, AnyElement, Context, Div, FontWeight, Hsla, MouseButton, Pixels, Role, SharedString, Stateful, Window};
 use ipc::MainCiState;
 
 use super::face::{self, Kind};
@@ -184,8 +184,10 @@ impl OperatorPageView {
                 .child(format!("{} main", main.repository));
             labelled(pill, Role::Status, said).into_any_element()
         });
-        let mains: Vec<AnyElement> = mains.collect();
-        let slots = slots_read.map(|slots| {
+        // A host that draws the chrome gets the Cockpit's header row instead, with no Mac or slot pills beside it.
+        let embedded = self.embedded;
+        let mains: Vec<AnyElement> = if embedded { Vec::new() } else { mains.collect() };
+        let slots = slots_read.filter(|_| !embedded).map(|slots| {
             let (held, all) = (slots.used, slots.total);
             let said = format!("Slots {held} of {all} held");
             labelled(
@@ -244,27 +246,31 @@ impl OperatorPageView {
             div().flex_none().flex().items_center().gap(look.length(token::SPACE_2)).children(refused).child(control)
         });
         // The head is as wide as the main panel: where it is too narrow, the controls at its right wrap to a line of their own.
+        // Embedded, the line is one row and the status words give way before the controls do.
+        let lead = if embedded {
+            self.embed_lead(look)
+        } else {
+            div()
+                .flex_1()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .child(glyph("bot", look.length(token::SPACE_4) + look.length(token::SPACE_1), look.color(token::OPERATOR)))
+                .child(labelled(
+                    div().id("operator-title").text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Operator"),
+                    Role::Heading,
+                    "Operator",
+                ))
+        };
         div()
             .flex_none()
             .flex()
-            .flex_wrap()
+            .when(!embedded, |head| head.flex_wrap())
             .items_center()
             .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_3))
-            .child(
-                div()
-                    .flex_1()
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .child(glyph("bot", look.length(token::SPACE_4) + look.length(token::SPACE_1), look.color(token::OPERATOR)))
-                    .child(labelled(
-                        div().id("operator-title").text_size(look.length(token::TEXT_LG)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Operator"),
-                        Role::Heading,
-                        "Operator",
-                    )),
-            )
+            .child(lead)
             .children(mains)
             .children(slots)
             .child(
@@ -278,6 +284,33 @@ impl OperatorPageView {
                     .children(acts)
                     .children(switch_off),
             )
+    }
+
+    /// The Cockpit's header row: the state's dot, the name, the state chip and the status line, as the approved page draws it.
+    fn embed_lead(&self, look: &Look) -> Div {
+        let now = self.clock_now.unwrap_or_else(chrono::Local::now);
+        let status = self.status();
+        let (word, said, hue, ground) = status.chip();
+        let line = status.line(now);
+        let dot = div().id("operator-state-dot").flex_none().w(look.length(token::SPACE_2)).h(look.length(token::SPACE_2)).rounded_full().bg(look.color(hue)).tooltip(tip(said));
+        div()
+            .flex_1()
+            .min_w_0()
+            .flex()
+            .items_center()
+            .gap(look.length(token::SPACE_3))
+            .child(dot)
+            .child(labelled(
+                div().id("operator-title").flex_none().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Operator"),
+                Role::Heading,
+                "Operator",
+            ))
+            .child(labelled(chip(word, look.color(hue), look.color(ground), look).id("operator-state").tooltip(tip(said)), Role::Status, word))
+            .child(labelled(
+                div().id("operator-line").flex_1().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(line.clone()),
+                Role::Status,
+                line,
+            ))
     }
 
     /// A time as the page reads it: a press flips every time on the page between a clock and an age.
@@ -331,7 +364,64 @@ impl OperatorPageView {
 
 /// The right panel, for Next up and the feed: the width of the old digest.
 pub(super) fn side(look: &Look) -> Div {
-    crate::reviews::panel(look).flex_none().w(look.length(token::SPACE_12) * 7.5).h_full()
+    crate::reviews::panel(look).flex_none().w(side_width(look)).h_full()
+}
+
+fn side_width(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 7.5
+}
+
+/// The width the card and the talk are read at, as the approved page draws the Operator's column.
+pub(super) fn readable(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 15.
+}
+
+/// The narrowest pane that keeps the side column beside the main one: the main panel keeps room for a card's options, the
+/// side column its own width and the gap and padding between them. Narrower, the side column folds away.
+pub(super) fn side_floor(look: &Look) -> Pixels {
+    look.length(token::SPACE_12) * 10. + side_width(look) + look.length(token::GAP_PANEL) + look.length(token::SPACE_3) * 2.
+}
+
+impl OperatorPageView {
+    /// How wide the page's own pane is: as it was drawn last, else the window's width until it is drawn once.
+    pub(super) fn pane_width(&self, window: &Window) -> Pixels {
+        self.drawn.borrow().get("page").map_or_else(|| window.viewport_size().width, |bounds| bounds.size.width)
+    }
+
+    /// How wide the Ready to try card has until it is drawn once: the pane's own width less the panels and padding around it,
+    /// never the window's, and no wider than the readable column where embedded.
+    pub(super) fn ready_room(&self, window: &Window, look: &Look) -> f32 {
+        let around = if self.embedded { px(0.) } else { look.length(token::SPACE_3) * 2. };
+        let side = if self.side_fits(window, look) { side_width(look) + look.length(token::GAP_PANEL) } else { px(0.) };
+        let insets = around + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.;
+        let room = (self.pane_width(window) - side - insets).max(px(0.));
+        f32::from(if self.embedded { room.min(readable(look)) } else { room })
+    }
+
+    /// Whether the pane has room for the side column beside the main panel.
+    pub(super) fn side_fits(&self, window: &Window, look: &Look) -> bool {
+        self.pane_width(window) >= side_floor(look)
+    }
+
+    /// Measures the pane the page is drawn in, and draws again where its width crossed the side column's floor since the last
+    /// frame, so a pane narrower than the window's first guess folds it at once.
+    fn pane_watch(&self, look: &Look, page: gpui::EntityId) -> gpui::Canvas<()> {
+        let (drawn, was, floor) = (self.drawn.clone(), self.side_drawn.clone(), side_floor(look));
+        canvas(
+            move |bounds, window, cx| {
+                drawn.borrow_mut().insert("page", bounds);
+                if (bounds.size.width >= floor) != was.get() {
+                    window.refresh();
+                    cx.notify(page);
+                }
+            },
+            |_, _, _, _| {},
+        )
+        .absolute()
+        .top_0()
+        .left_0()
+        .size_full()
+    }
 }
 
 /// A time as the page reads it, in his clock to the minute: `12:47`, with the day when it is not today (`Nov 10 16:00`).
@@ -366,22 +456,27 @@ impl Render for OperatorPageView {
             .size_full()
             .flex()
             .gap(look.length(token::GAP_PANEL))
-            .p(look.length(token::SPACE_3))
-            .bg(look.color(token::BG_BASE))
+            // Embedded, the host draws the ground and the padding around the pane.
+            .when(!self.embedded, |root| root.p(look.length(token::SPACE_3)).bg(look.color(token::BG_BASE)))
             .text_color(look.color(token::FG_DEFAULT))
             .font_family(sans(look))
             .text_size(look.length(token::TEXT_SM));
         // The status line heads the main panel, over everything the card and the talk draw.
+        let side_on = self.side_fits(window, look);
+        self.side_drawn.set(side_on);
+        let root = root.child(self.pane_watch(look, cx.entity_id()));
         let head = div().flex_none().border_b(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).child(self.head(look, cx));
         let main = crate::reviews::panel(look).flex_1().min_w_0().h_full().flex().flex_col().child(head);
         let Some(page) = self.page.as_ref() else {
             let [bones, side_bones] = self.skeleton(look);
-            return root.child(main.child(bones)).child(side(look).child(side_bones)).into_any_element();
+            return root.child(main.child(bones)).when(side_on, |root| root.child(side(look).child(side_bones))).into_any_element();
         };
         let feed = self.feed(page, look, cx);
         let next_up = self.next_up(look, cx);
         root.child(main.child(self.main_column(window, look, cx)))
-            .child(side(look).child(div().id("operator-side").size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(div().flex().flex_col().gap(look.length(token::SPACE_4)).children(next_up).child(feed))))
+            .when(side_on, |root| {
+                root.child(side(look).child(div().id("operator-side").size_full().overflow_y_scroll().p(look.length(token::SPACE_4)).child(div().flex().flex_col().gap(look.length(token::SPACE_4)).children(next_up).child(feed))))
+            })
             .children(self.later_menu.as_ref().map(|(menu, _)| menu.clone()))
             .children(self.acts_menu.as_ref().map(|(menu, _)| menu.clone()))
             .into_any_element()
@@ -395,11 +490,7 @@ impl OperatorPageView {
         let job = self.ready_in_front()?;
         let look = cx.look().clone();
         let item = self.open_item()?.item.id.clone();
-        let estimate = || {
-            let insets = look.length(token::SPACE_3) * 2. + look.length(token::GAP_PANEL) + look.length(token::SPACE_4) * 2. + look.length(token::BORDER_WIDTH) * 2.;
-            f32::from(window.viewport_size().width - look.length(token::SPACE_12) * 7.5 - insets)
-        };
-        let wide = self.drawn.borrow().get("ready").map(|drawn| f32::from(drawn.size.width)).unwrap_or_else(estimate);
+        let wide = self.drawn.borrow().get("ready").map(|drawn| f32::from(drawn.size.width)).unwrap_or_else(|| self.ready_room(window, &look));
         crate::job_view::ready_on_page(job.as_str(), &item, wide.max(0.), cx)
     }
 
@@ -500,6 +591,8 @@ impl OperatorPageView {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_4))
+            // Embedded, the card, the talk and the box stand in one column at a readable width, centred in the pane.
+            .when(self.embedded, |column| column.w_full().max_w(readable(look) + look.length(token::SPACE_4) * 2.).mx_auto())
             .child(
                 div()
                     .id("operator-main")

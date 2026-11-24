@@ -57,7 +57,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         auto_merge: values.auto_merge.map(|policy| policy.as_written().to_string()),
         review_model: values.review_model.clone(),
         look: (*look != Look::default())
-            .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone() }),
+            .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone(), board: look.board.as_ref().map(board_wire) }),
         tracker: values.tracker.as_ref().map(tracker_wire),
         reviews: (values.reviews != ReviewsNamed::default()).then(|| ReviewsSet {
             plans: values.reviews.plans.map(|mode| mode.as_wire().to_string()),
@@ -69,6 +69,17 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         workflows_off: values.workflows_off.clone(),
         review_on_new_pr: values.review_on_new_pr.clone(),
     })
+}
+
+/// A board as the wire carries it.
+pub(crate) fn board_wire(board: &core_model::Board) -> ipc::BoardLayout {
+    ipc::BoardLayout {
+        blocks: board
+            .blocks
+            .iter()
+            .map(|one| ipc::BoardBlock { kind: one.kind.clone(), x: one.x, y: one.y, w: one.w, h: one.h, view: one.view.clone() })
+            .collect(),
+    }
 }
 
 /// A tracker as the wire carries it: the Manifest block's keys, `provider` among them.
@@ -335,8 +346,22 @@ where
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
-            look: Look { layout: text("layout", &look.layout)?, theme: text("theme", &look.theme)?, density },
+            look: Look { layout: text("layout", &look.layout)?, theme: text("theme", &look.theme)?, density, board: self.board_read(look.board.as_ref())? },
         })
+    }
+
+    /// The board a person saved: **every block's kind and view are kept as written**, one that is blank is refused.
+    pub(crate) fn board_read(&self, board: Option<&ipc::BoardLayout>) -> Result<Option<core_model::Board>, Refusal> {
+        let Some(board) = board else { return Ok(None) };
+        let mut blocks = Vec::with_capacity(board.blocks.len());
+        for one in &board.blocks {
+            let (kind, view) = (one.kind.trim(), one.view.trim());
+            if kind.is_empty() || view.is_empty() {
+                return Err(self.values_refused("a block of the board names its kind and its view, and one of them is blank".to_string()));
+            }
+            blocks.push(core_model::BoardBlock { kind: kind.to_string(), x: one.x, y: one.y, w: one.w, h: one.h, view: view.to_string() });
+        }
+        Ok(Some(core_model::Board { blocks }))
     }
 
     /// The `reviews` a person wrote, or the first word that is not one its kind takes. **A kind left out is not
@@ -391,6 +416,7 @@ where
                 layout: now.chosen(keys::LAYOUT).flatten().map(|saved| saved.to_json_text()),
                 theme: now.chosen(keys::THEME).filter(|theme| !theme.trim().is_empty()),
                 density: now.chosen(keys::SPACING).filter(|density| !density.trim().is_empty()),
+                board: None,
             },
             tracker: None,
             reviews: ReviewsNamed::default(),

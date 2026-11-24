@@ -894,6 +894,18 @@ where
         self.edit_project(project, EditProject { values: Some(values), ..EditProject::default() }).await
     }
 
+    async fn get_project_board(&self, project: String) -> Result<ipc::ProjectBoard, Refusal> {
+        self.project_board_read(project).await
+    }
+
+    async fn save_project_board(&self, project: String, save: ipc::SaveProjectBoard) -> Result<ipc::ProjectBoard, Refusal> {
+        self.project_board_saved(project, save).await
+    }
+
+    async fn list_ranked_issues(&self, project: String) -> Result<ipc::RankedIssues, Refusal> {
+        self.ranked_issues_read(project).await
+    }
+
     async fn merge_projects(&self, merge: ipc::MergeProjects) -> Result<ipc::Projects, Refusal> {
         self.projects_merged(merge).await
     }
