@@ -30,3 +30,26 @@ checks:
       - "build.rs"
       - "Cargo.toml"
       - "Cargo.lock"
+
+  # The screen a Job built, shot on its walk's mock data and set against the prototype the owner
+  # approved, state by state (`docs/concepts/scenes.md`, *Shot check before an offer*). An agent
+  # runs it before `offer_preview`: `armada check crates/bridge-native:shot_check <scene>`, where
+  # `<scene>` is a file name in `$ARMADA_SCRATCH/scenes` without `.html`. It exits non-zero for a
+  # state that drifted or has no walk step, and leaves `report.json` and the pictures in
+  # `$ARMADA_SCRATCH/shots/<scene>`. The bare Check runs each scene there that names a walk, and
+  # passes where none does, so a Job with no prototype is not stopped by it. `{}` is one safe word
+  # and a path would be regex-escaped, which is why the scene is a name. The scratch folder is not
+  # the worktree, so `when` is only what makes the app draw differently.
+  shot_check:
+    run: /bin/sh -c 'status=0; for scene in "${ARMADA_SCRATCH:-/nonexistent}"/scenes/*.html; do [ -f "$scene" ] && grep -q "<scene[^>]*walk=" "$scene" || continue; name=$(basename "$scene" .html); cargo run --locked --manifest-path Cargo.toml -- --shot-check "$scene" --out "$ARMADA_SCRATCH/shots/$name" || status=1; done; exit $status'
+    one_test:
+      run: /bin/sh -c 'cargo run --locked --manifest-path Cargo.toml -- --shot-check "$ARMADA_SCRATCH/scenes/{}.html" --out "$ARMADA_SCRATCH/shots/{}"'
+    # **`pre_pr`, and never a gate**, as `test` is. CI has no scene to shoot, and `.github/ci/plan.py`
+    # lists the key as excluded.
+    runs_at: pre_pr
+    when:
+      - "src/**"
+      - "fixtures/**"
+      - "build.rs"
+      - "Cargo.toml"
+      - "Cargo.lock"

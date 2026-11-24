@@ -163,6 +163,8 @@ where
         let mut turn_over = false;
         // The words the mod sent a turn back with, kept as a notice once the store is let go.
         let mut sent_back: Option<String> = None;
+        // What a Job wrote under a `scenes/` folder, which a prototype it showed is redrawn from once the store is let go.
+        let mut scene_paths: Vec<String> = Vec::new();
         // A pull request the session opened, by its Manifest and address, read once the store is let go.
         let mut opened_pull: Option<(String, String)> = None;
         let mut session = kept.unwrap_or_else(|| KeptSession {
@@ -429,6 +431,7 @@ where
             SessionFact::SignedOut => signed_out = terminal,
             // For the check of who else writes these files; nothing on the ledger changes.
             SessionFact::Touched { paths, by, act } => {
+                scene_paths.extend(paths.iter().filter(|path| path.contains("/scenes/")).cloned());
                 // What the Job read before this write is linked to the features that own the files it wrote.
                 if let Some((manifest, credited)) = self.session_wrote(&store, &session, &roots, &paths) {
                     let _ = self.feature_reads_linked(&mut store, &id, &manifest, &credited);
@@ -572,6 +575,10 @@ where
         }
         if let Some((manifest, address)) = opened_pull {
             self.opened_pull_read(&manifest, &address).await;
+        }
+        if !scene_paths.is_empty() {
+            // Redrawing a part reports to the ledger, which is this, so the call hands back a boxed future.
+            self.scenes_touched(&session.id, &scene_paths).await;
         }
         Ok(record)
     }

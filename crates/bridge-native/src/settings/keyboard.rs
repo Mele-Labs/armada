@@ -27,6 +27,7 @@ pub const GROUPS: &[(&str, &[ActionScope])] = &[
     ("Plans", &[ActionScope::Plan]),
     ("Job thread", &[ActionScope::Thread]),
     ("Terminal", &[ActionScope::Terminal]),
+    ("Prototype", &[ActionScope::Prototype]),
     ("Dispatch", &[ActionScope::Dispatch]),
     ("Review sheet", &[ActionScope::ReviewSheet]),
     ("Kit", &[ActionScope::Kit]),
@@ -75,6 +76,7 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
         ActionScope::Logbook => &["logbook"],
         ActionScope::Plan => &["plan"],
         ActionScope::Thread => &["thread"],
+        ActionScope::Prototype => &["prototype"],
         ActionScope::Terminal => &["terminal"],
         ActionScope::Dispatch => &["dispatch"],
         ActionScope::ReviewSheet => &["review-sheet"],
@@ -87,8 +89,21 @@ fn places(scope: ActionScope) -> &'static [&'static str] {
     }
 }
 
+/// Places an act's keys are heard beyond the list in `places`, kept apart so that list's one line is not edited for each new place.
+fn extra_places(scope: ActionScope) -> &'static [&'static str] {
+    match scope {
+        ActionScope::Anywhere => &["prototype"],
+        _ => &[],
+    }
+}
+
+/// Every place an act's keys are heard: `places` and `extra_places`.
+fn heard_in(scope: ActionScope) -> impl Iterator<Item = &'static str> {
+    places(scope).iter().chain(extra_places(scope)).copied()
+}
+
 fn overlaps(a: ActionScope, b: ActionScope) -> bool {
-    places(a).iter().any(|place| places(b).contains(place))
+    heard_in(a).any(|place| heard_in(b).any(|other| other == place))
 }
 
 fn mods_text(mods: Mods) -> String {

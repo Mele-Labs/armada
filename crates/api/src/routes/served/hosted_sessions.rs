@@ -186,6 +186,11 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/sessions/artifacts/part",
     },
     Route {
+        operation: "show_prototype",
+        method: "POST",
+        path: "/sessions/artifacts/prototype",
+    },
+    Route {
         operation: "answer_part",
         method: "POST",
         path: "/sessions/artifacts/part/answer",

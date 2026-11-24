@@ -112,6 +112,17 @@ destructive = false
 confirms = false
 notes = "Puts the keys on the newest open toast, where A presses its pick, L puts it Later and Esc shuts it. Native only. ⌥ beside the Operator's ⌘J; taken 10 Nov 2026, nothing held it."
 
+[actions.prototype_pop_out]
+kind = "Action"
+tier = "Global"
+verb = "Pop out"
+icon = "maximize-2"
+shortcut = "⌥⌘P"
+scope = "prototype"
+destructive = false
+confirms = false
+notes = "Opens the prototype in front in a window of its own, with the note capture over it, so ⌥⌘A works there and its notes go to the Job. Answered where the focus is in a Job's Prototype tab. Native only. Taken 23 Nov 2026; nothing held it."
+
 [actions.open_kit]
 kind = "Action"
 tier = "Global"

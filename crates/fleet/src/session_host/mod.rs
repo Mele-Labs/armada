@@ -36,6 +36,7 @@ pub(crate) mod draft_document;
 pub(crate) mod draft_page;
 mod artifact_for;
 pub(crate) mod artifact_parts;
+mod prototyping;
 mod artifacts;
 mod archiving;
 mod answering_items;
@@ -181,6 +182,8 @@ pub struct Hosts {
     /// The Sessions last published as stuck, so a Session that goes quiet, or is heard from again, is
     /// published when it does and not only when something else moves. Memory only.
     stuck: Mutex<std::collections::HashSet<String>>,
+    /// The watch of every Job's scratch folder, started when the first prototype is shown. See [`prototyping`].
+    scene_watch: Mutex<Option<adapters::FolderWatch>>,
     /// The Jobs whose stop is owed a word.
     stops_owed: stopping::Owed,
     /// The Jobs stopped with their agent alive, which a repair is due for.
@@ -246,6 +249,7 @@ impl Hosts {
             quiet,
             stuck_after: Mutex::new(standing::STUCK_AFTER),
             stuck: Mutex::new(std::collections::HashSet::new()),
+            scene_watch: Mutex::new(None),
             stops_owed: stopping::Owed::default(),
             stops_silent: stopping::Silent::default(),
             question_tries: Default::default(),
