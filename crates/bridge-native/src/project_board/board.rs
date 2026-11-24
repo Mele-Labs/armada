@@ -459,7 +459,15 @@ impl Board {
 
     /// Whether the lists on the board are in the librarian's order, as Fleet last answered them.
     pub fn ranked_by_librarian(&self) -> bool {
-        matches!(&self.issues, Some(Ok(read)) if read.ranked.by_librarian.is_some())
+        self.ranked_at().is_some()
+    }
+
+    /// When the librarian ranked the lists on the board, where it did.
+    pub fn ranked_at(&self) -> Option<&ipc::Instant> {
+        match &self.issues {
+            Some(Ok(read)) => read.ranked.by_librarian.as_ref(),
+            _ => None,
+        }
     }
 
     /// Rank with the librarian, or Reset: the might-lists come back in the librarian's order with a why on each row, or by

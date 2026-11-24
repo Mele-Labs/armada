@@ -202,7 +202,7 @@ fn rank_with_the_librarian_draws_its_order_and_a_why_under_each_row_and_reset_pu
     assert!(drawn(cx, Role::Button, "Rank with the librarian") && !drawn(cx, Role::Button, "Reset"));
     let by_features = order(&board, cx);
     press(cx, Role::Button, "Rank with the librarian");
-    assert!(drawn(cx, Role::Button, "Ranked") && drawn(cx, Role::Button, "Reset"));
+    assert!(drawn(cx, Role::Status, "Ranked") && !drawn(cx, Role::Button, "Ranked") && drawn(cx, Role::Button, "Reset"));
     assert!(drawn(cx, Role::Label, "Offline sends are the Pocket gap you hit this week"), "the why under its row");
     assert_eq!(order(&board, cx), ["issue-armada-a3f2", "issue-armada-71cc", "issue-armada-9efp"], "his own first, then the librarian's order");
     press(cx, Role::Button, "Reset");
@@ -221,6 +221,6 @@ fn lists_fleet_answers_ranked_by_the_librarian_draw_ranked(cx: &mut TestAppConte
         cx.notify();
     });
     redraw(cx);
-    assert!(drawn(cx, Role::Button, "Ranked") && drawn(cx, Role::Button, "Reset"));
+    assert!(drawn(cx, Role::Status, "Ranked") && !drawn(cx, Role::Button, "Ranked") && drawn(cx, Role::Button, "Reset"));
     assert!(drawn(cx, Role::Label, "Two features you work on most wait on it"));
 }

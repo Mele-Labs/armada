@@ -304,14 +304,14 @@ impl Board {
     }
 
     /// Rank with the librarian in the Issues block's head: a press has the librarian order the lists, and once they are in its
-    /// order the button reads Ranked, tinted in the ask's hue, with Reset beside it. A refusal is a glyph with Fleet's line.
+    /// order a Ranked chip in the ask's hue stands in its place, with Reset beside it. A refusal is a glyph with Fleet's line.
     fn rank_controls(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ring = ring_colour(look);
         let purple = look.color(token::ASK_FEATURES);
         let ranked = self.ranked_by_librarian();
         let waiting = self.ranking == Ranking::Waiting;
         let size = look.length(token::SPACE_3);
-        let compact = |id: &'static str| {
+        let shape = |id: &'static str| {
             div()
                 .id(id)
                 .flex_none()
@@ -325,6 +325,9 @@ impl Board {
                 .text_size(look.length(token::TEXT_2XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
                 .whitespace_nowrap()
+        };
+        let compact = |id: &'static str| {
+            shape(id)
                 .focusable()
                 .tab_stop(true)
                 .focus_visible(move |style| style.border_color(ring))
@@ -334,17 +337,31 @@ impl Board {
                     window.prevent_default();
                 })
         };
-        let words = if ranked { "Ranked" } else { "Rank with the librarian" };
-        let mark = if waiting && !ranked { spinner("issues-rank-spin", size, purple, cx).into_any_element() } else { glyph("sparkles", size, purple).into_any_element() };
-        let button = compact("issues-rank")
-            .border_color(if ranked { purple } else { gpui::transparent_black() })
-            .when(ranked, |button| button.bg(purple.opacity(0.16)).text_color(purple))
-            .when(!ranked, |button| button.text_color(look.color(token::FG_MUTED)))
-            .when(!ranked && !waiting, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, _, cx| this.rank(false, cx))))
-            .aria_toggled(if ranked { Toggled::True } else { Toggled::False })
-            .tooltip(tip(if ranked { "In the librarian's order, with its reason under each row" } else { "The librarian orders these and says why under each" }))
-            .child(mark)
-            .child(words);
+        // Ranked is a state, not a press: a chip in the ask's hue that says when, with Reset the one button beside it.
+        let state = match self.ranked_at() {
+            Some(at) => {
+                let said = format!("Ranked by the librarian at {}", crate::settings::time::stamp_at(at.as_str()).unwrap_or_else(|| at.as_str().to_string()));
+                labelled(
+                    shape("issues-ranked").border_color(purple).bg(purple.opacity(0.16)).text_color(purple).tooltip(tip(said)).child(glyph("sparkles", size, purple)).child("Ranked"),
+                    Role::Status,
+                    "Ranked",
+                )
+            }
+            None => {
+                let mark = if waiting { spinner("issues-rank-spin", size, purple, cx).into_any_element() } else { glyph("sparkles", size, purple).into_any_element() };
+                labelled(
+                    compact("issues-rank")
+                        .border_color(gpui::transparent_black())
+                        .text_color(look.color(token::FG_MUTED))
+                        .when(!waiting, |button| button.cursor_pointer().hover(|style| style.bg(look.color(token::BG_HOVER))).on_click(cx.listener(|this, _, _, cx| this.rank(false, cx))))
+                        .tooltip(tip("The librarian orders these and says why under each"))
+                        .child(mark)
+                        .child("Rank with the librarian"),
+                    Role::Button,
+                    "Rank with the librarian",
+                )
+            }
+        };
         let reset = ranked.then(|| {
             let mark = if waiting { spinner("issues-reset-spin", size, look.color(token::FG_MUTED), cx).into_any_element() } else { glyph("rotate-ccw", size, look.color(token::FG_MUTED)).into_any_element() };
             labelled(
@@ -367,7 +384,7 @@ impl Board {
             )),
             _ => None,
         };
-        div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(refused).child(labelled(button, Role::Button, words)).children(reset).into_any_element()
+        div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).children(refused).child(state).children(reset).into_any_element()
     }
 
     /// The librarian's reason for a row's place, small, under its title.
