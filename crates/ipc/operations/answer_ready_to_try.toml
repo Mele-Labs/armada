@@ -20,5 +20,7 @@ Show me how needs nothing from Fleet: the card carries the note's `look` and `st
 
 Refused 404 `fleet.ready_to_try_unknown` where the Job's thread holds no card for that (branch, tip); 409 `fleet.ready_to_try_settled` where the card is `answered`, `withdrawn` or `replaced`, naming which; 422 `fleet.build_note_words_empty` for `needs_rework` words with nothing in them; 422 `fleet.ready_to_try_remind_past` where `until` has passed or does not read as a time. Nothing changes on a refusal.
 
+**A card of a Job held from another Mac is answered on that Mac**, as the act `ready_answer` (`act_from_mac`), where the build he runs on this Mac holds the card's branch at its tip; that Mac's answer is passed back as it was said, and 202 with the `Queued` while it cannot be reached. Where this Mac's build does not hold it, 409 `fleet.ready_not_in_build`, and nothing is sent. Such a card's `in_build`, read through the link, is this Mac's build's.
+
 `agent_access` is `No`, and from inside a Job the route is a 403 `api.the_persons_own`: the answer is his.
 """

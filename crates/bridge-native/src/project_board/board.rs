@@ -124,8 +124,8 @@ pub struct Board {
     pub(super) source: Source,
     reviews: Option<Entity<ReviewsScreen>>,
     window: AnyWindowHandle,
-    /// The project a chip chose, over the one he chose last and the one the bar is scoped to.
-    pub(super) explicit: Option<String>,
+    /// The project the board was last made ready for, so a change of project is told from a redraw.
+    shown: Option<String>,
     layouts: HashMap<String, Stored>,
     /// The projects whose kept layout Fleet has answered for, or could not.
     layout_read: HashSet<String>,
@@ -194,7 +194,7 @@ impl Board {
             source,
             reviews,
             window: window.window_handle(),
-            explicit: None,
+            shown: None,
             layouts: HashMap::new(),
             layout_read: HashSet::new(),
             unsaved: HashSet::new(),
@@ -229,20 +229,22 @@ impl Board {
 
     // ---- which project -----------------------------------------------------------------------
 
-    /// Every project to draw a chip for, as `(id, name)` in Fleet's order.
-    pub fn chips(&self, cx: &App) -> Vec<(String, String)> {
+    /// Every project Fleet names, as `(id, name)` in Fleet's order.
+    fn chips(&self, cx: &App) -> Vec<(String, String)> {
         match &self.source {
             Source::Live(fleet) => fleet.read(cx).held().projects.as_ref().map(|read| read.projects.iter().map(|one| (one.id.clone(), one.name.clone())).collect()).unwrap_or_default(),
             Source::Mock => crate::features::mock::projects(),
         }
     }
 
-    /// The project on screen: the chip's pick, else the one he chose last, else the one the bar is scoped to, else the first.
+    /// The project on screen: the one the title bar is scoped to; on All, the one he chose last, else the first.
     pub fn project(&self, cx: &App) -> Option<Project> {
         match &self.source {
             Source::Mock => {
                 let chips = self.chips(cx);
-                let id = self.explicit.clone().filter(|id| chips.iter().any(|(one, _)| one == id)).or_else(|| chips.first().map(|(id, _)| id.clone()))?;
+                let listed = |id: &String| chips.iter().any(|(one, _)| one == id);
+                let scoped = titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string));
+                let id = scoped.filter(listed).or_else(|| chosen::get(cx).filter(listed)).or_else(|| chips.first().map(|(id, _)| id.clone()))?;
                 let name = chips.into_iter().find(|(one, _)| *one == id).map(|(_, name)| name)?;
                 Some(mock::project(&id, &name))
             }
@@ -251,7 +253,7 @@ impl Board {
                 let projects = held.projects.as_ref()?;
                 let listed = |id: &String| projects.projects.iter().any(|one| one.id == *id);
                 let scoped = titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string));
-                let id = self.explicit.clone().filter(listed).or_else(|| chosen::get(cx).filter(listed)).or_else(|| scoped.filter(listed)).or_else(|| projects.projects.first().map(|one| one.id.clone()))?;
+                let id = scoped.filter(listed).or_else(|| chosen::get(cx).filter(listed)).or_else(|| projects.projects.first().map(|one| one.id.clone()))?;
                 let project = projects.projects.iter().find(|one| one.id == id)?;
                 let served = held.repositories.as_deref().unwrap_or_default();
                 let named = titlebar::repositories_of(served, &[]);
@@ -269,17 +271,21 @@ impl Board {
         }
     }
 
-    /// A chip was pressed or the project changed under the screen: the board is of `project` and reads for it.
-    pub fn set_project(&mut self, project: String, cx: &mut Context<Self>) {
-        if self.explicit.as_deref() == Some(project.as_str()) {
+    /// The title bar's pick changed under the screen: the board is of the project now on screen and reads for it.
+    pub fn follow(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx).map(|one| one.id) else { return };
+        if self.shown.as_deref() == Some(project.as_str()) {
             return;
         }
-        self.explicit = Some(project);
-        self.checkout = Checkout::Main;
-        self.tail = None;
+        // The first project is the one the board opened on, so a checkout already chosen stays.
+        let changed = self.shown.replace(project).is_some();
+        if changed {
+            self.checkout = Checkout::Main;
+            self.tail = None;
+        }
         if matches!(self.source, Source::Mock) {
             self.fill_mock(cx);
-        } else if self.entered {
+        } else if changed && self.entered {
             self.read_all(cx);
         }
         cx.notify();

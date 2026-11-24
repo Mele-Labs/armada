@@ -81,6 +81,10 @@ impl OtherMacs for FakeDaemon {
         None
     }
 
+    fn ready_in_this_build(&self, _asked: &ipc::AnswerReadyToTry) -> Result<(), Refusal> {
+        Ok(())
+    }
+
     async fn act_on_other_mac(self: Arc<Self>, mac: String, _act: JobAct) -> Result<ActAnswered, Refusal> {
         Err(Refusal::NotFound(ipc::WireError::raised("fleet.other_mac_not_linked", format!("This Mac is not linked to Mac {mac}."), super::shapes::run_id())))
     }
