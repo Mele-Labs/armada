@@ -20,6 +20,9 @@ mod wire;
 use gpui::{deferred, div, prelude::*, AnyElement, AnyWindowHandle, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Toggled, Window};
 
 use crate::features::ask_box::{self, AskBox, AskBoxEvent, AskSource};
+/// The dashboard box's draft key, for the Live metrics Job's `fix_with_librarian` until it calls `AskBox::prefill`.
+#[allow(unused_imports)]
+use crate::features::ask_box::KEEP_ASK;
 use crate::features::{chosen, FeaturesScreen, Section};
 use crate::fleet::FleetConnection;
 use crate::labels::labelled;
@@ -107,6 +110,9 @@ pub struct ProjectScreen {
     tab: Tab,
     within: FocusHandle,
     ask_box: Entity<AskBox>,
+    /// The box's own input, for the Live metrics Job's `fix_with_librarian` until it calls `AskBox::prefill`.
+    #[allow(dead_code)]
+    ask: Entity<gpui_component::input::InputState>,
     menu: Option<StartMenu>,
     adding: Option<AddMenu>,
     window: AnyWindowHandle,
@@ -189,7 +195,8 @@ impl ProjectScreen {
             this.keep_ask(cx);
             cx.notify();
         }));
-        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask_box, menu: None, adding: None, window: window.window_handle(), _subs: subs };
+        let ask = ask_box.read(cx).input.clone();
+        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask_box, ask, menu: None, adding: None, window: window.window_handle(), _subs: subs };
         this.features.update(cx, |features, cx| features.set_section(Section::Features, window, cx));
         this
     }
