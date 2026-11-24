@@ -12,7 +12,7 @@ use chrono::Utc;
 use gpui::{AnyWindowHandle, App, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
 use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
 
-use super::layout::{BlockKind, Layout, View};
+use super::layout::{BlockKind, Layout, View, COLUMNS};
 use super::model::{self, Fill, Item, Press, Project, Repository, Shown};
 use super::presets::{self, Kind};
 use super::{mock, wire};
@@ -86,6 +86,15 @@ pub struct IssuesRead {
     pub ranked: RankedIssues,
 }
 
+/// Where Rank with the librarian stands: asked, or refused with Fleet's line.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum Ranking {
+    #[default]
+    Idle,
+    Waiting,
+    Refused(String),
+}
+
 /// A Command flagged `confirm: true` that has been pressed and waits for Run.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Asking {
@@ -147,6 +156,7 @@ pub struct Board {
     pub(super) drafts: BTreeMap<String, Result<AppRunDraft, String>>,
     pub(super) configs: Option<Vec<Result<ManifestConfig, String>>>,
     pub(super) issues: Option<Result<IssuesRead, String>>,
+    pub(super) ranking: Ranking,
     pub(super) checkout: Checkout,
     /// Presses in flight, so a second press on the same button waits for the first.
     pub(super) acting: HashSet<String>,
@@ -207,6 +217,7 @@ impl Board {
             drafts: BTreeMap::new(),
             configs: None,
             issues: None,
+            ranking: Ranking::Idle,
             checkout: Checkout::Main,
             acting: HashSet::new(),
             tail: None,
@@ -397,6 +408,94 @@ impl Board {
                 }
             });
         }));
+    }
+
+    /// The board as an ask to the librarian sees it: the layout drawn, whether it is the preset, and every kind and view this
+    /// build draws.
+    pub fn asked_board(&mut self, project: &str) -> ipc::AskedBoard {
+        self.layout(project);
+        let stored = &self.layouts[project];
+        let kinds = BlockKind::ALL.into_iter().map(|kind| ipc::AskedBlockKind { kind: kind.slug().to_string(), views: kind.views().iter().map(|view| view.slug().to_string()).collect() }).collect();
+        ipc::AskedBoard { layout: stored.layout.to_wire(&stored.unknown), preset: !stored.edited, kinds, columns: COLUMNS }
+    }
+
+    /// An ask changed the board, or its Undo put one back, and Fleet already keeps it: it is drawn at once and sent nowhere. A
+    /// change of his still waiting to be sent was on the board the ask saw, so it goes with it.
+    pub fn take_from_fleet(&mut self, kept: Option<BoardLayout>, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.saves.remove(&project.id);
+        self.unsaved.remove(&project.id);
+        if matches!(self.source, Source::Mock) {
+            match &kept {
+                Some(layout) => self.kept.insert(project.id.clone(), layout.clone()),
+                None => self.kept.remove(&project.id),
+            };
+        }
+        self.apply_kept(&project.id, kept, cx);
+    }
+
+    /// An ask's board change was taken back: the board is the one Fleet answers with now, or the preset where it keeps none.
+    pub fn reread_layout(&mut self, cx: &mut Context<Self>) {
+        let Some(project) = self.project(cx) else { return };
+        self.saves.remove(&project.id);
+        self.unsaved.remove(&project.id);
+        match &self.source {
+            Source::Mock => {
+                let kept = self.kept.get(&project.id).cloned();
+                self.apply_kept(&project.id, kept, cx);
+            }
+            Source::Live(_) => self.read_layout(cx),
+        }
+    }
+
+    /// The might-lists changed in Fleet: the Issues block reads them again.
+    pub fn reread_issues(&mut self, cx: &mut Context<Self>) {
+        if matches!(self.source, Source::Live(_)) {
+            self.read_issues(cx);
+        }
+    }
+
+    // ---- ranking with the librarian -----------------------------------------------------------
+
+    /// Whether the lists on the board are in the librarian's order, as Fleet last answered them.
+    pub fn ranked_by_librarian(&self) -> bool {
+        matches!(&self.issues, Some(Ok(read)) if read.ranked.by_librarian.is_some())
+    }
+
+    /// Rank with the librarian, or Reset: the might-lists come back in the librarian's order with a why on each row, or by
+    /// features again.
+    pub fn rank(&mut self, forget: bool, cx: &mut Context<Self>) {
+        if self.ranking == Ranking::Waiting {
+            return;
+        }
+        let Some(project) = self.project(cx) else { return };
+        let task = match (&self.source, self.port(cx)) {
+            (Source::Live(_), Some(port)) if forget => crate::features::wire::forget_librarian_ranking(port, &project.id, cx),
+            (Source::Live(_), Some(port)) => crate::features::wire::rank_with_librarian(port, &project.id, cx),
+            (Source::Live(_), None) => crate::settings::wire::unreachable(),
+            (Source::Mock, _) => Task::ready(Ok(if forget { mock::issues().ranked } else { mock::ranked_by_librarian() })),
+        };
+        self.ranking = Ranking::Waiting;
+        let asked = project.id.clone();
+        self.tasks.insert("rank", cx.spawn(async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update(cx, |this, cx| {
+                match answer {
+                    Ok(ranked) => {
+                        this.ranking = Ranking::Idle;
+                        if this.project(cx).is_some_and(|now| now.id == asked) {
+                            match this.issues.as_mut() {
+                                Some(Ok(read)) => read.ranked = ranked,
+                                _ => this.issues = Some(Ok(IssuesRead { mine: Vec::new(), ranked })),
+                            }
+                        }
+                    }
+                    Err(why) => this.ranking = Ranking::Refused(crate::features::ask_box::refusal_line(&why)),
+                }
+                cx.notify();
+            });
+        }));
+        cx.notify();
     }
 
     pub fn toggle_edit(&mut self, cx: &mut Context<Self>) {
