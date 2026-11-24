@@ -2,7 +2,10 @@
 // A recipe is kept in the project's file as `look.metrics`, so it reaches his other Macs; a token is kept in this Mac's keychain and is never on the wire's way out.
 
 /** A header of an HTTP call, or a variable of an MCP server's environment. */
-export type MetricHeader = { name: string; value: string };
+export type MetricHeader = {
+  name: string;
+  value: string;
+};
 
 /**
  * One call, as a tracker mod's call is written. `{credential}` is filled into `env` (of a cli or an mcp call), `arguments`,
@@ -10,10 +13,26 @@ export type MetricHeader = { name: string; value: string };
  */
 export type MetricCall =
   /** A program and its arguments, run with no shell, and the environment variables set on it. A token goes in `env`, not `argv`. */
-  | { transport: "cli"; argv: string[]; env?: MetricHeader[] }
-  | { transport: "http"; method: string; url: string; headers?: MetricHeader[]; body?: string }
+  | {
+      transport: "cli";
+      argv: string[];
+      env?: MetricHeader[];
+    }
+  | {
+      transport: "http";
+      method: string;
+      url: string;
+      headers?: MetricHeader[];
+      body?: string;
+    }
   /** A server started on standard input and output for the call, and one tool called on it. `arguments` is JSON text, `{}` where absent. */
-  | { transport: "mcp"; server: string[]; env?: MetricHeader[]; tool: string; arguments?: string };
+  | {
+      transport: "mcp";
+      server: string[];
+      env?: MetricHeader[];
+      tool: string;
+      arguments?: string;
+    };
 
 /** The token a recipe signs in with. One per tool on each Mac: two recipes naming `sentry` share one. */
 export type MetricCredential = {
@@ -54,13 +73,24 @@ export type MetricAnswer = {
 };
 
 /** One kept value of the first numeric row, from a reading Fleet made while the dashboard was open. */
-export type MetricPoint = { at: string; value: number };
+export type MetricPoint = {
+  at: string;
+  value: number;
+};
 
 /** Where a recipe stands on this Mac. `why` is scrubbed of the token. */
 export type MetricState =
-  | { state: "read" }
-  | { state: "no_token"; credential: MetricCredential }
-  | { state: "broken"; why: string };
+  | {
+      state: "read";
+    }
+  | {
+      state: "no_token";
+      credential: MetricCredential;
+    }
+  | {
+      state: "broken";
+      why: string;
+    };
 
 /** One recipe's reading, as Bridge draws its block. */
 export type MetricReading = {
@@ -81,7 +111,9 @@ export type MetricReadings = {
 };
 
 /** `POST /projects/project/:project/metrics/try` and `POST /projects/project/:project/metrics`: a recipe to run once, or to run and keep. */
-export type TryMetric = { recipe: MetricRecipe };
+export type TryMetric = {
+  recipe: MetricRecipe;
+};
 
 /** `POST /projects/project/:project/metrics`: the recipe as kept and its first reading. A recipe that cannot read is refused 422 `fleet.metric_unreadable`, unless the only thing missing is this Mac's token. */
 export type MetricSaved = {
