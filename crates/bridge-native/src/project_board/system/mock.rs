@@ -341,9 +341,13 @@ pub fn answers(project: &str, key: &str) -> SystemPartAnswers {
         feature if feature.starts_with(super::FEATURE_KEY) => of_feature(project, &feature[super::FEATURE_KEY.len()..]),
         part => of_part(project, part),
     };
-    if !key.is_empty() && !key.starts_with(super::FEATURE_KEY) {
-        answers.features = features_of(project, key);
-        answers.has_screen = has_screen(project, key);
+    match key.strip_prefix(super::FEATURE_KEY) {
+        Some(slug) => answers.feature = Some(slug.to_string()),
+        None if !key.is_empty() => {
+            answers.features = features_of(project, key);
+            answers.has_screen = has_screen(project, key);
+        }
+        None => {}
     }
     answers
 }

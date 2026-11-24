@@ -896,4 +896,29 @@ mod tests {
         let none = arranged(&super::tests::map(Vec::new(), Vec::new()), 1);
         assert_eq!((none.width, none.height), (1100., 400.));
     }
+
+    #[test]
+    fn a_room_too_narrow_for_the_parts_shrinks_the_graph_to_fit_down_to_the_floor_and_scrolls_below_it() {
+        let map = level_one();
+        let fitted = |width: f32| arrange_fitted(&map, 1, "p", &|id| Some(id.to_string()), &Metrics::default(), width, 0.);
+        let natural = fitted(5000.);
+        assert_eq!(natural.scale, 1.);
+        let need = arrange(&map, 1, "p", &|id| Some(id.to_string()), &Metrics::default(), 0., 0.).width;
+        let tight = fitted(need * 0.85);
+        assert!(tight.scale < 1. && tight.scale >= FLOOR);
+        assert!(tight.width <= need * 0.85 + 1., "it fits: {} in {}", tight.width, need * 0.85);
+        let narrow = fitted(need * 0.5);
+        assert_eq!(narrow.scale, FLOOR);
+        assert!(narrow.width > need * 0.5, "below the floor it scrolls");
+    }
+
+    #[test]
+    fn a_part_is_as_wide_as_its_name_and_path_need() {
+        let mut long = part("app", SystemPartKind::Entry);
+        long.paths = vec!["crates/bridge-native/".into()];
+        let map = map(vec![long], Vec::new());
+        let out = arrange(&map, 1, "p", &|id| Some(id.to_string()), &Metrics::default(), 0., 0.);
+        let metrics = Metrics::default();
+        assert!(out.nodes[0].rect.w >= "crates/bridge-native".len() as f32 * metrics.char + metrics.chrome);
+    }
 }

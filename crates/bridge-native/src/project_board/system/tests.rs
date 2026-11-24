@@ -252,3 +252,27 @@ fn remove_takes_the_part_and_its_links_off_the_map(cx: &mut TestAppContext) {
     assert!(!drawn(cx, Role::Button, "Bank exports, outside, from the librarian"));
     assert!(block.read_with(cx, |block, _| block.level().is_some_and(|map| map.parts.iter().all(|part| part.id != "bank") && map.links.iter().all(|link| link.to != "bank"))));
 }
+
+#[gpui::test]
+fn the_project_and_a_feature_have_all_nine_sections_too(cx: &mut TestAppContext) {
+    let (block, cx) = block(cx, ARMADA);
+    let sections = |cx: &mut VisualTestContext| super::panel::SECTIONS.iter().all(|(title, _)| drawn(cx, Role::Heading, title));
+    assert!(sections(cx), "the project, with nothing selected");
+    block.update_in(cx, |block, window, cx| {
+        block.select(Some("bridge".into()), cx);
+        block.look_inside(window, cx);
+        block.follow_feature("dashboard", window, cx);
+    });
+    redraw(cx);
+    assert!(sections(cx), "a feature's path, with nothing selected");
+}
+
+#[test]
+fn the_mock_says_of_a_part_what_its_map_says() {
+    let jobs = super::mock::answers(ARMADA, "b_jobs");
+    assert_eq!(jobs.features.iter().map(|one| one.slug.as_str()).collect::<Vec<_>>(), ["jobs-list"]);
+    assert!(jobs.has_screen, "a piece of Bridge draws a screen");
+    assert!(!super::mock::answers(ARMADA, "f_daemon").has_screen);
+    assert!(!super::mock::answers(ARMADA, "b_jobs").features.is_empty());
+    assert!(super::mock::answers("auto-ynab", "s_rev").has_screen);
+}
