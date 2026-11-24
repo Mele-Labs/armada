@@ -108,12 +108,15 @@ pub fn headline(answer: &MetricAnswer) -> Option<Headline> {
     Some(Headline { value, unit: row.unit.clone().filter(|unit| !unit.is_empty()), label: row.label.clone() })
 }
 
-/// The rows of an answer as the items List, Table and Cards draw.
+/// The rows of an answer as the items List, Table and Cards draw: every row but the one shown large, unless that row is a
+/// point of a series.
 pub fn items(id: &str, answer: &MetricAnswer) -> Vec<Item> {
+    let shown_large = answer.rows.iter().position(|row| number(row).is_some()).filter(|at| answer.rows[*at].at.is_none());
     answer
         .rows
         .iter()
         .enumerate()
+        .filter(|(at, _)| Some(*at) != shown_large)
         .map(|(at, row)| {
             let item = Item::new(format!("metric-{id}-{at}"), "circle-dot", token::SKETCH_BLUE, "Reading", row.label.clone()).meta(show_row(row));
             match &row.link {

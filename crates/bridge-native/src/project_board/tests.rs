@@ -622,3 +622,21 @@ fn the_picture_view_is_a_card_with_the_host_that_opens_the_address(cx: &mut Test
     press(cx, Role::Button, "Picture view of Build time");
     assert!(drawn(cx, Role::Button, "Open the picture of Build time from example.com"));
 }
+
+#[test]
+fn the_number_shown_large_is_not_a_row_again_beneath_it() {
+    let row = |label: &str, value: MetricValue, at: Option<&str>| MetricRow { label: label.to_string(), value, unit: None, at: at.map(Instant::carried), link: None };
+    let answer = MetricAnswer {
+        rows: vec![row("Open pull requests", MetricValue::Number(3.0), None), row("#4023 Say a stalled step waits", MetricValue::Text("NickMele".to_string()), None)],
+        picture: None,
+    };
+    assert_eq!(metric::headline(&answer).map(|head| head.label), Some("Open pull requests".to_string()));
+    let labels: Vec<String> = metric::items("open-pulls", &answer).into_iter().map(|item| item.title.to_string()).collect();
+    assert_eq!(labels, ["#4023 Say a stalled step waits"], "the headline row is drawn large, not listed again");
+
+    let series = MetricAnswer {
+        rows: vec![row("errors", MetricValue::Number(4.0), Some("2026-11-24T10:00:00Z")), row("errors", MetricValue::Number(6.0), Some("2026-11-24T11:00:00Z"))],
+        picture: None,
+    };
+    assert_eq!(metric::items("errors", &series).len(), 2, "a point of a series stays in the rows");
+}
