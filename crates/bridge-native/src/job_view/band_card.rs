@@ -754,6 +754,10 @@ impl JobView {
         if matches!(stand, Stand::Approved | Stand::SentBack | Stand::Withdrawn | Stand::Dismissed) {
             return self.folded_document(foot, &card.title, card.revision, stand, kept.and_then(|one| one.words.as_deref()), words, here, page, look, cx);
         }
+        // The Judge's press stands in the footer and what it found under it. A page's notes stand at the card's foot: the
+        // card draws the page's first screen, and the reader draws its blocks.
+        let judge = self.judge_on_card(ix, &key, ipc::JudgeArtifact { kind: ipc::JudgeKind::Doc, id: card.page.clone(), title: card.title.clone() }, page, look, cx);
+        let (judge_press, judge_notes) = judge.map_or((None, None), |judge| (Some(judge.press), judge.notes));
         // The band and the screen are one press that opens the page.
         let open = run.clone();
         let press = div()
@@ -784,7 +788,8 @@ impl JobView {
             }))
             .child(press)
             .children(words.map(|words| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(quote(look, words))))
-            .child(foot_box(look).child(self.band_footer(&foot, Vec::new(), page, look, cx)));
+            .child(foot_box(look).child(self.band_footer(&foot, judge_press.into_iter().collect(), page, look, cx)))
+            .children(judge_notes.map(|notes| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(notes)));
         labelled(frame, Role::Article, format!("Document: {name}, Revision {}", card.revision)).into_any_element()
     }
 }

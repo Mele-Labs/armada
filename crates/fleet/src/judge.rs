@@ -5,7 +5,7 @@
 //! the Fleet around it: the call, the store and the person's acts, and `judge_content` is where each
 //! kind of artifact is read into a [`Content`].
 //!
-//! The Judge is blind to the agent's words, reads the repository read-only, and is refused whole where
+//! The Judge is blind to the agent's words (bar the one claim a person presses Judge on), reads the repository read-only, and is refused whole where
 //! it cites a file that is not there or quotes words it was never shown, by the check a step judge keeps
 //! (`verification::invented`).
 
@@ -51,7 +51,7 @@ enum Parts {
 impl Content {
     fn parts(&self) -> Parts {
         match self.kind {
-            JudgeKind::Job | JudgeKind::PullRequest | JudgeKind::Commit | JudgeKind::File => Parts::Diff,
+            JudgeKind::Job | JudgeKind::PullRequest | JudgeKind::Commit | JudgeKind::File | JudgeKind::Branch => Parts::Diff,
             JudgeKind::Doc => Parts::Paragraphs,
             _ => Parts::Whole,
         }
@@ -73,11 +73,17 @@ fn label(kind: JudgeKind) -> &'static str {
         JudgeKind::Subagent => "a subagent's report",
         JudgeKind::Issue => "an issue",
         JudgeKind::Note => "a note",
+        JudgeKind::Excerpt => "words someone said, a claim to check against the repository",
+        JudgeKind::Draft => "a draft",
+        JudgeKind::Branch => "a branch offered for the owner to try",
+        JudgeKind::Reply => "an agent's reply, a claim to check against the repository",
     }
 }
 
 /// Everything the call is shown. **There is no field for the agent's words**: its messages, its account
-/// of the work and its transcript are withheld, and a brief built from this cannot carry them.
+/// of the work and its transcript are withheld, and a brief built from this cannot carry them. The one
+/// bend: for `Excerpt` and `Reply` the words judged are `artifact`'s text, shown as the claim under test
+/// and never as evidence, and nothing else of the agent's reaches the brief.
 pub struct Shown<'a> {
     /// The person's first message in the Job's thread.
     pub request: &'a str,

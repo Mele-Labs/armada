@@ -53,6 +53,7 @@ pub(super) const KINDS: &[(&str, &str, &str)] = &[
     ("walks", "Walks", "footprints"),
     ("loadout", "Loadout", "layers"),
     ("tokens", "Tokens", "chart-column"),
+    ("prototype", "Prototype", "app-window"),
 ];
 
 /// Done or Open switched off in Settings › Layout: neither drawn nor offered by +. Open is the registry's `next`.
@@ -108,9 +109,11 @@ impl JobView {
         let offers = cx.try_global::<super::view_tabs::TabOffers>().map(|offers| offers.0.clone()).unwrap_or_default();
         let arrangement = self.arrangement().into_owned();
         let into = super::panes_place::view_pane_of(&arrangement, pane);
+        // Prototype is offered where the Job has a scene: it is the way back to a tab he closed.
+        let prototype = self.shown.as_ref().is_some_and(|job| self.has_prototype(job));
         let entries: Vec<Entry> = KINDS
             .iter()
-            .filter(|&&(id, _, _)| !laid_off(id) && !(id == "thread" && tree::has_kind(&arrangement, id)))
+            .filter(|&&(id, _, _)| !laid_off(id) && !(id == "thread" && tree::has_kind(&arrangement, id)) && (id != "prototype" || prototype))
             .map(|&(id, word, glyph)| Entry::Item { id, label: word.into(), icon: Some(glyph), danger: false, key: None, off: None })
             .chain(offers.iter().map(|offer| Entry::Item { id: offer.id, label: offer.label.clone(), icon: Some(offer.glyph), danger: false, key: None, off: None }))
             .collect();
@@ -131,6 +134,10 @@ impl JobView {
                     this.aim_at(&job, &target);
                     window.defer(cx, move |window, cx| open(job, into, window, cx));
                 }
+                return;
+            }
+            if *id == "prototype" {
+                this.open_prototype_tab(window, cx);
                 return;
             }
             if let Some(kind) = KINDS.iter().map(|one| one.0).find(|kind| kind == id) {

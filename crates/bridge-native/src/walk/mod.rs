@@ -14,6 +14,7 @@
 pub mod all;
 pub mod bar;
 pub mod check;
+pub mod cockpit;
 pub mod dispatch;
 pub mod fleet;
 pub mod move_to_project;
@@ -194,9 +195,21 @@ pub struct Target {
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Step {
+    /// The scene state this step's picture stands for, where a prototype of the screen was approved: `shot_check`
+    /// pairs each `<state id>` of the scene with the step of the same id. Most steps carry none.
+    pub id: Option<&'static str>,
     pub say: &'static str,
     pub verb: Verb,
     pub target: Target,
+}
+
+impl Step {
+    /// This step, named for the scene state its picture stands for.
+    #[allow(dead_code)]
+    pub const fn id(mut self, id: &'static str) -> Step {
+        self.id = Some(id);
+        self
+    }
 }
 
 /// One walk: the screen it plays on, the mock data it starts from, and its steps.
@@ -231,51 +244,53 @@ pub enum Screen {
     Settings,
     /// The Jobs screen in front inside the Operator's screen, with Reviews and Kit in the strip, on `reviews/mock.rs` and `kit/mock.rs`.
     Reviews,
+    /// The Cockpit as the app opens it: the Jobs list with the Operator's page at its right until a Job is opened.
+    Cockpit,
 }
 
 /// The Operator's precedent walk: the follows line on the first card, Ruled's first row, and its Undo.
 
 const fn scene(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Scene(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Scene(name), target: Target { role, name: target } }
 }
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
-    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+    Step { id: None, say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn right_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
-    Step { say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
+    Step { id: None, say, verb: Verb::RightPressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn marks(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Marks(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Marks(name), target: Target { role, name: target } }
 }
 
 const fn pairing(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Pairing(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Pairing(name), target: Target { role, name: target } }
 }
 
 const fn answer(say: &'static str, name: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Answer(name), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Answer(name), target: Target { role, name: target } }
 }
 
 const fn fresh(say: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::Fresh, target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::Fresh, target: Target { role, name: target } }
 }
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 /// A step that presses inside the page a Job's page tab draws, or only looks where `press` is false; the tab's own page
 /// region is ringed.
 const fn in_page(say: &'static str, role: &'static str, name: &'static str, within: Option<(&'static str, &'static str)>, press: bool) -> Step {
-    Step { say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
+    Step { id: None, say, verb: Verb::InPage(PageAim { role, name, within, press }), target: Target { role: "region", name: "Page" } }
 }
 
 /// A step that selects the words of an element inside the page, as a person drags over them.
 const fn in_page_select(say: &'static str, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb: Verb::InPageSelect(PageAim { role, name, within: None, press: false }), target: Target { role: "region", name: "Page" } }
+    Step { id: None, say, verb: Verb::InPageSelect(PageAim { role, name, within: None, press: false }), target: Target { role: "region", name: "Page" } }
 }
 
 /// The hand off marks, played alone and in today's walk.
@@ -334,7 +349,7 @@ const fn joined<const N: usize>(parts: &[&[Step]]) -> [Step; N] {
 static TODAY: [Step; total(TODAY_PARTS)] = joined(TODAY_PARTS);
 
 const fn part(say: &'static str, screen: Screen, scenario: &'static str, role: &'static str, target: &'static str) -> Step {
-    Step { say, verb: Verb::FreshIn(screen, scenario), target: Target { role, name: target } }
+    Step { id: None, say, verb: Verb::FreshIn(screen, scenario), target: Target { role, name: target } }
 }
 
 /// The states hard to reach by using the app, each part on its own mock, a step or two each.
@@ -1722,6 +1737,44 @@ pub static WALKS: &[Walk] = &[
         ],
     },
     Walk {
+        name: "native-prototype",
+        title: "A prototype the Job saved: its scene in a tab of its own, two states a press apart",
+        screen: Screen::Jobs,
+        scenario: "prototype",
+        steps: &[
+            press_on("The Job saved a scene: it arrives as a Prototype tab beside the thread", "row", "Edit the merge line", "tab", "Job tab: Jobs list"),
+            press_on("The tab draws the scene from the app's own parts: a list of Jobs, each a row with its state chip", "tab", "Job tab: Jobs list", "row", "Job row"),
+            step("The head names the scene and a chip for each state, the one shown marked", Verb::Look, "button", "list, shown"),
+            step("Pop out is in the head, for a window of its own with the note capture over it", Verb::Look, "button", "Pop out"),
+            press_on("A press on a row goes to the scene's detail state", "row", "Job row", "button", "detail, shown"),
+            press_on("The detail is a card with its Back press, which goes back to the list", "button", "Back button", "button", "list, shown"),
+        ],
+    },
+    Walk {
+        name: "native-prototype-sheet",
+        title: "A prototype in the review sheet: the scene drawn there, with Open tab and Pop out in its head",
+        screen: Screen::Jobs,
+        scenario: "prototype",
+        steps: &[
+            press_on("The Job saved a scene that asks", "row", "Edit the merge line", "region", "Thread"),
+            press_on("A press on the question about it opens the review sheet", "button", "Open sketch Jobs list", "dialog", "Review"),
+            step("The review sheet draws the scene itself, with a chip for each state", Verb::Look, "button", "list, shown"),
+            step("Open tab and Pop out stand in its head", Verb::Look, "button", "Open tab"),
+            press_on("A press on a row goes to the scene's detail state", "row", "Job row", "button", "detail, shown"),
+            press_on("Open tab gives the sheet way to the Job's Prototype tab", "button", "Open tab", "tab", "Job tab: Jobs list"),
+        ],
+    },
+    Walk {
+        name: "native-prototype-trouble",
+        title: "A prototype with mistakes: each is marked where it is drawn and listed under the head",
+        screen: Screen::Jobs,
+        scenario: "prototype-trouble",
+        steps: &[
+            press_on("The Job saved a scene with mistakes", "row", "Edit the merge line", "tab", "Job tab: Jobs list, with mistakes"),
+            press_on("It draws what it can: each mistake is marked where it is, and the trouble line lists them under the head", "tab", "Job tab: Jobs list, with mistakes", "heading", "Jobs list, with mistakes"),
+        ],
+    },
+    Walk {
         name: "native-artifact-scroll",
         title: "An artifact of several parts sent back from the review panel: Ask for changes opens its box in the bar",
         screen: Screen::Jobs,
@@ -2178,11 +2231,31 @@ pub static WALKS: &[Walk] = &[
         step("→ widens it from the keys, ← narrows it", Verb::Key("right"), "separator", "Resize the Jobs list"),
         step("/ puts the keys in the search from anywhere on the screen", Verb::Key("/"), "searchbox", "Search Jobs"),
         step("↓ gives them back to the list", Verb::Key("down"), "row", "Fix the merge line freshness chip"),
-        step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
-        step("↓ past Active to Paused", Verb::Keys(&["down", "down"]), "menuitemcheckbox", "Paused"),
+        step("The view button beside the search picks how the list is grouped and which Jobs it holds", Verb::Press, "button", "By project"),
+        step("↓ past the groups, All Jobs and Needs you only to Paused", Verb::Keys(&["down", "down", "down", "down", "down"]), "menuitemcheckbox", "Paused"),
         step("Enter picks it: only paused Jobs, each with its mark", Verb::Key("enter"), "img", "Paused"),
-        step("The scope says what the list holds", Verb::Look, "button", "Paused"),
+        step("The view button says what the list holds", Verb::Look, "button", "Paused \u{b7} By project"),
     ],
+    },
+    Walk {
+        name: "jobs-view",
+        title: "The Jobs list's view button: how it is grouped, and which Jobs it holds",
+        screen: Screen::Jobs,
+        scenario: "jobs-projects",
+        steps: &[
+            step("The list opens grouped by state, Needs you first", Verb::Look, "heading", "Needs you"),
+            step("Working stands under it", Verb::Look, "heading", "Working"),
+            step("One button beside the search names the view: the group, here", Verb::Press, "button", "By state"),
+            step("↓ to By project", Verb::Key("down"), "menuitemcheckbox", "By project"),
+            step("Enter picks it: a heading for each project", Verb::Key("enter"), "heading", "Armada"),
+            step("The button names the group again", Verb::Press, "button", "By project"),
+            step("↓ to One list", Verb::Keys(&["down", "down"]), "menuitemcheckbox", "One list"),
+            step("Enter picks it", Verb::Key("enter"), "button", "One list"),
+            step("A list of every Job by title draws no headings", Verb::Absent("heading", "Armada"), "button", "One list"),
+            step("The button again", Verb::Press, "button", "One list"),
+            step("↓ past By project, One list and All Jobs to Needs you only, and Enter picks it", Verb::Keys(&["down", "down", "down", "down", "enter"]), "button", "Needs you \u{b7} One list"),
+            step("A view that narrows the list turns the button amber, and it names both", Verb::Look, "button", "Needs you \u{b7} One list"),
+        ],
     },
     Walk {
         name: "jobs-fold",
@@ -2194,18 +2267,18 @@ pub static WALKS: &[Walk] = &[
             press_on("A press on the chevron folds that parent's sub-Jobs away", "button", "Fold sub-Jobs of Fix the walk at 820", "img", "Needs you: Re-take the shots"),
             step("Its row keeps one glyph for each state its sub-Jobs are in, in the state's hue. Needs you stays amber and first, so folding hides no need, and the tooltip names the sub-Jobs in that state", Verb::Hover, "img", "Needs you: Re-take the shots"),
             step("The chevron points right, and a press unfolds it", Verb::Look, "button", "Unfold sub-Jobs of Fix the walk at 820"),
-            Step { say: "⌥ and a press on a chevron folds every parent", verb: Verb::AltPressOn("button", "Fold sub-Jobs of Land the native stack"), target: Target { role: "button", name: "Unfold sub-Jobs of Jobs across home and work Macs" } },
+            Step { id: None, say: "⌥ and a press on a chevron folds every parent", verb: Verb::AltPressOn("button", "Fold sub-Jobs of Land the native stack"), target: Target { role: "button", name: "Unfold sub-Jobs of Jobs across home and work Macs" } },
             step("Land the native stack shows needs you, failed and working, one glyph each", Verb::Look, "img", "Needs you: Re-take the shots"),
-            Step { say: "⌥ and a press on a folded chevron unfolds every parent", verb: Verb::AltPressOn("button", "Unfold sub-Jobs of Land the native stack"), target: Target { role: "row", name: "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada" } },
+            Step { id: None, say: "⌥ and a press on a folded chevron unfolds every parent", verb: Verb::AltPressOn("button", "Unfold sub-Jobs of Land the native stack"), target: Target { role: "row", name: "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada" } },
             step("← on a highlighted parent folds it", Verb::Key("left"), "button", "Unfold sub-Jobs of Land the native stack"),
             step("→ unfolds it", Verb::Key("right"), "button", "Fold sub-Jobs of Land the native stack"),
             step("A right press on a parent: Fold sub-Jobs and Fold all sub-Jobs", Verb::RightPress("Land the native stack"), "menuitem", "Fold all sub-Jobs"),
             step("Fold sub-Jobs folds that one", Verb::Open("menuitem", "Fold sub-Jobs"), "button", "Unfold sub-Jobs of Land the native stack"),
             step("The menu of a folded parent says Unfold sub-Jobs and Unfold all sub-Jobs", Verb::RightPress("Land the native stack"), "menuitem", "Unfold all sub-Jobs"),
             step("Esc shuts it", Verb::Key("escape"), "row", "Land the native stack"),
-            step("The scope menu holds Root Jobs only", Verb::Press, "button", "Active"),
+            step("The view menu holds Root Jobs only", Verb::Press, "button", "By project"),
             step("Root Jobs only folds every parent at once", Verb::Open("menuitemcheckbox", "Root Jobs only"), "button", "Unfold sub-Jobs of Jobs across home and work Macs"),
-            step("Esc shuts the menu", Verb::Key("escape"), "button", "Active"),
+            step("Esc shuts the menu", Verb::Key("escape"), "button", "By project"),
             step("⌘K offers Fold all sub-Jobs, Unfold all sub-Jobs and Root Jobs only", Verb::Key("cmd-k"), "dialog", "Command palette"),
             step("Typed words find them", Verb::Type("Unfold all"), "searchbox", "Search actions, jobs and settings"),
             step("Each ends in its kind, Command", Verb::Look, "option", "Unfold all sub-Jobs"),
@@ -2220,8 +2293,8 @@ pub static WALKS: &[Walk] = &[
         steps: &[
             step("A Job another started stands under it, a line from the starter to its last", Verb::Look, "row", "Jobs across home and work Macs"),
             step("A chain two deep keeps its starter's line running past the rows that are not its own", Verb::Look, "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
-            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
-            step("Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Key("enter"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
+            step("The view button again", Verb::Press, "button", "By project"),
+            step("↓ past the groups and All Jobs to Needs you only, and Enter picks it: the Jobs that need you, each under its starters, drawn muted for their place", Verb::Keys(&["down", "down", "down", "down", "enter"]), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
             step("A starter drawn for its place is not a match: ↓ goes from one Job that needs you to the next", Verb::Key("down"), "row", "Re-take the shots, Linked Job, started by Fix the walk at 820 in armada"),
         ],
     },
@@ -2231,28 +2304,28 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::App,
         scenario: "jobs-snoozed",
         steps: &[
-            step("A snoozed Job leaves Active and Needs you. The scope's menu lists it under Snoozed", Verb::Press, "button", "Active"),
-            step("↓ past Needs you, Active and Paused to Snoozed", Verb::Keys(&["down", "down", "down"]), "menuitemcheckbox", "Snoozed"),
+            step("A snoozed Job leaves All Jobs and Needs you only. The view menu lists it under Snoozed", Verb::Press, "button", "By state"),
+            step("↓ past the groups, All Jobs, Needs you only and Paused to Snoozed", Verb::Keys(&["down"; 6]), "menuitemcheckbox", "Snoozed"),
             step("Enter picks it: the Job wears a quiet glyph beside its state. It is paused until then, and what it asks of you stays inside it", Verb::Key("enter"), "img", "Paused until 4:30 PM"),
-            step("The scope again", Verb::Press, "button", "Snoozed"),
-            step("↓ to Active", Verb::Key("down"), "menuitemcheckbox", "Active"),
+            step("The view button again", Verb::Press, "button", "Snoozed \u{b7} By state"),
+            step("↓ past the groups to All Jobs", Verb::Keys(&["down"; 3]), "menuitemcheckbox", "All Jobs"),
             step("Enter picks it", Verb::Key("enter"), "row", "Audit the docs index"),
-            step("A right press opens the Job's menu: Snooze sits under Pause", Verb::RightPress("Audit the docs index"), "menuitem", "Snooze"),
+            step("A right press opens the Job's menu: Snooze sits under Pause and Prioritise", Verb::RightPress("Audit the docs index"), "menuitem", "Snooze"),
             press_on("Snooze opens its presets, each saying when it ends", "menuitem", "Snooze", "menuitem", "1 hour"),
             step("Tomorrow is nine the next morning", Verb::Look, "menuitem", "Tomorrow"),
-            press_on("1 hour", "menuitem", "1 hour", "button", "Active"),
-            step("The Job leaves Active", Verb::Absent("row", "Audit the docs index"), "button", "Active"),
-            step("The scope again", Verb::Press, "button", "Active"),
-            step("↓ to Snoozed", Verb::Keys(&["down", "down", "down"]), "menuitemcheckbox", "Snoozed"),
+            press_on("1 hour", "menuitem", "1 hour", "button", "By state"),
+            step("The Job leaves All Jobs", Verb::Absent("row", "Audit the docs index"), "button", "By state"),
+            step("The view button again", Verb::Press, "button", "By state"),
+            step("↓ to Snoozed", Verb::Keys(&["down"; 6]), "menuitemcheckbox", "Snoozed"),
             step("Enter picks it: the Job is here with the quiet glyph", Verb::Key("enter"), "img", "Paused until 3:02 PM"),
             step("Rest the pointer on it and it says when the Job resumes", Verb::Hover, "img", "Paused until 3:02 PM"),
             step("The tooltip names the time alone, since it is today's", Verb::Later(900), "img", "Paused until 3:02 PM"),
             step("A right press on a snoozed Job offers Wake now in place of Snooze", Verb::RightPress("Audit the docs index"), "menuitem", "Wake now"),
-            press_on("Wake now", "menuitem", "Wake now", "button", "Snoozed"),
-            step("The Job leaves Snoozed", Verb::Absent("row", "Audit the docs index"), "button", "Snoozed"),
-            step("The scope again", Verb::Press, "button", "Snoozed"),
-            step("↓ to Active", Verb::Key("down"), "menuitemcheckbox", "Active"),
-            step("Enter picks it: the Job is back in Active, as it was", Verb::Key("enter"), "row", "Audit the docs index"),
+            press_on("Wake now", "menuitem", "Wake now", "button", "Snoozed \u{b7} By state"),
+            step("The Job leaves Snoozed", Verb::Absent("row", "Audit the docs index"), "button", "Snoozed \u{b7} By state"),
+            step("The view button again", Verb::Press, "button", "Snoozed \u{b7} By state"),
+            step("↓ to All Jobs", Verb::Keys(&["down"; 3]), "menuitemcheckbox", "All Jobs"),
+            step("Enter picks it: the Job is back in All Jobs, as it was", Verb::Key("enter"), "row", "Audit the docs index"),
             step("A right press picks its row", Verb::RightPress("Audit the docs index"), "menuitem", "Snooze"),
             step("Esc shuts the menu and the row keeps the keys", Verb::Key("escape"), "row", "Audit the docs index"),
             step("Z on a row opens the presets from the keys", Verb::Key("z"), "menuitem", "Custom\u{2026}"),
@@ -2260,9 +2333,9 @@ pub static WALKS: &[Walk] = &[
             step("Esc cancels, and nothing changes", Verb::Key("escape"), "row", "Audit the docs index"),
             step("Z again, and Custom\u{2026}", Verb::Key("z"), "menuitem", "Custom\u{2026}"),
             step("It opens on tomorrow at nine again", Verb::Keys(&["down", "down", "down", "enter"]), "dialog", "Snooze Audit the docs index"),
-            step("Enter sets what the boxes hold, and the Job leaves Active", Verb::Key("enter"), "button", "Active"),
-            step("The scope again", Verb::Press, "button", "Active"),
-            step("↓ to Snoozed", Verb::Keys(&["down", "down", "down"]), "menuitemcheckbox", "Snoozed"),
+            step("Enter sets what the boxes hold, and the Job leaves All Jobs", Verb::Key("enter"), "button", "By state"),
+            step("The view button again", Verb::Press, "button", "By state"),
+            step("↓ to Snoozed", Verb::Keys(&["down"; 6]), "menuitemcheckbox", "Snoozed"),
             step("Enter picks it: the Job says when it is loud again", Verb::Key("enter"), "img", "Quiet until Nov 14 9:00 AM"),
         ],
     },
@@ -2293,11 +2366,11 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-many",
         steps: &[
-            step("The scope beside the search picks which Jobs the list holds", Verb::Press, "button", "Active"),
-            step("↓ past Needs you, Active, Paused and Snoozed to Quiet", Verb::Keys(&["down", "down", "down", "down"]), "menuitemcheckbox", "Quiet"),
+            step("The view button beside the search picks which Jobs the list holds", Verb::Press, "button", "By state"),
+            step("↓ past the groups, All Jobs, Needs you only, Paused and Snoozed to Quiet", Verb::Keys(&["down"; 7]), "menuitemcheckbox", "Quiet"),
             step("Enter picks it: a Job nothing reaches wears the broken plug, and its tooltip says Not reachable", Verb::Key("enter"), "row", "Retry webhooks on a 503"),
-            step("The scope again", Verb::Press, "button", "Quiet"),
-            step("↓ to Ended", Verb::Keys(&["down", "down", "down", "down", "down"]), "menuitemcheckbox", "Ended"),
+            step("The view button again", Verb::Press, "button", "Quiet \u{b7} By state"),
+            step("↓ to Ended", Verb::Keys(&["down"; 8]), "menuitemcheckbox", "Ended"),
             step("Enter picks it: a Job that was ended wears the power mark, switched off, and its tooltip says Ended", Verb::Key("enter"), "row", "An ended Job stays out of the list"),
         ],
     },
@@ -2442,6 +2515,20 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Dispatch,
         scenario: "jobs-many",
         steps: &notes::STEPS,
+    },
+    Walk {
+        name: "cockpit",
+        title: "The Cockpit: Jobs and the Operator in one screen",
+        screen: Screen::Cockpit,
+        scenario: "jobs-many",
+        steps: cockpit::STEPS,
+    },
+    Walk {
+        name: "cockpit-floor",
+        title: "The Cockpit with the Operator off: the floor plan in the page's place, and Switch on above it",
+        screen: Screen::Cockpit,
+        scenario: "jobs-many",
+        steps: cockpit::FLOOR_STEPS,
     },
     Walk {
         name: "operator-page",
@@ -3338,15 +3425,15 @@ pub static WALKS: &[Walk] = &[
         screen: Screen::Jobs,
         scenario: "jobs-screens",
         steps: &[
-            step("Jobs stand in groups by project; each glyph says the Job's state, and a Job that needs you breathes amber", Verb::Look, "img", "Waiting on you"),
+            step("Jobs stand in groups by state; each glyph says the Job's state, and a Job that needs you breathes amber", Verb::Look, "img", "Waiting on you"),
             step("A right press opens the Job's menu", Verb::RightPress("Audit the docs index"), "menuitem", "Pause"),
             step("Esc shuts it", Verb::Key("escape"), "row", "Audit the docs index"),
             step("/ puts the keys in the search from anywhere on the screen", Verb::Key("/"), "searchbox", "Search Jobs"),
             step("↓ gives them back to the list", Verb::Key("down"), "row", "Fix the merge line freshness chip"),
-            step("The scope beside the search: Needs you comes first", Verb::Press, "button", "Active"),
-            step("Enter picks it: only the Jobs that need you now", Verb::Key("enter"), "row", "Flaky login test"),
-            step("The scope says what the list holds; a press opens it again", Verb::Press, "button", "Needs you"),
-            step("↓ back to Active", Verb::Key("down"), "menuitemcheckbox", "Active"),
+            step("The view button beside the search", Verb::Press, "button", "By state"),
+            step("↓ past the groups and All Jobs to Needs you only, and Enter picks it: only the Jobs that need you now", Verb::Keys(&["down", "down", "down", "down", "enter"]), "row", "Flaky login test"),
+            step("The view button says what the list holds; a press opens it again", Verb::Press, "button", "Needs you \u{b7} By state"),
+            step("↓ past the groups to All Jobs", Verb::Keys(&["down"; 3]), "menuitemcheckbox", "All Jobs"),
             step("Enter picks it, and every live Job is back", Verb::Key("enter"), "row", "Native Bridge foundation"),
             step("Enter opens the focused Job; what waits on you is up", Verb::Key("enter"), "button", "Needs you"),
             step("The keys are in its box at once: words go straight in", Verb::Keys(&["o", "k"]), "textbox", "Message"),
@@ -3494,11 +3581,11 @@ pub static WALKS: &[Walk] = &[
             step("Esc puts it away and keeps what was typed; the Job's own words are back in its box", Verb::Key("escape"), "textbox", "Message"),
             step("Report again finds the words where they were", Verb::Open("button", "Report issue with job"), "textbox", "Report"),
             step("Send starts a Job in Armada's repository, tells it the words and what the app holds about this Job, and opens it", Verb::Gone, "button", "Send"),
-            step("The list again, as it stood", Verb::Fresh, "row", "Audit the docs index"),
-            step("Dragging a Job lifts it over another in its project", Verb::Lift("Audit the docs index"), "row", "Native Bridge foundation"),
+            step("The list again, as it stood", Verb::Fresh, "row", "Dark mode for the settings page"),
+            step("Dragging a Job lifts it over another in its group", Verb::Lift("Flaky login test"), "row", "Checkout page loads twice"),
             step("The line shows where it lands", Verb::Look, "img", "Lands here"),
-            step("Let go: it stands there, and the list keeps the order", Verb::Release, "row", "Audit the docs index"),
-            step("Not drawn here yet, so their keys reach nothing: t, the timeline; e, the Field; b, the bays; q, the queue; f, flight control", Verb::Look, "row", "Audit the docs index"),
+            step("Let go: it stands there, and the list keeps the order", Verb::Release, "row", "Flaky login test"),
+            step("Not drawn here yet, so their keys reach nothing: t, the timeline; e, the Field; b, the bays; q, the queue; f, flight control", Verb::Look, "row", "Flaky login test"),
         ],
     },
     Walk {
@@ -3546,17 +3633,17 @@ pub static WALKS: &[Walk] = &[
         scenario: "ways-listen",
         steps: &[
             step("A Job that ended: a press on its row opens its thread", Verb::Press, "row", "Settings window"),
-            Step { say: "Its done summary is spoken, and the card in the thread shows how far it is", verb: Verb::Listen("job-ends"), target: Target { role: "timer", name: "0:06 / 0:11" } },
+            Step { id: None, say: "Its done summary is spoken, and the card in the thread shows how far it is", verb: Verb::Listen("job-ends"), target: Target { role: "timer", name: "0:06 / 0:11" } },
             step("The card names the voice that speaks", Verb::Look, "label", "Zoe, Premium"),
             step("Another Job: a press on its row opens its thread", Verb::Press, "row", "Endpoint cleanup"),
-            Step { say: "A question arrives and is spoken: the Job's name, the question, then its options", verb: Verb::Listen("asks"), target: Target { role: "timer", name: "0:02 / 0:08" } },
-            Step { say: "A second question waits behind it and is not spoken yet", verb: Verb::Listen("asks-more"), target: Target { role: "img", name: "Queued" } },
+            Step { id: None, say: "A question arrives and is spoken: the Job's name, the question, then its options", verb: Verb::Listen("asks"), target: Target { role: "timer", name: "0:02 / 0:08" } },
+            Step { id: None, say: "A second question waits behind it and is not spoken yet", verb: Verb::Listen("asks-more"), target: Target { role: "img", name: "Queued" } },
             step("Pause stops the line where it is", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Pause"), "button", "Play"),
             step("Play says it again from its start", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Play"), "button", "Pause"),
-            Step { say: "When the first ends the second is spoken, and the two never overlap", verb: Verb::Listen("first-ends"), target: Target { role: "timer", name: "0:02 / 0:05" } },
+            Step { id: None, say: "When the first ends the second is spoken, and the two never overlap", verb: Verb::Listen("first-ends"), target: Target { role: "timer", name: "0:02 / 0:05" } },
             step("Again says the first card once more, and the second goes back behind it", Verb::OpenIn("Endpoint cleanup asks: What happens to the old endpoint? Keep it a week or remove it now?", "Again"), "timer", "0:00 / 0:08"),
-            Step { say: "Without Armada Voice the words stay and a fact says why", verb: Verb::Listen("helper-missing"), target: Target { role: "status", name: "Armada Voice is missing" } },
-            Step { say: "With take in set to read, a new question is not spoken and has no card", verb: Verb::Listen("read"), target: Target { role: "region", name: "Thread" } },
+            Step { id: None, say: "Without Armada Voice the words stay and a fact says why", verb: Verb::Listen("helper-missing"), target: Target { role: "status", name: "Armada Voice is missing" } },
+            Step { id: None, say: "With take in set to read, a new question is not spoken and has no card", verb: Verb::Listen("read"), target: Target { role: "region", name: "Thread" } },
             step("No card is drawn for it", Verb::Absent("article", "Endpoint cleanup asks: Delete the old docs? Yes or No?"), "region", "Thread"),
         ],
     },

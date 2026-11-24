@@ -17,7 +17,7 @@ use api::{Refusal, Sessions};
 use ipc::{
     AddPart, AnswerDocument, AnswerPart, AnswerSketch, ArtifactForm, ArtifactPart, ArtifactState, AttachmentReport, DocumentHow, DraftHow, Instant,
     JobArtifact, PartAnswer, PartContent, PartHow, PartKind, PartState, SessionFact, SessionId, SessionRecord, SessionReport, SketchHow, WireError,
-    ARTIFACT_IN, ARTIFACT_PARTS, MOST_PARTS, MOST_PART_BYTES, SKETCH_ASKED, SKETCH_SETTLED, SKETCH_WITHDRAWN,
+    ARTIFACT_IN, ARTIFACT_PARTS, MOST_PARTS, MOST_PART_BYTES, MOST_PROTOTYPE_BYTES, SKETCH_ASKED, SKETCH_SETTLED, SKETCH_WITHDRAWN,
 };
 
 use super::artifact_for::with_for;
@@ -26,7 +26,7 @@ use super::sketching::TARGET_PREFIX;
 use crate::daemon::Fleet;
 
 pub(crate) const PART_REFUSED: &str = "fleet.part_refused";
-const PART_UNNAMED: &str = "fleet.part_unnamed";
+pub(crate) const PART_UNNAMED: &str = "fleet.part_unnamed";
 const PART_UNKNOWN: &str = "fleet.part_unknown";
 const PART_NOT_OPEN: &str = "fleet.part_not_open";
 pub(crate) const PART_REDRAWN: &str = "fleet.part_redrawn";
@@ -53,8 +53,19 @@ fn store_parts(detail: &mut BTreeMap<String, String>, parts: &[ArtifactPart]) ->
         return Ok(());
     }
     let written = ipc::encode(&parts).map_err(|why| why.to_string())?;
-    if written.len() > MOST_PART_BYTES {
-        return Err(format!("the parts it holds weigh {} bytes and an artifact keeps at most {MOST_PART_BYTES}. Add less, or put it in a new revision of a part", written.len()));
+    // A prototype has a cap of its own, so what it weighs does not count against the rest.
+    let (prototypes, others): (Vec<&ArtifactPart>, Vec<&ArtifactPart>) = parts.iter().partition(|part| part.content.kind() == PartKind::Prototype);
+    let others_weigh = if prototypes.is_empty() { written.len() } else { ipc::encode(&others).map_err(|why| why.to_string())?.len() };
+    if others_weigh > MOST_PART_BYTES {
+        return Err(format!("the parts it holds weigh {others_weigh} bytes and an artifact keeps at most {MOST_PART_BYTES}. Add less, or put it in a new revision of a part"));
+    }
+    for part in prototypes {
+        if let PartContent::Prototype(held) = &part.content {
+            let weight = held.markup.len() + held.fixtures.iter().map(|one| one.text.len()).sum::<usize>();
+            if weight > MOST_PROTOTYPE_BYTES {
+                return Err(format!("the prototype `{}` holds {weight} bytes and a prototype keeps at most {MOST_PROTOTYPE_BYTES}. Add less, or put it in a new revision of a part", part.id));
+            }
+        }
     }
     detail.insert(ARTIFACT_PARTS.into(), written);
     Ok(())
@@ -67,7 +78,7 @@ fn unkept(scene: &str) -> bool {
 }
 
 /// Whether a row's detail is a sketch row, which is what an artifact is kept as.
-fn is_sketch(one: &ipc::Attachment) -> bool {
+pub(crate) fn is_sketch(one: &ipc::Attachment) -> bool {
     one.kind == "artifact" && one.detail.get("form").map(String::as_str) == Some("sketch")
 }
 
@@ -306,7 +317,7 @@ pub(crate) fn fleet_question_of(text: &str) -> Option<&str> {
 /// `form` for a client that reads no parts: the first part's kind.
 fn form_of_first(part: &ArtifactPart) -> ArtifactForm {
     match part.content.kind() {
-        PartKind::Drawing | PartKind::Takes => ArtifactForm::Sketch,
+        PartKind::Drawing | PartKind::Takes | PartKind::Prototype => ArtifactForm::Sketch,
         PartKind::Words => ArtifactForm::Draft,
         PartKind::Buttons | PartKind::Page => ArtifactForm::Page,
     }
@@ -418,7 +429,7 @@ where
         ))
     }
 
-    async fn held_rows(&self, id: &str) -> Result<Vec<ipc::Attachment>, Refusal> {
+    pub(crate) async fn held_rows(&self, id: &str) -> Result<Vec<ipc::Attachment>, Refusal> {
         let store = self.store().lock().await;
         let session = store.session(id).map_err(|why| self.ledger_fault(why))?.ok_or_else(|| self.hosted_refusal(PART_UNNAMED, "a job Fleet knows"))?;
         Ok(self.ledger_row(&store, &session)?.attachments)
@@ -669,6 +680,10 @@ where
                 };
                 let result = ipc::VoteResult::Pick { take: take.to_string(), notes: said.notes.clone() };
                 Arc::clone(&self).part_voted(&id, &artifact, &part, part.revision, result, words.clone()).await?;
+            }
+            // A prototype is approved or sent back with words, as a drawing is.
+            (PartContent::Prototype(_), _) => {
+                Arc::clone(&self).stored_words_answered(&id, &artifact, &part, said.how, words.clone(), &said.extras).await?;
             }
             (PartContent::Buttons { .. }, _) => {
                 return Err(not_open(format!("`{}` holds buttons, which act when he presses them", part.id)));

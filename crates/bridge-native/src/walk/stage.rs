@@ -24,6 +24,10 @@ pub struct Focus {
     pub within: FocusHandle,
 }
 
+/// The walks about the view button, which open the Jobs list grouped by state as a first start does. The rest were
+/// written against the list grouped by project, where each Job they press stands in view.
+const BY_STATE: [&str; 4] = ["jobs-screens", "native-snooze", "jobs-ended-glyph", "jobs-view"];
+
 impl Stage {
     pub fn new(walk: &Walk, window: &mut Window, cx: &mut App) -> Result<Stage, String> {
         crate::terminal::shells::hold_walk(cx);
@@ -32,6 +36,7 @@ impl Stage {
         // A walk starts with nothing kept; what it forgets here is only in memory, never in the owner's file.
         crate::drafts::forget_all(cx);
         crate::pairing::begin_mock(walk.scenario, cx);
+        cx.set_global(crate::jobs::WalkGroup(if BY_STATE.contains(&walk.name) { crate::jobs::Group::State } else { crate::jobs::Group::Project }));
         match walk.screen {
             Screen::Dispatch => {
                 super::strip_marks::leave(cx);
@@ -101,6 +106,18 @@ impl Stage {
                 let screen = cx.new(|cx| JobsScreen::new(list, None, window, cx));
                 let held = cx.new(|cx| crate::operator::OperatorScreen::mock_reviews(screen, window, cx));
                 let focus = Focus { keys, within: held.read(cx).within.clone() };
+                window.focus(&focus.keys, cx);
+                Ok(Stage { view: held.into(), focus })
+            }
+            Screen::Cockpit => {
+                super::strip_marks::leave(cx);
+                crate::titlebar::scenes::begin(cx);
+                let records = crate::mock::jobs(walk.scenario)?;
+                let list: Entity<JobsList> = cx.new(|cx| JobsList::mock(&records, cx));
+                let threads = crate::mock::threads(walk.scenario)?;
+                let jobs = cx.new(|cx| JobsScreen::new(list, Some(threads), window, cx));
+                let held = cx.new(|cx| crate::operator::OperatorScreen::mock_cockpit(jobs, window, cx));
+                let focus = Focus { keys: held.read(cx).page.read(cx).focus.clone(), within: held.read(cx).within.clone() };
                 window.focus(&focus.keys, cx);
                 Ok(Stage { view: held.into(), focus })
             }
@@ -645,11 +662,12 @@ pub fn perform(step: &Step, focus: &Focus, window: &mut Window, cx: &mut App) ->
         }
         Verb::PausedScope => {
             let role = role_named("button").expect("a button is a role");
+            // The view button reads the list's group while every Job is shown: By state or By project, as the walk opened it.
             let at = cx
                 .try_global::<LabelBook>()
-                .and_then(|book| book.find(window.window_handle().window_id(), role, "Active"))
+                .and_then(|book| ["By project", "By state"].iter().find_map(|name| book.find(window.window_handle().window_id(), role, name)))
                 .map(|drawn| drawn.bounds.center())
-                .ok_or_else(|| Missed("no button named \"Active\"".into()))?;
+                .ok_or_else(|| Missed("no button named \"By project\" or \"By state\"".into()))?;
             press(MouseButton::Left, at, window, cx);
             // The menu is drawn before Paused is pressed, as a person's second press would find it. Paused is
             // found by name, so the scopes' order can change under the step.

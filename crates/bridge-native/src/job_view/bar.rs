@@ -120,11 +120,11 @@ impl Bar {
 impl JobView {
     /// Copy, Reply and the responses under the agent's message `id`, then its time.
     #[allow(clippy::too_many_arguments)]
-    pub(super) fn message_bar(&self, id: &str, text: &str, at: &ipc::Instant, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
+    pub(super) fn message_bar(&self, id: &str, text: &str, at: &ipc::Instant, judge: Option<AnyElement>, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
         let group = SharedString::from(format!("agent:{id}"));
         let live = self.shown.as_ref().is_some_and(|job| !self.closed(job, cx));
         let copied = self.bar.copied.as_deref() == Some(id);
-        let mut focused = self.bar.held.as_deref() == Some(id);
+        let mut focused = self.bar.held.as_deref() == Some(id) || self.reply_judge_held(id, window);
         let mut reach = |key: &str| {
             let spot = page.keys.spot(key, cx);
             focused |= spot.focus.is_focused(window);
@@ -228,6 +228,7 @@ impl JobView {
                 .group_hover(group, |style| style.opacity(1.))
                 .child(copy)
                 .children(reply)
+                .children(judge)
                 .children(responses)
                 .child(div().ml(look.length(token::SPACE_2)).child(self.stamp(at, look, now, false, cx))),
             Role::Toolbar,

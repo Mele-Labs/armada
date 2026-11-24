@@ -148,6 +148,21 @@ impl ProjectScreen {
         Self::new(board, features, settings, window, cx)
     }
 
+    /// As [`Self::mock`], with the feature library the Cockpit's floor draws given.
+    pub fn mock_holding(reviews: Option<Entity<ReviewsScreen>>, library: ipc::FeatureLibrary, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let board = cx.new(|cx| Board::mock(reviews, window, cx));
+        let features = cx.new(|cx| FeaturesScreen::mock_holding(library, window, cx));
+        let mut wire = crate::new_project::wire::Mock::new();
+        wire.projects.projects.extend(mock::projects());
+        let settings = cx.new(|cx| NewProjectSheet::new(crate::new_project::wire::Wire::Mock(Box::new(wire)), window, cx));
+        Self::new(board, features, settings, window, cx)
+    }
+
+    /// The feature library's screen under the Features tab, which the Cockpit's floor plan reads as well.
+    pub fn library_screen(&self) -> Entity<FeaturesScreen> {
+        self.features.clone()
+    }
+
     fn new(board: Entity<Board>, features: Entity<FeaturesScreen>, settings: Entity<NewProjectSheet>, window: &mut Window, cx: &mut Context<Self>) -> Self {
         let ask = cx.new(|cx| InputState::new(window, cx).placeholder("Ask the librarian"));
         if let Some(words) = crate::drafts::kept(KEEP_ASK, cx) {

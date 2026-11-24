@@ -5,7 +5,7 @@ use super::gateway::MOCK_OTHER_LINK;
 use crate::walk::{Step, Target, Verb};
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {

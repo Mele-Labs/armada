@@ -40,6 +40,8 @@ pub(super) enum RowKind {
     Subagent,
     /// An artifact of parts, read whole: every part answerable as on its card, a drawing large.
     Artifact,
+    /// A live prototype the Job saved: a scene drawn from the app's own parts (`crate::prototype`), keyed by its artifact.
+    Prototype,
 }
 
 /// The word a kept tab names its kind by; a walk's tab is not kept.
@@ -49,6 +51,7 @@ pub(super) fn kind_id(kind: RowKind) -> Option<&'static str> {
         RowKind::Document => Some("document"),
         RowKind::Subagent => Some("subagent"),
         RowKind::Artifact => Some("artifact"),
+        RowKind::Prototype => Some("prototype"),
         RowKind::Walk => None,
     }
 }
@@ -62,6 +65,7 @@ impl RowKind {
             RowKind::Walk => ("eye", "Walk"),
             RowKind::Subagent => ("drone", "Subagent"),
             RowKind::Artifact => ("layers", "Artifact"),
+            RowKind::Prototype => ("app-window", "Prototype"),
         }
     }
 }
@@ -106,6 +110,12 @@ pub(super) struct RowTabs {
     pub(super) mock_kept: HashMap<String, super::page_tab::Kept>,
     /// The reader of each open draft and page, by its name (`reader::reader_id`): its notes, its blocks and its Edit.
     pub(super) readers: HashMap<String, super::reader::Reader>,
+    /// The drawn scene under each prototype tab, by its artifact: kept while the Job holds the artifact, so a press on a state stays.
+    pub(super) protos: HashMap<String, (Entity<crate::prototype::PrototypeView>, Subscription)>,
+    /// The scene drawn in the review sheet for each prototype artifact, kept beside the tab's own so the two never share one element.
+    pub(super) sheets: HashMap<String, (Entity<crate::prototype::PrototypeView>, Subscription)>,
+    /// The windows a prototype was popped out to, by artifact: each is told when the scene is saved again.
+    pub(super) pops: Vec<(String, gpui::WeakEntity<crate::prototype::window::PrototypeWindow>)>,
 }
 
 impl RowTabs {
@@ -150,6 +160,20 @@ impl RowTabs {
         if let Some(front) = self.front {
             self.show(Some(front));
         }
+    }
+
+    /// A tab for the prototype comes to the front, or joins the strip.
+    pub(super) fn focus_prototype(&mut self, artifact: &str, title: String) {
+        self.focus(RowKind::Prototype, artifact, title);
+    }
+
+    /// A prototype the Job saved gets its tab the first time it is seen, behind the tab in front, and not again once he has closed it.
+    pub(super) fn arrive_prototype(&mut self, artifact: &str, title: String) -> bool {
+        if self.arrived.insert(format!("prototype:{artifact}")) && self.at(RowKind::Prototype, artifact).is_none() {
+            self.tabs.push(RowTab { kind: RowKind::Prototype, key: artifact.to_string(), title, seen: false });
+            return true;
+        }
+        false
     }
 
     /// Every tab `stays` refuses goes, as its × would take it.
@@ -436,6 +460,7 @@ impl JobView {
                         RowKind::Walk => true,
                         RowKind::Subagent => subagents.contains(&tab.key),
                         RowKind::Artifact => self.artifact_of(id, &tab.key).is_some_and(|one| !one.parts.is_empty()) && !asks(&tab.key),
+                        RowKind::Prototype => self.prototype_source(id, &tab.key).is_some(),
                     })
                     .map(|tab| (tab.kind, tab.key.clone()))
                     .collect()
@@ -587,6 +612,10 @@ impl JobView {
                 Some(one) => (RowKind::Artifact, one.title.clone()),
                 None => return,
             },
+            "prototype" => match self.prototype_source(id, &key) {
+                Some((title, _)) => (RowKind::Prototype, title),
+                None => return,
+            },
             "subagent" => {
                 let Some(one) = self.subagent_held(id, &key, cx) else { return };
                 self.watch_subagent(&one, cx);
@@ -638,6 +667,7 @@ impl JobView {
             }),
             RowKind::Document => None,
             RowKind::Artifact => return self.artifact_body(id, tab, look, cx),
+            RowKind::Prototype => return self.prototype_body(id, tab, cx),
             // A web page's walk is its bar over its page, edge to edge; a native walk's is its name, brief and Open.
             RowKind::Walk if !is_native(&tab.key) => {
                 let web = self.row_tabs.get(id).and_then(|tabs| tabs.web.get(&tab.key)).map(|(web, _)| web.clone());

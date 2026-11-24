@@ -38,7 +38,7 @@ const KNOWN = [
     kind: "Job",
     keyable: true,
     dormant: false,
-    shortcut: "⇧⌘J",
+    shortcut: "⇧⌘U",
   },
   {
     id: "nav:untouched",
@@ -65,7 +65,7 @@ beforeEach(() => {
       "nav:reviews": "rev",
     },
     hotkeys: {
-      "session:q2": "⇧⌘J",
+      "session:q2": "⇧⌘U",
     },
   });
 });
@@ -107,7 +107,7 @@ test("it lists the rows that hold a pin, a word or a key, by name, and no others
   await expect
     .element(
       page.getByRole("button", {
-        name: "Migration notes for Pocket, hotkey: ⇧⌘J",
+        name: "Migration notes for Pocket, hotkey: ⇧⌘U",
       }),
     )
     .toBeVisible();
@@ -183,7 +183,7 @@ test("pressing a key on a row's control keeps it, and its clear lets it go", asy
   await userEvent.keyboard("{Enter}");
   await userEvent.keyboard("{Meta>}{Shift>}l{/Shift}{/Meta}");
   expect(paletteMemory().hotkeys).toEqual({
-    "session:q2": "⇧⌘J",
+    "session:q2": "⇧⌘U",
     "nav:reviews": "⇧⌘L",
   });
   await userEvent.click(
@@ -192,7 +192,7 @@ test("pressing a key on a row's control keeps it, and its clear lets it go", asy
     }),
   );
   expect(paletteMemory().hotkeys).toEqual({
-    "session:q2": "⇧⌘J",
+    "session:q2": "⇧⌘U",
   });
 });
 
@@ -215,12 +215,12 @@ test("a key the panel would refuse is refused here in its words, and is not kept
   await userEvent.keyboard("{Meta>}c{/Meta}");
   await expect.element(page.getByRole("alert")).toHaveTextContent("Kept by the system");
   // Another row's key names that row.
-  await userEvent.keyboard("{Meta>}{Shift>}j{/Shift}{/Meta}");
+  await userEvent.keyboard("{Meta>}{Shift>}u{/Shift}{/Meta}");
   await expect
     .element(page.getByRole("alert"))
     .toHaveTextContent("Bound to Migration notes for Pocket");
   expect(paletteMemory().hotkeys).toEqual({
-    "session:q2": "⇧⌘J",
+    "session:q2": "⇧⌘U",
   });
 });
 

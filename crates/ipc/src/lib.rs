@@ -310,6 +310,8 @@ mod sketch;
 mod sketch_scene;
 /// A screen node's layout tree read whole, as a client draws it.
 mod sketch_screen;
+/// A scene a Job wrote, shown as a live prototype. `show_prototype`.
+mod prototype;
 mod style_sources;
 /// What a Job draws a `mock` with, read once. `get_design_catalogue`.
 mod design_catalogue;
@@ -806,6 +808,8 @@ pub use artifact_parts::{
     AddPart, AnswerPart, ArtifactPart, CheckedPart, NewPart, NewTake, PartAction, PartAnswer, PartContent, PartHow, PartKind, PartState, PartTake,
     question_checked, ARTIFACT_IN, ARTIFACT_PARTS, MOST_BUTTONS, MOST_PARTS, MOST_PART_BYTES, MOST_PART_ID_CHARS, MOST_QUESTION_CHARS, MOST_TAKES,
 };
+pub use artifact_parts::{PrototypePart, SceneFixture};
+pub use prototype::{file_name_checked, CheckedPrototype, ShowPrototype, MOST_PROTOTYPE_BYTES, MOST_SCENE_BYTES, MOST_STATE_CHARS, SCENES_DIR};
 pub use sketch::{
     page_mocks, page_scene_problems, AnswerSketch, MockNode, RawScene, ShowSketch, Sketch, SketchHow, MOCK_GLYPHS, SKETCH_ASKED, SKETCH_DRAWN,
     SKETCH_IN_PLAN, SKETCH_SETTLED, SKETCH_SETTLED_AT, SKETCH_WITHDRAWN, SKETCH_WORDS,

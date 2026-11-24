@@ -166,6 +166,7 @@ pub(super) fn kind_look(kind: PartKind) -> (&'static str, &'static str) {
         PartKind::Drawing => ("git-branch", "Drawing"),
         PartKind::Buttons => ("zap", "Buttons"),
         PartKind::Page => ("scroll-text", "Page"),
+        PartKind::Prototype => ("app-window", "Prototype"),
     }
 }
 
@@ -408,6 +409,7 @@ impl JobView {
         cx.defer(move |cx| {
             let _ = me.update(cx, |this, cx| {
                 this.sync(&job, cx);
+                this.sync_prototypes(&job, cx);
                 this.parts_redrawn(&job, cx);
             });
         });
@@ -977,6 +979,7 @@ impl JobView {
             PartContent::Drawing { scene } => self.drawing_body(c, &key, part, scene, cx),
             PartContent::Buttons { actions } => self.buttons_body(c, &key, part, actions, cx),
             PartContent::Page { path } => self.page_body(c, &key, part, path, cx),
+            PartContent::Prototype(prototype) => self.prototype_line(c, &key, prototype),
         };
         // Takes draw their own pick row, since it is the vote's. The other parts that ask end in Approve or his answer.
         let answer = match (part.asks, part.state, is_takes(part)) {
@@ -987,7 +990,7 @@ impl JobView {
         let said = c.state().said.get(&key).map(|why| refusal(look, &key, why.clone()));
         // Words, buttons and a still of a page stand at the measure in the sheet; takes, a drawing and a live page take its width.
         let live = c.sheet && matches!(&part.content, PartContent::Page { path } if self.panel_page(&c.job, path, part.revision, cx).is_some());
-        let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. }) { body } else { self.measured(c, body) };
+        let body = if live || matches!(part.content, PartContent::Takes { .. } | PartContent::Drawing { .. } | PartContent::Prototype(_)) { body } else { self.measured(c, body) };
         labelled(
             div()
                 .id(SharedString::from(format!("part:{key}")))
@@ -1806,6 +1809,30 @@ impl JobView {
 
     /// A page: in the review panel the live page itself, the detail's width and as tall as a picture stands there, which scrolls
     /// inside; elsewhere its first screen in a well, which a press opens in its own tab.
+    /// A prototype: in the review sheet the scene itself, drawn as the Job's Prototype tab draws it, with its states, Open tab and Pop out;
+    /// elsewhere its scene's file name.
+    fn prototype_line(&self, c: &Ctx, key: &str, prototype: &ipc::PrototypePart) -> AnyElement {
+        let look = c.look;
+        let scene = c.sheet.then(|| self.row_tabs.get(&c.job).and_then(|tabs| tabs.sheets.get(c.id))).flatten();
+        if let Some((view, _)) = scene {
+            return div()
+                .id(SharedString::from(format!("prototype:{key}")))
+                .w_full()
+                .h(self.tall_most(c))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(look.color(token::BORDER_SUBTLE))
+                .child(view.clone())
+                .into_any_element();
+        }
+        div()
+            .id(SharedString::from(format!("prototype:{key}")))
+            .font_family(look.font_stack(token::FONT_MONO).into_iter().next().unwrap_or_default())
+            .text_size(look.length(token::TEXT_XS))
+            .text_color(look.color(token::FG_MUTED))
+            .child(SharedString::from(prototype.scene.clone()))
+            .into_any_element()
+    }
+
     fn page_body(&self, c: &Ctx, key: &str, part: &ArtifactPart, path: &str, cx: &Context<Self>) -> AnyElement {
         let look = c.look;
         if let Some(live) = c.sheet.then(|| self.panel_page(&c.job, path, part.revision, cx)).flatten() {

@@ -67,7 +67,39 @@ export type PartContent =
   | {
       kind: "page";
       path: string;
-    };
+    }
+  /** A scene the Job saved and its fixtures, as read at this revision. */
+  | {
+      kind: "prototype";
+    } & PrototypePart;
+
+/** One fixture file a scene names, read beside it. */
+export type SceneFixture = {
+  /** The file name as the scene's `src` gives it, e.g. `jobs.json`. */
+  name: string;
+  /** The file's text, raw JSON. */
+  text: string;
+};
+
+/**
+ * A prototype part: the scene text and what it names, read when the Job showed it or saved it again. **Fleet reads
+ * the files and native parses them**, so `trouble` says only what Fleet could not read.
+ */
+export type PrototypePart = {
+  /** The file name under the Job's `scenes/` folder, e.g. `ready.html`. */
+  scene: string;
+  /** The scene's text at this revision. */
+  markup: string;
+  /** Each fixture file the scene names, read beside it. */
+  fixtures: SceneFixture[];
+  /**
+   * The state the Job last set. Absent means the scene's first. **Not `state`: the part is flattened into
+   * [`ArtifactPart`], whose own `state` is where the part stands, and two keys of one name read neither.**
+   */
+  scene_state?: string;
+  /** What Fleet could not read, in Fleet's words. */
+  trouble?: string;
+};
 
 /** How he answered a part. */
 export type PartAnswer = {

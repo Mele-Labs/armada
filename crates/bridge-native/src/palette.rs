@@ -292,6 +292,22 @@ fn move_project_command(list: &JobsList, cx: &App) -> Option<Entry> {
     })
 }
 
+/// Judge…, offered while a Job is open: a menu of what can be judged in it, whose choice is asked at once.
+fn judge_command(list: &JobsList) -> Option<Entry> {
+    list.opened_id().and_then(|id| list.record(&id))?;
+    Some(Entry {
+        id: "cmd:judge".into(),
+        section: Section::Commands,
+        label: "Judge\u{2026}".into(),
+        icon: Some("scale"),
+        shortcut: Some("\u{21e7}\u{2318}J".into()),
+        aliases: vec!["verify".into(), "review".into()],
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
 /// The open pull request a Job holds: its repository and number.
 pub fn pull_of(job: &SessionRecord) -> Option<(ManifestId, u64)> {
     held_pull(job).filter(|(_, _, open)| *open).map(|(repo, number, _)| (repo, number))
@@ -787,6 +803,7 @@ impl Palette {
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
         entries.extend(move_project_command(list, cx));
+        entries.extend(judge_command(list));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -1097,6 +1114,13 @@ impl Palette {
                         list.move_to_mac(&id, cx);
                     }
                 });
+            }
+            ("run", None) if entry.id == "cmd:judge" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                // After the palette has given the keys back, so the menu takes them from where they went.
+                cx.defer_in(window, |_, window, cx| crate::job_view::choose_to_judge(window, cx));
             }
             ("run", None) if entry.id == "cmd:move-project" => {
                 self.memory.used(&entry.id);

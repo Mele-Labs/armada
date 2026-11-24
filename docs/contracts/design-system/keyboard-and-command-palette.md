@@ -41,7 +41,7 @@ is the back-fill by hand that this section existed to prevent.
 
 ```
 ⌘K       command palette
-⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
+⌘J       the Operator's talk box on the Cockpit, in the native Bridge only: with a Job open on the Cockpit it keeps the Job's side chat
 ⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
 ⌥⌘N      the history of the Operator's toasts, in the native Bridge only
 ⇧⌘K      Kit, the Claude Code setup kind by kind, in the native Bridge only
@@ -68,7 +68,11 @@ is the back-fill by hand that this section existed to prevent.
 ⌘/       ask the agent for a tool: Armada's tools listed over the open Job's message box, the one picked put at the caret as a chip, in the native Bridge only
 ⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
 ⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
-⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
+⌥⌘U      Judge the words selected in the open Job's thread, in the native Bridge only
+⌥⌘G      Judge the card in focus in the open Job's thread: a sketch, document, draft, Ready to try or reply, in the native Bridge only
+⌥⌘L      Judge the Job of the focused row of the Jobs list, in the native Bridge only
+⇧⌘J      Judge…: what the open Job holds, to pick one to judge, in the native Bridge only
+⌘1–⌘9    go to a tab: Cockpit (in the native Bridge it holds the Jobs list and the Operator's page, and it has no Operator or Jobs tab), Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 ⌘D       split the focused pane of the open Job, the new pane to its right
@@ -216,6 +220,7 @@ j / k / ↓ / ↑  move between kinds of waste   (usage only)
 Enter / Space  open the row: the Jobs a kind hit, a setting's values, or a Job's Tokens tab   (usage only)
 a              apply the setting   (usage only)
 → / ←          move along a Job's tokens   (tokens only)
+⌥⌘P            pop out the Job's prototype: the scene in a window of its own with the note capture over it   (prototype only)
 ⌘E             next environment   (api client only)
 [ / ]          headers, body or environment   (api client only)
 ⌘S             save the request   (api client only)
@@ -305,6 +310,10 @@ The keys go on down the open panel's Jobs, and `Enter` or `Space` on one opens t
 **A Job's Tokens tab has a scope of its own, `tokens`, in the native Bridge.**
 `→` and `←` move the cursor along the buckets of time, held at either end, and the tooltip follows it.
 The first move from nowhere lands on the first bucket, or on the last going left.
+
+**A Job's Prototype tab has a scope of its own, `prototype`, in the native Bridge.**
+`⌥⌘P` pops the scene out into a window of its own, where it is the same scope, so the note capture works over it.
+The key is not global because `⌥⌘P` is the palette's Move to project everywhere else.
 
 **A Job's API Client tab has a scope of its own, `api client`, in the native Bridge.**
 `⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.

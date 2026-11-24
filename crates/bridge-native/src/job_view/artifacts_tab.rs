@@ -189,6 +189,11 @@ impl JobView {
         self.artifacts.read.get(job)?.rows.as_ref()?.iter().find(|one| one.id == id)
     }
 
+    /// Every artifact of Job `job` as Fleet last listed them, newest first; none until the first answer.
+    pub(super) fn artifact_rows(&self, job: &str) -> &[JobArtifact] {
+        self.artifacts.read.get(job).and_then(|read| read.rows.as_deref()).unwrap_or_default()
+    }
+
     /// A held artifact to change in place, for a test that needs one unlike the mock's.
     #[cfg(test)]
     pub(super) fn artifact_mut(&mut self, job: &str, id: &str) -> Option<&mut JobArtifact> {
