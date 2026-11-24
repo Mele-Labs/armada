@@ -1,5 +1,5 @@
 # Runs this repository's Checks on pull requests, in the merge queue and after
-# a merge to main, and reports them as `ci` and `desktop_test`. A merge the
+# a merge to main, and reports them as `ci`. A merge the
 # queue already passed runs none again. After a merge it also records the test
 # map's laps, which reports and gates nothing, and publishes the commit as a
 # release once `ci` passes.
@@ -435,12 +435,12 @@ jobs:
             exit $code
 
   # The xtask tests read `apps/` and `packages/` (vocabulary, error codes,
-  # design rules). Nextest directly, as `apps/desktop/armada.yml` runs it: the
+  # design rules). Nextest directly, as the root `armada.yml` runs it: the
   # plan's `armada` is a Node-job artifact, and this job builds only xtask.
   xtask_test:
-    name: apps/desktop:xtask_test
+    name: xtask_test
     needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop:xtask_test')
+    if: contains(fromJSON(needs.plan.outputs.checks), 'xtask_test')
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
@@ -451,7 +451,7 @@ jobs:
           nextest: "true"
       - uses: ./.github/actions/run-check
         with:
-          name: apps/desktop:xtask_test
+          name: xtask_test
           cmd: cargo nextest run -p xtask --test-threads "$WIDTH"
 
   # Whole, with no `--changed`: the Check has no narrowing, and it is the one
@@ -515,8 +515,6 @@ jobs:
           name: armada-bin
           path: bin
       - uses: ./.github/actions/node-setup
-        with:
-          browsers: ${{ matrix.browsers }}
       # `run-check` for each key: the same MACHINE and RESULT lines, and a
       # summary line per key, with the tail of a failed key's log.
       - name: Run ${{ matrix.group }}
@@ -616,46 +614,6 @@ jobs:
         with:
           name: format_catch_up_test
           cmd: python3 scripts/test_format_catch_up.py
-
-  # The desktop tests that read no surface: main and the renderer's own modules,
-  # mostly node. Two shards: one Chromium page lost its connection after about
-  # 475 of 534 files in 3 of 9 runs on 19 Nov, a different file each time.
-  # armada-uxuk.
-  desktop_unit:
-    name: desktop_unit ${{ matrix.shard }}/2
-    needs: plan
-    if: contains(fromJSON(needs.plan.outputs.checks), 'apps/desktop/unit:desktop_test')
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2]
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-      - uses: ./.github/actions/node-setup
-        with:
-          browsers: "true"
-      - uses: ./.github/actions/run-check
-        with:
-          name: apps/desktop/unit:desktop_test
-          cmd: pnpm --dir apps/desktop exec vitest run --maxWorkers="$WIDTH" --project 'desktop*' --shard=${{ matrix.shard }}/2
-
-  # The name a ruleset will require, once desktop_test is stable. Passes when
-  # the plan skipped the unit job, fails when it failed or was cancelled.
-  desktop_test:
-    name: desktop_test
-    if: always()
-    needs: [plan, desktop_unit]
-    runs-on: ubuntu-latest
-    timeout-minutes: 45
-    steps:
-      - name: Read the jobs
-        env:
-          NEEDS: ${{ toJSON(needs) }}
-        run: |
-          echo "$NEEDS" | jq -r 'to_entries[] | "\(.key) \(.value.result)"'
-          echo "$NEEDS" | jq -e '.plan.result == "success" and ([.[] | .result] | all(. == "success" or . == "skipped"))'
 
   # Not chosen by `armada covers`, for the reason `foundations` is not: a root
   # Check never sees the paths a workspace owns, and the formatter covers them
@@ -907,7 +865,7 @@ jobs:
       - name: Test the native Bridge
         run: cargo nextest run --locked --manifest-path crates/bridge-native/Cargo.toml
 
-  # The one name the ruleset requires for everything but desktop_test. A Check
+  # The one name the ruleset requires. A Check
   # the plan skipped passes; one that failed or was cancelled fails; a plan
   # that failed fails, so a change is never green because nothing was chosen.
   ci:
@@ -1016,26 +974,13 @@ jobs:
         if: steps.version.outputs.exists != 'true'
         run: cargo build --release --locked --manifest-path crates/bridge-native/Cargo.toml
 
-      # The version lands in the bundle's package.json, which is what
-      # `app.getVersion()` and `CFBundleShortVersionString` read.
-      - name: Build Armada Classic.app
-        if: steps.version.outputs.exists != 'true'
-        env:
-          VERSION: ${{ steps.version.outputs.version }}
-        run: |
-          set -euo pipefail
-          cd apps/desktop
-          pnpm exec electron-vite build
-          pnpm exec electron-builder --mac --arm64 --publish never -c.extraMetadata.version="$VERSION"
-
-      # Two apps in one zip. `Armada.app` is the native Bridge, made by `scripts/native-app` as a
-      # restart makes it, with Fleet inside so one download is the whole of Armada. `Armada Classic.app`
-      # is Electron's, which carries no Fleet. The Claude Code mod goes in `Armada.app` too, beside Fleet,
-      # where `bundle_beside` in `crates/adapters/src/agent_mod.rs` looks: a Job on a Mac with only the
-      # apps would otherwise come up with no skills, subagents or hooks.
-      # Writing into a bundle breaks its ad hoc seal, so each is signed again, ad hoc, once complete.
+      # `Armada.app` is the native Bridge, made by `scripts/native-app` as a restart makes it, with
+      # Fleet inside so one download is the whole of Armada. The Claude Code mod goes in it too,
+      # beside Fleet, where `bundle_beside` in `crates/adapters/src/agent_mod.rs` looks: a Job on a
+      # Mac with only the app would otherwise come up with no skills, subagents or hooks.
+      # Writing into a bundle breaks its ad hoc seal, so it is signed again, ad hoc, once complete.
       # `ditto` keeps the bundle's symlinks and attributes, which `zip` does not.
-      - name: Bundle both apps and package
+      - name: Bundle the app and package
         if: steps.version.outputs.exists != 'true'
         env:
           VERSION: ${{ steps.version.outputs.version }}
@@ -1050,22 +995,18 @@ jobs:
           printf '%s %s\n' "$VERSION" "$SHA" > "$app/Contents/Resources/version"
           rsync -a --exclude node_modules --exclude '*.test.ts' plugins/ "$app/Contents/Resources/mod/"
           test -f "$app/Contents/Resources/mod/armada/.claude-plugin/plugin.json"
-          ditto "apps/desktop/release/mac-arm64/Armada Classic.app" "$stage/Armada Classic.app"
-          for each in "$app" "$stage/Armada Classic.app"; do
-            codesign --force --deep --sign - "$each"
-            codesign --verify --deep --strict "$each"
-          done
+          codesign --force --deep --sign - "$app"
+          codesign --verify --deep --strict "$app"
           "$app/Contents/Resources/bin/armada" help >/dev/null
           mkdir -p dist-release
           ditto -c -k --sequesterRsrc "$stage" dist-release/Armada-macos-arm64.zip
-          # What install.sh unpacks: both apps, still sealed, and Fleet where it looks.
+          # What install.sh unpacks: the app, still sealed, and Fleet where it looks.
           check="$RUNNER_TEMP/unpacked"
           rm -rf "$check"
           mkdir -p "$check"
           ditto -x -k dist-release/Armada-macos-arm64.zip "$check"
           ls "$check"
           codesign --verify --deep --strict "$check/Armada.app"
-          codesign --verify --deep --strict "$check/Armada Classic.app"
           "$check/Armada.app/Contents/Resources/bin/armada" help >/dev/null
           cp scripts/install.sh dist-release/install.sh
           ls -l dist-release
