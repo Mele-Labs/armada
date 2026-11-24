@@ -49,6 +49,8 @@ pub struct Store {
     pub(crate) conn: Connection,
     pub(crate) path: String,
     unknown_migrations: Vec<String>,
+    /// How many times what other Macs share was written, so a reader can tell it has not moved without reading it.
+    pub(crate) held_moves: u64,
 }
 
 impl Store {
@@ -77,6 +79,7 @@ impl Store {
             conn,
             path: shown,
             unknown_migrations: Vec::new(),
+            held_moves: 0,
         };
         store.migrate(list)?;
         store.no_dangling_references()?;
@@ -91,7 +94,7 @@ impl Store {
         let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
         let conn = Connection::open_with_flags(path, flags).map_err(fault("opening the database to read")).map_err(WriteError::Database)?;
         conn.busy_timeout(std::time::Duration::from_secs(5)).map_err(fault("opening the database to read")).map_err(WriteError::Database)?;
-        Ok(Store { conn, path: shown, unknown_migrations: Vec::new() })
+        Ok(Store { conn, path: shown, unknown_migrations: Vec::new(), held_moves: 0 })
     }
 
     /// Migrations the file had applied that this build does not list, all
