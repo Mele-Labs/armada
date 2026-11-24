@@ -204,6 +204,14 @@ where
         }
     }
 
+    async fn get_home_layout(&self) -> Result<ipc::HomeLayout, Refusal> {
+        Ok(self.home_layout_in_force())
+    }
+
+    async fn save_home_layout(&self, save: ipc::SaveHomeLayout) -> Result<ipc::HomeLayout, Refusal> {
+        self.home_layout_saved(save).await
+    }
+
     async fn get_phone(&self) -> Result<ipc::PhoneGateway, Refusal> {
         self.phone_now()
     }

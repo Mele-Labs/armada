@@ -109,6 +109,8 @@ where
             }
             // Carries nothing: a linked Mac reads `share_kit` again, which is cut by `kit_for_other_mac`.
             Event::KitChanged(_) => return Some(Crosses(event)),
+            // Carries nothing: a linked Mac reads `share_home_layout` again.
+            Event::HomeLayoutChanged(_) => return Some(Crosses(event)),
             Event::BugReportsChanged(reports) => {
                 return Some(Crosses(Event::BugReportsChanged(self.bug_reports_for_other_mac(reports.clone()).await.sent())));
             }
