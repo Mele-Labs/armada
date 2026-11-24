@@ -1641,9 +1641,23 @@ impl JobView {
         match self.ask_of(&item) {
             Ask::Takes => {
                 let Some(vote) = self.sheet_vote(&item) else { return };
-                let Some((takes, true, _)) = self.takes_of_key_in(&item.job, &vote) else { return };
-                if let Some(at) = super::parts_card::take_of_key(key, takes.len()) {
-                    self.as_job(&item.job, |this| this.choose_take(&vote, at, cx));
+                let Some((takes, open, chosen)) = self.takes_of_key_in(&item.job, &vote) else { return };
+                let order = super::parts_card::sheet_order(&takes);
+                // ← and → walk the strip in the order it is drawn, wrapping; a digit names a take by its place in the part.
+                let to = match key {
+                    "left" | "right" => {
+                        let large = self.pages.get(item.job.as_str()).and_then(|page| page.cards.parts.large_of(&vote));
+                        let shown = super::parts_card::sheet_shown(&order, large, chosen);
+                        Some(super::parts_card::sheet_step(&order, shown, if key == "left" { -1 } else { 1 }))
+                    }
+                    _ if open => super::parts_card::take_of_key(key, takes.len()),
+                    _ => None,
+                };
+                if let Some(at) = to {
+                    self.as_job(&item.job, |this| this.sheet_view_take(&vote, at, open, cx));
+                    if matches!(key, "left" | "right") {
+                        crate::ui_sounds::moved();
+                    }
                     cx.stop_propagation();
                 }
             }

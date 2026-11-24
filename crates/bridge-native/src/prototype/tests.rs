@@ -119,6 +119,16 @@ fn a_space_a_radius_and_a_colour_named_in_a_scene_resolve_to_the_themes_own() {
 }
 
 #[test]
+fn a_space_step_named_by_its_token_reads_as_the_bare_step() {
+    let look = Look::dark();
+    let mut trouble = Trouble::default();
+    let read = style::read(&look, &boxed(r#"pad="space-8" gap="--space-1""#), &mut trouble);
+    assert_eq!(trouble.lines(), Vec::<String>::new(), "space-8 and --space-1 are the token's own names");
+    assert_eq!(read.pad, Some((look.length_named("space-8").unwrap(), look.length_named("space-8").unwrap())));
+    assert_eq!(read.gap, look.length_named("space-1").ok());
+}
+
+#[test]
 fn a_space_a_radius_or_a_colour_the_theme_has_no_name_for_goes_to_trouble_and_is_never_replaced_quietly() {
     let look = Look::dark();
     let mut trouble = Trouble::default();
