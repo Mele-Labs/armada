@@ -36,9 +36,9 @@ he decides, then the ask: the first `<armada-vote>`, `<armada-action>` or
 `<h2>`. Fleet counts the body text before that block, headings left out. More
 than 120 words, or none at all, and Fleet keeps the revision as one for reading,
 does not put it to him, and tells you what to move. Fold the detail below the
-ask, in `<details>` or under a later `<h2>`. A page you write is one artifact:
-while one still asks him, grow it, and never show a new sketch, draft or page
-beside it.
+ask, in `<details>` or under a later `<h2>`. A page that asks is one ask and
+one item in his list, which Fleet titles `Approve "<title>"?`. Put another
+question to him as its own sketch, part or item, never bundled into this one.
 
 ## What it is for
 
@@ -71,14 +71,16 @@ hold is not refused: it is kept for the Operator to confirm.
 
 ## Buttons and takes are parts
 
-Buttons and takes do not need a page. Add them to the artifact you are
-showing with `add_part`: `kind` `buttons` for buttons he presses, and `kind`
-`takes` for takes he picks between. A takes part is a vote. Put your pick
-first. Draw a take about a screen as a `mock` of that screen with short,
+Buttons and takes do not need a page. Add them with `add_part`: `kind`
+`buttons` for buttons he presses, and `kind` `takes` for takes he picks
+between. A part that asks carries `question`, what he decides in plain words
+ending in `?`, which titles his item. A takes part is a vote and stands alone,
+with no explaining drawing beside it: put the background in its `question` or
+`for` line. Put your pick first. Draw a take about a screen as a `mock` of that screen with short,
 plausible content and its parts named by `data-part`, and labelled blocks only
-for a choice that is not a screen. He answers with a pick, and Approve never stands
-in for it. Words and a drawing ask for Approve or Ask for changes, takes ask
-for a pick, buttons act when pressed, and `asks: false` makes words an aside.
+for a choice that is not a screen. He answers with a pick, or asks for changes with his
+words, and Approve never stands in for it. Words and a drawing ask for Approve or Ask for changes, takes ask
+for a pick or Ask for changes, buttons act when pressed, and `asks: false` makes words an aside.
 Say in the opening sentence which parts ask and which only inform.
 
 The two sections below are for buttons on the rows of a page he is already

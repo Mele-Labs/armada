@@ -18,7 +18,7 @@ The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and 
 | `calls.changed` | Fleet writes, Bridge reads | `CallsChanged { calls, arrived }`: the calls whole, and the news since the last publish |
 | `open_call` (`POST /calls/open`, `agent_access = "No"`) | Bridge writes | `OpenStandingCall { key }`, answered with `StandingCalls` |
 | `StandingCall` | | `{ key, owner, kind, session_id?, title, text, since, tone, opened }` |
-| `CallArrival` | | `{ session_id, title, text, tone, kind, key? }`, `kind` being `needs`, `stopped`, `mac_pairing` or `review_requested`; `key` the call's key, set on `mac_pairing` and `review_requested` |
+| `CallArrival` | | `{ session_id, title, text, tone, kind, key?, item? }`, `kind` being `needs`, `stopped`, `mac_pairing` or `review_requested`; `key` the call's key, set on `mac_pairing` and `review_requested`; `item` the `WaitingItem.id` that began to wait, set on `needs` but not for the start card, so a press on the banner opens that ask. Additive, 21 Nov 2026 |
 
 ## What moved, and from where
 

@@ -180,6 +180,7 @@ pub(crate) fn sketch_call(operation: &str, call: &Arguments) -> Option<String> {
         for_line: None,
         links: Vec::new(),
         asks: true,
+        question: None,
     };
     ipc::encode(&show).ok()
 }

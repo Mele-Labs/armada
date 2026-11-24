@@ -22,5 +22,9 @@ A `rule_act` item (id `rule_act:<row id>`) takes a `choice` only: 0 is *Do it* (
 
 A `preview_offer` item (id `preview:<branch>@<tip>`) is not answered either: Refresh preview runs its command, Skip dismisses it, and a new build drops it. Any answer is a 422 `fleet.session_waiting_empty` and nothing is sent.
 
+**One question is one item** (the owner, 19 Nov 2026). An `ask_card` of several questions lists each as its own item, `ask:<call>` for the first and `ask:<call>#<n>` for each after it, titled with that question and carrying its choices. Answering one keeps his pick and takes it off the list; the call is answered once every question has been, with every answer in the order asked.
+
+**His answer is kept apart from what the job is told.** An item he answers or dismisses leaves `waiting_for` at once, and Fleet keeps the item, its question, how he answered (`picked`, `approved`, `asked_for_changes`, `dismissed` or `answered`), his words and his pick on the record's `answers`, for the item's thread card. A `permission` item keeps none.
+
 The mode lines: `best` tells the agent to decide for itself and think it through; `quick` tells it to just get it done: finish the work and land it, skipping the formalities.
 """

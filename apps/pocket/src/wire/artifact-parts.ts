@@ -113,32 +113,28 @@ export type PartAnswer = {
 };
 
 /** One part of an artifact, in the order the Job added them. */
-export type ArtifactPart = {
-  /**
-   * Unique in its Job. A drawing, draft or page that joined is named by the ledger id it is kept under
-   * (`sketch:<title>`, `draft:<title>`, the page's path); a part added with `add_part` by the id the Job gave.
-   */
+export type ArtifactPart = PartAsWritten;
+
+/**
+ * [`ArtifactPart`] as it is written. **A takes part's question is written once**, as the takes' own `question`, which
+ * shares the part's key; written twice, the part would not read back.
+ */
+export type PartAsWritten = {
   id: string;
-  /** Whether it is put to him. A part that only informs has nothing to answer. */
   asks: boolean;
   state: PartState;
-  /** 1 and on: how many times the Job put this part under its id. A redraw is a new revision and asks again. */
   revision: number;
-  /**
-   * An id new on every revision, which `answer_part` names back, so an answer never lands on a part he did not
-   * read: a sketch's `drawn`, a draft's row id, a page's revision, a part's own.
-   */
   drawn: string;
-  /** When the Job first put the part on, which is what orders the parts. */
   added: Instant;
   answer?: PartAnswer;
+  question?: string;
 } & PartContent;
 
 /** How he answered a part. */
 export type PartHow =
   /** Words, or a drawing. */
   | "approved"
-  /** Words, or a drawing, sent back with a note. */
+  /** Words, a drawing or takes, sent back with his note asking for changes. On takes it picks none of them. */
   | "sent_back"
   /** A takes part: the pick he sends. */
   | "picked";

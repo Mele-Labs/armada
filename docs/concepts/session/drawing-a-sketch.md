@@ -59,13 +59,16 @@ The node and its routes are in [A sketch draws HTML in the repository's styles](
 
 **It is kept as an artifact of form `sketch`**, `target` `sketch:<title>`, with `detail` of `by` `agent`, `title` and `scene`, the scene as JSON text, and `against` where the call named one.
 A second call with the same title takes the first's place on the ledger.
-Another title joins the artifact still asking him as a part, and adds an artifact only once none asks ([Artifact](../artifact.md), *Parts*).
+Another title is another artifact and another item: **one ask is one item**, and nothing joins another artifact on its own (the owner, 19 Nov 2026; [Artifact](../artifact.md), *Parts*).
 It stays on the ledger after the session ends and survives a restart.
 The call is a tool row on the thread whose text is `<tool> <arguments as JSON>`, the arguments unwrapped from the door's `body` and carried whole (`title`, `scene`, `against`; not `session_id`), which Bridge draws the sketch's card from.
 No window opens.
 Through the door the answer is a receipt of `session_id` and `sketch`.
 
 **Every sketch shown is put to the person on its card unless the call passed `asks: false`**, with `detail.asked` `"true"` and `detail.drawn`, an id new on every draw.
+**A sketch that asks carries `question`**, what it asks him in plain words, kept as `detail.question` and titling its item.
+It is one line of at most 200 characters, with no backticks, ending in `?`, such as `Does this flow read right?`.
+One missing, or not worded as a question, is refused with 422 `fleet.sketch_refused` naming why; a sketch with `asks: false` needs none, and one a pending plan names asks with the plan.
 He approves it, or sends it back with a note, and `answer_sketch` tells the job as his message, as a draft's answer does: `Approved sketch: <title>`, or `Sent back sketch: <title>` with the note and to draw it again under the same title.
 A note that only names one of the sketch's takes, such as `B` or `Take 2`, is a pick: it settles the sketch as approved and tells the job which take to go on from.
 A take is named by the lead of a mock's, a screen's or a label's title (`Take B: …`, `B · …`, `A (my pick): …`) or by a mock's or screen's id, in a sketch of two or more mocks or screens.
@@ -80,14 +83,16 @@ Fleet raises it in his Needs you as `sketch:<title>` until he answers it ([Waiti
 The sketch keeps how it ended in `detail.settled`, `detail.settled_at` and `detail.words`, and drawing the title again asks again.
 Only the drawing he read is answered: one drawn again since is refused.
 Every part he has not answered waits on him with its own Approve and Ask for changes, and answering one leaves the rest waiting.
-Drawing a title again replaces that drawing only; another title joins the open artifact.
-Fleet lists the artifact as one item in his Needs you, and Bridge pins it while it still asks. The pin is read again after each answer, so an answered artifact never stays pinned.
+Drawing a title again replaces that drawing only.
+A drawing that asks is refused on a title whose other part still asks, and any drawing on a title that holds takes: **takes stand alone**, with the background as a line of text in their `question` or `for` line.
+Fleet lists the artifact as one item in his Needs you, titled with its question, and Bridge pins it while it still asks.
+The pin is read again after each answer, so an answered artifact never stays pinned.
 A plan's sketch is not asked, because it is approved with the plan.
 
 **A sketch that only explains is shown with `asks: false`** (a cause, a map, a result; default `true`), so a Job's picture need not put a question to him.
 Fleet writes no `detail.asked`, so it raises no item in his Needs you, its card has no Approve or Ask for changes in either Bridge, and `answer_sketch` on it is refused, 409 `fleet.sketch_not_open`.
 It is still an artifact of the Job, in state `reading`, and opens like any sketch.
-It never joins the artifact that asks, and a redraw of its title carries no `asked`, whether the earlier drawing asked or not; a redraw that leaves `asks` out asks again.
+It raises no item, and a redraw of its title carries no `asked`, whether the earlier drawing asked or not; a redraw that leaves `asks` out asks again.
 His note on it, by a right-click or a Shift+drag, is an ordinary message of his and changes nothing on the sketch, as the words of an `add_part` part with `asks: false` ask nothing.
 
 **Each drawing of a title is kept as a revision**, as a [document](../document.md)'s pages are, so a redraw loses nothing.

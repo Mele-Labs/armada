@@ -48,9 +48,8 @@ async fn a_page_the_operator_writes_in_its_own_folder_is_kept_and_waits_on_him_a
     let path = its_page(&rig, &id, at, &folder, "backlog.html", report, "toolu_1").await;
 
     let record = record_of(&rig, &id).await;
-    let read = record.waiting_for.iter().find(|one| one.id == format!("read:{path}")).expect("a Read item");
-    assert_eq!(read.text, "Read: Backlog");
-    assert_eq!(read.artifact.as_deref(), Some(path.as_str()));
+    assert!(revisions_of(&record, &path).is_some(), "kept as a Job's page is");
+    assert!(record.waiting_for.iter().all(|one| one.artifact.as_deref() != Some(path.as_str())), "a page that only informs raises no item");
 
     let asks = r#"<html><head><title>Backlog plan</title><meta name="armada-review" content="approve"></head><body><p>Approve the plan.</p><h2>Decision</h2></body></html>"#;
     let plan = its_page(&rig, &id, at, &folder, "plan.html", asks, "toolu_2").await;

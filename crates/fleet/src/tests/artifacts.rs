@@ -30,7 +30,7 @@ use super::session_host::{eventually, rig_placing, Rig};
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
 fn drawn(id: &SessionId, title: &str) -> ShowSketch {
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn proposed(id: &SessionId, title: &str, text: &str) -> ProposeDraft {
@@ -206,7 +206,6 @@ async fn archiving_an_id_the_job_does_not_hold_is_refused_naming_the_ids_it_does
 async fn a_sketch_the_job_withdrew_reads_withdrawn_and_one_he_dismissed_reads_dismissed() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    // One artifact is open per Job, so the second sketch is in a Job of its own.
     let other = rig.start().await;
     rig.fleet.show_sketch(None, drawn(&id, "Request flow")).await.unwrap();
     rig.fleet.show_sketch(None, drawn(&other, "Storage")).await.unwrap();
@@ -509,7 +508,7 @@ async fn featured(rig: &Rig, id: &SessionId, target: &str) -> Option<String> {
 async fn a_sketch_a_walk_and_a_draft_keep_the_features_they_name_as_one_slug_or_a_list() {
     let rig = rig_placing(None);
     let id = rig.start().await;
-    let body = format!(r#"{{"title":"Flow","session_id":"{}","feature":[" Voting-On-Takes","page-actions, voting-on-takes"],"scene":{SCENE}}}"#, id.as_str());
+    let body = format!(r#"{{"title":"Flow","question":"Does this read right?","session_id":"{}","feature":[" Voting-On-Takes","page-actions, voting-on-takes"],"scene":{SCENE}}}"#, id.as_str());
     rig.fleet.show_sketch(None, ipc::decode("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
     let walk = ipc::ShowWindow {
         url: "http://localhost:5173/".into(),
