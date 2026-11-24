@@ -92,11 +92,20 @@ pub struct Item {
     pub buttons: Vec<Option<Button>>,
     /// The librarian's reason for the row's place, a line under its title, where it ranked the list.
     pub why: Option<String>,
+    /// A second line under the title: its reference and chips. A row that has one is drawn on two lines.
+    pub under: Option<Under>,
+}
+
+/// The second line of a two-line row: a reference in mono, and the chips that name what it touches.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Under {
+    pub reference: String,
+    pub chips: Vec<String>,
 }
 
 impl Item {
     pub(super) fn new(key: impl Into<String>, glyph: &'static str, hue: Token, said: impl Into<String>, title: impl Into<String>) -> Item {
-        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, section: None, buttons: Vec::new(), why: None }
+        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, section: None, buttons: Vec::new(), why: None, under: None }
     }
 
     pub(super) fn meta(mut self, meta: impl Into<String>) -> Item {
@@ -130,8 +139,16 @@ impl Item {
         self
     }
 
+    pub(super) fn under(mut self, reference: impl Into<String>, chips: Vec<String>) -> Item {
+        self.under = Some(Under { reference: reference.into(), chips });
+        self
+    }
+
     /// The name VoiceOver reads for the row.
     pub fn name(&self) -> String {
+        if let Some(under) = &self.under {
+            return [self.title.clone(), under.reference.clone()].into_iter().chain(under.chips.iter().cloned()).collect::<Vec<_>>().join(", ");
+        }
         match &self.meta {
             Some(meta) => format!("{}, {meta}", self.title),
             None => self.title.clone(),
@@ -308,27 +325,30 @@ pub fn reviews(rows: &[(Option<String>, &InboxRow)], project: &Project) -> Vec<I
 
 // ---- Issues ----------------------------------------------------------------------------------------------------------
 
-/// The features a ranked row matched, by name, for the column that names them.
-fn feature_names(features: &[ipc::MatchedFeature]) -> String {
-    features.iter().map(|one| one.title.as_str()).collect::<Vec<_>>().join(", ")
+/// The features a ranked row matched, by name, as the chips under its title.
+fn feature_names(features: &[ipc::MatchedFeature]) -> Vec<String> {
+    features.iter().map(|one| one.title.clone()).collect()
 }
 
-/// The issues assigned to him, then the ones Fleet ranked as ones he might pick up, in its order and each once. The chip says
-/// which kind a row is, and the column beside it names the features a ranked one matched.
+/// The issues assigned to him, then the ones Fleet ranked as ones he might pick up, in its order and each once. Each is its
+/// title over its reference and the features it matched, under a heading for its section.
 pub fn issues(mine: &[TrackedIssue], ranked: &[RankedIssue]) -> Vec<Item> {
     let mut items: Vec<Item> = mine
         .iter()
-        .map(|issue| Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_TEAL, "Assigned to you", format!("{} {}", issue.reference, issue.title)).tag("Yours", token::SKETCH_TEAL).press(Press::Url(issue.url.clone())))
+        .map(|issue| Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_TEAL, "Assigned to you", issue.title.clone()).under(issue.reference.clone(), Vec::new()).press(Press::Url(issue.url.clone())))
         .collect();
+    if let Some(first) = items.first_mut() {
+        first.section = Some("Assigned to you".to_string());
+    }
+    let mut headed = false;
     for one in ranked.iter().filter(|one| !mine.iter().any(|mine| mine.reference == one.issue.reference)) {
         let issue = &one.issue;
-        items.push(
-            Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_GREY, "Open and unassigned", format!("{} {}", issue.reference, issue.title))
-                .meta(feature_names(&one.features))
-                .tag("Might pick up", token::SKETCH_GREY)
-                .press(Press::Url(issue.url.clone()))
-                .why(one.why.clone()),
-        );
+        let item = Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_GREY, "Open and unassigned", issue.title.clone())
+            .under(issue.reference.clone(), feature_names(&one.features))
+            .press(Press::Url(issue.url.clone()))
+            .why(one.why.clone());
+        items.push(if headed { item } else { item.section("Might pick up") });
+        headed = true;
     }
     items
 }
@@ -339,7 +359,7 @@ pub fn interested(pulls: &[RankedPull], held: &[Item]) -> Vec<Item> {
     let mut items: Vec<Item> = Vec::new();
     for pull in pulls.iter().filter(|pull| !held.iter().any(|one| one.key == format!("pull-{}", pull.number))) {
         let item = Item::new(format!("interested-{}", pull.number), "git-pull-request", token::SKETCH_GREY, "Open pull request of someone else", format!("#{} {}", pull.number, pull.title))
-            .meta(feature_names(&pull.features))
+            .meta(feature_names(&pull.features).join(", "))
             .tag("Might be interested", token::SKETCH_GREY)
             .press(Press::Pull { repository: pull.repository.clone(), number: pull.number });
         items.push(if items.is_empty() { item.section("Might be interested") } else { item });

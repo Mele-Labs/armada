@@ -83,14 +83,12 @@ impl Board {
     }
 
     /// The series as a line in time, with the clock at each end. Rows that carry a time are the series; otherwise it is what
-    /// Fleet kept from its readings. Under two points there is nothing to draw, and nothing is.
+    /// Fleet kept from its readings. A single reading is a dot at the right end, and the line starts at the next.
     fn metric_graph(&self, reading: &MetricReading, look: &Look) -> AnyElement {
         let plot = metric::plot(reading);
         let points: Vec<(f32, f32)> = plot.points().iter().map(|(at, value)| (at.timestamp_millis() as f32, *value as f32)).collect();
         let (Some(first), Some(last)) = (plot.points().first(), plot.points().last()) else { return div().into_any_element() };
-        if points.len() < 2 {
-            return div().into_any_element();
-        }
+        let single = points.len() < 2;
         let (line, base) = (look.color(token::SKETCH_BLUE), look.color(token::BORDER_DEFAULT));
         let (from, to) = (points[0].0, points[points.len() - 1].0);
         let low = points.iter().map(|(_, value)| *value).fold(f32::INFINITY, f32::min);
@@ -101,7 +99,7 @@ impl Board {
                 let pad = px(4.);
                 let (width, height) = (bounds.size.width - pad * 2.0, bounds.size.height - pad * 2.0);
                 let at = |time: f32, value: f32| {
-                    let across = if to > from { (time - from) / (to - from) } else { 0. };
+                    let across = if to > from { (time - from) / (to - from) } else { 1. };
                     let up = if high > low { (value - low) / (high - low) } else { 0.5 };
                     point(bounds.origin.x + pad + width * across, bounds.origin.y + pad + height * (1. - up))
                 };
@@ -131,9 +129,10 @@ impl Board {
             .justify_between()
             .text_size(look.length(token::TEXT_2XS))
             .text_color(look.color(token::FG_SUBTLE))
-            .child(SharedString::from(metric::axis(first.0)))
+            .child(SharedString::from(if single { String::new() } else { metric::axis(first.0) }))
             .child(SharedString::from(metric::axis(last.0)));
         let source = match plot {
+            _ if single => "One reading so far; the line starts at the next",
             Plot::Rows(_) => "Graph of the rows",
             Plot::Kept(_) => "Graph of the readings kept",
         };

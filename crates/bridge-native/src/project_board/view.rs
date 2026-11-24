@@ -15,7 +15,7 @@ use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, ActiveLook, Look, Token};
 use crate::settings::view::{bone, ring_colour};
-use crate::titlebar::parts::{card, glyph, sans, spinner, tip, Btn, Weight};
+use crate::titlebar::parts::{card, glyph, mono, sans, spinner, tip, Btn, Weight};
 
 /// A block being moved or resized, as the drag carries it.
 #[derive(Clone)]
@@ -535,9 +535,22 @@ impl Board {
         labelled(element, Role::Button, button.name.clone()).into_any_element()
     }
 
+    /// The second line of a two-line row: its reference in mono, then a chip for each thing it touches.
+    fn under_line(&self, under: &model::Under, look: &Look) -> AnyElement {
+        div()
+            .flex()
+            .flex_wrap()
+            .items_center()
+            .gap(look.length(token::SPACE_1))
+            .child(div().flex_none().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(under.reference.clone())))
+            .children(under.chips.iter().map(|words| chip(look, token::SKETCH_BLUE, words.clone())))
+            .into_any_element()
+    }
+
     /// A row as a line of a List, or of a Table, where it stands in columns and is parted from the one above by a hairline.
     fn line(&self, item: &Item, table: bool, parted: bool, columns: usize, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let ring = ring_colour(look);
+        let two = item.under.is_some() || item.why.is_some();
         let buttons: Vec<AnyElement> = (0..columns).map(|at| self.button(item, at, item.buttons.get(at).and_then(Option::as_ref), look, cx)).collect();
         let meta_w = look.length(token::SPACE_12) * 2.0;
         let chip_w = look.length(token::SPACE_12) * 2.5;
@@ -547,15 +560,30 @@ impl Board {
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_2))
-            .when(item.why.is_none(), |row| row.h(look.length(token::H_ROW_ACTION)))
-            .when(item.why.is_some(), |row| row.min_h(look.length(token::H_ROW_ACTION)).py(look.length(token::SPACE_1)))
+            .when(!two, |row| row.h(look.length(token::H_ROW_ACTION)))
+            .when(two, |row| row.items_start().py(look.length(token::SPACE_2)))
             .px(look.length(token::SPACE_1))
             .rounded(look.length(token::RADIUS_MD))
             .text_size(look.length(token::TEXT_XS))
             .when(table && parted, |row| row.border_t(look.length(token::BORDER_WIDTH)).border_color(look.color(token::BORDER_SUBTLE)).rounded_none())
             .child(self.mark(item, look, cx))
-            .child(div().flex_1().min_w_0().flex().flex_col().child(div().min_w_0().truncate().child(SharedString::from(item.title.clone()))).children(self.why_line(item, look)))
-            .when(table, |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
+            .child(match two {
+                true => div()
+                    .flex_1()
+                    .min_w_0()
+                    .flex()
+                    .flex_col()
+                    .gap(look.length(token::SPACE_1))
+                    .child(match item.under {
+                        Some(_) => div().line_clamp(2).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(item.title.clone())),
+                        None => div().min_w_0().truncate().child(SharedString::from(item.title.clone())),
+                    })
+                    .children(self.why_line(item, look))
+                    .children(item.under.as_ref().map(|under| self.under_line(under, look)))
+                    .into_any_element(),
+                false => div().flex_1().min_w_0().truncate().child(SharedString::from(item.title.clone())).into_any_element(),
+            })
+            .when(table && item.under.is_none(), |row| row.child(div().flex_none().w(chip_w).flex().children(item.tag.as_ref().map(|(words, hue)| chip(look, *hue, words.clone())))))
             .children(item.meta.as_ref().map(|meta| {
                 div().flex_none().when(table, |meta| meta.w(meta_w)).max_w(meta_w).truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))
             }))
@@ -603,6 +631,7 @@ impl Board {
             .children(self.why_line(item, look))
             .children(item.meta.as_ref().map(|meta| div().truncate().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta.clone()))))
             .children(item.tag.as_ref().map(|(words, hue)| div().flex().child(chip(look, *hue, words.clone()))))
+            .children(item.under.as_ref().map(|under| self.under_line(under, look)))
             .when(!buttons.is_empty(), |card| card.child(div().flex().items_center().gap(look.length(token::SPACE_1)).children(buttons)));
         match &item.press {
             Some(press) => {
