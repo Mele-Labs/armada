@@ -356,24 +356,28 @@ fn the_arrows_and_enter_take_an_example_and_escape_puts_the_list_away(cx: &mut T
 // ---- the issues ---------------------------------------------------------------------------------------------------
 
 #[test]
-fn a_ranked_issue_is_one_chip_and_a_column_that_names_the_features_it_matched() {
+fn an_issue_row_is_its_title_over_its_reference_and_feature_chips_under_a_section_header() {
     let read = super::mock::issues();
     let items = model::issues(&read.mine, &read.ranked.might_pick_up);
     let matched = items.iter().find(|item| item.key == "issue-armada-9efp").expect("a ranked row");
-    assert_eq!(matched.tag.as_ref().map(|tag| tag.0.as_str()), Some("Might pick up"));
-    assert_eq!(matched.meta.as_deref(), Some("Feature library, Project board"), "the column names the features, in Fleet's order");
+    assert_eq!(matched.title, "Library sync", "the title alone, its reference apart");
+    assert_eq!(matched.under, Some(model::Under { reference: "armada-9efp".into(), chips: vec!["Feature library".into(), "Project board".into()] }), "the features as chips, in Fleet's order");
+    assert_eq!((matched.tag.as_ref(), matched.meta.as_ref()), (None, None), "no chip repeated on every row, no column");
     let bare = items.iter().find(|item| item.key == "issue-armada-71cc").expect("a ranked row that matched none");
-    assert_eq!(bare.meta, None, "an issue that matched no feature leaves the column empty");
+    assert_eq!(bare.under.as_ref().map(|under| under.chips.len()), Some(0));
     let yours = items.iter().find(|item| item.key == "issue-armada-a3f2").expect("his own");
-    assert_eq!((yours.tag.as_ref().map(|tag| tag.0.as_str()), yours.meta.as_deref()), (Some("Yours"), None));
+    assert_eq!(yours.section.as_deref(), Some("Assigned to you"));
+    assert_eq!(matched.section.as_deref(), Some("Might pick up"), "the first ranked row heads its section");
+    assert_eq!(bare.section, None, "the section is headed once");
     assert_eq!(items.iter().map(|item| item.key.as_str()).collect::<Vec<_>>(), ["issue-armada-a3f2", "issue-armada-9efp", "issue-armada-71cc"], "his own first, then Fleet's ranking");
 }
 
 #[gpui::test]
-fn the_issues_table_draws_each_ranked_row_named_by_its_features(cx: &mut TestAppContext) {
+fn the_issues_block_draws_each_row_named_by_title_reference_and_features(cx: &mut TestAppContext) {
     let (_board, cx) = board_keeping(cx, None);
-    assert!(drawn(cx, Role::Button, "armada-9efp Library sync, Feature library, Project board"));
-    assert!(drawn(cx, Role::Button, "armada-71cc Pocket offline"));
+    assert!(drawn(cx, Role::Heading, "Might pick up"));
+    assert!(drawn(cx, Role::Button, "Library sync, armada-9efp, Feature library, Project board"));
+    assert!(drawn(cx, Role::Button, "Pocket offline, armada-71cc"));
 }
 
 #[test]
@@ -672,4 +676,18 @@ fn a_block_with_rows_out_of_sight_keeps_the_wheel_and_the_board_stands_still(cx:
     wheel(cx, gpui::point(checks.origin.x + gpui::px(40.), checks.origin.y + gpui::px(10.)));
     let moved = find(cx, Role::Region, "Checks and commands").expect("still drawn");
     assert!(moved.origin.y < checks.origin.y, "a wheel over a block's header still moves the board");
+}
+
+#[gpui::test]
+fn graph_of_a_metric_with_one_reading_kept_draws_it_and_is_not_empty(cx: &mut TestAppContext) {
+    let kept = BoardLayout { blocks: vec![block("metric:open-pulls", 0, 0, 3, 2, "graph")] };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    let mut one = reading(vec![number("Open pull requests", 6., None)], None, vec![MetricPoint { at: instant(13, 35), value: 6. }]);
+    one.id = "open-pulls".into();
+    one.title = "Open pull requests".into();
+    let mut readings = super::mock::readings(PROJECT);
+    readings.readings.push(one);
+    board.update(cx, |board, cx| board.apply_readings(readings, cx));
+    redraw(cx);
+    assert!(drawn(cx, Role::Image, "Graph of Open pull requests"), "a single reading is drawn as its point, not as nothing");
 }
