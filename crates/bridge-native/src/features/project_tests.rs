@@ -89,7 +89,7 @@ fn since_you_looked_keeps_the_tag_order_fleet_served() {
 #[gpui::test]
 fn the_rows_are_drawn_and_reached_in_fleets_order(cx: &mut TestAppContext) {
     let (page, cx) = page(cx, ProjectPage::Since);
-    assert!(drawn(cx, Role::Button, "Needs you: Model and context") && drawn(cx, Role::Button, "New: Agent notes on a diff") && drawn(cx, Role::Button, "Mark read"));
+    assert!(drawn(cx, Role::Button, "To confirm: Model and context") && drawn(cx, Role::Button, "New: Agent notes on a diff") && drawn(cx, Role::Button, "Mark read"));
     let targets = page.read_with(cx, |page, _| page.targets());
     assert_eq!(targets.first(), Some(&Target::MarkRead));
     assert_eq!(targets.get(1), Some(&Target::Feature("model-and-context".into())));

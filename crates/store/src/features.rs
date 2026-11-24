@@ -462,6 +462,21 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(failed(doing))
     }
 
+    /// Each feature of the project with each Job that filed a file under it and the time of its latest write there,
+    /// one row a Job and feature. **The times are as written**, for the caller to read against its own clock.
+    pub fn feature_job_times(&self, project: &str) -> Result<Vec<(String, String, String)>, WriteError> {
+        let doing = "reading when Jobs last worked on a project's features";
+        let mut statement = self
+            .conn
+            .prepare(
+                "SELECT j.feature_id, j.job, j.last_at FROM feature_job_files j JOIN features f ON f.id = j.feature_id
+                 WHERE f.project = ?1 ORDER BY j.feature_id, j.job, j.last_at",
+            )
+            .map_err(failed(doing))?;
+        let rows = statement.query_map([project], |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?))).map_err(failed(doing))?;
+        rows.collect::<Result<_, _>>().map_err(failed(doing))
+    }
+
     /// Whether a merged pull request's files are kept already.
     pub fn feature_merge_kept(&self, manifest: &str, number: u64) -> Result<bool, WriteError> {
         self.conn

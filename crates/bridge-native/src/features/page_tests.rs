@@ -57,7 +57,7 @@ fn the_rail_names_the_sections_in_the_catalogs_order_each_with_a_line_from_the_d
     let page = mock::page(SLUG);
     let entries = entries_of(&page);
     let order: Vec<&str> = entries.iter().map(|entry| entry.0.title()).collect();
-    assert_eq!(order, ["Who worked on it", "Code", "How to test it", "Designs", "Bugs and issues", "Change requests", "Ideas", "How it runs", "How to observe it", "Tech debt"]);
+    assert_eq!(order, ["Who worked on it", "Code", "How to test it", "Designs", "Bugs and issues", "Change requests", "Ideas", "How it runs", "How to observe it", "Tech debt", "Decisions", "Docs", "Tickets"]);
     let said = |section| summary(&page, section);
     assert_eq!(said(Section::Who), "Now: Add the model picker to the start card");
     assert_eq!(said(Section::Code), "card.rs, panel.rs", "the first two files, by name");
@@ -68,6 +68,9 @@ fn the_rail_names_the_sections_in_the_catalogs_order_each_with_a_line_from_the_d
     assert_eq!(said(Section::Ideas), "Start from the phone", "the newest idea");
     assert!(said(Section::Runs).starts_with("Fleet reads the request"));
     assert!(said(Section::Debt).starts_with("The picker keeps the last model"));
+    assert_eq!(said(Section::Docs), "The start card", "the newest title");
+    assert_eq!(said(Section::Tickets), "armada-a3f2 The card loses focus after a retry", "the newest title");
+    assert_eq!(said(Section::Decisions), "Where does the model picker go on the start card?", "the newest question");
 }
 
 #[test]
@@ -87,7 +90,7 @@ fn a_line_falls_back_the_way_the_catalog_says_and_an_empty_section_stays_empty()
     assert_eq!(summary(&page, Section::Code), "card.rs, mod.rs", "entry points stand in for files");
     page.sections[1].text = "  \n".into();
     assert_eq!(summary(&page, Section::Runs), format!("Written {}", page_model::day(at(13))), "a section with no line says when it was written");
-    let bare = ipc::FeaturePage { sections: Vec::new(), links: Vec::new(), files: Vec::new(), entry_points: Vec::new(), paths: Vec::new(), ..page };
+    let bare = ipc::FeaturePage { sections: Vec::new(), links: Vec::new(), files: Vec::new(), entry_points: Vec::new(), paths: Vec::new(), docs: Vec::new(), tickets: Vec::new(), decisions: Vec::new(), ..page };
     for entry in page_model::entries(&bare, None) {
         assert_eq!(entry.summary, "", "{} has nothing to say", entry.section.title());
     }
@@ -180,6 +183,102 @@ fn a_written_section_is_commands_in_monospace_and_paragraphs_otherwise() {
     assert_eq!(page_model::body(Section::Test, &bare, None, Chip::All, None, &page_model::Titles::new()), Body::Written(None), "where none was written the pane is empty");
 }
 
+fn reads_of(section: Section, page: &ipc::FeaturePage) -> Vec<page_model::ReadRow> {
+    match page_model::body(section, page, None, Chip::All, None, &mock::titles()) {
+        Body::Reads(rows) => rows,
+        _ => panic!("reads"),
+    }
+}
+
+#[test]
+fn a_doc_is_a_file_or_a_globe_by_its_target_and_a_ticket_is_a_ticket_newest_first_with_the_job_named_by_its_title() {
+    let page = mock::page(SLUG);
+    let docs = reads_of(Section::Docs, &page);
+    assert_eq!(docs.iter().map(|row| row.title.as_str()).collect::<Vec<_>>(), ["The start card", "Starting a Job spec", "Start card board"]);
+    assert_eq!(docs.iter().map(|row| row.glyph).collect::<Vec<_>>(), ["file-text", "globe", "globe"], "a path is a file, an address a globe");
+    assert_eq!(docs[0].last, format!("Add the model picker to the start card, {}", page_model::day(at(14))), "the Job's title and the day, never its id");
+    let tickets = reads_of(Section::Tickets, &page);
+    assert!(tickets.iter().all(|row| row.glyph == "ticket" && row.drifted.is_empty()), "a ticket has no drift line");
+    assert_eq!(tickets[1].title, "#3940 Send the request from the keys");
+    let mut page = page;
+    page.docs[0].job = "job-gone".into();
+    assert_eq!(reads_of(Section::Docs, &page)[0].last, page_model::day(at(14)), "a Job Fleet holds no title for is not named, and never by its id");
+}
+
+#[test]
+fn a_gone_doc_keeps_its_gist_a_jobs_own_gist_is_marked_and_drift_lists_the_names() {
+    let page = mock::page(SLUG);
+    let docs = reads_of(Section::Docs, &page);
+    assert!(docs[0].by_job && !docs[1].by_job, "only the gist the Job wrote is marked");
+    assert_eq!(docs[0].drifted, ["StartProposal", "pick_model"]);
+    assert!(docs[1].drifted.is_empty());
+    assert!(docs[2].gone && !docs[0].gone && !docs[1].gone);
+    assert_eq!(docs[2].gist, "The card with the model picker on one line.", "a gone address keeps what it said");
+    let mut page = page;
+    page.docs[0].gist.clear();
+    assert!(!reads_of(Section::Docs, &page)[0].by_job, "no gist, nothing to mark as the Job's");
+}
+
+#[test]
+fn a_decision_is_its_question_its_choice_and_its_note_where_there_is_one() {
+    let page = mock::page(SLUG);
+    let Body::Decisions(rows) = page_model::body(Section::Decisions, &page, None, Chip::All, None, &mock::titles()) else { panic!("decisions") };
+    assert_eq!(rows.iter().map(|row| (row.question.as_str(), row.choice.as_str(), row.note.as_deref())).collect::<Vec<_>>(), [
+        ("Where does the model picker go on the start card?", "Beside the workflow", None),
+        ("Sketch: Start card with the model picker", "Approved", Some("Keep the picker one line.")),
+    ]);
+    assert_eq!(rows[0].last, format!("Add the model picker to the start card, {}", page_model::day(at(14))));
+    let mut page = page;
+    page.decisions[1].note = Some("  ".into());
+    let Body::Decisions(rows) = page_model::body(Section::Decisions, &page, None, Chip::All, None, &mock::titles()) else { panic!("decisions") };
+    assert_eq!(rows[1].note, None, "a blank note is no note");
+}
+
+#[test]
+fn an_empty_docs_tickets_or_decisions_card_has_no_rows_and_a_line_of_its_own() {
+    let mut page = mock::page(SLUG);
+    page.docs.clear();
+    page.tickets.clear();
+    page.decisions.clear();
+    for section in [Section::Docs, Section::Tickets] {
+        assert_eq!(reads_of(section, &page), Vec::new());
+        assert_eq!(summary(&page, section), "");
+    }
+    assert_eq!(page_model::body(Section::Decisions, &page, None, Chip::All, None, &mock::titles()), Body::Decisions(Vec::new()));
+    assert_eq!(summary(&page, Section::Decisions), "");
+    for key in ["docs", "tickets", "decisions"] {
+        let said = super::page_view::said_empty(key);
+        assert!(!said.contains('\u{2014}') && !said.contains(" - "), "{key} has no dash");
+        assert!(said.ends_with('.') && said.matches('.').count() == 1, "{key} is one fact line");
+    }
+}
+
+#[test]
+fn watch_and_poor_draw_a_chip_with_the_reasons_and_good_draws_none() {
+    let mut page = mock::page(SLUG);
+    let watch = page_model::health(&page).expect("watch has a chip");
+    assert_eq!((watch.word, watch.glyph, watch.mark), ("Watch", "triangle-alert", ipc::HealthMark::Watch));
+    assert_eq!(watch.line, "Observe section stale since #3692 \u{b7} Open bug: the card loses focus after a retry", "the reasons joined by a middle dot");
+    assert_eq!(watch.tip, watch.line, "the tooltip says the same");
+    page.feature.health.mark = ipc::HealthMark::Poor;
+    let poor = page_model::health(&page).expect("poor has a chip");
+    assert_eq!((poor.word, poor.glyph), ("Poor", "circle-alert"));
+    page.feature.health.reasons.clear();
+    let bare = page_model::health(&page).expect("a mark with no reasons still has its chip");
+    assert_eq!(bare.line, "");
+    assert_eq!(bare.tip, "A check failed, or flaky tests or open bugs piled up", "the tooltip says what the mark means");
+    page.feature.health.mark = ipc::HealthMark::Good;
+    assert_eq!(page_model::health(&page), None, "good draws nothing");
+}
+
+#[test]
+fn the_retire_row_is_there_only_where_the_librarian_proposed_it() {
+    let mut page = mock::page(SLUG);
+    assert_eq!(page_model::retire_evidence(&page), Some("No file of it touched and no Job on it since 12 Jun."));
+    page.feature.retire = None;
+    assert_eq!(page_model::retire_evidence(&page), None);
+}
+
 // ---- the page --------------------------------------------------------------------------------
 
 #[gpui::test]
@@ -224,10 +323,12 @@ fn j_and_k_move_the_card_the_keys_are_on_and_tab_goes_between_the_cards_the_chip
     cx.simulate_keystrokes("j");
     assert_eq!(section(&page, cx), Section::Bugs, "the next card down the first column");
     cx.simulate_keystrokes("down down down");
-    assert_eq!(section(&page, cx), Section::Test, "the asks are three lanes of one card, and the next column follows");
-    cx.simulate_keystrokes("k");
+    assert_eq!(section(&page, cx), Section::Decisions, "the asks are three lanes of one card, and Decisions stands under them");
+    cx.simulate_keystrokes("down");
+    assert_eq!(section(&page, cx), Section::Test, "the next column follows");
+    cx.simulate_keystrokes("up up");
     assert_eq!(section(&page, cx), Section::Ideas);
-    cx.simulate_keystrokes("up up up up up up up up up up");
+    cx.simulate_keystrokes("up up up up up up up up up up up up");
     assert_eq!(section(&page, cx), Section::Who, "it stops at the first");
     cx.simulate_keystrokes("j");
     assert_eq!(section(&page, cx), Section::Bugs);
@@ -249,11 +350,17 @@ fn j_and_k_move_the_card_the_keys_are_on_and_tab_goes_between_the_cards_the_chip
     cx.simulate_keystrokes("j j");
     assert_eq!(page.read_with(cx, |page, _| page.row_at), Some(2));
     cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Retire, "the two buttons that answer the proposal to retire it");
+    cx.simulate_keystrokes("tab");
+    assert_eq!(region(&page, cx), Region::Keep);
+    cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Start, "the button that starts a Job on it");
     cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Rail, "it wraps");
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Start);
+    cx.simulate_keystrokes("shift-tab shift-tab");
+    assert_eq!(region(&page, cx), Region::Retire);
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Rows);
     cx.simulate_keystrokes("shift-tab");
@@ -261,18 +368,18 @@ fn j_and_k_move_the_card_the_keys_are_on_and_tab_goes_between_the_cards_the_chip
     cx.simulate_keystrokes("shift-tab");
     assert_eq!(region(&page, cx), Region::Rail);
     // A written card has no chips and nothing to pick: Tab goes to its command well, then the button.
-    cx.simulate_keystrokes("j j j");
+    cx.simulate_keystrokes("j j j j");
     assert_eq!(section(&page, cx), Section::Test);
     cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Well, "the written card has a command to copy");
-    cx.simulate_keystrokes("tab");
+    cx.simulate_keystrokes("tab tab tab");
     assert_eq!(region(&page, cx), Region::Start);
     cx.simulate_keystrokes("tab");
     assert_eq!(region(&page, cx), Region::Rail);
     // A written card with no command has no well.
     cx.simulate_keystrokes("j");
     assert_eq!(section(&page, cx), Section::Runs);
-    cx.simulate_keystrokes("tab");
+    cx.simulate_keystrokes("tab tab tab");
     assert_eq!(region(&page, cx), Region::Start, "no command, no well");
 }
 
@@ -305,24 +412,28 @@ fn enter_on_the_start_button_opens_the_dispatch_panel(cx: &mut TestAppContext) {
 }
 
 #[gpui::test]
-fn a_feature_with_only_code_draws_all_nine_cards_and_eight_empty_lines(cx: &mut TestAppContext) {
+fn a_feature_with_only_code_draws_all_twelve_cards_and_eleven_empty_lines(cx: &mut TestAppContext) {
     let (page, cx) = open(cx);
     page.update(cx, |page, cx| {
         let mut read = mock::page(SLUG);
         read.sections.clear();
         read.links.clear();
         read.feature.jobs_now.clear();
+        read.feature.retire = None;
+        read.docs.clear();
+        read.tickets.clear();
+        read.decisions.clear();
         page.page = Load::Read(read);
         page.asks = Load::Read(ipc::FeatureAsks { asks: Vec::new(), ..mock::asks(SLUG) });
         page.rebuild(cx);
     });
     cx.run_until_parked();
     cx.update(|window, cx| window.draw(cx).clear(cx));
-    for card in ["On it now", "Who worked on it", "Asks", "How to test it", "How it runs", "Designs", "Code", "How to observe it", "Tech debt"] {
+    for card in ["On it now", "Who worked on it", "Asks", "Decisions", "How to test it", "How it runs", "Designs", "Docs", "Code", "Tickets", "How to observe it", "Tech debt"] {
         assert!(drawn(cx, Role::Heading, card), "{card} has its title");
         assert!(drawn(cx, Role::Region, card), "{card} is a region");
     }
-    let empty = ["on", "who", "asks", "test", "runs", "designs", "observe", "debt"];
+    let empty = ["on", "who", "asks", "decisions", "test", "runs", "designs", "docs", "tickets", "observe", "debt"];
     for key in empty {
         assert!(drawn(cx, Role::Label, super::page_view::said_empty(key)), "{key} says why it is empty");
     }
@@ -353,7 +464,7 @@ fn every_part_of_the_page_is_found_by_its_role_and_name(cx: &mut TestAppContext)
     assert!(drawn(cx, Role::Heading, "Start a Job"));
     assert!(drawn(cx, Role::Button, "Start a Job on it"));
     assert!(drawn(cx, Role::Label, "Area: running a job"), "the area chip is named");
-    for card in ["On it now", "Who worked on it", "Asks", "Designs", "Code", "How to test it", "How it runs", "How to observe it", "Tech debt"] {
+    for card in ["On it now", "Who worked on it", "Asks", "Decisions", "Designs", "Docs", "Code", "Tickets", "How to test it", "How it runs", "How to observe it", "Tech debt"] {
         assert!(drawn(cx, Role::Region, card), "{card} is a region");
         assert!(drawn(cx, Role::Heading, card), "{card} has its title");
     }
@@ -389,7 +500,7 @@ fn the_page_draws_bones_while_it_is_read_and_its_sections_once_it_answers(cx: &m
     });
     cx.run_until_parked();
     assert!(drawn(cx, Role::Region, "Code"));
-    assert_eq!(page.read_with(cx, |page, _| page.entries.len()), 10);
+    assert_eq!(page.read_with(cx, |page, _| page.entries.len()), Section::ALL.len());
 }
 
 /// The corner radius of this element as last drawn (the page has no window root to clear the book each frame, so the last one stands).
@@ -423,4 +534,104 @@ fn what_is_painted_flush_against_a_rounded_parent_rounds_its_own_corners_to_the_
 fn a_band_under_a_back_row_is_not_on_the_panels_edge_and_keeps_square_corners(cx: &mut TestAppContext) {
     let (_page, cx) = open(cx);
     assert_eq!(radius(cx, Role::Region, "Feature band"), Some(gpui::px(0.)));
+}
+
+#[gpui::test]
+fn the_band_draws_the_health_chip_with_its_reasons_and_planned_where_it_is(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    assert!(drawn(cx, Role::Status, "Health: Watch"), "the chip is named");
+    assert!(drawn(cx, Role::Label, "Observe section stale since #3692 \u{b7} Open bug: the card loses focus after a retry"), "the reasons stand beside it");
+    assert!(!drawn(cx, Role::Status, "Planned"));
+    page.update(cx, |page, cx| {
+        if let Load::Read(read) = &mut page.page {
+            read.feature.planned = true;
+            read.feature.health.mark = ipc::HealthMark::Good;
+            read.feature.health.reasons.clear();
+        }
+        page.rebuild(cx);
+    });
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    assert!(drawn(cx, Role::Status, "Planned"), "a planned feature says so");
+    // The page has no window root to clear the book each frame, so a chip that went stands in it: what the band holds is asked of the model.
+    assert!(page.read_with(cx, |page, _| matches!(&page.page, Load::Read(read) if page_model::health(read).is_none())), "good draws no chip");
+}
+
+#[gpui::test]
+fn the_new_cards_draw_their_rows_by_name_with_the_marks_a_row_carries(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    for card in ["Docs", "Tickets", "Decisions"] {
+        assert!(drawn(cx, Role::Region, card) && drawn(cx, Role::Heading, card), "{card} is drawn");
+    }
+    assert!(drawn(cx, Role::ListBoxOption, "The start card"));
+    assert!(drawn(cx, Role::ListBoxOption, "armada-a3f2 The card loses focus after a retry"));
+    assert!(drawn(cx, Role::ListBoxOption, "Where does the model picker go on the start card?"));
+    assert!(drawn(cx, Role::Label, "Job's words"), "the gist the Job wrote is marked");
+    assert!(drawn(cx, Role::Label, "gone"), "an address that no longer answers says so");
+    assert!(drawn(cx, Role::Label, "Names the code no longer has: StartProposal, pick_model"));
+    assert!(drawn(cx, Role::Image, "A web or MCP address") && drawn(cx, Role::Image, "A ticket") && drawn(cx, Role::Image, "A file in the repository"));
+    // The keys reach each card and its rows.
+    page.update(cx, |page, cx| page.select(Section::Docs, cx));
+    cx.update(|window, cx| page.update(cx, |page, cx| page.focus_region(Region::Rows, window, cx)));
+    cx.simulate_keystrokes("j");
+    assert_eq!(page.read_with(cx, |page, _| (page.section(), page.row_at, page.row_count())), (Section::Docs, Some(1), 3));
+}
+
+fn press(page: &gpui::Entity<FeaturePageView>, region: Region, cx: &mut VisualTestContext) {
+    cx.update(|window, cx| page.update(cx, |page, cx| page.focus_region(region, window, cx)));
+    cx.simulate_keystrokes("enter");
+    cx.run_until_parked();
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+}
+
+#[gpui::test]
+fn the_retire_row_has_its_two_buttons_and_keep_takes_the_row_away(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    cx.update(|window, cx| window.draw(cx).clear(cx));
+    assert!(drawn(cx, Role::Region, "Retire this feature?"));
+    assert!(drawn(cx, Role::Button, "Retire") && drawn(cx, Role::Button, "Keep"));
+    assert!(page.read_with(cx, |page, _| page.regions().contains(&Region::Retire) && page.regions().contains(&Region::Keep)));
+    press(&page, Region::Keep, cx);
+    // The page has no window root to clear the book each frame, so what went is asked of the page: it draws the row only while it proposes.
+    assert!(page.read_with(cx, |page, _| !page.proposes_retire()), "the proposal is gone");
+    assert!(page.read_with(cx, |page, _| !page.regions().contains(&Region::Retire)), "and the keys no longer stop on it");
+    assert_eq!(cx.update(|window, cx| page.read(cx).region_in(window)), Region::Rail, "the keys leave the buttons that went");
+}
+
+#[gpui::test]
+fn retire_says_the_feature_left_the_catalog_and_tells_whoever_holds_the_page(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    let told = std::rc::Rc::new(std::cell::Cell::new(0));
+    let heard = told.clone();
+    let _sub = cx.update(|_, cx| cx.subscribe(&page, move |_, event: &super::page::FeaturePageEvent, _| if matches!(event, super::page::FeaturePageEvent::Retired) { heard.set(heard.get() + 1) }));
+    press(&page, Region::Retire, cx);
+    assert_eq!(told.get(), 1, "the list that holds the feature reads again");
+    assert!(drawn(cx, Role::Status, "Retired. It left the catalog."));
+    assert!(page.read_with(cx, |page, _| !page.proposes_retire() && !page.regions().contains(&Region::Retire)), "the buttons are gone");
+}
+
+#[gpui::test]
+fn a_refused_answer_stands_on_the_row_in_fleets_words_and_the_buttons_stay(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    page.update(cx, |page, _| page.mock_refusal = Some("This feature was not proposed for retiring".into()));
+    press(&page, Region::Retire, cx);
+    assert!(drawn(cx, Role::Label, "This feature was not proposed for retiring"));
+    assert!(page.read_with(cx, |page, _| page.proposes_retire()), "the row stays to answer again");
+    page.update(cx, |page, _| page.mock_refusal = None);
+    press(&page, Region::Keep, cx);
+    assert!(page.read_with(cx, |page, _| !page.proposes_retire()), "the answer goes through the second time");
+}
+
+#[gpui::test]
+fn a_page_with_no_proposal_has_no_retire_row_and_no_stop_for_the_keys(cx: &mut TestAppContext) {
+    let (page, cx) = open(cx);
+    page.update(cx, |page, cx| {
+        if let Load::Read(read) = &mut page.page {
+            read.feature.retire = None;
+        }
+        page.rebuild(cx);
+    });
+    assert!(page.read_with(cx, |page, _| !page.proposes_retire() && !page.regions().contains(&Region::Retire) && !page.regions().contains(&Region::Keep)));
 }

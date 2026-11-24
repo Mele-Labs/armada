@@ -610,7 +610,9 @@ where
     pub(crate) async fn turn_told(&self, id: &str, hosting: &KeptHosting) -> Option<String> {
         let mut said: Vec<String> = Vec::new();
         let followed = hosting.workflow.as_deref().is_some_and(|workflow| self.workflow_on(&hosting.manifest_id, hosting.project.as_deref(), workflow));
-        if !hosting.ran && followed {
+        // A Job handed on starts with the old one's plan, so it is not told to record the workflow's afresh.
+        let planned = self.store().lock().await.session_plan(id).ok().flatten().is_some();
+        if !hosting.ran && followed && !planned {
             if let Ok(served) = self.served_named(Some(&ManifestId::carried(&hosting.manifest_id))) {
                 said.extend(workflow_words(&served.workflows(), hosting.workflow.as_deref(), false, &ways::plan_block(&self.preferences_in_force())));
             }

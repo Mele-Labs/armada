@@ -968,6 +968,11 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/projects/project/:project/edit", post(crate::projects::edit_project::<D>))
         .route("/projects/project/:project/workflow", post(crate::projects::set_project_workflow::<D>))
         .route(
+            "/projects/project/:project/board",
+            get(crate::projects::get_project_board::<D>).post(crate::projects::save_project_board::<D>),
+        )
+        .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
+        .route(
             "/projects/project/:project/store",
             get(crate::projects::get_project_store::<D>).post(crate::projects::set_project_store::<D>),
         )

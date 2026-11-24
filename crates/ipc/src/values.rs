@@ -77,6 +77,10 @@ pub struct LookSet {
     pub theme: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub density: Option<String>,
+    /// Where each block of the project's dashboard stands. **A project's own**, kept with the rest of its look: absent
+    /// is none saved, and Bridge draws its preset. `get_project_board` and `save_project_board` read and change this alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub board: Option<crate::BoardLayout>,
 }
 
 /// The layer a value came from, from the furthest to the nearest: `default`, `machine`, `kit`,

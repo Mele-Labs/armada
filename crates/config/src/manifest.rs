@@ -148,7 +148,7 @@ const NARROW_KEYS: &[&str] = &["run", "each", "from", "under", "except", "outsid
 /// The keys read inside `checks.<name>.one_test`. #999.
 const ONE_TEST_KEYS: &[&str] = &["run"];
 /// The keys M1 reads inside `commands.<name>`.
-const COMMAND_KEYS: &[&str] = &["run", "destructive", "serve", "ready", "links", "dir"];
+const COMMAND_KEYS: &[&str] = &["run", "destructive", "confirm", "serve", "ready", "links", "dir"];
 /// The keys M1 reads inside `ports.<name>`.
 const PORT_KEYS: &[&str] = &["container", "env", "fixed"];
 /// The keys M1 reads inside `setup`.
@@ -372,6 +372,19 @@ impl Manifest {
     /// Every declared Command name, sorted.
     pub fn command_names(&self) -> Vec<String> {
         self.commands.keys().cloned().collect()
+    }
+
+    /// The Commands and servers flagged `confirm: true`, sorted: what Bridge asks about before it runs one.
+    pub fn confirm_names(&self) -> Vec<String> {
+        let mut names: Vec<String> = self
+            .commands
+            .iter()
+            .filter(|(_, command)| command.confirms())
+            .map(|(name, _)| name.clone())
+            .chain(self.servers.iter().filter(|(_, server)| server.confirms()).map(|(name, _)| name.clone()))
+            .collect();
+        names.sort();
+        names
     }
 
     /// A Command declaring `serve`, by name, or [`None`]. **Never answered by
