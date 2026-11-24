@@ -14,7 +14,7 @@ use crate::taught_tracker::{self, TaughtTracker};
 const SECRET: &str = "tok-s3cret/+";
 
 /// Each connection answered with the next of `answers`, and every request as it arrived.
-fn serve(answers: Vec<String>) -> (String, JoinHandle<Vec<String>>) {
+pub(super) fn serve(answers: Vec<String>) -> (String, JoinHandle<Vec<String>>) {
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let url = format!("http://{}", listener.local_addr().unwrap());
     let handle = std::thread::spawn(move || {
@@ -52,7 +52,7 @@ fn request_of(stream: &mut TcpStream) -> String {
     }
 }
 
-fn answer(status: &str, body: &str) -> String {
+pub(super) fn answer(status: &str, body: &str) -> String {
     format!("HTTP/1.1 {status}\r\nContent-Type: application/json\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len())
 }
 

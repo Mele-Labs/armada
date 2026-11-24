@@ -25,6 +25,10 @@ const SECURITY: &str = "/usr/bin/security";
 pub const SECRET_SERVICE: &str = "armada-request-variable";
 /// The service a long value's later parts are kept under, apart from any variable's account.
 pub const SECRET_PART_SERVICE: &str = "armada-request-variable-part";
+/// The service a project's metric tokens are kept under, **one item per tool** and its account the credential's name.
+pub const METRIC_TOKEN_SERVICE: &str = "armada-metric-token";
+/// The service a long metric token's later parts are kept under.
+pub const METRIC_TOKEN_PART_SERVICE: &str = "armada-metric-token-part";
 /// `security`'s exit when there is no such item.
 const NO_SUCH_ITEM: i32 = 44;
 /// The longest line `security -i` reads whole, its newline included.
@@ -32,22 +36,40 @@ const LINE_MOST: usize = 4095;
 /// A part's bytes: twice this in hex leaves the line a thousand bytes for its account and keychain.
 const PART: usize = 1500;
 
+/// The services one kind of secret is kept under, and what its account is.
+#[derive(Clone, Copy)]
+struct Services {
+    item: &'static str,
+    part: &'static str,
+    /// Whether the account is the variable's name alone, as a metric token's is, and not `<repository>/<environment>/<name>`.
+    by_name: bool,
+}
+
+const REQUESTS: Services = Services { item: SECRET_SERVICE, part: SECRET_PART_SERVICE, by_name: false };
+const METRIC_TOKENS: Services = Services { item: METRIC_TOKEN_SERVICE, part: METRIC_TOKEN_PART_SERVICE, by_name: true };
+
 /// The secret variables, in a keychain.
 pub struct KeychainSecrets {
     /// `None` is the person's default keychain. A test names a throwaway one.
     keychain: Option<PathBuf>,
+    services: Services,
 }
 
-/// The item's account. Not secret.
-fn account_of(variable: &SecretVariable) -> String {
-    format!("{}/{}/{}", variable.repository, variable.environment, variable.name)
-}
+impl Services {
+    /// The item's account. Not secret.
+    fn account_of(self, variable: &SecretVariable) -> String {
+        match self.by_name {
+            true => variable.name.clone(),
+            false => format!("{}/{}/{}", variable.repository, variable.environment, variable.name),
+        }
+    }
 
-/// Where part `index` of `account`'s value is kept: the first in the variable's own item.
-fn part_of(account: &str, index: usize) -> (&'static str, String) {
-    match index {
-        0 => (SECRET_SERVICE, account.to_string()),
-        _ => (SECRET_PART_SERVICE, format!("{account}/{index}")),
+    /// Where part `index` of `account`'s value is kept: the first in the variable's own item.
+    fn part_of(self, account: &str, index: usize) -> (&'static str, String) {
+        match index {
+            0 => (self.item, account.to_string()),
+            _ => (self.part, format!("{account}/{index}")),
+        }
     }
 }
 
@@ -71,10 +93,10 @@ fn hex(bytes: &[u8]) -> String {
 
 /// The lines `security -i` is given to keep `value` under `account`, one a part, each ending in
 /// `\n` and none longer than it reads whole.
-pub(crate) fn keep_lines(account: &str, value: &str, keychain: Option<&Path>) -> Result<Vec<String>, SecretError> {
+fn keep_lines_in(services: Services, account: &str, value: &str, keychain: Option<&Path>) -> Result<Vec<String>, SecretError> {
     let mut lines = Vec::new();
     for (index, part) in value.as_bytes().chunks(PART).enumerate() {
-        let (service, held) = part_of(account, index);
+        let (service, held) = services.part_of(account, index);
         let mut line = format!("add-generic-password -U -s {service} -a {} -X {}", quoted(&held), hex(part));
         if let Some(keychain) = keychain {
             line.push(' ');
@@ -89,6 +111,11 @@ pub(crate) fn keep_lines(account: &str, value: &str, keychain: Option<&Path>) ->
         lines.push(line);
     }
     Ok(lines)
+}
+
+#[cfg(test)]
+pub(crate) fn keep_lines(account: &str, value: &str, keychain: Option<&Path>) -> Result<Vec<String>, SecretError> {
+    keep_lines_in(REQUESTS, account, value, keychain)
 }
 
 /// What `security -i` said of a failed write: the `returned <status>` it prints after a command and
@@ -115,12 +142,23 @@ pub(crate) fn status_of(said: &str) -> String {
 impl KeychainSecrets {
     /// The person's default keychain.
     pub fn in_default_keychain() -> KeychainSecrets {
-        KeychainSecrets { keychain: None }
+        KeychainSecrets { keychain: None, services: REQUESTS }
     }
 
     /// The keychain at `keychain`, for a test that must never touch the person's own.
     pub fn in_keychain(keychain: &Path) -> KeychainSecrets {
-        KeychainSecrets { keychain: Some(keychain.to_path_buf()) }
+        KeychainSecrets { keychain: Some(keychain.to_path_buf()), services: REQUESTS }
+    }
+
+    /// The metric tokens, in the person's default keychain: **one per tool**, its account the credential's name, which is
+    /// the `name` of the [`SecretVariable`] and the rest of it is not read.
+    pub fn metric_tokens_in_default_keychain() -> KeychainSecrets {
+        KeychainSecrets { keychain: None, services: METRIC_TOKENS }
+    }
+
+    /// The metric tokens in the keychain at `keychain`, for a test.
+    pub fn metric_tokens_in_keychain(keychain: &Path) -> KeychainSecrets {
+        KeychainSecrets { keychain: Some(keychain.to_path_buf()), services: METRIC_TOKENS }
     }
 
     fn security(&self, verb: &str, (service, account): (&str, &str), reading: bool) -> Command {
@@ -154,7 +192,7 @@ impl KeychainSecrets {
     /// Delete `account`'s parts from `from` on, until one is not there.
     fn forget_parts(&self, account: &str, from: usize) -> Result<(), SecretError> {
         for index in from.max(1).. {
-            let (service, held) = part_of(account, index);
+            let (service, held) = self.services.part_of(account, index);
             let out = self
                 .security("delete-generic-password", (service, &held), false)
                 .output()
@@ -203,11 +241,11 @@ fn without_newline(mut bytes: Vec<u8>) -> Vec<u8> {
 
 impl RequestSecrets for KeychainSecrets {
     fn read(&self, variable: &SecretVariable) -> Result<Option<Secret<String>>, SecretError> {
-        let account = account_of(variable);
-        let Some(first) = self.found((SECRET_SERVICE, &account), true)? else { return Ok(None) };
+        let account = self.services.account_of(variable);
+        let Some(first) = self.found((self.services.item, &account), true)? else { return Ok(None) };
         let mut bytes = without_newline(first);
         for index in 1.. {
-            let (service, held) = part_of(&account, index);
+            let (service, held) = self.services.part_of(&account, index);
             let Some(part) = self.found((service, &held), true)? else { break };
             bytes.extend(without_newline(part));
         }
@@ -218,16 +256,16 @@ impl RequestSecrets for KeychainSecrets {
 
     fn is_kept(&self, variable: &SecretVariable) -> Result<bool, SecretError> {
         // Without `-w` the item's attributes are printed and its value is not.
-        Ok(self.found((SECRET_SERVICE, &account_of(variable)), false)?.is_some())
+        Ok(self.found((self.services.item, &self.services.account_of(variable)), false)?.is_some())
     }
 
     fn keep(&self, variable: &SecretVariable, value: Secret<String>) -> Result<(), SecretError> {
         value_fits(value.expose())?;
-        let account = account_of(variable);
+        let account = self.services.account_of(variable);
         if account.contains(['\n', '\r']) {
             return Err(SecretError::Refused(String::from("a variable's name is one line")));
         }
-        let lines = keep_lines(&account, value.expose(), self.keychain.as_deref())?;
+        let lines = keep_lines_in(self.services, &account, value.expose(), self.keychain.as_deref())?;
         let parts = lines.len();
         let said = self.interactive(lines.concat())?;
         // A longer value kept before leaves parts past this one's, which would be read as its end.
@@ -246,9 +284,9 @@ impl RequestSecrets for KeychainSecrets {
     }
 
     fn forget(&self, variable: &SecretVariable) -> Result<(), SecretError> {
-        let account = account_of(variable);
+        let account = self.services.account_of(variable);
         let out = self
-            .security("delete-generic-password", (SECRET_SERVICE, &account), false)
+            .security("delete-generic-password", (self.services.item, &account), false)
             .output()
             .map_err(|why| SecretError::Unkept(format!("{SECURITY} would not start: {why}")))?;
         match out.status.code() {
