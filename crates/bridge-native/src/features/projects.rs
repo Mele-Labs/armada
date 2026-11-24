@@ -55,6 +55,10 @@ impl FeaturesScreen {
 
     /// The chip the number `1` to `9` is on.
     pub(super) fn choose_number(&mut self, digit: u8, cx: &mut Context<Self>) -> bool {
+        // Inside the Project place no chips are drawn: the title bar picks the project.
+        if self.section.is_some() {
+            return false;
+        }
         let Some((id, _)) = (digit as usize).checked_sub(1).and_then(|at| self.chips(cx).into_iter().nth(at)) else { return false };
         self.choose(id, cx);
         true
