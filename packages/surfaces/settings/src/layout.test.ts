@@ -5,7 +5,6 @@
 
 import { describe, expect, it } from "vitest";
 
-import registry from "../../../../crates/ipc/layout-registry.json";
 import {
   LAYOUT,
   LAYOUT_BYTES,
@@ -16,6 +15,38 @@ import {
   serializeLayout,
 } from "@armada/shell";
 import type { LayoutFile, LayoutMod } from "@armada/shell";
+
+// Read as text and not imported: the file lives in `crates/ipc`, and a package is reached by its name.
+// `import.meta.glob` is Vite's, which this test runs under, and this package has no Vite types.
+const files = (
+  import.meta as unknown as {
+    glob: (
+      pattern: string,
+      options: {
+        query: string;
+        import: string;
+        eager: true;
+      },
+    ) => Record<string, string>;
+  }
+).glob("../../../../crates/ipc/layout-registry.json", {
+  query: "?raw",
+  import: "default",
+  eager: true,
+});
+const registry = JSON.parse(Object.values(files)[0] ?? "{}") as {
+  regions: Record<
+    string,
+    {
+      ordered: boolean;
+      firstable: boolean;
+      entries: {
+        id: string;
+        hideable: boolean;
+      }[];
+    }
+  >;
+};
 
 const mod = (name: string, text: string, over: Partial<LayoutMod> = {}): LayoutMod => ({
   name,
@@ -34,6 +65,7 @@ describe("the registry file both sides check", () => {
     expect(Object.keys(registry.regions)).toEqual(LAYOUT_REGIONS);
     for (const region of LAYOUT_REGIONS) {
       const shipped = registry.regions[region];
+      if (shipped === undefined) throw new Error(`${region} is not in the registry file`);
       const spec = LAYOUT[region];
       expect({
         region,
