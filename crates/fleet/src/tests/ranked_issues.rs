@@ -162,7 +162,7 @@ fn rows_go_by_recent_jobs_then_newest_and_an_issue_that_matched_nothing_goes_las
     let ranked = |reference: &str, title: &str, labels: &[&str], at: &str| {
         let one = issue(reference, title, labels, at);
         let (features, jobs) = ground.issue(None, &one);
-        RankedIssue { manifest_id: None, issue: one, features, jobs }
+        RankedIssue { manifest_id: None, issue: one, features, jobs, why: None }
     };
     let mut rows = vec![
         ranked("#10", "Nothing alike, but the newest", &[], "2026-11-22T00:00:00Z"),

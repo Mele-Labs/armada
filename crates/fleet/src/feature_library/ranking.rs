@@ -226,7 +226,7 @@ where
             .filter(|(_, issue)| pickable(issue))
             .map(|(manifest_id, issue)| {
                 let (features, jobs) = ground.issue(manifest_id.as_ref().map(ManifestId::as_str), &issue);
-                RankedIssue { manifest_id, issue, features, jobs }
+                RankedIssue { manifest_id, issue, features, jobs, why: None }
             })
             .collect();
         order_issues(&mut might_pick_up);
@@ -247,11 +247,12 @@ where
                         draft: pull.draft,
                         features,
                         jobs,
+                        why: None,
                     }
                 })
                 .collect(),
         };
         order_pulls(&mut might_be_interested);
-        Ok(RankedIssues { project, days: DAYS, fetched_at: fetched, might_pick_up, might_be_interested })
+        Ok(RankedIssues { project, days: DAYS, fetched_at: fetched, might_pick_up, might_be_interested, by_librarian: None })
     }
 }

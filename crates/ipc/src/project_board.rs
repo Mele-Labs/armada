@@ -80,6 +80,9 @@ pub struct RankedIssue {
     pub features: Vec<MatchedFeature>,
     /// The owner's Jobs across `features`, each counted once: what the row is ranked on.
     pub jobs: u32,
+    /// The librarian's short reason for the row's place, where it ranked the list. Absent otherwise.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// One open pull request that is not his, and the features its files fall in.
@@ -93,6 +96,9 @@ pub struct RankedPull {
     pub draft: bool,
     pub features: Vec<MatchedFeature>,
     pub jobs: u32,
+    /// As on `RankedIssue`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub why: Option<String>,
 }
 
 /// `list_ranked_issues`' answer. **Read from what Fleet holds**: the issue lists as the tracker was last read and the
@@ -109,4 +115,8 @@ pub struct RankedIssues {
     pub might_pick_up: Vec<RankedIssue>,
     /// Open pull requests of other people: the ones he might be interested in.
     pub might_be_interested: Vec<RankedPull>,
+    /// When the librarian ranked both lists, which are then in its order with a `why` on each row. Absent where they are
+    /// ranked by features, as they are until a press of Rank with the librarian and after Reset.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub by_librarian: Option<Instant>,
 }

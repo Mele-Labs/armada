@@ -167,8 +167,9 @@ pub fn issues() -> IssuesRead {
                 issue: issue("armada-9efp", "Library sync", &[]),
                 features: vec![feature("feature-library", "Feature library", MatchedBy::PullRequestFiles, 4), feature("project-board", "Project board", MatchedBy::Label, 2)],
                 jobs: 6,
+                why: None,
             },
-            RankedIssue { manifest_id: Some(ManifestId::carried(ARMADA)), issue: issue("armada-71cc", "Pocket offline", &[]), features: Vec::new(), jobs: 0 },
+            RankedIssue { manifest_id: Some(ManifestId::carried(ARMADA)), issue: issue("armada-71cc", "Pocket offline", &[]), features: Vec::new(), jobs: 0, why: None },
         ],
         might_be_interested: vec![RankedPull {
             manifest_id: ManifestId::carried(ARMADA),
@@ -179,7 +180,9 @@ pub fn issues() -> IssuesRead {
             draft: false,
             features: vec![feature("feature-library", "Feature library", MatchedBy::Files, 4)],
             jobs: 4,
+            why: None,
         }],
+        by_librarian: None,
     };
     IssuesRead { mine, ranked }
 }

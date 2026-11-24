@@ -51,6 +51,8 @@ export type RankedIssue = {
   features: MatchedFeature[];
   /** The owner's Jobs across `features`, each counted once. */
   jobs: number;
+  /** The librarian's short reason for the row's place, where it ranked the list. */
+  why?: string;
 };
 
 /** One open pull request that is not his, and the features its files fall in. */
@@ -63,6 +65,8 @@ export type RankedPull = {
   draft: boolean;
   features: MatchedFeature[];
   jobs: number;
+  /** As on `RankedIssue`. */
+  why?: string;
 };
 
 /** `GET /projects/project/:project/ranked_issues`. */
@@ -74,4 +78,6 @@ export type RankedIssues = {
   fetched_at?: string;
   might_pick_up: RankedIssue[];
   might_be_interested: RankedPull[];
+  /** When the librarian ranked both lists, which are then in its order with a `why` on each row. */
+  by_librarian?: string;
 };

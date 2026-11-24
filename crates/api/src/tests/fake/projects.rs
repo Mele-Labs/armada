@@ -159,7 +159,7 @@ impl Projects for FakeDaemon {
 
     async fn list_ranked_issues(&self, project: String) -> Result<ipc::RankedIssues, Refusal> {
         held(&project)?;
-        Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new() })
+        Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new(), by_librarian: None })
     }
 
     async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
