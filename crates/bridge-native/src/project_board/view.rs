@@ -318,11 +318,23 @@ impl Board {
         labelled(frame, Role::Region, title).into_any_element()
     }
 
+    /// A block's body, scrolled on its own. **While it has rows out of sight it keeps the wheel**, so the board behind it
+    /// stands still; a body with nothing to scroll lets the wheel through to the board.
+    pub(super) fn body_scroll(&self, id: SharedString) -> gpui::Stateful<gpui::Div> {
+        let handle = self.bodies.borrow_mut().entry(id.to_string()).or_default().clone();
+        let held = handle.clone();
+        div().id(id).track_scroll(&handle).overflow_y_scroll().on_scroll_wheel(move |_, _, cx| {
+            if held.max_offset().y > px(0.) {
+                cx.stop_propagation();
+            }
+        })
+    }
+
     /// What a block holds under its header: bones while it reads, why it could not, or its rows in the view it is in.
     fn body(&self, kind: BlockKind, view: View, fill: &Fill, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let slug = kind.slug();
         let pad = look.length(token::SPACE_2);
-        let scroll = |content: AnyElement| div().id(SharedString::from(format!("{slug}-body"))).flex_1().min_h_0().overflow_y_scroll().p(pad).child(content).into_any_element();
+        let scroll = |content: AnyElement| self.body_scroll(SharedString::from(format!("{slug}-body"))).flex_1().min_h_0().p(pad).child(content).into_any_element();
         match fill {
             Fill::Reading => {
                 let bones = (0..3).map(|at| bone(look, look.length(token::SPACE_12) * (3.0 - at as f32 * 0.5), look.length(token::SPACE_3)));

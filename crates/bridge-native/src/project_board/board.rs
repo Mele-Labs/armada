@@ -150,6 +150,8 @@ pub struct Board {
     pub(super) ran: Vec<(String, String)>,
     /// A focus handle for each block, so every block is a stop of the keys.
     pub(super) handles: Vec<(BlockKind, FocusHandle)>,
+    /// Where each block's body is scrolled, by its element id, so a body that has rows to scroll keeps the wheel.
+    pub(super) bodies: std::cell::RefCell<HashMap<String, gpui::ScrollHandle>>,
     pub(super) root: FocusHandle,
     /// The cell the pointer was in, relative to the block's own corner, when the block was lifted.
     pub(super) grab: Option<(i16, i16)>,
@@ -220,6 +222,7 @@ impl Board {
             cancel_stop: cx.focus_handle().tab_stop(true),
             ran: Vec::new(),
             handles: BlockKind::ALL.into_iter().map(|kind| (kind, cx.focus_handle().tab_stop(true))).collect(),
+            bodies: Default::default(),
             root: cx.focus_handle(),
             grab: None,
             entered: false,

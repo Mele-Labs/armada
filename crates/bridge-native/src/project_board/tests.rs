@@ -640,3 +640,36 @@ fn the_number_shown_large_is_not_a_row_again_beneath_it() {
     };
     assert_eq!(metric::items("errors", &series).len(), 2, "a point of a series stays in the rows");
 }
+
+#[gpui::test]
+fn a_block_with_rows_out_of_sight_keeps_the_wheel_and_the_board_stands_still(cx: &mut TestAppContext) {
+    // Features one row tall, so its cards run out of sight, over enough blocks that the board scrolls too.
+    let kept = BoardLayout {
+        blocks: vec![
+            block("features", 0, 0, 6, 1, "cards"),
+            block("checks", 0, 1, 6, 2, "list"),
+            block("reviews", 0, 3, 6, 2, "cards"),
+            block("issues", 0, 5, 6, 2, "table"),
+            block("needs-you", 0, 7, 6, 2, "list"),
+        ],
+    };
+    let (board, cx) = board_keeping(cx, Some(kept));
+    cx.simulate_resize(gpui::size(gpui::px(1280.), gpui::px(700.)));
+    redraw(cx);
+    let wheel = |cx: &mut VisualTestContext, at: gpui::Point<Pixels>| {
+        cx.simulate_event(gpui::ScrollWheelEvent { position: at, delta: gpui::ScrollDelta::Pixels(gpui::point(gpui::px(0.), gpui::px(-60.))), ..Default::default() });
+        redraw(cx);
+    };
+    let overflows = cx.update(|_, cx| board.read(cx).bodies.borrow().get("features-body").is_some_and(|body| body.max_offset().y > gpui::px(0.)));
+    assert!(overflows, "Features one row tall has cards out of sight");
+    let features = find(cx, Role::Region, "Features").expect("the Features block is drawn");
+
+    wheel(cx, features.center());
+    let after = find(cx, Role::Region, "Features").expect("still drawn");
+    assert_eq!(after.origin.y, features.origin.y, "the board stood still while the block scrolled");
+
+    let checks = find(cx, Role::Region, "Checks and commands").expect("the Checks block is drawn");
+    wheel(cx, gpui::point(checks.origin.x + gpui::px(40.), checks.origin.y + gpui::px(10.)));
+    let moved = find(cx, Role::Region, "Checks and commands").expect("still drawn");
+    assert!(moved.origin.y < checks.origin.y, "a wheel over a block's header still moves the board");
+}

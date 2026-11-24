@@ -45,7 +45,7 @@ impl Board {
             let shown = div().flex().flex_col().gap(gap).children(self.metric_headline(reading, answer, live, look)).child(self.metric_rows(reading, answer, view, look, cx));
             if live { shown.into_any_element() } else { shown.opacity(0.5).into_any_element() }
         });
-        div().id(SharedString::from(format!("metric-{}-body", reading.id))).flex_1().min_h_0().overflow_y_scroll().p(gap).flex().flex_col().gap(gap).children(state).children(answer).into_any_element()
+        self.body_scroll(SharedString::from(format!("metric-{}-body", reading.id))).flex_1().min_h_0().p(gap).flex().flex_col().gap(gap).children(state).children(answer).into_any_element()
     }
 
     /// The first number large, its unit and label, and when it was read.
