@@ -8,7 +8,7 @@ Read before building a screen or component in `classic-final:packages/components
 ---
 
 Constraining what a surface may spell is what makes it drop into the
-Electron app without restyling. A value or a word this document does not
+app without restyling. A value or a word this document does not
 sanction is a finding, not a judgement call.
 
 UI tokens and the Voice & Copy contract are both in force. Two sibling

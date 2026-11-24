@@ -353,28 +353,28 @@ approximations.
 - [`spikes/native-bridge-feel.md`](spikes/native-bridge-feel.md)
   — how the native Jobs screen feels and what it costs: a switch or keystroke in 0.2 to 0.5 ms in release
   and under 5 ms in debug on the CPU side, 39 MB headless and 73 MB as a real window, against about 1.0 GB
-  for the Electron Bridge's main window; no thread to open yet, and vsync, present and the OS input path
+  for Classic's main window; no thread to open yet, and vsync, present and the OS input path
   not reachable without a window on screen.
 - [`spikes/scene-draw-time.md`](spikes/scene-draw-time.md)
   — how long a saved prototype scene takes to draw natively: a median of 17 ms from markup to a drawn frame
   in a debug build on a busy machine, 3 ms of it reading the markup and fixtures; release and the display's
   own wait not measured.
 - [`spikes/native-jobs-inventory/list-needs-palette.md`](spikes/native-jobs-inventory/list-needs-palette.md)
-  — what Electron Bridge's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge draw today,
+  — what Classic's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge drew,
   as the spec the native Jobs screens match.
 - [`spikes/native-jobs-inventory/job-view.md`](spikes/native-jobs-inventory/job-view.md)
-  — what Electron Bridge's open Job draws today, its head, tab bar, thread rows, cards and composer,
+  — what Classic's open Job drew, its head, tab bar, thread rows, cards and composer,
   as the spec the native Job view matches.
 - [`spikes/native-jobs-inventory/field-layer.md`](spikes/native-jobs-inventory/field-layer.md)
   — what the Job view's Field layer draws today, its plan bar, replay slider and lens card,
   kept for its port after switch day.
 - [`spikes/native-jobs-inventory/thread-fold-diff.md`](spikes/native-jobs-inventory/thread-fold-diff.md)
-  — where Fleet's thread fold differed from Electron's, row by row, and what was kept as Electron does it.
+  — where Fleet's thread fold differed from Classic's, row by row, and what was kept as Classic did it.
 - [`spikes/native-titlebar-inventory/title-bar-rings-build.md`](spikes/native-titlebar-inventory/title-bar-rings-build.md)
-  — what Electron Bridge's title bar, usage rings, context ring, build switcher and Fleet-down states draw today,
+  — what Classic's title bar, usage rings, context ring, build switcher and Fleet-down states drew,
   as the spec the native title bar matches.
 - [`spikes/native-titlebar-inventory/dispatch-merge-clash.md`](spikes/native-titlebar-inventory/dispatch-merge-clash.md)
-  — what Electron Bridge's dispatch sheet, annotation layer, merge queue strip and write-clash marks draw today,
+  — what Classic's dispatch sheet, annotation layer, merge queue strip and write-clash marks drew,
   as the spec the native ones match.
 - [`spikes/native-titlebar-inventory/handoff.md`](spikes/native-titlebar-inventory/handoff.md)
   — what the native title bar, dispatch and strip work leaves Jobs screens: its files, the shared ones and what a merge keeps, open bugs, walk steps.
