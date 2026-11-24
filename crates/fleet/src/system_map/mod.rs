@@ -80,7 +80,7 @@ fn kit_of(repo: &Repo, parts: &[Part]) -> Vec<(usize, KitServer)> {
 }
 
 /// The map of one repository, held per `HEAD`. **Blocking**: the caller runs it off the main thread.
-pub(crate) fn mapped(member: &Member) -> Arc<Mapped> {
+fn mapped(member: &Member) -> Arc<Mapped> {
     let key = member.root.to_string_lossy().into_owned();
     let head = head_of(&member.root);
     if !head.is_empty() {
@@ -98,8 +98,8 @@ pub(crate) fn mapped(member: &Member) -> Arc<Mapped> {
     let mut parts = det.parts;
     // A server nobody runs from here is named for the service that serves it.
     for link in reach.links.iter().filter(|link| link.label.as_deref() == Some("served by")) {
-        let service = parts.iter().find(|part| part.wire.id == link.from).map(|part| part.wire.name.clone());
-        if let (Some(service), Some(api)) = (service, parts.iter_mut().find(|part| part.api && part.wire.id == link.to)) {
+        let service = parts.iter().find(|part| part.wire.id == link.to).map(|part| part.wire.name.clone());
+        if let (Some(service), Some(api)) = (service, parts.iter_mut().find(|part| part.api && part.wire.id == link.from)) {
             api.wire.name = format!("{service} API");
         }
     }
@@ -141,7 +141,7 @@ where
     }
 
     /// The repositories of `project` mapped, off the main thread.
-    pub(crate) async fn system_mapped(&self, project: &str) -> Result<Vec<Arc<Mapped>>, Refusal> {
+    async fn system_mapped(&self, project: &str) -> Result<Vec<Arc<Mapped>>, Refusal> {
         let members = self.system_members(project).await?;
         tokio::task::spawn_blocking(move || members.iter().map(mapped).collect()).await.map_err(|why| self.hosted_refusal("fleet.system_map_unreadable", &format!("reading the system map stopped: {why}")))
     }

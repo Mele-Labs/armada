@@ -98,12 +98,12 @@ fn zooming_into_a_part_names_its_pieces_and_what_they_call() {
     assert!(pieces.contains(&"project_board") && pieces.contains(&"daemon"), "the folder's own files are its pieces: {pieces:?}");
     assert!(pieces.contains(&"adapters") && pieces.contains(&"ipc"), "the libraries it reaches are pieces of it: {pieces:?}");
     assert!(map.parts.iter().all(|one| one.kind == SystemPartKind::Piece || one.kind == SystemPartKind::Store || one.kind == SystemPartKind::Outside));
-    assert!(map.links.iter().any(|link| link.from == "fleet/project_board" && link.to.starts_with("store-")), "a piece that uses the store reaches it: {:?}", map.links);
-    assert!(map.links.iter().any(|link| link.from == "fleet/project_board" && link.to == "fleet/adapters"), "a piece that uses a library reaches it");
-    assert!(map.links.iter().any(|link| link.from == "fleet/daemon" && link.to == "fleet/project_board"), "an import of a sibling is a link");
+    assert!(map.links.iter().any(|link| link.from == "fleet/project-board" && link.to.starts_with("store-")), "a piece that uses the store reaches it: {:?}", map.links);
+    assert!(map.links.iter().any(|link| link.from == "fleet/project-board" && link.to == "fleet/adapters"), "a piece that uses a library reaches it");
+    assert!(map.links.iter().any(|link| link.from == "fleet/daemon" && link.to == "fleet/project-board"), "an import of a sibling is a link");
 
     let bridge = read_for_test(home.path(), "armada", Some("bridge-native"), None);
-    let route = bridge.links.iter().find(|link| link.from == "bridge-native/project_board").expect("the board's piece reaches the API");
+    let route = bridge.links.iter().find(|link| link.from == "bridge-native/project-board").expect("the board's piece reaches the API");
     assert_eq!(route.label.as_deref(), Some("/projects/project/:project/board"));
     assert_eq!(bridge.parts.iter().find(|one| one.id == route.to).and_then(|one| one.within.as_deref()), Some("api"), "a piece of another part is drawn within it");
 }
@@ -187,8 +187,8 @@ fn a_servers_pieces_are_its_modules_and_the_frontends_are_its_screens() {
     let back = read_for_test(home.path(), "importer", Some("fastapi-backend"), None);
     let names: Vec<&str> = back.parts.iter().filter(|one| one.within.as_deref() == Some("fastapi-backend")).map(|one| one.name.as_str()).collect();
     assert!(names.contains(&"main") && names.contains(&"persistence") && names.contains(&"ynab_client"), "{names:?}");
-    assert!(back.links.iter().any(|link| link.from == "fastapi-backend/main" && link.to == "fastapi-backend/ynab_client"), "an import is a link");
-    assert!(back.links.iter().any(|link| link.from == "fastapi-backend/ynab_client" && link.to == "outside-api-ynab-com"), "the module that names the address reaches it");
+    assert!(back.links.iter().any(|link| link.from == "fastapi-backend/main" && link.to == "fastapi-backend/ynab-client"), "an import is a link");
+    assert!(back.links.iter().any(|link| link.from == "fastapi-backend/ynab-client" && link.to == "outside-api-ynab-com"), "the module that names the address reaches it");
 
     let front = read_for_test(home.path(), "importer", Some("frontend"), None);
     let screens: Vec<&str> = front.parts.iter().filter(|one| one.within.as_deref() == Some("frontend")).map(|one| one.name.as_str()).collect();

@@ -55,7 +55,6 @@ pub(super) struct Detected {
     pub(super) roles: Vec<Role>,
     /// The part each module belongs to as its own.
     pub(super) own: Vec<Option<usize>>,
-    pub(super) deps: Vec<Vec<String>>,
     pub(super) stores: Vec<StoreFound>,
     pub(super) outside: Vec<OutsideFound>,
 }
@@ -412,7 +411,7 @@ pub(super) fn detect(repo: &Repo) -> Detected {
     for part in &mut parts {
         part.wire.zooms = !part.wire.paths.is_empty() && matches!(part.wire.kind, SystemPartKind::Entry | SystemPartKind::Service);
     }
-    Detected { parts, roles, own, deps, stores, outside }
+    Detected { parts, roles, own, stores, outside }
 }
 
 fn capitalized(text: &str) -> String {

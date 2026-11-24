@@ -67,10 +67,6 @@ impl Mapped {
         self.parts.iter().position(|part| part.wire.id == id)
     }
 
-    pub(super) fn piece_at(&self, id: &str) -> Option<usize> {
-        self.pieces.iter().position(|piece| piece.id == id)
-    }
-
     /// The part a repository-relative path is in: the one holding it by the longest of its paths.
     pub(super) fn part_of(&self, path: &str) -> Option<usize> {
         self.parts

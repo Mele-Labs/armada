@@ -37,7 +37,6 @@ pub(super) struct ImageRule {
 
 #[derive(Deserialize)]
 pub(super) struct OutsideRule {
-    pub(super) id: String,
     pub(super) name: String,
     #[serde(default)]
     pub(super) needs: Vec<String>,
