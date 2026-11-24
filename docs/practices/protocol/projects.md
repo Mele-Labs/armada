@@ -298,7 +298,7 @@ A Fleet replaces its layout only where the one handed in has the later `saved_at
 A layout taken is kept with its stamp and is not told on, so two Macs settle and stop; `settings.changed` tells Bridge as for any write.
 A Mac on a build from before this answers 404 to the read, and the link stays up without it.
 Clocks are the order: two Macs whose clocks differ by more than the time between his saves can take the earlier save for the later.
-The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+The wire change moves the protocol ID with `crates/ipc/src`.
 ## Metrics
 
 A project's Dashboard can show live metric blocks, and Fleet reads each one with no model.
