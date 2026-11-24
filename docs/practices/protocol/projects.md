@@ -34,6 +34,8 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `set_project_workflow` | Bridge calls | `POST /projects/project/:project/workflow`, body `SetProjectWorkflow { workflow, on }`: one workflow switched off for the project's Jobs, or back on, and nothing else of its values changed. Written as `edit_project` writes `values`, so it answers `Projects` and publishes `projects.changed`. 422 `fleet.project_blank` for a blank `workflow` |
 | `get_project_board` | Bridge calls | `GET /projects/project/:project/board`. Answers `ProjectBoard { project, layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`. **A project that saved none answers no `layout`**, and Bridge draws its preset. `kind` and `view` are text, so a block kind a later Bridge adds crosses without a wire change and one this build does not know is read back as saved. See *The board*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
 | `save_project_board` | Bridge calls | `POST /projects/project/:project/board`, body `SaveProjectBoard { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Nothing else of the project's values changes. Written as `edit_project` writes `values`, so it publishes `projects.changed`, and for a copy of another Mac's project it is sent to that Mac. Answers `ProjectBoard`. 422 `fleet.project_values_refused` for a block with a blank `kind` or `view` |
+| `get_home_layout` | Bridge calls | `GET /home/layout`. Answers `HomeLayout { layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`, the project board's shape. **A user who saved none answers no `layout`**, and Bridge draws its preset. See *The Cockpit home's layout* |
+| `save_home_layout` | Bridge calls | `POST /home/layout`, body `SaveHomeLayout { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Kept as `bridge.homeLayout` in settings.json, so it publishes `settings.changed`. Answers `HomeLayout`. 422 `fleet.unacceptable_home_layout` for a block with a blank `kind` or `view`, or more than 64 blocks, and nothing is written |
 | `list_ranked_issues` | Bridge calls | `GET /projects/project/:project/ranked_issues`. Answers `RankedIssues { project, days, fetched_at?, might_pick_up, might_be_interested }`: the open, unassigned issues as `RankedIssue { manifest_id?, issue, features, jobs }` and other people's open pull requests as `RankedPull { manifest_id, repository, number, title, author, draft, features, jobs }`, each `features` `[{ slug, title, by, jobs }]` and each list ranked by the owner's Jobs on those features in the last `days`. Asks no forge beyond the issue lists held five minutes. [Feature catalog](../../concepts/feature-catalog.md), *Ranking the issues he might pick up*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`, 500 `fleet.issues_unreadable` |
 | `save_kit_values` | Bridge calls | `POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is, written whole to `values.yml` in Kit's folder on this Mac. Answers `KitValuesSaved { file, values }` |
 | `HostedFacts.values` | Fleet writes, Bridge reads | `ResolvedValues`, what the Job froze when it started, in its own `job_values` rows. Absent on a Job started before they were kept |
@@ -271,4 +273,13 @@ A project's Dashboard keeps where each of its blocks stands in the project's fil
 A project that saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so `system`, `docs` or `errors` add without a wire change and a kind this build does not know is passed back as it was saved.
 A layer other than the project's ignores `board`: it is never laid over another.
+The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+
+## The Cockpit home's layout
+
+The Cockpit home, the right side of Bridge while no Job is selected, keeps one layout per user, as `bridge.homeLayout` in Fleet's settings.json.
+It is `BoardLayout`, the project board's own shape, so Bridge draws both with one grid: `{ blocks: [{ kind, x, y, w, h, view }] }`.
+`get_home_layout` and `save_home_layout` read and change it alone, and a save publishes `settings.changed` as any key of the file does.
+A user who saved none has none, and Bridge draws its preset.
+`kind` and `view` are Bridge's words, kept as written, so a kind this build does not know is passed back as it was saved.
 The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.

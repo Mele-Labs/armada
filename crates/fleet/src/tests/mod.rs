@@ -158,6 +158,7 @@ mod store_deploy;
 mod projects_kept;
 mod ports;
 mod preferences;
+mod home_layout;
 mod process;
 mod reading_a_request;
 mod reading_in;

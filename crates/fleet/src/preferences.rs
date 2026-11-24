@@ -53,7 +53,7 @@ pub(crate) fn preferences_of(settings: &Resolved) -> Preferences {
 }
 
 /// Text of a JSON preference as the value the file holds; empty removes it.
-fn json_change(text: &str) -> Option<SettingValue> {
+pub(crate) fn json_change(text: &str) -> Option<SettingValue> {
     match text.is_empty() {
         true => None,
         false => settings_file::SettingValue::from_json_text(text).ok().map(|value| crate::settings::wire_value(&value)),

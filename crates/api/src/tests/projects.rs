@@ -337,3 +337,18 @@ async fn a_project_board_is_read_none_and_saved_whole_with_a_kind_this_build_doe
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(text.contains("fleet.no_such_project"), "{text}");
 }
+
+#[tokio::test]
+async fn a_home_layout_is_read_none_and_saved_whole_with_a_kind_this_build_does_not_know() {
+    let (status, answer) = call("GET", "/home/layout", "").await;
+    assert_eq!(status, StatusCode::OK);
+    let home: ipc::HomeLayout = ipc::decode("home layout", &answer).expect("the layout");
+    assert_eq!(home.layout, None, "a user who saved none answers none");
+
+    let saved = r#"{"layout":{"blocks":[{"kind":"needs","x":0,"y":0,"w":3,"h":2,"view":"list"},{"kind":"errors","x":3,"y":0,"w":3,"h":2,"view":"cards"}]}}"#;
+    let (status, answer) = call("POST", "/home/layout", saved).await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&answer));
+    let home: ipc::HomeLayout = ipc::decode("home layout", &answer).expect("the layout");
+    let kinds: Vec<&str> = home.layout.as_ref().expect("a layout").blocks.iter().map(|one| one.kind.as_str()).collect();
+    assert_eq!(kinds, ["needs", "errors"]);
+}

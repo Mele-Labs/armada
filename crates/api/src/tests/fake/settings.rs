@@ -3,7 +3,7 @@
 //! watched is `fleet::settings`', against a real file.
 
 use ipc::{
-    FleetLimits, Preferences, SaveLimits, SavePreference, SaveSettings, SettingApplies, SettingKind,
+    FleetLimits, HomeLayout, Preferences, SaveHomeLayout, SaveLimits, SavePreference, SaveSettings, SettingApplies, SettingKind,
     SettingValue, SettingsList,
 };
 
@@ -115,5 +115,15 @@ impl Settings for FakeDaemon {
                 crate::tests::shapes::run_id(),
             ))),
         }
+    }
+
+    async fn get_home_layout(&self) -> Result<HomeLayout, Refusal> {
+        Ok(self.home_layout.lock().expect("not poisoned").clone())
+    }
+
+    async fn save_home_layout(&self, save: SaveHomeLayout) -> Result<HomeLayout, Refusal> {
+        let mut kept = self.home_layout.lock().expect("not poisoned");
+        *kept = HomeLayout { layout: save.layout };
+        Ok(kept.clone())
     }
 }

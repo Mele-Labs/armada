@@ -174,6 +174,8 @@ pub mod key_bindings;
 pub mod ask_tools;
 /// How the owner has Bridge draw a time: three switches. `docs/concepts/machine.md`.
 pub mod time_format;
+/// The Cockpit home's layout, a grid of blocks kept per user. `docs/practices/protocol/projects.md`, *The Cockpit home's layout*.
+pub mod home_layout;
 /// The folders every session may reach past its slots, and the ones it may not. `docs/concepts/session.md`.
 pub mod reach_folders;
 /// How far each of the Operator's roles goes, for the machine and for one repository. `crates/config/settings.toml`, *Operator positions per repository*.
@@ -571,6 +573,7 @@ pub use issue_queries::{
 };
 pub use values_merging::VALUE_KEYS;
 pub use projects::MergeProjects;
+pub use home_layout::{HomeLayout, SaveHomeLayout};
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,
 };
