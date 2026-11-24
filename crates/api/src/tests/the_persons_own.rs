@@ -94,7 +94,8 @@ async fn a_job_cannot_keep_the_feature_catalog_and_bridge_can() {
     let retire = ipc::encode(&ipc::AnswerRetire { project: "p".into(), slug: "f".into(), retire: false }).expect("encodes");
     let check = ipc::encode(&ipc::CheckDocs { project: "p".into(), slug: "f".into() }).expect("encodes");
     let flag = ipc::encode(&ipc::DocFlag { project: "p".into(), slug: "f".into(), target: "docs/a.md".into() }).expect("encodes");
-    let docs = [("/features/docs/check", check), ("/features/docs/dismiss", flag.clone()), ("/features/docs/job", flag)];
+    let draft = ipc::encode(&ipc::DraftModules { project: "p".into() }).expect("encodes");
+    let docs = [("/features/docs/check", check), ("/features/docs/dismiss", flag.clone()), ("/features/docs/job", flag), ("/features/start/draft", draft)];
     for (uri, body) in [("/features/upsert", upsert), ("/features/change", change), ("/features/retire", retire)].into_iter().chain(docs) {
         let (status, refused) = call(&app, "POST", uri, JOB, &body).await;
         assert_eq!(status, StatusCode::FORBIDDEN, "{uri} from a Job");

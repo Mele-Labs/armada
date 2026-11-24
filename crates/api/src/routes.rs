@@ -956,6 +956,8 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/features/docs/check", post(crate::features::check_docs::<D>))
         .route("/features/docs/dismiss", post(crate::features::dismiss_doc_flag::<D>))
         .route("/features/docs/job", post(crate::features::start_doc_job::<D>))
+        .route("/features/start", get(crate::features::get_library_start::<D>))
+        .route("/features/start/draft", post(crate::features::draft_module_features::<D>))
         .route("/features/seed", post(crate::features::seed_features::<D>))
         .route("/features/librarian", post(crate::features::run_librarian::<D>))
         .route("/features/librarian/stop", post(crate::features::stop_librarian::<D>))

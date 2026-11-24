@@ -1,0 +1,16 @@
+[operations.get_library_start]
+kind = "query"
+transport = "HTTP"
+agent_access = "Bridge only"
+description = "Read what a project can start its feature library from: the modules its build files name, each with the slug a draft gives it, and the docs at the top of its repositories. Give project where the caller is placed by no Job"
+notes = """
+`GET /features/start?project=`, answered with `LibraryStart`: `project`, `modules` (each `StartModule`: `name`, `slug`, `path` and `held?`) and `docs`. Read on every call from the files of each served repository of the project, with no model and no git.
+
+**A module is the folder of a build manifest**, read as the floor plan reads them (`Cargo.toml`, `package.json`, `go.mod` and the rest), with a repository's top folders where it holds none. Its `slug` is its name in lower case, words joined by one dash. A module whose slug an earlier one took is left out, so each slug is listed once, and `held` marks a slug the library holds already, which a draft passes over.
+
+**`docs` are the files at the top of each repository** whose name starts with `README`, `ARCHITECTURE`, `CONTRIBUTING`, `DESIGN` or `OVERVIEW`, and a top folder named `docs`, `doc` or `documentation`, written with a trailing `/`. Each is named once.
+
+Bridge reads it for the start panel the Features screen draws while the project holds no confirmed or seeded feature. The read answers for any project; only `draft_module_features` refuses one that holds a feature of its own.
+
+Refused 422 `fleet.feature_project` for a project Fleet does not hold, and 422 `fleet.start_no_repository` where no repository of the project is served.
+"""
