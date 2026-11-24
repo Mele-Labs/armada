@@ -17,6 +17,7 @@ pub(crate) mod committing;
 pub(crate) mod deciding;
 mod filing;
 pub(crate) mod doc_drift;
+mod doc_checking;
 mod floor_files;
 mod floor_plan;
 mod handoff;

@@ -82,8 +82,8 @@ impl Librarian {
     }
 }
 
-/// The parts that have work behind them. Drift's is its free half: the model half is not built. Links and Retire share one
-/// free step, which reads features and linked docs against the code.
+/// The parts that have work behind them. Drift's is its free half: the model half runs only on a press of Check
+/// (`check_docs`). Links and Retire share one free step, which reads features and linked docs against the code.
 const BUILT: &[LibrarianPart] = &[LibrarianPart::Links, LibrarianPart::Drift, LibrarianPart::Retire, LibrarianPart::SinceYouLooked, LibrarianPart::Gists];
 
 const A_DAY_MILLIS: i64 = 24 * 60 * 60 * 1000;
@@ -157,7 +157,7 @@ where
             let last = store.librarian_last_run(project).map_err(|why| self.ledger_fault(why))?;
             let docs = doc_drift::linked_docs(&store, project).map_err(|why| self.ledger_fault(why))?;
             let counts = counts_of(&store, project, docs.len()).map_err(|why| self.ledger_fault(why))?;
-            (state, last, store.librarian_model_calls(project, &night).map_err(|why| self.ledger_fault(why))?, docs, counts)
+            (state, last, super::doc_checking::night_spent(&store, project, &night).map_err(|why| self.ledger_fault(why))?, docs, counts)
         };
         let share = set.model_share;
         let steps = steps::steps_of(&set.parts, BUILT, &state, share, spent, counts);
@@ -298,7 +298,7 @@ where
     /// The steps a run of `project` would take now, for the listing. `night` is [`Fleet::librarian_night`]'s.
     pub(super) fn librarian_steps(&self, store: &Store, project: &str, state: &LibrarianState, night: &str) -> Result<Vec<LibrarianStep>, Refusal> {
         let set = self.librarian_set();
-        let spent = store.librarian_model_calls(project, night).map_err(|why| self.ledger_fault(why))?;
+        let spent = super::doc_checking::night_spent(store, project, night).map_err(|why| self.ledger_fault(why))?;
         let docs = doc_drift::linked_docs(store, project).map_err(|why| self.ledger_fault(why))?;
         let counts = counts_of(store, project, docs.len()).map_err(|why| self.ledger_fault(why))?;
         Ok(steps::steps_of(&set.parts, BUILT, state, set.model_share, spent, counts))

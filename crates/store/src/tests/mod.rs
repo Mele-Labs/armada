@@ -11,6 +11,7 @@ mod job_shells;
 mod features;
 mod librarian_asks;
 mod librarian_runs;
+mod feature_doc_checks;
 mod job_asides;
 mod story_asks;
 mod job_times;

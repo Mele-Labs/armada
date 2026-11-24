@@ -157,6 +157,42 @@ pub(crate) async fn answer_retire<D: Features>(State(served): State<Served<D>>, 
     }
 }
 
+/// The owner's Check on a feature's docs, or the Operator's. **Placed as `answer_retire` is.**
+pub(crate) async fn check_docs<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let check: ipc::CheckDocs = match ipc::decode_body("a feature whose docs to check", &body) {
+        Ok(check) => check,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().check_docs(crate::acting::asking(), check).await {
+        Ok(checked) => answer(StatusCode::OK, &checked, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's Dismiss on a doc that disagrees with the code. **Placed as `answer_retire` is.**
+pub(crate) async fn dismiss_doc_flag<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let flag: ipc::DocFlag = match ipc::decode_body("a doc whose flag to dismiss", &body) {
+        Ok(flag) => flag,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.daemon().dismiss_doc_flag(crate::acting::asking(), flag).await {
+        Ok(dismissed) => answer(StatusCode::OK, &dismissed, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+/// The owner's Start a Job on a doc that disagrees with the code. **Placed as `answer_retire` is.**
+pub(crate) async fn start_doc_job<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
+    let flag: ipc::DocFlag = match ipc::decode_body("a doc to start a Job on", &body) {
+        Ok(flag) => flag,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().start_doc_job(crate::acting::asking(), flag).await {
+        Ok(started) => answer(StatusCode::OK, &started, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// The Operator seeds a project. **Placed by its connection**, as `raise_card` is.
 pub(crate) async fn seed_features<D: Features>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let seed: ipc::SeedFeatures = match ipc::decode_body("a project to seed", &body) {

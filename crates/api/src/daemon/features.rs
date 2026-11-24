@@ -99,6 +99,20 @@ pub trait Features: Send + Sync + 'static {
     /// (`fleet.feature_unknown`), [`Refusal::IllegalMove`] for one not proposed (`fleet.retire_not_proposed`).
     fn answer_retire(&self, caller: Option<crate::Caller>, answer: ipc::AnswerRetire) -> impl Future<Output = Result<ipc::RetireAnswered, Refusal>> + Send;
 
+    /// `check_docs` — each doc of a feature put to the model against the feature's code, on the owner's press of Check, spent
+    /// from the librarian's night share. Refused as `answer_retire` is to any session but the Operator's; [`Refusal::NotFound`]
+    /// for an unknown feature, [`Refusal::IllegalMove`] where the share is spent (`fleet.librarian_share_spent`),
+    /// [`Refusal::Unacceptable`] where there is no repository or no doc to check, [`Refusal::Fault`] where no answer could be read.
+    fn check_docs(&self, caller: Option<crate::Caller>, check: ipc::CheckDocs) -> impl Future<Output = Result<ipc::DocsChecked, Refusal>> + Send;
+
+    /// `dismiss_doc_flag` — the owner's Dismiss on a doc a check found disagreeing with the code: quiet until either changes.
+    /// [`Refusal::IllegalMove`] where no disagreement stands on it (`fleet.doc_not_flagged`).
+    fn dismiss_doc_flag(&self, caller: Option<crate::Caller>, flag: ipc::DocFlag) -> impl Future<Output = Result<ipc::DocFlag, Refusal>> + Send;
+
+    /// `start_doc_job` — the owner's Start a Job on a doc a check found disagreeing with the code: a Job in the project sent a
+    /// brief that quotes both and asks him which is right. Refused as `dismiss_doc_flag` is.
+    fn start_doc_job(self: std::sync::Arc<Self>, caller: Option<crate::Caller>, flag: ipc::DocFlag) -> impl Future<Output = Result<ipc::DocJobStarted, Refusal>> + Send;
+
     /// `seed_features` — the project's first areas and features from the seed Fleet carries, on the Operator's word.
     /// [`Refusal::Unacceptable`] for a caller that is not the Operator's session (`fleet.not_the_operator`) or a project none
     /// of whose repositories holds the seed's marker (`fleet.seed_not_for_project`), [`Refusal::IllegalMove`] for a project that

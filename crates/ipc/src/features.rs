@@ -345,6 +345,10 @@ pub struct FeatureRead {
     /// address, and a document the librarian's drift part has not found any in.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub drifted: Vec<String>,
+    /// What the model found when he last pressed Check on the feature's docs. Absent for a ticket, and for a doc no press
+    /// has checked against this feature's code.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub check: Option<crate::DocCheck>,
 }
 
 /// `get_feature_brief`: the page condensed for an agent.
