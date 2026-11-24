@@ -68,6 +68,6 @@ Migration `20261113T1300Z-workflow_versions.table.sql`, additive. The hash is co
 ## Skew and the stream
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-Bridge's half is `packages/protocol/src/workflow-versions.ts`, `workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/workflow-versions.ts`, `workflow-drafts.ts` and `setup.ts`, written by hand like the rest.
 **The event stream.** Untouched: a publish raises the `repositories.changed` it already did, and a revert raises none, since it changes a draft.
 The open risk below is neither better nor worse.

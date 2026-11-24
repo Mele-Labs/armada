@@ -225,7 +225,7 @@ reports on its own, so a red unit job never blocks a change that `ci` passes.
 **The smoke tests are not a Check.** The owner removed `app_smoke` on 13 Oct 2026, after one kept turning main red and nobody was going to maintain it.
 `apps/desktop/vitest.config.ts` still has the `smoke` projects, and `pnpm --dir apps/desktop exec vitest run --project 'smoke*'` runs them by hand, as the walk replays do.
 No manifest, gate or CI job runs them.
-`apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `docs/practices/bridge.md` says what is in each project.
+`apps/desktop/unit/armada.yml` lists what `desktop_test`'s tests read; `classic-final:docs/practices/bridge.md` says what is in each project.
 
 ## Foundations
 
@@ -282,7 +282,7 @@ Where Fleet cannot be reached, the first `gh pr create` is turned away once sayi
 
 **To fix a red `format`, run `pnpm format` and commit what it changes.**
 A Drone is refused a bare `pnpm`, so it runs `armada run format`.
-`biome.jsonc` says what is formatted and what is left alone, and `docs/practices/bridge.md`, *The formatter*, says why.
+`biome.jsonc` says what is formatted and what is left alone, and `classic-final:docs/practices/bridge.md`, *The formatter*, says why.
 
 ### Catching a branch up
 

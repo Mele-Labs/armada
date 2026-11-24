@@ -478,7 +478,7 @@ slug = "annotate-and-capture"
 area = "documents-sketches-and-walks"
 title = "Annotate and capture"
 summary = "Notes on any screen"
-paths = ["crates/bridge-native/src/annotate", "crates/bridge-native/src/capture.rs", "apps/desktop/src/renderer/src/annotate", "docs/practices/capture-window.md"]
+paths = ["crates/bridge-native/src/annotate", "crates/bridge-native/src/capture.rs", "apps/desktop/src/renderer/src/annotate", "classic-final:docs/practices/capture-window.md"]
 entry_points = ["crates/bridge-native/src/annotate.rs", "crates/bridge-native/src/annotate/panel.rs", "crates/fleet/src/session_host/annotating.rs:112", "crates/fleet/src/session_host/noting.rs", "crates/fleet/src/note_locating.rs"]
 
 [[features]]

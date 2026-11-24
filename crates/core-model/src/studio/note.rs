@@ -52,7 +52,7 @@ pub struct CaptureFrame {
 }
 
 /// The server a Note was captured on, where it was not captured on Bridge.
-/// `#1294`, `docs/practices/capture-window.md`.
+/// `#1294`, `classic-final:docs/practices/capture-window.md`.
 ///
 /// **The address is the origin the window was pinned to**, and `location` on
 /// the capture is the path within it — the two together are the page. A Note

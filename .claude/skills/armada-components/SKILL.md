@@ -19,7 +19,7 @@ no second drawing of it to reconcile against.
 | The tokens | `packages/tokens/src/*.css`. Read the comments; several carry the argument for a value |
 | The glyphs | `packages/icons/icons/` |
 | The states a status can hold | `crates/core-model/domain/enum-verbs.toml` |
-| What a `play` asserts | `docs/practices/react.md`, under `Stories are the tests` |
+| What a `play` asserts | `classic-final:docs/practices/react.md`, under `Stories are the tests` |
 
 **Where the contract and a built component disagree, the contract wins** — and
 the disagreement is a finding worth reporting, not a coin toss. Four were found

@@ -5,7 +5,7 @@
 Since 14 Oct 2026. `docs/concepts/session.md`, *A terminal's permission prompt*; measured in `docs/spikes/031-can-bridge-answer-a-terminal-permission-prompt.md`.
 **Additive only**: two `SessionFact` variants a terminal's mod reports, an optional `tool` on the mod's `asks`, and a `WaitingItem` with the existing `permission` source.
 No operation, event kind or error is new.
-Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `packages/protocol` is unchanged, because the item and the open ask are existing shapes.
+Bridge's mirror of the facts and of `asks` is the mod's `plugins/armada/hooks/fleet.ts`; `classic-final:packages/protocol` is unchanged, because the item and the open ask are existing shapes.
 
 | Where | Carries | Notes |
 | --- | --- | --- |

@@ -5,7 +5,7 @@
 Since 17 Oct 2026. What a Job's agent knows, was told, and used each turn, each item with where it came from.
 **Additive only**: two facts, one optional field on `SessionRecord`, two operations and the types they carry.
 No event kind or error is new.
-Bridge's half is `packages/protocol/src/loadout.ts` and `sessions.ts`, written by hand.
+Bridge's half is `classic-final:packages/protocol/src/loadout.ts` and `sessions.ts`, written by hand.
 The migration `20261017T1700Z-session_loadout.kept` is additive.
 **Names, sources and counts only** on the facts, the record and `get_session_loadout`: never a skill's body, a prompt's text, a tool's input or a file's contents.
 What one row says is `read_loadout_item`, read off disk where Fleet runs when a person opens that row.

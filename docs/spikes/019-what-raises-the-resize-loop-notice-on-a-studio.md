@@ -30,7 +30,7 @@ was one, two or three lines tall according to what the title said. A chip row wa
 line box with an `inline-block` chip on its baseline, and what the strut's descent
 rounded to moved by a pixel between frames.
 
-Driven at one redraw per frame, `apps/desktop/src/renderer/src/whiteboard-resize.test.tsx`
+Driven at one redraw per frame, `classic-final:apps/desktop/src/renderer/src/whiteboard-resize.test.tsx`
 over 150 passes on ten cards:
 
 | The card's title box, its chip rows | Distinct heights | Notices |
@@ -69,5 +69,5 @@ content cannot raise the notice however often it is republished.
 Measured on 2026-09-17 in Chromium under `vitest --project "renderer (browser)"` at
 1440 × 900, against `@xyflow/react` as `pnpm-lock.yaml` pins it. The first two tables
 are `#1386`'s measurement; the rest are this file's. The counted test is
-`apps/desktop/src/renderer/src/whiteboard-resize.test.tsx` and the fix it measures is
-`packages/components/src/compositions/StudioNode/StudioNode.css`.
+`classic-final:apps/desktop/src/renderer/src/whiteboard-resize.test.tsx` and the fix it measures is
+`classic-final:packages/components/src/compositions/StudioNode/StudioNode.css`.

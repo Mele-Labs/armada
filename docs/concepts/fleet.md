@@ -227,7 +227,7 @@ The Cockpit's map draws a standing clash as an amber hatched slab on the directo
 The read is poll-only, since Fleet publishes no event for a clash.
 Bridge asks once per served repository when Fleet connects, again 35 seconds after the board last changed (just past the 30 seconds Fleet waits before it asks git), and again every 35 seconds while a clash stands so that a cleared one goes.
 A Fleet that answers 404 has none to report and is marked as having none.
-`apps/desktop/src/renderer/src/fleet-clashes.ts`.
+`classic-final:apps/desktop/src/renderer/src/fleet-clashes.ts`.
 
 **A file of a clash is read when a person opens it from the Bays panel.** `read_clash_file` (`GET /clashes/file?session_id=&other_kind=&other_id=&path=`, Bridge only) answers `ours`, the asking Job's change to that one path, and `theirs`, the other holder's, each what `git diff` prints from the merge base of the two sides' heads, with its `diff --git` header and `@@` hunks.
 For `main`, `theirs` is main's change since the Job's branch met it.
@@ -335,7 +335,7 @@ A slot git cannot read is left out of that read, not reported as unchanged.
 **Memory only.** A restart reads again.
 Bridge reads both when Fleet connects, again 35 seconds after the board last changed, and again every 35 seconds while any holder has changed something, so a holder that stops goes.
 A Fleet with neither route answers 404 and Bridge takes it as none.
-`apps/desktop/src/renderer/src/fleet-territory.ts`.
+`classic-final:apps/desktop/src/renderer/src/fleet-territory.ts`.
 
 ### What a Session calls outside the repository
 
@@ -545,7 +545,7 @@ A kept one comes off Needs you once the Job's branch is on the preview list.
 It reads the pull request's patches from the forge when it enters the merge queue, and again once it has merged.
 The changed types are the `pub struct`, `pub enum` and `pub type` items under `crates/ipc/src` with an added or removed line in their body; a patch under `crates/ipc/src/tests` and a changed comment are not the wire.
 Where the lines are fields or variants, the notice names them as added, removed or changed.
-A Job reads a type when a file its branch changes, against its merge base with main, under `crates/bridge-native`, `apps/pocket` or `packages/protocol` names the type as a whole word.
+A Job reads a type when a file its branch changes, against its merge base with main, under `crates/bridge-native`, `apps/pocket` or `classic-final:packages/protocol` names the type as a whole word.
 A file the branch did not change is not read, however many times it names the type.
 The notice gives at most three `path:line` for each type.
 **The pull request's own Jobs are not told.**

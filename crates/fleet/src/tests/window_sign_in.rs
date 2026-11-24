@@ -1,6 +1,6 @@
 //! What `show_window` takes beyond a page: the origins its window may pass through, and the
 //! addresses a session signs in with. `docs/concepts/session.md`, *Showing a window*, and
-//! `docs/practices/capture-window.md`.
+//! `classic-final:docs/practices/capture-window.md`.
 //!
 //! **Origins are refused unless they are origins, and a sign-in is refused unless the window may
 //! go there.** The sign-in is a login, so the case that matters is the last one: it reaches no

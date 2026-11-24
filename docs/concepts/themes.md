@@ -21,8 +21,8 @@
 **The theme goes on `<html>`.** Every token file that aliases or mixes another declares on `:root, [data-theme]`, so an alias re-resolves on whichever element carries a theme.
 A themed `<div>`, as a story draws one, is light all the way down.
 
-**Bridge reads a `ThemeSource`** (`packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`.
-Settings, the Mods surface and the renderer's loader (`apps/desktop/src/renderer/src/theme.tsx`) read the same source.
+**Bridge reads a `ThemeSource`** (`classic-final:packages/surfaces/settings/src/theme-source.tsx`): the mods, the catalogue and the active id, with `setActive`.
+Settings, the Mods surface and the renderer's loader (`classic-final:apps/desktop/src/renderer/src/theme.tsx`) read the same source.
 The mock runs on an in-memory one.
 Bridge runs on `fleet-themes.ts`, which takes the mod list from `list_mods` and `mods.changed` and keeps the choice in Fleet's `theme` preference, so it is the same on every window and survives a relaunch.
 A mod's CSS is not held: the loader asks for it when the theme is drawn and adopts the `css` that `validate_mod` returned.
@@ -51,7 +51,7 @@ A value that is not a plain colour, such as a `var()`, is not painted: that toke
 | A catalogue file that cannot be read, or a source that throws | Dark |
 | `?nomods` on the page, set by main for `--no-mods` | No mod's theme is loaded or listed; Dark, Light and the catalogue remain |
 
-**The CSS is adopted as a constructable stylesheet, not written as a `<style>` element.** The window's CSP is `default-src 'self'`, which refuses an inline `<style>`; `adoptedStyleSheets` is CSSOM and leaves the policy as it is (`docs/practices/bridge.md`, Security posture).
+**The CSS is adopted as a constructable stylesheet, not written as a `<style>` element.** The window's CSP is `default-src 'self'`, which refuses an inline `<style>`; `adoptedStyleSheets` is CSSOM and leaves the policy as it is (`classic-final:docs/practices/bridge.md`, Security posture).
 
 ## The catalogue
 
@@ -99,7 +99,7 @@ A scheme has 16 palette colours, a background and a foreground. Colours are mixe
 | `--fg-inverse` on `--you` | 4.5:1 |
 | A scheme's foreground on its own background | 3:1, under which the theme is flagged and not shipped |
 
-A colour moved to pass is listed in its theme's header comment. A flagged theme fails `--check` and `apps/desktop/src/main/themes.test.ts`.
+A colour moved to pass is listed in its theme's header comment. A flagged theme fails `--check` and `classic-final:apps/desktop/src/main/themes.test.ts`.
 
 ## Where the schemes come from
 

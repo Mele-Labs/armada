@@ -1,7 +1,7 @@
 // The formatter for the TypeScript half: apps/ and packages/, nothing else.
 // A fixed width, and every literal one item per line, so two features stop
 // sharing a line and stop conflicting on it. Formatting only: no lint, no
-// import sorting. docs/practices/bridge.md, *The formatter*.
+// import sorting. classic-final:docs/practices/bridge.md, *The formatter*.
 {
   "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
   "root": true,

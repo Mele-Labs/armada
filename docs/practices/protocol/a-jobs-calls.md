@@ -7,10 +7,10 @@ Electron Bridge works it out in TypeScript, in the renderer for the calls and th
 The native app reads this instead and tells him itself (`crates/bridge-native/src/notify.rs`): the banner with its sound, and the Dock count.
 **While it runs, Electron main writes no banner, sound or badge**: `main/native-takeover.ts` looks for the native bundle id, `dev.armada.bridge.native`, among the running apps every three seconds and returns the badge when that app quits.
 **Additive only**: two operations, one event and the types they carry; no field on an existing type.
-The protocol ID moves with `crates/ipc/src` and `packages/protocol/src`, and there is no number to take.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
 The Rust half is `crates/ipc/src/standing_calls.rs`; the reading is `crates/fleet/src/standing_calls.rs`, which hears every `session.changed` and `merge_line_view.changed`.
-Bridge's half is `packages/protocol/src/standing-calls.ts`, written by hand, field for field.
-The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and `packages/protocol/src/calls.ts` are the permission calls', and `Call` and `CallKind` are taken in both.
+Bridge's half is `classic-final:packages/protocol/src/standing-calls.ts`, written by hand, field for field.
+The files are not `calls.rs` and `calls.ts`, since `crates/ipc/src/call.rs` and `classic-final:packages/protocol/src/calls.ts` are the permission calls', and `Call` and `CallKind` are taken in both.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -74,14 +74,14 @@ A call that has been answered or dismissed for good is a window's own memory and
 
 **A Job that needs him stays a call after he has seen its item**: the item leaves the list, and the row's own call takes its place.
 It is opened once he has been in the Job since its last turn ended, unless the Job asks him.
-**A Job Fleet gave up restarting** is news too, with `kind` `stopped`, the tone `waiting` and the words `stoppedSaid` in `packages/screens/src/session-state.ts` gives its reason, and a call as any Job that needs him is.
+**A Job Fleet gave up restarting** is news too, with `kind` `stopped`, the tone `waiting` and the words `stoppedSaid` in `classic-final:packages/screens/src/session-state.ts` gives its reason, and a call as any Job that needs him is.
 
 ## A Mac waiting to pair: `mac_pairing` and `hold_mac_claims`
 
 Since 13 Nov 2026. `docs/concepts/pocket.md`, *Another Mac*.
 **Two enum values, one operation, one route and the type it carries**: no event kind, no error and no field on an existing type.
-The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `mac_pairing` in `packages/protocol/src/standing-calls.ts` and `MacClaimsWaiting` in `packages/protocol/src/macs.ts`.
+The protocol ID moves with `crates/ipc/src`, the operation file, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `mac_pairing` in `classic-final:packages/protocol/src/standing-calls.ts` and `MacClaimsWaiting` in `classic-final:packages/protocol/src/macs.ts`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -104,8 +104,8 @@ Fleet drops them all when the Gateway is turned off or starts afresh, and a rest
 
 Since 16 Nov 2026.
 **Two enum values, one type and one field on `StandingCall`**: no new operation, route, event kind or error.
-The protocol ID moves with `crates/ipc/src`, the operation files and `packages/protocol/src`, and there is no number to take.
-The Rust half is `crates/fleet/src/review_requests.rs`; Bridge's half is `review_requested` and `ReviewAsked` in `packages/protocol/src/standing-calls.ts`.
+The protocol ID moves with `crates/ipc/src`, the operation files and `classic-final:packages/protocol/src`, and there is no number to take.
+The Rust half is `crates/fleet/src/review_requests.rs`; Bridge's half is `review_requested` and `ReviewAsked` in `classic-final:packages/protocol/src/standing-calls.ts`.
 
 | Where | Side | Carries |
 | --- | --- | --- |

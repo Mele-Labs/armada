@@ -275,7 +275,7 @@ one of his answers above.
 ### Why the plan stays on `get_job`
 
 **An open Job already reads `get_job` again on every event that names it**
-(`apps/desktop/src/main/arrivals.ts`, `job.plan_changed` included), and every
+(`classic-final:apps/desktop/src/main/arrivals.ts`, `job.plan_changed` included), and every
 tab draws from that one read. The split precedent is size: `get_diff` and
 `get_call` are split out because their payloads are large, a Check's output
 alone running to two 64 KiB streams, and a plan is titles and paths. A second read would let Plan and Workflow draw two different
@@ -372,7 +372,7 @@ in `crates/store/src/fold.rs (deleted)`.
 
 ### The bodies the lock agrees
 
-**Bridge already sends a body to every route below** (`packages/protocol/src/pending.ts`).
+**Bridge already sends a body to every route below** (`classic-final:packages/protocol/src/pending.ts`).
 Where it disagrees with its issue, the wire's own vocabulary decides, and Bridge
 changes its body in the slice that ships the route.
 
@@ -395,7 +395,7 @@ person adds carries no id and the `judge` source, as #1641 says.
 
 ## The drafts, one module at a time
 
-Every exported type in `packages/screens/src/draft/`. *None* in the bump column
+Every exported type in `classic-final:packages/screens/src/draft/`. *None* in the bump column
 is a type served today or one that never crosses.
 
 ### `coord.ts`, `task.ts`
@@ -633,7 +633,7 @@ to run several — and both add commands to `crates/fleet/src/commanding.rs`.
 | Path | Why |
 |---|---|
 | `protocol-version.toml` | The bump |
-| `packages/protocol/src/`, and the generated version constant it then held | The hand-mirrored types, and the regenerated version |
+| `classic-final:packages/protocol/src/`, and the generated version constant it then held | The hand-mirrored types, and the regenerated version |
 | `docs/practices/protocol.md` | The version's own section |
 | `crates/ipc/operations/` | A new operation or event kind |
 | `crates/api/src/routes/served.rs`, `crates/api/src/daemon/commands.rs`, `crates/api/src/tests/fake/commands.rs` | A route, its `Commands` method, and the test fake |
@@ -656,7 +656,7 @@ Both halves fail today. No tally exists, and the events a Board needs most often
 are not recorded anywhere to count afterwards: `job.files_changed` and
 `proposal.moved` are broadcast and never stored (the V15 comment in
 `crates/store/src/schema.rs`). On `/observe` a `missed` only adds to a count
-(`packages/protocol/src/folding.ts`).
+(`classic-final:packages/protocol/src/folding.ts`).
 
 | | |
 |---|---|
@@ -664,7 +664,7 @@ are not recorded anywhere to count afterwards: `job.files_changed` and
 | Builds | A per-kind tally of what the broadcaster published, written to Fleet's log each minute; on `/observe`, a `missed` reopens the socket so the backfill redraws the pane |
 | Measures | Events per Job-minute by kind, from live runs on this machine, against `BACKLOG` |
 | Already built | `a_client_that_cannot_keep_up_is_told_and_resynced` in `crates/api/src/tests/stream.rs` covers `/events`' drop and resync |
-| Write scope | `crates/api/src/stream.rs`, `packages/protocol/src/folding.ts`, `apps/desktop/src/main/observe.ts (deleted)` |
+| Write scope | `crates/api/src/stream.rs`, `classic-final:packages/protocol/src/folding.ts`, `apps/desktop/src/main/observe.ts (deleted)` |
 | Blocks | 5 |
 | Waits on | Nothing |
 
@@ -787,7 +787,7 @@ The `settling` module (deleted since), the `work_plan` module (deleted since),
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs (deleted)`,
 `crates/store/src/migrations.rs`, `crates/store/src/fold.rs (deleted)`, `crates/ipc/src/enums.rs`,
 `crates/ipc/src/checks.rs`, `crates/ipc/src/history.rs (deleted)`, `crates/ipc/src/work_plan.rs (deleted)`,
-`packages/protocol/src/pending.ts`, the split of `crates/api/src/routes/served.rs`,
+`classic-final:packages/protocol/src/pending.ts`, the split of `crates/api/src/routes/served.rs`,
 and the wire set above.
 
 ### 3 — A model per task
@@ -813,7 +813,7 @@ and the wire set above.
 Write scope: the `job_settings` module (deleted since), the `spawning` module (deleted since),
 `crates/fleet/src/commanding.rs`, `crates/core-model/src/job/work_plan.rs (deleted)`,
 `crates/ipc/src/work_plan.rs (deleted)`, `crates/ipc/src/drones.rs (deleted)`, `crates/ipc/src/detail.rs (deleted)`,
-`packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts (deleted)`,
+`classic-final:packages/protocol/src/pending.ts`, `packages/screens/src/draft/task.ts (deleted)`,
 `packages/screens/src/draft/proposal.ts (deleted)`, and the wire set above.
 
 ### 4 — Deciding what a Job will be, and how it lands
@@ -844,7 +844,7 @@ Write scope: the `proposing` module (deleted since), `crates/fleet/src/commandin
 The `policy` module (deleted since), `crates/fleet/src/noticing.rs`, the `delivery` module (deleted since),
 `crates/adapters/src/worktree.rs`, `crates/core-model/src/job/fields.rs (deleted)`,
 The `declared` module (deleted since), `crates/ipc/src/job.rs (deleted)`, `crates/ipc/src/detail.rs (deleted)`,
-`crates/adapters/src/issue_lookup.rs`, `packages/protocol/src/pending.ts`, the three
+`crates/adapters/src/issue_lookup.rs`, `classic-final:packages/protocol/src/pending.ts`, the three
 documents, and the wire set above.
 
 ### 5 — Several Drones at once

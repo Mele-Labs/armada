@@ -58,7 +58,7 @@ attached to the turn, then take the next if it is the wrong instance. A line
 `Stamp:` says a `data-armada-source` stamp was dropped because its line held none
 of the words. `No line on screen matched the code in <checkout>` means the
 search found nothing: go on to the fields below, and what the page cannot give
-is in `docs/practices/capture-window.md`, *What a Job's note carries*.
+is in `classic-final:docs/practices/capture-window.md`, *What a Job's note carries*.
 
 | Line in the delivered note | What it tells you |
 |---|---|

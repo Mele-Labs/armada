@@ -4,8 +4,8 @@
 
 `docs/concepts/pull-review.md`, *Since you looked* and *Your review*.
 **Additive**: ten operations, ten routes, three error codes, new types, and optional fields on six existing types; no event kind.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/pull-review-memory.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/pull-review-memory.ts`, written by hand, field for field.
 
 `:repository` is the Manifest id. Fleet keys what it keeps by Manifest id, the repository as the forge names it, lowercase, and the pull request's number.
 

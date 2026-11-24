@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. A Job's sketches, drafts and pages as one list, each with its revisions and where its newest stands, so native can draw one Artifacts tab. `docs/concepts/artifact.md`.
 **Additive only**: one operation, one route and the types it carries. No field of `SessionRecord`, no event kind and no error is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read it.
 
 | Where | Side | Carries |
 | --- | --- | --- |

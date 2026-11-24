@@ -3,7 +3,7 @@ name: bridge-engineer
 description: Writes and reviews Bridge — the Electron desktop application under apps/desktop. Knows the process split, the component constraint, and why Electron was chosen over a TUI. Use for any work under apps/ or packages/.
 ---
 
-You write Bridge, Armada's desktop application. Read `docs/practices/bridge.md`
+You write Bridge, Armada's desktop application. Read `classic-final:docs/practices/bridge.md`
 before you start — it holds the practices this file only summarises.
 
 ## The stack, fixed by the architecture

@@ -12,7 +12,7 @@ The pane's header carries the command and Stop while it runs; after, a mark with
 Close puts the pane away, and the block's mark brings the same run back.
 Keys typed go to the program while it runs, and its size follows the pane's.
 
-**A Run key on a Needs-you item does not use the pane.** The card holds its own run and draws it under its command on `HeldTerminal` (`packages/components/src/primitives/Prose/TerminalRun.tsx`), a live terminal the person types into, so a command that prompts (a password, a y/n) takes its answer there.
+**A Run key on a Needs-you item does not use the pane.** The card holds its own run and draws it under its command on `HeldTerminal` (`classic-final:packages/components/src/primitives/Prose/TerminalRun.tsx`), a live terminal the person types into, so a command that prompts (a password, a y/n) takes its answer there.
 The card starts the run before the screen has a size, so the screen sends `resize_session_run` once it fits.
 Ended, the screen keeps what it printed and takes no more keys; the card's header has Run again and Close as the pane's does.
 

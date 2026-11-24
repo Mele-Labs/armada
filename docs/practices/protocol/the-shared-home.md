@@ -7,8 +7,8 @@ Since 23 Oct 2026. `docs/concepts/kit.md`, *The shared home, retired*, and `docs
 Kit crosses over the Mac link now, [Kit over the Mac link](kit-over-the-mac-link.md); what follows is the wire Classic Bridge still speaks.
 **Additive**: eight operations, eight routes, twelve error codes and the types they carry; no event kind.
 Since 25 Oct 2026 `set_home_repository`, `planned` and `Profile`'s `orgs` and `home` are added, and the protocol ID moved with them.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and there is no number to take.
+Bridge's half is `classic-final:packages/protocol/src/shared-home.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -26,7 +26,7 @@ Bridge's half is `packages/protocol/src/shared-home.ts`, written by hand, field 
 `mod_kind` is Kit's `modKind`, the kind a mod's `mod.toml` names, this machine's where it has the mod and else the home's, so a mod only the home has is listed under its own kind.
 `syncing` is Bridge's own while `sync_shared_home` is in flight.
 A memory row's act carries its `repository`, which Kit's row does not, so Bridge keeps each drawn row's wire row beside it.
-Bridge calls the nine through main, `apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
+Bridge calls the nine through main, `classic-final:apps/desktop/src/main/accounts.ts`, and draws them from `renderer/src/fleet-shared-home.ts` and `fleet-account.ts`.
 
 **A row that differs is never merged.** Add and Bring refuse it with a 409 `fleet.home_row_differs`; only `choose_shared_home_side` replaces a side, and it takes away the files the kept side has not.
 Sync passes it by, and Bring stays the person's act.

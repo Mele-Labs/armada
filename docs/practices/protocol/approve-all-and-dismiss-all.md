@@ -4,7 +4,7 @@
 
 Since 13 Nov 2026. His review panel answers or dismisses every item with an Approve, across Jobs, in one press. `docs/concepts/artifact.md`, *Several at once*.
 **Additive only**: two operations, two routes and their body and answer types. No field of an existing type, no event kind and no error kind is new.
-Bridge's half is `packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call them, and native's review panel calls them later.
+Bridge's half is `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not call them, and native's review panel calls them later.
 
 | Where | Side | Carries |
 | --- | --- | --- |

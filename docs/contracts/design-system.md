@@ -3,7 +3,7 @@
 **Kind:** contract. **Governs:** static UI chrome, tokens, and the Voice &
 Copy contract — the parent contract that nothing else may contradict.
 
-Read before building a screen or component in `packages/components`.
+Read before building a screen or component in `classic-final:packages/components`.
 
 ---
 

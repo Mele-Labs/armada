@@ -56,7 +56,7 @@ Re-run and the close both mark the new commit seen, so the line does not come ba
 
 **A pull request opened by its link has a row above whichever list is chosen**, since no list from the forge holds it. Bridge keeps the last ten across a reload.
 
-**A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
+**A file's patch is read the first time its change is shown.** The forge numbers a line by path, line and side; the diff draws no numbers, so `classic-final:apps/desktop/src/renderer/src/pr-review/patch.ts` is the one place the two meet.
 
 ## Since you looked
 
@@ -338,25 +338,25 @@ It reads the routes Fleet already serves for the lists, the page, the seen heads
 | Resolve route | `crates/ipc/operations/resolve_review_thread.toml` |
 | Page and review | `crates/ipc/operations/get_pull_request_detail.toml`, `crates/ipc/operations/write_pull_request.toml` |
 | Lists in Fleet | `crates/fleet/src/pull_review_lists.rs` |
-| Seen heads, viewed files, the inbox state, the compare and layouts | `crates/fleet/src/pull_review_memory.rs`, `crates/store/src/pull_review_memory.rs`, `crates/ipc/src/pull_review_memory.rs`, `packages/protocol/src/pull-review-memory.ts` |
+| Seen heads, viewed files, the inbox state, the compare and layouts | `crates/fleet/src/pull_review_memory.rs`, `crates/store/src/pull_review_memory.rs`, `crates/ipc/src/pull_review_memory.rs`, `classic-final:packages/protocol/src/pull-review-memory.ts` |
 | The compare at the forge | `Forge::pull_request_compare`, in `crates/adapters/src/api_forge/compare.rs` and `crates/adapters/src/pull_request_patch.rs` |
-| Store | `apps/desktop/src/renderer/src/pr-review/store.tsx` |
-| The panes and the tools list | `apps/desktop/src/renderer/src/pr-review/panes.tsx`; the layouts are `prPanes` in `apps/desktop/src/renderer/src/job-panes/store.ts` |
-| The Comments pane | `apps/desktop/src/renderer/src/pr-review/comments-pane.tsx` |
-| The line for a moved pull request | `apps/desktop/src/renderer/src/pr-review/moved.tsx` |
-| Runs in Bridge | `apps/desktop/src/renderer/src/pr-review/store-agent.ts`, `runs.ts` |
-| Natural Search in Bridge | `apps/desktop/src/renderer/src/pr-review/store-search.ts`, `crates/fleet/src/review_searches.rs` |
-| The Walk in Bridge | `apps/desktop/src/renderer/src/pr-review/store-walk.ts`, `walk.tsx`; the window is `apps/desktop/src/main/capture/` |
-| Walk wire types | `crates/ipc/src/review_walks.rs`, `packages/protocol/src/review-walks.ts` |
+| Store | `classic-final:apps/desktop/src/renderer/src/pr-review/store.tsx` |
+| The panes and the tools list | `classic-final:apps/desktop/src/renderer/src/pr-review/panes.tsx`; the layouts are `prPanes` in `classic-final:apps/desktop/src/renderer/src/job-panes/store.ts` |
+| The Comments pane | `classic-final:apps/desktop/src/renderer/src/pr-review/comments-pane.tsx` |
+| The line for a moved pull request | `classic-final:apps/desktop/src/renderer/src/pr-review/moved.tsx` |
+| Runs in Bridge | `classic-final:apps/desktop/src/renderer/src/pr-review/store-agent.ts`, `runs.ts` |
+| Natural Search in Bridge | `classic-final:apps/desktop/src/renderer/src/pr-review/store-search.ts`, `crates/fleet/src/review_searches.rs` |
+| The Walk in Bridge | `classic-final:apps/desktop/src/renderer/src/pr-review/store-walk.ts`, `walk.tsx`; the window is `classic-final:apps/desktop/src/main/capture/` |
+| Walk wire types | `crates/ipc/src/review_walks.rs`, `classic-final:packages/protocol/src/review-walks.ts` |
 | Remembered places | `crates/fleet/src/walk_places.rs`, `crates/store/src/walk_places.rs` |
-| Run and definition wire types | `crates/ipc/src/review_runs.rs`, `packages/protocol/src/review-runs.ts` |
+| Run and definition wire types | `crates/ipc/src/review_runs.rs`, `classic-final:packages/protocol/src/review-runs.ts` |
 | Run routes | `crates/ipc/operations/start_review_run.toml`, `get_review_runs.toml`, `review_run.changed.toml` |
 | Definition routes | `crates/ipc/operations/list_review_tools.toml`, `save_review_tool.toml` |
 | Run engine | `crates/fleet/src/review_runs.rs` |
 | Definitions | `crates/config/src/review_tools.rs`, `crates/config/review-tools/*.md`, `crates/fleet/src/review_tools.rs` |
 | The bay | `Vcs::lease_review_bay` and `release_review_bay`, in `crates/adapters/src/leasing/jobs.rs (deleted)` |
 | Kept results | `crates/store/src/review_runs.rs` |
-| Search and Walk wire types | `crates/ipc/src/review_walks.rs`, `packages/protocol/src/review-walks.ts` |
+| Search and Walk wire types | `crates/ipc/src/review_walks.rs`, `classic-final:packages/protocol/src/review-walks.ts` |
 | Search routes | `crates/ipc/operations/start_review_search.toml`, `get_review_searches.toml`, `forget_review_search.toml` |
 | Search in Fleet | `crates/fleet/src/review_searches.rs` |
 | Walk routes | `crates/ipc/operations/find_walk_place.toml`, `list_walk_places.toml`, `save_walk_place.toml`, `forget_walk_place.toml`, `open_review_walk.toml`, `close_review_walk.toml`, `review_walk.changed.toml` |

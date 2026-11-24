@@ -2,7 +2,7 @@
 //!
 //! **The shape is the mock walks' own**: one verb per
 //! step, a target found the way a test finds one, and a `say` caption. Bridge plays them from
-//! outside the page (`docs/practices/capture-window.md`, *A walk in the page*), so a session in any
+//! outside the page (`classic-final:docs/practices/capture-window.md`, *A walk in the page*), so a session in any
 //! repository can walk the owner through its changes on a page that knows nothing of Armada.
 //!
 //! **A step is one struct and not an enum** so the JSON a session writes is the JSON the mock

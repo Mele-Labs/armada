@@ -88,6 +88,6 @@ Migration `20261113T1400Z-job_copy_pins.pinned.sql`, additive.
 ## Skew and the stream
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
-Bridge's half is `packages/protocol/src/workflow-migrating.ts` and `workflow-drafts.ts` (which also carries `by` and `change` on `PutWorkflowDraft`), written by hand like the rest.
+Bridge's half is `classic-final:packages/protocol/src/workflow-migrating.ts` and `workflow-drafts.ts` (which also carries `by` and `change` on `PutWorkflowDraft`), written by hand like the rest.
 **The event stream.** A move publishes the moved Job's row again, as any step change does, one row for each Job moved, and a publish raises the `repositories.changed` it already did.
 The open risk below is neither better nor worse.

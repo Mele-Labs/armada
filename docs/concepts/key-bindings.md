@@ -15,7 +15,7 @@ The Cockpit and every caption that drew `n` now answer and draw `p`, and the nex
 > **Rule.** `crates/core-model/domain/actions.toml` says what an act ships bound to; the keymap says what it is bound to now. No handler compares a press to a letter.
 > Why: a handler that spells its key is a binding Settings cannot move, and a caption that spells one is a promise nothing keeps.
 
-The keymap is `packages/components/src/keymap.ts`.
+The keymap is `classic-final:packages/components/src/keymap.ts`.
 A handler asks `isPressed(id, event)`, `pressedSlot(id, event)` for an act with several keys, or `pressedDigit(id, event)` for a row of digits; a caption draws `keyFor(id)`.
 
 | An act's spelling | Slots | Rebinding takes |
@@ -55,5 +55,5 @@ An act id this build does not have is kept and ignored.
 | Arrows, Home and End inside a tab row, list box or resize handle | The control's own keyboard, as the platform has it |
 | The capture window, and a Job's page | Separate windows the main process keys, which keep `⌥⌘C` and Esc |
 | The annotation layer's `⌥⌘A`, and its `⌥⌘S` while it is on | Dev only, and not acts in the registry |
-| A pull request's tools pane: `1`–`9` open the tool in that place of its `+` menu, and the key after the last adds a tool | Bridge reads the digits where a pull request is open (`apps/desktop/src/renderer/src/pr-review/panes.tsx`), and they are not acts in the registry |
-| An open Job's right column: `⌥W` the workflow picker, `⌥B`, `⌥F` and `⌥D` open or fold the Blueprint, Field and Delivery, `⌥N` the approved Blueprint's whole plan, `⇧⌘A` Artifacts | Bridge reads them where a Job is open (`apps/desktop/src/renderer/src/session-view/story.ts`), and they are not acts in the registry |
+| A pull request's tools pane: `1`–`9` open the tool in that place of its `+` menu, and the key after the last adds a tool | Bridge reads the digits where a pull request is open (`classic-final:apps/desktop/src/renderer/src/pr-review/panes.tsx`), and they are not acts in the registry |
+| An open Job's right column: `⌥W` the workflow picker, `⌥B`, `⌥F` and `⌥D` open or fold the Blueprint, Field and Delivery, `⌥N` the approved Blueprint's whole plan, `⇧⌘A` Artifacts | Bridge reads them where a Job is open (`classic-final:apps/desktop/src/renderer/src/session-view/story.ts`), and they are not acts in the registry |

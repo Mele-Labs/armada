@@ -4,8 +4,8 @@
 
 Since 17 Oct 2026. `.claude/decisions/2026-10-15-sessions-absorb-jobs.md`.
 **One rename, and removal otherwise**: no operation, event kind or route is added.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`, and a pair that disagrees is refused.
-`crates/ipc` and `packages/protocol` are edited together.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`, and a pair that disagrees is refused.
+`crates/ipc` and `classic-final:packages/protocol` are edited together.
 
 **The rename.** Autopilot's figures count Sessions and now say so. The store keeps the settings key it had; Fleet maps it.
 
