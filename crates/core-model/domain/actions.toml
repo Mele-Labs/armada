@@ -77,7 +77,7 @@ shortcut = "⌘J"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. The Operator takes its place (`armada-ehhu`), and Bridge draws nothing on this key until the panel lands in `armada-ehhu.10`."
+notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. In the native Bridge the Operator's page is the right side of the Cockpit, and this key puts the caret in its talk box; with a Job open over the page it keeps the Job's side chat."
 
 [actions.toast_history]
 kind = "Action"

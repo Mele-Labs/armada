@@ -1,7 +1,7 @@
 //! The project chips over the Features list: one chip for each project Fleet knows, the one on screen ringed in the accent, and a
 //! press (or its number, `1` to `9`) shows that project's library. The choice is kept on this Mac (`chosen.rs`).
 
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Toggled};
+use gpui::{div, prelude::*, AnyElement, Context, Div, FontWeight, Role, SharedString, Stateful, Toggled};
 
 use super::{chosen, mock, FeaturesScreen, Load, Source};
 use crate::labels::labelled;
@@ -19,6 +19,11 @@ impl FeaturesScreen {
     /// The project the chips ring: the library on screen, and until one arrives the project asked for.
     pub(super) fn shown_project(&self, cx: &gpui::App) -> Option<String> {
         self.library_project.clone().or_else(|| self.wanted(cx))
+    }
+
+    /// The project the Cockpit's floor draws for: the library on screen, else the one asked for, else the first Fleet lists.
+    pub(super) fn floor_project(&self, cx: &gpui::App) -> Option<String> {
+        self.library_project.clone().filter(|project| !project.is_empty()).or_else(|| self.wanted(cx)).or_else(|| self.chips(cx).into_iter().next().map(|(id, _)| id))
     }
 
     /// A press on a chip, or its number: show that project.
@@ -66,28 +71,32 @@ impl FeaturesScreen {
         for (id, name) in chips {
             let on = shown.as_deref() == Some(id.as_str());
             let press = id.clone();
-            let pill = div()
-                .id(SharedString::from(format!("features-project-{id}")))
-                .flex_none()
-                .flex()
-                .items_center()
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::H_CONTROL_SM) / 2.)
-                .border(look.length(token::FOCUS_RING_WIDTH))
-                .border_color(if on { look.color(token::ACCENT) } else { gpui::transparent_black() })
-                .bg(if on { look.color(token::ACCENT_MUTED) } else { look.color(token::BG_HOVER) })
-                .text_size(look.length(token::TEXT_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .text_color(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
-                .whitespace_nowrap()
-                .cursor_pointer()
-                .when(!on, |pill| pill.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.14))))
-                .aria_toggled(if on { Toggled::True } else { Toggled::False })
-                .on_click(cx.listener(move |this, _, _, cx| this.choose(press.clone(), cx)))
-                .child(SharedString::from(name.clone()));
+            let pill = project_pill(look, format!("features-project-{id}"), &name, on).on_click(cx.listener(move |this, _, _, cx| this.choose(press.clone(), cx)));
             row = row.child(labelled(pill, Role::Button, name));
         }
         Some(row.into_any_element())
     }
+}
+
+/// A project's chip, ringed in the accent where it is the one on screen. The caller gives it its press.
+pub(super) fn project_pill(look: &Look, id: String, name: &str, on: bool) -> Stateful<Div> {
+    div()
+        .id(SharedString::from(id))
+        .flex_none()
+        .flex()
+        .items_center()
+        .h(look.length(token::H_CONTROL_SM))
+        .px(look.length(token::SPACE_3))
+        .rounded(look.length(token::H_CONTROL_SM) / 2.)
+        .border(look.length(token::FOCUS_RING_WIDTH))
+        .border_color(if on { look.color(token::ACCENT) } else { gpui::transparent_black() })
+        .bg(if on { look.color(token::ACCENT_MUTED) } else { look.color(token::BG_HOVER) })
+        .text_size(look.length(token::TEXT_XS))
+        .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+        .text_color(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
+        .whitespace_nowrap()
+        .cursor_pointer()
+        .when(!on, |pill| pill.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.14))))
+        .aria_toggled(if on { Toggled::True } else { Toggled::False })
+        .child(SharedString::from(name.to_string()))
 }
