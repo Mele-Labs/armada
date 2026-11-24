@@ -130,7 +130,7 @@ A dry run and `--keep-only` stop no Fleet and run as they are.
 `scripts/retire-classic` boots `com.armada.fleet.bridge` out of launchd, deletes its plist, and deletes an `Armada Classic.app` in `~/Applications`, or in `/Applications` where `$HOME` is the account's own.
 Where none of that is there it does nothing, so it runs every time, and a dry run says what it would remove.
 A Classic started by hand from a terminal is left running.
-`Armada/electron/` and `Armada/node_modules/`, which kept builds used to fill for it, are not removed.
+It also deletes `Armada/electron/` and `Armada/node_modules/`, which kept builds used to fill for it.
 
 **It also copies `plugins/` from the tree it built to `Armada/mod/`**, Fleet's
 own copy of the Claude Code mod (`scripts/sync-mod`, atomic, nothing else in

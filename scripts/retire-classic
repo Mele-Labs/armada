@@ -68,6 +68,18 @@ for dir in "${apps[@]}"; do
   fi
 done
 
+# The Electron runtime and node_modules kept builds used to copy beside Fleet for Classic; nothing reads them now.
+for kept in "$support/electron" "$support/node_modules"; do
+  [[ -e "$kept" ]] || continue
+  found=true
+  if $dry_run; then
+    echo "would delete $kept: only Armada Classic read it"
+  else
+    say "Removing $kept"
+    rm -rf "$kept"
+  fi
+done
+
 if $dry_run && ! $found; then
   echo "Armada Classic has left nothing here to remove"
 fi

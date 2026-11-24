@@ -399,6 +399,16 @@ class RetireClassic(unittest.TestCase):
         self.assertFalse(os.path.exists(os.path.join(self.apps, "Armada Classic.app")))
         self.assertIn('osascript -e quit app "Armada Classic"', self.said())
 
+    def test_the_electron_runtime_and_node_modules_kept_for_classic_are_removed(self):
+        for kept in ("electron", "node_modules"):
+            os.makedirs(os.path.join(self.support, kept, "inner"))
+        open(self.native_plist, "w").close()
+        done = self.run_retire()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertFalse(os.path.exists(os.path.join(self.support, "electron")))
+        self.assertFalse(os.path.exists(os.path.join(self.support, "node_modules")))
+        self.assertTrue(os.path.exists(self.native_plist), "the native app's job is not Classic's")
+
     def test_a_second_run_finds_nothing_and_touches_nothing(self):
         self.classic_left_behind()
         self.run_retire()
