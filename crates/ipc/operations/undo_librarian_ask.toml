@@ -7,7 +7,7 @@ description = "Take back what one ask of a project's librarian did. Give the pro
 notes = """
 `POST /features/librarian/undo`, body `UndoLibrarianAsk`: `project`, `asked_at`. Answered with `LibrarianAskUndone`: `project`, `asked_at` and `reply`, one line of what was taken back.
 
-**Undo puts back what the act changed and nothing else.** A board ask keeps again the layout kept before it, and where the board was the preset it forgets the kept one, so the preset draws again; either publishes `projects.changed`. A filed doc's read is dropped from its feature, wherever `refile_librarian_ask` last moved it. A rank is forgotten, as `forget_librarian_ranking` forgets it. An ask is undone once: Fleet lets go of it after.
+**Undo puts back what the act changed and nothing else.** A board ask keeps again the layout kept before it, and where the board was the preset it forgets the kept one, so the preset draws again; either publishes `projects.changed`. A filed doc's read is dropped from its feature, wherever `refile_librarian_ask` last moved it. A rank is forgotten, as `forget_librarian_ranking` forgets it, unless a later ranking has replaced the one that ask made, which stays. An ask is undone once: Fleet lets go of it after.
 
 **Refused:** a project Fleet does not hold, 422 `fleet.feature_project`. An ask Fleet does not hold, already undone, older than the project's last 20, from before Fleet restarted, or one that did nothing, 404 `fleet.librarian_ask_unknown`. The owner's Bridge and the Operator may call it; a Job's agent may not, 422 `fleet.not_the_operator`.
 """
