@@ -602,6 +602,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "terminal",
     "dispatch",
     "review-sheet",
+    "prototype",
     "kit",
     "usage",
     "features",
@@ -673,6 +674,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // A terminal holds focus while its keys are pressed, and every other key goes to its shell, so its keys meet no other scope's.
   terminal: [
     "terminal",
+  ],
+  // A Job's Prototype tab, and its pop-out window, hold the keys while they have focus, so ⌥⌘P meets only the global ones.
+  prototype: [
+    "prototype",
   ],
   // The Dispatch panel holds the keys while it is up, so its keys meet only the global ones.
   dispatch: [

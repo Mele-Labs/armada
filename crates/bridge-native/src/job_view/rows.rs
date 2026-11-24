@@ -770,6 +770,7 @@ impl JobView {
             Extra::Plan(_) => self.plan_card(page.items + at, head.plan.as_ref()?, page, look, now, cx),
             Extra::Sketch(_) => self.sketch_pin(page.items + at, head.sketch.as_ref()?, page, look, cx),
             Extra::Parts(artifact, revision) => return self.parts_card(page.items + at, artifact, *revision, false, false, page, look, cx),
+            Extra::Judging(reading) => return Some(self.judging_card(reading, look, cx)),
             Extra::Pending(i) => {
                 let one = page.pending.get(*i)?;
                 let delivery = if one.failed { Delivery::NotSent(one.key) } else { Delivery::Sending };
@@ -1179,6 +1180,8 @@ impl JobView {
     #[allow(clippy::too_many_arguments)]
     fn agent(&self, id: &str, text: &str, at: &ipc::Instant, page: &Page, look: &Look, now: DateTime<Local>, window: &Window, cx: &Context<Self>) -> AnyElement {
         let group = SharedString::from(format!("agent:{id}"));
+        let judge = self.judge_on_reply(id, page, look, cx);
+        let (judge_press, judge_notes) = judge.map_or((None, None), |judge| (Some(judge.press), judge.notes));
         div()
             .group(group)
             .flex()
@@ -1186,7 +1189,8 @@ impl JobView {
             .gap(look.length(token::SPACE_2))
             .min_w_0()
             .child(labelled(div().id(SharedString::from(format!("agent-words:{id}"))).child(self.block(page, id, self.prose(format!("agent:{id}"), text, look, cx), cx)), Role::Group, "Agent message"))
-            .child(self.message_bar(id, text, at, page, look, now, window, cx))
+            .child(self.message_bar(id, text, at, judge_press, page, look, now, window, cx))
+            .children(judge_notes)
             .into_any_element()
     }
 

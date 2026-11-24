@@ -13,7 +13,7 @@ pub(crate) const FAILED: &str = "failed";
 /// What a reading whose Fleet stopped before it ended reads as.
 pub(crate) const DIED: &str = "Fleet restarted before the reading finished";
 
-pub(crate) const KINDS: [(JudgeKind, &str); 12] = [
+pub(crate) const KINDS: [(JudgeKind, &str); 16] = [
     (JudgeKind::Job, "job"),
     (JudgeKind::Plan, "plan"),
     (JudgeKind::PullRequest, "pull_request"),
@@ -26,6 +26,10 @@ pub(crate) const KINDS: [(JudgeKind, &str); 12] = [
     (JudgeKind::Subagent, "subagent"),
     (JudgeKind::Issue, "issue"),
     (JudgeKind::Note, "note"),
+    (JudgeKind::Excerpt, "excerpt"),
+    (JudgeKind::Draft, "draft"),
+    (JudgeKind::Branch, "branch"),
+    (JudgeKind::Reply, "reply"),
 ];
 
 pub(crate) fn kind_word(kind: JudgeKind) -> &'static str {
@@ -126,6 +130,10 @@ fn artifact_told(reading: &KeptJudgeReading) -> String {
         JudgeKind::Subagent => titled("subagent's report"),
         JudgeKind::Issue => titled("issue"),
         JudgeKind::Note => titled("note"),
+        JudgeKind::Excerpt => titled("words"),
+        JudgeKind::Draft => titled("draft"),
+        JudgeKind::Branch => titled("branch"),
+        JudgeKind::Reply => titled("reply"),
     }
 }
 

@@ -448,6 +448,10 @@ impl JobView {
     /// A reading that finished. A press opens the plan at its notes; the other artifacts open in panes the Job panes step draws.
     #[allow(clippy::too_many_arguments)]
     pub(super) fn judged_row(&self, id: &str, artifact: &ipc::JudgeArtifact, at: &Instant, page: &Page, look: &Look, now: DateTime<Local>, cx: &Context<Self>) -> AnyElement {
+        // Words and the cards of the thread are drawn as a card, with their notes under it.
+        if super::judge_cards::in_thread(artifact.kind) {
+            return self.judged_card(id, artifact, at, page, look, now, cx);
+        }
         let title = &artifact.title;
         let parts = vec![
             div().flex_none().child("Judged").into_any_element(),
@@ -723,7 +727,7 @@ impl JobView {
             body = body.child(refusal(look, &key, why.clone()));
         }
         if open {
-            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, headed, false, page, look, cx));
+            body = body.child(self.draft_footer(ix, &key, id, kind, mode, text, &title, target, headed, false, None, page, look, cx));
         } else if !headed {
             page.keys.set(&key, None);
         }
@@ -846,14 +850,17 @@ impl JobView {
             well(look, shown_text.len() > 480 || shown_text.lines().count() > 8, prose)
         };
         let run = self.draft_run(ix, id, key, title, text);
+        // The Judge's press stands in the footer and what it found under it, inside the card.
+        let judge = self.judge_on_card(ix, key, ipc::JudgeArtifact { kind: ipc::JudgeKind::Draft, id: id.to_string(), title: title.to_string() }, page, look, cx);
+        let (judge_press, judge_notes) = judge.map_or((None, None), |judge| (Some(judge.press), judge.notes));
         let inner = if open {
-            self.draft_footer(ix, key, id, DraftKind::Draft, mode, text, title, target, headed, true, page, look, cx)
+            self.draft_footer(ix, key, id, DraftKind::Draft, mode, text, title, target, headed, true, judge_press, page, look, cx)
         } else {
             if !headed {
                 page.keys.set(key, None);
             }
             let foot = Foot { ix, key: key.to_string(), asking: false, archivable: !archived, openable: !here, editable: false, commit: false, route: "/sessions/waiting/answer", run: run.clone() };
-            self.band_footer(&foot, Vec::new(), page, look, cx)
+            self.band_footer(&foot, judge_press.into_iter().collect(), page, look, cx)
         };
         let inner = match (editing, page.cards.said.get(key)) {
             (true, Some(why)) => div().flex().flex_col().gap(look.length(token::SPACE_2)).child(refusal(look, key, why.clone())).child(inner).into_any_element(),
@@ -900,7 +907,8 @@ impl JobView {
             .child(screen)
             .children(self.text_it_replaces(ix, key, before, look, cx).map(|more| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(more)))
             .children(words_said.map(|words| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(quote(look, words))))
-            .child(foot_box(look).child(inner));
+            .child(foot_box(look).child(inner))
+            .children(judge_notes.map(|notes| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(notes)));
         let card = self.menu_on(card, &spot, "Draft", spot.focus.clone(), Rc::new(teach_entries), self.teach_pick("words", text.to_string(), Some(at.clone())), cx);
         labelled(card, Role::Article, name).into_any_element()
     }
@@ -947,6 +955,7 @@ impl JobView {
         target: bool,
         headed: bool,
         banded: bool,
+        judge: Option<AnyElement>,
         page: &Page,
         look: &Look,
         cx: &Context<Self>,
@@ -1057,7 +1066,7 @@ impl JobView {
                 .into_any_element()
             });
             let foot = Foot { ix, key: key.to_string(), asking: true, archivable: false, openable: ix != SHEET, editable: true, commit: false, route: "/sessions/waiting/answer", run: self.draft_run(ix, id, key, title, text) };
-            return self.band_footer(&foot, to_page.into_iter().collect(), page, look, cx);
+            return self.band_footer(&foot, judge.into_iter().chain(to_page).collect(), page, look, cx);
         }
         let key_s = key.to_string();
         let row = div().flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));

@@ -224,6 +224,10 @@ impl<'a> Receipt<'a> {
         Receipt::of(record, Set::Withdrawn { withdrawn: withdraw.draft.trim() })
     }
 
+    pub(crate) fn prototype(record: &'a SessionRecord, show: &'a ipc::ShowPrototype) -> Self {
+        Receipt::of(record, Set::Part { part: show.scene.trim().to_string() })
+    }
+
     pub(crate) fn part(record: &'a SessionRecord, add: &'a ipc::AddPart) -> Self {
         let kind = match &add.part {
             ipc::NewPart::Drawing { .. } => "drawing",

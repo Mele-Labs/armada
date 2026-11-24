@@ -15,7 +15,18 @@ export type JudgeKind =
   | "command"
   | "subagent"
   | "issue"
-  | "note";
+  | "note"
+  /**
+   * Words the person selected in the thread. `id` is the row they came from and a hash of the words;
+   * `title` is the words themselves, which the reading quotes at its head.
+   */
+  | "excerpt"
+  /** A draft the Job proposed, by its id, before the person OKs it. */
+  | "draft"
+  /** The branch a Ready to try card offers, by its name, read as its diff against main. */
+  | "branch"
+  /** One agent reply in the thread, by its row id. */
+  | "reply";
 
 /**
  * What is read. `id` is the kind's own: a pull request's number, a commit's row, a path, a page's

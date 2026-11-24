@@ -77,7 +77,7 @@ shortcut = "⌘J"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. The Operator takes its place (`armada-ehhu`), and Bridge draws nothing on this key until the panel lands in `armada-ehhu.10`."
+notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. In the native Bridge the Operator's page is the right side of the Cockpit, and this key puts the caret in its talk box; with a Job open over the page it keeps the Job's side chat."
 
 [actions.toast_history]
 kind = "Action"
@@ -111,6 +111,17 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "Puts the keys on the newest open toast, where A presses its pick, L puts it Later and Esc shuts it. Native only. ⌥ beside the Operator's ⌘J; taken 10 Nov 2026, nothing held it."
+
+[actions.prototype_pop_out]
+kind = "Action"
+tier = "Global"
+verb = "Pop out"
+icon = "maximize-2"
+shortcut = "⌥⌘P"
+scope = "prototype"
+destructive = false
+confirms = false
+notes = "Opens the prototype in front in a window of its own, with the note capture over it, so ⌥⌘A works there and its notes go to the Job. Answered where the focus is in a Job's Prototype tab. Native only. Taken 23 Nov 2026; nothing held it."
 
 [actions.open_kit]
 kind = "Action"
@@ -1373,6 +1384,50 @@ scope = "plan"
 destructive = false
 confirms = false
 notes = "Opens the Judge's box on the plan waiting on the card, which asks what to verify; nothing is read until Judge is pressed in it. Answered wherever focus is on the plan card. `POST /sessions/judge`; the reading lands on the Job's `judge_readings` by `session.changed`. Replaced `plan_adversarial_review` on 31 Oct 2026, when one on-demand Judge replaced the plan's adversarial review."
+
+[actions.selection_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘U"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Asks the Judge to read the words selected in the thread. Beside Ask in the selection bar and its menu: it opens the same Verify that box the other Judge presses open, and nothing is read until Judge is pressed in it. The reading is of kind `excerpt`, its id the row the words came from and eight hex digits of a hash of the words, its title the words. The finished reading is a Judged card at the thread's end. `POST /sessions/judge`."
+
+[actions.card_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the Judge's box on the card that holds focus: a sketch, a document, a draft, a Ready to try build or an agent's reply. The same press stands on the card's foot or bar. Its notes stand inside the card, and the same reading is a Judged card at the thread's end; Send to Job or Dismiss in either settles both. `POST /sessions/judge`."
+
+[actions.job_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘L"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Asks the Judge to read the Job in focus on the Jobs list, as the Job head's Judge does. The row shows the reading going, then a dot where notes wait or a check where it found nothing; pressing the dot or check opens that Job with its Judge tab in front. `POST /sessions/judge`."
+
+[actions.palette_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge…"
+icon = "scale"
+shortcut = "⇧⌘J"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Lists what can be judged in the Job in focus in the command palette: the Job, its plan and its Ledger artifacts. Choosing one opens the Verify that box on it, and nothing is read until Judge is pressed there. `POST /sessions/judge`."
 
 [actions.finding_move]
 kind = "Motion"

@@ -12,6 +12,7 @@ mod curate;
 mod curate_view;
 mod dossier;
 mod floor_map;
+pub(crate) mod floor_home;
 mod librarian;
 pub(crate) mod looked;
 pub(crate) mod mock;
@@ -122,6 +123,8 @@ pub struct FeaturesScreen {
     work: Option<Task<()>>,
     /// Where the librarian's press stands, and the press itself while it is in flight.
     press: librarian::Press,
+    /// Whether the card is open, and the buttons the keys reach on it.
+    lib_card: librarian::Shell,
     ran: Option<Task<()>>,
     /// The run shown under the card's line: going on now, or the last one this screen watched end.
     run: Option<steps::Run>,
@@ -162,6 +165,15 @@ impl FeaturesScreen {
         let mut this = Self::new(Source::Mock, window, cx);
         this.library = Load::Read(mock::library());
         this.library_project = Some(mock::PROJECT.to_string());
+        this.relist(cx);
+        this
+    }
+
+    /// On a library of the caller's, for a walk or a test that wants one the mock does not hold.
+    pub(crate) fn mock_holding(library: FeatureLibrary, window: &mut Window, cx: &mut Context<Self>) -> Self {
+        let mut this = Self::new(Source::Mock, window, cx);
+        this.library_project = Some(library.project.clone());
+        this.library = Load::Read(library);
         this.relist(cx);
         this
     }
@@ -211,6 +223,7 @@ impl FeaturesScreen {
             entered: false,
             work: None,
             press: librarian::Press::Idle,
+            lib_card: librarian::Shell::new(cx),
             ran: None,
             run: None,
             stopping: false,
@@ -683,6 +696,21 @@ impl FeaturesScreen {
         self.read(cx);
     }
 
+    /// Follow Fleet without being in front, as the Cockpit's floor does: the keys stay where they are. Once, and not again
+    /// until the screen has left.
+    pub(crate) fn watch(&mut self, cx: &mut Context<Self>) {
+        if self.entered {
+            return;
+        }
+        self.entered = true;
+        if self.bar.is_none() {
+            if let Some(bar) = titlebar::live(cx) {
+                self.bar = Some(cx.observe(&bar, |this, _, cx| this.moved(cx)));
+            }
+        }
+        self.read(cx);
+    }
+
     /// Another place in front: the screen stops following Fleet until it is entered again.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
         self.entered = false;
@@ -757,6 +785,8 @@ impl FeaturesScreen {
 mod ask_tests;
 #[cfg(test)]
 mod curate_tests;
+#[cfg(test)]
+mod floor_home_tests;
 #[cfg(test)]
 mod floor_tests;
 #[cfg(test)]

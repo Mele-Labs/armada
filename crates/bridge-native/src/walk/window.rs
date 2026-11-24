@@ -497,6 +497,11 @@ impl WalkWindow {
         cx.notify();
     }
 
+    /// Where the screen is drawn in the window, once it has been drawn.
+    pub(super) fn stage(&self) -> Option<Bounds<Pixels>> {
+        self.stage_at.get()
+    }
+
     /// ⌥⌘A arms Capture, as in Electron, and again puts it away.
     fn take_note(&mut self, _: &TakeNote, window: &mut Window, cx: &mut Context<Self>) {
         if self.capture.is_some() {
