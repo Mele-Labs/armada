@@ -259,6 +259,26 @@ pub fn page(slug: &str) -> FeaturePage {
                 at: at(14),
                 state: String::new(),
                 drifted: vec!["StartProposal".into(), "pick_model".into()],
+                check: Some(ipc::DocCheck {
+                    at: at(15),
+                    disagrees: Some(ipc::DocDisagreement {
+                        doc_quote: "The card keeps the model he picked last for each repository.".into(),
+                        code_at: "crates/fleet/src/start/card.rs:88".into(),
+                        code_quote: "takes the machine's Job model on every start; nothing is kept per repository".into(),
+                    }),
+                    dismissed: false,
+                }),
+            },
+            FeatureRead {
+                target: "docs/concepts/dispatch.md".into(),
+                title: "Dispatch".into(),
+                gist: "One panel starts a Job, a Session or the Autopilot.".into(),
+                gist_by_job: false,
+                job: "job-card-workflow".into(),
+                at: at(3),
+                state: String::new(),
+                drifted: Vec::new(),
+                check: Some(ipc::DocCheck { at: at(15), disagrees: None, dismissed: false }),
             },
             FeatureRead {
                 target: "https://notion.example/starting-a-job".into(),
@@ -269,6 +289,7 @@ pub fn page(slug: &str) -> FeaturePage {
                 at: at(9),
                 state: String::new(),
                 drifted: Vec::new(),
+                check: None,
             },
             FeatureRead {
                 target: "https://figma.example/start-card".into(),
@@ -279,6 +300,7 @@ pub fn page(slug: &str) -> FeaturePage {
                 at: at(5),
                 state: "gone".into(),
                 drifted: Vec::new(),
+                check: None,
             },
         ],
         tickets: vec![
@@ -291,6 +313,7 @@ pub fn page(slug: &str) -> FeaturePage {
                 at: at(14),
                 state: String::new(),
                 drifted: Vec::new(),
+                check: None,
             },
             FeatureRead {
                 target: "#3940".into(),
@@ -301,6 +324,7 @@ pub fn page(slug: &str) -> FeaturePage {
                 at: at(12),
                 state: String::new(),
                 drifted: Vec::new(),
+                check: None,
             },
         ],
         floor_plan: Some(floor_plan()),

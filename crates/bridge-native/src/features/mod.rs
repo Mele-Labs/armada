@@ -10,6 +10,7 @@ pub(crate) mod asks;
 pub(crate) mod chosen;
 mod curate;
 mod curate_view;
+mod doc_checks;
 mod dossier;
 mod floor_map;
 pub(crate) mod floor_home;
@@ -785,6 +786,8 @@ impl FeaturesScreen {
 mod ask_tests;
 #[cfg(test)]
 mod curate_tests;
+#[cfg(test)]
+mod doc_check_tests;
 #[cfg(test)]
 mod floor_home_tests;
 #[cfg(test)]
