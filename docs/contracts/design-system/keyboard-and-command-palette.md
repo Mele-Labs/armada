@@ -68,6 +68,10 @@ is the back-fill by hand that this section existed to prevent.
 ⌘/       ask the agent for a tool: Armada's tools listed over the open Job's message box, the one picked put at the caret as a chip, in the native Bridge only
 ⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
 ⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
+⌥⌘U      Judge the words selected in the open Job's thread, in the native Bridge only
+⌥⌘G      Judge the card in focus in the open Job's thread: a sketch, document, draft, Ready to try or reply, in the native Bridge only
+⌥⌘L      Judge the Job of the focused row of the Jobs list, in the native Bridge only
+⇧⌘J      Judge…: what the open Job holds, to pick one to judge, in the native Bridge only
 ⌘1–⌘9    go to a tab: Cockpit (in the native Bridge it holds the Jobs list and the Operator's page, and it has no Operator or Jobs tab), Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel

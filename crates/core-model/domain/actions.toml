@@ -1374,6 +1374,50 @@ destructive = false
 confirms = false
 notes = "Opens the Judge's box on the plan waiting on the card, which asks what to verify; nothing is read until Judge is pressed in it. Answered wherever focus is on the plan card. `POST /sessions/judge`; the reading lands on the Job's `judge_readings` by `session.changed`. Replaced `plan_adversarial_review` on 31 Oct 2026, when one on-demand Judge replaced the plan's adversarial review."
 
+[actions.selection_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘U"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Asks the Judge to read the words selected in the thread. Beside Ask in the selection bar and its menu: it opens the same Verify that box the other Judge presses open, and nothing is read until Judge is pressed in it. The reading is of kind `excerpt`, its id the row the words came from and eight hex digits of a hash of the words, its title the words. The finished reading is a Judged card at the thread's end. `POST /sessions/judge`."
+
+[actions.card_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘G"
+scope = "thread"
+destructive = false
+confirms = false
+notes = "Opens the Judge's box on the card that holds focus: a sketch, a document, a draft, a Ready to try build or an agent's reply. The same press stands on the card's foot or bar. Its notes stand inside the card, and the same reading is a Judged card at the thread's end; Send to Job or Dismiss in either settles both. `POST /sessions/judge`."
+
+[actions.job_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge"
+icon = "scale"
+shortcut = "⌥⌘L"
+scope = "list"
+destructive = false
+confirms = false
+notes = "Asks the Judge to read the Job in focus on the Jobs list, as the Job head's Judge does. The row shows the reading going, then a dot where notes wait or a check where it found nothing; pressing the dot or check opens that Job with its Judge tab in front. `POST /sessions/judge`."
+
+[actions.palette_judge]
+kind = "Action"
+tier = "Contextual"
+verb = "Judge…"
+icon = "scale"
+shortcut = "⇧⌘J"
+scope = "anywhere"
+destructive = false
+confirms = false
+notes = "Lists what can be judged in the Job in focus in the command palette: the Job, its plan and its Ledger artifacts. Choosing one opens the Verify that box on it, and nothing is read until Judge is pressed there. `POST /sessions/judge`."
+
 [actions.finding_move]
 kind = "Motion"
 tier = "Contextual"

@@ -37,16 +37,16 @@ describe("a key for a row", () => {
     const others = [
       {
         label: "Reviews",
-        hotkey: "⇧⌘J",
+        hotkey: "⇧⌘U",
       },
     ];
-    expect(refuseHotkey(chord("⇧⌘J"), others)).toBe("Bound to Reviews");
+    expect(refuseHotkey(chord("⇧⌘U"), others)).toBe("Bound to Reviews");
     expect(refuseHotkey(chord("⇧⌘L"), others)).toBeUndefined();
   });
 
   test("a free key with ⌘ or ⌃ is kept", () => {
-    expect(refuseHotkey(chord("⇧⌘J"), [])).toBeUndefined();
-    expect(refuseHotkey(chord("⌃⌥U"), [])).toBeUndefined();
+    expect(refuseHotkey(chord("⇧⌘U"), [])).toBeUndefined();
+    expect(refuseHotkey(chord("⌃⌥B"), [])).toBeUndefined();
   });
 });
 

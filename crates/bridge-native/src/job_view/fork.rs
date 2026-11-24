@@ -83,6 +83,10 @@ impl JobView {
                 cx.listener(|this, event: &MouseDownEvent, _, cx| {
                     this.fork.down = Some(event.position);
                     if this.fork.shown.take().is_some() {
+                        // The Judge's box opened from the bar goes with it.
+                        if this.judge_open_for_words() {
+                            this.drop_judge();
+                        }
                         cx.notify();
                     }
                 }),
@@ -148,7 +152,7 @@ impl JobView {
     }
 
     /// The selection's acts are over: the selection and the bar go.
-    fn fork_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(super) fn fork_done(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.fork.shown = None;
         TextSelection::clear(window, cx);
         cx.notify();
@@ -208,6 +212,7 @@ impl JobView {
         }
         entries.push(Entry::Act { id: "fork", label: "Fork from here".into(), icon: Some("git-fork"), danger: false });
         entries.push(Entry::Act { id: "ask", label: "Ask".into(), icon: Some("eye"), danger: false });
+        entries.push(Entry::Act { id: "judge", label: "Judge".into(), icon: Some("scale"), danger: false });
         let back = self.focus.clone();
         self.open_pop("Selection", entries, at, from_keys, Some(back), |this, id, window, cx| this.fork_act(id, window, cx), window, cx);
     }
@@ -221,6 +226,10 @@ impl JobView {
 
     /// One of the acts on the selected words.
     fn fork_act(&mut self, act: &'static str, window: &mut Window, cx: &mut Context<Self>) {
+        if act == "judge" {
+            self.judge_selected(window, cx);
+            return;
+        }
         let Some(picked) = self.fork.shown.take() else { return };
         TextSelection::clear(window, cx);
         match act {
@@ -231,6 +240,15 @@ impl JobView {
             _ => {}
         }
         cx.notify();
+    }
+
+    /// Judge, on the selected words: the bar and the words stay, its box opens under the bar's act, and the selection goes
+    /// when the Judge is asked. False where no words are selected.
+    pub(super) fn judge_selected(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(picked) = self.fork.shown.as_ref() else { return false };
+        let artifact = super::judge_cards::excerpt_of(&picked.row, &picked.words);
+        self.open_judge(super::acts::SHEET, &super::judge_cards::excerpt_key(&artifact), artifact, window, cx);
+        true
     }
 
     /// A new Job forked at the message, its box seeded with the quote, and that Job opened.
@@ -380,7 +398,8 @@ impl JobView {
                 .children(live.then(|| act("reply", "Reply", "reply")))
                 .child(act("fork", "Fork from here", "git-fork"))
                 .child(act("teach", "Teach", "graduation-cap"))
-                .child(self.selection_ask(look, cx)),
+                .child(self.selection_ask(look, cx))
+                .child(self.selection_judge(&picked.row, &picked.words, look, cx)),
             Role::Toolbar,
             "Selection",
         );
