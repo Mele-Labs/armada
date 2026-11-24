@@ -17,7 +17,7 @@ use store::Store;
 
 use crate::clock::{elapsed, rfc3339_utc};
 use crate::daemon::Fleet;
-use crate::rail::{self, RailStep};
+use crate::rail::{self, Facts, RailStep};
 use crate::rail_ends::{self, End, Waiter};
 
 /// Fewer visits than this say nothing of how long a step takes.
@@ -78,27 +78,42 @@ impl StepTimes {
     }
 }
 
-/// When a step that began at `since` went past `usual` seconds: `None` while it has not.
-pub(crate) fn stalled_since(since: &str, usual: u64, now: &Timestamp) -> Option<String> {
+/// How long a step stays plain after the person last wrote on it: a step he is working through with the Job
+/// is not stalled. The owner's ruling, 24 Nov 2026.
+pub(crate) const QUIET_SECS: i64 = 30 * 60;
+
+/// When a step that began at `since` went past `usual` seconds and he had been quiet on it, from `wrote`, his
+/// last message, for [`QUIET_SECS`]: `None` while either has not.
+pub(crate) fn stalled_since(since: &str, usual: u64, wrote: Option<&str>, now: &Timestamp) -> Option<String> {
     let began = Timestamp::from_rfc3339(since).epoch_millis()?;
-    let past = began + (usual as i64) * 1000;
+    let mut past = began + (usual as i64) * 1000;
+    if let Some(wrote) = wrote.and_then(|at| Timestamp::from_rfc3339(at).epoch_millis()).filter(|at| *at >= began) {
+        past = past.max(wrote + QUIET_SECS * 1000);
+    }
     (now.epoch_millis()? > past).then(|| rfc3339_utc(past))
 }
 
-/// What the step waits on, and whose it is: the cause a stalled step carries and the nudge repeats.
-pub(crate) fn cause_of(steps: &[RailStep], at: usize) -> String {
+/// What the step waits on, and whose move it is now: the cause a stalled step carries and the nudge repeats.
+/// **An end that is his is his move only once there is something to press**: while the Job is working, or a
+/// plan he would approve was never recorded, the move is the Job's.
+pub(crate) fn cause_of(steps: &[RailStep], at: usize, facts: &Facts, turn_over: bool) -> String {
     let ends = rail_ends::ends_of(steps, at);
     let Some(first) = ends.first() else {
         return "Nothing Fleet observes ends this step.".to_string();
     };
+    let said = rail_ends::ends_any(steps, at).join(", or ");
+    let yours = matches!(first.waits_on(), Waiter::ThePerson(_));
+    if yours && *first == End::PlanApproved && !facts.plan_recorded {
+        return format!("Waiting on the Job. It has recorded no plan for you to approve. The step ends when {said}.");
+    }
     let who = match first.waits_on() {
+        Waiter::ThePerson(_) if !turn_over => "the Job",
         Waiter::ThePerson(_) => "you",
         Waiter::TheJob => "the Job",
         Waiter::TheMerge => "the merge",
         Waiter::TheWorld => "the world",
     };
-    let said: Vec<String> = rail_ends::ends_any(steps, at);
-    format!("Waiting on {who}. The step ends when {}.", said.join(", or "))
+    format!("Waiting on {who}. The step ends when {said}.")
 }
 
 /// A span as a person reads it: `5h 30m`, `22m`, `45s`.
