@@ -39,6 +39,8 @@ pub(super) mod tint {
 
 /// How wide a character of the mono face is, in ems.
 const MONO_ADVANCE: f32 = 0.6;
+/// The same for a part's name, set in the sans face at its heading weight.
+const BOLD_ADVANCE: f32 = 0.62;
 
 /// The sizes the arrangement is made of, from the tokens.
 pub(super) fn metrics(look: &Look) -> Metrics {
@@ -55,6 +57,9 @@ pub(super) fn metrics(look: &Look) -> Metrics {
         bottom: len(token::SPACE_4) + len(token::SPACE_1),
         char: len(token::TEXT_2XS) * MONO_ADVANCE,
         column: len(token::SPACE_12) * 3.,
+        name_char: len(token::TEXT_XS) * BOLD_ADVANCE,
+        // A part's tile, the padding round it, the gap before its text and the arrow that shows when it is lit.
+        chrome: len(token::SPACE_8) + len(token::SPACE_2) * 4. + len(token::SPACE_4) + len(token::BORDER_WIDTH) * 2.,
     }
 }
 
@@ -102,15 +107,20 @@ pub(super) fn kind_of(kind: SystemPartKind, within: Option<&str>, top: Option<&S
 
 /// A chip with a fill: what kind of row it is.
 pub(super) fn chip(look: &Look, hue: Token, words: impl Into<SharedString>) -> gpui::Div {
+    chip_at(look, 1., hue, words)
+}
+
+/// A chip drawn `k` times its size, for a graph that is drawn smaller.
+fn chip_at(look: &Look, k: f32, hue: Token, words: impl Into<SharedString>) -> gpui::Div {
     div()
         .flex_none()
         .flex()
         .items_center()
-        .h(look.length(token::H_BADGE))
-        .px(look.length(token::SPACE_2))
-        .rounded(look.length(token::RADIUS_SM))
+        .h(look.length(token::H_BADGE) * k)
+        .px(look.length(token::SPACE_2) * k)
+        .rounded(look.length(token::RADIUS_SM) * k)
         .bg(look.color(hue).opacity(tint::TILE))
-        .text_size(look.length(token::TEXT_2XS))
+        .text_size(look.length(token::TEXT_2XS) * k)
         .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
         .text_color(look.color(hue))
         .whitespace_nowrap()
@@ -202,13 +212,13 @@ fn crumbs(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>) -> Any
     }
     let out = this.trail.depth() > 1 || this.is_grown();
     let librarian = labelled(
-        Btn::new("system-librarian", "Ask the librarian", Weight::Secondary)
+        Btn::new("system-librarian", "Find missed parts", Weight::Secondary)
             .pending(this.asking_librarian)
             .draw(look, cx)
-            .tooltip(tip("The librarian reads the project again and adds the parts its files do not show"))
+            .tooltip(tip("The librarian reads the project for parts its files do not show"))
             .on_click(cx.listener(|this, _, _, cx| this.ask_librarian(cx))),
         Role::Button,
-        "Ask the librarian",
+        "Find missed parts",
     );
     div()
         .flex_none()
@@ -312,10 +322,10 @@ fn stage(this: &SystemBlock, arranged: &Arranged, map: &SystemMap, top: Option<&
     };
     let lit = arrange::lit(arranged, map, &target, this.trail.depth());
     let dimming = lit.is_some();
-    let lanes = arranged.lanes.iter().map(|lane| lane_box(lane, look));
+    let lanes = arranged.lanes.iter().map(|lane| lane_box(lane, arranged.scale, look));
     let drawn = curves(arranged, lit.as_ref(), look);
-    let pills = arranged.edges.iter().enumerate().filter(|(_, edge)| edge.label.is_some() || edge.step.is_some()).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, look));
-    let nodes = arranged.nodes.iter().enumerate().map(|(at, node)| part_box(this, node, lit.as_ref().map(|lit| lit.nodes.contains(&at)), top, look, cx));
+    let pills = arranged.edges.iter().enumerate().filter(|(_, edge)| edge.label.is_some() || edge.step.is_some()).map(|(at, edge)| pill(edge, lit.as_ref().is_none_or(|lit| lit.edges.contains(&at)), dimming, arranged.scale, look));
+    let nodes = arranged.nodes.iter().enumerate().map(|(at, node)| part_box(this, node, lit.as_ref().map(|lit| lit.nodes.contains(&at)), top, arranged.scale, look, cx));
     div()
         .relative()
         .w(px(arranged.width))
@@ -328,20 +338,21 @@ fn stage(this: &SystemBlock, arranged: &Arranged, map: &SystemMap, top: Option<&
         .into_any_element()
 }
 
-fn lane_box(lane: &Lane, look: &Look) -> AnyElement {
+fn lane_box(lane: &Lane, k: f32, look: &Look) -> AnyElement {
+    let len = |token| look.length(token) * k;
     let rect = lane.rect;
-    let frame = div().absolute().left(px(rect.x)).top(px(rect.y)).w(px(rect.w)).h(px(rect.h)).rounded(look.length(token::RADIUS_LG));
+    let frame = div().absolute().left(px(rect.x)).top(px(rect.y)).w(px(rect.w)).h(px(rect.h)).rounded(len(token::RADIUS_LG));
     let frame = match lane.kind {
         LaneKind::Band => frame.bg(look.color(token::BG_SUNKEN).opacity(tint::BAND)),
-        LaneKind::Boundary => frame.border(look.length(token::BORDER_WIDTH)).border_dashed().border_color(look.color(token::BORDER_STRONG)),
+        LaneKind::Boundary => frame.border(len(token::BORDER_WIDTH)).border_dashed().border_color(look.color(token::BORDER_STRONG)),
     };
     frame
         .child(
             div()
                 .absolute()
-                .left(look.length(token::SPACE_3))
-                .top(look.length(token::SPACE_2))
-                .text_size(look.length(token::TEXT_2XS))
+                .left(len(token::SPACE_3))
+                .top(len(token::SPACE_2))
+                .text_size(len(token::TEXT_2XS))
                 .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
                 .text_color(look.color(token::FG_SUBTLE))
                 .child(SharedString::from(lane.title.to_uppercase())),
@@ -351,6 +362,7 @@ fn lane_box(lane: &Lane, look: &Look) -> AnyElement {
 
 /// The curves, painted in one canvas: every link, bright where it is lit and faint where something else is.
 fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
+    let len = |token| look.length(token) * arranged.scale;
     struct Drawn {
         edge: Edge,
         lit: bool,
@@ -358,9 +370,9 @@ fn curves(arranged: &Arranged, lit: Option<&Lit>, look: &Look) -> AnyElement {
     }
     let edges: Vec<Drawn> = arranged.edges.iter().enumerate().map(|(at, edge)| Drawn { edge: edge.clone(), lit: lit.is_some_and(|lit| lit.edges.contains(&at)), dim: lit.is_some_and(|lit| !lit.edges.contains(&at)) }).collect();
     let (base, bright) = (look.color(token::BORDER_STRONG), look.color(token::ACCENT));
-    let (plain, bold) = (f32::from(look.length(token::BORDER_WIDTH)) * 1.5, f32::from(look.length(token::BORDER_WIDTH)) * 2.);
+    let (plain, bold) = (f32::from(len(token::BORDER_WIDTH)) * 1.5, f32::from(len(token::BORDER_WIDTH)) * 2.);
     let faint = tint::DIM_CURVE;
-    let (dash, head) = ((f32::from(look.length(token::SPACE_1)) * 1.5, f32::from(look.length(token::SPACE_1)) * 1.25), (f32::from(look.length(token::SPACE_2)), f32::from(look.length(token::SPACE_1))));
+    let (dash, head) = ((f32::from(len(token::SPACE_1)) * 1.5, f32::from(len(token::SPACE_1)) * 1.25), (f32::from(len(token::SPACE_2)), f32::from(len(token::SPACE_1))));
     canvas(
         |_, _, _| (),
         move |bounds, _, window, _| {
@@ -418,35 +430,36 @@ fn dashes(edge: &Edge, on: f32, off: f32) -> Vec<(Pt, Pt)> {
 }
 
 /// What a link says, as a pill at the middle of its curve: its step first where it is one of a feature's.
-fn pill(edge: &Edge, lit: bool, dimming: bool, look: &Look) -> AnyElement {
-    let width = look.length(token::SPACE_12) * 4.;
-    let height = look.length(token::H_BADGE);
+fn pill(edge: &Edge, lit: bool, dimming: bool, k: f32, look: &Look) -> AnyElement {
+    let len = |token| look.length(token) * k;
+    let width = len(token::SPACE_12) * 4.;
+    let height = len(token::H_BADGE);
     let step = edge.step.map(|step| {
         div()
             .flex_none()
-            .size(look.length(token::SPACE_4))
+            .size(len(token::SPACE_4))
             .flex()
             .items_center()
             .justify_center()
             .rounded_full()
             .bg(look.color(token::ACCENT))
             .text_color(look.color(token::TEXT_ON_ACCENT))
-            .text_size(look.length(token::TEXT_2XS))
+            .text_size(len(token::TEXT_2XS))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
             .child(SharedString::from(step.to_string()))
     });
     let inner = div()
         .flex()
         .items_center()
-        .gap(look.length(token::SPACE_1))
+        .gap(len(token::SPACE_1))
         .h(height)
-        .px(look.length(token::SPACE_2))
+        .px(len(token::SPACE_2))
         .rounded_full()
-        .border(look.length(token::BORDER_WIDTH))
+        .border(len(token::BORDER_WIDTH))
         .border_color(if lit && dimming { look.color(token::ACCENT) } else { look.color(token::BORDER_SUBTLE) })
         .bg(look.color(token::BG_RAISED))
         .font_family(mono(look))
-        .text_size(look.length(token::TEXT_2XS))
+        .text_size(len(token::TEXT_2XS))
         .text_color(if lit && dimming { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
         .whitespace_nowrap()
         .children(step)
@@ -464,7 +477,8 @@ fn pill(edge: &Edge, lit: bool, dimming: bool, look: &Look) -> AnyElement {
 }
 
 /// One part: its glyph tile, its name and the line under it, in the frame its kind gives it.
-fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&SystemMap>, look: &Look, cx: &mut Context<SystemBlock>) -> AnyElement {
+fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&SystemMap>, k: f32, look: &Look, cx: &mut Context<SystemBlock>) -> AnyElement {
+    let len = |token| look.length(token) * k;
     let kind = kind_of(node.kind, node.within.as_deref(), top);
     let hue = look.color(hue_of(kind));
     let selected = this.selected.as_deref() == Some(node.id.as_str());
@@ -475,30 +489,30 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
     let (id, hover_id, click_id) = (node.id.clone(), node.id.clone(), node.id.clone());
     let tile = div()
         .flex_none()
-        .size(look.length(token::SPACE_8))
+        .size(len(token::SPACE_8))
         .flex()
         .items_center()
         .justify_center()
-        .rounded(look.length(token::RADIUS_LG))
+        .rounded(len(token::RADIUS_LG))
         .bg(hue.opacity(tint::TILE_LIT))
-        .child(glyph(glyph_of(kind), look.length(token::SPACE_4), hue));
+        .child(glyph(glyph_of(kind), len(token::SPACE_4), hue));
     let text = div()
         .flex_1()
         .min_w_0()
         .flex()
         .flex_col()
-        .gap(look.length(token::SPACE_1) / 2.)
+        .gap(len(token::SPACE_1) / 2.)
         .child(
             div()
                 .flex()
                 .items_center()
-                .gap(look.length(token::SPACE_1))
-                .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(node.name.clone()))),
+                .gap(len(token::SPACE_1))
+                .child(div().min_w_0().truncate().text_size(len(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(node.name.clone()))),
         )
-        .children(node.librarian.then(|| div().flex().child(chip(look, token::SKETCH_AMBER, "librarian"))))
-        .children(node.meta.clone().map(|meta| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta))))
+        .children(node.librarian.then(|| div().flex().child(chip_at(look, k, token::SKETCH_AMBER, "librarian"))))
+        .children(node.meta.clone().map(|meta| div().truncate().font_family(mono(look)).text_size(len(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(meta))))
         .children((!node.files.is_empty()).then(|| {
-            div().flex().flex_col().pt(look.length(token::SPACE_1)).children(node.files.iter().map(|file| div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.clone()))))
+            div().flex().flex_col().pt(len(token::SPACE_1)).children(node.files.iter().map(|file| div().truncate().font_family(mono(look)).text_size(len(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(file.clone()))))
         }));
     let said = format!("{}, {}{}", node.name, kind_word(node.kind), if node.librarian { ", from the librarian" } else { "" });
     let summary = this.level().and_then(|map| map.parts.iter().find(|part| part.id == node.id)).map(|part| part.summary.clone()).unwrap_or_default();
@@ -511,11 +525,11 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
         .h(px(rect.h))
         .flex()
         .when(node.files.is_empty(), |part| part.items_center())
-        .gap(look.length(token::SPACE_2))
-        .p(look.length(token::SPACE_2))
+        .gap(len(token::SPACE_2))
+        .p(len(token::SPACE_2))
         .when(person, |part| part.rounded_full())
-        .when(!person, |part| part.rounded(look.length(token::RADIUS_LG)))
-        .border(look.length(token::BORDER_WIDTH))
+        .when(!person, |part| part.rounded(len(token::RADIUS_LG)))
+        .border(len(token::BORDER_WIDTH))
         .when(node.librarian, |part| part.border_dashed())
         .border_color(if bright { hue } else if person { hue.opacity(tint::OUTLINE) } else { look.color(token::BORDER_DEFAULT) })
         .bg(if selected {
@@ -547,7 +561,7 @@ fn part_box(this: &SystemBlock, node: &Node, lit: Option<bool>, top: Option<&Sys
         }))
         .child(tile)
         .child(text)
-        .children((node.zooms && bright).then(|| glyph("chevron-right", look.length(token::SPACE_4), look.color(token::FG_SUBTLE))));
+        .children((node.zooms && bright).then(|| glyph("chevron-right", len(token::SPACE_4), look.color(token::FG_SUBTLE))));
     labelled(element, Role::Button, said).into_any_element()
 }
 

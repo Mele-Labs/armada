@@ -17,9 +17,14 @@ pub fn system(port: u16, project: &str, part: Option<&str>, feature: Option<&str
     request(port, Ask::Get(path), "SystemMap", cx)
 }
 
-/// `GET /projects/project/:id/system/part?part=`: what Fleet knows of one part, in the nine sections.
-pub fn system_part(port: u16, project: &str, part: &str, cx: &App) -> Task<Result<SystemPartAnswers, Refused>> {
-    let path = format!("/projects/project/{}/system/part?part={}", percent_encoded(project), percent_encoded(part));
+/// `GET /projects/project/:id/system/part?part=&feature=`: what Fleet knows of one part, in the nine sections. With neither it
+/// answers for the whole project, and with `feature` for one feature.
+pub fn system_part(port: u16, project: &str, part: Option<&str>, feature: Option<&str>, cx: &App) -> Task<Result<SystemPartAnswers, Refused>> {
+    let mut path = format!("/projects/project/{}/system/part", percent_encoded(project));
+    let asked: Vec<String> = part.map(|part| format!("part={}", percent_encoded(part))).into_iter().chain(feature.map(|feature| format!("feature={}", percent_encoded(feature)))).collect();
+    if !asked.is_empty() {
+        path = format!("{path}?{}", asked.join("&"));
+    }
     request(port, Ask::Get(path), "SystemPartAnswers", cx)
 }
 

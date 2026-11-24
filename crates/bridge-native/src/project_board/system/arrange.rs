@@ -57,15 +57,46 @@ pub struct Metrics {
     pub bottom: f32,
     /// What a character of a link's label is wide, to leave room for the label in the gap it sits in.
     pub char: f32,
-    /// The least a part's column is wide: a block narrower than what its columns need scrolls across instead of squeezing names away.
+    /// The least a part's column is wide, whatever it holds.
     pub column: f32,
+    /// What a character of a part's name is wide, and what a part's tile, padding and arrow take beside its text: together they
+    /// give the width a part needs to show its name and its path whole.
+    pub name_char: f32,
+    pub chrome: f32,
 }
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20., char: 7., column: 170. }
+        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20., char: 7., column: 170., name_char: 8., chrome: 76. }
     }
 }
+
+impl Metrics {
+    /// Every size times `k`, for a graph drawn smaller to fit its room.
+    pub fn scaled(&self, k: f32) -> Metrics {
+        Metrics {
+            node: self.node * k,
+            node_plain: self.node_plain * k,
+            file: self.file * k,
+            gap: self.gap * k,
+            lane_head: self.lane_head * k,
+            lane_pad: self.lane_pad * k,
+            lane_gap: self.lane_gap * k,
+            col_gap: self.col_gap * k,
+            bottom: self.bottom * k,
+            char: self.char * k,
+            column: self.column * k,
+            name_char: self.name_char * k,
+            chrome: self.chrome * k,
+        }
+    }
+}
+
+/// The least the graph is drawn at before it scrolls across instead.
+pub const FLOOR: f32 = 0.75;
+
+/// The longest path a part is given room to show whole, in characters; a longer one is cut with an ellipsis.
+const META_LONGEST: usize = 40;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LaneKind {
@@ -162,6 +193,8 @@ pub struct Arranged {
     pub edges: Vec<Edge>,
     pub width: f32,
     pub height: f32,
+    /// How much smaller than its natural size it is drawn, 1 where it fits the room.
+    pub scale: f32,
 }
 
 impl Arranged {
@@ -248,7 +281,7 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
     let deep = depth > 1;
     let parts = &map.parts;
     if parts.is_empty() {
-        return Arranged { width, height: min_height, ..Arranged::default() };
+        return Arranged { width, height: min_height, scale: 1., ..Arranged::default() };
     }
     let files_of = |part: &SystemPart| -> Vec<String> { map.stops.iter().filter(|stop| stop.part == part.id).flat_map(|stop| stop.files.clone()).collect() };
     let nodes_files: Vec<Vec<String>> = parts.iter().map(|part| if depth == 3 { files_of(part) } else { Vec::new() }).collect();
@@ -364,9 +397,42 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
             metrics.lane_gap.max(longest as f32 * metrics.char + metrics.gap * 3. - metrics.lane_pad * 2.)
         })
         .collect();
+    // What each column needs to show its parts' names and paths whole.
+    let mut need = vec![metrics.column; total_cols];
+    let col_lane: Vec<usize> = {
+        let mut out = vec![0; total_cols];
+        for (at, &(lane, _)) in lane_of.iter().enumerate() {
+            out[col_of[at]] = lane;
+        }
+        out
+    };
+    for (at, part) in parts.iter().enumerate() {
+        let meta = if nodes_files[at].is_empty() { meta_of(part).map_or(0, |meta| meta.chars().count().min(META_LONGEST)) } else { 0 };
+        let file = nodes_files[at].iter().map(|file| file.chars().count()).max().unwrap_or(0);
+        let wide = (part.name.chars().count() as f32 * metrics.name_char).max(meta.max(file) as f32 * metrics.char);
+        let col = col_of[at];
+        need[col] = need[col].max(wide + metrics.chrome);
+    }
     let room = width - lane_gaps.iter().take(lane_count.saturating_sub(1)).sum::<f32>() - metrics.lane_pad * 2. * lane_count as f32 - gap_after.iter().sum::<f32>();
-    let weights: f32 = (0..lane_count).map(|lane| weight_of(lane) * cols_in_lane[lane] as f32).sum::<f32>().max(0.1);
-    let unit = (room / weights).max(metrics.column);
+    // Columns share what room there is by weight; one that would be left narrower than it needs keeps what it needs, and the rest share the remainder.
+    let col_weight: Vec<f32> = (0..total_cols).map(|col| weight_of(col_lane[col])).collect();
+    let floor_of: Vec<f32> = (0..total_cols).map(|col| need[col].max(metrics.column * col_weight[col])).collect();
+    let mut held = vec![false; total_cols];
+    let unit = loop {
+        let free: f32 = (0..total_cols).filter(|col| !held[*col]).map(|col| col_weight[col]).sum::<f32>().max(0.1);
+        let kept: f32 = (0..total_cols).filter(|col| held[*col]).map(|col| floor_of[col]).sum();
+        let unit = ((room - kept) / free).max(0.);
+        let mut changed = false;
+        for col in 0..total_cols {
+            if !held[col] && col_weight[col] * unit < floor_of[col] {
+                held[col] = true;
+                changed = true;
+            }
+        }
+        if !changed || held.iter().all(|one| *one) {
+            break unit;
+        }
+    };
 
     let mut col_x = vec![0f32; total_cols];
     let mut col_w = vec![0f32; total_cols];
@@ -378,7 +444,7 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         for col in 0..cols_in_lane[lane] {
             let at = first_col[lane] + col;
             col_x[at] = x;
-            col_w[at] = weight_of(lane) * unit;
+            col_w[at] = if held[at] { floor_of[at] } else { col_weight[at] * unit };
             x += col_w[at];
             x += gap_after[at];
         }
@@ -445,7 +511,25 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         .collect();
     let lanes: Vec<Lane> = lane_rects.iter().zip(&lane_titles).map(|(&(x, w), (title, kind))| Lane { rect: Rect { x, y: 0., w, h: height }, title: title.clone(), kind: *kind }).collect();
     let edges = join(map, &index, &nodes, metrics);
-    Arranged { lanes, nodes, edges, width: extent, height }
+    Arranged { lanes, nodes, edges, width: extent, height, scale: 1. }
+}
+
+/// `arrange`, made smaller where the parts need more room than there is: every size shrinks together, to a floor of `FLOOR`, and
+/// below that the graph keeps its size and the block scrolls across.
+pub fn arrange_fitted(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&str) -> Option<String>, metrics: &Metrics, width: f32, min_height: f32) -> Arranged {
+    let natural = arrange(map, depth, project, title_of, metrics, width, min_height);
+    if natural.width <= width + 1. || width <= 0. {
+        return natural;
+    }
+    let mut scale = (width / natural.width).clamp(FLOOR, 1.);
+    let mut smaller = arrange(map, depth, project, title_of, &metrics.scaled(scale), width, min_height);
+    // Text does not shrink in step with the gaps by a hair, so one correction.
+    if smaller.width > width + 1. && scale > FLOOR {
+        scale = (scale * width / smaller.width).clamp(FLOOR, 1.);
+        smaller = arrange(map, depth, project, title_of, &metrics.scaled(scale), width, min_height);
+    }
+    smaller.scale = scale;
+    smaller
 }
 
 /// Each link as a curve between a port on one part's side and a port on the other's.
@@ -535,7 +619,8 @@ fn label_spot(edge: &Edge, nodes: &[Node], placed: &[(Pt, f32)], metrics: &Metri
         nodes.iter().all(|node| at.x + wide / 2. <= node.rect.x || at.x - wide / 2. >= node.rect.right() || at.y + high / 2. <= node.rect.y || at.y - high / 2. >= node.rect.bottom())
             && placed.iter().all(|(other, other_wide)| (at.x - other.x).abs() >= (wide + other_wide) / 2. || (at.y - other.y).abs() >= high)
     };
-    [0.5, 0.88, 0.12, 0.72, 0.28, 0.62, 0.38, 0.8, 0.2].into_iter().map(|t| edge.at(t)).find(|at| clear(*at)).unwrap_or_else(|| edge.at(0.5))
+    // From the middle outward, a step at a time, to either side.
+    (0..=22).flat_map(|step| [0.5 + step as f32 * 0.02, 0.5 - step as f32 * 0.02]).map(|t| edge.at(t)).find(|at| clear(*at)).unwrap_or_else(|| edge.at(0.5))
 }
 
 /// What `hover` lights: the links that touch a part and the parts at their ends, on level one; on a deeper level everything the

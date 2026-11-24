@@ -45,6 +45,8 @@ pub const BOARD_ROWS: u8 = 4;
 /// Where each draft the block keeps is kept.
 const KEEP_FEATURE: &str = "system.feature";
 const KEEP_REWORK: &str = "system.rework";
+/// Where the answers about a feature are held among those about the parts, which no part's id starts with.
+pub(super) const FEATURE_KEY: &str = "~feature/";
 
 /// What a read of Fleet has come to.
 #[derive(Clone, Debug, PartialEq)]
@@ -251,9 +253,8 @@ impl SystemBlock {
     fn ask_level(&mut self, cx: &mut Context<Self>) {
         let asked = self.asked();
         self.ask(asked, cx);
-        if let Some(part) = self.panel_part() {
-            self.ask_answers(&part, cx);
-        }
+        let key = self.panel_key();
+        self.ask_answers(&key, cx);
     }
 
     fn ask(&mut self, asked: Asked, cx: &mut Context<Self>) {
@@ -288,35 +289,50 @@ impl SystemBlock {
         }
     }
 
-    fn ask_answers(&mut self, part: &str, cx: &mut Context<Self>) {
+    /// What the panel is about, as the key its answers are held under: a part's id, a feature as `~feature/slug`, and the whole
+    /// project as an empty one.
+    pub(super) fn panel_key(&self) -> String {
+        match (&self.selected, self.trail.part(), self.trail.feature()) {
+            (Some(id), _, _) => id.clone(),
+            (None, _, Some(slug)) => format!("{FEATURE_KEY}{slug}"),
+            (None, Some(part), None) => part.to_string(),
+            (None, None, None) => String::new(),
+        }
+    }
+
+    fn ask_answers(&mut self, key: &str, cx: &mut Context<Self>) {
         let Some(project) = self.project.clone() else { return };
-        if matches!(self.answers.get(part), Some(Read::Ready(_) | Read::Reading)) {
+        if matches!(self.answers.get(key), Some(Read::Ready(_) | Read::Reading)) {
             return;
         }
         match &self.source {
             Source::Mock => {
-                self.answers.insert(part.to_string(), Read::Ready(mock::answers(&project, part)));
+                self.answers.insert(key.to_string(), Read::Ready(mock::answers(&project, key)));
             }
             Source::Live(_) => {
                 let Some(port) = self.port else { return };
-                self.answers.insert(part.to_string(), Read::Reading);
-                let task = wire::system_part(port, &project, part, cx);
-                let asked = part.to_string();
-                self.tasks.insert(
-                    "answers",
-                    cx.spawn(async move |this, cx| {
-                        let answer = task.await;
-                        let _ = this.update(cx, |this, cx| {
-                            if this.project.as_deref() == Some(project.as_str()) {
-                                this.answers.insert(asked, match answer {
-                                    Ok(answers) => Read::Ready(answers),
-                                    Err(why) => Read::Failed(why.said),
-                                });
-                                cx.notify();
-                            }
-                        });
-                    }),
-                );
+                self.answers.insert(key.to_string(), Read::Reading);
+                let (part, feature) = match key.strip_prefix(FEATURE_KEY) {
+                    Some(slug) => (None, Some(slug)),
+                    None if key.is_empty() => (None, None),
+                    None => (Some(key), None),
+                };
+                let task = wire::system_part(port, &project, part, feature, cx);
+                let asked = key.to_string();
+                // One task per key, so choosing another part does not cancel the answer still on its way.
+                cx.spawn(async move |this, cx| {
+                    let answer = task.await;
+                    let _ = this.update(cx, |this, cx| {
+                        if this.project.as_deref() == Some(project.as_str()) {
+                            this.answers.insert(asked, match answer {
+                                Ok(answers) => Read::Ready(answers),
+                                Err(why) => Read::Failed(why.said),
+                            });
+                            cx.notify();
+                        }
+                    });
+                })
+                .detach();
             }
         }
     }
@@ -334,9 +350,8 @@ impl SystemBlock {
         }
         self.selected = id;
         self.compose = None;
-        if let Some(part) = self.panel_part() {
-            self.ask_answers(&part, cx);
-        }
+        let key = self.panel_key();
+        self.ask_answers(&key, cx);
         cx.notify();
     }
 
@@ -822,7 +837,7 @@ impl SystemBlock {
             let top = self.maps.get(&(None, None)).and_then(Read::ready);
             let names: HashMap<&str, &str> = top.iter().flat_map(|top| top.parts.iter()).chain(map.parts.iter()).map(|part| (part.id.as_str(), part.name.as_str())).collect();
             let title_of = |id: &str| names.get(id).map(|name| name.to_string());
-            let arranged = arrange::arrange(map, self.trail.depth(), &self.name, &title_of, &graph::metrics(look), size.0, size.1);
+            let arranged = arrange::arrange_fitted(map, self.trail.depth(), &self.name, &title_of, &graph::metrics(look), size.0, size.1);
             self.laid = Some((key, arranged));
         }
         self.laid.as_ref().map(|(_, arranged)| arranged)

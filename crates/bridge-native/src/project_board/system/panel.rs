@@ -8,7 +8,7 @@ use ipc::{AdditionAnswer, PartOrigin, SystemPart, SystemPartAnswers, SystemPartK
 use super::graph::{chip, glyph_of, hue_of, kind_of, kind_word};
 use super::trail::Level;
 use super::tree::{self, Row};
-use super::{Compose, Read, SystemBlock};
+use super::{Compose, Read, SystemBlock, FEATURE_KEY};
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
 use crate::settings::view::{bone, ring_colour};
@@ -122,13 +122,16 @@ pub(super) fn draw(this: &mut SystemBlock, look: &Look, stacked: bool, window: &
             (part.name.clone(), head(this, look, glyph_of(kind), hue_of(kind), part.name.clone(), kind_line(part), part.summary.clone(), buttons(this, part, look, cx), cx))
         }
     };
-    let sections: Vec<AnyElement> = match &subject {
-        Subject::Part(part) => match this.answers.get(&part.id).cloned() {
-            None | Some(Read::Reading) => vec![skeleton(look)],
-            Some(Read::Failed(why)) => vec![div().pt(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(why)).into_any_element()],
-            Some(Read::Ready(answers)) => sections(this, part, &answers, look, window, cx),
-        },
-        _ => Vec::new(),
+    // The project and a feature have the nine sections too, under a stand-in for the part the sections are drawn for.
+    let stood = match &subject {
+        Subject::Part(part) => (**part).clone(),
+        Subject::Project => stand_in(String::new(), this.project_name()),
+        Subject::Feature { slug, title } => stand_in(format!("{FEATURE_KEY}{slug}"), title),
+    };
+    let sections: Vec<AnyElement> = match this.answers.get(&stood.id).cloned() {
+        None | Some(Read::Reading) => vec![skeleton(look)],
+        Some(Read::Failed(why)) => vec![div().pt(look.length(token::SPACE_3)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(why)).into_any_element()],
+        Some(Read::Ready(answers)) => sections(this, &stood, &answers, look, window, cx),
     };
     let frame = div().id("system-panel").flex_none().border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_SUNKEN)).p(look.length(token::SPACE_4));
     // Beside the graph the panel scrolls on its own; under it, it is as tall as it is and the block scrolls.
@@ -139,6 +142,11 @@ pub(super) fn draw(this: &mut SystemBlock, look: &Look, stacked: bool, window: &
         format!("About {name}"),
     )
     .into_any_element()
+}
+
+/// A part that is not one, to draw the sections of the whole project or of a feature: no folder, no pieces, no librarian.
+fn stand_in(id: String, name: &str) -> SystemPart {
+    SystemPart { id, name: name.to_string(), kind: SystemPartKind::Piece, summary: String::new(), within: None, manifest_id: None, paths: Vec::new(), zooms: false, origin: PartOrigin::Detected { from: String::new() } }
 }
 
 fn glyph_name(kind: SystemPartKind) -> &'static str {

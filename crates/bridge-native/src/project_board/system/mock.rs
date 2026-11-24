@@ -306,21 +306,119 @@ fn paths_of(project: &str, id: &str) -> Vec<String> {
     all.into_iter().find_map(found).unwrap_or_default()
 }
 
-/// What Fleet knows of one part. A part the mock has nothing for answers with every section empty, as Fleet does for one it has
-/// found nothing about.
-pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
-    let owner = |share: u8| vec![PartOwner { name: "Nick Mele".into(), share }];
+/// The maps of both levels the mock holds for a project, which what is said of a part is read from, so the panel and the graph
+/// agree: the features a part is in are the ones the map lists it under.
+fn levels(project: &str) -> Vec<SystemMap> {
+    let inside = if armada(project) { "bridge" } else { "web" };
+    vec![map(project, None, None), map(project, Some(inside), None)]
+}
+
+/// The features whose parts include `id`, on any level.
+fn features_of(project: &str, id: &str) -> Vec<SystemFeature> {
+    let mut out: Vec<SystemFeature> = Vec::new();
+    for feature in levels(project).into_iter().flat_map(|level| level.features) {
+        if feature.parts.iter().any(|one| one == id) && !out.iter().any(|held| held.slug == feature.slug) {
+            out.push(feature);
+        }
+    }
+    out
+}
+
+/// Whether the part draws a screen: an entry point that is one, or a piece of one.
+fn has_screen(project: &str, id: &str) -> bool {
+    let screens = if armada(project) { ["bridge", "classic", "pocket"].as_slice() } else { ["web"].as_slice() };
+    let found = levels(project).into_iter().flat_map(|level| level.parts).find(|part| part.id == id);
+    screens.contains(&id) || found.is_some_and(|part| part.within.as_deref().is_some_and(|within| screens.contains(&within)))
+}
+
+/// What Fleet knows of one part, by the key the block holds it under: a part's id, a feature as `~feature/slug`, and the whole
+/// project as an empty one. A part the mock has nothing for answers with every section empty, as Fleet does for one it has found
+/// nothing about.
+pub fn answers(project: &str, key: &str) -> SystemPartAnswers {
+    let mut answers = match key {
+        "" => whole(project),
+        feature if feature.starts_with(super::FEATURE_KEY) => of_feature(project, &feature[super::FEATURE_KEY.len()..]),
+        part => of_part(project, part),
+    };
+    if !key.is_empty() && !key.starts_with(super::FEATURE_KEY) {
+        answers.features = features_of(project, key);
+        answers.has_screen = has_screen(project, key);
+    }
+    answers
+}
+
+fn owner(share: u8) -> Vec<PartOwner> {
+    vec![PartOwner { name: "Nick Mele".into(), share }]
+}
+
+fn armada_issues() -> Vec<PartIssue> {
+    vec![issue("armada-2g25", "native-job-open and native-job-tabs walks fail on main"), issue("armada-9x0i", "Live native Reviews hides what Fleet does not serve yet")]
+}
+
+fn armada_pulls() -> Vec<PartPull> {
+    vec![pull(4023, "Say a stalled step waits on the Job while there is nothing for him to press", "nick"), pull(4022, "Judge types: pick what kind of judge reads it", "nick")]
+}
+
+/// The whole project: every feature, the folders its code starts at, and every Job writing in it.
+fn whole(project: &str) -> SystemPartAnswers {
+    let top = map(project, None, None);
     if armada(project) {
-        let issues = vec![issue("armada-2g25", "native-job-open and native-job-tabs walks fail on main"), issue("armada-9x0i", "Live native Reviews hides what Fleet does not serve yet")];
-        let pulls = vec![pull(4023, "Say a stalled step waits on the Job while there is nothing for him to press", "nick"), pull(4022, "Judge types: pick what kind of judge reads it", "nick")];
+        return SystemPartAnswers {
+            features: top.features,
+            code: vec!["crates/".into(), "apps/".into(), "docs/".into(), "packages/".into()],
+            working: vec![job("job-metrics", "Live metrics blocks"), job("job-librarian", "Librarian on the dashboard"), job("job-reviews", "Redesign Review Sheet"), job("job-judge", "Judge feature update")],
+            owners: owner(100),
+            has_screen: true,
+            docs: vec!["docs/scope.md".into(), "ARCHITECTURE.md".into()],
+            monitor: vec![watch("GET :40000/health", "health"), watch("~/Library/Logs/Armada/", "log"), watch("scripts/restart", "run")],
+            issues: armada_issues(),
+            pulls: armada_pulls(),
+            ..blank(project, "", true, true)
+        };
+    }
+    SystemPartAnswers {
+        features: top.features,
+        code: vec!["frontend/".into(), "backend/".into(), "extension/".into(), "ynab_import.py".into()],
+        owners: owner(100),
+        has_screen: true,
+        docs: vec!["SPEC.md".into()],
+        monitor: vec![watch("GET /api/session", "health"), watch("npx vite", "server")],
+        ..blank(project, "", false, true)
+    }
+}
+
+/// One feature: itself, the code of the parts its path runs through, and what is known of it.
+fn of_feature(project: &str, slug: &str) -> SystemPartAnswers {
+    let inside = if armada(project) { "bridge" } else { "web" };
+    let path = map(project, Some(inside), Some(slug));
+    let code: Vec<String> = path.parts.iter().flat_map(|part| part.paths.clone()).collect();
+    let features: Vec<SystemFeature> = levels(project).into_iter().flat_map(|level| level.features).filter(|one| one.slug == slug).take(1).collect();
+    let base = blank(project, "", armada(project), true);
+    if armada(project) {
+        return SystemPartAnswers {
+            features,
+            code,
+            working: vec![job("job-metrics", "Live metrics blocks"), job("job-librarian", "Librarian on the dashboard")],
+            owners: owner(100),
+            docs: vec!["docs/concepts/project.md".into(), "docs/practices/protocol/projects.md".into()],
+            monitor: vec![watch("armada check crates/bridge-native:test project_board", "check")],
+            issues: armada_issues().into_iter().take(1).collect(),
+            pulls: armada_pulls().into_iter().take(1).collect(),
+            ..base
+        };
+    }
+    SystemPartAnswers { features, code, owners: owner(100), docs: vec!["SPEC.md".into()], monitor: vec![watch("GET /api/session", "health")], ..base }
+}
+
+fn of_part(project: &str, part: &str) -> SystemPartAnswers {
+    if armada(project) {
+        let (issues, pulls) = (armada_issues(), armada_pulls());
         let base = blank(project, part, true, false);
         return match part {
             "bridge" => SystemPartAnswers {
-                features: armada_one(empty(project)).features.into_iter().filter(|one| one.parts.iter().any(|id| id == "bridge")).collect(),
                 code: vec!["crates/bridge-native/".into()],
                 working: vec![job("job-metrics", "Live metrics blocks"), job("job-librarian", "Librarian on the dashboard"), job("job-reviews", "Redesign Review Sheet")],
                 owners: owner(100),
-                has_screen: true,
                 docs: vec!["docs/concepts/native-bridge.md".into(), "docs/practices/native-bridge.md".into()],
                 monitor: vec![watch("~/Library/Logs/Armada/bridge-native", "log"), watch("native job in checks", "check")],
                 issues,
@@ -328,7 +426,6 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
                 ..base
             },
             "fleet" => SystemPartAnswers {
-                features: armada_one(empty(project)).features.into_iter().filter(|one| one.parts.iter().any(|id| id == "fleet")).collect(),
                 code: vec!["crates/fleet/".into()],
                 working: vec![job("job-judge", "Judge feature update"), job("job-metrics", "Live metrics blocks")],
                 owners: owner(100),
@@ -339,7 +436,6 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
                 ..base
             },
             "api" => SystemPartAnswers {
-                features: armada_one(empty(project)).features.into_iter().filter(|one| one.parts.iter().any(|id| id == "api")).collect(),
                 code: vec!["crates/ipc/operations/".into(), "crates/fleet/src/session_host/".into()],
                 docs: vec!["docs/practices/protocol/".into()],
                 monitor: vec![watch("GET :40000/health", "health")],
@@ -348,11 +444,9 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
                 ..base
             },
             "b_board" => SystemPartAnswers {
-                features: vec![feature("dashboard", "Dashboard", &["b_board"])],
                 code: vec!["crates/bridge-native/src/project_board/".into(), "crates/fleet/src/project_board.rs".into(), "crates/fleet/src/feature_library/ranking.rs".into()],
                 working: vec![job("job-metrics", "Live metrics blocks"), job("job-librarian", "Librarian on the dashboard")],
                 owners: owner(100),
-                has_screen: true,
                 docs: vec!["docs/concepts/project.md".into(), "docs/practices/protocol/projects.md".into()],
                 monitor: vec![watch("armada check crates/bridge-native:test project_board", "check")],
                 ..base
@@ -364,16 +458,13 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
     let base = blank(project, part, false, false);
     match part {
         "web" => SystemPartAnswers {
-            features: ynab_one(empty(project)).features.into_iter().filter(|one| one.parts.iter().any(|id| id == "web")).collect(),
             code: vec!["frontend/src/screens/".into(), "frontend/src/api.js".into()],
             owners: owner(100),
-            has_screen: true,
             docs: vec!["SPEC.md".into()],
             monitor: vec![watch("frontend, in auto_ynab", "run"), watch("npx vite", "server")],
             ..base
         },
         "api" => SystemPartAnswers {
-            features: ynab_one(empty(project)).features.into_iter().filter(|one| one.parts.iter().any(|id| id == "api")).collect(),
             code: vec!["backend/app/".into()],
             owners: owner(100),
             docs: vec!["SPEC.md".into()],
