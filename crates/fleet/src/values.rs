@@ -57,7 +57,7 @@ pub(crate) fn values_set(values: &Values) -> Option<ValuesSet> {
         auto_merge: values.auto_merge.map(|policy| policy.as_written().to_string()),
         review_model: values.review_model.clone(),
         look: (*look != Look::default())
-            .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone(), board: look.board.as_ref().map(board_wire) }),
+            .then(|| LookSet { layout: look.layout.clone(), theme: look.theme.clone(), density: look.density.clone(), board: look.board.as_ref().map(board_wire), metrics: crate::project_metrics::recipes_wire(&look.metrics) }),
         tracker: values.tracker.as_ref().map(tracker_wire),
         reviews: (values.reviews != ReviewsNamed::default()).then(|| ReviewsSet {
             plans: values.reviews.plans.map(|mode| mode.as_wire().to_string()),
@@ -267,7 +267,7 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    fn values_refused(&self, said: String) -> Refusal {
+    pub(crate) fn values_refused(&self, said: String) -> Refusal {
         Refusal::Unacceptable(self.project_refusal(REFUSED, said))
     }
 
@@ -346,7 +346,7 @@ where
             pr_mode: written.pr_mode.map(|mode| mode.domain()),
             auto_merge,
             review_model: text("review_model", &written.review_model)?,
-            look: Look { layout: text("layout", &look.layout)?, theme: text("theme", &look.theme)?, density, board: self.board_read(look.board.as_ref())? },
+            look: Look { layout: text("layout", &look.layout)?, theme: text("theme", &look.theme)?, density, board: self.board_read(look.board.as_ref())?, metrics: self.metrics_read(look.metrics.as_deref())? },
         })
     }
 
@@ -417,6 +417,7 @@ where
                 theme: now.chosen(keys::THEME).filter(|theme| !theme.trim().is_empty()),
                 density: now.chosen(keys::SPACING).filter(|density| !density.trim().is_empty()),
                 board: None,
+                metrics: Vec::new(),
             },
             tracker: None,
             reviews: ReviewsNamed::default(),

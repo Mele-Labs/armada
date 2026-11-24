@@ -179,9 +179,16 @@ pub struct MetricSaved {
     pub reading: MetricReading,
 }
 
-/// `save_metric_token`: a token for one credential name, into this Mac's keychain.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+/// `save_metric_token`: a token for one credential name, into this Mac's keychain. **`Debug` leaves the token out**, so a
+/// request that is logged or a test that fails does not print it.
+#[derive(Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SaveMetricToken {
     pub credential: String,
     pub token: String,
+}
+
+impl std::fmt::Debug for SaveMetricToken {
+    fn fmt(&self, out: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        out.debug_struct("SaveMetricToken").field("credential", &self.credential).finish_non_exhaustive()
+    }
 }

@@ -34,6 +34,11 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `set_project_workflow` | Bridge calls | `POST /projects/project/:project/workflow`, body `SetProjectWorkflow { workflow, on }`: one workflow switched off for the project's Jobs, or back on, and nothing else of its values changed. Written as `edit_project` writes `values`, so it answers `Projects` and publishes `projects.changed`. 422 `fleet.project_blank` for a blank `workflow` |
 | `get_project_board` | Bridge calls | `GET /projects/project/:project/board`. Answers `ProjectBoard { project, layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`. **A project that saved none answers no `layout`**, and Bridge draws its preset. `kind` and `view` are text, so a block kind a later Bridge adds crosses without a wire change and one this build does not know is read back as saved. See *The board*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
 | `save_project_board` | Bridge calls | `POST /projects/project/:project/board`, body `SaveProjectBoard { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Nothing else of the project's values changes. Written as `edit_project` writes `values`, so it publishes `projects.changed`, and for a copy of another Mac's project it is sent to that Mac. Answers `ProjectBoard`. 422 `fleet.project_values_refused` for a block with a blank `kind` or `view` |
+| `read_metrics` | Bridge calls | `GET /projects/project/:project/metrics`. Answers `MetricReadings { project, readings }`, a `MetricReading { id, title, state, answer?, read_at?, kept }` for each recipe the project keeps, in the file's order. Fleet fetches a recipe only where its last attempt is older than its `every_secs`. `state` is `read`, `no_token` or `broken`. See *Metrics*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
+| `try_metric` | Bridge calls | `POST /projects/project/:project/metrics/try`, body `TryMetric { recipe }`. Runs the recipe once with this Mac's token and answers its `MetricReading`, keeping nothing. 404 `fleet.no_such_project` |
+| `save_metric` | Bridge calls | `POST /projects/project/:project/metrics`, body `TryMetric { recipe }`. Tries the recipe and keeps it as `look.metrics` where it read or only this Mac's token is missing, with a `metric:<id>` block at the bottom of a saved board. Answers `MetricSaved { project, recipe, reading }`. 404 `fleet.no_such_project`, 422 `fleet.metric_unreadable`, 422 `fleet.project_values_refused` |
+| `remove_metric` | Bridge calls | `POST /projects/project/:project/metrics/:id/remove`. Drops the recipe and its block, and answers the remaining `MetricReadings`. Removing one that is not kept is not an error. 404 `fleet.no_such_project` |
+| `save_metric_token` | Bridge calls | `POST /projects/project/:project/metrics/token`, body `SaveMetricToken { credential, token }`. Keeps the token in this Mac's keychain under the credential's name and answers `MetricReadings` read again. 404 `fleet.no_such_project`, 422 `fleet.metric_token_refused` |
 | `list_ranked_issues` | Bridge calls | `GET /projects/project/:project/ranked_issues`. Answers `RankedIssues { project, days, fetched_at?, might_pick_up, might_be_interested }`: the open, unassigned issues as `RankedIssue { manifest_id?, issue, features, jobs }` and other people's open pull requests as `RankedPull { manifest_id, repository, number, title, author, draft, features, jobs }`, each `features` `[{ slug, title, by, jobs }]` and each list ranked by the owner's Jobs on those features in the last `days`. Asks no forge beyond the issue lists held five minutes. [Feature catalog](../../concepts/feature-catalog.md), *Ranking the issues he might pick up*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`, 500 `fleet.issues_unreadable` |
 | `save_kit_values` | Bridge calls | `POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is, written whole to `values.yml` in Kit's folder on this Mac. Answers `KitValuesSaved { file, values }` |
 | `HostedFacts.values` | Fleet writes, Bridge reads | `ResolvedValues`, what the Job froze when it started, in its own `job_values` rows. Absent on a Job started before they were kept |
@@ -272,3 +277,40 @@ A project that saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so `system`, `docs` or `errors` add without a wire change and a kind this build does not know is passed back as it was saved.
 A layer other than the project's ignores `board`: it is never laid over another.
 The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+
+## Metrics
+
+A project's Dashboard can show live metric blocks, and Fleet reads each one with no model.
+The librarian writes a recipe once: one call over a command line, HTTP or an MCP server, as a tracker mod's call is written, and a `jq` `map` from its answer to rows.
+A recipe is kept in the project's file as `values.look.metrics`, beside `values.look.board`, so it reaches the project's other Macs with the file.
+`LookSet.metrics` is `[MetricRecipe]`, and `save_metric` and `remove_metric` change that and the board alone.
+A project that kept none has none, and a layer other than the project's ignores `metrics`, as it does `board`.
+A recipe's block on the board is kind `metric:<id>`, view `list`, three columns by two rows.
+`save_metric` appends it at the bottom of a board the project saved, and where the project saved none the board stays absent and Bridge appends the block to its preset.
+
+A call runs as a tracker mod's does, by the same code, with the same bounds of 30 seconds and 4 MiB of answer and no shell.
+`{credential}` is filled into `env`, `arguments`, `headers` and `body`, and never into `argv`, `server` or `url`, which a process list or a log would show.
+A recipe that uses it names a credential.
+An HTTP call is a `GET` or a `POST`, to an `https://` address or to this machine.
+What `map` prints is read as one `MetricAnswer { rows, picture? }`, each row a `label`, a `value` that is a number or words, and optionally `unit`, `at` and `link`.
+Rows that carry `at` are a series.
+`picture` is offered only where an answer gives one.
+
+The token is an API token the person pastes once per Mac, kept in the macOS keychain with one item per tool: its service is `armada-metric-token` and its account the credential's name, so two recipes naming `sentry` share it.
+Tokens never leave the Mac.
+A token is in no file, answer, reading, error or log: every why is scrubbed of it before it is said, and `SaveMetricToken` prints without it.
+A recipe whose credential this Mac's keychain lacks reads as `no_token` with the credential to make, and `save_metric_token` reads the project again.
+
+Fleet fetches only while the project's dashboard is open, and there is no timer in it.
+Bridge asks with `read_metrics`, and Fleet fetches a recipe only where it was never read or its last attempt is older than the recipe's `every_secs`, 60 where it names none.
+A recipe that is broken is asked again after its interval and not at each ask.
+Two asks at once wait on one fetch.
+A broken fetch keeps the last `answer` that read, and `read_at` says when.
+`kept` is the first numeric row of each good reading Fleet made, oldest first, at most 500.
+It is held in memory, so a restart starts it again, and Graph draws it where the answer is not itself a series.
+
+`save_metric` tries the recipe and keeps it where it read, or where the only thing missing is this Mac's token.
+A recipe that cannot read is refused 422 `fleet.metric_unreadable` with the scrubbed why, and nothing is kept.
+`try_metric` runs a recipe once and keeps nothing.
+These routes have no agent door: the librarian's Job reaches `save_metric`'s work through Fleet directly.
+The wire change moves the protocol ID with `crates/ipc/src`, the operation files, the route table and `packages/protocol/src`.

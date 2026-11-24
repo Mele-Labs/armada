@@ -1,0 +1,10 @@
+[operations.remove_metric]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Remove a metric recipe and its block from the project"
+notes = """
+`POST /projects/project/:project/metrics/:id/remove`, no body. The recipe and its `metric:<id>` block on the saved board go, and what Fleet held of it is dropped. Answers the remaining `MetricReadings`. **Removing one the project does not keep is not an error.** A token in the keychain stays: other recipes may name it. `docs/practices/protocol/projects.md`, *Metrics*.
+
+404 `fleet.no_such_project`. 422 `fleet.project_unwritable` where the project's file did not read.
+"""

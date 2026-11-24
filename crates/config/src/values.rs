@@ -23,7 +23,7 @@ use crate::yaml::{self, Table};
 const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery", "workflows_off", "review_on_new_pr"];
 /// Kit's keys: a tracker and the workflows switched off are a Project's, so Kit's block refuses it as it does any key it has no word for.
 const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts", "delivery"];
-const LOOK: &[&str] = &["layout", "theme", "density", "board"];
+const LOOK: &[&str] = &["layout", "theme", "density", "board", "metrics"];
 const BOARD: &[&str] = &["blocks"];
 const BLOCK: &[&str] = &["kind", "x", "y", "w", "h", "view"];
 const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
@@ -138,8 +138,10 @@ fn read_look(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Look {
     });
     let board_at = table.at("board");
     let board = table.optional("board").map(|value| read_board(&board_at, value, out));
+    let metrics_at = table.at("metrics");
+    let metrics = table.optional("metrics").map(|value| crate::metrics::read_metrics(&metrics_at, value, out)).unwrap_or_default();
     table.close(LOOK, out);
-    Look { layout, theme, density, board }
+    Look { layout, theme, density, board, metrics }
 }
 
 /// The `look.board:` block, `blocks:` a list. **An empty list is a board with no block drawn**, not a refusal, and is
@@ -207,6 +209,9 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
         let mut kept = Mapping::new();
         kept.insert(text("blocks"), Value::Sequence(blocks));
         look.insert(text("board"), Value::Mapping(kept));
+    }
+    if !values.look.metrics.is_empty() {
+        look.insert(text("metrics"), crate::metrics::metrics_value(&values.look.metrics));
     }
     if !look.is_empty() {
         block.insert(text("look"), Value::Mapping(look));
@@ -289,7 +294,7 @@ pub fn shipped_values() -> Values {
         pr_mode: Some(PrMode::Ready),
         auto_merge: Some(AutoMerge::Never),
         review_model: None,
-        look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()), board: None },
+        look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()), board: None, metrics: Vec::new() },
         tracker: None,
         reviews: ReviewsNamed::default(),
         agent_starts: Some(AgentStarts::AtOnce),
