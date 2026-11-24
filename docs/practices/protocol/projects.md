@@ -282,4 +282,15 @@ It is `BoardLayout`, the project board's own shape, so Bridge draws both with on
 `get_home_layout` and `save_home_layout` read and change it alone, and a save publishes `settings.changed` as any key of the file does.
 A user who saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so a kind this build does not know is passed back as it was saved.
+
+**It follows him across his Macs, the latest save winning.**
+`HomeLayout` carries an additive `saved_at`, the time of the save that made it, and `bridge.homeLayout` keeps it beside the blocks as `{ saved_at, layout? }`.
+A forgetting is a stamp with no `layout`, so it beats an earlier layout on another Mac; a bare layout written by hand has no stamp and loses to any stamped one.
+Bridge reads `layout` as before and need not read `saved_at`.
+It crosses on the channel Kit uses: `save_home_layout` publishes `home_layout.changed`, which carries nothing and crosses to the linked Macs, whose Gateways read `share_home_layout` (`GET /other_mac/home_layout`, answered `HomeLayout`) and hand it to their Fleets as `hold_other_mac_home_layout` (`PUT /other_macs/home_layout`, body `OtherMacHomeLayout { mac, home }`).
+A Gateway also reads it when its link opens and on every resync, so a Mac that was asleep catches up.
+A Fleet replaces its layout only where the one handed in has the later `saved_at`; two saves of one instant are settled by their text, so both Macs pick the same.
+A layout taken is kept with its stamp and is not told on, so two Macs settle and stop; `settings.changed` tells Bridge as for any write.
+A Mac on a build from before this answers 404 to the read, and the link stays up without it.
+Clocks are the order: two Macs whose clocks differ by more than the time between his saves can take the earlier save for the later.
 The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.

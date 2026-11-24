@@ -3,9 +3,13 @@
 
 import type { BoardLayout } from "./project-board";
 
-/** `GET` and `POST /home/layout`: `layout` is absent where he saved none, and Bridge draws its preset. */
+/**
+ * `GET` and `POST /home/layout`: `layout` is absent where he saved none, and Bridge draws its preset. `saved_at` is when
+ * the save that made it was made, on whichever of his Macs, and is absent for a layout written by hand; Bridge need not read it.
+ */
 export type HomeLayout = {
   layout?: BoardLayout;
+  saved_at?: string;
 };
 
 /** `POST /home/layout`: the layout to keep, whole. Absent forgets it. */

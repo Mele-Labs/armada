@@ -247,6 +247,9 @@ pub enum Event {
     // Mac reads `share_kit` again. `docs/concepts/kit.md`, *Over the Mac link*.
     #[serde(rename = "kit.changed")]
     KitChanged(crate::KitChanged),
+    // A save of the Cockpit home's layout was made on this Mac: a linked Mac reads `share_home_layout` again.
+    #[serde(rename = "home_layout.changed")]
+    HomeLayoutChanged(crate::HomeLayoutChanged),
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     // `docs/concepts/session/a-job-whose-sign-in-expired.md`.
     #[serde(rename = "agent_sign_in.changed")]

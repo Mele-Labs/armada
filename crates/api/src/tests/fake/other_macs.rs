@@ -176,6 +176,14 @@ impl OtherMacs for FakeDaemon {
         Ok(MacNamed { mac: held.mac })
     }
 
+    async fn share_home_layout(&self) -> Result<ipc::HomeLayout, Refusal> {
+        Ok(ipc::HomeLayout::default())
+    }
+
+    async fn hold_other_mac_home_layout(&self, held: ipc::OtherMacHomeLayout) -> Result<MacNamed, Refusal> {
+        Ok(MacNamed { mac: held.mac })
+    }
+
     async fn kit_settle_from_mac(&self, _mac: String, _settled: ipc::KitSettled) -> Result<(), Refusal> {
         Ok(())
     }

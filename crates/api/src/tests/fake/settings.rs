@@ -123,7 +123,7 @@ impl Settings for FakeDaemon {
 
     async fn save_home_layout(&self, save: SaveHomeLayout) -> Result<HomeLayout, Refusal> {
         let mut kept = self.home_layout.lock().expect("not poisoned");
-        *kept = HomeLayout { layout: save.layout };
+        *kept = HomeLayout { layout: save.layout, saved_at: None };
         Ok(kept.clone())
     }
 }

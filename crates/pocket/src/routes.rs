@@ -118,6 +118,7 @@ pub fn router(gateway: Gateway) -> Router {
         .route("/api/mac/refresh_claim", post(mac_routes::refresh_claim))
         .route("/api/mac/kit", get(mac_routes::read_naming_mac))
         .route("/api/mac/kit_settle", post(mac_routes::kit_settle))
+        .route("/api/mac/home_layout", get(mac_routes::read))
         .route("/api/mac/session", get(mac_routes::read))
         .route("/api/mac/thread", get(mac_routes::read))
         .route("/api/mac/conversation", get(mac_routes::read_naming_mac))

@@ -7,7 +7,7 @@ use std::future::Future;
 use std::time::Duration;
 
 use ipc::{
-    BugReports, Event, KitOffer, OtherMacBugReports, OtherMacEvent, OtherMacKit, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, PreviewOffers,
+    BugReports, Event, HomeLayout, KitOffer, OtherMacBugReports, OtherMacHomeLayout, OtherMacEvent, OtherMacKit, OtherMacPreviewOffers, OtherMacProjects, OtherMacSessions, PreviewOffers,
     Projects, SessionList, StreamMessage,
 };
 use serde::de::DeserializeOwned;
@@ -185,6 +185,7 @@ impl Link<'_> {
         self.sessions().await?;
         self.preview_offers().await?;
         self.kit().await?;
+        self.home_layout().await?;
         let reports: BugReports = self.read("/api/mac/bug_reports", "a bug report list").await?;
         self.hand("PUT", "/other_macs/bug_reports", &OtherMacBugReports { mac: self.mac.to_string(), reports: reports.reports })
             .await
@@ -247,10 +248,31 @@ impl Link<'_> {
         self.hand("PUT", "/other_macs/kit", &OtherMacKit { mac: self.mac.to_string(), kit }).await
     }
 
+    /// The other Mac's Cockpit home layout, which this Fleet takes where its save is the later. **A Mac on a build from
+    /// before it followed him answers 404**, and the link stays up without it.
+    async fn home_layout(&self) -> Result<(), String> {
+        let came = signed_whole(self.gateway, self.mac, self.address, "GET", "/api/mac/home_layout", None)
+            .await
+            .map_err(|why| format!("{} could not be reached: {why}", self.name))?;
+        if came.status == 404 {
+            return Ok(());
+        }
+        if !came.ok() {
+            return Err(format!("{} answered {}: {}", self.name, came.status, came.sentence()));
+        }
+        let home: HomeLayout = ipc::decode("a home layout", &came.body)
+            .map_err(|_| format!("{} sent a home layout this Mac cannot read. Update Armada on both.", self.name))?;
+        self.hand("PUT", "/other_macs/home_layout", &OtherMacHomeLayout { mac: self.mac.to_string(), home }).await
+    }
+
     async fn event(&self, event: Event) -> Result<(), String> {
         // Its Kit changed: read again, and the event itself is the other Mac's own, not Bridge's here.
         if matches!(event, Event::KitChanged(_)) {
             return self.kit().await;
+        }
+        // Its home layout was saved there: read again, and the event is the other Mac's own too.
+        if matches!(event, Event::HomeLayoutChanged(_)) {
+            return self.home_layout().await;
         }
         // A project that stops being shared takes its rows with it, so the list is read again.
         let projects = matches!(event, Event::ProjectsChanged(_));

@@ -178,6 +178,12 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// the `Arc` because what is queued for that Mac is sent on a task of its own.
     fn hold_other_mac_kit(self: Arc<Self>, held: ipc::OtherMacKit) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
 
+    /// `share_home_layout` — the Cockpit home's layout this Mac keeps, with the stamp of the save that made it.
+    fn share_home_layout(&self) -> impl Future<Output = Result<ipc::HomeLayout, Refusal>> + Send;
+
+    /// `hold_other_mac_home_layout` — what Mac `mac` keeps of the layout, taken here where its save is the later one.
+    fn hold_other_mac_home_layout(&self, held: ipc::OtherMacHomeLayout) -> impl Future<Output = Result<MacNamed, Refusal>> + Send;
+
     /// `kit_settle_from_mac` — a clash Mac `mac` settled, recorded here so the kept side crosses.
     /// [`Refusal::NotFound`] for a Mac this one is not paired with.
     fn kit_settle_from_mac(&self, mac: String, settled: ipc::KitSettled) -> impl Future<Output = Result<(), Refusal>> + Send;

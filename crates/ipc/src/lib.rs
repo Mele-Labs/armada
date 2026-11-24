@@ -573,7 +573,7 @@ pub use issue_queries::{
 };
 pub use values_merging::VALUE_KEYS;
 pub use projects::MergeProjects;
-pub use home_layout::{HomeLayout, SaveHomeLayout};
+pub use home_layout::{HomeLayout, HomeLayoutChanged, OtherMacHomeLayout, SaveHomeLayout};
 pub use project_board::{
     BoardBlock, BoardLayout, MatchedBy, MatchedFeature, ProjectBoard, RankedIssue, RankedIssues, RankedPull, SaveProjectBoard,
 };

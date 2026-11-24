@@ -136,6 +136,12 @@ pub(super) const ROUTES: &[Route] = &[
         method: "GET",
         path: "/events",
     },
+    // A save of the Cockpit home's layout was made on this Mac: a linked Mac reads it again.
+    Route {
+        operation: "home_layout.changed",
+        method: "GET",
+        path: "/events",
+    },
     // The agents' account signed out or in, or its sign-in started or ended, whole.
     Route {
         operation: "agent_sign_in.changed",
