@@ -2,7 +2,7 @@
 //! and Who's on what are the Features screen drawn in a mode of its own, so the three stand on the one library; Settings is the
 //! sheet that edits a project's members and values, drawn as a page.
 //!
-//! The header is the same on every tab: the project chips, the box that asks the librarian, Edit, Members, Settings and Start.
+//! The header is the same on every tab: the box that asks the librarian, Edit, Members, Settings and Start.
 //! Members and Settings open the Settings tab.
 
 mod board;
@@ -15,9 +15,10 @@ mod tests;
 mod view;
 mod wire;
 
-use gpui::{deferred, div, prelude::*, AnyElement, AnyWindowHandle, Context, Entity, FocusHandle, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Toggled, Window};
+use gpui::{deferred, div, prelude::*, AnyElement, AnyWindowHandle, Anchor, Context, DismissEvent, Entity, FocusHandle, Focusable, FontWeight, KeyDownEvent, Role, SharedString, Subscription, Toggled, Window};
 use gpui_component::input::{Input, InputEvent, InputState};
 
+use crate::dropdown::{Dropdown, Entry, Picked, Row};
 use crate::features::{chosen, FeaturesScreen, Section};
 use crate::fleet::FleetConnection;
 use crate::labels::labelled;
@@ -35,6 +36,14 @@ const EXAMPLE_ASKS: [&str; 5] = ["Show errors as a graph", "Add a Docs block", "
 
 /// Where the box that asks the librarian keeps what was typed.
 const KEEP_ASK: &str = "project.ask";
+
+/// How a checkout reads: on the button, in its menu and in the button's name.
+fn checkout_name(checkout: &Checkout) -> String {
+    match checkout {
+        Checkout::Main => "Main".to_string(),
+        Checkout::Job { label, .. } => label.clone(),
+    }
+}
 
 /// The five tabs, in the order they are drawn.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -89,11 +98,12 @@ impl Tab {
     }
 }
 
-/// The menu beside Start: the checkouts a run can start on, and the row the keys are on.
-struct StartMenu {
+/// The menu beside Start: a dropdown with a branch search over the checkouts a run can start on, in the order its rows stand.
+struct CheckoutMenu {
+    dropdown: Entity<Dropdown>,
     choices: Vec<Checkout>,
-    at: usize,
-    focus: FocusHandle,
+    _picked: Subscription,
+    _dismissed: Subscription,
 }
 
 /// The menu beside Add block: the kinds that are not on the board, and the row the keys are on.
@@ -119,8 +129,10 @@ pub struct ProjectScreen {
     within: FocusHandle,
     ask: Entity<InputState>,
     asks: Asks,
-    menu: Option<StartMenu>,
+    menu: Option<CheckoutMenu>,
     adding: Option<AddMenu>,
+    /// The watch on the title bar's project pick, made once the bar exists.
+    bar: Option<Subscription>,
     window: AnyWindowHandle,
     _subs: Vec<Subscription>,
 }
@@ -208,7 +220,7 @@ impl ProjectScreen {
         }));
         // The header and the tabs draw from what the board and the library hold.
         subs.push(cx.observe(&board, |_, _, cx| cx.notify()));
-        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask, asks: Asks::default(), menu: None, adding: None, window: window.window_handle(), _subs: subs };
+        let this = ProjectScreen { board, features, settings, tab: Tab::Dashboard, within: cx.focus_handle(), ask, asks: Asks::default(), menu: None, adding: None, bar: None, window: window.window_handle(), _subs: subs };
         this.features.update(cx, |features, cx| features.set_section(Section::Features, window, cx));
         this
     }
@@ -217,7 +229,12 @@ impl ProjectScreen {
 
     /// Brought to the front: the tab on screen follows Fleet, and the keys go to it.
     pub fn enter(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        self.sync_project(cx);
+        if self.bar.is_none() {
+            if let Some(bar) = titlebar::live(cx) {
+                self.bar = Some(cx.observe_in(&bar, window, |this, _, window, cx| this.follow_bar(window, cx)));
+            }
+        }
+        self.follow_bar(window, cx);
         self.board.update(cx, |board, cx| board.enter(cx));
         // The library is read for the Features tabs from the first, so a feature the board is asked to open is there to open.
         self.features.update(cx, |features, cx| features.enter(window, cx));
@@ -248,6 +265,19 @@ impl ProjectScreen {
 
     // ---- which project and which tab -------------------------------------------------------------
 
+    /// The title bar's pick is the project on screen: it is kept for All to come back to, and the board, the Features tabs and
+    /// the Settings page follow it.
+    fn follow_bar(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(id) = titlebar::live(cx).and_then(|bar| bar.read(cx).face.scoped_project().map(str::to_string)) {
+            if chosen::get(cx).as_deref() != Some(id.as_str()) {
+                chosen::set(&id, cx);
+            }
+        }
+        self.board.update(cx, |board, cx| board.follow(cx));
+        self.sync_project(cx);
+        self.keep_settings(window, cx);
+    }
+
     /// Both halves show the project the board is on.
     fn sync_project(&mut self, cx: &mut Context<Self>) {
         if let Some(project) = self.board.read(cx).project(cx) {
@@ -257,14 +287,6 @@ impl ProjectScreen {
                 }
             });
         }
-    }
-
-    fn choose(&mut self, project: String, window: &mut Window, cx: &mut Context<Self>) {
-        chosen::set(&project, cx);
-        self.board.update(cx, |board, cx| board.set_project(project.clone(), cx));
-        self.features.update(cx, |features, cx| features.show_project(project, cx));
-        self.keep_settings(window, cx);
-        cx.notify();
     }
 
     fn show(&mut self, tab: Tab, window: &mut Window, cx: &mut Context<Self>) {
@@ -335,30 +357,42 @@ impl ProjectScreen {
 
     // ---- the Start menu ------------------------------------------------------------------------
 
+    /// The checkouts under a search field, hung from the button's bottom right edge: Main first, then each Job's branch, the
+    /// one Start runs on ticked. Enter takes the first match.
     fn open_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.menu.is_some() {
+            return;
+        }
         let Some(project) = self.board.read(cx).project(cx) else { return };
         let choices = self.board.read(cx).checkouts(&project, cx);
         let now = self.board.read(cx).checkout.clone();
-        let at = choices.iter().position(|one| *one == now).unwrap_or(0);
-        let focus = cx.focus_handle();
-        window.focus(&focus, cx);
-        self.menu = Some(StartMenu { choices, at, focus });
-        cx.notify();
-    }
-
-    fn close_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.menu.take().is_some() {
-            if self.tab == Tab::Dashboard {
-                window.focus(&self.board.read(cx).root.clone(), cx);
+        let name = checkout_name(&now);
+        let at = bounds_of(window, cx, Role::Button, &format!("Checkout, {name}")).map(|bounds| bounds.bottom_right()).unwrap_or_default();
+        let entries = std::iter::once(Entry::Search { label: "Find a branch", to_rule: false })
+            .chain(choices.iter().enumerate().map(|(at, choice)| {
+                let icon = if matches!(choice, Checkout::Main) { "house" } else { "git-branch" };
+                Entry::Row(Row::new(titlebar::id_of(format!("checkout-{at}")), checkout_name(choice)).icon(icon).ticked(*choice == now))
+            }))
+            .collect();
+        let dropdown = cx.new(|cx| Dropdown::new("Checkouts", entries, at, Anchor::TopRight, false, cx).wide());
+        let picked = cx.subscribe_in(&dropdown, window, |this, _, picked: &Picked, _, cx| {
+            let Picked::Entry { id, .. } = picked;
+            let choice = this.menu.as_ref().and_then(|menu| menu.choices.iter().enumerate().find(|(at, _)| titlebar::id_of(format!("checkout-{at}")) == *id).map(|(_, choice)| choice.clone()));
+            if let Some(choice) = choice {
+                this.board.update(cx, |board, cx| board.use_checkout(choice, cx));
+            }
+        });
+        let dismissed = cx.subscribe_in(&dropdown, window, |this, _, _: &DismissEvent, window, cx| {
+            this.menu = None;
+            if this.tab == Tab::Dashboard {
+                window.focus(&this.board.read(cx).root.clone(), cx);
             }
             cx.notify();
-        }
-    }
-
-    fn pick_checkout(&mut self, at: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(choice) = self.menu.as_ref().and_then(|menu| menu.choices.get(at).cloned()) else { return };
-        self.close_menu(window, cx);
-        self.board.update(cx, |board, cx| board.use_checkout(choice, cx));
+        });
+        let keys = dropdown.read(cx).focus_handle(cx);
+        window.defer(cx, move |window, cx| window.focus(&keys, cx));
+        self.menu = Some(CheckoutMenu { dropdown, choices, _picked: picked, _dismissed: dismissed });
+        cx.notify();
     }
 
     // ---- the Add block menu --------------------------------------------------------------------
@@ -407,61 +441,12 @@ impl ProjectScreen {
             cx.notify();
             return;
         }
-        if let Some(menu) = self.menu.as_mut() {
-            match event.keystroke.key.as_str() {
-                "escape" => self.close_menu(window, cx),
-                "down" => menu.at = (menu.at + 1).min(menu.choices.len().saturating_sub(1)),
-                "up" => menu.at = menu.at.saturating_sub(1),
-                "enter" => {
-                    let at = menu.at;
-                    self.pick_checkout(at, window, cx);
-                }
-                _ => return,
-            }
-            cx.stop_propagation();
-            cx.notify();
-            return;
-        }
         if crate::keymap::traverse(event, window, cx) {
             cx.stop_propagation();
         }
     }
 
     // ---- drawing -------------------------------------------------------------------------------
-
-    fn chips(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let chips = self.board.read(cx).chips(cx);
-        let shown = self.board.read(cx).project(cx).map(|project| project.id);
-        let mut row = div().id("project-chips").flex().flex_wrap().items_center().gap(look.length(token::SPACE_2));
-        for (id, name) in chips {
-            let on = shown.as_deref() == Some(id.as_str());
-            let press = id.clone();
-            let pill = div()
-                .id(SharedString::from(format!("project-chip-{id}")))
-                .flex_none()
-                .flex()
-                .items_center()
-                .h(look.length(token::H_CONTROL_SM))
-                .px(look.length(token::SPACE_3))
-                .rounded(look.length(token::H_CONTROL_SM) / 2.)
-                .border(look.length(token::FOCUS_RING_WIDTH))
-                .border_color(if on { look.color(token::ACCENT) } else { gpui::transparent_black() })
-                .bg(if on { look.color(token::ACCENT_MUTED) } else { look.color(token::BG_HOVER) })
-                .text_size(look.length(token::TEXT_XS))
-                .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
-                .text_color(if on { look.color(token::FG_DEFAULT) } else { look.color(token::FG_MUTED) })
-                .whitespace_nowrap()
-                .cursor_pointer()
-                .focusable()
-                .tab_stop(true)
-                .when(!on, |pill| pill.hover(|style| style.bg(look.color(token::FG_DEFAULT).opacity(0.14))))
-                .aria_toggled(if on { Toggled::True } else { Toggled::False })
-                .on_click(cx.listener(move |this, _, window, cx| this.choose(press.clone(), window, cx)))
-                .child(SharedString::from(name.clone()));
-            row = row.child(labelled(pill, Role::Button, name));
-        }
-        row.into_any_element()
-    }
 
     /// The box that asks the librarian. It is drawn and keeps what is typed; nothing sends it yet, and its tooltip says so. While
     /// it has the keys the examples hang under it.
@@ -575,10 +560,7 @@ impl ProjectScreen {
             "Start",
         );
         let checkout = self.board.read(cx).checkout.clone();
-        let named = match &checkout {
-            Checkout::Main => "Main".to_string(),
-            Checkout::Job { label, .. } => label.clone(),
-        };
+        let named = checkout_name(&checkout);
         let menu_button = labelled(
             Btn::new("project-checkout", named.clone(), Weight::Secondary)
                 .icon("git-branch")
@@ -596,7 +578,7 @@ impl ProjectScreen {
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_3))
             .pt(look.length(token::SPACE_3))
-            .child(div().flex_1().min_w_0().child(self.chips(look, cx)))
+            .child(div().flex_1().min_w_0())
             .child(self.ask_box(look, cx))
             .when(on_board && editing, |row| row.child(add))
             .when(on_board, |row| row.child(edit))
@@ -638,55 +620,6 @@ impl ProjectScreen {
             row = row.child(labelled(pill, Role::Tab, tab.title()));
         }
         labelled(row, Role::TabList, "Project").into_any_element()
-    }
-
-    /// The Start menu, hung under the header's right edge.
-    fn menu(&self, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
-        let menu = self.menu.as_ref()?;
-        let ring = ring_colour(look);
-        let rows = menu.choices.iter().enumerate().map(|(at, choice)| {
-            let on = at == menu.at;
-            let said = match choice {
-                Checkout::Main => "Main".to_string(),
-                Checkout::Job { label, .. } => label.clone(),
-            };
-            labelled(
-                div()
-                    .id(SharedString::from(format!("project-checkout-{at}")))
-                    .flex()
-                    .items_center()
-                    .gap(look.length(token::SPACE_2))
-                    .h(look.length(token::H_ROW_ACTION))
-                    .px(look.length(token::SPACE_3))
-                    .rounded(look.length(token::RADIUS_MD))
-                    .text_size(look.length(token::TEXT_XS))
-                    .when(on, |row| row.bg(look.color(token::BG_HOVER)))
-                    .cursor_pointer()
-                    .hover(|style| style.bg(look.color(token::BG_HOVER)))
-                    .focus_visible(move |style| style.border_color(ring))
-                    .on_click(cx.listener(move |this, _, window, cx| this.pick_checkout(at, window, cx)))
-                    .child(glyph(if matches!(choice, Checkout::Main) { "house" } else { "git-branch" }, look.length(token::SPACE_4), look.color(token::FG_MUTED)))
-                    .child(div().min_w_0().truncate().child(SharedString::from(said.clone()))),
-                Role::MenuItem,
-                said,
-            )
-        });
-        Some(
-            labelled(
-                card(look)
-                    .id("project-checkout-menu")
-                    .track_focus(&menu.focus)
-                    .absolute()
-                    .top(look.length(token::SPACE_3) + look.length(token::H_CONTROL) + look.length(token::SPACE_1))
-                    .right(look.length(token::SPACE_3))
-                    .w(look.length(token::SPACE_12) * 4.0)
-                    .p(look.length(token::SPACE_1))
-                    .children(rows),
-                Role::Menu,
-                "Checkouts",
-            )
-            .into_any_element(),
-        )
     }
 }
 
@@ -799,7 +732,7 @@ impl Render for ProjectScreen {
             .child(self.header(&look, cx))
             .child(self.tabs(&look, cx))
             .child(div().flex_1().min_h_0().pt(look.length(token::SPACE_3)).child(body))
-            .children(self.menu(&look, cx))
+            .children(self.menu.as_ref().map(|menu| menu.dropdown.clone()))
             .children(self.add_menu(&look, window, cx))
     }
 }
