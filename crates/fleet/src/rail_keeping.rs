@@ -46,6 +46,8 @@ pub(crate) struct RailReads {
     /// The 9-in-10 seconds of each step of the Job's workflow that has enough visits, by step id
     /// (`crate::step_stalls`). Empty where none has.
     pub usual: std::sync::Arc<std::collections::HashMap<String, u64>>,
+    /// When the person last wrote in the thread, for a Job that follows a workflow: a step he is writing on is not stalled.
+    pub you_wrote_last: Option<String>,
 }
 
 impl RailReads {
@@ -66,6 +68,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
     let rail = store.session_rail(&session.id, &rail::step_ids(&steps))?;
     let mut held = Held::default();
     let mut lifecycles = None;
+    let mut you_wrote_last = None;
     let extra = if follows {
         if store.is_lifecycle_job(&session.id)? {
             // The rail reads a state by its id and never by a tracker's word, so the carried four are enough.
@@ -77,6 +80,10 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
             .collect();
+        you_wrote_last = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Message { from: SessionVoice::You, at, .. } => Some(at.as_str().to_string()),
+            _ => None,
+        });
         let plan = store.session_plan(&session.id)?;
         let plan_approved_at = plan.as_ref().and_then(|plan| plan.approved_at.as_deref()).map(Instant::carried);
         let dismissed = store.dismissed_waiting(&session.id)?;
@@ -126,7 +133,7 @@ pub(crate) fn rail_read(store: &Store, session: &KeptSession, follows: bool, ste
         ),
         false => Default::default(),
     };
-    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own, usual: Default::default() })
+    Ok(RailReads { extra, steps, stood: rail.step, visits: rail.visits, skipped: rail.skipped, approved_groups, plan_groups, held, titles, lifecycles, own, usual: Default::default(), you_wrote_last })
 }
 
 /// The steps he wrote on after they began, by the latest visit to each. **Only `You`**: Fleet's own
@@ -361,8 +368,10 @@ where
             strip.ends_when = rail_ends::ends_any(steps, at);
             let since = record.workflow_visits.iter().rev().find(|visit| visit.step as usize == at).map(|visit| visit.since.as_str());
             if let (Some(usual), Some(since)) = (strip.usual_secs, since) {
-                strip.stalled = crate::step_stalls::stalled_since(since, usual, &self.now())
-                    .map(|since| ipc::StepStalled { since: Instant::carried(since), cause: crate::step_stalls::cause_of(steps, at) });
+                let turn_over = matches!(record.standing, Some(ipc::SessionStanding::Idle | ipc::SessionStanding::Replied));
+                strip.stalled = crate::step_stalls::stalled_since(since, usual, reads.you_wrote_last.as_deref(), &self.now()).map(|since| {
+                    ipc::StepStalled { since: Instant::carried(since), cause: crate::step_stalls::cause_of(steps, at, facts, turn_over) }
+                });
             }
         }
         (strip != ipc::WorkflowStrip::default()).then_some(strip)

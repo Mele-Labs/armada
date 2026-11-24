@@ -61,7 +61,9 @@ Each step lists the tabs it opens in `tabs`, the front one first, as ids of the 
 **The usual time is measured**: the 90th percentile of how long Jobs on the workflow stayed on the step before the next began, from the visits the rail kept, and absent below five (`crate::step_stalls`).
 
 **A step past its usual time with no move is stalled, and the Job is told once** (20 Nov 2026).
-The row carries `workflow_strip.stalled`, when it went past and the cause, which says what the step waits on and whose it is.
+The row carries `workflow_strip.stalled`, when it went past and the cause, which says what the step waits on and whose move it is now.
+**An end that is his is his move only once there is something to press** (24 Nov 2026): while the Job is still working, or a plan he would approve was never recorded, the cause says the Job.
+**A step he wrote on stays plain until he has been quiet on it for half an hour** (`QUIET_SECS`, 24 Nov 2026): a step he is working through with the Job is not stalled.
 Fleet tells the Job once for each visit to the step, as a `rail_nudge`, at a quiet moment: its turn is over and nothing waits on him.
 **This is the one word Fleet sends about the step**, which the owner asked for beside the rule below, and it repeats nothing: a step the Job leaves and enters again draws a new one.
 
