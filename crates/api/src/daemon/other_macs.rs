@@ -95,6 +95,10 @@ pub trait OtherMacs: Send + Sync + 'static {
     /// from another Mac does.
     fn mac_holding_pull(&self, repository: &str, number: u64) -> impl Future<Output = Option<(String, SessionId)>> + Send;
 
+    /// Whether his answer on Ready to try card `asked`, of a Job held from another Mac, may go there: **the build he
+    /// runs here holds the card's branch at its tip**, so he answers what he tried. [`Refusal::IllegalMove`] where it does not.
+    fn ready_in_this_build(&self, asked: &ipc::AnswerReadyToTry) -> Result<(), Refusal>;
+
     /// `act` sent to Mac `mac`, which holds the Job, and its answer passed back as it was said. **202 with the
     /// `Queued` where that Mac cannot be reached or has acts waiting**; a Mac this one is not linked to is refused by name.
     fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> impl Future<Output = Result<ActAnswered, Refusal>> + Send;
