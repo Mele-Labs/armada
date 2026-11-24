@@ -77,6 +77,7 @@ export * from "./asides";
 export * from "./review-runs";
 export * from "./review-walks";
 export * from "./issues";
+export * from "./project-board";
 export * from "./autopilot";
 export * from "./servers";
 export * from "./app-runs";

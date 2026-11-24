@@ -339,10 +339,48 @@ pub fn folds() -> bool {
     crate::mock::scenario_is("artifact-folds")
 }
 
+/// The scene the prototype scenario saves, and the Jobs it binds.
+const SCENE: &str = include_str!("../fixtures/prototype-scene.html");
+const SCENE_JOBS: &str = include_str!("../fixtures/prototype-jobs.json");
+
+/// The id of the prototype the mock Job saved.
+pub const PROTOTYPE_ID: &str = "prototype:jobs-list";
+
+/// A prototype the Job saved: one scene of two states over a list of Jobs, as `add_part` makes it.
+pub fn prototype() -> JobArtifact {
+    let scene = ipc::PrototypePart {
+        scene: "jobs-list.html".into(),
+        markup: SCENE.into(),
+        fixtures: vec![ipc::SceneFixture { name: "prototype-jobs.json".into(), text: SCENE_JOBS.into() }],
+        scene_state: None,
+        trouble: None,
+    };
+    single(PROTOTYPE_ID, "Jobs list", ArtifactForm::Sketch, &[0], part("jobs-list", PartContent::Prototype(scene), true, 0), ArtifactState::Asking)
+}
+
+/// A prototype with the mistakes an agent makes: a token misspelt, a field that is not there, a glyph and a part that do not exist,
+/// a fixture that is not the type it says, and a state nothing declares.
+pub fn prototype_trouble() -> JobArtifact {
+    let scene = ipc::PrototypePart {
+        scene: "jobs-trouble.html".into(),
+        markup: include_str!("../fixtures/prototype-trouble.html").into(),
+        fixtures: vec![ipc::SceneFixture { name: "prototype-jobs.json".into(), text: SCENE_JOBS.into() }],
+        scene_state: Some("detail".into()),
+        trouble: Some("scenes/notes.txt could not be read".into()),
+    };
+    single("prototype:jobs-trouble", "Jobs list, with mistakes", ArtifactForm::Sketch, &[0], part("jobs-trouble", PartContent::Prototype(scene), false, 0), ArtifactState::Reading)
+}
+
 /// The artifacts the scenario's Job holds when it opens.
 pub fn initial() -> Option<Vec<JobArtifact>> {
     if crate::mock::scenario_is("artifact-asides") {
         return Some(vec![asides()]);
+    }
+    if crate::mock::scenario_is("prototype") {
+        return Some(vec![prototype()]);
+    }
+    if crate::mock::scenario_is("prototype-trouble") {
+        return Some(vec![prototype_trouble()]);
     }
     match scenario() {
         Some(answered) => Some(vec![artifact(answered)]),

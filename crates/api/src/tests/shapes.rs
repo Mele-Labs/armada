@@ -76,7 +76,7 @@ pub fn preview_offers() -> ipc::PreviewOffers {
             in_build: false,
             mac: None,
         }],
-        refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")] }),
+        refresh: Some(ipc::PreviewRefresh { id: String::from("p-1"), branches: vec![String::from("armada/kept-builds")], keeps: Vec::new() }),
         left_out: Vec::new(),
     }
 }
@@ -468,6 +468,7 @@ pub fn manifest_config() -> ManifestConfig {
         checks_as_written: vec!["build".to_string()],
         proved_after_a_merge: Vec::new(),
         commands: vec!["migrate".to_string()],
+        confirm_commands: vec!["migrate".to_string()],
         servers: vec!["web".to_string()],
         ports: vec!["web".to_string()],
         exclude_paths: vec![".armada/".to_string()],

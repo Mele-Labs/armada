@@ -695,7 +695,7 @@ describe("keyProblem", () => {
       problem("5"),
       problem("r"),
       problem("⌥R"),
-      problem("⇧⌘J"),
+      problem("⇧⌘U"),
       problem("⌥⇧1"),
       problem(""),
     ]).toEqual([

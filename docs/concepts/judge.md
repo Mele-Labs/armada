@@ -55,7 +55,10 @@ A Judge act, a scale glyph, stands on every artifact in a Job's ledger and in th
 | Walk page, sketch | Its ledger row |
 | Document | Its ledger row and the head of its page |
 | Command, subagent, issue, note | Its ledger row |
-| The Job as a whole | The head of the Thread tab |
+| The Job as a whole | The head of the Thread tab, a row of the Jobs list |
+| Words selected in the thread | The selection bar, beside Ask |
+| A sketch, document, draft, Ready to try or agent reply card | The card in the thread |
+| Anything above | **Judge…** in the command palette |
 
 On an artifact, the press opens a small box, **Verify that**, for an optional line naming what to check.
 Left empty, the Judge looks for **what the person or the agent missed**.
@@ -87,6 +90,7 @@ The Judge of the whole Job has no artifact to stand in, so its press opens a Jud
 
 **The artifact is shown by its words and no ids, so a note can never name one.** A note that said *Task W2* would mean nothing to the person reading it.
 **The agent's testimony is withheld, because a critic that reads the defendant's account is not independent of it.**
+One bend, for `excerpt` and `reply` only: the words a person presses Judge on are shown as the claim under test, never as evidence, and nothing else of the agent's reaches the brief.
 
 **It may read the repository, and only the repository.** The call reads the checkout Fleet serves, read-only, for a few turns, so it learns what the repository requires of a change the way an agent does: from CLAUDE.md, the docs and the skills.
 The fence is the argument list (`crates/adapters/src/judge.rs`): the three read tools and no other, every tool that writes, runs or reaches the network denied, reads held inside the checkout, and Fleet's own `.armada/` refused.
@@ -112,6 +116,7 @@ A note stands out from the artifact around it, so a reader sees at once which li
 **A note names its part by quoting that part's words, and Fleet pins it there.** For a plan Fleet uses the plan's own task matcher, the one that matches the agent's task list to the plan ([The plan](session/the-plan.md), *How far it got is observed*).
 A document's part is named by those words, never by a count, because the page Bridge draws is not divided the way Fleet divides its text.
 Where the quoted words match no part, the note sits on the artifact as a whole.
+Words selected in the thread are the one reading with no artifact to sit in: its notes stand on a Judged card at the end of the thread ([The Judge](session/the-judge.md)).
 
 Each note carries **Send to Job** and **Dismiss**.
 A sent or dismissed note folds to one muted line where it was, so the artifact does not shift under the reader.

@@ -1,0 +1,33 @@
+<scene title="Jobs list" first="list">
+  <fixture name="jobs" src="prototype-jobs.json" type="jobs"></fixture>
+
+  <tabs data-part="View tabs">
+    <tab goes="list" data-part="List tab">List</tab>
+    <tab goes="detail" data-part="Detail tab">Detail</tab>
+  </tabs>
+
+  <state id="list">
+    <pane title="Jobs" data-part="Jobs pane">
+      <list each="jobs.sessions" as="job" limit="4" data-part="Jobs list">
+        <row title="{job.title}" says="{job.manifest_id}" glyph="circle-dot" tone="status-running" goes="detail" data-part="Job row">
+          <chip tone="running" glyph="circle-dot">{job.mark.state}</chip>
+        </row>
+      </list>
+    </pane>
+  </state>
+
+  <state id="detail">
+    <card title="{jobs.sessions.0.title}" tone="accent" data-part="Job card">
+      <text style="muted" data-part="Job summary">{jobs.sessions.0.so_far}</text>
+      <box dir="row" gap="2" align="center">
+        <chip tone="success" glyph="circle-check">{jobs.sessions.0.workflow}</chip>
+        <glyph name="git-branch" tone="fg-muted"></glyph>
+        <text style="mono">{jobs.sessions.0.manifest_id}</text>
+      </box>
+      <box dir="row" gap="2">
+        <button kind="primary" glyph="arrow-left" goes="list" data-part="Back button">Back to list</button>
+        <button kind="secondary" glyph="square-arrow-out-up-right" data-part="Open button">Open the Job</button>
+      </box>
+    </card>
+  </state>
+</scene>

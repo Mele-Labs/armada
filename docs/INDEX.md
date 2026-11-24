@@ -362,6 +362,10 @@ approximations.
   and under 5 ms in debug on the CPU side, 39 MB headless and 73 MB as a real window, against about 1.0 GB
   for the Electron Bridge's main window; no thread to open yet, and vsync, present and the OS input path
   not reachable without a window on screen.
+- [`spikes/scene-draw-time.md`](spikes/scene-draw-time.md)
+  — how long a saved prototype scene takes to draw natively: a median of 17 ms from markup to a drawn frame
+  in a debug build on a busy machine, 3 ms of it reading the markup and fixtures; release and the display's
+  own wait not measured.
 - [`spikes/native-jobs-inventory/list-needs-palette.md`](spikes/native-jobs-inventory/list-needs-palette.md)
   — what Electron Bridge's Jobs list, Needs you, review sheet, palette, banner, sound and Dock badge draw today,
   as the spec the native Jobs screens match.

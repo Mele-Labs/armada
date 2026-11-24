@@ -144,6 +144,8 @@ where
         let served = self.preview_place().map(|(_, served)| served);
         let branch = self.preview_branch(&id, withdraw.branch.as_deref(), served.as_ref()).await?;
         let at = self.now().as_str().to_string();
+        // The tip the running build holds the branch at, which the next refresh would otherwise carry forward.
+        let held = self.preview_build().and_then(|(_, tips)| tips.get(&branch).cloned());
         let removed = {
             let mut store = self.store().lock().await;
             let offered = store.preview_offered_of(&id, &branch).map_err(|why| self.ledger_fault(why))?;
@@ -154,6 +156,11 @@ where
             let removed = store.remove_preview_offered(&id, &branch).map_err(|why| self.ledger_fault(why))?;
             // A branch whose offer already left the list still holds its open cards: they are taken back too.
             let noted = store.keep_build_notes_withdrawn_of(&id, &branch, &at).map_err(|why| self.ledger_fault(why))?;
+            if removed || noted > 0 {
+                for tip in offered.iter().map(|one| one.tip.clone()).chain(held) {
+                    store.keep_preview_withdrawn(&branch, &tip, &at).map_err(|why| self.ledger_fault(why))?;
+                }
+            }
             removed || noted > 0
         };
         if !removed {

@@ -91,6 +91,7 @@ mod build_turns;
 mod builds_run;
 /// The branches Jobs offer for the owner's preview: checked, told, watched and served.
 mod previewing;
+mod preview_carried;
 mod preview_macs;
 /// The notes of the build the owner runs: read, marked looked at, and answered.
 mod build_noting;
@@ -295,6 +296,7 @@ mod projects;
 mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
+mod project_board;
 mod project_copies;
 /// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
 mod project_copy_reads;

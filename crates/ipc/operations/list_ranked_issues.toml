@@ -1,0 +1,12 @@
+[operations.list_ranked_issues]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "A project's open, unassigned issues and other people's open pull requests, ranked by the owner's recent Jobs on the features they touch"
+notes = """
+`GET /projects/project/:project/ranked_issues`. Answers `RankedIssues { project, days, fetched_at?, might_pick_up, might_be_interested }`. **No model and no forge call of its own**: the issue lists are the ones Fleet holds for the project's tracker or its repositories (held five minutes, as `list_issues` holds them), the pull requests are the open ones the review lists left with their files, and the Jobs are the feature library's record. `docs/concepts/feature-catalog.md`, *Ranking the issues he might pick up*.
+
+`might_pick_up` is the open issues nobody is assigned to, that no Job holds and that no pull request already closes. An issue maps to a feature by the files of an open pull request that names it in its title, by a label equal to the feature's slug or its area's, and by the feature's slug or title in its own title; a row names each feature it matched and by which of the three (`by`: `pull_request_files`, `label`, `title`). The rows go by the owner's Jobs that filed a file under those features in the last `days` (30), each Job counted once, then the newest. **An issue that matched no feature comes last.** `might_be_interested` is the open pull requests of other people, mapped by their own files (`files`) and ranked the same way, and is empty where no signed-in account is known to tell which are his.
+
+404 `fleet.no_such_project` for a project he has none of. 422 `fleet.project_unreadable` where its file did not read. 500 `fleet.issues_unreadable` where the tracker would not answer and nothing is held.
+"""

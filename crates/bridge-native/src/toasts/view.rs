@@ -1771,7 +1771,7 @@ impl Render for Toasts {
         }
         // On the Operator's page no toast of the Operator's is drawn: the page holds each item. Fleet's
         // states and the presses Fleet did not take still show.
-        let on_page = self.screen.upgrade().is_some_and(|screen| screen.read(cx).front == Front::Operator);
+        let on_page = self.screen.upgrade().is_some_and(|screen| screen.read(cx).page_shown(cx));
         if on_page {
             self.shelf.hush();
         }

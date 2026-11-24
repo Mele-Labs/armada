@@ -986,6 +986,24 @@ pub(crate) async fn add_part<D: HostedSessions>(
     }
 }
 
+/// The Job shows a scene it wrote. 200 with the row, or a [`Receipt`] through the agent's door; 422 for a call that breaks a
+/// rule or names a file Fleet cannot read, or one that places no session. **The session is placed by the connection.**
+pub(crate) async fn show_prototype<D: HostedSessions>(
+    State(served): State<Served<D>>,
+    door: Option<Extension<DoorCalled>>,
+    body: Bytes,
+) -> Response {
+    let show: ipc::ShowPrototype = match ipc::decode_body("a prototype to show", &body) {
+        Ok(show) => show,
+        Err(why) => return undecodable(&why.to_string(), served.run_id()),
+    };
+    match served.shared().show_prototype(crate::acting::asking(), show.clone()).await {
+        Ok(record) if door.is_some() => answer(StatusCode::OK, &Receipt::prototype(&record, &show), served.run_id()),
+        Ok(record) => answer(StatusCode::OK, &record, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 /// He answers one asking part of an artifact. 200 with the artifact; 409 for a part put again since he read it; 422 for a part
 /// not open to an answer, a way it does not take, or a send back with no note.
 pub(crate) async fn answer_part<D: HostedSessions + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {

@@ -222,13 +222,13 @@ fn place_entries() -> Vec<Entry> {
         place("nav:place:operator", "Operator", "bot", Some("⌘J")),
         place("nav:place:jobs", "Jobs", "box", None),
         place("nav:place:reviews", "Reviews", "git-pull-request", None),
-        place("nav:place:features", "Features", "library", None),
+        place("nav:place:project", "Project", "layout-dashboard", None),
         place("nav:settings", "Settings", "settings", Some("⌘,")),
     ]
 }
 
 /// Go to, in the title bar's order: Kit is its own act, and Usage is offered only where the app holds it.
-const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:features", "nav:usage", "nav:settings"];
+const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:project", "nav:usage", "nav:settings"];
 
 /// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
 /// has no row for them. Root Jobs only reads On while the switch is.
@@ -286,6 +286,22 @@ fn move_project_command(list: &JobsList, cx: &App) -> Option<Entry> {
         icon: None,
         shortcut: None,
         aliases: Vec::new(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
+/// Judge…, offered while a Job is open: a menu of what can be judged in it, whose choice is asked at once.
+fn judge_command(list: &JobsList) -> Option<Entry> {
+    list.opened_id().and_then(|id| list.record(&id))?;
+    Some(Entry {
+        id: "cmd:judge".into(),
+        section: Section::Commands,
+        label: "Judge\u{2026}".into(),
+        icon: Some("scale"),
+        shortcut: Some("\u{21e7}\u{2318}J".into()),
+        aliases: vec!["verify".into(), "review".into()],
         meta: None,
         typed_only: false,
         ended: false,
@@ -787,6 +803,7 @@ impl Palette {
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
         entries.extend(move_project_command(list, cx));
+        entries.extend(judge_command(list));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -1098,6 +1115,13 @@ impl Palette {
                     }
                 });
             }
+            ("run", None) if entry.id == "cmd:judge" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                // After the palette has given the keys back, so the menu takes them from where they went.
+                cx.defer_in(window, |_, window, cx| crate::job_view::choose_to_judge(window, cx));
+            }
             ("run", None) if entry.id == "cmd:move-project" => {
                 self.memory.used(&entry.id);
                 self.keep(cx);
@@ -1127,7 +1151,7 @@ impl Palette {
                     "nav:place:operator" => Some(crate::titlebar::Asked::Place("operator")),
                     "nav:place:jobs" => Some(crate::titlebar::Asked::Place("jobs")),
                     "nav:place:reviews" => Some(crate::titlebar::Asked::Place("reviews")),
-                    "nav:place:features" => Some(crate::titlebar::Asked::Place("features")),
+                    "nav:place:project" => Some(crate::titlebar::Asked::Place("project")),
                     _ => None,
                 };
                 if let (Some(asked), Some(sink)) = (asked, cx.try_global::<crate::titlebar::AskedSink>().cloned()) {

@@ -11,6 +11,7 @@
 mod absent;
 mod page_messages;
 mod margin_wire;
+mod prototype_part;
 mod bug_reports;
 mod debug_report;
 mod features;

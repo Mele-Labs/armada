@@ -131,13 +131,24 @@ pub struct PreviewOfferRow {
     pub mac: Option<String>,
 }
 
-/// The one Refresh row: the ready offers the running build does not hold yet.
+/// The one Refresh row: the ready offers and picks the running build does not hold yet, and what it keeps.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PreviewRefresh {
     /// A stable hash of the ready (branch, tip) set. `skip_preview_refresh` names it.
     pub id: String,
-    /// The branches Refresh would bring in, in offer order.
+    /// The branches Refresh would bring in, in offer order, then the picks not yet built.
     pub branches: Vec<String>,
+    /// The branches the running build holds that Refresh carries forward, in the order it merged them. Since 23 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub keeps: Vec<PreviewKept>,
+}
+
+/// A branch the running build holds that a refresh keeps, named as Bridge names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct PreviewKept {
+    pub branch: String,
+    /// The title of the Job that held it last, or the branch where no Job here did.
+    pub title: String,
 }
 
 /// What `get_preview_offers` answers, and `preview_offers.changed` carries whole.

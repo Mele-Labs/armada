@@ -83,10 +83,10 @@ pub(super) struct Line {
 }
 
 /// One group of the Ledger: its heading and its rows.
-struct Group {
-    id: &'static str,
+pub(super) struct Group {
+    pub(super) id: &'static str,
     label: &'static str,
-    lines: Vec<Line>,
+    pub(super) lines: Vec<Line>,
 }
 
 /// The Commands group lists this many before "View all".
@@ -110,7 +110,7 @@ fn hue(kind: &str) -> Token {
 
 /// What a judge reads in a row, from its key and group (`artifactOfRow`). None for a row with nothing to
 /// read: a linked Job, a closed item, a link, a studio.
-fn judged_of(key: &str, title: &str, group: &str) -> Option<JudgeArtifact> {
+pub(super) fn judged_of(key: &str, title: &str, group: &str) -> Option<JudgeArtifact> {
     let (prefix, id) = key.split_once(':')?;
     let kind = match prefix {
         "pr" => JudgeKind::PullRequest,
@@ -429,7 +429,7 @@ impl JobView {
     }
 
     /// Everything a Job holds, as Armada Classic's `artifactsOf` groups it, in its order. A group with no row is left out.
-    fn ledger_groups(&self, id: &SharedString, cx: &gpui::App) -> Vec<Group> {
+    pub(super) fn ledger_groups(&self, id: &SharedString, cx: &gpui::App) -> Vec<Group> {
         let Some(record) = self.record(id, cx) else { return Vec::new() };
         let mut groups: Vec<Group> = Vec::new();
         let mut add = |id: &'static str, label: &'static str, lines: Vec<Line>| {

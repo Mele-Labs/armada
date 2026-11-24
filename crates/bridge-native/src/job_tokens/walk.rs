@@ -5,15 +5,15 @@
 use crate::walk::{Step, Target, Verb};
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 const fn press_on(say: &'static str, role: &'static str, name: &'static str, then_role: &'static str, then: &'static str) -> Step {
-    Step { say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
+    Step { id: None, say, verb: Verb::PressOn(role, name), target: Target { role: then_role, name: then } }
 }
 
 const fn marks(say: &'static str, scene: &'static str, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb: Verb::Marks(scene), target: Target { role, name } }
+    Step { id: None, say, verb: Verb::Marks(scene), target: Target { role, name } }
 }
 
 const JOB: &str = "Fix the merge line freshness chip";

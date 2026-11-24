@@ -13,7 +13,7 @@
 use std::path::Path;
 
 use core_model::rule::{ActKind, Autonomy, AutonomyDefaults};
-use core_model::{AgentStarts, AutoMerge, Layer, Look, PrMode, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview, DeliverySetting};
+use core_model::{AgentStarts, AutoMerge, Board, BoardBlock, Layer, Look, PrMode, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview, DeliverySetting};
 use serde_yaml_ng::{Mapping, Value};
 
 use crate::error::{Fault, LoadError, Refusal};
@@ -23,7 +23,9 @@ use crate::yaml::{self, Table};
 const KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "tracker", "reviews", "agent_starts", "delivery", "workflows_off", "review_on_new_pr"];
 /// Kit's keys: a tracker and the workflows switched off are a Project's, so Kit's block refuses it as it does any key it has no word for.
 const KIT_KEYS: &[&str] = &["pr_mode", "auto_merge", "review_model", "look", "reviews", "agent_starts", "delivery"];
-const LOOK: &[&str] = &["layout", "theme", "density"];
+const LOOK: &[&str] = &["layout", "theme", "density", "board"];
+const BOARD: &[&str] = &["blocks"];
+const BLOCK: &[&str] = &["kind", "x", "y", "w", "h", "view"];
 const REVIEWS: &[&str] = &["plans", "pull_requests", "walks"];
 const REVIEW_MODES: &[(&str, ReviewMode)] =
     &[("off", ReviewMode::Off), ("review", ReviewMode::Review), ("review_and_approve", ReviewMode::ReviewAndApprove)];
@@ -134,8 +136,39 @@ fn read_look(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Look {
         out.push(Refusal::new(density_at.clone(), Fault::NotInTheSchema { value: found, legal: SPACINGS }));
         None
     });
+    let board_at = table.at("board");
+    let board = table.optional("board").map(|value| read_board(&board_at, value, out));
     table.close(LOOK, out);
-    Look { layout, theme, density }
+    Look { layout, theme, density, board }
+}
+
+/// The `look.board:` block, `blocks:` a list. **An empty list is a board with no block drawn**, not a refusal, and is
+/// kept as one: only a project that wrote no `board:` has none.
+fn read_board(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Board {
+    let Some(mut table) = Table::open(key, root, out) else { return Board::default() };
+    let blocks_at = table.at("blocks");
+    let blocks = match table.optional("blocks") {
+        Some(Value::Sequence(items)) if items.is_empty() => Vec::new(),
+        Some(value) => yaml::list(&blocks_at, value, out)
+            .map(|items| items.into_iter().filter_map(|(at, item)| read_block_of_board(&at, item, out)).collect())
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
+    table.close(BOARD, out);
+    Board { blocks }
+}
+
+fn read_block_of_board(key: &str, root: &Value, out: &mut Vec<Refusal>) -> Option<BoardBlock> {
+    let mut table = Table::open(key, root, out)?;
+    let kind = table.required("kind", out).and_then(|value| yaml::text(&table.at("kind"), value, out));
+    let view = table.required("view", out).and_then(|value| yaml::text(&table.at("view"), value, out));
+    let mut cell = |name: &str, out: &mut Vec<Refusal>| {
+        let at = table.at(name);
+        table.required(name, out).and_then(|value| yaml::counted(&at, value, out)).map(|n| u8::try_from(n).unwrap_or(u8::MAX))
+    };
+    let (x, y, w, h) = (cell("x", out), cell("y", out), cell("w", out), cell("h", out));
+    table.close(BLOCK, out);
+    Some(BoardBlock { kind: kind?, x: x?, y: y?, w: w?, h: h?, view: view? })
 }
 
 /// The `values:` block as YAML, holding only the keys `values` sets. `None` where it sets none.
@@ -156,6 +189,24 @@ pub(crate) fn block_value(values: &Values) -> Option<Value> {
         if let Some(held) = held {
             look.insert(text(name), text(held));
         }
+    }
+    if let Some(board) = &values.look.board {
+        let blocks = board
+            .blocks
+            .iter()
+            .map(|one| {
+                let mut written = Mapping::new();
+                written.insert(text("kind"), text(&one.kind));
+                for (name, cell) in [("x", one.x), ("y", one.y), ("w", one.w), ("h", one.h)] {
+                    written.insert(text(name), Value::Number(cell.into()));
+                }
+                written.insert(text("view"), text(&one.view));
+                Value::Mapping(written)
+            })
+            .collect();
+        let mut kept = Mapping::new();
+        kept.insert(text("blocks"), Value::Sequence(blocks));
+        look.insert(text("board"), Value::Mapping(kept));
     }
     if !look.is_empty() {
         block.insert(text("look"), Value::Mapping(look));
@@ -238,7 +289,7 @@ pub fn shipped_values() -> Values {
         pr_mode: Some(PrMode::Ready),
         auto_merge: Some(AutoMerge::Never),
         review_model: None,
-        look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()) },
+        look: Look { layout: None, theme: Some(SHIPPED_THEME.to_string()), density: Some("default".to_string()), board: None },
         tracker: None,
         reviews: ReviewsNamed::default(),
         agent_starts: Some(AgentStarts::AtOnce),

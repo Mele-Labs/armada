@@ -11,13 +11,23 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 
-use gpui::{px, size, AppContext, Entity, HeadlessAppContext};
+use gpui::{px, size, AppContext, Bounds, Entity, HeadlessAppContext, Pixels};
+use image::RgbaImage;
 
 use super::window::{Next, Take, WalkWindow};
 use super::Walk;
 
 /// Play `walk` to its end. `Ok` says every step was reached and its target drawn.
 pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>) -> Result<(), String> {
+    play(walk, takes, shots, hold, pace, width, height, None)
+}
+
+/// What a step's picture was taken of: its place in the walk, the picture, and where the screen sits in the window.
+pub type Seen<'a> = &'a mut dyn FnMut(usize, &RgbaImage, Option<Bounds<Pixels>>);
+
+/// [`run`], handing each step's picture to `seen` as well: the shot check reads them instead of a folder.
+#[allow(clippy::too_many_arguments)]
+pub fn play(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, mut seen: Option<Seen<'_>>) -> Result<(), String> {
     let platform = gpui_platform::current_platform(true);
     let mut cx = HeadlessAppContext::with_platform(platform.text_system(), Arc::new(crate::assets::Assets), || {
         gpui_platform::current_headless_renderer()
@@ -94,15 +104,20 @@ pub fn run(walk: &'static Walk, takes: Vec<Take>, shots: Option<PathBuf>, hold: 
         if let Some(why) = read.fault.or(read.missing) {
             return Err(format!("step {}: {why}", at + 1));
         }
-        if let Some(dir) = &shots {
+        if shots.is_some() || seen.is_some() {
             // An animation reads the wall clock, so a picture taken at once always catches its first frame.
             if let Some(ms) = hold {
                 std::thread::sleep(std::time::Duration::from_millis(ms));
                 cx.update_window(handle.into(), |_, window, cx| window.draw(cx).clear(cx)).map_err(|why| why.to_string())?;
             }
             let picture = cx.capture_screenshot(handle.into()).map_err(|why| why.to_string())?;
-            let path = dir.join(format!("{}-{:02}.png", walk.name, at + 1));
-            picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+            if let Some(dir) = &shots {
+                let path = dir.join(format!("{}-{:02}.png", walk.name, at + 1));
+                picture.save(&path).map_err(|why| format!("{}: {why}", path.display()))?;
+            }
+            if let Some(seen) = seen.as_mut() {
+                seen(at, &picture, walking.read_with(&cx, |walking, _| walking.stage()));
+            }
         }
         if at + 1 < walk.steps.len() {
             cx.update_window(handle.into(), |_, window, cx| window.dispatch_action(Box::new(Next), cx)).map_err(|why| why.to_string())?;

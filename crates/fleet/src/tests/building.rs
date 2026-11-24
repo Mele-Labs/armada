@@ -424,7 +424,7 @@ fn a_preview_that_left_branches_out(support: &Path) {
 
 /// Two kept builds in `support`, Fleet running from `builds/current` on `new`, with `old` before it. The
 /// build `old` holds a stand-in `armada` that writes down what it was run with, in its working directory.
-fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
+pub(super) fn kept_in(support: &Path, label: &str, new_jobs: &[&str], old_jobs: &[&str]) {
     let builds = support.join(BUILDS);
     for (name, bridge, jobs) in [("new", "b2", new_jobs), ("old", "b1", old_jobs)] {
         fs::create_dir_all(builds.join(name)).unwrap();

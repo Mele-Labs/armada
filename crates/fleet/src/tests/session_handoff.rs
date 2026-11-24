@@ -186,6 +186,42 @@ async fn the_owners_yes_starts_a_fresh_job_with_the_brief_hands_it_the_ledger_an
 }
 
 #[tokio::test]
+async fn the_new_job_keeps_the_old_ones_plan_and_the_gates_it_closed() {
+    let rig = rig(None);
+    let (old, _) = rig.an_agent_that_has_spoken().await;
+    let first = "2026-11-23T00:56:35.032Z";
+    let approved = store::KeptGate {
+        group_id: "g1".into(),
+        gate: "document_approved".into(),
+        version: 0,
+        closed_at: "2026-11-23T00:57:20.490Z".into(),
+        fact: "You approved the design, revision 13".into(),
+        source: "document:design.html@13".into(),
+        commit: None,
+        already_red: Vec::new(),
+        skipped: false,
+    };
+    {
+        let design = ipc::PlanGroupInput {
+            gate: ipc::PlanGate::DocumentApproved,
+            ..super::session_plan::group(None, "Draft and present", "docs-writer", &[".armada/documents"], &[(None, "Write the page")])
+        };
+        let plan = crate::plan_record::recorded(None, &[design], None, Vec::new(), None, false, "You get a page.".into(), first);
+        let mut store = rig.fleet.store().lock().await;
+        store.keep_session_plan(old.as_str(), &plan).unwrap();
+        store.close_session_gate(old.as_str(), &approved).unwrap();
+    }
+
+    asked_and_answered(&rig, &old, HANDOFF_YES).await;
+
+    let new = others(&rig, &old).await.remove(0);
+    let store = rig.fleet.store().lock().await;
+    let plan = store.session_plan(new.id.as_str()).unwrap().expect("the plan came with it");
+    assert_eq!(plan.recorded_at, first, "first recorded when the old Job recorded it, which a gate counts facts from");
+    assert_eq!(store.session_gates(new.id.as_str()).unwrap(), [approved], "what he approved stays approved");
+}
+
+#[tokio::test]
 async fn staying_starts_nothing_changes_nothing_and_sends_the_agent_nothing() {
     let rig = rig(None);
     let (old, _) = rig.an_agent_that_has_spoken().await;

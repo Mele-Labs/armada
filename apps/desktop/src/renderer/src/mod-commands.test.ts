@@ -121,18 +121,18 @@ describe("the keys the files name", () => {
       command: [
         {
           name: "First",
-          hotkey: "⇧⌘J",
+          hotkey: "⇧⌘U",
           shell: "true",
         },
         {
           name: "Second",
-          hotkey: "⇧⌘J",
+          hotkey: "⇧⌘U",
           shell: "true",
         },
       ],
     });
     expect(keysOf(rows, {})).toEqual({
-      "cmd:m:first": "⇧⌘J",
+      "cmd:m:first": "⇧⌘U",
     });
   });
 
@@ -140,7 +140,7 @@ describe("the keys the files name", () => {
     command: [
       {
         name: "First",
-        hotkey: "⇧⌘J",
+        hotkey: "⇧⌘U",
         shell: "true",
       },
       {
@@ -157,14 +157,14 @@ describe("the keys the files name", () => {
         "cmd:m:second": "⇧⌘M",
       }),
     ).toEqual({
-      "cmd:m:first": "⇧⌘J",
+      "cmd:m:first": "⇧⌘U",
     });
   });
 
   test("a key he recorded holds its place first: a file's key the same is dropped", () => {
     expect(
       keysOf(two, {
-        "cmd:elsewhere": "⇧⌘J",
+        "cmd:elsewhere": "⇧⌘U",
       }),
     ).toEqual({
       "cmd:m:second": "⇧⌘L",

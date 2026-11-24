@@ -4,12 +4,12 @@
 use crate::walk::{Screen, Step, Target, Verb};
 
 const fn step(say: &'static str, verb: Verb, role: &'static str, name: &'static str) -> Step {
-    Step { say, verb, target: Target { role, name } }
+    Step { id: None, say, verb, target: Target { role, name } }
 }
 
 /// The page built again on a scenario of its own.
 const fn fresh(say: &'static str, scenario: &'static str) -> Step {
-    Step { say, verb: Verb::FreshIn(Screen::Reviews, scenario), target: Target { role: "tab", name: "Jobs" } }
+    Step { id: None, say, verb: Verb::FreshIn(Screen::Reviews, scenario), target: Target { role: "tab", name: "Jobs" } }
 }
 
 const SUBAGENTS: &str = "Subagents ran past 300k context";
