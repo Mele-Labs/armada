@@ -324,16 +324,6 @@ impl ProjectScreen {
         cx.notify();
     }
 
-    /// A broken metric's "Fix with the librarian": the box holds `Fix <title>` and has the keys.
-    /// Becomes `self.ask_box.update(cx, |ask, cx| ask.prefill(&format!("Fix {title}"), &format!("metric:{id}"), window, cx))` once AskBox lands.
-    fn fix_with_librarian(&mut self, title: &str, _id: &str, window: &mut Window, cx: &mut Context<Self>) {
-        let words = format!("Fix {title}");
-        self.ask.update(cx, |state, cx| state.set_value(words.clone(), window, cx));
-        crate::drafts::keep(KEEP_ASK, &words, cx);
-        self.ask.update(cx, |state, cx| state.focus(window, cx));
-        cx.notify();
-    }
-
     /// ↓ opens the examples where they are shut, and ↑ ↓ move along them; Esc puts them away with the keys still in the box.
     fn on_ask_key(&mut self, event: &KeyDownEvent, cx: &mut Context<Self>) {
         let last = EXAMPLE_ASKS.len() - 1;
