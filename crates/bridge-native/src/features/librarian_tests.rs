@@ -22,9 +22,26 @@ fn open(cx: &mut TestAppContext) -> (gpui::Entity<FeaturesScreen>, &mut VisualTe
     (screen, cx)
 }
 
-fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
+/// Draw a frame with a book that holds nothing from earlier ones: a test window has no label root to clear it.
+fn fresh(cx: &mut VisualTestContext) {
+    cx.update(|_, cx| *cx.default_global::<crate::labels::LabelBook>() = crate::labels::LabelBook::default());
     cx.update(|window, cx| window.draw(cx).clear(cx));
+}
+
+fn drawn(cx: &mut VisualTestContext, role: Role, name: &str) -> bool {
+    fresh(cx);
     cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).is_some())
+}
+
+/// The middle of the element with this role and name, as drawn now.
+fn centre(cx: &mut VisualTestContext, role: Role, name: &str) -> gpui::Point<gpui::Pixels> {
+    fresh(cx);
+    cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|found| found.bounds.center())).unwrap_or_else(|| panic!("{role:?} {name} is not drawn"))
+}
+
+fn click(cx: &mut VisualTestContext, role: Role, name: &str) {
+    let at = centre(cx, role, name);
+    cx.simulate_click(at, gpui::Modifiers::none());
 }
 
 fn card_of(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) -> Option<Card> {
@@ -49,6 +66,18 @@ fn show(screen: &gpui::Entity<FeaturesScreen>, at: Reading, cx: &mut VisualTestC
     });
 }
 
+/// The card opened as a press leaves it, with no run started.
+fn unfold(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) {
+    screen.update(cx, |screen, cx| {
+        screen.lib_card.open = screen.library_project.clone();
+        cx.notify();
+    });
+}
+
+fn open_now(screen: &gpui::Entity<FeaturesScreen>, cx: &mut VisualTestContext) -> bool {
+    screen.read_with(cx, |screen, _| screen.librarian_open())
+}
+
 fn told(step: &str, state: ipc::LibrarianStepState, said: &str) -> ipc::LibrarianStepMoved {
     ipc::LibrarianStepMoved { project: mock::PROJECT.into(), run: ipc::Instant::carried("2026-11-19T10:00:00Z"), step: step.into(), state, said: said.into() }
 }
@@ -63,7 +92,10 @@ fn behind_says_where_it_stopped_and_lists_the_merged_numbers(cx: &mut TestAppCon
     assert_eq!(behind.said(), "Not read since #3861");
     assert_eq!(behind.merged_said().as_deref(), Some("#3862 #3863 #3864"));
     assert_eq!(behind.button(), Some(("Catch up", true, false)), "Catch up is the primary button");
-    let (_screen, cx) = open(cx);
+    let (screen, cx) = open(cx);
+    assert!(drawn(cx, Role::Label, "Not read since #3861"), "the closed line says where it stopped");
+    assert!(drawn(cx, Role::Button, "Catch up"));
+    unfold(&screen, cx);
     assert!(drawn(cx, Role::Label, "Not read since #3861. Catch up will:"));
     assert!(drawn(cx, Role::Button, "Catch up"));
 }
@@ -127,7 +159,9 @@ fn a_chip_switch_changes_the_project_the_list_asks_for(cx: &mut TestAppContext) 
 
 #[gpui::test]
 fn the_card_lists_the_steps_a_press_will_take_with_free_and_model(cx: &mut TestAppContext) {
-    let (_screen, cx) = open(cx);
+    let (screen, cx) = open(cx);
+    assert!(!drawn(cx, Role::List, "Catch up steps"), "the closed line lists no steps");
+    unfold(&screen, cx);
     assert!(drawn(cx, Role::List, "Catch up steps"));
     assert!(drawn(cx, Role::ListItem, "Read what merged, free: #3862 #3863 #3864, from Fleet's own record"));
     assert!(drawn(cx, Role::ListItem, "Write what changed since you looked, model: One model call from tonight's share"));
@@ -172,7 +206,9 @@ fn stop_shows_only_while_a_run_goes_and_the_key_presses_it(cx: &mut TestAppConte
     let (screen, cx) = open(cx);
     assert!(!drawn(cx, Role::Button, "Stop"));
     show(&screen, Reading::Running, cx);
-    assert!(drawn(cx, Role::Button, "Stop"), "a run another Bridge started shows Stop too");
+    assert!(!open_now(&screen, cx) && !drawn(cx, Role::Button, "Stop"), "a run another Bridge started does not open the card");
+    unfold(&screen, cx);
+    assert!(drawn(cx, Role::Button, "Stop"), "a run another Bridge started shows Stop once the card is open");
     assert!(drawn(cx, Role::ListItem, "Read what merged, free, done: Read 3 merges"));
     assert!(drawn(cx, Role::ListItem, "Write what changed since you looked, model, running: One model call from tonight's share"));
     assert_eq!(card_of(&screen, cx).and_then(|card| card.button()), Some(("Stop", false, false)), "Stop is not the primary button");
@@ -227,9 +263,122 @@ fn skipped_and_failed_steps_carry_their_marks_and_their_words() {
 #[gpui::test]
 fn skipped_and_failed_rows_draw_with_their_words(cx: &mut TestAppContext) {
     let (screen, cx) = open(cx);
+    unfold(&screen, cx);
     tell(&screen, told("read_merges", ipc::LibrarianStepState::Done, "Read 3 merges"), cx);
     tell(&screen, told("since_you_looked", ipc::LibrarianStepState::Failed, "The night's share is spent"), cx);
     tell(&screen, told("read_through", ipc::LibrarianStepState::Skipped, "Left out after a failure"), cx);
     assert!(drawn(cx, Role::ListItem, "Write what changed since you looked, model, failed: The night's share is spent"));
     assert!(drawn(cx, Role::ListItem, "Mark the catalog read, free, skipped: Left out after a failure"));
+}
+
+#[gpui::test]
+fn the_card_is_closed_by_default_as_one_line_with_one_button(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    assert!(!open_now(&screen, cx));
+    assert!(drawn(cx, Role::Region, "Librarian"));
+    assert!(drawn(cx, Role::Label, "Not read since #3861"));
+    assert!(drawn(cx, Role::Button, "Catch up"));
+    assert!(!drawn(cx, Role::List, "Catch up steps") && !drawn(cx, Role::Button, "Close") && !drawn(cx, Role::Button, "Stop"));
+    show(&screen, Reading::Current, cx);
+    assert!(drawn(cx, Role::Label, "Read through #3864, 4 min ago"));
+    assert!(drawn(cx, Role::Button, "Update"), "a current library offers Update on the line");
+    assert!(!drawn(cx, Role::Button, "Catch up"));
+    show(&screen, Reading::Never, cx);
+    assert!(drawn(cx, Role::Label, "Not read yet") && drawn(cx, Role::Button, "Catch up"));
+}
+
+#[gpui::test]
+fn the_line_button_opens_the_card_and_starts_the_run(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    assert!(drawn(cx, Role::Button, "Catch up"));
+    click(cx, Role::Button, "Catch up");
+    assert!(open_now(&screen, cx), "the press opens the card");
+    assert_eq!(card_of(&screen, cx), Some(Card::Working), "and starts the run");
+    assert!(drawn(cx, Role::Button, "Stop") && drawn(cx, Role::List, "Catch up steps"));
+    let_it_read(cx);
+    assert!(open_now(&screen, cx), "the card stays open when the run ends");
+    assert!(matches!(card_of(&screen, cx), Some(Card::Current { .. })));
+    assert!(drawn(cx, Role::Button, "Close"));
+}
+
+#[gpui::test]
+fn update_on_a_current_library_runs_the_librarian(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    show(&screen, Reading::Current, cx);
+    assert!(drawn(cx, Role::Button, "Update"));
+    click(cx, Role::Button, "Update");
+    assert!(open_now(&screen, cx));
+    assert_eq!(card_of(&screen, cx), Some(Card::Working));
+    let_it_read(cx);
+    assert!(drawn(cx, Role::Button, "Close"));
+}
+
+#[gpui::test]
+fn close_shows_only_once_the_run_has_ended_and_returns_to_the_line(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("c");
+    assert!(open_now(&screen, cx));
+    assert!(!drawn(cx, Role::Button, "Close"), "no Close while the run goes");
+    cx.simulate_keystrokes("escape");
+    assert!(open_now(&screen, cx), "Esc does not close a card whose run goes on");
+    let_it_read(cx);
+    assert!(drawn(cx, Role::Button, "Close"));
+    click(cx, Role::Button, "Close");
+    assert!(!open_now(&screen, cx));
+    assert!(drawn(cx, Role::Label, "Read through #3864, just now"));
+    assert!(drawn(cx, Role::Button, "Update") && !drawn(cx, Role::Button, "Close") && !drawn(cx, Role::List, "Catch up steps"));
+}
+
+#[gpui::test]
+fn escape_closes_a_card_whose_run_has_ended(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    cx.simulate_keystrokes("c");
+    let_it_read(cx);
+    assert!(open_now(&screen, cx));
+    cx.simulate_keystrokes("escape");
+    assert!(!open_now(&screen, cx));
+}
+
+#[gpui::test]
+fn a_run_that_failed_stays_open_with_its_reason_until_closed(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    screen.update(cx, |screen, _| screen.mock_refusal = Some("No project is named armada".into()));
+    cx.simulate_keystrokes("c");
+    let_it_read(cx);
+    assert!(open_now(&screen, cx));
+    assert!(drawn(cx, Role::Label, "No project is named armada") && drawn(cx, Role::Button, "Retry") && drawn(cx, Role::Button, "Close"));
+    click(cx, Role::Button, "Close");
+    assert!(!open_now(&screen, cx));
+    assert!(matches!(card_of(&screen, cx), Some(Card::Behind { .. })), "the refusal is let go with the card");
+    assert!(drawn(cx, Role::Button, "Catch up"));
+}
+
+#[gpui::test]
+fn a_run_from_elsewhere_keeps_the_card_closed_and_the_button_opens_it_without_a_second_run(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    show(&screen, Reading::Running, cx);
+    assert!(!open_now(&screen, cx));
+    assert!(drawn(cx, Role::Label, "Reading"), "the line says Reading");
+    assert!(drawn(cx, Role::Image, "Catching up"), "the spinner is its glyph");
+    assert!(drawn(cx, Role::Button, "Steps"));
+    click(cx, Role::Button, "Steps");
+    assert!(open_now(&screen, cx));
+    assert!(screen.read_with(cx, |screen, _| screen.press == Press::Idle && screen.ran.is_none()), "no second run was started");
+    assert!(drawn(cx, Role::List, "Catch up steps") && drawn(cx, Role::Button, "Stop"));
+    assert!(!drawn(cx, Role::Button, "Close"), "the run is not over");
+}
+
+#[gpui::test]
+fn the_open_card_is_at_most_a_fifth_of_the_window_and_scrolls(cx: &mut TestAppContext) {
+    let (screen, cx) = open(cx);
+    unfold(&screen, cx);
+    fresh(cx);
+    let (card, window) = cx.update(|window, cx| {
+        let id = window.window_handle().window_id();
+        let book = cx.default_global::<crate::labels::LabelBook>();
+        (book.find(id, Role::Region, "Librarian").map(|found| found.bounds), window.viewport_size().height)
+    });
+    let card = card.expect("the card is drawn");
+    assert!(card.size.height <= window * 0.2 + gpui::px(1.), "{:?} of {:?}", card.size.height, window);
+    assert!(drawn(cx, Role::List, "Catch up steps"));
 }
