@@ -1,4 +1,5 @@
-//! The Story tab of a Job: its asks as cards, open ones first, each a head line that unfolds to how it started, what he
+//! The Story tab of a Job: its asks as cards grouped under the feature they touch, open ones first in a group, each a head
+//! line of his title and what came of it that unfolds to how it started, what he
 //! was shown and decided, what was built and what was handed on, and under which feature it is filed.
 //!
 //! What is read is Fleet's own: `get_job_story`, off the main thread, drawn as bones until it answers. `story/model.rs`
@@ -98,8 +99,6 @@ pub struct StoryTab {
     names_at: u64,
     /// The ask whose rows show, by id. One at a time.
     pub(crate) unfolded: Option<String>,
-    /// Whether an ask has been unfolded by default or by him, so a read again does not unfold one he folded.
-    chosen: bool,
     /// The ask the keys are on, and the Filed under row they are on in the unfolded one.
     pub(crate) cursor: Option<usize>,
     pub(crate) region: Region,
@@ -182,7 +181,6 @@ impl StoryTab {
             built: Built::default(),
             names_at: 0,
             unfolded: None,
-            chosen: false,
             cursor: None,
             region: Region::Asks,
             link_at: 0,
@@ -355,16 +353,14 @@ impl StoryTab {
     fn settle(&mut self, cx: &mut Context<Self>) {
         let wanted = self.want.as_deref().and_then(|id| self.built.find(id));
         let kept = self.unfolded.as_deref().and_then(|id| self.built.find(id));
-        // The first ask is unfolded once, when there are asks; an ask he folded stays folded as the story is read again.
-        let first = if self.chosen { None } else { self.built.first_open() };
-        let at = wanted.or(kept).or(first);
-        self.chosen |= !self.built.cards.is_empty();
+        // Every ask is one outcome line until he presses it; the keys start on the first open one.
+        let at = wanted.or(kept);
         if wanted.is_some() {
             self.want = None;
         }
         // An ask not found yet stays wanted until the story that holds it is read.
         self.unfolded = at.map(|at| self.built.cards[at].ask_id.clone());
-        self.cursor = self.cursor.filter(|at| *at < self.built.cards.len()).or(at);
+        self.cursor = self.cursor.filter(|at| *at < self.built.cards.len()).or(at).or(self.built.first_open());
         if wanted.is_some() {
             self.cursor = at;
             self.region = Region::Asks;

@@ -1,6 +1,7 @@
 //! A Job's story for a walk, a picture and the tests, with no Fleet: the three asks of the approved mock (a change request
 //! being built, a bug handed on, a bug fixed) and one thing shown before any ask. It stands on the features the feature
-//! screens' mock holds, so a Filed under row opens a page that exists, and is on three of them.
+//! screens' mock holds, so a Filed under row opens a page that exists. The first two asks are under Start a Job and the
+//! third under Thread and composer, so the tab draws two groups.
 
 use ipc::{Ask, AskKind, AskState, AskWords, ArtifactForm, ArtifactState, Instant, JobFeature, JobStory, MessageKind, PageAct, PagePress, PressDid, SessionId, StoryAsk, StoryBuilt, StoryHanded, StoryShown, VoteCast, VoteForm, VoteResult};
 
@@ -78,7 +79,7 @@ pub fn story(job: &str) -> JobStory {
     let mut reading = story_ask(ask("ask-2", AskKind::Bug, "A reading page never shows", "a page i am reading never shows up in the tab", AskState::Handed, 13, 14, &["start-a-job"]), true);
     reading.handed = vec![StoryHanded { from: SessionId::carried(JOB), to: SessionId::carried(OTHER), to_title: Some("One artifact that grows".into()), at: at(14) }];
 
-    let mut votes = story_ask(ask("ask-3", AskKind::Bug, "Votes show as never cast", "they show as i never voted", AskState::Built, 15, 15, &["start-a-job"]), false);
+    let mut votes = story_ask(ask("ask-3", AskKind::Bug, "Votes show as never cast", "they show as i never voted", AskState::Built, 15, 15, &["thread-and-composer"]), false);
     votes.ask.said = vec![words("row-b", MessageKind::Answer, "yes, per revision", 13)];
     let mut sent = shown("sketches/votes", "Votes per revision", ArtifactForm::Sketch, ArtifactState::SentBack, Some("keep each take's votes"), 14);
     sent.presses = vec![PagePress { revision: 1, action: "start".into(), item: Some("take-a".into()), act: PageAct::Start, at: at(14), did: PressDid::Sent }];
@@ -92,8 +93,8 @@ pub fn story(job: &str) -> JobStory {
         shown_otherwise: vec![shown("sketches/start-card", "Start card with the model picker", ArtifactForm::Sketch, ArtifactState::Dismissed, None, 11)],
         lead: vec!["Feature catalog: being built".into(), "A reading page never shows: handed to One artifact that grows".into(), "Votes show as never cast: fixed in #3720".into()],
         features: vec![
-            on("start-a-job", "Start a Job", "running-a-job", 12, 9, 3),
-            on("thread-and-composer", "Thread and composer", "job-thread-and-terminal", 0, 3, 0),
+            on("start-a-job", "Start a Job", "running-a-job", 12, 9, 2),
+            on("thread-and-composer", "Thread and composer", "job-thread-and-terminal", 0, 3, 1),
             on("reviews", "Reviews", "pull-requests-and-review", 0, 0, 1),
         ],
     }
