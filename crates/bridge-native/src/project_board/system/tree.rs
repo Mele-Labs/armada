@@ -63,7 +63,7 @@ fn trie_of(code: &[String]) -> Trie {
 pub fn rows(code: &[String], toggled: &HashMap<String, bool>, listed: &HashMap<String, Listing>) -> Vec<Row> {
     let root = trie_of(code);
     let mut out = Vec::new();
-    for (name, kid) in &root.kids {
+    for (name, kid) in sorted(&root.kids) {
         emit(name.clone(), kid, 0, toggled, listed, &mut out);
     }
     out
@@ -114,6 +114,9 @@ fn emit(mut words: String, mut node: &Trie, depth: usize, toggled: &HashMap<Stri
             emit(name.clone(), kid, depth + 1, toggled, listed, out);
         }
     } else if let Some(Listing::Names(names)) = asked {
+        // Folders first, each in name order, whatever order Fleet listed them in.
+        let mut names: Vec<&String> = names.iter().collect();
+        names.sort_by(|a, b| b.ends_with('/').cmp(&a.ends_with('/')).then_with(|| a.cmp(b)));
         for name in names {
             let dir = name.ends_with('/');
             let name = name.trim_end_matches('/');
@@ -185,7 +188,7 @@ mod tests {
         assert_eq!(
             words(&filled),
             [(0, "frontend".to_string(), true), (1, "public".to_string(), false), (1, "src".to_string(), false), (1, "package.json".to_string(), false)],
-            "Fleet lists folders first, as it was told, and each stands shut"
+            "folders first in name order, and each stands shut"
         );
         assert_eq!(filled[2].path, "frontend/src");
     }
