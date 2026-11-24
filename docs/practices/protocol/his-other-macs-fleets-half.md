@@ -80,12 +80,16 @@ Electron's main process ignores a kind it does not know (`apps/desktop/src/main/
 
 ## Acting across Macs
 
-An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `stop_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
+An act on a Job held from another Mac goes to that Mac: `send_session_message`, `send_session_notes`, `answer_session_ask`, `answer_waiting`, `answer_waiting_parts`, `approve_plan`, `send_plan_changes`, `answer_sketch`, `answer_document`, `press_page_action`, `cast_page_vote`, `mark_artifact_seen`, `archive_artifact`, `restore_artifact`, `answer_part`, `answer_ready_to_try`, `stop_session` and `merge_pull_request_by_number` find that no Job of this Mac has the id, and send the act as `MacAct { id, act, at }` to the Mac that holds it.
 **`merge` goes only where no Job of this Mac owns the pull request and a Job held from another Mac does**, and that Job's id rides in the act.
 `/sessions/start` and `/sessions/dispatch` read `mac` beside their own body (`StartOn`, `DispatchOn`): absent runs here as before, a Mac this Fleet holds anything from sends the start there, and any other is 404 `fleet.other_mac_not_linked`.
 The row that comes back is kept as that Mac's, and answered with its `mac`.
-`act` is `{ kind, body }`, `kind` one of `message`, `notes`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `answer_read`, `artifact_press`, `artifact_vote`, `artifact_seen`, `artifact_archive`, `artifact_restore`, `artifact_part_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name, or `job_message`, which no route of the person's takes (*Messages and alerts*).
+`act` is `{ kind, body }`, `kind` one of `message`, `notes`, `ask_answer`, `waiting_answer`, `waiting_answer_parts`, `plan_approve`, `plan_changes`, `sketch_answer`, `document_answer`, `answer_read`, `artifact_press`, `artifact_vote`, `artifact_seen`, `artifact_archive`, `artifact_restore`, `artifact_part_answer`, `ready_answer`, `stop`, `merge`, `start` and `dispatch`, `body` the body of the route of that name, or `job_message`, which no route of the person's takes (*Messages and alerts*).
 **An artifact act is the person's, never a Job's.** The six `artifact_*` acts are sent only for a call that did not come through a Job's connection, so a Job cannot press, vote on or archive an artifact of another Mac's Job as him; the sketch, page and draft routes of a Job's own door stay as they were.
+**`ready_answer` goes only where the build he runs on this Mac holds the card's branch at its tip**, read as a card's `in_build` is, so he answers what he tried here; otherwise it is 409 `fleet.ready_not_in_build`, "Your build does not hold this branch yet.
+Refresh preview first.", and nothing is sent or kept.
+`answer_ready_to_try` is his alone, so a Job's call never reaches it.
+A Job held from another Mac is read through the link with each `ready_to_try` card's `in_build` read again against this Mac's build, in `get_job_thread` and in each `job_thread.tail` that crosses, since that Mac read it against its own.
 His Edit (`save_artifact_edit`) is not an act across Macs, and is refused for a Job held from another Mac.
 The tool-gate hook is not carried, since no person makes it.
 

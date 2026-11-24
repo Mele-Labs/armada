@@ -6,16 +6,16 @@
 //! reach) are not drawn, and the card is a column of lines, so each takes a line of its own where it comes.
 
 use chrono::{DateTime, Utc};
-use gpui::{div, prelude::*, AnyElement, Context, FontWeight, Role, SharedString, Task};
+use gpui::{div, prelude::*, AnyElement, App, Context, FocusHandle, FontWeight, Role, SharedString, Task, Window};
 use ipc::LibrarianState;
 
 use super::dossier::{button, tint};
 use super::steps::{render_steps, Run};
 use super::{FeaturesScreen, Load};
+use crate::keymap::Act;
 use crate::labels::labelled;
 use crate::look::{token, Look, Token};
-use crate::reviews::card_inner_radius;
-use crate::settings::view::{refusal, tip};
+use crate::settings::view::{refusal, ring_colour, tip};
 use crate::settings::wire::Refused;
 use crate::titlebar::parts::{glyph, spinner};
 
@@ -28,6 +28,19 @@ pub enum Press {
     Working,
     /// Fleet refused it, in its own words.
     Failed(String),
+}
+
+/// Whether the card is open, by the project it was opened for, and the two buttons the keys reach.
+pub struct Shell {
+    pub open: Option<String>,
+    pub line: FocusHandle,
+    pub close: FocusHandle,
+}
+
+impl Shell {
+    pub fn new(cx: &App) -> Self {
+        Shell { open: None, line: cx.focus_handle(), close: cx.focus_handle() }
+    }
 }
 
 /// What the card says.
@@ -121,6 +134,16 @@ impl Card {
         }
     }
 
+    /// The closed line's button: its words, and whether it is the primary one. Current offers Update, and a run going offers its steps.
+    pub fn line_button(&self) -> (&'static str, bool) {
+        match self {
+            Card::Never | Card::Failed(_) => ("Catch up", false),
+            Card::Behind { .. } => ("Catch up", true),
+            Card::Current { .. } => ("Update", false),
+            Card::Working => ("Steps", false),
+        }
+    }
+
     /// Whether a press runs the librarian: the button being there and on, and not the one that stops it.
     pub fn presses(&self) -> bool {
         !self.stops() && self.button().is_some_and(|(_, _, off)| !off)
@@ -152,8 +175,27 @@ impl FeaturesScreen {
         }
     }
 
-    /// The card over the list (`.lib`): a band down its left edge and the glyph in the state's hue, the librarian's name, what it
-    /// says, the merged numbers where it is behind, and the button.
+    /// Whether the card is open: a press opened it for this project, or Fleet refused the run, which stays until he closes it.
+    fn card_open(&self, card: &Card) -> bool {
+        matches!(card, Card::Failed(_)) || (self.library_project.is_some() && self.lib_card.open == self.library_project)
+    }
+
+    /// Whether the card shows its steps now.
+    #[cfg(test)]
+    pub(super) fn librarian_open(&self) -> bool {
+        self.librarian_card().is_some_and(|card| self.card_open(&card))
+    }
+
+    /// The buttons the keys reach on the card as it stands: Catch up on the closed line, Close once the run has ended.
+    fn card_stops(&self, card: &Card) -> Vec<FocusHandle> {
+        match (self.card_open(card), card.stops()) {
+            (false, _) => vec![self.lib_card.line.clone()],
+            (true, false) => vec![self.lib_card.close.clone()],
+            (true, true) => Vec::new(),
+        }
+    }
+
+    /// The card over the list (`.lib`): the closed line until a press opens it, and then the card itself.
     pub(super) fn render_librarian(&self, look: &Look, cx: &mut Context<Self>) -> Option<AnyElement> {
         let card = self.librarian_card()?;
         let (hue, name, why) = card.mark();
@@ -164,58 +206,206 @@ impl FeaturesScreen {
             _ => glyph(name, size, ink).into_any_element(),
         };
         let mark = labelled(div().id("features-librarian-state").flex_none().tooltip(tip(why)).child(mark), Role::Image, why);
-        let head = div()
-            .flex()
-            .items_center()
-            .gap(look.length(token::SPACE_2))
-            .child(mark)
-            .child(div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Librarian"));
-        let rows = self.step_rows(card.lists_plan());
-        let listing_plan = card.lists_plan() && self.run.is_none() && !rows.is_empty();
-        let said = card.lead(listing_plan);
-        let line = match &card {
-            Card::Failed(_) => refusal(look, said.clone()),
-            _ => div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())),
-        };
-        let line = labelled(div().id("features-librarian-said").child(line), Role::Label, said);
-        let merged = card.merged_said().filter(|_| !listing_plan).map(|numbers| {
-            labelled(
-                div()
-                    .id("features-librarian-merged")
-                    .max_h(look.length(token::LEADING_2XS) * 2.)
-                    .overflow_hidden()
-                    .text_size(look.length(token::TEXT_2XS))
-                    .line_height(look.length(token::LEADING_2XS))
-                    .text_color(look.color(token::FG_SUBTLE))
-                    .child(SharedString::from(numbers.clone())),
-                Role::Label,
-                format!("Merged since: {numbers}"),
-            )
-        });
-        let steps = (!rows.is_empty()).then(|| render_steps(look, rows, cx));
-        let press = card.button().map(|(words, primary, off)| {
-            let pill = button(look, "features-librarian-press", words, primary, false, off, None);
-            let pill = if off { pill } else { pill.on_click(cx.listener(|this, _, _, cx| this.catch_up(cx))) };
-            div().flex().child(labelled(pill, Role::Button, words))
-        });
-        let body = div().flex_1().min_w_0().flex().flex_col().gap(look.length(token::SPACE_2)).p(look.length(token::SPACE_3)).child(head).child(line).children(merged).children(steps).children(press);
-        let band = div().flex_none().w(look.length(token::SPACE_1)).rounded_l(card_inner_radius(look)).bg(ink);
+        let title = div().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(look.color(token::FG_DEFAULT)).child("Librarian");
         let ground = tint(look, look.color(token::BG_SUNKEN), hue, 0.06);
-        let edge = tint(look, look.color(token::BORDER_SUBTLE), hue, 0.30);
+        let edge = tint(look, look.color(token::BORDER_SUBTLE), hue, 0.55);
         let shell = div()
             .id("features-librarian")
             .flex_none()
             .mx(look.length(token::SPACE_3))
             .mb(look.length(token::SPACE_3))
             .flex()
+            .flex_col()
             .rounded(look.length(token::RADIUS_LG))
             .border(look.length(token::BORDER_WIDTH))
             .border_color(edge)
             .bg(ground)
             .overflow_hidden()
-            .child(band)
-            .child(body);
+            .on_action(cx.listener(|this, act: &Act, window, cx| {
+                if !(act.is("features_open") && this.press_card_stop(window, cx)) {
+                    cx.propagate();
+                }
+            }));
+        let shell = if self.card_open(&card) {
+            // At most a fifth of the list's column, which spans the window: the title row stays, and what is under it scrolls.
+            let cap = gpui::relative(0.2);
+            let press = card.button().map(|(words, primary, off)| {
+                let pill = button(look, "features-librarian-press", words, primary, false, off, None);
+                let pill = if off { pill } else { pill.on_click(cx.listener(|this, _, _, cx| this.catch_up(cx))) };
+                labelled(pill, Role::Button, words)
+            });
+            let close = (!card.stops()).then(|| self.close_button(look, cx));
+            let head = div()
+                .flex_none()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .pt(look.length(token::SPACE_3))
+                .pb(look.length(token::SPACE_2))
+                .child(mark)
+                .child(title)
+                .child(div().flex_1())
+                .children(press)
+                .children(close);
+            let rows = self.step_rows(card.lists_plan());
+            let listing_plan = card.lists_plan() && self.run.is_none() && !rows.is_empty();
+            let said = card.lead(listing_plan);
+            let line = match &card {
+                Card::Failed(_) => refusal(look, said.clone()),
+                _ => div().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())),
+            };
+            let line = labelled(div().id("features-librarian-said").child(line), Role::Label, said);
+            let merged = card.merged_said().filter(|_| !listing_plan).map(|numbers| {
+                labelled(
+                    div()
+                        .id("features-librarian-merged")
+                        .max_h(look.length(token::LEADING_2XS) * 2.)
+                        .overflow_hidden()
+                        .text_size(look.length(token::TEXT_2XS))
+                        .line_height(look.length(token::LEADING_2XS))
+                        .text_color(look.color(token::FG_SUBTLE))
+                        .child(SharedString::from(numbers.clone())),
+                    Role::Label,
+                    format!("Merged since: {numbers}"),
+                )
+            });
+            let steps = (!rows.is_empty()).then(|| render_steps(look, rows, cx));
+            let body = div()
+                .id("features-librarian-scroll")
+                .flex_1()
+                .min_h_0()
+                .overflow_y_scroll()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .pb(look.length(token::SPACE_3))
+                .child(line)
+                .children(merged)
+                .children(steps);
+            shell.max_h(cap).child(head).child(body)
+        } else {
+            let said = if matches!(card, Card::Working) { "Reading".to_string() } else { card.said() };
+            let (words, primary) = card.line_button();
+            let press = button(look, "features-librarian-open", words, primary, false, false, Some(&self.lib_card.line)).on_click(cx.listener(|this, _, window, cx| this.press_line(window, cx)));
+            let status = labelled(
+                div().id("features-librarian-said").text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(said.clone())),
+                Role::Label,
+                said,
+            );
+            let row = div()
+                .flex()
+                .items_center()
+                .gap(look.length(token::SPACE_2))
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .child(mark)
+                .child(div().flex_1().min_w_0().flex().flex_col().child(title).child(status))
+                .child(labelled(press, Role::Button, words));
+            shell.child(row)
+        };
         Some(labelled(shell, Role::Region, "Librarian").into_any_element())
+    }
+
+    /// The glyph button at the card's top right that shuts it, once the run has ended.
+    fn close_button(&self, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+        let ring = ring_colour(look);
+        let hover = look.color(token::BG_HOVER);
+        let button = div()
+            .id("features-librarian-close")
+            .track_focus(&self.lib_card.close)
+            .tab_stop(true)
+            .flex_none()
+            .flex()
+            .items_center()
+            .justify_center()
+            .size(look.length(token::H_CONTROL_SM))
+            .rounded(look.length(token::RADIUS_MD))
+            .border(look.length(token::BORDER_WIDTH))
+            .border_color(gpui::transparent_black())
+            .cursor_pointer()
+            .hover(move |style| style.bg(hover))
+            .focus_visible(move |style| style.border_color(ring))
+            .tooltip(tip("Close"))
+            .on_mouse_down(gpui::MouseButton::Left, |_, window, _| window.prevent_default())
+            .on_click(cx.listener(|this, _, window, cx| this.close_card(window, cx)))
+            .child(glyph("x", look.length(token::SPACE_4), look.color(token::FG_MUTED)));
+        labelled(button, Role::Button, "Close").into_any_element()
+    }
+
+    /// The closed line's button: Catch up or Update runs the librarian and opens the card, and where a run is going it opens the card
+    /// to show the steps, with no second run.
+    fn press_line(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.lib_card.line.is_focused(window) {
+            window.focus(&self.list_focus, cx);
+        }
+        match self.librarian_card() {
+            Some(card) if card.stops() => {
+                self.lib_card.open = self.library_project.clone();
+                cx.notify();
+            }
+            _ => self.catch_up(cx),
+        }
+    }
+
+    /// Close, or Esc once the run has ended: back to the closed line. A refusal he has read is let go.
+    fn close_card(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.librarian_card().is_none_or(|card| card.stops()) {
+            return;
+        }
+        if self.lib_card.close.is_focused(window) {
+            window.focus(&self.list_focus, cx);
+        }
+        self.lib_card.open = None;
+        if matches!(self.press, Press::Failed(_)) {
+            self.press = Press::Idle;
+        }
+        cx.notify();
+    }
+
+    /// Esc where the keys are on the card or the list: the open card, once its run has ended, shuts.
+    pub(super) fn escape_librarian(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(card) = self.librarian_card() else { return false };
+        if !self.card_open(&card) || card.stops() {
+            return false;
+        }
+        let on_card = self.card_stops(&card).iter().any(|stop| stop.is_focused(window));
+        if !(on_card || self.list_focus.is_focused(window)) {
+            return false;
+        }
+        self.close_card(window, cx);
+        true
+    }
+
+    /// Enter on the card's button that has the keys.
+    fn press_card_stop(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        if self.lib_card.line.is_focused(window) {
+            self.press_line(window, cx);
+        } else if self.lib_card.close.is_focused(window) {
+            self.close_card(window, cx);
+        } else {
+            return false;
+        }
+        true
+    }
+
+    /// Tab and Shift+Tab on the card's button: the keys go back to the list. Shift+Tab from the list reaches the button, as the card
+    /// is over it.
+    pub(super) fn tab_librarian(&mut self, back: bool, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let Some(card) = self.librarian_card() else { return false };
+        let stops = self.card_stops(&card);
+        if stops.iter().any(|stop| stop.is_focused(window)) {
+            window.focus(&self.list_focus, cx);
+            return true;
+        }
+        match (back && self.list_focus.is_focused(window), stops.first()) {
+            (true, Some(stop)) => {
+                window.focus(stop, cx);
+                true
+            }
+            _ => false,
+        }
     }
 }
 
@@ -223,15 +413,19 @@ impl FeaturesScreen {
 const MOCK_STEP: std::time::Duration = std::time::Duration::from_millis(200);
 
 impl FeaturesScreen {
-    /// Catch up, or Retry, or `c`: run the project's librarian now, or stop the run going on now. Nothing happens where it has read
-    /// through the last merge.
+    /// Catch up, Update, Retry or `c`: run the project's librarian now and open its card, or stop the run going on now. Nothing happens
+    /// on the open card where it has read through the last merge.
     pub(super) fn catch_up(&mut self, cx: &mut Context<Self>) {
+        let shut = self.librarian_card().is_some_and(|card| !self.card_open(&card));
         match self.librarian_card() {
             Some(card) if card.stops() => return self.stop(cx),
             Some(card) if card.presses() => {}
+            // The closed line offers Update where the library is current.
+            Some(Card::Current { .. }) if shut => {}
             _ => return,
         }
         let Some(project) = self.library_project.clone() else { return };
+        self.lib_card.open = Some(project.clone());
         let ask = match &self.source {
             super::Source::Live(fleet) => match fleet.read(cx).held().port() {
                 Some(port) => super::wire::run_librarian(port, &project, cx),

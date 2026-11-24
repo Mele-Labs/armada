@@ -75,6 +75,14 @@ pub fn said_of(act: &JobAct, waiting: &[WaitingItem]) -> Said {
         JobAct::ArtifactSeen(_) => said("Opened", None),
         JobAct::ArtifactArchive(_) => said("Archive", None),
         JobAct::ArtifactRestore(_) => said("Restore", None),
+        JobAct::ReadyAnswer(body) => said(
+            "Ready to try",
+            Some(match body.answer {
+                ipc::ReadyAnswer::LooksGood => "Looks good".into(),
+                ipc::ReadyAnswer::NeedsRework { .. } => "Needs rework".into(),
+                ipc::ReadyAnswer::Remind { .. } => "Remind me".into(),
+            }),
+        ),
         JobAct::ArtifactPartAnswer(body) => {
             let how = match body.how {
                 ipc::PartHow::Approved => "approved",
@@ -149,6 +157,7 @@ mod tests {
         assert_eq!(words(r#"{"kind":"artifact_archive","body":{"artifact":"/a.html","session_id":"j"}}"#), "Archive");
         assert_eq!(words(r#"{"kind":"artifact_part_answer","body":{"session_id":"j","artifact":"sketch:Cache","part":"layout","drawn":"d","how":"picked","take":"b"}}"#), "Answer: layout, picked");
         assert_eq!(words(r#"{"kind":"artifact_seen","body":{"session_id":"j","artifact":"/a.html","revision":1}}"#), "Opened");
+        assert_eq!(words(r#"{"kind":"ready_answer","body":{"session_id":"j","branch":"b","tip":"t","answer":{"kind":"looks_good"}}}"#), "Ready to try: Looks good");
     }
 
     #[test]

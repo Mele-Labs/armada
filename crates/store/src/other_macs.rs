@@ -61,6 +61,11 @@ impl Store {
         rows.collect::<Result<_, _>>().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
+    /// How many writes of what other Macs share this Store has made. Equal twice running means nothing held moved between.
+    pub fn held_moves(&self) -> u64 {
+        self.held_moves
+    }
+
     /// Everything of `list` held from Mac `mac` replaced by `rows`, `(id, body)` each, in one transaction.
     pub fn replace_from_mac(&mut self, list: FromMac, mac: &str, rows: &[(String, String)]) -> Result<(), WriteError> {
         let doing = "keeping what another Mac shares";
@@ -76,7 +81,9 @@ impl Store {
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
         }
-        tx.commit().map_err(fault(doing)).map_err(WriteError::Database)
+        tx.commit().map_err(fault(doing)).map_err(WriteError::Database)?;
+        self.held_moves += 1;
+        Ok(())
     }
 
     /// One thing of `list` held from Mac `mac` kept as `body`, over what was kept under its id.
@@ -86,9 +93,10 @@ impl Store {
                 &format!("INSERT OR REPLACE INTO {} (mac, id, {}) VALUES (?1, ?2, ?3)", list.table(), list.column()),
                 params![mac, id, body],
             )
-            .map(|_| ())
             .map_err(fault("keeping one thing another Mac shares"))
-            .map_err(WriteError::Database)
+            .map_err(WriteError::Database)?;
+        self.held_moves += 1;
+        Ok(())
     }
 
     /// Every row, report and project held from Mac `mac` dropped, the edits and acts queued for it, the acts it sent,
@@ -104,7 +112,9 @@ impl Store {
         for table in ["other_mac_project_acts", "other_mac_acts_run", "kit_link_agreed", "kit_link_held"] {
             tx.execute(&format!("DELETE FROM {table} WHERE mac = ?1"), [mac]).map_err(fault(doing)).map_err(WriteError::Database)?;
         }
-        tx.commit().map_err(fault(doing)).map_err(WriteError::Database)
+        tx.commit().map_err(fault(doing)).map_err(WriteError::Database)?;
+        self.held_moves += 1;
+        Ok(())
     }
 }
 

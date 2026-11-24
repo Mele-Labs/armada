@@ -12,7 +12,7 @@ use axum::response::Response;
 use ipc::{AnswerReadyToTry, ChangeFleetBuild, MarkBuildNoteLookedAt, PickFleetBuildJob, SendBuildNoteFeedback, SkipPreviewRefresh, UpdateMac};
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{Commands, Queries};
+use crate::daemon::{Commands, OtherMacs, Queries};
 use crate::served::Served;
 
 /// Which build Fleet runs on, and where it stands against `origin/main`.
@@ -75,12 +75,20 @@ pub(crate) async fn send_build_note_feedback<D: Commands>(State(served): State<S
     }
 }
 
-/// His answer on a Ready to try card in a Job's thread, and the card as it stands after.
-pub(crate) async fn answer_ready_to_try<D: Commands>(State(served): State<Served<D>>, body: Bytes) -> Response {
+/// His answer on a Ready to try card in a Job's thread, and the card as it stands after. **A card of a Job another Mac
+/// holds is answered there**, where the build he runs here holds its branch at its tip. The route is his alone, so no
+/// Job's call reaches this.
+pub(crate) async fn answer_ready_to_try<D: Commands + OtherMacs>(State(served): State<Served<D>>, body: Bytes) -> Response {
     let asked: AnswerReadyToTry = match ipc::decode_body("an answer on a ready to try card", &body) {
         Ok(asked) => asked,
         Err(why) => return undecodable(&why.to_string(), served.run_id()),
     };
+    if let Some(mac) = served.daemon().mac_holding_job(asked.session_id.as_str()).await {
+        if let Err(refusal) = served.daemon().ready_in_this_build(&asked) {
+            return refused(refusal);
+        }
+        return crate::mac_acts::across(&served, mac, ipc::JobAct::ReadyAnswer(asked)).await;
+    }
     match served.shared().answer_ready_to_try(asked).await {
         Ok(card) => answer(StatusCode::OK, &card, served.run_id()),
         Err(refusal) => refused(refusal),
