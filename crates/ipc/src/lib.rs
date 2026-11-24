@@ -149,6 +149,7 @@ mod issue_reference;
 mod issue_queries;
 /// Projects: per repository, tasks a person wrote and issues he linked, in order.
 mod project_store;
+mod metrics;
 mod project_board;
 /// A project's system map: its parts, how they reach each other, and what Fleet knows of each.
 mod system_map;
@@ -574,6 +575,10 @@ pub use issue_queries::{
     WrittenIssueQuery,
 };
 pub use values_merging::VALUE_KEYS;
+pub use metrics::{
+    MetricAnswer, MetricCall, MetricCredential, MetricHeader, MetricPoint, MetricReading, MetricReadings, MetricRecipe, MetricRow, MetricSaved,
+    MetricState, MetricValue, SaveMetricToken, TryMetric, METRIC_EVERY_SECS,
+};
 pub use projects::MergeProjects;
 pub use system_map::{
     AdditionAnswer, AnswerSystemAddition, PartIssue, PartOrigin, PartOwner, PartPull, PartWatch, PathStop, SystemFeature, SystemFolder, SystemLink, SystemMap, SystemPart, SystemPartAnswers, SystemPartKind,

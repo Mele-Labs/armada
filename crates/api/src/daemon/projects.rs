@@ -57,6 +57,24 @@ pub trait Projects: Send + Sync + 'static {
     /// no view, or a project whose file did not read.
     fn save_project_board(&self, project: String, save: ipc::SaveProjectBoard) -> impl Future<Output = Result<ipc::ProjectBoard, Refusal>> + Send;
 
+    /// `read_metrics` — a reading for each live metric recipe the project keeps, each fetched only where its last attempt is
+    /// older than its interval. [`Refusal::NotFound`] for a project he has none of.
+    fn read_metrics(&self, project: String) -> impl Future<Output = Result<ipc::MetricReadings, Refusal>> + Send;
+
+    /// `try_metric` — a recipe run once, nothing kept.
+    fn try_metric(&self, project: String, ask: ipc::TryMetric) -> impl Future<Output = Result<ipc::MetricReading, Refusal>> + Send;
+
+    /// `save_metric` — a recipe tried and kept where it read, or where only this Mac's token is missing. [`Refusal::Unacceptable`]
+    /// (`fleet.metric_unreadable`) for one that cannot read, and nothing is kept.
+    fn save_metric(&self, project: String, ask: ipc::TryMetric) -> impl Future<Output = Result<ipc::MetricSaved, Refusal>> + Send;
+
+    /// `remove_metric` — the recipe and its block on the board go. Removing one that is not kept is not an error.
+    fn remove_metric(&self, project: String, id: String) -> impl Future<Output = Result<ipc::MetricReadings, Refusal>> + Send;
+
+    /// `save_metric_token` — a token into this Mac's keychain under the credential's name, and the project read again.
+    /// [`Refusal::Unacceptable`] (`fleet.metric_token_refused`) for a token the keychain will not take.
+    fn save_metric_token(&self, project: String, save: ipc::SaveMetricToken) -> impl Future<Output = Result<ipc::MetricReadings, Refusal>> + Send;
+
     /// `list_ranked_issues` — the project's open, unassigned issues and other people's open pull requests, each named
     /// for the features it matched and ranked by the Jobs on them lately. Asks no forge beyond the issue lists Fleet holds.
     /// [`Refusal::NotFound`] for a project he has none of.

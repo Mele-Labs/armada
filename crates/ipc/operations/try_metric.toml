@@ -1,0 +1,10 @@
+[operations.try_metric]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Run a metric recipe once and keep nothing"
+notes = """
+`POST /projects/project/:project/metrics/try`, body `TryMetric { recipe }`. Runs the recipe with this Mac's token for its credential and answers the `MetricReading` it read, whatever its interval, **keeping nothing**: no recipe, no reading, no point. `no_token` where the keychain lacks the credential. `docs/practices/protocol/projects.md`, *Metrics*.
+
+404 `fleet.no_such_project` for a project he has none of.
+"""

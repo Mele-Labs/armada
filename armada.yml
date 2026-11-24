@@ -338,7 +338,7 @@ checks:
       - "scripts/detach"
       - "scripts/running-bridge"
       - "scripts/test_restart_detach.py"
-      - "scripts/armada-electron"
+      - "scripts/retire-classic"
       - "scripts/test_preview.py"
       - "scripts/prune-build"
       - "armada.yml"
@@ -362,7 +362,6 @@ checks:
       - "scripts/keep-build"
       - "scripts/test_keep_build.py"
       - "scripts/native-app"
-      - "scripts/armada-electron"
       - "armada.yml"
 
   format_catch_up_test:
@@ -410,19 +409,19 @@ commands:
   format:
     run: pnpm format
 
-  # **A Drone regenerating the generated TypeScript after a registry change.**
-  # Not a Check — it writes, and what it writes lands in the diff — but a Drone
-  # that changes `crates/core-model/domain` cannot make `typecheck` pass
-  # without it, so it has to be reachable.
+  # **A Drone regenerating the native Bridge's generated Rust after a registry
+  # change.** Not a Check — it writes, and what it writes lands in the diff — but
+  # a Drone that changes `crates/core-model/domain` cannot make
+  # `verify-foundations` pass without it, so it has to be reachable.
   #
   # **Declared because #1174 withholds the program.** Every Bash call naming a
   # program one of the Checks runs is now refused whatever `when_blocked` says,
-  # and `pnpm` is one. That is right for `pnpm -C packages/screens test`, which
-  # `run_checks` does better, and wrong for this, which nothing else does at
-  # all — so it stops being an ungranted command and becomes a named one. A
-  # Drone runs it as `armada run codegen`.
+  # and `cargo` is one. That is right for `cargo nextest`, which `run_checks`
+  # does better, and wrong for this, which nothing else does at all — so it
+  # stops being an ungranted command and becomes a named one. A Drone runs it as
+  # `armada run codegen`.
   codegen:
-    run: pnpm -C apps/desktop codegen
+    run: cargo xtask verify-vocabulary --write
 
   gate:
     # Exits non-zero on purpose, which is why it is not a Check.

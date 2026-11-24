@@ -232,6 +232,7 @@ pub fn fitted_over<V>(
             sender: Arc::new(adapters::HttpRequests::within(Duration::from_secs(5))),
             secrets: Arc::new(crate::tests::requesting::Held::default()),
         },
+        metric_tokens: Arc::new(crate::tests::requesting::Held::default()),
     }
 }
 

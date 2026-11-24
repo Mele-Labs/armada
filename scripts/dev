@@ -2,8 +2,8 @@
 #
 # Armada, running against itself, from whatever is in the working tree.
 #
-# Four things in one order, and the order is the whole point: stop the Fleet
-# that is running, rebuild and reinstall `armada`, start Fleet, start Bridge.
+# Three things in one order, and the order is the whole point: stop the Fleet
+# that is running, rebuild and reinstall `armada`, start Fleet.
 #
 # **Reinstalling is not optional and is the reason this exists.** `cargo
 # install` copies rather than links, so an edit does not reach the installed
@@ -15,10 +15,10 @@
 # `--profile installed` because this is the development loop: the dev profile, with only the
 # dependencies optimised. A release build is a minute every time and buys nothing here.
 #
-# Fleet goes to the background and Bridge to the foreground, so Ctrl-C lands on
-# Bridge and the trap takes Fleet down with it. Quitting the window leaves no
-# daemon behind, which is what you want from a dev script and emphatically not
-# how Armada behaves in earnest — closing Bridge does not stop Fleet.
+# Fleet is waited on in the foreground, so Ctrl-C lands here and the trap takes
+# Fleet down with it. That leaves no daemon behind, which is what you want from a
+# dev script and emphatically not how Armada behaves in earnest — closing Bridge
+# does not stop Fleet. The native Bridge is started by `scripts/restart`, not here.
 
 set -euo pipefail
 
@@ -76,19 +76,6 @@ done
 
 cat "$log"
 
-# 4. Bridge, in the foreground. `pnpm install` first only when it is needed —
-#    it is the slowest step and is usually already done.
-if [[ ! -d node_modules ]] || [[ package.json -nt node_modules ]]; then
-  say "Installing dependencies"
-  pnpm install
-fi
-
-#    The Armada Classic Electron copy, or the dock says "Electron".
-if electron=$(scripts/armada-electron "$root"); then
-  export ELECTRON_EXEC_PATH="$electron"
-else
-  echo "dev: could not make the Armada Classic Electron copy — Bridge will say Electron" >&2
-fi
-
-say "Starting Bridge — Ctrl-C stops both"
-pnpm --filter @armada/desktop dev
+# 4. Stay with Fleet, so Ctrl-C stops it.
+say "Fleet is running — Ctrl-C stops it"
+wait "$fleet"

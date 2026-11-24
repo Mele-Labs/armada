@@ -49,6 +49,7 @@ mod workflow;
 /// A Project is a set of repositories and monorepo folders; a Workspace keeps only its monorepo meaning.
 mod project;
 mod values;
+mod metric;
 
 pub use envelope::{
     env_keys, Actor, AuditLine, Component, Envelope, FieldValue, Level, Timestamp, Ulid,
@@ -67,6 +68,7 @@ pub use workflow::{
 };
 pub use piece::PieceSource;
 pub use project::{Folder, MalformedFolder, MalformedProject, MalformedStore, Member, Project, ProjectStore, StoreAddress, StoreTeam, WorkerName};
+pub use metric::{MetricCall, MetricCredential, MetricRecipe};
 pub use values::{AgentStarts, Board, BoardBlock, Layer, Look, ReviewMode, Reviews, ReviewsNamed, TrackerNamed, Values, WalkReview, DeliverySetting};
 pub use kit::{
     a_drone_resolves, KitServer, ManifestReach, ReachesDrones, ServerAddress, ServerName,

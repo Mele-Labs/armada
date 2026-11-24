@@ -50,6 +50,12 @@ pub fn kept(key: &str, cx: &App) -> Option<String> {
     cx.try_global::<Kept>().and_then(|kept| kept.words.get(key)).filter(|words| !words.is_empty()).cloned()
 }
 
+/// Whether any place keeps exactly `words`. A secret must never be one that does.
+#[cfg(test)]
+pub(crate) fn holds(words: &str, cx: &App) -> bool {
+    cx.try_global::<Kept>().is_some_and(|kept| kept.words.values().any(|held| held == words))
+}
+
 /// Keep `words` under `key`. Empty words clear it.
 pub fn keep(key: &str, words: &str, cx: &mut App) {
     let kept = cx.default_global::<Kept>();

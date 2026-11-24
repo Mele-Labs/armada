@@ -157,6 +157,32 @@ impl Projects for FakeDaemon {
         Ok(ipc::ProjectBoard { project, layout: save.layout })
     }
 
+    async fn read_metrics(&self, project: String) -> Result<ipc::MetricReadings, Refusal> {
+        held(&project)?;
+        Ok(ipc::MetricReadings { project, readings: Vec::new() })
+    }
+
+    async fn try_metric(&self, project: String, ask: ipc::TryMetric) -> Result<ipc::MetricReading, Refusal> {
+        held(&project)?;
+        Ok(ipc::MetricReading { id: ask.recipe.id, title: ask.recipe.title, state: ipc::MetricState::Read, answer: None, read_at: None, kept: Vec::new() })
+    }
+
+    async fn save_metric(&self, project: String, ask: ipc::TryMetric) -> Result<ipc::MetricSaved, Refusal> {
+        held(&project)?;
+        let reading = ipc::MetricReading { id: ask.recipe.id.clone(), title: ask.recipe.title.clone(), state: ipc::MetricState::Read, answer: None, read_at: None, kept: Vec::new() };
+        Ok(ipc::MetricSaved { project, recipe: ask.recipe, reading })
+    }
+
+    async fn remove_metric(&self, project: String, _id: String) -> Result<ipc::MetricReadings, Refusal> {
+        held(&project)?;
+        Ok(ipc::MetricReadings { project, readings: Vec::new() })
+    }
+
+    async fn save_metric_token(&self, project: String, _save: ipc::SaveMetricToken) -> Result<ipc::MetricReadings, Refusal> {
+        held(&project)?;
+        Ok(ipc::MetricReadings { project, readings: Vec::new() })
+    }
+
     async fn list_ranked_issues(&self, project: String) -> Result<ipc::RankedIssues, Refusal> {
         held(&project)?;
         Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new() })

@@ -545,11 +545,9 @@ are facts about the registry.
 
 **Run it after editing anything under `crates/core-model/domain/`, and commit
 what it writes.** The output is checked in, because a browser cannot read a
-TOML file. `cargo xtask verify-foundations` runs the same generator with
-`--emit`, which writes nothing, and fails naming any file that is not what a
-fresh run would produce — so a registry change nobody regenerated is caught
-rather than rendering the old words. The gate refuses and never rewrites; the
-fix is to run the command yourself.
+TOML file. No gate compares it to the registries now; the native Bridge's Rust
+copy of the same registries is `cargo xtask verify-vocabulary --write`, which
+`verify-foundations` does hold to them.
 
 **What Bridge does with a failure is not decided here.** The wire fields it can
 rely on, the unknown-code fallback, and the rule that where a message appears is
@@ -597,8 +595,7 @@ Function arguments, imports and type unions still break only past the width.
 | Path | Why |
 |---|---|
 | `packages/tokens/` | Its generated files are compared byte for byte with the generator's output, and `xtask/src/tokens.rs` parses its sources one line at a time |
-| `packages/components/src/generated/` | `xtask/src/rules_vocabulary.rs` compares it byte for byte with `codegen` |
-| `packages/shell/layout-registry.json` | `xtask/src/skill_regions.rs` reads it by its hand-written shape |
+| `packages/components/src/generated/` | Written by `apps/desktop/codegen/vocabulary.mjs`, and a reformat is undone by its next run |
 | `packages/mods/` | Compiled into Fleet, and `crates/fleet/src/tests/mods.rs` pins the CSS text |
 | `SketchScene/scene.ts`, `SketchScene/screen.ts` | `crates/ipc/src/tests/sketch.rs` splits them on their line layout |
 
