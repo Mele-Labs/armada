@@ -1,5 +1,5 @@
-//! An artifact's parts: **one artifact a Job grows**, holding the drawing, words, takes, buttons and page it needs,
-//! each asking on its own. While an artifact still asks him, anything new the Job shows joins it as a part.
+//! An artifact's parts: the drawing, words, takes, buttons or page an artifact holds. **One ask is one item**: an
+//! artifact asks him one thing, worded as a question, and nothing the Job shows joins another artifact on its own.
 //! `add_part` puts one on, `answer_part` answers one, and `get_job_artifacts` serves them as
 //! [`JobArtifact::parts`](crate::JobArtifact). `docs/concepts/artifact.md`, *Parts*.
 //!
@@ -24,6 +24,27 @@ pub const MOST_TAKES: usize = 6;
 pub const MOST_BUTTONS: usize = 12;
 /// Most characters in a part's id.
 pub const MOST_PART_ID_CHARS: usize = 40;
+/// Most characters in the question an ask puts to him.
+pub const MOST_QUESTION_CHARS: usize = 200;
+
+/// The question an ask puts to him, trimmed, or why it is refused. **Every ask is a question in plain words**, which
+/// titles its item: one line that ends with `?`, with no markdown. `what` names the field in the refusal.
+pub fn question_checked(said: Option<&str>, what: &str) -> Result<String, String> {
+    let said = said.map(str::trim).unwrap_or_default();
+    if said.is_empty() {
+        return Err(format!("{what} is missing. An ask is a question in plain words, such as `Which layout reads better?`, and it titles his item"));
+    }
+    if said.chars().count() > MOST_QUESTION_CHARS {
+        return Err(format!("{what} is longer than {MOST_QUESTION_CHARS} characters. Ask one short question, and put the detail in `for`"));
+    }
+    if said.contains(['\n', '\r', '`']) {
+        return Err(format!("{what} holds a line break or a backtick. Write one line of plain words"));
+    }
+    if !said.ends_with('?') {
+        return Err(format!("{what} `{said}` is not a question. Word what he decides as a question ending with `?`"));
+    }
+    Ok(said.to_string())
+}
 
 /// On an artifact's attachment: the parts the Job added with `add_part`, as JSON text.
 pub const ARTIFACT_PARTS: &str = "parts";
@@ -221,6 +242,7 @@ pub struct PartAnswer {
 
 /// One part of an artifact, in the order the Job added them.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(from = "PartAsWritten", into = "PartAsWritten")]
 pub struct ArtifactPart {
     /// Unique in its Job. A drawing, draft or page that joined is named by the ledger id it is kept under
     /// (`sketch:<title>`, `draft:<title>`, the page's path); a part added with `add_part` by the id the Job gave.
@@ -239,6 +261,52 @@ pub struct ArtifactPart {
     pub added: Instant,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub answer: Option<PartAnswer>,
+    /// The question it puts to him in plain words, which titles his item. Present on a part that asks, where the Job
+    /// worded one; a part kept before every ask was a question has none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
+}
+
+/// [`ArtifactPart`] as it is written. **A takes part's question is written once**, as the takes' own `question`, which
+/// shares the part's key; written twice, the part would not read back.
+#[derive(Serialize, Deserialize)]
+struct PartAsWritten {
+    id: String,
+    #[serde(flatten)]
+    content: PartContent,
+    asks: bool,
+    state: PartState,
+    revision: u32,
+    drawn: String,
+    added: Instant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    answer: Option<PartAnswer>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    question: Option<String>,
+}
+
+impl From<PartAsWritten> for ArtifactPart {
+    fn from(written: PartAsWritten) -> Self {
+        let PartAsWritten { id, mut content, asks, state, revision, drawn, added, answer, question } = written;
+        // The part's own field reads the shared key, so the takes are given it back.
+        if let PartContent::Takes { question: own, .. } = &mut content {
+            if own.is_none() {
+                own.clone_from(&question);
+            }
+        }
+        ArtifactPart { id, content, asks, state, revision, drawn, added, answer, question }
+    }
+}
+
+impl From<ArtifactPart> for PartAsWritten {
+    fn from(part: ArtifactPart) -> Self {
+        let ArtifactPart { id, content, asks, state, revision, drawn, added, answer, question } = part;
+        let question = match &content {
+            PartContent::Takes { question: own, .. } => question.filter(|_| own.is_none()),
+            _ => question,
+        };
+        PartAsWritten { id, content, asks, state, revision, drawn, added, answer, question }
+    }
 }
 
 impl ArtifactPart {
@@ -266,6 +334,14 @@ pub struct AddPart {
     pub for_line: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub links: Vec<ForLink>,
+    /// The feature, or features, the artifact is made for, as `show_sketch`'s `feature`. **Takes stand alone**, so
+    /// they name their feature here rather than on a drawing beside them.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<crate::FeatureNames>,
+    /// The question the part puts to him, in plain words ending with `?`, which titles his item. **Required on a
+    /// part that asks**; a takes part may give it as its own `question` instead.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub question: Option<String>,
 }
 
 /// A part as the Job sends it, tagged by `kind`. **`id` is on each kind, not beside it**, so the tool's shape reads
@@ -331,6 +407,8 @@ pub struct CheckedPart {
     pub id: String,
     pub content: PartContent,
     pub asks: bool,
+    /// The question it asks. Present where it asks.
+    pub question: Option<String>,
 }
 
 impl AddPart {
@@ -346,7 +424,7 @@ impl AddPart {
         let mut content = None;
         let kind = match &self.part {
             NewPart::Drawing { .. } => {
-                problems.push(String::from("a drawing is not added here: call `show_sketch` with this title, and it joins the artifact as a part"));
+                problems.push(String::from("a drawing is not added here: call `show_sketch`, which shows it as its own artifact"));
                 None
             }
             NewPart::Words { text, .. } => {
@@ -389,15 +467,34 @@ impl AddPart {
         if let Err(why) = self.for_checked() {
             problems.push(why);
         }
+        // A takes part's own `question` stands for the call's, so either says it.
+        let own = match &self.part {
+            NewPart::Takes { question, .. } => question.as_deref().map(str::trim).filter(|said| !said.is_empty()),
+            _ => None,
+        };
+        let question = match (asks, self.question.as_deref().or(own)) {
+            (false, None) => None,
+            (_, said) => match question_checked(said, "`question`") {
+                Ok(question) => Some(question),
+                Err(why) if asks => {
+                    problems.push(why);
+                    None
+                }
+                Err(_) => None,
+            },
+        };
         if !problems.is_empty() {
             return Err(format!("the part was not added: {}. Fix these and call add_part again", problems.join("; ")));
         }
-        let content = content.unwrap_or(PartContent::Words { text: String::new() });
+        let mut content = content.unwrap_or(PartContent::Words { text: String::new() });
+        if let (PartContent::Takes { question: own, .. }, Some(asked)) = (&mut content, &question) {
+            *own = Some(asked.clone());
+        }
         let weight = crate::encode(&content).map(|written| written.len()).unwrap_or(0);
         if weight > MOST_PART_BYTES {
             return Err(format!("the part was not added: it weighs {weight} bytes and an artifact's parts hold at most {MOST_PART_BYTES}. Add less per part"));
         }
-        Ok(CheckedPart { title, id, content, asks })
+        Ok(CheckedPart { title, id, content, asks, question })
     }
 
     /// The agent's For line off the call, where it gave one, or the reason it is refused.
@@ -429,7 +526,7 @@ fn takes_checked(question: Option<&str>, form: Option<VoteForm>, takes: &[NewTak
         seen.push(id);
         let scene = take.scene.as_ref().and_then(|raw| {
             let title = take.title.as_deref().map(str::trim).filter(|title| !title.is_empty()).unwrap_or(id);
-            let shown = ShowSketch { feature: None, title: title.to_string(), scene: raw.clone(), session_id: None, against: None, for_line: None, links: Vec::new(), asks: true };
+            let shown = ShowSketch { feature: None, title: title.to_string(), scene: raw.clone(), session_id: None, against: None, for_line: None, links: Vec::new(), asks: true, question: None };
             match shown.checked_for("add_part") {
                 Ok(sketch) => Some(sketch.scene),
                 Err(why) => {
@@ -502,7 +599,7 @@ fn buttons_checked(actions: &[PartAction], problems: &mut Vec<String>) -> Option
 pub enum PartHow {
     /// Words, or a drawing.
     Approved,
-    /// Words, or a drawing, sent back with a note.
+    /// Words, a drawing or takes, sent back with his note asking for changes. On takes it picks none of them.
     SentBack,
     /// A takes part: the pick he sends.
     Picked,

@@ -16,6 +16,8 @@ use crate::rail_ends::{End, Waiter};
 
 const TITLE: &str = "Request flow";
 const TARGET: &str = "sketch:Request flow";
+/// What the sketch asks, which titles its item in Needs you.
+const QUESTION: &str = "Does this read right?";
 
 // ---- The rule ----
 
@@ -71,7 +73,7 @@ fn drawn(id: &SessionId, second: &str) -> ShowSketch {
     let scene = format!(
         r#"{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Bridge"}},{{"id":"b","kind":"box","x":300,"y":0,"title":"{second}"}}],"edges":[{{"id":"e1","from":"a","to":"b"}}]}}"#
     );
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{TITLE}","question":"{QUESTION}","session_id":"{}","scene":{scene}}}"#, id.as_str()).as_bytes())
         .unwrap()
 }
 
@@ -98,7 +100,7 @@ async fn a_job_on_a_step_ending_on_a_sketch_waits_in_needs_you_from_the_sketch_u
     let drawing = show(&rig, &id, "Fleet").await;
 
     let asked = record(&rig, &id).await;
-    assert_eq!(needs(&asked), [(TARGET, TITLE)], "the one sketch, while the turn still runs");
+    assert_eq!(needs(&asked), [(TARGET, QUESTION)], "the one sketch, while the turn still runs");
     let item = &asked.waiting_for[0];
     assert_eq!(item.act.as_ref().map(|act| (act.kind, act.target.as_str())), Some((ipc::WaitingActKind::Message, id.as_str())), "it opens the Job");
     assert_eq!(asked.workflow_step, Some(0));
@@ -141,7 +143,7 @@ async fn a_step_ending_on_a_document_ends_only_when_he_approves_its_newest_revis
         .await;
     }
     let item = format!("document:{home}");
-    assert!(needs(&record(&rig, &id).await).contains(&(item.as_str(), "Plan")), "the newest revision waits on him");
+    assert!(needs(&record(&rig, &id).await).contains(&(item.as_str(), "Approve \"Plan\"?")), "the newest revision waits on him");
 
     let read = |revision: &str| ipc::AnswerDocument {
         session_id: id.clone(),
@@ -167,12 +169,12 @@ async fn a_sketch_dismissed_is_off_until_it_is_drawn_again_and_is_never_answered
     )
     .unwrap();
     assert!(Arc::clone(&rig.fleet).answer_waiting(answered).await.is_err(), "a sketch is answered on its card");
-    assert_eq!(needs(&record(&rig, &id).await), [(TARGET, TITLE)], "still waiting");
+    assert_eq!(needs(&record(&rig, &id).await), [(TARGET, QUESTION)], "still waiting");
 
     let after = Arc::clone(&rig.fleet).dismiss_waiting(dismissed(&id, TARGET)).await.expect("dismissed");
     assert!(needs(&after).iter().all(|(item, _)| *item != TARGET), "{:?}", needs(&after));
     show(&rig, &id, "Daemon").await;
-    assert_eq!(needs(&record(&rig, &id).await), [(TARGET, TITLE)], "drawn again, it waits again");
+    assert_eq!(needs(&record(&rig, &id).await), [(TARGET, QUESTION)], "drawn again, it waits again");
 }
 
 #[tokio::test]

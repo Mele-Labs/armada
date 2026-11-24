@@ -8,7 +8,7 @@ notes = """
 
 **`seen` only moves forward.** A mark of a revision older than `seen`, or equal to it, leaves `seen` as it is and is answered with the current one, never refused.
 
-**Nothing is sent to the Job.** `SessionChanged` is published on the Job where `seen` moved, so a Bridge reads the artifact again, and is not published where it held. A page that asks nothing waits on him as `read:<path>` until `seen` reaches its newest revision, so that mark takes it off his Needs you.
+**Nothing is sent to the Job.** `SessionChanged` is published on the Job where `seen` moved, so a Bridge reads the artifact again, and is not published where it held. A page that asks nothing raises no item in his Needs you (the owner, 19 Nov 2026): it only informs him, so it is in the thread and his Artifacts, and `seen` only says which revision he last read.
 
 **Kept in Fleet's store**, in `artifact_seen`, one row per Job and artifact, apart from the artifact's attachment, which a new revision rewrites whole.
 

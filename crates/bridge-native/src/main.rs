@@ -41,6 +41,9 @@ mod first_run;
 mod fleet;
 mod frames;
 mod history;
+// Nothing draws the Cockpit's home grid yet; its blocks wait for it.
+#[allow(dead_code)]
+mod home;
 mod job_tokens;
 mod job_view;
 mod inspect;

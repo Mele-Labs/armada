@@ -1,5 +1,5 @@
 //! Fleet holding a Job to how the owner works with it (`crate::ways`): the note a change tells a
-//! running Job, the `waiting_for` that sends back a question with no options, and `all_done` held until a
+//! running Job, the `waiting_for` that sends back a question with no options or an ask not worded as a question, and `all_done` held until a
 //! picture is shown. A question read out of a reply is not sent back: in its first day 40 of 51 such
 //! notices were disputed, since what a reply says is a guess and the item and the call are not.
 //!
@@ -22,6 +22,9 @@ pub(super) const PICTURE_OWED: &str = "fleet.picture_owed";
 /// answers by buttons. A 422.
 pub(super) const OPTIONS_OWED: &str = "fleet.session_waiting_options";
 
+/// A `waiting_for` refused for an item that asks him to choose or approve and is not worded as a question. A 422.
+pub(super) const QUESTION_OWED: &str = "fleet.session_waiting_question";
+
 /// The most options a question may offer.
 const MOST_OPTIONS: usize = 4;
 
@@ -38,6 +41,15 @@ fn is_a_question(item: &WaitingInput) -> bool {
 pub(super) fn options_owed(item: &WaitingInput) -> Option<String> {
     let offered = item.options.len();
     (is_a_question(item) && (offered == 0 || offered > MOST_OPTIONS)).then(|| ways::options_refusal(item.id.trim(), offered))
+}
+
+/// What the agent reads when `item` asks him to choose or approve and its text is not a question in plain words,
+/// which titles the item on his review sheet. `None` for any other item.
+pub(super) fn question_owed(item: &WaitingInput) -> Option<String> {
+    let answered = item.act.as_ref().is_none_or(|act| act.kind == WaitingActKind::Answer);
+    let asks = item.approves || (answered && (!item.options.is_empty() || item.act.is_some()));
+    let why = ipc::question_checked(Some(&item.text), &format!("the text of `{}`", item.id.trim())).err()?;
+    asks.then_some(why)
 }
 
 impl<H, V, W> Fleet<H, V, W>
@@ -91,6 +103,14 @@ where
         }
         match items.iter().find_map(options_owed) {
             Some(why) => Err(self.hosted_refusal(OPTIONS_OWED, &why)),
+            None => Ok(()),
+        }
+    }
+
+    /// `waiting_for` refused for the first item that asks him to choose or approve with no question.
+    pub(super) fn questions_refused(&self, items: &[WaitingInput]) -> Result<(), Refusal> {
+        match items.iter().find_map(question_owed) {
+            Some(why) => Err(self.hosted_refusal(QUESTION_OWED, &why)),
             None => Ok(()),
         }
     }

@@ -392,7 +392,7 @@ async fn the_artifacts_of_a_job_held_from_another_mac_are_read_through_the_link(
     let rig = rig_placing(None);
     let mine = job_in(&rig, None).await;
     let scene = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
-    let drawn = format!(r#"{{"title":"Request flow","session_id":"{}","scene":{scene}}}"#, mine.as_str());
+    let drawn = format!(r#"{{"title":"Request flow","question":"Does this read right?","session_id":"{}","scene":{scene}}}"#, mine.as_str());
     rig.fleet.show_sketch(None, ipc::decode("a sketch to show", drawn.as_bytes()).expect("a sketch")).await.expect("drawn");
     let kept = rig.fleet.get_job_artifacts(mine.clone()).await.expect("this Mac's own list");
     assert_eq!(kept.len(), 1);

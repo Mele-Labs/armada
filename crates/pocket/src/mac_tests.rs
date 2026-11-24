@@ -46,6 +46,8 @@ struct FakeFleet {
     rows: Arc<Mutex<Vec<String>>>,
     handed: Arc<Mutex<Vec<(String, String)>>>,
     events: broadcast::Sender<String>,
+    /// What `/other_mac/home_layout` answers.
+    home_layout: Arc<Mutex<String>>,
 }
 
 impl FakeFleet {
@@ -56,6 +58,10 @@ impl FakeFleet {
 
 async fn sessions(State(fleet): State<FakeFleet>) -> String {
     format!(r#"{{"sessions":[{}]}}"#, fleet.rows.lock().unwrap().join(","))
+}
+
+async fn home_layout(State(fleet): State<FakeFleet>) -> String {
+    fleet.home_layout.lock().unwrap().clone()
 }
 
 async fn thread(RawQuery(query): RawQuery) -> String {
@@ -86,11 +92,13 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         rows: Arc::new(Mutex::new(rows.iter().map(|id| row(id)).collect())),
         handed: Arc::default(),
         events: broadcast::channel(16).0,
+        home_layout: Arc::new(Mutex::new(r#"{"saved_at":"2026-11-24T10:00:00.000Z"}"#.to_string())),
     };
     let app = Router::new()
         .route("/other_mac/sessions", get(sessions))
         .route("/other_mac/bug_reports", get(|| async { r#"{"reports":[]}"# }))
         .route("/other_mac/preview_offers", get(|| async { r#"{"offers":[]}"# }))
+        .route("/other_mac/home_layout", get(home_layout))
         .route("/other_mac/thread", get(thread))
         .route("/other_mac/session", get(thread))
         .route("/other_mac/artifacts", get(thread))
@@ -99,6 +107,7 @@ async fn fake_fleet(rows: &[&str]) -> (FakeFleet, u16) {
         .route("/other_macs/sessions", put(keep))
         .route("/other_macs/bug_reports", put(keep))
         .route("/other_macs/preview_offers", put(keep))
+        .route("/other_macs/home_layout", put(keep))
         .route("/other_macs/event", post(keep))
         .route("/other_macs/forget", post(keep))
         .route("/other_macs/claims", put(keep))
@@ -450,6 +459,7 @@ async fn a_mac_on_a_build_that_speaks_another_wire_is_answered_503_on_all_but_he
         ("POST", "/api/mac/refresh_claim"),
         ("GET", "/api/mac/kit"),
         ("POST", "/api/mac/kit_settle"),
+        ("GET", "/api/mac/home_layout"),
         ("POST", "/api/mac/terminal"),
         ("GET", "/api/mac/terminal/observe"),
     ];
@@ -577,4 +587,23 @@ fn a_pairing_link_is_https_or_loopback() {
     ] {
         assert_eq!(read_link(wrong), None, "{wrong}");
     }
+}
+
+#[tokio::test]
+async fn the_link_hands_the_other_macs_home_layout_in_when_it_opens_and_again_when_a_save_is_told() {
+    let (home, work) = (Side::new("Home", &[]).await, Side::new("Work", &[]).await);
+    paired(&home, &work).await;
+    let work_id = work.id();
+    until("work's layout reaches home's Fleet as it stood when the link opened", || async {
+        home.fleet.handed("PUT /other_macs/home_layout").iter().any(|body| body.contains(&work_id) && body.contains("10:00:00"))
+    })
+    .await;
+
+    *work.fleet.home_layout.lock().unwrap() = r#"{"saved_at":"2026-11-24T11:00:00.000Z"}"#.to_string();
+    work.fleet.events.send(r#"{"message":"event","cursor":2,"event":{"kind":"home_layout.changed"}}"#.to_string()).unwrap();
+    until("the save it told of is read again and handed in", || async {
+        home.fleet.handed("PUT /other_macs/home_layout").iter().any(|body| body.contains("11:00:00"))
+    })
+    .await;
+    assert!(home.fleet.handed("POST /other_macs/event").is_empty(), "the event is the other Mac's own, not handed to Fleet as one");
 }

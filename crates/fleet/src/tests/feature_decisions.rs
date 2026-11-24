@@ -16,7 +16,7 @@ const TAKE_B: &str = r#"{"nodes":[{"id":"m","kind":"box","x":0,"y":0,"title":"Ri
 
 fn drawn(id: &SessionId, title: &str, feature: Option<&str>) -> ShowSketch {
     let feature = feature.map(|slug| format!(r#","feature":"{slug}""#)).unwrap_or_default();
-    ipc::decode("a sketch", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}{feature}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch", format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}{feature}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 fn takes(id: &SessionId, title: &str) -> ipc::AddPart {
@@ -32,7 +32,7 @@ async fn decisions(rig: &Rig, project: &str, slug: &str) -> Vec<FeatureDecision>
 }
 
 #[tokio::test]
-async fn a_pick_on_takes_is_filed_under_the_feature_its_sketch_names_and_no_other() {
+async fn a_pick_on_takes_is_filed_under_the_feature_they_name_and_no_other() {
     let rig = rig();
     let project = a_project(&rig).await;
     libraried(&rig, &project).await;
@@ -40,8 +40,10 @@ async fn a_pick_on_takes_is_filed_under_the_feature_its_sketch_names_and_no_othe
     // The Job changed the other feature, which the sketch does not name.
     commits_filed(&rig, &job, &[trailer(ACTIONS, "abc1", &[])]).await;
 
-    rig.fleet.show_sketch(None, drawn(&job, "Vote layout", Some(VOTING))).await.unwrap();
-    rig.fleet.add_part(None, takes(&job, "Vote layout")).await.unwrap();
+    // Takes stand alone, so they name their feature themselves.
+    let mut voted = takes(&job, "Vote layout");
+    voted.feature = Some(ipc::decode("a feature", format!(r#""{VOTING}""#).as_bytes()).unwrap());
+    rig.fleet.add_part(None, voted).await.unwrap();
     let layout = rig.fleet.get_job_artifacts(job.clone()).await.unwrap().remove(0).parts.into_iter().find(|part| part.id == "layout").unwrap();
     let pick = AnswerPart {
         session_id: job.clone(),
@@ -60,7 +62,7 @@ async fn a_pick_on_takes_is_filed_under_the_feature_its_sketch_names_and_no_othe
     assert_eq!(filed.len(), 1, "{filed:?}");
     assert_eq!((filed[0].question.as_str(), filed[0].choice.as_str(), filed[0].note.as_deref()), ("Which layout?", "Right", Some("Right reads better.")));
     assert_eq!(filed[0].job, job.as_str());
-    assert!(decisions(&rig, &project, ACTIONS).await.is_empty(), "the sketch names a feature, so the Job's other one is not given it");
+    assert!(decisions(&rig, &project, ACTIONS).await.is_empty(), "the takes name a feature, so the Job's other one is not given it");
 }
 
 #[tokio::test]

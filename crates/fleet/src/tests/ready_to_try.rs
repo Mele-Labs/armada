@@ -136,7 +136,7 @@ async fn an_offer_carries_his_words_its_pictures_and_what_he_approved_and_a_re_o
     let id = SessionId::carried(session.as_str());
     let drawing: ShowSketch = ipc::decode(
         "a sketch",
-        format!(r#"{{"title":"Card","session_id":"{session}","scene":{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Card"}}],"edges":[]}}}}"#).as_bytes(),
+        format!(r#"{{"title":"Card","question":"Does this read right?","session_id":"{session}","scene":{{"nodes":[{{"id":"a","kind":"box","x":0,"y":0,"title":"Card"}}],"edges":[]}}}}"#).as_bytes(),
     )
     .unwrap();
     let shown = rig.fleet.show_sketch(None, drawing).await.expect("drawn");

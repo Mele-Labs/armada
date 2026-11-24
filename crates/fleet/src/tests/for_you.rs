@@ -29,7 +29,7 @@ async fn states(rig: &Rig, id: &SessionId, items: Vec<WaitingInput>) {
 
 /// A sketch shown in the turn running, then the turn ended: a sketch waits on him only once its turn ends.
 async fn sketches(rig: &Rig, id: &SessionId, at: usize) {
-    let body = format!(r#"{{"title":"Bay flow","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
+    let body = format!(r#"{{"title":"Bay flow","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str());
     rig.fleet.show_sketch(None, ipc::decode::<ShowSketch>("a sketch to show", body.as_bytes()).unwrap()).await.unwrap();
     rig.stand_in.finishes(at, "Here it is.");
     eventually(|| async { !matches!(rig.turn(id).await, SessionTurn::Working { .. }) }).await;
@@ -46,7 +46,7 @@ fn ids(view: &ForYou) -> Vec<&str> {
 /// A Job with an approval it stated, then a sketch shown after it.
 async fn a_job_waiting(rig: &Rig) -> SessionId {
     let (id, at) = a_job(rig).await;
-    states(rig, &id, vec![ask("plan-ok", "Approve the bay plan", true)]).await;
+    states(rig, &id, vec![ask("plan-ok", "Approve the bay plan?", true)]).await;
     sketches(rig, &id, at).await;
     id
 }
@@ -104,7 +104,7 @@ async fn placed_rows_come_first_carry_their_line_and_a_withdrawn_one_stays_gone(
 
     let withdrawn = fleet().withdraw_for_you(WithdrawForYou { session_id: session_id.clone(), id: "waiting:plan-ok".into() }).await.unwrap();
     assert_eq!(ids(&withdrawn), ["sketch:Bay flow"]);
-    states(&rig, &id, vec![ask("plan-ok", "Approve the bay plan", true)]).await;
+    states(&rig, &id, vec![ask("plan-ok", "Approve the bay plan?", true)]).await;
     assert_eq!(ids(&read(&rig, &id).await), ["sketch:Bay flow"], "stated again, it stays off the tab");
     fleet().withdraw_for_you(WithdrawForYou { session_id, id: "nothing:here".into() }).await.expect("a missing id is not refused");
 }

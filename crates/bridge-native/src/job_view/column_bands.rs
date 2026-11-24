@@ -305,6 +305,7 @@ impl JobView {
             Thing::Ask(ask) => ask.call.call.clone(),
             Thing::Lapsed(lapsed) => lapsed.id.clone(),
             Thing::Row(row) => row.id.clone(),
+            Thing::Sheet(item) => item.id,
         });
         things.chain(self.for_you_beyond_rows(id, cx).into_iter().map(|item| item.id.clone())).collect()
     }

@@ -730,7 +730,7 @@ async fn an_item_asking_him_to_try_and_approve_the_jobs_own_change_is_refused() 
     for item in [
         waiting("try", "Try page notes on a Job's Browser tab with ⌥⌘A, then approve PR #3832", false, None, &[]),
         waiting("approve", "Approve the page notes", false, Some((ipc::WaitingActKind::ApprovePr, "#3832")), &[]),
-        waiting("approves", "Site asks behind the lock on armada/one", true, None, &[]),
+        waiting("approves", "Approve site asks behind the lock on armada/one?", true, None, &[]),
     ] {
         let refused = set_waiting(&rig, &session, vec![item]).await.expect_err("refused").error().clone();
         assert_eq!(refused.code, "fleet.session_waiting_look");
@@ -755,7 +755,7 @@ async fn an_approval_of_another_jobs_pull_request_and_a_decision_with_options_st
         &rig,
         &session,
         vec![
-            waiting("theirs", "Approve PR #3834, the lock Job's change", true, None, &[]),
+            waiting("theirs", "Approve PR #3834, the lock Job's change?", true, None, &[]),
             waiting("pick", "Try #3832's row: keep the count or drop it?", false, None, &["Drop it", "Keep it"]),
         ],
     )

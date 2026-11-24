@@ -86,11 +86,18 @@ pub fn colour(look: &Look, node: &Node, attr: &str, word: &str, trouble: &mut Tr
     }
 }
 
+/// The token a space step names: `2`, `space-2` and `--space-2` are one step, since the docs name it by its token
+/// (24 Nov: a Job wrote `pad="space-2"` and the owner read a wall of trouble over its prototype).
+pub fn space_token(word: &str) -> String {
+    let step = word.trim_start_matches("--");
+    format!("space-{}", step.strip_prefix("space-").unwrap_or(step))
+}
+
 fn space(look: &Look, node: &Node, attr: &str, word: &str, trouble: &mut Trouble) -> Pixels {
     if word == "0" {
         return gpui::px(0.);
     }
-    match look.length_named(&format!("space-{word}")) {
+    match look.length_named(&space_token(word)) {
         Ok(step) => step,
         Err(_) => {
             trouble.push(format!("<{}> {attr}=\"{word}\" is no space step", node.tag));

@@ -1,5 +1,6 @@
 //! The Cockpit's right side while the Operator is off: a floor plan in the page's place, under a header row with a Switch on
-//! that is the page's own switch. The feature map where the project's catalog holds features, else the code map of its
+//! that is the page's own switch. Made with [`Floor::plan`] it is the plan alone, a block of the Cockpit's home: no header, no
+//! switch, and as many columns as its own width holds. The feature map where the project's catalog holds features, else the code map of its
 //! modules. It reads the library the Features screen already holds (`FeaturesScreen::watch`) and one overview read for the code
 //! map, and draws; the chip on a feature joins its Job to the Jobs list's record, so its hue is the one that Job's group wears
 //! there, never a field of the wire. The code map has no doors: Fleet has no project-wide floor plan to draw them from.
@@ -101,7 +102,8 @@ enum Overview {
 pub struct Moved;
 
 pub struct Floor {
-    page: Entity<OperatorPageView>,
+    /// The page the floor stands in the place of, with its Switch on. None for the plan alone, which is always up.
+    page: Option<Entity<OperatorPageView>>,
     features: Entity<FeaturesScreen>,
     list: Entity<JobsList>,
     overview: Overview,
@@ -123,19 +125,27 @@ impl Floor {
             cx.observe(&features, |this, _, cx| this.sync(cx)),
             // A Job's state moves its chip's hue.
             cx.observe(&list, |this, _, cx| {
-                if this.page.read(cx).is_off() {
+                if this.is_up(cx) {
                     cx.notify();
                 }
             }),
         ];
-        let mut this = Floor { page, features, list, overview: Overview::Idle, asked: None, up: false, work: None, _subs: subs };
+        let mut this = Floor { page: Some(page), features, list, overview: Overview::Idle, asked: None, up: false, work: None, _subs: subs };
         this.follow(cx);
         this
     }
 
-    /// Whether the floor stands in the page's place: the Operator is off.
+    /// The plan alone, for a block of the Cockpit's home: it reads the library as soon as it is made and follows it from then on.
+    pub fn plan(features: Entity<FeaturesScreen>, list: Entity<JobsList>, cx: &mut Context<Self>) -> Self {
+        let subs = vec![cx.observe(&features, |this, _, cx| this.sync(cx)), cx.observe(&list, |_, _, cx| cx.notify())];
+        let mut this = Floor { page: None, features, list, overview: Overview::Idle, asked: None, up: false, work: None, _subs: subs };
+        this.follow(cx);
+        this
+    }
+
+    /// Whether the floor stands in the page's place: the Operator is off. The plan alone is always up.
     pub fn is_up(&self, cx: &gpui::App) -> bool {
-        self.page.read(cx).is_off()
+        self.page.as_ref().is_none_or(|page| page.read(cx).is_off())
     }
 
     /// Off, the floor reads the library without being in front. Called again where another place was in front and left.
@@ -156,7 +166,7 @@ impl Floor {
     fn sync(&mut self, cx: &mut Context<Self>) {
         let features = self.features.read(cx);
         let wants = match &features.library {
-            Load::Read(library) if self.page.read(cx).is_off() && cards(library, &[]).is_empty() => features.floor_project(cx),
+            Load::Read(library) if self.is_up(cx) && cards(library, &[]).is_empty() => features.floor_project(cx),
             _ => None,
         };
         if wants != self.asked {
@@ -200,8 +210,7 @@ impl Floor {
     // -- drawn ---------------------------------------------------------------------------------
 
     /// The header row: the Floor's title, that the Operator is off, the key to the chips' colours, and the page's own switch.
-    fn head(&self, look: &Look, cx: &Context<Self>) -> AnyElement {
-        let page = self.page.read(cx);
+    fn head(&self, page: &OperatorPageView, look: &Look, cx: &Context<Self>) -> AnyElement {
         let title = labelled(
             div().id("floor-title").flex_none().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child("Floor"),
             Role::Heading,
@@ -212,9 +221,7 @@ impl Floor {
             Role::Status,
             "Operator off",
         );
-        let legend = div().flex_1().min_w_0().flex().flex_wrap().items_center().justify_end().gap_x(look.length(token::SPACE_3)).children(crate::jobs::legend().into_iter().map(|(said, hue)| {
-            div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(dot(look, hue, false)).child(said)
-        }));
+        let legend = self.legend(look);
         let refused = page.switch_refused().map(|why| {
             let said = format!("Not switched on: {why}");
             labelled(div().id("floor-refused").text_size(look.length(token::TEXT_XS)).text_color(look.color(token::STATUS_COMPLETED_FAILED)).child(SharedString::from(said.clone())), Role::Alert, said)
@@ -235,8 +242,9 @@ impl Floor {
                 let button = press("floor-switch", "Switch on".into(), Some("power"), None, Weight::Pick, look).tooltip(tip("Queue what needs you here"));
                 labelled(
                     pressed(button, cx, |this, window, cx| {
-                        this.page.update(cx, |page, cx| page.switch_on(cx));
-                        let keys = this.page.read(cx).focus.clone();
+                        let Some(page) = this.page.clone() else { return };
+                        page.update(cx, |page, cx| page.switch_on(cx));
+                        let keys = page.read(cx).focus.clone();
                         window.focus(&keys, cx);
                     }),
                     Role::Button,
@@ -260,6 +268,13 @@ impl Floor {
             .children(refused)
             .child(switch)
             .into_any_element()
+    }
+
+    /// The key to the chips' colours: each state a Job on a feature can stand in, in its hue.
+    fn legend(&self, look: &Look) -> gpui::Div {
+        div().flex_1().min_w_0().flex().flex_wrap().items_center().justify_end().gap_x(look.length(token::SPACE_3)).children(crate::jobs::legend().into_iter().map(|(said, hue)| {
+            div().flex_none().flex().items_center().gap(look.length(token::SPACE_1)).text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(dot(look, hue, false)).child(said)
+        }))
     }
 
     /// One chip for each project Fleet names, the one on the floor ringed: the Features screen's own pick, kept the same way.
@@ -319,13 +334,21 @@ impl Floor {
 
     /// The areas as cards, as many columns as the window has room for.
     fn feature_map(&self, cards: Vec<Card>, window: &Window, look: &Look, cx: &mut Context<Self>) -> AnyElement {
-        let columns: u16 = match f32::from(window.viewport_size().width) {
-            wide if wide >= 1600. => 3,
-            wide if wide >= 1100. => 2,
-            _ => 1,
-        };
         let cards: Vec<AnyElement> = cards.into_iter().map(|card| self.area(card, look, cx)).collect();
-        labelled(div().id("floor-feature-map").w_full().grid().grid_cols(columns).gap(look.length(token::GAP_PANEL)).children(cards), Role::Region, "Feature map").into_any_element()
+        let map = div().id("floor-feature-map").w_full();
+        let map = if self.page.is_some() {
+            let columns: u16 = match f32::from(window.viewport_size().width) {
+                wide if wide >= 1600. => 3,
+                wide if wide >= 1100. => 2,
+                _ => 1,
+            };
+            map.grid().grid_cols(columns).gap(look.length(token::GAP_PANEL)).children(cards)
+        } else {
+            // A block is as wide as its box: the areas wrap to as many columns as that holds, never to the window's width.
+            let least = look.length(token::SPACE_12) * 5.;
+            map.flex().flex_wrap().gap(look.length(token::GAP_PANEL)).children(cards.into_iter().map(|card| div().flex_grow(1.).flex_shrink(1.).flex_basis(least).max_w_full().min_w_0().child(card)))
+        };
+        labelled(map, Role::Region, "Feature map").into_any_element()
     }
 
     /// An area: a header band in its hue over its features, each with the Jobs working on it.
@@ -463,15 +486,40 @@ impl Render for Floor {
             Load::Failed(why) => Some(Err(why.clone())),
             Load::Read(library) => Some(Ok(cards(library, self.list.read(cx).records()))),
         };
+        let switcher = self.switcher(look, cx);
+        let mapped = matches!(&library, Some(Ok(cards)) if !cards.is_empty());
         let body = match library {
             None => self.bones(look),
             Some(Err(why)) => self.not_read(&why, look),
             Some(Ok(cards)) if cards.is_empty() => self.rooms(look),
             Some(Ok(cards)) => self.feature_map(cards, window, look, cx),
         };
-        let switcher = self.switcher(look, cx);
+        let Some(page) = self.page.clone() else {
+            // The plan alone: the project chips with the key to the chips' colours beside them, then the plan.
+            let top = (switcher.is_some() || mapped).then(|| {
+                div()
+                    .flex_none()
+                    .flex()
+                    .flex_wrap()
+                    .items_center()
+                    .gap_x(look.length(token::SPACE_3))
+                    .gap_y(look.length(token::SPACE_2))
+                    .children(switcher)
+                    .children(mapped.then(|| self.legend(look).min_w(look.length(token::SPACE_12) * 3.)))
+            });
+            return div()
+                .id("home-floor-plan")
+                .size_full()
+                .flex()
+                .flex_col()
+                .font_family(sans(look))
+                .text_color(look.color(token::FG_DEFAULT))
+                .child(div().id("floor-body").flex_1().min_h_0().overflow_y_scroll().p(look.length(token::SPACE_3)).flex().flex_col().gap(look.length(token::SPACE_3)).children(top).child(body))
+                .into_any_element();
+        };
+        let head = self.head(page.read(cx), look, cx);
         // The page's keys stay on a handle in the tree, so the window's keys reach the Cockpit while the floor is drawn.
-        let keys = self.page.read(cx).focus.clone();
+        let keys = page.read(cx).focus.clone();
         labelled(
             crate::reviews::panel(look)
                 .id("cockpit-floor")
@@ -481,10 +529,11 @@ impl Render for Floor {
                 .flex_col()
                 .font_family(sans(look))
                 .text_color(look.color(token::FG_DEFAULT))
-                .child(self.head(look, cx))
+                .child(head)
                 .child(div().id("floor-body").flex_1().min_h_0().overflow_y_scroll().p(look.length(token::SPACE_4)).flex().flex_col().gap(look.length(token::SPACE_3)).children(switcher).child(body)),
             Role::Region,
             "Floor",
         )
+        .into_any_element()
     }
 }

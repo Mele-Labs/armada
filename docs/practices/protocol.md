@@ -2166,3 +2166,30 @@ A project that picked none sends nothing, and its store state says "No login is 
 
 **Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
 **The event stream.** `projects.changed` carries the project whole, so it carries the field; no new event.
+
+## One ask, one item, titled with its question: `question` on `show_sketch` and `add_part`, and `SessionRecord.answers`
+
+Since 20 Nov 2026. `docs/concepts/artifact.md`, *Parts*; `docs/concepts/session/waiting-on-the-person.md`.
+The owner ruled it on 19 Nov 2026: one ask, one item, one place, each titled with its question.
+**Additive only**: optional fields on existing types and two new types; no operation, route or event kind.
+The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations` and `packages/protocol/src`, and there is no number to take.
+Bridge's half is `packages/protocol/src/sessions.ts` and `job-artifacts.ts`, written by hand, field for field.
+
+| Where | Side | Carries |
+| --- | --- | --- |
+| `ShowSketch` (`show_sketch`) | the agent writes, Fleet reads | Gains `question`: what a sketch that asks puts to him, one line ending in `?`. Required where `asks` is on and no pending plan names the sketch |
+| `AddPart` (`add_part`) | the agent writes, Fleet reads | Gains `question` on the part, required on one that asks, and `feature`, the features the artifact is about |
+| `ArtifactPart` (`get_job_artifacts`) | Fleet writes, Bridge reads | Gains `question`, absent on a part that asks nothing or was kept before it |
+| `SessionRecord` | Fleet writes, Bridge reads | Gains `answers`, absent when empty: each `AnsweredAsk` he gave, oldest first |
+| `AnsweredAsk` | Fleet writes, Bridge reads | New: `item`, `question`, `how`, and where he gave them `words`, `pick`, `artifact`, `part` and `notes`, with `at` |
+| `AnswerHow` | Fleet writes, Bridge reads | New: `picked`, `approved`, `asked_for_changes`, `dismissed` or `answered` |
+| `WaitingItem.text` | Fleet writes, Bridge reads | Unchanged in shape: the question of the ask, so it titles the item |
+| `AnswerPart` on takes | Bridge writes, Fleet reads | `sent_back` with `words` is now taken: his Ask for changes, which picks none |
+
+**New refusals**: an ask with no question, or one not worded as one, is a 422 naming why, `fleet.sketch_refused`, `fleet.part_refused` or `fleet.session_waiting_question`.
+A drawing beside takes, and a second ask on one artifact, are refused the same way.
+**A card of several questions is one item a question**, `ask:<call>` then `ask:<call>#<n>`, and the call is answered once every one is.
+
+**Skew.** The IDs differ, so a Bridge and a Fleet either side of this change refuse one another and the lifeboat serves.
+An older Fleet sends no `answers` and no `question`, which a newer Bridge reads as none.
+**The event stream.** The record is carried whole, so it carries `answers`; no new event.

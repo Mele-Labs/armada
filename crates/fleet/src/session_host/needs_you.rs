@@ -179,9 +179,6 @@ fn pressed(item: &WaitingItem, job: &str) -> NeedsYouAct {
     match item.source {
         WaitingSource::Plan => return NeedsYouAct::OpenPlan,
         WaitingSource::Sketch => return NeedsYouAct::OpenSketch { title: named(SKETCH_PREFIX) },
-        WaitingSource::Document if super::document_answers::is_read_item(item) => {
-            return NeedsYouAct::OpenDocument { path: named(super::document_answers::READ_ITEM_PREFIX) }
-        }
         WaitingSource::Document => return NeedsYouAct::OpenDocument { path: named(DOCUMENT_ITEM_PREFIX) },
         WaitingSource::Draft => return NeedsYouAct::OpenDraft { row: named(DRAFT_PREFIX) },
         _ => {}

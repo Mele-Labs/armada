@@ -172,10 +172,6 @@ pub(crate) struct WaitingReads {
     rule_acts: Vec<store::KeptRuleAct>,
     /// The asks it made the Operator that stand on its Needs you, or in Your turn.
     job_asks: Vec<store::KeptJobAsk>,
-    /// The newest revision he opened of each of its artifacts.
-    seen: Vec<store::KeptArtifactSeen>,
-    /// The ids of its archived artifacts.
-    archived: Vec<String>,
     /// The notes it offered, which its Ready to try cards are.
     ready: Vec<store::KeptBuildNote>,
     /// The branches it has on the preview list.
@@ -251,8 +247,6 @@ pub(crate) fn waiting_reads(
         held_children: super::agent_starting::held_children(store, &session.id)?,
         rule_acts: store.rule_acts_asking(&session.id)?,
         job_asks: store.raised_job_asks_of(&session.id)?,
-        seen: store.artifact_seen(&session.id)?,
-        archived: store.artifact_archives(&session.id)?.into_iter().map(|one| one.artifact).collect(),
         ready: store.build_notes_of_session(&session.id)?,
         offered: store.preview_offered_branches_of(&session.id)?,
     })
@@ -315,7 +309,7 @@ fn source_of(name: &str) -> Option<WaitingSource> {
     ipc::decode("a waiting source", format!("\"{name}\"").as_bytes()).ok()
 }
 
-fn offer_label(offer: &CallAnswer) -> &'static str {
+pub(super) fn offer_label(offer: &CallAnswer) -> &'static str {
     match offer {
         CallAnswer::AllowOnce => "Allow once",
         CallAnswer::AllowAndRemember => "Allow and remember",
@@ -348,80 +342,12 @@ fn act_kind_of(text: &str) -> Option<WaitingActKind> {
     }
 }
 
-/// The open card as an item, if one is open.
-fn card_item(asked: &CallInFlight) -> WaitingItem {
-    let act = Some(WaitingAct {
-        kind: WaitingActKind::Answer,
-        target: asked.call.clone(),
-        on: None,
-    });
-    if let Some(first) = asked.questions.first() {
-        let single = asked.questions.len() == 1 && !first.multi_select;
-        return WaitingItem {
-            approves: false,
-            id: format!("ask:{}", asked.call),
-            text: first.question.clone(),
-            since: asked.asked_at.clone(),
-            source: WaitingSource::AskCard,
-            act,
-            options: if single {
-                first
-                    .options
-                    .iter()
-                    .map(|one| WaitingOption {
-                        label: one.label.clone(),
-                        description: None,
-                        picture: None,
-                    })
-                    .collect()
-            } else {
-                Vec::new()
-            },
-            steps: Vec::new(),
-            place: None,
-            confirmed: false,
-            holders: Vec::new(),
-            creating_since: None,
-            create_refused: None,
-            operator_read: None,
-            artifact: None,
-        };
-    }
-    WaitingItem {
-        approves: false,
-        id: format!("perm:{}", asked.call),
-        text: format!("{} {}", asked.tool, asked.detail)
-            .trim()
-            .to_string(),
-        since: asked.asked_at.clone(),
-        source: WaitingSource::Permission,
-        act,
-        options: asked
-            .offers
-            .iter()
-            .map(|one| WaitingOption {
-                label: offer_label(one).to_string(),
-                description: None,
-                picture: None,
-            })
-            .collect(),
-        steps: Vec::new(),
-        place: None,
-        confirmed: false,
-        holders: Vec::new(),
-        creating_since: None,
-        create_refused: None,
-        operator_read: None,
-        artifact: None,
-    }
-}
-
 /// The agent's items, then Fleet's: the open card, then each walk window. **Where an agent item
 /// names the same act and target as one of Fleet's, Fleet's stands** and the agent's is left off,
 /// and so is one with a `walk` act (`walk_asks.rs`), kept before `waiting_for` refused it.
 pub(crate) fn merged(
     kept: Vec<KeptWaiting>,
-    asked: Option<&CallInFlight>,
+    asked: Option<(&CallInFlight, &[QuestionAnswer])>,
     windows: &[Window],
     dismissed: &[String],
     ended: bool,
@@ -429,7 +355,7 @@ pub(crate) fn merged(
     if ended {
         return Vec::new();
     }
-    let mut derived: Vec<WaitingItem> = asked.map(card_item).into_iter().collect();
+    let mut derived: Vec<WaitingItem> = asked.map(|(card, picked)| super::ask_cards::card_items(card, picked)).unwrap_or_default();
     derived.extend(windows.iter().map(|one| WaitingItem {
         approves: false,
         id: format!("walk:{}", one.url),
@@ -553,8 +479,8 @@ where
         session: &KeptSession,
         attachments: &[ipc::Attachment],
     ) -> Waited {
-        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, seen: opened, archived, ready, offered } = reads;
-        let asked = self.hosts().of(&session.id).state().asked.clone();
+        let WaitingReads { kept, rows, dismissed, closed: _, done, done_summary: _, so_far: _, turn_end, carded, tell, plan, misreads, confirmed, word_asks, calls, start_held, paused, checks_running, asked_tasks, not_ours, ready_changes, held_children, rule_acts, job_asks, ready, offered } = reads;
+        let (asked, picked) = self.card_and_picks(&session.id);
         let rows: Vec<SessionRow> = rows
             .iter()
             .filter_map(|body| ipc::decode::<SessionRow>("a job row", body.as_bytes()).ok())
@@ -609,7 +535,7 @@ where
             super::planning::plan_holds(recorded, walk.as_deref(), attachments, &rows, &dismissed)
         });
         let lapsed_open = !ended && lapsed_question(&rows).is_some();
-        let mut items = merged(kept, asked.as_ref(), &windows, &dismissed, ended);
+        let mut items = merged(kept, asked.as_ref().map(|card| (card, picked.as_slice())), &windows, &dismissed, ended);
         let mut held = Vec::new();
         items.retain(|one| !super::agent_starting::repeats_held_child(one, &held_children));
         // Once its branch is on the preview list, an ask to try the Job's own change is its Ready to try card's.
@@ -779,8 +705,6 @@ where
             held = in_turn;
             // So is every page's newest revision, until he approves it, sends it back or dismisses it.
             items.extend(super::document_answers::document_items(attachments, &session.id, &dismissed));
-            // A page that asks nothing waits to be read, until he opens its newest revision.
-            items.extend(super::document_answers::read_items(attachments, &session.id, &dismissed, &opened, &archived));
             // One row for the Job while any Ready to try card is open: answered on its cards. His dismissal covers the
             // cards open then, so one offered later raises it again.
             items.extend(crate::build_noting::ready_items(ready, &session.id, self.now().as_str(), &dismissed));
@@ -843,7 +767,7 @@ where
                             on: None,
                         }),
                         id,
-                        text: title,
+                        text: super::artifact_parts::fleet_question(&title),
                         since: at,
                         source: WaitingSource::Draft,
                         options,
@@ -854,7 +778,7 @@ where
                         creating_since: None,
                         create_refused: None,
                         operator_read: None,
-                        artifact: None,
+                        artifact: Some(format!("{DRAFT_PREFIX}{title}")),
                     })
                 }
                 // Fleet's handoff card, while the Job is live to hand on.
@@ -888,9 +812,8 @@ where
             // called a tool still reaches the person. Not when it already asked through one, while
             // the sentence readers are off: in force they read the reply whatever is listed, and a
             // repeat of a listed command is folded below.
-            // A page waiting to be read asked nothing.
             let called = !super::extracting::IN_FORCE && items.iter().any(|one| {
-                !super::document_answers::is_read_item(one) && matches!(
+                matches!(
                     one.source,
                     WaitingSource::Agent
                         | WaitingSource::AskCard
@@ -960,6 +883,7 @@ where
             }
         }
         self.options_refused(&set.items)?;
+        self.questions_refused(&set.items)?;
         // An item about an artifact names one the Job holds, by its id or its title, and keeps its id.
         let mut artifacts = std::collections::HashMap::new();
         for item in &set.items {
@@ -1338,6 +1262,36 @@ where
             (None, None) => "Approved".to_string(),
             },
         };
+        // His answer as its thread card shows it, kept once the Job has it. Not a permission: that is no ask.
+        let how = match (item.source, fixed, picked.as_deref(), words) {
+            (WaitingSource::Draft, Some(_), ..) | (WaitingSource::Draft, None, Some(_), _) => Some(ipc::AnswerHow::Approved),
+            (WaitingSource::Draft, None, None, Some(_)) => Some(ipc::AnswerHow::AskedForChanges),
+            (WaitingSource::Walk, ..) if walk_approved => Some(ipc::AnswerHow::Approved),
+            (_, _, Some(APPROVE), _) if item.approves => Some(ipc::AnswerHow::Approved),
+            (_, _, Some(ASK_FOR_CHANGES), _) if item.approves => Some(ipc::AnswerHow::AskedForChanges),
+            (_, _, Some(_), _) => Some(ipc::AnswerHow::Picked),
+            _ => Some(ipc::AnswerHow::Answered),
+        }
+        .filter(|_| by == Answerer::Him && item.source != WaitingSource::Permission);
+        let kept_answer = how.map(|how| {
+            let pick = picked.clone().filter(|_| how == ipc::AnswerHow::Picked);
+            (item.id.clone(), item.text.clone(), how, words.map(str::to_string), pick, item.artifact.clone(), said.extras.clone())
+        });
+        let keep_answer = |fleet: Arc<Self>, id: String| {
+            let kept = kept_answer.clone();
+            async move {
+                if let Some((item, question, how, words, pick, artifact, extras)) = kept {
+                    let answered = super::answers_kept::Answered {
+                        words: words.as_deref(),
+                        pick: pick.as_deref(),
+                        artifact: artifact.as_deref(),
+                        extras: &extras,
+                        ..super::answers_kept::Answered::to(&item, &question, how)
+                    };
+                    fleet.answer_kept(&id, answered).await;
+                }
+            }
+        };
         let settled = match item.source {
             WaitingSource::AskCard | WaitingSource::Permission => {
                 let asked = self.hosts().of(&id).state().asked.clone().ok_or_else(|| {
@@ -1349,14 +1303,31 @@ where
                     self.hosted_refusal(SESSION_WAITING_UNHELD, why)
                 })?;
                 let answer = if item.source == WaitingSource::AskCard {
-                    match (picked.as_deref().or(words), asked.questions.first()) {
-                        (Some(chosen), Some(first)) => AnswerSessionAsk {
+                    let at = super::ask_cards::ask_item_at(&item.id);
+                    match (picked.as_deref().or(words), asked.questions.get(at)) {
+                        // One question of several: his pick is held, and the call is answered once every one has one.
+                        (Some(_), Some(_)) if asked.questions.len() > 1 => {
+                            let Some(answers) = self.question_picked(&id, &asked, at, picked.as_deref(), words) else {
+                                keep_answer(Arc::clone(&self), id.clone()).await;
+                                return self.published_hosted(&id).await;
+                            };
+                            AnswerSessionAsk {
+                                session_id: said.session_id.clone(),
+                                call: asked.call.clone(),
+                                answer: CallAnswer::AllowOnce,
+                                note: None,
+                                answers,
+                                folder: None,
+                                kind: None,
+                            }
+                        }
+                        (Some(chosen), Some(question)) => AnswerSessionAsk {
                             session_id: said.session_id.clone(),
                             call: asked.call.clone(),
                             answer: CallAnswer::AllowOnce,
                             note: picked.as_ref().and(words).map(str::to_string),
                             answers: vec![QuestionAnswer {
-                                question: first.question.clone(),
+                                question: question.question.clone(),
                                 chosen: vec![chosen.to_string()],
                             }],
                             folder: None,
@@ -1519,13 +1490,15 @@ where
             // Settled only once the message is sent, so a failed send leaves the draft standing.
             WaitingSource::Draft => {
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
+                // The item reads as the question Fleet words; the Job knows the draft by its title.
+                let title = super::artifact_parts::fleet_question_of(&item.text).unwrap_or(&item.text);
                 // A proposed workflow: Approve saves it and Dismiss drops it, before the Job is told. His notes
                 // put the old change aside, and the Job proposes it afresh.
                 let proposal = self.draft_change(&id, row).await.and_then(|change| match (said.choice, fixed, words) {
-                    (Some(0), ..) => Some((change, drafting::approved(&item.text, None), DraftHow::Approved, None)),
-                    (Some(_), ..) => Some((change, drafting::withdrawn(&item.text, None), DraftHow::Withdrawn, None)),
+                    (Some(0), ..) => Some((change, drafting::approved(title, None), DraftHow::Approved, None)),
+                    (Some(_), ..) => Some((change, drafting::withdrawn(title, None), DraftHow::Withdrawn, None)),
                     (None, None, Some(note)) => {
-                        let body = [Some(drafting::workflow_sent_back(&item.text, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
+                        let body = [Some(drafting::workflow_sent_back(title, note).as_str()), line].into_iter().flatten().collect::<Vec<_>>().join("\n");
                         Some((change, body, DraftHow::SentBack, Some(note.to_string())))
                     }
                     (None, ..) => None,
@@ -1536,12 +1509,12 @@ where
                 // A draft whose newest revision is his Edit is approved as his words, so the Job applies them.
                 let his = Box::pin(self.draft_his(&id, row)).await;
                 let (body, how, kept) = match (fixed, said.choice, words) {
-                    (Some(fixed), ..) => (drafting::fixed(&item.text, fixed), DraftHow::Fixed, Some(fixed)),
+                    (Some(fixed), ..) => (drafting::fixed(title, fixed), DraftHow::Fixed, Some(fixed)),
                     (None, Some(_), words) => match his {
-                        Some(his) => (drafting::approved_his(&item.text, &his, words), DraftHow::Approved, words),
-                        None => (drafting::approved(&item.text, words), DraftHow::Approved, words),
+                        Some(his) => (drafting::approved_his(title, &his, words), DraftHow::Approved, words),
+                        None => (drafting::approved(title, words), DraftHow::Approved, words),
                     },
-                    (None, None, Some(note)) => (drafting::sent_back(&item.text, note), DraftHow::SentBack, Some(note)),
+                    (None, None, Some(note)) => (drafting::sent_back(title, note), DraftHow::SentBack, Some(note)),
                     (None, None, None) => {
                         return Err(self.hosted_refusal(
                             SESSION_WAITING_EMPTY,
@@ -1554,6 +1527,14 @@ where
                 let row = item.id.strip_prefix(DRAFT_PREFIX).unwrap_or_default();
                 self.draft_settled(&id, row, how, kept.map(str::to_string)).await
             }
+        };
+        // Kept once the Job has it, and served with the record this answers with.
+        let settled = match settled {
+            Ok(_) if kept_answer.is_some() => {
+                keep_answer(Arc::clone(&fleet), id.clone()).await;
+                fleet.published_hosted(&id).await
+            }
+            other => other,
         };
         if let (Ok(record), false) = (
             &settled,
@@ -1610,11 +1591,9 @@ where
         // The agent is told first, so a send that fails leaves the item standing to try again. "Not yet"
         // is the plan put away to keep talking.
         let told = match item.source {
-            // A page waiting to be read asked the Job for nothing, so his dismissal tells it nothing.
-            _ if super::document_answers::is_read_item(&item) => None,
             WaitingSource::Agent => Some(removed(&item.text, dismiss.reason.as_deref())),
             WaitingSource::Plan => Some(super::planning::NOT_YET_TOLD.to_string()),
-            WaitingSource::Draft => Some(drafting::withdrawn(&item.text, dismiss.reason.as_deref())),
+            WaitingSource::Draft => Some(drafting::withdrawn(super::artifact_parts::fleet_question_of(&item.text).unwrap_or(&item.text), dismiss.reason.as_deref())),
             WaitingSource::Walk | WaitingSource::Sketch | WaitingSource::Document | WaitingSource::Replied if !dismiss.misread => {
                 Some(dismissed_by_owner(&item.text))
             }
@@ -1673,6 +1652,17 @@ where
             return Ok(record);
         }
         let closed = self.closed_as_it_stood(item);
+        // His Dismiss is his answer to an ask, kept for its thread card. Not a sentence that asked nothing, a
+        // permission or a done.
+        let no_ask = misread || matches!(item.source, WaitingSource::Permission | WaitingSource::Done);
+        if !no_ask {
+            let answered = super::answers_kept::Answered {
+                words: reason,
+                artifact: item.artifact.as_deref(),
+                ..super::answers_kept::Answered::to(&item.id, &item.text, ipc::AnswerHow::Dismissed)
+            };
+            self.answer_kept(&id, answered).await;
+        }
         // Dismissing an act a rule planned is Skip: it is recorded skipped, and the agent is told nothing.
         if item.source == WaitingSource::RuleAct {
             self.rule_act_skipped(&id, &item.id).await?;
