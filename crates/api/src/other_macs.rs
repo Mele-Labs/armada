@@ -12,7 +12,7 @@ use ipc::{Delivered, Missed, StreamMessage};
 use serde::Deserialize;
 
 use crate::answers::{answer, refused, undecodable};
-use crate::daemon::{HostedSessions, OtherMacs, PullRequests, Queries, Sessions};
+use crate::daemon::{Commands, HostedSessions, OtherMacs, PullRequests, Queries, Sessions};
 use crate::served::Served;
 use crate::sockets::{resync, send};
 use crate::stream::Next;
@@ -22,7 +22,7 @@ use crate::stream::Next;
 /// Job list was 5 MB, past axum's 2 MB default, and nothing after it crossed.
 pub(crate) const MOST_A_MAC_LIST_MAY_BE: usize = 64 * 1024 * 1024;
 
-pub(crate) fn mounted<D: OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
+pub(crate) fn mounted<D: Commands + OtherMacs + Queries + HostedSessions + Sessions + PullRequests + crate::daemon::Story>() -> Router<Served<D>> {
     Router::new()
         .route("/other_mac/sessions", get(share_sessions::<D>))
         .route("/other_mac/bug_reports", get(share_bug_reports::<D>))

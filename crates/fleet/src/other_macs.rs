@@ -313,6 +313,10 @@ where
         self.pull_held_by_other_mac(repository, number).await
     }
 
+    fn ready_in_this_build(&self, asked: &ipc::AnswerReadyToTry) -> Result<(), Refusal> {
+        self.ready_in_build_here(asked)
+    }
+
     async fn act_on_other_mac(self: Arc<Self>, mac: String, act: JobAct) -> Result<ActAnswered, Refusal> {
         self.acted_on_other_mac(mac, act).await
     }
@@ -495,7 +499,11 @@ where
                 self.run_id(),
             )));
         }
-        self.events().relay(crossed.event);
+        let mut event = crossed.event;
+        if let Event::JobThreadTail(tail) = &mut event {
+            self.ready_cards_restamped(&mut tail.items);
+        }
+        self.events().relay(event);
         Ok(MacNamed { mac })
     }
 
