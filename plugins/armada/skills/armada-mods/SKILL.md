@@ -156,7 +156,7 @@ nothing: check the id against the table.
 | `job.panels` | `done`, `now`, `next` | `now` | no | no |
 | `rail` | `operator`, `overview`, `sessions`, `kit`, `mods`, `settings`, `guides`, `workflows`, `studios`, `logbook`, `reviews`, `issues`, `projects` | `overview`, `mods`, `settings` | no | no |
 
-`packages/shell/layout-registry.json` is the list Fleet checks. **`rail`
+`crates/ipc/layout-registry.json` is the list Fleet checks. **`rail`
 is the places: the Operator, the Cockpit, the Jobs tab (`sessions`) and the System strip's pages.
 The Logbook page is the place `logbook`.** `dashboard.panels` is the Cockpit's
 panels: `list` the Jobs list, `merge-line` the merge queue, `controls` Flight

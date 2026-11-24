@@ -271,7 +271,7 @@ Its `tree` line is that tree's path, where the annotation layer writes notes, si
 A build kept before Armada Classic was retired still carries `bridge`, `bridge_shell`, `electron`, `node_modules` and `page_reload` rows; they are read past and nothing writes them now.
 **`Armada.app` is the cargo binary renamed to `Contents/MacOS/Armada`**, because the Dock and the app switcher read the executable's file name.
 `scripts/native-app` makes it, and the release job makes the app it ships with the same script, so a restart's app and a release's app are the same bundle.
-`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node apps/desktop/native/voice/build.mjs` when `Armada Voice.app` is missing from `apps/desktop/native/voice/build/` or older than a file in that folder.
+`scripts/native-app` also puts Armada Voice, the helper Talk hears and speaks through, in `Contents/Helpers`, and builds it first with `node crates/bridge-native/native/voice/build.mjs` when `Armada Voice.app` is missing from `crates/bridge-native/native/voice/build/` or older than a file in that folder.
 It needs Xcode's command line tools (`swiftc`); where the build fails it prints one line saying so and makes the app without the helper, so Talk falls back to macOS Dictation.
 `NATIVE_APP_TREE` names another tree to build and take the helper from, which `scripts/keep-build` sets to the tree it keeps, so a preview's helper is its own.
 Its `Info.plist` names it Armada under its own bundle identifier, `dev.armada.bridge.native`; `Contents/Resources/AppIcon.icns` is `packages/brand/macos/AppIcon.icns`; and it is signed by `scripts/signing-identity`.
