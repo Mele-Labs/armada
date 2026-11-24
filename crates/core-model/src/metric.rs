@@ -11,7 +11,7 @@ use alloc::vec::Vec;
 /// `body` only.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum MetricCall {
-    Cli { argv: Vec<String> },
+    Cli { argv: Vec<String>, env: Vec<(String, String)> },
     Http { method: String, url: String, headers: Vec<(String, String)>, body: Option<String> },
     /// `arguments` is JSON text.
     Mcp { server: Vec<String>, env: Vec<(String, String)>, tool: String, arguments: String },

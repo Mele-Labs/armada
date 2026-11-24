@@ -5,12 +5,12 @@
 export type MetricHeader = { name: string; value: string };
 
 /**
- * One call, as a tracker mod's call is written. `{credential}` is filled into `env`, `arguments`, `headers` and `body`
- * only, never `argv`, `server` or `url`.
+ * One call, as a tracker mod's call is written. `{credential}` is filled into `env` (of a cli or an mcp call), `arguments`,
+ * `headers` and `body` only, never `argv`, `server` or `url`.
  */
 export type MetricCall =
-  /** A program and its arguments, run with no shell. */
-  | { transport: "cli"; argv: string[] }
+  /** A program and its arguments, run with no shell, and the environment variables set on it. A token goes in `env`, not `argv`. */
+  | { transport: "cli"; argv: string[]; env?: MetricHeader[] }
   | { transport: "http"; method: string; url: string; headers?: MetricHeader[]; body?: string }
   /** A server started on standard input and output for the call, and one tool called on it. `arguments` is JSON text, `{}` where absent. */
   | { transport: "mcp"; server: string[]; env?: MetricHeader[]; tool: string; arguments?: string };

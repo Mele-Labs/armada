@@ -290,6 +290,7 @@ A recipe's block on the board is kind `metric:<id>`, view `list`, three columns 
 
 A call runs as a tracker mod's does, by the same code, with the same bounds of 30 seconds and 4 MiB of answer and no shell.
 `{credential}` is filled into `env`, `arguments`, `headers` and `body`, and never into `argv`, `server` or `url`, which a process list or a log would show.
+A cli call takes `env` as an mcp call does, the variables set on the program, so a command line tool that reads its token from the environment can be called.
 A recipe that uses it names a credential.
 An HTTP call is a `GET` or a `POST`, to an `https://` address or to this machine.
 What `map` prints is read as one `MetricAnswer { rows, picture? }`, each row a `label`, a `value` that is a number or words, and optionally `unit`, `at` and `link`.

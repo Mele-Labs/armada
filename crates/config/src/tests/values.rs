@@ -419,10 +419,10 @@ fn recipes() -> Vec<core_model::MetricRecipe> {
         MetricRecipe {
             id: "uptime".into(),
             title: "Uptime".into(),
-            call: MetricCall::Cli { argv: vec!["/bin/echo".into(), "{\"rows\":[]}".into()] },
+            call: MetricCall::Cli { argv: vec!["/bin/echo".into(), "{\"rows\":[]}".into()], env: vec![("TOK".into(), "{credential}".into())] },
             map: ".".into(),
             every_secs: None,
-            credential: None,
+            credential: Some(credential()),
         },
     ]
 }
