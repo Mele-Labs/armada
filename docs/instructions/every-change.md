@@ -13,7 +13,7 @@ out is what makes a change unfinished.
   `armada check test` and the other Checks `armada.yml` declares for what it
   touches. A milestone's claim is proved by its acceptance test.
 - **A generated file is regenerated and committed with its source.**
-  `pnpm --filter @armada/desktop codegen` after a registry under
+  `cargo xtask verify-vocabulary --write` after a registry under
   `crates/core-model/domain/` changes, and
   `cargo xtask verify-docs --write` for `docs/OPEN.md`.
 - **The build adds no warning**
