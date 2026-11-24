@@ -220,10 +220,10 @@ fn a_monorepo(root: &Path) {
     write(root, "crates/store/src/lib.rs", "use rusqlite::Connection;\nfn open(dir: &Path) { Connection::open(dir.join(\"armada.db\")); }\n");
     write(root, "crates/ipc/Cargo.toml", &cargo("ipc", ""));
     write(root, "crates/ipc/src/lib.rs", "//! The wire's types.\n");
-    write(root, "crates/bridge-native/Cargo.toml", &cargo("bridge-native", "gpui = \"1\"\nipc = { path = \"../ipc\" }"));
+    write(root, "crates/bridge-native/Cargo.toml", &cargo("bridge-native", "gpui = \"1\"\nipc = { path = \"../ipc\" }").replace("version = \"0.0.0\"\n", "version = \"0.0.0\"\ndescription = \"Bridge: the native desktop application.\"\n"));
     write(root, "crates/bridge-native/src/main.rs", "fn main() {}\n");
     write(root, "crates/bridge-native/src/jobs.rs", "fn get() { let _ = \"http://127.0.0.1:40000/events\"; }\n");
-    write(root, "apps/desktop/package.json", &package("@armada/desktop", "Bridge — the desktop application.", "", "\"@armada/components\": \"workspace:*\", \"@armada/cleanup\": \"workspace:*\", \"electron\": \"^33\", \"react\": \"^18\", \"vite\": \"^6\""));
+    write(root, "apps/desktop/package.json", &package("@armada/desktop", "Bridge Classic: the Electron desktop application.", "", "\"@armada/components\": \"workspace:*\", \"@armada/cleanup\": \"workspace:*\", \"electron\": \"^33\", \"react\": \"^18\", \"vite\": \"^6\""));
     write(root, "apps/desktop/src/main/fleet.ts", "export const events = () => fetch(\"/events\");\n");
     write(root, "apps/pocket/package.json", &package("@armada/pocket", "Pocket: the phone app.", "\"react\": \"^18\"", "\"vite\": \"^6\""));
     write(root, "apps/pocket/index.html", "<div id=root></div>\n");
@@ -254,7 +254,8 @@ fn a_monorepo_shaped_like_this_one_has_its_apps_for_entries_and_its_libraries_fo
     assert_eq!(of(SystemPartKind::Store), ["store-armada-db"], "named for the file the code opens: {found:?}");
     assert_eq!(part(&map, "pocket").name, "Pocket", "a package is named by the words its description leads with");
     assert_eq!(part(&map, "store").name, "Central store");
-    assert_eq!(part(&map, "desktop").name, "Bridge", "a description that leads with a name and a dash names the package");
+    assert_eq!(part(&map, "desktop").name, "Bridge Classic", "a description that leads with a name names the package");
+    assert_eq!(part(&map, "bridge-native").name, "Bridge", "a Cargo package is named by its description too");
     assert!(linked(&map, "fleet", "api").is_none(), "a service is not a client of the API it serves");
     assert_eq!(part(&map, "api").name, "Fleet API");
     assert!(map.parts.iter().all(|one| !matches!(one.id.as_str(), "components" | "brand" | "cleanup" | "lm-train" | "pocket-2" | "ipc")), "libraries, scratch tools and a server no client calls are not parts: {found:?}");

@@ -232,13 +232,26 @@ fn string_field(text: &str, key: &str) -> Option<String> {
     Some(rest.split('"').next()?.to_string())
 }
 
+/// A Cargo manifest's `description = "…"`, read from its own line.
+fn toml_description(text: &str) -> Option<String> {
+    let line = text.lines().find(|line| line.trim_start().starts_with("description"))?;
+    let rest = line.split_once('=')?.1.trim().strip_prefix('"')?;
+    Some(rest.split('"').next()?.to_string())
+}
+
 /// The name a package's description leads with: `Pocket: the phone app` is `Pocket`, `The central store: claims` is `Central store`.
 fn named_by_description(repo: &Repo, module: &Module) -> Option<String> {
-    if module.kind != ModuleKind::Npm {
-        return None;
+    let file = match module.kind {
+        ModuleKind::Npm => "package.json",
+        ModuleKind::Cargo => "Cargo.toml",
+        _ => return None,
+    };
+    let text = repo.text(&if module.root.is_empty() { file.to_string() } else { format!("{}/{file}", module.root) })?;
+    let description = match module.kind {
+        ModuleKind::Cargo => toml_description(&text)?,
+        _ => string_field(&text, "description")?,
     }
-    let text = repo.text(&if module.root.is_empty() { "package.json".to_string() } else { format!("{}/package.json", module.root) })?;
-    let description = string_field(&text, "description")?.replace("\\u2014", "—");
+    .replace("\\u2014", "—");
     let lead = description.split([':', '—']).next()?.trim();
     let lead = lead.strip_prefix("The ").unwrap_or(lead);
     let single = description.len() > lead.len() && lead.split_whitespace().count() <= 2 && lead.chars().all(|c| c.is_alphanumeric() || c == ' ');
