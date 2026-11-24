@@ -297,6 +297,7 @@ mod project_store;
 pub mod store_deploy;
 /// Projects his other Macs hold, kept here as read copies, and the edits made on them.
 mod project_board;
+mod system_map;
 mod project_copies;
 /// A copy read as a project of this Mac's, so its values, issues, claims and features answer here.
 mod project_copy_reads;

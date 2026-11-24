@@ -1,0 +1,10 @@
+[operations.get_system_part]
+kind = "query"
+transport = "HTTP"
+agent_access = "No"
+description = "What Fleet knows of one part of a project's system map, in nine sections"
+notes = """
+`GET /projects/project/:project/system/part?part=`. Answers `SystemPartAnswers`: `features`, `code`, `working`, `owners` (with `owner_days`, 30), `looks` (with `has_screen`), `docs`, `monitor`, `issues` (with `tracker`) and `pulls`. **Every section is present**, an empty one empty. Read from what Fleet holds: the feature catalog's file ownership, the Jobs' observed writes, `git log` over the part's paths, the issue lists and open pull requests already kept. No forge call and no model.
+
+404 `fleet.no_such_project`, 404 `fleet.system_part_unknown` for a part the map does not hold. 422 `fleet.project_unreadable`.
+"""

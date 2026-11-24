@@ -35,6 +35,11 @@ Bridge's half is `packages/protocol/src/projects.ts`, written by hand, field for
 | `get_project_board` | Bridge calls | `GET /projects/project/:project/board`. Answers `ProjectBoard { project, layout? }`, `layout` `{ blocks: [{ kind, x, y, w, h, view }] }`. **A project that saved none answers no `layout`**, and Bridge draws its preset. `kind` and `view` are text, so a block kind a later Bridge adds crosses without a wire change and one this build does not know is read back as saved. See *The board*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable` |
 | `save_project_board` | Bridge calls | `POST /projects/project/:project/board`, body `SaveProjectBoard { layout? }`: the layout replaces the one kept, whole, and an absent `layout` forgets it. Nothing else of the project's values changes. Written as `edit_project` writes `values`, so it publishes `projects.changed`, and for a copy of another Mac's project it is sent to that Mac. Answers `ProjectBoard`. 422 `fleet.project_values_refused` for a block with a blank `kind` or `view` |
 | `list_ranked_issues` | Bridge calls | `GET /projects/project/:project/ranked_issues`. Answers `RankedIssues { project, days, fetched_at?, might_pick_up, might_be_interested }`: the open, unassigned issues as `RankedIssue { manifest_id?, issue, features, jobs }` and other people's open pull requests as `RankedPull { manifest_id, repository, number, title, author, draft, features, jobs }`, each `features` `[{ slug, title, by, jobs }]` and each list ranked by the owner's Jobs on those features in the last `days`. Asks no forge beyond the issue lists held five minutes. [Feature catalog](../../concepts/feature-catalog.md), *Ranking the issues he might pick up*. 404 `fleet.no_such_project`, 422 `fleet.project_unreadable`, 500 `fleet.issues_unreadable` |
+| `get_system_map` | Bridge calls | `GET /projects/project/:project/system?part=&feature=`. Answers `SystemMap { project, part?, feature?, parts, links, features, stops, librarian_at? }`, read from the project's own files with no model. No query is level one, `part` level two and `feature` level three. See *The system map*. 404 `fleet.no_such_project`, `fleet.system_part_unknown`, `fleet.feature_unknown`; 422 `fleet.project_unreadable` |
+| `get_system_part` | Bridge calls | `GET /projects/project/:project/system/part?part=`. Answers `SystemPartAnswers`: `features`, `code`, `working`, `owners` with `owner_days`, `looks` with `has_screen`, `docs`, `monitor`, `issues` with `tracker`, `pulls`. Every section is present. 404 `fleet.no_such_project`, `fleet.system_part_unknown` |
+| `list_system_folder` | Bridge calls | `GET /projects/project/:project/system/folder?path=`. Answers `SystemFolder { project, path, entries }`: the names in the folder at the checkout's `HEAD`, folders first, each ending in `/`. 404 `fleet.no_such_project`, `fleet.system_folder_unknown` |
+| `map_system_with_librarian` | Bridge calls | `POST /projects/project/:project/system/librarian`, no body. On his press the librarian adds the parts detection missed; level one answers with them as `origin` `librarian`. 409 `fleet.librarian_running` |
+| `answer_system_addition` | Bridge calls | `POST /projects/project/:project/system/answer`, body `AnswerSystemAddition { addition, answer, note? }`, `answer` `keep`, `rework` or `remove`. Answers level one. 404 `fleet.system_addition_unknown`, 422 `fleet.system_addition_note` |
 | `save_kit_values` | Bridge calls | `POST /kit/values`, body `SaveKitValues { values }`, `values` as a project's block is, written whole to `values.yml` in Kit's folder on this Mac. Answers `KitValuesSaved { file, values }` |
 | `HostedFacts.values` | Fleet writes, Bridge reads | `ResolvedValues`, what the Job froze when it started, in its own `job_values` rows. Absent on a Job started before they were kept |
 | `merge_projects` | Bridge calls | `POST /projects/merge`, body `MergeProjects { kept, gone, from_gone? }`. One of the two is this Mac's own and the other is a copy; either may be kept, and they have one name. `from_gone` is the `ValuesSet` keys where the gone project's value wins. The kept project must be shared, or 422 `fleet.merge_kept_not_shared`; names that differ are 422 `fleet.merge_names_differ`, and two own, two copies or one project are 422 `fleet.merge_not_a_pair`. Each Mac does its own part, and the other's is sent as `absorb` or `give_up`, queued while it sleeps. The answer lists one project from the press. [His other Macs, Fleet's half](his-other-macs-fleets-half.md) |
@@ -272,3 +277,39 @@ A project that saved none has none, and Bridge draws its preset.
 `kind` and `view` are Bridge's words, kept as written, so `system`, `docs` or `errors` add without a wire change and a kind this build does not know is passed back as it was saved.
 A layer other than the project's ignores `board`: it is never laid over another.
 The wire change moves the protocol ID with `crates/ipc/src` and `packages/protocol/src`.
+
+## The system map
+
+A project's system map is what it is made of and how the parts reach each other, read from its own files with no model.
+`get_system_map` answers one level at a time, so Bridge draws a level without holding the others.
+No query is level one: the people, the entry points, the services behind them, the stores and what the project reaches outside.
+`part` is level two: that part's pieces, the pieces of other parts they call, and the stores and outside parts they reach.
+`feature` is level three: the files the feature owns, grouped by the part they fall in as `stops`, numbered in level one's order of entry, service, store, with a link stepped from each stop to the next.
+A part is `person`, `entry`, `service`, `store`, `outside` or, on levels two and three, `piece`.
+A piece names the part it is in as `within`, and a piece of another part keeps that part's name there.
+A project that holds several repositories names the repository in `manifest_id`, and a part id that two repositories share is told apart as `id@manifest`.
+
+Detection is table-driven and reads, never runs.
+The tables are `crates/fleet/src/system_map/known.toml`, so a vendor's name is data and not code.
+Fleet finds the modules and their dependencies with the floor plan's reader, the workspaces and compose services, and the servers a Kit manifest declares.
+An entry point is a module on an app or frontend dependency, an HTTP server nobody runs from here, the binary named for the project, a browser extension's `manifest.json` or a script that takes arguments.
+A service is a module on a server dependency with a `main`, a module that implements an HTTP API, or a deployed service by its files.
+A store is a dependency that keeps state, a compose image, or a folder of state files a source file names, and an outside part is a client dependency, a file named for it or an `api.` address the code names.
+A library every part uses is a piece of the part that reaches it, and the project's own tooling is nothing.
+A link is drawn only where the code names it: a route a client names and a server declares, a crate or an import a file uses, a dependency a file reaches a store or outside part by.
+Its `label` is that route, and a link of several routes has none.
+A client that names a route an API library declares reaches the service that serves it, and the API links to the service as `served by`.
+
+The map of a repository is held per `HEAD`, so a read after the first costs nothing until a commit lands.
+A repository that is no git checkout is read from its folder and held nowhere.
+
+`get_system_part` answers the nine sections from what Fleet already holds.
+`features` are the catalog features that own files under the part, `working` the live Jobs whose observed writes fall there, `owners` the share of the commits over its paths in the last 30 days, `docs` the repository documents that name its folder or its name, `monitor` the Kit servers, health routes, log folders and Checks over its paths, `issues` the open issues from the lists held that match its features, and `pulls` the open pull requests whose files fall in it.
+`looks` is absent until a feature shot is kept, which Fleet does not keep yet, and `has_screen` says an entry that draws a screen has none to show.
+No forge is asked.
+
+The librarian adds on his press only.
+`map_system_with_librarian` proposes each folder of source that no detected part covers, and the part comes back with `origin` `librarian` until he answers it.
+Keep makes it a detected part, Rework stores his note and the next press redoes that addition, and Remove drops it and it is not proposed again.
+The additions are kept in the store tables `system_additions` and `system_librarian`.
+The pass reads files and calls no model yet.

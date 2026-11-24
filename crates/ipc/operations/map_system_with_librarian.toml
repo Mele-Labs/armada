@@ -1,0 +1,10 @@
+[operations.map_system_with_librarian]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "On his press, the librarian adds the parts of a project's system map that detection missed"
+notes = """
+`POST /projects/project/:project/system/librarian`, no body. The librarian reads what detection did not follow and adds parts, each kept apart: it comes back in `get_system_map` with `origin` `librarian { addition, why }` until he answers it with `answer_system_addition`. A part he removed is not proposed again. Answers level one as `get_system_map` does, with `librarian_at` set. Only on a press: Fleet never runs it by itself. `docs/practices/protocol/projects.md`, *The system map*.
+
+404 `fleet.no_such_project`. 409 `fleet.librarian_running` while the project's librarian is running.
+"""

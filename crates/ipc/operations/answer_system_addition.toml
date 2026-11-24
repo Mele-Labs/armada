@@ -1,0 +1,10 @@
+[operations.answer_system_addition]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Keep, rework or remove one part the librarian added to a project's system map"
+notes = """
+`POST /projects/project/:project/system/answer`, body `AnswerSystemAddition { addition, answer, note? }`, `answer` `keep`, `rework` (with `note`) or `remove`. Keep makes the part a detected one in the map. Rework stores his note and the librarian redoes that one addition. Remove drops it, and it is not proposed again. Answers level one as `get_system_map` does.
+
+404 `fleet.no_such_project`, 404 `fleet.system_addition_unknown` for an addition the project does not hold. 422 `fleet.system_addition_note` for a rework with a blank note.
+"""

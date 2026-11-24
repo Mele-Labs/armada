@@ -162,6 +162,44 @@ impl Projects for FakeDaemon {
         Ok(ipc::RankedIssues { project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new() })
     }
 
+    async fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemMap, Refusal> {
+        held(&project)?;
+        Ok(ipc::SystemMap { project, part, feature, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None })
+    }
+
+    async fn get_system_part(&self, project: String, part: String) -> Result<ipc::SystemPartAnswers, Refusal> {
+        held(&project)?;
+        Ok(ipc::SystemPartAnswers {
+            project,
+            part,
+            features: Vec::new(),
+            code: Vec::new(),
+            working: Vec::new(),
+            owners: Vec::new(),
+            owner_days: 30,
+            looks: None,
+            has_screen: false,
+            docs: Vec::new(),
+            monitor: Vec::new(),
+            issues: Vec::new(),
+            tracker: false,
+            pulls: Vec::new(),
+        })
+    }
+
+    async fn list_system_folder(&self, project: String, path: String) -> Result<ipc::SystemFolder, Refusal> {
+        held(&project)?;
+        Ok(ipc::SystemFolder { project, path, entries: Vec::new() })
+    }
+
+    async fn map_system_with_librarian(&self, project: String) -> Result<ipc::SystemMap, Refusal> {
+        self.get_system_map(project, None, None).await
+    }
+
+    async fn answer_system_addition(&self, project: String, _answer: ipc::AnswerSystemAddition) -> Result<ipc::SystemMap, Refusal> {
+        self.get_system_map(project, None, None).await
+    }
+
     async fn get_project_store(&self, project: String) -> Result<ipc::ProjectStoreState, Refusal> {
         held(&project)?;
         Ok(store_state(&project, None))

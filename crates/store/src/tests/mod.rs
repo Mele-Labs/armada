@@ -10,6 +10,7 @@ mod devices;
 mod job_shells;
 mod features;
 mod librarian_runs;
+mod system_additions;
 mod job_asides;
 mod story_asks;
 mod job_times;

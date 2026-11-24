@@ -1,0 +1,140 @@
+# What the system map's detection knows by name. **Data, not code**: a line here is the whole cost of knowing one more thing.
+# `needs` are dependency names, compared with case, `_` and `.` taken off, and match as a prefix: `react` is `react-dom`.
+
+# A module with one of these dependencies is something people use directly.
+[[entry]]
+needs = ["gpui", "tauri", "iced", "egui", "eframe", "slint", "druid", "electron", "react-native", "expo", "flutter"]
+what = "native app"
+screen = true
+
+[[entry]]
+needs = ["react", "vue", "svelte", "solid-js", "preact", "next", "nuxt", "@angular/core", "astro"]
+what = "web app"
+screen = true
+
+# A module with one of these dependencies serves HTTP.
+[[server]]
+needs = ["axum", "actix-web", "rocket", "warp", "poem", "salvo", "tide", "tonic", "fastapi", "flask", "django", "starlette", "sanic", "express", "fastify", "koa", "hono", "@nestjs/core"]
+
+# A module with one of these dependencies, or one of these files beside its manifest, is a deployed service.
+[[service]]
+needs = ["wrangler", "@cloudflare/workers-types", "serverless"]
+files = ["wrangler.toml", "wrangler.jsonc", "wrangler.json", "Dockerfile", "Procfile", "serverless.yml", "fly.toml", "vercel.json"]
+
+# A module with one of these dependencies and a `main` is a command.
+[[command]]
+needs = ["clap", "structopt", "argh", "pico-args", "click", "typer", "commander", "yargs", "cobra"]
+
+# What a dependency says is kept somewhere: its name, and the file or service people know it by.
+[[store]]
+needs = ["rusqlite", "sqlite", "better-sqlite3", "sqlx", "diesel", "sea-orm", "sled", "redb", "rocksdb", "sqlalchemy", "peewee"]
+name = "SQLite database"
+ext = ["sqlite", "sqlite3", "db"]
+
+[[store]]
+needs = ["tokio-postgres", "postgres", "psycopg", "asyncpg", "pg", "pgx"]
+name = "PostgreSQL"
+
+[[store]]
+needs = ["mysql", "mysql2", "mariadb"]
+name = "MySQL"
+
+[[store]]
+needs = ["mongodb", "mongoose", "pymongo"]
+name = "MongoDB"
+
+[[store]]
+needs = ["redis", "ioredis", "fred"]
+name = "Redis"
+
+# A compose service whose image is one of these is a store, not a service.
+[[image]]
+names = ["postgres", "postgis", "timescale"]
+name = "PostgreSQL"
+
+[[image]]
+names = ["mysql", "mariadb"]
+name = "MySQL"
+
+[[image]]
+names = ["mongo"]
+name = "MongoDB"
+
+[[image]]
+names = ["redis", "valkey", "memcached"]
+name = "Redis"
+
+[[image]]
+names = ["rabbitmq", "kafka", "nats"]
+name = "Message queue"
+
+[[image]]
+names = ["minio"]
+name = "Object store"
+
+# What a project reaches and does not hold. Each is found by a dependency, by a file whose name says so (`stems`, split
+# on `_`, `-` and `.`), by an address a source file names (`hosts`), or by a quoted word (`quoted`).
+[[outside]]
+id = "forge"
+name = "GitHub"
+needs = ["octocrab", "pygithub", "@octokit/", "hubcaps"]
+stems = ["github"]
+hosts = ["api.github.com"]
+summary = "Pull requests, issues, checks."
+
+[[outside]]
+id = "agent"
+name = "Claude Code"
+quoted = ["claude"]
+summary = "The agent CLI each Job runs."
+
+[[outside]]
+id = "tunnel"
+name = "Cloudflare"
+needs = ["@cloudflare/"]
+stems = ["cloudflare", "cloudflared"]
+hosts = ["api.cloudflare.com"]
+summary = "The tunnel and the account behind it."
+
+[[outside]]
+id = "payments"
+name = "Stripe"
+needs = ["stripe", "@stripe/"]
+hosts = ["api.stripe.com"]
+summary = "Payments."
+
+[[outside]]
+id = "cloud"
+name = "AWS"
+needs = ["aws-sdk", "aws-config", "boto3", "@aws-sdk/", "rusoto"]
+summary = "Hosted storage and compute."
+
+[[outside]]
+id = "model"
+name = "Model API"
+needs = ["openai", "anthropic", "@anthropic-ai/", "async-openai", "genai"]
+hosts = ["api.openai.com", "api.anthropic.com"]
+summary = "A hosted language model."
+
+[[outside]]
+id = "chat"
+name = "Slack"
+needs = ["slack", "@slack/", "slack-morphism"]
+hosts = ["slack.com"]
+summary = "Messages."
+
+[[outside]]
+id = "mail"
+name = "Email service"
+needs = ["sendgrid", "@sendgrid/", "resend", "postmark", "mailgun"]
+summary = "Sends email."
+
+# A folder name that holds a part's pieces one level further down, so its children stand in its place.
+[pieces]
+descend = ["screens", "pages", "routes", "views", "components", "features", "modules", "handlers", "controllers", "commands", "apps", "crates"]
+# Folders and files that are not a piece of anything.
+skip = ["tests", "test", "__tests__", "__pycache__", "assets", "static", "public", "styles", "fixtures", "mocks", "migrations", "generated"]
+
+# Modules that are the project's own tooling, never a part.
+[tooling]
+names = ["xtask", "testkit", "acceptance", "e2e", "examples", "benches", "scripts", "tools", "fixtures"]

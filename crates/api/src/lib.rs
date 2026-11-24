@@ -93,6 +93,7 @@ mod placed;
 mod preferring;
 /// A repository's projects: tasks a person wrote and issues he linked.
 mod projects;
+mod system_map;
 /// A project's feature library over the wire.
 mod features;
 mod pull_request_panel;
