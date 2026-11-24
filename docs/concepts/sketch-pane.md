@@ -16,7 +16,8 @@ Gaps found in the sketch are tracked in #2052.
 
 ## The scene format
 
-A scene is the sketch pad's drawing plus the kinds the pad cannot say. It is defined in `classic-final:packages/components/src/compositions/SketchScene/scene.ts`, and an agent's sketch and the owner's pad share it.
+A scene is the sketch pad's drawing plus the kinds the pad cannot say.
+It is defined in `classic-final:packages/components/src/compositions/SketchScene/scene.ts`, and an agent's sketch and the owner's pad share it.
 
 | Part | Fields |
 |---|---|

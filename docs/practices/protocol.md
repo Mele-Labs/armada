@@ -1612,7 +1612,8 @@ Naming these rather than deciding them, per this document's brief:
 
 Since 30 Oct 2026. `crates/ipc/operations/organize_logbook.toml`, `crates/ipc/operations/apply_organize_logbook.toml`, `crates/fleet/src/logbook/organizing.rs`, `crates/fleet/src/logbook/sorting.rs`.
 **Additive only**: two operations and routes, one optional field and new types. `tidy_logbook` stays.
-The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`. Bridge's half is written by hand in `classic-final:packages/protocol/src/logbook.ts`.
+The protocol ID moves with `crates/ipc/src`, the operation files, the route table and `classic-final:packages/protocol/src`.
+Bridge's half is written by hand in `classic-final:packages/protocol/src/logbook.ts`.
 
 | Where | Side | Carries |
 | --- | --- | --- |
@@ -1823,7 +1824,8 @@ One paused between that check and the send has the turn kept for its Resume, as 
 Since 10 Nov 2026. `docs/concepts/session/editing-a-sent-message.md`.
 **One operation, one route and one field on an existing type**: no event kind. Error codes are declared outside the protocol ID's files and move nothing.
 The protocol ID moves with `crates/ipc/src`, the operation file and the route table, and there is no number to take: `armada need` has nothing to order.
-Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field. Electron draws nothing from it yet.
+Bridge's half is `EditSessionMessage` and `edited_at` on the `message` row in `classic-final:packages/protocol/src/hosted-sessions.ts`, written by hand, field for field.
+Electron draws nothing from it yet.
 
 | Where | Side | Carries |
 | --- | --- | --- |

@@ -4,7 +4,8 @@
 
 Since 27 Oct 2026. The story spine opens its Brief on how the Job started, and gives each workflow step a zone with the items that happened in it.
 **Additive**: two optional fields on `SessionRecord`, two new types; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take. An older Fleet sends neither field and Bridge draws the Job from what it holds now.
+The protocol ID moves with `crates/ipc/src` and `classic-final:packages/protocol/src`, and there is no number to take.
+An older Fleet sends neither field and Bridge draws the Job from what it holds now.
 Bridge's half is `classic-final:packages/protocol/src/sessions.ts`, written by hand, field for field.
 
 | Where | Side | Carries |

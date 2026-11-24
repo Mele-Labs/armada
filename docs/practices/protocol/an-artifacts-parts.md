@@ -5,7 +5,8 @@
 Since 14 Nov 2026. One artifact that grows: a Job adds the parts it needs and he answers each part that asks on its own. `docs/concepts/artifact.md`, *Parts*.
 **Additive, with one field on an existing type read differently**: three operations, three routes, their body and answer types, `parts` on `JobArtifact`, and `state` on a scene node.
 No event kind is new.
-Bridge's half is written by hand in `classic-final:packages/protocol/src/job-artifacts.ts` where a client needs it, and Classic does not call any of it. Native draws the parts and builds the page reader.
+Bridge's half is written by hand in `classic-final:packages/protocol/src/job-artifacts.ts` where a client needs it, and Classic does not call any of it.
+Native draws the parts and builds the page reader.
 
 | Where | Side | Carries |
 | --- | --- | --- |

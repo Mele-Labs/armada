@@ -4,7 +4,8 @@
 
 Since 13 Nov 2026. A plan names the sketches its Job drew with `show_sketch`, and his one Approve of the plan settles them. `docs/concepts/artifact.md`, *A plan's sketches*.
 **Additive only**: five fields, each serde default and left out when empty. No operation, route, event kind or error code is new.
-Bridge's half is `classic-final:packages/protocol/src/session-plan.ts` and `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand. Classic does not read them, and native draws the page later.
+Bridge's half is `classic-final:packages/protocol/src/session-plan.ts` and `classic-final:packages/protocol/src/job-artifacts.ts`, written by hand.
+Classic does not read them, and native draws the page later.
 
 | Where | Side | Carries |
 | --- | --- | --- |
