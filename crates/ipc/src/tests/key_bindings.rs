@@ -1,4 +1,4 @@
-//! The owner's key bindings' rules, which `parseKeyBindings` in `packages/components/src/keymap.ts`
+//! The owner's key bindings' rules, which `parseKeyBindings` in `classic-final:packages/components/src/keymap.ts`
 //! applies to the same text: one wrong shape refuses the whole of it, and an act this build does
 //! not have is ignored.
 

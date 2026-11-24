@@ -1,5 +1,5 @@
 //! What a thread's words name that the native app can open, as Electron's `refScanner` and
-//! `linked` (packages/screens/src/prose-refs.ts, primitives/Prose/Prose.tsx): a Job by its id, its
+//! `linked` (classic-final:packages/screens/src/prose-refs.ts, primitives/Prose/Prose.tsx): a Job by its id, its
 //! `s-` prefix, its first eight characters or its exact title. **Found off the Jobs list, never off
 //! the words' own claim**: a name that matches no Job stays text. A pull request is a link by `#N`
 //! only where it is known in the Manifest, so an issue's number never opens a PR tab; `owner/name#N`

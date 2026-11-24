@@ -1,5 +1,5 @@
 //! What a project crosses the wire as: the answer with its members, place and the files set aside, and
-//! the bodies that make one and change one, each as Bridge's mirror in `packages/protocol` spells it.
+//! the bodies that make one and change one, each as Bridge's mirror in `classic-final:packages/protocol` spells it.
 
 use serde_json::json;
 

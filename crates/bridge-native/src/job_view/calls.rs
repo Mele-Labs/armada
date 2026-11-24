@@ -1,5 +1,5 @@
 //! The one line a run of tool calls reads as, ported from `calls-line.ts`
-//! (`packages/components/src/compositions/SessionThread/calls-line.ts`). Fleet serves the run and its
+//! (`classic-final:packages/components/src/compositions/SessionThread/calls-line.ts`). Fleet serves the run and its
 //! rows; the words of the line are worked out from each row's text, which is Bridge's to word and
 //! not a view Fleet holds (`docs/spikes/native-jobs-inventory/job-view.md`, A0.3).
 

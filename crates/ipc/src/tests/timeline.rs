@@ -30,7 +30,7 @@ const ALL: [TimelineKind; 21] = [
 ];
 
 /// A kind Fleet keeps as text reads back as the same kind, and these are the
-/// names `packages/protocol/src/timeline.ts` lists.
+/// names `classic-final:packages/protocol/src/timeline.ts` lists.
 #[test]
 fn every_kind_is_kept_under_its_dotted_name_and_reads_back() {
     let names: Vec<String> = ALL.iter().map(|kind| kind.as_wire()).collect();
@@ -124,7 +124,7 @@ fn a_read_and_a_command_are_told_as_the_mod_spells_them() {
     assert_eq!(ran, SessionFact::Ran { command: "cargo test".to_string() });
 }
 
-/// `session.called` is a kind of its own and carries its call as `packages/protocol/src/timeline.ts` types it.
+/// `session.called` is a kind of its own and carries its call as `classic-final:packages/protocol/src/timeline.ts` types it.
 #[test]
 fn a_call_travels_under_its_kind_with_the_service_and_the_line() {
     assert_eq!(TimelineKind::SessionCalled.as_wire(), "session.called");

@@ -5,7 +5,7 @@
 //! nothing here offers a write, which is what makes the rule hold.
 //!
 //! **The development layer's fields plus four.** The layer's shape is
-//! `apps/desktop/src/shared/annotations.ts`; a Note adds the computed styles,
+//! `classic-final:apps/desktop/src/shared/annotations.ts`; a Note adds the computed styles,
 //! the trimmed markup, a stored frame and a source file path.
 
 use alloc::collections::BTreeMap;

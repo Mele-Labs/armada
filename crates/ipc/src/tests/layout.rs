@@ -1,4 +1,4 @@
-//! `layout.json`'s rules, which `parseLayout` in `packages/shell/src/layout.tsx` applies to the
+//! `layout.json`'s rules, which `parseLayout` in `classic-final:packages/shell/src/layout.tsx` applies to the
 //! same text: one wrong shape refuses the whole file, and an id or region this build does not have
 //! is ignored. The registry file both sides check is `crates/ipc/layout-registry.json`.
 

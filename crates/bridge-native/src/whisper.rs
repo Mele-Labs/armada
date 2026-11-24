@@ -3,7 +3,7 @@
 //! command-line build, so the library is the Apple build its release attaches, whose framework
 //! Armada Voice loads; the release is pinned because the helper is compiled against its structs.
 //! The model is `base.en` quantised to 5 bits. Both are checked against the digests below before
-//! anything is kept. `apps/desktop/src/main/whisper-install.ts` is the original.
+//! anything is kept. `classic-final:apps/desktop/src/main/whisper-install.ts` is the original.
 
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};

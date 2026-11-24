@@ -1,5 +1,5 @@
 //! The spellings of what Fleet works out for the title bar and the clash marks, which
-//! `packages/protocol` mirrors by hand: a band, Compact's offer, the build switcher and the clashes
+//! `classic-final:packages/protocol` mirrors by hand: a band, Compact's offer, the build switcher and the clashes
 //! of every repository.
 
 use crate::{

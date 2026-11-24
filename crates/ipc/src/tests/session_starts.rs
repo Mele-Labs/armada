@@ -1,5 +1,5 @@
 //! The calls an agent makes to start or fork a Session, the row the thread keeps and the item the
-//! person is left waiting on, each as Bridge's mirror in `packages/protocol` spells it.
+//! person is left waiting on, each as Bridge's mirror in `classic-final:packages/protocol` spells it.
 
 use serde_json::json;
 

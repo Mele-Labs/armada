@@ -1,4 +1,4 @@
-//! The dispatch sheet and the strip a send leaves (`apps/desktop/src/renderer/src/dispatch-panel/`).
+//! The dispatch sheet and the strip a send leaves (`classic-final:apps/desktop/src/renderer/src/dispatch-panel/`).
 //!
 //! | Piece | File |
 //! |---|---|
