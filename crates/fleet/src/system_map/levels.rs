@@ -130,6 +130,31 @@ impl Ground<'_> {
             .collect()
     }
 
+    /// Every feature of the project, each with the level-one parts its files fall in.
+    pub(super) fn all_features(&self) -> Vec<SystemFeature> {
+        let mut held: Vec<(usize, String, Vec<String>)> = Vec::new();
+        for (repo, map) in self.maps.iter().enumerate() {
+            held.extend(map.parts.iter().enumerate().map(|(part, one)| (repo, self.part_id(repo, part), one.wire.paths.clone())));
+        }
+        for added in self.additions {
+            let manifest = self.maps.iter().position(|map| map.manifest == added.manifest).unwrap_or(0);
+            held.push((manifest, format!("added-{}", added.id), added.paths.clone()));
+        }
+        self.features
+            .iter()
+            .map(|feature| SystemFeature {
+                slug: feature.slug.clone(),
+                title: feature.title.clone(),
+                parts: held.iter().filter(|(repo, _, paths)| self.feature_in(feature, &self.maps[*repo].manifest, paths)).map(|(_, id, _)| id.clone()).collect(),
+            })
+            .collect()
+    }
+
+    /// Whether any part that draws a screen holds `path` of the repository `repo`.
+    pub(super) fn draws_screen_at(&self, repo: usize, path: &str) -> bool {
+        self.maps[repo].parts.iter().any(|part| part.screen && part.wire.paths.iter().any(|prefix| holds(prefix, path)))
+    }
+
     /// Level one.
     pub(super) fn level_one(&self) -> SystemMap {
         let mut parts = vec![SystemPart {

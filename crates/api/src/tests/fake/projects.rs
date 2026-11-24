@@ -167,11 +167,12 @@ impl Projects for FakeDaemon {
         Ok(ipc::SystemMap { project, part, feature, parts: Vec::new(), links: Vec::new(), features: Vec::new(), stops: Vec::new(), librarian_at: None })
     }
 
-    async fn get_system_part(&self, project: String, part: String) -> Result<ipc::SystemPartAnswers, Refusal> {
+    async fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemPartAnswers, Refusal> {
         held(&project)?;
         Ok(ipc::SystemPartAnswers {
             project,
-            part,
+            part: part.unwrap_or_default(),
+            feature,
             features: Vec::new(),
             code: Vec::new(),
             working: Vec::new(),

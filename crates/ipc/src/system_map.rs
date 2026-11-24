@@ -141,12 +141,16 @@ pub struct PartPull {
     pub author: String,
 }
 
-/// `get_system_part`: what Fleet knows of one part, in the nine sections Bridge shows. **Every section is present**;
+/// `get_system_part`: what Fleet knows of one part, of one feature, or of the whole project, in the nine sections Bridge shows. **Every section is present**;
 /// an empty one is empty, and Bridge says why from it and the flags beside it.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SystemPartAnswers {
     pub project: String,
+    /// The part asked about. Empty for the whole project and for a feature.
     pub part: String,
+    /// The feature asked about, where one was.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feature: Option<String>,
     pub features: Vec<SystemFeature>,
     /// The folders and files the part's code starts at.
     pub code: Vec<String>,
