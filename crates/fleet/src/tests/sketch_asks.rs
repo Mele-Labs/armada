@@ -124,7 +124,7 @@ async fn a_sketch_that_asks_nothing_does_not_join_the_artifact_that_asks() {
 
     let other = row(&record, "sketch:Why it is slow");
     assert!(!other.detail.contains_key("in") && !other.detail.contains_key("asked"), "{:?}", other.detail);
-    assert_eq!(record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect::<Vec<_>>(), [(TARGET, TITLE)], "the item names the one that asks");
+    assert_eq!(record.waiting_for.iter().map(|one| (one.id.as_str(), one.text.as_str())).collect::<Vec<_>>(), [(TARGET, "Does this read right?")], "the item is the one that asks, titled with its question");
     let artifacts = rig.fleet.get_job_artifacts(id.clone()).await.unwrap();
     assert_eq!(artifacts.len(), 2, "each stands as its own artifact");
 }
