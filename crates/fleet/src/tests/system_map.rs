@@ -197,3 +197,104 @@ fn a_servers_pieces_are_its_modules_and_the_frontends_are_its_screens() {
     assert_eq!(route.label.as_deref(), Some("/api/submit"));
     assert!(front.links.iter().any(|link| link.from == "frontend/review" && link.to == "frontend/api"), "a screen that imports the client reaches it");
 }
+
+fn package(name: &str, description: &str, deps: &str, dev: &str) -> String {
+    format!("{{ \"name\": \"{name}\", \"description\": \"{description}\", \"private\": true, \"dependencies\": {{ {deps} }}, \"devDependencies\": {{ {dev} }} }}\n")
+}
+
+/// A monorepo shaped like this repository: a Rust workspace beside an Electron app, a phone web app, a Worker and packages
+/// that the apps share, with scratch tools beside them.
+fn a_monorepo(root: &Path) {
+    write(root, "Cargo.toml", "[workspace]\nmembers = [\"crates/*\"]\nexclude = [\"crates/bridge-native\"]\n");
+    write(root, "pnpm-workspace.yaml", "packages:\n  - apps/*\n  - packages/*\n  - packages/surfaces/*\n");
+    write(root, "crates/armada/Cargo.toml", &cargo("armada", "fleet = { path = \"../fleet\" }\napi = { path = \"../api\" }\npocket = { path = \"../pocket\" }\naxum = \"0.7\""));
+    write(root, "crates/armada/src/main.rs", "fn main() { axum::serve(); }\n");
+    write(root, "crates/api/Cargo.toml", &cargo("api", "axum = \"0.7\""));
+    write(root, "crates/api/src/lib.rs", "pub mod routes;\n");
+    write(root, "crates/api/src/routes.rs", "//! The routes Fleet serves.\nfn router() { r.route(\"/events\", get(events)); r.route(\"/jobs/:id\", get(job)); }\n");
+    write(root, "crates/pocket/Cargo.toml", &cargo("pocket", "axum = \"0.7\""));
+    write(root, "crates/pocket/src/lib.rs", "//! The gateway the phone is let in by.\nfn router() { r.route(\"/gateway/pair\", post(pair)); }\n");
+    write(root, "crates/fleet/Cargo.toml", &cargo("fleet", "api = { path = \"../api\" }\nstore = { path = \"../store\" }\nipc = { path = \"../ipc\" }"));
+    write(root, "crates/fleet/src/lib.rs", "//! Jobs and the event stream.\nuse store::Store;\n");
+    write(root, "crates/store/Cargo.toml", &cargo("store", "rusqlite = \"0.32\""));
+    write(root, "crates/store/src/lib.rs", "use rusqlite::Connection;\nfn open(dir: &Path) { Connection::open(dir.join(\"armada.db\")); }\n");
+    write(root, "crates/ipc/Cargo.toml", &cargo("ipc", ""));
+    write(root, "crates/ipc/src/lib.rs", "//! The wire's types.\n");
+    write(root, "crates/bridge-native/Cargo.toml", &cargo("bridge-native", "gpui = \"1\"\nipc = { path = \"../ipc\" }"));
+    write(root, "crates/bridge-native/src/main.rs", "fn main() {}\n");
+    write(root, "crates/bridge-native/src/jobs.rs", "fn get() { let _ = \"http://127.0.0.1:40000/events\"; }\n");
+    write(root, "apps/desktop/package.json", &package("@armada/desktop", "Bridge — the desktop application.", "", "\"@armada/components\": \"workspace:*\", \"@armada/cleanup\": \"workspace:*\", \"electron\": \"^33\", \"react\": \"^18\", \"vite\": \"^6\""));
+    write(root, "apps/desktop/src/main/fleet.ts", "export const events = () => fetch(\"/events\");\n");
+    write(root, "apps/pocket/package.json", &package("@armada/pocket", "Pocket: the phone app.", "\"react\": \"^18\"", "\"vite\": \"^6\""));
+    write(root, "apps/pocket/index.html", "<div id=root></div>\n");
+    write(root, "apps/pocket/src/app.tsx", "export default function App() {}\n");
+    write(root, "apps/store/package.json", &package("@armada/store", "The central store: claims.", "", "\"wrangler\": \"^4\""));
+    write(root, "apps/store/wrangler.jsonc", "{}\n");
+    write(root, "apps/store/src/index.ts", "export default {};\n");
+    write(root, "packages/components/package.json", &package("@armada/components", "Bridge's components.", "\"@armada/brand\": \"workspace:*\", \"react\": \"^18\"", "\"vite\": \"^6\""));
+    write(root, "packages/components/src/index.ts", "export {};\n");
+    write(root, "packages/brand/package.json", &package("@armada/brand", "The mark.", "\"react\": \"^18\"", ""));
+    write(root, "packages/brand/src/index.ts", "export {};\n");
+    write(root, "packages/surfaces/cleanup/package.json", &package("@armada/cleanup", "The Cleanup surface.", "\"@armada/components\": \"workspace:*\", \"react\": \"^18\"", "\"@armada/desktop\": \"workspace:*\""));
+    write(root, "packages/surfaces/cleanup/src/index.ts", "export {};\n");
+    write(root, "tools/lm-train/main.py", "from fastapi import FastAPI\napp = FastAPI()\n");
+    write(root, "tools/lm-train/requirements.txt", "fastapi\n");
+}
+
+#[test]
+fn a_monorepo_shaped_like_this_one_has_its_apps_for_entries_and_its_libraries_folded_in() {
+    let home = TempDir::new();
+    a_monorepo(home.path());
+    let map = read_for_test(home.path(), "armada", None, None);
+    let found: Vec<(&str, SystemPartKind)> = map.parts.iter().map(|one| (one.id.as_str(), one.kind)).collect();
+    let of = |kind: SystemPartKind| -> Vec<&str> { map.parts.iter().filter(|one| one.kind == kind).map(|one| one.id.as_str()).collect() };
+
+    assert_eq!(of(SystemPartKind::Entry), ["desktop", "pocket", "api", "armada", "bridge-native"], "an app, the HTTP API and the project's command: {found:?}");
+    assert_eq!(of(SystemPartKind::Service), ["store", "fleet"], "a Worker and the daemon behind the API: {found:?}");
+    assert_eq!(of(SystemPartKind::Store), ["store-armada-db"], "named for the file the code opens: {found:?}");
+    assert_eq!(part(&map, "pocket").name, "Pocket", "a package is named by the words its description leads with");
+    assert_eq!(part(&map, "store").name, "Central store");
+    assert_eq!(part(&map, "desktop").name, "Bridge", "a description that leads with a name and a dash names the package");
+    assert!(linked(&map, "fleet", "api").is_none(), "a service is not a client of the API it serves");
+    assert_eq!(part(&map, "api").name, "Fleet API");
+    assert!(map.parts.iter().all(|one| !matches!(one.id.as_str(), "components" | "brand" | "cleanup" | "lm-train" | "pocket-2" | "ipc")), "libraries, scratch tools and a server no client calls are not parts: {found:?}");
+    for entry in ["desktop", "pocket", "armada", "bridge-native"] {
+        assert!(linked(&map, "people", entry).is_some(), "people use {entry}");
+    }
+    assert!(map.links.iter().filter(|link| link.from == "people").all(|link| of(SystemPartKind::Entry).contains(&link.to.as_str())), "people reach entries and nothing else");
+
+    let desktop = read_for_test(home.path(), "armada", Some("desktop"), None);
+    let names: Vec<&str> = desktop.parts.iter().filter(|one| one.within.as_deref() == Some("desktop")).map(|one| one.name.as_str()).collect();
+    assert!(names.contains(&"@armada/components") && names.contains(&"@armada/cleanup"), "the packages an app builds on are its pieces: {names:?}");
+}
+
+#[test]
+fn a_web_app_names_what_it_is_for_and_leaves_the_rest_out() {
+    let home = TempDir::new();
+    a_web_app(home.path());
+    let map = read_for_test(home.path(), "importer", None, None);
+    let named: Vec<(&str, &str)> = map.parts.iter().filter(|one| one.kind != SystemPartKind::Person).map(|one| (one.name.as_str(), kind_word(one.kind))).collect();
+    assert_eq!(
+        named,
+        [
+            ("Frontend", "entry"),
+            ("Order Grabber", "entry"),
+            ("FastAPI backend", "service"),
+            ("import_cli.py", "entry"),
+            ("Session files", "store"),
+            ("YNAB API", "outside"),
+            ("Pages it reads", "outside"),
+        ],
+        "the screens, the extension, the command, the server, its state and what it reaches"
+    );
+}
+
+fn kind_word(kind: SystemPartKind) -> &'static str {
+    match kind {
+        SystemPartKind::Entry => "entry",
+        SystemPartKind::Service => "service",
+        SystemPartKind::Store => "store",
+        SystemPartKind::Outside => "outside",
+        _ => "other",
+    }
+}

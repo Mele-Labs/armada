@@ -1,14 +1,22 @@
 # What the system map's detection knows by name. **Data, not code**: a line here is the whole cost of knowing one more thing.
 # `needs` are dependency names, compared with case, `_` and `.` taken off, and match as a prefix: `react` is `react-dom`.
 
-# A module with one of these dependencies is something people use directly.
+# A module with one of these dependencies is something people use directly. A `strong` one is an app whatever else
+# depends on it; a weak one is a library when another module of the repository depends on it, and an app when none does.
 [[entry]]
 needs = ["gpui", "tauri", "iced", "egui", "eframe", "slint", "druid", "electron", "react-native", "expo", "flutter"]
 what = "native app"
 screen = true
+strong = true
 
 [[entry]]
-needs = ["react", "vue", "svelte", "solid-js", "preact", "next", "nuxt", "@angular/core", "astro"]
+needs = ["next", "nuxt", "astro", "@angular/core", "solid-start", "remix", "@remix-run/"]
+what = "web app"
+screen = true
+strong = true
+
+[[entry]]
+needs = ["react", "vue", "svelte", "solid-js", "preact"]
 what = "web app"
 screen = true
 

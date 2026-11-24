@@ -250,6 +250,10 @@ fn links_of(repo: &Repo, det: &Detected, pieces: &[super::model::Piece], edges: 
     let serving: BTreeMap<usize, usize> = folded.iter().filter(|(_, labels)| labels.contains(&Some("served by".to_string()))).map(|((from, to), _)| (*from, *to)).collect();
     let mut links: BTreeMap<(usize, usize), BTreeSet<Option<String>>> = BTreeMap::new();
     for ((from, to), labels) in folded {
+        // A service naming the routes it serves is not a client of them.
+        if det.parts[to].api && serving.get(&to) == Some(&from) {
+            continue;
+        }
         let target = match serving.get(&to) {
             Some(service) if det.parts[to].api && *service != from && det.parts[from].wire.kind == SystemPartKind::Entry => *service,
             _ => to,

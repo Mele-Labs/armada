@@ -83,7 +83,7 @@ fn folder_name(module: &Module) -> String {
 }
 
 /// The dependency names of a module, plain, with an npm manifest's dev dependencies and a Python requirements file.
-fn deps_of(repo: &Repo, module: &Module) -> Vec<String> {
+pub(super) fn deps_of(repo: &Repo, module: &Module) -> Vec<String> {
     let mut deps: Vec<String> = module.deps.iter().filter_map(|dep| if let ModuleDep::Name(name) = dep { Some(plain(name)) } else { None }).collect();
     let at = |file: &str| if module.root.is_empty() { file.to_string() } else { format!("{}/{file}", module.root) };
     if module.kind == ModuleKind::Npm {
@@ -97,6 +97,20 @@ fn deps_of(repo: &Repo, module: &Module) -> Vec<String> {
     deps.sort();
     deps.dedup();
     deps
+}
+
+/// The modules each module depends on only for development, which the layout's own `uses` leave out.
+pub(super) fn dev_uses(repo: &Repo) -> Vec<(usize, usize)> {
+    let modules = &repo.layout.modules;
+    let mut out = Vec::new();
+    for (from, module) in modules.iter().enumerate() {
+        for dep in deps_of(repo, module) {
+            if let Some(to) = modules.iter().position(|one| plain(&one.name) == dep).filter(|to| *to != from) {
+                out.push((from, to));
+            }
+        }
+    }
+    out
 }
 
 /// The package names a `requirements.txt` in `folder` lists.
@@ -125,14 +139,26 @@ fn has_main(repo: &Repo, module: &Module) -> bool {
     }
 }
 
-fn role_of(repo: &Repo, module: &Module, deps: &[String]) -> Role {
+/// Whether another module of the repository depends on `module`, as a dependency or a development dependency.
+fn is_depended_on(repo: &Repo, deps: &[Vec<String>], at: usize) -> bool {
+    let name = plain(&repo.layout.modules[at].name);
+    deps.iter().enumerate().any(|(from, list)| from != at && list.contains(&name)) || repo.layout.uses.iter().any(|(from, to)| *to == at && *from != at)
+}
+
+fn role_of(repo: &Repo, module: &Module, deps: &[String], depended_on: bool) -> Role {
     let known = known();
-    if known.tooling(&module.name) || known.tooling(&folder_name(module)) || module.kind == ModuleKind::Folder {
+    if known.tooling(&module.name) || module.root.split('/').any(|folder| known.tooling(folder)) || module.kind == ModuleKind::Folder {
         return Role::Skip;
     }
     let at = |file: &str| if module.root.is_empty() { file.to_string() } else { format!("{}/{file}", module.root) };
     let main = has_main(repo, module);
-    if known.entry(deps).is_some() {
+    let own_name = plain(&module.name) == plain(&repo.manifest) || repo.root.file_name().is_some_and(|dir| plain(&dir.to_string_lossy()) == plain(&module.name));
+    // The binary named for the project is its command, whatever it serves from inside.
+    if main && own_name {
+        return Role::Entry;
+    }
+    // An app with only a UI framework behind it is a library to whatever depends on it.
+    if known.entry(deps).is_some_and(|rule| rule.strong || !depended_on) {
         return Role::Entry;
     }
     if known.serves(deps) {
@@ -142,8 +168,7 @@ fn role_of(repo: &Repo, module: &Module, deps: &[String]) -> Role {
         return Role::Service;
     }
     if main {
-        let own_name = plain(&module.name) == plain(&repo.manifest) || repo.root.file_name().is_some_and(|dir| plain(&dir.to_string_lossy()) == plain(&module.name));
-        return if own_name || known.command(deps) { Role::Entry } else { Role::Service };
+        return if known.command(deps) { Role::Entry } else { Role::Service };
     }
     if known.store(deps).is_some() {
         return Role::Store;
@@ -207,6 +232,19 @@ fn string_field(text: &str, key: &str) -> Option<String> {
     Some(rest.split('"').next()?.to_string())
 }
 
+/// The name a package's description leads with: `Pocket: the phone app` is `Pocket`, `The central store: claims` is `Central store`.
+fn named_by_description(repo: &Repo, module: &Module) -> Option<String> {
+    if module.kind != ModuleKind::Npm {
+        return None;
+    }
+    let text = repo.text(&if module.root.is_empty() { "package.json".to_string() } else { format!("{}/package.json", module.root) })?;
+    let description = string_field(&text, "description")?.replace("\\u2014", "—");
+    let lead = description.split([':', '—']).next()?.trim();
+    let lead = lead.strip_prefix("The ").unwrap_or(lead);
+    let single = description.len() > lead.len() && lead.split_whitespace().count() <= 2 && lead.chars().all(|c| c.is_alphanumeric() || c == ' ');
+    single.then(|| capitalized(lead))
+}
+
 /// The hosts a web extension's manifest matches pages on, without `localhost`.
 fn matched_hosts(text: &str) -> Vec<String> {
     let mut hosts: Vec<String> = json_scan::strings(text)
@@ -223,12 +261,18 @@ fn matched_hosts(text: &str) -> Vec<String> {
 /// A web framework a Python file starts, as it is named in the code.
 const PY_SERVERS: &[(&str, &str)] = &[("FastAPI(", "FastAPI"), ("Flask(", "Flask"), ("Starlette(", "Starlette"), ("Sanic(", "Sanic"), ("web.Application(", "aiohttp")];
 
-pub(super) fn detect(repo: &Repo) -> Detected {
+/// Every part of `repo`. `unheard` are HTTP servers no client calls, which are code of whatever runs them and no part.
+pub(super) fn detect(repo: &Repo, unheard: &BTreeSet<usize>) -> Detected {
     let known = known();
     let layout = &repo.layout;
     let n = layout.modules.len();
     let deps: Vec<Vec<String>> = layout.modules.iter().map(|module| deps_of(repo, module)).collect();
-    let mut roles: Vec<Role> = layout.modules.iter().zip(&deps).map(|(module, deps)| role_of(repo, module, deps)).collect();
+    let mut roles: Vec<Role> = layout
+        .modules
+        .iter()
+        .enumerate()
+        .map(|(at, module)| if unheard.contains(&at) { Role::Lib } else { role_of(repo, module, &deps[at], is_depended_on(repo, &deps, at)) })
+        .collect();
     // What implements an API nobody runs is the service behind it.
     for (from, to) in &layout.uses {
         if roles[*to] == Role::Api && roles[*from] == Role::Lib {
@@ -253,6 +297,7 @@ pub(super) fn detect(repo: &Repo) -> Detected {
         let paths = paths_of(repo, module);
         let base = if module.root.is_empty() { module.name.clone() } else { folder_name(module) };
         let name = if api && !base.to_ascii_lowercase().contains("api") { format!("{} API", humanize(&base)) } else { humanize(&base).replace("Api", "API") };
+        let name = named_by_description(repo, module).filter(|one| build.parts.iter().all(|part| part.wire.name != *one)).unwrap_or(name);
         let summary = format!("{} in {}", capitalized(&what), paths[0].trim_end_matches('/'));
         let from = module.kind.label();
         let part = build.add(&slug(&base), name, kind, summary, paths, from, &what);
@@ -281,8 +326,9 @@ pub(super) fn detect(repo: &Repo) -> Detected {
 
     // Python servers and scripts that no manifest named.
     let mut py_servers: Vec<(String, &str)> = Vec::new();
+    let scratch = |path: &str| path.split('/').any(|folder| known.tooling(folder));
     for source in repo.sources.iter().filter(|source| extension_of(&source.path) == "py") {
-        if build.covered(&source.path) {
+        if build.covered(&source.path) || scratch(&source.path) {
             continue;
         }
         if let Some((_, framework)) = PY_SERVERS.iter().find(|(needle, _)| source.text.contains(needle)) {
@@ -299,7 +345,7 @@ pub(super) fn detect(repo: &Repo) -> Detected {
     }
     for source in repo.sources.iter().filter(|source| extension_of(&source.path) == "py" && source.path.matches('/').count() <= 1) {
         let command = source.text.contains("__main__") && ["argparse", "sys.argv", "click", "typer"].iter().any(|word| source.text.contains(word));
-        if command && !build.covered(&source.path) {
+        if command && !build.covered(&source.path) && !scratch(&source.path) {
             let name = source.path.rsplit('/').next().unwrap_or(&source.path).to_string();
             build.add(&slug(&name), name.clone(), SystemPartKind::Entry, format!("Command, {}", source.path), vec![source.path.clone()], "python", "command");
         }
