@@ -93,12 +93,13 @@ enum Subject {
 
 fn subject(this: &SystemBlock) -> Subject {
     let found = |id: &str| this.level().and_then(|map| map.parts.iter().find(|part| part.id == id)).or_else(|| this.top().and_then(|map| map.parts.iter().find(|part| part.id == id))).cloned();
-    if let Some(part) = this.panel_part().and_then(|id| found(&id)) {
-        return Subject::Part(Box::new(part));
+    // On a feature's path the panel is about the feature until a part of the path is picked.
+    if let (Level::Feature { slug, title }, None) = (this.here(), this.selected.as_ref()) {
+        return Subject::Feature { slug: slug.clone(), title: title.clone() };
     }
-    match this.here() {
-        Level::Feature { slug, title } => Subject::Feature { slug: slug.clone(), title: title.clone() },
-        _ => Subject::Project,
+    match this.panel_part().and_then(|id| found(&id)) {
+        Some(part) => Subject::Part(Box::new(part)),
+        None => Subject::Project,
     }
 }
 

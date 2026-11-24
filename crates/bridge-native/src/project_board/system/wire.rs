@@ -35,8 +35,8 @@ pub fn system_librarian(port: u16, project: &str, cx: &App) -> Task<Result<Syste
     request(port, Ask::Post(path, String::from("{}")), "SystemMap", cx)
 }
 
-/// `POST /projects/project/:id/system/addition`: what he chose for a part the librarian added. Level one comes back.
+/// `POST /projects/project/:id/system/answer`: what he chose for a part the librarian added. Level one comes back.
 pub fn system_addition(port: u16, project: &str, answer: &AnswerSystemAddition, cx: &App) -> Task<Result<SystemMap, Refused>> {
-    let path = format!("/projects/project/{}/system/addition", percent_encoded(project));
+    let path = format!("/projects/project/{}/system/answer", percent_encoded(project));
     request(port, Ask::Post(path, body(answer)), "SystemMap", cx)
 }

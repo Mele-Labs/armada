@@ -198,19 +198,14 @@ fn new_feature_takes_a_sentence_and_start_a_job_sends_it_and_clears_the_draft(cx
     press(cx, Role::Button, "Bridge, entry point");
     press(cx, Role::Button, "New feature");
     assert!(drawn(cx, Role::Button, "Start a Job"));
-    cx.update(|window, cx| {
-        let input = match &block.read(cx).compose {
-            Some(super::Compose::Feature { input, .. }) => input.clone(),
-            _ => panic!("the box is open"),
-        };
-        input.update(cx, |input, cx| input.set_value("Show errors on the board", window, cx));
-    });
+    cx.simulate_input("Show errors on the board");
     redraw(cx);
-    assert_eq!(cx.update(|_, cx| crate::drafts::kept("system.feature.armada.bridge", cx)), Some("Show errors on the board".to_string()), "the draft survives a closed box");
+    let key = format!("system.feature.{ARMADA}.bridge");
+    assert_eq!(cx.update(|_, cx| crate::drafts::kept(&key, cx)), Some("Show errors on the board".to_string()), "the draft survives a closed box");
     press(cx, Role::Button, "Start a Job");
     assert_eq!(block.read_with(cx, |block, _| block.started.clone()), ["New feature, beginning at Bridge: Show errors on the board"]);
     assert!(block.read_with(cx, |block, _| block.compose.is_none()));
-    assert_eq!(cx.update(|_, cx| crate::drafts::kept("system.feature.armada.bridge", cx)), None);
+    assert_eq!(cx.update(|_, cx| crate::drafts::kept(&key, cx)), None);
 }
 
 #[gpui::test]
@@ -235,13 +230,7 @@ fn a_part_the_librarian_added_has_keep_work_and_remove_and_each_answers(cx: &mut
         assert!(drawn(cx, Role::Button, name), "{name}");
     }
     press(cx, Role::Button, "Work with the librarian");
-    cx.update(|window, cx| {
-        let input = match &block.read(cx).compose {
-            Some(super::Compose::Rework { input, .. }) => input.clone(),
-            _ => panic!("the note box is open"),
-        };
-        input.update(cx, |input, cx| input.set_value("It is the inbox folder, not the bank", window, cx));
-    });
+    cx.simulate_input("It is the inbox folder, not the bank");
     redraw(cx);
     press(cx, Role::Button, "Send note");
     let answered = block.read_with(cx, |block, _| block.answered.clone());
