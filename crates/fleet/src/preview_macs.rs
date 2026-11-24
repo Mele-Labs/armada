@@ -9,6 +9,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 use std::path::Path;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
@@ -43,6 +44,34 @@ pub(crate) struct Macs {
     counted: Mutex<Vec<(String, String, String)>>,
     /// The cut last sent to other Macs, so a push that finishes moves it though the answer did not.
     pub(crate) cut_sent: Mutex<Option<PreviewOffers>>,
+    /// How many times `verdicts` was rewritten, one of what `partners_kept` is read from.
+    verdict_moves: AtomicU64,
+    /// What `partners_read` last answered and what it read that from, so a tick that finds all of it the same
+    /// answers without decoding the held rows again.
+    partners_kept: Mutex<Option<(PartnersFrom, Partners)>>,
+    /// How many times the held rows were decoded.
+    #[cfg(test)]
+    pub(crate) partners_decoded: AtomicU64,
+}
+
+/// Everything `partners_read` answers from that is not read afresh each time: when it is the same, so is the answer.
+#[derive(PartialEq)]
+struct PartnersFrom {
+    /// `Store::held_moves`, which moves with every write of what another Mac shares.
+    held: u64,
+    verdicts: u64,
+    /// Each paired Mac's id, name and whether it is linked.
+    paired: Vec<(String, String, bool)>,
+    /// The running build, which says whether it holds an offer.
+    build: Option<(String, BTreeMap<String, String>)>,
+}
+
+/// What of a Job row held from another Mac names it: the rest of the row is not read.
+#[derive(serde::Deserialize)]
+struct TitleOnly {
+    id: String,
+    #[serde(default)]
+    title: Option<String>,
 }
 
 /// One offer in the check, either Mac's, in the order they are merged.
@@ -57,7 +86,7 @@ pub(crate) struct Entry {
 }
 
 /// The ready offers held from other Macs that count, and those left out.
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub(crate) struct Partners {
     /// Rows as Bridge draws them: `mac` set, `state` what this Mac's check found, `checking` where none yet.
     pub(crate) offers: Vec<PreviewOfferRow>,
@@ -156,22 +185,54 @@ where
     /// differs does not stop a branch building here. An offer this Mac's check failed, or whose tip origin lacks, is
     /// a row as it stands and is named in `left_out`; only a ready one is in the file.
     pub(crate) async fn partners_read(&self) -> Partners {
+        let macs = &self.previewing().macs;
         let (held, paired) = {
             let store = self.store().lock().await;
-            (store.held_from_macs(FromMac::PreviewOffers).unwrap_or_default(), store.paired_macs().unwrap_or_default())
+            (store.held_moves(), store.paired_macs().unwrap_or_default())
+        };
+        let paired: Vec<(String, String, bool)> = paired.into_iter().map(|one| (one.id, one.name, one.state == MacState::Linked)).collect();
+        let build = self.preview_build();
+        let now = PartnersFrom { held, verdicts: macs.verdict_moves.load(Ordering::SeqCst), paired, build };
+        if let Some((from, partners)) = macs.partners_kept.lock().expect("not poisoned").as_ref() {
+            if *from == now {
+                return partners.clone();
+            }
+        }
+        self.partners_decoded(now.build).await
+    }
+
+    /// `partners_read` from the held rows, kept with what it was read from. The read of the store and of the
+    /// verdicts is the one the key is taken from, so a write after it makes the next call read again.
+    async fn partners_decoded(&self, build: Option<(String, BTreeMap<String, String>)>) -> Partners {
+        #[cfg(test)]
+        self.previewing().macs.partners_decoded.fetch_add(1, Ordering::SeqCst);
+        let (held_moves, held, paired, titled) = {
+            let store = self.store().lock().await;
+            let held = store.held_from_macs(FromMac::PreviewOffers).unwrap_or_default();
+            // Only (Mac, id) -> title is read of the Job rows, and only where an offer is held to be titled.
+            let titled = if held.is_empty() { Vec::new() } else { store.held_from_macs(FromMac::Sessions).unwrap_or_default() };
+            (store.held_moves(), held, store.paired_macs().unwrap_or_default(), titled)
+        };
+        let from = |verdicts| PartnersFrom {
+            held: held_moves,
+            verdicts,
+            paired: paired.iter().map(|one| (one.id.clone(), one.name.clone(), one.state == MacState::Linked)).collect(),
+            build: build.clone(),
         };
         if held.is_empty() {
+            let verdicts = self.previewing().macs.verdict_moves.load(Ordering::SeqCst);
+            *self.previewing().macs.partners_kept.lock().expect("not poisoned") = Some((from(verdicts), Partners::default()));
             return Partners::default();
         }
-        let titles: BTreeMap<(String, String), String> = self
-            .sessions_from_macs()
-            .await
-            .unwrap_or_default()
+        let titles: BTreeMap<(String, String), String> = titled
             .into_iter()
-            .filter_map(|record| Some(((record.mac.clone()?, record.id.as_str().to_string()), record.title.clone()?)))
+            .filter_map(|one| {
+                let row = ipc::decode::<TitleOnly>("a Job row from another Mac", one.body.as_bytes()).ok()?;
+                Some(((one.mac, row.id), row.title?))
+            })
             .collect();
         let verdicts = self.previewing().macs.verdicts.lock().expect("not poisoned");
-        let build = self.preview_build();
+        let verdict_moves = self.previewing().macs.verdict_moves.load(Ordering::SeqCst);
         let mut found = Partners::default();
         let mut by_mac: BTreeMap<String, Vec<PreviewOfferRow>> = BTreeMap::new();
         for one in held {
@@ -201,6 +262,8 @@ where
                 found.offers.push(row);
             }
         }
+        drop(verdicts);
+        *self.previewing().macs.partners_kept.lock().expect("not poisoned") = Some((from(verdict_moves), found.clone()));
         found
     }
 
@@ -284,6 +347,7 @@ where
             counted.push((mac.clone(), entry.branch.clone(), entry.tip.clone()));
             verdicts.insert((mac, entry.branch), PartnerVerdict { tip: entry.tip, state, why, files });
         }
+        macs.verdict_moves.fetch_add(1, Ordering::SeqCst);
         *macs.counted.lock().expect("not poisoned") = counted;
     }
 
