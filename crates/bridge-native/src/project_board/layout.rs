@@ -21,6 +21,7 @@ pub const MOST_H: u8 = 6;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum BlockKind {
+    System,
     Needs,
     Run,
     Reviews,
@@ -30,11 +31,12 @@ pub enum BlockKind {
 }
 
 impl BlockKind {
-    pub const ALL: [BlockKind; 6] = [BlockKind::Needs, BlockKind::Run, BlockKind::Reviews, BlockKind::Issues, BlockKind::Features, BlockKind::Checks];
+    pub const ALL: [BlockKind; 7] = [BlockKind::System, BlockKind::Needs, BlockKind::Run, BlockKind::Reviews, BlockKind::Issues, BlockKind::Features, BlockKind::Checks];
 
     /// The words on the block's header and the name VoiceOver reads.
     pub fn title(self) -> &'static str {
         match self {
+            BlockKind::System => "System",
             BlockKind::Needs => "Needs you",
             BlockKind::Run => "Run",
             BlockKind::Reviews => "Reviews",
@@ -47,6 +49,7 @@ impl BlockKind {
     /// What its element id is made of.
     pub fn slug(self) -> &'static str {
         match self {
+            BlockKind::System => "system",
             BlockKind::Needs => "needs-you",
             BlockKind::Run => "run",
             BlockKind::Reviews => "reviews",
@@ -64,6 +67,7 @@ impl BlockKind {
     /// The views its data fits, the first being the one it starts in.
     pub fn views(self) -> &'static [View] {
         match self {
+            BlockKind::System => &[View::Graph, View::List],
             BlockKind::Needs => &[View::List, View::Cards],
             BlockKind::Run => &[View::List, View::Table, View::Cards],
             BlockKind::Reviews => &[View::Cards, View::List, View::Table],

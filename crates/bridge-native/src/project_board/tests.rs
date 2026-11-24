@@ -8,6 +8,7 @@ use super::board::{Board, SAVE_AFTER};
 use super::layout::{BlockKind, Layout, Placed, View};
 use super::model::{self, Press};
 use super::presets;
+use super::system::BOARD_ROWS;
 use super::{ProjectScreen, Tab, EXAMPLE_ASKS};
 
 const PROJECT: &str = crate::features::mock::PROJECT;
@@ -260,10 +261,10 @@ fn a_hidden_block_lets_the_rest_rise_and_an_added_one_takes_the_first_free_cells
     let mut layout = presets::preset(kind);
     layout.hide(BlockKind::Run);
     assert_eq!(layout.missing(), [BlockKind::Run]);
-    assert_eq!(layout.block(BlockKind::Reviews).map(|one| (one.x, one.y)), Some((0, 0)), "Reviews rises into the room Run left");
+    assert_eq!(layout.block(BlockKind::Reviews).map(|one| (one.x, one.y)), Some((0, BOARD_ROWS)), "Reviews rises into the room Run left, up to the System block");
     layout.add(BlockKind::Run);
     let run = layout.block(BlockKind::Run).copied().expect("Run is back");
-    assert_eq!((run.x, run.y, run.w, run.h, run.view), (0, 4, 3, 2, View::List), "the first free cells, reading along each row from the top");
+    assert_eq!((run.x, run.y, run.w, run.h, run.view), (0, BOARD_ROWS + 4, 3, 2, View::List), "the first free cells, reading along each row from the top");
     assert!(layout.blocks.iter().all(|one| one.kind == BlockKind::Run || !one.overlaps(&run)));
 }
 
