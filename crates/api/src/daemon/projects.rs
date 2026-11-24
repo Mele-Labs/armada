@@ -67,8 +67,9 @@ pub trait Projects: Send + Sync + 'static {
     /// he has none of, a part or a feature it holds none of.
     fn get_system_map(&self, project: String, part: Option<String>, feature: Option<String>) -> impl Future<Output = Result<ipc::SystemMap, Refusal>> + Send;
 
-    /// `get_system_part` — what Fleet knows of one part, in nine sections. [`Refusal::NotFound`] for a project or part it holds none of.
-    fn get_system_part(&self, project: String, part: String) -> impl Future<Output = Result<ipc::SystemPartAnswers, Refusal>> + Send;
+    /// `get_system_part` — what Fleet knows of one part, one feature, or neither for the whole project, in nine sections.
+    /// [`Refusal::NotFound`] for a project, part or feature it holds none of.
+    fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> impl Future<Output = Result<ipc::SystemPartAnswers, Refusal>> + Send;
 
     /// `list_system_folder` — the names in one folder at the checkout's `HEAD`, folders first. [`Refusal::NotFound`] for a project
     /// or folder it holds none of.

@@ -906,8 +906,8 @@ where
         self.system_map_read(project, part, feature).await
     }
 
-    async fn get_system_part(&self, project: String, part: String) -> Result<ipc::SystemPartAnswers, Refusal> {
-        self.system_part_read(project, part).await
+    async fn get_system_part(&self, project: String, part: Option<String>, feature: Option<String>) -> Result<ipc::SystemPartAnswers, Refusal> {
+        self.system_part_read(project, part, feature).await
     }
 
     async fn list_system_folder(&self, project: String, path: String) -> Result<ipc::SystemFolder, Refusal> {

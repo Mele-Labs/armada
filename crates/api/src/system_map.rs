@@ -16,9 +16,11 @@ pub(crate) struct Level {
     feature: Option<String>,
 }
 
+/// `?part=&feature=` on `get_system_part`: one part, one feature, or neither for the whole project.
 #[derive(serde::Deserialize)]
 pub(crate) struct OfPart {
-    part: String,
+    part: Option<String>,
+    feature: Option<String>,
 }
 
 #[derive(serde::Deserialize)]
@@ -35,7 +37,7 @@ pub(crate) async fn get_system_map<D: Projects>(State(served): State<Served<D>>,
 }
 
 pub(crate) async fn get_system_part<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, Query(asked): Query<OfPart>) -> Response {
-    match served.daemon().get_system_part(project, asked.part).await {
+    match served.daemon().get_system_part(project, asked.part.filter(|one| !one.is_empty()), asked.feature.filter(|one| !one.is_empty())).await {
         Ok(answers) => answer(StatusCode::OK, &answers, served.run_id()),
         Err(refusal) => refused(refusal),
     }

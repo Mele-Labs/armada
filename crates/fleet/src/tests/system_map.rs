@@ -10,13 +10,13 @@ use store::KeptFeature;
 use super::tmp::TempDir;
 use crate::system_map::read_for_test;
 
-fn write(root: &Path, path: &str, text: &str) {
+pub(super) fn write(root: &Path, path: &str, text: &str) {
     let file = root.join(path);
     std::fs::create_dir_all(file.parent().expect("a folder")).expect("made");
     std::fs::write(file, text).expect("written");
 }
 
-fn cargo(name: &str, deps: &str) -> String {
+pub(super) fn cargo(name: &str, deps: &str) -> String {
     format!("[package]\nname = \"{name}\"\nversion = \"0.0.0\"\n\n[dependencies]\n{deps}\n")
 }
 

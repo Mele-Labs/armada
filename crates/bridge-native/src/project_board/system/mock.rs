@@ -284,6 +284,7 @@ fn blank(project: &str, part: &str, tracker: bool, has_screen: bool) -> SystemPa
     SystemPartAnswers {
         project: project.into(),
         part: part.into(),
+        feature: None,
         features: Vec::new(),
         code: Vec::new(),
         working: Vec::new(),

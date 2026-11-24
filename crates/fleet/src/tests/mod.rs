@@ -128,6 +128,7 @@ mod mods;
 mod manifest_confirm;
 mod project_board;
 mod system_map;
+mod system_part;
 mod ranked_issues;
 mod tracker_per_manifest;
 mod tracker_words;
