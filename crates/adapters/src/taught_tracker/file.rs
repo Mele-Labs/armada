@@ -406,7 +406,7 @@ fn arguments_of(name: &str, given: &Table, problems: &mut Vec<String>) -> Option
 
 /// Why `url` may not be asked, or `None`. **The host is written out and never filled**, so a
 /// credential goes to the host named and nowhere else, and only over TLS off this machine.
-fn url_problem(url: &str) -> Option<String> {
+pub(super) fn url_problem(url: &str) -> Option<String> {
     let Some((scheme, rest)) = url.split_once("://") else {
         return Some("must start with `https://`".to_string());
     };
