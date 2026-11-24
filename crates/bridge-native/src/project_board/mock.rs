@@ -153,6 +153,21 @@ fn feature(slug: &str, title: &str, by: MatchedBy, jobs: u32) -> MatchedFeature 
     MatchedFeature { slug: slug.into(), title: title.into(), by: vec![by], jobs }
 }
 
+/// The might-lists as the librarian ranked them: its own order, with a why on each row.
+pub fn ranked_by_librarian() -> RankedIssues {
+    let mut ranked = issues().ranked;
+    ranked.might_pick_up.reverse();
+    let whys = ["Offline sends are the Pocket gap you hit this week", "Two features you work on most wait on it"];
+    for (row, why) in ranked.might_pick_up.iter_mut().zip(whys) {
+        row.why = Some(why.to_string());
+    }
+    for row in &mut ranked.might_be_interested {
+        row.why = Some("Touches the library you work in".to_string());
+    }
+    ranked.by_librarian = Some(Instant::carried("2026-11-24T01:00:00Z"));
+    ranked
+}
+
 /// One issue assigned to him, two ranked ones nobody holds (the first matched two features, the second none), and one pull request
 /// of someone else.
 pub fn issues() -> IssuesRead {
@@ -185,19 +200,4 @@ pub fn issues() -> IssuesRead {
         by_librarian: None,
     };
     IssuesRead { mine, ranked }
-}
-
-/// The might-lists as the librarian ranked them: its own order, with a why on each row.
-pub fn ranked_by_librarian() -> RankedIssues {
-    let mut ranked = issues().ranked;
-    ranked.might_pick_up.reverse();
-    let whys = ["Offline sends are the Pocket gap you hit this week", "Two features you work on most wait on it"];
-    for (row, why) in ranked.might_pick_up.iter_mut().zip(whys) {
-        row.why = Some(why.to_string());
-    }
-    for row in &mut ranked.might_be_interested {
-        row.why = Some("Touches the library you work in".to_string());
-    }
-    ranked.by_librarian = Some(Instant::carried("2026-11-24T01:00:00Z"));
-    ranked
 }
