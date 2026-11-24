@@ -230,7 +230,9 @@ impl JobView {
             if let Some(place) = place {
                 margin.scroll.scroll_to_item(place);
                 let was = f32::from(margin.scroll.bounds().size.width);
-                let settled = if beside { (was - f32::from(margin_width(look))).abs() < 1. } else { was > f32::from(margin_width(look)) + 1. };
+                // The threads' scroll stands inside the margin's border.
+                let inside = f32::from(margin_width(look)) - f32::from(look.length(token::BORDER_WIDTH));
+                let settled = if beside { (was - inside).abs() < 1. } else { was > f32::from(margin_width(look)) + 1. };
                 if settled {
                     margin.reach.replace(None);
                 }
@@ -246,14 +248,24 @@ impl JobView {
                 .min_h_0()
                 .flex()
                 .flex_col()
-                .gap(look.length(token::SPACE_3))
-                .p(look.length(token::SPACE_4))
                 .border_color(look.color(token::BORDER_SUBTLE))
                 .bg(look.color(token::BG_BASE))
-                .overflow_y_scroll()
-                .track_scroll(&margin.scroll)
-                .child(head)
-                .children(body),
+                // The head stays put; the threads scroll under it.
+                .child(div().flex_none().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(head))
+                .child(
+                    div()
+                        .id(SharedString::from(format!("margin-threads:{name}")))
+                        .flex_1()
+                        .min_h_0()
+                        .flex()
+                        .flex_col()
+                        .gap(look.length(token::SPACE_3))
+                        .px(look.length(token::SPACE_4))
+                        .pb(look.length(token::SPACE_4))
+                        .overflow_y_scroll()
+                        .track_scroll(&margin.scroll)
+                        .children(body),
+                ),
             Role::Group,
             "Margin",
         )
@@ -481,7 +493,13 @@ impl JobView {
                 .border(look.length(token::BORDER_WIDTH))
                 .border_color(if on { mixed(look, token::YOU, 0.55) } else { look.color(token::BORDER_DEFAULT) })
                 .bg(look.color(token::BG_RAISED))
-                .on_click(cx.listener(move |this, _, _, cx| this.margin_on(&job, &reader, &thread, cx)))
+                // A press on its Settle reaches the thread too, after it closed: a closed thread is not chosen, or its
+                // unmarked words would be found and left selected in the page.
+                .on_click(cx.listener(move |this, _, _, cx| {
+                    if this.reader_of(&job, &reader).is_some_and(|held| held.margin.open().any(|one| one.id == thread)) {
+                        this.margin_on(&job, &reader, &thread, cx);
+                    }
+                }))
                 .child(head)
                 .children(gone)
                 .children(lines)

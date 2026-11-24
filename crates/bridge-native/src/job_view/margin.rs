@@ -116,10 +116,10 @@ impl Margin {
         self.threads.iter().filter(|one| one.state != MarginState::Settled)
     }
 
-    /// Where thread `thread` stands among the Open tab's children, as `margin_column` lays them out: the head, Fleet's
+    /// Where thread `thread` stands among what scrolls under the Open tab's head, as `margin_column` lays it out: Fleet's
     /// refusal, the held bar and the comment being written come before the threads.
     pub(super) fn place_of(&self, thread: &str) -> Option<usize> {
-        let before = 1 + usize::from(self.said.is_some()) + usize::from(self.holds()) + usize::from(self.new.is_some());
+        let before = usize::from(self.said.is_some()) + usize::from(self.holds()) + usize::from(self.new.is_some());
         self.open().position(|one| one.id == thread).map(|at| before + at)
     }
 
@@ -561,6 +561,30 @@ impl JobView {
         true
     }
 
+    /// N, J, K and Enter on the margin the review sheet draws, while the sheet's list holds the keys: N comments on the
+    /// words selected in the page, J and K go down and up its open threads, and Enter puts the caret in the reply of the
+    /// one he is on. False where the sheet shows no page with a margin, a box has the caret, or the key is none of them.
+    pub(super) fn margin_sheet_key(&mut self, event: &gpui::KeyDownEvent, window: &mut Window, cx: &mut Context<Self>) -> bool {
+        let mods = event.keystroke.modifiers;
+        if mods.alt || mods.platform || mods.control || mods.shift || mods.function || !self.review_focus.list.is_focused(window) {
+            return false;
+        }
+        let Some((job, name)) = self.sheet_reader(cx) else { return false };
+        let Some(held) = self.reader_of(&job, &name) else { return false };
+        if held.margin.typing(window, cx) {
+            return false;
+        }
+        match event.keystroke.key.as_str() {
+            // The sheet always draws its page's margin, so N with nothing selected says what to select rather than
+            // switching the margin off as it does in a tab.
+            "n" => self.reader_page_note(&job, &name, false, window, cx),
+            key @ ("j" | "k") if !held.margin.settled && held.margin.open().next().is_some() => self.margin_move(&job, &name, key == "j", cx),
+            "enter" if held.margin.on.is_some() && !held.margin.settled => self.margin_into(&job, &name, window, cx),
+            _ => return false,
+        }
+        true
+    }
+
     /// Open on a round of talk in the thread: the page in its tab, or in the review sheet while it asks him to approve it, the
     /// margin's Open tab, and the round's first thread brought into view; a passage of a page sent back is shown in the page.
     pub(super) fn margin_open(&mut self, page: &str, thread: Option<&str>, passage: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
@@ -670,6 +694,67 @@ mod tests {
         assert!(view.read_with(cx, |view, _| view.review_open()), "and the sheet stays up");
     }
 
+    fn pressed(key: &'static str) -> gpui::KeyDownEvent {
+        gpui::KeyDownEvent { keystroke: gpui::Keystroke::parse(key).expect("a key"), is_held: false, prefer_character_input: false }
+    }
+
+    /// The open threads of the sheet's page, in the order J goes down them, and the one he is on.
+    fn threads_and_on(view: &super::JobView) -> (Vec<String>, Option<String>) {
+        let held = view.reader_of("plan-job", &reader_name()).expect("the sheet's page has its reader");
+        (held.margin.open().map(|one| one.id.clone()).collect(), held.margin.on.clone())
+    }
+
+    #[gpui::test]
+    fn the_sheet_key_goes_down_and_up_the_margin_and_enter_puts_the_caret_in_a_reply(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        assert!(view.update_in(cx, |view, window, _| view.review_focus.list.is_focused(window)), "the sheet's list holds the keys");
+        let key = |cx: &mut gpui::VisualTestContext, key: &'static str| view.update_in(cx, |view, window, cx| view.margin_sheet_key(&pressed(key), window, cx));
+        let (ids, on) = view.read_with(cx, |view, _| threads_and_on(view));
+        assert!(ids.len() > 2 && on.is_none(), "the page has open threads and he is on none: {ids:?} {on:?}");
+        assert!(key(cx, "j") && key(cx, "j"), "J is the margin's in the sheet");
+        assert_eq!(view.read_with(cx, |view, _| threads_and_on(view).1), Some(ids[1].clone()), "two Js go to the second thread");
+        assert!(key(cx, "k"));
+        assert_eq!(view.read_with(cx, |view, _| threads_and_on(view).1), Some(ids[0].clone()), "K goes back to the first");
+        assert!(!key(cx, "shift-j"), "a key with a modifier is not the margin's");
+        assert!(key(cx, "enter"), "Enter is the margin's while he is on a thread");
+        assert!(view.update_in(cx, |view, window, cx| view.reader_of("plan-job", &reader_name()).is_some_and(|held| held.margin.typing(window, cx))), "Enter puts the caret in its reply");
+        assert!(!key(cx, "j"), "with the caret in a reply, J is a letter he types");
+        assert!(!key(cx, "x"), "a key that is none of them is left to the sheet");
+    }
+
+    #[gpui::test]
+    fn pressing_j_in_the_sheet_moves_the_margin_to_the_next_thread(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        let ids = view.read_with(cx, |view, _| threads_and_on(view).0);
+        cx.simulate_keystrokes("j");
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| threads_and_on(view).1), Some(ids[0].clone()), "J in the sheet goes to the margin's first thread");
+        cx.simulate_keystrokes("j");
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| threads_and_on(view).1), Some(ids[1].clone()), "and the next J to the second");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "the sheet stays up");
+    }
+
+    #[gpui::test]
+    fn pressing_settle_closes_the_thread_and_does_not_choose_it(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        let (ids, on) = view.read_with(cx, |view, _| threads_and_on(view));
+        assert!(on.is_none(), "he is on no thread yet");
+        let first = all_of(cx, Role::Group, "Thread on \u{201c}Notices that arrive wait until 9:00 and come in as one digest\u{201d}").pop().expect("the first thread is drawn");
+        let settle = all_of(cx, Role::Button, "Settle").into_iter().find(|button| first.contains(&button.center())).expect("its Settle");
+        cx.simulate_click(settle.center(), Modifiers::none());
+        redraw(cx);
+        let (left, on) = view.read_with(cx, |view, _| threads_and_on(view));
+        assert_eq!(left.len(), ids.len() - 1, "Settle closed the thread");
+        assert_eq!(on, None, "the press does not choose the thread it closed, so the page finds and selects none of its words");
+    }
+
     #[gpui::test]
     fn the_margin_stands_beside_a_wide_page_at_its_width_and_folds_under_a_narrow_one(cx: &mut gpui::TestAppContext) {
         let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), no_ask);
@@ -717,7 +802,7 @@ mod tests {
         redraw(cx);
         redraw(cx);
         let on = view.read_with(cx, |view, _| view.reader_of("plan-job", &super::super::reader::reader_id(super::RowKind::Document, "quiet")).map(|held| (held.margin.on.clone(), held.margin.place_of("m5"))));
-        assert_eq!(on, Some((Some("m5".to_string()), Some(5))), "the round's thread is the one he is on");
+        assert_eq!(on, Some((Some("m5".to_string()), Some(4))), "the round's thread is the one he is on");
         let margin = all_of(cx, Role::Group, "Margin").pop().expect("the margin is drawn");
         let thread = all_of(cx, Role::Group, "Thread on \u{201c}A Job asking a question waits until the next workday.\u{201d}").pop().expect("m5 is drawn");
         assert!(margin.contains(&thread.origin) && thread.top() < margin.bottom(), "m5 stands in the margin's view: {thread:?} in {margin:?}");

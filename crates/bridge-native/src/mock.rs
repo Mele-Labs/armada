@@ -332,6 +332,8 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "plan-job") {
             let item = br#"{"id":"document:quiet","text":"Approve Quiet hours for notices","since":"2026-11-20T05:30:00Z","source":"document"}"#;
             one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).map_err(|why| why.to_string())?);
+            // A page put to him holds the Job on him, ahead of its turn: Fleet marks it Waiting, and it needs him.
+            one.mark = Some(ipc::JobMark { state: ipc::JobState::Waiting, lamp: ipc::JobLamp::Needs, group: ipc::JobGroup::Needs });
         }
     }
     // A Job holding builds to try waits on him with one item, as Fleet raises it: `Ready to try`, named by the Job's id.
