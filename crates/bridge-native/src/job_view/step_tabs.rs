@@ -162,7 +162,7 @@ mod tests {
     fn a_step_opens_the_produced_tabs_no_pane_holds_beside_his_own_and_brings_the_first_forward() {
         let was = tree::default_arrangement();
         let next = with_step_tabs(&was, &kinds_of(&words(&["issues", "jobs", "pulls"])), &|_| false).into_owned();
-        assert_eq!(kinds(&next), ["thread", "story", "artifacts", "pulls", "issues", "children"], "Child Jobs goes behind, nothing else is doubled");
+        assert_eq!(kinds(&next), ["thread", "artifacts", "pulls", "issues", "story", "children"], "Child Jobs goes behind, nothing else is doubled");
         assert_eq!(front(&next, "children").as_deref(), Some("issues"), "the first the step lists comes to the front");
         // His own tab is kept where he put it, and a step that lists a tab he has open adds none.
         let own = tree::add_tab(&was, &tree::holder_of(&was, "pulls").expect("the column").id, "files", tree::Extras::default()).into_owned();
@@ -255,6 +255,6 @@ mod tests {
     fn a_job_seen_for_the_first_time_opens_nothing(cx: &mut gpui::TestAppContext) {
         let (view, cx) = opened(cx, "mock-16");
         cx.run_until_parked();
-        view.read_with(cx, |view, _| assert_eq!(kinds(&view.arrangement()), ["thread", "story", "artifacts", "pulls", "issues"], "the step it came on screen at opened nothing"));
+        view.read_with(cx, |view, _| assert_eq!(kinds(&view.arrangement()), ["thread", "artifacts", "pulls", "issues", "story"], "the step it came on screen at opened nothing"));
     }
 }

@@ -124,6 +124,8 @@ pub struct FeaturesScreen {
     work: Option<Task<()>>,
     /// Where the librarian's press stands, and the press itself while it is in flight.
     press: librarian::Press,
+    /// Whether the card is open, and the buttons the keys reach on it.
+    lib_card: librarian::Shell,
     ran: Option<Task<()>>,
     /// The run shown under the card's line: going on now, or the last one this screen watched end.
     run: Option<steps::Run>,
@@ -222,6 +224,7 @@ impl FeaturesScreen {
             entered: false,
             work: None,
             press: librarian::Press::Idle,
+            lib_card: librarian::Shell::new(cx),
             ran: None,
             run: None,
             stopping: false,
