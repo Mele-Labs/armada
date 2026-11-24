@@ -972,6 +972,13 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             "/projects/project/:project/board",
             get(crate::projects::get_project_board::<D>).post(crate::projects::save_project_board::<D>),
         )
+        .route(
+            "/projects/project/:project/metrics",
+            get(crate::projects::read_metrics::<D>).post(crate::projects::save_metric::<D>),
+        )
+        .route("/projects/project/:project/metrics/try", post(crate::projects::try_metric::<D>))
+        .route("/projects/project/:project/metrics/token", post(crate::projects::save_metric_token::<D>))
+        .route("/projects/project/:project/metrics/:id/remove", post(crate::projects::remove_metric::<D>))
         .route("/projects/project/:project/ranked_issues", get(crate::projects::list_ranked_issues::<D>))
         .route(
             "/projects/project/:project/store",

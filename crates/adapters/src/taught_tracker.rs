@@ -17,10 +17,12 @@ use crate::HttpRequests;
 mod file;
 mod mapping;
 mod mcp;
+mod metric;
 mod running;
 mod writes;
 
 pub use file::{problems, read, TrackerFile, MOST_BYTES};
+pub use metric::run_metric;
 use file::{Call, Transport};
 use running::{failed_with, Escape, Fills};
 
@@ -74,45 +76,7 @@ impl TaughtTracker {
     /// What `transport` answers, filled from `fills`. `None` is a 404 for a call that names an
     /// issue. **Every refusal is scrubbed of the credential.**
     fn answer(&self, transport: &Transport, fills: &Fills<'_>, doing: &'static str) -> Result<Option<Vec<u8>>, NotTracked> {
-        let answer = match transport {
-            Transport::Cli { argv } => {
-                let filled: Vec<String> = argv.iter().map(|one| fills.fill(one, Escape::Plain)).collect();
-                let ran = running::run(&filled, None).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
-                if !ran.succeeded {
-                    return Err(NotTracked::of(doing, fills.scrubbed(&failed_with(&ran))));
-                }
-                ran.stdout
-            }
-            Transport::Http { method, url, headers, body } => {
-                let outgoing = Outgoing {
-                    method: method.clone(),
-                    url: fills.fill(url, Escape::Url),
-                    headers: headers.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect(),
-                    body: body.as_deref().map(|body| fills.fill(body, Escape::Json)),
-                };
-                let came = HttpRequests::within(running::WITHIN)
-                    .send(outgoing, running::MOST_OUTPUT)
-                    .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why.said())))?;
-                if came.status == 404 && fills.reference.is_some() {
-                    return Ok(None);
-                }
-                if came.status >= 400 {
-                    let said = String::from_utf8_lossy(&came.body);
-                    return Err(NotTracked::of(doing, fills.scrubbed(&format!("it answered {}: {said}", came.status))));
-                }
-                if came.truncated {
-                    return Err(NotTracked::of(doing, format!("the answer was larger than {} bytes", running::MOST_OUTPUT)));
-                }
-                came.body
-            }
-            Transport::Mcp { server, env, tool, arguments } => {
-                let env: Vec<(String, String)> =
-                    env.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect();
-                mcp::call(server, &env, tool, &fills.fill(arguments, Escape::Json), self.within)
-                    .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?
-            }
-        };
-        Ok(Some(answer))
+        answer_of(transport, fills, doing, self.within)
     }
 
     /// The secret the credential command prints, or `None` where the file names none.
@@ -139,6 +103,51 @@ impl TaughtTracker {
         issues.truncate(most);
         Ok(issues)
     }
+}
+
+/// What `transport` answers, filled from `fills`, an MCP exchange bounded by `within`. `None` is a 404 for a call that
+/// names an issue. **Every refusal is scrubbed of the credential.** A tracker's call and a metric's are run by this alone.
+fn answer_of(transport: &Transport, fills: &Fills<'_>, doing: &'static str, within: Duration) -> Result<Option<Vec<u8>>, NotTracked> {
+    let answer = match transport {
+        Transport::Cli { argv, env } => {
+            let filled: Vec<String> = argv.iter().map(|one| fills.fill(one, Escape::Plain)).collect();
+            let env: Vec<(String, String)> = env.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect();
+            let ran = running::run_with_env(&filled, &env, None).map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?;
+            if !ran.succeeded {
+                return Err(NotTracked::of(doing, fills.scrubbed(&failed_with(&ran))));
+            }
+            ran.stdout
+        }
+        Transport::Http { method, url, headers, body } => {
+            let outgoing = Outgoing {
+                method: method.clone(),
+                url: fills.fill(url, Escape::Url),
+                headers: headers.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect(),
+                body: body.as_deref().map(|body| fills.fill(body, Escape::Json)),
+            };
+            let came = HttpRequests::within(running::WITHIN)
+                .send(outgoing, running::MOST_OUTPUT)
+                .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why.said())))?;
+            if came.status == 404 && fills.reference.is_some() {
+                return Ok(None);
+            }
+            if came.status >= 400 {
+                let said = String::from_utf8_lossy(&came.body);
+                return Err(NotTracked::of(doing, fills.scrubbed(&format!("it answered {}: {said}", came.status))));
+            }
+            if came.truncated {
+                return Err(NotTracked::of(doing, format!("the answer was larger than {} bytes", running::MOST_OUTPUT)));
+            }
+            came.body
+        }
+        Transport::Mcp { server, env, tool, arguments } => {
+            let env: Vec<(String, String)> =
+                env.iter().map(|(name, value)| (name.clone(), fills.fill(value, Escape::Plain))).collect();
+            mcp::call(server, &env, tool, &fills.fill(arguments, Escape::Json), within)
+                .map_err(|why| NotTracked::of(doing, fills.scrubbed(&why)))?
+        }
+    };
+    Ok(Some(answer))
 }
 
 impl Tracker for TaughtTracker {
