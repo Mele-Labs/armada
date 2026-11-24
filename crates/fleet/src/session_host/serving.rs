@@ -765,7 +765,9 @@ where
     async fn get_job_thread(self: Arc<Self>, read: ipc::JobThreadRead) -> Result<ipc::JobThread, Refusal> {
         // A Job held from another Mac is read from that Mac's Fleet each time; no thread of it is kept here.
         if let Some(mac) = self.mac_holding(read.session_id.as_str()).await {
-            return self.thread_from_other_mac(&mac, &read).await;
+            let mut thread = self.thread_from_other_mac(&mac, &read).await?;
+            self.ready_cards_restamped(&mut thread.items);
+            return Ok(thread);
         }
         self.job_thread_served(read).await
     }

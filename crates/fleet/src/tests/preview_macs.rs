@@ -254,3 +254,54 @@ async fn an_own_offer_that_clashes_with_an_earlier_partner_offer_fails_names_the
         )]
     );
 }
+
+fn decoded(rig: &Rig) -> u64 {
+    rig.fleet.previewing().macs.partners_decoded.load(std::sync::atomic::Ordering::SeqCst)
+}
+
+async fn air_job_titled(rig: &Rig, title: &str) {
+    let own = SessionId::carried(rig.a_hosted_session().await);
+    let mut row = std::sync::Arc::clone(&rig.fleet).get_session(own).await.expect("a Job").session;
+    row.id = SessionId::carried("air-job");
+    row.title = Some(title.into());
+    rig.fleet.hold_other_mac_sessions(OtherMacSessions { mac: AIR.into(), sessions: vec![row] }).await.expect("held");
+}
+
+#[tokio::test]
+async fn a_pass_with_nothing_held_moved_does_not_read_the_held_rows_again_and_one_that_moved_does() {
+    let rig = a_rig();
+    a_previewable_repository(&rig);
+    paired_awake(&rig).await;
+    let tip = branch_with(&rig, "armada/air-work", &base(&rig), "crates/x/air.rs", "1");
+    air_job_titled(&rig, "Make Air quicker").await;
+    held(&rig, vec![theirs("armada/air-work", &tip, "air-job", EARLIER)]).await;
+    checked(&rig).await;
+    rig.fleet.previews_watched().await;
+    checked(&rig).await;
+
+    let before = decoded(&rig);
+    for _ in 0..3 {
+        rig.fleet.previews_watched().await;
+    }
+    assert_eq!(decoded(&rig), before, "three idle passes read nothing of what other Macs hold");
+    assert_eq!(read(&rig).await.offers[0].title, "Make Air quicker");
+    assert_eq!(decoded(&rig), before, "serving the answer reads nothing either");
+
+    // A Job row of Air's that changed is read again, and the new title is the one drawn.
+    air_job_titled(&rig, "Make Air faster").await;
+    rig.fleet.previews_watched().await;
+    checked(&rig).await;
+    assert!(decoded(&rig) > before, "a held row moved");
+    assert_eq!(read(&rig).await.offers[0].title, "Make Air faster");
+
+    // An offer of Air's that changed, too.
+    let steady = decoded(&rig);
+    rig.fleet.previews_watched().await;
+    assert_eq!(decoded(&rig), steady, "settled again");
+    let more = branch_with(&rig, "armada/air-more", &base(&rig), "crates/x/more.rs", "2");
+    held(&rig, vec![theirs("armada/air-work", &tip, "air-job", EARLIER), theirs("armada/air-more", &more, "air-job", LATER)]).await;
+    rig.fleet.previews_watched().await;
+    checked(&rig).await;
+    assert!(decoded(&rig) > steady, "a held offer moved");
+    assert_eq!(read(&rig).await.offers.len(), 2);
+}

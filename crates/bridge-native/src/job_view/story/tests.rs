@@ -554,11 +554,11 @@ fn top_kinds(view: &gpui::Entity<super::JobView>, top: &str, cx: &mut VisualTest
 }
 
 #[gpui::test]
-fn an_arrangement_kept_without_story_opens_with_story_after_thread(cx: &mut TestAppContext) {
+fn an_arrangement_kept_without_story_opens_with_story_after_issues(cx: &mut TestAppContext) {
     let (kept, thread, top) = kept_with(false);
     let (view, cx) = job_with_kept_panes(kept, cx);
-    assert_eq!(top_kinds(&view, &thread, cx), ["thread", "story"]);
-    assert_eq!(top_kinds(&view, &top, cx), ["artifacts", "pulls", "issues", "plan", "files"], "Now goes for what the Job produced, his own tabs stay");
+    assert_eq!(top_kinds(&view, &thread, cx), ["thread"]);
+    assert_eq!(top_kinds(&view, &top, cx), ["artifacts", "pulls", "issues", "story", "plan", "files"], "his own tabs stay after it");
 }
 
 #[gpui::test]
@@ -571,7 +571,7 @@ fn an_arrangement_kept_with_story_keeps_its_own_place_for_it(cx: &mut TestAppCon
 
 #[gpui::test]
 fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_front(cx: &mut TestAppContext) {
-    let (kept, thread, _) = kept_with(false);
+    let (kept, _, top) = kept_with(false);
     cx.update(|cx| story_link::put(StoryRequest { session_id: SessionId::carried(JOB), ask_id: "ask-3".into() }, cx));
     let (view, cx) = job_with_kept_panes(kept, cx);
     // `ready` took the request an earlier test left, so it is put again once the Job is open and its panes are read.
@@ -582,9 +582,9 @@ fn a_story_link_for_the_job_opens_its_story_tab_in_front_and_puts_its_ask_in_fro
     cx.run_until_parked();
     let front = view.read_with(cx, |view, _| {
         let arrangement = view.arrangement_of(JOB).expect("placed");
-        super::super::pane_tree::pane_by_id(arrangement, &thread).and_then(|pane| pane.active.clone().and_then(|id| pane.tabs.iter().find(|tab| tab.id == id).map(|tab| tab.kind.clone())))
+        super::super::pane_tree::pane_by_id(arrangement, &top).and_then(|pane| pane.active.clone().and_then(|id| pane.tabs.iter().find(|tab| tab.id == id).map(|tab| tab.kind.clone())))
     });
-    assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front");
+    assert_eq!(front.as_deref(), Some("story"), "the Story tab is in front of the column");
     assert!(cx.update(|_, cx| story_link::peek(cx)).is_none(), "the tab took the request");
     assert!(drawn(cx, Role::Button, "3. Votes show as never cast"), "the tab is drawn in the pane");
 }
@@ -652,4 +652,42 @@ fn up_from_the_first_ask_reaches_the_features_and_enter_on_one_opens_its_page_ov
     cx.simulate_keystrokes("escape");
     assert!(tab.read_with(cx, |tab, _| tab.overlay().is_none()));
     assert_eq!(tab.read_with(cx, |tab, _| (tab.region, tab.feature_at)), (Region::Features, 0), "the keys come back to the row");
+}
+
+// ---- the library's names ----------------------------------------------------------------------
+
+/// A live tab of a Job of the mock project `armada`, on a connection with no link behind it, and the Job's id.
+fn live_in_project(fleet: &gpui::Entity<crate::fleet::FleetConnection>, at: usize, cx: &mut TestAppContext) -> (gpui::Entity<StoryTab>, String) {
+    let record = crate::mock::jobs_of("jobs-projects").expect("the fixture decodes").into_iter().filter(|one| one.hosted.as_ref().and_then(|hosted| hosted.project.as_deref()) == Some("armada")).nth(at).expect("a Job in the project");
+    let job = record.id.as_str().to_string();
+    fleet.update(cx, |fleet, _| fleet.hold_job(record));
+    let named = job.clone();
+    let fleet = fleet.clone();
+    let tab = cx.add_window(move |window, cx| StoryTab::live(&fleet, named, false, window, cx)).root(cx).expect("the tab");
+    (tab, job)
+}
+
+fn filed_under(tab: &gpui::Entity<StoryTab>, cx: &mut TestAppContext) -> Vec<String> {
+    tab.read_with(cx, |tab, _| tab.built.cards.iter().flat_map(|card| &card.rows).filter(|row| row.feature.is_some()).map(|row| row.text.clone()).collect())
+}
+
+#[gpui::test]
+fn the_story_draws_before_the_librarys_names_and_takes_them_when_they_land_for_every_tab_of_the_project(cx: &mut TestAppContext) {
+    ready(cx);
+    let fleet = cx.new(crate::fleet::FleetConnection::idle);
+    let (first, job) = live_in_project(&fleet, 0, cx);
+    first.update(cx, |tab, cx| tab.took(Ok(mock::story(&job)), cx));
+    let slug = mock::story(&job).asks.iter().flat_map(|one| one.ask.features.clone()).next().expect("an ask filed under a feature");
+    let title = mock::features().get(&slug).cloned().expect("the mock library holds it");
+    assert!(filed_under(&first, cx).contains(&format!("Filed under {slug}")), "the story draws with the feature named by its slug");
+    let reads = first.read_with(cx, |tab, _| tab.reads);
+    cx.update(|cx| super::library::landed_in_tests("armada", 1, crate::features::mock::library(), cx));
+    cx.run_until_parked();
+    assert!(filed_under(&first, cx).contains(&format!("Filed under {title}")), "the title lands on the drawn story");
+    assert_eq!(first.read_with(cx, |tab, _| tab.areas.clone()), mock::areas());
+    assert_eq!(first.read_with(cx, |tab, _| tab.reads), reads, "the story is not read again for them");
+    // Another Job's tab of the project has them as its story is read.
+    let (second, other) = live_in_project(&fleet, 1, cx);
+    second.update(cx, |tab, cx| tab.took(Ok(mock::story(&other)), cx));
+    assert!(filed_under(&second, cx).contains(&format!("Filed under {title}")));
 }

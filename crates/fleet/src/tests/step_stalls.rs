@@ -5,16 +5,16 @@
 
 use std::sync::Arc;
 
-use api::HostedSessions;
+use api::{HostedSessions, Sessions};
 use core_model::Timestamp;
 use ipc::{SessionId, SessionRecord, SessionRow, SessionStanding};
 use store::{KeptHosting, KeptRail};
 
 use super::planted::Held;
 use super::session_host::{eventually, rig_fitted, Rig};
-use super::session_rail::{approved_plan, on_the_rail, workflow};
-use crate::rail::RailStep;
-use crate::step_stalls::{cause_of, nine_in_ten, nudge_told, spoken, stalled_since};
+use super::session_rail::{approved_plan, on_the_rail, plan, workflow};
+use crate::rail::{Facts, RailStep};
+use crate::step_stalls::{cause_of, nine_in_ten, nudge_told, spoken, stalled_since, QUIET_SECS};
 
 #[test]
 fn the_usual_time_is_the_ninetieth_percentile_and_absent_below_five_visits() {
@@ -29,16 +29,35 @@ fn the_usual_time_is_the_ninetieth_percentile_and_absent_below_five_visits() {
 fn a_step_is_past_its_time_once_the_usual_after_it_began_has_gone_by() {
     let at = |text: &str| Timestamp::from_rfc3339(text);
     let began = "2026-11-20T10:00:00.000Z";
-    assert_eq!(stalled_since(began, 600, &at("2026-11-20T10:10:00.000Z")), None, "on the minute is not past it");
-    assert_eq!(stalled_since(began, 600, &at("2026-11-20T10:10:01.000Z")).as_deref(), Some("2026-11-20T10:10:00.000Z"));
+    assert_eq!(stalled_since(began, 600, None, &at("2026-11-20T10:10:00.000Z")), None, "on the minute is not past it");
+    assert_eq!(stalled_since(began, 600, None, &at("2026-11-20T10:10:01.000Z")).as_deref(), Some("2026-11-20T10:10:00.000Z"));
 }
 
 #[test]
-fn the_cause_says_what_the_step_waits_on_and_whose_it_is() {
-    let waiting = crate::tests::session_rail::plan_step();
-    assert_eq!(cause_of(&[waiting], 0), "Waiting on you. The step ends when you approve the plan.");
+fn a_step_he_wrote_on_stays_plain_until_he_has_been_quiet_half_an_hour() {
+    let at = |text: &str| Timestamp::from_rfc3339(text);
+    let began = "2026-11-20T10:00:00.000Z";
+    let wrote = Some("2026-11-20T10:50:00.000Z");
+    assert_eq!(QUIET_SECS, 1800);
+    assert_eq!(stalled_since(began, 600, wrote, &at("2026-11-20T11:20:00.000Z")), None, "half an hour after his message is not past it");
+    assert_eq!(stalled_since(began, 600, wrote, &at("2026-11-20T11:20:01.000Z")).as_deref(), Some("2026-11-20T11:20:00.000Z"));
+    let before = Some("2026-11-20T09:59:00.000Z");
+    assert_eq!(stalled_since(began, 600, before, &at("2026-11-20T10:10:01.000Z")).as_deref(), Some("2026-11-20T10:10:00.000Z"), "a message before the step began is not on it");
+}
+
+#[test]
+fn the_cause_says_what_the_step_waits_on_and_whose_move_it_is() {
+    let waiting = [crate::tests::session_rail::plan_step()];
+    let recorded = Facts { plan_recorded: true, ..Facts::default() };
+    assert_eq!(cause_of(&waiting, 0, &recorded, true), "Waiting on you. The step ends when you approve the plan.");
+    assert_eq!(cause_of(&waiting, 0, &recorded, false), "Waiting on the Job. The step ends when you approve the plan.", "the Job is still working");
+    assert_eq!(
+        cause_of(&waiting, 0, &Facts::default(), true),
+        "Waiting on the Job. It has recorded no plan for you to approve. The step ends when you approve the plan.",
+        "nothing to press yet"
+    );
     let nothing = [crate::tests::session_rail::delivers("Ship"), crate::tests::session_rail::step("Retro")];
-    assert_eq!(cause_of(&nothing, 1), "Waiting on the Job. The step ends when the Job ends.");
+    assert_eq!(cause_of(&nothing, 1, &Facts::default(), true), "Waiting on the Job. The step ends when the Job ends.");
 }
 
 #[test]
@@ -110,7 +129,7 @@ async fn the_strip_carries_the_steps_tabs_usual_time_and_end_and_goes_amber_past
     held.on(4000);
     let late = record(&rig, &id).await.workflow_strip.expect("a strip");
     let stalled = late.stalled.expect("past the hour with no move");
-    assert_eq!(stalled.cause, "Waiting on you. The step ends when you approve the plan.");
+    assert_eq!(stalled.cause, "Waiting on the Job. It has recorded no plan for you to approve. The step ends when you approve the plan.");
     let visit = record(&rig, &id).await.workflow_visits.last().cloned().expect("a visit");
     assert_eq!(Timestamp::from_rfc3339(stalled.since.as_str()).epoch_millis(), Some(Timestamp::from_rfc3339(visit.since.as_str()).epoch_millis().unwrap() + 3_600_000));
 
@@ -120,7 +139,26 @@ async fn the_strip_carries_the_steps_tabs_usual_time_and_end_and_goes_amber_past
     rig.fleet.steps_stalled_told().await;
     assert_eq!(nudges(&rig.rows(&id).await), 1, "never again for the same visit");
     let said = rig.stand_in.process(0).sent.lock().unwrap().iter().find(|line| line.contains("9 in 10 Jobs")).cloned().expect("the word");
-    assert!(said.contains("Plan the change") && said.contains("Waiting on you"), "{said}");
+    assert!(said.contains("Plan the change") && said.contains("Waiting on the Job"), "{said}");
+}
+
+#[tokio::test]
+async fn the_move_is_his_once_a_plan_is_recorded_and_a_step_he_writes_on_stays_plain() {
+    let (rig, held) = clocked();
+    let id = on_the_rail(&rig).await;
+    rig.stand_in.finishes(0, "Reading the code.");
+    eventually(|| async { rig.turn(&id).await == ipc::SessionTurn::Idle }).await;
+    others_stayed(&rig, &id, 3600).await;
+    held.on(4000);
+    rig.fleet.record_plan(None, plan(&id), false).await.expect("recorded");
+    let stalled = record(&rig, &id).await.workflow_strip.and_then(|strip| strip.stalled).expect("past the hour");
+    assert_eq!(stalled.cause, "Waiting on you. The step ends when you approve the plan.");
+
+    rig.send_unsettled(&id, "Try the other layout.").await;
+    let strip = record(&rig, &id).await.workflow_strip.expect("a strip");
+    assert!(strip.stalled.is_none(), "he wrote on the step just now: {strip:?}");
+    held.on(QUIET_SECS as u64 + 60);
+    assert!(record(&rig, &id).await.workflow_strip.and_then(|strip| strip.stalled).is_some(), "quiet for half an hour: amber again");
 }
 
 #[tokio::test]

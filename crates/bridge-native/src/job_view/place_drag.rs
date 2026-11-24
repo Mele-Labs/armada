@@ -341,10 +341,8 @@ mod tests {
 
     #[test]
     fn a_drop_that_changes_nothing_is_refused_and_one_that_moves_the_tab_lands() {
-        // The thread alone in its pane: Story, which the default puts beside it, is closed.
-        let default = tree::default_arrangement();
-        let story = tree::holder_of(&default, "story").and_then(|pane| pane.tabs.iter().find(|tab| tab.kind == "story")).map(|tab| tab.id.clone()).expect("a Story tab");
-        let was = tree::close_tab(&default, &story).into_owned();
+        // The thread alone in its pane, as the default has it.
+        let was = tree::default_arrangement();
         let panes = tree::panes_of(&was.root);
         let (thread, top) = (panes[0].clone(), panes[1].clone());
         let alone = thread.tabs[0].id.clone();

@@ -27,6 +27,7 @@ mod moving;
 mod pages;
 mod pairing_calls;
 mod project_edits;
+mod ready_answers;
 mod refreshing;
 mod session;
 mod terminals;
