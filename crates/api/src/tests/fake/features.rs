@@ -102,6 +102,27 @@ impl Features for FakeDaemon {
         Ok(ipc::LibrarianStopping { project: stop.project, stopping: false })
     }
 
+    async fn ask_librarian(&self, _caller: Option<crate::Caller>, ask: ipc::AskLibrarian) -> Result<ipc::LibrarianAnswered, Refusal> {
+        Ok(ipc::LibrarianAnswered { project: ask.project, asked_at: ipc::Instant::carried("2026-11-24T09:00:00.000Z"), reply: ask.words, act: None, calls: 1, limit: 40 })
+    }
+
+    async fn undo_librarian_ask(&self, _caller: Option<crate::Caller>, undo: ipc::UndoLibrarianAsk) -> Result<ipc::LibrarianAskUndone, Refusal> {
+        Ok(ipc::LibrarianAskUndone { project: undo.project, asked_at: undo.asked_at, reply: String::from("Undone") })
+    }
+
+    async fn refile_librarian_ask(&self, _caller: Option<crate::Caller>, refile: ipc::RefileLibrarianAsk) -> Result<ipc::LibrarianAnswered, Refusal> {
+        let act = ipc::LibrarianAct::FiledDoc { target: String::from("docs/guide.md"), title: String::from("Guide"), feature: refile.feature.clone(), feature_title: refile.feature };
+        Ok(ipc::LibrarianAnswered { project: refile.project, asked_at: refile.asked_at, reply: String::from("Moved"), act: Some(act), calls: 1, limit: 40 })
+    }
+
+    async fn rank_with_librarian(&self, _caller: Option<crate::Caller>, rank: ipc::RankWithLibrarian) -> Result<ipc::RankedIssues, Refusal> {
+        Ok(ipc::RankedIssues { project: rank.project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new(), by_librarian: Some(ipc::Instant::carried("2026-11-24T09:00:00.000Z")) })
+    }
+
+    async fn forget_librarian_ranking(&self, _caller: Option<crate::Caller>, forget: ipc::RankWithLibrarian) -> Result<ipc::RankedIssues, Refusal> {
+        Ok(ipc::RankedIssues { project: forget.project, days: 30, fetched_at: None, might_pick_up: Vec::new(), might_be_interested: Vec::new(), by_librarian: None })
+    }
+
     async fn seed_features(&self, _caller: Option<crate::Caller>, _seed: SeedFeatures) -> Result<FeaturesSeeded, Refusal> {
         Ok(FeaturesSeeded { created: Vec::new(), areas: 0, dropped: Vec::new() })
     }

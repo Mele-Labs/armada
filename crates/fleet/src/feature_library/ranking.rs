@@ -175,9 +175,19 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// `list_ranked_issues`. **A repository whose tracker would not answer is left out** while another did, and the
-    /// first refusal is the answer only where none did.
+    /// `list_ranked_issues`: by features, then in the librarian's order where it ranked them.
     pub(crate) async fn ranked_issues_read(&self, project: String) -> Result<RankedIssues, Refusal> {
+        let mut ranked = self.ranked_by_features(project).await?;
+        if let Some(ranking) = self.librarian_asks().ranking(&ranked.project) {
+            super::asking_rank::apply(&ranking, &mut ranked.might_pick_up, &mut ranked.might_be_interested);
+            ranked.by_librarian = Some(ranking.at);
+        }
+        Ok(ranked)
+    }
+
+    /// The might-lists ranked by features. **A repository whose tracker would not answer is left out** while another did,
+    /// and the first refusal is the answer only where none did.
+    pub(super) async fn ranked_by_features(&self, project: String) -> Result<RankedIssues, Refusal> {
         let held = self.project_held(&project).await?;
         let members: Vec<String> = held.repositories().into_iter().map(|member| member.as_str().to_string()).collect();
         let mut listed: Vec<(Option<ManifestId>, ipc::TrackedIssue)> = Vec::new();

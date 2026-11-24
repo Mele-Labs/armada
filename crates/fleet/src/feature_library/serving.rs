@@ -127,6 +127,26 @@ where
         self.librarian_stop_pressed(caller, stop)
     }
 
+    async fn ask_librarian(&self, caller: Option<api::Caller>, ask: ipc::AskLibrarian) -> Result<ipc::LibrarianAnswered, Refusal> {
+        self.librarian_asked(caller, ask).await
+    }
+
+    async fn undo_librarian_ask(&self, caller: Option<api::Caller>, undo: ipc::UndoLibrarianAsk) -> Result<ipc::LibrarianAskUndone, Refusal> {
+        self.librarian_ask_undone(caller, undo).await
+    }
+
+    async fn refile_librarian_ask(&self, caller: Option<api::Caller>, refile: ipc::RefileLibrarianAsk) -> Result<ipc::LibrarianAnswered, Refusal> {
+        self.librarian_ask_refiled(caller, refile).await
+    }
+
+    async fn rank_with_librarian(&self, caller: Option<api::Caller>, rank: ipc::RankWithLibrarian) -> Result<ipc::RankedIssues, Refusal> {
+        self.librarian_rank_pressed(caller, rank).await
+    }
+
+    async fn forget_librarian_ranking(&self, caller: Option<api::Caller>, forget: ipc::RankWithLibrarian) -> Result<ipc::RankedIssues, Refusal> {
+        self.librarian_ranking_forgotten(caller, forget).await
+    }
+
     async fn change_feature(&self, caller: Option<api::Caller>, change: ChangeFeature) -> Result<FeatureChanged, Refusal> {
         self.feature_changed(caller, change).await
     }

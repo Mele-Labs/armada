@@ -67,6 +67,7 @@ mod feature_changes;
 mod feature_decisions;
 mod features;
 /// When a project's librarian ran, what it read through and which parts ran.
+mod librarian_asks;
 mod librarian_runs;
 /// What the owner asked a Job on the side, kept beside its record and never in its thread.
 mod job_asides;

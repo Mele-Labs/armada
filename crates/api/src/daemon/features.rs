@@ -114,6 +114,26 @@ pub trait Features: Send + Sync + 'static {
     /// one was running. Refused as `run_librarian` is.
     fn stop_librarian(&self, caller: Option<crate::Caller>, stop: ipc::StopLibrarian) -> impl Future<Output = Result<ipc::LibrarianStopping, Refusal>> + Send;
 
+    /// `ask_librarian` — his words to the project's librarian, from the screen he asked on: one model call, at most one act,
+    /// already done. Refused as `run_librarian` is, and [`Refusal::Unacceptable`] for blank words and no files
+    /// (`fleet.librarian_ask_blank`), [`Refusal::IllegalMove`] where the night's asks are spent (`fleet.librarian_asks_spent`).
+    fn ask_librarian(&self, caller: Option<crate::Caller>, ask: ipc::AskLibrarian) -> impl Future<Output = Result<ipc::LibrarianAnswered, Refusal>> + Send;
+
+    /// `undo_librarian_ask` — one ask's act taken back. Refused as `run_librarian` is, and [`Refusal::NotFound`] for an ask
+    /// Fleet does not hold or whose act cannot be undone (`fleet.librarian_ask_unknown`).
+    fn undo_librarian_ask(&self, caller: Option<crate::Caller>, undo: ipc::UndoLibrarianAsk) -> impl Future<Output = Result<ipc::LibrarianAskUndone, Refusal>> + Send;
+
+    /// `refile_librarian_ask` — the doc one ask filed, moved to another feature. Refused as `undo_librarian_ask` is, and
+    /// [`Refusal::NotFound`] for a slug the library does not hold (`fleet.feature_unknown`).
+    fn refile_librarian_ask(&self, caller: Option<crate::Caller>, refile: ipc::RefileLibrarianAsk) -> impl Future<Output = Result<ipc::LibrarianAnswered, Refusal>> + Send;
+
+    /// `rank_with_librarian` — the might-lists ranked by the librarian in one model call, held until forgotten. Refused as
+    /// `ask_librarian` is where the night's asks are spent.
+    fn rank_with_librarian(&self, caller: Option<crate::Caller>, rank: ipc::RankWithLibrarian) -> impl Future<Output = Result<ipc::RankedIssues, Refusal>> + Send;
+
+    /// `forget_librarian_ranking` — the might-lists back in feature order. Refused as `run_librarian` is.
+    fn forget_librarian_ranking(&self, caller: Option<crate::Caller>, forget: ipc::RankWithLibrarian) -> impl Future<Output = Result<ipc::RankedIssues, Refusal>> + Send;
+
     /// `change_feature` — the Operator or the owner merges a feature into another, renames it or moves it to an area. [`Refusal::Unacceptable`]
     /// (`fleet.not_the_operator`, `fleet.feature_change`, `fleet.feature_slug`), [`Refusal::NotFound`] (`fleet.feature_unknown`),
     /// [`Refusal::IllegalMove`] (`fleet.feature_slug_taken`).
