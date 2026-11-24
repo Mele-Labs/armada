@@ -386,7 +386,8 @@ The seed's largest area holds eight, so seeding raises none.
 The librarian is the Fleet work that keeps a project's catalog current.
 It is a set of parts: `floor_plans`, `links`, `decisions`, `health`, `drift`, `retire`, `glossary`, `since_you_looked` and `gists`.
 `since_you_looked`, `gists` and the model's part of `drift` are written by a model, so a night may spend only so many calls on them.
-Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built so far, and a run does nothing else but keep its record.
+Only `since_you_looked`, `gists`, the free part of `drift`, `retire` and `links` are built into a run so far, and a run does nothing else but keep its record.
+The model's part of `drift` is built and runs only on his press of Check on a feature's page, never in a run.
 
 Three settings in `settings.json` say what it does, on the Features page, `runs` first.
 `features.librarianRuns` is `on_press`, `after_merges` or `nightly`, and it ships as `on_press`.
@@ -434,7 +435,25 @@ Fleet keeps the names that were there and are gone, and the page's `docs` carry 
 > **Rule.** A name has drifted only where the code had it when the document was last changed and does not have it now.
 > Why: a name the document invented, or one it never had right, was never the code's to lose, and flagging it would teach him to ignore the flag.
 
-The model's part of `drift` is not built.
+**The model's part of `drift` checks one feature's docs against its code, only on his press of Check.**
+`check_docs` reads each doc linked to the feature that is a file of a repository of the project at `HEAD`, up to eight a press, and puts each to the small model that sorts his messages, one call a doc.
+With the doc's text it sends the lines of the feature's paths that hold a name the doc gives in backticks, three a name, and the opening lines of its entry points, at most 8000 bytes of code.
+The model answers that they agree, or with the one disagreement that matters most: a short quote of the doc, the `path:line` in the code and what the code does there.
+Fleet keeps the answer for the feature and the doc, with git's ids of the doc's text and of the feature's paths, and the page's `docs` carry it as `check`.
+A reply Fleet cannot read keeps nothing, and its call still counts.
+Each call is spent from the night's share, counted with the runs' calls, and where none is left the press is refused in a sentence and nothing is asked.
+Bridge shows the flag under the doc's row: the doc's words, the code's place and words, then Start a Job and Dismiss.
+A doc a check found agreeing says when in its last line.
+
+**Start a Job** starts a Job in the project, titled "Doc or code: " and the feature's title, and sends it a brief Fleet writes from what it kept: the feature, the doc's words with its path, the code's words with its `path:line`, and that it asks him which is right before it changes anything.
+The flag stays until he dismisses it or a check finds them agreeing.
+**Dismiss** keeps the flag quiet until the doc's text or the feature's code changes: a press does not ask about the doc again while git's ids read the same, and a check that reads either changed clears the dismissal.
+
+> **Rule.** The model's check runs only on his press, and never writes a doc or the code.
+> Why: he wants the model's opinion only where he asks for it, and which of the two is right is his to say.
+
+> **Rule.** A dismissal holds until the doc or the code changes.
+> Why: a flag he answered should not return on every press, as a Keep holds a proposal to retire.
 
 **`retire` and `links` share one free step that reads features and linked docs against the code.**
 It costs no model and asks git once for the files at `HEAD`, and once for each feature for the newest commit that touched its paths.
@@ -522,6 +541,9 @@ A Job whose turns were read before searches were counted is in no week until its
 | `run_librarian` | The owner's Catch up, or the Operator, runs a project's librarian now |
 | `stop_librarian` | The owner's Stop, or the Operator, stops a project's running librarian run before its next step |
 | `answer_retire` | The owner's Retire or Keep for a feature the librarian proposed to retire |
+| `check_docs` | The owner's Check, or the Operator, puts a feature's docs to the model against its code |
+| `dismiss_doc_flag` | The owner's Dismiss on a doc a check found disagreeing with the code |
+| `start_doc_job` | The owner's Start a Job on a doc a check found disagreeing with the code |
 | `librarian.step` | One step of a librarian run started or ended, with a line of what it did |
 | `change_feature` | The Operator, or he from the Features screen, merges a feature into another, renames it, or moves it to another area |
 | `file_ask` | The Operator files an ask said outside a Job under features, see [Job story](job-story.md) |

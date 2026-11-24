@@ -1,0 +1,21 @@
+[operations.check_docs]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "Operator"
+description = "Check each doc linked to a feature against the feature's code with the model, now, on the owner's press of Check. Give the project and the feature's slug"
+notes = """
+`POST /features/docs/check`, body `CheckDocs`: `project` and `slug`. Answered with `DocsChecked`: `project`, `slug`, `checked` (each `CheckedDoc`: `target` and the `check` it found), `unchecked` (the docs left for want of a call in the night's share) and `calls`.
+
+**Only a press runs it.** No librarian run and no tick starts it, and the free drift part goes on as it does. Each doc the feature's page lists that is a file of a repository of the project at `HEAD` is put to the small model that sorts his messages (`models.dispute`), one call a doc, with the doc's text and the lines of the feature's code its names point at, or its entry points. The model answers that they agree, or with one disagreement: a short quote of the doc, `path:line` in the code and what the code does there. `get_feature_page` then carries it on the doc as `check`, so it stands after a restart.
+
+**Each call is spent from the librarian's night share** (`features.librarianModelShare`), counted with its runs' calls, a failed call too. Where none is left the press is refused 409 `fleet.librarian_share_spent` and nothing is asked; where some docs are left when it runs out they are named in `unchecked`.
+
+**A dismissed doc is not asked again** while its text and the feature's paths are as they were when he dismissed it. A check that reads either changed clears the dismissal.
+
+**Nothing is written back**: no doc and no file of the code is changed.
+
+Refused 404 `fleet.feature_unknown` for an unknown slug, 422 `fleet.feature_project` for a project Fleet does not hold, 422 `fleet.feature_no_repository` where no repository of the project is served, 422 `fleet.no_doc_to_check` where no doc of the feature is a file of one at `HEAD`, and 500 `fleet.doc_check_failed` where every call was made and no answer could be read. Each refusal says so in a sentence Bridge shows as it stands.
+
+**The Operator and Bridge reach it**, as `answer_retire` is reached. Called on the port from inside a Job it is a 403 `api.the_persons_own`.
+"""

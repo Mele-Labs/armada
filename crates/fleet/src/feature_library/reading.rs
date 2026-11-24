@@ -309,6 +309,7 @@ where
             for doc in docs.iter_mut().filter(|doc| gone.contains(&doc.target)) {
                 doc.state = "gone".to_string();
             }
+            super::doc_checking::checks_onto(&store, &feature.id, &mut docs).map_err(|why| self.feature_fault(why))?;
         }
         let upkeep = store.upkeep_in(&loaded.project).map_err(|why| self.feature_fault(why))?;
         let tickets = reads_of(&links, feature_link_kind::TICKET);
@@ -482,6 +483,7 @@ fn reads_of(links: &[KeptFeatureLink], kind: &str) -> Vec<FeatureRead> {
             at: instant(&link.at),
             state: link.state.clone(),
             drifted: Vec::new(),
+            check: None,
         });
     }
     reads

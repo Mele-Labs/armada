@@ -1200,6 +1200,45 @@ describe("a draft Job, and the acts on a Job", {
     );
   });
 
+  it("refreshes the preview from a Job's menu, adopting the Jobs at work", async () => {
+    await open(`/jobs/${encodeURIComponent(STUDIO)}/a2`);
+    await vi.waitFor(() => expect(button("More")).toBeTruthy());
+    await choose("Refresh preview");
+    await vi.waitFor(() =>
+      expect(posted[STUDIO]).toEqual([
+        {
+          path: "/api/fleet/build/change",
+          body: {
+            build: "preview",
+            adopt: true,
+          },
+        },
+      ]),
+    );
+  });
+
+  it("refreshes the preview from the menu on Home", async () => {
+    await open("/");
+    await vi.waitFor(() => expect(button("Menu")).toBeTruthy());
+    await press(button("Menu"));
+    await press(
+      Array.from(document.body.querySelectorAll('[role="menuitem"]')).find((one) =>
+        one.textContent?.startsWith("Refresh preview"),
+      ),
+    );
+    await vi.waitFor(() =>
+      expect(posted[STUDIO]).toEqual([
+        {
+          path: "/api/fleet/build/change",
+          body: {
+            build: "preview",
+            adopt: true,
+          },
+        },
+      ]),
+    );
+  });
+
   it("offers no Stop to a Job with no turn running", async () => {
     await open(`/jobs/${encodeURIComponent(STUDIO)}/a1`);
     await vi.waitFor(() => expect(button("More")).toBeTruthy());
@@ -2666,7 +2705,7 @@ describe("a Job that waits on another", {
     expect(button("Start now")).toBeTruthy();
   });
 
-  it("offers End job alone in its menu", async () => {
+  it("offers only End job and Refresh preview in its menu", async () => {
     await open(WAITS);
     await vi.waitFor(() => expect(button("More")).toBeTruthy());
     await press(button("More"));
@@ -2676,6 +2715,7 @@ describe("a Job that waits on another", {
           one.textContent?.trim(),
         ),
       ).toEqual([
+        "Refresh preview",
         "End job",
       ]),
     );

@@ -389,6 +389,8 @@ mod doc_drift;
 pub use doc_drift::KeptDocDrift;
 mod feature_upkeep;
 pub use feature_upkeep::{upkeep_kind, KeptUpkeep, UpkeepFound};
+mod feature_doc_checks;
+pub use feature_doc_checks::KeptDocCheck;
 pub use open_pull_files::KeptOpenPull;
 
 /// What a Job read before it changed a feature's files.

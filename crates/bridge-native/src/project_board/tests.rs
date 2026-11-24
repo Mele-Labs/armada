@@ -100,6 +100,43 @@ fn screen(cx: &mut TestAppContext) -> (Entity<ProjectScreen>, &mut VisualTestCon
     (screen, cx)
 }
 
+// ---- which project --------------------------------------------------------------------------------------------------------
+
+#[gpui::test]
+fn the_project_follows_the_title_bars_pick_and_the_header_draws_no_project_chips(cx: &mut TestAppContext) {
+    ready(cx);
+    let bar = {
+        let (bar, _) = cx.add_window_view(|window, cx| crate::titlebar::TitleBar::new(window, cx));
+        bar
+    };
+    let named = |id: &str, name: &str| crate::titlebar::Project { id: id.to_string().into(), name: name.to_string().into(), members: Vec::new(), tracker: None, kept: None, look: None };
+    bar.update(cx, |bar, cx| {
+        bar.face.projects = vec![named(PROJECT, "Armada"), named("pocket", "Pocket")];
+        bar.face.scoped = Some(1);
+        cx.notify();
+    });
+    let (screen, cx) = screen(cx);
+    let shown = |screen: &Entity<ProjectScreen>, cx: &mut VisualTestContext| {
+        screen.read_with(cx, |screen, cx| (screen.board.read(cx).project(cx).map(|one| one.id), screen.features.read(cx).project_shown(cx)))
+    };
+    assert_eq!(shown(&screen, cx), (Some("pocket".to_string()), Some("pocket".to_string())), "the bar is on the second project: the board and the Features tabs show it");
+    for name in ["Armada", "Pocket", "Store"] {
+        assert!(!drawn(cx, Role::Button, name), "the header draws no chip for {name}: the title bar picks the project");
+    }
+    bar.update(cx, |bar, cx| {
+        bar.face.scoped = Some(0);
+        cx.notify();
+    });
+    redraw(cx);
+    assert_eq!(shown(&screen, cx), (Some(PROJECT.to_string()), Some(PROJECT.to_string())), "a pick in the bar moves both halves");
+    bar.update(cx, |bar, cx| {
+        bar.face.scoped = None;
+        cx.notify();
+    });
+    redraw(cx);
+    assert_eq!(shown(&screen, cx), (Some(PROJECT.to_string()), Some(PROJECT.to_string())), "on All the project he chose last stays");
+}
+
 // ---- the layout Fleet keeps ----------------------------------------------------------------------------------------------
 
 #[gpui::test]
@@ -187,11 +224,28 @@ fn the_start_menu_lists_main_and_the_branch_of_each_job_that_holds_a_worktree(cx
     let (_screen, cx) = screen(cx);
     press(cx, Role::Button, "Checkout, Main");
     assert!(drawn(cx, Role::Menu, "Checkouts"));
+    assert!(drawn(cx, Role::SearchInput, "Find a branch"), "the menu opens with a search field");
     for name in ["Main", "armada/slot-gc-fix", "armada/pocket-offline"] {
-        assert!(drawn(cx, Role::MenuItem, name), "{name} is a checkout Start can run on");
+        assert!(drawn(cx, Role::MenuItemCheckBox, name), "{name} is a checkout Start can run on");
     }
-    press(cx, Role::MenuItem, "armada/slot-gc-fix");
+    press(cx, Role::MenuItemCheckBox, "armada/slot-gc-fix");
     assert!(drawn(cx, Role::Button, "Checkout, armada/slot-gc-fix"), "the pick is the checkout Start runs on");
+    assert!(!drawn(cx, Role::Menu, "Checkouts"));
+}
+
+#[gpui::test]
+fn typing_in_the_checkout_menu_narrows_it_to_matching_branches_and_enter_picks_the_first(cx: &mut TestAppContext) {
+    let (_screen, cx) = screen(cx);
+    press(cx, Role::Button, "Checkout, Main");
+    cx.simulate_keystrokes("p o c k e t");
+    redraw(cx);
+    assert!(drawn(cx, Role::MenuItemCheckBox, "armada/pocket-offline"), "the branch that matches stays");
+    for name in ["Main", "armada/slot-gc-fix"] {
+        assert!(!drawn(cx, Role::MenuItemCheckBox, name), "{name} does not match what was typed");
+    }
+    cx.simulate_keystrokes("enter");
+    redraw(cx);
+    assert!(drawn(cx, Role::Button, "Checkout, armada/pocket-offline"), "Enter takes the first match");
     assert!(!drawn(cx, Role::Menu, "Checkouts"));
 }
 
