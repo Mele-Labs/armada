@@ -826,20 +826,24 @@ impl JobView {
     }
 
     /// Each draft and page tab holds its reader once, read from the thread as it comes, and a tab that closed lets its
-    /// reader go. A draft's words are cut into blocks again where they changed; where they did, what moved is told.
+    /// reader go. A draft's words are cut into blocks again where they changed; where they did, what moved is told. The page
+    /// the review sheet shows with its margin holds a reader too, for the margin's sake.
     pub(super) fn sync_readers(&mut self, id: &SharedString, window: &mut Window, cx: &mut Context<Self>) {
-        let tabs: Vec<_> = self.row_tab_list(id).into_iter().filter(|tab| matches!(tab.kind, RowKind::Draft | RowKind::Document)).collect();
-        let wanted: Vec<String> = tabs.iter().map(|tab| reader_id(tab.kind, &tab.key)).collect();
+        let mut tabs: Vec<(RowKind, String)> = self.row_tab_list(id).into_iter().filter(|tab| matches!(tab.kind, RowKind::Draft | RowKind::Document)).map(|tab| (tab.kind, tab.key.clone())).collect();
+        if let Some(page) = self.sheet_margin_page(id, cx).filter(|page| !tabs.iter().any(|(kind, key)| *kind == RowKind::Document && key == page)) {
+            tabs.push((RowKind::Document, page));
+        }
+        let wanted: Vec<String> = tabs.iter().map(|(kind, key)| reader_id(*kind, key)).collect();
         let held = self.row_tabs.entry(id.clone()).or_default();
         held.readers.retain(|name, _| wanted.contains(name));
-        for tab in tabs {
-            let name = reader_id(tab.kind, &tab.key);
-            let Some(subject) = self.subject_of(id, tab.kind, &tab.key, cx) else { continue };
+        for (kind, key) in tabs {
+            let name = reader_id(kind, &key);
+            let Some(subject) = self.subject_of(id, kind, &key, cx) else { continue };
             if self.reader_of(id, &name).is_none() {
-                let mut fresh = Reader::new(id.clone(), tab.kind, tab.key.clone());
+                let mut fresh = Reader::new(id.clone(), kind, key.clone());
                 fresh.base = subject.seen.filter(|seen| *seen < subject.newest);
                 // A page opens with its margin beside it.
-                fresh.notes_on = tab.kind == RowKind::Document;
+                fresh.notes_on = kind == RowKind::Document;
                 self.row_tabs.entry(id.clone()).or_default().readers.insert(name.clone(), fresh);
                 // The notes he left half written come back, each with the caret out of them.
                 for note in notes_read(&self.draft_words(&notes_key(id, &subject.artifact))) {

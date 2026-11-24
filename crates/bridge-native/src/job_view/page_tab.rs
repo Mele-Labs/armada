@@ -594,7 +594,13 @@ impl JobView {
             self.fetch_page(tab, window, cx);
             if is_document {
                 self.panel_seen(&job, &page, revision, window, cx);
+                // The margin beside a page that asks marks its passages in the page, and brings the thread he is on into view.
+                self.margin_page_came(&job, &super::reader::reader_id(super::row_tabs::RowKind::Document, &page), cx);
             }
+        }
+        // The readers of a Job not shown are kept here: the shown Job's are kept as its tabs are.
+        if is_document && self.shown.as_ref() != Some(&job) {
+            self.sync_readers(&job, window, cx);
         }
     }
 
@@ -621,6 +627,11 @@ impl JobView {
                 }
             }),
         );
+    }
+
+    /// The live page the review panel holds for page `page` of Job `job`, at whatever revision it reads.
+    pub(super) fn sheet_page(&self, job: &str, page: &str) -> Option<Entity<PageTab>> {
+        self.review()?.pages.get(&panel_key(job, page)).map(|(tab, _)| tab.clone())
     }
 
     /// The live page the review panel holds for page `page` of Job `job` at `revision`, where it has one.

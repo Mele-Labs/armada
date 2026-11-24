@@ -18,8 +18,9 @@ use crate::labels::labelled;
 use crate::scene::{Clock, Fit, Lens};
 use super::parts_card::{effective_part, part_key, stand_of};
 use super::review::{page_of_item, Item, Kind, Verdict};
+use super::row_tabs::RowKind;
 use super::JobView;
-use crate::look::{token, Look};
+use crate::look::{token, ActiveLook as _, Look};
 
 /// How wide prose stands in the panel: sixteen of `--space-12`, about 760 points.
 pub(super) fn measure(look: &Look) -> Pixels {
@@ -168,11 +169,12 @@ impl JobView {
     }
 
     /// Read the document `page` of the shown Job: a page the thread holds a card for reads in a tab of the Job beside the
-    /// thread, its margin at its right; any other the Job holds as an artifact reads in the review panel. A page the Job holds
-    /// no card or artifact for opens nothing.
+    /// thread, its margin at its right, and while it asks him to approve it, in the review panel with its margin beside it; any
+    /// other the Job holds as an artifact reads in the review panel. A page the Job holds no card or artifact for opens nothing.
     pub(super) fn open_document(&mut self, page: &str, window: &mut Window, cx: &mut Context<Self>) {
         let Some(job) = self.shown.clone() else { return };
-        if self.thread(&job, cx).is_some_and(|held| super::review::document_card(&held.items, page).is_some()) {
+        let asks = self.sheet_item(&job, &format!("document:{page}"), cx).is_some();
+        if !asks && self.thread(&job, cx).is_some_and(|held| super::review::document_card(&held.items, page).is_some()) {
             return self.open_document_tab(page, window, cx);
         }
         if self.artifact_item(&job, page).is_none() && self.document_item(&job, page, cx).is_none() {
@@ -212,12 +214,39 @@ impl JobView {
     }
 
     /// The live page filling the detail, where the chosen item is a document or an artifact whose only part is a page: the whole
-    /// of the detail between its head and its answer bar, edge to edge, which the page scrolls inside.
-    pub(super) fn review_page_stage(&self, item: &Item, cx: &gpui::App) -> Option<AnyElement> {
+    /// of the detail between its head and its answer bar, edge to edge, which the page scrolls inside. A page that asks has its
+    /// margin beside it, or under it where the detail is narrow, as its tab would.
+    pub(super) fn review_page_stage(&self, item: &Item, cx: &Context<Self>) -> Option<AnyElement> {
         let alone = item.kind == Kind::Document || self.page_alone(item);
         let (page, revision, _) = self.panel_pages_of(item, cx).into_iter().next().filter(|_| alone)?;
         let live = self.panel_page(&item.job, &page, revision, cx)?;
-        Some(div().id(SharedString::from(format!("review-page:{}", item.key()))).relative().flex_1().min_w_0().min_h_0().child(div().absolute().inset_0().child(live)).into_any_element())
+        let view = div().id(SharedString::from(format!("review-page:{}", item.key()))).relative().flex_1().min_w_0().min_h_0().child(div().absolute().inset_0().child(live));
+        let job = SharedString::from(item.job.clone());
+        let name = super::reader::reader_id(RowKind::Document, &page);
+        let held = self.sheet_margin_page(&item.job, cx).filter(|one| *one == page).and_then(|_| self.reader_of(&job, &name));
+        let Some(held) = held else { return Some(view.into_any_element()) };
+        let look = cx.look();
+        // The sheet has no contents rail: the margin stands beside the page wherever the two have the room.
+        let beside = super::reader_page::margin_beside(held, super::reader::Room::Medium, look);
+        let margin = self.margin_column(&job, &name, held, Vec::new(), beside, look, cx);
+        let measure = super::reader_draw::width_probe(held.width.clone(), cx.weak_entity());
+        Some(div().relative().flex_1().min_w_0().min_h_0().flex().child(super::reader_page::page_and_margin(view, margin, beside, look)).child(measure).into_any_element())
+    }
+
+    /// The page the sheet shows of Job `job` with its margin: the page its chosen item asks him to approve, where the Job's thread
+    /// holds the page's card.
+    pub(super) fn sheet_margin_page(&self, job: &str, cx: &gpui::App) -> Option<String> {
+        let item = self.review_chosen().filter(|item| self.review_open() && item.job == job && item.kind == Kind::Document)?;
+        let page = item.id.strip_prefix("document:")?;
+        self.thread(job, cx).and_then(|held| super::review::document_card(&held.items, page))?;
+        Some(page.to_string())
+    }
+
+    /// The sheet's page's reader, as the Job and the reader's name, where the sheet shows a page with its margin.
+    pub(super) fn sheet_reader(&self, cx: &gpui::App) -> Option<(SharedString, String)> {
+        let item = self.review_chosen()?;
+        let page = self.sheet_margin_page(&item.job, cx)?;
+        Some((SharedString::from(item.job), super::reader::reader_id(RowKind::Document, &page)))
     }
 
     /// Whether the item is an artifact whose only part is a page, which the panel draws as the page alone: the answer bar

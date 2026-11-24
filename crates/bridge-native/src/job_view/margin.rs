@@ -315,7 +315,7 @@ impl JobView {
         let page = held.key.clone();
         held.margin.new = None;
         self.keep_words(&new_key(id, &page), "", cx);
-        window.focus(&self.row_focus, cx);
+        self.margin_leave(id, name, window, cx);
         self.margin_marks(id, name, cx);
         cx.notify();
     }
@@ -435,7 +435,7 @@ impl JobView {
                         held.margin.new = None;
                     }
                     self.keep_words(&new_key(id, &page), "", cx);
-                    window.focus(&self.row_focus, cx);
+                    self.margin_leave(id, name, window, cx);
                 }
                 Sent::Reply(thread) => {
                     let area = self.reader_of(id, name).and_then(|held| held.margin.replies.get(thread)).map(|(area, _)| area.clone());
@@ -498,6 +498,21 @@ impl JobView {
         cx.notify();
     }
 
+    /// The page the margin stands beside came: its marks are drawn, and the thread he is on is brought into view.
+    pub(super) fn margin_page_came(&mut self, id: &SharedString, name: &str, cx: &mut Context<Self>) {
+        self.margin_marks(id, name, cx);
+        self.margin_reach(id, name, cx);
+    }
+
+    /// The keys leave a comment or a reply for what holds the margin: the reader in a tab, the sheet's list in the sheet.
+    pub(super) fn margin_leave(&mut self, id: &SharedString, name: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.sheet_reader(cx).is_some_and(|(job, reader)| job == *id && reader == name) {
+            window.focus(&self.review_focus.list, cx);
+        } else {
+            window.focus(&self.row_focus, cx);
+        }
+    }
+
     /// The thread he is on, brought into view: its passage in the page, and the thread in the margin.
     fn margin_reach(&mut self, id: &SharedString, name: &str, cx: &mut Context<Self>) {
         let Some(held) = self.reader_of(id, name) else { return };
@@ -525,10 +540,16 @@ impl JobView {
         }
     }
 
-    /// ⇧⌘↵ sends what he holds on the page whose reader has the keys. False where no page's reader holds them.
+    /// ⇧⌘↵ sends what he holds on the page whose reader has the keys, or on the page the review sheet shows. False where no
+    /// page's reader holds them.
     pub(super) fn margin_act(&mut self, act: &crate::keymap::Act, window: &mut Window, cx: &mut Context<Self>) -> bool {
         if !act.is("margin_send_held") {
             return false;
+        }
+        // The sheet over the window holds the keys, and the page it shows is the one they send for.
+        if let Some((job, name)) = self.sheet_reader(cx).filter(|(job, name)| self.reader_of(job, name).is_some_and(|held| held.margin.holds())) {
+            self.margin_send_held(&job, &name, window, cx);
+            return true;
         }
         let Some(id) = self.shown.clone() else { return false };
         let in_reader = self.row_focus.contains_focused(window, cx);
@@ -540,12 +561,21 @@ impl JobView {
         true
     }
 
-    /// Open on a round of talk in the thread: the page in its tab, the margin's Open tab, and the round's first thread
-    /// brought into view; a passage of a page sent back is shown in the page.
+    /// Open on a round of talk in the thread: the page in its tab, or in the review sheet while it asks him to approve it, the
+    /// margin's Open tab, and the round's first thread brought into view; a passage of a page sent back is shown in the page.
     pub(super) fn margin_open(&mut self, page: &str, thread: Option<&str>, passage: Option<&str>, window: &mut Window, cx: &mut Context<Self>) {
         let Some(id) = self.shown.clone() else { return };
-        self.open_document_tab(page, window, cx);
-        self.sync_page_tabs(&id, window, cx);
+        match self.sheet_item(&id, &format!("document:{page}"), cx).filter(|item| item.kind == super::review::Kind::Document) {
+            Some(item) => {
+                self.open_ask(&item.id, window, cx);
+                // The sheet's page is made now, so what the margin runs in it waits there until it has loaded.
+                self.sync_panel_pages(window, cx);
+            }
+            None => {
+                self.open_document_tab(page, window, cx);
+                self.sync_page_tabs(&id, window, cx);
+            }
+        }
         self.sync_readers(&id, window, cx);
         let name = super::reader::reader_id(RowKind::Document, page);
         if let Some(thread) = thread {
@@ -570,47 +600,79 @@ mod tests {
         cx.update(|window, cx| cx.global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name == name).map(|one| one.bounds).collect())
     }
 
-    #[gpui::test]
-    fn a_page_in_its_tab_says_it_waits_on_his_approve_and_open_goes_to_the_review_sheet(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
-        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
-        redraw(cx);
-        assert!(drawn(cx, Role::Group, "Margin"), "the page reads in its tab with the margin");
-        let line = all_of(cx, Role::Group, "This page waits on your Approve").pop().expect("the tab says the page waits on him");
-        for answer in ["Approve", "Ask for changes", "Dismiss"] {
-            assert!(!drawn(cx, Role::Button, answer), "{answer} is the review sheet's, not the tab's");
-        }
-        cx.simulate_keystrokes("a");
-        redraw(cx);
-        assert!(!view.read_with(cx, |view, _| view.review_open()), "A answers nothing in the tab");
-        let open = all_of(cx, Role::Button, "Open").into_iter().find(|one| line.contains(&one.center())).expect("Open stands on the line");
-        cx.simulate_click(open.center(), Modifiers::none());
-        redraw(cx);
-        assert!(view.read_with(cx, |view, _| view.review_open()), "Open goes to the review sheet");
-        assert!(drawn(cx, Role::Dialog, "Review"), "which is drawn over the window");
+    /// The scenario's page asks him to approve it, as Fleet lists one: here it does not, so it reads in its tab.
+    fn no_ask(jobs: &mut Vec<ipc::SessionRecord>) {
+        jobs.iter_mut().for_each(|job| job.waiting_for.retain(|item| item.id != "document:quiet"));
+    }
+
+    fn reader_name() -> String {
+        super::super::reader::reader_id(super::RowKind::Document, "quiet")
     }
 
     #[gpui::test]
-    fn a_page_in_its_tab_the_sheet_holds_draws_one_pointer_the_sheets_own(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |jobs| {
-            let job = jobs.iter_mut().find(|job| job.id.as_str() == "plan-job").expect("the fixture has plan-job");
-            let item = br#"{"id":"document:quiet","text":"Approve Quiet hours for notices","since":"2026-11-20T05:30:00Z","source":"document"}"#;
-            job.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).expect("the page item decodes"));
-        });
+    fn the_sheet_draws_the_margin_beside_a_page_that_asks_and_folds_it_under_a_narrow_one(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
         view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
         redraw(cx);
-        assert!(drawn(cx, Role::Group, "Margin"), "the page reads in its tab with the margin");
-        assert!(view.read_with(cx, |view, cx| view.sheet_item("plan-job", "document:quiet", cx).is_some()), "the sheet holds the page");
-        assert!(!drawn(cx, Role::Group, "This page waits on your Approve"), "the tab's own line stands aside");
-        assert_eq!(all_of(cx, Role::Button, "Quiet hours for notices").len(), 1, "one line points to the sheet: the sheet's");
-        for answer in ["Approve", "Ask for changes", "Dismiss"] {
-            assert!(!drawn(cx, Role::Button, answer), "{answer} is the review sheet's, not the tab's");
-        }
+        redraw(cx);
+        assert!(view.read_with(cx, |view, _| view.review_open()), "a page that asks opens in the review sheet");
+        assert!(view.read_with(cx, |view, _| !view.row_tab_list("plan-job").iter().any(|tab| tab.key == "quiet")), "and has no tab");
+        let sheet = all_of(cx, Role::Dialog, "Review").pop().expect("the sheet is drawn");
+        let wide = all_of(cx, Role::Group, "Margin").pop().expect("the margin is drawn in the sheet");
+        assert!(sheet.contains(&wide.origin), "the margin stands in the sheet: {wide:?} in {sheet:?}");
+        let width = f32::from(super::super::reader_talk::margin_width(&crate::look::Look::dark()));
+        assert!((f32::from(wide.size.width) - width).abs() < 1., "beside the page the margin is {width} wide, not {:?}", wide.size.width);
+        cx.simulate_resize(size(px(900.), px(1080.)));
+        redraw(cx);
+        redraw(cx);
+        let narrow = all_of(cx, Role::Group, "Margin").pop().expect("the margin is still drawn");
+        assert!(f32::from(narrow.size.width) > width + 1., "under the page the margin takes the page's width, {:?}", narrow.size.width);
+        assert!(narrow.top() > wide.top(), "and stands below the page");
+    }
+
+    #[gpui::test]
+    fn open_on_a_round_of_a_page_that_asks_opens_the_sheet_on_its_first_thread(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(560.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", Some("m5"), None, window, cx));
+        redraw(cx);
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| view.review_chosen().map(|item| item.id)), Some("document:quiet".to_string()), "the sheet is open on the page");
+        let on = view.read_with(cx, |view, _| view.reader_of("plan-job", &reader_name()).map(|held| held.margin.on.clone()));
+        assert_eq!(on, Some(Some("m5".to_string())), "the round's thread is the one he is on");
+        let margin = all_of(cx, Role::Group, "Margin").pop().expect("the margin is drawn");
+        let thread = all_of(cx, Role::Group, "Thread on \u{201c}A Job asking a question waits until the next workday.\u{201d}").pop().expect("m5 is drawn");
+        assert!(margin.contains(&thread.origin) && thread.top() < margin.bottom(), "m5 stands in the margin's view: {thread:?} in {margin:?}");
+    }
+
+    #[gpui::test]
+    fn in_the_sheet_hold_keeps_a_comment_and_send_held_sends_them_together(cx: &mut gpui::TestAppContext) {
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
+        redraw(cx);
+        let (id, name) = (gpui::SharedString::from("plan-job"), reader_name());
+        let picked = crate::web::reader::Picked { quote: "Whether a merged pull request is worth a notice at all.".into(), ..Default::default() };
+        view.update_in(cx, |view, window, cx| view.margin_begin(&id, &name, picked, window, cx));
+        redraw(cx);
+        assert!(drawn(cx, Role::TextInput, "Comment"), "a comment begins in the sheet's margin");
+        let area = view.read_with(cx, |view, _| view.reader_of(&id, &name).and_then(|held| held.margin.new.as_ref()).map(|new| new.area.clone())).expect("the comment's box");
+        view.update_in(cx, |_, window, cx| area.update(cx, |area, cx| area.set_value("Is a merged pull request ever urgent?".to_string(), window, cx)));
+        redraw(cx);
+        let hold = all_of(cx, Role::Button, "Hold").pop().expect("Hold stands under the comment");
+        cx.simulate_click(hold.center(), Modifiers::none());
+        redraw(cx);
+        let held = |view: &super::JobView| view.reader_of("plan-job", &reader_name()).map(|held| held.margin.threads.iter().filter(|one| one.messages.iter().any(|said| said.held)).count());
+        assert_eq!(view.read_with(cx, |view, _| held(view)), Some(2), "Hold keeps it with his other held comment");
+        // The app's own keys, as main.rs installs them.
+        cx.update(|_, cx| crate::keymap::install(&crate::keymap::Rebinding::default(), cx));
+        cx.simulate_keystrokes("cmd-shift-enter");
+        redraw(cx);
+        assert_eq!(view.read_with(cx, |view, _| held(view)), Some(0), "\u{21e7}\u{2318}\u{21b5} sends what he holds on the sheet's page");
+        assert!(view.read_with(cx, |view, _| view.review_open()), "and the sheet stays up");
     }
 
     #[gpui::test]
     fn the_margin_stands_beside_a_wide_page_at_its_width_and_folds_under_a_narrow_one(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), |_| {});
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(1080.)), no_ask);
         view.update_in(cx, |view, window, cx| view.margin_open("quiet", None, None, window, cx));
         redraw(cx);
         redraw(cx);
@@ -650,7 +712,7 @@ mod tests {
 
     #[gpui::test]
     fn open_on_a_round_brings_its_first_thread_into_the_margins_view(cx: &mut gpui::TestAppContext) {
-        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(560.)), |_| {});
+        let (view, cx) = rooted_job(cx, "planning-margin", "plan-job", size(px(1728.), px(560.)), no_ask);
         view.update_in(cx, |view, window, cx| view.margin_open("quiet", Some("m5"), None, window, cx));
         redraw(cx);
         redraw(cx);

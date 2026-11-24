@@ -327,6 +327,13 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
             one.waiting_for.push(item);
         }
     }
+    // The page planned in its margin asks him to approve it, as Fleet lists a page put to him: `document:<page>`.
+    if scenario == "planning-margin" {
+        if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "plan-job") {
+            let item = br#"{"id":"document:quiet","text":"Approve Quiet hours for notices","since":"2026-11-20T05:30:00Z","source":"document"}"#;
+            one.waiting_for.push(ipc::decode::<ipc::WaitingItem>("page item", item).map_err(|why| why.to_string())?);
+        }
+    }
     // A Job holding builds to try waits on him with one item, as Fleet raises it: `Ready to try`, named by the Job's id.
     if scenario == "ready-to-try" {
         if let Some(one) = sessions.iter_mut().find(|one| one.id.as_str() == "tool-edit") {

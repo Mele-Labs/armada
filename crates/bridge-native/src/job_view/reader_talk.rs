@@ -354,7 +354,7 @@ impl JobView {
                     if edge.read(cx).value().trim().is_empty() {
                         this.margin_drop_new(&job, &reader, window, cx);
                     } else {
-                        window.focus(&this.row_focus, cx);
+                        this.margin_leave(&job, &reader, window, cx);
                     }
                 }))
                 .capture_action(cx.listener(move |this, action: &Enter, window, cx| {
@@ -428,13 +428,13 @@ impl JobView {
             let empty = area.read(cx).value().trim().is_empty();
             let (job, thread) = (id.clone(), one.id.clone());
             let reader = name.to_string();
-            let row_focus = self.row_focus.clone();
+            let (job_esc, reader_esc) = (id.clone(), name.to_string());
             typing_box(look, false)
                 .id(SharedString::from(format!("margin-reply-frame:{key}")))
-                .capture_key_down(cx.listener(move |_, event: &KeyDownEvent, window, cx| {
+                .capture_key_down(cx.listener(move |this, event: &KeyDownEvent, window, cx| {
                     if event.keystroke.key == "escape" && !event.keystroke.modifiers.modified() {
                         cx.stop_propagation();
-                        window.focus(&row_focus, cx);
+                        this.margin_leave(&job_esc, &reader_esc, window, cx);
                     }
                 }))
                 .capture_action(cx.listener(move |this, action: &Enter, window, cx| {
