@@ -8,6 +8,7 @@ use super::board::{Board, SAVE_AFTER};
 use super::layout::{BlockKind, Layout, Placed, View};
 use super::model::{self, Press};
 use super::presets;
+use super::system::BOARD_ROWS;
 use super::{ProjectScreen, Tab, EXAMPLE_ASKS};
 
 const PROJECT: &str = crate::features::mock::PROJECT;
@@ -260,28 +261,28 @@ fn a_hidden_block_lets_the_rest_rise_and_an_added_one_takes_the_first_free_cells
     let mut layout = presets::preset(kind);
     layout.hide(BlockKind::Run);
     assert_eq!(layout.missing(), [BlockKind::Run]);
-    assert_eq!(layout.block(BlockKind::Reviews).map(|one| (one.x, one.y)), Some((0, 0)), "Reviews rises into the room Run left");
+    assert_eq!(layout.block(BlockKind::Reviews).map(|one| (one.x, one.y)), Some((0, BOARD_ROWS)), "Reviews rises into the room Run left, up to the System block");
     layout.add(BlockKind::Run);
     let run = layout.block(BlockKind::Run).copied().expect("Run is back");
-    assert_eq!((run.x, run.y, run.w, run.h, run.view), (0, 4, 3, 2, View::List), "the first free cells, reading along each row from the top");
+    assert_eq!((run.x, run.y, run.w, run.h, run.view), (0, BOARD_ROWS + 4, 3, 2, View::List), "the first free cells, reading along each row from the top");
     assert!(layout.blocks.iter().all(|one| one.kind == BlockKind::Run || !one.overlaps(&run)));
 }
 
 #[gpui::test]
 fn edit_mode_draws_a_hide_control_on_each_block_and_it_takes_the_block_off(cx: &mut TestAppContext) {
     let (board, cx) = board_keeping(cx, None);
-    assert!(!drawn(cx, Role::Button, "Hide Checks and commands"), "no hide control until the board is edited");
+    assert!(!drawn(cx, Role::Button, "Hide Needs you"), "no hide control until the board is edited");
     board.update(cx, |board, cx| board.toggle_edit(cx));
     redraw(cx);
     for kind in BlockKind::ALL {
         assert!(drawn(cx, Role::Button, &format!("Hide {}", kind.title())), "{} has a hide control", kind.title());
     }
-    press(cx, Role::Button, "Hide Checks and commands");
-    assert!(layout_of(&board, cx).block(BlockKind::Checks).is_none());
-    assert!(!drawn(cx, Role::Region, "Checks and commands"));
+    press(cx, Role::Button, "Hide Needs you");
+    assert!(layout_of(&board, cx).block(BlockKind::Needs).is_none());
+    assert!(!drawn(cx, Role::Region, "Needs you"));
     cx.executor().advance_clock(SAVE_AFTER);
     cx.run_until_parked();
-    assert!(kept_of(&board, cx).is_some_and(|kept| kept.blocks.iter().all(|one| one.kind != "checks")), "Fleet keeps the board without it");
+    assert!(kept_of(&board, cx).is_some_and(|kept| kept.blocks.iter().all(|one| one.kind != "needs-you")), "Fleet keeps the board without it");
 }
 
 #[gpui::test]

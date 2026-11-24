@@ -34,6 +34,7 @@ impl Render for Ghost {
 /// The hue a block's header band and glyph wear: what kind of block it is.
 fn hue_of(kind: BlockKind) -> Token {
     match kind {
+        BlockKind::System => token::ACCENT,
         BlockKind::Needs => token::YOU,
         BlockKind::Run => token::SKETCH_GREEN,
         BlockKind::Reviews => token::SKETCH_AMBER,
@@ -45,6 +46,7 @@ fn hue_of(kind: BlockKind) -> Token {
 
 pub(super) fn mark_of(kind: BlockKind) -> &'static str {
     match kind {
+        BlockKind::System => "network",
         BlockKind::Needs => "bell",
         BlockKind::Run => "play",
         BlockKind::Reviews => "git-pull-request",
@@ -256,7 +258,21 @@ impl Board {
             .children(switch)
             .children(hide);
         let header = if editing { labelled(header, Role::Group, format!("Move {}", kind.title())).into_any_element() } else { header.into_any_element() };
-        let body = self.body(kind, placed.view, &fill, look, cx);
+        let body = if kind == BlockKind::System {
+            self.system.update(cx, |system, _| system.set_view(placed.view));
+            div().flex_1().min_h_0().relative().child(div().absolute().size_full().child(self.system.clone())).into_any_element()
+        } else {
+            self.body(kind, placed.view, &fill, look, cx)
+        };
+        // The System block grows over the board, and its frame is then set by the board's size and not by its cells.
+        let overlay = (kind == BlockKind::System)
+            .then(|| {
+                let home = super::system::PoseRect { x: f32::from(grid.left(placed.x)), y: f32::from(grid.top(placed.y)), w: f32::from(grid.wide(placed.w)), h: f32::from(grid.tall(placed.h)) };
+                let seen = window.viewport_size();
+                self.system.read(cx).overlay(home, (f32::from(seen.width), f32::from(seen.height)))
+            })
+            .flatten();
+        let over = overlay.is_some();
         let corner = editing.then(|| {
             labelled(
                 div()
@@ -278,11 +294,8 @@ impl Board {
         });
         let frame = div()
             .id(SharedString::from(format!("block-{slug}")))
-            .absolute()
-            .left(grid.left(placed.x))
-            .top(grid.top(placed.y))
-            .w(grid.wide(placed.w))
-            .h(grid.tall(placed.h))
+            .when(!over, |frame| frame.absolute().left(grid.left(placed.x)).top(grid.top(placed.y)).w(grid.wide(placed.w)).h(grid.tall(placed.h)))
+            .when(over, |frame| frame.size_full())
             .flex()
             .flex_col()
             .overflow_hidden()
@@ -297,8 +310,12 @@ impl Board {
             .child(header)
             .child(body)
             .children(corner);
-        let _ = window;
-        labelled(frame, Role::Region, kind.title()).into_any_element()
+        let framed = labelled(frame, Role::Region, kind.title()).into_any_element();
+        if kind == BlockKind::System {
+            super::system::posed(framed, overlay, look)
+        } else {
+            framed
+        }
     }
 
     /// What a block holds under its header: bones while it reads, why it could not, or its rows in the view it is in.
@@ -707,8 +724,12 @@ impl Render for Board {
         let rows = f32::from(layout.rows());
         let height = grid.row * rows + gap * (rows - 1.0).max(0.0);
         let pitch = (grid.col + gap, grid.row + gap);
+        // The System block, grown, is drawn over the board and not in its cells.
+        let grown = self.system.read(cx).over_board();
+        let in_grid = |placed: &&Placed| !(grown && placed.kind == BlockKind::System);
+        let over: Option<AnyElement> = layout.block(BlockKind::System).filter(|_| ready && grown).map(|placed| self.block(placed, &project, grid, &look, window, cx));
         let blocks: Vec<AnyElement> = if ready {
-            layout.blocks.iter().map(|placed| self.block(placed, &project, grid, &look, window, cx)).collect()
+            layout.blocks.iter().filter(in_grid).map(|placed| self.block(placed, &project, grid, &look, window, cx)).collect()
         } else {
             layout.blocks.iter().map(|placed| self.skeleton(placed, grid, &look)).collect()
         };
@@ -718,7 +739,12 @@ impl Render for Board {
             .w_full()
             .h(height.max(px(0.)))
             .on_drag_move(cx.listener(move |this, event: &DragMoveEvent<BlockDrag>, _, cx| this.dragged(event, pitch, cx)))
+            .child(self.system.read(cx).measure_grid())
             .children(blocks);
-        root.child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board")).children(self.confirm_card(&look, cx)).into_any_element()
+        root.child(self.system.read(cx).measure_root())
+            .child(labelled(div().id("dashboard-scroll").size_full().overflow_y_scroll().pb(gap).child(board), Role::Group, "Board"))
+            .children(over)
+            .children(self.confirm_card(&look, cx))
+            .into_any_element()
     }
 }
