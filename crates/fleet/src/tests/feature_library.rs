@@ -14,7 +14,7 @@ use super::agent_starts::{caller, rig, Rig};
 use crate::clashing::Who;
 use crate::feature_library::brief::{condensed, BriefFacts, CAP_CHARS};
 use crate::feature_library::mapping::{owns, FeatureMap, How};
-use crate::feature_library::staleness::stale_since;
+use crate::feature_library::staleness::{owned, stale_since};
 
 pub(super) const VOTING: &str = "voting-on-takes";
 pub(super) const SOMEWHERE: &str = "crates/pages/voting";
@@ -101,17 +101,18 @@ fn a_section_is_stale_since_the_first_merge_after_it_that_changed_a_file_of_its_
         merge(3, "2026-11-16T12:00:00.000Z", "s-9", &["src/a.rs", "lib/b.rs"]),
         merge(4, "2026-11-16T13:00:00.000Z", "", &["src/c.rs"]),
     ];
-    assert_eq!(stale_since(&map, "a", &written, &merges), Some(3), "not #1, which came first, nor #2, which is another feature's");
-    assert_eq!(stale_since(&map, "b", &written, &merges), Some(2));
-    assert_eq!(stale_since(&map, "a", &written, &merges[..2]), None);
+    let merges = owned(&map, merges.to_vec());
+    assert_eq!(stale_since("a", &written, &merges), Some(3), "not #1, which came first, nor #2, which is another feature's");
+    assert_eq!(stale_since("b", &written, &merges), Some(2));
+    assert_eq!(stale_since("a", &written, &merges[..2]), None);
 }
 
 #[test]
 fn the_merge_of_the_writers_own_pull_request_does_not_make_its_section_stale() {
     let map = FeatureMap::new(vec![feature("a", "one", &["src"])], []);
-    let merges = [merge(5, "2026-11-16T12:00:00.000Z", "s-1", &["src/a.rs"])];
-    assert_eq!(stale_since(&map, "a", &section("s-1", "2026-11-16T10:00:00.000Z"), &merges), None);
-    assert_eq!(stale_since(&map, "a", &section("s-2", "2026-11-16T10:00:00.000Z"), &merges), Some(5));
+    let merges = owned(&map, vec![merge(5, "2026-11-16T12:00:00.000Z", "s-1", &["src/a.rs"])]);
+    assert_eq!(stale_since("a", &section("s-1", "2026-11-16T10:00:00.000Z"), &merges), None);
+    assert_eq!(stale_since("a", &section("s-2", "2026-11-16T10:00:00.000Z"), &merges), Some(5));
 }
 
 fn facts() -> BriefFacts {

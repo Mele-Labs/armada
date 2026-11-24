@@ -467,14 +467,22 @@ pub(crate) fn build(shape: &Shape, front: Option<&str>, labels: &[(&str, &str)])
 /// What a Job produced, in the order its column shows it. Child Jobs is the last, and comes only to a Job that started any.
 pub(crate) const PRODUCED: [&str; 4] = ["artifacts", "pulls", "issues", "children"];
 
-/// A new Job's arrangement: the thread with Story behind it as tabs of one pane, and to its right the column, one pane
-/// that holds what the Job produced: Artifacts, Pull Requests and Issues. The progress strip and Needs you stand over the
-/// column as bands, not tabs (`column_bands.rs`); Now, For you, Open, Done and Deferred are tabs + opens.
+/// A new Job's arrangement: the thread, and to its right the column, one pane that holds what the Job produced, Artifacts,
+/// Pull Requests and Issues, with Story after them. The progress strip and Needs you stand over the column as bands, not
+/// tabs (`column_bands.rs`); Now, For you, Open, Done and Deferred are tabs + opens.
 pub(crate) fn default_arrangement() -> Arrangement {
-    let mut arrangement = build(&Shape::split(Dir::Row, 0.62, Shape::pane(&["thread", "story"]), Shape::pane(&PRODUCED[..3])), None, &[]);
-    // Story and Artifacts are placed already, so one he closes before the store answers is not put back; "made" is
-    // the move off Now (`panes_place::leave_now`), which a new Job has no need of.
-    arrangement.offered.extend(["story", "artifacts", "made"].map(String::from));
+    // Built as it was with Story beside Thread, then Story moved, so the panes and tabs keep the ids `slot_of` and the
+    // Jobs' kept arrangements know them by.
+    let built = build(&Shape::split(Dir::Row, 0.62, Shape::pane(&["thread", "story"]), Shape::pane(&PRODUCED[..3])), None, &[]);
+    let panes: Vec<(String, Vec<String>)> = panes_of(&built.root).into_iter().map(|pane| (pane.id.clone(), pane.tabs.iter().map(|tab| tab.id.clone()).collect())).collect();
+    let [(_, thread_tabs), (column, column_tabs)] = &panes[..] else { unreachable!("the default is two panes") };
+    let moved = move_tab_to_pane(&built, &thread_tabs[1], column, None).into_owned();
+    // Artifacts in front of the column, and the thread in front of its pane with the focus on it.
+    let mut arrangement = activate(&activate(&moved, &column_tabs[0]), &thread_tabs[0]).into_owned();
+    // Story and Artifacts are placed already, so one he closes before the store answers is not put back; "story_column"
+    // is Story's move from beside Thread (`panes_place::story_to_column`) and "made" the move off Now
+    // (`panes_place::leave_now`), which a new Job has no need of.
+    arrangement.offered.extend(["story", "story_column", "artifacts", "made"].map(String::from));
     arrangement
 }
 
