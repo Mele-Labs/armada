@@ -10,7 +10,7 @@ import { Refused, call, getJson, refusal, whenUnpaired } from "./client";
 import type { LiveChange, OperatorDispatched, PhoneSession, SessionsBody } from "./gateway";
 import { keepMachine, machines, type Machine } from "./machines";
 import { homeWhenBack } from "./router";
-import { rowStateOf, standingOf } from "./rowState";
+import { lampOf, rowStateOf, standingOf } from "./rowState";
 import { events } from "./sse";
 
 export type Mac = {
@@ -304,7 +304,11 @@ export type Line = {
 export type Home = {
   /** More than one Mac is paired, so each row names its Mac. */
   several: boolean;
-  /** Each project's Jobs, Needs you first and otherwise in Fleet's order, a Job another started right under its starter. */
+  /** Jobs blocked on him, over every project, listed above the projects. */
+  needs: Item[];
+  /** Jobs with built work to look at, over every project, listed under Needs you. */
+  ready: Item[];
+  /** Each project's other Jobs, in Fleet's order, a Job another started right under its starter. */
   repositories: {
     name: string;
     /** The heading is a project's; else the repository's, for Jobs in no project, which only All shows. */
@@ -328,23 +332,30 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
           ...(session.mark === undefined || session.mark.state === read.state
             ? {}
             : {
-                // Ready for him draws as Waiting until Pocket has a look of its own.
+                // Ready for him keeps the waiting state's bucket, so Needs you's scope still finds it; `readyOf` tells it apart.
                 state: session.mark.state === "ready" ? "waiting" : session.mark.state,
               }),
         };
       }),
     );
+  /** Fleet's mark files a Job under Needs you or Ready for you, and the list lifts it out of its project. */
+  // A Gateway that sends no mark: a row with the Needs you lamp (waiting, stuck, stopped and asking) is Needs you.
+  const needs = all.filter((one) =>
+    one.session.mark === undefined ? lampOf(one) === "needs" : one.session.mark.group === "needs",
+  );
+  const ready = all.filter((one) => one.session.mark?.group === "ready");
+  const rest = all.filter((one) => !needs.includes(one) && !ready.includes(one));
   const repositories: Home["repositories"] = [];
   /** Native groups by project, else the repository's folder. */
   const groupOf = (item: Item) => item.session.project ?? item.session.repository ?? "";
   const kin = (a: Item, b: Item) => a.mac === b.mac && groupOf(a) === groupOf(b);
   const seen = new Set<string>();
-  for (const item of all) {
+  for (const item of rest) {
     const name = groupOf(item);
     const key = `${item.mac.machine.origin} ${name}`;
     if (seen.has(key)) continue;
     seen.add(key);
-    const held = all
+    const held = rest
       .filter((one) => kin(one, item))
       .map((one, at) => ({
         one,
@@ -396,6 +407,8 @@ export function homeOf({ macs }: Pick<Fleet, "macs">): Home {
   }
   return {
     several: macs.length > 1,
+    needs,
+    ready,
     repositories,
     troubled: macs.filter((mac) => !mac.paired || mac.error !== undefined),
   };

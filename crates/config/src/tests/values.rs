@@ -43,7 +43,7 @@ fn every_key_reads_and_writes_back() {
         pr_mode: Some(PrMode::Ready),
         auto_merge: Some(AutoMerge::ChecksPass),
         review_model: Some("big-model".into()),
-        look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()) },
+        look: Look { layout: Some("compact-deck".into()), theme: Some("paper".into()), density: Some("compact".into()), board: None },
         tracker: Some(TrackerNamed { provider: Some("tickets".into()), keys: [("site".to_string(), "acme".to_string())].into() }),
         reviews: ReviewsNamed { plans: Some(ReviewMode::ReviewAndApprove), pull_requests: Some(ReviewMode::Review), walks: Some(WalkReview::Review) },
         agent_starts: Some(AgentStarts::AskMe),
@@ -148,7 +148,7 @@ fn saying(mode: PrMode, merge: AutoMerge, word: &str) -> Values {
         pr_mode: Some(mode),
         auto_merge: Some(merge),
         review_model: Some(format!("model-{word}")),
-        look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()) },
+        look: Look { layout: Some(format!("layout-{word}")), theme: Some(format!("theme-{word}")), density: Some("compact".into()), board: None },
         tracker: None,
         reviews: ReviewsNamed::default(),
         agent_starts: None,
@@ -368,4 +368,20 @@ fn a_projects_review_on_new_pr_reads_and_kit_refuses_the_key() {
     assert!(refused("values:\n  review_on_new_pr: security\n").contains("values.review_on_new_pr"), "a list, not a word");
     let said = parse_kit_values(Path::new("values.yml"), "version: 1\nvalues:\n  review_on_new_pr: [security]\n").expect_err("refused").to_string();
     assert!(said.contains("values.review_on_new_pr"), "{said}");
+}
+
+#[test]
+fn a_boards_blocks_are_written_and_read_back_with_a_kind_the_build_does_not_know_and_an_empty_board_is_kept() {
+    use core_model::{Board, BoardBlock};
+    let block = |kind: &str, x: u8, view: &str| BoardBlock { kind: kind.into(), x, y: 1, w: 3, h: 2, view: view.into() };
+    let round = |board: Board| {
+        let values = Values { look: Look { board: Some(board), ..Look::default() }, ..Values::default() };
+        let project = parse_project(Path::new("shop.yml"), &project_with("")).expect("a Project").with_values(values);
+        let written = project_text(&project).expect("text");
+        parse_project(Path::new("shop.yml"), &written).expect("what was written reads").values().look.board.clone()
+    };
+    let board = Board { blocks: vec![block("needs", 0, "list"), block("errors", 3, "kanban")] };
+    assert_eq!(round(board.clone()), Some(board), "every block, its kind and view as written, in order");
+    assert_eq!(round(Board::default()), Some(Board::default()), "no block drawn is a board, not none");
+    assert_eq!(values_of("values:\n  look:\n    density: roomy\n").look.board, None, "one that wrote none has none");
 }

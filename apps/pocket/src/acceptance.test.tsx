@@ -16,6 +16,7 @@ import {
   artifactsJob,
   everyState,
   fixtureMacs,
+  markedJobs,
   partsJob,
   type FixtureMac,
 } from "./fixture/wire";
@@ -312,6 +313,7 @@ describe("Pocket v2 with two Macs", {
     await open("/");
     await vi.waitFor(() => expect(jobs()).toHaveLength(20));
     expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
+      "Needs you",
       "Armada",
       "store",
     ]);
@@ -344,15 +346,23 @@ describe("Pocket v2 with two Macs", {
         "studio",
       ],
       [
+        "Write the Draft screen copy",
+        "studio",
+      ],
+      [
+        "Rename the slot pool",
+        "laptop",
+      ],
+      [
+        "Open the push payload PR",
+        "laptop",
+      ],
+      [
         "Trim the Drone pool tests",
         "studio",
       ],
       [
         "Plan the phone screens",
-        "studio",
-      ],
-      [
-        "Write the Draft screen copy",
         "studio",
       ],
       [
@@ -380,14 +390,6 @@ describe("Pocket v2 with two Macs", {
         "studio",
       ],
       [
-        "Rename the slot pool",
-        "laptop",
-      ],
-      [
-        "Open the push payload PR",
-        "laptop",
-      ],
-      [
         "Read the push payload",
         "laptop",
       ],
@@ -401,8 +403,10 @@ describe("Pocket v2 with two Macs", {
       ],
     ];
     expect(titles()).toEqual(listed.map(([title]) => title));
-    expect(titles("Armada")).toEqual(listed.slice(0, 15).map(([title]) => title));
-    expect(titles("store")).toEqual(listed.slice(15).map(([title]) => title));
+    // The nine that ask him, from both Macs, head the list and leave their project.
+    expect(titles("Needs you")).toEqual(listed.slice(0, 9).map(([title]) => title));
+    expect(titles("Armada")).toEqual(listed.slice(9, 17).map(([title]) => title));
+    expect(titles("store")).toEqual(listed.slice(17).map(([title]) => title));
     for (const [title, mac] of listed)
       expect(job(title)!.querySelector(".pk-mac")!.getAttribute("aria-label")).toBe(mac);
     const said = job("Trim the Drone pool tests")!.querySelector(".pk-job__says")!.textContent;
@@ -434,11 +438,12 @@ describe("Pocket v2 with two Macs", {
       });
     await pick("Armada");
     expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
+      "Needs you",
       "Armada",
     ]);
     expect(jobs()).toHaveLength(15);
     await pick("");
-    expect(titles("store")).toHaveLength(5);
+    expect(titles("store")).toHaveLength(3);
   });
 
   it("marks only the Mac that answered 401 as not paired, and the other still lists", async () => {
@@ -454,9 +459,9 @@ describe("Pocket v2 with two Macs", {
       "Fix the lost lease",
       "Move the walk engine",
       "Close out the tracker mod",
+      "Write the Draft screen copy",
       "Trim the Drone pool tests",
       "Plan the phone screens",
-      "Write the Draft screen copy",
       "Build the Draft screen",
       "Measure the Draft screen on a phone",
       "Redraw the Needs you band",
@@ -466,6 +471,7 @@ describe("Pocket v2 with two Macs", {
     ]);
     // A heading stands over its project even when it is the only one left.
     expect(Array.from(host.querySelectorAll("h2")).map((one) => one.textContent)).toEqual([
+      "Needs you",
       "Armada",
     ]);
     expect(host.querySelector('.pk-home li.pk-job .pk-mac[aria-label="laptop"]')).toBeNull();
@@ -637,9 +643,88 @@ describe("the phone draws as Bridge does", {
     ).toBe(true);
     const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
     expect(headings).toEqual([
+      "Needs you",
       "Armada",
       "store",
     ]);
+  });
+
+  it("heads the list with Needs you and Ready for you, draws a chip for what he does on each row, and keeps Ready for you out of the Needs you scope", async () => {
+    const [, command, , walk] = markedJobs(NOW);
+    const { owes: _unsaid, ...unsaid } = command!;
+    macs[STUDIO]!.live.unshift(
+      ...markedJobs(NOW),
+      {
+        ...command!,
+        id: "m6",
+        title: "Approve the retry plan",
+        owes: [
+          "approve",
+        ],
+      },
+      {
+        ...walk!,
+        id: "m7",
+        title: "Read the librarian notes",
+        owes: [
+          "read",
+        ],
+      },
+      {
+        ...unsaid,
+        id: "m8",
+        title: "Unknown kind of wait",
+      },
+    );
+    await open("/");
+    await vi.waitFor(() => expect(job("Settings page, Account tab")).not.toBeNull());
+    const headings = Array.from(host.querySelectorAll("h2")).map((one) => one.textContent);
+    expect(headings.slice(0, 2)).toEqual([
+      "Needs you",
+      "Ready for you",
+    ]);
+    expect(titles("Needs you")).toEqual(
+      expect.arrayContaining([
+        "Pick the retry budget for pushes",
+        "Restart the preview on the new build",
+        "Approve the retry plan",
+        "Unknown kind of wait",
+      ]),
+    );
+    expect(titles("Ready for you")).toEqual([
+      "Settings page, Account tab",
+      "Redraw the Job card's lamp",
+      "Read the librarian notes",
+    ]);
+    const chips = (title: string) =>
+      Array.from(job(title)!.querySelectorAll(".pk-job__chip[data-look]")).map(
+        (one) => one.textContent,
+      );
+    expect(chips("Pick the retry budget for pushes")).toEqual([
+      "Answer",
+    ]);
+    expect(chips("Restart the preview on the new build")).toEqual([
+      "Run",
+    ]);
+    expect(chips("Approve the retry plan")).toEqual([
+      "Approve",
+    ]);
+    expect(chips("Settings page, Account tab")).toEqual([
+      "Try",
+    ]);
+    expect(chips("Redraw the Job card's lamp")).toEqual([
+      "Walk",
+    ]);
+    expect(chips("Read the librarian notes")).toEqual([
+      "Read",
+    ]);
+    expect(chips("Unknown kind of wait")).toEqual([]);
+    expect(lamp("Settings page, Account tab")).toBe("ready");
+    expect(lamp("Pick the retry budget for pushes")).toBe("needs");
+    await scope("needs");
+    expect(job("Pick the retry budget for pushes")).not.toBeNull();
+    expect(job("Settings page, Account tab")).toBeNull();
+    expect(job("Redraw the Job card's lamp")).toBeNull();
   });
 
   it("steps a Job another started in under its starter, one step for each starter above it, and names the starter on each Job stepped in", async () => {
@@ -669,15 +754,15 @@ describe("the phone draws as Bridge does", {
       nested: true,
       step: "2",
     });
+    // A sibling that needs him is lifted into Needs you, so it is no longer stepped in under its starter.
     expect(depth("Write the Draft screen copy")).toEqual({
-      nested: true,
-      step: "1",
+      nested: false,
+      step: "",
     });
     const order = titles("Armada");
     const at = (title: string) => order.indexOf(title);
-    // Siblings go in standing order, so the one that needs him comes first, and a grandchild comes right under its starter.
-    expect(at("Write the Draft screen copy")).toBe(at("Plan the phone screens") + 1);
-    expect(at("Build the Draft screen")).toBe(at("Write the Draft screen copy") + 1);
+    // A grandchild comes right under its starter.
+    expect(at("Build the Draft screen")).toBe(at("Plan the phone screens") + 1);
     expect(at("Measure the Draft screen on a phone")).toBe(at("Build the Draft screen") + 1);
     // Each row turns its starter's line in at an elbow; the line runs on down only past rows its starter has more under.
     const guides = (title: string) =>
@@ -686,10 +771,7 @@ describe("the phone draws as Bridge does", {
           `${one.classList.contains("pk-job__guide--elbow") ? "elbow" : "line"}@${one.style.getPropertyValue("--pk-column")}`,
       );
     expect(guides("Plan the phone screens")).toEqual([]);
-    expect(guides("Write the Draft screen copy")).toEqual([
-      "line@0",
-      "elbow@0",
-    ]);
+    expect(guides("Write the Draft screen copy")).toEqual([]);
     expect(guides("Build the Draft screen")).toEqual([
       "elbow@0",
     ]);
@@ -704,9 +786,7 @@ describe("the phone draws as Bridge does", {
     expect(linked("Measure the Draft screen on a phone")!.getAttribute("aria-label")).toBe(
       "Started by Build the Draft screen",
     );
-    expect(linked("Write the Draft screen copy")!.getAttribute("aria-label")).toBe(
-      "Started by Plan the phone screens",
-    );
+    expect(linked("Write the Draft screen copy")).toBeNull();
     expect(linked("Plan the phone screens")).toBeNull();
     expect(linked("Check the restart notes")).toBeNull();
     expect(depth("Check the restart notes").nested).toBe(false);

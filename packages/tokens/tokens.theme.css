@@ -74,6 +74,7 @@
   --color-status-not-started: var(--status-not-started);
   --color-status-running: var(--status-running);
   --color-status-awaiting-review: var(--status-awaiting-review);
+  --color-status-ready: var(--status-ready);
   --color-status-escalated: var(--status-escalated);
   --color-status-completed-success: var(--status-completed-success);
   --color-status-completed-failed: var(--status-completed-failed);
@@ -82,6 +83,7 @@
   --color-status-not-started-bg: var(--status-not-started-bg);
   --color-status-running-bg: var(--status-running-bg);
   --color-status-awaiting-review-bg: var(--status-awaiting-review-bg);
+  --color-status-ready-bg: var(--status-ready-bg);
   --color-status-escalated-bg: var(--status-escalated-bg);
   --color-status-completed-success-bg: var(--status-completed-success-bg);
   --color-status-completed-failed-bg: var(--status-completed-failed-bg);

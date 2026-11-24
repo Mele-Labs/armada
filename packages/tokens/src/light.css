@@ -55,6 +55,9 @@
   --status-not-started: #555F6D;
   --status-running: #1B657C;
   --status-awaiting-review: #7D5711;
+  /* Ready for you, hue 228 as the dark set's. 6.05:1 as text on --bg-base and 4.60:1 on its own
+     12% tint over --bg-hover, the lowest of the four grounds. */
+  --status-ready: #3A55C2;
   --status-escalated: #A03F10;
   --status-completed-success: #2F694A;
   --status-completed-failed: #B51D1D;

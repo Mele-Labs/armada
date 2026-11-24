@@ -969,6 +969,9 @@ impl JobView {
             self.needs_key(window, cx);
             return;
         }
+        if self.judge_key_act(act, window, cx) {
+            return;
+        }
         if act.is("needs_you_fold") {
             self.toggle_needs(window, cx);
             return;

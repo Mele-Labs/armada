@@ -48,6 +48,20 @@ pub trait Projects: Send + Sync + 'static {
     /// changed. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a blank workflow.
     fn set_project_workflow(&self, project: String, set: ipc::SetProjectWorkflow) -> impl Future<Output = Result<ipc::Projects, Refusal>> + Send;
 
+    /// `get_project_board` — the board layout the project keeps with its look values, absent where it saved none.
+    /// [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for one whose file did not read.
+    fn get_project_board(&self, project: String) -> impl Future<Output = Result<ipc::ProjectBoard, Refusal>> + Send;
+
+    /// `save_project_board` — the layout kept whole, or forgotten where absent, and nothing else of the project's values
+    /// changed. [`Refusal::NotFound`] for a project he has none of, [`Refusal::Unacceptable`] for a block with no kind or
+    /// no view, or a project whose file did not read.
+    fn save_project_board(&self, project: String, save: ipc::SaveProjectBoard) -> impl Future<Output = Result<ipc::ProjectBoard, Refusal>> + Send;
+
+    /// `list_ranked_issues` — the project's open, unassigned issues and other people's open pull requests, each named
+    /// for the features it matched and ranked by the Jobs on them lately. Asks no forge beyond the issue lists Fleet holds.
+    /// [`Refusal::NotFound`] for a project he has none of.
+    fn list_ranked_issues(&self, project: String) -> impl Future<Output = Result<ipc::RankedIssues, Refusal>> + Send;
+
     /// `get_project_store` — the claims store project `project` names, the Macs signed in to it, and whether a
     /// deploy or a join can run now. [`Refusal::NotFound`] for a project he has none of.
     fn get_project_store(&self, project: String) -> impl Future<Output = Result<ipc::ProjectStoreState, Refusal>> + Send;

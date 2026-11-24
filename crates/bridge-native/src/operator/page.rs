@@ -166,6 +166,12 @@ pub struct OperatorPageView {
     pub(super) next_first: FocusHandle,
     /// Everything Next up draws, so the page can tell the keys are inside it.
     pub(super) next_group: FocusHandle,
+    /// A host screen draws the page's chrome: it draws as the right side of that screen, with its own header row, the card and
+    /// the talk in one centred column, and no padding or ground of its own.
+    pub(super) embedded: bool,
+    /// Whether the side column (Next up and the feed) was drawn last frame, so a pane that turns out narrower than the first
+    /// guess folds it at once.
+    pub(super) side_drawn: Rc<Cell<bool>>,
     /// The turn ids already seen, so a new one is told once. `None` before the first read.
     seen: Option<BTreeSet<String>>,
     read_at: u64,
@@ -253,10 +259,36 @@ impl OperatorPageView {
             next_head: cx.focus_handle(),
             next_first: cx.focus_handle(),
             next_group: cx.focus_handle(),
+            embedded: false,
+            side_drawn: Rc::new(Cell::new(true)),
             seen: None,
             read_at: 0,
             reading: false,
             subs,
+        }
+    }
+
+    /// The page as the right side of a host screen: the host draws the title and the chrome around it.
+    pub fn embedded(mut self) -> Self {
+        self.embedded = true;
+        self
+    }
+
+    #[cfg(test)]
+    pub(super) fn is_embedded(&self) -> bool {
+        self.embedded
+    }
+
+    /// The caret goes to the box under the card: the Cockpit's ⌘J with no Job open.
+    pub fn focus_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.composer.update(cx, |composer, cx| composer.focus(window, cx));
+    }
+
+    /// Where the host turns embedding on or off after the page is built.
+    pub fn set_embedded(&mut self, embedded: bool, cx: &mut Context<Self>) {
+        if self.embedded != embedded {
+            self.embedded = embedded;
+            cx.notify();
         }
     }
 
@@ -407,6 +439,11 @@ impl OperatorPageView {
             });
         });
         self.track(task);
+    }
+
+    /// The cards waiting on him as Fleet's page last said them, for the Project place's Needs you block.
+    pub fn turn(&self) -> &[OperatorTurnItem] {
+        self.page.as_ref().map_or(&[], |page| page.turn.as_slice())
     }
 
     /// Fleet's page replaces the one held. The card in front stays where it is still there, and a card not seen before
@@ -1266,6 +1303,21 @@ impl OperatorPageView {
 
     // -- the Operator's own session ----------------------------------------------------------------
 
+    /// Whether the page reads the Operator switched off: the Cockpit draws its floor plan in the page's place.
+    pub fn is_off(&self) -> bool {
+        self.page.as_ref().is_some_and(|page| !page.on)
+    }
+
+    /// A switch is in flight, and which way it goes.
+    pub fn switching(&self) -> Option<bool> {
+        self.switching.then_some(!self.switching_off)
+    }
+
+    /// Why Fleet refused the last Switch on, where it did.
+    pub fn switch_refused(&self) -> Option<&str> {
+        self.switch_refused.as_deref()
+    }
+
     /// The Operator's session, where Fleet holds one.
     pub fn session_id(&self) -> Option<SessionId> {
         self.session.as_ref().map(|session| session.id.clone())
@@ -1627,7 +1679,7 @@ pub(super) const ACTS: [(&str, OperatorActs, &str, &str); 3] = [
 #[cfg(test)]
 mod tests {
     use super::*;
-    use gpui::{TestAppContext, VisualTestContext};
+    use gpui::{IntoElement, ParentElement, Render, Styled, TestAppContext, VisualTestContext};
 
     fn open(cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
         cx.update(|cx| {
@@ -2301,5 +2353,130 @@ mod tests {
             assert!(page.fresh.is_empty(), "no strip");
             assert_eq!(page.open_item().map(|turn| turn.id.as_str()), Some("turn:41"));
         });
+    }
+    // -- the page in a pane that is part of a screen ---------------------------------------------
+
+    /// A host screen's pane: the page in a box `pane` wide, in a window much wider than it.
+    struct Pane {
+        page: Entity<OperatorPageView>,
+        /// Its width, or the window's own where None.
+        pane: Option<f32>,
+    }
+
+    impl Render for Pane {
+        fn render(&mut self, _: &mut Window, _: &mut Context<Self>) -> impl IntoElement {
+            let pane = gpui::div().h_full().child(self.page.clone());
+            let pane = match self.pane {
+                Some(wide) => pane.w(gpui::px(wide)),
+                None => pane.w_full(),
+            };
+            // The window's own root, as the app draws it: it clears the label book before each frame.
+            crate::labels::label_root(gpui::div().size_full().flex().child(pane))
+        }
+    }
+
+    fn pane_of(pane: Option<f32>, embedded: bool, cx: &mut TestAppContext) -> (Entity<OperatorPageView>, &mut VisualTestContext) {
+        cx.update(|cx| {
+            gpui_component::init(cx);
+            crate::look::init(cx);
+            crate::keymap::install(&crate::keymap::Rebinding::default(), cx);
+        });
+        let (host, cx) = cx.add_window_view(|window, cx| {
+            let page = cx.new(|cx| {
+                let page = OperatorPageView::mock(window, cx);
+                if embedded { page.embedded() } else { page }
+            });
+            Pane { page, pane }
+        });
+        let page = host.read_with(cx, |host, _| host.page.clone());
+        cx.simulate_resize(gpui::size(gpui::px(1800.), gpui::px(900.)));
+        settle(cx);
+        (page, cx)
+    }
+
+    /// Draws until the page has measured its pane and drawn again for it.
+    fn settle(cx: &mut VisualTestContext) {
+        for _ in 0..3 {
+            cx.run_until_parked();
+            cx.update(|window, cx| window.draw(cx).clear(cx));
+        }
+    }
+
+    fn bounds_named(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> Option<gpui::Bounds<gpui::Pixels>> {
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().find(window.window_handle().window_id(), role, name).map(|drawn| drawn.bounds))
+    }
+
+    fn side_drawn(cx: &mut VisualTestContext) -> bool {
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().any(|one| one.role == gpui::Role::Heading && one.name.starts_with("Since you last looked")))
+    }
+
+    #[gpui::test]
+    fn a_pane_too_narrow_for_two_columns_folds_the_side_column(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        cx.simulate_resize(gpui::size(gpui::px(1400.), gpui::px(900.)));
+        settle(cx);
+        assert!(side_drawn(cx), "a roomy window keeps Next up and the feed beside the card");
+        cx.simulate_resize(gpui::size(gpui::px(640.), gpui::px(900.)));
+        settle(cx);
+        assert!(!side_drawn(cx), "a 640 window folds the side column away");
+        assert!(bounds_named(cx, gpui::Role::Heading, "Operator").is_some(), "the head stays");
+    }
+
+    #[gpui::test]
+    fn widths_follow_the_panes_own_bounds_not_the_windows(cx: &mut TestAppContext) {
+        // The window is 1800 wide; the pane is 640. The card's room, the side column and the box all go by the 640.
+        let (page, cx) = pane_of(Some(640.), true, cx);
+        let room = cx.update(|window, cx| page.read(cx).ready_room(window, &cx.look().clone()));
+        assert!(room <= 640., "the Ready to try card has {room} points to draw in, in a 640 pane");
+        let sent = bounds_named(cx, gpui::Role::Group, "Message box").expect("the box is drawn");
+        assert!(sent.right() <= gpui::px(640.) && sent.left() >= gpui::px(0.), "the box {sent:?} stays inside the pane");
+    }
+
+    #[gpui::test]
+    fn an_embedded_page_draws_the_header_row_and_one_column_centred_at_a_readable_width(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(Some(1800.), true, cx);
+        let (word, readable, edge) = cx.update(|_, cx| {
+            let look = cx.look().clone();
+            (page.read(cx).status().chip().0, f32::from(super::super::view::readable(&look)), f32::from(look.length(crate::look::token::SPACE_12) * 7.5 + look.length(crate::look::token::GAP_PANEL)))
+        });
+        for (role, name) in [(gpui::Role::Heading, "Operator"), (gpui::Role::Status, word)] {
+            assert!(bounds_named(cx, role, name).is_some(), "the header row draws {name}");
+        }
+        let column = bounds_named(cx, gpui::Role::Group, "Message box").expect("the box is drawn");
+        assert!(f32::from(column.size.width) <= readable, "the column is {:?} wide, over {readable}", column.size.width);
+        // The main panel is the pane less the side column; the column stands in its middle.
+        let middle = (1800. - edge) / 2.;
+        assert!((f32::from(column.center().x) - middle).abs() < 2., "the column's middle {:?} is the main panel's {middle}", column.center().x);
+    }
+
+    #[gpui::test]
+    fn the_standalone_page_keeps_drawing_its_column_as_wide_as_the_panel(cx: &mut TestAppContext) {
+        let (_, cx) = pane_of(None, false, cx);
+        let column = bounds_named(cx, gpui::Role::Group, "Message box").expect("the box is drawn");
+        assert!(f32::from(column.size.width) > 1000., "unchanged: {:?} wide", column.size.width);
+    }
+
+    fn drawn_count(cx: &mut VisualTestContext, role: gpui::Role, name: &str) -> usize {
+        cx.update(|window, cx| cx.default_global::<crate::labels::LabelBook>().drawn(window.window_handle().window_id()).iter().filter(|one| one.role == role && one.name == name).count())
+    }
+
+    #[gpui::test]
+    fn an_embedded_status_card_leaves_out_the_chip_and_the_line_the_header_row_already_says(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(Some(1800.), true, cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        settle(cx);
+        assert!(bounds_named(cx, gpui::Role::Region, "Nothing needs you").is_some(), "the card stands");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1, "the state chip is the header's alone");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1, "and so is the status line");
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Last act 1m ago: Fix desktop_unit after #412"), 1, "the last act stays in the card");
+    }
+
+    #[gpui::test]
+    fn the_standalone_status_card_keeps_its_chip_and_its_line(cx: &mut TestAppContext) {
+        let (page, cx) = pane_of(None, false, cx);
+        page.update(cx, |page, cx| page.scene("quiet", cx).expect("a scene"));
+        settle(cx);
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Working"), 1);
+        assert_eq!(drawn_count(cx, gpui::Role::Status, "Reading the live Jobs, for 7m"), 1);
     }
 }

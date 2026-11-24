@@ -41,7 +41,7 @@ is the back-fill by hand that this section existed to prevent.
 
 ```
 ⌘K       command palette
-⌘J       the Operator's page, in the native Bridge only: the Electron Bridge draws no Operator
+⌘J       the Operator's talk box on the Cockpit, in the native Bridge only: with a Job open on the Cockpit it keeps the Job's side chat
 ⌥⌘J      the newest toast the Operator raised, in the native Bridge only: A its pick, L Later, Esc shuts it
 ⌥⌘N      the history of the Operator's toasts, in the native Bridge only
 ⇧⌘K      Kit, the Claude Code setup kind by kind, in the native Bridge only
@@ -69,7 +69,11 @@ is the back-fill by hand that this section existed to prevent.
 ⌘/       ask the agent for a tool: Armada's tools listed over the open Job's message box, the one picked put at the caret as a chip, in the native Bridge only
 ⌥T       open the asks of the open Job's thread, listed beside its contents rail: Up and Down move, Enter scrolls the thread to the ask, Esc puts the list away, in the native Bridge only
 ⌥↑ ⌥↓    go to your question: the previous or the next in the open Job's thread, in the native Bridge only
-⌘1–⌘9    go to a tab: Operator (native only), Cockpit, Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
+⌥⌘U      Judge the words selected in the open Job's thread, in the native Bridge only
+⌥⌘G      Judge the card in focus in the open Job's thread: a sketch, document, draft, Ready to try or reply, in the native Bridge only
+⌥⌘L      Judge the Job of the focused row of the Jobs list, in the native Bridge only
+⇧⌘J      Judge…: what the open Job holds, to pick one to judge, in the native Bridge only
+⌘1–⌘9    go to a tab: Cockpit (in the native Bridge it holds the Jobs list and the Operator's page, and it has no Operator or Jobs tab), Jobs, Studios, Logbook, Reviews, Issues, Features (native only), Projects or System, as the bar draws them, from a Job's message box too
 ⌘,       open Settings
 ⌘O       open a file in the side panel
 ⌘D       split the focused pane of the open Job, the new pane to its right
@@ -217,9 +221,13 @@ j / k / ↓ / ↑  move between kinds of waste   (usage only)
 Enter / Space  open the row: the Jobs a kind hit, a setting's values, or a Job's Tokens tab   (usage only)
 a              apply the setting   (usage only)
 → / ←          move along a Job's tokens   (tokens only)
+⌥⌘P            pop out the Job's prototype: the scene in a window of its own with the note capture over it   (prototype only)
 ⌘E             next environment   (api client only)
 [ / ]          headers, body or environment   (api client only)
 ⌘S             save the request   (api client only)
+e              edit the board   (project board only)
+← / → / ↑ / ↓  move a block one cell, while the board is edited   (project board only)
+⇧← / ⇧→ / ⇧↑ / ⇧↓  resize a block one cell, while the board is edited   (project board only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
@@ -304,10 +312,19 @@ The keys go on down the open panel's Jobs, and `Enter` or `Space` on one opens t
 `→` and `←` move the cursor along the buckets of time, held at either end, and the tooltip follows it.
 The first move from nowhere lands on the first bucket, or on the last going left.
 
+**A Job's Prototype tab has a scope of its own, `prototype`, in the native Bridge.**
+`⌥⌘P` pops the scene out into a window of its own, where it is the same scope, so the note capture works over it.
+The key is not global because `⌥⌘P` is the palette's Move to project everywhere else.
+
 **A Job's API Client tab has a scope of its own, `api client`, in the native Bridge.**
 `⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.
 `[` and `]` step the open request through its Headers, Body and Environment, wrapping at the ends, and stand down while a text box has the keys.
 `⌘S` saves the open request into its collection, or asks for a name and a collection for one not saved yet.
+
+**The Project place's board has a scope of its own, `project board`, in the native Bridge.**
+`e` turns the board between drawn and edited.
+While it is edited, the arrows move the block that has focus one cell on the six-column grid, and ⇧ with an arrow resizes it one cell.
+Its arrows never meet a list's: the scope is the board alone, so `move_focus` keeps them everywhere else.
 `⌘↵` is `send_message`'s chord, which the request line answers as Send while it has the keys; `⌘L` and `⌘N` stay the Layout menu's and Dispatch's, so the tab binds neither.
 `↑` and `↓` move through the list or the saved requests an address finds, `↵` opens the row, and `Esc` gives the keys back to the thread.
 
@@ -711,9 +728,13 @@ Stop confirms. A Job's act that nothing answers is left out, and Pin and Unpin r
 
 | Setting | The empty query shows |
 |---|---|
-| Pinned and recent | Pinned, then Recent; the full list while both are empty |
+| Pinned and recent | Pinned, then Recent; the full list while both are empty. The native Bridge opens as below |
 | This page first | The full list, headed by the open page's commands |
 | Everything | The full list without the open page's commands |
+
+> **Rule.** In the native Bridge, Pinned and recent opens on five blocks in order: Pinned; Recent, five rows; Needs you, the live Jobs waiting on him, failed or stuck, each saying why; Jobs, the other live Jobs, six, the latest turn first; and Go to, the places with Usage and Settings.
+> A row stands once, in the first block that holds it, and a snoozed Job is not under Needs you.
+> Why: as Raycast opens, the first look offers what he used, what asks him, what is running and where he can go, before he types.
 
 > **Rule.** The Settings section *Command palette* holds that setting and a table of every row that holds a pin, an alias or a hotkey, each editable in place.
 > Why: what was given in a panel needs one place to be read together and changed without finding the row.

@@ -168,8 +168,9 @@ enum Bucket {
 
 fn bucket_of(state: JobState) -> Bucket {
     use JobState::*;
+    // A Job that said it is done owes him nothing: it stands in Done, quiet, until he ends it.
     match state {
-        Waiting | Done | Unstarted | StoppedAsks | Stuck | Failing => Bucket::Needs,
+        Waiting | Unstarted | StoppedAsks | Stuck | Failing => Bucket::Needs,
         Working | Running | Subagent => Bucket::Working,
         _ => Bucket::Other,
     }

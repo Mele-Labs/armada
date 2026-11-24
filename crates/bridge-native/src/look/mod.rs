@@ -35,6 +35,19 @@ pub struct Token(pub &'static str);
 /// font stack as a colour is seen at once. A test holds every colour constant to a real colour.
 const NOT_A_COLOUR: Hsla = gpui::hsla(0.83, 1.0, 0.5, 1.0);
 
+/// A token a scene named that this theme does not have, by the name it used.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct UnknownToken(pub String);
+
+/// `bg-raised` and `--bg-raised` are the one token: the sheet keys it with its dashes.
+fn token_key(name: &str) -> String {
+    if name.starts_with("--") {
+        name.to_string()
+    } else {
+        format!("--{name}")
+    }
+}
+
 /// The resolved theme in force.
 #[derive(Clone, Debug, PartialEq)]
 pub struct Look {
@@ -137,6 +150,28 @@ impl Look {
 
     pub fn length(&self, token: Token) -> Pixels {
         gpui::px(self.resolved.lengths.get(token.0).copied().unwrap_or(0.0))
+    }
+
+    /// A colour by the name `tokens.json` gives it, `bg-raised` or `--bg-raised`, for a scene that
+    /// names its colours at run time. A name that is no colour token is an error the caller shows;
+    /// it never falls back to a colour that looks right.
+    pub fn color_named(&self, name: &str) -> Result<Hsla, UnknownToken> {
+        self.resolved.colors.get(&token_key(name)).map(|color| hsla_of(*color)).ok_or_else(|| UnknownToken(name.to_string()))
+    }
+
+    /// A length token by name, as [`Look::color_named`] reads a colour.
+    pub fn length_named(&self, name: &str) -> Result<Pixels, UnknownToken> {
+        self.resolved.lengths.get(&token_key(name)).map(|points| gpui::px(*points)).ok_or_else(|| UnknownToken(name.to_string()))
+    }
+
+    /// The text of a token by name, with its `var()` replaced.
+    pub fn text_named(&self, name: &str) -> Result<&str, UnknownToken> {
+        self.resolved.text.get(&token_key(name)).map(String::as_str).ok_or_else(|| UnknownToken(name.to_string()))
+    }
+
+    /// What a name that is no token draws as: loud on purpose.
+    pub fn unknown_marker(&self) -> Hsla {
+        NOT_A_COLOUR
     }
 
     pub fn duration(&self, token: Token) -> Duration {

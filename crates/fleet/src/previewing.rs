@@ -6,7 +6,7 @@
 //! the check runs once more when it ends, however many arrived. What is compiled is the Compiler a test
 //! may plant, `adapters::preview_check`'s.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
@@ -16,7 +16,7 @@ use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use adapters::preview_check::{self, Broke, Compiler, Verdict, CONFLICTS};
 use api::Refusal;
 use ipc::{
-    BuildSource, Event, Instant, PreviewOfferRow, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState, SessionId,
+    BuildSource, Event, Instant, PreviewKept, PreviewOfferRow, PreviewOffers, PreviewRefresh, PreviewRefreshSkipped, PreviewState, SessionId,
     SkipPreviewRefresh,
 };
 use sha2::{Digest, Sha256};
@@ -26,11 +26,13 @@ use adapters::BuildMerges;
 
 use crate::building::{commit_in, held_by_merges, held_in, restarting_in, source_in, Held};
 use crate::daemon::Fleet;
-use crate::preview_macs::{clash_why, clashed_with, file_of, in_check_order, tips_here};
+use crate::preview_carried::{carried_lines, Carried};
+use crate::preview_macs::{clash_why, clashed_with, file_of, in_check_order, tips_here, NOT_ON_ORIGIN};
 use crate::pull_notices::short;
 use crate::repositories::Served;
 
-/// What `scripts/preview` reads: one line a ready offer, in `crate::runtime::support_dir`.
+/// What `scripts/preview` reads: one line a branch the running build holds or he picked, then one a ready offer, in
+/// `crate::runtime::support_dir`.
 const OFFERED: &str = "preview-offered";
 
 /// What every offer is merged onto and measured against.
@@ -224,7 +226,13 @@ where
         {
             let mut store = self.store().lock().await;
             for (entry, verdict) in order.into_iter().zip(verdicts) {
-                let Some(verdict) = verdict else { continue };
+                // A tip neither here nor on origin cannot build here: another Mac's offer is left out and named.
+                let Some(verdict) = verdict else {
+                    if entry.own.is_none() {
+                        theirs.push((entry, PreviewState::Failed, Some(NOT_ON_ORIGIN.to_string()), Vec::new()));
+                    }
+                    continue;
+                };
                 let Some(session) = entry.own.as_deref() else {
                     let (state, why, files) = match verdict {
                         Verdict::Ready => (PreviewState::Ready, None, Vec::new()),
@@ -340,6 +348,9 @@ where
     pub(crate) async fn preview_offers_read(&self) -> PreviewOffers {
         let build = self.preview_build();
         let partners = self.partners_read().await;
+        let carried = self.preview_carried().await;
+        let held: Vec<&str> = carried.iter().filter(|one| one.held).map(|one| one.branch.as_str()).collect();
+        let titles = self.titles_of_last(self.build_checkout().as_deref(), &held).await;
         let store = self.store().lock().await;
         let kept = store.preview_offered_all().unwrap_or_default();
         let mut rows: Vec<PreviewOfferRow> = kept
@@ -363,11 +374,22 @@ where
             rows.extend(partners.offers.iter().filter(|row| !kept.iter().any(|one| one.branch == row.branch)).cloned());
             rows.sort_by(|a, b| (a.offered_at.as_str(), &a.branch).cmp(&(b.offered_at.as_str(), &b.branch)));
         }
-        let ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
-        let new: Vec<String> = rows.iter().filter(|one| one.state == PreviewState::Ready && !one.in_build).map(|one| one.branch.clone()).collect();
+        let offered = ready_branches(&rows);
+        // What the running build holds and he picked is carried forward; a ready offer of the branch brings its own tip.
+        let carried: Vec<&Carried> = carried.iter().filter(|one| !offered.contains(&one.branch)).collect();
+        let picked = carried.iter().filter(|one| !one.held);
+        let mut ready: Vec<(&str, &str)> = rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| (one.branch.as_str(), one.tip.as_str())).collect();
+        ready.extend(picked.clone().map(|one| (one.branch.as_str(), one.tip.as_str())));
+        let mut new: Vec<String> = rows.iter().filter(|one| one.state == PreviewState::Ready && !one.in_build).map(|one| one.branch.clone()).collect();
+        new.extend(picked.map(|one| one.branch.clone()));
+        let keeps = carried
+            .iter()
+            .filter(|one| one.held)
+            .map(|one| PreviewKept { branch: one.branch.clone(), title: titles.get(&one.branch).cloned().unwrap_or_else(|| one.branch.clone()) })
+            .collect();
         let id = refresh_id(&ready);
         let skipped = store.preview_refresh_skipped().ok().flatten().is_some_and(|skipped| skipped == id);
-        let refresh = (!new.is_empty() && !skipped).then_some(PreviewRefresh { id, branches: new });
+        let refresh = (!new.is_empty() && !skipped).then_some(PreviewRefresh { id, branches: new, keeps });
         PreviewOffers { offers: rows, refresh, left_out: partners.left_out }
     }
 
@@ -428,7 +450,9 @@ where
     /// it differs from what was last written or sent.
     pub(crate) async fn preview_moved(&self) {
         let kept = self.store().lock().await.preview_offered_all().unwrap_or_default();
-        let wanted = file_of(&kept, &self.partners_read().await);
+        let offers = file_of(&kept, &self.partners_read().await);
+        let offered: BTreeSet<String> = offers.lines().filter_map(|line| line.split('\t').next()).map(str::to_string).collect();
+        let wanted = carried_lines(&self.preview_carried().await, &offered) + &offers;
         let path = crate::runtime::support_dir(&self.host().home).join(OFFERED);
         if std::fs::read_to_string(&path).ok().as_deref() != Some(wanted.as_str()) {
             let _ = written_atomically(&path, &wanted);
@@ -450,6 +474,11 @@ where
         // An offer or a withdrawal moves its own Job's cards; what else moved here is not on a card.
         self.build_notes_published().await;
     }
+}
+
+/// The branches of `rows` that are ready, which bring their own tip to a refresh.
+fn ready_branches(rows: &[PreviewOfferRow]) -> BTreeSet<String> {
+    rows.iter().filter(|one| one.state == PreviewState::Ready).map(|one| one.branch.clone()).collect()
 }
 
 /// Written beside and renamed over, so a reader never sees half.

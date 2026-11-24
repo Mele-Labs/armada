@@ -114,6 +114,9 @@ pub(super) struct CardState {
     pub parts: super::parts_card::PartsState,
     /// The build opened under the Ready to try card, by card id: the one drawn whole in place.
     pub ready_pick: Option<String>,
+    /// The cards that carry a Judge, by the card's own key: the list place, the press's key and what it reads. A draw writes
+    /// here and the Judge's key reads it.
+    pub judgeable: std::cell::RefCell<HashMap<String, (usize, String, ipc::JudgeArtifact)>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]

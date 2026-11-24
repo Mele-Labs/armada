@@ -258,6 +258,10 @@ impl JobView {
         let band = self.band(ix, card, standing, picked, shown_earlier, look, cx);
         let press = self.sketch_press(&acts, None, &card.title, band, drawing, plays, page, cx);
         let words = settled.as_ref().and_then(|(said, words)| (*said == Said::SentBack).then_some(words.as_deref()).flatten());
+        // The Judge's press stands in the footer and what it found under it, inside the card.
+        let named = card.sketch.strip_prefix("sketch:").unwrap_or(&card.sketch).to_string();
+        let judge = self.judge_on_card(ix, &key, ipc::JudgeArtifact { kind: ipc::JudgeKind::Sketch, id: named.clone(), title: named }, page, look, cx);
+        let (judge_press, judge_notes) = judge.map_or((None, None), |judge| (Some(judge.press), judge.notes));
         // A narrow thread lets the card reach a little past the words, as the old frame did (`--spacious-bleed`), so Approve and Ask for changes fit one row.
         let bleed = self.narrow(look);
         let body = div()
@@ -273,7 +277,8 @@ impl JobView {
             .shadow(look.shadows(token::SHADOW_CARD))
             .child(press)
             .children(words.map(|words| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(quote(look, words))))
-            .child(self.sketch_footer(&acts, page, look, cx));
+            .child(self.sketch_footer(&acts, judge_press, page, look, cx))
+            .children(judge_notes.map(|notes| div().px(look.length(token::SPACE_4)).pb(look.length(token::SPACE_3)).child(notes)));
         labelled(
             body.id(SharedString::from(format!("sketch:{key}"))).when(card.replaced, |frame| frame.border_dashed()),
             Role::Article,
@@ -623,7 +628,7 @@ impl JobView {
 
     /// The footer: Approve and Ask for changes while it asks, then Dismiss, or Archive where it does not, and Open.
     /// Ask for changes opens a note box in its place.
-    fn sketch_footer(&self, acts: &Acts, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
+    fn sketch_footer(&self, acts: &Acts, judge: Option<AnyElement>, page: &Page, look: &Look, cx: &Context<Self>) -> AnyElement {
         let key = acts.key.as_str();
         let noting = acts.asking && page.cards.modes.get(key) == Some(&Mode::Note);
         if (!acts.asking || !page.cards.modes.contains_key(key)) && self.holds_kept(key) {
@@ -682,7 +687,7 @@ impl JobView {
             tail("Archive", "D", "Fold it away from your list", Box::new(move |this, window, cx| this.archive_sketch(&a3, window, cx)), "archive", cx)
         };
         let open = tail("Open", "\u{21b5}", "Read it on its own", Box::new(move |this, window, cx| this.read_sketch(&a4.key, &a4.key, window, cx)), "open", cx);
-        let row = row.child(group().ml_auto().child(put_away).child(open));
+        let row = row.child(group().ml_auto().children(judge).child(put_away).child(open));
         footer
             .child(super::acts::gated(row.id(SharedString::from(format!("answers:{key}"))), self.off_shown_to("/sessions/sketch/answer", cx)))
             .into_any_element()

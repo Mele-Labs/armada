@@ -5,6 +5,7 @@
 //! | nothing | The Jobs list on the owner's running Fleet |
 //! | `--mock <scenario>` | The same window on mock data (`mock.rs`), with no Fleet |
 //! | `--walk <name>` | A native walk in its own window with a walk bar (`walk/`). Fleet adds `--job <id> --url <url> --fleet-port <port>` when the owner presses Open, and `--take <name>=<walk>` for each of its variations |
+//! | `--shot-check <scene.html> --out <dir> [--fixtures-dir <dir>] [--against <scene.html>]` | A scene's states drawn with no window on screen and set against the steps of the walk it names; writes `report.json` and a pair of pictures for each state, exits 1 when any has drifted or has no step (`shot_check/`) |
 //! | `--walk <name> --check [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>]` | The walk played with no window on screen, 1100 points wide unless `--width` says; exits 1 naming the first step that failed. `--hold` lets each step's animations run before its picture. `--pace` presses Next that long after each step, as a person reading it would |
 //!
 //! `BRIDGE_NATIVE_EXIT_AFTER_SECS` closes the app after that many seconds, for a run that must not
@@ -71,9 +72,13 @@ mod notify;
 mod operator;
 mod pairing;
 mod palette;
+mod parts;
 mod paste_link;
 mod pasteboard;
+mod project_board;
 mod point;
+mod prototype;
+mod shot_check;
 mod queued;
 mod refusal;
 mod restart_fleet;
@@ -134,6 +139,8 @@ const USAGE: &str = "\
 usage: bridge-native [--mock <scenario>]
        bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
+       bridge-native --prototype-shots <dir>
+       bridge-native --shot-check <scene.html> --out <dir> [--fixtures-dir <dir>] [--against <scene.html>] [--width <points>] [--height <points>]
        bridge-native --list-walks
 
 With no flags it opens on the Fleet this Mac runs.
@@ -147,12 +154,17 @@ With no flags it opens on the Fleet this Mac runs.
   --height <points>   the walk's window height, with --check
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
+  --prototype-shots <dir>  draw the mock prototype with no window on screen, keep a picture of each state in <dir>, print how long it took to draw, and exit
+  --shot-check <scene.html>  draw each state of the scene and the step of the walk it names for that state, compare the two, and exit 1 when any has drifted or has no step
+  --out <dir>         with --shot-check, where report.json and each state's side-by-side and difference pictures go
+  --fixtures-dir <dir>  with --shot-check, where the scene's fixtures are, the scene's own folder where left out
+  --against <scene.html>  with --shot-check, draw this scene's states in the walk's place
   --list-walks        print the name of every walk this build plays, one a line, and exit
   -h, --help          print this and exit
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 11] = ["--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
+const VALUED: [&str; 16] = ["--shot-check", "--fixtures-dir", "--out", "--against", "--prototype-shots", "--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
 const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
@@ -161,6 +173,10 @@ enum Mode {
     /// Fleet asks which walks the build behind his preview plays, before a Job may show one.
     Walks,
     Live,
+    /// The mock prototype drawn headless into a directory, and timed.
+    Prototype(PathBuf),
+    /// A scene's states set against the built screen's steps, headless.
+    ShotCheck(shot_check::Args),
     Mock(String),
     Walk { name: String, check: bool, shots: Option<PathBuf>, hold: Option<u64>, pace: Option<u64>, width: Option<f32>, height: Option<f32>, fleet: Option<WalkFleet>, takes: Vec<(String, String)> },
 }
@@ -182,6 +198,20 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
         return Ok(Mode::Walks);
     }
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
+    if let Some(dir) = value("--prototype-shots").transpose()? {
+        return Ok(Mode::Prototype(PathBuf::from(dir)));
+    }
+    if let Some(scene) = value("--shot-check").transpose()? {
+        let points = |flag: &str| value(flag).transpose().and_then(|wide| wide.map(|wide| wide.parse::<f32>().map_err(|_| format!("{flag} {wide} is not a number of points"))).transpose());
+        return Ok(Mode::ShotCheck(shot_check::Args {
+            scene: PathBuf::from(scene),
+            fixtures_dir: value("--fixtures-dir").transpose()?.map(PathBuf::from),
+            out: value("--out").transpose()?.map(PathBuf::from).ok_or("--shot-check needs --out <dir>")?,
+            against: value("--against").transpose()?.map(PathBuf::from),
+            width: points("--width")?,
+            height: points("--height")?,
+        }));
+    }
     if let Some(name) = value("--walk").transpose()? {
         let fleet = match (value("--job").transpose()?, value("--url").transpose()?, value("--fleet-port").transpose()?) {
             (Some(job), Some(url), Some(port)) => {
@@ -266,6 +296,34 @@ fn main() -> ExitCode {
         walk::WALKS.iter().for_each(|walk| println!("{}", walk.name));
         return ExitCode::SUCCESS;
     }
+    if let Mode::Prototype(dir) = &mode {
+        return match prototype::shots::run(dir, 9) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                log::Note::warn("the prototype was not drawn").field("why", why).emit();
+                ExitCode::FAILURE
+            }
+        };
+    }
+    if let Mode::ShotCheck(args) = &mode {
+        return match shot_check::run(args) {
+            Ok(report) => {
+                for pair in &report.pairs {
+                    log::Note::info("a state set against the built screen").field("state", pair.state.as_str()).field("status", format!("{:?}", pair.status)).field("mean", pair.mean.map(|mean| format!("{mean:.5}")).unwrap_or_default()).field("share", pair.share.map(|share| format!("{share:.4}")).unwrap_or_default()).emit();
+                }
+                if report.ok {
+                    ExitCode::SUCCESS
+                } else {
+                    log::Note::warn("the build drifted from the scene").field("report", args.out.join("report.json").display().to_string()).emit();
+                    ExitCode::FAILURE
+                }
+            }
+            Err(why) => {
+                log::Note::warn("the shot check did not run").field("why", why).emit();
+                ExitCode::FAILURE
+            }
+        };
+    }
     if let Mode::Walk { name, check: true, shots, hold, pace, width, height, takes, .. } = &mode {
         let Some(walk) = walk::named(name) else {
             log::Note::warn("no walk by that name").field("walk", name.as_str()).emit();
@@ -337,7 +395,7 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help | Mode::Walks => Ok(()),
+            Mode::Help | Mode::Walks | Mode::Prototype(_) | Mode::ShotCheck(_) => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     ui_sounds::allow();

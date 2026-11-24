@@ -1282,8 +1282,8 @@ impl TitleBar {
     }
 
     /// The strip of places, one line: each a glyph and its name, the one the window is in brighter and on
-    /// a faint fill. **Only the places the native app has a screen for are in `face.places`** (Jobs); the
-    /// Cockpit, Operator and the rest of Electron's roster come with their screens.
+    /// a faint fill. **Only the places the native app has a screen for are in `face.places`**: the Cockpit,
+    /// Reviews, Kit and Features, as the window's screen sets them (`operator/screen.rs`).
     fn places_strip(&self, gap: Pixels, radius: Pixels, look: &Look, cx: &Context<Self>) -> impl IntoElement {
         let ring = Self::focus_ring(look);
         let round = radius - gap;

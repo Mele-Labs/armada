@@ -573,15 +573,23 @@ impl JobView {
         };
         let refresh = (asking && preview != Preview::In).then(|| RefreshKeys { ready: preview.refreshes(), why: preview.tip() });
         let head = self.ready_head(&format!("detail:{key}"), standing, word, &card.at, Some(&card.offered_at), waits.then(|| preview.tip()), refresh, now, look, cx);
+        // The Judge reads the branch as its diff against main. Its press stands at the title's end, or at the corner of a card
+        // unfolded under its row, and what it found stands under the card's parts.
+        let judge = self.judge_on_card(ix, &key, ipc::JudgeArtifact { kind: ipc::JudgeKind::Branch, id: card.branch.clone(), title: card.about.clone() }, page, look, cx);
+        let (judge_press, judge_notes) = judge.map_or((None, None), |judge| (Some(judge.press), judge.notes));
+        let notes = judge_notes.map(|notes| div().px(look.length(token::SPACE_4)).pt(look.length(token::SPACE_3)).child(notes));
         let title = div()
             .id(SharedString::from(format!("ready-title:{key}")))
+            .flex()
+            .items_start()
+            .gap(look.length(token::SPACE_2))
             .px(look.length(token::SPACE_4))
             .pt(look.length(token::SPACE_3))
             .text_size(look.length(token::TEXT_BASE))
             .line_height(look.length(token::LEADING_BASE))
             .font_weight(FontWeight(look.number(token::WEIGHT_HEADING)))
             .text_color(look.color(token::FG_DEFAULT))
-            .child(SharedString::from(card.about.clone()));
+            .child(div().flex_1().min_w_0().child(SharedString::from(card.about.clone())));
         let inner = wide - f32::from(look.length(token::SPACE_4)) * 2. - f32::from(look.length(token::BORDER_WIDTH)) * 2.;
         let pictures = self.ready_pictures(&job, card, &parts, inner, look, cx);
         let words = card.words.as_deref().filter(|words| !words.trim().is_empty()).map(|words| {
@@ -597,6 +605,7 @@ impl JobView {
             // Unfolded under its row, which already names it: no title of its own, and a well that reads as the row's inside.
             let body = div()
                 .id(SharedString::from(format!("ready:{key}")))
+                .relative()
                 .flex()
                 .flex_col()
                 .rounded(look.length(token::RADIUS_MD))
@@ -606,7 +615,9 @@ impl JobView {
                 .children(pictures)
                 .children(words)
                 .children(changed)
+                .children(notes)
                 .children(foot_row)
+                .children(judge_press.map(|press| div().absolute().top(look.length(token::SPACE_1)).right(look.length(token::SPACE_1)).child(press)))
                 .pb(bottom);
             return labelled(body, Role::Article, name).into_any_element();
         }
@@ -615,10 +626,11 @@ impl JobView {
                 .id(SharedString::from(format!("ready:{key}")))
                 .border_color(ink.opacity(0.45))
                 .child(head)
-                .child(title)
+                .child(title.children(judge_press))
                 .children(pictures)
                 .children(words)
                 .children(changed)
+                .children(notes)
                 .children(foot_row)
                 .pb(bottom),
             Role::Article,

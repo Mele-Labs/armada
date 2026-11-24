@@ -16,7 +16,7 @@ use gpui::{
     anchored, deferred, div, list, prelude::*, px, svg, Anchor, AnyElement, App, ClipboardItem, Context, Entity, FocusHandle, FontWeight, Keystroke, ListAlignment, ListState, MouseButton, Render, Role, SharedString, Subscription, Window,
 };
 use gpui_component::input::{Input, InputEvent, InputState};
-use ipc::{AttachmentState, ForkFrom, JobState, ManifestId, PauseSession, ResumeSession, SessionId, SessionRecord, SessionState, StartSession, StopSession};
+use ipc::{AttachmentState, ForkFrom, JobLamp, JobState, ManifestId, PauseSession, ResumeSession, SessionId, SessionRecord, SessionState, StartSession, StopSession};
 
 use crate::assets::icon_path;
 use crate::generated::actions::{Act as Registered, ActionScope, ACTIONS};
@@ -46,6 +46,8 @@ pub enum Section {
     Settings,
     Pinned,
     Recent,
+    NeedsYou,
+    GoTo,
 }
 
 /// Every block in the order the palette draws them, the empty ones included.
@@ -80,6 +82,8 @@ impl Section {
             Section::Settings => "Settings".into(),
             Section::Pinned => "Pinned".into(),
             Section::Recent => "Recent".into(),
+            Section::NeedsYou => "Needs you".into(),
+            Section::GoTo => "Go to".into(),
         }
     }
 }
@@ -93,6 +97,11 @@ pub struct Meta {
     /// A time fact beside the name, in his time format, and the words its tooltip names it by: when an ended
     /// Job ended.
     pub when: Option<(String, &'static str)>,
+    /// Why a Job asks him now: the first thing it waits on him for, or its failed or stuck state. Set on a Job
+    /// the opening list puts under Needs you.
+    pub why: Option<String>,
+    /// When the Job last took a turn, which orders the opening list's Jobs.
+    pub last: Option<String>,
 }
 
 /// One row the palette can show.
@@ -196,6 +205,31 @@ fn usage_entry(cx: &App) -> Option<Entry> {
     })
 }
 
+/// The places a row goes to, beside Kit's act and Usage: the opening list's Go to, and found by name.
+fn place_entries() -> Vec<Entry> {
+    let place = |id: &str, label: &str, icon: &'static str, shortcut: Option<&str>| Entry {
+        id: id.into(),
+        section: Section::Navigation,
+        label: label.into(),
+        icon: Some(icon),
+        shortcut: shortcut.map(String::from),
+        aliases: Vec::new(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    };
+    vec![
+        place("nav:place:operator", "Operator", "bot", Some("⌘J")),
+        place("nav:place:jobs", "Jobs", "box", None),
+        place("nav:place:reviews", "Reviews", "git-pull-request", None),
+        place("nav:place:project", "Project", "layout-dashboard", None),
+        place("nav:settings", "Settings", "settings", Some("⌘,")),
+    ]
+}
+
+/// Go to, in the title bar's order: Kit is its own act, and Usage is offered only where the app holds it.
+const GO_TO: [&str; 7] = ["nav:place:operator", "nav:place:jobs", "nav:place:reviews", "act:open_kit", "nav:place:project", "nav:usage", "nav:settings"];
+
 /// The Jobs list's fold commands, offered where a Job has sub-Jobs. Electron's list does not fold, so the registry
 /// has no row for them. Root Jobs only reads On while the switch is.
 fn fold_commands(list: &JobsList) -> Vec<Entry> {
@@ -210,7 +244,7 @@ fn fold_commands(list: &JobsList) -> Vec<Entry> {
         icon: Some(icon),
         shortcut: None,
         aliases: Vec::new(),
-        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)), when: None }),
+        meta: on.then(|| Meta { repo: None, state: Some(("check", "On".into(), token::FG_MUTED)), when: None, why: None, last: None }),
         typed_only: false,
         ended: false,
     };
@@ -252,6 +286,22 @@ fn move_project_command(list: &JobsList, cx: &App) -> Option<Entry> {
         icon: None,
         shortcut: None,
         aliases: Vec::new(),
+        meta: None,
+        typed_only: false,
+        ended: false,
+    })
+}
+
+/// Judge…, offered while a Job is open: a menu of what can be judged in it, whose choice is asked at once.
+fn judge_command(list: &JobsList) -> Option<Entry> {
+    list.opened_id().and_then(|id| list.record(&id))?;
+    Some(Entry {
+        id: "cmd:judge".into(),
+        section: Section::Commands,
+        label: "Judge\u{2026}".into(),
+        icon: Some("scale"),
+        shortcut: Some("\u{21e7}\u{2318}J".into()),
+        aliases: vec!["verify".into(), "review".into()],
         meta: None,
         typed_only: false,
         ended: false,
@@ -315,6 +365,10 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
         (icon, said.to_string(), hue_of(state_of))
     };
     let when = job.ended_at.as_ref().filter(|_| ended).and_then(|at| crate::settings::time::stamp_at(at.as_str())).map(|at| (at, "Ended"));
+    // Waiting on him, failed or stuck, and not snoozed, which leaves Needs you until it clears.
+    let asks = job.mark.is_some_and(|mark| matches!(mark.lamp, JobLamp::Needs | JobLamp::Failed) || mark.state == JobState::Stuck);
+    let why = (asks && !ended && !quiet && !is_snoozed(job)).then(|| crate::jobs::now_of(job).filter(|_| job.mark.is_some_and(|mark| mark.lamp == JobLamp::Needs)).unwrap_or_else(|| state.1.clone()));
+    let last = job.last_turn_at.as_ref().unwrap_or(&job.last_seen_at).as_str().to_string();
     Some(Entry {
         id: format!("session:{}", job.id.as_str()),
         section: Section::Jobs,
@@ -322,7 +376,7 @@ pub fn job_entry(job: &SessionRecord) -> Option<Entry> {
         icon: None,
         shortcut: None,
         aliases: std::iter::once(job.id.as_str().to_string()).chain(held_pull(job).iter().map(|(_, number, _)| format!("#{number}"))).collect(),
-        meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state), when }),
+        meta: Some(Meta { repo: job.manifest_id.as_ref().map(|id| id.as_str().to_string()), state: Some(state), when, why, last: Some(last) }),
         typed_only: ended || quiet,
         ended,
     })
@@ -359,6 +413,31 @@ pub fn rank(query: &str, entry: &Entry, alias: Option<&str>) -> Option<u32> {
         worst = worst.max(here);
     }
     Some(worst)
+}
+
+/// The opening list, as Raycast opens: Pinned, Recent, the Jobs that need him, the other live Jobs by their last
+/// turn, then the places. A row stands once, in the first block that holds it, and an ended or quiet Job not at all.
+fn opening(entries: &[Entry], memory: &Memory) -> Vec<Line> {
+    let mut lines = Vec::new();
+    let mut shown: Vec<usize> = Vec::new();
+    let live = |at: &usize| !entries[*at].typed_only;
+    let by_id = |ids: &[String]| -> Vec<usize> { ids.iter().filter_map(|id| entries.iter().position(|entry| &entry.id == id)).filter(live).collect() };
+    let mut jobs: Vec<usize> = (0..entries.len()).filter(|at| entries[*at].section == Section::Jobs).filter(live).collect();
+    // Latest turn first; the times are Fleet's RFC 3339 stamps, which sort as text.
+    jobs.sort_by(|a, b| entries[*b].meta.as_ref().and_then(|meta| meta.last.as_ref()).cmp(&entries[*a].meta.as_ref().and_then(|meta| meta.last.as_ref())));
+    let needs: Vec<usize> = jobs.iter().copied().filter(|at| entries[*at].meta.as_ref().is_some_and(|meta| meta.why.is_some())).collect();
+    let go_to = by_id(&GO_TO.map(String::from));
+    let blocks: [(Section, Vec<usize>, usize); 5] =
+        [(Section::Pinned, by_id(&memory.pinned), usize::MAX), (Section::Recent, by_id(&memory.recent), 5), (Section::NeedsYou, needs, usize::MAX), (Section::Jobs, jobs, 6), (Section::GoTo, go_to, usize::MAX)];
+    for (section, rows, cap) in blocks {
+        let rows: Vec<usize> = rows.into_iter().filter(|at| !shown.contains(at)).take(cap).collect();
+        if !rows.is_empty() {
+            lines.push(Line::Heading(section.title(None)));
+            shown.extend(&rows);
+            lines.extend(rows.into_iter().map(Line::Row));
+        }
+    }
+    lines
 }
 
 /// What the empty query opens with (the setting *Palette opens with*).
@@ -402,20 +481,7 @@ pub fn lines_of(entries: &[Entry], query: &str, on: Option<&str>, opens: Opens, 
     let mut lines = Vec::new();
     let typed = !query.trim().is_empty();
     if !typed && opens == Opens::Pinned {
-        let find = |ids: &[String], skip: &[String]| -> Vec<usize> {
-            ids.iter().filter(|id| !skip.contains(id)).filter_map(|id| entries.iter().position(|entry| &entry.id == id && !entry.typed_only)).collect()
-        };
-        let kept = find(&memory.pinned, &[]);
-        let lately = find(&memory.recent, &memory.pinned);
-        if !kept.is_empty() || !lately.is_empty() {
-            for (section, rows) in [(Section::Pinned, kept), (Section::Recent, lately)] {
-                if !rows.is_empty() {
-                    lines.push(Line::Heading(section.title(on)));
-                    lines.extend(rows.into_iter().map(Line::Row));
-                }
-            }
-            return lines;
-        }
+        return opening(entries, memory);
     }
     // The fold commands are found by typing, so the list a person opens on keeps the blocks it has.
     let mut found: Vec<(u32, usize)> = entries
@@ -733,9 +799,11 @@ impl Palette {
         entries.retain(|entry| entry.id != "act:new_terminal_job" || crate::terminal::shells::starts(cx));
         entries.extend(kit_entries());
         entries.extend(usage_entry(cx));
+        entries.extend(place_entries());
         entries.extend(fold_commands(list));
         entries.extend(move_command(list, cx));
         entries.extend(move_project_command(list, cx));
+        entries.extend(judge_command(list));
         entries.extend(list.records().iter().filter_map(job_entry));
         (entries, on)
     }
@@ -1047,6 +1115,13 @@ impl Palette {
                     }
                 });
             }
+            ("run", None) if entry.id == "cmd:judge" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                // After the palette has given the keys back, so the menu takes them from where they went.
+                cx.defer_in(window, |_, window, cx| crate::job_view::choose_to_judge(window, cx));
+            }
             ("run", None) if entry.id == "cmd:move-project" => {
                 self.memory.used(&entry.id);
                 self.keep(cx);
@@ -1065,6 +1140,22 @@ impl Palette {
                 self.close(window, cx);
                 if let Some(sink) = cx.try_global::<crate::titlebar::AskedSink>().cloned() {
                     (sink.0)(&crate::titlebar::Asked::Place("usage"), cx);
+                }
+            }
+            ("run", None) if entry.id.starts_with("nav:place:") || entry.id == "nav:settings" => {
+                self.memory.used(&entry.id);
+                self.keep(cx);
+                self.close(window, cx);
+                let asked = match entry.id.as_str() {
+                    "nav:settings" => Some(crate::titlebar::Asked::Settings),
+                    "nav:place:operator" => Some(crate::titlebar::Asked::Place("operator")),
+                    "nav:place:jobs" => Some(crate::titlebar::Asked::Place("jobs")),
+                    "nav:place:reviews" => Some(crate::titlebar::Asked::Place("reviews")),
+                    "nav:place:project" => Some(crate::titlebar::Asked::Place("project")),
+                    _ => None,
+                };
+                if let (Some(asked), Some(sink)) = (asked, cx.try_global::<crate::titlebar::AskedSink>().cloned()) {
+                    (sink.0)(&asked, cx);
                 }
             }
             ("run", None) if entry.id.starts_with("nav:kit:") => {
@@ -1573,6 +1664,9 @@ impl Palette {
         .child(leading)
         .child(div().flex_1().min_w_0().truncate().child(label))
         .children(alias.map(|word| div().flex_none().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(word))))
+        .children(entry.meta.as_ref().and_then(|meta| meta.why.clone()).map(|why| {
+            div().flex_none().max_w(look.length(token::SPACE_12) * 5.).truncate().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(why))
+        }))
         .children(entry.meta.as_ref().and_then(|meta| meta.when.clone()).map(|(time, said)| {
             div()
                 .id(SharedString::from(format!("palette-when:{}", entry.id)))
@@ -1998,6 +2092,7 @@ mod tests {
 
     fn all() -> Vec<Entry> {
         let mut entries = registered(true);
+        entries.extend(place_entries());
         entries.extend(jobs().iter().filter_map(job_entry));
         entries
     }
@@ -2032,12 +2127,53 @@ mod tests {
         let act = entries.iter().find(|entry| entry.id == "act:message_job").expect("an act").id.clone();
         let memory = Memory { pinned: vec![job.clone()], recent: vec![job.clone(), act], ..Memory::default() };
         let lines = lines_of(&entries, "", None, Opens::Pinned, &memory);
-        assert_eq!(headings(&lines), ["Pinned", "Recent"]);
-        assert_eq!(lines.len(), 4);
-        // Nothing pinned or used: the whole list opens.
+        assert_eq!(headings(&lines)[..2], ["Pinned", "Recent"]);
+        assert_eq!(lines[..4], [Line::Heading("Pinned".into()), Line::Row(entries.iter().position(|entry| entry.id == job).unwrap()), Line::Heading("Recent".into()), Line::Row(entries.iter().position(|entry| entry.id == "act:message_job").unwrap())]);
+        // Nothing pinned or used: the opening list still holds the Jobs.
         assert!(headings(&lines_of(&entries, "", None, Opens::Pinned, &Memory::default())).contains(&"Jobs".to_string()));
         // This page first shows the whole list even with pins.
         assert!(headings(&lines_of(&entries, "", None, Opens::Page, &memory)).contains(&"Jobs".to_string()));
+    }
+
+    fn shown(entries: &[Entry], lines: &[Line]) -> Vec<String> {
+        lines.iter().filter_map(|line| if let Line::Row(at) = line { Some(entries[*at].id.clone()) } else { None }).collect()
+    }
+
+    #[test]
+    fn with_nothing_typed_it_opens_on_recent_needs_you_jobs_and_go_to_and_shows_a_row_once() {
+        let entries = all();
+        let waiting = entries.iter().find(|entry| entry.label == "Fix the merge line freshness chip").expect("a Job waiting on him").id.clone();
+        let memory = Memory { recent: vec!["act:message_job".into()], ..Memory::default() };
+        let lines = lines_of(&entries, "", None, Opens::Pinned, &memory);
+        assert_eq!(headings(&lines), ["Recent", "Needs you", "Jobs", "Go to"]);
+        let rows = shown(&entries, &lines);
+        let at = |id: &str| rows.iter().position(|one| one == id);
+        let (needs, jobs) = (lines.iter().position(|line| line == &Line::Heading("Needs you".into())).unwrap(), lines.iter().position(|line| line == &Line::Heading("Jobs".into())).unwrap());
+        let waits = lines.iter().position(|line| matches!(line, Line::Row(row) if entries[*row].id == waiting)).expect("the waiting Job opens");
+        assert!(needs < waits && waits < jobs, "the waiting Job stands under Needs you");
+        let mut once = rows.clone();
+        once.sort();
+        once.dedup();
+        assert_eq!(once.len(), rows.len(), "no row twice: {rows:?}");
+        assert!(at("nav:place:operator").is_some() && at("nav:settings").is_some(), "Go to lists the places: {rows:?}");
+        // Used lately, a Job stands under Recent and not again under Needs you.
+        let memory = Memory { recent: vec![waiting.clone()], ..Memory::default() };
+        let lines = lines_of(&entries, "", None, Opens::Pinned, &memory);
+        assert_eq!(shown(&entries, &lines).iter().filter(|one| **one == waiting).count(), 1);
+        assert!(matches!(lines[1], Line::Row(row) if entries[row].id == waiting));
+    }
+
+    #[test]
+    fn recent_opens_with_five_and_the_jobs_block_with_six() {
+        let entries = all();
+        let jobs: Vec<String> = entries.iter().filter(|entry| entry.section == Section::Jobs).map(|entry| entry.id.clone()).collect();
+        let memory = Memory { recent: jobs.clone(), ..Memory::default() };
+        let lines = lines_of(&entries, "", None, Opens::Pinned, &memory);
+        let block = |title: &str| lines.iter().skip_while(|line| **line != Line::Heading(title.into())).skip(1).take_while(|line| matches!(line, Line::Row(_))).count();
+        assert_eq!(block("Recent"), 5.min(jobs.len()));
+        let lines = lines_of(&entries, "", None, Opens::Pinned, &Memory::default());
+        let block = |title: &str| lines.iter().skip_while(|line| **line != Line::Heading(title.into())).skip(1).take_while(|line| matches!(line, Line::Row(_))).count();
+        assert!(block("Jobs") <= 6);
     }
 
     #[test]

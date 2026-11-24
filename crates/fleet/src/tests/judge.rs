@@ -5,7 +5,7 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use api::{HostedSessions, JudgeReadings, Next, Refusal};
+use api::{HostedSessions, JudgeReadings, Next, Refusal, Sessions};
 use ipc::{
     AskJudge, CloseSession, DismissJudgeNote, Event, JudgeArtifact, JudgeKind, JudgeNoteHow, JudgeReading, JudgeState,
     MarkJudgeRead, SendJudgeNote, SessionId,
@@ -495,4 +495,116 @@ async fn a_reading_left_going_by_a_fleet_that_stopped_reads_as_failed_and_a_pres
     let again = ask(&rig, &id, the_plan_artifact(), "").await.expect("again");
     assert_eq!((again.state, again.id == "orphan"), (JudgeState::Reading, false));
     assert_eq!(ended(&rig, &id, JudgeKind::Plan).await.state, JudgeState::Done);
+}
+
+/// The id of the thread's message that says `words`.
+async fn message_saying(rig: &Rig, id: &SessionId, words: &str) -> String {
+    rig.rows(id)
+        .await
+        .into_iter()
+        .find_map(|row| match row {
+            ipc::SessionRow::Message { id, text, .. } if text.contains(words) => Some(id),
+            _ => None,
+        })
+        .expect("a message with those words")
+}
+
+#[tokio::test]
+async fn selected_words_are_shown_alone_as_a_claim_and_fail_once_the_message_no_longer_holds_them() {
+    let (rig, judge) = answered_with(r#"{"notes": []}"#);
+    let id = a_job_with_a_plan(&rig).await;
+    let row = message_saying(&rig, &id, REQUEST).await;
+
+    // A selection that crossed a line break still finds its place.
+    ask(&rig, &id, artifact(JudgeKind::Excerpt, &format!("{row}/1a2b3c4d"), "never leave two\nrotations on one day"), "").await.expect("started");
+    let reading = ended(&rig, &id, JudgeKind::Excerpt).await;
+    assert_eq!(reading.state, JudgeState::Done, "{:?}", reading.failed);
+    let brief = &asked_of(&judge)[0].0;
+    assert!(brief.contains("never leave two rotations on one day"), "the words are in the brief:\n{brief}");
+    assert!(brief.contains("claim under test") && brief.contains("not evidence"), "labelled as a claim:\n{brief}");
+    assert!(!brief.contains(AGENT_SAID), "nothing else of the agent's reaches the brief");
+
+    ask(&rig, &id, artifact(JudgeKind::Excerpt, &format!("{row}/5e6f7a8b"), "rotate the keys on Fridays"), "").await.expect("answered at once");
+    eventually(|| async { readings(&rig, &id).await.iter().any(|one| one.artifact.id.ends_with("/5e6f7a8b") && one.state == JudgeState::Failed) }).await;
+    let failed = readings(&rig, &id).await.into_iter().find(|one| one.artifact.id.ends_with("/5e6f7a8b")).expect("a reading");
+    assert_eq!(failed.failed.as_deref(), Some("The selected words are no longer in that message."));
+    assert_eq!(asked_of(&judge).len(), 1, "no call for words that are gone");
+}
+
+#[tokio::test]
+async fn an_agents_reply_is_shown_as_the_claim_under_test_and_a_row_that_is_not_one_fails() {
+    let (rig, judge) = answered_with(r#"{"notes": []}"#);
+    let id = a_job_with_a_plan(&rig).await;
+    let reply = message_saying(&rig, &id, AGENT_SAID).await;
+
+    ask(&rig, &id, artifact(JudgeKind::Reply, &reply, "I checked everything"), "").await.expect("started");
+    let reading = ended(&rig, &id, JudgeKind::Reply).await;
+    assert_eq!(reading.state, JudgeState::Done, "{:?}", reading.failed);
+    let brief = &asked_of(&judge)[0].0;
+    assert!(brief.contains(AGENT_SAID) && brief.contains("claim under test") && brief.contains("not evidence"), "{brief}");
+
+    let his = message_saying(&rig, &id, LATER).await;
+    ask(&rig, &id, artifact(JudgeKind::Reply, &his, "His own words"), "").await.expect("answered at once");
+    eventually(|| async { readings(&rig, &id).await.iter().any(|one| one.artifact.id == his && one.state == JudgeState::Failed) }).await;
+    let failed = readings(&rig, &id).await.into_iter().find(|one| one.artifact.id == his).expect("a reading");
+    assert!(failed.failed.expect("Fleet's words").contains("Fleet holds no reply named"));
+    assert_eq!(asked_of(&judge).len(), 1, "a person's message is not a reply");
+}
+
+#[tokio::test]
+async fn a_draft_is_read_as_its_text_and_the_text_it_replaces() {
+    let (rig, judge) = answered_with(r#"{"notes": []}"#);
+    let id = a_job_with_a_plan(&rig).await;
+    let proposed = ipc::ProposeDraft {
+        title: "Description for #41".into(),
+        text: "Rotates keys at midnight under a lock.".into(),
+        before: Some("Rotates keys.".into()),
+        session_id: Some(id.clone()),
+        ..Default::default()
+    };
+    rig.fleet.propose_draft(None, proposed).await.expect("proposed");
+    let row = rig
+        .rows(&id)
+        .await
+        .into_iter()
+        .find_map(|row| match row {
+            ipc::SessionRow::Draft { id, .. } => Some(id),
+            _ => None,
+        })
+        .expect("a draft row");
+
+    ask(&rig, &id, artifact(JudgeKind::Draft, &format!("draft:{row}"), "Description for #41"), "").await.expect("started");
+    let reading = ended(&rig, &id, JudgeKind::Draft).await;
+    assert_eq!(reading.state, JudgeState::Done, "{:?}", reading.failed);
+    let brief = &asked_of(&judge)[0].0;
+    assert!(brief.contains("Rotates keys at midnight under a lock."), "its text:\n{brief}");
+    assert!(brief.contains("The text it replaces:\nRotates keys."), "what it replaces:\n{brief}");
+}
+
+#[tokio::test]
+async fn an_offered_branch_is_read_as_its_diff_against_main_and_one_never_offered_fails() {
+    let patch = "diff --git a/crates/store/src/keys.rs b/crates/store/src/keys.rs\n--- a/crates/store/src/keys.rs\n+++ b/crates/store/src/keys.rs\n@@ -1,2 +1,3 @@\n impl Keys {\n+    pub fn rotate_offered(&mut self) {}\n }\n";
+    let judge = Arc::new(FakeJudge::answering(&[(ASKED, r#"{"notes": []}"#)]));
+    let held = Arc::clone(&judge);
+    let rig = rig_fitted(|fittings| {
+        fittings.judge = held;
+        fittings.work = testkit::FakeWorkProduct::changed(&[]).showing(patch);
+        fittings.starting().manifest =
+            config::Manifest::parse(std::path::Path::new("armada.yml"), "version: 1\nid: 01FIXTUREMANIFEST\nbase: main\n").expect("parses");
+    });
+    let id = a_job_with_a_plan(&rig).await;
+    let at = rig.fleet.now().as_str().to_string();
+    rig.fleet.store().lock().await.keep_preview_offered(id.as_str(), "armada/rotate", "abc123", "Rotation", None, &[], &at).expect("offered");
+
+    ask(&rig, &id, artifact(JudgeKind::Branch, "armada/rotate", "armada/rotate"), "").await.expect("started");
+    let reading = ended(&rig, &id, JudgeKind::Branch).await;
+    assert_eq!(reading.state, JudgeState::Done, "{:?}", reading.failed);
+    let brief = &asked_of(&judge)[0].0;
+    assert!(brief.contains("pub fn rotate_offered(&mut self) {}"), "the diff is in the brief:\n{brief}");
+
+    ask(&rig, &id, artifact(JudgeKind::Branch, "armada/never-offered", "never offered"), "").await.expect("answered at once");
+    eventually(|| async { readings(&rig, &id).await.iter().any(|one| one.artifact.id == "armada/never-offered" && one.state == JudgeState::Failed) }).await;
+    let failed = readings(&rig, &id).await.into_iter().find(|one| one.artifact.id == "armada/never-offered").expect("a reading");
+    assert!(failed.failed.expect("Fleet's words").contains("Fleet holds no offered branch named armada/never-offered"));
+    assert_eq!(asked_of(&judge).len(), 1);
 }

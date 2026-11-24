@@ -23,7 +23,7 @@
 // person presses and gets nothing from, which is worse than one that is
 // absent.
 
-import { Bell, BellRing, Bot, Briefcase, ChartNoAxesGantt, Check, ChevronDown, ChevronLeft, ChevronUp, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Plus, RefreshCw, Search, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
+import { Bell, BellRing, Bot, Briefcase, ChartNoAxesGantt, Check, ChevronDown, ChevronLeft, ChevronUp, File, FileTerminal, GripVertical, Link, Lock, Maximize2, Pencil, Plus, RefreshCw, Scale, Search, Settings, Shapes, StickyNote, VectorSquare, X, Zap } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
 /** Whether the row is an act or a movement of the cursor. */
@@ -52,7 +52,9 @@ export type ActionScope =
   | "logbook"
   | "open studio"
   | "plan"
+  | "project board"
   | "projects"
+  | "prototype"
   | "report"
   | "review"
   | "review sheet"
@@ -151,6 +153,19 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "⌥⌘J",
     scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "prototype_pop_out",
+    kind: "Action",
+    tier: "Global",
+    verb: "Pop out",
+    icon: Maximize2,
+    iconAbsent: null,
+    shortcut: "⌥⌘P",
+    scope: "prototype",
     destructive: false,
     confirms: false,
     unbuilt: null,
@@ -1560,6 +1575,58 @@ export const ACTIONS: readonly Action[] = [
     unbuilt: null,
   },
   {
+    id: "selection_judge",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Judge",
+    icon: Scale,
+    iconAbsent: null,
+    shortcut: "⌥⌘U",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "card_judge",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Judge",
+    icon: Scale,
+    iconAbsent: null,
+    shortcut: "⌥⌘G",
+    scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "job_judge",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Judge",
+    icon: Scale,
+    iconAbsent: null,
+    shortcut: "⌥⌘L",
+    scope: "list",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "palette_judge",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Judge…",
+    icon: Scale,
+    iconAbsent: null,
+    shortcut: "⇧⌘J",
+    scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
     id: "finding_move",
     kind: "Motion",
     tier: "Contextual",
@@ -2270,6 +2337,58 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "⌘/",
     scope: "thread",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "dashboard_edit",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Edit the board",
+    icon: Pencil,
+    iconAbsent: null,
+    shortcut: "e",
+    scope: "project board",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "dashboard_move",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Move a block",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "← / → / ↑ / ↓",
+    scope: "project board",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "dashboard_resize",
+    kind: "Motion",
+    tier: "Contextual",
+    verb: "Resize a block",
+    icon: null,
+    iconAbsent: null,
+    shortcut: "⇧← / ⇧→ / ⇧↑ / ⇧↓",
+    scope: "project board",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "dashboard_block_view",
+    kind: "Action",
+    tier: "Contextual",
+    verb: "Change the view of a block",
+    icon: null,
+    iconAbsent: "undecided",
+    shortcut: "v",
+    scope: "project board",
     destructive: false,
     confirms: false,
     unbuilt: null,

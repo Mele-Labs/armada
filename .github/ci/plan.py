@@ -55,6 +55,7 @@ COMPONENT_NAMES = {"components_test", "storybook"}
 EXCLUDED = {
     "apps/desktop:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
     "apps/pocket:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
+    "crates/bridge-native:shot_check": "it compares a Job's own prototype scene, which lives in the Job's scratch folder and which no CI runner has",
     "apps/store:format_check": "the `format` job runs it on every change, so a Job's pre-PR Check would repeat it",
 }
 

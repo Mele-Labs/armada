@@ -6,7 +6,7 @@ import { homeOf, type Mac } from "./fleet";
 import { answer } from "./fixture/gateway";
 import { PARTS_JOB, STEP_BAR } from "./fixture/artifacts";
 import { artifactsJob, ARTIFACTS_JOB, everyState, fixtureMacs, partsJob } from "./fixture/wire";
-import { rowStateOf } from "./rowState";
+import { owesOf, rowStateOf } from "./rowState";
 import {
   approvalOf,
   asksOf,
@@ -409,12 +409,15 @@ describe("homeOf", () => {
       "Armada",
     ]);
     const lines = home.repositories[0]!.lines;
-    // Failed first, then those that need him, then working, then held and paused, then the draft.
+    // The two that ask him, with no mark, are Needs you and leave their project.
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "x-stuck",
+      "x-gave-up",
+    ]);
+    // Failed first, then working, then held and paused, then the draft.
     expect(lines.map((one) => one.item.session.id)).toEqual([
       "x-failing",
       "x-unstarted",
-      "x-stuck",
-      "x-gave-up",
       "x-reading",
       "x-queue",
       "x-checks",
@@ -426,9 +429,13 @@ describe("homeOf", () => {
       "x-paused",
       "x-blank",
     ]);
-    expect(lines).toHaveLength(live.length);
+    expect(lines).toHaveLength(live.length - home.needs.length);
     expect(lines.every((one) => one.depth === 0)).toBe(true);
-    const state = (id: string) => lines.find((one) => one.item.session.id === id)!.item.state;
+    const state = (id: string) =>
+      [
+        ...lines.map((one) => one.item),
+        ...home.needs,
+      ].find((one) => one.session.id === id)!.state;
     expect(state("x-blank")).toBe("blank");
     expect(state("x-stuck")).toBe("stuck");
     expect(state("x-paused")).toBe("paused");
@@ -717,13 +724,9 @@ describe("homeOf", () => {
         }),
       ],
     });
-    expect(tree(home)).toEqual([
-      {
-        name: "armada",
-        lines: [
-          "a/a1",
-        ],
-      },
+    expect(tree(home)).toEqual([]);
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "a1",
     ]);
     expect(home.troubled.map((one) => one.machine.origin)).toEqual([
       "https://b",
@@ -788,10 +791,6 @@ describe("homeOf", () => {
       ]),
     ).toEqual([
       [
-        "a1",
-        "waiting",
-      ],
-      [
         "a2",
         "working",
       ],
@@ -808,6 +807,247 @@ describe("homeOf", () => {
         "idle",
       ],
     ]);
+    expect(
+      home.needs.map((one) => [
+        one.session.id,
+        one.state,
+      ]),
+    ).toEqual([
+      [
+        "a1",
+        "waiting",
+      ],
+    ]);
+  });
+
+  const marked = (
+    id: string,
+    mark: NonNullable<PhoneSession["mark"]>,
+    extra: Partial<PhoneSession> = {},
+  ) =>
+    session(id, {
+      mark,
+      ...extra,
+    });
+  const NEEDS = {
+    state: "waiting",
+    lamp: "needs",
+    group: "needs",
+  } as const;
+  const READY = {
+    state: "ready",
+    lamp: "ready",
+    group: "ready",
+  } as const;
+  const WORKING = {
+    state: "working",
+    lamp: "running",
+    group: "working",
+  } as const;
+
+  it("lifts a Job marked Needs you and one marked Ready for you out of their project, each into its own group", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            marked("n1", NEEDS, {
+              waiting: true,
+            }),
+            marked("r1", READY),
+            marked("w1", WORKING, {
+              working: true,
+            }),
+            session("i1"),
+          ],
+        }),
+      ],
+    });
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "n1",
+    ]);
+    expect(home.ready.map((one) => one.session.id)).toEqual([
+      "r1",
+    ]);
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/w1",
+          "a/i1",
+        ],
+      },
+    ]);
+  });
+
+  it("files a Job that has a Needs you item under Needs you even where Ready for you work waits on it as well", () => {
+    // Fleet's mark says Needs you for a Job owing both kinds; the list follows the mark.
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            marked("both", NEEDS, {
+              waiting: true,
+              owes: [
+                "approve",
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "both",
+    ]);
+    expect(home.ready).toEqual([]);
+  });
+
+  it("lifts a waiting Job into Needs you when the Gateway sends no mark, and leaves a Job at rest in its project", () => {
+    const home = homeOf({
+      macs: [
+        mac("https://a", {
+          live: [
+            session("old", {
+              waiting: true,
+            }),
+            session("rest"),
+          ],
+        }),
+      ],
+    });
+    expect(home.needs.map((one) => one.session.id)).toEqual([
+      "old",
+    ]);
+    expect(home.ready).toEqual([]);
+    expect(tree(home)).toEqual([
+      {
+        name: "armada",
+        lines: [
+          "a/rest",
+        ],
+      },
+    ]);
+  });
+
+  it("says what he does for a row from what it owes: Answer, Run, Approve, Try, Walk or Read, and nothing where it is not told", () => {
+    const item = (extra: Partial<PhoneSession>) => {
+      const home = homeOf({
+        macs: [
+          mac("https://a", {
+            live: [
+              session("x", extra),
+            ],
+          }),
+        ],
+      });
+      return [
+        ...home.needs,
+        ...home.ready,
+        ...home.repositories.flatMap((one) => one.lines.map((line) => line.item)),
+      ][0]!;
+    };
+    const needs = {
+      mark: NEEDS,
+      waiting: true,
+    } satisfies Partial<PhoneSession>;
+    const ready = {
+      mark: READY,
+    } satisfies Partial<PhoneSession>;
+    expect(
+      owesOf(
+        item({
+          ...needs,
+          owes: [
+            "answer",
+            "run",
+          ],
+        }),
+      ),
+    ).toEqual([
+      "answer",
+      "run",
+    ]);
+    expect(
+      owesOf(
+        item({
+          ...needs,
+          owes: [
+            "approve",
+          ],
+        }),
+      ),
+    ).toEqual([
+      "approve",
+    ]);
+    for (const kind of [
+      "try",
+      "walk",
+      "read",
+    ] as const)
+      expect(
+        owesOf(
+          item({
+            ...ready,
+            owes: [
+              kind,
+            ],
+          }),
+        ),
+      ).toEqual([
+        kind,
+      ]);
+    // The row's own ask tells Answer from Approve where the Gateway sent no kinds.
+    const ask = {
+      ask_id: "c",
+      tool: "Bash",
+      offers: [
+        "allow_once",
+        "refuse",
+      ],
+    } satisfies NonNullable<PhoneSession["ask"]>;
+    expect(
+      owesOf(
+        item({
+          ...needs,
+          ask,
+        }),
+      ),
+    ).toEqual([
+      "approve",
+    ]);
+    expect(
+      owesOf(
+        item({
+          ...needs,
+          ask: {
+            ...ask,
+            offers: [],
+            questions: [
+              {
+                question: "Which?",
+                multi_select: false,
+                options: [],
+              },
+            ],
+          },
+        }),
+      ),
+    ).toEqual([
+      "answer",
+    ]);
+    // Not told: no chip, for either group, and none for a Job that is neither.
+    expect(owesOf(item(needs))).toEqual([]);
+    expect(owesOf(item(ready))).toEqual([]);
+    expect(
+      owesOf(
+        item({
+          mark: WORKING,
+          working: true,
+          owes: [
+            "run",
+          ],
+        }),
+      ),
+    ).toEqual([]);
   });
 });
 
