@@ -9,13 +9,14 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::time::Duration;
 
 use chrono::Utc;
-use gpui::{AnyWindowHandle, App, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
-use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
+use gpui::{AnyWindowHandle, App, AppContext as _, Context, Entity, EventEmitter, FocusHandle, Subscription, Task, Window};
+use gpui_component::input::{InputEvent, InputState};
+use ipc::{AppRunDraft, AppRunList, AppRunState, BoardBlock, BoardLayout, ManifestConfig, MetricReading, MetricReadings, MetricState, ProjectOverview, RankedIssues, SinceYouLooked, TrackedIssue};
 
 use super::layout::{BlockKind, Layout, View};
 use super::model::{self, Fill, Item, Press, Project, Repository, Shown};
 use super::presets::{self, Kind};
-use super::{mock, wire};
+use super::{metric, mock, wire};
 use crate::features::chosen;
 use crate::fleet::FleetConnection;
 use crate::reviews::ReviewsScreen;
@@ -30,6 +31,10 @@ const TAIL_LINES: usize = 80;
 /// How often the runs are read again while the board is in front: a process starts and stops without Bridge asking.
 const RUNS_EVERY: Duration = Duration::from_secs(5);
 
+/// How often the metrics are asked for while the dashboard is in front. Fleet decides whether a reading is stale; this is only
+/// how often Bridge asks.
+const METRICS_EVERY: Duration = Duration::from_secs(15);
+
 /// The most repositories of one project the board reads for, so a project with many does not ask for every one.
 const MOST_REPOSITORIES: usize = 4;
 
@@ -42,6 +47,8 @@ pub enum Source {
 pub enum BoardEvent {
     /// A feature was pressed: the Features tab opens it.
     Feature(String),
+    /// "Fix with the librarian" was pressed on a metric block that is broken: the screen puts the words in the Ask box.
+    FixMetric { id: String, title: String },
 }
 
 impl EventEmitter<BoardEvent> for Board {}
@@ -102,6 +109,13 @@ pub struct Tail {
     pub lines: Option<Result<Vec<String>, String>>,
 }
 
+/// The field a token is pasted in, for a recipe whose credential this Mac does not hold. **It is never kept as a draft**: a
+/// secret is not persisted by Bridge, so nothing here writes it anywhere, and the field is dropped once the token is sent.
+pub(super) struct TokenField {
+    pub input: Entity<InputState>,
+    _sub: Subscription,
+}
+
 /// What a read was made for.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct Key {
@@ -151,8 +165,20 @@ pub struct Board {
     /// Presses in flight, so a second press on the same button waits for the first.
     pub(super) acting: HashSet<String>,
     pub(super) tail: Option<Tail>,
+    /// What each recipe of the project on screen read, as Fleet last said.
+    pub(super) metrics: Option<MetricReadings>,
+    /// The metric blocks he took off a board, by project and recipe: Fleet keeps no word for a hidden block, so these are not
+    /// put back at the bottom when the readings come again.
+    pub(super) dismissed: HashSet<(String, String)>,
+    /// The paste field of each recipe that has no token, by recipe id.
+    pub(super) token_fields: HashMap<String, TokenField>,
+    /// The tokens on their way to Fleet, by recipe id.
+    pub(super) saving_tokens: HashMap<String, Task<()>>,
+    /// The Dashboard tab is the one in front of the Project place; the metrics are asked for only while it is.
+    front: bool,
     tasks: HashMap<&'static str, Task<()>>,
     ticker: Option<Task<()>>,
+    metric_ticker: Option<Task<()>>,
     _subs: Vec<Subscription>,
 }
 
@@ -210,8 +236,14 @@ impl Board {
             checkout: Checkout::Main,
             acting: HashSet::new(),
             tail: None,
+            metrics: None,
+            dismissed: HashSet::new(),
+            token_fields: HashMap::new(),
+            saving_tokens: HashMap::new(),
+            front: true,
             tasks: HashMap::new(),
             ticker: None,
+            metric_ticker: None,
             _subs: subs,
         }
     }
@@ -277,9 +309,27 @@ impl Board {
     // ---- the layout --------------------------------------------------------------------------
 
     /// The board of the project on screen: what Fleet kept, else the preset for its kind.
+    /// A recipe the project keeps that the board has no block for is put at the bottom of it, so a metric the librarian adds
+    /// shows without his placing it. This changes nothing he has saved: the block is kept once he changes the board.
     pub fn layout(&mut self, project: &str) -> &Layout {
         let kind = self.kind();
-        &self.layouts.entry(project.to_string()).or_insert_with(|| Stored::preset(kind, 0)).layout
+        let new: Vec<BlockKind> = match &self.metrics {
+            Some(read) if read.project == project => read.readings.iter().filter(|one| !self.dismissed.contains(&(project.to_string(), one.id.clone()))).map(|one| BlockKind::metric(&one.id)).collect(),
+            _ => Vec::new(),
+        };
+        let stored = self.layouts.entry(project.to_string()).or_insert_with(|| Stored::preset(kind, 0));
+        stored.layout.append_below(&new);
+        &stored.layout
+    }
+
+    /// The kinds that are not on the board of `project`: the fixed ones, then the metrics he took off it.
+    pub(super) fn addable(&mut self, project: &str) -> Vec<BlockKind> {
+        let on: Vec<BlockKind> = self.layout(project).blocks.iter().map(|one| one.kind).collect();
+        let mut all = self.layout(project).missing();
+        if let Some(read) = self.metrics.as_ref().filter(|read| read.project == project) {
+            all.extend(read.readings.iter().map(|one| BlockKind::metric(&one.id)).filter(|kind| !on.contains(kind)));
+        }
+        all
     }
 
     /// Whether the board of `project` is known: Fleet has said what it kept, so what is drawn is not a guess.
@@ -419,11 +469,34 @@ impl Board {
                 }
             }));
         }
+        if self.metric_ticker.is_none() && matches!(self.source, Source::Live(_)) {
+            self.metric_ticker = Some(cx.spawn(async move |this, cx| loop {
+                cx.background_executor().timer(METRICS_EVERY).await;
+                if this.update(cx, |this, cx| this.read_metrics(cx)).is_err() {
+                    break;
+                }
+            }));
+        }
     }
 
     pub fn leave(&mut self) {
         self.entered = false;
         self.ticker = None;
+        self.metric_ticker = None;
+        self.tasks.remove("metrics");
+    }
+
+    /// The Dashboard tab came to the front of the Project place, or another tab did. Metrics are asked for only while it is in front.
+    pub fn set_front(&mut self, front: bool, cx: &mut Context<Self>) {
+        if self.front == front {
+            return;
+        }
+        self.front = front;
+        if front {
+            self.read_metrics(cx);
+        } else {
+            self.tasks.remove("metrics");
+        }
     }
 
     fn tick(&mut self, cx: &mut Context<Self>) {
@@ -467,6 +540,8 @@ impl Board {
             self.overview = None;
             self.since = None;
             self.issues = None;
+            self.metrics = None;
+            self.token_fields.clear();
         }
         if manifests_changed || project_changed {
             self.configs = None;
@@ -474,6 +549,7 @@ impl Board {
             self.drafts.clear();
         }
         self.read_layout(cx);
+        self.read_metrics(cx);
         self.read_features(cx);
         self.read_runs(cx);
         self.read_configs(cx);
@@ -485,6 +561,171 @@ impl Board {
             });
         }
         cx.notify();
+    }
+
+    /// Ask Fleet what each recipe of the project reads. Fleet fetches again only where a reading is stale, so asking is cheap; the
+    /// answer replaces what is drawn, and a failed ask leaves the last reading on screen.
+    fn read_metrics(&mut self, cx: &mut Context<Self>) {
+        if !self.entered || !self.front {
+            return;
+        }
+        let (Some(port), Some(project)) = (self.port(cx), self.project(cx)) else { return };
+        let task = wire::metrics(port, &project.id, cx);
+        let asked = project.id.clone();
+        self.tasks.insert("metrics", cx.spawn(async move |this, cx| {
+            let answer = task.await;
+            let _ = this.update(cx, |this, cx| {
+                if this.project(cx).is_none_or(|now| now.id != asked) {
+                    return;
+                }
+                match answer {
+                    Ok(read) => this.apply_readings(read, cx),
+                    Err(why) => crate::log::Note::warn("the metrics were not read").field("why", why.said).emit(),
+                }
+            });
+        }));
+    }
+
+    /// What Fleet read: the blocks draw it, and a recipe with no token gets its paste field.
+    pub(super) fn apply_readings(&mut self, read: MetricReadings, cx: &mut Context<Self>) {
+        if self.project(cx).is_some_and(|now| now.id != read.project) {
+            return;
+        }
+        self.metrics = Some(read);
+        self.readings_changed(cx);
+        cx.notify();
+    }
+
+    /// Each block of a recipe is a stop of the keys, and each recipe without a token has its field.
+    fn readings_changed(&mut self, cx: &mut Context<Self>) {
+        let kinds: Vec<BlockKind> = self.metrics.iter().flat_map(|read| &read.readings).map(|one| BlockKind::metric(&one.id)).collect();
+        for kind in kinds {
+            if !self.handles.iter().any(|(held, _)| *held == kind) {
+                self.handles.push((kind, cx.focus_handle().tab_stop(true)));
+            }
+        }
+        self.prepare_token_fields(cx);
+    }
+
+    pub(super) fn reading(&self, id: &str) -> Option<&MetricReading> {
+        self.metrics.as_ref()?.readings.iter().find(|one| one.id == id)
+    }
+
+    /// The words on a block's header and the name VoiceOver reads: a metric block's is its recipe's title.
+    pub(super) fn title_of(&self, kind: BlockKind) -> String {
+        match kind {
+            BlockKind::Metric(id) => self.reading(id).map_or_else(|| id.to_string(), |one| one.title.clone()),
+            _ => kind.title().to_string(),
+        }
+    }
+
+    /// The views a block is offered: Picture only on a metric whose answer carries one.
+    pub(super) fn views_of(&self, kind: BlockKind) -> Vec<View> {
+        match kind.metric_id().and_then(|id| self.reading(id)) {
+            Some(reading) => metric::offered(reading),
+            None => kind.views().to_vec(),
+        }
+    }
+
+    // ---- tokens ------------------------------------------------------------------------------
+
+    /// Every recipe that has no token has an empty paste field; one that has, or is being sent, has none. The field is made where
+    /// a window is, which is after this update.
+    fn prepare_token_fields(&mut self, cx: &mut Context<Self>) {
+        let waiting: Vec<String> = self.metrics.iter().flat_map(|read| &read.readings).filter(|one| matches!(one.state, MetricState::NoToken { .. })).map(|one| one.id.clone()).collect();
+        self.token_fields.retain(|id, _| waiting.contains(id));
+        let missing: Vec<String> = waiting.into_iter().filter(|id| !self.token_fields.contains_key(id) && !self.saving_tokens.contains_key(id)).collect();
+        if missing.is_empty() {
+            return;
+        }
+        let (window, this) = (self.window, cx.weak_entity());
+        cx.defer(move |cx| {
+            let _ = window.update(cx, |_, window, cx| {
+                let _ = this.update(cx, |board, cx| {
+                    for id in missing {
+                        board.token_field(id, window, cx);
+                    }
+                });
+            });
+        });
+    }
+
+    fn token_field(&mut self, id: String, window: &mut Window, cx: &mut Context<Self>) {
+        if self.token_fields.contains_key(&id) {
+            return;
+        }
+        let input = cx.new(|cx| {
+            let mut state = InputState::new(window, cx).placeholder("Paste the token");
+            state.set_masked(true, window, cx);
+            state
+        });
+        let held = id.clone();
+        let sub = cx.subscribe_in(&input, window, move |this, _, event: &InputEvent, window, cx| match event {
+            InputEvent::PressEnter { .. } => this.save_token(&held, window, cx),
+            // Save is off while the field is empty.
+            InputEvent::Change => cx.notify(),
+            _ => {}
+        });
+        self.token_fields.insert(id, TokenField { input, _sub: sub });
+    }
+
+    /// Whether the paste field of `id` holds anything, which is all Save asks of it.
+    pub(super) fn token_typed(&self, id: &str, cx: &App) -> bool {
+        self.token_fields.get(id).is_some_and(|field| !field.input.read(cx).value().trim().is_empty())
+    }
+
+    /// Send the token typed for `id`. The field is dropped at once, so the token is held by the request alone and is on no
+    /// screen, no draft and no log; a refusal brings back an empty field.
+    pub(super) fn save_token(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        if self.saving_tokens.contains_key(id) {
+            return;
+        }
+        let Some(token) = self.token_fields.get(id).map(|field| field.input.read(cx).value().trim().to_string()).filter(|token| !token.is_empty()) else { return };
+        let Some(credential) = self.reading(id).and_then(|one| match &one.state {
+            MetricState::NoToken { credential } => Some(credential.name.clone()),
+            _ => None,
+        }) else {
+            return;
+        };
+        let Some(project) = self.project(cx) else { return };
+        self.token_fields.remove(id);
+        window.focus(&self.root, cx);
+        let held = id.to_string();
+        let Some(port) = self.port(cx) else {
+            if matches!(self.source, Source::Mock) {
+                if let Some(read) = self.metrics.as_mut() {
+                    mock::token_saved(read, &held);
+                }
+            }
+            cx.notify();
+            return;
+        };
+        let task = wire::save_metric_token(port, &project.id, &credential, token, cx);
+        let id = held.clone();
+        self.saving_tokens.insert(
+            held,
+            cx.spawn(async move |this, cx| {
+                let answer = task.await;
+                let _ = this.update(cx, |this, cx| {
+                    this.saving_tokens.remove(&id);
+                    match answer {
+                        Ok(read) => this.apply_readings(read, cx),
+                        Err(why) => {
+                            crate::toasts::tell(why.said, cx);
+                            this.prepare_token_fields(cx);
+                        }
+                    }
+                    cx.notify();
+                });
+            }),
+        );
+        cx.notify();
+    }
+
+    /// "Fix with the librarian": the screen puts the words in the Ask box.
+    pub(super) fn fix_metric(&mut self, id: &str, cx: &mut Context<Self>) {
+        let title = self.title_of(BlockKind::metric(id));
+        cx.emit(BoardEvent::FixMetric { id: id.to_string(), title });
     }
 
     fn read_features(&mut self, cx: &mut Context<Self>) {
@@ -622,6 +863,8 @@ impl Board {
                 },
                 _ => Fill::Reading,
             },
+            // A metric block draws from its reading (`view.rs`, `metric_body`); it has no rows of the kind the others do.
+            BlockKind::Metric(_) => Fill::Reading,
             BlockKind::Checks => match &self.source {
                 Source::Mock => Fill::items(mock::checks()),
                 Source::Live(_) => match &self.configs {
@@ -911,14 +1154,18 @@ impl Board {
         self.runs = mock::runs(&project, self.checkout.job().is_some());
         self.drafts.clear();
         self.issues = Some(Ok(mock::issues()));
+        self.metrics = Some(mock::readings(&project.id));
+        self.token_fields.clear();
+        self.saving_tokens.clear();
+        self.readings_changed(cx);
         self.apply_kept(&project.id, self.kept.get(&project.id).cloned(), cx);
         self.apply_preset(&project.id);
         cx.notify();
     }
 
     /// The view a block starts in, for the keys that cycle it.
-    pub(super) fn next_view(kind: BlockKind, now: View) -> View {
-        let views = kind.views();
+    pub(super) fn next_view(&self, kind: BlockKind, now: View) -> View {
+        let views = self.views_of(kind);
         let at = views.iter().position(|one| *one == now).unwrap_or(0);
         views[(at + 1) % views.len()]
     }

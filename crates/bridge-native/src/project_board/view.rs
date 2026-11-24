@@ -4,9 +4,11 @@
 //! moves are keys (`dashboard_move`, `dashboard_resize`).
 
 use gpui::{div, prelude::*, px, AnyElement, Context, DragMoveEvent, FontWeight, MouseButton, Pixels, Role, SharedString, Toggled, Window};
+use ipc::MetricState;
 
 use super::board::Board;
 use super::layout::{BlockKind, Placed, View, COLUMNS};
+use super::metric;
 use super::model::{self, Button, Fill, Item, Project, Shown, Tile};
 use crate::generated::actions::ActionScope;
 use crate::keymap::Act;
@@ -40,6 +42,7 @@ fn hue_of(kind: BlockKind) -> Token {
         BlockKind::Issues => token::SKETCH_TEAL,
         BlockKind::Features => token::ASK_FEATURES,
         BlockKind::Checks => token::SKETCH_GREY,
+        BlockKind::Metric(_) => token::SKETCH_BLUE,
     }
 }
 
@@ -51,6 +54,7 @@ pub(super) fn mark_of(kind: BlockKind) -> &'static str {
         BlockKind::Issues => "ticket",
         BlockKind::Features => "library",
         BlockKind::Checks => "list-checks",
+        BlockKind::Metric(_) => "gauge",
     }
 }
 
@@ -129,7 +133,7 @@ impl Board {
             ("dashboard_resize", Some(kind)) if self.edit => self.edit_layout(&project.id, |layout| layout.grow(kind, dx, dy), cx),
             ("dashboard_block_view", Some(kind)) => {
                 let now = self.layout(&project.id).block(kind).map(|one| one.view).unwrap_or(View::List);
-                let next = Board::next_view(kind, now);
+                let next = self.next_view(kind, now);
                 self.edit_layout(&project.id, |layout| layout.set_view(kind, next), cx);
             }
             _ => cx.propagate(),
@@ -154,6 +158,9 @@ impl Board {
     /// The block comes off the board, the rest rise into its room, and the keys go back to the board.
     fn hide_block(&mut self, kind: BlockKind, window: &mut Window, cx: &mut Context<Self>) {
         let Some(project) = self.project(cx) else { return };
+        if let Some(id) = kind.metric_id() {
+            self.dismissed.insert((project.id.clone(), id.to_string()));
+        }
         self.edit_layout(&project.id, |layout| layout.hide(kind), cx);
         window.focus(&self.root, cx);
     }
@@ -161,6 +168,9 @@ impl Board {
     /// A kind that was off the board goes on it, in the first free cells.
     pub fn add_block(&mut self, kind: BlockKind, cx: &mut Context<Self>) {
         let Some(project) = self.project(cx) else { return };
+        if let Some(id) = kind.metric_id() {
+            self.dismissed.remove(&(project.id.clone(), id.to_string()));
+        }
         self.edit_layout(&project.id, |layout| layout.add(kind), cx);
     }
 
@@ -168,16 +178,24 @@ impl Board {
 
     fn block(&self, placed: &Placed, project: &Project, grid: Grid, look: &Look, window: &Window, cx: &mut Context<Self>) -> AnyElement {
         let kind = placed.kind;
+        let metric = kind.metric_id().and_then(|id| self.reading(id));
+        // A metric block of a recipe the project no longer keeps draws nothing, and the layout keeps it as it was saved.
+        if kind.metric_id().is_some() && metric.is_none() {
+            return div().into_any_element();
+        }
         let hue = hue_of(kind);
         let slug = kind.slug();
+        let title = self.title_of(kind);
         let ring = ring_colour(look);
         let handle = self.handles.iter().find(|(one, _)| *one == kind).map(|(_, handle)| handle.clone());
         let fill = self.fill(kind, project, cx);
-        let views = kind.views();
+        let views = self.views_of(kind);
+        let shown_view = metric.map_or(placed.view, |reading| metric::drawn_in(placed.view, reading));
+        let broken = metric.is_some_and(|reading| matches!(reading.state, MetricState::Broken { .. }));
         let switch = (views.len() > 1).then(|| {
             let mut group = div().id(SharedString::from(format!("{slug}-views"))).flex().items_center().gap(look.length(token::SPACE_1));
-            for view in views {
-                let (view, on) = (*view, *view == placed.view);
+            for view in &views {
+                let (view, on) = (*view, *view == shown_view);
                 let project = project.id.clone();
                 let button = div()
                     .id(SharedString::from(format!("{slug}-view-{}", view.word())))
@@ -201,9 +219,9 @@ impl Board {
                     })
                     .on_click(cx.listener(move |this, _, _, cx| this.edit_layout(&project, |layout| layout.set_view(kind, view), cx)))
                     .child(view.word());
-                group = group.child(labelled(button, Role::Button, format!("{} view of {}", view.word(), kind.title())));
+                group = group.child(labelled(button, Role::Button, format!("{} view of {}", view.word(), title)));
             }
-            labelled(group, Role::Group, format!("View of {}", kind.title()))
+            labelled(group, Role::Group, format!("View of {}", title))
         });
         let editing = self.edit;
         let hide = editing.then(|| {
@@ -224,7 +242,7 @@ impl Board {
                     .focusable()
                     .tab_stop(true)
                     .focus_visible(move |style| style.border_color(ring))
-                    .tooltip(tip(format!("Hide {} from the board", kind.title())))
+                    .tooltip(tip(format!("Hide {} from the board", title)))
                     // A press on it is not the start of a drag of the block.
                     .on_mouse_down(MouseButton::Left, |_, window, cx| {
                         cx.stop_propagation();
@@ -233,7 +251,7 @@ impl Board {
                     .on_click(cx.listener(move |this, _, window, cx| this.hide_block(kind, window, cx)))
                     .child(glyph("eye-off", look.length(token::SPACE_4), look.color(token::FG_MUTED))),
                 Role::Button,
-                format!("Hide {}", kind.title()),
+                format!("Hide {}", title),
             )
         });
         let header = div()
@@ -251,12 +269,16 @@ impl Board {
                     .on_drag(BlockDrag { kind, resize: false }, |_, _, _, cx| cx.new(|_| Ghost))
             })
             .child(glyph(mark_of(kind), look.length(token::SPACE_4), look.color(hue)))
-            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(kind.title()))
+            .child(div().min_w_0().truncate().text_size(look.length(token::TEXT_XS)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).child(SharedString::from(title.clone())))
+            .children(metric.map(|reading| self.metric_state(reading, look)))
             .child(div().flex_1())
             .children(switch)
             .children(hide);
-        let header = if editing { labelled(header, Role::Group, format!("Move {}", kind.title())).into_any_element() } else { header.into_any_element() };
-        let body = self.body(kind, placed.view, &fill, look, cx);
+        let header = if editing { labelled(header, Role::Group, format!("Move {}", title)).into_any_element() } else { header.into_any_element() };
+        let body = match metric {
+            Some(reading) => self.metric_body(reading, shown_view, look, cx),
+            None => self.body(kind, placed.view, &fill, look, cx),
+        };
         let corner = editing.then(|| {
             labelled(
                 div()
@@ -273,7 +295,7 @@ impl Board {
                     .on_mouse_down(MouseButton::Left, cx.listener(|this, _, _, _| this.grab = None))
                     .on_drag(BlockDrag { kind, resize: true }, |_, _, _, cx| cx.new(|_| Ghost)),
                 Role::Splitter,
-                format!("Resize {}", kind.title()),
+                format!("Resize {}", title),
             )
         });
         let frame = div()
@@ -288,7 +310,8 @@ impl Board {
             .overflow_hidden()
             .rounded(look.length(token::RADIUS_LG))
             .border(look.length(token::BORDER_WIDTH))
-            .border_color(if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) })
+            // A metric that cannot read wears the failed hue on its whole frame, as a hairline all round.
+            .border_color(if broken { look.color(token::STATUS_COMPLETED_FAILED) } else if editing { look.color(token::BORDER_STRONG) } else { look.color(token::BORDER_DEFAULT) })
             .bg(look.color(token::BG_RAISED))
             .shadow(look.shadows(token::SHADOW_CARD))
             .text_color(look.color(token::FG_DEFAULT))
@@ -298,7 +321,7 @@ impl Board {
             .child(body)
             .children(corner);
         let _ = window;
-        labelled(frame, Role::Region, kind.title()).into_any_element()
+        labelled(frame, Role::Region, title).into_any_element()
     }
 
     /// What a block holds under its header: bones while it reads, why it could not, or its rows in the view it is in.
@@ -331,7 +354,7 @@ impl Board {
         }
     }
 
-    fn rows(&self, kind: BlockKind, view: View, shown: &Shown, look: &Look, cx: &mut Context<Self>) -> AnyElement {
+    pub(super) fn rows(&self, kind: BlockKind, view: View, shown: &Shown, look: &Look, cx: &mut Context<Self>) -> AnyElement {
         let columns = model::button_columns(kind);
         if view == View::Picture && !shown.tiles.is_empty() {
             return self.picture(&shown.tiles, look);
