@@ -19,9 +19,9 @@ pub const MOST_BYTES: usize = 4096;
 const MOST_IDS: usize = 32;
 const MOST_ID: usize = 40;
 
-/// The regions Bridge arranges, from the file both sides check. `packages/shell/layout-registry.json`
+/// The regions Bridge arranges, from the file both sides check. `crates/ipc/layout-registry.json`
 /// is the shipped list; Bridge's registry has a test that it agrees with it.
-const REGISTRY: &str = include_str!("../../../packages/shell/layout-registry.json");
+const REGISTRY: &str = include_str!("../layout-registry.json");
 
 /// Every region a layout may name, in the registry's order.
 pub fn regions() -> Vec<String> {

@@ -61,7 +61,7 @@ class NativeApp(unittest.TestCase):
         self.assertEqual(app, os.path.join(self.out, "Armada.app"))
         contents = os.path.join(app, "Contents")
         # Helpers is there when Armada Voice is, and the script builds it where it can.
-        helper = os.path.join(HERE, "apps", "desktop", "native", "voice", "build", "Armada Voice.app", "Contents", "MacOS", "armada-voice")
+        helper = os.path.join(HERE, "crates", "bridge-native", "native", "voice", "build", "Armada Voice.app", "Contents", "MacOS", "armada-voice")
         want = ["Info.plist", "MacOS", "Resources", "_CodeSignature"]
         self.assertEqual(sorted(os.listdir(contents)), sorted(want + (["Helpers"] if os.path.isfile(helper) else [])))
         self.assertEqual(os.listdir(os.path.join(contents, "MacOS")), ["Armada"])
@@ -78,10 +78,10 @@ class NativeApp(unittest.TestCase):
         with open(os.path.join(app, "Contents", "Resources", "AppIcon.icns")) as f:
             self.assertEqual(f.read(), "other\n")
 
-    def test_the_notification_tones_are_in_resources_as_the_desktop_app_ships_them(self):
+    def test_the_notification_tones_are_in_resources_as_the_native_app_ships_them(self):
         app = self.make()
         for tone in ("armada-blocked.wav", "armada-waiting.wav"):
-            with open(os.path.join(HERE, "apps", "desktop", "sounds", tone), "rb") as shipped, open(os.path.join(app, "Contents", "Resources", tone), "rb") as kept:
+            with open(os.path.join(HERE, "crates", "bridge-native", "sounds", tone), "rb") as shipped, open(os.path.join(app, "Contents", "Resources", tone), "rb") as kept:
                 self.assertEqual(kept.read(), shipped.read())
 
     def test_the_plist_names_it_apart_from_electrons(self):
@@ -178,7 +178,7 @@ class NativeAppVoice(unittest.TestCase):
         self.out = os.path.join(self.tmp, "out")
         self.binary = os.path.join(self.tmp, "native")
         shutil.copyfile("/usr/bin/true", self.binary)
-        self.voice = os.path.join(self.tmp, "tree", "apps", "desktop", "native", "voice")
+        self.voice = os.path.join(self.tmp, "tree", "crates", "bridge-native", "native", "voice")
         os.makedirs(self.voice)
         self.calls = os.path.join(self.tmp, "calls")
         self.helper = os.path.join(self.voice, "build", "Armada Voice.app", "Contents", "MacOS", "armada-voice")

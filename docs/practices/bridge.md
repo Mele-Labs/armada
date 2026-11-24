@@ -596,7 +596,6 @@ Function arguments, imports and type unions still break only past the width.
 |---|---|
 | `packages/tokens/` | Its generated files are compared byte for byte with the generator's output, and `xtask/src/tokens.rs` parses its sources one line at a time |
 | `packages/components/src/generated/` | Written by `apps/desktop/codegen/vocabulary.mjs`, and a reformat is undone by its next run |
-| `packages/shell/layout-registry.json` | `xtask/src/skill_regions.rs` reads it by its hand-written shape |
 | `packages/mods/` | Compiled into Fleet, and `crates/fleet/src/tests/mods.rs` pins the CSS text |
 | `SketchScene/scene.ts`, `SketchScene/screen.ts` | `crates/ipc/src/tests/sketch.rs` splits them on their line layout |
 

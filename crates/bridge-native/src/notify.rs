@@ -56,7 +56,7 @@ pub fn is_review_key(tag: &str) -> bool {
     tag.starts_with("review:")
 }
 
-/// The sound file a tone carries, in the bundle's Resources: `apps/desktop/sounds`, copied in by
+/// The sound file a tone carries, in the bundle's Resources: `crates/bridge-native/sounds`, copied in by
 /// `scripts/native-app`. A name and never a player, so macOS mutes it with the banner.
 pub fn sound_of(tone: CallTone) -> &'static str {
     match tone {
@@ -308,10 +308,10 @@ mod tests {
     }
 
     #[test]
-    fn each_tone_names_a_sound_the_desktop_app_ships() {
-        let sounds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../apps/desktop/sounds");
+    fn each_tone_names_a_sound_the_native_app_ships() {
+        let sounds = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("sounds");
         for tone in [CallTone::Blocked, CallTone::Waiting] {
-            assert!(sounds.join(sound_of(tone)).is_file(), "{} is not in apps/desktop/sounds", sound_of(tone));
+            assert!(sounds.join(sound_of(tone)).is_file(), "{} is not in crates/bridge-native/sounds", sound_of(tone));
         }
     }
 }

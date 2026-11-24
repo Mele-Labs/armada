@@ -1,11 +1,11 @@
 // The layout rules Bridge applies: `parseLayout` agrees with Fleet's rules on what is invalid, the
 // shipped registry file agrees with the registry Bridge draws from, and a layer outranks the one
-// under it. `crates/ipc/src/layout.rs` is Fleet's half, and `packages/shell/layout-registry.json`
+// under it. `crates/ipc/src/layout.rs` is Fleet's half, and `crates/ipc/layout-registry.json`
 // is the list both check.
 
 import { describe, expect, it } from "vitest";
 
-import registry from "@armada/shell/layout-registry.json";
+import registry from "../../../../crates/ipc/layout-registry.json";
 import {
   LAYOUT,
   LAYOUT_BYTES,

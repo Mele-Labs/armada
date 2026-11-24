@@ -50,7 +50,7 @@ Reach is this repository or every repository, and a reach of one repository need
 
 At least one part is present, and an answer with none left is refused.
 Fleet fills a tweak's `was` from the token's current value, and its `used_in` and `note` from the tokens file.
-The model is given the token names from `packages/tokens/tokens.json` and the regions and ids of `packages/shell/layout-registry.json`, and can propose no others.
+The model is given the token names from `packages/tokens/tokens.json` and the regions and ids of `crates/ipc/layout-registry.json`, and can propose no others.
 
 ### An address for each repository
 
