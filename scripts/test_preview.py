@@ -1124,7 +1124,7 @@ def scratch_root(base, main_list):
     root = os.path.join(base, "root")
     os.makedirs(os.path.join(root, "scripts"))
     shutil.copy(RESTART, os.path.join(root, "scripts", "restart"))
-    for helper in ("detach", "running-bridge"):
+    for helper in ("detach", "running-bridge", "retire-classic"):
         shutil.copy(os.path.join(HERE, "scripts", helper), os.path.join(root, "scripts", helper))
     run(root, "init", "-q", "-b", "main")
     os.makedirs(os.path.join(root, os.path.dirname(LEGACY)))
@@ -1149,7 +1149,7 @@ class RestartAdopt(unittest.TestCase):
         self.tree = os.path.join(self.dir, "tree")
         os.makedirs(os.path.join(self.tree, "crates", "armada"))
         os.makedirs(os.path.join(self.tree, "crates", "store", "src"))
-        os.makedirs(os.path.join(self.tree, "apps", "desktop"))
+        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
         open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()
         with open(os.path.join(self.tree, LEGACY), "w") as f:
             f.write(MIGRATIONS)
@@ -1285,38 +1285,6 @@ class RestartAdopt(unittest.TestCase):
         self.assertEqual(code, 0, said)
         self.assertIn("out if it is loaded, then bootstrap it from", said)
 
-    def built_bridge(self, built_for):
-        """A Bridge in `out/` built for `built_for`, stamped after every source, in a tree whose
-        wire files hash to `wire1`."""
-        desktop = os.path.join(self.tree, "apps", "desktop")
-        os.makedirs(os.path.join(desktop, "codegen"))
-        with open(os.path.join(desktop, "codegen", "protocol-id.mjs"), "w") as f:
-            f.write('console.log("wire1")\n')
-        os.makedirs(os.path.join(desktop, "out", "main"))
-        with open(os.path.join(desktop, "out", "main", "index.js"), "w") as f:
-            f.write(f'const PROTOCOL_ID = "{built_for}";\n')
-        stamp = os.path.join(desktop, "out", ".armada-restart-stamp")
-        open(stamp, "w").close()
-        later = time.time() + 60
-        os.utime(stamp, (later, later))
-        with open(os.path.join(self.support, "restart-source"), "w") as f:
-            f.write(self.tree)
-
-    def test_a_bridge_built_for_another_protocol_is_rebuilt_though_no_source_moved(self):
-        self.fleet({"j1": "escalated"})
-        self.built_bridge("wire0")
-        code, said = self.restart("--dry-run")
-        self.assertEqual(code, 0, said)
-        self.assertIn("would build Bridge from", said)
-        self.assertIn("built for another protocol than wire1", said)
-
-    def test_a_bridge_built_for_the_trees_protocol_is_left(self):
-        self.fleet({"j1": "escalated"})
-        self.built_bridge("wire1")
-        code, said = self.restart("--dry-run")
-        self.assertEqual(code, 0, said)
-        self.assertIn("would not build Bridge", said)
-
     def built_native(self, built_for="wire1"):
         """A native Bridge built for `built_for`, stamped after every source, in a tree whose wire
         files hash to `wire1`."""
@@ -1357,7 +1325,6 @@ class RestartAdopt(unittest.TestCase):
 
     def test_the_native_bridge_is_built_optimised_and_incremental(self):
         record = self.native_cargo()
-        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
         open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
         os.makedirs(os.path.join(self.tree, "apps", "desktop", "codegen"))
         with open(os.path.join(self.tree, "apps", "desktop", "codegen", "protocol-id.mjs"), "w") as f:
@@ -1384,7 +1351,6 @@ class RestartAdopt(unittest.TestCase):
 
     def test_a_native_bridge_never_built_is_built(self):
         self.fleet({"j1": "escalated"})
-        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
         open(os.path.join(self.tree, "crates", "bridge-native", "Cargo.toml"), "w").close()
         code, said = self.restart("--dry-run")
         self.assertEqual(code, 0, said)
@@ -1499,7 +1465,7 @@ class MigrationGuard(unittest.TestCase):
         self.script = scratch_root(self.dir, MIGRATIONS)
         self.tree = os.path.join(self.dir, "tree")
         os.makedirs(os.path.join(self.tree, "crates", "armada"))
-        os.makedirs(os.path.join(self.tree, "apps", "desktop"))
+        os.makedirs(os.path.join(self.tree, "crates", "bridge-native"))
         os.makedirs(os.path.join(self.tree, DIR))
         os.makedirs(os.path.join(self.tree, os.path.dirname(LEGACY)))
         open(os.path.join(self.tree, "crates", "armada", "Cargo.toml"), "w").close()

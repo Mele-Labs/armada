@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 #
-# A restart outliving the terminal that started it, and the Bridge it reopens
-# when its running protocol is not the new Fleet's. Nothing here builds or
-# touches launchd: the restart scripts run under a scratch HOME against stubs,
-# and `scripts/running-bridge` reads stub `launchctl`, `ps` and `lsof`.
+# A restart outliving the terminal that started it, the native Bridge it reopens
+# when its running protocol is not the new Fleet's, and the Armada Classic job and app
+# it removes. Nothing here builds or touches launchd: the restart scripts run under a
+# scratch HOME against stubs, and `scripts/running-bridge` reads stub `launchctl`, `ps` and `lsof`.
 #
 #   python3 scripts/test_restart_detach.py
 #
@@ -139,7 +139,7 @@ class Hangup(unittest.TestCase):
         """A copy of `scripts/restart` in a repository whose `origin/main` lists no migration, and a tree to build from."""
         root = os.path.join(self.dir, "root")
         os.makedirs(os.path.join(root, "scripts"))
-        for name in ("restart", "detach", "running-bridge"):
+        for name in ("restart", "detach", "running-bridge", "retire-classic"):
             # The folder as it was before the fix has no helpers.
             if os.path.exists(os.path.join(SCRIPTS, name)):
                 shutil.copy(os.path.join(SCRIPTS, name), os.path.join(root, "scripts", name))
@@ -154,7 +154,7 @@ class Hangup(unittest.TestCase):
         tree = os.path.join(self.dir, "tree")
         os.makedirs(os.path.join(tree, "crates", "armada"))
         os.makedirs(os.path.join(tree, "crates", "store", "src"))
-        os.makedirs(os.path.join(tree, "apps", "desktop"))
+        os.makedirs(os.path.join(tree, "crates", "bridge-native"))
         open(os.path.join(tree, "crates", "armada", "Cargo.toml"), "w").close()
         shutil.copy(legacy, os.path.join(tree, "crates", "store", "src", "legacy_migrations.rs"))
         return os.path.join(root, "scripts", "restart"), tree
@@ -229,7 +229,31 @@ class Hangup(unittest.TestCase):
         self.assertIn("would run detached", done.stdout)
         self.assertIn(self.log, done.stdout)
         self.assertIn("the new Fleet would speak protocol", done.stdout)
-        self.assertIn("Bridge: none is running", done.stdout)
+        self.assertNotIn("apps/desktop", done.stdout)
+        self.assertNotIn("Electron", done.stdout)
+        self.assertIn("Armada Classic has left nothing here to remove", done.stdout)
+
+    def test_a_dry_run_says_it_would_remove_classics_job_and_app_where_they_exist(self):
+        script, tree = self.scratch_restart()
+        write_executable(os.path.join(self.bin, "cargo"), "#!/bin/sh\nexit 1\n")
+        plist = os.path.join(self.support, "com.armada.test.detach.bridge.plist")
+        app = os.path.join(self.home, "Applications", "Armada Classic.app")
+        open(plist, "w").close()
+        os.makedirs(app)
+        done = self.run_restart([script, "--from", tree, "--dry-run"], self.dir)
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn(f"would boot gui/{os.getuid()}/com.armada.test.detach.bridge out if it is loaded and delete {plist}", done.stdout)
+        self.assertIn(f"would quit Armada Classic and delete {app}", done.stdout)
+        self.assertNotIn("has left nothing", done.stdout)
+        self.assertTrue(os.path.exists(plist) and os.path.isdir(app), "a dry run removes nothing")
+
+    def test_a_restart_runs_the_classic_cleanup_after_fleet_is_up_and_before_the_native_bridge(self):
+        # The run itself needs a build, a Fleet and launchd, so what is read is where the script calls it.
+        with open(os.path.join(SCRIPTS, "restart")) as f:
+            text = f.read()
+        self.assertEqual(text.count('"$root/scripts/retire-classic"'), 2, "once for the dry run, once for the real one")
+        self.assertLess(text.rindex("settle ${old_pid"), text.rindex('"$root/scripts/retire-classic"'))
+        self.assertLess(text.rindex('"$root/scripts/retire-classic"'), text.index("native_reopened=false"))
         self.assertFalse(os.path.exists(self.log))
 
 
@@ -308,36 +332,6 @@ class RunningProtocol(unittest.TestCase):
         self.assertEqual(BRIDGE.build_protocol(self.support, through_current), self.NEW)
         self.assertEqual(BRIDGE.build_protocol(self.support, self.binary_in(self.old)), self.OLD)
 
-    def classic_machine(self, cwd):
-        def runner(argv):
-            if argv[0] == "ps":
-                return (f"  200     1 {self.support}/electron/40/Armada Classic.app/Contents/MacOS/Armada Classic "
-                        f"{self.builds}/current/bridge\n"
-                        f"  300     1 {self.dir}/tree/node_modules/electron/Electron.app/Contents/MacOS/Electron .\n")
-            if argv[0] == "lsof":
-                return f"p200\nfcwd\nn{cwd}\n" if cwd else None
-            return None
-        return runner
-
-    def test_classic_reopens_when_its_running_protocol_differs(self):
-        running = BRIDGE.classic_protocols(self.support, self.classic_machine(os.path.join(self.old, "bridge")))
-        self.assertEqual(running, [self.OLD])
-        self.assertTrue(BRIDGE.decide(running, self.NEW)[0])
-
-    def test_classic_is_left_alone_when_it_matches_or_is_not_running_or_was_started_by_hand(self):
-        running = BRIDGE.classic_protocols(self.support, self.classic_machine(os.path.join(self.new, "bridge")))
-        self.assertFalse(BRIDGE.decide(running, self.NEW)[0])
-        self.assertFalse(BRIDGE.decide(BRIDGE.classic_protocols(self.support, lambda argv: ""), self.NEW)[0])
-        # Only the process run from a tree is listed here, and it is not a kept build.
-        by_hand = lambda argv: (f"  300     1 {self.dir}/tree/node_modules/electron/Electron.app/Contents/MacOS/Electron .\n"
-                                if argv[0] == "ps" else None)
-        self.assertEqual(BRIDGE.classic_protocols(self.support, by_hand), [])
-
-    def test_classic_running_a_build_that_cannot_be_read_is_reopened(self):
-        running = BRIDGE.classic_protocols(self.support, self.classic_machine(None))
-        self.assertEqual(running, [BRIDGE.UNREADABLE])
-        self.assertTrue(BRIDGE.decide(running, self.NEW)[0])
-
     def test_the_command_reads_the_live_tools(self):
         """End to end through the command, with `launchctl`, `ps` and `lsof` on the PATH."""
         bin = os.path.join(self.dir, "bin")
@@ -353,6 +347,102 @@ class RunningProtocol(unittest.TestCase):
                                    "--service", self.service, "--want", want], env=env, capture_output=True, text=True)
             said.append(done.stdout.split("\t")[0])
         self.assertEqual(said, ["reopen", "leave"])
+
+
+class RetireClassic(unittest.TestCase):
+    """`scripts/retire-classic`: Armada Classic's launchd job, plist and installed app go, once, and a second run changes nothing."""
+
+    LABEL = "com.armada.test.retire"
+
+    def setUp(self):
+        self.dir = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.dir, True)
+        self.home = os.path.join(self.dir, "home")
+        self.support = os.path.join(self.home, "Library", "Application Support", "Armada")
+        os.makedirs(self.support)
+        self.plist = os.path.join(self.support, f"{self.LABEL}.bridge.plist")
+        self.native_plist = os.path.join(self.support, f"{self.LABEL}.native.plist")
+        self.apps = os.path.join(self.home, "Applications")
+        self.loaded = os.path.join(self.dir, "loaded")
+        self.calls = os.path.join(self.dir, "calls")
+        bin = os.path.join(self.dir, "bin")
+        os.makedirs(bin)
+        # A launchd that holds the one job while `loaded` exists, and a Finder that quits nothing; real ones would reach the owner's.
+        write_executable(os.path.join(bin, "launchctl"),
+                         f'#!/bin/sh\necho "launchctl $@" >> "{self.calls}"\n'
+                         f'case "$1" in print) [ -f "{self.loaded}" ] ;; bootout) rm -f "{self.loaded}" ;; esac\n')
+        write_executable(os.path.join(bin, "osascript"), f'#!/bin/sh\necho "osascript $@" >> "{self.calls}"\n')
+        self.env = {**os.environ, "HOME": self.home, "PATH": bin + os.pathsep + os.environ["PATH"], "ARMADA_FLEET_LABEL": self.LABEL}
+
+    def classic_left_behind(self):
+        open(self.plist, "w").close()
+        open(self.loaded, "w").close()
+        os.makedirs(os.path.join(self.apps, "Armada Classic.app", "Contents"))
+
+    def run_retire(self, *args):
+        return subprocess.run([os.path.join(SCRIPTS, "retire-classic"), *args], env=self.env, capture_output=True, text=True, timeout=60)
+
+    def said(self):
+        try:
+            with open(self.calls) as f:
+                return f.read().splitlines()
+        except OSError:
+            return []
+
+    def test_the_job_the_plist_and_the_app_are_removed(self):
+        self.classic_left_behind()
+        done = self.run_retire()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertIn(f"launchctl bootout gui/{os.getuid()}/{self.LABEL}.bridge", self.said())
+        self.assertFalse(os.path.exists(self.loaded), "the job is out of launchd")
+        self.assertFalse(os.path.exists(self.plist))
+        self.assertFalse(os.path.exists(os.path.join(self.apps, "Armada Classic.app")))
+        self.assertIn('osascript -e quit app "Armada Classic"', self.said())
+
+    def test_a_second_run_finds_nothing_and_touches_nothing(self):
+        self.classic_left_behind()
+        self.run_retire()
+        before = self.said()
+        done = self.run_retire()
+        self.assertEqual(done.returncode, 0, done.stdout + done.stderr)
+        self.assertEqual(done.stdout + done.stderr, "")
+        self.assertEqual([c for c in self.said()[len(before):] if "bootout" in c or "osascript" in c], [])
+
+    def test_a_plist_left_with_no_job_loaded_is_still_removed(self):
+        open(self.plist, "w").close()
+        self.assertEqual(self.run_retire().returncode, 0)
+        self.assertFalse(os.path.exists(self.plist))
+
+    def test_a_job_loaded_with_no_plist_is_still_booted_out(self):
+        open(self.loaded, "w").close()
+        self.assertEqual(self.run_retire().returncode, 0)
+        self.assertFalse(os.path.exists(self.loaded))
+
+    def test_the_native_bridge_and_its_app_are_left_alone(self):
+        self.classic_left_behind()
+        open(self.native_plist, "w").close()
+        os.makedirs(os.path.join(self.apps, "Armada.app"))
+        self.run_retire()
+        self.assertTrue(os.path.exists(self.native_plist))
+        self.assertTrue(os.path.isdir(os.path.join(self.apps, "Armada.app")))
+        self.assertEqual([c for c in self.said() if "bootout" in c], [f"launchctl bootout gui/{os.getuid()}/{self.LABEL}.bridge"])
+
+    def test_a_dry_run_says_what_it_would_remove_and_removes_nothing(self):
+        self.classic_left_behind()
+        done = self.run_retire("--dry-run")
+        self.assertEqual(done.returncode, 0, done.stderr)
+        self.assertIn(f"would boot gui/{os.getuid()}/{self.LABEL}.bridge out", done.stdout)
+        self.assertIn(f"would quit Armada Classic and delete {self.apps}/Armada Classic.app", done.stdout)
+        self.assertTrue(os.path.exists(self.plist) and os.path.exists(self.loaded))
+        self.assertTrue(os.path.isdir(os.path.join(self.apps, "Armada Classic.app")))
+        self.assertEqual([c for c in self.said() if "bootout" in c or "osascript" in c], [])
+
+    def test_a_dry_run_with_nothing_there_says_so(self):
+        done = self.run_retire("--dry-run")
+        self.assertEqual(done.stdout.strip(), "Armada Classic has left nothing here to remove")
+
+    def test_an_argument_it_does_not_know_is_refused(self):
+        self.assertNotEqual(self.run_retire("--now").returncode, 0)
 
 
 if __name__ == "__main__":

@@ -338,7 +338,7 @@ checks:
       - "scripts/detach"
       - "scripts/running-bridge"
       - "scripts/test_restart_detach.py"
-      - "scripts/armada-electron"
+      - "scripts/retire-classic"
       - "scripts/test_preview.py"
       - "scripts/prune-build"
       - "armada.yml"
@@ -362,7 +362,6 @@ checks:
       - "scripts/keep-build"
       - "scripts/test_keep_build.py"
       - "scripts/native-app"
-      - "scripts/armada-electron"
       - "armada.yml"
 
   format_catch_up_test:
