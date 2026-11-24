@@ -1,0 +1,10 @@
+[operations.save_metric]
+kind = "command"
+transport = "HTTP"
+agent_access = "No"
+description = "Try a metric recipe and keep it in the project's file"
+notes = """
+`POST /projects/project/:project/metrics`, body `TryMetric { recipe }`. Tries the recipe and **keeps it as `look.metrics` in the project's file** (replacing the one with its `id`) when the reading is `read`, or `no_token` since the token is this Mac's and not the recipe's; the recipe reaches his other Macs with the file. Where the project saved a board, a block `{ kind: "metric:<id>", view: "list", w: 3, h: 2 }` goes at its bottom if it has none for the recipe; where it saved none the board stays absent and Bridge appends the block to its preset. Nothing else of the project's values changes. Answers `MetricSaved { project, recipe, reading }`. `docs/practices/protocol/projects.md`, *Metrics*.
+
+404 `fleet.no_such_project`. 422 `fleet.metric_unreadable` with the scrubbed why for a recipe that cannot read (a call that fails, a `map` that prints no answer, a placeholder where it may not go), and nothing is kept. 422 `fleet.project_values_refused` for a blank id, title or map. 422 `fleet.project_unwritable` where the project's file did not read.
+"""

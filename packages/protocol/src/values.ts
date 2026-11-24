@@ -2,6 +2,7 @@
 // other. `crates/ipc/src/values.rs`, `docs/practices/protocol/projects.md`, *Values*.
 
 import type { BoardLayout } from "./project-board";
+import type { MetricRecipe } from "./project-metrics";
 
 /**
  * What one layer sets, a project's or Kit's: only the keys it sets, each absent where it says nothing.
@@ -61,6 +62,8 @@ export type LookSet = {
   density?: string;
   /** Where each block of the project's dashboard stands. A project's own: absent is none saved, and Bridge draws its preset. */
   board?: BoardLayout;
+  /** The live metrics the project's dashboard reads. A project's own: absent is none kept. Changed by `save_metric` and `remove_metric`. */
+  metrics?: MetricRecipe[];
 };
 
 /**

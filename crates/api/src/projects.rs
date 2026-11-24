@@ -128,6 +128,53 @@ pub(crate) async fn save_project_board<D: Projects>(State(served): State<Served<
     }
 }
 
+pub(crate) async fn read_metrics<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
+    match served.daemon().read_metrics(project).await {
+        Ok(readings) => answer(StatusCode::OK, &readings, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn try_metric<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let ask: ipc::TryMetric = match decoded(&served, "a metric recipe", &body) {
+        Ok(ask) => ask,
+        Err(response) => return response,
+    };
+    match served.daemon().try_metric(project, ask).await {
+        Ok(reading) => answer(StatusCode::OK, &reading, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_metric<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let ask: ipc::TryMetric = match decoded(&served, "a metric recipe", &body) {
+        Ok(ask) => ask,
+        Err(response) => return response,
+    };
+    match served.daemon().save_metric(project, ask).await {
+        Ok(saved) => answer(StatusCode::OK, &saved, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn remove_metric<D: Projects>(State(served): State<Served<D>>, Path((project, id)): Path<(String, String)>) -> Response {
+    match served.daemon().remove_metric(project, id).await {
+        Ok(readings) => answer(StatusCode::OK, &readings, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
+pub(crate) async fn save_metric_token<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>, body: Bytes) -> Response {
+    let save: ipc::SaveMetricToken = match decoded(&served, "a metric token", &body) {
+        Ok(save) => save,
+        Err(response) => return response,
+    };
+    match served.daemon().save_metric_token(project, save).await {
+        Ok(readings) => answer(StatusCode::OK, &readings, served.run_id()),
+        Err(refusal) => refused(refusal),
+    }
+}
+
 pub(crate) async fn list_ranked_issues<D: Projects>(State(served): State<Served<D>>, Path(project): Path<String>) -> Response {
     match served.daemon().list_ranked_issues(project).await {
         Ok(ranked) => answer(StatusCode::OK, &ranked, served.run_id()),

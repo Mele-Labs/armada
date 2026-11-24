@@ -76,8 +76,10 @@ fn noted(result: Result<Result<(u16, Vec<u8>), String>, tokio::time::error::Elap
     }
 }
 
-// `MODEL_CALL_MS`: what a route with a model call inside it waits, as Electron's does.
-include!(concat!(env!("OUT_DIR"), "/model_call.rs"));
+/// What a route with a model call inside it waits: 150 seconds, deliberately longer than Fleet's
+/// own bound on a call (a gate re-run may make several), so Fleet's refusal, with its code and run
+/// id, arrives rather than Bridge's abort.
+const MODEL_CALL_MS: u64 = 150_000;
 
 /// Bridge names itself on every request so Fleet tells a press from an agent's
 /// (`api::CALLER_HEADER`, and `CALLER` in `apps/desktop/src/main/request.ts`).

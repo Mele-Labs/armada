@@ -37,9 +37,15 @@ pub(crate) struct Ran {
 /// `argv` run with `stdin`, its output read to at most [`MOST_OUTPUT`], stopped after [`WITHIN`].
 /// The refusal names the program and never its arguments, which may hold the credential.
 pub(crate) fn run(argv: &[String], stdin: Option<&[u8]>) -> Result<Ran, String> {
+    run_with_env(argv, &[], stdin)
+}
+
+/// [`run`] with `env` set on the program, as a metric's cli call sets a token where a process list would not show it.
+pub(crate) fn run_with_env(argv: &[String], env: &[(String, String)], stdin: Option<&[u8]>) -> Result<Ran, String> {
     let program = argv.first().map(String::as_str).unwrap_or_default();
     let mut child = Command::new(program)
         .args(&argv[1..])
+        .envs(env.iter().map(|(name, value)| (name, value)))
         .stdin(if stdin.is_some() { Stdio::piped() } else { Stdio::null() })
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())

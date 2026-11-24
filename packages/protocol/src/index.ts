@@ -79,6 +79,7 @@ export * from "./review-walks";
 export * from "./issues";
 export * from "./project-board";
 export * from "./home-layout";
+export * from "./project-metrics";
 export * from "./autopilot";
 export * from "./servers";
 export * from "./app-runs";
