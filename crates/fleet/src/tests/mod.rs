@@ -67,6 +67,7 @@ mod sketch_answers;
 mod answer_attachments;
 mod sketch_asks;
 mod sketch_styles;
+mod prototypes;
 mod sketch_takes;
 mod design_catalogue;
 mod page_replies;

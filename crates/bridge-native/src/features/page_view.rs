@@ -880,7 +880,7 @@ fn shaped_within(window: &mut Window, text: &str, font: &gpui::Font, size: Pixel
 /// The plots, pills, doors, names and door chips painted as quads, paths and shaped lines at the card's width, the mock's shape
 /// kept: about 1500 rects a frame, laid out again only when the width moves.
 /// Across the page (`wide`) it keeps the mock's height and takes the width; in a column it keeps the mock's shape.
-fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>, wide: bool) -> AnyElement {
+pub(crate) fn floor_drawing(look: &Look, laid: std::rc::Rc<Laid>, wide: bool) -> AnyElement {
     let inks = floor_inks(look);
     // The names keep the mock's size, the smallest the tokens hold, whatever the width.
     let words_size = look.length(token::TEXT_SWITCH);

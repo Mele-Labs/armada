@@ -750,6 +750,10 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
             post(crate::hosted_sessions::add_part::<D>),
         )
         .route(
+            "/sessions/artifacts/prototype",
+            post(crate::hosted_sessions::show_prototype::<D>),
+        )
+        .route(
             "/sessions/artifacts/part/answer",
             post(crate::hosted_sessions::answer_part::<D>),
         )

@@ -42,6 +42,7 @@ assuming it is restated here.
 | [pull-review.md](pull-review.md) | Bridge's Reviews tab: the pull requests waiting on a person, a page for each, and the review he writes on one |
 | [requests.md](requests.md) | An HTTP request sent through Fleet by the person or a Job's agent, from collections of saved requests and environments whose secrets are kept in the Keychain and never read back |
 | [retro.md](retro.md) | What got in the way while one Job ran, and whose way, written on a press |
+| [scenes.md](scenes.md) | A live prototype: the scene file an agent writes, what its markup may name, and how the native app draws and redraws it |
 | [scout.md](scout.md) | A read-only agent a person starts from a Studio, which comes back as a Finding |
 | [session.md](session.md) | An agent job a person runs, kept as a row so Fleet can say which jobs are open and which one holds a branch, a pull request or a slot |
 | [sketch-pane.md](sketch-pane.md) | The scene an agent draws with `show_sketch` and the owner's pad shares, and how a sketch is read, played and marked |

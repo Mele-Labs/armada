@@ -54,6 +54,7 @@ export type ActionScope =
   | "plan"
   | "project board"
   | "projects"
+  | "prototype"
   | "report"
   | "review"
   | "review sheet"
@@ -152,6 +153,19 @@ export const ACTIONS: readonly Action[] = [
     iconAbsent: null,
     shortcut: "⌥⌘J",
     scope: "anywhere",
+    destructive: false,
+    confirms: false,
+    unbuilt: null,
+  },
+  {
+    id: "prototype_pop_out",
+    kind: "Action",
+    tier: "Global",
+    verb: "Pop out",
+    icon: Maximize2,
+    iconAbsent: null,
+    shortcut: "⌥⌘P",
+    scope: "prototype",
     destructive: false,
     confirms: false,
     unbuilt: null,

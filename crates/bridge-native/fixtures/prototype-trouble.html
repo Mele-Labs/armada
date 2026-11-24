@@ -1,0 +1,18 @@
+<scene title="Jobs list, with mistakes" first="list">
+  <fixture name="jobs" src="prototype-jobs.json" type="jobs"></fixture>
+  <fixture name="thread" src="prototype-jobs.json" type="thread"></fixture>
+
+  <state id="list">
+    <pane title="Jobs" data-part="Jobs pane">
+      <box pad="5" fill="bg-raisd" edge="border-subtle" radius="md" data-part="Misspelt fill">
+        <text>{jobs.sessions.0.titel}</text>
+      </box>
+      <box dir="row" gap="2" align="center" pad="3">
+        <glyph name="no-such-glyph" tone="status-running"></glyph>
+        <chip tone="status-success">Chip tone with no such token</chip>
+        <button kind="loud" goes="elsewhere">Goes nowhere</button>
+        <frobnicate>Not a part</frobnicate>
+      </box>
+    </pane>
+  </state>
+</scene>

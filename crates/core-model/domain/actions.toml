@@ -77,7 +77,7 @@ shortcut = "⌘J"
 scope = "anywhere"
 destructive = false
 confirms = false
-notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. The Operator takes its place (`armada-ehhu`), and Bridge draws nothing on this key until the panel lands in `armada-ehhu.10`."
+notes = "Toggles the Operator's panel, a dock over the content on every Bridge surface rather than in the rail. Decided with the owner on 2026-09-13 (#948): the dock left the rail, so it takes no digit after the last surface, and the rail's digits are the rail's alone. It read ⌘5 until 2026-09-03 and ⌘6 until this. In the native Bridge the Operator's page is the right side of the Cockpit, and this key puts the caret in its talk box; with a Job open over the page it keeps the Job's side chat."
 
 [actions.toast_history]
 kind = "Action"
@@ -111,6 +111,17 @@ scope = "anywhere"
 destructive = false
 confirms = false
 notes = "Puts the keys on the newest open toast, where A presses its pick, L puts it Later and Esc shuts it. Native only. ⌥ beside the Operator's ⌘J; taken 10 Nov 2026, nothing held it."
+
+[actions.prototype_pop_out]
+kind = "Action"
+tier = "Global"
+verb = "Pop out"
+icon = "maximize-2"
+shortcut = "⌥⌘P"
+scope = "prototype"
+destructive = false
+confirms = false
+notes = "Opens the prototype in front in a window of its own, with the note capture over it, so ⌥⌘A works there and its notes go to the Job. Answered where the focus is in a Job's Prototype tab. Native only. Taken 23 Nov 2026; nothing held it."
 
 [actions.open_kit]
 kind = "Action"

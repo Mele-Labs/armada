@@ -79,6 +79,7 @@ mod teach;
 mod records;
 mod refs;
 mod review;
+mod prototype_tab;
 mod row_tabs;
 mod web_pages;
 mod page_tab;
