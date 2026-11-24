@@ -124,13 +124,14 @@ impl Group {
 }
 
 /// The view menu: the Group part, then the Show part, then the switch that folds every parent.
-fn view_entries(scope: Scope, group: Group, root_only: bool) -> Vec<Entry> {
+fn view_entries(scope: Scope, group: Group, root_only: bool, hide_done: bool) -> Vec<Entry> {
     let mut entries = vec![Entry::Label("Group")];
     entries.extend(GROUPS.iter().map(|(held, id, label)| Entry::Choice { id, label: (*label).into(), on: *held == group }));
     entries.push(Entry::Rule);
     entries.push(Entry::Label("Show"));
     entries.extend(SHOWS.iter().map(|(held, id, label)| Entry::Choice { id, label: (*label).into(), on: *held == scope }));
     entries.push(Entry::Rule);
+    entries.push(Entry::Toggle { id: "done_jobs", label: "Done Jobs".into(), on: !hide_done });
     entries.push(Entry::Toggle { id: "root_only", label: "Root Jobs only".into(), on: root_only });
     entries
 }
@@ -248,6 +249,8 @@ impl Sub {
 #[derive(Clone, Debug, Default, PartialEq)]
 struct Folds {
     root_only: bool,
+    /// The Done Jobs switch, off: Jobs that stand under Done are left out. Shown is the default, so only the off state is kept.
+    hide_done: bool,
     parents: std::collections::BTreeSet<String>,
 }
 
@@ -278,18 +281,21 @@ impl Folds {
     /// The switch on its own line, then `fold <id>` for each parent.
     fn text(&self) -> String {
         let switch = self.root_only.then(|| ROOT_ONLY.to_string());
-        switch.into_iter().chain(self.parents.iter().map(|id| format!("fold {id}"))).collect::<Vec<_>>().join("\n")
+        let done = self.hide_done.then(|| HIDE_DONE.to_string());
+        switch.into_iter().chain(done).chain(self.parents.iter().map(|id| format!("fold {id}"))).collect::<Vec<_>>().join("\n")
     }
 
     fn from_text(text: &str) -> Folds {
         Folds {
             root_only: text.lines().any(|line| line == ROOT_ONLY),
+            hide_done: text.lines().any(|line| line == HIDE_DONE),
             parents: text.lines().filter_map(|line| line.strip_prefix("fold ")).map(str::to_string).collect(),
         }
     }
 }
 
 const ROOT_ONLY: &str = "root-only";
+const HIDE_DONE: &str = "hide-done";
 
 /// What a row draws, chosen in the View group of its menu (`row-view.tsx`, `VIEW_FIELDS`), in the
 /// menu's order. Electron's default is the Status and Conflicts marks.
@@ -411,6 +417,8 @@ enum Stand {
     Held,
     /// Alive and quiet: its turn ended with nothing for him.
     Idle,
+    /// Its work is done and handed in, and nothing is owed on it: the Done Jobs switch shows or hides the group.
+    Done,
     Ended,
     Saved,
 }
@@ -424,6 +432,7 @@ impl Stand {
             Stand::Ready => "Ready to try",
             Stand::Held => "Held",
             Stand::Idle => "Idle",
+            Stand::Done => "Done",
             Stand::Ended => "Ended",
             Stand::Saved => "Saved for later",
         }
@@ -437,7 +446,7 @@ impl Stand {
             Stand::Ci => token::STATUS_NOT_STARTED,
             Stand::Ready => token::STATUS_COMPLETED_SUCCESS,
             Stand::Held => token::STATUS_HANDED_IN,
-            Stand::Idle | Stand::Ended | Stand::Saved => token::FG_MUTED,
+            Stand::Idle | Stand::Done | Stand::Ended | Stand::Saved => token::FG_MUTED,
         }
     }
 }
@@ -470,6 +479,10 @@ fn stand_in(job: &SessionRecord) -> Stand {
     });
     if checking && mark.lamp != JobLamp::Running {
         return Stand::Ci;
+    }
+    // A Job Fleet marks Done has its own group, apart from the quiet ones Fleet files with it.
+    if mark.state == JobState::Done {
+        return Stand::Done;
     }
     match mark.group {
         JobGroup::Needs => Stand::Needs,
@@ -702,7 +715,7 @@ fn lines_within(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], sco
 /// list, and is left out of Needs you, since it asks nothing of him here.
 #[allow(clippy::too_many_arguments)]
 fn lines_shelving(jobs: &[SessionRecord], ideas: &[crate::queued::QueuedIdea], scope: Scope, query: &str, order: &[String], names: &Names, project: Option<&str>, asleep: &[crate::pairing::Unreachable]) -> Vec<Line> {
-    lines_grouped(jobs, ideas, scope, query, order, names, project, asleep, Group::Project)
+    lines_grouped(jobs, ideas, scope, query, order, names, project, asleep, Group::Project, false)
 }
 
 /// [`lines_shelving`] grouped as `group` says: under the state each Job stands in, under its project, or in one list by
@@ -719,6 +732,7 @@ fn lines_grouped(
     project: Option<&str>,
     asleep: &[crate::pairing::Unreachable],
     group: Group,
+    hide_done: bool,
 ) -> Vec<Line> {
     let asleep_on = |job: &SessionRecord| job.mac.as_deref().and_then(|id| asleep.iter().find(|one| one.id == id));
     // A copy of another Mac's project the window is scoped to stands for this Mac's project of its name, where it has one.
@@ -752,6 +766,8 @@ fn lines_grouped(
     };
     // A Job another took the place of stands behind that one's row, as Electron's deck has it (`ship.ts`, `behind`).
     let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| spent(job, "replaced_by").is_none() && matches(job, query)).collect();
+    // With the Done Jobs switch off, the Jobs Fleet marks Done are left out in every grouping.
+    let picked: Vec<&SessionRecord> = picked.into_iter().filter(|job| !hide_done || stand_in(job) != Stand::Done).collect();
     // Jobs on a Mac that is asleep stand apart, under its fold.
     let (sleeping, picked): (Vec<&SessionRecord>, Vec<&SessionRecord>) = picked.into_iter().partition(|job| asleep_on(job).is_some());
     // In every scope a listed Job stands under its live starters; one the scope leaves out, a paused or
@@ -1818,7 +1834,7 @@ impl JobsList {
     }
 
     fn lines_now(&self) -> Vec<Line> {
-        lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group)
+        lines_grouped(&self.jobs, &self.ideas, self.scope, &self.query, &self.order, &self.names, self.project.as_deref(), &self.asleep, self.group, self.folds.hide_done)
     }
 
     /// The title bar was scoped to a project, or back to All or a repository: the list takes the project the
@@ -1960,6 +1976,11 @@ impl JobsList {
     /// The Root Jobs only switch.
     pub(crate) fn set_root_only(&mut self, on: bool, cx: &mut Context<Self>) {
         self.change_folds(|folds, _| folds.root_only = on, cx);
+    }
+
+    /// The Done Jobs switch: off leaves the Jobs that stand under Done out of the list.
+    pub(crate) fn set_hide_done(&mut self, hide: bool, cx: &mut Context<Self>) {
+        self.change_folds(|folds, _| folds.hide_done = hide, cx);
     }
 
     /// A palette command: `fold-all`, `unfold-all` or `root-only`.
@@ -2649,7 +2670,7 @@ impl JobsList {
         let Some(bounds) = self.bounds.borrow().get("view").copied() else { return };
         let gap = cx.look().length(token::SPACE_1);
         let at = point(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height + gap);
-        let entries = view_entries(self.scope, self.group, self.folds.root_only);
+        let entries = view_entries(self.scope, self.group, self.folds.root_only, self.folds.hide_done);
         let menu = cx.new(|cx| Dropdown::new("View", entries, at, Anchor::TopRight, true, cx));
         let picked = cx.subscribe(&menu, |this, _, picked: &Picked, cx| {
             let Picked::Entry { id, .. } = picked;
@@ -2670,6 +2691,8 @@ impl JobsList {
     fn pick_view(&mut self, id: &str, cx: &mut Context<Self>) {
         if id == "root_only" {
             self.set_root_only(!self.folds.root_only, cx);
+        } else if id == "done_jobs" {
+            self.set_hide_done(!self.folds.hide_done, cx);
         } else if let Some((group, ..)) = GROUPS.iter().find(|(_, held, _)| *held == id) {
             self.group = *group;
             self.keep();
@@ -4790,7 +4813,7 @@ mod tests {
     }
 
     fn shut(parents: &[&str]) -> Folds {
-        Folds { root_only: false, parents: parents.iter().map(|id| id.to_string()).collect() }
+        Folds { root_only: false, hide_done: false, parents: parents.iter().map(|id| id.to_string()).collect() }
     }
 
     #[test]
@@ -4865,7 +4888,7 @@ mod tests {
 
     #[test]
     fn a_parent_drawn_for_its_place_never_folds() {
-        let lines = fold_lines(lines_of(&tree(), &[], Scope::Needs, "", &[], &Names::default()), &Folds { root_only: true, parents: Default::default() });
+        let lines = fold_lines(lines_of(&tree(), &[], Scope::Needs, "", &[], &Names::default()), &Folds { root_only: true, hide_done: false, parents: Default::default() });
         let place = lines.iter().find_map(|line| match line {
             Line::Job(row) if row.id.as_ref() == "t-walk" => Some((row.place, row.kids.clone())),
             _ => None,
@@ -4963,7 +4986,7 @@ mod tests {
         let path = std::env::temp_dir().join(format!("armada-folds-test-{}", std::process::id()));
         let _ = std::fs::remove_file(&path);
         assert_eq!(Folds::load(Some(&path)), Folds::default(), "nothing kept, nothing folded");
-        let folds = Folds { root_only: true, parents: ["t-land".to_string(), "t-walk".to_string()].into_iter().collect() };
+        let folds = Folds { root_only: true, hide_done: false, parents: ["t-land".to_string(), "t-walk".to_string()].into_iter().collect() };
         folds.save(Some(&path));
         assert_eq!(Folds::load(Some(&path)), folds);
         let per_parent = shut(&["t-macs"]);
@@ -5218,7 +5241,7 @@ mod tests {
     }
 
     fn grouped(all: &[SessionRecord], group: Group, order: &[String]) -> Vec<Line> {
-        lines_grouped(all, &[], Scope::Active, "", order, &Names::default(), None, &[], group)
+        lines_grouped(all, &[], Scope::Active, "", order, &Names::default(), None, &[], group, false)
     }
 
     /// Each heading with its count, and each Job by id, in the order they are drawn.
@@ -5281,10 +5304,70 @@ mod tests {
         }
     }
 
+    /// A Job Fleet marks Done stands under its own Done heading after Idle, apart from the quiet Jobs Fleet files in its Done group.
+    fn with_one_done() -> Vec<SessionRecord> {
+        let mut jobs = standing_jobs();
+        let job = jobs.iter_mut().find(|job| job.id.as_str() == "mock-11").expect("a held Job");
+        job.mark = Some(JobMark { state: JobState::Done, lamp: JobLamp::Idle, group: JobGroup::Done });
+        jobs
+    }
+
+    #[test]
+    fn a_job_fleet_marks_done_stands_under_its_own_done_heading_after_idle_and_a_quiet_one_stays_idle() {
+        let lines = grouped(&with_one_done(), Group::State, &[]);
+        assert_eq!(headings(&lines), ["Needs you", "Ready to try", "Working", "Waiting on ci", "Held", "Idle", "Done"]);
+        assert_eq!(under(&lines, "Done"), ["mock-11"]);
+        assert_eq!(under(&lines, "Held"), ["mock-06"], "the Done Job left the Held group");
+        // Fleet's Done group also holds quiet Jobs, whose state is not Done: they stay where they were.
+        let mut quiet = standing_jobs();
+        let job = quiet.iter_mut().find(|job| job.id.as_str() == "mock-08").expect("an idle Job");
+        job.mark = Some(JobMark { state: JobState::Idle, lamp: JobLamp::Idle, group: JobGroup::Done });
+        let lines = grouped(&quiet, Group::State, &[]);
+        assert!(under(&lines, "Idle").contains(&"mock-08".to_string()));
+        assert!(!headings(&lines).contains(&"Done".to_string()));
+        // The group is muted, as Idle is.
+        assert_eq!(Stand::Done.hue(), Stand::Idle.hue());
+    }
+
+    #[test]
+    fn the_done_jobs_switch_off_leaves_the_done_jobs_out_of_every_grouping_and_its_heading_with_them() {
+        let all = with_one_done();
+        for group in [Group::State, Group::Project, Group::List] {
+            let shown = lines_grouped(&all, &[], Scope::Active, "", &[], &Names::default(), None, &[], group, false);
+            let hidden = lines_grouped(&all, &[], Scope::Active, "", &[], &Names::default(), None, &[], group, true);
+            assert!(layout(&shown).contains(&"mock-11".to_string()), "{group:?} lists the Done Job while the switch is on");
+            assert!(!layout(&hidden).contains(&"mock-11".to_string()), "{group:?} leaves it out while the switch is off");
+            let jobs_of = |lines: &[Line]| layout(lines).into_iter().filter(|one| one.starts_with("mock-")).collect::<Vec<_>>();
+            let kept: Vec<String> = jobs_of(&shown).into_iter().filter(|one| one != "mock-11").collect();
+            assert_eq!(jobs_of(&hidden), kept, "{group:?} drops that one Job and no other");
+        }
+        assert!(!headings(&lines_grouped(&all, &[], Scope::Active, "", &[], &Names::default(), None, &[], Group::State, true)).contains(&"Done".to_string()));
+    }
+
+    #[test]
+    fn the_done_jobs_switch_is_in_the_show_part_before_root_jobs_only_on_by_default_and_kept_between_runs() {
+        let toggles = |hide_done: bool| -> Vec<String> {
+            view_entries(Scope::Active, Group::State, false, hide_done)
+                .into_iter()
+                .filter_map(|entry| match entry {
+                    Entry::Toggle { label, on, .. } => Some(format!("{label} {on}")),
+                    _ => None,
+                })
+                .collect()
+        };
+        // Beside Root Jobs only, ahead of it, in the part after the Show choices.
+        assert_eq!(toggles(false), ["Done Jobs true", "Root Jobs only false"]);
+        assert_eq!(toggles(true), ["Done Jobs false", "Root Jobs only false"]);
+        assert!(!Folds::default().hide_done, "Done Jobs are shown until the person turns them off");
+        let off = Folds { hide_done: true, ..Folds::default() };
+        assert_eq!(Folds::from_text(&off.text()), off);
+        assert_eq!(Folds::from_text(&Folds::default().text()), Folds::default());
+    }
+
     #[test]
     fn by_project_keeps_its_project_headings_each_with_the_count_of_its_jobs() {
         let (all, names) = in_projects();
-        let lines = lines_grouped(&all, &[], Scope::Active, "", &[], &names, None, &[], Group::Project);
+        let lines = lines_grouped(&all, &[], Scope::Active, "", &[], &names, None, &[], Group::Project, false);
         assert_eq!(headings(&lines), ["Armada", "Storefront", "sample-api"]);
         for line in &lines {
             let Line::Group(head) = line else { continue };
@@ -5346,10 +5429,10 @@ mod tests {
                 .collect()
         };
         assert_eq!(
-            words(view_entries(Scope::Needs, Group::Project, true)),
-            ["# Group", "  By state", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Root Jobs only true"]
+            words(view_entries(Scope::Needs, Group::Project, true, false)),
+            ["# Group", "  By state", "x By project", "  One list", "---", "# Show", "  All Jobs", "x Needs you only", "  Paused", "  Snoozed", "  Quiet", "  Ended", "---", "Done Jobs true", "Root Jobs only true"]
         );
-        assert_eq!(words(view_entries(Scope::Active, Group::State, false))[1..2], ["x By state"]);
+        assert_eq!(words(view_entries(Scope::Active, Group::State, false, false))[1..2], ["x By state"]);
     }
 
     #[gpui::test]
