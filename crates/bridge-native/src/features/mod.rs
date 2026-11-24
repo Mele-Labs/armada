@@ -6,6 +6,7 @@
 //! title bar's strip (`operator/screen.rs`).
 
 pub mod artifact_link;
+pub mod ask_box;
 pub(crate) mod asks;
 pub(crate) mod chosen;
 mod curate;

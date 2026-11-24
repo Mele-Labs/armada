@@ -90,11 +90,13 @@ pub struct Item {
     pub section: Option<String>,
     /// One slot for each column of buttons the block has.
     pub buttons: Vec<Option<Button>>,
+    /// The librarian's reason for the row's place, a line under its title, where it ranked the list.
+    pub why: Option<String>,
 }
 
 impl Item {
     pub(super) fn new(key: impl Into<String>, glyph: &'static str, hue: Token, said: impl Into<String>, title: impl Into<String>) -> Item {
-        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, section: None, buttons: Vec::new() }
+        Item { key: key.into(), glyph, hue, said: said.into(), turning: false, title: title.into(), meta: None, tag: None, press: None, section: None, buttons: Vec::new(), why: None }
     }
 
     pub(super) fn meta(mut self, meta: impl Into<String>) -> Item {
@@ -110,6 +112,11 @@ impl Item {
 
     pub(super) fn press(mut self, press: Press) -> Item {
         self.press = Some(press);
+        self
+    }
+
+    pub(super) fn why(mut self, why: Option<String>) -> Item {
+        self.why = why.filter(|why| !why.is_empty());
         self
     }
 
@@ -319,7 +326,8 @@ pub fn issues(mine: &[TrackedIssue], ranked: &[RankedIssue]) -> Vec<Item> {
             Item::new(format!("issue-{}", issue.reference), "ticket", token::SKETCH_GREY, "Open and unassigned", format!("{} {}", issue.reference, issue.title))
                 .meta(feature_names(&one.features))
                 .tag("Might pick up", token::SKETCH_GREY)
-                .press(Press::Url(issue.url.clone())),
+                .press(Press::Url(issue.url.clone()))
+                .why(one.why.clone()),
         );
     }
     items
