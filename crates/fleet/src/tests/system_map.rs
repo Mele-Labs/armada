@@ -193,7 +193,7 @@ fn a_servers_pieces_are_its_modules_and_the_frontends_are_its_screens() {
     let front = read_for_test(home.path(), "importer", Some("frontend"), None);
     let screens: Vec<&str> = front.parts.iter().filter(|one| one.within.as_deref() == Some("frontend")).map(|one| one.name.as_str()).collect();
     assert!(screens.contains(&"Review") && screens.contains(&"Submit"), "a folder of screens stands in its place: {screens:?}");
-    let route = front.links.iter().find(|link| link.from == "frontend/Submit" && link.to == "fastapi-backend/main").expect("the screen that names a route reaches the server");
+    let route = front.links.iter().find(|link| link.from == "frontend/submit" && link.to == "fastapi-backend/main").expect("the screen that names a route reaches the server");
     assert_eq!(route.label.as_deref(), Some("/api/submit"));
-    assert!(front.links.iter().any(|link| link.from == "frontend/Review" && link.to == "frontend/api"), "a screen that imports the client reaches it");
+    assert!(front.links.iter().any(|link| link.from == "frontend/review" && link.to == "frontend/api"), "a screen that imports the client reaches it");
 }
