@@ -689,7 +689,10 @@ impl FeaturePageView {
             let id = SharedString::from(format!("feature-row-{}-{at}", section.id()));
             let spot = Spot { picked, first: at == 0, bug: false, divider: None };
             let (row, name) = match self.cards.get(&section) {
-                Some(Body::Reads(rows)) => (read_rows::read(look, id, &rows[at], spot), rows[at].title.clone()),
+                Some(Body::Reads(rows)) => {
+                    let under = if section == Section::Docs { self.render_doc_flag(at, &rows[at], look, window, cx) } else { None };
+                    (read_rows::read(look, id, &rows[at], spot, under), rows[at].title.clone())
+                }
                 Some(Body::Decisions(rows)) => (read_rows::decision(look, id, &rows[at], spot), rows[at].question.clone()),
                 _ => continue,
             };
@@ -700,7 +703,8 @@ impl FeaturePageView {
             }));
             list = list.child(labelled(row, Role::ListBoxOption, name));
         }
-        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).child(head(look, section.id(), section.title(), false, true)).child(labelled(list, Role::ListBox, section.title()));
+        let title = if section == Section::Docs { self.docs_head(look, cx) } else { head(look, section.id(), section.title(), false, true).into_any_element() };
+        let card = shell(look, SharedString::from(format!("feature-card-{}", section.id())), ring, false).child(title).child(labelled(list, Role::ListBox, section.title()));
         labelled(card, Role::Region, section.title()).into_any_element()
     }
 

@@ -58,6 +58,21 @@ pub(super) const ROUTES: &[Route] = &[
         path: "/features/retire",
     },
     Route {
+        operation: "check_docs",
+        method: "POST",
+        path: "/features/docs/check",
+    },
+    Route {
+        operation: "dismiss_doc_flag",
+        method: "POST",
+        path: "/features/docs/dismiss",
+    },
+    Route {
+        operation: "start_doc_job",
+        method: "POST",
+        path: "/features/docs/job",
+    },
+    Route {
         operation: "seed_features",
         method: "POST",
         path: "/features/seed",
