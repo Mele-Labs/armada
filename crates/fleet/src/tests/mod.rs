@@ -54,6 +54,7 @@ mod page_votes;
 mod page_measure;
 mod read_pages;
 mod waiting_artifact;
+mod page_repo_styles;
 mod page_sealed;
 mod notes_and_seen;
 mod for_you;

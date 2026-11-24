@@ -163,6 +163,10 @@ Its scene is JSON in a `<script type="application/json">` child, in the format `
 Fleet keeps the style set of each when it keeps the page and records their hashes in the `detail.kept_styles` of the `document` artifact. The page is not rewritten.
 A mock it cannot style is named in the `document_sketch` notice.
 
+**Rule.** A page may link the repository's own stylesheets by their path from its root, such as `<link rel="stylesheet" href="src/app.css">`, so a prototype page looks like the app.
+Fleet checks and keeps them as it keeps a mock's, under `page` in `detail.kept_styles`, and a sheet it cannot keep is named in the `document_sketch` notice.
+A page served sealed draws them where the first such link stood, after the kit's rules; `a-pages-sealed-serving.md` owns how.
+
 ## Sealing
 
 **Rule.** A page is read with `DOMParser`, which runs no script and loads nothing, and rebuilt element by element from an allow list.
@@ -193,7 +197,8 @@ A rule holding an address (`url(`, `image-set(`, `@import`) is dropped, and so i
 **Rule.** The page's classes and ids are renamed, so its CSS styles the page and Bridge's styles reach nothing in it.
 `body`, `html` and `:root` in a selector are the page's root.
 
-**Rule.** The kit is the only stylesheet a page may link.
+**Rule.** The kit is the only stylesheet this reading keeps a link to.
+A page served sealed also draws the repository's stylesheets it links by path.
 
 ## The reading sheet
 

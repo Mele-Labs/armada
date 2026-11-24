@@ -3,12 +3,14 @@
 //! the kit draws the page's actions and votes and hands each press and vote to the host by `postMessage`. For a host
 //! that draws the kit itself ([`hosted`]) the page's own inline scripts run instead, each allowed by its hash.
 //! `crates/ipc/operations/get_artifact_page.toml` is the contract, `docs/practices/protocol/a-pages-sealed-serving.md`
-//! the seam. A scan and not a parse, as `document_page` reads the page.
+//! the seam. A scan and not a parse, as `document_page` reads the page. **A page may also link the repository's own
+//! stylesheets**: Fleet keeps them when it keeps the page (`page_styles`), and the first such `<link>` becomes a
+//! `<style>` of their rules, their fonts carried as `data:` addresses, since the sealed page may fetch nothing.
 
 use adapter_traits::{AgentHarness, Delivery, Vcs, WorkProduct};
 use api::{Refusal, SealedPage};
 use base64::Engine as _;
-use ipc::{ArtifactForm, PagePress, VoteCast};
+use ipc::{ArtifactForm, KeptStyles, PagePress, VoteCast};
 use serde::Serialize;
 use sha2::{Digest, Sha256};
 
@@ -16,7 +18,9 @@ use super::archiving::ARTIFACT_NOT_HELD;
 use super::document_page::{open_tag, tag_end};
 use super::documents::revisions_named;
 use super::page_actions::presses_standing;
+use super::page_repo_css::css_of;
 use super::page_votes::votes_standing;
+use super::styling::applying::PAGE_STYLES_KEY;
 use crate::daemon::Fleet;
 
 pub(super) const ARTIFACT_REVISION_UNKNOWN: &str = "fleet.artifact_revision_unknown";
@@ -27,8 +31,14 @@ const KIT_SCRIPT: &str = include_str!("page_kit.js");
 const KIT_LOOK: &str = include_str!("page_kit.css");
 /// Bridge's `armada-kit.css`, which a page links by a relative href, read out of the one place it is written.
 const KIT_SOURCE: &str = include_str!("../../../../packages/screens/src/document-kit.ts");
-/// The one stylesheet a page may link.
+/// The kit's stylesheet, which a page links by this href.
 const KIT_HREF: &str = "armada-kit.css";
+
+/// Whether a stylesheet `href` names a file of the repository: not the kit's, and relative.
+pub(super) fn repo_href(href: &str) -> bool {
+    let href = href.trim();
+    !href.is_empty() && href != KIT_HREF && !href.starts_with("//") && relative(href)
+}
 
 /// Attributes that name an address a browser fetches or navigates to.
 const ADDRESSED: &[&str] = &["src", "href", "srcset", "poster", "action", "formaction", "data", "xlink:href", "background", "ping"];
@@ -44,7 +54,7 @@ pub(crate) fn policy(nonce: &str) -> String {
 /// The policy with `scripts` as its one script source; every other wall is the same.
 fn policy_allowing(scripts: &str) -> String {
     format!(
-        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; script-src {scripts}; connect-src 'none'; form-action 'none'; base-uri 'none'"
+        "default-src 'none'; style-src 'unsafe-inline'; img-src data:; font-src data:; script-src {scripts}; connect-src 'none'; form-action 'none'; base-uri 'none'"
     )
 }
 
@@ -76,10 +86,11 @@ struct PageRecord<'a> {
 }
 
 /// `html` sealed: the policy first in its `<head>`, the tokens and the kit's look after it, `armada-kit.css` inlined
-/// where it was linked, every other link, `<base>` and `http-equiv` dropped, every relative address and every
-/// `nonce` the page wrote taken off its tag, and the record and the kit's script, both with `nonce`, closing the body.
-pub(crate) fn sealed(html: &str, nonce: &str, record: &str) -> String {
-    let page = rewritten(html, None);
+/// where it was linked, the first link to a repository stylesheet replaced by the rules of `repo`, every other link,
+/// `<base>` and `http-equiv` dropped, every relative address and every `nonce` the page wrote taken off its tag, and
+/// the record and the kit's script, both with `nonce`, closing the body.
+pub(crate) fn sealed(html: &str, nonce: &str, record: &str, repo: Option<&KeptStyles>) -> String {
+    let page = rewritten(html, None, repo);
     let record = format!("<script type=\"application/json\" id=\"armada-page-record\" nonce=\"{nonce}\">{}</script>", escaped(record));
     closed(&page, &policy(nonce), &format!("{record}<script nonce=\"{nonce}\">{KIT_SCRIPT}</script>"))
 }
@@ -87,9 +98,9 @@ pub(crate) fn sealed(html: &str, nonce: &str, record: &str) -> String {
 /// `html` sealed for a host that draws the kit itself, with its policy: as [`sealed`], but each inline script the page
 /// wrote is allowed by its hash and the kit's script is left out. **No nonce anywhere**, since a page script that read
 /// one could give it to a `<script src>` of its own and fetch. The record is data, so it needs none.
-pub(crate) fn hosted(html: &str, record: &str) -> (String, String) {
+pub(crate) fn hosted(html: &str, record: &str, repo: Option<&KeptStyles>) -> (String, String) {
     let mut hashes = Vec::new();
-    let page = rewritten(html, Some(&mut hashes));
+    let page = rewritten(html, Some(&mut hashes), repo);
     let scripts = match hashes.is_empty() {
         true => "'none'".to_string(),
         false => hashes.iter().map(|hash| format!("'sha256-{hash}'")).collect::<Vec<_>>().join(" "),
@@ -127,8 +138,10 @@ fn script_hash(text: &str) -> String {
 }
 
 /// The page with each tag sealed. The text of a script, a style, a title and a textarea is kept as written. With
-/// `hashes`, the hash of each script with no address is added to it.
-fn rewritten(html: &str, mut hashes: Option<&mut Vec<String>>) -> String {
+/// `hashes`, the hash of each script with no address is added to it. With `repo`, the first link to a repository
+/// stylesheet is its rules, where it stood.
+fn rewritten(html: &str, mut hashes: Option<&mut Vec<String>>, repo: Option<&KeptStyles>) -> String {
+    let mut repo_css = repo.map(css_of);
     let lower = html.to_ascii_lowercase();
     let mut out = String::with_capacity(html.len());
     let mut at = 0;
@@ -149,7 +162,10 @@ fn rewritten(html: &str, mut hashes: Option<&mut Vec<String>>) -> String {
         }
         let name = &lower[start + 1..name_end];
         let end = tag_end(&lower, name_end);
-        out.push_str(&sealed_tag(name, &html[start..end], name_end - start));
+        match repo_css.take_if(|_| name == "link" && repo_sheet(&html[start..end], name_end - start)) {
+            Some(css) => out.push_str(&format!("<style>{css}</style>")),
+            None => out.push_str(&sealed_tag(name, &html[start..end], name_end - start)),
+        }
         at = end;
         if ["script", "style", "title", "textarea"].contains(&name) {
             let close = lower[end..].find(&format!("</{name}")).map_or(lower.len(), |close| end + close);
@@ -164,6 +180,13 @@ fn rewritten(html: &str, mut hashes: Option<&mut Vec<String>>) -> String {
     }
     out.push_str(&html[at..]);
     out
+}
+
+/// Whether the opening `tag` links a repository stylesheet.
+fn repo_sheet(tag: &str, name_len: usize) -> bool {
+    let attributes = attributes_of(tag, name_len);
+    let said = |wanted: &str| attributes.iter().find(|one| one.name == wanted).map(|one| one.value.as_str());
+    said("rel").is_some_and(|rel| rel.split_whitespace().any(|one| one.eq_ignore_ascii_case("stylesheet"))) && said("href").is_some_and(repo_href)
 }
 
 /// One opening tag, sealed. `name` is in lower case and `name_len` is where the tag's attributes start.
@@ -322,9 +345,21 @@ where
         self.artifact_page_as(id, artifact, revision, true).await
     }
 
+    /// The style set of the repository stylesheets the page links, where Fleet kept it with the page. **The row's
+    /// `kept_styles` is the newest revision's, so only the newest is drawn with it**: an older one may have linked others.
+    async fn repo_styles(&self, id: &str, held: &ipc::JobArtifact, number: u32) -> Option<KeptStyles> {
+        if held.revisions.last().map_or(1, |one| one.number) != number {
+            return None;
+        }
+        let (_, page) = self.document_held(id, &held.id).await.ok()?;
+        let kept: std::collections::BTreeMap<String, String> = ipc::decode("kept styles", page?.detail.get("kept_styles")?.as_bytes()).ok()?;
+        self.kept_styles_read(kept.get(PAGE_STYLES_KEY)?).await.ok()
+    }
+
     async fn artifact_page_as(&self, id: &str, artifact: &str, revision: Option<u32>, host_kit: bool) -> Result<SealedPage, Refusal> {
         let id = id.trim();
         let (held, number, html) = self.page_revision(id, artifact, revision).await?;
+        let repo = self.repo_styles(id, &held, number).await;
         let (presses, votes) = {
             let store = self.store().lock().await;
             (store.page_presses(id).map_err(|why| self.ledger_fault(why))?, store.page_votes(id).map_err(|why| self.ledger_fault(why))?)
@@ -338,11 +373,11 @@ where
         // Strings, numbers and bools, which always encode.
         let record = ipc::encode(&record).unwrap_or_default();
         if host_kit {
-            let (html, policy) = hosted(&html, &record);
+            let (html, policy) = hosted(&html, &record, repo.as_ref());
             return Ok(SealedPage { revision: number, html, policy });
         }
         let nonce = nonce();
-        Ok(SealedPage { revision: number, html: sealed(&html, &nonce, &record), policy: policy(&nonce) })
+        Ok(SealedPage { revision: number, html: sealed(&html, &nonce, &record, repo.as_ref()), policy: policy(&nonce) })
     }
 }
 
@@ -368,7 +403,7 @@ mod tests {
     /// browser's serif and grey radios.
     #[test]
     fn a_bare_page_reads_in_the_apps_sans_with_calm_form_controls() {
-        let page = sealed("<html><head></head><body><form><fieldset><legend>Pick</legend><label><input type=radio> A</label></fieldset></form></body></html>", "bm9uY2U=", "{}");
+        let page = sealed("<html><head></head><body><form><fieldset><legend>Pick</legend><label><input type=radio> A</label></fieldset></form></body></html>", "bm9uY2U=", "{}", None);
         assert!(page.contains(":where(body) { color: var(--fg-muted); font-family: var(--font-sans);"), "{page}");
         assert!(page.contains("--font-sans:"), "the token the body names is on the page");
         assert!(page.contains(":where(input, button, select, textarea) { font: inherit; accent-color: var(--accent); }"), "{page}");
@@ -378,12 +413,32 @@ mod tests {
     /// A browser hashes a script's text after turning CRLF into LF, so a page written on Windows still runs.
     #[test]
     fn a_hosted_scripts_hash_is_of_its_text_as_the_browser_reads_it() {
-        let (page, policy) = hosted("<body><script>a();\r\nb();</script><script type=module>\rc();</script></body>", "{}");
+        let (page, policy) = hosted("<body><script>a();\r\nb();</script><script type=module>\rc();</script></body>", "{}", None);
         let hash = |text: &[u8]| base64::engine::general_purpose::STANDARD.encode(sha2::Sha256::digest(text));
         assert!(policy.contains(&format!("script-src 'sha256-{}' 'sha256-{}';", hash(b"a();\nb();"), hash(b"\nc();"))), "{policy}");
         assert!(!page.contains("nonce"), "{page}");
-        let (_, none) = hosted("<body><p>still</p></body>", "{}");
+        let (_, none) = hosted("<body><p>still</p></body>", "{}", None);
         assert!(none.contains("script-src 'none';"), "{none}");
+    }
+
+    /// A page that links the repository's sheets gets the first link's place as one `<style>` of their rules, each font as an
+    /// `@font-face` with its bytes in a `data:` address, and the policy lets a font load from nowhere else.
+    #[test]
+    fn a_repository_stylesheet_link_becomes_its_kept_rules_with_fonts_as_data() {
+        let font = base64::engine::general_purpose::STANDARD.encode(b"wOF2\0\0\0\0");
+        let kept = ipc::KeptStyles {
+            sheets: vec![ipc::KeptSheet { path: "src/app.css".into(), css: ".card{color:red}</style><p>".into(), edited: false }],
+            fonts: vec![ipc::KeptFont { family: "Inter".into(), weight: "400".into(), style: None, bytes: font.clone() }],
+        };
+        let page = "<head><link rel=stylesheet href=\"armada-kit.css\"><link rel=\"stylesheet\" href=\"src/app.css\"><link rel=stylesheet href=src/b.css></head><body></body>";
+        let (html, policy) = hosted(page, "{}", Some(&kept));
+        assert!(policy.contains("img-src data:; font-src data:; script-src"), "{policy}");
+        assert!(!html.contains("<link") && !html.contains("src/app.css"), "{html}");
+        let face = format!("@font-face{{font-family:\"Inter\";font-weight:400;src:url(data:font/woff2;base64,{font}) format(\"woff2\");}}.card{{color:red}}<\\/style><p>");
+        assert!(html.contains(&format!("<style>{face}</style>")), "{html}");
+        assert!(html.find("li::marker").unwrap() < html.find("@font-face").unwrap(), "after the kit's rules");
+        let (bare, _) = hosted(page, "{}", None);
+        assert!(!bare.contains(".card{color:red}") && !bare.contains("<link"), "with none kept, every link is dropped");
     }
 
     /// **The native mock's pages are sealed by this code, never written by hand**, as the native Bridge asks for them
@@ -393,7 +448,7 @@ mod tests {
     fn the_native_mock_page_is_sealed_as_fleet_seals_it() {
         for (source, name, record) in NATIVE {
             let path = format!("{}/../bridge-native/fixtures/{name}", env!("CARGO_MANIFEST_DIR"));
-            let (page, _) = hosted(source, record);
+            let (page, _) = hosted(source, record, None);
             if std::env::var_os("ARMADA_WRITE_NATIVE_PAGE").is_some() {
                 std::fs::write(&path, &page).expect("the native mock's page is written");
             }

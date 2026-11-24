@@ -172,6 +172,10 @@ know how far to trust the rest.
 lists, tables, code, quotes and figures Armada's type and colour. A page with
 no style of its own reads right.
 
+A prototype page can also link the repository's own stylesheet by its path from the
+repo's root, such as `<link rel="stylesheet" href="src/app.css">`; `get_style_sources`
+names them. Fleet draws them after the kit where the page is served sealed.
+
 Add a `<style>` only for what the kit does not say: a narrower column, a
 larger first paragraph, tabular figures, a bar. Your rules come after the kit's
 and win. Use the kit's variables, not hex values.
@@ -348,7 +352,7 @@ error:
 | `<img>`, `<canvas>`, `<video>`, `<audio>` | An inline `<svg>`, a table, a bar, a sketch |
 | In an `<svg>`: `<script>`, `<foreignObject>`, `<use>`, `<image>`, an `<a>` with an address, gradients and filters, `style="…"` | Shapes, text and `<g>`, coloured by class |
 | `<iframe>`, `<object>`, `<embed>`, a `<form>` that submits | Words |
-| Any `<link>` but `armada-kit.css` | `<style>` |
+| Any `<link>` but `armada-kit.css` and a repository stylesheet's path | `<style>` |
 | A CSS rule with `url(…)`, `@import`, `@font-face`, `@keyframes` | System fonts, no motion |
 | A link that is not `#id` or `http(s)://` | A full address |
 
