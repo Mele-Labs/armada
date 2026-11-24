@@ -4,7 +4,7 @@
 use std::collections::HashMap;
 
 use chrono::{DateTime, Local, Utc};
-use ipc::{Ask, AskKind, AskState, FeatureLink, FeatureLinkKind, FeaturePage, FeatureSectionKind, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureLink, FeatureLinkKind, FeaturePage, FeatureSectionKind, HealthMark, Instant, SessionId};
 
 /// The titles of the Jobs Fleet holds, by id: what an ask's row names its Jobs by.
 pub type Titles = HashMap<String, String>;
@@ -22,13 +22,47 @@ pub enum Section {
     Runs,
     Observe,
     Debt,
+    /// What the owner settled in the Jobs that shaped the feature.
+    Decisions,
+    /// The documents a Job read before it changed a file of the feature.
+    Docs,
+    /// The tickets a Job read before it changed a file of the feature.
+    Tickets,
 }
 
 impl Section {
-    pub const ALL: [Section; 10] = [Section::Who, Section::Code, Section::Test, Section::Designs, Section::Bugs, Section::Changes, Section::Ideas, Section::Runs, Section::Observe, Section::Debt];
+    pub const ALL: [Section; 13] = [
+        Section::Who,
+        Section::Code,
+        Section::Test,
+        Section::Designs,
+        Section::Bugs,
+        Section::Changes,
+        Section::Ideas,
+        Section::Runs,
+        Section::Observe,
+        Section::Debt,
+        Section::Decisions,
+        Section::Docs,
+        Section::Tickets,
+    ];
 
     /// The order the keys go through them: down the page's columns, as the cards stand.
-    pub const NAV: [Section; 10] = [Section::Who, Section::Bugs, Section::Changes, Section::Ideas, Section::Test, Section::Runs, Section::Designs, Section::Code, Section::Observe, Section::Debt];
+    pub const NAV: [Section; 13] = [
+        Section::Who,
+        Section::Bugs,
+        Section::Changes,
+        Section::Ideas,
+        Section::Decisions,
+        Section::Test,
+        Section::Runs,
+        Section::Designs,
+        Section::Docs,
+        Section::Code,
+        Section::Tickets,
+        Section::Observe,
+        Section::Debt,
+    ];
 
     pub fn title(self) -> &'static str {
         match self {
@@ -42,6 +76,9 @@ impl Section {
             Section::Runs => "How it runs",
             Section::Observe => "How to observe it",
             Section::Debt => "Tech debt",
+            Section::Decisions => "Decisions",
+            Section::Docs => "Docs",
+            Section::Tickets => "Tickets",
         }
     }
 
@@ -57,6 +94,9 @@ impl Section {
             Section::Runs => "runs",
             Section::Observe => "observe",
             Section::Debt => "debt",
+            Section::Decisions => "decisions",
+            Section::Docs => "docs",
+            Section::Tickets => "tickets",
         }
     }
 
@@ -232,10 +272,40 @@ pub struct Code {
     pub files: Vec<(String, u32)>,
 }
 
+/// A document or ticket a Job read: its row in the Docs and Tickets cards.
+#[derive(Clone, Debug, PartialEq)]
+pub struct ReadRow {
+    /// The registry glyph: a file for a path, a globe for an address, a ticket for a ticket.
+    pub glyph: &'static str,
+    pub title: String,
+    /// What it was read by: the path, address or id.
+    pub target: String,
+    /// The result's first sentence, or the Job's own words where `by_job`.
+    pub gist: String,
+    pub by_job: bool,
+    /// The names it gives that the code no longer has.
+    pub drifted: Vec<String>,
+    /// The address no longer answers.
+    pub gone: bool,
+    /// The last line: the Job that read it and the day.
+    pub last: String,
+}
+
+/// One thing he settled, as the Decisions card draws it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct DecisionRow {
+    pub question: String,
+    pub choice: String,
+    pub note: Option<String>,
+    pub last: String,
+}
+
 /// What the open section holds.
 #[derive(Clone, Debug, PartialEq)]
 pub enum Body {
     Rows(Vec<Row>),
+    Reads(Vec<ReadRow>),
+    Decisions(Vec<DecisionRow>),
     Code(Code),
     /// None where nobody wrote the section.
     Written(Option<Written>),
@@ -382,6 +452,9 @@ fn summary(section: Section, page: &FeaturePage, asks: Option<&[Ask]>) -> (Strin
             })
         }
         Section::Ideas => plain(asks.and_then(|asks| newest_ask(asks, Section::Ideas.kinds(), |state| state != AskState::Dropped)).map(|ask| ask.title.clone()).unwrap_or_default()),
+        Section::Docs => plain(page.docs.iter().max_by_key(|read| instant(&read.at)).map(|read| read.title.clone()).unwrap_or_default()),
+        Section::Tickets => plain(page.tickets.iter().max_by_key(|read| instant(&read.at)).map(|read| read.title.clone()).unwrap_or_default()),
+        Section::Decisions => plain(page.decisions.iter().max_by_key(|decision| instant(&decision.at)).map(|decision| decision.question.clone()).unwrap_or_default()),
         Section::Runs | Section::Observe | Section::Debt => {
             let Some(section) = section.written().and_then(|kind| written(page, kind)) else { return plain(String::new()) };
             if let Some(since) = section.stale_since {
@@ -592,6 +665,95 @@ fn designs(page: &FeaturePage) -> Vec<Row> {
         .collect()
 }
 
+/// What a read was by, as the person would say it: the Job's title where Fleet holds one, never its id.
+fn by_line(job: &str, at: &Instant, titles: &Titles) -> String {
+    let title = titles.get(job).filter(|title| !title.is_empty());
+    match (title, when(at).map(day)) {
+        (Some(title), Some(date)) => format!("{title}, {date}"),
+        (Some(title), None) => title.clone(),
+        (None, Some(date)) => date,
+        (None, None) => String::new(),
+    }
+}
+
+/// Whether a read's target is an address on the web or an MCP server's, and not a path in the repository.
+fn is_address(target: &str) -> bool {
+    target.contains("://") || target.starts_with("mcp")
+}
+
+/// The docs or tickets a Job read, newest first.
+fn reads(list: &[ipc::FeatureRead], ticket: bool, titles: &Titles) -> Vec<ReadRow> {
+    let mut list: Vec<&ipc::FeatureRead> = list.iter().collect();
+    list.sort_by_key(|read| std::cmp::Reverse(instant(&read.at)));
+    list.into_iter()
+        .map(|read| ReadRow {
+            glyph: if ticket {
+                "ticket"
+            } else if is_address(&read.target) {
+                "globe"
+            } else {
+                "file-text"
+            },
+            title: if read.title.is_empty() { read.target.clone() } else { read.title.clone() },
+            target: read.target.clone(),
+            gist: read.gist.clone(),
+            by_job: read.gist_by_job && !read.gist.is_empty(),
+            drifted: if ticket { Vec::new() } else { read.drifted.clone() },
+            gone: read.state == "gone",
+            last: by_line(&read.job, &read.at, titles),
+        })
+        .collect()
+}
+
+fn decisions(page: &FeaturePage, titles: &Titles) -> Vec<DecisionRow> {
+    let mut list: Vec<&ipc::FeatureDecision> = page.decisions.iter().collect();
+    list.sort_by_key(|decision| std::cmp::Reverse(instant(&decision.at)));
+    list.into_iter()
+        .map(|decision| DecisionRow {
+            question: decision.question.clone(),
+            choice: decision.choice.clone(),
+            note: decision.note.as_deref().map(str::trim).filter(|note| !note.is_empty()).map(str::to_string),
+            last: by_line(&decision.job, &decision.at, titles),
+        })
+        .collect()
+}
+
+// ---- the band's marks --------------------------------------------------------------------------
+
+/// The chip a feature's health draws in the band: Watch or Poor, never Good, and the reasons behind it.
+#[derive(Clone, Debug, PartialEq)]
+pub struct Health {
+    pub mark: HealthMark,
+    pub word: &'static str,
+    pub glyph: &'static str,
+    /// The reasons' sentences, in Fleet's order.
+    pub reasons: Vec<String>,
+    /// The reasons on one line, and the chip's tooltip: what Fleet says, or what the mark means where it says nothing.
+    pub line: String,
+    pub tip: String,
+}
+
+/// The health chip, where the mark is not Good.
+pub fn health(page: &FeaturePage) -> Option<Health> {
+    let (word, glyph, means) = match page.feature.health.mark {
+        HealthMark::Good => return None,
+        HealthMark::Watch => ("Watch", "triangle-alert", "Something kept is worth a look"),
+        HealthMark::Poor => ("Poor", "circle-alert", "A check failed, or flaky tests or open bugs piled up"),
+    };
+    let reasons: Vec<String> = page.feature.health.reasons.iter().map(|reason| reason.fact.trim().to_string()).filter(|fact| !fact.is_empty()).collect();
+    let line = reasons.join(" · ");
+    let tip = if line.is_empty() { means.to_string() } else { line.clone() };
+    Some(Health { mark: page.feature.health.mark, word, glyph, reasons, line, tip })
+}
+
+/// What the Planned chip says on hover.
+pub const PLANNED_TIP: &str = "No code yet. It becomes a normal feature at its first file.";
+
+/// The line the retire proposal rests on, where the librarian proposes retiring the feature.
+pub fn retire_evidence(page: &FeaturePage) -> Option<&str> {
+    page.feature.retire.as_ref().map(|retire| retire.evidence.as_str())
+}
+
 /// The asks of the section's kinds, and for bugs the ones a Job filed as links, newest first, as the chip keeps them.
 fn asked(section: Section, page: &FeaturePage, asks: &[Ask], chip: Chip, looked: Option<DateTime<Utc>>, titles: &Titles) -> Vec<Row> {
     let mut found: Vec<(DateTime<Utc>, Row)> = Vec::new();
@@ -619,6 +781,9 @@ pub fn body(section: Section, page: &FeaturePage, asks: Option<&[Ask]>, chip: Ch
         Section::Who => Body::Rows(who(page)),
         Section::Designs => Body::Rows(designs(page)),
         Section::Bugs | Section::Changes | Section::Ideas => Body::Rows(asked(section, page, asks.unwrap_or_default(), chip, looked, titles)),
+        Section::Docs => Body::Reads(reads(&page.docs, false, titles)),
+        Section::Tickets => Body::Reads(reads(&page.tickets, true, titles)),
+        Section::Decisions => Body::Decisions(decisions(page, titles)),
         Section::Code => Body::Code(Code { paths: page.paths.clone(), entry_points: page.entry_points.clone(), files: page.files.iter().map(|file| (file.path.clone(), file.jobs)).collect() }),
         Section::Test | Section::Runs | Section::Observe | Section::Debt => Body::Written(section.written().and_then(|kind| written(page, kind)).map(|text| {
             let when = when(&text.written_at).map(day);

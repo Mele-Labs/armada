@@ -2,7 +2,7 @@
 //! draft, two features with a Job on them now and two with a stale section. Later pieces of the feature
 //! screens read it too, so what they draw stands on the same features.
 
-use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorFile, FloorPlan, FloorRoom, Instant, SessionId};
+use ipc::{Ask, AskKind, AskState, FeatureAreaRow, FeatureAsks, FeatureDecision, FeatureFile, FeatureJob, FeatureRead, FeatureLibrary, FeatureLink, FeatureLinkKind, FeaturePage, FeatureRow, FeatureSection, FeatureSectionKind, FeatureState, FloorDoor, FloorFile, FloorPlan, FloorRoom, Instant, SessionId};
 
 /// The project the mock's library belongs to.
 pub const PROJECT: &str = "armada";
@@ -177,7 +177,16 @@ fn section(kind: FeatureSectionKind, text: &str, job: &str, day: u32, stale_sinc
 /// wrote of it. Every feature shows the same page, the one of Start a Job.
 pub fn page(slug: &str) -> FeaturePage {
     let library = library();
-    let row = library.areas.iter().flat_map(|area| &area.features).find(|row| row.slug == slug).cloned().unwrap_or_else(|| feature("running-a-job", slug, slug, ""));
+    let mut row = library.areas.iter().flat_map(|area| &area.features).find(|row| row.slug == slug).cloned().unwrap_or_else(|| feature("running-a-job", slug, slug, ""));
+    // Every page is on watch for two reasons, and carries the librarian's proposal to retire the feature.
+    row.health = ipc::FeatureHealth {
+        mark: ipc::HealthMark::Watch,
+        reasons: vec![
+            ipc::HealthReason { kind: ipc::HealthReasonKind::StaleSection, fact: "Observe section stale since #3692".into(), target: Some("3692".into()) },
+            ipc::HealthReason { kind: ipc::HealthReasonKind::OpenBug, fact: "Open bug: the card loses focus after a retry".into(), target: Some("bug-card-focus".into()) },
+        ],
+    };
+    row.retire = Some(ipc::RetireProposal { why: ipc::RetireWhy::Unused, evidence: "No file of it touched and no Job on it since 12 Jun.".into() });
     let who = "Add the model picker to the start card";
     FeaturePage {
         project: PROJECT.into(),
@@ -210,7 +219,7 @@ pub fn page(slug: &str) -> FeaturePage {
         ],
         decisions: vec![
             FeatureDecision { question: "Where does the model picker go on the start card?".into(), choice: "Beside the workflow".into(), note: None, job: "job-start-card".into(), at: at(14) },
-            FeatureDecision { question: "Start card with the model picker".into(), choice: "Approved".into(), note: Some("Keep the picker one line.".into()), job: "job-start-card".into(), at: at(11) },
+            FeatureDecision { question: "Sketch: Start card with the model picker".into(), choice: "Approved".into(), note: Some("Keep the picker one line.".into()), job: "job-start-card".into(), at: at(11) },
         ],
         files: vec![
             FeatureFile { path: "crates/fleet/src/start/card.rs".into(), jobs: 6 },
@@ -218,8 +227,60 @@ pub fn page(slug: &str) -> FeaturePage {
             FeatureFile { path: "crates/ipc/src/start.rs".into(), jobs: 3 },
             FeatureFile { path: "apps/desktop/src/renderer/src/dispatch/StartCard.tsx".into(), jobs: 2 },
         ],
-        docs: Vec::new(),
-        tickets: Vec::new(),
+        docs: vec![
+            FeatureRead {
+                target: "docs/concepts/start-card.md".into(),
+                title: "The start card".into(),
+                gist: "The card proposes a title, a workflow and a model from the request.".into(),
+                gist_by_job: true,
+                job: "job-start-card".into(),
+                at: at(14),
+                state: String::new(),
+                drifted: vec!["StartProposal".into(), "pick_model".into()],
+            },
+            FeatureRead {
+                target: "https://notion.example/starting-a-job".into(),
+                title: "Starting a Job spec".into(),
+                gist: "A request names the repository, and the workflow follows from it.".into(),
+                gist_by_job: false,
+                job: "job-card-workflow".into(),
+                at: at(9),
+                state: String::new(),
+                drifted: Vec::new(),
+            },
+            FeatureRead {
+                target: "https://figma.example/start-card".into(),
+                title: "Start card board".into(),
+                gist: "The card with the model picker on one line.".into(),
+                gist_by_job: false,
+                job: "job-card-title".into(),
+                at: at(5),
+                state: "gone".into(),
+                drifted: Vec::new(),
+            },
+        ],
+        tickets: vec![
+            FeatureRead {
+                target: "armada-a3f2".into(),
+                title: "armada-a3f2 The card loses focus after a retry".into(),
+                gist: "Focus returns to the request box when a retry ends.".into(),
+                gist_by_job: false,
+                job: "job-start-card".into(),
+                at: at(14),
+                state: String::new(),
+                drifted: Vec::new(),
+            },
+            FeatureRead {
+                target: "#3940".into(),
+                title: "#3940 Send the request from the keys".into(),
+                gist: "Return starts the Job when the card has the keys.".into(),
+                gist_by_job: false,
+                job: "job-card-title".into(),
+                at: at(12),
+                state: String::new(),
+                drifted: Vec::new(),
+            },
+        ],
         floor_plan: Some(floor_plan()),
     }
 }

@@ -221,6 +221,9 @@ a              apply the setting   (usage only)
 ⌘E             next environment   (api client only)
 [ / ]          headers, body or environment   (api client only)
 ⌘S             save the request   (api client only)
+e              edit the board   (project board only)
+← / → / ↑ / ↓  move a block one cell, while the board is edited   (project board only)
+⇧← / ⇧→ / ⇧↑ / ⇧↓  resize a block one cell, while the board is edited   (project board only)
 d / w / f      pick the day, the week or the fortnight   (usage only)
 j / k / ↓ / ↑  move between features   (features only)
 Enter          open the feature   (features only)
@@ -313,6 +316,11 @@ The key is not global because `⌥⌘P` is the palette's Move to project everywh
 `⌘E` cycles the environment: none, then each one in the order Fleet lists them, then none again.
 `[` and `]` step the open request through its Headers, Body and Environment, wrapping at the ends, and stand down while a text box has the keys.
 `⌘S` saves the open request into its collection, or asks for a name and a collection for one not saved yet.
+
+**The Project place's board has a scope of its own, `project board`, in the native Bridge.**
+`e` turns the board between drawn and edited.
+While it is edited, the arrows move the block that has focus one cell on the six-column grid, and ⇧ with an arrow resizes it one cell.
+Its arrows never meet a list's: the scope is the board alone, so `move_focus` keeps them everywhere else.
 `⌘↵` is `send_message`'s chord, which the request line answers as Send while it has the keys; `⌘L` and `⌘N` stay the Layout menu's and Dispatch's, so the tab binds neither.
 `↑` and `↓` move through the list or the saved requests an address finds, `↵` opens the row, and `Esc` gives the keys back to the thread.
 

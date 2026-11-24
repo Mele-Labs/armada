@@ -74,6 +74,7 @@ mod palette;
 mod parts;
 mod paste_link;
 mod pasteboard;
+mod project_board;
 mod point;
 mod prototype;
 mod shot_check;

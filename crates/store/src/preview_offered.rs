@@ -115,7 +115,29 @@ impl Store {
             )
             .map_err(fault(doing))
             .map_err(WriteError::Database)?;
+        // A new offer takes the branch back onto the preview, so what was withdrawn of it is forgotten.
+        transaction.execute("DELETE FROM preview_withdrawn WHERE branch = ?1", params![branch]).map_err(fault(doing)).map_err(WriteError::Database)?;
         transaction.commit().map_err(fault(doing)).map_err(WriteError::Database)
+    }
+
+    /// Keep `branch` at `tip` withdrawn by its Job, so a refresh leaves that tip out though the running build holds it.
+    pub fn keep_preview_withdrawn(&mut self, branch: &str, tip: &str, at: &str) -> Result<(), WriteError> {
+        self.conn
+            .execute(
+                "INSERT INTO preview_withdrawn (branch, tip, withdrawn_at) VALUES (?1, ?2, ?3) ON CONFLICT (branch, tip) DO UPDATE SET withdrawn_at = ?3",
+                params![branch, tip, at],
+            )
+            .map_err(fault("keeping a branch withdrawn from the preview"))
+            .map_err(WriteError::Database)?;
+        Ok(())
+    }
+
+    /// Every (branch, tip) a Job withdrew and has not offered again.
+    pub fn preview_withdrawn_all(&self) -> Result<Vec<(String, String)>, WriteError> {
+        let doing = "reading the branches withdrawn from the preview";
+        let mut statement = self.conn.prepare("SELECT branch, tip FROM preview_withdrawn ORDER BY branch, tip").map_err(fault(doing)).map_err(WriteError::Database)?;
+        let rows = statement.query_map([], |row| Ok((row.get(0)?, row.get(1)?))).map_err(fault(doing)).map_err(WriteError::Database)?;
+        rows.collect::<Result<Vec<_>, _>>().map_err(fault(doing)).map_err(WriteError::Database)
     }
 
     /// Every offer, oldest first.

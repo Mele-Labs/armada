@@ -608,6 +608,7 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
     "features",
     "tokens",
     "api-client",
+    "project-board",
   ],
   // The deck's list takes `j`, `k` and `Enter` as any list does. The acts that need a Job or Session in
   // hand (`list and detail`: attest, redirect, kill and the rest) are on its page, not on the deck.
@@ -705,6 +706,10 @@ const PLACES: Readonly<Record<ActionScope, readonly string[]>> = {
   // A Job's API Client tab holds the keys while it has focus, so its keys meet only the global ones.
   "api client": [
     "api-client",
+  ],
+  // The Project place's board holds the keys while it has focus, so its arrows meet only the global ones.
+  "project board": [
+    "project-board",
   ],
 };
 
@@ -866,6 +871,12 @@ export const KEYMAP_GROUPS: readonly KeymapGroup[] = [
     title: "Features",
     scopes: [
       "features",
+    ],
+  },
+  {
+    title: "Project board",
+    scopes: [
+      "project board",
     ],
   },
   {

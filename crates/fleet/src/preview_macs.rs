@@ -3,7 +3,8 @@
 //!
 //! **Only this Mac's own ready offers leave it, and only once they are on origin**: `scripts/preview` on the
 //! other Mac merges a tip it holds, and fetches origin for one it does not. What is held from another Mac never
-//! goes back out. A Mac that is asleep, on another build or never heard from has its offers left out and named.
+//! goes back out. **Any linked Mac's offers count**, asleep or on another build: what is left out is an offer
+//! that cannot build here, one whose tip origin does not have or that fails the check, and each is named.
 //! **One check, for both**: the later offered of two that clash fails, so each Mac reaches the same answer.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -64,11 +65,16 @@ pub(crate) struct Partners {
     names: BTreeMap<String, String>,
 }
 
-fn counted_offers(n: usize) -> String {
-    match n {
-        1 => String::from("Its 1 offer is"),
-        n => format!("Its {n} offers are"),
+/// The why of an offer from another Mac whose tip is in neither this repository nor origin.
+pub(crate) const NOT_ON_ORIGIN: &str = "its tip is not on origin";
+
+/// The sentence `left_out` names an offer of `name`'s with, that cannot build here for `why`.
+fn left_out_why(name: &str, branch: &str, why: &str) -> String {
+    let why = why.trim().trim_end_matches('.');
+    if why == NOT_ON_ORIGIN {
+        return format!("{name}'s {branch} is left out of this refresh: {why}.");
     }
+    format!("{name}'s {branch} is left out of this refresh: it does not build here, {why}.")
 }
 
 /// The merged offers in the order they are checked: oldest offered first, then by branch. **An own offer of a
@@ -146,8 +152,9 @@ where
     W: WorkProduct + Send + Sync + 'static,
     W::Error: std::error::Error + Send + Sync + 'static,
 {
-    /// The ready offers held from other Macs. **A Mac counts only where it is linked, awake and on this build**;
-    /// any other with offers held is named in `left_out`, and its offers are in no row and no file.
+    /// The offers held from other Macs. **Every linked Mac counts**, asleep or on another build: a wire that
+    /// differs does not stop a branch building here. An offer this Mac's check failed, or whose tip origin lacks, is
+    /// a row as it stands and is named in `left_out`; only a ready one is in the file.
     pub(crate) async fn partners_read(&self) -> Partners {
         let (held, paired) = {
             let store = self.store().lock().await;
@@ -165,7 +172,6 @@ where
             .collect();
         let verdicts = self.previewing().macs.verdicts.lock().expect("not poisoned");
         let build = self.preview_build();
-        let wire = ipc::ProtocolId::current();
         let mut found = Partners::default();
         let mut by_mac: BTreeMap<String, Vec<PreviewOfferRow>> = BTreeMap::new();
         for one in held {
@@ -176,21 +182,7 @@ where
         for (mac, rows) in by_mac {
             let Some(linked) = paired.iter().find(|one| one.id == mac && one.state == MacState::Linked) else { continue };
             let name = linked.name.clone();
-            let why = if linked.asleep_since.is_some() {
-                Some("is asleep")
-            } else if linked.wire.is_none() {
-                Some("has not been heard from")
-            } else if linked.wire.as_deref() != Some(wire.as_str()) {
-                Some("runs another build")
-            } else {
-                None
-            };
-            if let Some(why) = why {
-                let said = format!("{name} {why}. {} left out of this refresh.", counted_offers(rows.len()));
-                found.left_out.push(PreviewLeftOut { mac: mac.clone(), name, why: said });
-                continue;
-            }
-            found.names.insert(mac.clone(), name);
+            found.names.insert(mac.clone(), name.clone());
             for mut row in rows {
                 let key = (mac.clone(), row.branch.clone());
                 row.mac = Some(mac.clone());
@@ -202,6 +194,10 @@ where
                 row.state = kept.map_or(PreviewState::Checking, |kept| kept.state);
                 row.why = kept.and_then(|kept| kept.why.clone());
                 row.files = kept.map(|kept| kept.files.clone()).unwrap_or_default();
+                if row.state == PreviewState::Failed {
+                    let why = left_out_why(&name, &row.branch, row.why.as_deref().unwrap_or("it did not check"));
+                    found.left_out.push(PreviewLeftOut { mac: mac.clone(), name: name.clone(), why });
+                }
                 found.offers.push(row);
             }
         }

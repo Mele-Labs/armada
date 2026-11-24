@@ -137,6 +137,8 @@ const CONTEXTS_FOR: Readonly<Record<ActionScope, readonly ActionContext[]>> = {
   "api client": [],
   // The Features tab's keys, in the native Bridge only: found from Settings → Keyboard.
   features: [],
+  // The Project place's board keys, in the native Bridge only: found from Settings → Keyboard.
+  "project board": [],
 };
 
 /**

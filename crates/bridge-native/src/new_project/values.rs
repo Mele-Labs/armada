@@ -188,6 +188,7 @@ pub fn values_of(picked: &HashMap<Key, String>, inherited: &HashMap<Key, String>
         theme: changed(Key::Theme).filter(|word| !word.is_empty()),
         layout: changed(Key::Layout).filter(|word| !word.is_empty()),
         density: changed(Key::Density),
+        ..LookSet::default()
     };
     if look != LookSet::default() {
         set.look = Some(look);

@@ -179,6 +179,27 @@ pub struct Look {
     pub theme: Option<String>,
     /// `compact`, `default` or `roomy`.
     pub density: Option<String>,
+    /// Where each block of the project's dashboard stands. **A project's own and none of the layers' to lay over**:
+    /// a project that saved none has none, and Bridge draws its preset.
+    pub board: Option<Board>,
+}
+
+/// A project's dashboard board, as it is kept.
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub struct Board {
+    pub blocks: alloc::vec::Vec<BoardBlock>,
+}
+
+/// One block of the board. `kind` and `view` are Bridge's words, **kept as written whether or not this build knows
+/// them**, so a block kind a later Bridge adds survives a save by this one.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct BoardBlock {
+    pub kind: String,
+    pub x: u8,
+    pub y: u8,
+    pub w: u8,
+    pub h: u8,
+    pub view: String,
 }
 
 impl Values {

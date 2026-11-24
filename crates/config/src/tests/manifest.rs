@@ -74,6 +74,24 @@ fn destructive_is_read_when_present_and_false_when_absent() {
 }
 
 #[test]
+fn confirm_is_read_on_a_command_and_a_server_and_false_when_absent() {
+    let manifest = parse(
+        "version: 1\nid: armada\ncommands:\n  migrate:\n    run: make migrate\n    confirm: true\n  fmt:\n    run: make fmt\n  web:\n    serve: make web\n    confirm: true\n",
+    )
+    .expect("confirm is a key of a Command");
+    assert!(manifest.command("migrate").expect("migrate").confirms());
+    assert!(!manifest.command("fmt").expect("fmt").confirms());
+    assert!(manifest.server("web").expect("web").confirms());
+    assert_eq!(manifest.confirm_names(), ["migrate", "web"]);
+}
+
+#[test]
+fn confirm_that_is_not_a_flag_is_refused() {
+    let refused = refusals(parse("version: 1\nid: armada\ncommands:\n  reset:\n    run: x\n    confirm: maybe\n"));
+    assert_eq!(fault_at(&refused, "commands.reset.confirm"), &Fault::WrongType { wanted: "true or false", found: "text" });
+}
+
+#[test]
 fn a_repository_that_names_no_base_says_nothing_rather_than_guessing() {
     // Absent is not `main`. Inference happens where a repository can be read,
     // and a default written here would be a guess nothing could tell from an

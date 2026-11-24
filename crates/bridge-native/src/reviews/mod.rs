@@ -376,6 +376,23 @@ impl ReviewsScreen {
         cx.notify();
     }
 
+    /// The inbox's rows, each with its repository's manifest id where Fleet gave one, for the Project place's Reviews block.
+    pub fn listed_rows(&self) -> Vec<(Option<String>, &model::InboxRow)> {
+        self.inbox.rows.iter().map(|row| (self.manifest_of(row.number), row)).collect()
+    }
+
+    /// Whether the forge's lists have been read, so a block drawn from them knows an empty list from one not yet read.
+    pub fn lists_read(&self) -> bool {
+        self.refreshed
+    }
+
+    /// Read the forge's lists where they have not been read, as the first visit to Reviews does, with the screen not in front.
+    pub fn ensure_lists(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.refreshed && self.refresh.is_none() {
+            self.start_refresh(window, cx);
+        }
+    }
+
     /// Another place in front: the title bar's slot is empty again.
     pub fn leave(&mut self, cx: &mut Context<Self>) {
         if let Some(number) = self.open.filter(|_| self.is_live()) {
