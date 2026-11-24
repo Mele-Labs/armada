@@ -2168,8 +2168,8 @@ A project that picked none sends nothing, and its store state says "No login is 
 Since 20 Nov 2026. `docs/concepts/artifact.md`, *Parts*; `docs/concepts/session/waiting-on-the-person.md`.
 The owner ruled it on 19 Nov 2026: one ask, one item, one place, each titled with its question.
 **Additive only**: optional fields on existing types and two new types; no operation, route or event kind.
-The protocol ID moves with `crates/ipc/src`, `crates/ipc/operations` and `packages/protocol/src`, and there is no number to take.
-Bridge's half is `packages/protocol/src/sessions.ts` and `job-artifacts.ts`, written by hand, field for field.
+The protocol ID moves with `crates/ipc/src` and `crates/ipc/operations`, and there is no number to take.
+Classic's half was `classic-final:packages/protocol/src/sessions.ts` and `job-artifacts.ts`, written by hand, field for field.
 
 | Where | Side | Carries |
 | --- | --- | --- |
