@@ -30,6 +30,13 @@ glyph = "layout-template"
 hue = "--ask-sketch"
 line = "draw it with `show_sketch` as a `mock` of the screen"
 
+[tools.prototype]
+name = "Prototype"
+says = "a screen you click through"
+glyph = "app-window"
+hue = "--ask-prototype"
+line = "show it with `show_prototype`: write the scene under `$ARMADA_SCRATCH/scenes/` as that tool says, call it once, then edit the files, since each save redraws it"
+
 [tools.diagram]
 name = "Diagram"
 says = "boxes and arrows: a flow or a map"

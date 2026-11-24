@@ -501,13 +501,14 @@ a mark, a badge or a solid band.
 
 ## Ask tools
 
-Which of Armada's own tools a message asks the agent for, in eight hues, declared in `tokens/ask-tools.css`.
+Which of Armada's own tools a message asks the agent for, in nine hues, declared in `tokens/ask-tools.css`.
 Its own file under the owner's ruling of 9 Nov 2026, so it borrows neither the node kinds nor the tool families.
 A tool is picked from the + in the native message box's bar, or `ask_for_tool` (⌘/), and sits in the words as a chip.
 
 ```
                  dark      light
 --ask-sketch     #AD9BF5   #6A4FC8   a screen drawn as a mock
+--ask-prototype  #C9CC70   #5F6418   a screen he clicks through
 --ask-diagram    #86A8F0   #3C62B8   boxes and arrows: a flow or a map
 --ask-takes      #DDB66C   #835F10   options side by side, one picked
 --ask-document   #72C7DE   #1D6F86   a page he reads and approves
@@ -521,7 +522,7 @@ A tool is picked from the + in the native message box's bar, or `ask_for_tool` (
 The chip's fill is the hue at 16%, its edge the hue at 60%, and its words stay `--fg-default`.
 The list the + opens draws each row's glyph in its tool's hue.
 
-**Eight hues, none shared, and none a status's.**
+**Nine hues, none shared, and none a status's.**
 Each sits nearest one status and is told apart by being lighter and softer, as the kinds are: the takes near `awaiting_review`, the browser near `handed_in`, the terminal near `completed_success`.
 A chip is never a status's mark, badge or band, so the two never share a slot.
 

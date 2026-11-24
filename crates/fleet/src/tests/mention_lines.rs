@@ -103,6 +103,15 @@ fn a_tool_is_said_as_the_armada_tool_the_agent_uses() {
 }
 
 #[test]
+fn a_prototype_is_said_as_a_scene_shown_once_and_redrawn_on_save() {
+    let line = mention_line(&[tag(TagKind::Tool, "prototype", "Prototype", None)]);
+    assert_eq!(
+        line.as_deref(),
+        Some("The person asked for Prototype: show it with `show_prototype`: write the scene under `$ARMADA_SCRATCH/scenes/` as that tool says, call it once, then edit the files, since each save redraws it.")
+    );
+}
+
+#[test]
 fn the_api_client_names_each_requests_tool_the_agent_can_call() {
     let line = mention_line(&[tag(TagKind::Tool, "api-client", "API Client", None)]);
     assert_eq!(
