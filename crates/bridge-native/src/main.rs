@@ -139,6 +139,7 @@ usage: bridge-native [--mock <scenario>]
        bridge-native --walk <name> [--check] [--shots <dir>] [--hold <ms>] [--pace <ms>] [--width <points>] [--height <points>] [--take <name>=<walk>]...
                      [--job <id> --url <url> --fleet-port <port>]
        bridge-native --prototype-shots <dir>
+       bridge-native --system-shots <dir>
        bridge-native --shot-check <scene.html> --out <dir> [--fixtures-dir <dir>] [--against <scene.html>] [--width <points>] [--height <points>]
        bridge-native --list-walks
 
@@ -154,6 +155,7 @@ With no flags it opens on the Fleet this Mac runs.
   --take <name>=<walk>  a take the walk's bar offers, once for each, in the bar's order
   --job, --url, --fleet-port  walk a live Job's page on a running Fleet; the three come together
   --prototype-shots <dir>  draw the mock prototype with no window on screen, keep a picture of each state in <dir>, print how long it took to draw, and exit
+  --system-shots <dir>  draw the System block of the mock Fleet at 1400 and 900 wide in six states with no window on screen, keep a picture of each in <dir>, and exit
   --shot-check <scene.html>  draw each state of the scene and the step of the walk it names for that state, compare the two, and exit 1 when any has drifted or has no step
   --out <dir>         with --shot-check, where report.json and each state's side-by-side and difference pictures go
   --fixtures-dir <dir>  with --shot-check, where the scene's fixtures are, the scene's own folder where left out
@@ -163,7 +165,7 @@ With no flags it opens on the Fleet this Mac runs.
 ";
 
 /// The flags the command line reads that take a value, and those that stand alone.
-const VALUED: [&str; 16] = ["--shot-check", "--fixtures-dir", "--out", "--against", "--prototype-shots", "--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
+const VALUED: [&str; 17] = ["--system-shots", "--shot-check", "--fixtures-dir", "--out", "--against", "--prototype-shots", "--walk", "--job", "--url", "--fleet-port", "--shots", "--hold", "--pace", "--width", "--height", "--take", "--mock"];
 const BARE: [&str; 2] = ["--check", "--list-walks"];
 
 /// What the command line asked for.
@@ -174,6 +176,7 @@ enum Mode {
     Live,
     /// The mock prototype drawn headless into a directory, and timed.
     Prototype(PathBuf),
+    SystemShots(PathBuf),
     /// A scene's states set against the built screen's steps, headless.
     ShotCheck(shot_check::Args),
     Mock(String),
@@ -199,6 +202,9 @@ fn mode_of(args: &[String]) -> Result<Mode, String> {
     let value = |flag: &str| args.iter().position(|arg| arg == flag).map(|at| args.get(at + 1).cloned().ok_or(format!("{flag} needs a value")));
     if let Some(dir) = value("--prototype-shots").transpose()? {
         return Ok(Mode::Prototype(PathBuf::from(dir)));
+    }
+    if let Some(dir) = value("--system-shots").transpose()? {
+        return Ok(Mode::SystemShots(PathBuf::from(dir)));
     }
     if let Some(scene) = value("--shot-check").transpose()? {
         let points = |flag: &str| value(flag).transpose().and_then(|wide| wide.map(|wide| wide.parse::<f32>().map_err(|_| format!("{flag} {wide} is not a number of points"))).transpose());
@@ -304,6 +310,15 @@ fn main() -> ExitCode {
             }
         };
     }
+    if let Mode::SystemShots(dir) = &mode {
+        return match project_board::system::shots::shoot(dir) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(why) => {
+                log::Note::warn("the System block was not drawn").field("why", why).emit();
+                ExitCode::FAILURE
+            }
+        };
+    }
     if let Mode::ShotCheck(args) = &mode {
         return match shot_check::run(args) {
             Ok(report) => {
@@ -394,7 +409,7 @@ fn main() -> ExitCode {
         };
         let opened = match mode {
             // Printed and gone before the app starts.
-            Mode::Help | Mode::Walks | Mode::Prototype(_) | Mode::ShotCheck(_) => Ok(()),
+            Mode::Help | Mode::Walks | Mode::Prototype(_) | Mode::SystemShots(_) | Mode::ShotCheck(_) => Ok(()),
             Mode::Live => cx
                 .open_window(options("Armada".into()), |window, cx| {
                     ui_sounds::allow();

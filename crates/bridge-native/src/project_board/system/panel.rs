@@ -103,7 +103,7 @@ fn subject(this: &SystemBlock) -> Subject {
     }
 }
 
-pub(super) fn draw(this: &mut SystemBlock, look: &Look, window: &mut Window, cx: &mut Context<SystemBlock>) -> AnyElement {
+pub(super) fn draw(this: &mut SystemBlock, look: &Look, stacked: bool, window: &mut Window, cx: &mut Context<SystemBlock>) -> AnyElement {
     let subject = subject(this);
     let (name, header) = match &subject {
         Subject::Project => (this.project_name().to_string(), head(this, look, glyph_name(SystemPartKind::Piece), token::ACCENT, this.project_name().to_string(), "project".to_string(), String::new(), Vec::new(), cx)),
@@ -115,7 +115,7 @@ pub(super) fn draw(this: &mut SystemBlock, look: &Look, window: &mut Window, cx:
                 "Open feature page",
             )
             .into_any_element()];
-            (title.clone(), head(this, look, "layers", token::ASK_FEATURES, title.clone(), "feature".to_string(), String::new(), buttons, cx))
+            (title.clone(), head(this, look, "layers", token::SKETCH_GREEN, title.clone(), "feature".to_string(), String::new(), buttons, cx))
         }
         Subject::Part(part) => {
             let kind = kind_of(part.kind, part.within.as_deref(), this.top());
@@ -130,20 +130,11 @@ pub(super) fn draw(this: &mut SystemBlock, look: &Look, window: &mut Window, cx:
         },
         _ => Vec::new(),
     };
+    let frame = div().id("system-panel").flex_none().border_color(look.color(token::BORDER_SUBTLE)).bg(look.color(token::BG_SUNKEN)).p(look.length(token::SPACE_4));
+    // Beside the graph the panel scrolls on its own; under it, it is as tall as it is and the block scrolls.
+    let frame = if stacked { frame.w_full().border_t(look.length(token::BORDER_WIDTH)) } else { frame.w(look.length(token::W_DOCK)).h_full().min_h_0().overflow_y_scroll().border_l(look.length(token::BORDER_WIDTH)) };
     labelled(
-        div()
-            .id("system-panel")
-            .flex_none()
-            .w(look.length(token::W_DOCK))
-            .h_full()
-            .min_h_0()
-            .overflow_y_scroll()
-            .border_l(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .bg(look.color(token::BG_SUNKEN))
-            .p(look.length(token::SPACE_4))
-            .child(header)
-            .children(sections),
+        frame.child(header).children(sections),
         Role::Region,
         format!("About {name}"),
     )
@@ -202,11 +193,6 @@ fn head(this: &SystemBlock, look: &Look, mark: &'static str, hue: Token, name: S
         .flex()
         .flex_col()
         .gap(look.length(token::SPACE_2))
-        .p(look.length(token::SPACE_3))
-        .rounded(look.length(token::RADIUS_LG))
-        .border(look.length(token::BORDER_WIDTH))
-        .border_color(look.color(token::BORDER_SUBTLE))
-        .bg(ink.opacity(0.08))
         .child(
             div()
                 .flex()
@@ -231,7 +217,7 @@ fn head(this: &SystemBlock, look: &Look, mark: &'static str, hue: Token, name: S
                         .child(div().truncate().font_family(mono(look)).text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_SUBTLE)).child(SharedString::from(kind))),
                 ),
         )
-        .children((!summary.is_empty()).then(|| div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(summary))))
+        .children((!summary.is_empty()).then(|| div().text_size(look.length(token::TEXT_XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(summary))))
         .children(why.map(|why| div().text_size(look.length(token::TEXT_2XS)).text_color(look.color(token::FG_MUTED)).child(SharedString::from(format!("From the librarian: {why}")))))
         .children((!buttons.is_empty()).then(|| div().flex().flex_wrap().gap(look.length(token::SPACE_2)).children(buttons)))
         .children(note)
@@ -378,7 +364,7 @@ fn pressable(look: &Look, key: String, said: String, row: gpui::Div, press: impl
 }
 
 fn sections(this: &SystemBlock, part: &SystemPart, answers: &SystemPartAnswers, look: &Look, window: &Window, cx: &mut Context<SystemBlock>) -> Vec<AnyElement> {
-    let hue = look.color(token::ASK_FEATURES);
+    let hue = look.color(token::SKETCH_GREEN);
     let mut out = Vec::new();
 
     // Features

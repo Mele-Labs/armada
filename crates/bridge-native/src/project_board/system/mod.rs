@@ -12,6 +12,7 @@ mod arrange;
 mod graph;
 pub(super) mod mock;
 mod panel;
+pub mod shots;
 mod trail;
 mod tree;
 mod wire;

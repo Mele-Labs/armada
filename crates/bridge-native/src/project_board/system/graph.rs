@@ -29,6 +29,7 @@ pub(super) fn metrics(look: &Look) -> Metrics {
         lane_gap: len(token::SPACE_8) + len(token::SPACE_2),
         col_gap: len(token::SPACE_12) + len(token::SPACE_4),
         bottom: len(token::SPACE_4) + len(token::SPACE_1),
+        column: len(token::SPACE_12) * 3.5,
     }
 }
 
@@ -114,21 +115,24 @@ fn measure(seen: Rc<Cell<Option<Bounds<Pixels>>>>, block: gpui::WeakEntity<Syste
 pub(super) fn draw(this: &mut SystemBlock, window: &mut Window, cx: &mut Context<SystemBlock>) -> AnyElement {
     let look = cx.look().clone();
     let crumbs = crumbs(this, &look, cx);
-    let room = room(this, &look, window, cx);
+    // A block narrower than two columns of room has its panel under the graph, and the whole block scrolls.
+    let stacked = f32::from(window.viewport_size().width) < f32::from(look.length(token::SPACE_12)) * 20.;
+    let room = room(this, &look, stacked, window, cx);
     let strip = features_strip(this, &look, cx);
-    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room).children(strip);
-    let panel = panel::draw(this, &look, window, cx);
-    div()
+    let panel = panel::draw(this, &look, stacked, window, cx);
+    let body = div()
         .id("system-body")
         .size_full()
         .min_h_0()
         .flex()
         .font_family(sans(&look))
         .text_color(look.color(token::FG_DEFAULT))
-        .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| this.on_key(event, window, cx)))
-        .child(left)
-        .child(panel)
-        .into_any_element()
+        .on_key_down(cx.listener(|this, event: &gpui::KeyDownEvent, window, cx| this.on_key(event, window, cx)));
+    if stacked {
+        return body.flex_col().overflow_y_scroll().child(crumbs).child(room).children(strip).child(panel).into_any_element();
+    }
+    let left = div().flex_1().min_w_0().min_h_0().flex().flex_col().child(crumbs).child(room).children(strip);
+    body.child(left).child(panel).into_any_element()
 }
 
 // ---- the levels along the top ----------------------------------------------------------------------
@@ -197,10 +201,11 @@ fn crumbs(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>) -> Any
 
 // ---- the room the graph stands in ---------------------------------------------------------------------
 
-fn room(this: &mut SystemBlock, look: &Look, window: &mut Window, cx: &mut Context<SystemBlock>) -> AnyElement {
+fn room(this: &mut SystemBlock, look: &Look, natural: bool, window: &mut Window, cx: &mut Context<SystemBlock>) -> AnyElement {
     let seen = this.stage_seen();
     let measuring = measure(seen.clone(), cx.entity().downgrade());
     let size = seen.get().map(|bounds| (f32::from(bounds.size.width), f32::from(bounds.size.height)));
+    let mut tall = None;
     let content = match (this.level_read().cloned(), size) {
         (_, None) => None,
         (None | Some(Read::Reading), Some(_)) => Some(skeleton(look)),
@@ -223,22 +228,24 @@ fn room(this: &mut SystemBlock, look: &Look, window: &mut Window, cx: &mut Conte
                 View::List => Some(list(this, &map, top.as_ref(), look, cx)),
                 _ => {
                     let inner = (width - f32::from(look.length(token::SPACE_4)) * 2.).max(0.);
-                    let arranged = this.arranged(look, (inner, height)).cloned();
+                    // The arrangement is as tall as its parts need, whatever room there is.
+                    let arranged = this.arranged(look, (inner, 0.)).cloned();
+                    tall = arranged.as_ref().map(|arranged| arranged.height);
+                    let _ = height;
                     arranged.map(|arranged| stage(this, &arranged, &map, top.as_ref(), look, window, cx))
                 }
             }
         }
     };
-    div()
-        .relative()
-        .flex_1()
-        .min_h_0()
-        .child(measuring)
+    let frame = div().relative().child(measuring);
+    // Stacked over its panel the graph is as tall as it is; beside it, it fills what is left and scrolls.
+    let frame = if natural { frame.flex_none().h(px(tall.unwrap_or_else(|| f32::from(look.length(token::SPACE_12)) * 4.))) } else { frame.flex_1().min_h_0() };
+    frame
         .child(labelled(
             div()
                 .id("system-graph")
                 .size_full()
-                .overflow_y_scroll()
+                .overflow_scroll()
                 .px(look.length(token::SPACE_4))
                 .track_focus(&this.focus)
                 .focus_visible(|style| style)
@@ -577,7 +584,7 @@ fn features_strip(this: &SystemBlock, look: &Look, cx: &mut Context<SystemBlock>
         return None;
     }
     let ring = ring_colour(look);
-    let hue = look.color(token::ASK_FEATURES);
+    let hue = look.color(token::SKETCH_GREEN);
     let items = map.features.iter().map(|feature| {
         let (slug, hover_slug, leave_slug) = (feature.slug.clone(), feature.slug.clone(), feature.slug.clone());
         labelled(

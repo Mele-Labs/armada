@@ -55,11 +55,13 @@ pub struct Metrics {
     /// Between two columns inside the boundary.
     pub col_gap: f32,
     pub bottom: f32,
+    /// The least a part's column is wide: a block narrower than what its columns need scrolls across instead of squeezing names away.
+    pub column: f32,
 }
 
 impl Default for Metrics {
     fn default() -> Self {
-        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20. }
+        Metrics { node: 52., node_plain: 42., file: 15., gap: 16., lane_head: 30., lane_pad: 20., lane_gap: 40., col_gap: 64., bottom: 20., column: 170. }
     }
 }
 
@@ -326,7 +328,7 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
     let inner_gaps: usize = cols_in_lane.iter().map(|count| count.saturating_sub(1)).sum();
     let room = width - metrics.lane_gap * lane_count.saturating_sub(1) as f32 - metrics.lane_pad * 2. * lane_count as f32 - metrics.col_gap * inner_gaps as f32;
     let weights: f32 = (0..lane_count).map(|lane| weight_of(lane) * cols_in_lane[lane] as f32).sum::<f32>().max(0.1);
-    let unit = (room / weights).max(40.);
+    let unit = (room / weights).max(metrics.column);
 
     let mut col_x = vec![0f32; total_cols];
     let mut col_w = vec![0f32; total_cols];
@@ -349,20 +351,18 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         x += metrics.lane_gap;
     }
 
+    let extent = (x - metrics.lane_gap).max(width);
+
     // ---- vertical order and place ---------------------------------------------------------------------------------------
     let mut stack: Vec<Vec<usize>> = vec![Vec::new(); total_cols];
     for (at, col) in col_of.iter().enumerate() {
         stack[*col].push(at);
     }
-    let top = metrics.lane_head + 8.;
-    let need = stack.iter().map(|col| col.iter().map(|&at| heights[at]).sum::<f32>() + metrics.gap * col.len().saturating_sub(1) as f32).fold(0., f32::max);
-    let height = (top + need + metrics.bottom).max(min_height);
-    let area = height - top - metrics.bottom;
+    let top = metrics.lane_head + metrics.gap / 2.;
     let mut centre_y = vec![f32::NAN; parts.len()];
     let mut ys = vec![0f32; parts.len()];
     for col in 0..total_cols {
         // Parts that reach into this column from earlier ones stand level with what they reach, which keeps the curves short.
-        let length = stack[col].len() as f32;
         let mut keyed: Vec<(f32, usize)> = stack[col]
             .iter()
             .enumerate()
@@ -376,24 +376,21 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
                         centre_y[other].is_finite().then_some(centre_y[other])
                     })
                     .collect();
-                let key = if near.is_empty() { top + area * (rank as f32 + 0.5) / length } else { near.iter().sum::<f32>() / near.len() as f32 };
+                let key = if near.is_empty() { top + rank as f32 } else { near.iter().sum::<f32>() / near.len() as f32 };
                 (key, at)
             })
             .collect();
         keyed.sort_by(|a, b| a.0.partial_cmp(&b.0).unwrap_or(std::cmp::Ordering::Equal));
-        let ordered: Vec<usize> = keyed.into_iter().map(|(_, at)| at).collect();
-        let used: f32 = ordered.iter().map(|&at| heights[at]).sum();
-        let free = area - used;
-        let count = ordered.len() as f32;
-        // Spread evenly where the column has room for it, else stack with the least gap and centre the stack.
-        let (start, between) = if free / (count + 1.) >= metrics.gap { (free / (count + 1.), free / (count + 1.)) } else { (((free - metrics.gap * (count - 1.)) / 2.).max(0.), metrics.gap) };
-        let mut y = top + start;
-        for &at in &ordered {
+        // Each stands where it wants to, pushed down only as far as the one above it needs.
+        let mut floor = top;
+        for (key, at) in keyed {
+            let y = (key - heights[at] / 2.).max(floor);
             ys[at] = y;
             centre_y[at] = y + heights[at] / 2.;
-            y += heights[at] + between;
+            floor = y + heights[at] + metrics.gap;
         }
     }
+    let height = (0..parts.len()).map(|at| ys[at] + heights[at]).fold(top, f32::max) + metrics.bottom;
 
     let nodes: Vec<Node> = parts
         .iter()
@@ -412,7 +409,7 @@ pub fn arrange(map: &SystemMap, depth: usize, project: &str, title_of: &dyn Fn(&
         .collect();
     let lanes: Vec<Lane> = lane_rects.iter().zip(&lane_titles).map(|(&(x, w), (title, kind))| Lane { rect: Rect { x, y: 0., w, h: height }, title: title.clone(), kind: *kind }).collect();
     let edges = join(map, &index, &nodes);
-    Arranged { lanes, nodes, edges, width, height }
+    Arranged { lanes, nodes, edges, width: extent, height }
 }
 
 /// Each link as a curve between a port on one part's side and a port on the other's.

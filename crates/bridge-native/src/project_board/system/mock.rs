@@ -75,7 +75,7 @@ fn armada_one(base: SystemMap) -> SystemMap {
         part("cli", "armada CLI", Entry, "The command.", &["crates/armada/"], false),
         part("api", "Fleet API", Entry, "What agents call: HTTP and the MCP tools, served by Fleet.", &["crates/ipc/operations/", "crates/fleet/src/session_host/"], false),
         part("fleet", "Fleet daemon", Service, "Runs Jobs, checks their work, serves every entry point.", &["crates/fleet/"], false),
-        part("central", "Central store", Service, "Claims and profiles across Macs.", &["apps/store/"], false),
+        part("central", "Central store", Store, "Claims and profiles across Macs.", &["apps/store/"], false),
         part("sqlite", "armada.sqlite", Store, "Jobs, features, issue lists.", &["crates/store/"], false),
         part("gh", "GitHub", Outside, "Pull requests, issues, checks.", &[], false),
         part("cc", "Claude Code", Outside, "The agent CLI each Job runs.", &[], false),
@@ -299,6 +299,13 @@ fn blank(project: &str, part: &str, tracker: bool, has_screen: bool) -> SystemPa
     }
 }
 
+/// The paths the mock gives a part on any of its levels, where the part has its own and nothing else is said of it.
+fn paths_of(project: &str, id: &str) -> Vec<String> {
+    let found = |map: SystemMap| map.parts.into_iter().find(|part| part.id == id).map(|part| part.paths);
+    let all = [map(project, None, None), map(project, Some("bridge"), None), map(project, Some("web"), None)];
+    all.into_iter().find_map(found).unwrap_or_default()
+}
+
 /// What Fleet knows of one part. A part the mock has nothing for answers with every section empty, as Fleet does for one it has
 /// found nothing about.
 pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
@@ -351,7 +358,7 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
                 ..base
             },
             "you" | "agents" | "gh" | "cc" | "cf" => base,
-            other => SystemPartAnswers { code: vec![format!("{other}/")], owners: owner(100), ..base },
+            other => SystemPartAnswers { code: paths_of(project, other), owners: owner(100), ..base },
         };
     }
     let base = blank(project, part, false, false);
@@ -374,7 +381,7 @@ pub fn answers(project: &str, part: &str) -> SystemPartAnswers {
             ..base
         },
         "you" | "ynab" | "shops" | "bank" => base,
-        other => SystemPartAnswers { code: vec![format!("{other}/")], owners: owner(100), ..base },
+        other => SystemPartAnswers { code: paths_of(project, other), owners: owner(100), ..base },
     }
 }
 
