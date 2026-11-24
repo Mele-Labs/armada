@@ -44,7 +44,5 @@ pub fn the_generated_vocabulary_says_what_the_registries_say(root: &Path) -> Rep
     report
 }
 
-pub mod readers;
-
 #[cfg(test)]
 mod tests;

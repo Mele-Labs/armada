@@ -1,8 +1,7 @@
-//! A Studio's kinds are one set across the registry, the enums, the store and
-//! the wire.
+//! A Studio's kinds are one set across the registry, the enums and the store.
 //!
-//! They were spelled in three places nothing compared — `core-model`'s enums,
-//! the store's `CHECK` constraints and the TypeScript mirror — so a kind added
+//! They were spelled in places nothing compared — `core-model`'s enums, the
+//! store's `CHECK` constraints and a TypeScript mirror, since deleted — so a kind added
 //! to one and not the others merged green and failed the first time a person
 //! met it. `crates/core-model/domain/studio-kinds.toml` is the authority, this
 //! rule is what keeps it from being a fourth copy, and `#1313` is why.
@@ -27,7 +26,6 @@ pub mod sources;
 const REGISTRY: &str = "crates/core-model/domain/studio-kinds.toml";
 const MODEL: &str = "crates/core-model/src/studio.rs";
 const STORE: &str = "crates/store/src/studio.rs";
-const WIRE: &str = "packages/protocol/src/studio.ts";
 const LEXICON: &str = "docs/contracts/design-system/voice-copy.md";
 
 /// Node kinds the store's `CHECK` still spells and nothing else does. A
@@ -61,12 +59,11 @@ impl Kinds {
     }
 }
 
-/// Rule: a Studio's kinds are one set across the registry, the enums, the store
-/// and the wire.
+/// Rule: a Studio's kinds are one set across the registry, the enums and the
+/// store.
 pub fn the_kinds_are_one_set_everywhere(root: &Path) -> Report {
-    let mut report = Report::new(
-        "a Studio's kinds are one set across the registry, the enums, the store and the wire",
-    );
+    let mut report =
+        Report::new("a Studio's kinds are one set across the registry, the enums and the store");
 
     let Some(kinds) = read(root, &mut report) else {
         return report;
@@ -87,20 +84,12 @@ pub fn the_kinds_are_one_set_everywhere(root: &Path) -> Report {
     ) else {
         return report;
     };
-    let Some(wire) = source(
-        root,
-        WIRE,
-        "the mirror the whiteboard draws from",
-        &mut report,
-    ) else {
-        return report;
-    };
 
-    sets(&kinds, &model, &store, &wire, &mut report);
+    sets(&kinds, &model, &store, &mut report);
     holds::status_colour(&kinds, &mut report);
     holds::states_per_kind(&kinds, &model, &mut report);
-    holds::drawn_by(&kinds, &model, &store, &wire, &mut report);
-    holds::added_by_hand(&kinds, &model, &wire, &mut report);
+    holds::drawn_by(&kinds, &model, &store, &mut report);
+    holds::added_by_hand(&kinds, &model, &mut report);
     holds::promotions(&kinds, &mut report);
     holds::lexicon(root, &kinds, &mut report);
 
@@ -108,7 +97,7 @@ pub fn the_kinds_are_one_set_everywhere(root: &Path) -> Report {
 }
 
 /// Every set, against every other place it is spelled.
-fn sets(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report) {
+fn sets(kinds: &Kinds, model: &str, store: &str, report: &mut Report) {
     let nodes = kinds.node_keys();
     same_set(
         report,
@@ -134,17 +123,6 @@ fn sets(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report
             absent_there: "every write of one is refused by the `CHECK`, at runtime. Widening a \
                            `CHECK` is a new migration, never an edit to one that has run",
             absent_here: "a row may hold a kind nothing else knows, and it reads back as `None`",
-        },
-    );
-    same_set(
-        report,
-        "node kind",
-        &nodes,
-        &sources::tags(wire, "StudioNodeContent"),
-        Side {
-            path: WIRE,
-            absent_there: "the whiteboard meets a node whose content it cannot type",
-            absent_here: "a client may send a kind Fleet has no variant for",
         },
     );
 
@@ -207,17 +185,6 @@ fn sets(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report
             absent_here: "a state reaches a node that the registry never sanctioned",
         },
     );
-    same_set(
-        report,
-        "forge state",
-        &forge,
-        &sources::literals(wire, "ForgeState"),
-        Side {
-            path: WIRE,
-            absent_there: "an Issue arrives in a state the whiteboard cannot draw",
-            absent_here: "the mirror offers a state Fleet never sends",
-        },
-    );
 
     same_set(
         report,
@@ -228,17 +195,6 @@ fn sets(kinds: &Kinds, model: &str, store: &str, wire: &str, report: &mut Report
             path: MODEL,
             absent_there: "a read-in cannot be asked for it",
             absent_here: "an answer exists that the registry never sanctioned",
-        },
-    );
-    same_set(
-        report,
-        "Epic take",
-        &kinds.epic_take,
-        &sources::literals(wire, "EpicTake"),
-        Side {
-            path: WIRE,
-            absent_there: "Bridge cannot ask for it",
-            absent_here: "Bridge may ask for an answer Fleet has no variant for",
         },
     );
 
