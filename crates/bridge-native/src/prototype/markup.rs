@@ -80,7 +80,17 @@ pub struct Scene {
     pub fixtures: Vec<FixtureDecl>,
     /// The ids of the `<state>` parts, in the order they are written.
     pub states: Vec<String>,
+    /// The same states as he reads them in the head: each one's name and what it shows.
+    pub views: Vec<View>,
     pub root: Node,
+}
+
+/// A `<state id title says>` as the head's tile draws it: `title` names it, else its id does, and `says` is what it shows.
+#[derive(Clone, Debug, PartialEq)]
+pub struct View {
+    pub id: String,
+    pub title: String,
+    pub says: Option<String>,
 }
 
 impl Scene {
@@ -101,19 +111,21 @@ pub fn parse(markup: &str) -> Result<Scene, String> {
         None => return Err("the markup has no <scene>".to_string()),
     };
     let mut fixtures = Vec::new();
-    let mut states = Vec::new();
-    collect(&root, &mut fixtures, &mut states);
+    let mut views = Vec::new();
+    collect(&root, &mut fixtures, &mut views);
+    let states = views.iter().map(|view: &View| view.id.clone()).collect();
     Ok(Scene {
         title: root.attr("title").unwrap_or_default().to_string(),
         first: root.attr("first").map(str::to_string),
         walk: root.attr("walk").map(str::to_string),
         fixtures,
         states,
+        views,
         root,
     })
 }
 
-fn collect(at: &Node, fixtures: &mut Vec<FixtureDecl>, states: &mut Vec<String>) {
+fn collect(at: &Node, fixtures: &mut Vec<FixtureDecl>, views: &mut Vec<View>) {
     for node in at.nodes() {
         match node.tag.as_str() {
             "fixture" => fixtures.push(FixtureDecl {
@@ -121,10 +133,15 @@ fn collect(at: &Node, fixtures: &mut Vec<FixtureDecl>, states: &mut Vec<String>)
                 src: node.attr("src").map(str::to_string),
                 kind: node.attr("type").map(str::to_string),
             }),
-            "state" => states.push(node.attr("id").unwrap_or_default().to_string()),
+            "state" => {
+                let id = node.attr("id").unwrap_or_default().to_string();
+                let title = node.attr("title").map(str::trim).filter(|title| !title.is_empty()).map_or_else(|| id.clone(), str::to_string);
+                let says = node.attr("says").map(str::trim).filter(|says| !says.is_empty()).map(str::to_string);
+                views.push(View { id, title, says });
+            }
             _ => {}
         }
-        collect(node, fixtures, states);
+        collect(node, fixtures, views);
     }
 }
 

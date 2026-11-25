@@ -317,3 +317,51 @@ fn a_press_on_a_part_that_goes_to_a_state_draws_that_state(cx: &mut TestAppConte
     let moved = host.read_with(cx, |host, cx| host.0.read(cx).state().map(str::to_string));
     assert_eq!(moved.as_deref(), Some("two"), "a click on the tab that goes to two draws two");
 }
+
+const VIEWS: &str = r#"<scene title="Needs">
+  <state id="1-one-need" title="One need" says="It leads, with its one press"><text>One</text></state>
+  <state id="2-many"><text>Many</text></state>
+</scene>"#;
+
+#[test]
+fn a_state_names_its_view_by_its_title_and_says_and_one_without_a_title_shows_its_id() {
+    let scene = markup::parse(VIEWS).expect("the scene reads");
+    let views: Vec<_> = scene.views.iter().map(|view| (view.id.as_str(), view.title.as_str(), view.says.as_deref())).collect();
+    assert_eq!(views, [("1-one-need", "One need", Some("It leads, with its one press")), ("2-many", "2-many", None)]);
+    assert_eq!(scene.states, ["1-one-need", "2-many"], "the ids the drawing steps between are as they were");
+}
+
+#[gpui::test]
+fn each_view_is_a_tile_named_by_its_title_and_enter_on_one_draws_that_view(cx: &mut TestAppContext) {
+    cx.update(|cx| cx.set_global(Look::dark()));
+    let source = source(VIEWS.into(), None);
+    let (host, cx) = cx.add_window_view(move |_, cx| Host(cx.new(|cx| PrototypeView::new(source, Home::Tab, cx))));
+    let found = names(cx);
+    assert!(found.contains(&(Role::Button, "One need, shown. It leads, with its one press".to_string())), "{found:?}");
+    assert!(found.contains(&(Role::Button, "2-many".to_string())), "{found:?}");
+    assert!(found.contains(&(Role::Label, "Prototype".to_string())), "the band names it a Prototype: {found:?}");
+    assert!(!found.iter().any(|(_, name)| name.starts_with("state-") || name == "1-one-need"), "no raw id where a title is written: {found:?}");
+    // Tab reaches the tiles in turn; Enter on the second draws it.
+    let mut steps = 0;
+    while steps < 12 {
+        cx.update(|window, cx| window.focus_next(cx));
+        let shown = host.read_with(cx, |host, cx| host.0.read(cx).state().map(str::to_string));
+        cx.simulate_keystrokes("enter");
+        let now = host.read_with(cx, |host, cx| host.0.read(cx).state().map(str::to_string));
+        if now != shown {
+            assert_eq!(now.as_deref(), Some("2-many"), "Enter on a tile draws its view");
+            return;
+        }
+        steps += 1;
+    }
+    panic!("no tile Tab reaches draws the other view on Enter");
+}
+
+#[gpui::test]
+fn a_scene_of_one_view_draws_no_tiles_and_no_hint(cx: &mut TestAppContext) {
+    cx.update(|cx| cx.set_global(Look::dark()));
+    let source = source(r#"<scene title="One"><state id="only" title="Only"><text>One</text></state></scene>"#.into(), None);
+    let (_host, cx) = cx.add_window_view(move |_, cx| Host(cx.new(|cx| PrototypeView::new(source, Home::Tab, cx))));
+    let found = names(cx);
+    assert!(!found.iter().any(|(role, name)| *role == Role::Group && name == "Views"), "{found:?}");
+}

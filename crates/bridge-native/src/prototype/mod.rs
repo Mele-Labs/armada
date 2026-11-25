@@ -32,6 +32,7 @@ use self::markup::Scene;
 use crate::labels::{labelled, LabelBook};
 use crate::look::{token, ActiveLook};
 use crate::parts::{self, button::Kind, chip::chip, text::TextStyle, Tone};
+use crate::settings::view::tip;
 
 /// What a saved prototype carries: the scene, its markup, the fixture files as `(name, text)`, the
 /// state the agent set and the trouble Fleet found.
@@ -92,8 +93,11 @@ pub struct PrototypeView {
     pub(crate) focus: FocusHandle,
 }
 
-/// The name the scene's whole drawing is labelled with: what a note made on it says it is in.
+/// The name the scene's whole drawing is labelled with: what a note made on it says it is in, and its band's chip.
 const LABEL: &str = "Prototype";
+
+/// What the band says where the scene has views to press.
+const HINT: &str = "Views. Press one to see it below";
 
 /// Every scene drawn for a Job, so a note made over one goes to its Job.
 #[derive(Default)]
@@ -224,34 +228,14 @@ impl PrototypeView {
         &self.trouble
     }
 
-    /// The head: the scene's title, a chip for each state with the one drawn marked, and Pop out in a tab.
+    /// The head: a band tinted in the accent naming it a Prototype, with its title, the hint where it has views to press, and Open
+    /// tab and Pop out; under it a tile for each view, its name over what it shows, with the one drawn marked.
     fn head(&self, cx: &mut Context<Self>) -> impl IntoElement {
         let look = cx.look();
-        let states: Vec<String> = self.scene.as_ref().map(|scene| scene.states.clone()).unwrap_or_default();
-        let chips: Vec<_> = states
-            .into_iter()
-            .map(|id| {
-                let current = self.state.as_deref() == Some(id.as_str());
-                let (ink, glyph) = if current { (Tone::Accent.ink(look), "circle-dot") } else { (Tone::Neutral.ink(look), "circle") };
-                let target = id.clone();
-                let keyed = id.clone();
-                labelled(
-                    chip(look, SharedString::from(format!("state-{id}")), ink, Some(glyph), id.clone())
-                        .cursor_pointer()
-                        .focusable()
-                        .tab_stop(true)
-                        .on_click(cx.listener(move |this, _, _, cx| this.go(&target, cx)))
-                        .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
-                            if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
-                                this.go(&keyed, cx);
-                                cx.stop_propagation();
-                            }
-                        })),
-                    Role::Button,
-                    if current { format!("{id}, shown") } else { id },
-                )
-            })
-            .collect();
+        let accent = look.color(token::ACCENT);
+        let views: Vec<markup::View> = self.scene.as_ref().map(|scene| scene.views.clone()).unwrap_or_default();
+        let several = views.len() > 1;
+        let tiles: Vec<_> = views.into_iter().map(|view| self.tile(view, cx)).collect();
         let open = (self.home == Home::Sheet).then(|| {
             labelled(
                 parts::button::button(look, "prototype-open-tab", Kind::Secondary, Some("app-window"), "Open tab", false)
@@ -268,19 +252,96 @@ impl PrototypeView {
                 "Pop out",
             )
         });
-        div()
+        let hint = several.then(|| {
+            div().flex_none().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_SUBTLE)).child(HINT)
+        });
+        let band = div()
             .flex_none()
             .flex()
             .items_center()
             .gap(look.length(token::SPACE_3))
             .px(look.length(token::SPACE_4))
             .py(look.length(token::SPACE_2))
-            .border_b(look.length(token::BORDER_WIDTH))
-            .border_color(look.color(token::BORDER_SUBTLE))
-            .child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title()))
-            .child(div().flex_1().min_w_0().flex().items_center().gap(look.length(token::SPACE_2)).children(chips))
+            .bg(accent.opacity(0.1))
+            .child(labelled(chip(look, "prototype-chip", accent, Some("app-window"), LABEL), Role::Label, LABEL))
+            .child(div().flex_1().min_w_0().truncate().child(labelled(parts::text::text(look, "prototype-title", TextStyle::Heading, self.title()), Role::Heading, self.title())))
+            .children(hint)
             .children(open)
-            .children(pop)
+            .children(pop);
+        let row = several.then(|| {
+            labelled(
+                div()
+                    .id("prototype-views")
+                    .flex_none()
+                    .flex()
+                    .gap(look.length(token::SPACE_2))
+                    .px(look.length(token::SPACE_4))
+                    .py(look.length(token::SPACE_2))
+                    .border_b(look.length(token::BORDER_WIDTH))
+                    .border_color(look.color(token::BORDER_SUBTLE))
+                    .children(tiles),
+                Role::Group,
+                "Views",
+            )
+        });
+        div().flex_none().flex().flex_col().child(band).children(row)
+    }
+
+    /// One view's tile: a press, Enter or Space draws it.
+    fn tile(&self, view: markup::View, cx: &Context<Self>) -> impl IntoElement {
+        let look = cx.look();
+        let current = self.state.as_deref() == Some(view.id.as_str());
+        let accent = look.color(token::ACCENT);
+        let (target, keyed) = (view.id.clone(), view.id.clone());
+        let says = view.says.clone().map(|says| {
+            div().truncate().text_size(look.length(token::TEXT_XS)).line_height(look.length(token::LEADING_XS)).text_color(look.color(token::FG_MUTED)).child(says)
+        });
+        let named = match (&view.says, current) {
+            (Some(says), true) => format!("{}, shown. {says}", view.title),
+            (Some(says), false) => format!("{}. {says}", view.title),
+            (None, true) => format!("{}, shown", view.title),
+            (None, false) => view.title.clone(),
+        };
+        labelled(
+            div()
+                .id(SharedString::from(format!("state-{}", view.id)))
+                .flex_1()
+                .min_w_0()
+                .flex()
+                .flex_col()
+                .gap(look.length(token::SPACE_1) / 2.)
+                .px(look.length(token::SPACE_3))
+                .py(look.length(token::SPACE_2))
+                .rounded(look.length(token::RADIUS_MD))
+                .border(look.length(token::BORDER_WIDTH))
+                .border_color(if current { accent } else { look.color(token::BORDER_DEFAULT) })
+                .when(current, |tile| tile.bg(accent.opacity(0.1)))
+                .when(!current, |tile| tile.hover(|tile| tile.bg(look.color(token::BG_HOVER))))
+                .cursor_pointer()
+                .focusable()
+                .tab_stop(true)
+                .focus_visible(|tile| tile.border_color(look.color(token::EDGE_FOCUS)))
+                .when_some(view.says.clone(), |tile, says| tile.tooltip(tip(says)))
+                .on_click(cx.listener(move |this, _, _, cx| this.go(&target, cx)))
+                .on_key_down(cx.listener(move |this, event: &gpui::KeyDownEvent, _, cx| {
+                    if matches!(event.keystroke.key.as_str(), "enter" | "space") && !event.keystroke.modifiers.modified() {
+                        this.go(&keyed, cx);
+                        cx.stop_propagation();
+                    }
+                }))
+                .child(
+                    div()
+                        .truncate()
+                        .text_size(look.length(token::TEXT_SM))
+                        .line_height(look.length(token::LEADING_SM))
+                        .font_weight(gpui::FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                        .text_color(look.color(token::FG_DEFAULT))
+                        .child(view.title.clone()),
+                )
+                .children(says),
+            Role::Button,
+            named,
+        )
     }
 
     /// What went wrong, a line each, in the danger tint with its hairline.
@@ -361,6 +422,8 @@ impl Render for PrototypeView {
             .flex()
             .flex_col()
             .bg(look.color(token::BG_BASE))
+            // The frame: a full hairline in the accent marks where the build he approves ends and the Job's own words begin.
+            .when(!shot, |root| root.overflow_hidden().rounded(look.length(token::RADIUS_MD)).border(look.length(token::BORDER_WIDTH)).border_color(look.color(token::ACCENT)))
             .children(head)
             .children(trouble)
             .child(div().id("prototype-scene").flex_1().min_h_0().overflow_y_scroll().child(body))
