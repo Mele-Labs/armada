@@ -33,11 +33,12 @@ pub const GROUPS: &[Group] = &[
         glyph: "bot",
         keys: &["limits.standingRulesKib", "limits.contextWatch", "limits.contextWatchKtokens", "limits.disputeReadMinutes"],
     },
+    Group { name: "Merge queue", glyph: "git-merge", keys: &["limits.queueRequeuesPerCommit"] },
     Group { name: "Ports", glyph: "network", keys: &["limits.portRangeBase", "limits.portBlockGranule"] },
 ];
 
 /// The counts, stepped by one a press.
-const COUNTS: &[&str] = &["limits.dronesAtOnce", "limits.checksAtOnce", "limits.watchesAtOnce", "limits.watchesPerJob", "limits.portBlockGranule"];
+const COUNTS: &[&str] = &["limits.dronesAtOnce", "limits.checksAtOnce", "limits.watchesAtOnce", "limits.watchesPerJob", "limits.queueRequeuesPerCommit", "limits.portBlockGranule"];
 
 /// The narrowest a tile is drawn: a page too narrow for another column of this keeps fewer, never squeezed ones.
 const TILE_MIN: f32 = 240.;

@@ -42,6 +42,20 @@ Where nothing is saved, `config::settings`' table supplies it and carries the ar
 **The value lives in settings.json under `limits.memorySparePercent`** (live), since the owner's decision of 10 Oct 2026 — `docs/concepts/machine.md`, *settings.json*.
 """
 
+[settings.merge-queue-requeues-per-commit]
+name = "Queue again after a runner failure"
+scope = "Machine"
+lifetime = "Live"
+merge_strategy = "n/a — single layer"
+peer_polarity = "n/a — single layer"
+owner = "Fleet"
+read_by = "fleet"
+notes = """
+**How many times Fleet puts one commit of a pull request back in the merge queue** after the queue dropped it for the runner rather than its code: a job no runner took, or one stopped at its time limit. Each is done without a word. Once they are spent, the merge line shows the queue as stuck, with the job and the cause. The owner's decision of 25 Nov 2026, after four pull requests cycled in the queue for hours on Mac runners that never came: two by default, and his to change in Settings.
+
+**The value lives in settings.json under `limits.queueRequeuesPerCommit`** (live). Zero puts nothing back.
+"""
+
 [settings.checks-at-once]
 name = "Checks at once"
 scope = "Machine"
