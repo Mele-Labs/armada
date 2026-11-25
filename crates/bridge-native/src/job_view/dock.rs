@@ -643,6 +643,30 @@ impl JobView {
         // box, so the key at the band's end takes the corner itself.
         let corner = look.length(token::RADIUS_LG);
         let last = restarts.len().checked_sub(1);
+        // One press puts every ask the sheet holds to him there; a line in the list brings the thread to its card.
+        let review_all = (self.review_applies(id, cx) || !self.artifact_items(id, None).is_empty()).then(|| {
+            labelled(
+                div()
+                    .id("needs-review-all")
+                    .flex_none()
+                    .h_full()
+                    .flex()
+                    .items_center()
+                    .px(look.length(token::SPACE_3))
+                    .when(last.is_none(), |key| key.rounded_tr(corner - edge))
+                    .text_size(look.length(token::TEXT_XS))
+                    .font_weight(FontWeight(look.number(token::WEIGHT_MEDIUM)))
+                    .cursor_pointer()
+                    .hover(|style| style.bg(look.color(token::FG_INVERSE).opacity(0.2)))
+                    .child("Review all")
+                    .on_click(cx.listener(|this, _, window, cx| {
+                        cx.stop_propagation();
+                        this.review_all(window, cx);
+                    })),
+                Role::Button,
+                "Review all",
+            )
+        });
         let band = div()
             .flex_none()
             .h(high + edge)
@@ -679,6 +703,7 @@ impl JobView {
                     "Fold Needs you",
                 ))
             })
+            .children(review_all)
             .children(restarts.into_iter().enumerate().map(|(at, (command, build, adopt, label))| {
                 self.restart_key(id, command, build, adopt, label, (Some(at) == last).then_some(corner - edge), look, cx)
             }));
@@ -710,6 +735,12 @@ impl JobView {
             }
             .into_any_element(),
         )
+    }
+
+    /// Review all: the panel folds and the sheet opens on every ask of the Job.
+    pub(super) fn review_all(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.set_needs(false, None, window, cx);
+        self.open_review(window, cx);
     }
 
     /// A press on the band: it folds or opens the panel, or with nothing else to answer opens the sheet.
