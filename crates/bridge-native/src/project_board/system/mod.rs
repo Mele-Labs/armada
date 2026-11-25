@@ -708,6 +708,7 @@ impl SystemBlock {
                 project_rows: Vec::new(),
                 on_your_words: None,
                 project,
+                workflow: None,
             };
             let job = ipc::DispatchJob { start, kind: None, then: Vec::new() };
             let body = ipc::encode(&job).map_err(|why| crate::refusal::Failed::from(why.to_string()))?;
