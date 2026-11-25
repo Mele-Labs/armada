@@ -174,6 +174,7 @@ impl JobView {
         let words = artifact.kind == JudgeKind::Excerpt;
         let title = if words { "the selected words" } else { artifact.title.as_str() };
         let spot = page.keys.spot(&format!("judged:{id}"), cx);
+        let judged_as = reading.map_or_else(|| "Judged".to_string(), |one| format!("Judged as {}", crate::judge_types::name_of(one)));
         let mut head = div()
             .id(SharedString::from(format!("judged-head:{id}")))
             .flex()
@@ -186,7 +187,7 @@ impl JobView {
             .border_b(look.length(token::BORDER_WIDTH))
             .border_color(hue.opacity(0.3))
             .child(glyph(look, "scale", Size::Mark, hue))
-            .child(div().flex_none().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child("Judged"))
+            .child(div().flex_none().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child(SharedString::from(judged_as.clone())))
             .children((!words).then(|| div().min_w_0().truncate().text_size(look.length(token::TEXT_SM)).text_color(look.color(token::FG_DEFAULT)).child(SharedString::from(artifact.title.clone()))))
             .child(div().flex_1())
             .child(self.stamp(at, look, now, true, cx));
@@ -206,7 +207,7 @@ impl JobView {
                 }))
                 .on_click(cx.listener(move |this, _, window, cx| this.show_card_notes(&goes, window, cx)));
         }
-        let head = if words { labelled(head, Role::Group, "Judged the selected words").into_any_element() } else { labelled(head, Role::Button, format!("Judged {title}")).into_any_element() };
+        let head = if words { labelled(head, Role::Group, format!("{judged_as}, the selected words")).into_any_element() } else { labelled(head, Role::Button, format!("{judged_as}, {title}")).into_any_element() };
         let quoted = words.then(|| quoted_words(look, &artifact.title));
         let body: Option<AnyElement> = match reading {
             Some(one) if one.state == JudgeState::Failed => Some(plain(look, one.failed.clone().unwrap_or_else(|| "The reading failed".to_string()), token::STATUS_COMPLETED_FAILED)),
@@ -214,7 +215,7 @@ impl JobView {
             Some(one) => Pinned::whole_job(super::acts::SHEET, &format!("judged:{id}"), one).map(Pinned::twin).and_then(|pinned| self.notes_list(&pinned, pinned.whole(), "Notes from the judge".to_string(), page, look, cx)),
             None => None,
         };
-        let name = format!("Judged {title}");
+        let name = format!("{judged_as}, {title}");
         labelled(
             div()
                 .id(SharedString::from(format!("judged:{id}")))
@@ -242,6 +243,7 @@ impl JobView {
         let held = self.record(&job, cx).and_then(|record| record.judge_readings.iter().find(|one| one.id == reading));
         let hue = look.color(token::STATUS_AWAITING_REVIEW);
         let words = held.map(|one| one.artifact.title.clone()).unwrap_or_default();
+        let judging_as = held.map_or_else(|| "Judged".to_string(), |one| format!("Judged as {}", crate::judge_types::name_of(one)));
         let mark = glyph(look, "circle-dot", Size::Mark, look.color(token::STEP_RUNNING)).with_animation(
             SharedString::from(format!("judging:{reading}")),
             Animation::new(look.duration(token::DURATION_PULSE)).repeat().with_easing(gpui::pulsating_between(0.4, 1.)),
@@ -271,7 +273,7 @@ impl JobView {
                         .bg(hue.opacity(0.14))
                         .tooltip(tip("Judge reading"))
                         .child(mark)
-                        .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child("Judged")),
+                        .child(div().text_size(look.length(token::TEXT_SM)).font_weight(FontWeight(look.number(token::WEIGHT_HEADING))).text_color(hue).child(SharedString::from(judging_as))),
                 )
                 .child(div().p(look.length(token::SPACE_4)).child(quoted_words(look, &words))),
             Role::Article,
@@ -345,7 +347,7 @@ impl JobView {
         found
     }
 
-    /// The command palette's Judge…: a menu of what can be judged, and the choice is asked at once.
+    /// A menu of what the Job holds, from the palette or a Jobs row: the one chosen opens the box of judge types.
     pub(super) fn judge_choose(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
         let Some(job) = self.shown.clone() else { return false };
         let choices = self.judgeable(&job, cx);
@@ -365,7 +367,7 @@ impl JobView {
             Some(back),
             |this, id, window, cx| {
                 if let Ok(artifact) = ipc::decode::<JudgeArtifact>("a judge choice", id.as_bytes()) {
-                    this.ask_chosen(artifact, window, cx);
+                    this.open_judge_sheet(artifact, window, cx);
                 }
             },
             window,
@@ -402,6 +404,22 @@ struct JudgeTabAsked(Option<String>);
 
 impl gpui::Global for JudgeTabAsked {}
 
+/// The Job whose list of judgeable parts is asked for when it comes on screen: a press on a Jobs row's Judge.
+#[derive(Default)]
+struct JudgeChoiceAsked(Option<String>);
+
+impl gpui::Global for JudgeChoiceAsked {}
+
+/// Open the list of what the Job holds to judge, now where the Job is on screen and else when it comes to be.
+pub fn ask_judge_choice(job: &str, window: &mut Window, cx: &mut gpui::App) {
+    cx.default_global::<JudgeChoiceAsked>().0 = Some(job.to_string());
+    let Some(view) = cx.try_global::<super::view_tabs::LiveJobView>().and_then(|live| live.0.upgrade()) else { return };
+    let shown = view.read(cx).shown.as_ref().is_some_and(|shown| shown.as_ref() == job);
+    if shown {
+        view.update(cx, |view, cx| view.front_judge_choice(window, cx));
+    }
+}
+
 /// Open the Job's Judge tab in front, now where the Job is on screen and else when it comes to be.
 pub fn ask_judge_tab(job: &str, window: &mut Window, cx: &mut gpui::App) {
     cx.default_global::<JudgeTabAsked>().0 = Some(job.to_string());
@@ -413,6 +431,23 @@ pub fn ask_judge_tab(job: &str, window: &mut Window, cx: &mut gpui::App) {
 }
 
 impl JobView {
+    /// The list of what the Job holds opens on the Job shown when a Jobs row asked for it, once the thread has drawn.
+    pub(super) fn front_judge_choice(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(shown) = self.shown.clone() else { return };
+        let asked = cx.try_global::<JudgeChoiceAsked>().and_then(|asked| asked.0.clone());
+        if asked.as_deref() != Some(shown.as_ref()) {
+            return;
+        }
+        cx.default_global::<JudgeChoiceAsked>().0 = None;
+        let view = cx.weak_entity();
+        window.on_next_frame(move |window, cx| {
+            view.update(cx, |this, cx| {
+                this.judge_choose(window, cx);
+            })
+            .ok();
+        });
+    }
+
     /// The Judge tab comes forward on the Job shown when a press asked for it.
     pub(super) fn front_judge_tab(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let Some(shown) = self.shown.clone() else { return };

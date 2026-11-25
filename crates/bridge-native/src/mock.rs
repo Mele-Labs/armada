@@ -90,7 +90,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
         // The same Jobs with the agents' account signed out, so the toast's Sign in stands over them (`toasts::view`).
         "agent-signed-out" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Judge's readings on them (`judge_readings`).
-        "judge-cards" => include_bytes!("../fixtures/jobs-many.json"),
+        "judge-cards" | "judge-types" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with the Usage page on mock waste: a week with six kinds, the reading not answered yet, and a window with no burn.
         "usage-week" | "usage-loading" | "usage-empty" | "usage-failed" | "usage-apply-failed" => include_bytes!("../fixtures/jobs-many.json"),
         // The same Jobs, with Kit over the Mac link: rows in every mark and a clash, every row the same, and no Mac linked.
@@ -393,7 +393,7 @@ pub fn jobs_of(scenario: &str) -> Result<Vec<SessionRecord>, String> {
     if scenario == "claim-waits" {
         claim_waits(&mut sessions)?;
     }
-    if scenario == "judge-cards" {
+    if scenario == "judge-cards" || scenario == "judge-types" {
         judge_readings(&mut sessions)?;
     }
     if scenario == "slot-wait" {
@@ -634,7 +634,7 @@ pub fn threads(scenario: &str) -> Result<HashMap<String, JobThread>, String> {
             thread.items.push(ipc::decode("question row", asked.as_bytes()).map_err(|why| why.to_string())?);
         }
     }
-    if scenario == "judge-cards" {
+    if scenario == "judge-cards" || scenario == "judge-types" {
         judged_cards(&mut all)?;
     }
     for job in jobs(scenario)? {
@@ -721,7 +721,7 @@ fn fixture_threads(scenario: &str) -> Result<HashMap<String, JobThread>, String>
         // The panes' threads, with two walks ended, two commits and Fleet's acts on the first.
         "job-done" => include_bytes!("../fixtures/done-threads.json"),
         // The same threads, with the first Job's sketch asking again and its readings standing at the end (`judged_cards`).
-        "judge-cards" => include_bytes!("../fixtures/job-threads.json"),
+        "judge-cards" | "judge-types" => include_bytes!("../fixtures/job-threads.json"),
         // The same threads, and the mod Job's two Checks, the newest running.
         "job-made" => include_bytes!("../fixtures/made-threads.json"),
         "job-now" => include_bytes!("../fixtures/now-threads.json"),
@@ -1860,10 +1860,10 @@ pub fn told_words(aside: &ipc::Aside) -> String {
 /// inside its card, and a clean one of a document. Three Jobs of the list hold a reading of the Job: going, with notes unread, and clean.
 fn judge_readings(sessions: &mut [SessionRecord]) -> Result<(), String> {
     const FIRST: &str = r#"[
-        {"id":"reading-words","artifact":{"kind":"excerpt","id":"m-007/3f9a21c4","title":"The chip takes its colour from the state it reads."},"prompt":"","state":"done","asked_at":"2026-11-09T13:51:00Z","finished_at":"2026-11-09T13:51:40Z","read":false,
+        {"id":"reading-words","artifact":{"kind":"excerpt","id":"m-007/3f9a21c4","title":"The chip takes its colour from the state it reads."},"prompt":"","judge":"code","judge_name":"Code","state":"done","asked_at":"2026-11-09T13:51:00Z","finished_at":"2026-11-09T13:51:40Z","read":false,
          "notes":[{"id":"w1","claim":"The colour comes from the row's state, not from the stale flag","where":"apps/desktop/src/renderer/src/chip.tsx:41","expected":"The stale flag sets the colour","found":"The state sets it"},
                   {"id":"w2","claim":"A branch with no upstream has no state to read"}]},
-        {"id":"reading-sketch","artifact":{"kind":"sketch","id":"Chip states","title":"Chip states"},"prompt":"","state":"done","asked_at":"2026-11-09T13:52:00Z","finished_at":"2026-11-09T13:52:30Z","read":false,
+        {"id":"reading-sketch","artifact":{"kind":"sketch","id":"Chip states","title":"Chip states"},"prompt":"","judge":"design","judge_name":"Design","state":"done","asked_at":"2026-11-09T13:52:00Z","finished_at":"2026-11-09T13:52:30Z","read":false,
          "notes":[{"id":"s1","claim":"The stale state has no word beside its colour","where":"Sketch, Chip states"}]},
         {"id":"reading-page","artifact":{"kind":"doc","id":"design","title":"Stale branch design"},"prompt":"","state":"done","asked_at":"2026-11-09T13:53:00Z","finished_at":"2026-11-09T13:53:20Z","read":true,"notes":[]}
     ]"#;
@@ -1906,6 +1906,63 @@ fn judged_cards(all: &mut HashMap<String, JobThread>) -> Result<(), String> {
         thread.items.push(ipc::decode("judged item", wire.as_bytes()).map_err(|why| why.to_string())?);
     }
     Ok(())
+}
+
+/// What every judge type of the `judge-types` scenario is, wherever kept: Armada's five, Kit's Code for the project `armada` alone,
+/// Kit's Secrets for all projects, and the repository's Migration safety.
+pub fn judge_types_kept() -> Vec<ipc::JudgeType> {
+    use ipc::ReviewToolSource::{Armada, Kit, Repository};
+    let made = |id: &str, name: &str, prompt: &str, source, project: Option<&str>, replaces| ipc::JudgeType {
+        id: id.to_string(),
+        name: name.to_string(),
+        prompt: prompt.to_string(),
+        source,
+        project: project.map(str::to_string),
+        replaces,
+        hides: None,
+    };
+    vec![
+        made("adversarial", "Adversarial", "Assume the work is wrong and look for how. Check each claim against the code and the tests.", Armada, None, None),
+        made("code", "Code", "Read the diff as a reviewer would. Look for bugs, missing tests and code that does not match its neighbours.", Armada, None, None),
+        made("design", "Design", "Read the screens and the copy against the design system. Look for states left undrawn and keys left unbound.", Armada, None, None),
+        made("system-design", "System design", "Read how the parts fit. Look for a seam crossed twice and a choice that closes off the next one.", Armada, None, None),
+        made("api-review", "API review", "Read each route and wire type a caller sees. Look for a field that can drift and an error a caller cannot tell apart.", Armada, None, None),
+        made("code", "Code", "Read the diff for Armada's own rules first. Look for a Fleet view drawn in Bridge and a literal where a token belongs.", Kit, Some("armada"), Some(Armada)),
+        made("secrets", "Secrets", "Look for keys, tokens and addresses written into the change. Check logs and fixtures too.", Kit, None, None),
+        made("migration-safety", "Migration safety", "Read each migration for a lock it takes and data it drops. Look for a step that cannot be undone.", Repository, None, None),
+    ]
+}
+
+/// The judge types one project sees, as Fleet lists them: for each id the most specific place that defines it, Armada's first in
+/// their order, then the others as added.
+pub fn judge_types_seen(kept: &[ipc::JudgeType], project: Option<&str>) -> Vec<ipc::JudgeType> {
+    use ipc::ReviewToolSource::{Armada, Kit, Repository};
+    let rank = |one: &ipc::JudgeType| match (one.source, one.project.as_deref()) {
+        (Kit, Some(only)) => (project == Some(only)).then_some(4),
+        (Kit, None) => Some(3),
+        (Repository, _) => Some(2),
+        (Armada, _) => Some(1),
+    };
+    let mut seen: Vec<ipc::JudgeType> = Vec::new();
+    for one in kept.iter().filter(|one| rank(one).is_some()) {
+        match seen.iter().position(|held| held.id == one.id) {
+            None => seen.push(one.clone()),
+            Some(at) if rank(one) > rank(&seen[at]) => {
+                let mut over = one.clone();
+                over.replaces = Some(seen[at].source);
+                seen[at] = over;
+            }
+            Some(_) => {}
+        }
+    }
+    seen
+}
+
+/// `GET /judge_types/:repository` on mock data: the five of Armada's wherever kept, and on `judge-types` the rest.
+pub fn judge_types(project: Option<&str>) -> Vec<ipc::JudgeType> {
+    let kept = judge_types_kept();
+    let kept = if scenario_is("judge-types") { kept } else { kept.into_iter().filter(|one| one.source == ipc::ReviewToolSource::Armada).collect() };
+    judge_types_seen(&kept, project)
 }
 
 #[cfg(test)]

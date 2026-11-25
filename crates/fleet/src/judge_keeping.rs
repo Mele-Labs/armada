@@ -68,6 +68,8 @@ pub(crate) fn reading_of(kept: &KeptJudgeReading) -> JudgeReading {
         id: kept.id.clone(),
         artifact: JudgeArtifact { kind: kind_of(&kept.kind), id: kept.artifact_id.clone(), title: kept.title.clone() },
         prompt: kept.prompt.clone(),
+        judge: kept.judge.clone(),
+        judge_name: kept.judge_name.clone(),
         state: state_of(&kept.state),
         asked_at: Instant::carried(&kept.asked_at),
         finished_at: kept.finished_at.as_deref().map(Instant::carried),

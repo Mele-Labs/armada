@@ -46,6 +46,7 @@ mod history;
 mod home;
 mod job_tokens;
 mod job_view;
+mod judge_types;
 mod inspect;
 mod instance;
 mod jobs;

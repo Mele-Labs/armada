@@ -3,8 +3,8 @@
 //! reads and fails is `fleet`'s.
 
 use ipc::{
-    AskJudge, DismissJudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading, JudgeState, MarkJudgeRead, SendJudgeNote,
-    SessionId, SessionRecord, SessionState, WireError,
+    AskJudge, DeleteJudgeType, DismissJudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading, JudgeState, JudgeTypes,
+    ManifestId, MarkJudgeRead, SaveJudgeType, SendJudgeNote, SessionId, SessionRecord, SessionState, WireError,
 };
 
 use super::FakeDaemon;
@@ -65,6 +65,8 @@ impl JudgeReadings for FakeDaemon {
             id: format!("r{}", row.judge_readings.len() + 1),
             artifact: ask.artifact,
             prompt: ask.prompt,
+            judge_name: ask.judge.clone(),
+            judge: ask.judge,
             state: JudgeState::Reading,
             asked_at: at(),
             finished_at: None,
@@ -88,5 +90,17 @@ impl JudgeReadings for FakeDaemon {
             held.read = true;
             Ok(())
         })
+    }
+
+    async fn list_judge_types(self: std::sync::Arc<Self>, _: Option<ManifestId>, _: Option<String>) -> Result<JudgeTypes, Refusal> {
+        Ok(JudgeTypes { types: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn save_judge_type(self: std::sync::Arc<Self>, _: ManifestId, _: SaveJudgeType) -> Result<JudgeTypes, Refusal> {
+        Ok(JudgeTypes { types: Vec::new(), left_out: Vec::new() })
+    }
+
+    async fn delete_judge_type(self: std::sync::Arc<Self>, _: ManifestId, _: DeleteJudgeType) -> Result<JudgeTypes, Refusal> {
+        Ok(JudgeTypes { types: Vec::new(), left_out: Vec::new() })
     }
 }

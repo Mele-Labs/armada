@@ -155,7 +155,7 @@ mod tokens_tab;
 mod api_client_tab;
 pub use listening::scene as listen_scene;
 pub use view_tabs::{offer_tab, on_job_shown, JobShown, TabAct, TabOffer, TabOffers, ViewPane, ViewTab};
-pub use judge_cards::{ask_judge_tab, choose_to_judge};
+pub use judge_cards::{ask_judge_choice, ask_judge_tab, choose_to_judge};
 pub use mods_made::OpenMod;
 pub use review::{open_over, walk_scene, OperatorRead};
 pub use on_page::{ready_key_on_page, ready_on_page};
@@ -529,6 +529,8 @@ pub struct JobView {
     fork: fork::Fork,
     /// The Judge's box on a plan, while it is open.
     judge: Option<judge::Open>,
+    /// The judge types read for each repository and project a box was opened for.
+    judge_types: crate::judge_types::Held,
     /// The Report dialog, while it is open over the Job.
     reporting: Option<report::Report>,
     /// The Draw sketch sheet is up, over the Job's pad.
@@ -767,6 +769,7 @@ impl JobView {
             bar: bar::Bar::new(),
             fork: fork::Fork::default(),
             judge: None,
+            judge_types: Default::default(),
             reporting: None,
             sketch_open: false,
             pad: None,
@@ -990,6 +993,7 @@ impl JobView {
         self.visit(on, cx);
         self.tell_job_shown(window, cx);
         self.front_judge_tab(window, cx);
+        self.front_judge_choice(window, cx);
         cx.notify();
     }
 
@@ -1495,6 +1499,7 @@ impl Render for JobView {
         popups.extend(self.render_teach(cx).map(IntoElement::into_any_element));
         popups.extend(self.render_review(&id, window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_report(window, cx).map(IntoElement::into_any_element));
+        popups.extend(self.render_judge_sheet(&id, window, cx));
         popups.extend(self.render_sketch());
         popups.extend(self.render_picture(window, cx).map(IntoElement::into_any_element));
         popups.extend(self.render_sketch_reading(window, cx).map(IntoElement::into_any_element));

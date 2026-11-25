@@ -1,0 +1,11 @@
+[operations.delete_judge_type]
+ask_tool = "none"
+kind = "command"
+transport = "HTTP"
+agent_access = "On your words"
+description = "Delete the file in Kit's folder that defines one judge type, which brings Armada's back where it was an Armada id"
+notes = """
+`POST /judge_types/:repository/delete`, body `DeleteJudgeType`: `scope` (`kit`), `project` (absent, all projects) and `id`. Since 23 Nov 2026. Answers `JudgeTypes`, read again. **Deleting Kit's copy of an Armada id is "Reset to Armada's"**: the next place down answers for it. Deleting one only Kit had removes the type.
+
+A 422 `fleet.judge_type_not_kept` where that folder holds no type of that id, and a 422 `fleet.judge_type_misplaced` for a `repository` scope: a repository's own copy is removed by Git like any file of it, and never from here. 500 `fleet.judge_type_unwritable` where the file cannot be removed.
+"""

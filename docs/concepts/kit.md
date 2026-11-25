@@ -143,6 +143,7 @@ He decided on 21 Oct 2026 that it starts a Job of its own: `.claude/decisions/20
 | Tiles, chosen by id | the person's own for the repository, above | `.armada/flight-controls.toml`, beside the tiles main already holds |
 | A workflow | Kit's `~/.armada/workflows/` | `.armada/workflows/`, under the Kit file's own name |
 | A review tool | Kit's `~/.armada/review-tools/` | `.armada/review-tools/<id>.md` |
+| A judge type | Kit's `~/.armada/judges/`, or `~/.armada/judges/projects/<project>/` for one project | `.armada/judges/<id>.md` |
 | The person's `armada.yml` for the repository | Kit's `manifests/<owner--name>.yml`, at the place the tiles are kept | `armada.yml` at the workspace root |
 
 **Committing copies.** The person's own piece stays where it is kept, and nothing of theirs is moved or deleted.

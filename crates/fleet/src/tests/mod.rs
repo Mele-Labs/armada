@@ -32,6 +32,7 @@ mod project_pages;
 mod pre_pr;
 mod job_command;
 mod judge;
+mod judge_types;
 mod sending_checkout;
 mod sweeping;
 mod disk_health;

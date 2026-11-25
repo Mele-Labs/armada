@@ -730,8 +730,8 @@ pub use story::{
 };
 pub use story::{JobAnswer, JobQuestion, JobQuestions, MarkAnswerRead};
 pub use judge::{
-    AskJudge, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
-    JudgeState, MarkJudgeRead, SendJudgeNote,
+    AskJudge, DeleteJudgeType, DismissJudgeNote, JudgeArtifact, JudgeKind, JudgeNote, JudgeNoteHow, JudgeNoteSettled, JudgeReading,
+    JudgeState, JudgeType, JudgeTypes, MarkJudgeRead, SaveJudgeType, SendJudgeNote,
 };
 pub use review_runs::{
     PullReviewHolder, ReviewChange, ReviewFinding, ReviewImpact, ReviewLink, ReviewPlace,

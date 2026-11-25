@@ -398,6 +398,12 @@ fn surface<D: Daemon>(served: Served<D>) -> Router {
         .route("/sessions/judge/send", post(crate::judge::send_judge_note::<D>))
         .route("/sessions/judge/dismiss", post(crate::judge::dismiss_judge_note::<D>))
         .route("/sessions/judge/read", post(crate::judge::mark_judge_read::<D>))
+        .route("/judge_types", get(crate::judge::list_judge_types_unplaced::<D>))
+        .route(
+            "/judge_types/:repository",
+            get(crate::judge::list_judge_types::<D>).post(crate::judge::save_judge_type::<D>),
+        )
+        .route("/judge_types/:repository/delete", post(crate::judge::delete_judge_type::<D>))
         .route(
             "/sessions/window/ask",
             post(crate::sessions::ask_in_window::<D>),

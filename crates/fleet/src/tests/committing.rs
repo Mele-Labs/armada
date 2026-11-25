@@ -331,6 +331,40 @@ async fn committing_a_review_tool_copies_kits_file_and_refuses_one_main_holds() 
     assert_eq!((code.as_str(), said.as_str()), (NOT_YOURS, "Your Kit holds no review tool `absent`."));
 }
 
+/// Kit's judge type, for all projects or one, into `.armada/judges/`, and nothing of Armada's or the repository's.
+#[tokio::test]
+async fn committing_a_judge_type_copies_kits_file_for_all_projects_or_one_and_refuses_one_kit_lacks() {
+    let rig = rig_placing(None);
+    let text = "---\nname: Security\n---\nLook for secrets in the diff.\n";
+    let file = kit(&rig).join("judges").join("security.md");
+    plant(&file, text);
+    let for_storefront = "---\nname: Storefront\n---\nLook at the cart.\n";
+    plant(&kit(&rig).join("judges/projects/storefront/storefront.md"), for_storefront);
+    let piece = PieceToCommit::JudgeType { id: "security".into(), project: None };
+
+    let committed = rig.fleet.committed_to_repository(asking(&rig, piece.clone(), false)).await.expect("committed");
+    finished(&rig, &committed).await;
+    assert_eq!(committed.paths, [".armada/judges/security.md"]);
+    let tree = tree_of(&rig, &committed).await;
+    assert_eq!(std::fs::read_to_string(tree.join(".armada/judges/security.md")).expect("on the branch"), text);
+    assert_eq!(rig.fleet.vcs().committed().last().expect("a commit").message, "Add the judge type security");
+    assert_eq!(std::fs::read_to_string(&file).expect("still in Kit"), text);
+
+    plant(&Path::new(&rig.root).join(".armada/judges/security.md"), "---\nname: Security\n---\nOlder.\n");
+    let (code, _) = refused_with(rig.fleet.committed_to_repository(asking(&rig, piece, false)).await.expect_err("refused"));
+    assert_eq!(code, EXISTS);
+
+    let project = PieceToCommit::JudgeType { id: "storefront".into(), project: Some("storefront".into()) };
+    let committed = rig.fleet.committed_to_repository(asking(&rig, project, false)).await.expect("committed");
+    assert_eq!(committed.paths, [".armada/judges/storefront.md"]);
+    let all = PieceToCommit::JudgeType { id: "storefront".into(), project: None };
+    let (code, said) = refused_with(rig.fleet.committed_to_repository(asking(&rig, all, false)).await.expect_err("refused"));
+    assert_eq!((code.as_str(), said.as_str()), (NOT_YOURS, "Your Kit holds no judge type `storefront`."), "a project's copy is not Kit's for all");
+    let armadas = PieceToCommit::JudgeType { id: "code".into(), project: None };
+    let (code, _) = refused_with(rig.fleet.committed_to_repository(asking(&rig, armadas, false)).await.expect_err("refused"));
+    assert_eq!(code, NOT_YOURS, "Armada's own is not the person's to commit");
+}
+
 #[tokio::test]
 async fn the_repositorys_own_tiles_are_read_from_the_named_jobs_tree_and_else_the_checkout() {
     let rig = rig_placing(None);
