@@ -494,7 +494,9 @@ A pull request nobody holds is never read by number: paging every open one costs
 **An open pull request a Job holds is also read when the forge says it changed.** Fleet subscribes to the forge's event stream for each, and any event reads that one pull request again through the same path as a person's Refresh, so each notice is still told once.
 Several events for one pull request within two seconds are one read, and a stream that attaches or reattaches reads it once, because nothing is replayed after a disconnect.
 A subscription lasts a day: Fleet makes it again an hour before it ends, ends it when the pull request merges or closes, and holds at most 100, the newest first.
-The pull reading above is unchanged and still runs every interval, so events only make a notice earlier.
+**A pull request whose stream is attached is left out of the pull reading (25 Nov 2026).** The pull reading still lists every repository each interval, which is how a new pull request is found, but it asks nothing by number of one heard live: not its checks, review, page or comments.
+Its events read it, and Fleet reads it in full every ten minutes besides, because no event says a plain comment was written and a stream may miss one. The owner chose ten minutes. An event's read files and tells its comments as the pull reading does.
+A stream that drops, a refused subscription and a pull request past the 100 are read by the pull reading every interval, as before.
 An account the forge has events off for (a 403 that says so) is not subscribed at all: Fleet holds nothing, says so once in its log, and asks again every six hours.
 
 **A job that hung is not a failure.** One that ended cancelled after about the whole 45 minutes a job is given is started again once for that commit, through the forge adapter, and nothing is said.
