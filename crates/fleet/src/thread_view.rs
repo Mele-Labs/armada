@@ -169,10 +169,11 @@ fn items_of(
 ) -> Vec<ThreadItem> {
     let record = &thread.session;
     let ledger = &record.attachments;
+    let told = told_answers(record, &thread.rows);
     let mut entries = thread
         .rows
         .iter()
-        .filter(|row| drawn(row) || is_reminder(row))
+        .filter(|row| (drawn(row) || is_reminder(row)) && !told.contains(row.id()))
         .map(|row| {
             let card = match row {
                 SessionRow::Tool { id, at, text, .. } => {
@@ -223,6 +224,30 @@ fn items_of(
     }
     with_approved_plan(&mut items, thread);
     items
+}
+
+/// How long before an answer is kept the message that told the Job of it was sent. Fleet sends the message, then keeps the
+/// answer, at once.
+const TOLD_WITHIN_MS: i64 = 5_000;
+
+/// The messages Fleet sent the Job in his name to tell it each answer he gave, as "Approved document: …" with what to do
+/// next. **His answer card stands for each**, so the thread draws his answer once, with no instruction to the agent and no
+/// path. Each kept answer takes the newest of his messages sent no later than it and within [`TOLD_WITHIN_MS`] of it; an
+/// answer told to a terminal writes no row, and takes none.
+fn told_answers<'a>(record: &SessionRecord, rows: &'a [SessionRow]) -> HashSet<&'a str> {
+    let mut told = HashSet::new();
+    for answer in &record.answers {
+        let Some(kept) = answer.at.to_domain().epoch_millis() else { continue };
+        let found = rows.iter().rev().find_map(|row| match row {
+            SessionRow::Message { id, at, from: SessionVoice::You, notice: None, aside: None, queued: false, .. } if !told.contains(id.as_str()) => {
+                let sent = at.to_domain().epoch_millis()?;
+                (sent <= kept && kept - sent <= TOLD_WITHIN_MS).then_some(id.as_str())
+            }
+            _ => None,
+        });
+        told.extend(found);
+    }
+    told
 }
 
 /// A `browser_reminder`: Bridge's own thread draws it as a line with a press (native Bridge's, as Electron's does as an inline

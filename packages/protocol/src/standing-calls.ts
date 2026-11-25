@@ -73,6 +73,8 @@ export type CallArrival = {
   kind: CallArrivalKind;
   /** The call's key, as `StandingCall.key`. Set on `mac_pairing` and `review_requested`, where `session_id` carries it too for readers that do not read this yet. On `review_requested`, the call of this key carries the pull request. */
   key?: string;
+  /** On `needs`, the id of the waiting item that began to wait, as `WaitingItem.id`, so a press on the banner opens that ask. */
+  item?: string;
 };
 
 /** What `calls.changed` carries: the calls whole, and the news. `arrived` is absent where only openedness or the list moved. */

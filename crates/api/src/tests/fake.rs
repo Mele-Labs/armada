@@ -95,6 +95,8 @@ pub struct FakeDaemon {
     keeps: Mutex<u32>,
     /// The preferences in force, which the fake's own saves change.
     preferences: Mutex<ipc::Preferences>,
+    /// The Cockpit home's layout the fake's own saves have left.
+    home_layout: Mutex<ipc::HomeLayout>,
     /// settings.json as the fake holds it, which its own saves change.
     settings: Mutex<ipc::SettingsList>,
     /// The profiles the fake holds, which its own sign-ins and sign-outs change.
@@ -153,6 +155,7 @@ impl FakeDaemon {
             swaps: Mutex::new(0),
             keeps: Mutex::new(0),
             preferences: Mutex::new(shapes::preferences()),
+            home_layout: Mutex::new(ipc::HomeLayout::default()),
             settings: Mutex::new(settings::settings()),
             accounts: Mutex::new(accounts::signed_out()),
             repository_allowed: Mutex::new(Vec::new()),

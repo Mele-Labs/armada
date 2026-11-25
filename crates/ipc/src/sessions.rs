@@ -797,16 +797,15 @@ pub enum WaitingSource {
     /// row as `handoff:<row>`; settled by `answer_waiting` with a `choice`, and Dismiss is Stay.
     Handoff,
     /// Fleet: a sketch the session showed with `show_sketch` is not answered. Derived on every read off
-    /// the sketch, never kept: id the sketch's target `sketch:<title>`, text its title, a `message` act
+    /// the sketch, never kept: id the sketch's target `sketch:<title>`, text the question it asks, else its title, a `message` act
     /// that opens the Session. Settled by `answer_sketch` on its card, or by dismissing it; answering it
     /// here is refused. Showing it again lifts a dismissal.
     Sketch,
     /// Fleet: the newest revision of a page the Job wrote under `.armada/documents/` is not answered.
-    /// Derived on every read off the document, never kept: id `document:<page path>`, text its title, a
+    /// Derived on every read off the document, never kept: id `document:<page path>`, text `Approve "<title>"?`, a
     /// `message` act that opens the Job. Settled by `answer_document`, or by dismissing it; answering
-    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing waits as
-    /// `read:<page path>`** with this source, text `Read: <title>` and `artifact` the page, until he opens its newest
-    /// revision with `mark_artifact_seen`: nothing approves it, and the Job is told nothing.
+    /// it here is refused. A new revision asks again and lifts a dismissal. **A page that asks nothing raises no item**
+    /// (the owner, 19 Nov 2026): it is in the thread and his Artifacts. Before then it waited as `read:<page path>`.
     Document,
     /// Fleet: the Session waits on its start card for the person to press Start (`begin_session`).
     /// The item has no reply, since Start is the answer. Since 23.80; every held Session since 25 Oct.
@@ -1078,8 +1077,8 @@ pub struct WaitingItem {
     /// the option it would pick. His press on that option is the one press. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operator_read: Option<OperatorRead>,
-    /// The id of one of the Job's artifacts this item is about, for a client to name and open. Only an agent's
-    /// item carries one, from `WaitingInput::artifact`. Absent otherwise.
+    /// The id of one of the Job's artifacts this item is about, for a client to name and open: an agent's item's
+    /// from `WaitingInput::artifact`, and a sketch's, a draft's or a page's own. Absent otherwise.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub artifact: Option<String>,
 }
@@ -1623,6 +1622,10 @@ pub struct SessionRecord {
     /// A bounded window. Since 29 Oct 2026.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub closed: Vec<ClosedWaiting>,
+    /// His answers to the Job's asks, oldest first: each ask's question, how he answered and his words, apart
+    /// from what the Job was told. The thread card of an answered ask draws its answer from here. Since 20 Nov 2026.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub answers: Vec<crate::AnsweredAsk>,
     /// Dispatched to wait on another Session and not started: it holds its brief, no slot and no
     /// process until the condition is met. Absent once it has started, and on a Session that never
     /// waited. `docs/concepts/session.md`, *A Session that waits on another*.

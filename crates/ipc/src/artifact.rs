@@ -27,7 +27,7 @@ pub struct JobArtifact {
     pub words: Option<String>,
     /// The Needs you item that answers it now: `sketch:<title>` (one item for the artifact, whatever it holds),
     /// `document:<path>`, `draft:<row id>`, or `plan:<version>` for a sketch the pending plan names. Absent where
-    /// nothing waits on his answer: a reading page's `read:<path>` waits to be opened and is not named here.
+    /// nothing waits on his answer, as for a page that asks nothing, which raises no item.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub item: Option<String>,
     /// The plan version it goes with: the pending one that names it, so the plan's Approve settles it, or

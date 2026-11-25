@@ -27,7 +27,7 @@ export type JobArtifact = {
   /**
    * The Needs you item that answers it now: `sketch:<title>` (one item for the artifact, whatever it holds),
    * `document:<path>`, `draft:<row id>`, or `plan:<version>` for a sketch the pending plan names. Absent where
-   * nothing waits on his answer: a reading page's `read:<path>` waits to be opened and is not named here.
+   * nothing waits on his answer, as for a page that asks nothing, which raises no item.
    */
   item?: string;
   /**

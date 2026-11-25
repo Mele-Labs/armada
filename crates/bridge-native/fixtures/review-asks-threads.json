@@ -1,0 +1,162 @@
+{
+  "threads": [
+    {
+      "session_id": "mock-01",
+      "head": {
+        "trail": {
+          "started": "2026-11-09T12:58:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-09T13:00:00Z"
+            }
+          ]
+        },
+        "plan": {
+          "id": "plan:v1",
+          "version": 1,
+          "state": "waiting"
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-101",
+            "at": "2026-11-19T08:00:00Z",
+            "text": "Build a Features screen that lists every feature, with its pages and tests.",
+            "from": {
+              "kind": "you"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-102",
+            "at": "2026-11-19T08:10:00Z",
+            "text": "I read the docs index and the features view Fleet sends today. Three places could hold the screen; I drew each.",
+            "from": {
+              "kind": "agent"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-103",
+            "at": "2026-11-19T08:20:00Z",
+            "text": "The plan for the feature library is up. It needs your rule for a stale feature before the list can mark one.",
+            "from": {
+              "kind": "agent"
+            }
+          }
+        },
+        {
+          "kind": "ready_to_try",
+          "id": "try:native/features@4f2a9c1e4f2a9c1e4f2a9c1e4f2a9c1e4f2a9c1e",
+          "at": "2026-11-19T08:30:00Z",
+          "offered_at": "2026-11-19T08:30:00Z",
+          "branch": "native/features",
+          "tip": "4f2a9c1e4f2a9c1e4f2a9c1e4f2a9c1e4f2a9c1e",
+          "about": "The Features list beside the chosen feature's page, opened from the top bar",
+          "in_build": true,
+          "state": "open",
+          "look": "Open Features from the top bar and pick a feature in the list.",
+          "steps": [
+            {
+              "say": "Press Features in the top bar"
+            },
+            {
+              "say": "Pick Review sheet in the list"
+            },
+            {
+              "say": "Read its page on the right, then press a test to open it"
+            }
+          ]
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-104",
+            "at": "2026-11-19T08:40:00Z",
+            "text": "The build is in the preview. I am waiting on your answers.",
+            "from": {
+              "kind": "agent"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "session_id": "mock-04",
+      "head": {
+        "trail": {
+          "started": "2026-11-09T12:58:00Z",
+          "bays": [
+            {
+              "slot": 4,
+              "from": "2026-11-09T13:00:00Z"
+            }
+          ]
+        }
+      },
+      "items": [
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-401",
+            "at": "2026-11-19T08:05:00Z",
+            "text": "Write a page for each feature, and the release note for the screen.",
+            "from": {
+              "kind": "you"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "message",
+            "id": "m-402",
+            "at": "2026-11-19T08:25:00Z",
+            "text": "Drafted the release note. One question on what a page lists.",
+            "from": {
+              "kind": "agent"
+            }
+          }
+        },
+        {
+          "kind": "row",
+          "row": {
+            "kind": "draft",
+            "id": "dra-401",
+            "at": "2026-11-19T08:26:00Z",
+            "title": "Release note for Features",
+            "text": "**Features**\n\nA new screen lists every feature Armada knows, with the pages that describe it and the tests that prove it. Pick a feature to read its page beside the list.\n\nA feature reads as stale when the rule you set in Settings says so, and its row carries the stale glyph.",
+            "for_line": {
+              "text": "The release note for the Features screen.",
+              "links": []
+            }
+          }
+        },
+        {
+          "kind": "document",
+          "id": "document:feature-guide:r1",
+          "at": "2026-11-19T08:50:00Z",
+          "page": "feature-guide",
+          "title": "Feature pages",
+          "revision": 1,
+          "asked": true,
+          "for_line": {
+            "text": "How a feature page is laid out, for the Jobs that write them."
+          }
+        }
+      ]
+    }
+  ]
+}

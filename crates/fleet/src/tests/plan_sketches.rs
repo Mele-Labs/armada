@@ -15,7 +15,7 @@ use super::session_plan::{first, read, recorded, running, told};
 const SCENE: &str = r#"{"nodes":[{"id":"a","kind":"box","x":0,"y":0,"title":"Bay"}],"edges":[]}"#;
 
 fn drawn(id: &SessionId, title: &str) -> ShowSketch {
-    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
+    ipc::decode("a sketch to show", format!(r#"{{"title":"{title}","question":"Does this read right?","session_id":"{}","scene":{SCENE}}}"#, id.as_str()).as_bytes()).unwrap()
 }
 
 /// The two-group plan, naming `whole` for the plan and `beside` beside its second group.
@@ -33,8 +33,8 @@ async fn drew(rig: &Rig, titles: &[&str]) -> SessionId {
         rig.fleet.show_sketch(None, drawn(&id, title)).await.unwrap();
     }
     rig.stand_in.finishes(0, "Drawn.");
-    // One artifact is open per Job, so any number of sketches is the one item.
-    eventually(|| async { waits(&read(rig, &id).await).len() == 1 }).await;
+    // One ask is one item: each sketch waits on its own.
+    eventually(|| async { waits(&read(rig, &id).await).len() == titles.len() }).await;
     id
 }
 
@@ -57,7 +57,9 @@ fn standing(held: &[JobArtifact]) -> Vec<(&str, ArtifactState, Option<&str>, Opt
 async fn two_sketches_a_pending_plan_names_wait_with_it_and_its_approve_settles_both_and_names_them() {
     let rig = rig_placing(None);
     let id = drew(&rig, &["Store rows", "Fleet flow"]).await;
-    assert_eq!(waits(&read(&rig, &id).await), ["sketch:Store rows"], "one artifact waits, holding both, before a plan names them");
+    let mut before = waits(&read(&rig, &id).await);
+    before.sort();
+    assert_eq!(before, ["sketch:Fleet flow", "sketch:Store rows"], "each waits on its own before a plan names them");
 
     let record = recorded(&rig, naming(&id, &["Store rows"], &["Fleet flow"])).await;
     assert_eq!(waits(&record), ["plan:1"], "one item: the plan");
@@ -65,12 +67,15 @@ async fn two_sketches_a_pending_plan_names_wait_with_it_and_its_approve_settles_
     assert_eq!(plan.sketches.iter().map(|one| (one.id.as_str(), one.title.as_str())).collect::<Vec<_>>(), [("sketch:Store rows", "Store rows")]);
     assert!(plan.groups[0].sketches.is_empty());
     assert_eq!(plan.groups[1].sketches.iter().map(|one| one.id.as_str()).collect::<Vec<_>>(), ["sketch:Fleet flow"]);
-    assert_eq!(standing(&sketches(&rig, &id).await), [("Store rows", ArtifactState::Asking, Some("plan:1"), Some(1))]);
+    assert_eq!(
+        standing(&sketches(&rig, &id).await),
+        [("Fleet flow", ArtifactState::Asking, Some("plan:1"), Some(1)), ("Store rows", ArtifactState::Asking, Some("plan:1"), Some(1))]
+    );
 
     let approved = Arc::clone(&rig.fleet).approve_plan(ApprovePlan { session_id: id.clone(), version: 1 }).await.unwrap();
     assert!(waits(&approved).is_empty(), "nothing waits after one Approve: {:?}", approved.waiting_for);
     eventually(|| async { told(&rig, r#"With it: \"Store rows\", \"Fleet flow\"."#) == 1 }).await;
-    assert_eq!(standing(&sketches(&rig, &id).await), [("Store rows", ArtifactState::Approved, None, Some(1))]);
+    assert_eq!(standing(&sketches(&rig, &id).await), [("Fleet flow", ArtifactState::Approved, None, Some(1)), ("Store rows", ArtifactState::Approved, None, Some(1))]);
     let held = read(&rig, &id).await;
     for one in held.attachments.iter().filter(|one| one.target.starts_with("sketch:")) {
         assert_eq!(one.detail.get("settled").map(String::as_str), Some("approved"), "{:?}", one.detail);
