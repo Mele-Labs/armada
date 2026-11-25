@@ -1396,7 +1396,7 @@ impl MergeStrip {
 fn stuck_band(stuck: &QueueStuck, look: &Look, cx: &Context<MergeStrip>) -> AnyElement {
     let hue = look.color(token::STATUS_AWAITING_REVIEW);
     let title = "Merge queue stuck";
-    let tooltip = "Fleet put these back in the queue as often as Settings › Limits allows. It cancels nothing more until the queue moves.";
+    let tooltip = "Fleet put these back in the queue as often as Settings › Limits allows. It waits for the queue to move.";
     let job = |name: &str| div().min_w_0().font_family(mono(look)).child(name.to_string());
     let cause = match (&stuck.cause, stuck.job.as_deref()) {
         (QueueStuckCause::NoRunner, Some(name)) => div().flex().items_center().child(job(name)).child(" got no runner"),
