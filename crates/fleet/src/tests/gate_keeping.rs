@@ -116,6 +116,15 @@ fn one_fact_closes_the_first_open_gate_of_its_kind_and_no_other() {
 }
 
 #[test]
+fn one_pull_request_that_lands_two_groups_closes_both_their_merge_gates() {
+    let plan = kept(&[gated(None, "Move what native borrows", PlanGate::Merged), gated(None, "Delete Classic", PlanGate::Merged)]);
+    let tied = |group: &str| Seen { group: Some(group.into()), ..seen(PlanGate::Merged, "pr:4036", "2026-11-25T18:15:50.420Z") };
+    let closed = closing(&plan, &[], &[tied("g1"), tied("g2")]);
+    assert_eq!(closed.iter().map(|one| one.group_id.as_str()).collect::<Vec<_>>(), ["g1", "g2"]);
+    assert!(closing(&plan, &closed, &[tied("g1"), tied("g2")]).is_empty(), "and each is kept once");
+}
+
+#[test]
 fn a_gate_kept_closed_names_its_group_its_kind_and_for_a_plan_its_version() {
     let row = |gate: &str, version: u32| KeptGate {
         group_id: "g1".into(),
