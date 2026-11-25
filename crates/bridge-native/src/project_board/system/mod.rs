@@ -45,6 +45,7 @@ pub const BOARD_ROWS: u8 = 4;
 /// Where each draft the block keeps is kept.
 const KEEP_FEATURE: &str = "system.feature";
 const KEEP_REWORK: &str = "system.rework";
+const KEEP_WORK: &str = "system.work";
 /// Where the answers about a feature are held among those about the parts, which no part's id starts with.
 pub(super) const FEATURE_KEY: &str = "~feature/";
 
@@ -89,6 +90,8 @@ pub(super) type Asked = (Option<String>, Option<String>);
 pub(super) enum Compose {
     /// A new feature, started as a Job where the panel is looking.
     Feature { input: Entity<TextareaState>, _typed: Subscription },
+    /// A Job on the part the panel is about.
+    Work { input: Entity<TextareaState>, _typed: Subscription },
     /// A note for the librarian about a part it added.
     Rework { addition: String, input: Entity<TextareaState>, _typed: Subscription },
 }
@@ -641,6 +644,18 @@ impl SystemBlock {
         cx.notify();
     }
 
+    /// Start a Job…: a box opens for what the Job should do in the part, with the draft the last one left.
+    pub(super) fn open_work_box(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(Compose::Work { input, .. }) = &self.compose {
+            input.update(cx, |input, cx| input.focus(window, cx));
+            return;
+        }
+        let key = format!("{KEEP_WORK}.{}.{}", self.project.clone().unwrap_or_default(), self.panel_part().unwrap_or_default());
+        let (input, typed) = self.box_for(key, "What should the Job do here?", window, cx);
+        self.compose = Some(Compose::Work { input, _typed: typed });
+        cx.notify();
+    }
+
     /// Work with the librarian: a box opens for the note, with the draft the last one left.
     pub(super) fn open_rework_box(&mut self, addition: &str, window: &mut Window, cx: &mut Context<Self>) {
         if let Some(Compose::Rework { input, .. }) = &self.compose {
@@ -677,7 +692,7 @@ impl SystemBlock {
     /// The words in the open box.
     pub(super) fn words(&self, cx: &App) -> String {
         match &self.compose {
-            Some(Compose::Feature { input, .. } | Compose::Rework { input, .. }) => input.read(cx).value().to_string(),
+            Some(Compose::Feature { input, .. } | Compose::Work { input, .. } | Compose::Rework { input, .. }) => input.read(cx).value().to_string(),
             None => String::new(),
         }
     }
@@ -687,13 +702,17 @@ impl SystemBlock {
     /// Start a Job on the sentence in the box, in the repository the part is in. The Job opens, and a refusal is a toast.
     pub(super) fn start_job(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         let words = self.words(cx).trim().to_string();
-        if words.is_empty() || self.starting || !matches!(self.compose, Some(Compose::Feature { .. })) {
+        let work = matches!(self.compose, Some(Compose::Work { .. }));
+        if words.is_empty() || self.starting || !(work || matches!(self.compose, Some(Compose::Feature { .. }))) {
             return;
         }
-        let key = format!("{KEEP_FEATURE}.{}.{}", self.project.clone().unwrap_or_default(), self.panel_part().unwrap_or_default());
+        let key = format!("{}.{}.{}", if work { KEEP_WORK } else { KEEP_FEATURE }, self.project.clone().unwrap_or_default(), self.panel_part().unwrap_or_default());
         let at = self.panel_part().and_then(|id| self.level().and_then(|map| map.parts.iter().find(|one| one.id == id)).or_else(|| self.top().and_then(|map| map.parts.iter().find(|one| one.id == id))).cloned());
         let place = at.as_ref().map_or_else(|| self.name.clone(), |part| part.name.clone());
-        let request = format!("New feature, beginning at {place}: {words}");
+        let request = match (&at, work) {
+            (Some(part), true) => work_request(part, &words),
+            _ => format!("New feature, beginning at {place}: {words}"),
+        };
         if matches!(self.source, Source::Mock) {
             self.started.push(request);
             crate::drafts::clear(&key, cx);
@@ -908,3 +927,14 @@ pub fn posed(frame: AnyElement, overlay: Option<Overlay>, look: &Look) -> AnyEle
 }
 
 use gpui::AnimationExt as _;
+
+/// The request of a Job started on a part: the part, where its code is or what it is, then his words.
+pub(super) fn work_request(part: &ipc::SystemPart, words: &str) -> String {
+    if !part.paths.is_empty() {
+        format!("Work on {}, in {}: {words}", part.name, part.paths.join(", "))
+    } else if !part.summary.is_empty() {
+        format!("Work on {} ({}): {words}", part.name, part.summary)
+    } else {
+        format!("Work on {}: {words}", part.name)
+    }
+}

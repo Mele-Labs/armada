@@ -210,6 +210,25 @@ fn new_feature_takes_a_sentence_and_start_a_job_sends_it_and_clears_the_draft(cx
 }
 
 #[gpui::test]
+fn start_a_job_on_a_part_sends_the_part_and_its_code_with_the_sentence(cx: &mut TestAppContext) {
+    let (block, cx) = block(cx, ARMADA);
+    press(cx, Role::Button, "Bridge, entry point");
+    press(cx, Role::Button, "Start a Job here");
+    cx.simulate_input("Make the board load faster");
+    redraw(cx);
+    press(cx, Role::Button, "Start a Job");
+    assert_eq!(block.read_with(cx, |block, _| block.started.clone()), ["Work on Bridge, in crates/bridge-native/: Make the board load faster"]);
+    assert!(block.read_with(cx, |block, _| block.compose.is_none()));
+    assert_eq!(cx.update(|_, cx| crate::drafts::kept(&format!("system.work.{ARMADA}.bridge"), cx)), None);
+}
+
+#[test]
+fn a_job_on_an_outside_part_is_told_what_the_part_is() {
+    let part = ipc::SystemPart { id: "buildkite".into(), name: "Buildkite API".into(), kind: ipc::SystemPartKind::Outside, summary: "api.buildkite.com".into(), within: None, manifest_id: None, paths: Vec::new(), zooms: false, origin: ipc::PartOrigin::Detected { from: "files".into() } };
+    assert_eq!(super::work_request(&part, "Retry a failed build"), "Work on Buildkite API (api.buildkite.com): Retry a failed build");
+}
+
+#[gpui::test]
 fn esc_in_the_box_puts_the_box_away_and_does_not_step_out_of_the_level(cx: &mut TestAppContext) {
     let (block, cx) = block(cx, ARMADA);
     press(cx, Role::Button, "Bridge, entry point");
